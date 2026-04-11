@@ -1840,6 +1840,7 @@ export const ComposerStudio = () => {
   const isStudioExpanded = true;
   const [experiencePanelTab, setExperiencePanelTab] = useState("template");
   const [resourcesPanelTab, setResourcesPanelTab] = useState("experience");
+  const [designPanelSubTab, setDesignPanelSubTab] = useState("style-guides");
   const [editableExperienceName, setEditableExperienceName] = useState("");
   const [editableImagePortraitPrompt, setEditableImagePortraitPrompt] = useState("");
   const [editableImageLandscapePrompt, setEditableImageLandscapePrompt] = useState("");
@@ -8286,18 +8287,7 @@ export const ComposerStudio = () => {
               </TabsContent>
 
               <TabsContent value="resources" className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
-                <Tabs value={resourcesPanelTab} onValueChange={setResourcesPanelTab} className="flex min-h-0 h-full flex-col">
-                  <TabsList className={`${configuratorTabsListClass} grid-cols-2`}>
-                    <TabsTrigger value="experience" className={configuratorTabTriggerClass}>
-                      Experience
-                    </TabsTrigger>
-                    <TabsTrigger value="design" className={configuratorTabTriggerClass}>
-                      Design
-                    </TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="experience" className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
-                    <div className="space-y-4">
+                <div className="space-y-4">
                       <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
                         <div className="flex items-center justify-between gap-3">
                           <div>
@@ -9421,775 +9411,8 @@ export const ComposerStudio = () => {
                         </div>
                       </div>
                     </div>
-                  </TabsContent>
-
-                  <TabsContent value="design" className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
-                    <div
-                      className="rounded-xl border p-4"
-                      style={
-                        designQube
-                          ? {
-                              backgroundColor: styleQubeThemeBg,
-                              borderColor: styleQubeThemeBorder,
-                              color: styleQubeThemeText,
-                            }
-                          : undefined
-                      }
-                    >
-                      {designQube ? (
-                        <>
-                          <div
-                            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-2"
-                            style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}
-                          >
-                            <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: styleQubeThemeText }}>
-                              <select
-                                value={activeStyleQubeId}
-                                onChange={(e) => handleDesignQubeSelection(e.target.value)}
-                                className="rounded-md border border-white/10 bg-slate-950/40 px-2 py-1 text-xs text-white/90"
-                                style={{ borderColor: styleQubeThemeBorder, backgroundColor: styleQubeThemeBg }}
-                              >
-                                {designQubeOptions.map((option) => (
-                                  <option key={option.id} value={option.id}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
-                              <button
-                                className="inline-flex items-center rounded-full border px-2 py-0.5"
-                                title={designQube.manifest?.authorityLevel || "guidance"}
-                                style={{ borderColor: styleQubeThemeBorder }}
-                              >
-                                <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
-                              </button>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => setDesignTheme("light")}
-                                className={`inline-flex items-center rounded-full border px-2 py-0.5 ${designTheme === "light" ? "border-amber-300/60 bg-amber-500/10" : ""}`}
-                                title="Light theme"
-                                style={designTheme === "light" ? undefined : { borderColor: styleQubeThemeBorder }}
-                              >
-                                <Sun className="h-3.5 w-3.5 text-amber-300" />
-                              </button>
-                              <button
-                                onClick={() => setDesignTheme("dark")}
-                                className={`inline-flex items-center rounded-full border px-2 py-0.5 ${designTheme === "dark" ? "border-slate-300/60 bg-slate-500/10" : ""}`}
-                                title="Dark theme"
-                                style={designTheme === "dark" ? undefined : { borderColor: styleQubeThemeBorder }}
-                              >
-                                <Moon className="h-3.5 w-3.5 text-slate-300" />
-                              </button>
-                              <button
-                                onClick={() => setDesignQubeSummaryLayout("compact")}
-                                className={`inline-flex items-center rounded-full border px-2 py-0.5 ${designQubeSummaryLayout === "compact" ? "border-cyan-300/60 bg-cyan-500/10" : ""}`}
-                                title="Row view"
-                                style={designQubeSummaryLayout === "compact" ? undefined : { borderColor: styleQubeThemeBorder }}
-                              >
-                                <List size={14} className="text-cyan-300" />
-                              </button>
-                              <button
-                                onClick={() => setDesignQubeSummaryLayout("grid")}
-                                className={`inline-flex items-center rounded-full border px-2 py-0.5 ${designQubeSummaryLayout === "grid" ? "border-cyan-300/60 bg-cyan-500/10" : ""}`}
-                                title="Grid view"
-                                style={designQubeSummaryLayout === "grid" ? undefined : { borderColor: styleQubeThemeBorder }}
-                              >
-                                <LayoutGrid size={14} className="text-cyan-300" />
-                              </button>
-                              <button
-                                onClick={() => setDesignQubeCollapsed((prev) => !prev)}
-                                className="inline-flex items-center rounded-full border px-2 py-0.5"
-                                title={designQubeCollapsed ? "Expand details" : "Collapse details"}
-                                style={{ borderColor: styleQubeThemeBorder }}
-                              >
-                                {designQubeCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-                              </button>
-                            </div>
-                          </div>
-
-                          {(() => {
-                            const themeTokens = designQube.tokens?.themes?.[designTheme];
-                            const colors = themeTokens?.color || {};
-                            const palette = [
-                              colors.bg,
-                              colors.surface,
-                              colors.accent,
-                              colors.text,
-                              colors.muted,
-                              colors.border,
-                            ].filter(Boolean) as string[];
-                            const resolvedPalette =
-                              palette.length > 0
-                                ? palette
-                                : ["#020617", "#0f172a", "#1d4ed8", "#f8fafc", "#94a3b8", "rgba(148,163,184,0.2)"];
-                            const radiusValues = designQube.tokens?.radius
-                              ? Object.values(designQube.tokens.radius).slice(0, 3)
-                              : [];
-                            const fontFamily = designQube.tokens?.typography?.fontFamily?.sans || "system-ui";
-                            const scale = designQube.tokens?.typography?.scale || {};
-                            const glassEnabled = designQube.constraints?.material?.glass?.enabled;
-                            const summaryBadges = designQube.manifest?.themes || [];
-
-                            return designQubeCollapsed ? (
-                              <div className="mt-4 space-y-3">
-                                <div className="flex flex-wrap items-center gap-2 text-[11px]" style={{ color: styleQubeThemeText }}>
-                                  <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5" style={{ borderColor: styleQubeThemeBorder }}>
-                                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
-                                  </span>
-                                  {summaryBadges.map((theme) => (
-                                    <span key={theme} className="inline-flex items-center rounded-full border px-2 py-0.5" style={{ borderColor: styleQubeThemeBorder }}>
-                                      {theme.toLowerCase().includes("light") ? (
-                                        <Sun className="h-3.5 w-3.5 text-amber-300" />
-                                      ) : (
-                                        <Moon className="h-3.5 w-3.5 text-slate-300" />
-                                      )}
-                                    </span>
-                                  ))}
-                                  {glassEnabled && (
-                                    <span className="inline-flex items-center rounded-full border px-2 py-0.5" style={{ borderColor: styleQubeThemeBorder }} title="Glass material">
-                                      <Moon className="h-3.5 w-3.5 text-slate-400" />
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                  {resolvedPalette.slice(0, 6).map((color, idx) => (
-                                    <span
-                                      key={`${color}-${idx}`}
-                                      className="h-5 w-5 rounded-md border"
-                                      style={{ backgroundColor: color, borderColor: styleQubeThemeBorder }}
-                                      title={color}
-                                    />
-                                  ))}
-                                </div>
-                                <div className="flex items-center gap-3">
-                                  <span style={{ fontFamily, fontSize: scale.xl || 22 }} className="text-white">Aa</span>
-                                  <span style={{ fontFamily, fontSize: scale.sm || 14 }} className="text-slate-400">Aa</span>
-                                  <div className="ml-auto flex items-center gap-2">
-                                    {radiusValues.map((radius, idx) => (
-                                      <div
-                                        key={`radius-grid-${idx}`}
-                                        className="h-6 w-12 border"
-                                        style={{ borderRadius: `${radius}px`, backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}
-                                        title={`radius ${radius}`}
-                                      />
-                                    ))}
-                                  </div>
-                                </div>
-                                <div className="flex items-center justify-end gap-2" title="Experience Modalities">
-                                  <div className="rounded-lg border border-blue-400/60 bg-blue-400/10 p-2">
-                                    <Eye className="h-4 w-4 text-blue-300" />
-                                  </div>
-                                  <div className="rounded-lg border border-green-400/60 bg-green-400/10 p-2">
-                                    <Volume2 className="h-4 w-4 text-green-300" />
-                                  </div>
-                                  <div className="rounded-lg border border-purple-400/60 bg-purple-400/10 p-2">
-                                    <LayoutGrid className="h-4 w-4 text-purple-300" />
-                                  </div>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="mt-4 space-y-4">
-                                <div className="rounded-xl border p-3" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
-                                  <h4 className="mb-2 flex items-center gap-2 text-sm font-medium text-white">
-                                    <BookOpen className="h-4 w-4 text-indigo-300" />
-                                    Enhanced Data Loading
-                                  </h4>
-                                  <div className="grid grid-cols-2 gap-4 text-xs">
-                                    <div className="space-y-1" style={{ color: styleQubeThemeText }}>
-                                      <div>✅ StyleQube: {designQube.styleQube ? "Loaded" : "Missing"}</div>
-                                      <div>✅ StructureQube: {designQube.structureQube ? "Loaded" : "Missing"}</div>
-                                      <div>✅ GuidesBriefs: {designQube.guidesBriefs ? "Loaded" : "Missing"}</div>
-                                      <div>✅ Sources: {designQube.sources?.length || 0} files</div>
-                                      <div>✅ References: {designQube.references?.length || 0} assets</div>
-                                      <div>✅ Visual Sub-Groups: {designQube.styleQube?.visual ? "Available" : "Missing"}</div>
-                                    </div>
-                                    <div className="space-y-1" style={{ color: styleQubeThemeText }}>
-                                      <div>✅ Audio Sub-Groups: {designQube.styleQube?.audio ? "Available" : "Missing"}</div>
-                                      <div>✅ Text Sub-Groups: {designQube.styleQube?.text ? "Available" : "Missing"}</div>
-                                      <div>✅ Spatial Sub-Groups: {designQube.styleQube?.spatial ? "Available" : "Missing"}</div>
-                                      <div>✅ Content Modules: {designQube.structureQube?.contentModules?.length || 0} available</div>
-                                      <div>✅ Big-Screen Support: {designQube.structureQube?.breakpoints?.bigScreen ? "Enabled" : "Missing"}</div>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                <Tabs value={designQubeActivePanel} onValueChange={setDesignQubeActivePanel} className="w-full">
-                                  <TabsList className="grid h-10 w-full grid-cols-5 items-center rounded-full border border-white/10 bg-slate-950/60 p-1">
-                                    <TabsTrigger value="guides" className={configuratorTabTriggerClass}>
-                                      Guides
-                                    </TabsTrigger>
-                                    <TabsTrigger value="style" className={configuratorTabTriggerClass}>
-                                      StyleQube
-                                    </TabsTrigger>
-                                    <TabsTrigger value="structure" className={configuratorTabTriggerClass}>
-                                      StructureQube
-                                    </TabsTrigger>
-                                    <TabsTrigger value="screens" className={configuratorTabTriggerClass}>
-                                      Screens
-                                    </TabsTrigger>
-                                    <TabsTrigger value="guidance" className={configuratorTabTriggerClass}>
-                                      Guidance
-                                    </TabsTrigger>
-                                  </TabsList>
-
-                                  <TabsContent value="guides" className="mt-4">
-                                    <div className="rounded-xl border p-4" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
-                                      <div className="mb-3 flex items-center justify-between">
-                                        <h4 className="flex items-center gap-2 text-sm font-medium text-white">
-                                          <BookOpen className="h-4 w-4 text-indigo-300" />
-                                          Guides & Briefs
-                                        </h4>
-                                        <button className="flex items-center gap-1 rounded-md border border-indigo-500/30 bg-indigo-500/20 px-2 py-1 text-xs text-indigo-300 hover:bg-indigo-500/30">
-                                          <Upload className="h-3 w-3" />
-                                          Upload
-                                        </button>
-                                      </div>
-                                      {designQube.styleBrief && (
-                                        <div className="mb-4 max-h-[120px] overflow-y-auto pr-1 text-sm" style={{ color: styleQubeThemeText }}>
-                                          {designQube.styleBrief}
-                                        </div>
-                                      )}
-                                      <Tabs value={guidesActiveTab} onValueChange={setGuidesActiveTab} className="w-full">
-                                        <TabsList className="grid h-10 w-full grid-cols-2 items-center rounded-xl border border-white/10 bg-slate-900/40 p-1">
-                                          <TabsTrigger value="style-guide" className={configuratorTabTriggerClass}>
-                                            Style Guide
-                                          </TabsTrigger>
-                                          <TabsTrigger value="experience-guide" className={configuratorTabTriggerClass}>
-                                            Experience Guide
-                                          </TabsTrigger>
-                                        </TabsList>
-
-                                        <TabsContent value="style-guide" className="mt-4">
-                                          <Tabs value={styleGuideActiveTab} onValueChange={setStyleGuideActiveTab} className="w-full">
-                                            <TabsList className="grid h-10 w-full grid-cols-3 items-center rounded-xl border border-white/10 bg-slate-900/30 p-1">
-                                              <TabsTrigger value="css" className={configuratorTabTriggerClass}>
-                                                CSS
-                                              </TabsTrigger>
-                                              <TabsTrigger value="brand-guide" className={configuratorTabTriggerClass}>
-                                                Brand Guide
-                                              </TabsTrigger>
-                                              <TabsTrigger value="look-book" className={configuratorTabTriggerClass}>
-                                                Look Book
-                                              </TabsTrigger>
-                                            </TabsList>
-
-                                            <TabsContent value="css" className="mt-4">
-                                              <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
-                                                <div className="text-xs uppercase tracking-widest text-slate-400">CSS Styles</div>
-                                                <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-xs" style={{ color: styleQubeThemeText }}>
-                                                  {(designQube.guidesBriefs?.styleGuide?.css || []).join("\n") ||
-                                                    `/* Primary Colors */\n--primary: ${styleQubeThemeText};\n--background: ${styleQubeThemeBg};\n--border: ${styleQubeThemeBorder};`}
-                                                </pre>
-                                              </div>
-                                            </TabsContent>
-
-                                            <TabsContent value="brand-guide" className="mt-4">
-                                              <div className="space-y-2">
-                                                {(designQube.guidesBriefs?.styleGuide?.brandGuidelines || []).length > 0 ? (
-                                                  designQube.guidesBriefs?.styleGuide?.brandGuidelines.map((item, idx) => (
-                                                    <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
-                                                      {item}
-                                                    </div>
-                                                  ))
-                                                ) : (
-                                                  <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-300">
-                                                    Brand guide not configured.
-                                                  </div>
-                                                )}
-                                              </div>
-                                            </TabsContent>
-
-                                            <TabsContent value="look-book" className="mt-4">
-                                              <div className="space-y-2">
-                                                {(designQube.guidesBriefs?.styleGuide?.lookBooks || []).length > 0 ? (
-                                                  designQube.guidesBriefs?.styleGuide?.lookBooks.map((item, idx) => (
-                                                    <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
-                                                      {item}
-                                                    </div>
-                                                  ))
-                                                ) : (
-                                                  <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-300">
-                                                    Look book not configured.
-                                                  </div>
-                                                )}
-                                              </div>
-                                            </TabsContent>
-                                          </Tabs>
-                                        </TabsContent>
-
-                                        <TabsContent value="experience-guide" className="mt-4">
-                                          <Tabs value={experienceGuideActiveTab} onValueChange={setExperienceGuideActiveTab} className="w-full">
-                                            <TabsList className="grid h-10 w-full grid-cols-4 items-center rounded-xl border border-white/10 bg-slate-900/30 p-1">
-                                              <TabsTrigger value="who" className={configuratorTabTriggerClass}>Who</TabsTrigger>
-                                              <TabsTrigger value="what" className={configuratorTabTriggerClass}>What</TabsTrigger>
-                                              <TabsTrigger value="wow" className={configuratorTabTriggerClass}>Wow</TabsTrigger>
-                                              <TabsTrigger value="metrics" className={configuratorTabTriggerClass}>Metrics</TabsTrigger>
-                                            </TabsList>
-
-                                            <TabsContent value="who" className="mt-4 space-y-3">
-                                              <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
-                                                <div className="text-xs uppercase tracking-widest text-slate-400">Audience</div>
-                                                <div className="mt-2 text-sm" style={{ color: styleQubeThemeText }}>
-                                                  {designQube.guidesBriefs?.experienceGuide?.who?.audience || "Audience guide not configured."}
-                                                </div>
-                                              </div>
-                                              <div className="space-y-2">
-                                                {(designQube.guidesBriefs?.experienceGuide?.who?.demographics || []).slice(0, 6).map((item, idx) => (
-                                                  <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
-                                                    {item}
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            </TabsContent>
-
-                                            <TabsContent value="what" className="mt-4 space-y-3">
-                                              <div className="space-y-2">
-                                                <div className="text-xs uppercase tracking-widest text-slate-400">Delivery Methods</div>
-                                                {(designQube.guidesBriefs?.experienceGuide?.what?.delivery || []).slice(0, 6).map((item, idx) => (
-                                                  <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
-                                                    {item}
-                                                  </div>
-                                                ))}
-                                              </div>
-                                              <div className="space-y-2">
-                                                <div className="text-xs uppercase tracking-widest text-slate-400">Mechanics</div>
-                                                {(designQube.guidesBriefs?.experienceGuide?.what?.mechanics || []).slice(0, 6).map((item, idx) => (
-                                                  <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
-                                                    {item}
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            </TabsContent>
-
-                                            <TabsContent value="wow" className="mt-4 space-y-3">
-                                              <div className="space-y-2">
-                                                <div className="text-xs uppercase tracking-widest text-slate-400">Differentiators</div>
-                                                {(designQube.guidesBriefs?.experienceGuide?.wow?.differentiators || []).slice(0, 6).map((item, idx) => (
-                                                  <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
-                                                    {item}
-                                                  </div>
-                                                ))}
-                                              </div>
-                                              <div className="space-y-2">
-                                                <div className="text-xs uppercase tracking-widest text-slate-400">Innovations</div>
-                                                {(designQube.guidesBriefs?.experienceGuide?.wow?.innovations || []).slice(0, 6).map((item, idx) => (
-                                                  <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
-                                                    {item}
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            </TabsContent>
-
-                                            <TabsContent value="metrics" className="mt-4 space-y-3">
-                                              <div className="space-y-2">
-                                                <div className="text-xs uppercase tracking-widest text-slate-400">Success Metrics</div>
-                                                {(designQube.guidesBriefs?.experienceGuide?.metrics?.success || []).slice(0, 6).map((item, idx) => (
-                                                  <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
-                                                    {item}
-                                                  </div>
-                                                ))}
-                                              </div>
-                                              <div className="space-y-2">
-                                                <div className="text-xs uppercase tracking-widest text-slate-400">KPIs</div>
-                                                {(designQube.guidesBriefs?.experienceGuide?.metrics?.kpis || []).slice(0, 6).map((item, idx) => (
-                                                  <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
-                                                    {item}
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            </TabsContent>
-                                          </Tabs>
-                                        </TabsContent>
-                                      </Tabs>
-                                    </div>
-                                  </TabsContent>
-
-                                  <TabsContent value="style" className="mt-4">
-                                    <div className="rounded-xl border p-4" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
-                                      <h4 className="mb-3 flex items-center gap-2 text-sm font-medium text-white">
-                                        <Palette className="h-4 w-4 text-rose-300" />
-                                        StyleQube
-                                      </h4>
-                                      <Tabs value={styleQubeActiveTab} onValueChange={setStyleQubeActiveTab} className="w-full">
-                                        <TabsList className="grid h-10 w-full grid-cols-4 items-center rounded-xl border border-white/10 bg-slate-900/40 p-1">
-                                          <TabsTrigger value="visual" className={configuratorTabTriggerClass}>Visual</TabsTrigger>
-                                          <TabsTrigger value="audio" className={configuratorTabTriggerClass}>Audio</TabsTrigger>
-                                          <TabsTrigger value="text" className={configuratorTabTriggerClass}>Text</TabsTrigger>
-                                          <TabsTrigger value="spatial" className={configuratorTabTriggerClass}>Spatial</TabsTrigger>
-                                        </TabsList>
-
-                                        <TabsContent value="visual" className="mt-4 space-y-4">
-                                          <div className="grid grid-cols-3 gap-3 text-xs">
-                                            <div>
-                                              <span className="text-slate-400">Primary Color</span>
-                                              <div className="mt-1 flex items-center gap-2">
-                                                <div className="h-3 w-3 rounded border border-slate-600" style={{ backgroundColor: designQube.styleQube?.visual?.colors?.primary }} />
-                                                <span style={{ color: styleQubeThemeText }}>{designQube.styleQube?.visual?.colors?.primary}</span>
-                                              </div>
-                                            </div>
-                                            <div>
-                                              <span className="text-slate-400">Secondary Color</span>
-                                              <div className="mt-1 flex items-center gap-2">
-                                                <div className="h-3 w-3 rounded border border-slate-600" style={{ backgroundColor: designQube.styleQube?.visual?.colors?.secondary }} />
-                                                <span style={{ color: styleQubeThemeText }}>{designQube.styleQube?.visual?.colors?.secondary}</span>
-                                              </div>
-                                            </div>
-                                            <div>
-                                              <span className="text-slate-400">Accent Color</span>
-                                              <div className="mt-1 flex items-center gap-2">
-                                                <div className="h-3 w-3 rounded border border-slate-600" style={{ backgroundColor: designQube.styleQube?.visual?.colors?.accent }} />
-                                                <span style={{ color: styleQubeThemeText }}>{designQube.styleQube?.visual?.colors?.accent}</span>
-                                              </div>
-                                            </div>
-                                            <div>
-                                              <span className="text-slate-400">Font Family</span>
-                                              <div className="mt-1" style={{ color: styleQubeThemeText }}>
-                                                {designQube.styleQube?.visual?.typography?.fontFamily?.primary}
-                                              </div>
-                                            </div>
-                                            <div>
-                                              <span className="text-slate-400">Border Radius</span>
-                                              <div className="mt-1" style={{ color: styleQubeThemeText }}>
-                                                {designQube.styleQube?.visual?.radius?.md}
-                                              </div>
-                                            </div>
-                                            <div>
-                                              <span className="text-slate-400">Shadow</span>
-                                              <div className="mt-1" style={{ color: styleQubeThemeText }}>
-                                                {designQube.styleQube?.visual?.shadows?.md}
-                                              </div>
-                                            </div>
-                                          </div>
-                                          <div className="space-y-2">
-                                            <div className="text-xs uppercase tracking-widest text-slate-400">Animation Duration</div>
-                                            <div className="grid grid-cols-3 gap-2 text-xs">
-                                              <div style={{ color: styleQubeThemeText }}>Fast: {designQube.styleQube?.visual?.animations?.duration?.fast}</div>
-                                              <div style={{ color: styleQubeThemeText }}>Normal: {designQube.styleQube?.visual?.animations?.duration?.normal}</div>
-                                              <div style={{ color: styleQubeThemeText }}>Slow: {designQube.styleQube?.visual?.animations?.duration?.slow}</div>
-                                            </div>
-                                          </div>
-                                        </TabsContent>
-
-                                        <TabsContent value="audio" className="mt-4 space-y-4">
-                                          <div className="grid grid-cols-3 gap-3 text-xs">
-                                            <div><span className="text-slate-400">Voice Persona</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.audio?.voice?.persona}</div></div>
-                                            <div><span className="text-slate-400">Accent</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.audio?.voice?.accent}</div></div>
-                                            <div><span className="text-slate-400">Pace</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.audio?.voice?.pace}</div></div>
-                                            <div><span className="text-slate-400">Sound Effects</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.audio?.soundEffects?.enabled ? "Enabled" : "Disabled"}</div></div>
-                                            <div><span className="text-slate-400">TTS Provider</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.audio?.voice?.ttsHints?.provider as string || "Not configured"}</div></div>
-                                            <div><span className="text-slate-400">Voice ID</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.audio?.voice?.ttsHints?.voiceId as string || "Not configured"}</div></div>
-                                          </div>
-                                          <div className="grid grid-cols-3 gap-2 text-xs">
-                                            <div style={{ color: styleQubeThemeText }}>Volume: {(designQube.styleQube?.audio as any)?.volume || "80%"}</div>
-                                            <div style={{ color: styleQubeThemeText }}>Pitch: {(designQube.styleQube?.audio as any)?.pitch || "Normal"}</div>
-                                            <div style={{ color: styleQubeThemeText }}>Quality: {(designQube.styleQube?.audio as any)?.quality || "High"}</div>
-                                          </div>
-                                        </TabsContent>
-
-                                        <TabsContent value="text" className="mt-4 space-y-4">
-                                          <div className="grid grid-cols-3 gap-3 text-xs">
-                                            <div><span className="text-slate-400">Font Family</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.text?.formatting?.fontFamily}</div></div>
-                                            <div><span className="text-slate-400">Font Size</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.text?.formatting?.fontSize}</div></div>
-                                            <div><span className="text-slate-400">Line Height</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.text?.formatting?.lineHeight}</div></div>
-                                            <div><span className="text-slate-400">Max Width</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.text?.formatting?.maxWidth}</div></div>
-                                            <div><span className="text-slate-400">Personality</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.text?.tone?.personality}</div></div>
-                                            <div><span className="text-slate-400">Formality</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.text?.tone?.formality}</div></div>
-                                          </div>
-                                          <div className="grid grid-cols-3 gap-2 text-xs">
-                                            <div style={{ color: styleQubeThemeText }}>Weight: {(designQube.styleQube?.text?.formatting as any)?.fontWeight || "Medium"}</div>
-                                            <div style={{ color: styleQubeThemeText }}>Spacing: {(designQube.styleQube?.text?.formatting as any)?.letterSpacing || "Normal"}</div>
-                                            <div style={{ color: styleQubeThemeText }}>Transform: {(designQube.styleQube?.text?.formatting as any)?.textTransform || "None"}</div>
-                                          </div>
-                                        </TabsContent>
-
-                                        <TabsContent value="spatial" className="mt-4 space-y-4">
-                                          <div className="grid grid-cols-2 gap-3 text-xs">
-                                            <div><span className="text-slate-400">3D Transforms</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.spatial?.threeD?.enabled ? "Enabled" : "Disabled"}</div></div>
-                                            <div><span className="text-slate-400">Z-Axis Stacking</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.spatial?.zAxis?.enabled ? "Enabled" : "Disabled"}</div></div>
-                                            <div><span className="text-slate-400">AR Support</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.spatial?.ar?.enabled ? "Enabled" : "Disabled"}</div></div>
-                                            <div><span className="text-slate-400">VR Support</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.spatial?.vr?.enabled ? "Enabled" : "Disabled"}</div></div>
-                                          </div>
-                                          {designQube.styleQube?.spatial?.threeD?.enabled && (
-                                            <div className="grid grid-cols-2 gap-2 text-xs">
-                                              <div style={{ color: styleQubeThemeText }}>Perspective: {designQube.styleQube.spatial.threeD.perspective}px</div>
-                                              <div style={{ color: styleQubeThemeText }}>Depth: {designQube.styleQube.spatial.threeD.depth}px</div>
-                                            </div>
-                                          )}
-                                        </TabsContent>
-                                      </Tabs>
-                                    </div>
-                                  </TabsContent>
-
-                                  <TabsContent value="structure" className="mt-4">
-                                    <div className="rounded-xl border p-4" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
-                                      <h4 className="mb-3 flex items-center gap-2 text-sm font-medium text-white">
-                                        <LayoutGrid className="h-4 w-4 text-cyan-300" />
-                                        StructureQube
-                                      </h4>
-                                      <Tabs value={structureQubeActiveTab} onValueChange={setStructureQubeActiveTab} className="w-full">
-                                        <TabsList className="grid h-10 w-full grid-cols-4 items-center rounded-xl border border-white/10 bg-slate-900/40 p-1">
-                                          <TabsTrigger value="templates" className={configuratorTabTriggerClass}>Templates</TabsTrigger>
-                                          <TabsTrigger value="modules" className={configuratorTabTriggerClass}>Modules</TabsTrigger>
-                                          <TabsTrigger value="breakpoints" className={configuratorTabTriggerClass}>Breakpoints</TabsTrigger>
-                                          <TabsTrigger value="priorities" className={configuratorTabTriggerClass}>Priority</TabsTrigger>
-                                        </TabsList>
-
-                                        <TabsContent value="templates" className="mt-4 space-y-4">
-                                          <div className="space-y-2">
-                                            <div className="text-xs uppercase tracking-widest text-slate-400">Priority Templates</div>
-                                            <div className="grid grid-cols-3 gap-2">
-                                              {(designQube.structureQube?.templateSelection?.priority || []).slice(0, 9).map((template, idx) => (
-                                                <div key={`${template}-${idx}`} className="flex items-center gap-2 rounded-lg bg-slate-950/40 p-2 text-xs" style={{ color: styleQubeThemeText }}>
-                                                  <div className="h-2 w-2 rounded-full bg-cyan-400" />
-                                                  {template}
-                                                </div>
-                                              ))}
-                                            </div>
-                                          </div>
-                                          <div className="grid grid-cols-3 gap-3 text-xs">
-                                            <div><span className="text-slate-400">Total Templates</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.structureQube?.templates?.length || 0} available</div></div>
-                                            <div><span className="text-slate-400">By Modality</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{Object.keys(designQube.structureQube?.templateSelection?.byModality || {}).length} categories</div></div>
-                                            <div><span className="text-slate-400">By Density</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{Object.keys(designQube.structureQube?.templateSelection?.byDensity || {}).length} types</div></div>
-                                          </div>
-                                        </TabsContent>
-
-                                        <TabsContent value="modules" className="mt-4">
-                                          <div className="space-y-2">
-                                            <div className="text-xs uppercase tracking-widest text-slate-400">Content Modules</div>
-                                            <div className="space-y-2">
-                                              {(designQube.structureQube?.contentModules || []).map((module, idx) => (
-                                                <div key={`${module.id}-${idx}`} className="flex items-center justify-between rounded-lg bg-slate-950/40 p-2 text-xs">
-                                                  <div className="flex items-center gap-2" style={{ color: styleQubeThemeText }}>
-                                                    <div className="h-2 w-2 rounded-full bg-purple-400" />
-                                                    {module.name}
-                                                  </div>
-                                                  <div className="text-slate-400">Priority {module.priority}</div>
-                                                </div>
-                                              ))}
-                                            </div>
-                                          </div>
-                                        </TabsContent>
-
-                                        <TabsContent value="breakpoints" className="mt-4">
-                                          <div className="grid grid-cols-2 gap-2">
-                                            {Object.entries(designQube.structureQube?.breakpoints || {}).map(([breakpoint, config]) => (
-                                              <div key={breakpoint} className="flex items-center gap-2 rounded-lg bg-slate-950/40 p-2 text-xs">
-                                                {breakpoint === "mobile" && <Smartphone className="h-3 w-3 text-blue-400" />}
-                                                {breakpoint === "tablet" && <Tablet className="h-3 w-3 text-green-400" />}
-                                                {breakpoint === "desktop" && <MonitorIcon className="h-3 w-3 text-purple-400" />}
-                                                {breakpoint === "bigScreen" && <Tv className="h-3 w-3 text-orange-400" />}
-                                                <div style={{ color: styleQubeThemeText }}>
-                                                  <div className="font-medium capitalize">{breakpoint.replace("bigScreen", "Big Screen")}</div>
-                                                  <div className="text-slate-400">
-                                                    {(config as any).minWidth && `≥${(config as any).minWidth}px`}
-                                                    {(config as any).maxWidth && ` ≤${(config as any).maxWidth}px`}
-                                                    {!(config as any).minWidth && !(config as any).maxWidth && "Any"}
-                                                  </div>
-                                                </div>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        </TabsContent>
-
-                                        <TabsContent value="priorities" className="mt-4 space-y-4">
-                                          <div className="space-y-2">
-                                            <div className="text-xs uppercase tracking-widest text-slate-400">Component Priority Order</div>
-                                            <div className="space-y-2">
-                                              {Object.entries(designQube.structureQube?.componentPriorities || {}).map(([component, priority]) => (
-                                                <div key={component} className="flex items-center justify-between rounded-lg bg-slate-950/40 p-2 text-xs">
-                                                  <div className="flex items-center gap-2" style={{ color: styleQubeThemeText }}>
-                                                    <div className="h-2 w-2 rounded-full bg-emerald-400" />
-                                                    {component}
-                                                  </div>
-                                                  <div style={{ color: styleQubeThemeText }}>Priority {priority}</div>
-                                                </div>
-                                              ))}
-                                            </div>
-                                          </div>
-                                          <div className="space-y-2">
-                                            <div className="text-xs uppercase tracking-widest text-slate-400">Layout Rules</div>
-                                            <div className="space-y-2">
-                                              {(designQube.structureQube?.layoutRules || []).slice(0, 6).map((rule, idx) => (
-                                                <div key={`${rule}-${idx}`} className="rounded-lg bg-slate-950/40 p-2 text-xs" style={{ color: styleQubeThemeText }}>
-                                                  {rule}
-                                                </div>
-                                              ))}
-                                            </div>
-                                          </div>
-                                        </TabsContent>
-                                      </Tabs>
-                                    </div>
-                                  </TabsContent>
-
-                                  <TabsContent value="screens" className="mt-4">
-                                    <div className="space-y-4 rounded-xl border p-4" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
-                                      <div className="flex items-center justify-between">
-                                        <h4 className="flex items-center gap-2 text-sm font-medium text-white">
-                                          <MonitorIcon className="h-4 w-4 text-orange-300" />
-                                          Screens
-                                        </h4>
-                                        <button className="flex items-center gap-1 rounded-md border border-orange-500/30 bg-orange-500/20 px-2 py-1 text-xs text-orange-300 hover:bg-orange-500/30">
-                                          <Upload className="h-3 w-3" />
-                                          Upload
-                                        </button>
-                                      </div>
-                                      <div className="text-xs" style={{ color: styleQubeThemeText }}>
-                                        Upload and manage design screens from screenshots, Adobe XD, Figma, or other design tools.
-                                      </div>
-                                      <div className="grid grid-cols-2 gap-3">
-                                        <div className="text-center p-4 rounded-lg border border-dashed border-slate-600">
-                                          <MonitorIcon className="mx-auto mb-2 h-6 w-6 text-slate-400" />
-                                          <div className="text-xs text-slate-400">Screenshots</div>
-                                        </div>
-                                        <div className="text-center p-4 rounded-lg border border-dashed border-slate-600">
-                                          <Hexagon className="mx-auto mb-2 h-6 w-6 text-slate-400" />
-                                          <div className="text-xs text-slate-400">Adobe XD</div>
-                                        </div>
-                                        <div className="text-center p-4 rounded-lg border border-dashed border-slate-600">
-                                          <LayoutGrid className="mx-auto mb-2 h-6 w-6 text-slate-400" />
-                                          <div className="text-xs text-slate-400">Figma</div>
-                                        </div>
-                                        <div className="text-center p-4 rounded-lg border border-dashed border-slate-600">
-                                          <FileText className="mx-auto mb-2 h-6 w-6 text-slate-400" />
-                                          <div className="text-xs text-slate-400">Other Tools</div>
-                                        </div>
-                                      </div>
-                                      <div className="grid gap-3 sm:grid-cols-2">
-                                        {(designQube.references || []).length > 0 ? (
-                                          (designQube.references || []).map((ref, idx) => (
-                                            <div
-                                              key={ref.id}
-                                              className="rounded-xl border p-2"
-                                              style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}
-                                            >
-                                              {ref.dataUrl || ref.thumbnailUrl ? (
-                                                <img
-                                                  src={ref.dataUrl || ref.thumbnailUrl || DESIGN_QUBE_IMAGE_FALLBACKS[idx % DESIGN_QUBE_IMAGE_FALLBACKS.length]}
-                                                  alt={ref.title || ref.file}
-                                                  className="h-32 w-full rounded-lg object-cover"
-                                                  onError={(event) => {
-                                                    event.currentTarget.onerror = null;
-                                                    event.currentTarget.src =
-                                                      DESIGN_QUBE_IMAGE_FALLBACKS[idx % DESIGN_QUBE_IMAGE_FALLBACKS.length];
-                                                  }}
-                                                />
-                                              ) : (
-                                                <div className="flex h-32 items-center justify-center rounded-lg border border-dashed text-xs text-slate-500">
-                                                  {ref.file}
-                                                </div>
-                                              )}
-                                              <div className="mt-2 text-xs text-slate-400">{ref.title || ref.file}</div>
-                                            </div>
-                                          ))
-                                        ) : (
-                                          (designQube.sources || []).slice(0, 6).map((source, idx) => (
-                                            <div
-                                              key={source.id}
-                                              className="rounded-xl border p-2"
-                                              style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}
-                                            >
-                                              <img
-                                                src={DESIGN_QUBE_IMAGE_FALLBACKS[idx % DESIGN_QUBE_IMAGE_FALLBACKS.length]}
-                                                alt={source.label}
-                                                className="h-32 w-full rounded-lg object-cover"
-                                              />
-                                              <div className="mt-2 text-xs text-slate-400">{source.label}</div>
-                                            </div>
-                                          ))
-                                        )}
-                                      </div>
-                                    </div>
-                                  </TabsContent>
-
-                                  <TabsContent value="guidance" className="mt-4">
-                                    <div className="rounded-xl border p-4" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
-                                      <h4 className="mb-3 flex items-center gap-2 text-sm font-medium text-white">
-                                        <Bot className="h-4 w-4 text-emerald-300" />
-                                        Customization Guidance
-                                      </h4>
-                                      <div className="space-y-4">
-                                        <div className="text-xs" style={{ color: styleQubeThemeText }}>
-                                          Get real-time guidance as you customize templates. These copilots provide explanations, options, and automatically capture decisions in your DesignQube and ExperienceQube.
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                          {[
-                                            {
-                                              title: "Visual Customization",
-                                              icon: <Eye className="h-4 w-4 text-blue-300" />,
-                                              buttonClass: "bg-blue-500/20 text-blue-300 hover:bg-blue-500/30",
-                                              placeholder:
-                                                "Ask about colors, typography, spacing, animations...\nExample: 'What colors work best for a professional tech theme?'",
-                                              helper: "Provides color suggestions, typography recommendations, animation timing",
-                                            },
-                                            {
-                                              title: "Audio Customization",
-                                              icon: <Volume2 className="h-4 w-4 text-green-300" />,
-                                              buttonClass: "bg-green-500/20 text-green-300 hover:bg-green-500/30",
-                                              placeholder:
-                                                "Ask about voice personas, sound effects, audio feedback...\nExample: 'What voice persona works for educational content?'",
-                                              helper: "Voice persona selection, sound effect timing, TTS configuration",
-                                            },
-                                            {
-                                              title: "Text & Content",
-                                              icon: <Type className="h-4 w-4 text-purple-300" />,
-                                              buttonClass: "bg-purple-500/20 text-purple-300 hover:bg-purple-500/30",
-                                              placeholder:
-                                                "Ask about tone, readability, content structure...\nExample: 'How should I write for a technical audience?'",
-                                              helper: "Tone adjustment, readability optimization, content structure",
-                                            },
-                                            {
-                                              title: "Layout & Structure",
-                                              icon: <LayoutGrid className="h-4 w-4 text-cyan-300" />,
-                                              buttonClass: "bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30",
-                                              placeholder:
-                                                "Ask about templates, breakpoints, component arrangement...\nExample: 'What template works best for a dashboard layout?'",
-                                              helper: "Template selection, responsive design, component priorities",
-                                            },
-                                          ].map((assistant) => (
-                                            <div key={assistant.title} className="space-y-2">
-                                              <div className="flex items-center gap-2">
-                                                {assistant.icon}
-                                                <span className="text-xs font-medium text-white">{assistant.title}</span>
-                                              </div>
-                                              <div className="relative">
-                                                <textarea
-                                                  placeholder={assistant.placeholder}
-                                                  className="h-16 w-full resize-none rounded-md border border-slate-700/50 bg-slate-800/50 px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none"
-                                                />
-                                                <div className="absolute right-1 top-1">
-                                                  <button className={`rounded p-1 ${assistant.buttonClass}`}>
-                                                    <Bot className="h-3 w-3" />
-                                                  </button>
-                                                </div>
-                                              </div>
-                                              <div className="text-xs text-slate-400">{assistant.helper}</div>
-                                            </div>
-                                          ))}
-                                        </div>
-                                        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
-                                          <div className="flex items-center gap-2 text-xs text-emerald-200">
-                                            <ShieldCheck className="h-3 w-3" />
-                                            <span className="font-medium">Auto-Capture Enabled</span>
-                                          </div>
-                                          <div className="mt-1 text-xs text-emerald-300">
-                                            All customization decisions are automatically captured and stored in your DesignQube and ExperienceQube for consistency and future reference.
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </TabsContent>
-                                </Tabs>
-                              </div>
-                            );
-                          })()}
-                        </>
-                      ) : (
-                        <div className="text-sm text-slate-400">No DesignQube loaded.</div>
-                      )}
-                    </div>
-                  </TabsContent>
-                </Tabs>
               </TabsContent>
+
 
               <TabsContent value="exqubes" className="mt-4 min-h-0 flex-1 overflow-y-auto pr-1">
                 <div className="max-h-[560px] space-y-3 overflow-y-auto pr-1">
@@ -10822,28 +10045,807 @@ export const ComposerStudio = () => {
                     </div>
                   </TabsContent>
 
-                  {/* ── Design (was Design Parity) ───────────────────── */}
+                  {/* ── Design ───────────────────── */}
                   <TabsContent value="parity" className="mt-0">
-                    <AgenticDesignParityPanel
-                      designQube={designQube}
-                      activeDesignQubeId={activeStyleQubeId}
-                      designTheme={designTheme}
-                      experiences={experiences}
-                      previewExperience={previewExperience}
-                      previewAction={previewAction}
-                      personaId={activePersonaId || userId}
-                      routingSummary={routingEnvelope.summary}
-                      recommendedTargetLabel={getDeploymentTargetLabel(routingEnvelope.recommendedTarget)}
-                      deploymentGuidance={deploymentTargetCards}
-                      onOpenExperience={(experienceId) => {
-                        router.push(`/studio/composer/experience/${encodeURIComponent(experienceId)}`);
-                      }}
-                      onOpenRuntimePreview={() => {
-                        openRuntimePreviewForExperience(previewExperience, "Preview");
-                      }}
-                      onApplyRemedy={handleApplyRemedy}
-                      onLogAuditEvent={handleLogAuditEvent}
-                    />
+                    <Tabs value={designPanelSubTab} onValueChange={setDesignPanelSubTab} className="w-full">
+                      <TabsList className={`${configuratorTabsListClass} grid-cols-2`}>
+                        <TabsTrigger value="style-guides" className={configuratorTabTriggerClass}>
+                          Design &amp; Style Guides
+                        </TabsTrigger>
+                        <TabsTrigger value="design-parity" className={configuratorTabTriggerClass}>
+                          Design Parity
+                        </TabsTrigger>
+                      </TabsList>
+
+                      <TabsContent value="style-guides" className="mt-4 min-h-0 overflow-y-auto">
+                        <div
+                          className="rounded-xl border p-4"
+                          style={
+                            designQube
+                              ? {
+                                  backgroundColor: styleQubeThemeBg,
+                                  borderColor: styleQubeThemeBorder,
+                                  color: styleQubeThemeText,
+                                }
+                              : undefined
+                          }
+                        >
+                          {designQube ? (
+                            <>
+                              <div
+                                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-2"
+                                style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}
+                              >
+                                <div className="flex flex-wrap items-center gap-2 text-xs" style={{ color: styleQubeThemeText }}>
+                                  <select
+                                    value={activeStyleQubeId}
+                                    onChange={(e) => handleDesignQubeSelection(e.target.value)}
+                                    className="rounded-md border border-white/10 bg-slate-950/40 px-2 py-1 text-xs text-white/90"
+                                    style={{ borderColor: styleQubeThemeBorder, backgroundColor: styleQubeThemeBg }}
+                                  >
+                                    {designQubeOptions.map((option) => (
+                                      <option key={option.id} value={option.id}>
+                                        {option.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <button
+                                    className="inline-flex items-center rounded-full border px-2 py-0.5"
+                                    title={designQube.manifest?.authorityLevel || "guidance"}
+                                    style={{ borderColor: styleQubeThemeBorder }}
+                                  >
+                                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
+                                  </button>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => setDesignTheme("light")}
+                                    className={`inline-flex items-center rounded-full border px-2 py-0.5 ${designTheme === "light" ? "border-amber-300/60 bg-amber-500/10" : ""}`}
+                                    title="Light theme"
+                                    style={designTheme === "light" ? undefined : { borderColor: styleQubeThemeBorder }}
+                                  >
+                                    <Sun className="h-3.5 w-3.5 text-amber-300" />
+                                  </button>
+                                  <button
+                                    onClick={() => setDesignTheme("dark")}
+                                    className={`inline-flex items-center rounded-full border px-2 py-0.5 ${designTheme === "dark" ? "border-slate-300/60 bg-slate-500/10" : ""}`}
+                                    title="Dark theme"
+                                    style={designTheme === "dark" ? undefined : { borderColor: styleQubeThemeBorder }}
+                                  >
+                                    <Moon className="h-3.5 w-3.5 text-slate-300" />
+                                  </button>
+                                  <button
+                                    onClick={() => setDesignQubeSummaryLayout("compact")}
+                                    className={`inline-flex items-center rounded-full border px-2 py-0.5 ${designQubeSummaryLayout === "compact" ? "border-cyan-300/60 bg-cyan-500/10" : ""}`}
+                                    title="Row view"
+                                    style={designQubeSummaryLayout === "compact" ? undefined : { borderColor: styleQubeThemeBorder }}
+                                  >
+                                    <List size={14} className="text-cyan-300" />
+                                  </button>
+                                  <button
+                                    onClick={() => setDesignQubeSummaryLayout("grid")}
+                                    className={`inline-flex items-center rounded-full border px-2 py-0.5 ${designQubeSummaryLayout === "grid" ? "border-cyan-300/60 bg-cyan-500/10" : ""}`}
+                                    title="Grid view"
+                                    style={designQubeSummaryLayout === "grid" ? undefined : { borderColor: styleQubeThemeBorder }}
+                                  >
+                                    <LayoutGrid size={14} className="text-cyan-300" />
+                                  </button>
+                                  <button
+                                    onClick={() => setDesignQubeCollapsed((prev) => !prev)}
+                                    className="inline-flex items-center rounded-full border px-2 py-0.5"
+                                    title={designQubeCollapsed ? "Expand details" : "Collapse details"}
+                                    style={{ borderColor: styleQubeThemeBorder }}
+                                  >
+                                    {designQubeCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                                  </button>
+                                </div>
+                              </div>
+    
+                              {(() => {
+                                const themeTokens = designQube.tokens?.themes?.[designTheme];
+                                const colors = themeTokens?.color || {};
+                                const palette = [
+                                  colors.bg,
+                                  colors.surface,
+                                  colors.accent,
+                                  colors.text,
+                                  colors.muted,
+                                  colors.border,
+                                ].filter(Boolean) as string[];
+                                const resolvedPalette =
+                                  palette.length > 0
+                                    ? palette
+                                    : ["#020617", "#0f172a", "#1d4ed8", "#f8fafc", "#94a3b8", "rgba(148,163,184,0.2)"];
+                                const radiusValues = designQube.tokens?.radius
+                                  ? Object.values(designQube.tokens.radius).slice(0, 3)
+                                  : [];
+                                const fontFamily = designQube.tokens?.typography?.fontFamily?.sans || "system-ui";
+                                const scale = designQube.tokens?.typography?.scale || {};
+                                const glassEnabled = designQube.constraints?.material?.glass?.enabled;
+                                const summaryBadges = designQube.manifest?.themes || [];
+    
+                                return designQubeCollapsed ? (
+                                  <div className="mt-4 space-y-3">
+                                    <div className="flex flex-wrap items-center gap-2 text-[11px]" style={{ color: styleQubeThemeText }}>
+                                      <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5" style={{ borderColor: styleQubeThemeBorder }}>
+                                        <ShieldCheck className="h-3.5 w-3.5 text-emerald-300" />
+                                      </span>
+                                      {summaryBadges.map((theme) => (
+                                        <span key={theme} className="inline-flex items-center rounded-full border px-2 py-0.5" style={{ borderColor: styleQubeThemeBorder }}>
+                                          {theme.toLowerCase().includes("light") ? (
+                                            <Sun className="h-3.5 w-3.5 text-amber-300" />
+                                          ) : (
+                                            <Moon className="h-3.5 w-3.5 text-slate-300" />
+                                          )}
+                                        </span>
+                                      ))}
+                                      {glassEnabled && (
+                                        <span className="inline-flex items-center rounded-full border px-2 py-0.5" style={{ borderColor: styleQubeThemeBorder }} title="Glass material">
+                                          <Moon className="h-3.5 w-3.5 text-slate-400" />
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      {resolvedPalette.slice(0, 6).map((color, idx) => (
+                                        <span
+                                          key={`${color}-${idx}`}
+                                          className="h-5 w-5 rounded-md border"
+                                          style={{ backgroundColor: color, borderColor: styleQubeThemeBorder }}
+                                          title={color}
+                                        />
+                                      ))}
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                      <span style={{ fontFamily, fontSize: scale.xl || 22 }} className="text-white">Aa</span>
+                                      <span style={{ fontFamily, fontSize: scale.sm || 14 }} className="text-slate-400">Aa</span>
+                                      <div className="ml-auto flex items-center gap-2">
+                                        {radiusValues.map((radius, idx) => (
+                                          <div
+                                            key={`radius-grid-${idx}`}
+                                            className="h-6 w-12 border"
+                                            style={{ borderRadius: `${radius}px`, backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}
+                                            title={`radius ${radius}`}
+                                          />
+                                        ))}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center justify-end gap-2" title="Experience Modalities">
+                                      <div className="rounded-lg border border-blue-400/60 bg-blue-400/10 p-2">
+                                        <Eye className="h-4 w-4 text-blue-300" />
+                                      </div>
+                                      <div className="rounded-lg border border-green-400/60 bg-green-400/10 p-2">
+                                        <Volume2 className="h-4 w-4 text-green-300" />
+                                      </div>
+                                      <div className="rounded-lg border border-purple-400/60 bg-purple-400/10 p-2">
+                                        <LayoutGrid className="h-4 w-4 text-purple-300" />
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="mt-4 space-y-4">
+                                    <div className="rounded-xl border p-3" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
+                                      <h4 className="mb-2 flex items-center gap-2 text-sm font-medium text-white">
+                                        <BookOpen className="h-4 w-4 text-indigo-300" />
+                                        Enhanced Data Loading
+                                      </h4>
+                                      <div className="grid grid-cols-2 gap-4 text-xs">
+                                        <div className="space-y-1" style={{ color: styleQubeThemeText }}>
+                                          <div>✅ StyleQube: {designQube.styleQube ? "Loaded" : "Missing"}</div>
+                                          <div>✅ StructureQube: {designQube.structureQube ? "Loaded" : "Missing"}</div>
+                                          <div>✅ GuidesBriefs: {designQube.guidesBriefs ? "Loaded" : "Missing"}</div>
+                                          <div>✅ Sources: {designQube.sources?.length || 0} files</div>
+                                          <div>✅ References: {designQube.references?.length || 0} assets</div>
+                                          <div>✅ Visual Sub-Groups: {designQube.styleQube?.visual ? "Available" : "Missing"}</div>
+                                        </div>
+                                        <div className="space-y-1" style={{ color: styleQubeThemeText }}>
+                                          <div>✅ Audio Sub-Groups: {designQube.styleQube?.audio ? "Available" : "Missing"}</div>
+                                          <div>✅ Text Sub-Groups: {designQube.styleQube?.text ? "Available" : "Missing"}</div>
+                                          <div>✅ Spatial Sub-Groups: {designQube.styleQube?.spatial ? "Available" : "Missing"}</div>
+                                          <div>✅ Content Modules: {designQube.structureQube?.contentModules?.length || 0} available</div>
+                                          <div>✅ Big-Screen Support: {designQube.structureQube?.breakpoints?.bigScreen ? "Enabled" : "Missing"}</div>
+                                        </div>
+                                      </div>
+                                    </div>
+    
+                                    <Tabs value={designQubeActivePanel} onValueChange={setDesignQubeActivePanel} className="w-full">
+                                      <TabsList className="grid h-10 w-full grid-cols-5 items-center rounded-full border border-white/10 bg-slate-950/60 p-1">
+                                        <TabsTrigger value="guides" className={configuratorTabTriggerClass}>
+                                          Guides
+                                        </TabsTrigger>
+                                        <TabsTrigger value="style" className={configuratorTabTriggerClass}>
+                                          StyleQube
+                                        </TabsTrigger>
+                                        <TabsTrigger value="structure" className={configuratorTabTriggerClass}>
+                                          StructureQube
+                                        </TabsTrigger>
+                                        <TabsTrigger value="screens" className={configuratorTabTriggerClass}>
+                                          Screens
+                                        </TabsTrigger>
+                                        <TabsTrigger value="guidance" className={configuratorTabTriggerClass}>
+                                          Guidance
+                                        </TabsTrigger>
+                                      </TabsList>
+    
+                                      <TabsContent value="guides" className="mt-4">
+                                        <div className="rounded-xl border p-4" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
+                                          <div className="mb-3 flex items-center justify-between">
+                                            <h4 className="flex items-center gap-2 text-sm font-medium text-white">
+                                              <BookOpen className="h-4 w-4 text-indigo-300" />
+                                              Guides & Briefs
+                                            </h4>
+                                            <button className="flex items-center gap-1 rounded-md border border-indigo-500/30 bg-indigo-500/20 px-2 py-1 text-xs text-indigo-300 hover:bg-indigo-500/30">
+                                              <Upload className="h-3 w-3" />
+                                              Upload
+                                            </button>
+                                          </div>
+                                          {designQube.styleBrief && (
+                                            <div className="mb-4 max-h-[120px] overflow-y-auto pr-1 text-sm" style={{ color: styleQubeThemeText }}>
+                                              {designQube.styleBrief}
+                                            </div>
+                                          )}
+                                          <Tabs value={guidesActiveTab} onValueChange={setGuidesActiveTab} className="w-full">
+                                            <TabsList className="grid h-10 w-full grid-cols-2 items-center rounded-xl border border-white/10 bg-slate-900/40 p-1">
+                                              <TabsTrigger value="style-guide" className={configuratorTabTriggerClass}>
+                                                Style Guide
+                                              </TabsTrigger>
+                                              <TabsTrigger value="experience-guide" className={configuratorTabTriggerClass}>
+                                                Experience Guide
+                                              </TabsTrigger>
+                                            </TabsList>
+    
+                                            <TabsContent value="style-guide" className="mt-4">
+                                              <Tabs value={styleGuideActiveTab} onValueChange={setStyleGuideActiveTab} className="w-full">
+                                                <TabsList className="grid h-10 w-full grid-cols-3 items-center rounded-xl border border-white/10 bg-slate-900/30 p-1">
+                                                  <TabsTrigger value="css" className={configuratorTabTriggerClass}>
+                                                    CSS
+                                                  </TabsTrigger>
+                                                  <TabsTrigger value="brand-guide" className={configuratorTabTriggerClass}>
+                                                    Brand Guide
+                                                  </TabsTrigger>
+                                                  <TabsTrigger value="look-book" className={configuratorTabTriggerClass}>
+                                                    Look Book
+                                                  </TabsTrigger>
+                                                </TabsList>
+    
+                                                <TabsContent value="css" className="mt-4">
+                                                  <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+                                                    <div className="text-xs uppercase tracking-widest text-slate-400">CSS Styles</div>
+                                                    <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-xs" style={{ color: styleQubeThemeText }}>
+                                                      {(designQube.guidesBriefs?.styleGuide?.css || []).join("\n") ||
+                                                        `/* Primary Colors */\n--primary: ${styleQubeThemeText};\n--background: ${styleQubeThemeBg};\n--border: ${styleQubeThemeBorder};`}
+                                                    </pre>
+                                                  </div>
+                                                </TabsContent>
+    
+                                                <TabsContent value="brand-guide" className="mt-4">
+                                                  <div className="space-y-2">
+                                                    {(designQube.guidesBriefs?.styleGuide?.brandGuidelines || []).length > 0 ? (
+                                                      designQube.guidesBriefs?.styleGuide?.brandGuidelines.map((item, idx) => (
+                                                        <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
+                                                          {item}
+                                                        </div>
+                                                      ))
+                                                    ) : (
+                                                      <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-300">
+                                                        Brand guide not configured.
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                </TabsContent>
+    
+                                                <TabsContent value="look-book" className="mt-4">
+                                                  <div className="space-y-2">
+                                                    {(designQube.guidesBriefs?.styleGuide?.lookBooks || []).length > 0 ? (
+                                                      designQube.guidesBriefs?.styleGuide?.lookBooks.map((item, idx) => (
+                                                        <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
+                                                          {item}
+                                                        </div>
+                                                      ))
+                                                    ) : (
+                                                      <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm text-slate-300">
+                                                        Look book not configured.
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                </TabsContent>
+                                              </Tabs>
+                                            </TabsContent>
+    
+                                            <TabsContent value="experience-guide" className="mt-4">
+                                              <Tabs value={experienceGuideActiveTab} onValueChange={setExperienceGuideActiveTab} className="w-full">
+                                                <TabsList className="grid h-10 w-full grid-cols-4 items-center rounded-xl border border-white/10 bg-slate-900/30 p-1">
+                                                  <TabsTrigger value="who" className={configuratorTabTriggerClass}>Who</TabsTrigger>
+                                                  <TabsTrigger value="what" className={configuratorTabTriggerClass}>What</TabsTrigger>
+                                                  <TabsTrigger value="wow" className={configuratorTabTriggerClass}>Wow</TabsTrigger>
+                                                  <TabsTrigger value="metrics" className={configuratorTabTriggerClass}>Metrics</TabsTrigger>
+                                                </TabsList>
+    
+                                                <TabsContent value="who" className="mt-4 space-y-3">
+                                                  <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+                                                    <div className="text-xs uppercase tracking-widest text-slate-400">Audience</div>
+                                                    <div className="mt-2 text-sm" style={{ color: styleQubeThemeText }}>
+                                                      {designQube.guidesBriefs?.experienceGuide?.who?.audience || "Audience guide not configured."}
+                                                    </div>
+                                                  </div>
+                                                  <div className="space-y-2">
+                                                    {(designQube.guidesBriefs?.experienceGuide?.who?.demographics || []).slice(0, 6).map((item, idx) => (
+                                                      <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
+                                                        {item}
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                </TabsContent>
+    
+                                                <TabsContent value="what" className="mt-4 space-y-3">
+                                                  <div className="space-y-2">
+                                                    <div className="text-xs uppercase tracking-widest text-slate-400">Delivery Methods</div>
+                                                    {(designQube.guidesBriefs?.experienceGuide?.what?.delivery || []).slice(0, 6).map((item, idx) => (
+                                                      <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
+                                                        {item}
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                  <div className="space-y-2">
+                                                    <div className="text-xs uppercase tracking-widest text-slate-400">Mechanics</div>
+                                                    {(designQube.guidesBriefs?.experienceGuide?.what?.mechanics || []).slice(0, 6).map((item, idx) => (
+                                                      <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
+                                                        {item}
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                </TabsContent>
+    
+                                                <TabsContent value="wow" className="mt-4 space-y-3">
+                                                  <div className="space-y-2">
+                                                    <div className="text-xs uppercase tracking-widest text-slate-400">Differentiators</div>
+                                                    {(designQube.guidesBriefs?.experienceGuide?.wow?.differentiators || []).slice(0, 6).map((item, idx) => (
+                                                      <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
+                                                        {item}
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                  <div className="space-y-2">
+                                                    <div className="text-xs uppercase tracking-widest text-slate-400">Innovations</div>
+                                                    {(designQube.guidesBriefs?.experienceGuide?.wow?.innovations || []).slice(0, 6).map((item, idx) => (
+                                                      <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
+                                                        {item}
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                </TabsContent>
+    
+                                                <TabsContent value="metrics" className="mt-4 space-y-3">
+                                                  <div className="space-y-2">
+                                                    <div className="text-xs uppercase tracking-widest text-slate-400">Success Metrics</div>
+                                                    {(designQube.guidesBriefs?.experienceGuide?.metrics?.success || []).slice(0, 6).map((item, idx) => (
+                                                      <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
+                                                        {item}
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                  <div className="space-y-2">
+                                                    <div className="text-xs uppercase tracking-widest text-slate-400">KPIs</div>
+                                                    {(designQube.guidesBriefs?.experienceGuide?.metrics?.kpis || []).slice(0, 6).map((item, idx) => (
+                                                      <div key={`${item}-${idx}`} className="rounded-lg border border-slate-800 bg-slate-950/40 p-3 text-sm" style={{ color: styleQubeThemeText }}>
+                                                        {item}
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                </TabsContent>
+                                              </Tabs>
+                                            </TabsContent>
+                                          </Tabs>
+                                        </div>
+                                      </TabsContent>
+    
+                                      <TabsContent value="style" className="mt-4">
+                                        <div className="rounded-xl border p-4" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
+                                          <h4 className="mb-3 flex items-center gap-2 text-sm font-medium text-white">
+                                            <Palette className="h-4 w-4 text-rose-300" />
+                                            StyleQube
+                                          </h4>
+                                          <Tabs value={styleQubeActiveTab} onValueChange={setStyleQubeActiveTab} className="w-full">
+                                            <TabsList className="grid h-10 w-full grid-cols-4 items-center rounded-xl border border-white/10 bg-slate-900/40 p-1">
+                                              <TabsTrigger value="visual" className={configuratorTabTriggerClass}>Visual</TabsTrigger>
+                                              <TabsTrigger value="audio" className={configuratorTabTriggerClass}>Audio</TabsTrigger>
+                                              <TabsTrigger value="text" className={configuratorTabTriggerClass}>Text</TabsTrigger>
+                                              <TabsTrigger value="spatial" className={configuratorTabTriggerClass}>Spatial</TabsTrigger>
+                                            </TabsList>
+    
+                                            <TabsContent value="visual" className="mt-4 space-y-4">
+                                              <div className="grid grid-cols-3 gap-3 text-xs">
+                                                <div>
+                                                  <span className="text-slate-400">Primary Color</span>
+                                                  <div className="mt-1 flex items-center gap-2">
+                                                    <div className="h-3 w-3 rounded border border-slate-600" style={{ backgroundColor: designQube.styleQube?.visual?.colors?.primary }} />
+                                                    <span style={{ color: styleQubeThemeText }}>{designQube.styleQube?.visual?.colors?.primary}</span>
+                                                  </div>
+                                                </div>
+                                                <div>
+                                                  <span className="text-slate-400">Secondary Color</span>
+                                                  <div className="mt-1 flex items-center gap-2">
+                                                    <div className="h-3 w-3 rounded border border-slate-600" style={{ backgroundColor: designQube.styleQube?.visual?.colors?.secondary }} />
+                                                    <span style={{ color: styleQubeThemeText }}>{designQube.styleQube?.visual?.colors?.secondary}</span>
+                                                  </div>
+                                                </div>
+                                                <div>
+                                                  <span className="text-slate-400">Accent Color</span>
+                                                  <div className="mt-1 flex items-center gap-2">
+                                                    <div className="h-3 w-3 rounded border border-slate-600" style={{ backgroundColor: designQube.styleQube?.visual?.colors?.accent }} />
+                                                    <span style={{ color: styleQubeThemeText }}>{designQube.styleQube?.visual?.colors?.accent}</span>
+                                                  </div>
+                                                </div>
+                                                <div>
+                                                  <span className="text-slate-400">Font Family</span>
+                                                  <div className="mt-1" style={{ color: styleQubeThemeText }}>
+                                                    {designQube.styleQube?.visual?.typography?.fontFamily?.primary}
+                                                  </div>
+                                                </div>
+                                                <div>
+                                                  <span className="text-slate-400">Border Radius</span>
+                                                  <div className="mt-1" style={{ color: styleQubeThemeText }}>
+                                                    {designQube.styleQube?.visual?.radius?.md}
+                                                  </div>
+                                                </div>
+                                                <div>
+                                                  <span className="text-slate-400">Shadow</span>
+                                                  <div className="mt-1" style={{ color: styleQubeThemeText }}>
+                                                    {designQube.styleQube?.visual?.shadows?.md}
+                                                  </div>
+                                                </div>
+                                              </div>
+                                              <div className="space-y-2">
+                                                <div className="text-xs uppercase tracking-widest text-slate-400">Animation Duration</div>
+                                                <div className="grid grid-cols-3 gap-2 text-xs">
+                                                  <div style={{ color: styleQubeThemeText }}>Fast: {designQube.styleQube?.visual?.animations?.duration?.fast}</div>
+                                                  <div style={{ color: styleQubeThemeText }}>Normal: {designQube.styleQube?.visual?.animations?.duration?.normal}</div>
+                                                  <div style={{ color: styleQubeThemeText }}>Slow: {designQube.styleQube?.visual?.animations?.duration?.slow}</div>
+                                                </div>
+                                              </div>
+                                            </TabsContent>
+    
+                                            <TabsContent value="audio" className="mt-4 space-y-4">
+                                              <div className="grid grid-cols-3 gap-3 text-xs">
+                                                <div><span className="text-slate-400">Voice Persona</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.audio?.voice?.persona}</div></div>
+                                                <div><span className="text-slate-400">Accent</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.audio?.voice?.accent}</div></div>
+                                                <div><span className="text-slate-400">Pace</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.audio?.voice?.pace}</div></div>
+                                                <div><span className="text-slate-400">Sound Effects</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.audio?.soundEffects?.enabled ? "Enabled" : "Disabled"}</div></div>
+                                                <div><span className="text-slate-400">TTS Provider</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.audio?.voice?.ttsHints?.provider as string || "Not configured"}</div></div>
+                                                <div><span className="text-slate-400">Voice ID</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.audio?.voice?.ttsHints?.voiceId as string || "Not configured"}</div></div>
+                                              </div>
+                                              <div className="grid grid-cols-3 gap-2 text-xs">
+                                                <div style={{ color: styleQubeThemeText }}>Volume: {(designQube.styleQube?.audio as any)?.volume || "80%"}</div>
+                                                <div style={{ color: styleQubeThemeText }}>Pitch: {(designQube.styleQube?.audio as any)?.pitch || "Normal"}</div>
+                                                <div style={{ color: styleQubeThemeText }}>Quality: {(designQube.styleQube?.audio as any)?.quality || "High"}</div>
+                                              </div>
+                                            </TabsContent>
+    
+                                            <TabsContent value="text" className="mt-4 space-y-4">
+                                              <div className="grid grid-cols-3 gap-3 text-xs">
+                                                <div><span className="text-slate-400">Font Family</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.text?.formatting?.fontFamily}</div></div>
+                                                <div><span className="text-slate-400">Font Size</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.text?.formatting?.fontSize}</div></div>
+                                                <div><span className="text-slate-400">Line Height</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.text?.formatting?.lineHeight}</div></div>
+                                                <div><span className="text-slate-400">Max Width</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.text?.formatting?.maxWidth}</div></div>
+                                                <div><span className="text-slate-400">Personality</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.text?.tone?.personality}</div></div>
+                                                <div><span className="text-slate-400">Formality</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.text?.tone?.formality}</div></div>
+                                              </div>
+                                              <div className="grid grid-cols-3 gap-2 text-xs">
+                                                <div style={{ color: styleQubeThemeText }}>Weight: {(designQube.styleQube?.text?.formatting as any)?.fontWeight || "Medium"}</div>
+                                                <div style={{ color: styleQubeThemeText }}>Spacing: {(designQube.styleQube?.text?.formatting as any)?.letterSpacing || "Normal"}</div>
+                                                <div style={{ color: styleQubeThemeText }}>Transform: {(designQube.styleQube?.text?.formatting as any)?.textTransform || "None"}</div>
+                                              </div>
+                                            </TabsContent>
+    
+                                            <TabsContent value="spatial" className="mt-4 space-y-4">
+                                              <div className="grid grid-cols-2 gap-3 text-xs">
+                                                <div><span className="text-slate-400">3D Transforms</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.spatial?.threeD?.enabled ? "Enabled" : "Disabled"}</div></div>
+                                                <div><span className="text-slate-400">Z-Axis Stacking</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.spatial?.zAxis?.enabled ? "Enabled" : "Disabled"}</div></div>
+                                                <div><span className="text-slate-400">AR Support</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.spatial?.ar?.enabled ? "Enabled" : "Disabled"}</div></div>
+                                                <div><span className="text-slate-400">VR Support</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.styleQube?.spatial?.vr?.enabled ? "Enabled" : "Disabled"}</div></div>
+                                              </div>
+                                              {designQube.styleQube?.spatial?.threeD?.enabled && (
+                                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                                  <div style={{ color: styleQubeThemeText }}>Perspective: {designQube.styleQube.spatial.threeD.perspective}px</div>
+                                                  <div style={{ color: styleQubeThemeText }}>Depth: {designQube.styleQube.spatial.threeD.depth}px</div>
+                                                </div>
+                                              )}
+                                            </TabsContent>
+                                          </Tabs>
+                                        </div>
+                                      </TabsContent>
+    
+                                      <TabsContent value="structure" className="mt-4">
+                                        <div className="rounded-xl border p-4" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
+                                          <h4 className="mb-3 flex items-center gap-2 text-sm font-medium text-white">
+                                            <LayoutGrid className="h-4 w-4 text-cyan-300" />
+                                            StructureQube
+                                          </h4>
+                                          <Tabs value={structureQubeActiveTab} onValueChange={setStructureQubeActiveTab} className="w-full">
+                                            <TabsList className="grid h-10 w-full grid-cols-4 items-center rounded-xl border border-white/10 bg-slate-900/40 p-1">
+                                              <TabsTrigger value="templates" className={configuratorTabTriggerClass}>Templates</TabsTrigger>
+                                              <TabsTrigger value="modules" className={configuratorTabTriggerClass}>Modules</TabsTrigger>
+                                              <TabsTrigger value="breakpoints" className={configuratorTabTriggerClass}>Breakpoints</TabsTrigger>
+                                              <TabsTrigger value="priorities" className={configuratorTabTriggerClass}>Priority</TabsTrigger>
+                                            </TabsList>
+    
+                                            <TabsContent value="templates" className="mt-4 space-y-4">
+                                              <div className="space-y-2">
+                                                <div className="text-xs uppercase tracking-widest text-slate-400">Priority Templates</div>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                  {(designQube.structureQube?.templateSelection?.priority || []).slice(0, 9).map((template, idx) => (
+                                                    <div key={`${template}-${idx}`} className="flex items-center gap-2 rounded-lg bg-slate-950/40 p-2 text-xs" style={{ color: styleQubeThemeText }}>
+                                                      <div className="h-2 w-2 rounded-full bg-cyan-400" />
+                                                      {template}
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                              <div className="grid grid-cols-3 gap-3 text-xs">
+                                                <div><span className="text-slate-400">Total Templates</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{designQube.structureQube?.templates?.length || 0} available</div></div>
+                                                <div><span className="text-slate-400">By Modality</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{Object.keys(designQube.structureQube?.templateSelection?.byModality || {}).length} categories</div></div>
+                                                <div><span className="text-slate-400">By Density</span><div className="mt-1" style={{ color: styleQubeThemeText }}>{Object.keys(designQube.structureQube?.templateSelection?.byDensity || {}).length} types</div></div>
+                                              </div>
+                                            </TabsContent>
+    
+                                            <TabsContent value="modules" className="mt-4">
+                                              <div className="space-y-2">
+                                                <div className="text-xs uppercase tracking-widest text-slate-400">Content Modules</div>
+                                                <div className="space-y-2">
+                                                  {(designQube.structureQube?.contentModules || []).map((module, idx) => (
+                                                    <div key={`${module.id}-${idx}`} className="flex items-center justify-between rounded-lg bg-slate-950/40 p-2 text-xs">
+                                                      <div className="flex items-center gap-2" style={{ color: styleQubeThemeText }}>
+                                                        <div className="h-2 w-2 rounded-full bg-purple-400" />
+                                                        {module.name}
+                                                      </div>
+                                                      <div className="text-slate-400">Priority {module.priority}</div>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            </TabsContent>
+    
+                                            <TabsContent value="breakpoints" className="mt-4">
+                                              <div className="grid grid-cols-2 gap-2">
+                                                {Object.entries(designQube.structureQube?.breakpoints || {}).map(([breakpoint, config]) => (
+                                                  <div key={breakpoint} className="flex items-center gap-2 rounded-lg bg-slate-950/40 p-2 text-xs">
+                                                    {breakpoint === "mobile" && <Smartphone className="h-3 w-3 text-blue-400" />}
+                                                    {breakpoint === "tablet" && <Tablet className="h-3 w-3 text-green-400" />}
+                                                    {breakpoint === "desktop" && <MonitorIcon className="h-3 w-3 text-purple-400" />}
+                                                    {breakpoint === "bigScreen" && <Tv className="h-3 w-3 text-orange-400" />}
+                                                    <div style={{ color: styleQubeThemeText }}>
+                                                      <div className="font-medium capitalize">{breakpoint.replace("bigScreen", "Big Screen")}</div>
+                                                      <div className="text-slate-400">
+                                                        {(config as any).minWidth && `≥${(config as any).minWidth}px`}
+                                                        {(config as any).maxWidth && ` ≤${(config as any).maxWidth}px`}
+                                                        {!(config as any).minWidth && !(config as any).maxWidth && "Any"}
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </TabsContent>
+    
+                                            <TabsContent value="priorities" className="mt-4 space-y-4">
+                                              <div className="space-y-2">
+                                                <div className="text-xs uppercase tracking-widest text-slate-400">Component Priority Order</div>
+                                                <div className="space-y-2">
+                                                  {Object.entries(designQube.structureQube?.componentPriorities || {}).map(([component, priority]) => (
+                                                    <div key={component} className="flex items-center justify-between rounded-lg bg-slate-950/40 p-2 text-xs">
+                                                      <div className="flex items-center gap-2" style={{ color: styleQubeThemeText }}>
+                                                        <div className="h-2 w-2 rounded-full bg-emerald-400" />
+                                                        {component}
+                                                      </div>
+                                                      <div style={{ color: styleQubeThemeText }}>Priority {priority}</div>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                              <div className="space-y-2">
+                                                <div className="text-xs uppercase tracking-widest text-slate-400">Layout Rules</div>
+                                                <div className="space-y-2">
+                                                  {(designQube.structureQube?.layoutRules || []).slice(0, 6).map((rule, idx) => (
+                                                    <div key={`${rule}-${idx}`} className="rounded-lg bg-slate-950/40 p-2 text-xs" style={{ color: styleQubeThemeText }}>
+                                                      {rule}
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            </TabsContent>
+                                          </Tabs>
+                                        </div>
+                                      </TabsContent>
+    
+                                      <TabsContent value="screens" className="mt-4">
+                                        <div className="space-y-4 rounded-xl border p-4" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
+                                          <div className="flex items-center justify-between">
+                                            <h4 className="flex items-center gap-2 text-sm font-medium text-white">
+                                              <MonitorIcon className="h-4 w-4 text-orange-300" />
+                                              Screens
+                                            </h4>
+                                            <button className="flex items-center gap-1 rounded-md border border-orange-500/30 bg-orange-500/20 px-2 py-1 text-xs text-orange-300 hover:bg-orange-500/30">
+                                              <Upload className="h-3 w-3" />
+                                              Upload
+                                            </button>
+                                          </div>
+                                          <div className="text-xs" style={{ color: styleQubeThemeText }}>
+                                            Upload and manage design screens from screenshots, Adobe XD, Figma, or other design tools.
+                                          </div>
+                                          <div className="grid grid-cols-2 gap-3">
+                                            <div className="text-center p-4 rounded-lg border border-dashed border-slate-600">
+                                              <MonitorIcon className="mx-auto mb-2 h-6 w-6 text-slate-400" />
+                                              <div className="text-xs text-slate-400">Screenshots</div>
+                                            </div>
+                                            <div className="text-center p-4 rounded-lg border border-dashed border-slate-600">
+                                              <Hexagon className="mx-auto mb-2 h-6 w-6 text-slate-400" />
+                                              <div className="text-xs text-slate-400">Adobe XD</div>
+                                            </div>
+                                            <div className="text-center p-4 rounded-lg border border-dashed border-slate-600">
+                                              <LayoutGrid className="mx-auto mb-2 h-6 w-6 text-slate-400" />
+                                              <div className="text-xs text-slate-400">Figma</div>
+                                            </div>
+                                            <div className="text-center p-4 rounded-lg border border-dashed border-slate-600">
+                                              <FileText className="mx-auto mb-2 h-6 w-6 text-slate-400" />
+                                              <div className="text-xs text-slate-400">Other Tools</div>
+                                            </div>
+                                          </div>
+                                          <div className="grid gap-3 sm:grid-cols-2">
+                                            {(designQube.references || []).length > 0 ? (
+                                              (designQube.references || []).map((ref, idx) => (
+                                                <div
+                                                  key={ref.id}
+                                                  className="rounded-xl border p-2"
+                                                  style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}
+                                                >
+                                                  {ref.dataUrl || ref.thumbnailUrl ? (
+                                                    <img
+                                                      src={ref.dataUrl || ref.thumbnailUrl || DESIGN_QUBE_IMAGE_FALLBACKS[idx % DESIGN_QUBE_IMAGE_FALLBACKS.length]}
+                                                      alt={ref.title || ref.file}
+                                                      className="h-32 w-full rounded-lg object-cover"
+                                                      onError={(event) => {
+                                                        event.currentTarget.onerror = null;
+                                                        event.currentTarget.src =
+                                                          DESIGN_QUBE_IMAGE_FALLBACKS[idx % DESIGN_QUBE_IMAGE_FALLBACKS.length];
+                                                      }}
+                                                    />
+                                                  ) : (
+                                                    <div className="flex h-32 items-center justify-center rounded-lg border border-dashed text-xs text-slate-500">
+                                                      {ref.file}
+                                                    </div>
+                                                  )}
+                                                  <div className="mt-2 text-xs text-slate-400">{ref.title || ref.file}</div>
+                                                </div>
+                                              ))
+                                            ) : (
+                                              (designQube.sources || []).slice(0, 6).map((source, idx) => (
+                                                <div
+                                                  key={source.id}
+                                                  className="rounded-xl border p-2"
+                                                  style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}
+                                                >
+                                                  <img
+                                                    src={DESIGN_QUBE_IMAGE_FALLBACKS[idx % DESIGN_QUBE_IMAGE_FALLBACKS.length]}
+                                                    alt={source.label}
+                                                    className="h-32 w-full rounded-lg object-cover"
+                                                  />
+                                                  <div className="mt-2 text-xs text-slate-400">{source.label}</div>
+                                                </div>
+                                              ))
+                                            )}
+                                          </div>
+                                        </div>
+                                      </TabsContent>
+    
+                                      <TabsContent value="guidance" className="mt-4">
+                                        <div className="rounded-xl border p-4" style={{ backgroundColor: styleQubeThemeBg, borderColor: styleQubeThemeBorder }}>
+                                          <h4 className="mb-3 flex items-center gap-2 text-sm font-medium text-white">
+                                            <Bot className="h-4 w-4 text-emerald-300" />
+                                            Customization Guidance
+                                          </h4>
+                                          <div className="space-y-4">
+                                            <div className="text-xs" style={{ color: styleQubeThemeText }}>
+                                              Get real-time guidance as you customize templates. These copilots provide explanations, options, and automatically capture decisions in your DesignQube and ExperienceQube.
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                              {[
+                                                {
+                                                  title: "Visual Customization",
+                                                  icon: <Eye className="h-4 w-4 text-blue-300" />,
+                                                  buttonClass: "bg-blue-500/20 text-blue-300 hover:bg-blue-500/30",
+                                                  placeholder:
+                                                    "Ask about colors, typography, spacing, animations...\nExample: 'What colors work best for a professional tech theme?'",
+                                                  helper: "Provides color suggestions, typography recommendations, animation timing",
+                                                },
+                                                {
+                                                  title: "Audio Customization",
+                                                  icon: <Volume2 className="h-4 w-4 text-green-300" />,
+                                                  buttonClass: "bg-green-500/20 text-green-300 hover:bg-green-500/30",
+                                                  placeholder:
+                                                    "Ask about voice personas, sound effects, audio feedback...\nExample: 'What voice persona works for educational content?'",
+                                                  helper: "Voice persona selection, sound effect timing, TTS configuration",
+                                                },
+                                                {
+                                                  title: "Text & Content",
+                                                  icon: <Type className="h-4 w-4 text-purple-300" />,
+                                                  buttonClass: "bg-purple-500/20 text-purple-300 hover:bg-purple-500/30",
+                                                  placeholder:
+                                                    "Ask about tone, readability, content structure...\nExample: 'How should I write for a technical audience?'",
+                                                  helper: "Tone adjustment, readability optimization, content structure",
+                                                },
+                                                {
+                                                  title: "Layout & Structure",
+                                                  icon: <LayoutGrid className="h-4 w-4 text-cyan-300" />,
+                                                  buttonClass: "bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30",
+                                                  placeholder:
+                                                    "Ask about templates, breakpoints, component arrangement...\nExample: 'What template works best for a dashboard layout?'",
+                                                  helper: "Template selection, responsive design, component priorities",
+                                                },
+                                              ].map((assistant) => (
+                                                <div key={assistant.title} className="space-y-2">
+                                                  <div className="flex items-center gap-2">
+                                                    {assistant.icon}
+                                                    <span className="text-xs font-medium text-white">{assistant.title}</span>
+                                                  </div>
+                                                  <div className="relative">
+                                                    <textarea
+                                                      placeholder={assistant.placeholder}
+                                                      className="h-16 w-full resize-none rounded-md border border-slate-700/50 bg-slate-800/50 px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none"
+                                                    />
+                                                    <div className="absolute right-1 top-1">
+                                                      <button className={`rounded p-1 ${assistant.buttonClass}`}>
+                                                        <Bot className="h-3 w-3" />
+                                                      </button>
+                                                    </div>
+                                                  </div>
+                                                  <div className="text-xs text-slate-400">{assistant.helper}</div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
+                                              <div className="flex items-center gap-2 text-xs text-emerald-200">
+                                                <ShieldCheck className="h-3 w-3" />
+                                                <span className="font-medium">Auto-Capture Enabled</span>
+                                              </div>
+                                              <div className="mt-1 text-xs text-emerald-300">
+                                                All customization decisions are automatically captured and stored in your DesignQube and ExperienceQube for consistency and future reference.
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </TabsContent>
+                                    </Tabs>
+                                  </div>
+                                );
+                              })()}
+                            </>
+                          ) : (
+                            <div className="text-sm text-slate-400">No DesignQube loaded.</div>
+                          )}
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="design-parity" className="mt-4">
+                        <AgenticDesignParityPanel
+                          designQube={designQube}
+                          activeDesignQubeId={activeStyleQubeId}
+                          designTheme={designTheme}
+                          experiences={experiences}
+                          previewExperience={previewExperience}
+                          previewAction={previewAction}
+                          personaId={activePersonaId || userId}
+                          routingSummary={routingEnvelope.summary}
+                          recommendedTargetLabel={getDeploymentTargetLabel(routingEnvelope.recommendedTarget)}
+                          deploymentGuidance={deploymentTargetCards}
+                          onOpenExperience={(experienceId) => {
+                            router.push(`/studio/composer/experience/${encodeURIComponent(experienceId)}`);
+                          }}
+                          onOpenRuntimePreview={() => {
+                            openRuntimePreviewForExperience(previewExperience, "Preview");
+                          }}
+                          onApplyRemedy={handleApplyRemedy}
+                          onLogAuditEvent={handleLogAuditEvent}
+                        />
+                      </TabsContent>
+                    </Tabs>
                   </TabsContent>
 
                   <TabsContent value="surfaces" className="mt-0">

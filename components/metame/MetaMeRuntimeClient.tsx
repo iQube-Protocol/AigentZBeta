@@ -60,6 +60,8 @@ import {
   Square,
   SquareArrowOutUpRight,
   Sparkles,
+  Sun,
+  Moon,
   Tv,
   Users,
 } from "lucide-react";
@@ -1796,6 +1798,9 @@ export default function MetaMeRuntimeClient() {
   const preferredImageOrientationMobile = searchParams?.get("preferredImageOrientationMobile");
   const preferredImageOrientationTablet = searchParams?.get("preferredImageOrientationTablet");
   const preferredImageOrientationDesktop = searchParams?.get("preferredImageOrientationDesktop");
+  const [runtimeTheme, setRuntimeTheme] = useState<"light" | "dark">(
+    searchParams?.get("theme") === "light" ? "light" : "dark"
+  );
   const deviceParam = (searchParams?.get("device") as DeviceType) || "mobile";
   const defaultDevice: DeviceType =
     deviceParam === "desktop" || deviceParam === "tablet" || deviceParam === "mobile" ? deviceParam : "mobile";
@@ -4284,6 +4289,21 @@ export default function MetaMeRuntimeClient() {
     </div>
   );
 
+  const themeToggle = (
+    <button
+      type="button"
+      onClick={() => setRuntimeTheme((t) => (t === "light" ? "dark" : "light"))}
+      className={`absolute right-3 top-[8px] z-30 inline-flex items-center justify-center rounded-lg border p-1.5 transition-colors ${
+        runtimeTheme === "light"
+          ? "border-[rgba(68,57,41,0.14)] bg-[#F7F2E8]/80 text-[#595247] hover:bg-[#ECE4D6]"
+          : "border-white/10 bg-slate-950/80 text-slate-300 hover:bg-white/10 hover:text-white"
+      }`}
+      title={runtimeTheme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+    >
+      {runtimeTheme === "light" ? <Moon className="h-3.5 w-3.5" /> : <Sun className="h-3.5 w-3.5" />}
+    </button>
+  );
+
   const agentSelector = (
     <div className="absolute left-3 top-[8px] z-30 flex items-center gap-2">
       <div
@@ -4365,7 +4385,7 @@ export default function MetaMeRuntimeClient() {
   // sits on top of the scroll content in the z-axis, so the viewport "scrolls behind" them.
   const embedPreviewMode = embedMode && !!queryPreviewDisplayCapsule;
   const runtimeSurface = (
-    <div className="metame-runtime-layer relative h-full w-full rounded-[5px] bg-slate-950 text-white overflow-hidden flex flex-col">
+    <div className={`metame-runtime-layer relative h-full w-full rounded-[5px] ${runtimeTheme === "light" ? "mm-light" : "bg-slate-950 text-white"} overflow-hidden flex flex-col`}>
       <style jsx global>{`
         .copilotkit-launcher,
         .copilotkit-button,
@@ -4374,6 +4394,7 @@ export default function MetaMeRuntimeClient() {
         }
       `}</style>
       {!thinShellMode ? agentSelector : null}
+      {themeToggle}
       <CodexCopilotLayer
         isOpen
         onClose={() => {}}
