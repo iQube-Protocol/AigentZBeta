@@ -917,7 +917,7 @@ export function CodexCopilotLayer({
               variant === "embedded" ? "h-full min-h-0" : "h-full md:h-full"
             } transition-all duration-300 ease-out`}
           >
-            <div className={`h-full ${variant === "embedded" ? "" : "bg-black/30 backdrop-blur-xl rounded-2xl shadow-2xl"} flex flex-col overflow-hidden ${panelBorder ? "ring-1 ring-white/10" : ""}`}>
+            <div className={`h-full ${variant === "embedded" ? "bg-black/[0.18] backdrop-blur-sm rounded-none" : "bg-black/30 backdrop-blur-xl rounded-2xl shadow-2xl"} flex flex-col overflow-hidden ${panelBorder ? "ring-1 ring-white/10" : ""}`}>
               <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
                 {copilotMode === "chat" ? (
                   <>

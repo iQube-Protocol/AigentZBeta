@@ -300,18 +300,24 @@
 .mm-light .bg-cyan-500\/10,
 .mm-light .bg-cyan-500\/15,
 .mm-light .bg-cyan-500\/20,
-.mm-light .bg-cyan-500\/25 {
+.mm-light .bg-cyan-500\/25,
+.mm-light .bg-cyan-500\/30 {
   background-color: var(--mm-accent-runtime-wash) !important;
 }
 .mm-light .bg-emerald-500\/5,
 .mm-light .bg-emerald-500\/10,
-.mm-light .bg-emerald-500\/20 {
+.mm-light .bg-emerald-500\/20,
+.mm-light .bg-emerald-500\/30 {
   background-color: var(--mm-accent-earn-wash) !important;
 }
 .mm-light .bg-violet-500\/5,
 .mm-light .bg-violet-500\/10,
+.mm-light .bg-violet-500\/20,
+.mm-light .bg-violet-500\/30,
 .mm-light .bg-fuchsia-500\/5,
-.mm-light .bg-fuchsia-500\/10 {
+.mm-light .bg-fuchsia-500\/10,
+.mm-light .bg-fuchsia-500\/20,
+.mm-light .bg-fuchsia-500\/30 {
   background-color: var(--mm-accent-make-wash) !important;
 }
 
@@ -406,9 +412,27 @@
 .mm-light .snap-start .bg-slate-800\/60 {
   background-color: rgba(30, 41, 59, 0.6) !important;   /* slate-800/60 */
 }
+/* Restore accent badge backgrounds inside thumbnail cards */
+.mm-light .snap-start .bg-cyan-500\/20,
+.mm-light .snap-start .bg-cyan-500\/30 {
+  background-color: rgba(6, 182, 212, 0.30) !important;
+}
+.mm-light .snap-start .bg-emerald-500\/20,
+.mm-light .snap-start .bg-emerald-500\/30 {
+  background-color: rgba(16, 185, 129, 0.30) !important;
+}
+.mm-light .snap-start .bg-violet-500\/20,
+.mm-light .snap-start .bg-violet-500\/30 {
+  background-color: rgba(139, 92, 246, 0.30) !important;
+}
+/* Restore text inside accent source badges on thumbnail cards */
+.mm-light .snap-start .text-cyan-100 { color: rgb(207, 250, 254) !important; }
+.mm-light .snap-start .text-emerald-100 { color: rgb(209, 250, 229) !important; }
+.mm-light .snap-start .text-violet-100 { color: rgb(237, 233, 254) !important; }
 .mm-light .snap-start .bg-white\/10,
-.mm-light .snap-start .bg-white\/\[0\.07\] {
-  background-color: rgba(255, 255, 255, 0.10) !important;
+.mm-light .snap-start .bg-white\/\[0\.07\],
+.mm-light .snap-start .bg-white\/18 {
+  background-color: rgba(255, 255, 255, 0.18) !important;
 }
 .mm-light .snap-start .text-white {
   color: rgb(255, 255, 255) !important;
@@ -445,6 +469,78 @@
 /* Restore link colour inside thumbnail cards (they have dark bg) */
 .mm-light .snap-start a {
   color: inherit !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   EXPERIENCEQUBE EXPANDED PANEL — dark ink on cream
+   Targets [data-embed-panel] wrappers rendered in the message list.
+   These are SEPARATE from thumbnail carousel cards (.snap-start).
+   Specificity (0,3,0) ensures these override the global (0,2,0) rules.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Panel surface: bg-slate-950/85 already maps to canvas via global rule. */
+
+/* Section header labels — deep annotation ink, bold enough for cream bg */
+.mm-light [data-embed-panel] .text-cyan-300\/80,
+.mm-light [data-embed-panel] .text-cyan-200,
+.mm-light [data-embed-panel] .text-cyan-100 {
+  color: var(--mm-accent-runtime) !important;   /* #2A6670 — 5:1 on canvas */
+}
+.mm-light [data-embed-panel] .text-violet-300\/80,
+.mm-light [data-embed-panel] .text-violet-200,
+.mm-light [data-embed-panel] .text-violet-100 {
+  color: var(--mm-accent-make) !important;      /* #6B3A54 — 5.2:1 */
+}
+.mm-light [data-embed-panel] .text-emerald-300\/80,
+.mm-light [data-embed-panel] .text-emerald-200,
+.mm-light [data-embed-panel] .text-emerald-100 {
+  color: var(--mm-accent-earn) !important;      /* #3D6147 — 5.7:1 */
+}
+.mm-light [data-embed-panel] .text-amber-200,
+.mm-light [data-embed-panel] .text-amber-100 {
+  color: var(--mm-accent-codex) !important;     /* #7A5A1E — 4.5:1 */
+}
+
+/* Body text — warm charcoal */
+.mm-light [data-embed-panel] .text-white {
+  color: var(--mm-ink-primary) !important;
+}
+.mm-light [data-embed-panel] .text-slate-200,
+.mm-light [data-embed-panel] .text-slate-100 {
+  color: var(--mm-ink-secondary) !important;
+}
+.mm-light [data-embed-panel] .text-slate-300,
+.mm-light [data-embed-panel] .text-slate-400 {
+  color: var(--mm-ink-muted) !important;
+}
+
+/* Kind / device badge backgrounds — warm wash instead of dark glass */
+.mm-light [data-embed-panel] .bg-white\/5,
+.mm-light [data-embed-panel] .bg-white\/\[0\.05\] {
+  background-color: rgba(68, 57, 41, 0.06) !important;
+}
+.mm-light [data-embed-panel] .bg-cyan-500\/10,
+.mm-light [data-embed-panel] .bg-cyan-500\/20 {
+  background-color: var(--mm-accent-runtime-wash) !important;
+}
+
+/* Kind / device badge borders */
+.mm-light [data-embed-panel] .border-white\/10 {
+  border-color: rgba(68, 57, 41, 0.12) !important;
+}
+.mm-light [data-embed-panel] .border-cyan-400\/30 {
+  border-color: rgba(42, 102, 112, 0.30) !important;
+}
+
+/* Hero image border within panel */
+.mm-light [data-embed-panel] .border-white\/10 {
+  border-color: rgba(68, 57, 41, 0.12) !important;
+}
+
+/* Panel outer border — runtime accent at reduced opacity */
+.mm-light [data-embed-panel] {
+  border-color: rgba(42, 102, 112, 0.22) !important;
+  background-color: var(--mm-surface-1) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════
