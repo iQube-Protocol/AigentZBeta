@@ -32,6 +32,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getCrmClient } from '@/services/crm/crmDataAccess';
+import { steerSignal, type SteeringEvent } from '@/services/campaign/signalSteering';
 
 export const dynamic = 'force-dynamic';
 
@@ -120,6 +121,18 @@ async function processEvent(
     `[webhooks/marketa] ${investor_id}: ${currentState} → ${rule.to}` +
     (sequence_id ? ` (${sequence_id})` : '') +
     (timestamp ? ` at ${timestamp}` : '')
+  );
+
+  // Steer signal asynchronously — updates offer_fit, message_angle, follow-up queue.
+  // Map Marketa event names to SteeringEvent (unsubscribed → opted_out).
+  const steeringEventMap: Record<MarketaEvent, SteeringEvent> = {
+    opened:       'opened',
+    clicked:      'clicked',
+    unsubscribed: 'opted_out',
+    bounced:      'bounced',
+  };
+  void steerSignal(investor_id, steeringEventMap[event], sequence_id).catch(
+    (err) => console.warn('[webhooks/marketa] steerSignal failed (non-blocking):', err?.message ?? err)
   );
 
   return 'advanced';
