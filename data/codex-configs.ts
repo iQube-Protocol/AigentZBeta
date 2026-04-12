@@ -335,6 +335,23 @@ export const KNYT_CODEX: CodexConfig = {
         description: 'KNYT Wheel — the KNYT Activation Campaign genesis bundle: operator brief, activation blueprint, copy packs, operations, deployment handoff, marketa plans, 30-day calendar, CRM schema, dashboard spec, partner/investor addenda, and launch runbook (13 core docs + AutoDrive canonicalization companion)',
         color: 'rose'
       }
+    },
+    {
+      id: 'investors',
+      label: 'Investors',
+      slug: 'investors',
+      enabled: true,
+      adminOnly: true,
+      order: 12,
+      type: 'static',
+      config: {
+        component: 'InvestorDirectoryTab',
+      },
+      metadata: {
+        icon: 'TrendingUp',
+        description: 'Full investor directory — all 3,501 StartEngine / Metaiye Media investors with campaign cohort tagging, bulk sequence dispatch, and the KNYT Wheel campaign dashboard',
+        color: 'amber'
+      }
     }
   ],
   permissions: {
