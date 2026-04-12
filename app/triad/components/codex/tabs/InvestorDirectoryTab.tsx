@@ -136,6 +136,14 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
   const [search, setSearch] = useState('');
   const [activatedFilter, setActivatedFilter] = useState<'all' | 'activated' | 'inactive'>('all');
   const [sort, setSort] = useState<'name' | 'invested' | 'activated' | 'tier'>('tier');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const PAGE_SIZE = 100;
+
+  // Add prospect
+  const [showAddProspect, setShowAddProspect] = useState(false);
+  const [prospectForm, setProspectForm] = useState({ firstName: '', lastName: '', email: '', campaign_cohort: '', campaign_notes: '', source: 'manual_entry' });
+  const [addingSaving, setAddingSaving] = useState(false);
 
   // Bulk select
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -175,15 +183,22 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
 
   // ── Fetch ───────────────────────────────────────────────────────────────────
 
-  const fetchInvestors = useCallback(async () => {
+  const fetchInvestors = useCallback(async (page = currentPage) => {
     setLoading(true);
     setApiError(null);
     try {
-      const params = new URLSearchParams({ limit: '500', sort, ...(search ? { search } : {}) });
+      const params = new URLSearchParams({
+        limit: String(PAGE_SIZE),
+        offset: String((page - 1) * PAGE_SIZE),
+        sort,
+        ...(search ? { search } : {}),
+        ...(activatedFilter !== 'all' ? { activated: String(activatedFilter === 'activated') } : {}),
+      });
       const res = await fetch(`/api/crm/investors?${params}`);
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? 'Failed to load investors');
       setInvestors(json.data ?? []);
+      setTotalCount(json.total ?? 0);
       setSelected(new Set());
     } catch (err: unknown) {
       setApiError(err instanceof Error ? err.message : 'Failed to load investors');
@@ -191,9 +206,10 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
     } finally {
       setLoading(false);
     }
-  }, [search, sort]);
+  }, [search, sort, activatedFilter, currentPage]);
 
-  useEffect(() => { fetchInvestors(); }, [fetchInvestors]);
+  useEffect(() => { setCurrentPage(1); }, [search, sort, activatedFilter]);
+  useEffect(() => { fetchInvestors(currentPage); }, [fetchInvestors, currentPage]);
 
   async function fetchMetrics() {
     setMetricsLoading(true);
@@ -293,6 +309,25 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
   const toggleSelectAll = () =>
     setSelected(allSelected ? new Set() : new Set(displayed.map((i) => i.id)));
 
+  async function addProspect() {
+    if (!prospectForm.firstName && !prospectForm.lastName && !prospectForm.email) return;
+    setAddingSaving(true);
+    try {
+      const res = await fetch('/api/crm/investors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(prospectForm),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? 'Failed to add prospect');
+      setShowAddProspect(false);
+      setProspectForm({ firstName: '', lastName: '', email: '', campaign_cohort: '', campaign_notes: '', source: 'manual_entry' });
+      fetchInvestors(1);
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Failed to add prospect');
+    } finally { setAddingSaving(false); }
+  }
+
   async function handleBulkAssign() {
     if (selected.size === 0) return;
     const updates: Record<string, string> = {};
@@ -370,12 +405,16 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
 
       {/* Header row */}
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <TrendingUp size={18} className="text-amber-400" />
-          <span className="font-semibold text-white">Investors</span>
-          <span className="text-xs text-slate-500 ml-1">
-            {investors.length > 0 ? `${investors.length} total · ${activatedCount} activated` : ''}
-          </span>
+          <span className="font-semibold text-white">Investors &amp; Prospects</span>
+          {totalCount > 0 && (
+            <span className="text-xs text-slate-500">{totalCount.toLocaleString()} total</span>
+          )}
+          <button onClick={() => setShowAddProspect(true)}
+            className="flex items-center gap-1 px-2.5 py-1 bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30 rounded-lg text-xs font-medium hover:bg-emerald-500/30 transition">
+            <Filter size={11} />Add Prospect
+          </button>
         </div>
         {/* View switcher */}
         <div className="flex items-center gap-1 bg-white/5 rounded-xl p-1 flex-wrap">
@@ -562,10 +601,77 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
       {/* ── Directory view ───────────────────────────────────────────────────── */}
       {activeView === 'investors' && (
         <>
+          {/* Add Prospect modal */}
+          {showAddProspect && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+              <div className="w-full max-w-md bg-slate-900 ring-1 ring-white/15 rounded-2xl p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-semibold">Add Prospect / Backer</h2>
+                  <button onClick={() => setShowAddProspect(false)}><X size={18} className="text-slate-400 hover:text-white" /></button>
+                </div>
+                <p className="text-xs text-slate-400">For KS backers, new prospects, or acolytes entering via campaign.</p>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">First Name</label>
+                      <input value={prospectForm.firstName} onChange={(e) => setProspectForm({ ...prospectForm, firstName: e.target.value })}
+                        className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">Last Name</label>
+                      <input value={prospectForm.lastName} onChange={(e) => setProspectForm({ ...prospectForm, lastName: e.target.value })}
+                        className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1 block">Email</label>
+                    <input type="email" value={prospectForm.email} onChange={(e) => setProspectForm({ ...prospectForm, email: e.target.value })}
+                      className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">Cohort</label>
+                      <select value={prospectForm.campaign_cohort} onChange={(e) => setProspectForm({ ...prospectForm, campaign_cohort: e.target.value })}
+                        className="w-full bg-slate-800 border border-white/10 rounded-lg text-sm text-slate-300 px-3 py-2 focus:outline-none">
+                        <option value="">None</option>
+                        {COHORT_OPTIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+                        <option value="ks_backer">ks_backer</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1 block">Source</label>
+                      <select value={prospectForm.source} onChange={(e) => setProspectForm({ ...prospectForm, source: e.target.value })}
+                        className="w-full bg-slate-800 border border-white/10 rounded-lg text-sm text-slate-300 px-3 py-2 focus:outline-none">
+                        <option value="manual_entry">Manual entry</option>
+                        <option value="ks_backer">KS backer import</option>
+                        <option value="prospect">Prospect</option>
+                        <option value="referral">Referral</option>
+                        <option value="partner">Partner referral</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1 block">Notes</label>
+                    <input value={prospectForm.campaign_notes} onChange={(e) => setProspectForm({ ...prospectForm, campaign_notes: e.target.value })}
+                      className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      placeholder="How did they find us?" />
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-1">
+                  <button onClick={addProspect} disabled={addingSaving || (!prospectForm.firstName && !prospectForm.lastName && !prospectForm.email)}
+                    className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition">
+                    {addingSaving ? 'Adding…' : 'Add to Directory'}
+                  </button>
+                  <button onClick={() => setShowAddProspect(false)} className="px-4 text-slate-400 hover:text-white text-sm">Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Activation filters */}
           <div className="flex flex-wrap gap-2">
-            {([['all', 'All', investors.length], ['activated', 'Activated', activatedCount], ['inactive', 'Inactive', inactiveCount]] as const).map(
-              ([val, label, count]) => (
+            {([['all', 'All'], ['activated', 'Activated'], ['inactive', 'Inactive']] as const).map(
+              ([val, label]) => (
                 <button
                   key={val}
                   onClick={() => setActivatedFilter(val)}
@@ -577,7 +683,7 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
                       : 'bg-white/5 ring-white/10 text-slate-400 hover:text-white'
                   }`}
                 >
-                  {label} <span className="text-slate-500 ml-1">{count}</span>
+                  {label}
                 </button>
               )
             )}
@@ -813,11 +919,28 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
             </table>
           </div>
 
-          {!loading && (
-            <p className="text-xs text-slate-600 text-right">
-              {displayed.length} of {investors.length} · {activatedCount} activated · {inactiveCount} inactive
-              {selected.size > 0 && ` · ${selected.size} selected`}
-            </p>
+          {!loading && totalCount > 0 && (
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-slate-600">
+                {((currentPage - 1) * PAGE_SIZE) + 1}–{Math.min(currentPage * PAGE_SIZE, totalCount)} of {totalCount.toLocaleString()}
+                {selected.size > 0 && ` · ${selected.size} selected`}
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-2 py-1 rounded bg-white/5 text-xs text-slate-400 hover:text-white disabled:opacity-30 transition"
+                >← Prev</button>
+                <span className="text-xs text-slate-500 px-2">
+                  {currentPage} / {Math.ceil(totalCount / PAGE_SIZE)}
+                </span>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(Math.ceil(totalCount / PAGE_SIZE), p + 1))}
+                  disabled={currentPage >= Math.ceil(totalCount / PAGE_SIZE)}
+                  className="px-2 py-1 rounded bg-white/5 text-xs text-slate-400 hover:text-white disabled:opacity-30 transition"
+                >Next →</button>
+              </div>
+            </div>
           )}
         </>
       )}

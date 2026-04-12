@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const activatedFilter = searchParams.get('activated');
   const search = searchParams.get('search')?.trim().toLowerCase() ?? '';
-  const limit = Math.min(parseInt(searchParams.get('limit') ?? '200', 10), 500);
+  const limit = Math.min(parseInt(searchParams.get('limit') ?? '100', 10), 5000);
   const offset = parseInt(searchParams.get('offset') ?? '0', 10);
   const sort = searchParams.get('sort') ?? 'tier';
 
@@ -165,6 +165,17 @@ export async function GET(request: NextRequest) {
       isActivated,
       isLinked,
       personaId,
+      // Campaign fields (populated by migration 20260411000000)
+      campaign_cohort:           (inv['campaign_cohort']           as string | null) ?? null,
+      campaign_state:            (inv['campaign_state']            as string | null) ?? null,
+      campaign_notes:            (inv['campaign_notes']            as string | null) ?? null,
+      investment_amount_band:    (inv['investment_amount_band']    as string | null) ?? null,
+      investor_priority_band:    (inv['investor_priority_band']    as string | null) ?? null,
+      preferred_channel_primary: (inv['preferred_channel_primary'] as string | null) ?? null,
+      kickstarter_clicked_at:    (inv['kickstarter_clicked_at']    as string | null) ?? null,
+      kickstarter_backed_at:     (inv['kickstarter_backed_at']     as string | null) ?? null,
+      last_campaign_sent_at:     (inv['last_campaign_sent_at']     as string | null) ?? null,
+      last_campaign_sequence:    (inv['last_campaign_sequence']    as string | null) ?? null,
     };
   });
 
@@ -221,4 +232,68 @@ export async function GET(request: NextRequest) {
   const paged = results.slice(offset, offset + limit);
 
   return NextResponse.json({ data: paged, total, offset, limit });
+}
+
+/**
+ * POST /api/crm/investors
+ *
+ * Creates a new prospect/backer row in nakamoto_knyt_personas.
+ * Used for: KS backers, campaign prospects, acolytes — anyone who isn't
+ * already in the DB. Requires at minimum a first name or email.
+ * user_id is omitted — will be linked at signup via email match.
+ */
+export async function POST(request: NextRequest) {
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
+
+  const firstName = typeof body.firstName === 'string' ? body.firstName.trim() : '';
+  const lastName  = typeof body.lastName  === 'string' ? body.lastName.trim()  : '';
+  const email     = typeof body.email     === 'string' ? body.email.trim()     : '';
+
+  if (!firstName && !lastName && !email) {
+    return NextResponse.json({ error: 'At least one of firstName, lastName, or email is required' }, { status: 400 });
+  }
+
+  const client = getCrmClient();
+
+  // Check for duplicate email
+  if (email) {
+    const { data: existing } = await client
+      .from('nakamoto_knyt_personas')
+      .select('id')
+      .eq('Email', email)
+      .maybeSingle();
+    if (existing) {
+      return NextResponse.json({ error: 'A record with this email already exists', existingId: existing.id }, { status: 409 });
+    }
+  }
+
+  const insertPayload: Record<string, unknown> = {
+    'First-Name':      firstName || null,
+    'Last-Name':       lastName  || null,
+    'Email':           email     || null,
+    campaign_cohort:   typeof body.campaign_cohort   === 'string' ? body.campaign_cohort   : null,
+    campaign_state:    typeof body.campaign_state    === 'string' ? body.campaign_state    : 'unsent',
+    campaign_notes:    typeof body.campaign_notes    === 'string' ? body.campaign_notes    : null,
+    preferred_channel_primary: typeof body.preferred_channel === 'string' ? body.preferred_channel : null,
+    // Source tag — how this prospect entered the system
+    campaign_tags:     body.source ? [String(body.source)] : ['manual_entry'],
+  };
+
+  const { data, error } = await client
+    .from('nakamoto_knyt_personas')
+    .insert(insertPayload)
+    .select('id, "First-Name", "Last-Name", "Email", campaign_cohort, campaign_state')
+    .single();
+
+  if (error) {
+    console.error('[investors POST] insert error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ data }, { status: 201 });
 }
