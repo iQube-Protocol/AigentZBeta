@@ -315,6 +315,14 @@ export default function KnytRuntimeSurface({
   // Resolved stages — loaded from journey_states when personaId is present
   const [patronageStage, setPatronageStage] = useState<PatronageStage>(patronageStageProp);
   const [pcsStage, setPcsStage] = useState<PcsStage>(pcsStageProp);
+  // Investor campaign status — populated for known investors
+  const [investorStatus, setInvestorStatus] = useState<{
+    isInvestor: boolean;
+    ksBacked?: boolean;
+    campaignState?: string | null;
+    campaignCohort?: string | null;
+    ksTrackingUrl?: string;
+  } | null>(null);
 
   // Load the persona's journey state to resolve their actual axes
   useEffect(() => {
@@ -343,6 +351,29 @@ export default function KnytRuntimeSurface({
     }
 
     loadJourneyState();
+    return () => { cancelled = true; };
+  }, [personaId]);
+
+  // Load investor campaign status for the KNYT Wheel CTA lane
+  useEffect(() => {
+    if (!personaId) return;
+    let cancelled = false;
+
+    async function loadInvestorStatus() {
+      try {
+        const res = await fetch(
+          `/api/crm/campaign/investor-status?personaId=${encodeURIComponent(personaId!)}`,
+          { cache: "no-store" }
+        );
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (!cancelled) setInvestorStatus(data);
+      } catch {
+        // Non-investors silently get no status
+      }
+    }
+
+    loadInvestorStatus();
     return () => { cancelled = true; };
   }, [personaId]);
 
@@ -516,6 +547,33 @@ export default function KnytRuntimeSurface({
           </div>
         </CardContent>
       </Card>
+
+      {/* KNYT Wheel investor CTA — shown to known investors who haven't backed yet */}
+      {investorStatus?.isInvestor && !investorStatus.ksBacked && investorStatus.ksTrackingUrl && (
+        <Card className="rounded-xl border border-amber-700/40 bg-amber-950/25">
+          <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-amber-500 mb-1">KNYT Wheel — Live Now</p>
+              <p className="text-sm font-semibold text-slate-100">Secure your slot before the window closes.</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {investorStatus.campaignCohort === "top_shelf"
+                  ? "You are eligible for the Top Shelf equity offer."
+                  : investorStatus.campaignCohort === "zero_knyt"
+                  ? "Your Zero KNYT collectible offer is waiting."
+                  : "The KNYT Wheel campaign is live on Kickstarter."}
+              </p>
+            </div>
+            <a
+              href={investorStatus.ksTrackingUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black text-sm font-semibold rounded-lg transition whitespace-nowrap"
+            >
+              Back on Kickstarter <ArrowRight className="h-4 w-4" />
+            </a>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         <StageRail label="Patronage Axis" stage={patronageStage} progress={patronageProgress} accentClass="text-amber-300" />

@@ -136,6 +136,8 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
   const [search, setSearch] = useState('');
   const [activatedFilter, setActivatedFilter] = useState<'all' | 'activated' | 'inactive'>('all');
   const [sort, setSort] = useState<'name' | 'invested' | 'activated' | 'tier'>('tier');
+  const [cohortFilter, setCohortFilter] = useState('');
+  const [bandFilter, setBandFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const PAGE_SIZE = 100;
@@ -193,6 +195,8 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
         sort,
         ...(search ? { search } : {}),
         ...(activatedFilter !== 'all' ? { activated: String(activatedFilter === 'activated') } : {}),
+        ...(cohortFilter ? { cohort: cohortFilter } : {}),
+        ...(bandFilter ? { band: bandFilter } : {}),
       });
       const res = await fetch(`/api/crm/investors?${params}`);
       const json = await res.json();
@@ -206,9 +210,9 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
     } finally {
       setLoading(false);
     }
-  }, [search, sort, activatedFilter, currentPage]);
+  }, [search, sort, activatedFilter, cohortFilter, bandFilter, currentPage]);
 
-  useEffect(() => { setCurrentPage(1); }, [search, sort, activatedFilter]);
+  useEffect(() => { setCurrentPage(1); }, [search, sort, activatedFilter, cohortFilter, bandFilter]);
   useEffect(() => { fetchInvestors(currentPage); }, [fetchInvestors, currentPage]);
 
   async function fetchMetrics() {
@@ -687,6 +691,36 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
                 </button>
               )
             )}
+          </div>
+
+          {/* Cohort filter chips */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-slate-500">Cohort:</span>
+            <button
+              onClick={() => setCohortFilter('')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-medium ring-1 transition ${!cohortFilter ? 'bg-white/10 ring-white/20 text-white' : 'bg-white/5 ring-white/10 text-slate-400 hover:text-white'}`}
+            >All</button>
+            {[...COHORT_OPTIONS, 'unassigned'].map((val) => (
+              <button key={val} onClick={() => setCohortFilter(cohortFilter === val ? '' : val)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium ring-1 transition ${cohortFilter === val ? 'bg-amber-500/20 ring-amber-500/30 text-amber-300' : 'bg-white/5 ring-white/10 text-slate-400 hover:text-white'}`}>
+                {val}
+              </button>
+            ))}
+          </div>
+
+          {/* Investment band filter chips */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-slate-500">Band:</span>
+            <button
+              onClick={() => setBandFilter('')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-medium ring-1 transition ${!bandFilter ? 'bg-white/10 ring-white/20 text-white' : 'bg-white/5 ring-white/10 text-slate-400 hover:text-white'}`}
+            >All</button>
+            {['<500', '500-1999', '2000-4999', '5000+', 'unassigned'].map((val) => (
+              <button key={val} onClick={() => setBandFilter(bandFilter === val ? '' : val)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium ring-1 transition ${bandFilter === val ? 'bg-indigo-500/20 ring-indigo-500/30 text-indigo-300' : 'bg-white/5 ring-white/10 text-slate-400 hover:text-white'}`}>
+                {val}
+              </button>
+            ))}
           </div>
 
           {apiError && (

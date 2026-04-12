@@ -63,10 +63,12 @@ function isRealInvestor(inv: Record<string, unknown>): boolean {
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const activatedFilter = searchParams.get('activated');
-  const search = searchParams.get('search')?.trim().toLowerCase() ?? '';
-  const limit = Math.min(parseInt(searchParams.get('limit') ?? '100', 10), 5000);
-  const offset = parseInt(searchParams.get('offset') ?? '0', 10);
-  const sort = searchParams.get('sort') ?? 'tier';
+  const search    = searchParams.get('search')?.trim().toLowerCase() ?? '';
+  const cohort    = searchParams.get('cohort')?.trim() ?? '';   // campaign_cohort filter
+  const band      = searchParams.get('band')?.trim() ?? '';     // investment_amount_band filter
+  const limit     = Math.min(parseInt(searchParams.get('limit')  ?? '100', 10), 5000);
+  const offset    = parseInt(searchParams.get('offset') ?? '0', 10);
+  const sort      = searchParams.get('sort') ?? 'tier';
 
   const client = getCrmClient();
 
@@ -197,6 +199,20 @@ export async function GET(request: NextRequest) {
     results = results.filter((r) => r.isActivated);
   } else if (activatedFilter === 'false') {
     results = results.filter((r) => !r.isActivated);
+  }
+
+  // ── Step 5b: cohort filter ─────────────────────────────────────────────────
+  if (cohort === 'unassigned') {
+    results = results.filter((r) => !r.campaign_cohort);
+  } else if (cohort) {
+    results = results.filter((r) => r.campaign_cohort === cohort);
+  }
+
+  // ── Step 5c: investment band filter ───────────────────────────────────────
+  if (band === 'unassigned') {
+    results = results.filter((r) => !r.investment_amount_band);
+  } else if (band) {
+    results = results.filter((r) => r.investment_amount_band === band);
   }
 
   // ── Step 6: sort ───────────────────────────────────────────────────────────
