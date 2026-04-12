@@ -307,6 +307,8 @@ def insert_missing(investors: list[dict], json_only_emails: set, inv_by_email: d
             "csv_last_disbursed_date":  dates_d[-1] if dates_d else "",
             "csv_transfer_methods":   ",".join(methods),
             "investment_amount_band": investment_band(amount) if amount > 0 else None,
+            # user_id intentionally omitted — these investors have no auth account yet.
+            # It will be linked on first sign-up via email match.
         }
         # Drop empty-string values for cleanliness (keep falsy only for genuinely empty)
         row = {k: v for k, v in row.items() if v != "" and v is not None}
