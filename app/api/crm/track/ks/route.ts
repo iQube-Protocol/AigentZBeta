@@ -18,6 +18,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getCrmClient } from '@/services/crm/crmDataAccess';
+import { logClick } from '@/services/campaign/knytTrackingService';
 
 export const dynamic = 'force-dynamic';
 
@@ -136,10 +137,28 @@ export async function GET(request: NextRequest) {
   const clientIp  = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '';
   const userAgent = request.headers.get('user-agent') ?? '';
 
+  const utmContent  = searchParams.get('utm_content') ?? null;
+  const utmCampaign = searchParams.get('utm_campaign') ?? 'knyt_wheel_launch';
+  const utmTerm     = searchParams.get('utm_term') ?? null;
+  const linkTag     = searchParams.get('tag') ?? null;
+
   // Fire tracking events in parallel — none block the redirect
   const trackingJobs: Promise<void>[] = [
     fireGa4Event(uid, utmSource, utmMedium),
     fireMetaEvent(uid, null, clientIp, userAgent, redirectUrl),
+    // Internal telemetry — append-only click event log
+    logClick({
+      linkTag,
+      investorId:   uid,
+      utmSource,
+      utmMedium,
+      utmCampaign,
+      utmContent,
+      utmTerm,
+      ipAddress:    clientIp || null,
+      userAgent:    userAgent || null,
+      resolvedKsUrl: redirectUrl,
+    }) as unknown as Promise<void>,
   ];
 
   if (uid) {

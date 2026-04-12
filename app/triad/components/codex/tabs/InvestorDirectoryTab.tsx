@@ -129,7 +129,7 @@ interface Props {
 export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: _personaId }: Props) {
   const router = useRouter();
 
-  const [activeView, setActiveView] = useState<'investors' | 'dashboard'>('investors');
+  const [activeView, setActiveView] = useState<'investors' | 'dashboard' | 'tracking' | 'queue'>('investors');
   const [investors, setInvestors] = useState<Investor[]>([]);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -159,6 +159,19 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
   // Dashboard
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [metricsLoading, setMetricsLoading] = useState(false);
+
+  // Tracking
+  const [health, setHealth] = useState<Record<string, unknown> | null>(null);
+  const [healthLoading, setHealthLoading] = useState(false);
+  const [trackingLinks, setTrackingLinks] = useState<Record<string, unknown>[]>([]);
+  const [linksLoading, setLinksLoading] = useState(false);
+  const [generatingPack, setGeneratingPack] = useState(false);
+  const [copiedTag, setCopiedTag] = useState<string | null>(null);
+
+  // Follow-up queue
+  const [queue, setQueue] = useState<Record<string, unknown>[]>([]);
+  const [queueLoading, setQueueLoading] = useState(false);
+  const [computingQueue, setComputingQueue] = useState(false);
 
   // ── Fetch ───────────────────────────────────────────────────────────────────
 
@@ -195,6 +208,69 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
 
   useEffect(() => {
     if (activeView === 'dashboard') fetchMetrics();
+  }, [activeView]);
+
+  async function fetchHealth() {
+    setHealthLoading(true);
+    try {
+      const res = await fetch('/api/crm/campaign/health');
+      const json = await res.json();
+      if (res.ok) setHealth(json.health);
+    } finally { setHealthLoading(false); }
+  }
+
+  async function fetchTrackingLinks() {
+    setLinksLoading(true);
+    try {
+      const res = await fetch('/api/crm/campaign/tracking-links');
+      const json = await res.json();
+      if (res.ok) setTrackingLinks(json.data ?? []);
+    } finally { setLinksLoading(false); }
+  }
+
+  async function generatePack() {
+    setGeneratingPack(true);
+    try {
+      const res = await fetch('/api/crm/campaign/tracking-links', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'generate' }),
+      });
+      if (res.ok) fetchTrackingLinks();
+    } finally { setGeneratingPack(false); }
+  }
+
+  async function fetchQueue() {
+    setQueueLoading(true);
+    try {
+      const res = await fetch('/api/crm/campaign/followup-queue?limit=100');
+      const json = await res.json();
+      if (res.ok) setQueue(json.data ?? []);
+    } finally { setQueueLoading(false); }
+  }
+
+  async function computeQueue() {
+    setComputingQueue(true);
+    try {
+      await fetch('/api/crm/campaign/followup-queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'compute' }),
+      });
+      fetchQueue();
+    } finally { setComputingQueue(false); }
+  }
+
+  function copyLink(url: string, tag: string) {
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedTag(tag);
+      setTimeout(() => setCopiedTag(null), 2000);
+    });
+  }
+
+  useEffect(() => {
+    if (activeView === 'tracking') { fetchHealth(); fetchTrackingLinks(); }
+    if (activeView === 'queue') fetchQueue();
   }, [activeView]);
 
   // ── Derived ─────────────────────────────────────────────────────────────────
@@ -302,19 +378,18 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
           </span>
         </div>
         {/* View switcher */}
-        <div className="flex items-center gap-1 bg-white/5 rounded-xl p-1">
-          <button
-            onClick={() => setActiveView('investors')}
-            className={`px-3 py-1 rounded-lg text-xs font-medium transition ${activeView === 'investors' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'}`}
-          >
-            <Users size={12} className="inline mr-1" />Directory
-          </button>
-          <button
-            onClick={() => setActiveView('dashboard')}
-            className={`px-3 py-1 rounded-lg text-xs font-medium transition ${activeView === 'dashboard' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'}`}
-          >
-            <BarChart3 size={12} className="inline mr-1" />Dashboard
-          </button>
+        <div className="flex items-center gap-1 bg-white/5 rounded-xl p-1 flex-wrap">
+          {([
+            ['investors', <Users size={12} />, 'Directory'],
+            ['dashboard', <BarChart3 size={12} />, 'Metrics'],
+            ['tracking',  <Zap size={12} />,     'Tracking'],
+            ['queue',     <Send size={12} />,     'Queue'],
+          ] as const).map(([view, icon, label]) => (
+            <button key={view} onClick={() => setActiveView(view)}
+              className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-medium transition ${activeView === view ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'}`}>
+              {icon}{label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -339,6 +414,146 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
               <MetricTile label="Reactivated"          value={metrics.reactivated} />
               <MetricTile label="Shares"               value={metrics.shares_count} sub="Phase 2" />
               <MetricTile label="Runtime Follow-ups"   value={metrics.runtime_followups} sub="Phase 2" />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Tracking view ───────────────────────────────────────────────────── */}
+      {activeView === 'tracking' && (
+        <div className="space-y-5">
+          {/* Health panel */}
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-slate-400">Instrumentation health</p>
+            <button onClick={fetchHealth} className="text-xs text-slate-400 hover:text-white transition">Refresh</button>
+          </div>
+          {healthLoading && <p className="text-slate-400 text-sm">Loading…</p>}
+          {health && (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {([
+                ['KS URL',       health.ks_url_configured],
+                ['Make Webhook', health.webhook_configured],
+                ['GA4',          health.ga4_configured],
+                ['Meta CAPI',    health.meta_configured],
+              ] as [string, unknown][]).map(([label, ok]) => (
+                <div key={label} className={`rounded-xl p-3 ring-1 ${ok ? 'bg-emerald-500/10 ring-emerald-500/20' : 'bg-amber-500/10 ring-amber-500/20'}`}>
+                  <p className="text-xs font-medium text-slate-300">{label}</p>
+                  <p className={`text-sm font-bold mt-0.5 ${ok ? 'text-emerald-400' : 'text-amber-400'}`}>{ok ? 'Configured' : 'Not set'}</p>
+                </div>
+              ))}
+              <div className="rounded-xl p-3 ring-1 bg-white/5 ring-white/10">
+                <p className="text-xs text-slate-400">Clicks today</p>
+                <p className="text-2xl font-bold text-white">{String(health.clicks_today ?? 0)}</p>
+              </div>
+              <div className="rounded-xl p-3 ring-1 bg-white/5 ring-white/10">
+                <p className="text-xs text-slate-400">All-time clicks</p>
+                <p className="text-2xl font-bold text-white">{String(health.clicks_all_time ?? 0)}</p>
+              </div>
+              <div className="col-span-2 rounded-xl p-3 ring-1 bg-white/5 ring-white/10">
+                <p className="text-xs text-slate-400">Last click</p>
+                <p className="text-sm font-medium text-white">{health.last_click_at ? new Date(health.last_click_at as string).toLocaleString() : '—'}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Link registry */}
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-xs text-slate-400">Link registry — {trackingLinks.length} links</p>
+            <div className="flex items-center gap-2">
+              <button onClick={fetchTrackingLinks} className="text-xs text-slate-400 hover:text-white transition">Refresh</button>
+              <button onClick={generatePack} disabled={generatingPack}
+                className="px-3 py-1 bg-fuchsia-500/20 text-fuchsia-300 ring-1 ring-fuchsia-500/30 rounded-lg text-xs font-medium hover:bg-fuchsia-500/30 disabled:opacity-40 transition">
+                {generatingPack ? 'Generating…' : 'Regenerate Pack'}
+              </button>
+            </div>
+          </div>
+          {linksLoading && <p className="text-slate-400 text-sm">Loading…</p>}
+          {trackingLinks.length > 0 && (
+            <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-white/10 text-slate-400">
+                    <th className="text-left px-3 py-2 font-medium">Tag</th>
+                    <th className="text-left px-3 py-2 font-medium hidden lg:table-cell">Owner</th>
+                    <th className="text-left px-3 py-2 font-medium hidden md:table-cell">Channel</th>
+                    <th className="text-right px-3 py-2 font-medium">Clicks</th>
+                    <th className="px-3 py-2" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {trackingLinks.map((link) => (
+                    <tr key={String(link.tag_name)} className="border-b border-white/5 hover:bg-white/5 transition">
+                      <td className="px-3 py-2 font-mono text-slate-300">{String(link.tag_name)}</td>
+                      <td className="px-3 py-2 hidden lg:table-cell text-slate-400">{String(link.owner_name ?? link.owner_key ?? '—')}</td>
+                      <td className="px-3 py-2 hidden md:table-cell text-slate-500">{String(link.channel)}</td>
+                      <td className="px-3 py-2 text-right font-medium text-amber-300">{String(link.click_count ?? 0)}</td>
+                      <td className="px-3 py-2">
+                        <button onClick={() => copyLink(String(link.redirect_url), String(link.tag_name))}
+                          className="px-2 py-1 bg-white/5 hover:bg-white/10 ring-1 ring-white/10 rounded text-slate-300 hover:text-white transition">
+                          {copiedTag === String(link.tag_name) ? 'Copied!' : 'Copy'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Follow-up Queue view ─────────────────────────────────────────────── */}
+      {activeView === 'queue' && (
+        <div className="space-y-5">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-slate-400">Signal-driven follow-up queue — ranked by priority score</p>
+            <div className="flex items-center gap-2">
+              <button onClick={fetchQueue} className="text-xs text-slate-400 hover:text-white transition">Refresh</button>
+              <button onClick={computeQueue} disabled={computingQueue}
+                className="px-3 py-1 bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30 rounded-lg text-xs font-medium hover:bg-amber-500/30 disabled:opacity-40 transition">
+                {computingQueue ? 'Computing…' : 'Recompute Queue'}
+              </button>
+            </div>
+          </div>
+          {queueLoading && <p className="text-slate-400 text-sm">Loading…</p>}
+          {queue.length === 0 && !queueLoading && (
+            <div className="rounded-xl p-6 bg-white/5 ring-1 ring-white/10 text-center">
+              <p className="text-slate-400 text-sm">Queue is empty — click Recompute to score from live signals.</p>
+            </div>
+          )}
+          {queue.length > 0 && (
+            <div className="rounded-2xl bg-white/5 ring-1 ring-white/10 overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-white/10 text-slate-400">
+                    <th className="text-left px-3 py-2 font-medium">Name</th>
+                    <th className="text-left px-3 py-2 font-medium hidden md:table-cell">Type</th>
+                    <th className="text-left px-3 py-2 font-medium hidden lg:table-cell">State</th>
+                    <th className="text-right px-3 py-2 font-medium">Score</th>
+                    <th className="text-left px-3 py-2 font-medium hidden xl:table-cell">Next Action</th>
+                    <th className="text-left px-3 py-2 font-medium hidden xl:table-cell">Channel</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {queue.map((entry, i) => (
+                    <tr key={i} className="border-b border-white/5 hover:bg-white/5 transition">
+                      <td className="px-3 py-2">
+                        <p className="font-medium text-white truncate max-w-[140px]">{String(entry.display_name || '—')}</p>
+                        {entry.email && <p className="text-slate-500 truncate max-w-[140px]">{String(entry.email)}</p>}
+                      </td>
+                      <td className="px-3 py-2 hidden md:table-cell">
+                        <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${entry.entity_type === 'investor' ? 'bg-amber-500/15 text-amber-300' : 'bg-cyan-500/15 text-cyan-300'}`}>
+                          {String(entry.entity_type)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 hidden lg:table-cell text-slate-400">{String(entry.current_state ?? '—')}</td>
+                      <td className="px-3 py-2 text-right font-bold text-amber-300">{Number(entry.priority_score).toFixed(0)}</td>
+                      <td className="px-3 py-2 hidden xl:table-cell text-slate-300">{String(entry.recommended_next_action ?? '—')}</td>
+                      <td className="px-3 py-2 hidden xl:table-cell text-slate-400">{String(entry.recommended_channel ?? '—')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
