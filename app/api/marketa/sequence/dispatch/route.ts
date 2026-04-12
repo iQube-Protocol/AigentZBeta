@@ -258,12 +258,30 @@ async function handleKnytWheelDispatch(body: KnytWheelDispatchBody): Promise<Nex
   // Fetch investor details from nakamoto_knyt_personas
   const { data: investors, error: fetchError } = await supabase
     .from('nakamoto_knyt_personas')
-    .select('id, "First-Name", "Last-Name", "Email", campaign_cohort, investment_amount_band, is_activated_knyt')
+    .select('id, "First-Name", "Last-Name", "Email", campaign_cohort, investment_amount_band')
     .in('id', recipientIds);
 
   if (fetchError) {
     console.error('[marketa/dispatch] KNYT investor fetch failed:', fetchError);
     return NextResponse.json({ error: 'Failed to fetch investor details' }, { status: 500 });
+  }
+
+  // Derive activation: batch-check crm_personas for an identity_persona_id
+  const emails = (investors ?? [])
+    .map((inv) => (inv as Record<string, unknown>)['Email'] as string | null)
+    .filter((e): e is string => !!e)
+    .map((e) => e.toLowerCase());
+
+  const activatedEmails = new Set<string>();
+  if (emails.length > 0) {
+    const { data: crmRows } = await supabase
+      .from('crm_personas')
+      .select('email')
+      .in('email', emails)
+      .not('identity_persona_id', 'is', null);
+    (crmRows ?? []).forEach((row) => {
+      if (row.email) activatedEmails.add(row.email.toLowerCase());
+    });
   }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.aigentzbeta.com';
@@ -275,13 +293,14 @@ async function handleKnytWheelDispatch(body: KnytWheelDispatchBody): Promise<Nex
     const lastName  = (row['Last-Name']  as string | null) ?? '';
     const ksUrl = `${appUrl}/api/crm/track/ks?uid=${row['id']}&utm_source=knyt_wheel&utm_medium=${encodeURIComponent(channel)}&utm_content=${encodeURIComponent(cohort ?? 'general')}`;
 
+    const email = (row['Email'] as string | null) ?? '';
     return {
       id:               row['id'] as string,
       name:             `${firstName} ${lastName}`.trim(),
-      email:            (row['Email'] as string | null) ?? '',
+      email,
       cohort,
       investment_band:  (row['investment_amount_band'] as string | null) ?? null,
-      is_activated:     !!(row['is_activated_knyt'] as boolean | null),
+      is_activated:     activatedEmails.has(email.toLowerCase()),
       ks_tracking_url:  ksUrl,
     };
   });
