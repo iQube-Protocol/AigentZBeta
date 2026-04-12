@@ -14,6 +14,8 @@
  *   await adapter.send({ ... });
  */
 
+import { sendgridAdapter } from '@/services/campaign/adapters/sendgridAdapter';
+
 export interface ChannelPayload {
   /** Sequence identifier (e.g. knyt_top_shelf_v1) */
   sequenceId: string;
@@ -83,7 +85,7 @@ export const channelRegistry: Record<string, ChannelAdapter> = {
   make_com:             makeDotComAdapter,
 
   // ── Phase 2 (native email / SMS) ──────────────────────────────────────────
-  email_sendgrid:       plannedAdapter('email_sendgrid', 'SendGrid Email'),
+  email_sendgrid:       sendgridAdapter,
   sms_twilio:           plannedAdapter('sms_twilio', 'Twilio SMS'),
 
   // ── Phase 2+ (social / messaging) ─────────────────────────────────────────
