@@ -268,6 +268,77 @@ def apply_enrichment(report: dict) -> dict:
     return {"applied": applied, "total": total, "errors": errors}
 
 
+def insert_missing(investors: list[dict], json_only_emails: set, inv_by_email: dict) -> dict:
+    """
+    Insert new nakamoto_knyt_personas rows for investors in the JSON
+    who have no CRM record yet (matched by email).
+    """
+    to_insert = [inv_by_email[e] for e in json_only_emails if e in inv_by_email]
+    total   = len(to_insert)
+    inserted = 0
+    errors: list[str] = []
+
+    print(f"\n→ Inserting {total:,} missing investors into CRM…", file=sys.stderr)
+
+    for i, inv in enumerate(to_insert):
+        investments = inv.get("investments") or []
+        statuses    = [t.get("status", "") for t in investments if t.get("status")]
+        methods     = sorted({t.get("payment_method", "") for t in investments if t.get("payment_method")})
+        dates_c     = sorted([t["date_committed"] for t in investments if t.get("date_committed")])
+        dates_d     = sorted([t["date_disbursed"]  for t in investments if t.get("date_disbursed")])
+        status_rank = {"invested": 2, "committed": 1}
+        best_status = max(statuses, key=lambda s: status_rank.get(s.lower(), 0), default="")
+        amount      = float(inv.get("total_amount_committed") or 0)
+
+        row = {
+            "Email":                  inv.get("email", ""),
+            "First-Name":             inv.get("first_name") or "",
+            "Last-Name":              inv.get("last_name") or "",
+            "Phone-Number":           inv.get("phone") or "",
+            "Address":                inv.get("address") or "",
+            "EVM-Public-Key":         inv.get("public_key") or "",
+            "KNYT-ID":                inv.get("knyt_handle") or "",
+            "Discord-Handle":         inv.get("discord_handle") or "",
+            "Total-Invested":         str(round(amount, 2)) if amount > 0 else "",
+            "Metaiye-Shares-Owned":   str(int(inv.get("total_equity_shares") or 0)),
+            "csv_investment_status":  best_status,
+            "csv_transaction_count":  inv.get("investment_count", len(investments)),
+            "csv_first_committed_date": dates_c[0] if dates_c else "",
+            "csv_last_disbursed_date":  dates_d[-1] if dates_d else "",
+            "csv_transfer_methods":   ",".join(methods),
+            "investment_amount_band": investment_band(amount) if amount > 0 else None,
+        }
+        # Drop empty-string values for cleanliness (keep falsy only for genuinely empty)
+        row = {k: v for k, v in row.items() if v != "" and v is not None}
+        # Email is required
+        if not row.get("Email"):
+            continue
+
+        resp = requests.post(
+            f"{REST_URL}/nakamoto_knyt_personas",
+            headers={**HEADERS, "Prefer": "return=minimal"},
+            data=json.dumps(row),
+        )
+        if resp.ok:
+            inserted += 1
+        else:
+            errors.append(f"{inv.get('email')}: {resp.status_code} {resp.text[:150]}")
+            if len(errors) <= 3:
+                print(f"\n  INSERT error {resp.status_code}: {resp.text[:300]}", file=sys.stderr)
+
+        if (i + 1) % 100 == 0 or (i + 1) == total:
+            print(f"  {i + 1}/{total}…", file=sys.stderr, end="\r")
+
+        if (i + 1) % 200 == 0:
+            time.sleep(0.5)
+
+    print(f"\n✓ Insert complete: {inserted:,}/{total:,} rows created, {len(errors)} errors", file=sys.stderr)
+    for e in errors[:10]:
+        print(f"  ✗ {e}", file=sys.stderr)
+
+    return {"inserted": inserted, "total": total, "errors": errors}
+
+
 def apply_investment_bands(investors: list[dict], crm_records: list[dict]) -> dict:
     crm_by_email = {
         norm_email(r.get("Email", "")): r
@@ -295,10 +366,11 @@ def apply_investment_bands(investors: list[dict], crm_records: list[dict]) -> di
 
 def main():
     parser = argparse.ArgumentParser(description="Import consolidated investor JSON into nakamoto_knyt_personas")
-    parser.add_argument("--json",        required=True,      help="Path to consolidated investor JSON")
-    parser.add_argument("--apply",       action="store_true", help="Write changes to Supabase (default: dry run)")
-    parser.add_argument("--apply-bands", action="store_true", help="Also set investment_amount_band (requires --apply)")
-    parser.add_argument("--output",      default="",         help="Write JSON report to file (default: stdout)")
+    parser.add_argument("--json",           required=True,      help="Path to consolidated investor JSON")
+    parser.add_argument("--apply",         action="store_true", help="Write enrichment changes to Supabase (default: dry run)")
+    parser.add_argument("--apply-bands",   action="store_true", help="Also set investment_amount_band (requires --apply)")
+    parser.add_argument("--insert-missing",action="store_true", help="Insert new CRM rows for investors not yet in DB (requires --apply)")
+    parser.add_argument("--output",        default="",         help="Write JSON report to file (default: stdout)")
     args = parser.parse_args()
 
     if not os.path.exists(args.json):
@@ -330,8 +402,13 @@ def main():
         if args.apply_bands:
             band_result = apply_investment_bands(investors, crm_records)
             report["apply_bands_result"] = band_result
-    elif args.apply_bands:
-        print("WARNING: --apply-bands requires --apply. Skipping.", file=sys.stderr)
+        if args.insert_missing:
+            json_only_emails = set(report["json_investors_not_in_crm"])
+            inv_by_email = {norm_email(inv["email"]): inv for inv in investors if inv.get("email")}
+            insert_result = insert_missing(investors, json_only_emails, inv_by_email)
+            report["insert_missing_result"] = insert_result
+    elif args.apply_bands or args.insert_missing:
+        print("WARNING: --apply-bands and --insert-missing require --apply. Skipping.", file=sys.stderr)
 
     output_json = json.dumps(report, indent=2, default=str)
     if args.output:
@@ -349,6 +426,9 @@ def main():
     print(f"  Records with changes:        {s['crm_records_with_changes']:>6,}", file=sys.stderr)
     print(f"  In JSON but not in CRM:      {s['json_investors_not_in_crm']:>6,}", file=sys.stderr)
     print(f"  In CRM but not in JSON:      {s['crm_records_not_in_json']:>6,}", file=sys.stderr)
+    if "insert_missing_result" in report:
+        ins = report["insert_missing_result"]
+        print(f"  New rows inserted:           {ins['inserted']:>6,}", file=sys.stderr)
     print("╚══════════════════════════════════════════════════╝", file=sys.stderr)
 
     if report.get("field_enrichment_opportunities"):
