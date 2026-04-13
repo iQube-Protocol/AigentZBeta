@@ -731,6 +731,28 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       }
     },
     {
+      id: 'agentiq-knyt',
+      label: 'AgentiQ KNYT',
+      slug: 'agentiq-knyt',
+      enabled: true,
+      adminOnly: true,
+      order: 10,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'agentiq',
+          collectionId: 'col_agentiq_knyt',
+          defaultPath: 'items/AGENTIQ_KNYT.md'
+        }
+      },
+      metadata: {
+        icon: 'Zap',
+        description: 'Next-stage Alpha Program package for the metaMe / AgentiQ / AgentiQ OS engine, with KNYT as the primary live cartridge and Qriptopian as its support layer.',
+        color: 'amber'
+      }
+    },
+    {
       id: 'updates',
       label: 'Updates',
       slug: 'updates',
