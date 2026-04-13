@@ -15,6 +15,7 @@
  */
 
 import { sendgridAdapter } from '@/services/campaign/adapters/sendgridAdapter';
+import { mailjetAdapter }  from '@/services/campaign/adapters/mailjetAdapter';
 
 export interface ChannelPayload {
   /** Sequence identifier (e.g. knyt_top_shelf_v1) */
@@ -86,6 +87,7 @@ export const channelRegistry: Record<string, ChannelAdapter> = {
 
   // ── Phase 2 (native email / SMS) ──────────────────────────────────────────
   email_sendgrid:       sendgridAdapter,
+  email_mailjet:        mailjetAdapter,
   sms_twilio:           plannedAdapter('sms_twilio', 'Twilio SMS'),
 
   // ── Phase 2+ (social / messaging) ─────────────────────────────────────────
