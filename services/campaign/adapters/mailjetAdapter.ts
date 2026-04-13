@@ -119,9 +119,14 @@ async function sendBatch(
   fromEmail: string,
   fromName: string,
 ): Promise<{ success: boolean; error?: string }> {
+  // Optional BCC — set MAILJET_BCC_EMAIL in Amplify to receive a copy of every outbound email
+  const bccEmail = process.env.MAILJET_BCC_EMAIL;
+  const bcc = bccEmail ? [{ Email: bccEmail }] : undefined;
+
   const messages = recipients.map((r) => ({
     From:            { Email: fromEmail, Name: fromName },
     To:              [{ Email: r.email, Name: r.fullName }],
+    ...(bcc ? { Bcc: bcc } : {}),
     TemplateID:      tmplId,
     TemplateLanguage: true,
     Variables: {
