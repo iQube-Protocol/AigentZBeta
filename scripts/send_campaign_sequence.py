@@ -113,26 +113,35 @@ def supabase_request(path: str) -> tuple[int, list | dict]:
 # ── Recipient query ───────────────────────────────────────────────────────────
 
 def fetch_recipients(cohort: str, states: list[str], limit: int | None) -> list[str]:
-    """Returns list of nakamoto IDs matching the cohort/state filter."""
+    """Returns list of nakamoto IDs matching the cohort/state filter (paginated)."""
     sb_url  = os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
     sb_key  = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     if not sb_url or not sb_key:
         sys.exit("ERROR: NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set")
 
     state_filter = ",".join(f'"{s}"' for s in states)
-    qs = f'nakamoto_knyt_personas?select=id,"Email"&campaign_state=in.({state_filter})&"Email"=not.is.null'
-
+    base_qs = f'nakamoto_knyt_personas?select=id,"Email"&campaign_state=in.({state_filter})&"Email"=not.is.null'
     if cohort != "all":
-        qs += f"&campaign_cohort=eq.{cohort}"
+        base_qs += f"&campaign_cohort=eq.{cohort}"
+
+    PAGE = 500
+    all_ids: list[str] = []
+    offset = 0
+    while True:
+        qs = base_qs + f"&offset={offset}&limit={PAGE}"
+        status, rows = supabase_request(qs)
+        if status != 200 or not isinstance(rows, list):
+            sys.exit(f"ERROR: Supabase query failed ({status}): {rows}")
+        all_ids.extend(r["id"] for r in rows if r.get("id"))
+        if len(rows) < PAGE:
+            break
+        offset += PAGE
+        if limit and len(all_ids) >= limit:
+            break
 
     if limit:
-        qs += f"&limit={limit}"
-
-    status, rows = supabase_request(qs)
-    if status != 200 or not isinstance(rows, list):
-        sys.exit(f"ERROR: Supabase query failed ({status}): {rows}")
-
-    return [r["id"] for r in rows if r.get("id")]
+        all_ids = all_ids[:limit]
+    return all_ids
 
 # ── Dispatch ──────────────────────────────────────────────────────────────────
 
