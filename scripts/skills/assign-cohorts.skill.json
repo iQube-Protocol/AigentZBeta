@@ -48,7 +48,7 @@
     "cohortLogic": {
       "top_shelf":    "investment_amount_band in ('2000-4999', '5000+')",
       "zero_knyt":    "investment_amount_band = '1000-1999'",
-      "reactivation": "band in ('500-999','100-499') AND has crm_personas AND not backed",
+      "reactivation": "band in ('500-999','100-499') — invested >$100 but <$1000, not yet backed",
       "general":      "everyone else with email"
     }
   },

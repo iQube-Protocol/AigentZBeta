@@ -82,7 +82,7 @@ def assign_cohort(band: str | None, has_persona: bool, state: str | None) -> str
         return "top_shelf"
     if band in ZERO_KNYT_BANDS:
         return "zero_knyt"
-    if band in REACTIVATION_BANDS and has_persona:
+    if band in REACTIVATION_BANDS:
         return "reactivation"
     return "general"
 
