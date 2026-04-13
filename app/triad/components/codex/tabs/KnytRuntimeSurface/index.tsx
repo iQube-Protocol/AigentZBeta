@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Compass, Wifi, WifiOff } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowRight, Brain, Compass, Wifi, WifiOff } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -305,6 +306,7 @@ export default function KnytRuntimeSurface({
   featuredContentId,
 }: KnytRuntimeSurfaceProps) {
   const { toast } = useToast();
+  const router = useRouter();
   const [featuredMoment, setFeaturedMoment] = useState<FeaturedMoment | null>(null);
   const [openElection, setOpenElection] = useState<OpenElection | null>(null);
   const [submittingAction, setSubmittingAction] = useState<string | null>(null);
@@ -539,7 +541,7 @@ export default function KnytRuntimeSurface({
               {networkOnline ? "Network OK" : "Offline"}
             </Badge>
             {runtimeState.handoffs.kn0w1 ? (
-              <Badge variant="outline" className="border-indigo-800 text-indigo-300">Kn0w1 available</Badge>
+              <Badge variant="outline" className="border-amber-700 text-amber-300">Kn0w1 lead</Badge>
             ) : null}
             {personaId ? (
               <Badge variant="outline" className="border-slate-700 text-slate-400">Persona {personaId.slice(0, 8)}…</Badge>
@@ -600,7 +602,7 @@ export default function KnytRuntimeSurface({
                 {featuredMoment?.state ? <Badge variant="outline" className="border-slate-700 text-slate-300">{featuredMoment.state}</Badge> : null}
               </div>
               <div className="flex gap-2 pt-1">
-                <Button size="sm" variant="secondary" className="bg-indigo-600 hover:bg-indigo-500 text-white">
+                <Button size="sm" variant="secondary" className="bg-amber-600 hover:bg-amber-500 text-white">
                   {runtimeState.featured_moment.primary_cta}
                 </Button>
                 {runtimeState.featured_moment.secondary_cta ? (
@@ -662,25 +664,77 @@ export default function KnytRuntimeSurface({
           <p className="font-semibold text-slate-100">{runtimeState.next_best_step.action}</p>
           <p className="text-slate-300">{runtimeState.next_best_step.rationale}</p>
           {runtimeState.next_best_step.unlock ? (
-            <p className="text-xs text-indigo-300">Unlocks: {runtimeState.next_best_step.unlock}</p>
+            <p className="text-xs text-amber-300/80">Unlocks: {runtimeState.next_best_step.unlock}</p>
           ) : null}
-          <Button size="sm" className="bg-indigo-600 hover:bg-indigo-500 text-white">
+          <Button size="sm" className="bg-amber-600 hover:bg-amber-500 text-white">
             Do this now <ArrowRight className="ml-1 h-3.5 w-3.5" />
           </Button>
         </CardContent>
       </Card>
 
-      <Card className="rounded-xl border border-slate-800 bg-slate-950/80">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-slate-300">Go Deeper</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          {runtimeState.handoffs.kn0w1 ? <Button size="sm" variant="outline" className="border-slate-700 text-slate-100">Ask Kn0w1</Button> : null}
-          {runtimeState.handoffs.metame ? <Button size="sm" variant="outline" className="border-slate-700 text-slate-100">See your path in metaMe</Button> : null}
-          {runtimeState.handoffs.aigent_c ? <Button size="sm" variant="outline" className="border-slate-700 text-slate-100">Explore builder path with Aigent C</Button> : null}
-          {runtimeState.handoffs.marketa ? <Button size="sm" variant="outline" className="border-slate-700 text-slate-100">Launch context from Marketa</Button> : null}
-        </CardContent>
-      </Card>
+      {runtimeState.handoffs.kn0w1 ? (
+        <Card className="rounded-xl border border-amber-700/40 bg-amber-950/20">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-amber-300 flex items-center gap-2">
+              <Brain className="h-4 w-4 text-amber-400" />
+              Kn0w1 — KNYT Intelligence
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-amber-200/80">
+              Kn0w1 is your lead intelligence surface for the KNYT cartridge. Ask about treasury, rewards, Qc vs $KNYT, your progression, and what your next real move inside the system is.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                className="bg-amber-500 hover:bg-amber-400 text-black font-semibold"
+                onClick={() => router.push("/aigents/aigent-kn0w1")}
+              >
+                Ask Kn0w1 <ArrowRight className="ml-1 h-3.5 w-3.5" />
+              </Button>
+              {runtimeState.handoffs.metame ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-slate-600 text-slate-200 hover:border-slate-500"
+                  onClick={() => router.push("/metame")}
+                >
+                  See your path in metaMe
+                </Button>
+              ) : null}
+              {runtimeState.handoffs.aigent_c ? (
+                <Button size="sm" variant="outline" className="border-slate-700 text-slate-100">
+                  Builder path with Aigent C
+                </Button>
+              ) : null}
+              {runtimeState.handoffs.marketa ? (
+                <Button size="sm" variant="outline" className="border-slate-700 text-slate-100">
+                  Marketa context
+                </Button>
+              ) : null}
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="rounded-xl border border-slate-800 bg-slate-950/80">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-slate-300">Go Deeper</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            {runtimeState.handoffs.metame ? (
+              <Button size="sm" variant="outline" className="border-slate-700 text-slate-100" onClick={() => router.push("/metame")}>
+                See your path in metaMe
+              </Button>
+            ) : null}
+            {runtimeState.handoffs.aigent_c ? (
+              <Button size="sm" variant="outline" className="border-slate-700 text-slate-100">Explore builder path with Aigent C</Button>
+            ) : null}
+            {runtimeState.handoffs.marketa ? (
+              <Button size="sm" variant="outline" className="border-slate-700 text-slate-100">Launch context from Marketa</Button>
+            ) : null}
+          </CardContent>
+        </Card>
+      )}
 
       {runtimeState.contributor_pathway_flag ? (
         <Card className="rounded-xl border border-fuchsia-900 bg-fuchsia-950/20">
