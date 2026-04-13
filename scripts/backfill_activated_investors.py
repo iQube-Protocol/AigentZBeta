@@ -7,10 +7,14 @@ platform accounts in crm_personas/crm_auth_profiles, for investors who
 signed up on the platform before the auto-link hook was deployed.
 
 Matching strategy:
-  1. Email match  — nakamoto_knyt_personas.Email matches crm_personas.email
-                    (case-insensitive)
-  2. Name match   — first+last name match on both tables
+  1. Email match  — nakamoto_knyt_personas.Email matches crm_auth_profiles.email
+                    (case-insensitive) — crm_auth_profiles are real login accounts
+  2. Name match   — first+last name match via crm_auth_profile_emails display names
                     (flagged as "needs review" — operator must confirm)
+
+NOTE: crm_personas is NOT used here — it was bulk-imported from investor CSV on
+2025-06-19 and does not represent real platform signups. crm_auth_profiles rows
+are created only when a real user logs in via Supabase Auth.
 
 The "activated investor" state is:
   nakamoto_knyt_personas.platform_activated_at IS NOT NULL
@@ -114,14 +118,17 @@ for r in investors:
     if fn and ln:
         inv_by_name[f"{fn}|{ln}"] = r
 
-# ── Fetch crm_personas with email ─────────────────────────────────────────────
+# ── Fetch crm_auth_profiles — real platform logins ────────────────────────────
+# crm_personas was bulk-imported from CSV (all created 2025-06-19) and does NOT
+# represent real signups. crm_auth_profiles rows exist only for users who have
+# actually authenticated via Supabase Auth.
 
 platform_users: list = []
 offset = 0
 while True:
     path = (
-        f'/crm_personas'
-        f'?select=id,email,display_name'
+        f'/crm_auth_profiles'
+        f'?select=id,email'
         f'&email=not.is.null'
         f'&offset={offset}&limit=500'
     )
@@ -131,7 +138,7 @@ while True:
         break
     offset += 500
 
-print(f"Platform users (crm_personas with email): {len(platform_users)}")
+print(f"Real platform accounts (crm_auth_profiles with email): {len(platform_users)}")
 
 # ── Match ──────────────────────────────────────────────────────────────────────
 
@@ -148,14 +155,8 @@ for pu in platform_users:
         email_matches.append((inv_by_email[pu_email], pu))
         continue
 
-    # Name match fallback (split display_name)
-    display = (pu.get("display_name") or "").strip()
-    parts = display.split()
-    if len(parts) >= 2:
-        fn, ln = parts[0].lower(), parts[-1].lower()
-        key = f"{fn}|{ln}"
-        if key in inv_by_name:
-            name_matches.append((inv_by_name[key], pu, display))
+    # crm_auth_profiles has no display_name — skip name matching for now
+    # (name matches can be done manually via the Investors admin page)
 
 # ── Report ─────────────────────────────────────────────────────────────────────
 
