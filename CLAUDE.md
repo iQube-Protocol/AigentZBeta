@@ -5,6 +5,17 @@ Update it as new patterns and rules are established.
 
 ---
 
+## Operator Instructions — Always Provide Runnable Scripts
+
+When the operator needs to take any action, always provide the exact command(s) to run — never describe steps in prose that require manual interpretation.
+
+- **Shell commands**: provide a single copyable block the operator can paste directly into their terminal, including any `git pull` needed to get the latest code first.
+- **SQL**: provide a single copyable block the operator can paste directly into the Supabase SQL editor. Never say "run this migration" without providing the exact SQL inline.
+- **Never say** "add X to Amplify", "configure Y in the dashboard", or "run script Z" without providing the exact value or the exact command.
+- If multiple commands are needed, chain them into one block with `&&` so a single paste runs everything.
+
+---
+
 ## Core Principle: Extend, Don't Duplicate
 
 This is a mature, actively evolving codebase. Before writing any new code:
