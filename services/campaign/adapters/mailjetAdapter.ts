@@ -118,15 +118,15 @@ async function sendBatch(
   recipients: Recipient[],
   fromEmail: string,
   fromName: string,
+  isFirstBatch: boolean,
 ): Promise<{ success: boolean; error?: string }> {
-  // Optional BCC — set MAILJET_BCC_EMAIL in Amplify to receive a copy of every outbound email
+  // BCC admin on the first message only — one copy per sequence send, not per recipient
   const bccEmail = process.env.MAILJET_BCC_EMAIL;
-  const bcc = bccEmail ? [{ Email: bccEmail }] : undefined;
 
-  const messages = recipients.map((r) => ({
+  const messages = recipients.map((r, idx) => ({
     From:            { Email: fromEmail, Name: fromName },
     To:              [{ Email: r.email, Name: r.fullName }],
-    ...(bcc ? { Bcc: bcc } : {}),
+    ...(bccEmail && isFirstBatch && idx === 0 ? { Bcc: [{ Email: bccEmail }] } : {}),
     TemplateID:      tmplId,
     TemplateLanguage: true,
     Variables: {
@@ -195,6 +195,7 @@ export const mailjetAdapter: ChannelAdapter = {
         recipients.slice(i, i + MAILJET_BATCH_LIMIT),
         fromEmail,
         fromName,
+        /* isFirstBatch */ i === 0,
       );
       if (!result.success) return result;
     }
