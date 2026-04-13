@@ -102,14 +102,42 @@ def http_post(url: str, payload: dict, headers: dict | None = None) -> tuple[int
         except Exception:
             return e.code, body
 
-def supabase_get(path: str) -> tuple[int, list | dict]:
+def supabase_get(path: str, count: bool = False) -> tuple[int, list | dict | int]:
     url    = os.environ.get("NEXT_PUBLIC_SUPABASE_URL", "").rstrip("/")
     key    = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
-    status, body = http_get(
-        f"{url}/rest/v1/{path}",
-        headers={"apikey": key, "Authorization": f"Bearer {key}", "Accept": "application/json"},
-    )
-    return status, body
+    headers: dict = {"apikey": key, "Authorization": f"Bearer {key}", "Accept": "application/json"}
+    if count:
+        # Ask PostgREST for an exact count; use Range: 0-0 to skip fetching rows
+        headers["Prefer"] = "count=exact"
+        headers["Range"]  = "0-0"
+    req = urllib.request.Request(f"{url}/rest/v1/{path}", headers=headers, method="GET")
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            if count:
+                # Count is in Content-Range header: "0-0/3748"
+                cr = resp.getheader("Content-Range", "0-0/0")
+                try:
+                    return resp.status, int(cr.split("/")[1])
+                except (IndexError, ValueError):
+                    return resp.status, 0
+            raw = resp.read()
+            try:
+                return resp.status, json.loads(raw)
+            except Exception:
+                return resp.status, raw.decode()
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        # 206 Partial Content is the normal response for Range requests
+        if count and e.code == 206:
+            cr = e.headers.get("Content-Range", "0-0/0")
+            try:
+                return 200, int(cr.split("/")[1])
+            except (IndexError, ValueError):
+                return 200, 0
+        try:
+            return e.code, json.loads(body)
+        except Exception:
+            return e.code, body
 
 # ── Result tracker ────────────────────────────────────────────────────────────
 
@@ -235,12 +263,13 @@ def check_investors() -> str | None:
     if not inv:
         check("At least one investor with email", False, "No rows with Email found")
         return None
-    status, rows = supabase_get("nakamoto_knyt_personas?select=id&limit=1&offset=0")
-    count_status, count_rows = supabase_get(
-        "nakamoto_knyt_personas?select=id&Email=not.is.null&limit=1000"
+    # Use Prefer: count=exact to get the real total without fetching all rows
+    count_status, total = supabase_get(
+        'nakamoto_knyt_personas?select=id&"Email"=not.is.null',
+        count=True,
     )
-    total = len(count_rows) if isinstance(count_rows, list) else "?"
-    check(f"Investors with email found", True, f"~{total} rows with email. First: {inv.get('Email')}")
+    total_str = str(total) if isinstance(total, int) else "?"
+    check("Investors with email found", True, f"{total_str} rows with email. First: {inv.get('Email')}")
     return inv["id"]
 
 # ── 4. Dispatch API ───────────────────────────────────────────────────────────
