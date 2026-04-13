@@ -122,16 +122,11 @@ async function sendBatch(
   recipients: Recipient[],
   fromEmail: string,
   fromName: string,
-  isFirstBatch: boolean,
 ): Promise<{ success: boolean; error?: string }> {
-  // BCC admin on the first message only — one copy per sequence send, not per recipient
-  const bccEmail = process.env.MAILJET_BCC_EMAIL;
-
-  const messages = recipients.map((r, idx) => ({
-    From:            { Email: fromEmail, Name: fromName },
-    To:              [{ Email: r.email, Name: r.fullName }],
-    ...(bccEmail && isFirstBatch && idx === 0 ? { Bcc: [{ Email: bccEmail }] } : {}),
-    TemplateID:      tmplId,
+  const messages = recipients.map((r) => ({
+    From:             { Email: fromEmail, Name: fromName },
+    To:               [{ Email: r.email, Name: r.fullName }],
+    TemplateID:       tmplId,
     TemplateLanguage: true,
     Variables: {
       first_name:          r.firstName,
@@ -162,6 +157,38 @@ async function sendBatch(
   if (res.ok) return { success: true };
   const text = await res.text().catch(() => '');
   return { success: false, error: `Mailjet HTTP ${res.status}: ${text.slice(0, 300)}` };
+}
+
+/**
+ * Sends a plain-text summary notification to the BCC address.
+ * Kept separate from the batch so it doesn't count against the 50-recipient limit.
+ */
+async function sendBccSummary(
+  sequenceId: string,
+  recipientCount: number,
+  fromEmail: string,
+  fromName: string,
+  bccEmail: string,
+): Promise<void> {
+  const subject = `[KNYT Dispatch] ${sequenceId} — ${recipientCount} sent`;
+  const body = `Sequence: ${sequenceId}\nRecipients: ${recipientCount}\nDispatched: ${new Date().toISOString()}`;
+
+  const res = await fetch(MAILJET_API_URL, {
+    method: 'POST',
+    headers: { 'Authorization': basicAuth(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      Messages: [{
+        From:     { Email: fromEmail, Name: fromName },
+        To:       [{ Email: bccEmail }],
+        Subject:  subject,
+        TextPart: body,
+      }],
+    }),
+  });
+
+  if (!res.ok) {
+    console.warn(`[mailjetAdapter] BCC summary send failed: ${res.status}`);
+  }
 }
 
 // ── Adapter export ────────────────────────────────────────────────────────────
@@ -196,7 +223,9 @@ export const mailjetAdapter: ChannelAdapter = {
       return { success: false, error: 'No recipients with valid email addresses found' };
     }
 
-    // Batch at Mailjet's 50-message limit
+    // Batch at Mailjet's 50-recipient-per-request limit.
+    // BCC is sent as a separate summary after all batches — keeping BCC inside
+    // a batch pushes the recipient count to 51 and Mailjet returns send-0015.
     for (let i = 0; i < recipients.length; i += MAILJET_BATCH_LIMIT) {
       const result = await sendBatch(
         tmplId,
@@ -204,9 +233,14 @@ export const mailjetAdapter: ChannelAdapter = {
         recipients.slice(i, i + MAILJET_BATCH_LIMIT),
         fromEmail,
         fromName,
-        /* isFirstBatch */ i === 0,
       );
       if (!result.success) return result;
+    }
+
+    // Operator summary — separate request, doesn't interfere with batching
+    const bccEmail = process.env.MAILJET_BCC_EMAIL;
+    if (bccEmail) {
+      await sendBccSummary(payload.sequenceId, recipients.length, fromEmail, fromName, bccEmail);
     }
 
     console.info(
