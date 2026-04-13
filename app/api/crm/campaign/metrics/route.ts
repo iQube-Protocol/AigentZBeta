@@ -1,10 +1,11 @@
 /**
  * GET /api/crm/campaign/metrics
  *
- * Returns the 11 KNYT Wheel dashboard metrics from nakamoto_knyt_personas.
+ * Returns the 12 KNYT Wheel dashboard metrics from nakamoto_knyt_personas.
  *
- * All counts are derived from campaign_state, campaign_cohort, and KS timestamp
- * columns added by migration 20260411000000_nakamoto_knyt_campaign_fields.sql.
+ * All counts are derived from campaign_state, campaign_cohort, KS timestamp
+ * columns (migration 20260411000000_nakamoto_knyt_campaign_fields.sql) and
+ * the platform activation columns (migration 20260413000000_activated_investor_tracking.sql).
  *
  * Metrics:
  *   total_sends           — rows where last_campaign_sent_at IS NOT NULL
@@ -15,6 +16,7 @@
  *   top_shelf_conversions — cohort='top_shelf' AND state='backed'
  *   zero_knyt_conversions — cohort='zero_knyt' AND state='backed'
  *   slots_remaining       — KNYT_WHEEL_TOTAL_SLOTS env - ks_backed
+ *   activated_investors   — platform_activated_at IS NOT NULL AND Total-Invested > 0
  *   reactivated           — cohort='reactivation' AND crm_personas link exists
  *   shares_count          — placeholder (0) until social tracking exists
  *   runtime_followups     — placeholder (0) until runtime event tracking
@@ -77,6 +79,9 @@ async function handleDrilldown(metric: string): Promise<NextResponse> {
     case 'zero_knyt_conversions':
       query = base.eq('campaign_cohort', 'zero_knyt').eq('campaign_state', 'backed');
       break;
+    case 'activated_investors':
+      query = base.not('platform_activated_at', 'is', null).gt('"Total-Invested"', 0);
+      break;
     case 'reactivated':
       query = base.eq('campaign_cohort', 'reactivation');
       break;
@@ -122,7 +127,7 @@ export async function GET(request: Request) {
   const { data, error } = await client
     .from('nakamoto_knyt_personas')
     .select(
-      'id, campaign_cohort, campaign_state, last_campaign_sent_at, kickstarter_clicked_at, kickstarter_backed_at'
+      'id, campaign_cohort, campaign_state, last_campaign_sent_at, kickstarter_clicked_at, kickstarter_backed_at, platform_activated_at, "Total-Invested"'
     );
 
   if (error) {
@@ -138,6 +143,7 @@ export async function GET(request: Request) {
   let ksBacked = 0;
   let topShelfConversions = 0;
   let zeroKnytConversions = 0;
+  let activatedInvestors = 0;
 
   let opens = 0;
 
@@ -150,6 +156,7 @@ export async function GET(request: Request) {
     if (row.kickstarter_backed_at) ksBacked++;
     if (row.campaign_cohort === 'top_shelf' && state === 'backed') topShelfConversions++;
     if (row.campaign_cohort === 'zero_knyt' && state === 'backed') zeroKnytConversions++;
+    if (row.platform_activated_at && parseFloat(row['Total-Invested'] ?? '0') > 0) activatedInvestors++;
   }
 
   // Reactivation: cohort=reactivation AND has a crm_personas identity link
@@ -192,6 +199,7 @@ export async function GET(request: Request) {
       top_shelf_conversions: topShelfConversions,
       zero_knyt_conversions: zeroKnytConversions,
       slots_remaining: Math.max(0, TOTAL_SLOTS - ksBacked),
+      activated_investors: activatedInvestors,
       reactivated,
       shares_count: 0,             // Phase 2: social tracking
       runtime_followups: 0,        // Phase 2: runtime event tracking

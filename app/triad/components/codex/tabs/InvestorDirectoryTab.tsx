@@ -67,6 +67,7 @@ interface DashboardMetrics {
   top_shelf_conversions: number;
   zero_knyt_conversions: number;
   slots_remaining: number;
+  activated_investors: number;
   reactivated: number;
   shares_count: number;
   runtime_followups: number;
@@ -471,17 +472,18 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
           {metricsLoading && <p className="text-slate-400 text-sm">Loading…</p>}
           {metrics && (
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-              <MetricTile label="Total Sends"          value={metrics.total_sends}          onClick={() => openDrilldown('total_sends', 'Total Sends')} />
-              <MetricTile label="Opens"                value={metrics.opens}                onClick={() => openDrilldown('opens', 'Opens')} />
-              <MetricTile label="Clicks"               value={metrics.clicks}               onClick={() => openDrilldown('clicks', 'Clicks')} />
-              <MetricTile label="KS Visits"            value={metrics.ks_visits}            onClick={() => openDrilldown('ks_visits', 'KS Visits')} />
-              <MetricTile label="KS Backed"            value={metrics.ks_backed}            onClick={() => openDrilldown('ks_backed', 'KS Backed')} />
+              <MetricTile label="Total Sends"          value={metrics.total_sends}           onClick={() => openDrilldown('total_sends', 'Total Sends')} />
+              <MetricTile label="Opens"                value={metrics.opens}                 onClick={() => openDrilldown('opens', 'Opens')} />
+              <MetricTile label="Clicks"               value={metrics.clicks}                onClick={() => openDrilldown('clicks', 'Clicks')} />
+              <MetricTile label="KS Visits"            value={metrics.ks_visits}             onClick={() => openDrilldown('ks_visits', 'KS Visits')} />
+              <MetricTile label="KS Backed"            value={metrics.ks_backed}             onClick={() => openDrilldown('ks_backed', 'KS Backed')} />
               <MetricTile label="Top Shelf Conv."      value={metrics.top_shelf_conversions} onClick={() => openDrilldown('top_shelf_conversions', 'Top Shelf Conversions')} />
               <MetricTile label="Zero KNYT Conv."      value={metrics.zero_knyt_conversions} onClick={() => openDrilldown('zero_knyt_conversions', 'Zero KNYT Conversions')} />
-              <MetricTile label="Slots Remaining"      value={metrics.slots_remaining}      sub="of 500 total" />
-              <MetricTile label="Reactivated"          value={metrics.reactivated}          onClick={() => openDrilldown('reactivated', 'Reactivated')} />
-              <MetricTile label="Shares"               value={metrics.shares_count}         sub="Phase 2" />
-              <MetricTile label="Runtime Follow-ups"   value={metrics.runtime_followups}    sub="Phase 2" />
+              <MetricTile label="Slots Remaining"      value={metrics.slots_remaining}       sub="of 500 total" />
+              <MetricTile label="Activated Investors"  value={metrics.activated_investors}   sub="investor + platform account" onClick={() => openDrilldown('activated_investors', 'Activated Investors')} />
+              <MetricTile label="Reactivated"          value={metrics.reactivated}           onClick={() => openDrilldown('reactivated', 'Reactivated')} />
+              <MetricTile label="Shares"               value={metrics.shares_count}          sub="Phase 2" />
+              <MetricTile label="Runtime Follow-ups"   value={metrics.runtime_followups}     sub="Phase 2" />
             </div>
           )}
 
