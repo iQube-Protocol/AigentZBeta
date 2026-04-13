@@ -108,12 +108,16 @@ const cohortBadge = (cohort: string | null | undefined) => {
   }
 };
 
-function MetricTile({ label, value, sub }: { label: string; value: number | string; sub?: string }) {
+function MetricTile({ label, value, sub, onClick }: { label: string; value: number | string; sub?: string; onClick?: () => void }) {
   return (
-    <div className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
+    <div
+      className={`rounded-xl bg-white/5 ring-1 ring-white/10 p-4 ${onClick ? 'cursor-pointer hover:bg-white/10 hover:ring-amber-500/30 transition' : ''}`}
+      onClick={onClick}
+    >
       <p className="text-xs text-slate-400 mb-1">{label}</p>
       <p className="text-2xl font-bold text-white">{value}</p>
       {sub && <p className="text-xs text-slate-500 mt-0.5">{sub}</p>}
+      {onClick && <p className="text-xs text-amber-400/60 mt-1">tap to drill down →</p>}
     </div>
   );
 }
@@ -170,6 +174,13 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [metricsLoading, setMetricsLoading] = useState(false);
 
+  // Drill-down modal
+  interface DrillRow { id: string; name: string; email: string; cohort: string | null; state: string | null }
+  const [drilldownMetric, setDrilldownMetric] = useState<string | null>(null);
+  const [drilldownLabel, setDrilldownLabel] = useState('');
+  const [drilldownRows, setDrilldownRows] = useState<DrillRow[]>([]);
+  const [drilldownLoading, setDrilldownLoading] = useState(false);
+
   // Tracking
   const [health, setHealth] = useState<Record<string, unknown> | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
@@ -223,6 +234,20 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
       if (res.ok) setMetrics(json.metrics);
     } finally {
       setMetricsLoading(false);
+    }
+  }
+
+  async function openDrilldown(key: string, label: string) {
+    setDrilldownMetric(key);
+    setDrilldownLabel(label);
+    setDrilldownRows([]);
+    setDrilldownLoading(true);
+    try {
+      const res = await fetch(`/api/crm/campaign/metrics?drilldown=${key}`);
+      const json = await res.json();
+      if (res.ok) setDrilldownRows(json.rows ?? []);
+    } finally {
+      setDrilldownLoading(false);
     }
   }
 
@@ -446,17 +471,62 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
           {metricsLoading && <p className="text-slate-400 text-sm">Loading…</p>}
           {metrics && (
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-              <MetricTile label="Total Sends"          value={metrics.total_sends} />
-              <MetricTile label="Opens"                value={metrics.opens} />
-              <MetricTile label="Clicks"               value={metrics.clicks} />
-              <MetricTile label="KS Visits"            value={metrics.ks_visits} />
-              <MetricTile label="KS Backed"            value={metrics.ks_backed} />
-              <MetricTile label="Top Shelf Conv."      value={metrics.top_shelf_conversions} />
-              <MetricTile label="Zero KNYT Conv."      value={metrics.zero_knyt_conversions} />
-              <MetricTile label="Slots Remaining"      value={metrics.slots_remaining} sub="of 500 total" />
-              <MetricTile label="Reactivated"          value={metrics.reactivated} />
-              <MetricTile label="Shares"               value={metrics.shares_count} sub="Phase 2" />
-              <MetricTile label="Runtime Follow-ups"   value={metrics.runtime_followups} sub="Phase 2" />
+              <MetricTile label="Total Sends"          value={metrics.total_sends}          onClick={() => openDrilldown('total_sends', 'Total Sends')} />
+              <MetricTile label="Opens"                value={metrics.opens}                onClick={() => openDrilldown('opens', 'Opens')} />
+              <MetricTile label="Clicks"               value={metrics.clicks}               onClick={() => openDrilldown('clicks', 'Clicks')} />
+              <MetricTile label="KS Visits"            value={metrics.ks_visits}            onClick={() => openDrilldown('ks_visits', 'KS Visits')} />
+              <MetricTile label="KS Backed"            value={metrics.ks_backed}            onClick={() => openDrilldown('ks_backed', 'KS Backed')} />
+              <MetricTile label="Top Shelf Conv."      value={metrics.top_shelf_conversions} onClick={() => openDrilldown('top_shelf_conversions', 'Top Shelf Conversions')} />
+              <MetricTile label="Zero KNYT Conv."      value={metrics.zero_knyt_conversions} onClick={() => openDrilldown('zero_knyt_conversions', 'Zero KNYT Conversions')} />
+              <MetricTile label="Slots Remaining"      value={metrics.slots_remaining}      sub="of 500 total" />
+              <MetricTile label="Reactivated"          value={metrics.reactivated}          onClick={() => openDrilldown('reactivated', 'Reactivated')} />
+              <MetricTile label="Shares"               value={metrics.shares_count}         sub="Phase 2" />
+              <MetricTile label="Runtime Follow-ups"   value={metrics.runtime_followups}    sub="Phase 2" />
+            </div>
+          )}
+
+          {/* Drill-down modal */}
+          {drilldownMetric && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+              <div className="w-full max-w-2xl bg-slate-900 ring-1 ring-white/15 rounded-2xl p-6 space-y-4 max-h-[80vh] flex flex-col">
+                <div className="flex items-center justify-between shrink-0">
+                  <h2 className="text-base font-semibold">{drilldownLabel} <span className="text-slate-400 font-normal text-sm">— drill-down</span></h2>
+                  <button onClick={() => setDrilldownMetric(null)}><X size={18} className="text-slate-400 hover:text-white" /></button>
+                </div>
+                {drilldownLoading && <p className="text-slate-400 text-sm">Loading…</p>}
+                {!drilldownLoading && drilldownRows.length === 0 && (
+                  <p className="text-slate-500 text-sm">No investors in this segment.</p>
+                )}
+                {!drilldownLoading && drilldownRows.length > 0 && (
+                  <div className="overflow-y-auto flex-1">
+                    <p className="text-xs text-slate-500 mb-2">{drilldownRows.length} investor{drilldownRows.length !== 1 ? 's' : ''}</p>
+                    <table className="w-full text-xs">
+                      <thead className="sticky top-0 bg-slate-900">
+                        <tr className="border-b border-white/10 text-slate-400">
+                          <th className="text-left px-2 py-2 font-medium">Name</th>
+                          <th className="text-left px-2 py-2 font-medium hidden md:table-cell">Email</th>
+                          <th className="text-left px-2 py-2 font-medium">Cohort</th>
+                          <th className="text-left px-2 py-2 font-medium">State</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {drilldownRows.map((r) => (
+                          <tr key={r.id} className="border-b border-white/5 hover:bg-white/5 transition">
+                            <td className="px-2 py-2 font-medium text-white truncate max-w-[160px]">{r.name || '—'}</td>
+                            <td className="px-2 py-2 text-slate-400 truncate max-w-[180px] hidden md:table-cell">{r.email}</td>
+                            <td className="px-2 py-2">
+                              {r.cohort
+                                ? <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${cohortBadge(r.cohort)}`}>{r.cohort}</span>
+                                : <span className="text-slate-600">—</span>}
+                            </td>
+                            <td className="px-2 py-2 text-slate-400">{r.state ?? '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -715,7 +785,7 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
               onClick={() => setBandFilter('')}
               className={`px-3 py-1.5 rounded-xl text-xs font-medium ring-1 transition ${!bandFilter ? 'bg-white/10 ring-white/20 text-white' : 'bg-white/5 ring-white/10 text-slate-400 hover:text-white'}`}
             >All</button>
-            {['<500', '500-1999', '2000-4999', '5000+', 'unassigned'].map((val) => (
+            {['<100', '100-499', '500-999', '1000-1999', '2000-4999', '5000+', 'unassigned'].map((val) => (
               <button key={val} onClick={() => setBandFilter(bandFilter === val ? '' : val)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-medium ring-1 transition ${bandFilter === val ? 'bg-indigo-500/20 ring-indigo-500/30 text-indigo-300' : 'bg-white/5 ring-white/10 text-slate-400 hover:text-white'}`}>
                 {val}

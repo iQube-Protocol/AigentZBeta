@@ -8,7 +8,7 @@
  *
  * Metrics:
  *   total_sends           — rows where last_campaign_sent_at IS NOT NULL
- *   opens                 — placeholder (requires Make.com webhook write-back)
+ *   opens                 — campaign_state IN ('opened', 'clicked', 'backed')
  *   clicks                — campaign_state IN ('clicked', 'backed')
  *   ks_visits             — kickstarter_clicked_at IS NOT NULL
  *   ks_backed             — kickstarter_backed_at IS NOT NULL
@@ -18,6 +18,12 @@
  *   reactivated           — cohort='reactivation' AND crm_personas link exists
  *   shares_count          — placeholder (0) until social tracking exists
  *   runtime_followups     — placeholder (0) until runtime event tracking
+ *
+ * Drill-down:
+ *   GET ?drilldown=<metric_key>
+ *   Returns { rows: [{ id, name, email, cohort, state }] } for the matching rows.
+ *   Supported keys: total_sends | opens | clicks | ks_visits | ks_backed |
+ *                   top_shelf_conversions | zero_knyt_conversions | reactivated
  */
 
 import { NextResponse } from 'next/server';
@@ -27,7 +33,89 @@ export const dynamic = 'force-dynamic';
 
 const TOTAL_SLOTS = parseInt(process.env.KNYT_WHEEL_TOTAL_SLOTS ?? '500', 10);
 
-export async function GET() {
+// ── Drill-down row type ────────────────────────────────────────────────────────
+
+interface DrillRow {
+  id: string;
+  name: string;
+  email: string;
+  cohort: string | null;
+  state: string | null;
+}
+
+// ── Drill-down handler ────────────────────────────────────────────────────────
+
+async function handleDrilldown(metric: string): Promise<NextResponse> {
+  const client = getCrmClient();
+
+  // Base select with name/email columns
+  const base = client
+    .from('nakamoto_knyt_personas')
+    .select('id, "Email", "First-Name", "Last-Name", campaign_cohort, campaign_state');
+
+  let query: ReturnType<typeof client.from> | ReturnType<typeof base.not>;
+
+  switch (metric) {
+    case 'total_sends':
+      query = base.not('last_campaign_sent_at', 'is', null);
+      break;
+    case 'opens':
+      query = base.in('campaign_state', ['opened', 'clicked', 'backed']);
+      break;
+    case 'clicks':
+      query = base.in('campaign_state', ['clicked', 'backed']);
+      break;
+    case 'ks_visits':
+      query = base.not('kickstarter_clicked_at', 'is', null);
+      break;
+    case 'ks_backed':
+      query = base.not('kickstarter_backed_at', 'is', null);
+      break;
+    case 'top_shelf_conversions':
+      query = base.eq('campaign_cohort', 'top_shelf').eq('campaign_state', 'backed');
+      break;
+    case 'zero_knyt_conversions':
+      query = base.eq('campaign_cohort', 'zero_knyt').eq('campaign_state', 'backed');
+      break;
+    case 'reactivated':
+      query = base.eq('campaign_cohort', 'reactivation');
+      break;
+    default:
+      return NextResponse.json({ error: `Unknown drilldown metric: ${metric}` }, { status: 400 });
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (query as any).limit(500);
+
+  if (error) {
+    console.error('[campaign/metrics/drilldown] query error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  const rows: DrillRow[] = (data ?? []).map((r: Record<string, unknown>) => {
+    const first = (r['First-Name'] as string | null) ?? '';
+    const last  = (r['Last-Name']  as string | null) ?? '';
+    const email = (r['Email'] as string | null) ?? '';
+    return {
+      id:     r['id'] as string,
+      name:   `${first} ${last}`.trim() || email,
+      email,
+      cohort: (r['campaign_cohort'] as string | null) ?? null,
+      state:  (r['campaign_state']  as string | null) ?? null,
+    };
+  });
+
+  return NextResponse.json({ metric, rows });
+}
+
+// ── Main handler ──────────────────────────────────────────────────────────────
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const drilldown = searchParams.get('drilldown');
+
+  if (drilldown) return handleDrilldown(drilldown);
+
   const client = getCrmClient();
 
   // Single query: fetch all campaign-state rows (only read campaign columns, not *)
