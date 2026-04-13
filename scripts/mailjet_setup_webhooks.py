@@ -99,9 +99,9 @@ def register_event(event: str, url: str, existing: dict[str, int]) -> bool:
     if event in existing:
         wh_id = existing[event]
         status, body = mj_request("PUT", f"/eventcallbackurl/{wh_id}", {
-            "EventType":   event,
-            "CallbackUrl": url,
-            "Status":      "alive",
+            "EventType": event,
+            "Url":       url,
+            "Status":    "alive",
         })
         ok = status in (200, 201)
         icon = "✅" if ok else "❌"
@@ -109,9 +109,9 @@ def register_event(event: str, url: str, existing: dict[str, int]) -> bool:
         return ok
     else:
         status, body = mj_request("POST", "/eventcallbackurl", {
-            "EventType":   event,
-            "CallbackUrl": url,
-            "Status":      "alive",
+            "EventType": event,
+            "Url":       url,
+            "Status":    "alive",
         })
         ok = status in (200, 201)
         new_id = body.get("Data", [{}])[0].get("ID", "?") if ok else "?"
