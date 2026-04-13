@@ -275,12 +275,29 @@ export const KNYT_CODEX: CodexConfig = {
       }
     },
     {
+      id: 'treasury',
+      label: 'Treasury',
+      slug: 'treasury',
+      enabled: true,
+      order: 9,
+      type: 'static',
+      config: {
+        component: 'KnytTreasuryTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Vault',
+        description: 'KNYT Treasury, rewards model, Qc vs $KNYT distinction — explained plainly',
+        color: 'amber'
+      }
+    },
+    {
       id: 'experience-dashboard',
       label: 'Experience',
       slug: 'experience-dashboard',
       enabled: true,
       adminOnly: true,   // Sensitive admin data — hidden from all non-admin users
-      order: 9,
+      order: 10,
       type: 'static',
       config: {
         component: 'ExperienceDashboardTab',
