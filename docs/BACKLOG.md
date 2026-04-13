@@ -487,12 +487,14 @@ All skills have:
 | Skill | Slash Command | Script | SkillQube Manifest | Status |
 |---|---|---|---|---|
 | Create Mailjet Templates | `/create-mailjet-templates` | `scripts/mailjet_create_templates.py` | `scripts/skills/create-mailjet-templates.skill.json` | ✅ Ready to ingest |
+| Run Campaign Smoke Test | `/run-campaign-smoke-test` | `scripts/campaign_smoke_test.py` | `scripts/skills/run-campaign-smoke-test.skill.json` | ✅ Ready to ingest |
+| Send Campaign Sequence | `/send-campaign-sequence` | `scripts/send_campaign_sequence.py` | `scripts/skills/send-campaign-sequence.skill.json` | ✅ Ready to ingest |
 
 ### Needed — Campaign Automation
 
 | Skill | Description | Priority |
 |---|---|---|
-| `send-campaign-sequence` | Dispatch a named KNYT Wheel sequence to a cohort via the channel registry | High |
+| `send-campaign-sequence` | ~~Dispatch a named KNYT Wheel sequence to a cohort via the channel registry~~ **Built** | ~~High~~ |
 | `assign-cohorts-bulk` | Bulk-assign `campaign_cohort` to investors by filter (investment band, state) | High |
 | `sync-ks-backers` | Ingest Kickstarter backer CSV → set `kickstarter_backed_at + campaign_state=backed` | High |
 | `campaign-metrics-snapshot` | Pull the 11 dashboard metrics and emit a structured report | Medium |
