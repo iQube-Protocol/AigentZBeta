@@ -7,9 +7,8 @@
  * OM-Tier-Status, KNYT-ID, KNYT-COYN-Owned, csv_investment_status).
  *
  * Activation status:
- *   activated  — email linked to an identity persona (has signed in)
- *   linked     — email in crm_personas but no identity persona yet
- *   inactive   — not in crm_personas at all
+ *   activated  — platform_activated_at IS NOT NULL (stamped by /api/wallet/identity/consolidate on real login)
+ *   inactive   — platform_activated_at IS NULL (investor-only, no platform account)
  *
  * Query params:
  *   activated   boolean  filter activated (true) / inactive (false) only
@@ -97,39 +96,15 @@ export async function GET(request: NextRequest) {
   // ── Step 1: filter to real investors only ──────────────────────────────────
   const investorRows = rawInvestors.filter(isRealInvestor);
 
-  // ── Step 2: resolve activation via crm_personas (single batch query) ───────
-  const emails = investorRows
-    .map((inv) => str(inv['Email']).toLowerCase())
-    .filter(Boolean);
-
-  const crmByEmail: Record<string, { identity_persona_id: string | null }> = {};
-
-  if (emails.length > 0) {
-    // Batch in chunks of 500 to avoid .in() limit issues
-    const CHUNK = 500;
-    for (let i = 0; i < emails.length; i += CHUNK) {
-      const { data: crmRows } = await client
-        .from('crm_personas')
-        .select('email, identity_persona_id')
-        .in('email', emails.slice(i, i + CHUNK));
-      (crmRows ?? []).forEach((row) => {
-        if (row.email) {
-          crmByEmail[row.email.toLowerCase()] = {
-            identity_persona_id: row.identity_persona_id ?? null,
-          };
-        }
-      });
-    }
-  }
-
-  // ── Step 3: build response objects ─────────────────────────────────────────
+  // ── Step 2: build response objects ────────────────────────────────────────
+  // Activation is now driven by platform_activated_at on the investor row itself,
+  // stamped by /api/wallet/identity/consolidate on real logins.
+  // (crm_personas.identity_persona_id was bulk-imported and is not a reliable signal)
   let results = investorRows.map((inv) => {
     const email = str(inv['Email']);
-    const emailLower = email.toLowerCase();
-    const crmRecord = crmByEmail[emailLower];
-    const isActivated = !!(crmRecord?.identity_persona_id);
-    const isLinked = !!crmRecord;
-    const personaId = crmRecord?.identity_persona_id ?? null;
+    const isActivated = !!(inv['platform_activated_at']);
+    const isLinked = isActivated;
+    const personaId = str(inv['platform_auth_profile_id'] as string) || null;
 
     // Strip embedded " KNYT" unit from KNYT-COYN-Owned if present
     const knytCoynRaw = str(inv['KNYT-COYN-Owned']);
