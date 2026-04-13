@@ -51,9 +51,12 @@ export async function GET() {
   let topShelfConversions = 0;
   let zeroKnytConversions = 0;
 
+  let opens = 0;
+
   for (const row of rows) {
     if (row.last_campaign_sent_at) totalSends++;
     const state = (row.campaign_state ?? '') as string;
+    if (state === 'opened' || state === 'clicked' || state === 'backed') opens++;
     if (state === 'clicked' || state === 'backed') clicks++;
     if (row.kickstarter_clicked_at) ksVisits++;
     if (row.kickstarter_backed_at) ksBacked++;
@@ -94,7 +97,7 @@ export async function GET() {
   return NextResponse.json({
     metrics: {
       total_sends: totalSends,
-      opens: 0,                    // Phase 1: requires Make.com write-back webhook
+      opens,
       clicks,
       ks_visits: ksVisits,
       ks_backed: ksBacked,

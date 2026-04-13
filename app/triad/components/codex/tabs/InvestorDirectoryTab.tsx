@@ -447,7 +447,7 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
           {metrics && (
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
               <MetricTile label="Total Sends"          value={metrics.total_sends} />
-              <MetricTile label="Opens"                value={metrics.opens} sub="Requires Make.com write-back" />
+              <MetricTile label="Opens"                value={metrics.opens} />
               <MetricTile label="Clicks"               value={metrics.clicks} />
               <MetricTile label="KS Visits"            value={metrics.ks_visits} />
               <MetricTile label="KS Backed"            value={metrics.ks_backed} />
