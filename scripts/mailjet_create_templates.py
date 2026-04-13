@@ -18,6 +18,7 @@ After running, add the printed IDs to Amplify:
   MAILJET_TEMPLATE_GENERAL
 """
 
+import argparse
 import base64
 import json
 import os
@@ -84,7 +85,7 @@ def mj_get(path: str) -> dict:
 # ── HTML builder ──────────────────────────────────────────────────────────────
 
 def html_template(subject: str, preheader: str, body_html: str, cta_text: str) -> str:
-    """Wraps body_html in a clean responsive email shell."""
+    """Wraps body_html in a clean responsive email shell with investor reward section."""
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -115,6 +116,31 @@ def html_template(subject: str, preheader: str, body_html: str, cta_text: str) -
           <tr>
             <td style="padding:32px 32px 24px;">
               {body_html}
+            </td>
+          </tr>
+
+          <!-- Investor Reward Tier -->
+          <tr>
+            <td style="padding:0 32px 28px;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                     style="background:#0f0f0f;border:1px solid #f5c842;border-radius:6px;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <p style="margin:0 0 6px;color:#f5c842;font-size:10px;font-weight:700;
+                              letter-spacing:1.5px;text-transform:uppercase;">
+                      Your investor-only price
+                    </p>
+                    <p style="margin:0 0 6px;color:#f0f0f0;font-size:20px;font-weight:700;line-height:1.2;">
+                      {{{{var:reward_name}}}} &mdash; {{{{var:reward_price}}}}
+                    </p>
+                    <p style="margin:0;color:#888888;font-size:13px;">
+                      Public price: {{{{var:reward_full_price}}}}
+                      &nbsp;&nbsp;|&nbsp;&nbsp;
+                      <span style="color:#f5c842;">You {{{{var:reward_savings}}}}</span>
+                    </p>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
 
@@ -413,7 +439,7 @@ def get_existing_templates() -> dict[str, int]:
 def create_template(tpl: dict, existing: dict[str, int]) -> int:
     name = tpl["name"]
     if name in existing:
-        print(f"  ↩  '{name}' already exists (ID {existing[name]}) — skipping creation")
+        print(f"  ↩  '{name}' already exists (ID {existing[name]})")
         return existing[name]
 
     resp = mj_post("/template", {
@@ -450,8 +476,19 @@ def set_content(template_id: int, tpl: dict) -> None:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="KNYT Wheel — Mailjet Template Creator")
+    parser.add_argument(
+        "--update", action="store_true",
+        help="Force-update content of existing templates (adds investor reward section)"
+    )
+    args = parser.parse_args()
+
     print("\n── KNYT Wheel — Mailjet Template Creator ────────────────────────────")
-    print(f"   Account key: {API_KEY[:8]}…\n")
+    print(f"   Account key: {API_KEY[:8]}…")
+    if args.update:
+        print("   Mode: UPDATE existing templates\n")
+    else:
+        print("   Mode: CREATE new templates (skip existing)\n")
 
     existing = get_existing_templates()
     results: list[tuple[str, int]] = []
@@ -459,7 +496,10 @@ def main() -> None:
     for tpl in TEMPLATES:
         print(f"► {tpl['name']}")
         tid = create_template(tpl, existing)
-        set_content(tid, tpl)
+        if args.update or tpl["name"] not in existing:
+            set_content(tid, tpl)
+        else:
+            print(f"     Skipping content update (use --update to refresh)")
         results.append((tpl["env_key"], tid))
         print()
 

@@ -34,6 +34,7 @@
 
 import type { ChannelAdapter, ChannelPayload } from '@/services/campaign/channelRegistry';
 import { getCrmClient } from '@/services/crm/crmDataAccess';
+import { selectPrimaryReward, buildRewardTrackingUrl, formatSavings, type KsReward } from '@/services/campaign/ksRewards';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -84,6 +85,7 @@ interface Recipient {
   cohort: string | null;
   investmentBand: string | null;
   ksTrackingUrl: string;
+  reward: KsReward;
 }
 
 function buildRecipients(rows: Record<string, unknown>[], channel: string): Recipient[] {
@@ -97,7 +99,8 @@ function buildRecipients(rows: Record<string, unknown>[], channel: string): Reci
       const last   = (r['Last-Name']  as string | null) ?? '';
       const cohort = (r['campaign_cohort'] as string | null) ?? null;
       const band   = (r['investment_amount_band'] as string | null) ?? null;
-      const ksUrl  = `${appUrl}/api/crm/track/ks?uid=${id}&utm_source=knyt_wheel&utm_medium=${encodeURIComponent(channel)}&utm_content=${encodeURIComponent(cohort ?? 'general')}`;
+      const reward = selectPrimaryReward(cohort, band);
+      const ksUrl  = buildRewardTrackingUrl(appUrl, id, reward, channel, cohort);
       return {
         id,
         email,
@@ -106,6 +109,7 @@ function buildRecipients(rows: Record<string, unknown>[], channel: string): Reci
         cohort,
         investmentBand: band,
         ksTrackingUrl:  ksUrl,
+        reward,
       };
     });
 }
@@ -130,12 +134,17 @@ async function sendBatch(
     TemplateID:      tmplId,
     TemplateLanguage: true,
     Variables: {
-      first_name:      r.firstName,
-      full_name:       r.fullName,
-      ks_url:          r.ksTrackingUrl,
-      cohort:          r.cohort ?? 'general',
-      investment_band: r.investmentBand ?? '',
-      sequence_id:     sequenceId,
+      first_name:          r.firstName,
+      full_name:           r.fullName,
+      ks_url:              r.ksTrackingUrl,
+      cohort:              r.cohort ?? 'general',
+      investment_band:     r.investmentBand ?? '',
+      sequence_id:         sequenceId,
+      // Investor reward tier
+      reward_name:         r.reward.name,
+      reward_price:        `$${r.reward.investorPrice.toLocaleString()}`,
+      reward_full_price:   r.reward.fullPrice ? `$${r.reward.fullPrice.toLocaleString()}` : '',
+      reward_savings:      formatSavings(r.reward),
     },
     // CustomID echoed back in every Mailjet event — zero-lookup attribution
     CustomID: `${r.id}|${sequenceId}`,
