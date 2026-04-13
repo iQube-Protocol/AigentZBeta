@@ -223,14 +223,31 @@ export const mailjetAdapter: ChannelAdapter = {
       return { success: false, error: 'No recipients with valid email addresses found' };
     }
 
+    // Prepend admin monitor as first recipient so they receive the identical email
+    // that investors get (fully rendered template with real variables).
+    // Env var: CAMPAIGN_ADMIN_EMAIL — comma-separated for multiple addresses.
+    const adminEmails = (process.env.CAMPAIGN_ADMIN_EMAIL ?? '')
+      .split(',').map((e) => e.trim()).filter(Boolean);
+    const adminRecipients: Recipient[] = adminEmails.map((adminEmail) => ({
+      id:             'admin',
+      email:          adminEmail,
+      firstName:      'Dele',
+      fullName:       'Dele Atanda',
+      cohort:         recipients[0]?.cohort ?? null,
+      investmentBand: recipients[0]?.investmentBand ?? null,
+      ksTrackingUrl:  recipients[0]?.ksTrackingUrl ?? '',
+      reward:         recipients[0]?.reward ?? selectPrimaryReward(null, null),
+    }));
+    const allRecipients = [...adminRecipients, ...recipients];
+
     // Batch at Mailjet's 50-recipient-per-request limit.
     // BCC is sent as a separate summary after all batches — keeping BCC inside
     // a batch pushes the recipient count to 51 and Mailjet returns send-0015.
-    for (let i = 0; i < recipients.length; i += MAILJET_BATCH_LIMIT) {
+    for (let i = 0; i < allRecipients.length; i += MAILJET_BATCH_LIMIT) {
       const result = await sendBatch(
         tmplId,
         payload.sequenceId,
-        recipients.slice(i, i + MAILJET_BATCH_LIMIT),
+        allRecipients.slice(i, i + MAILJET_BATCH_LIMIT),
         fromEmail,
         fromName,
       );
