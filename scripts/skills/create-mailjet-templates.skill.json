@@ -1,0 +1,87 @@
+{
+  "assetClass": "SkillQube",
+  "name": "Create Mailjet Templates",
+  "slug": "create-mailjet-templates",
+  "description": "Creates all KNYT Wheel campaign email templates in Mailjet via the REST API. Idempotent — skips existing templates. Outputs Amplify env var names and IDs.",
+  "currentVersion": "1.0.0",
+  "trustBand": "L2_VERIFIED_COMMUNITY",
+  "publicationStatus": "draft",
+  "policyClass": "operator_only",
+  "wrapperStrategy": "skill",
+  "interfaceSchema": {
+    "inputs": {
+      "MAILJET_API_KEY": {
+        "type": "string",
+        "source": "env",
+        "required": true,
+        "description": "Mailjet public API key"
+      },
+      "MAILJET_SECRET_KEY": {
+        "type": "string",
+        "source": "env",
+        "required": true,
+        "description": "Mailjet secret API key"
+      },
+      "MAILJET_FROM_NAME": {
+        "type": "string",
+        "source": "env",
+        "required": false,
+        "default": "KNYT Wheel",
+        "description": "Sender display name"
+      }
+    },
+    "outputs": {
+      "MAILJET_TEMPLATE_TOP_SHELF":    { "type": "integer", "description": "Mailjet template ID for knyt_top_shelf_v1" },
+      "MAILJET_TEMPLATE_ZERO_KNYT":    { "type": "integer", "description": "Mailjet template ID for knyt_zero_v1" },
+      "MAILJET_TEMPLATE_REACTIVATION": { "type": "integer", "description": "Mailjet template ID for knyt_reactivation_v1" },
+      "MAILJET_TEMPLATE_GENERAL":      { "type": "integer", "description": "Mailjet template ID for knyt_general_v1" }
+    }
+  },
+  "capabilities": [
+    {
+      "id": "mailjet_template_create",
+      "name": "Create Mailjet Template",
+      "description": "Creates a named email template in Mailjet with HTML + text content via REST API",
+      "inputs":  ["MAILJET_API_KEY", "MAILJET_SECRET_KEY"],
+      "outputs": ["template_id"]
+    },
+    {
+      "id": "mailjet_template_content_set",
+      "name": "Set Template Content",
+      "description": "Uploads HTML and text-part to an existing Mailjet template",
+      "inputs":  ["template_id", "html_body", "text_body", "subject"],
+      "outputs": ["confirmation"]
+    }
+  ],
+  "steps": [
+    { "name": "load_env",       "tool": "python",  "prompt": "Load MAILJET_API_KEY and MAILJET_SECRET_KEY from .env.local" },
+    { "name": "list_existing",  "tool": "http_get", "prompt": "GET /v3/REST/template to fetch existing templates and avoid duplicates" },
+    { "name": "create_top_shelf",    "tool": "http_post", "prompt": "POST /v3/REST/template for knyt_top_shelf_v1" },
+    { "name": "content_top_shelf",   "tool": "http_post", "prompt": "POST /v3/REST/template/{id}/detailcontent for top shelf" },
+    { "name": "create_zero_knyt",    "tool": "http_post", "prompt": "POST /v3/REST/template for knyt_zero_v1" },
+    { "name": "content_zero_knyt",   "tool": "http_post", "prompt": "POST /v3/REST/template/{id}/detailcontent for zero knyt" },
+    { "name": "create_reactivation", "tool": "http_post", "prompt": "POST /v3/REST/template for knyt_reactivation_v1" },
+    { "name": "content_reactivation","tool": "http_post", "prompt": "POST /v3/REST/template/{id}/detailcontent for reactivation" },
+    { "name": "create_general",      "tool": "http_post", "prompt": "POST /v3/REST/template for knyt_general_v1" },
+    { "name": "content_general",     "tool": "http_post", "prompt": "POST /v3/REST/template/{id}/detailcontent for general" },
+    { "name": "print_ids",      "tool": "stdout",   "prompt": "Print Amplify env var names and template IDs" }
+  ],
+  "tags": ["campaign", "email", "mailjet", "knyt-wheel", "operator-tool"],
+  "metadata": {
+    "entrypoint":   "scripts/mailjet_create_templates.py",
+    "language":     "python",
+    "runtime":      "python3",
+    "claudeCommand": "/create-mailjet-templates",
+    "relatedAdapter": "services/campaign/adapters/mailjetAdapter.ts",
+    "relatedWebhook": "app/api/crm/webhooks/mailjet/route.ts",
+    "copySource":   "codexes/packs/knyt/items/KNYT_CAMPAIGN_COPY_PACK.md",
+    "sequences": [
+      "knyt_top_shelf_v1",
+      "knyt_zero_v1",
+      "knyt_reactivation_v1",
+      "knyt_general_v1"
+    ]
+  },
+  "createdBy": "claude-code",
+  "createdAt": "2026-04-13"
+}
