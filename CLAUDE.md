@@ -60,8 +60,55 @@ This is a mature, actively evolving codebase. Before writing any new code:
 - Never skip hooks (`--no-verify`) or bypass signing.
 - **Merge commits must be descriptive.** Never use `--no-edit` or the default `Merge remote-tracking branch 'origin/dev' into …` message. Always pass `-m` with a summary of what the session changed, e.g.:
   ```
-  git merge origin/dev -m "merge dev: sync before pushing seed fix + CRM individual card"
+  git merge origin/dev -m "merge dev: sync before pushing send script pagination + CAMPAIGN_ADMIN_EMAIL fix"
   ```
+  The `-m` message must name the actual content being pushed — never generic phrases like "sync before push".
+
+---
+
+## Multi-Agent Coordination
+
+Multiple Claude Code sessions may run concurrently on this codebase. Each session works on its own `claude/<session-id>` branch, but all merge to `dev`, creating collision risk.
+
+### Rules for every session
+
+1. **Declare your file scope at session start.** In your first commit message or QubeTalk packet, list the primary files you intend to touch (e.g. `services/campaign/`, `app/api/crm/`).
+
+2. **Check what other agents changed before merging to dev.**
+   ```bash
+   git fetch origin dev
+   git log origin/dev..HEAD --oneline   # your unpushed commits
+   git diff origin/dev --name-only      # files you changed vs dev
+   ```
+   If another agent recently changed the same files, read their diff before merging:
+   ```bash
+   git show origin/dev --stat
+   ```
+
+3. **Merge with a descriptive message** (see Commit Discipline above). Never use `--no-edit`.
+
+4. **Announce concurrent work via QubeTalk bridge.** If you are starting work that touches shared infrastructure (API routes, services/, components/ui/), write an outbox packet:
+   ```bash
+   python3 scripts/qubetalk_bridge/create_packet.py \
+     --agent-id claude-code \
+     --title "Starting work on <area>" \
+     --body "Touching: <list of files/dirs>" \
+     --thread dev-exec --type status --severity info
+   git add docs/qubetalk-bridge/outbox/ && git commit -m "send qubetalk: announce <area> work" && git push
+   ```
+
+5. **High-collision files** — treat these as contested; always fetch and diff before editing:
+   - `scripts/create-env-production.js` — env allowlist (every session that adds a new var touches this)
+   - `app/api/crm/investors/route.ts` — central CRM read path
+   - `services/campaign/adapters/mailjetAdapter.ts` — live email sending
+   - `CLAUDE.md` — this file
+
+6. **If a push to dev is rejected** (non-fast-forward), always rebase rather than force-push:
+   ```bash
+   git fetch origin dev
+   git merge origin/dev -m "merge dev: sync before pushing <what-you-changed>"
+   git push origin HEAD:dev
+   ```
 
 ---
 
