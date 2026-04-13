@@ -70,6 +70,14 @@ export interface HealthStatus {
   meta_configured: boolean;
   ks_url_configured: boolean;
   webhook_configured: boolean;
+  // Mailjet email adapter vars
+  mailjet_api_key: boolean;
+  mailjet_secret_key: boolean;
+  mailjet_from_email: boolean;
+  mailjet_template_top_shelf: boolean;
+  mailjet_template_zero_knyt: boolean;
+  mailjet_template_reactivation: boolean;
+  mailjet_bcc_email: boolean;
   active_link_count: number;
   clicks_today: number;
   clicks_all_time: number;
@@ -246,6 +254,14 @@ export async function getHealth(): Promise<HealthStatus> {
     meta_configured:      !!(process.env.META_PIXEL_ID && process.env.META_CONVERSIONS_API_TOKEN),
     ks_url_configured:    !!(process.env.KICKSTARTER_CAMPAIGN_URL),
     webhook_configured:   !!(process.env.KNYT_WHEEL_WEBHOOK_URL),
+    // Mailjet — reports presence only, never values
+    mailjet_api_key:              !!(process.env.MAILJET_API_KEY),
+    mailjet_secret_key:           !!(process.env.MAILJET_SECRET_KEY),
+    mailjet_from_email:           !!(process.env.MAILJET_FROM_EMAIL),
+    mailjet_template_top_shelf:   !!(process.env.MAILJET_TEMPLATE_TOP_SHELF),
+    mailjet_template_zero_knyt:   !!(process.env.MAILJET_TEMPLATE_ZERO_KNYT),
+    mailjet_template_reactivation:!!(process.env.MAILJET_TEMPLATE_REACTIVATION),
+    mailjet_bcc_email:            !!(process.env.MAILJET_BCC_EMAIL),
     active_link_count:    linksResult.count ?? 0,
     clicks_today:         todayResult.count ?? 0,
     clicks_all_time:      allTime ?? 0,

@@ -19,27 +19,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCrmClient } from '@/services/crm/crmDataAccess';
 import { logClick } from '@/services/campaign/knytTrackingService';
+import { KS_REWARDS, buildDirectKsUrl } from '@/services/campaign/ksRewards';
 
 export const dynamic = 'force-dynamic';
 
 const KS_REF_TAG     = '9pbmus';
+const KS_BASE_URL    = 'https://www.kickstarter.com/projects/430245948/metaknyt-the-legend-of-kn0w1-and-the-21-sats';
 const CLICK_ADVANCE_STATES = new Set(['sent', 'opened']);
 
 // ── Build redirect URL ────────────────────────────────────────────────────────
 
 function buildKsUrl(searchParams: URLSearchParams): string {
-  const ksBase = (
-    process.env.KICKSTARTER_CAMPAIGN_URL ??
-    process.env.NEXT_PUBLIC_KS_URL ??
-    'https://www.kickstarter.com/projects/430245948/metaknyt-the-legend-of-kn0w1-and-the-21-sats'
-  );
+  // If a specific reward tier was requested, use its secret token URL
+  const rewardId = searchParams.get('reward');
+  if (rewardId && KS_REWARDS[rewardId]) {
+    return buildDirectKsUrl(KS_REWARDS[rewardId], {
+      utm_source:   searchParams.get('utm_source')   ?? 'knyt_wheel',
+      utm_medium:   searchParams.get('utm_medium')   ?? 'email',
+      utm_campaign: searchParams.get('utm_campaign') ?? 'knyt_wheel_launch',
+      utm_content:  searchParams.get('utm_content')  ?? '',
+      utm_term:     searchParams.get('utm_term')     ?? '',
+    });
+  }
 
+  // Generic campaign URL fallback (no specific reward)
+  const ksBase = process.env.KICKSTARTER_CAMPAIGN_URL ?? KS_BASE_URL;
   const ks = new URL(ksBase);
-
-  // Always include Kickstarter's custom referral tag
   ks.searchParams.set('ref', KS_REF_TAG);
-
-  // Forward UTM params, applying sensible defaults
   ks.searchParams.set('utm_source',   searchParams.get('utm_source')   ?? 'knyt_wheel');
   ks.searchParams.set('utm_medium',   searchParams.get('utm_medium')   ?? 'email');
   ks.searchParams.set('utm_campaign', searchParams.get('utm_campaign') ?? 'knyt_wheel_launch');
