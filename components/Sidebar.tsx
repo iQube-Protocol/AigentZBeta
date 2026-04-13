@@ -86,6 +86,7 @@ const sections: SidebarSection[] = [
     icon: <Hexagon size={16} className="text-slate-400" />,
     items: [
       { href: "/metame/runtime", label: "Runtime", icon: <Hexagon size={14} className="text-slate-400" /> },
+      { href: "/metame/settings", label: "Settings", icon: <SlidersHorizontal size={14} className="text-slate-400" /> },
       { href: "/studio/composer", label: "Studio", icon: <SlidersHorizontal size={14} className="text-slate-400" /> },
     ],
   },

@@ -40,6 +40,7 @@ import { ArtifactTraceabilityTab } from "./tabs/ArtifactTraceabilityTab";
 import { FactoryIntakeTab } from "./tabs/FactoryIntakeTab";
 import { RegistrySupplyTab } from "./tabs/RegistrySupplyTab";
 import KnytRuntimeSurface from "./tabs/KnytRuntimeSurface";
+import { KnytTreasuryTab } from "./tabs/KnytTreasuryTab";
 
 interface TabRendererProps {
   tab: CodexTab;
@@ -76,6 +77,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   FactoryIntakeTab,
   RegistrySupplyTab,
   KnytRuntimeSurface,
+  KnytTreasuryTab,
   RewardsTab: PlaceholderTab,
   DocsTab: PlaceholderTab,
   APITab: PlaceholderTab,
