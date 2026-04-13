@@ -1,0 +1,57 @@
+{
+  "assetClass": "SkillQube",
+  "name": "Assign Campaign Cohorts",
+  "slug": "assign-cohorts",
+  "description": "Auto-assigns campaign_cohort on nakamoto_knyt_personas based on investment_amount_band and crm_personas presence. Idempotent — skips already-tagged rows unless --overwrite is set. Never overwrites terminal states.",
+  "currentVersion": "1.0.0",
+  "trustBand": "L2_VERIFIED_COMMUNITY",
+  "publicationStatus": "draft",
+  "policyClass": "operator_only",
+  "wrapperStrategy": "skill",
+  "interfaceSchema": {
+    "inputs": {
+      "NEXT_PUBLIC_SUPABASE_URL":  { "type": "string", "source": "env", "required": true },
+      "SUPABASE_SERVICE_ROLE_KEY": { "type": "string", "source": "env", "required": true },
+      "dry_run":   { "type": "boolean", "source": "arg", "default": false },
+      "apply":     { "type": "boolean", "source": "arg", "default": false },
+      "overwrite": { "type": "boolean", "source": "arg", "default": false,
+                     "description": "Overwrite existing campaign_cohort values" }
+    },
+    "outputs": {
+      "top_shelf":    { "type": "integer" },
+      "zero_knyt":    { "type": "integer" },
+      "reactivation": { "type": "integer" },
+      "general":      { "type": "integer" },
+      "total_assigned": { "type": "integer" },
+      "exit_code":    { "type": "integer" }
+    }
+  },
+  "capabilities": [
+    { "id": "fetch_investors",   "name": "Fetch Investors",    "description": "Paginated fetch of nakamoto_knyt_personas with band + state" },
+    { "id": "fetch_personas",    "name": "Fetch Personas",     "description": "Fetch activated crm_personas emails for reactivation check" },
+    { "id": "cohort_assignment", "name": "Assign Cohorts",     "description": "Maps band + persona presence → cohort; skips terminal states" },
+    { "id": "bulk_patch",        "name": "Bulk PATCH",         "description": "PATCHes campaign_cohort on matched rows in batches" }
+  ],
+  "steps": [
+    { "name": "fetch_investors",    "tool": "python", "prompt": "Paginated GET nakamoto_knyt_personas selecting id, Email, investment_amount_band, campaign_state, campaign_cohort" },
+    { "name": "fetch_activated",    "tool": "python", "prompt": "GET crm_personas where identity_persona_id is not null, collect emails" },
+    { "name": "compute_cohorts",    "tool": "python", "prompt": "Map each investor to top_shelf/zero_knyt/reactivation/general using band + has_persona" },
+    { "name": "preview",            "tool": "stdout", "prompt": "Print cohort counts and skip reasons" },
+    { "name": "apply_patches",      "tool": "python", "prompt": "PATCH campaign_cohort on each row (only if --apply)" }
+  ],
+  "tags": ["campaign", "cohort", "segmentation", "marketa", "knyt-wheel"],
+  "metadata": {
+    "entrypoint":    "scripts/assign_cohorts.py",
+    "language":      "python",
+    "runtime":       "python3",
+    "claudeCommand": "/assign-cohorts",
+    "cohortLogic": {
+      "top_shelf":    "investment_amount_band in ('2000-4999', '5000+')",
+      "zero_knyt":    "investment_amount_band = '1000-1999'",
+      "reactivation": "band in ('500-999','100-499') AND has crm_personas AND not backed",
+      "general":      "everyone else with email"
+    }
+  },
+  "createdBy": "claude-code",
+  "createdAt": "2026-04-13"
+}

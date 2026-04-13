@@ -490,6 +490,7 @@ All skills have:
 | Run Campaign Smoke Test | `/run-campaign-smoke-test` | `scripts/campaign_smoke_test.py` | `scripts/skills/run-campaign-smoke-test.skill.json` | ✅ Ready to ingest |
 | Send Campaign Sequence | `/send-campaign-sequence` | `scripts/send_campaign_sequence.py` | `scripts/skills/send-campaign-sequence.skill.json` | ✅ Ready to ingest |
 | Setup Mailjet Webhooks | `/setup-mailjet-webhooks` | `scripts/mailjet_setup_webhooks.py` | `scripts/skills/setup-mailjet-webhooks.skill.json` | ✅ Ready to ingest |
+| Assign Campaign Cohorts | `/assign-cohorts` | `scripts/assign_cohorts.py` | `scripts/skills/assign-cohorts.skill.json` | ✅ Ready to ingest |
 
 ### Needed — Campaign Automation
 

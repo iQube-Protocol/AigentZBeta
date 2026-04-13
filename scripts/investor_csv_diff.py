@@ -621,13 +621,12 @@ def apply_enrichment(report: dict, csv_investors: dict) -> dict:
 # ── Investment-amount band helper ─────────────────────────────────────────────
 
 def investment_band(amount: float) -> str:
-    if amount >= 5000:
-        return "5000+"
-    if amount >= 2000:
-        return "2000-4999"
-    if amount >= 500:
-        return "500-1999"
-    return "<500"
+    if amount >= 5000:  return "5000+"
+    if amount >= 2000:  return "2000-4999"
+    if amount >= 1000:  return "1000-1999"
+    if amount >= 500:   return "500-999"
+    if amount >= 100:   return "100-499"
+    return "<100"
 
 
 def apply_investment_bands(csv_investors: dict, crm_records: list[dict]) -> dict:
