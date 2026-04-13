@@ -298,7 +298,7 @@ export const KNYT_CODEX: CodexConfig = {
       slug: 'experience-pack',
       enabled: true,
       adminOnly: true,   // Internal stakeholder doc — hidden from end users
-      order: 10,
+      order: 11,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -311,6 +311,45 @@ export const KNYT_CODEX: CodexConfig = {
       metadata: {
         icon: 'BookOpen',
         description: 'KNYT Experience Pack — PRD, matrices, runtime surface spec and wireframe',
+        color: 'amber'
+      }
+    },
+    {
+      id: 'wheel',
+      label: 'KNYT Wheel',
+      slug: 'wheel',
+      enabled: true,
+      adminOnly: true,   // Live operator bundle — admin-gated working access
+      order: 12,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'knyt',
+          collectionId: 'col_knyt_campaign',
+          defaultPath: 'items/KNYT_CAMPAIGN_OPERATOR_BRIEF.md'
+        }
+      },
+      metadata: {
+        icon: 'Megaphone',
+        description: 'KNYT Wheel — the KNYT Activation Campaign genesis bundle: operator brief, activation blueprint, copy packs, operations, deployment handoff, marketa plans, 30-day calendar, CRM schema, dashboard spec, partner/investor addenda, and launch runbook (13 core docs + AutoDrive canonicalization companion)',
+        color: 'rose'
+      }
+    },
+    {
+      id: 'investors',
+      label: 'Investors',
+      slug: 'investors',
+      enabled: true,
+      adminOnly: true,
+      order: 10,
+      type: 'static',
+      config: {
+        component: 'InvestorDirectoryTab',
+      },
+      metadata: {
+        icon: 'TrendingUp',
+        description: 'Full investor directory — all 3,501 StartEngine / Metaiye Media investors with campaign cohort tagging, bulk sequence dispatch, and the KNYT Wheel campaign dashboard',
         color: 'amber'
       }
     }

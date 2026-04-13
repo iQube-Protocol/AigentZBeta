@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
       }
 
       if (personaId) {
-        const baseSelect = 'id, display_name, fio_handle, status, reputation_bucket, reputation_tier, tenant_id, created_at, updated_at';
+        const baseSelect = 'id, display_name, fio_handle, status, reputation_bucket, reputation_tier, order_tier, tenant_id, created_at, updated_at';
         let { data, error } = await client
           .from('personas')
           .select(baseSelect)
@@ -152,6 +152,7 @@ export async function GET(request: NextRequest) {
           email: data.fio_handle || null,
           personaState: mapStatusToPersonaState(data.status),
           reputationBucket,
+          orderTier: data.order_tier ?? null,
           totalPokw: 0,
           contributionCount: 0,
           createdAt: data.created_at,
@@ -163,7 +164,7 @@ export async function GET(request: NextRequest) {
 
       let query = client
         .from('personas')
-        .select('id, display_name, fio_handle, status, reputation_bucket, reputation_tier, tenant_id, created_at, updated_at', {
+        .select('id, display_name, fio_handle, status, reputation_bucket, reputation_tier, order_tier, tenant_id, created_at, updated_at', {
           count: includeCount || countOnly ? 'exact' : undefined,
         })
         .eq('tenant_id', tenantId)
@@ -184,6 +185,7 @@ export async function GET(request: NextRequest) {
         email: row.fio_handle || null,
         personaState: mapStatusToPersonaState(row.status),
         reputationBucket: mapReputationBucket(row.reputation_tier, row.reputation_bucket),
+        orderTier: row.order_tier ?? null,
         totalPokw: 0,
         contributionCount: 0,
         createdAt: row.created_at,

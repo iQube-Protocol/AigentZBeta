@@ -1,0 +1,9 @@
+{
+  "pack_id": "pack_knyt_v0",
+  "title": "KNYT Codex",
+  "description": "KNYT cartridge codex — character cards, experience pack, and KNYT Activation Campaign bundle. Syncs to Autonomys Auto-Drive on every push to dev.",
+  "autodrive_genesis_bundle": "knyt_campaign_genesis_set",
+  "autodrive_last_sync": null,
+  "autodrive_manifest_cid": null,
+  "autodrive_path": "KnytCodex/repos/AigentZBeta"
+}

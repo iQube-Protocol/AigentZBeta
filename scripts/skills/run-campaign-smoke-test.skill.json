@@ -1,0 +1,57 @@
+{
+  "assetClass": "SkillQube",
+  "name": "Run Campaign Smoke Test",
+  "slug": "run-campaign-smoke-test",
+  "description": "End-to-end smoke test for the KNYT Wheel campaign pipeline. Verifies Mailjet templates, DB schema, investor data, dispatch API, and webhook reachability. Returns structured pass/fail results.",
+  "currentVersion": "1.0.0",
+  "trustBand": "L2_VERIFIED_COMMUNITY",
+  "publicationStatus": "draft",
+  "policyClass": "operator_only",
+  "wrapperStrategy": "skill",
+  "interfaceSchema": {
+    "inputs": {
+      "MAILJET_API_KEY":              { "type": "string", "source": "env", "required": true },
+      "MAILJET_SECRET_KEY":           { "type": "string", "source": "env", "required": true },
+      "MAILJET_TEMPLATE_TOP_SHELF":   { "type": "string", "source": "env", "required": true },
+      "MAILJET_TEMPLATE_ZERO_KNYT":   { "type": "string", "source": "env", "required": true },
+      "MAILJET_TEMPLATE_REACTIVATION":{ "type": "string", "source": "env", "required": true },
+      "MAILJET_TEMPLATE_GENERAL":     { "type": "string", "source": "env", "required": true },
+      "MAILJET_FROM_EMAIL":           { "type": "string", "source": "env", "required": true },
+      "NEXT_PUBLIC_SUPABASE_URL":     { "type": "string", "source": "env", "required": true },
+      "SUPABASE_SERVICE_ROLE_KEY":    { "type": "string", "source": "env", "required": true },
+      "app_url": { "type": "string", "source": "arg", "required": false, "default": "https://dev-beta.aigentz.me" },
+      "skip_dispatch": { "type": "boolean", "source": "arg", "required": false, "default": false }
+    },
+    "outputs": {
+      "passed":   { "type": "integer", "description": "Number of checks that passed" },
+      "failed":   { "type": "integer", "description": "Number of checks that failed" },
+      "warnings": { "type": "integer", "description": "Number of warnings" },
+      "exit_code":{ "type": "integer", "description": "0 = all passed, 1 = failures" }
+    }
+  },
+  "capabilities": [
+    { "id": "mailjet_template_verify", "name": "Verify Mailjet Templates",     "description": "Checks all 4 template IDs exist and have HTML content" },
+    { "id": "db_schema_verify",        "name": "Verify DB Schema",             "description": "Checks campaign columns on nakamoto_knyt_personas" },
+    { "id": "investor_data_check",     "name": "Check Investor Data",          "description": "Confirms at least one investor with a valid email" },
+    { "id": "dispatch_api_test",       "name": "Test Dispatch API",            "description": "Fires one test send via POST /api/marketa/sequence/dispatch" },
+    { "id": "webhook_reachability",    "name": "Check Webhook Endpoint",       "description": "Confirms /api/crm/webhooks/mailjet is live" }
+  ],
+  "steps": [
+    { "name": "check_templates",  "tool": "python", "prompt": "Verify all 4 Mailjet templates via GET /v3/REST/template/{id}/detailcontent" },
+    { "name": "check_db",         "tool": "python", "prompt": "Query nakamoto_knyt_personas for schema + row count" },
+    { "name": "check_investors",  "tool": "python", "prompt": "Find first investor with a valid email" },
+    { "name": "test_dispatch",    "tool": "python", "prompt": "POST /api/marketa/sequence/dispatch with knyt_general_v1 + investor_id" },
+    { "name": "check_webhook",    "tool": "python", "prompt": "POST empty body to /api/crm/webhooks/mailjet, expect 400/401 not 404/502" },
+    { "name": "print_summary",    "tool": "stdout", "prompt": "Print pass/fail/warn counts and list failures" }
+  ],
+  "tags": ["campaign", "testing", "mailjet", "knyt-wheel", "operator-tool", "smoke-test"],
+  "metadata": {
+    "entrypoint": "scripts/campaign_smoke_test.py",
+    "language":   "python",
+    "runtime":    "python3",
+    "claudeCommand": "/run-campaign-smoke-test",
+    "relatedSkills": ["create-mailjet-templates", "send-campaign-sequence"]
+  },
+  "createdBy": "claude-code",
+  "createdAt": "2026-04-13"
+}

@@ -35,6 +35,7 @@ import { KnytTab } from "./tabs/KnytTab";
 import { MoneyPennyTab } from "./tabs/MoneyPennyTab";
 import { NakamotoTab } from "./tabs/NakamotoTab";
 import { ExperienceDashboardTab } from "./tabs/ExperienceDashboardTab";
+import { InvestorDirectoryTab } from "./tabs/InvestorDirectoryTab";
 import { ArtifactTraceabilityTab } from "./tabs/ArtifactTraceabilityTab";
 import { FactoryIntakeTab } from "./tabs/FactoryIntakeTab";
 import { RegistrySupplyTab } from "./tabs/RegistrySupplyTab";
@@ -70,6 +71,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   PlaceholderTab,
   MoneyPennyTab,
   ExperienceDashboardTab,
+  InvestorDirectoryTab,
   ArtifactTraceabilityTab,
   FactoryIntakeTab,
   RegistrySupplyTab,

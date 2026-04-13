@@ -1,0 +1,66 @@
+name: KNYT Codex — Sync to Autonomys Auto-Drive
+
+# Fires when files in the KNYT codex pack change on dev.
+# Encrypts and uploads the KNYT pack (items + collections) to Autonomys
+# Auto-Drive mainnet, then commits the updated manifest CID to index.json.
+#
+# This is the canonical persistence layer beneath the admin-gated KNYT
+# Campaign tab. Admin gating controls live working access; AutoDrive
+# secures survivable canonical persistence.
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - "codexes/packs/knyt/**"
+      - "scripts/sync-codex-to-autodrive.js"
+
+  workflow_dispatch:
+
+jobs:
+  sync_knyt_codex:
+    name: Sync KNYT Codex to Auto-Drive
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "aigent-z[bot]"
+          git config user.email "aigent-z[bot]@users.noreply.github.com"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync KNYT pack to Autonomys Auto-Drive
+        env:
+          AUTONOMYS_API_KEY: ${{ secrets.AUTONOMYS_API_KEY }}
+        run: |
+          if [ -z "$AUTONOMYS_API_KEY" ]; then
+            echo "AUTONOMYS_API_KEY not set — skipping Auto-Drive sync."
+            exit 0
+          fi
+          echo "Syncing KNYT Codex to Autonomys Auto-Drive (mainnet)…"
+          node scripts/sync-codex-to-autodrive.js --pack knyt
+
+      - name: Commit KNYT autodrive manifest CID (if updated)
+        run: |
+          git add codexes/packs/knyt/index.json
+          if git diff --cached --quiet; then
+            echo "No KNYT manifest CID changes to commit."
+          else
+            git commit -m "sync knyt codex to autodrive — ${{ github.sha }}"
+            git push origin HEAD
+          fi

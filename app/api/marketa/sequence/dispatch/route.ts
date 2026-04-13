@@ -15,7 +15,27 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Types for sequence dispatch
+// ── KNYT Wheel ad-hoc dispatch types ─────────────────────────────────────────
+
+interface KnytWheelDispatchBody {
+  sequenceId: string;
+  recipientIds: string[];
+  channel: string;
+  context?: Record<string, unknown>;
+}
+
+interface KnytRecipient {
+  id: string;
+  name: string;
+  email: string;
+  cohort: string | null;
+  investment_band: string | null;
+  is_activated: boolean;
+  ks_tracking_url: string;
+}
+
+// ── Scheduled sequence dispatch types ────────────────────────────────────────
+
 interface SequenceItem {
   id: string;
   campaign_id: string;
@@ -226,6 +246,114 @@ async function updateTenantProgress(tenantConfigId: string, nextDay: number): Pr
     .eq('id', tenantConfigId);
 }
 
+// ── KNYT Wheel ad-hoc dispatch handler ───────────────────────────────────────
+
+async function handleKnytWheelDispatch(body: KnytWheelDispatchBody): Promise<NextResponse> {
+  const { sequenceId, recipientIds, channel, context } = body;
+
+  if (!sequenceId || !Array.isArray(recipientIds) || recipientIds.length === 0) {
+    return NextResponse.json({ error: 'sequenceId and recipientIds are required' }, { status: 400 });
+  }
+
+  // Fetch investor details from nakamoto_knyt_personas
+  const { data: investors, error: fetchError } = await supabase
+    .from('nakamoto_knyt_personas')
+    .select('id, "First-Name", "Last-Name", "Email", campaign_cohort, investment_amount_band')
+    .in('id', recipientIds);
+
+  if (fetchError) {
+    console.error('[marketa/dispatch] KNYT investor fetch failed:', fetchError);
+    return NextResponse.json({ error: 'Failed to fetch investor details' }, { status: 500 });
+  }
+
+  // Derive activation: batch-check crm_personas for an identity_persona_id
+  const emails = (investors ?? [])
+    .map((inv) => (inv as Record<string, unknown>)['Email'] as string | null)
+    .filter((e): e is string => !!e)
+    .map((e) => e.toLowerCase());
+
+  const activatedEmails = new Set<string>();
+  if (emails.length > 0) {
+    const { data: crmRows } = await supabase
+      .from('crm_personas')
+      .select('email')
+      .in('email', emails)
+      .not('identity_persona_id', 'is', null);
+    (crmRows ?? []).forEach((row) => {
+      if (row.email) activatedEmails.add(row.email.toLowerCase());
+    });
+  }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.aigentzbeta.com';
+
+  const recipients: KnytRecipient[] = (investors ?? []).map((inv) => {
+    const row = inv as Record<string, unknown>;
+    const cohort  = row['campaign_cohort'] as string | null;
+    const firstName = (row['First-Name'] as string | null) ?? '';
+    const lastName  = (row['Last-Name']  as string | null) ?? '';
+    const ksUrl = `${appUrl}/api/crm/track/ks?uid=${row['id']}&utm_source=knyt_wheel&utm_medium=${encodeURIComponent(channel)}&utm_content=${encodeURIComponent(cohort ?? 'general')}`;
+
+    const email = (row['Email'] as string | null) ?? '';
+    return {
+      id:               row['id'] as string,
+      name:             `${firstName} ${lastName}`.trim(),
+      email,
+      cohort,
+      investment_band:  (row['investment_amount_band'] as string | null) ?? null,
+      is_activated:     activatedEmails.has(email.toLowerCase()),
+      ks_tracking_url:  ksUrl,
+    };
+  });
+
+  const correlationId = generateCorrelationId();
+  const webhookPayload = {
+    type:              'knyt_wheel_dispatch',
+    sequence_id:       sequenceId,
+    channel,
+    context:           context ?? {},
+    recipients,
+    total_recipients:  recipients.length,
+    dispatched_at:     new Date().toISOString(),
+    correlation_id:    correlationId,
+  };
+
+  const webhookUrl = process.env.KNYT_WHEEL_WEBHOOK_URL;
+
+  if (!webhookUrl) {
+    // Log for debugging; don't fail — operator must configure the webhook URL
+    console.warn('[marketa/dispatch] KNYT_WHEEL_WEBHOOK_URL not set — dispatch logged only');
+    await logDeliveryAttempt('knyt_wheel', sequenceId, 0, channel, 'pending_webhook_config', webhookPayload);
+    return NextResponse.json({
+      success: true,
+      dispatched: recipients.length,
+      correlation_id: correlationId,
+      warning: 'KNYT_WHEEL_WEBHOOK_URL env var not configured — set it to activate Make.com dispatch',
+    });
+  }
+
+  const result = await sendToMakeWebhook(webhookPayload as unknown as DispatchPayload, webhookUrl);
+  await logDeliveryAttempt('knyt_wheel', sequenceId, 0, channel, result.success ? 'delivered' : 'failed', webhookPayload, result);
+
+  if (!result.success) {
+    return NextResponse.json({ error: 'Make.com webhook call failed', details: result.error }, { status: 502 });
+  }
+
+  // Update last_campaign_sent_at + last_campaign_sequence on dispatched investors
+  await supabase
+    .from('nakamoto_knyt_personas')
+    .update({ last_campaign_sent_at: new Date().toISOString(), last_campaign_sequence: sequenceId })
+    .in('id', recipientIds);
+
+  return NextResponse.json({
+    success: true,
+    dispatched: recipients.length,
+    sequence_id: sequenceId,
+    correlation_id: correlationId,
+  });
+}
+
+// ── Scheduled sequence dispatch handler ──────────────────────────────────────
+
 // Main dispatch handler
 async function processSequenceDispatch(): Promise<{
   processed: number;
@@ -411,10 +539,21 @@ async function processSequenceDispatch(): Promise<{
 // API Routes
 export async function POST(request: NextRequest) {
   try {
-    // This endpoint can be called by Vercel cron or external scheduler
+    // Parse body once — used for KNYT Wheel detection and discarded for scheduler path
+    let body: Record<string, unknown> | null = null;
+    try {
+      body = await request.json();
+    } catch {
+      // body stays null; scheduler path doesn't need it
+    }
+
+    // ── KNYT Wheel ad-hoc dispatch (sequenceId + recipientIds format) ──────
+    if (body && typeof body.sequenceId === 'string' && Array.isArray(body.recipientIds)) {
+      return handleKnytWheelDispatch(body as unknown as KnytWheelDispatchBody);
+    }
+
+    // ── Scheduled tenant dispatch (cron / external scheduler) ─────────────
     const authHeader = request.headers.get('authorization');
-    
-    // Simple auth check - in production, use proper API keys
     if (authHeader !== `Bearer ${process.env.SEQUENCE_DISPATCH_SECRET}`) {
       return NextResponse.json(
         { error: 'Unauthorized' },
