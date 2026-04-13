@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import { getPipelineOrchestrator } from '@/services/pipeline/orchestrator';
+import { channelRegistry } from '@/services/campaign/channelRegistry';
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -306,6 +307,35 @@ async function handleKnytWheelDispatch(body: KnytWheelDispatchBody): Promise<Nex
   });
 
   const correlationId = generateCorrelationId();
+
+  // ── Channel registry path (email_mailjet, email_sendgrid, etc.) ─────────────
+  const adapter = channelRegistry[channel];
+  if (adapter) {
+    if (adapter.phase !== 'active') {
+      return NextResponse.json(
+        { error: `Channel '${channel}' is not yet active (phase: ${adapter.phase})` },
+        { status: 400 }
+      );
+    }
+
+    const adapterResult = await adapter.send({ sequenceId, recipientIds, channel, context: context ?? {} });
+
+    if (!adapterResult.success) {
+      console.error(`[marketa/dispatch] ${channel} adapter error:`, adapterResult.error);
+      return NextResponse.json({ error: adapterResult.error ?? 'Adapter send failed' }, { status: 502 });
+    }
+
+    // Stamp dispatched investors
+    await supabase
+      .from('nakamoto_knyt_personas')
+      .update({ last_campaign_sent_at: new Date().toISOString(), last_campaign_sequence: sequenceId })
+      .in('id', recipientIds);
+
+    console.info(`[marketa/dispatch] ${channel} sent ${recipientIds.length} messages via adapter — seq=${sequenceId}`);
+    return NextResponse.json({ success: true, dispatched: recipients.length, sequence_id: sequenceId, correlation_id: correlationId });
+  }
+
+  // ── Make.com webhook fallback (legacy / make_com channel) ───────────────────
   const webhookPayload = {
     type:              'knyt_wheel_dispatch',
     sequence_id:       sequenceId,
@@ -317,18 +347,15 @@ async function handleKnytWheelDispatch(body: KnytWheelDispatchBody): Promise<Nex
     correlation_id:    correlationId,
   };
 
-  const webhookUrl = process.env.KNYT_WHEEL_WEBHOOK_URL;
+  // Support both env var names
+  const webhookUrl = process.env.KNYT_WHEEL_WEBHOOK_URL ?? process.env.MAKE_KNYT_WEBHOOK_URL;
 
   if (!webhookUrl) {
-    // Log for debugging; don't fail — operator must configure the webhook URL
-    console.warn('[marketa/dispatch] KNYT_WHEEL_WEBHOOK_URL not set — dispatch logged only');
-    await logDeliveryAttempt('knyt_wheel', sequenceId, 0, channel, 'pending_webhook_config', webhookPayload);
+    console.warn('[marketa/dispatch] No channel adapter found and no webhook URL configured');
     return NextResponse.json({
-      success: true,
-      dispatched: recipients.length,
-      correlation_id: correlationId,
-      warning: 'KNYT_WHEEL_WEBHOOK_URL env var not configured — set it to activate Make.com dispatch',
-    });
+      success: false,
+      error: `No adapter for channel '${channel}' and MAKE_KNYT_WEBHOOK_URL is not configured`,
+    }, { status: 400 });
   }
 
   const result = await sendToMakeWebhook(webhookPayload as unknown as DispatchPayload, webhookUrl);
@@ -338,7 +365,7 @@ async function handleKnytWheelDispatch(body: KnytWheelDispatchBody): Promise<Nex
     return NextResponse.json({ error: 'Make.com webhook call failed', details: result.error }, { status: 502 });
   }
 
-  // Update last_campaign_sent_at + last_campaign_sequence on dispatched investors
+  // Stamp dispatched investors
   await supabase
     .from('nakamoto_knyt_personas')
     .update({ last_campaign_sent_at: new Date().toISOString(), last_campaign_sequence: sequenceId })
