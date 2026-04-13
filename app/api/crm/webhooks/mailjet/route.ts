@@ -51,8 +51,11 @@ interface MjEvent {
 const TERMINAL_STATES = new Set(['backed', 'opted_out']);
 
 const EVENT_RULE: Record<string, { to: string; fromAllowed: Set<string> } | null> = {
-  open:    { to: 'opened',   fromAllowed: new Set(['unsent', 'sent']) },
-  click:   { to: 'clicked',  fromAllowed: new Set(['unsent', 'sent', 'opened']) },
+  // open and click only advance state if we already sent to this investor
+  // (i.e. state is 'sent' or higher). Allowing 'unsent' would pick up opens
+  // from unrelated Mailjet campaigns sent outside our system.
+  open:    { to: 'opened',    fromAllowed: new Set(['sent']) },
+  click:   { to: 'clicked',   fromAllowed: new Set(['sent', 'opened']) },
   spam:    { to: 'opted_out', fromAllowed: new Set(['unsent', 'sent', 'opened', 'clicked']) },
   unsub:   { to: 'opted_out', fromAllowed: new Set(['unsent', 'sent', 'opened', 'clicked']) },
   bounce:  null,  // log only
