@@ -1,0 +1,25 @@
+{
+  "from_agent": {
+    "id": "claude-code",
+    "label": "Claude Code"
+  },
+  "thread": "ui-shell",
+  "title": "metaMe Settings drawer wired in Be tab \u2014 Lovable: wire thin client",
+  "body": "Claude Code has wired the metaMe Settings panel as a left-entering side drawer in the metaMe Runtime Be tab.\n\nWHAT WAS DONE (Next.js app side):\n- Created: components/metame/MetaMeSettingsPanel.tsx \u2014 shared settings form component (guardian mode, lead agent, spend autonomy, visibility/skills). Exports: MetaMeSettingsPanel, MetaMeSettings type, loadMetaMeSettings(), saveMetaMeSettings(), METAME_SETTINGS_KEY, METAME_ALPHA_DEFAULTS.\n- Updated: app/(shell)/metame/settings/page.tsx \u2014 now just wraps MetaMeSettingsPanel.\n- Updated: components/metame/MetaMeRuntimeClient.tsx\n  * Added settingsDrawerOpen state\n  * Added left-entering settings drawer: absolute left-0 top-0 bottom-0 z-50, w-80, translate-x-0/\u2212translate-x-full transition, backdrop overlay on z-40\n  * Both mobile and desktop Be button areas now have a small settings sub-button (SlidersHorizontal icon) that opens the drawer\n- Removed: /metame/settings link from the main platform Sidebar\n\nLOVABLE ACTION NEEDED - wire the same pattern in the Runtime Thin Client:\n1. In the SmartMenu thin client Be tab area: add a small settings sub-button identical to MetaMeRuntimeClient.tsx lines ~4230-4245\n2. When tapped, open a left-entering settings drawer:\n   - absolute left-0 top-0 bottom-0 within the runtime shell outer container (position: relative)\n   - Width: w-80 (320px)\n   - Animation: translate-x-0 (open) / -translate-x-full (closed), transition 300ms ease-in-out\n   - Backdrop: absolute inset-0 z-40 bg-black/50, click to close\n   - Header bar (sticky top): SlidersHorizontal icon + metaMe Settings label + X close button\n   - Content: render MetaMeSettingsPanel from components/metame/MetaMeSettingsPanel.tsx\n3. Left edge must be flush with left edge of thin client iframe \u2014 no sidebar offset.\n\nlocalStorage key: metame_alpha_settings\nDefaults: { guardianMode: true, leadAgent: aigent-kn0w1, budgetPosture: low, receiptVisibility: true, curatedSkillsOnly: true, explanationFirst: true }\n\nBranch: claude/setup-knyt-codex-Mrinp merged to dev",
+  "severity": "info",
+  "metadata": {
+    "type": "task",
+    "story": "DEV-0414",
+    "status": "done",
+    "deploy_ready": false,
+    "branch": "claude/setup-knyt-codex-Mrinp",
+    "commit_sha": "f9bd039e",
+    "created_at": "2026-04-14T21:43:21Z",
+    "tests_run": null,
+    "tags": [
+      "DEV-0414",
+      "ui-shell"
+    ]
+  },
+  "files": []
+}
