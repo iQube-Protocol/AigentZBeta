@@ -1850,6 +1850,8 @@ export const ComposerStudio = () => {
   const [matrixCohortName, setMatrixCohortName] = useState<string | null>(null);
   const [individualSearch, setIndividualSearch] = useState("");
   const [individualPreset, setIndividualPreset] = useState<"" | "most_active" | "least_active">("");
+  const [individualSearchResults, setIndividualSearchResults] = useState<Array<{ name: string; stage: string; omTier: string }>>([]);
+  const [individualSearchLoading, setIndividualSearchLoading] = useState(false);
   const [individualSelected, setIndividualSelected] = useState<string | null>(null);
   // Live KNYT CRM data for experience matrix
   // Aggregate cell counts from view=matrix (nakamoto_knyt_personas, all paginated)
@@ -1937,6 +1939,44 @@ export const ComposerStudio = () => {
       .catch(() => {})
       .finally(() => setMatrixDataLoading(false));
   }, [copilotContextId, matrixDataFetched]);
+
+  // Reset cohort selection when switching cartridges (stale name would mismatch new x_stages)
+  useEffect(() => {
+    setMatrixCohortName(null);
+    setIndividualSearch("");
+    setIndividualSearchResults([]);
+    setIndividualSelected(null);
+  }, [copilotContextId]);
+
+  // Server-side individual search — debounced, fetches from /api/crm/investors
+  useEffect(() => {
+    if (!individualSearch.trim() || copilotContextId !== "knyt-codex") {
+      setIndividualSearchResults([]);
+      return;
+    }
+    setIndividualSearchLoading(true);
+    const TIER_TO_STAGE: Record<string, string> = {
+      SAT: "Sat KNYT", ZERO: "Zero", FIRST: "First", KEJI: "Keji", KETA: "Keta",
+    };
+    const timer = setTimeout(() => {
+      fetch(`/api/crm/investors?search=${encodeURIComponent(individualSearch.trim())}&limit=50`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data?.data) {
+            setIndividualSearchResults(
+              (data.data as Record<string, unknown>[]).map((inv) => ({
+                name: (inv.name as string) || (inv.email as string) || "Unknown",
+                stage: TIER_TO_STAGE[((inv.omTier as string) || "").toUpperCase()] ?? "Prospect",
+                omTier: (inv.omTier as string) || "",
+              }))
+            );
+          }
+          setIndividualSearchLoading(false);
+        })
+        .catch(() => setIndividualSearchLoading(false));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [individualSearch, copilotContextId]);
 
   // Sync Experience Qube collapse state with Design Qube
   useEffect(() => {
@@ -9926,14 +9966,14 @@ export const ComposerStudio = () => {
                               return matrixCellCounts[`${y}:${x}`] ?? 0;
                             };
 
-                            // Individual lens: filter matrixIndividuals by search/preset
+                            // Individual lens: server-side search results OR preset slice from top-500
                             const filteredIndividuals =
                               individualPreset === "most_active"
                                 ? matrixIndividuals.slice(0, 10)
                                 : individualPreset === "least_active"
                                   ? matrixIndividuals.slice(-10)
                                   : individualSearch
-                                    ? matrixIndividuals.filter((u) => u.name.toLowerCase().includes(individualSearch.toLowerCase()))
+                                    ? individualSearchResults
                                     : [];
                             const liveIndividualNames = filteredIndividuals.map((u) => u.name);
 
@@ -10024,8 +10064,8 @@ export const ComposerStudio = () => {
                                       {/* User pill carousel — real names from KNYT CRM */}
                                       {(individualSearch || individualPreset) && (
                                         <div className="flex items-center gap-1 overflow-x-auto flex-1 min-w-0 scrollbar-none">
-                                          {matrixDataLoading && <span className="text-[10px] text-slate-500 shrink-0">Loading…</span>}
-                                          {!matrixDataLoading && liveIndividualNames.length === 0 && (
+                                          {(matrixDataLoading || individualSearchLoading) && <span className="text-[10px] text-slate-500 shrink-0">Loading…</span>}
+                                          {!matrixDataLoading && !individualSearchLoading && liveIndividualNames.length === 0 && (
                                             <span className="text-[10px] text-slate-600 shrink-0">No users found</span>
                                           )}
                                           {liveIndividualNames.map((u) => (
@@ -10056,7 +10096,7 @@ export const ComposerStudio = () => {
                                     >
                                       <RefreshCw className={`h-2.5 w-2.5 ${matrixDataLoading ? "animate-spin" : ""}`} />
                                     </button>
-                                    <span className="text-[9px] text-slate-600 flex items-center gap-1">
+                                    <span className="text-[11px] text-slate-600 flex items-center gap-1">
                                       {matrixDataLoading
                                         ? <span className="text-cyan-400/70">Loading…</span>
                                         : matrixTotalUsers > 0
@@ -10079,7 +10119,11 @@ export const ComposerStudio = () => {
                                       <div className="text-[11px] text-slate-600 self-end pb-0.5">Y ╲ X</div>
                                       <div className="text-center text-[11px] font-semibold text-rose-500/60 pb-0.5 truncate" title="-1 Disheartened">−1 Dis.</div>
                                       {m.x_stages.map((x: string) => (
-                                        <div key={x} className="text-center text-[11px] font-semibold text-slate-500 pb-0.5 truncate" title={x}>{x}</div>
+                                        <div key={x} className={`text-center text-[11px] font-semibold pb-0.5 truncate transition-colors ${
+                                          matrixLens === "cohort" && matrixCohortName === x
+                                            ? "text-cyan-400 underline underline-offset-2 decoration-cyan-500/40"
+                                            : "text-slate-500"
+                                        }`} title={x}>{x}</div>
                                       ))}
                                     </div>
                                     {/* Grid rows (Y inverted) */}
@@ -10137,6 +10181,8 @@ export const ComposerStudio = () => {
                                             const cellCount = getCellCount(y, x);
                                             // Individual: highlight the selected user's actual cell
                                             const isIndividualPos = matrixLens === "individual" && individualSelected !== null && xi === selectedCellXi && yi === selectedCellYi && selectedCellXi >= 0 && selectedCellYi >= 0;
+                                            // Cohort: highlight selected column
+                                            const isSelectedCohortCol = matrixLens === "cohort" && matrixCohortName !== null && x === matrixCohortName;
                                             const cellClass = isApex && hasPrescription
                                               ? "border-amber-500/40 bg-amber-500/8 text-amber-200"
                                               : hasPrescription && isOnDiagonal
@@ -10150,7 +10196,7 @@ export const ComposerStudio = () => {
                                                 <button
                                                   type="button"
                                                   onClick={() => hasPrescription && openPopup(key)}
-                                                  className={`w-full rounded border px-0.5 py-1 text-center text-[12px] leading-tight font-medium ${cellClass} ${hasPrescription ? "cursor-pointer hover:ring-1 hover:ring-white/20" : "cursor-default"} ${isIndividualPos ? "ring-2 ring-violet-400/60" : ""}`}
+                                                  className={`w-full rounded border px-0.5 py-1 text-center text-[12px] leading-tight font-medium ${cellClass} ${hasPrescription ? "cursor-pointer hover:ring-1 hover:ring-white/20" : "cursor-default"} ${isIndividualPos ? "ring-2 ring-violet-400/60" : ""} ${isSelectedCohortCol ? "ring-1 ring-cyan-500/40 bg-cyan-950/10" : ""}`}
                                                   title={`${y} × ${x}${cellCount ? ` · ${cellCount} user${cellCount > 1 ? "s" : ""}` : ""}${prescription ? `\n${prescription}` : ""}`}
                                                 >
                                                   {prescription ? prescription.split(": ").pop() : "·"}
