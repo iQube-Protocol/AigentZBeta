@@ -1851,17 +1851,18 @@ export const ComposerStudio = () => {
   const [individualSearch, setIndividualSearch] = useState("");
   const [individualPreset, setIndividualPreset] = useState<"" | "most_active" | "least_active">("");
   const [individualSelected, setIndividualSelected] = useState<string | null>(null);
-  // Live KNYT CRM user data for matrix
-  const [matrixUsers, setMatrixUsers] = useState<Array<{
-    personaId: string;
+  // Live KNYT CRM data for experience matrix
+  // Aggregate cell counts from view=matrix (nakamoto_knyt_personas, all paginated)
+  const [matrixCellCounts, setMatrixCellCounts] = useState<Record<string, number>>({});
+  const [matrixTotalUsers, setMatrixTotalUsers] = useState(0);
+  // Individual investor names for the individual lens carousel
+  const [matrixIndividuals, setMatrixIndividuals] = useState<Array<{
     name: string;
-    stage: string;   // prospect, acolyte, keta, keji, first, zero
-    depth: string;   // pill, capsule, mini_runtime, codex
-    cohort: string | null;  // top_shelf, zero_knyt, reactivation, partner, cold
-    omTier: string | null;  // KETA, KEJI, FIRST, ZERO, SAT
+    stage: string;   // x_stage label: Prospect, Acolyte, Keta, Keji, First, Zero, Sat KNYT
+    omTier: string;  // KETA, KEJI, FIRST, ZERO, SAT
   }>>([]);
-  const [matrixUsersLoading, setMatrixUsersLoading] = useState(false);
-  const [matrixUsersFetched, setMatrixUsersFetched] = useState(false);
+  const [matrixDataLoading, setMatrixDataLoading] = useState(false);
+  const [matrixDataFetched, setMatrixDataFetched] = useState(false);
   const [pendingProductionConfig, setPendingProductionConfig] = useState<{
     templateKey: string;
     seedData: Record<string, unknown>;
@@ -1899,39 +1900,43 @@ export const ComposerStudio = () => {
   const [codexContentLoading, setCodexContentLoading] = useState(false);
   const studioViewportStylesRef = useRef<{ bodyOverflow: string; htmlOverflow: string } | null>(null);
 
-  // Fetch live KNYT user data for the experience matrix (only for knyt-codex cartridge)
+  // Fetch live KNYT matrix data (only for knyt-codex cartridge)
+  // view=matrix: paginates ALL nakamoto_knyt_personas for accurate totals
+  // investors: 500 investor names for the individual lens carousel
   useEffect(() => {
-    if (copilotContextId !== "knyt-codex") { setMatrixUsers([]); setMatrixUsersFetched(false); return; }
-    if (matrixUsersFetched) return;
-    setMatrixUsersLoading(true);
+    if (copilotContextId !== "knyt-codex") {
+      setMatrixCellCounts({}); setMatrixTotalUsers(0); setMatrixIndividuals([]); setMatrixDataFetched(false); return;
+    }
+    if (matrixDataFetched) return;
+    setMatrixDataLoading(true);
+    const TIER_TO_STAGE: Record<string, string> = {
+      SAT: 'Sat KNYT', ZERO: 'Zero', FIRST: 'First', KEJI: 'Keji', KETA: 'Keta',
+    };
     Promise.all([
-      fetch("/api/runtime/experience/dashboard?view=individual&limit=1000")
+      fetch("/api/runtime/experience/dashboard?view=matrix")
         .then((r) => (r.ok ? r.json() : null)),
       fetch("/api/crm/investors?limit=500&sort=tier")
         .then((r) => (r.ok ? r.json() : null)),
     ])
-      .then(([journeyData, investorData]) => {
-        const journeys: Record<string, unknown>[] = (journeyData?.individuals as Record<string, unknown>[]) ?? [];
-        const investors: Record<string, unknown>[] = (investorData?.data as Record<string, unknown>[]) ?? [];
-        const cohortMap: Record<string, { cohort: string | null; omTier: string | null }> = {};
-        for (const inv of investors) {
-          const pid = inv.personaId as string | null;
-          if (pid) cohortMap[pid] = { cohort: (inv.campaign_cohort as string | null) ?? null, omTier: (inv.omTier as string | null) ?? null };
+      .then(([matrixData, investorData]) => {
+        if (matrixData?.cells) {
+          setMatrixCellCounts(matrixData.cells as Record<string, number>);
+          setMatrixTotalUsers((matrixData.total as number) ?? 0);
         }
-        const crm = (j: Record<string, unknown>) => j.crm as Record<string, unknown> | null;
-        setMatrixUsers(journeys.map((j) => ({
-          personaId: j.persona_id as string,
-          name: (crm(j)?.display_name as string) || (crm(j)?.fio_handle as string) || (j.persona_id as string).slice(0, 8),
-          stage: (j.stage as string) ?? "",
-          depth: (j.depth as string) ?? "",
-          cohort: cohortMap[j.persona_id as string]?.cohort ?? null,
-          omTier: cohortMap[j.persona_id as string]?.omTier ?? ((crm(j)?.order_tier as string) ?? null),
-        })));
-        setMatrixUsersFetched(true);
+        if (investorData?.data) {
+          setMatrixIndividuals(
+            (investorData.data as Record<string, unknown>[]).map((inv) => ({
+              name: (inv.name as string) || (inv.email as string) || (inv.id as string) || "Unknown",
+              stage: TIER_TO_STAGE[((inv.omTier as string) || '').toUpperCase()] ?? 'Prospect',
+              omTier: (inv.omTier as string) || '',
+            }))
+          );
+        }
+        setMatrixDataFetched(true);
       })
       .catch(() => {})
-      .finally(() => setMatrixUsersLoading(false));
-  }, [copilotContextId, matrixUsersFetched]);
+      .finally(() => setMatrixDataLoading(false));
+  }, [copilotContextId, matrixDataFetched]);
 
   // Sync Experience Qube collapse state with Design Qube
   useEffect(() => {
@@ -9800,17 +9805,6 @@ export const ComposerStudio = () => {
                           <RefreshCw className={`h-3 w-3 ${expModelLoading ? "animate-spin" : ""}`} />
                           Refresh
                         </button>
-                        {copilotContextId === "knyt-codex" && (
-                          <button
-                            type="button"
-                            className="flex items-center gap-1.5 rounded-lg border border-emerald-700/40 bg-emerald-950/30 px-2.5 py-1 text-[11px] text-emerald-300 hover:bg-emerald-900/30"
-                            title="Refresh live KNYT user positions in the matrix"
-                            onClick={() => { setMatrixUsersFetched(false); }}
-                          >
-                            <RefreshCw className={`h-3 w-3 ${matrixUsersLoading ? "animate-spin" : ""}`} />
-                            {matrixUsersLoading ? "Loading…" : `Live (${matrixUsers.length})`}
-                          </button>
-                        )}
                       </div>
 
                       <Tabs value={expModelTab} onValueChange={setExpModelTab}>
@@ -9922,69 +9916,37 @@ export const ComposerStudio = () => {
                             const yReversed = [...m.y_stages].reverse(); // highest engagement at top
                             const xLen = m.x_stages.length;
                             const yLen = yReversed.length;
-                            // Derive cohorts from cartridge ladder stages (franchise cohorts) or fall back to generic
-                            const COHORT_NAMES: string[] = fw?.ladder?.stages?.length
-                              ? fw.ladder.stages.map((s: { label: string }) => s.label)
-                              : ["New Entrants", "Power Users", "Dormant", "Evangelists"];
+                            // Cohort buttons = x_stages directly (matrix columns = patronage cohorts)
+                            const COHORT_NAMES: string[] = m.x_stages as string[];
 
-                            // ── Live user data for KNYT matrix ──────────────────────
-                            // Maps journey_states.stage → x_stages label (case-insensitive)
-                            const stageToXLabel: Record<string, string> = {};
-                            for (const xs of m.x_stages as string[]) {
-                              stageToXLabel[xs.toLowerCase().replace(/\s/g, "_")] = xs;
-                              stageToXLabel[xs.toLowerCase()] = xs;
-                            }
-                            // Maps depth → y_stage label (4-level → 8-level mapping)
-                            const DEPTH_TO_Y_LABEL: Record<string, string> = {
-                              pill: "Collector",
-                              capsule: "Remixer",
-                              mini_runtime: "Correspondent",
-                              codex: "Steward",
+                            // ── Live aggregate data helpers ─────────────────────────
+                            // Cell count: in cohort mode, only show counts for the selected X-stage
+                            const getCellCount = (y: string, x: string): number => {
+                              if (matrixLens === "cohort" && matrixCohortName && x !== matrixCohortName) return 0;
+                              return matrixCellCounts[`${y}:${x}`] ?? 0;
                             };
-                            // Filter live users by current lens
-                            const ladderStageIds: Record<string, string> = {};
-                            for (const s of fw?.ladder?.stages ?? []) {
-                              ladderStageIds[(s as { id: string; label: string }).label.toLowerCase()] = (s as { id: string; label: string }).id;
-                            }
-                            const filteredLiveUsers = matrixLens === "cohort" && matrixCohortName
-                              ? matrixUsers.filter((u) => {
-                                  // franchise cohort selected: filter by stage matching the cohort label
-                                  const stageId = ladderStageIds[matrixCohortName.toLowerCase()];
-                                  return u.stage.toLowerCase() === (stageId ?? matrixCohortName.toLowerCase()) || u.stage.toLowerCase() === matrixCohortName.toLowerCase();
-                                })
-                              : matrixLens === "individual" && individualPreset === "most_active"
-                                ? [...matrixUsers].sort((a, b) => (a.depth > b.depth ? -1 : 1)).slice(0, 10)
-                                : matrixLens === "individual" && individualPreset === "least_active"
-                                  ? [...matrixUsers].sort((a, b) => (a.depth < b.depth ? -1 : 1)).slice(0, 10)
-                                  : matrixLens === "individual" && individualSearch
-                                    ? matrixUsers.filter((u) => u.name.toLowerCase().includes(individualSearch.toLowerCase()))
-                                    : matrixUsers;
 
-                            // Build cell user map: "yi:xi" → user names
-                            const cellUserMap: Record<string, string[]> = {};
-                            for (const u of filteredLiveUsers) {
-                              const xLabel = stageToXLabel[u.stage.toLowerCase()] ?? stageToXLabel[u.stage.toLowerCase().replace(/ /g, "_")];
-                              const yLabel = DEPTH_TO_Y_LABEL[u.depth.toLowerCase().replace(/ /g, "_")] ?? DEPTH_TO_Y_LABEL[u.depth.toLowerCase()];
-                              if (xLabel && yLabel) {
-                                const xi = (m.x_stages as string[]).indexOf(xLabel);
-                                const yi = (yReversed as string[]).indexOf(yLabel);
-                                if (xi >= 0 && yi >= 0) {
-                                  const ck = `${yi}:${xi}`;
-                                  if (!cellUserMap[ck]) cellUserMap[ck] = [];
-                                  cellUserMap[ck].push(u.name);
-                                }
-                              }
-                            }
+                            // Individual lens: filter matrixIndividuals by search/preset
+                            const filteredIndividuals =
+                              individualPreset === "most_active"
+                                ? matrixIndividuals.slice(0, 10)
+                                : individualPreset === "least_active"
+                                  ? matrixIndividuals.slice(-10)
+                                  : individualSearch
+                                    ? matrixIndividuals.filter((u) => u.name.toLowerCase().includes(individualSearch.toLowerCase()))
+                                    : [];
+                            const liveIndividualNames = filteredIndividuals.map((u) => u.name);
 
-                            // Individual selected user position
-                            const selectedUserData = individualSelected ? matrixUsers.find((u) => u.name === individualSelected) ?? null : null;
-                            const selectedXLabel = selectedUserData ? stageToXLabel[selectedUserData.stage.toLowerCase()] : null;
-                            const selectedYLabel = selectedUserData ? DEPTH_TO_Y_LABEL[selectedUserData.depth.toLowerCase().replace(/ /g, "_")] : null;
-                            const selectedCellXi = selectedXLabel ? (m.x_stages as string[]).indexOf(selectedXLabel) : -1;
-                            const selectedCellYi = selectedYLabel ? (yReversed as string[]).indexOf(selectedYLabel) : -1;
-
-                            // Real individual names for carousel
-                            const liveIndividualNames: string[] = filteredLiveUsers.map((u) => u.name);
+                            // Selected individual's matrix position (all investors are at Collector Y)
+                            const selectedUser = individualSelected
+                              ? matrixIndividuals.find((u) => u.name === individualSelected) ?? null
+                              : null;
+                            const selectedCellXi = selectedUser
+                              ? (m.x_stages as string[]).indexOf(selectedUser.stage)
+                              : -1;
+                            const selectedCellYi = selectedUser
+                              ? (yReversed as string[]).indexOf("Collector")
+                              : -1;
 
                             // Popup helpers
                             const openPopup = (key: string) => {
@@ -10062,8 +10024,8 @@ export const ComposerStudio = () => {
                                       {/* User pill carousel — real names from KNYT CRM */}
                                       {(individualSearch || individualPreset) && (
                                         <div className="flex items-center gap-1 overflow-x-auto flex-1 min-w-0 scrollbar-none">
-                                          {matrixUsersLoading && <span className="text-[10px] text-slate-500 shrink-0">Loading…</span>}
-                                          {!matrixUsersLoading && liveIndividualNames.length === 0 && (
+                                          {matrixDataLoading && <span className="text-[10px] text-slate-500 shrink-0">Loading…</span>}
+                                          {!matrixDataLoading && liveIndividualNames.length === 0 && (
                                             <span className="text-[10px] text-slate-600 shrink-0">No users found</span>
                                           )}
                                           {liveIndividualNames.map((u) => (
@@ -10084,15 +10046,26 @@ export const ComposerStudio = () => {
                                       )}
                                     </div>
                                   )}
-                                  <span className="ml-auto text-[9px] text-slate-600 shrink-0 flex items-center gap-1.5">
-                                    {matrixUsersLoading
-                                      ? <span className="text-cyan-400/70">Loading users…</span>
-                                      : matrixUsers.length > 0
-                                        ? <span className="text-emerald-400/70">{matrixUsers.length} live users</span>
-                                        : null
-                                    }
-                                    {matrixLens === "org" ? "· population" : matrixLens === "cohort" ? "· cohort heatmap" : "· individual path"}
-                                  </span>
+                                  {/* Refresh + live count — right of lens toggles */}
+                                  <div className="ml-auto flex items-center gap-1 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => setMatrixDataFetched(false)}
+                                      title="Refresh live KNYT matrix data"
+                                      className="rounded border border-slate-700/60 bg-slate-900/50 p-0.5 hover:bg-slate-800 text-slate-500 hover:text-slate-300"
+                                    >
+                                      <RefreshCw className={`h-2.5 w-2.5 ${matrixDataLoading ? "animate-spin" : ""}`} />
+                                    </button>
+                                    <span className="text-[9px] text-slate-600 flex items-center gap-1">
+                                      {matrixDataLoading
+                                        ? <span className="text-cyan-400/70">Loading…</span>
+                                        : matrixTotalUsers > 0
+                                          ? <span className="text-emerald-400/70">{matrixTotalUsers.toLocaleString()} live</span>
+                                          : null
+                                      }
+                                      {matrixLens === "org" ? "· all" : matrixLens === "cohort" ? "· cohort" : "· individual"}
+                                    </span>
+                                  </div>
                                 </div>
 
                                 <div className="flex items-center justify-between text-[10px] text-slate-500">
@@ -10160,10 +10133,8 @@ export const ComposerStudio = () => {
                                             const yNorm = yOrig / Math.max(yLen - 1, 1);
                                             const xNorm = xi / Math.max(xLen - 1, 1);
                                             const isOnDiagonal = Math.abs(yNorm - xNorm) <= 0.28;
-                                            // Live user count for this cell
-                                            const cellKey = `${yi}:${xi}`;
-                                            const cellNames = cellUserMap[cellKey] ?? [];
-                                            const cellCount = cellNames.length;
+                                            // Live aggregate count for this cell
+                                            const cellCount = getCellCount(y, x);
                                             // Individual: highlight the selected user's actual cell
                                             const isIndividualPos = matrixLens === "individual" && individualSelected !== null && xi === selectedCellXi && yi === selectedCellYi && selectedCellXi >= 0 && selectedCellYi >= 0;
                                             const cellClass = isApex && hasPrescription

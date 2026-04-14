@@ -13,10 +13,14 @@
  * ?view=individual — paginated journey states with CRM fields + NBE + trust scores
  *                    optional: &stage=keta, &search=<name|fio_handle>
  * ?view=nbe        — active NBE plans + experience strategies
+ * ?view=matrix     — aggregate investor cell distribution for KNYT experience matrix
+ *                    reads nakamoto_knyt_personas, maps OM-Tier-Status → X-axis,
+ *                    all investors default to Y=Collector (they hold collectibles)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getCrmClient } from '@/services/crm/crmDataAccess';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -278,6 +282,55 @@ export async function GET(request: NextRequest) {
       tenant_id: tenantId,
       plans: plans ?? [],
       strategies: strategies ?? [],
+    });
+  }
+
+  // ── Matrix distribution view ──────────────────────────────────────────────────
+  // Reads nakamoto_knyt_personas to build aggregate cell counts for the KNYT
+  // experience matrix. All investors are at Y=Collector (they hold collectibles:
+  // shares, cards, or other assets). X-position is derived from OM-Tier-Status.
+  if (view === 'matrix') {
+    // OM-Tier-Status → x_stage label in the KNYT matrix
+    const TIER_TO_X: Record<string, string> = {
+      SAT: 'Sat KNYT', ZERO: 'Zero', FIRST: 'First', KEJI: 'Keji', KETA: 'Keta',
+    };
+
+    const crmClient = getCrmClient();
+    const tierCounts: Record<string, number> = {};
+    let total = 0;
+    let page = 0;
+    const PAGE = 1000;
+
+    // Paginate through all records — PostgREST hard-caps at 1000 per request
+    while (true) {
+      const { data, error } = await crmClient
+        .from('nakamoto_knyt_personas')
+        .select('"OM-Tier-Status"')
+        .range(page * PAGE, (page + 1) * PAGE - 1);
+      if (error || !data || data.length === 0) break;
+      for (const row of data) {
+        const tier = (((row as Record<string, unknown>)['OM-Tier-Status'] as string) || '').toUpperCase().trim();
+        tierCounts[tier] = (tierCounts[tier] ?? 0) + 1;
+        total++;
+      }
+      if (data.length < PAGE) break;
+      page++;
+    }
+
+    // Build cell map: Y is always "Collector", X from tier
+    const cells: Record<string, number> = {};
+    for (const [tier, count] of Object.entries(tierCounts)) {
+      const xStage = TIER_TO_X[tier] ?? 'Prospect';
+      const cellKey = `Collector:${xStage}`;
+      cells[cellKey] = (cells[cellKey] ?? 0) + count;
+    }
+
+    return NextResponse.json({
+      view: 'matrix',
+      total,
+      y_default: 'Collector',
+      tier_distribution: tierCounts,
+      cells,
     });
   }
 
