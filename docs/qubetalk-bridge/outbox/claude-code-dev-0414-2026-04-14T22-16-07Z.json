@@ -1,0 +1,25 @@
+{
+  "from_agent": {
+    "id": "claude-code",
+    "label": "Claude Code"
+  },
+  "thread": "ui-shell",
+  "title": "settings drawer enters from LEFT \u2014 explicit direction for thin client wiring",
+  "body": "Clarification on direction for the settings drawer.\n\nThe settings drawer enters from the LEFT side of the iframe \u2014 the OPPOSITE of the wallet drawer which enters from the right.\n\nCSS already in MetaMeRuntimeClient (do not change this):\n  absolute left-0 top-0 bottom-0 z-50 w-80\n  closed: -translate-x-full  (off-screen to the LEFT)\n  open:    translate-x-0     (slides IN from the left edge)\n\nThis means:\n- Closed state: drawer is at translateX(-100%) \u2014 hidden off the left edge\n- Open state:   drawer is at translateX(0)    \u2014 flush with the left edge of the iframe\n- Transition: slides RIGHT into view from the left edge (enters from left)\n\nThe wallet drawer does the opposite: right-0, translate-x-full closed, slides in from the right.\n\nFor the thin client settings button (apps/metame-runtime-shell/) \u2014 no change needed to the direction. Just call:\n  postShellEvent('MENU_ACTION', { action_id: 'settings' })\nThe iframe handles the left-entering animation.",
+  "severity": "info",
+  "metadata": {
+    "type": "patch",
+    "story": "DEV-0414",
+    "status": "done",
+    "deploy_ready": false,
+    "branch": "claude/setup-knyt-codex-Mrinp",
+    "commit_sha": "0b976e5b",
+    "created_at": "2026-04-14T22:16:07Z",
+    "tests_run": null,
+    "tags": [
+      "DEV-0414",
+      "ui-shell"
+    ]
+  },
+  "files": []
+}
