@@ -57,6 +57,7 @@ import {
   RotateCcw,
   Send,
   Share2,
+  SlidersHorizontal,
   Square,
   SquareArrowOutUpRight,
   Sparkles,
@@ -64,7 +65,9 @@ import {
   Moon,
   Tv,
   Users,
+  X,
 } from "lucide-react";
+import { MetaMeSettingsPanel } from "@/components/metame/MetaMeSettingsPanel";
 import type { ScreenFraction, SmartContentQube } from "@/types/smartContent";
 import type { RuntimeCapsuleRecord } from "@/types/runtimeCapsules";
 
@@ -1821,6 +1824,7 @@ export default function MetaMeRuntimeClient() {
   const runtimeReadyPostedRef = useRef(false);
   const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
   const [walletDrawerOpen, setWalletDrawerOpen] = useState(false);
+  const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
 
   const [selectedAgent, setSelectedAgent] = useState<RuntimeAgent>(RUNTIME_AGENTS[0]);
   const [showAgentSelector, setShowAgentSelector] = useState(false);
@@ -4159,16 +4163,27 @@ export default function MetaMeRuntimeClient() {
     <div className="relative z-30 pointer-events-auto border-t border-white/10 bg-white/[0.03] pt-3">
       {isMobileLayout ? (
         <div className="flex items-center justify-between px-4">
-          <button
-            type="button"
-            onClick={() => handleRuntimeMenuIntent("be", "I want to be...")}
-            className={menuButtonClass("be")}
-            title="I want to be..."
-            aria-pressed={lastIntent === "be"}
-          >
-            <Users className="h-4 w-4 text-slate-200" />
-            Be
-          </button>
+          <div className="flex flex-col items-center gap-0.5">
+            <button
+              type="button"
+              onClick={() => handleRuntimeMenuIntent("be", "I want to be...")}
+              className={menuButtonClass("be")}
+              title="I want to be..."
+              aria-pressed={lastIntent === "be"}
+            >
+              <Users className="h-4 w-4 text-slate-200" />
+              Be
+            </button>
+            <button
+              type="button"
+              onClick={() => setSettingsDrawerOpen(true)}
+              className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] text-slate-500 hover:text-slate-300 hover:bg-white/10 transition"
+              title="metaMe Settings"
+            >
+              <SlidersHorizontal className="h-2.5 w-2.5" />
+              <span>settings</span>
+            </button>
+          </div>
           <button
             type="button"
             onClick={() => handleRuntimeMenuIntent("earn", "How can I earn...")}
@@ -4212,16 +4227,27 @@ export default function MetaMeRuntimeClient() {
         </div>
       ) : (
         <div className="flex items-center justify-between px-4">
-          <button
-            type="button"
-            onClick={() => handleRuntimeMenuIntent("be", "I want to be...")}
-            className={menuButtonClass("be")}
-            title="I want to be..."
-            aria-pressed={lastIntent === "be"}
-          >
-            <Users className="h-4 w-4 text-slate-200" />
-            Be
-          </button>
+          <div className="flex flex-col items-center gap-0.5">
+            <button
+              type="button"
+              onClick={() => handleRuntimeMenuIntent("be", "I want to be...")}
+              className={menuButtonClass("be")}
+              title="I want to be..."
+              aria-pressed={lastIntent === "be"}
+            >
+              <Users className="h-4 w-4 text-slate-200" />
+              Be
+            </button>
+            <button
+              type="button"
+              onClick={() => setSettingsDrawerOpen(true)}
+              className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] text-slate-500 hover:text-slate-300 hover:bg-white/10 transition"
+              title="metaMe Settings"
+            >
+              <SlidersHorizontal className="h-2.5 w-2.5" />
+              <span>settings</span>
+            </button>
+          </div>
           <div className="flex flex-1 items-center justify-center gap-6">
             <button
               type="button"
@@ -4439,6 +4465,33 @@ export default function MetaMeRuntimeClient() {
         personaId={activePersonaId || undefined}
         initialTab="wallet"
       />
+      {/* metaMe Settings — left-entering drawer (Be tab sub-item) */}
+      {settingsDrawerOpen ? (
+        <div
+          className="absolute inset-0 z-40 bg-black/50"
+          onClick={() => setSettingsDrawerOpen(false)}
+        />
+      ) : null}
+      <div
+        className={`absolute left-0 top-0 bottom-0 z-50 w-80 bg-slate-950 border-r border-white/10 overflow-y-auto transform transition-transform duration-300 ease-in-out ${settingsDrawerOpen ? "translate-x-0" : "-translate-x-full"}`}
+        aria-hidden={!settingsDrawerOpen}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 sticky top-0 bg-slate-950 z-10">
+          <span className="text-sm font-medium text-slate-200 flex items-center gap-2">
+            <SlidersHorizontal className="h-3.5 w-3.5 text-slate-400" />
+            metaMe Settings
+          </span>
+          <button
+            type="button"
+            onClick={() => setSettingsDrawerOpen(false)}
+            className="rounded p-1 text-slate-400 hover:bg-white/10 hover:text-white transition"
+            aria-label="Close settings"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <MetaMeSettingsPanel />
+      </div>
       {/* Absolute overlay: prompt bar (live view only) + runtimeMenu stacked at bottom */}
       {!thinShellMode ? (
         <div className="absolute inset-x-0 bottom-0 z-30 bg-slate-950/95 backdrop-blur-sm">
