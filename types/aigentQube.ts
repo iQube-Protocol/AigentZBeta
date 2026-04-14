@@ -292,8 +292,10 @@ export function createAgentCapability(
 
 /** Well-known agent IDs */
 export const AGENT_IDS = {
+  AIGENT_Z: 'aigent-z',
   COPILOT: 'Copilot',
-  KN0W1: 'Kn0w1',
+  KN0W1: 'aigent-kn0w1',
+  MARKETA: 'aigent-marketa',
   MONEYPENNY: 'MoneyPenny',
   NAKAMOTO: 'Nakamoto',
 } as const;

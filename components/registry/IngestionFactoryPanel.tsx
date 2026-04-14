@@ -16,6 +16,7 @@ const ASSET_CLASS_LABELS: Record<RegistryAssetClass, string> = {
   SkillQube: "SkillQube",
   WorkflowQube: "WorkflowQube",
   ConnectorQube: "ConnectorQube",
+  AigentQube: "AigentQube",
 };
 
 const ASSET_STATUSES = ["pending", "fetched", "packaged", "validated", "published", "rejected"] as const;

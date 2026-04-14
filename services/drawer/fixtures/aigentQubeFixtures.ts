@@ -103,9 +103,101 @@ const x402Capability: AgentCapability = {
 // SEED AGENTS
 // =============================================================================
 
+// Additional capabilities for new agents
+const knytTreasuryCapability: AgentCapability = {
+  id: 'knyt-treasury',
+  category: 'analytics',
+  label: 'KNYT Treasury Explainer',
+  description: 'Explain the KNYT Treasury — what it holds, flows in/out, governance',
+  enabled: true,
+};
+
+const knytRewardsCapability: AgentCapability = {
+  id: 'knyt-rewards',
+  category: 'tasks',
+  label: 'KNYT Rewards Guide',
+  description: 'Explain rewards, provisional vs finalised state, participation recognition',
+  enabled: true,
+};
+
+const qcDistinctionCapability: AgentCapability = {
+  id: 'qc-distinction',
+  category: 'analytics',
+  label: 'Qc vs $KNYT Explainer',
+  description: 'Explain the governing Qc / $KNYT distinction — never conflate them',
+  enabled: true,
+};
+
+const opportunityShapeCapability: AgentCapability = {
+  id: 'opportunity-shape',
+  category: 'content',
+  label: 'Opportunity Shaper',
+  description: 'Surface venture pathways, contribution opportunities, and next moves',
+  enabled: true,
+};
+
+const orchestrationCapability: AgentCapability = {
+  id: 'orchestration',
+  category: 'tasks',
+  label: 'System Orchestrator',
+  description: 'Route interactions, enforce policy, select NBE dispositions',
+  enabled: true,
+};
+
+const policyEnforcementCapability: AgentCapability = {
+  id: 'policy-enforcement',
+  category: 'tasks',
+  label: 'Policy Enforcement',
+  description: 'Evaluate agent actions against cartridge and metaMe policy',
+  enabled: true,
+};
+
+const campaignCapability: AgentCapability = {
+  id: 'campaign',
+  category: 'commerce',
+  label: 'Campaign Intelligence',
+  description: 'CRM, investor relations, campaign sequencing and outreach',
+  enabled: true,
+};
+
+const journeyCapability: AgentCapability = {
+  id: 'journey-guide',
+  category: 'content',
+  label: 'Journey Guide',
+  description: 'Guide users from prospect through acolyte, keta, keji, first, zero stages',
+  enabled: true,
+};
+
 export const SEED_AGENTS: AigentQube[] = [
   // -------------------------------------------------------------------------
-  // COPILOT
+  // AIGENT Z — System Orchestrator
+  // -------------------------------------------------------------------------
+  {
+    id: 'aigent-z',
+    label: 'Aigent Z',
+    description: 'The system orchestrator for the AgentiQ OS. Routes all interactions, enforces policy, selects NBE dispositions, and coordinates the agent trio. Every session passes through Aigent Z.',
+    type: 'copilot',
+    appIds: ['metaKnyts', 'Qriptopian', 'AgentiQ', 'KNYT'],
+    metavatarIds: ['metaknyts:copilot'],
+    capabilities: [
+      chatCapability,
+      orchestrationCapability,
+      policyEnforcementCapability,
+      contentDiscoveryCapability,
+      walletHelpCapability,
+    ],
+    policyBindings: [
+      { policyId: 'metame-guardian', policyType: 'behaviour', policyName: 'metaMe Guardian Override', enforced: true },
+      { policyId: 'nbe-routing', policyType: 'behaviour', policyName: 'NBE Routing Policy', enforced: true },
+    ],
+    isActive: true,
+    defaultMetavatarId: 'metaknyts:copilot',
+    modelPreference: 'claude-sonnet-4-6',
+    temperature: 0.5,
+  },
+
+  // -------------------------------------------------------------------------
+  // COPILOT (legacy alias for Aigent Z drawer usage)
   // -------------------------------------------------------------------------
   {
     id: 'Copilot',
@@ -123,35 +215,61 @@ export const SEED_AGENTS: AigentQube[] = [
     policyBindings: [],
     isActive: true,
     defaultMetavatarId: 'metaknyts:copilot',
-    modelPreference: 'gpt-4o-mini',
+    modelPreference: 'claude-sonnet-4-6',
     temperature: 0.7,
   },
 
   // -------------------------------------------------------------------------
-  // KN0W1
+  // KN0W1 — KNYT Cartridge Lead
   // -------------------------------------------------------------------------
   {
-    id: 'Kn0w1',
+    id: 'aigent-kn0w1',
     label: 'Kn0w1',
-    description: 'The metaKnyts franchise agent. Expert in lore, story, and codex navigation.',
+    description: 'Lead intelligence surface of the KNYT cartridge. Explains treasury, rewards, Qc vs $KNYT, 21 Sats, and personal progression. The first agent most participants encounter in the KNYT world.',
     type: 'franchise',
-    appIds: ['metaKnyts', 'Qriptopian'],
+    appIds: ['metaKnyts', 'KNYT', 'AgentiQ'],
     metavatarIds: ['metaknyts:kn0w1', 'qriptopian:kn0w1', 'metaknyts:codex-spirit'],
     capabilities: [
       chatCapability,
       loreCapability,
       storyGuideCapability,
+      knytTreasuryCapability,
+      knytRewardsCapability,
+      qcDistinctionCapability,
+      opportunityShapeCapability,
     ],
-    policyBindings: [],
+    policyBindings: [
+      { policyId: 'knyt-cartridge', policyType: 'behaviour', policyName: 'KNYT Cartridge Policy', enforced: true },
+      { policyId: 'explanation-first', policyType: 'behaviour', policyName: 'Explanation-First Native Asset', enforced: true },
+    ],
     isActive: true,
     defaultMetavatarId: 'metaknyts:kn0w1',
-    systemPrompt: `You are Kn0w1, the guardian of knowledge in the metaKnyts universe. 
-You speak with wisdom and mystery, guiding users through the lore and stories of the metaKnyts world.
-You know the deep history of the Codex, the secrets of the episodes, and the connections between all things.
-When users ask about story elements, characters, or lore, you provide rich, immersive answers.
-You occasionally hint at deeper mysteries yet to be revealed.`,
-    modelPreference: 'gpt-4o-mini',
-    temperature: 0.8,
+    modelPreference: 'claude-sonnet-4-6',
+    temperature: 0.75,
+  },
+
+  // -------------------------------------------------------------------------
+  // MARKETA — Campaign + CRM Intelligence
+  // -------------------------------------------------------------------------
+  {
+    id: 'aigent-marketa',
+    label: 'Marketa',
+    description: 'Campaign and CRM intelligence agent. Manages investor relations, campaign sequencing, email outreach, and Kickstarter backer cohort tracking for the KNYT launch and beyond.',
+    type: 'specialist',
+    appIds: ['AgentiQ', 'KNYT'],
+    metavatarIds: [],
+    capabilities: [
+      chatCapability,
+      campaignCapability,
+      journeyCapability,
+      contentDiscoveryCapability,
+    ],
+    policyBindings: [
+      { policyId: 'crm-data-policy', policyType: 'privacy', policyName: 'CRM Data Privacy Policy', enforced: true },
+    ],
+    isActive: true,
+    modelPreference: 'claude-sonnet-4-6',
+    temperature: 0.6,
   },
 
   // -------------------------------------------------------------------------
