@@ -9929,7 +9929,7 @@ export const ComposerStudio = () => {
                                         value={individualSearch}
                                         onChange={(e) => setIndividualSearch(e.target.value)}
                                         placeholder="Search…"
-                                        className="w-28 rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+                                        className="w-56 rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
                                       />
                                       <select
                                         value={individualPreset}
@@ -9971,7 +9971,7 @@ export const ComposerStudio = () => {
 
                                 <div className="flex items-center justify-between text-[10px] text-slate-500">
                                   <span className="uppercase tracking-wide">Engagement ↑</span>
-                                  <span className="uppercase tracking-wide">Sovereignty Journey → &nbsp; goal: top-right ★</span>
+                                  <span className="uppercase tracking-wide">Sovereignty Journey → &nbsp; <span className="text-emerald-400/70 normal-case">goal: top-right ★</span></span>
                                 </div>
                                 <div className="overflow-x-auto relative">
                                   <div style={{ minWidth: `${100 + (xLen + 1) * 68}px` }}>
