@@ -55,10 +55,12 @@ function SettingRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-3 py-3.5 border-b border-gray-100 dark:border-slate-800 last:border-0">
+    <div className="flex items-start justify-between gap-3 py-3.5 border-b border-slate-800 last:border-0">
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-gray-900 dark:text-slate-100 leading-tight">{label}</p>
-        <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5 leading-snug">{description}</p>
+        {/* text-slate-100 → ink-secondary (#595247) in mm-light; near-white in dark */}
+        <p className="text-sm font-semibold text-slate-100 leading-tight">{label}</p>
+        {/* text-slate-400 → ink-muted (#7B7266) in mm-light; medium in dark */}
+        <p className="text-xs text-slate-400 mt-0.5 leading-snug">{description}</p>
       </div>
       <div className="shrink-0 flex items-center mt-0.5">{children}</div>
     </div>
@@ -72,8 +74,10 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-950 ${
-        checked ? "bg-emerald-500" : "bg-gray-200 dark:bg-slate-700"
+      className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 ${
+        checked
+          ? "bg-emerald-500 ring-1 ring-emerald-400/30"
+          : "bg-white/[0.08] ring-1 ring-white/10 backdrop-blur-sm"
       }`}
     >
       <span
@@ -96,10 +100,11 @@ function SettingSelect<T extends string>({
 }) {
   return (
     <div className="relative">
+      {/* bg-slate-900/80 → surface-1 (#F7F2E8) in mm-light; dark in dark mode */}
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as T)}
-        className="appearance-none text-xs rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-gray-800 dark:text-slate-200 pl-2.5 pr-7 py-1.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+        className="appearance-none text-xs rounded-lg border border-white/10 bg-slate-900/80 backdrop-blur-sm text-slate-100 pl-2.5 pr-7 py-1.5 cursor-pointer focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -107,7 +112,8 @@ function SettingSelect<T extends string>({
           </option>
         ))}
       </select>
-      <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 dark:text-slate-500" />
+      {/* text-slate-400 → ink-muted in mm-light */}
+      <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
     </div>
   );
 }
@@ -118,10 +124,10 @@ function SettingSelect<T extends string>({
  * MetaMeSettingsPanel
  *
  * Rendered inside:
- * - MetaMeRuntimeClient left-entering drawer (Be tab sub-item)
+ * - MetaMeRuntimeClient left-entering drawer (Be tab sub-item) — no inner header needed
  * - /metame/settings standalone page
  *
- * No inner header — the drawer wrapper provides the header.
+ * Uses slate-* and white/* classes throughout so mm-light remapping applies correctly.
  */
 export function MetaMeSettingsPanel() {
   const [settings, setSettings] = useState<MetaMeSettings>(METAME_ALPHA_DEFAULTS);
@@ -141,16 +147,38 @@ export function MetaMeSettingsPanel() {
   function handleSave() {
     saveMetaMeSettings(settings);
     setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   }
 
   if (!hydrated) {
-    return <div className="px-4 py-6 text-xs text-gray-400 dark:text-slate-500">Loading…</div>;
+    return <div className="px-4 py-6 text-xs text-slate-400">Loading…</div>;
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col">
+      {/* Save button — at top so it's always above the fold */}
+      <div className="px-4 pt-3 pb-2">
+        <button
+          type="button"
+          onClick={handleSave}
+          className="w-full rounded-lg border border-white/10 bg-white/[0.08] backdrop-blur-sm text-slate-100 text-sm font-semibold py-2 transition-colors hover:bg-white/[0.13] active:bg-white/[0.06]"
+        >
+          {saved ? (
+            <span className="inline-flex items-center gap-1.5 justify-center text-emerald-400">
+              <CheckCircle className="h-3.5 w-3.5" />
+              Saved
+            </span>
+          ) : (
+            "Save"
+          )}
+        </button>
+      </div>
+
+      {/* Divider */}
+      <div className="mx-4 border-t border-slate-800" />
+
       {/* Settings rows */}
-      <div className="flex-1 px-4 pt-1 pb-4">
+      <div className="px-4 pt-1 pb-4">
         <SettingRow
           label="Guardian Mode"
           description="Require approval before agents take actions on your behalf."
@@ -208,24 +236,6 @@ export function MetaMeSettingsPanel() {
         >
           <Toggle checked={settings.explanationFirst} onChange={(v) => update("explanationFirst", v)} />
         </SettingRow>
-      </div>
-
-      {/* Save footer */}
-      <div className="px-4 pb-5 pt-2 border-t border-gray-100 dark:border-slate-800">
-        <button
-          type="button"
-          onClick={handleSave}
-          className="w-full rounded-lg bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-white text-sm font-semibold py-2 transition-colors"
-        >
-          {saved ? (
-            <span className="inline-flex items-center gap-1.5 justify-center">
-              <CheckCircle className="h-3.5 w-3.5" />
-              Saved
-            </span>
-          ) : (
-            "Save"
-          )}
-        </button>
       </div>
     </div>
   );
