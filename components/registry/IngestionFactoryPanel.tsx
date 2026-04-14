@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Upload, GitBranch, Package2, Plug, FileText, Workflow, Loader2, ChevronRight, SlidersHorizontal, X, Zap, RefreshCw, AlertTriangle, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { Upload, GitBranch, Package2, Plug, FileText, Workflow, Loader2, ChevronRight, SlidersHorizontal, X, Zap, RefreshCw, AlertTriangle, CheckCircle2, Clock, XCircle, Share2 } from "lucide-react";
 import { AssetDetailPanel } from "./AssetDetailPanel";
 import type {
   IngestionSourceType,
@@ -67,11 +67,24 @@ const SOURCE_TYPES: Array<{
     icon: <Workflow className="h-5 w-5" />,
     placeholder: "",
   },
+  {
+    id: "make_scenario",
+    label: "Connect from Make",
+    description: "Connect a Make.com scenario as a workflow asset",
+    icon: <Share2 className="h-5 w-5" />,
+    placeholder: "",
+  },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Intake form
 // ─────────────────────────────────────────────────────────────────────────────
+
+interface MakeScenario {
+  id: number;
+  name: string;
+  isActive: boolean;
+}
 
 function IntakeForm({ onSuccess }: { onSuccess: (assetId: string) => void }) {
   const [sourceType, setSourceType] = useState<IngestionSourceType>("github_repo");
@@ -82,16 +95,44 @@ function IntakeForm({ onSuccess }: { onSuccess: (assetId: string) => void }) {
   const [step, setStep] = useState<"idle" | "intake" | "fetching" | "packaging" | "done" | "error">("idle");
   const [statusMsg, setStatusMsg] = useState("");
 
+  // Make.com scenario state
+  const [makeScenarios, setMakeScenarios] = useState<MakeScenario[] | null>(null);
+  const [makeScenarioLoading, setMakeScenarioLoading] = useState(false);
+  const [makeScenarioError, setMakeScenarioError] = useState<string | null>(null);
+  const [selectedMakeScenario, setSelectedMakeScenario] = useState<MakeScenario | null>(null);
+  const [showMakePicker, setShowMakePicker] = useState(false);
+
   const selectedType = SOURCE_TYPES.find((t) => t.id === sourceType)!;
+
+  function fetchMakeScenarios() {
+    setMakeScenarioLoading(true);
+    setMakeScenarioError(null);
+    fetch("/api/make/scenarios")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.scenarios) setMakeScenarios(d.scenarios);
+        else setMakeScenarioError(d.error ?? "Failed to load scenarios");
+      })
+      .catch(() => setMakeScenarioError("Network error loading scenarios"))
+      .finally(() => setMakeScenarioLoading(false));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (sourceType === "make_scenario" && !selectedMakeScenario) return;
     setSubmitting(true);
     setStep("intake");
     setStatusMsg("Creating intake record…");
 
     try {
       // Step 1: create intake — tenantId "platform" aligns with codex FactoryIntakeTab and RegistrySupplyTab
+      const sourcePayload: Record<string, unknown> = { name, description };
+      if (sourceType === "make_scenario" && selectedMakeScenario) {
+        sourcePayload.scenarioId = selectedMakeScenario.id;
+        sourcePayload.scenarioName = selectedMakeScenario.name;
+        sourcePayload.isActive = selectedMakeScenario.isActive;
+        if (!name) sourcePayload.name = selectedMakeScenario.name;
+      }
       const intakeRes = await fetch("/api/registry/intake", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -100,7 +141,7 @@ function IntakeForm({ onSuccess }: { onSuccess: (assetId: string) => void }) {
           submittedBy: "user",
           sourceType,
           sourceUri: sourceUri || undefined,
-          sourcePayload: { name, description },
+          sourcePayload,
         }),
       }).then((r) => r.json());
 
@@ -173,8 +214,8 @@ function IntakeForm({ onSuccess }: { onSuccess: (assetId: string) => void }) {
         <div className="mt-1.5 text-[11px] text-slate-500">{selectedType.description}</div>
       </div>
 
-      {/* Source URI */}
-      {selectedType.placeholder && (
+      {/* Source URI — not shown for make_scenario */}
+      {selectedType.placeholder && sourceType !== "make_scenario" && (
         <div>
           <label className="text-[11px] uppercase tracking-widest text-slate-500 mb-1.5 block">
             Source URL / Reference
@@ -185,6 +226,97 @@ function IntakeForm({ onSuccess }: { onSuccess: (assetId: string) => void }) {
             placeholder={selectedType.placeholder}
             className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
           />
+        </div>
+      )}
+
+      {/* Make scenario picker */}
+      {sourceType === "make_scenario" && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-[11px] uppercase tracking-widest text-slate-500">Make Scenario</label>
+            <button
+              type="button"
+              className="rounded-lg border border-violet-600/50 bg-violet-500/10 px-2.5 py-1 text-[11px] text-violet-300 hover:bg-violet-500/20 transition"
+              onClick={() => {
+                setShowMakePicker(true);
+                if (!makeScenarios && !makeScenarioLoading) fetchMakeScenarios();
+              }}
+            >
+              Browse Scenarios
+            </button>
+          </div>
+
+          {selectedMakeScenario && (
+            <div className="flex items-center justify-between gap-2 rounded-xl border border-violet-500/30 bg-violet-950/20 px-3 py-2">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-violet-200 truncate">{selectedMakeScenario.name}</p>
+                <p className="text-[10px] text-slate-500">
+                  ID: {selectedMakeScenario.id}
+                  {" · "}
+                  {selectedMakeScenario.isActive
+                    ? <span className="text-emerald-400">active</span>
+                    : <span className="text-slate-500">inactive</span>}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="shrink-0 text-[10px] text-slate-500 hover:text-slate-300"
+                onClick={() => setSelectedMakeScenario(null)}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
+          {showMakePicker && (
+            <div className="rounded-xl border border-violet-500/20 bg-violet-950/30 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-violet-300">Your Make Scenarios</span>
+                <button
+                  type="button"
+                  className="text-[10px] text-slate-500 hover:text-slate-300"
+                  onClick={() => { setShowMakePicker(false); setMakeScenarios(null); setMakeScenarioError(null); }}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              {makeScenarioLoading && (
+                <div className="flex items-center gap-2 text-slate-400 text-[11px]">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Loading scenarios…
+                </div>
+              )}
+              {makeScenarioError && (
+                <p className="text-red-400 text-[11px]">{makeScenarioError}</p>
+              )}
+              {makeScenarios && makeScenarios.length === 0 && (
+                <p className="text-slate-400 text-[11px]">No scenarios found in your Make team.</p>
+              )}
+              {makeScenarios && makeScenarios.map((sc) => (
+                <div key={sc.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-700/50 bg-slate-900/60 px-2.5 py-1.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-[11px] text-slate-200">{sc.name}</p>
+                    <p className="text-[10px] text-slate-500">
+                      ID: {sc.id}
+                      {" · "}
+                      {sc.isActive ? <span className="text-emerald-400">active</span> : <span className="text-slate-500">inactive</span>}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded border border-violet-500/50 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300 hover:bg-violet-500/20 transition"
+                    onClick={() => {
+                      setSelectedMakeScenario(sc);
+                      if (!name) setName(sc.name);
+                      setShowMakePicker(false);
+                    }}
+                  >
+                    Select
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -218,11 +350,11 @@ function IntakeForm({ onSuccess }: { onSuccess: (assetId: string) => void }) {
       <div className="flex items-center gap-4">
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || (sourceType === "make_scenario" && !selectedMakeScenario)}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/40 hover:bg-amber-500/25 disabled:opacity-50 transition-colors"
         >
           {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-          {submitting ? "Processing…" : "Ingest Asset"}
+          {submitting ? "Processing…" : sourceType === "make_scenario" ? "Connect Scenario" : "Ingest Asset"}
         </button>
         {statusMsg && (
           <div className={`text-xs ${step === "error" ? "text-red-400" : step === "done" ? "text-emerald-400" : "text-slate-400"}`}>

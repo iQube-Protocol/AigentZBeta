@@ -22,10 +22,13 @@ function RegistryPageInner() {
 
   return (
     <div className="space-y-8">
-      <div className="space-y-2">
-        <h1 className="text-3xl font-semibold text-white">iQube Registry</h1>
-        <p className="text-slate-300 text-lg">
-          Browse and manage iQube templates and instances in the registry.
+      <div className="flex items-baseline gap-3 min-w-0">
+        <h1 className="text-3xl font-semibold text-white shrink-0">iQube Registry</h1>
+        <p
+          className="text-slate-400 text-sm truncate min-w-0"
+          title="Browse and manage iQube templates and instances in the registry"
+        >
+          Browse and manage iQube templates and instances in the registry
         </p>
       </div>
       <Suspense fallback={

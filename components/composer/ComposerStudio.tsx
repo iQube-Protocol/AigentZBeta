@@ -77,6 +77,7 @@ import {
   updatePersonaGeneratedMediaRecord,
 } from "@/services/composer/generatedAssetClient";
 import { RegistryBrowserDrawer, type RegistryAssetSelection } from "@/components/registry/RegistryBrowserDrawer";
+import { RegistryHome } from "@/components/registry/RegistryHome";
 
 type ComposerField = {
   id: string;
@@ -1146,12 +1147,12 @@ const CARTRIDGE_FRAMEWORK: Record<string, CartridgeFramework> = {
     strategy: {
       name: "KNYT Live World — Patronage × PCS Strategy",
       macro_intent: "Build a living world of collectors, curators, creators, and sovereigns around the 21 Sats universe — converting passive observers into franchise-aligned world-shapers.",
-      description: "Operating on two axes: Patronage (Prospect → Sat KNYT) and PCS (Observer → Franchise-aligned Sovereign). Each matrix intersection defines the NBE for moving users toward the top-right of the matrix.",
+      description: "Operating on two axes: Patronage (Prospect → Sat KNYT) and PCS (Observer → Franchisee). Each matrix intersection defines the NBE for moving users toward the top-right of the matrix.",
       target_segments: ["observers", "collectors", "curators", "remixers", "creators", "correspondents", "stewards", "franchise-aligned sovereigns"],
       principles: [
         { title: "Patronage × PCS intersection", body: "Every user sits at a Patronage stage AND a PCS stage. The NBE is defined by their position on both axes — not just one." },
         { title: "World belonging is the hook", body: "Entry is through belonging — first affiliation, first card, first patron act. Identity is created before contribution is asked." },
-        { title: "Franchise alignment at apex", body: "The highest stage is Franchise-aligned Sovereign — actively shaping the KNYT world and the AgentiQ ecosystem simultaneously." },
+        { title: "Franchise alignment at apex", body: "The highest stage is Franchisee — actively shaping the KNYT world and the AgentiQ ecosystem simultaneously." },
       ],
     },
     model: {
@@ -1179,7 +1180,7 @@ const CARTRIDGE_FRAMEWORK: Record<string, CartridgeFramework> = {
         "Card acquisition and portfolio growth",
         "Patronage tier progression (Acolyte → Sat KNYT)",
         "Contributor recognition and editorial surfacing",
-        "Franchise-aligned governance rights at Steward/Sovereign stage",
+        "Franchisee governance rights at Steward/Sovereign stage",
       ],
       governance: [
         "FIO identity: KNYT-ID + order_tier gating",
@@ -1189,10 +1190,10 @@ const CARTRIDGE_FRAMEWORK: Record<string, CartridgeFramework> = {
         "metaMe guardian policy veto",
       ],
     },
-    // Y = KNYT PCS engagement (Observer → Franchise-aligned Sovereign)
+    // Y = KNYT PCS engagement (Observer → Franchisee)
     // X = KNYT Patronage journey (Prospect → Sat KNYT)
     matrix: {
-      y_stages: ["Observer", "Collector", "Curator", "Remixer", "Creator", "Correspondent", "Steward", "Franchise-aligned Sovereign"],
+      y_stages: ["Observer", "Collector", "Curator", "Remixer", "Creator", "Correspondent", "Steward", "Franchisee"],
       x_stages: ["Prospect", "Acolyte", "Keta", "Keji", "First", "Zero", "Sat KNYT"],
       cells: {
         // Entry zone — pills
@@ -1217,8 +1218,8 @@ const CARTRIDGE_FRAMEWORK: Record<string, CartridgeFramework> = {
         // Upper zone — codex
         "Steward:Zero":             "codex: Governance session",
         "Steward:Sat KNYT":         "codex: Stewardship codex",
-        "Franchise-aligned Sovereign:Zero": "codex: World shaping",
-        "Franchise-aligned Sovereign:Sat KNYT": "codex: Canon authoring",
+        "Franchisee:Zero": "codex: World shaping",
+        "Franchisee:Sat KNYT": "codex: Canon authoring",
         // Off-diagonal — high engagement, early patronage (left of diagonal)
         "Curator:Prospect":           "pill: Curation tease",
         "Curator:Acolyte":            "pill: Curation intro",
@@ -1235,11 +1236,11 @@ const CARTRIDGE_FRAMEWORK: Record<string, CartridgeFramework> = {
         "Steward:Acolyte":            "capsule: Governance intro",
         "Steward:Keta":               "capsule: Stewardship path",
         "Steward:First":              "mini_rt: Mentorship session",
-        "Franchise-aligned Sovereign:Prospect": "pill: Franchise tease",
-        "Franchise-aligned Sovereign:Acolyte":  "capsule: Franchise path",
-        "Franchise-aligned Sovereign:Keta":     "capsule: Sovereign intro",
-        "Franchise-aligned Sovereign:Keji":     "mini_rt: Franchise unlock",
-        "Franchise-aligned Sovereign:First":    "mini_rt: Sovereign ascent",
+        "Franchisee:Prospect": "pill: Franchise tease",
+        "Franchisee:Acolyte":  "capsule: Franchise path",
+        "Franchisee:Keta":     "capsule: Sovereign intro",
+        "Franchisee:Keji":     "mini_rt: Franchise unlock",
+        "Franchisee:First":    "mini_rt: Sovereign ascent",
         // Off-diagonal — low engagement, advanced patronage (right of diagonal)
         "Observer:Keta":              "capsule: World intro tour",
         "Observer:Keji":              "capsule: Re-engagement",
@@ -1800,7 +1801,7 @@ export const ComposerStudio = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingExperienceId, setEditingExperienceId] = useState<string | null>(null);
-  const [studioAnalysisTab, setStudioAnalysisTab] = useState<"experience" | "parity" | "surfaces" | "receipts" | "pipeline" | "workflows">("parity");
+  const [studioAnalysisTab, setStudioAnalysisTab] = useState<"experience" | "parity" | "surfaces" | "receipts" | "pipeline" | "workflows">("experience");
   const [lastPipelineRunId, setLastPipelineRunId] = useState<string | null>(null);
   const [pipelineRunData, setPipelineRunData] = useState<any>(null);
   const [pipelineRunLoading, setPipelineRunLoading] = useState(false);
@@ -1831,6 +1832,9 @@ export const ComposerStudio = () => {
   const [workflowManifests, setWorkflowManifests] = useState<Record<string, { fields: any[] } | null | "loading">>({});
   const [expandedInvoke, setExpandedInvoke] = useState<Record<string, boolean>>({});
   const [isParityExpanded, setIsParityExpanded] = useState(false);
+  const [registrySectionOpen, setRegistrySectionOpen] = useState(false);
+  const [ladderFunnelStage, setLadderFunnelStage] = useState<number | null>(null);
+  const [ladderYCategory, setLadderYCategory] = useState<string | null>(null);
   const [pendingProductionConfig, setPendingProductionConfig] = useState<{
     templateKey: string;
     seedData: Record<string, unknown>;
@@ -9615,50 +9619,84 @@ export const ComposerStudio = () => {
               }}
               className="w-full"
             >
-              <div className="mb-4 space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      {parityPanelMeta.icon}
-                      <h2 className="text-lg font-semibold text-white">{parityPanelMeta.title}</h2>
-                    </div>
-                    <p className="text-sm text-slate-400">{parityPanelMeta.description}</p>
-                  </div>
+              <div className="mb-3 space-y-2">
+                {/* Plan + Registry tab-buttons */}
+                <div className="flex items-stretch gap-2">
+                  {/* Plan button */}
                   <button
                     type="button"
-                    onClick={() => setIsParityExpanded((prev) => !prev)}
-                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-slate-950/50 text-slate-300 transition hover:border-fuchsia-400/30 hover:text-white"
-                    aria-label={isParityExpanded ? "Collapse parity review" : "Expand parity review"}
+                    onClick={() => {
+                      setIsParityExpanded((prev) => !prev);
+                      if (!isParityExpanded) setRegistrySectionOpen(false);
+                    }}
+                    className={`flex flex-1 items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition-colors ${isParityExpanded ? "border-fuchsia-500/40 bg-fuchsia-500/5" : "border-white/10 bg-white/5 hover:bg-white/[0.08]"}`}
                   >
-                    <ChevronDown className={`h-4 w-4 transition-transform ${isParityExpanded ? "rotate-180" : ""}`} />
+                    <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+                      {parityPanelMeta.icon}
+                      <span className="text-sm font-semibold text-white shrink-0">Plan</span>
+                      <span className="text-slate-500 text-xs shrink-0 mx-0.5">—</span>
+                      <span
+                        className="text-xs text-slate-400 truncate"
+                        title="Review design parity, policy fit, and runtime readiness before launch"
+                      >
+                        {parityPanelMeta.title}
+                      </span>
+                    </div>
+                    <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${isParityExpanded ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {/* Registry button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRegistrySectionOpen((prev) => !prev);
+                      if (!registrySectionOpen) setIsParityExpanded(false);
+                    }}
+                    className={`flex flex-1 items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition-colors ${registrySectionOpen ? "border-emerald-500/40 bg-emerald-500/5" : "border-white/10 bg-white/5 hover:bg-white/[0.08]"}`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+                      <LayoutGrid className="h-4 w-4 text-emerald-400 shrink-0" />
+                      <span className="text-sm font-semibold text-white shrink-0">Registry</span>
+                      <span
+                        className="text-xs text-slate-500 truncate"
+                        title="Browse and manage iQube templates and instances in the registry"
+                      >
+                        Browse and manage iQube templates and instances
+                      </span>
+                    </div>
+                    <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${registrySectionOpen ? "rotate-180" : ""}`} />
                   </button>
                 </div>
-                <TabsList className="grid h-11 w-full grid-cols-6 items-center rounded-full border border-white/10 bg-slate-950/60 p-1">
-                  <TabsTrigger value="experience" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
-                    <Layers className="h-3.5 w-3.5 shrink-0" />
-                    Experience
-                  </TabsTrigger>
-                  <TabsTrigger value="parity" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
-                    <Palette className="h-3.5 w-3.5 shrink-0" />
-                    Design
-                  </TabsTrigger>
-                  <TabsTrigger value="workflows" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
-                    <Share2 className="h-3.5 w-3.5 shrink-0" />
-                    Workflows
-                  </TabsTrigger>
-                  <TabsTrigger value="surfaces" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
-                    <Monitor className="h-3.5 w-3.5 shrink-0" />
-                    Surfaces
-                  </TabsTrigger>
-                  <TabsTrigger value="pipeline" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
-                    <Activity className="h-3.5 w-3.5 shrink-0" />
-                    Pipeline
-                  </TabsTrigger>
-                  <TabsTrigger value="receipts" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
-                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                    Receipts
-                  </TabsTrigger>
-                </TabsList>
+
+                {/* Plan inner tab strip — visible only when expanded */}
+                {isParityExpanded && (
+                  <TabsList className="grid h-11 w-full grid-cols-6 items-center rounded-full border border-white/10 bg-slate-950/60 p-1">
+                    <TabsTrigger value="experience" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
+                      <Layers className="h-3.5 w-3.5 shrink-0" />
+                      Experience
+                    </TabsTrigger>
+                    <TabsTrigger value="parity" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
+                      <Palette className="h-3.5 w-3.5 shrink-0" />
+                      Design
+                    </TabsTrigger>
+                    <TabsTrigger value="workflows" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
+                      <Share2 className="h-3.5 w-3.5 shrink-0" />
+                      Workflows
+                    </TabsTrigger>
+                    <TabsTrigger value="surfaces" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
+                      <Monitor className="h-3.5 w-3.5 shrink-0" />
+                      Surfaces
+                    </TabsTrigger>
+                    <TabsTrigger value="pipeline" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
+                      <Activity className="h-3.5 w-3.5 shrink-0" />
+                      Pipeline
+                    </TabsTrigger>
+                    <TabsTrigger value="receipts" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                      Receipts
+                    </TabsTrigger>
+                  </TabsList>
+                )}
               </div>
 
               {isParityExpanded ? (
@@ -9705,7 +9743,7 @@ export const ComposerStudio = () => {
 
                       <Tabs value={expModelTab} onValueChange={setExpModelTab}>
                         <TabsList className="grid w-full grid-cols-7 border border-slate-800 bg-slate-950/70">
-                          {(["strategy", "model", "matrix", "ladder", "status", "nbe", "analysis"] as const).map((t) => (
+                          {(["strategy", "model", "ladder", "matrix", "status", "nbe", "analysis"] as const).map((t) => (
                             <TabsTrigger key={t} value={t} className="text-[10px] px-1">
                               {t === "nbe" ? "NBE" : t === "strategy" ? "Strategy" : t === "matrix" ? "Matrix" : t === "ladder" ? "Ladder" : t === "analysis" ? "Analysis" : t.charAt(0).toUpperCase() + t.slice(1)}
                             </TabsTrigger>
@@ -9896,42 +9934,143 @@ export const ComposerStudio = () => {
                           })()}
                         </TabsContent>
 
-                        {/* ── Ladder ── Sovereignty journey (X-axis) with cartridge skin mapping */}
+                        {/* ── Ladder ── Funnel (X-axis) + Engagement (Y-axis) */}
                         <TabsContent value="ladder" className="mt-3">
                           {(() => {
                             const fw = CARTRIDGE_FRAMEWORK[copilotContextId];
                             const ladder = fw?.ladder ?? null;
+                            const matrix = fw?.matrix ?? null;
                             if (expModelLoading) return <div className="text-slate-400 text-xs">Loading…</div>;
                             if (!ladder) return <div className="text-slate-400 text-xs">No sovereignty ladder configured for this cartridge.</div>;
+
+                            // Funnel X-axis: stage #0 (awareness) + stages #1–7
+                            const funnelStages: Array<{ label: string; title: string; description: string; isApex: boolean }> = [
+                              {
+                                label: "0",
+                                title: "Awareness",
+                                description: "Pre-activation stage: entity is at the edge — not yet engaged. May carry neutral or negative sentiment toward the brand or world.",
+                                isApex: false,
+                              },
+                              ...ladder.stages.map((s, i) => ({
+                                label: String(i + 1),
+                                title: s.label,
+                                description: s.unlock,
+                                isApex: i === ladder.stages.length - 1,
+                              })),
+                            ];
+
+                            // Y-axis engagement categories from matrix y_stages (up to 7)
+                            const yCategories: string[] = matrix ? [...matrix.y_stages].slice(0, 7) : [];
+
                             return (
-                              <div className="space-y-3">
-                                <div className="text-[10px] text-slate-500 uppercase tracking-wide">Sovereignty journey — X-axis of the experience matrix</div>
-                                <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-xs text-violet-200 font-mono">
-                                  {ladder.canonical}
+                              <div className="space-y-4">
+                                {/* Funnel row */}
+                                <div>
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-[10px] uppercase tracking-widest text-slate-600">Funnel</span>
+                                    <span className="text-[10px] text-slate-600">— X-axis, click to inspect</span>
+                                  </div>
+                                  <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${funnelStages.length}, 1fr)` }}>
+                                    {funnelStages.map((s, idx) => (
+                                      <button
+                                        key={idx}
+                                        type="button"
+                                        onClick={() => setLadderFunnelStage(ladderFunnelStage === idx ? null : idx)}
+                                        className={`flex flex-col items-center gap-0.5 rounded-lg border px-1 py-2 text-center transition-all ${
+                                          ladderFunnelStage === idx
+                                            ? s.isApex
+                                              ? "border-amber-500/60 bg-amber-500/15 text-amber-200"
+                                              : "border-violet-500/50 bg-violet-500/10 text-violet-200"
+                                            : s.isApex
+                                              ? "border-amber-500/20 bg-amber-500/5 text-amber-400/70 hover:border-amber-500/40"
+                                              : idx === 0
+                                                ? "border-slate-700/50 bg-slate-900/30 text-slate-600 hover:border-slate-600"
+                                                : "border-slate-800 bg-slate-900/20 text-slate-500 hover:border-slate-700"
+                                        }`}
+                                      >
+                                        <span className={`text-[9px] font-bold ${s.isApex ? "text-amber-400" : "text-slate-600"}`}>{s.label}</span>
+                                        <span className="text-[9px] leading-tight truncate w-full">{s.title}</span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                  {ladderFunnelStage !== null && (
+                                    <div className="mt-2 rounded-lg border border-violet-500/20 bg-violet-950/20 px-3 py-2">
+                                      <div className="flex items-center gap-1.5 mb-1">
+                                        <span className={`text-[11px] font-semibold ${funnelStages[ladderFunnelStage].isApex ? "text-amber-300" : "text-violet-300"}`}>
+                                          #{funnelStages[ladderFunnelStage].label} — {funnelStages[ladderFunnelStage].title}
+                                        </span>
+                                      </div>
+                                      <p className="text-[11px] text-slate-400">{funnelStages[ladderFunnelStage].description}</p>
+                                    </div>
+                                  )}
                                 </div>
-                                <div className="space-y-1.5">
-                                  {[...ladder.stages].reverse().map((stage, i) => {
-                                    const totalStages = ladder.stages.length;
-                                    const stageIdx = totalStages - 1 - i;
-                                    const isApex = stageIdx === totalStages - 1;
-                                    return (
-                                      <div key={stage.id} className={`flex items-start gap-3 rounded-lg border px-3 py-2 ${isApex ? "border-amber-500/30 bg-amber-500/5" : "border-slate-800 bg-slate-900/30"}`}>
-                                        <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[9px] font-bold ${isApex ? "border-amber-500/50 text-amber-300" : "border-slate-700 text-slate-500"}`}>
-                                          {stageIdx + 1}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                          <div className="flex items-center gap-2">
-                                            <span className={`text-xs font-semibold ${isApex ? "text-amber-200" : "text-slate-200"}`}>{stage.label}</span>
-                                            {stage.knyt_label && (
-                                              <span className="text-[10px] text-slate-500">KNYT: {stage.knyt_label}</span>
+
+                                {/* Y-axis engagement categories */}
+                                {yCategories.length > 0 && (
+                                  <div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <span className="text-[10px] uppercase tracking-widest text-slate-600">Engagement</span>
+                                      <span className="text-[10px] text-slate-600">— Y-axis, click to see cartridge description</span>
+                                    </div>
+                                    <div className="space-y-1">
+                                      {yCategories.map((cat, yi) => {
+                                        const isSelected = ladderYCategory === cat;
+                                        // Get matrix cells for this Y stage to infer cartridge description
+                                        const cellPrescriptions = matrix
+                                          ? Object.entries(matrix.cells)
+                                              .filter(([k]) => k.startsWith(`${cat}:`))
+                                              .map(([, v]) => v as string)
+                                              .filter(Boolean)
+                                              .slice(0, 3)
+                                          : [];
+                                        return (
+                                          <div key={cat}>
+                                            <button
+                                              type="button"
+                                              onClick={() => setLadderYCategory(isSelected ? null : cat)}
+                                              className={`w-full flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition-all ${
+                                                isSelected
+                                                  ? "border-emerald-500/40 bg-emerald-500/8 text-emerald-200"
+                                                  : yi === yCategories.length - 1
+                                                    ? "border-amber-500/20 bg-amber-500/5 text-amber-400/80 hover:border-amber-500/30"
+                                                    : "border-slate-800 bg-slate-900/20 text-slate-400 hover:border-slate-700 hover:text-slate-300"
+                                              }`}
+                                            >
+                                              <div className="flex items-center gap-2 min-w-0">
+                                                <span className="text-[9px] font-bold text-slate-600 shrink-0">{yi + 1}</span>
+                                                <span className="text-xs font-medium truncate">{cat}</span>
+                                              </div>
+                                              <ChevronDown className={`h-3 w-3 shrink-0 text-slate-600 transition-transform ${isSelected ? "rotate-180" : ""}`} />
+                                            </button>
+                                            {isSelected && (
+                                              <div className="mt-1 ml-3 rounded-lg border border-emerald-500/20 bg-emerald-950/20 px-3 py-2 space-y-1.5">
+                                                <div className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400">
+                                                  {cat} — {copilotContextId.replace(/-/g, ' ')} cartridge
+                                                </div>
+                                                {cellPrescriptions.length > 0 ? (
+                                                  <div className="space-y-0.5">
+                                                    <div className="text-[10px] text-slate-500">NBE prescriptions at this engagement level:</div>
+                                                    {cellPrescriptions.map((p, pi) => (
+                                                      <div key={pi} className="text-[11px] text-slate-300 font-mono">{p}</div>
+                                                    ))}
+                                                  </div>
+                                                ) : (
+                                                  <p className="text-[11px] text-slate-500">
+                                                    Entities at the <span className="text-emerald-300">{cat}</span> level are engaged with this cartridge in a {cat.toLowerCase()} capacity. Configure prescriptions in the Experience Matrix.
+                                                  </p>
+                                                )}
+                                              </div>
                                             )}
                                           </div>
-                                          <div className="text-[11px] text-slate-500 mt-0.5">{stage.unlock}</div>
-                                        </div>
-                                        <div className="text-[10px] font-mono text-slate-600 shrink-0">{stage.id}</div>
-                                      </div>
-                                    );
-                                  })}
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Canonical path reference */}
+                                <div className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-[10px] text-slate-600 font-mono">
+                                  {ladder.canonical}
                                 </div>
                               </div>
                             );
@@ -11558,6 +11697,13 @@ export const ComposerStudio = () => {
                 </>
               ) : null}
             </Tabs>
+
+            {/* Registry panel — mirrors RegistryHome, shown when Registry tab is open */}
+            {registrySectionOpen && (
+              <div className="mt-3 max-h-[640px] overflow-y-auto rounded-xl border border-emerald-500/10 bg-slate-950/30 p-3">
+                <RegistryHome />
+              </div>
+            )}
           </div>
       </div>
 

@@ -15,7 +15,8 @@ export type IngestionSourceType =
   | "mcp_endpoint"
   | "archive"
   | "manual_bundle"
-  | "workflow_def";
+  | "workflow_def"
+  | "make_scenario";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Asset classes
