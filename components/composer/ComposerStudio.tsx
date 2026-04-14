@@ -1851,6 +1851,17 @@ export const ComposerStudio = () => {
   const [individualSearch, setIndividualSearch] = useState("");
   const [individualPreset, setIndividualPreset] = useState<"" | "most_active" | "least_active">("");
   const [individualSelected, setIndividualSelected] = useState<string | null>(null);
+  // Live KNYT CRM user data for matrix
+  const [matrixUsers, setMatrixUsers] = useState<Array<{
+    personaId: string;
+    name: string;
+    stage: string;   // prospect, acolyte, keta, keji, first, zero
+    depth: string;   // pill, capsule, mini_runtime, codex
+    cohort: string | null;  // top_shelf, zero_knyt, reactivation, partner, cold
+    omTier: string | null;  // KETA, KEJI, FIRST, ZERO, SAT
+  }>>([]);
+  const [matrixUsersLoading, setMatrixUsersLoading] = useState(false);
+  const [matrixUsersFetched, setMatrixUsersFetched] = useState(false);
   const [pendingProductionConfig, setPendingProductionConfig] = useState<{
     templateKey: string;
     seedData: Record<string, unknown>;
@@ -1887,6 +1898,40 @@ export const ComposerStudio = () => {
   const [codexContentItems, setCodexContentItems] = useState<ComposerMediaItem[]>([]);
   const [codexContentLoading, setCodexContentLoading] = useState(false);
   const studioViewportStylesRef = useRef<{ bodyOverflow: string; htmlOverflow: string } | null>(null);
+
+  // Fetch live KNYT user data for the experience matrix (only for knyt-codex cartridge)
+  useEffect(() => {
+    if (copilotContextId !== "knyt-codex") { setMatrixUsers([]); setMatrixUsersFetched(false); return; }
+    if (matrixUsersFetched) return;
+    setMatrixUsersLoading(true);
+    Promise.all([
+      fetch("/api/runtime/experience/dashboard?view=individual&limit=1000")
+        .then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/crm/investors?limit=500&sort=tier")
+        .then((r) => (r.ok ? r.json() : null)),
+    ])
+      .then(([journeyData, investorData]) => {
+        const journeys: Record<string, unknown>[] = (journeyData?.individuals as Record<string, unknown>[]) ?? [];
+        const investors: Record<string, unknown>[] = (investorData?.data as Record<string, unknown>[]) ?? [];
+        const cohortMap: Record<string, { cohort: string | null; omTier: string | null }> = {};
+        for (const inv of investors) {
+          const pid = inv.personaId as string | null;
+          if (pid) cohortMap[pid] = { cohort: (inv.campaign_cohort as string | null) ?? null, omTier: (inv.omTier as string | null) ?? null };
+        }
+        const crm = (j: Record<string, unknown>) => j.crm as Record<string, unknown> | null;
+        setMatrixUsers(journeys.map((j) => ({
+          personaId: j.persona_id as string,
+          name: (crm(j)?.display_name as string) || (crm(j)?.fio_handle as string) || (j.persona_id as string).slice(0, 8),
+          stage: (j.stage as string) ?? "",
+          depth: (j.depth as string) ?? "",
+          cohort: cohortMap[j.persona_id as string]?.cohort ?? null,
+          omTier: cohortMap[j.persona_id as string]?.omTier ?? ((crm(j)?.order_tier as string) ?? null),
+        })));
+        setMatrixUsersFetched(true);
+      })
+      .catch(() => {})
+      .finally(() => setMatrixUsersLoading(false));
+  }, [copilotContextId, matrixUsersFetched]);
 
   // Sync Experience Qube collapse state with Design Qube
   useEffect(() => {
@@ -9755,6 +9800,17 @@ export const ComposerStudio = () => {
                           <RefreshCw className={`h-3 w-3 ${expModelLoading ? "animate-spin" : ""}`} />
                           Refresh
                         </button>
+                        {copilotContextId === "knyt-codex" && (
+                          <button
+                            type="button"
+                            className="flex items-center gap-1.5 rounded-lg border border-emerald-700/40 bg-emerald-950/30 px-2.5 py-1 text-[11px] text-emerald-300 hover:bg-emerald-900/30"
+                            title="Refresh live KNYT user positions in the matrix"
+                            onClick={() => { setMatrixUsersFetched(false); }}
+                          >
+                            <RefreshCw className={`h-3 w-3 ${matrixUsersLoading ? "animate-spin" : ""}`} />
+                            {matrixUsersLoading ? "Loading…" : `Live (${matrixUsers.length})`}
+                          </button>
+                        )}
                       </div>
 
                       <Tabs value={expModelTab} onValueChange={setExpModelTab}>
@@ -9870,6 +9926,66 @@ export const ComposerStudio = () => {
                             const COHORT_NAMES: string[] = fw?.ladder?.stages?.length
                               ? fw.ladder.stages.map((s: { label: string }) => s.label)
                               : ["New Entrants", "Power Users", "Dormant", "Evangelists"];
+
+                            // ── Live user data for KNYT matrix ──────────────────────
+                            // Maps journey_states.stage → x_stages label (case-insensitive)
+                            const stageToXLabel: Record<string, string> = {};
+                            for (const xs of m.x_stages as string[]) {
+                              stageToXLabel[xs.toLowerCase().replace(/\s/g, "_")] = xs;
+                              stageToXLabel[xs.toLowerCase()] = xs;
+                            }
+                            // Maps depth → y_stage label (4-level → 8-level mapping)
+                            const DEPTH_TO_Y_LABEL: Record<string, string> = {
+                              pill: "Collector",
+                              capsule: "Remixer",
+                              mini_runtime: "Correspondent",
+                              codex: "Steward",
+                            };
+                            // Filter live users by current lens
+                            const ladderStageIds: Record<string, string> = {};
+                            for (const s of fw?.ladder?.stages ?? []) {
+                              ladderStageIds[(s as { id: string; label: string }).label.toLowerCase()] = (s as { id: string; label: string }).id;
+                            }
+                            const filteredLiveUsers = matrixLens === "cohort" && matrixCohortName
+                              ? matrixUsers.filter((u) => {
+                                  // franchise cohort selected: filter by stage matching the cohort label
+                                  const stageId = ladderStageIds[matrixCohortName.toLowerCase()];
+                                  return u.stage.toLowerCase() === (stageId ?? matrixCohortName.toLowerCase()) || u.stage.toLowerCase() === matrixCohortName.toLowerCase();
+                                })
+                              : matrixLens === "individual" && individualPreset === "most_active"
+                                ? [...matrixUsers].sort((a, b) => (a.depth > b.depth ? -1 : 1)).slice(0, 10)
+                                : matrixLens === "individual" && individualPreset === "least_active"
+                                  ? [...matrixUsers].sort((a, b) => (a.depth < b.depth ? -1 : 1)).slice(0, 10)
+                                  : matrixLens === "individual" && individualSearch
+                                    ? matrixUsers.filter((u) => u.name.toLowerCase().includes(individualSearch.toLowerCase()))
+                                    : matrixUsers;
+
+                            // Build cell user map: "yi:xi" → user names
+                            const cellUserMap: Record<string, string[]> = {};
+                            for (const u of filteredLiveUsers) {
+                              const xLabel = stageToXLabel[u.stage.toLowerCase()] ?? stageToXLabel[u.stage.toLowerCase().replace(/ /g, "_")];
+                              const yLabel = DEPTH_TO_Y_LABEL[u.depth.toLowerCase().replace(/ /g, "_")] ?? DEPTH_TO_Y_LABEL[u.depth.toLowerCase()];
+                              if (xLabel && yLabel) {
+                                const xi = (m.x_stages as string[]).indexOf(xLabel);
+                                const yi = (yReversed as string[]).indexOf(yLabel);
+                                if (xi >= 0 && yi >= 0) {
+                                  const ck = `${yi}:${xi}`;
+                                  if (!cellUserMap[ck]) cellUserMap[ck] = [];
+                                  cellUserMap[ck].push(u.name);
+                                }
+                              }
+                            }
+
+                            // Individual selected user position
+                            const selectedUserData = individualSelected ? matrixUsers.find((u) => u.name === individualSelected) ?? null : null;
+                            const selectedXLabel = selectedUserData ? stageToXLabel[selectedUserData.stage.toLowerCase()] : null;
+                            const selectedYLabel = selectedUserData ? DEPTH_TO_Y_LABEL[selectedUserData.depth.toLowerCase().replace(/ /g, "_")] : null;
+                            const selectedCellXi = selectedXLabel ? (m.x_stages as string[]).indexOf(selectedXLabel) : -1;
+                            const selectedCellYi = selectedYLabel ? (yReversed as string[]).indexOf(selectedYLabel) : -1;
+
+                            // Real individual names for carousel
+                            const liveIndividualNames: string[] = filteredLiveUsers.map((u) => u.name);
+
                             // Popup helpers
                             const openPopup = (key: string) => {
                               if (matrixPopupTimerRef.current) clearTimeout(matrixPopupTimerRef.current);
@@ -9929,7 +10045,7 @@ export const ComposerStudio = () => {
                                         value={individualSearch}
                                         onChange={(e) => setIndividualSearch(e.target.value)}
                                         placeholder="Search…"
-                                        className="w-28 rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+                                        className="w-56 rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
                                       />
                                       <select
                                         value={individualPreset}
@@ -9943,10 +10059,14 @@ export const ComposerStudio = () => {
                                         <option value="most_active">10 Most Active</option>
                                         <option value="least_active">10 Least Active</option>
                                       </select>
-                                      {/* User pill carousel */}
+                                      {/* User pill carousel — real names from KNYT CRM */}
                                       {(individualSearch || individualPreset) && (
                                         <div className="flex items-center gap-1 overflow-x-auto flex-1 min-w-0 scrollbar-none">
-                                          {["User A", "User B", "User C"].map((u) => (
+                                          {matrixUsersLoading && <span className="text-[10px] text-slate-500 shrink-0">Loading…</span>}
+                                          {!matrixUsersLoading && liveIndividualNames.length === 0 && (
+                                            <span className="text-[10px] text-slate-600 shrink-0">No users found</span>
+                                          )}
+                                          {liveIndividualNames.map((u) => (
                                             <button
                                               key={u}
                                               type="button"
@@ -9964,14 +10084,20 @@ export const ComposerStudio = () => {
                                       )}
                                     </div>
                                   )}
-                                  <span className="ml-auto text-[9px] text-slate-600 shrink-0">
-                                    {matrixLens === "org" ? "Full population distribution" : matrixLens === "cohort" ? "Cohort density heatmap" : "Individual NBE pathway"}
+                                  <span className="ml-auto text-[9px] text-slate-600 shrink-0 flex items-center gap-1.5">
+                                    {matrixUsersLoading
+                                      ? <span className="text-cyan-400/70">Loading users…</span>
+                                      : matrixUsers.length > 0
+                                        ? <span className="text-emerald-400/70">{matrixUsers.length} live users</span>
+                                        : null
+                                    }
+                                    {matrixLens === "org" ? "· population" : matrixLens === "cohort" ? "· cohort heatmap" : "· individual path"}
                                   </span>
                                 </div>
 
                                 <div className="flex items-center justify-between text-[10px] text-slate-500">
                                   <span className="uppercase tracking-wide">Engagement ↑</span>
-                                  <span className="uppercase tracking-wide">Sovereignty Journey → &nbsp; goal: top-right ★</span>
+                                  <span className="uppercase tracking-wide">Sovereignty Journey → &nbsp; <span className="text-emerald-400/70 normal-case">goal: top-right ★</span></span>
                                 </div>
                                 <div className="overflow-x-auto relative">
                                   <div style={{ minWidth: `${100 + (xLen + 1) * 68}px` }}>
@@ -10034,9 +10160,12 @@ export const ComposerStudio = () => {
                                             const yNorm = yOrig / Math.max(yLen - 1, 1);
                                             const xNorm = xi / Math.max(xLen - 1, 1);
                                             const isOnDiagonal = Math.abs(yNorm - xNorm) <= 0.28;
-                                            // Cohort/individual highlight
-                                            const isCohortAvg = matrixLens === "cohort" && matrixCohortName && xi === Math.floor(xLen / 2) && yi === Math.floor(yLen / 2);
-                                            const isIndividualPos = matrixLens === "individual" && individualSelected && xi === Math.floor(xLen / 3) && yi === Math.floor(yLen / 3);
+                                            // Live user count for this cell
+                                            const cellKey = `${yi}:${xi}`;
+                                            const cellNames = cellUserMap[cellKey] ?? [];
+                                            const cellCount = cellNames.length;
+                                            // Individual: highlight the selected user's actual cell
+                                            const isIndividualPos = matrixLens === "individual" && individualSelected !== null && xi === selectedCellXi && yi === selectedCellYi && selectedCellXi >= 0 && selectedCellYi >= 0;
                                             const cellClass = isApex && hasPrescription
                                               ? "border-amber-500/40 bg-amber-500/8 text-amber-200"
                                               : hasPrescription && isOnDiagonal
@@ -10050,11 +10179,15 @@ export const ComposerStudio = () => {
                                                 <button
                                                   type="button"
                                                   onClick={() => hasPrescription && openPopup(key)}
-                                                  className={`w-full rounded border px-0.5 py-1 text-center text-[12px] leading-tight font-medium ${cellClass} ${hasPrescription ? "cursor-pointer hover:ring-1 hover:ring-white/20" : "cursor-default"} ${isCohortAvg ? "ring-2 ring-cyan-400/60" : ""} ${isIndividualPos ? "ring-2 ring-violet-400/60" : ""}`}
-                                                  title={prescription || `${y} × ${x}`}
+                                                  className={`w-full rounded border px-0.5 py-1 text-center text-[12px] leading-tight font-medium ${cellClass} ${hasPrescription ? "cursor-pointer hover:ring-1 hover:ring-white/20" : "cursor-default"} ${isIndividualPos ? "ring-2 ring-violet-400/60" : ""}`}
+                                                  title={`${y} × ${x}${cellCount ? ` · ${cellCount} user${cellCount > 1 ? "s" : ""}` : ""}${prescription ? `\n${prescription}` : ""}`}
                                                 >
                                                   {prescription ? prescription.split(": ").pop() : "·"}
-                                                  {isCohortAvg && <span className="absolute -top-1.5 -right-1 text-[8px] text-cyan-300">avg</span>}
+                                                  {cellCount > 0 && (
+                                                    <span className={`absolute -top-1.5 -right-1 text-[8px] font-bold leading-[14px] rounded-full px-1 min-w-[14px] text-center ${cellCount > 5 ? "bg-cyan-400 text-slate-900" : "bg-cyan-500/70 text-white"}`}>
+                                                      {cellCount > 99 ? "99+" : cellCount}
+                                                    </span>
+                                                  )}
                                                   {isIndividualPos && <span className="absolute -top-1.5 -right-1 text-[8px] text-violet-300">★</span>}
                                                 </button>
                                                 {/* Popup */}
