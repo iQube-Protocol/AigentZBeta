@@ -1267,6 +1267,16 @@ const CARTRIDGE_FRAMEWORK: Record<string, CartridgeFramework> = {
   },
 };
 
+/** Prescription for a user at any engagement level who is in a Disheartened (-1) state */
+function getDisheartenedPrescription(yi: number, yTotal: number): string {
+  const rank = yTotal <= 1 ? 0 : yi / (yTotal - 1); // 0=highest engagement, 1=lowest
+  if (rank <= 0.2) return "codex: re-alignment — re-examine sovereignty bond";
+  if (rank <= 0.45) return "mini_rt: re-inspiration — reconnect creative purpose";
+  if (rank <= 0.65) return "capsule: re-activation — rekindle participation";
+  if (rank <= 0.85) return "capsule: re-engagement — low-barrier entry restored";
+  return "pill: re-introduction — world welcome";
+}
+
 const QRIPTO_CONTENT_TAGS = [
   { value: "hero", label: "Hero Feature" },
   { value: "second-hero", label: "Second Hero" },
@@ -9856,8 +9866,10 @@ export const ComposerStudio = () => {
                             const yReversed = [...m.y_stages].reverse(); // highest engagement at top
                             const xLen = m.x_stages.length;
                             const yLen = yReversed.length;
-                            // Placeholder cohorts (replace with real data when API is wired)
-                            const COHORT_NAMES = ["New Entrants", "Power Users", "Dormant", "Evangelists"];
+                            // Derive cohorts from cartridge ladder stages (franchise cohorts) or fall back to generic
+                            const COHORT_NAMES: string[] = fw?.ladder?.stages?.length
+                              ? fw.ladder.stages.map((s: { label: string }) => s.label)
+                              : ["New Entrants", "Power Users", "Dormant", "Evangelists"];
                             // Popup helpers
                             const openPopup = (key: string) => {
                               if (matrixPopupTimerRef.current) clearTimeout(matrixPopupTimerRef.current);
@@ -9910,63 +9922,63 @@ export const ComposerStudio = () => {
                                       ))}
                                     </div>
                                   )}
-                                  <span className="ml-auto text-[9px] text-slate-600">
+                                  {/* Individual controls — inline on the same row as lens toggles */}
+                                  {matrixLens === "individual" && (
+                                    <div className="flex items-center gap-1.5 ml-2 pl-2 border-l border-slate-800 flex-1 min-w-0">
+                                      <input
+                                        value={individualSearch}
+                                        onChange={(e) => setIndividualSearch(e.target.value)}
+                                        placeholder="Search…"
+                                        className="w-28 rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+                                      />
+                                      <select
+                                        value={individualPreset}
+                                        onChange={(e) => {
+                                          setIndividualPreset(e.target.value as "" | "most_active" | "least_active");
+                                          setIndividualSelected(null);
+                                        }}
+                                        className="rounded-md border border-white/10 bg-slate-900 px-1.5 py-0.5 text-[10px] text-slate-300 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+                                      >
+                                        <option value="">— quick select —</option>
+                                        <option value="most_active">10 Most Active</option>
+                                        <option value="least_active">10 Least Active</option>
+                                      </select>
+                                      {/* User pill carousel */}
+                                      {(individualSearch || individualPreset) && (
+                                        <div className="flex items-center gap-1 overflow-x-auto flex-1 min-w-0 scrollbar-none">
+                                          {["User A", "User B", "User C"].map((u) => (
+                                            <button
+                                              key={u}
+                                              type="button"
+                                              onClick={() => setIndividualSelected(individualSelected === u ? null : u)}
+                                              className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] transition ${
+                                                individualSelected === u
+                                                  ? "border-violet-500/40 bg-violet-500/10 text-violet-300"
+                                                  : "border-slate-800 text-slate-500 hover:text-slate-300"
+                                              }`}
+                                            >
+                                              {u}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                  <span className="ml-auto text-[9px] text-slate-600 shrink-0">
                                     {matrixLens === "org" ? "Full population distribution" : matrixLens === "cohort" ? "Cohort density heatmap" : "Individual NBE pathway"}
                                   </span>
                                 </div>
 
-                                {/* Individual mode controls */}
-                                {matrixLens === "individual" && (
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <input
-                                      value={individualSearch}
-                                      onChange={(e) => setIndividualSearch(e.target.value)}
-                                      placeholder="Search individual…"
-                                      className="flex-1 min-w-[140px] rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
-                                    />
-                                    <select
-                                      value={individualPreset}
-                                      onChange={(e) => {
-                                        setIndividualPreset(e.target.value as "" | "most_active" | "least_active");
-                                        setIndividualSelected(null);
-                                      }}
-                                      className="rounded-lg border border-white/10 bg-slate-900 px-2 py-1 text-[11px] text-slate-300 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
-                                    >
-                                      <option value="">— quick select —</option>
-                                      <option value="most_active">10 Most Active</option>
-                                      <option value="least_active">10 Least Active</option>
-                                    </select>
-                                    {(individualSearch || individualPreset) && (
-                                      <div className="flex items-center gap-1 flex-wrap">
-                                        {/* Placeholder individual names — replace with real API data */}
-                                        {["User A", "User B", "User C"].map((u) => (
-                                          <button
-                                            key={u}
-                                            type="button"
-                                            onClick={() => setIndividualSelected(individualSelected === u ? null : u)}
-                                            className={`rounded border px-1.5 py-0.5 text-[10px] transition ${
-                                              individualSelected === u
-                                                ? "border-violet-500/40 bg-violet-500/10 text-violet-300"
-                                                : "border-slate-800 text-slate-500 hover:text-slate-300"
-                                            }`}
-                                          >
-                                            {u}
-                                          </button>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-
                                 <div className="flex items-center justify-between text-[10px] text-slate-500">
                                   <span className="uppercase tracking-wide">Engagement ↑</span>
-                                  <span className="text-emerald-400/60">Sovereignty journey → &nbsp; goal: top-right ★</span>
+                                  <span className="uppercase tracking-wide">Sovereignty Journey → &nbsp; goal: top-right ★</span>
                                 </div>
                                 <div className="overflow-x-auto relative">
-                                  <div style={{ minWidth: `${100 + xLen * 68}px` }}>
-                                    {/* X-axis header */}
-                                    <div className="grid gap-0.5 mb-1" style={{ gridTemplateColumns: `96px repeat(${xLen}, 1fr)` }}>
+                                  <div style={{ minWidth: `${100 + (xLen + 1) * 68}px` }}>
+                                    {/* X-axis header (Disheartened prepended) */}
+                                    <div className="grid gap-0.5 mb-1" style={{ gridTemplateColumns: `96px 68px repeat(${xLen}, 1fr)` }}>
                                       <div className="text-[11px] text-slate-600 self-end pb-0.5">Y ╲ X</div>
+                                      <div className="text-center text-[11px] font-semibold text-rose-500/60 pb-0.5 truncate" title="-1 Disheartened">−1 Dis.</div>
                                       {m.x_stages.map((x: string) => (
                                         <div key={x} className="text-center text-[11px] font-semibold text-slate-500 pb-0.5 truncate" title={x}>{x}</div>
                                       ))}
@@ -9974,10 +9986,45 @@ export const ComposerStudio = () => {
                                     {/* Grid rows (Y inverted) */}
                                     <div className="space-y-0.5">
                                       {yReversed.map((y, yi) => (
-                                        <div key={y} className="grid gap-0.5 items-stretch" style={{ gridTemplateColumns: `96px repeat(${xLen}, 1fr)` }}>
+                                        <div key={y} className="grid gap-0.5 items-stretch" style={{ gridTemplateColumns: `96px 68px repeat(${xLen}, 1fr)` }}>
                                           <div className="text-[11px] font-semibold text-slate-400 pr-1 flex items-center truncate" title={y}>
                                             {y}
                                           </div>
+                                          {/* Disheartened cell */}
+                                          {(() => {
+                                            const dishKey = `${y}:Disheartened`;
+                                            const dishPrescription = getDisheartenedPrescription(yi, yLen);
+                                            const isPopupOpen = matrixPopupCell === dishKey;
+                                            return (
+                                              <div key="disheartened" className="relative">
+                                                <button
+                                                  type="button"
+                                                  onClick={() => openPopup(dishKey)}
+                                                  className="w-full rounded border border-rose-500/20 bg-rose-950/10 px-0.5 py-1 text-center text-[12px] leading-tight font-medium text-rose-700/70 cursor-pointer hover:ring-1 hover:ring-rose-500/30"
+                                                  title={dishPrescription}
+                                                >
+                                                  ↩
+                                                </button>
+                                                {isPopupOpen && (
+                                                  <div
+                                                    className="absolute z-20 bottom-full mb-1 left-1/2 -translate-x-1/2 w-52 rounded-lg border border-rose-500/30 bg-slate-900/95 px-3 py-2 shadow-xl backdrop-blur-sm"
+                                                    onMouseEnter={pausePopupTimer}
+                                                    onMouseLeave={resumePopupTimer}
+                                                  >
+                                                    <div className="text-[10px] font-semibold text-rose-300 mb-1">{y} × Disheartened</div>
+                                                    <p className="text-[11px] text-slate-200">{dishPrescription}</p>
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => { if (matrixPopupTimerRef.current) clearTimeout(matrixPopupTimerRef.current); setMatrixPopupCell(null); }}
+                                                      className="absolute top-1 right-1 text-slate-600 hover:text-slate-300"
+                                                    >
+                                                      <span className="text-[9px]">✕</span>
+                                                    </button>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            );
+                                          })()}
                                           {m.x_stages.map((x: string, xi: number) => {
                                             const key = `${y}:${x}`;
                                             const prescription = (m.cells as Record<string, string>)[key] ?? "";
@@ -10035,6 +10082,7 @@ export const ComposerStudio = () => {
                                       ))}
                                     </div>
                                     <div className="flex items-center gap-3 mt-2 text-[11px] text-slate-600">
+                                      <span><span className="text-rose-500">↩</span> disheartened (−1)</span>
                                       <span><span className="text-emerald-400">■</span> optimal path</span>
                                       <span><span className="text-blue-400">■</span> off-diagonal NBE</span>
                                       <span><span className="text-amber-400">■</span> apex zone</span>
@@ -10057,13 +10105,14 @@ export const ComposerStudio = () => {
                             if (expModelLoading) return <div className="text-slate-400 text-xs">Loading…</div>;
                             if (!ladder) return <div className="text-slate-400 text-xs">No sovereignty ladder configured for this cartridge.</div>;
 
-                            const funnelStages: Array<{ label: string; title: string; description: string; isApex: boolean }> = [
-                              { label: "0", title: "Awareness", description: "Pre-activation — not yet engaged.", isApex: false },
+                            const funnelStages: Array<{ label: string; title: string; description: string; isApex: boolean; isDisheartened?: boolean }> = [
+                              { label: "-1", title: "Disheartened", description: "Negative sentiment — disengaged or adversarial at any engagement level. Even Stewards can become disheartened. Prescribe a re-engagement pathway appropriate to their Y-level.", isApex: false, isDisheartened: true },
                               ...ladder.stages.map((s: { label: string; unlock: string }, i: number) => ({
                                 label: String(i + 1),
                                 title: s.label,
                                 description: s.unlock,
                                 isApex: i === ladder.stages.length - 1,
+                                isDisheartened: false,
                               })),
                             ];
 
@@ -10089,17 +10138,19 @@ export const ComposerStudio = () => {
                                           onClick={() => setLadderFunnelStage(ladderFunnelStage === xi ? null : xi)}
                                           className={`flex flex-col items-center gap-0.5 rounded-lg border px-1 py-1.5 text-center transition-all ${
                                             ladderFunnelStage === xi
-                                              ? s.isApex
-                                                ? "border-amber-500/60 bg-amber-500/15 text-amber-200"
-                                                : "border-violet-500/50 bg-violet-500/10 text-violet-200"
-                                              : s.isApex
-                                                ? "border-amber-500/20 bg-amber-500/5 text-amber-400/60 hover:border-amber-500/40"
-                                                : xi === 0
-                                                  ? "border-slate-700/40 bg-slate-900/20 text-slate-600 hover:border-slate-600"
+                                              ? s.isDisheartened
+                                                ? "border-rose-500/50 bg-rose-500/10 text-rose-200"
+                                                : s.isApex
+                                                  ? "border-amber-500/60 bg-amber-500/15 text-amber-200"
+                                                  : "border-violet-500/50 bg-violet-500/10 text-violet-200"
+                                              : s.isDisheartened
+                                                ? "border-rose-500/20 bg-rose-950/15 text-rose-400/60 hover:border-rose-500/40 hover:text-rose-300"
+                                                : s.isApex
+                                                  ? "border-amber-500/20 bg-amber-500/5 text-amber-400/60 hover:border-amber-500/40"
                                                   : "border-slate-800 bg-slate-900/20 text-slate-500 hover:border-slate-700 hover:text-slate-400"
                                           }`}
                                         >
-                                          <span className={`text-[8px] font-bold ${s.isApex ? "text-amber-400" : "text-slate-600"}`}>{s.label}</span>
+                                          <span className={`text-[8px] font-bold ${s.isDisheartened ? "text-rose-400" : s.isApex ? "text-amber-400" : "text-slate-600"}`}>{s.label}</span>
                                           <span className="text-xs leading-tight truncate w-full">{s.title}</span>
                                         </button>
                                       ))}
@@ -10137,13 +10188,20 @@ export const ComposerStudio = () => {
                                               const hasPrescription = !!prescription;
 
                                               if (isIntersection) {
+                                                if (s.isDisheartened) {
+                                                  const dishPrescription = getDisheartenedPrescription(yi, yTotal);
+                                                  return (
+                                                    <div key={xi} className="rounded-lg border-2 border-rose-500/60 bg-rose-950/30 px-2 py-2 flex flex-col gap-0.5 text-center shadow-sm shadow-rose-950/40">
+                                                      <div className="text-[9px] font-semibold text-rose-300 leading-tight">{cat} × Disheartened</div>
+                                                      <div className="text-[10px] text-slate-200 font-mono leading-tight mt-0.5">{dishPrescription}</div>
+                                                    </div>
+                                                  );
+                                                }
                                                 return (
                                                   <div key={xi} className="rounded-lg border-2 border-violet-500/60 bg-violet-950/30 px-2 py-2 flex flex-col gap-0.5 text-center shadow-sm shadow-violet-950/40">
                                                     <div className="text-[9px] font-semibold text-violet-300 leading-tight">{cat}</div>
                                                     <div className="text-[9px] font-semibold text-violet-300 leading-tight">{s.title}</div>
-                                                    {xi === 0 ? (
-                                                      <div className="text-[9px] text-slate-500 mt-0.5">pre-funnel</div>
-                                                    ) : hasPrescription ? (
+                                                    {hasPrescription ? (
                                                       <div className="text-[10px] text-slate-200 font-mono leading-tight mt-0.5">{prescription}</div>
                                                     ) : (
                                                       <div className="text-[9px] text-slate-600 mt-0.5">—</div>
@@ -10152,19 +10210,30 @@ export const ComposerStudio = () => {
                                                 );
                                               }
 
+                                              // Disheartened column always has a derived prescription
+                                              const dishPrescriptionCell = s.isDisheartened ? getDisheartenedPrescription(yi, yTotal) : "";
+                                              const effectivePrescription = s.isDisheartened ? dishPrescriptionCell : prescription;
+                                              const effectiveHas = s.isDisheartened || hasPrescription;
+
                                               return (
                                                 <div
                                                   key={xi}
                                                   className={`rounded border px-0.5 py-1 text-center text-[11px] leading-tight font-medium transition-colors ${
-                                                    isRowHighlight
-                                                      ? hasPrescription ? "border-emerald-500/20 bg-emerald-950/15 text-emerald-400/70" : "border-emerald-500/10 bg-emerald-950/8 text-slate-700"
-                                                      : isColHighlight
-                                                        ? hasPrescription ? "border-violet-500/20 bg-violet-950/15 text-violet-400/60" : "border-violet-500/10 bg-violet-950/8 text-slate-700"
-                                                        : hasPrescription ? "border-slate-700/40 bg-slate-900/20 text-slate-500" : "border-slate-800/20 bg-slate-950/20 text-slate-800"
+                                                    s.isDisheartened
+                                                      ? isRowHighlight
+                                                        ? "border-rose-500/30 bg-rose-950/20 text-rose-400/70"
+                                                        : isColHighlight
+                                                          ? "border-rose-500/25 bg-rose-950/15 text-rose-400/60"
+                                                          : "border-rose-500/15 bg-rose-950/8 text-rose-700/60"
+                                                      : isRowHighlight
+                                                        ? effectiveHas ? "border-emerald-500/20 bg-emerald-950/15 text-emerald-400/70" : "border-emerald-500/10 bg-emerald-950/8 text-slate-700"
+                                                        : isColHighlight
+                                                          ? effectiveHas ? "border-violet-500/20 bg-violet-950/15 text-violet-400/60" : "border-violet-500/10 bg-violet-950/8 text-slate-700"
+                                                          : effectiveHas ? "border-slate-700/40 bg-slate-900/20 text-slate-500" : "border-slate-800/20 bg-slate-950/20 text-slate-800"
                                                   }`}
-                                                  title={prescription || `${cat} × ${s.title}`}
+                                                  title={effectivePrescription || `${cat} × ${s.title}`}
                                                 >
-                                                  {prescription ? prescription.split(": ").pop()?.slice(0, 6) : "·"}
+                                                  {s.isDisheartened ? "↩" : (effectivePrescription ? effectivePrescription.split(": ").pop()?.slice(0, 6) : "·")}
                                                 </div>
                                               );
                                             })}
@@ -10181,14 +10250,19 @@ export const ComposerStudio = () => {
                                   </div>
                                 </div>
 
-                                {ladderFunnelStage !== null && (
-                                  <div className="rounded-lg border border-violet-500/20 bg-violet-950/15 px-3 py-2">
-                                    <span className={`text-[11px] font-semibold ${funnelStages[ladderFunnelStage].isApex ? "text-amber-300" : "text-violet-300"}`}>
-                                      #{funnelStages[ladderFunnelStage].label} — {funnelStages[ladderFunnelStage].title}
-                                    </span>
-                                    <p className="text-[11px] text-slate-400 mt-0.5">{funnelStages[ladderFunnelStage].description}</p>
-                                  </div>
-                                )}
+                                {ladderFunnelStage !== null && (() => {
+                                  const sel = funnelStages[ladderFunnelStage];
+                                  const borderCls = sel.isDisheartened ? "border-rose-500/20 bg-rose-950/15" : "border-violet-500/20 bg-violet-950/15";
+                                  const labelCls = sel.isDisheartened ? "text-rose-300" : sel.isApex ? "text-amber-300" : "text-violet-300";
+                                  return (
+                                    <div className={`rounded-lg border ${borderCls} px-3 py-2`}>
+                                      <span className={`text-[11px] font-semibold ${labelCls}`}>
+                                        {sel.label} — {sel.title}
+                                      </span>
+                                      <p className="text-[11px] text-slate-400 mt-0.5">{sel.description}</p>
+                                    </div>
+                                  );
+                                })()}
 
                                 <div className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-[10px] text-slate-600 font-mono">
                                   {ladder.canonical}
