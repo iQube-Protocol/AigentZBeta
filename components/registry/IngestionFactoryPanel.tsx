@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Upload, GitBranch, Package2, Plug, FileText, Workflow, Loader2, ChevronRight, SlidersHorizontal, X, Zap, RefreshCw, AlertTriangle, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { Upload, GitBranch, Package2, Plug, FileText, Workflow, Loader2, ChevronRight, SlidersHorizontal, X, Zap, RefreshCw, AlertTriangle, CheckCircle2, Clock, XCircle, Share2, Wrench, Network, GitMerge } from "lucide-react";
 import { AssetDetailPanel } from "./AssetDetailPanel";
+import { ViewModeToggle, type ViewMode } from "./ViewModeToggle";
 import type {
   IngestionSourceType,
   RegistryAssetSummary,
@@ -68,13 +69,26 @@ const SOURCE_TYPES: Array<{
     icon: <Workflow className="h-5 w-5" />,
     placeholder: "",
   },
+  {
+    id: "make_scenario",
+    label: "Connect from Make",
+    description: "Connect a Make.com scenario as a workflow asset",
+    icon: <Share2 className="h-5 w-5" />,
+    placeholder: "",
+  },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Intake form
 // ─────────────────────────────────────────────────────────────────────────────
 
-function IntakeForm({ onSuccess }: { onSuccess: (assetId: string) => void }) {
+interface MakeScenario {
+  id: number;
+  name: string;
+  isActive: boolean;
+}
+
+function IntakeForm({ onSuccess, formId, onSubmittingChange }: { onSuccess: (assetId: string) => void; formId?: string; onSubmittingChange?: (v: boolean, canSubmit: boolean) => void }) {
   const [sourceType, setSourceType] = useState<IngestionSourceType>("github_repo");
   const [sourceUri, setSourceUri] = useState("");
   const [name, setName] = useState("");
@@ -83,16 +97,50 @@ function IntakeForm({ onSuccess }: { onSuccess: (assetId: string) => void }) {
   const [step, setStep] = useState<"idle" | "intake" | "fetching" | "packaging" | "done" | "error">("idle");
   const [statusMsg, setStatusMsg] = useState("");
 
+  // Make.com scenario state
+  const [makeScenarios, setMakeScenarios] = useState<MakeScenario[] | null>(null);
+  const [makeScenarioLoading, setMakeScenarioLoading] = useState(false);
+  const [makeScenarioError, setMakeScenarioError] = useState<string | null>(null);
+  const [selectedMakeScenario, setSelectedMakeScenario] = useState<MakeScenario | null>(null);
+  const [showMakePicker, setShowMakePicker] = useState(false);
+
   const selectedType = SOURCE_TYPES.find((t) => t.id === sourceType)!;
+
+  // Notify parent of submitting + canSubmit state for external button
+  useEffect(() => {
+    const canSubmit = !(sourceType === "make_scenario" && !selectedMakeScenario);
+    onSubmittingChange?.(submitting, canSubmit);
+  }, [submitting, sourceType, selectedMakeScenario, onSubmittingChange]);
+
+  function fetchMakeScenarios() {
+    setMakeScenarioLoading(true);
+    setMakeScenarioError(null);
+    fetch("/api/make/scenarios")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.scenarios) setMakeScenarios(d.scenarios);
+        else setMakeScenarioError(d.error ?? "Failed to load scenarios");
+      })
+      .catch(() => setMakeScenarioError("Network error loading scenarios"))
+      .finally(() => setMakeScenarioLoading(false));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (sourceType === "make_scenario" && !selectedMakeScenario) return;
     setSubmitting(true);
     setStep("intake");
     setStatusMsg("Creating intake record…");
 
     try {
       // Step 1: create intake — tenantId "platform" aligns with codex FactoryIntakeTab and RegistrySupplyTab
+      const sourcePayload: Record<string, unknown> = { name, description };
+      if (sourceType === "make_scenario" && selectedMakeScenario) {
+        sourcePayload.scenarioId = selectedMakeScenario.id;
+        sourcePayload.scenarioName = selectedMakeScenario.name;
+        sourcePayload.isActive = selectedMakeScenario.isActive;
+        if (!name) sourcePayload.name = selectedMakeScenario.name;
+      }
       const intakeRes = await fetch("/api/registry/intake", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -101,7 +149,7 @@ function IntakeForm({ onSuccess }: { onSuccess: (assetId: string) => void }) {
           submittedBy: "user",
           sourceType,
           sourceUri: sourceUri || undefined,
-          sourcePayload: { name, description },
+          sourcePayload,
         }),
       }).then((r) => r.json());
 
@@ -150,7 +198,7 @@ function IntakeForm({ onSuccess }: { onSuccess: (assetId: string) => void }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form id={formId} onSubmit={handleSubmit} className="space-y-5">
       {/* Source type selector */}
       <div>
         <div className="text-[11px] uppercase tracking-widest text-slate-500 mb-2">Source Type</div>
@@ -174,8 +222,8 @@ function IntakeForm({ onSuccess }: { onSuccess: (assetId: string) => void }) {
         <div className="mt-1.5 text-[11px] text-slate-500">{selectedType.description}</div>
       </div>
 
-      {/* Source URI */}
-      {selectedType.placeholder && (
+      {/* Source URI — not shown for make_scenario */}
+      {selectedType.placeholder && sourceType !== "make_scenario" && (
         <div>
           <label className="text-[11px] uppercase tracking-widest text-slate-500 mb-1.5 block">
             Source URL / Reference
@@ -186,6 +234,101 @@ function IntakeForm({ onSuccess }: { onSuccess: (assetId: string) => void }) {
             placeholder={selectedType.placeholder}
             className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-amber-500/40"
           />
+        </div>
+      )}
+
+      {/* Make scenario picker */}
+      {sourceType === "make_scenario" && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-[11px] uppercase tracking-widest text-slate-500">Make Scenario</label>
+            <button
+              type="button"
+              className="rounded-lg border border-violet-600/50 bg-violet-500/10 px-2.5 py-1 text-[11px] text-violet-300 hover:bg-violet-500/20 transition"
+              onClick={() => {
+                setShowMakePicker(true);
+                if (!makeScenarios && !makeScenarioLoading) fetchMakeScenarios();
+              }}
+            >
+              Browse Scenarios
+            </button>
+          </div>
+
+          {selectedMakeScenario && (
+            <div className="flex items-center justify-between gap-2 rounded-xl border border-violet-500/30 bg-violet-950/20 px-3 py-2">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-violet-200 truncate">{selectedMakeScenario.name}</p>
+                <p className="text-[10px] text-slate-500">
+                  ID: {selectedMakeScenario.id}
+                  {" · "}
+                  {selectedMakeScenario.isActive
+                    ? <span className="text-emerald-400">active</span>
+                    : <span className="text-slate-500">inactive</span>}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="shrink-0 text-[10px] text-slate-500 hover:text-slate-300"
+                onClick={() => setSelectedMakeScenario(null)}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
+          {showMakePicker && (
+            <div className="rounded-xl border border-violet-500/20 bg-violet-950/30 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-violet-300">Your Make Scenarios</span>
+                <button
+                  type="button"
+                  className="text-[10px] text-slate-500 hover:text-slate-300"
+                  onClick={() => { setShowMakePicker(false); setMakeScenarios(null); setMakeScenarioError(null); }}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              {makeScenarioLoading && (
+                <div className="flex items-center gap-2 text-slate-400 text-[11px]">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Loading scenarios…
+                </div>
+              )}
+              {makeScenarioError && (
+                <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 px-3 py-2 text-[11px] text-rose-300">
+                  {makeScenarioError.toLowerCase().includes("not configured")
+                    ? "Make.com API token is not configured. Add MAKE_API_TOKEN to your environment variables."
+                    : makeScenarioError}
+                </div>
+              )}
+              {makeScenarios && makeScenarios.length === 0 && (
+                <p className="text-slate-400 text-[11px]">No scenarios found in your Make team.</p>
+              )}
+              {makeScenarios && makeScenarios.map((sc) => (
+                <div key={sc.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-700/50 bg-slate-900/60 px-2.5 py-1.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-[11px] text-slate-200">{sc.name}</p>
+                    <p className="text-[10px] text-slate-500">
+                      ID: {sc.id}
+                      {" · "}
+                      {sc.isActive ? <span className="text-emerald-400">active</span> : <span className="text-slate-500">inactive</span>}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded border border-violet-500/50 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300 hover:bg-violet-500/20 transition"
+                    onClick={() => {
+                      setSelectedMakeScenario(sc);
+                      if (!name) setName(sc.name);
+                      setShowMakePicker(false);
+                    }}
+                  >
+                    Select
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -215,25 +358,15 @@ function IntakeForm({ onSuccess }: { onSuccess: (assetId: string) => void }) {
         </div>
       </div>
 
-      {/* Submit + status */}
-      <div className="flex items-center gap-4">
-        <button
-          type="submit"
-          disabled={submitting}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/40 hover:bg-amber-500/25 disabled:opacity-50 transition-colors"
-        >
-          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-          {submitting ? "Processing…" : "Ingest Asset"}
-        </button>
-        {statusMsg && (
-          <div className={`text-xs ${step === "error" ? "text-red-400" : step === "done" ? "text-emerald-400" : "text-slate-400"}`}>
-            {step !== "idle" && step !== "done" && step !== "error" && (
-              <Loader2 className="inline h-3 w-3 animate-spin mr-1" />
-            )}
-            {statusMsg}
-          </div>
-        )}
-      </div>
+      {/* Status message */}
+      {statusMsg && (
+        <div className={`text-xs ${step === "error" ? "text-red-400" : step === "done" ? "text-emerald-400" : "text-slate-400"}`}>
+          {step !== "idle" && step !== "done" && step !== "error" && (
+            <Loader2 className="inline h-3 w-3 animate-spin mr-1" />
+          )}
+          {statusMsg}
+        </div>
+      )}
 
       {/* Pipeline progress */}
       {submitting && (
@@ -449,6 +582,44 @@ function IntakePipelineView() {
 // Main panel
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Asset card (grid view placeholder — full card design in next workstream)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ASSET_CLASS_ICON: Record<RegistryAssetClass, React.ReactNode> = {
+  ToolQube:      <Wrench className="h-5 w-5" />,
+  SkillQube:     <Network className="h-5 w-5" />,
+  WorkflowQube:  <GitMerge className="h-5 w-5" />,
+  ConnectorQube: <Plug className="h-5 w-5" />,
+};
+
+function AssetCard({ asset, onClick }: { asset: RegistryAssetSummary; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full text-left flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition-colors focus-within:ring-2 focus-within:ring-amber-500/40"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-slate-500">{ASSET_CLASS_ICON[asset.assetClass] ?? <Workflow className="h-5 w-5" />}</span>
+        <span className={`text-[10px] px-1.5 py-0.5 rounded ring-1 ${
+          asset.publicationStatus === "published"
+            ? "bg-emerald-500/20 text-emerald-300 ring-emerald-500/30"
+            : "bg-slate-700/30 text-slate-400 ring-slate-500/20"
+        }`}>{asset.publicationStatus}</span>
+      </div>
+      <div>
+        <div className="text-sm font-medium text-slate-200 truncate">{asset.name}</div>
+        <div className="text-[10px] text-slate-500 mt-0.5">{ASSET_CLASS_LABELS[asset.assetClass]}</div>
+      </div>
+      {asset.description && (
+        <p className="text-[11px] text-slate-500 line-clamp-2">{asset.description}</p>
+      )}
+      <div className={`text-[10px] ${BAND_COLORS[asset.trustBand]}`}>{TBL[asset.trustBand]}</div>
+    </button>
+  );
+}
+
 export function IngestionFactoryPanel() {
   const [assets, setAssets] = useState<RegistryAssetSummary[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
@@ -459,6 +630,14 @@ export function IngestionFactoryPanel() {
   const [statusFilter, setStatusFilter] = useState<AssetStatus | "">("");
   const [showFilters, setShowFilters] = useState(false);
   const [activeSection, setActiveSection] = useState<"ingest" | "pipeline" | "assets">("ingest");
+  const [assetsViewMode, setAssetsViewMode] = useState<ViewMode>("list");
+  const [ingestSubmitting, setIngestSubmitting] = useState(false);
+  const [ingestCanSubmit, setIngestCanSubmit] = useState(true);
+
+  const handleIngestStateChange = useCallback((submitting: boolean, canSubmit: boolean) => {
+    setIngestSubmitting(submitting);
+    setIngestCanSubmit(canSubmit);
+  }, []);
 
   const activeFilterCount = [classFilter, bandFilter, statusFilter].filter(Boolean).length;
 
@@ -497,28 +676,39 @@ export function IngestionFactoryPanel() {
 
   return (
     <div className="space-y-6">
-      {/* Q¢ Platform Rail */}
-      <PlatformRailBanner />
-
-      {/* Section tabs */}
-      <div className="flex items-center gap-1 border-b border-white/10 pb-0">
-        {(["ingest", "pipeline", "assets"] as const).map((s) => (
+      {/* Section tabs + right-justified ingest button */}
+      <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-0">
+        <div className="flex items-center gap-1">
+          {(["ingest", "pipeline", "assets"] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => {
+                setActiveSection(s);
+                if (s === "assets") loadAssets();
+              }}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                activeSection === s
+                  ? "text-white border-b-2 border-amber-400"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              {s === "ingest" ? "Ingest New Asset" : s === "pipeline" ? "Pipeline Status" : "Ingested Assets"}
+            </button>
+          ))}
+        </div>
+        {/* Ingest / Connect button — only visible on ingest tab */}
+        {activeSection === "ingest" && (
           <button
-            key={s}
-            type="button"
-            onClick={() => {
-              setActiveSection(s);
-              if (s === "assets") loadAssets();
-            }}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-              activeSection === s
-                ? "text-white border-b-2 border-amber-400"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
+            type="submit"
+            form="registry-intake-form"
+            disabled={ingestSubmitting || !ingestCanSubmit}
+            className="inline-flex items-center gap-2 px-4 py-1.5 mb-0.5 rounded-lg text-sm font-semibold bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/40 hover:bg-amber-500/25 disabled:opacity-50 transition-colors"
           >
-            {s === "ingest" ? "Ingest New Asset" : s === "pipeline" ? "Pipeline Status" : "Ingested Assets"}
+            {ingestSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+            {ingestSubmitting ? "Processing…" : "Ingest Asset"}
           </button>
-        ))}
+        )}
       </div>
 
       {activeSection === "ingest" && (
@@ -529,7 +719,7 @@ export function IngestionFactoryPanel() {
             Submitted assets appear in the <strong className="text-slate-300">Pipeline Status</strong> tab
             and, once published, in the AgentiQ Codex Registry tab.
           </div>
-          <IntakeForm onSuccess={handleIngestionSuccess} />
+          <IntakeForm formId="registry-intake-form" onSuccess={handleIngestionSuccess} onSubmittingChange={handleIngestStateChange} />
         </div>
       )}
 
@@ -569,11 +759,12 @@ export function IngestionFactoryPanel() {
                 </span>
               )}
             </button>
+            <ViewModeToggle value={assetsViewMode} onChange={setAssetsViewMode} />
           </div>
 
-          {/* Filter dropdowns */}
+          {/* Filter dropdowns — green glass panel */}
           {showFilters && (
-            <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/10 backdrop-blur-sm p-3 space-y-2 shadow-lg shadow-emerald-950/20">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase tracking-widest text-slate-500">Filters</span>
                 {activeFilterCount > 0 && (
@@ -663,8 +854,8 @@ export function IngestionFactoryPanel() {
           )}
 
           {loadingAssets ? (
-            <div className="space-y-2 animate-pulse">
-              {[1, 2, 3].map((i) => <div key={i} className="h-14 rounded-xl bg-white/5" />)}
+            <div className={assetsViewMode === "grid" ? "grid grid-cols-2 gap-3 sm:grid-cols-3 animate-pulse" : "space-y-2 animate-pulse"}>
+              {[1, 2, 3].map((i) => <div key={i} className={`rounded-xl bg-white/5 ${assetsViewMode === "grid" ? "h-36" : "h-14"}`} />)}
             </div>
           ) : assets.length === 0 ? (
             <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-8 text-center text-sm text-slate-400">
@@ -673,6 +864,49 @@ export function IngestionFactoryPanel() {
               ) : (
                 <>No assets yet. <button type="button" onClick={() => setActiveSection("ingest")} className="text-amber-400 hover:text-amber-300 underline">Ingest your first asset</button></>
               )}
+            </div>
+          ) : assetsViewMode === "grid" ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {assets.map((a) => (
+                <AssetCard
+                  key={a.assetId}
+                  asset={a}
+                  onClick={() => setSelectedAssetId(a.assetId)}
+                />
+              ))}
+            </div>
+          ) : assetsViewMode === "table" ? (
+            <div className="overflow-x-auto rounded-2xl ring-1 ring-white/10">
+              <table className="min-w-full text-sm">
+                <thead className="bg-white/5 text-slate-400">
+                  <tr>
+                    <th className="text-left px-4 py-3">Name</th>
+                    <th className="text-left px-4 py-3">Class</th>
+                    <th className="text-left px-4 py-3">Trust Band</th>
+                    <th className="text-left px-4 py-3">Status</th>
+                    <th className="text-left px-4 py-3">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {assets.map((a) => (
+                    <tr key={a.assetId} className="border-t border-white/10 hover:bg-white/5 cursor-pointer" onClick={() => setSelectedAssetId(a.assetId)}>
+                      <td className="px-4 py-3 text-slate-200 truncate max-w-xs" title={a.name}>{a.name}</td>
+                      <td className="px-4 py-3 text-slate-300">{ASSET_CLASS_LABELS[a.assetClass]}</td>
+                      <td className={`px-4 py-3 text-[11px] ${BAND_COLORS[a.trustBand]}`}>{TBL[a.trustBand]}</td>
+                      <td className="px-4 py-3">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded ring-1 ${
+                          a.publicationStatus === "published"
+                            ? "bg-emerald-500/20 text-emerald-300 ring-emerald-500/30"
+                            : "bg-slate-700/30 text-slate-400 ring-slate-500/20"
+                        }`}>{a.publicationStatus}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button type="button" className="text-[11px] text-amber-400 hover:text-amber-300" onClick={(e) => { e.stopPropagation(); setSelectedAssetId(a.assetId); }}>View</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
             <div className="space-y-1.5">

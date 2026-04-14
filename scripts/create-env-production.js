@@ -63,6 +63,10 @@ const envVars = [
   'KNYT_WHEEL_TOTAL_SLOTS',
   'KNYT_WHEEL_WEBHOOK_URL',
   'MAKE_KNYT_WEBHOOK_URL',
+  // Make.com workflow adapter
+  'MAKE_API_TOKEN',
+  'MAKE_TEAM_ID',
+  'MAKE_API_BASE_URL',
   // Admin monitor — receives every campaign email as first recipient
   'CAMPAIGN_ADMIN_EMAIL',
 ];

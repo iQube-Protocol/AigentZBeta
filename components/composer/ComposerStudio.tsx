@@ -77,6 +77,7 @@ import {
   updatePersonaGeneratedMediaRecord,
 } from "@/services/composer/generatedAssetClient";
 import { RegistryBrowserDrawer, type RegistryAssetSelection } from "@/components/registry/RegistryBrowserDrawer";
+import { RegistryHome } from "@/components/registry/RegistryHome";
 
 type ComposerField = {
   id: string;
@@ -1146,12 +1147,12 @@ const CARTRIDGE_FRAMEWORK: Record<string, CartridgeFramework> = {
     strategy: {
       name: "KNYT Live World — Patronage × PCS Strategy",
       macro_intent: "Build a living world of collectors, curators, creators, and sovereigns around the 21 Sats universe — converting passive observers into franchise-aligned world-shapers.",
-      description: "Operating on two axes: Patronage (Prospect → Sat KNYT) and PCS (Observer → Franchise-aligned Sovereign). Each matrix intersection defines the NBE for moving users toward the top-right of the matrix.",
+      description: "Operating on two axes: Patronage (Prospect → Sat KNYT) and PCS (Observer → Franchisee). Each matrix intersection defines the NBE for moving users toward the top-right of the matrix.",
       target_segments: ["observers", "collectors", "curators", "remixers", "creators", "correspondents", "stewards", "franchise-aligned sovereigns"],
       principles: [
         { title: "Patronage × PCS intersection", body: "Every user sits at a Patronage stage AND a PCS stage. The NBE is defined by their position on both axes — not just one." },
         { title: "World belonging is the hook", body: "Entry is through belonging — first affiliation, first card, first patron act. Identity is created before contribution is asked." },
-        { title: "Franchise alignment at apex", body: "The highest stage is Franchise-aligned Sovereign — actively shaping the KNYT world and the AgentiQ ecosystem simultaneously." },
+        { title: "Franchise alignment at apex", body: "The highest stage is Franchisee — actively shaping the KNYT world and the AgentiQ ecosystem simultaneously." },
       ],
     },
     model: {
@@ -1179,7 +1180,7 @@ const CARTRIDGE_FRAMEWORK: Record<string, CartridgeFramework> = {
         "Card acquisition and portfolio growth",
         "Patronage tier progression (Acolyte → Sat KNYT)",
         "Contributor recognition and editorial surfacing",
-        "Franchise-aligned governance rights at Steward/Sovereign stage",
+        "Franchisee governance rights at Steward/Sovereign stage",
       ],
       governance: [
         "FIO identity: KNYT-ID + order_tier gating",
@@ -1189,10 +1190,10 @@ const CARTRIDGE_FRAMEWORK: Record<string, CartridgeFramework> = {
         "metaMe guardian policy veto",
       ],
     },
-    // Y = KNYT PCS engagement (Observer → Franchise-aligned Sovereign)
+    // Y = KNYT PCS engagement (Observer → Franchisee)
     // X = KNYT Patronage journey (Prospect → Sat KNYT)
     matrix: {
-      y_stages: ["Observer", "Collector", "Curator", "Remixer", "Creator", "Correspondent", "Steward", "Franchise-aligned Sovereign"],
+      y_stages: ["Observer", "Collector", "Curator", "Remixer", "Creator", "Correspondent", "Steward", "Franchisee"],
       x_stages: ["Prospect", "Acolyte", "Keta", "Keji", "First", "Zero", "Sat KNYT"],
       cells: {
         // Entry zone — pills
@@ -1217,8 +1218,8 @@ const CARTRIDGE_FRAMEWORK: Record<string, CartridgeFramework> = {
         // Upper zone — codex
         "Steward:Zero":             "codex: Governance session",
         "Steward:Sat KNYT":         "codex: Stewardship codex",
-        "Franchise-aligned Sovereign:Zero": "codex: World shaping",
-        "Franchise-aligned Sovereign:Sat KNYT": "codex: Canon authoring",
+        "Franchisee:Zero": "codex: World shaping",
+        "Franchisee:Sat KNYT": "codex: Canon authoring",
         // Off-diagonal — high engagement, early patronage (left of diagonal)
         "Curator:Prospect":           "pill: Curation tease",
         "Curator:Acolyte":            "pill: Curation intro",
@@ -1235,11 +1236,11 @@ const CARTRIDGE_FRAMEWORK: Record<string, CartridgeFramework> = {
         "Steward:Acolyte":            "capsule: Governance intro",
         "Steward:Keta":               "capsule: Stewardship path",
         "Steward:First":              "mini_rt: Mentorship session",
-        "Franchise-aligned Sovereign:Prospect": "pill: Franchise tease",
-        "Franchise-aligned Sovereign:Acolyte":  "capsule: Franchise path",
-        "Franchise-aligned Sovereign:Keta":     "capsule: Sovereign intro",
-        "Franchise-aligned Sovereign:Keji":     "mini_rt: Franchise unlock",
-        "Franchise-aligned Sovereign:First":    "mini_rt: Sovereign ascent",
+        "Franchisee:Prospect": "pill: Franchise tease",
+        "Franchisee:Acolyte":  "capsule: Franchise path",
+        "Franchisee:Keta":     "capsule: Sovereign intro",
+        "Franchisee:Keji":     "mini_rt: Franchise unlock",
+        "Franchisee:First":    "mini_rt: Sovereign ascent",
         // Off-diagonal — low engagement, advanced patronage (right of diagonal)
         "Observer:Keta":              "capsule: World intro tour",
         "Observer:Keji":              "capsule: Re-engagement",
@@ -1800,7 +1801,7 @@ export const ComposerStudio = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingExperienceId, setEditingExperienceId] = useState<string | null>(null);
-  const [studioAnalysisTab, setStudioAnalysisTab] = useState<"experience" | "parity" | "surfaces" | "receipts" | "pipeline" | "workflows">("parity");
+  const [studioAnalysisTab, setStudioAnalysisTab] = useState<"experience" | "parity" | "surfaces" | "receipts" | "pipeline" | "workflows">("experience");
   const [lastPipelineRunId, setLastPipelineRunId] = useState<string | null>(null);
   const [pipelineRunData, setPipelineRunData] = useState<any>(null);
   const [pipelineRunLoading, setPipelineRunLoading] = useState(false);
@@ -1831,6 +1832,15 @@ export const ComposerStudio = () => {
   const [workflowManifests, setWorkflowManifests] = useState<Record<string, { fields: any[] } | null | "loading">>({});
   const [expandedInvoke, setExpandedInvoke] = useState<Record<string, boolean>>({});
   const [isParityExpanded, setIsParityExpanded] = useState(false);
+  const [registrySectionOpen, setRegistrySectionOpen] = useState(false);
+  const [ladderFunnelStage, setLadderFunnelStage] = useState<number | null>(null);
+  const [ladderYCategory, setLadderYCategory] = useState<string | null>(null);
+  const [matrixPopupCell, setMatrixPopupCell] = useState<string | null>(null);
+  const matrixPopupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [matrixCohortName, setMatrixCohortName] = useState<string | null>(null);
+  const [individualSearch, setIndividualSearch] = useState("");
+  const [individualPreset, setIndividualPreset] = useState<"" | "most_active" | "least_active">("");
+  const [individualSelected, setIndividualSelected] = useState<string | null>(null);
   const [pendingProductionConfig, setPendingProductionConfig] = useState<{
     templateKey: string;
     seedData: Record<string, unknown>;
@@ -9615,50 +9625,84 @@ export const ComposerStudio = () => {
               }}
               className="w-full"
             >
-              <div className="mb-4 space-y-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      {parityPanelMeta.icon}
-                      <h2 className="text-lg font-semibold text-white">{parityPanelMeta.title}</h2>
-                    </div>
-                    <p className="text-sm text-slate-400">{parityPanelMeta.description}</p>
-                  </div>
+              <div className="mb-3 space-y-2">
+                {/* Plan + Registry tab-buttons */}
+                <div className="flex items-stretch gap-2">
+                  {/* Plan button */}
                   <button
                     type="button"
-                    onClick={() => setIsParityExpanded((prev) => !prev)}
-                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-slate-950/50 text-slate-300 transition hover:border-fuchsia-400/30 hover:text-white"
-                    aria-label={isParityExpanded ? "Collapse parity review" : "Expand parity review"}
+                    onClick={() => {
+                      setIsParityExpanded((prev) => !prev);
+                      if (!isParityExpanded) setRegistrySectionOpen(false);
+                    }}
+                    className={`flex flex-1 items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition-colors ${isParityExpanded ? "border-fuchsia-500/40 bg-fuchsia-500/5" : "border-white/10 bg-white/5 hover:bg-white/[0.08]"}`}
                   >
-                    <ChevronDown className={`h-4 w-4 transition-transform ${isParityExpanded ? "rotate-180" : ""}`} />
+                    <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+                      {parityPanelMeta.icon}
+                      <span className="text-sm font-semibold text-white shrink-0">Plan</span>
+                      <span className="text-slate-500 text-xs shrink-0 mx-0.5">—</span>
+                      <span
+                        className="text-xs text-slate-400 truncate"
+                        title="Review design parity, policy fit, and runtime readiness before launch"
+                      >
+                        {parityPanelMeta.title}
+                      </span>
+                    </div>
+                    <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${isParityExpanded ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {/* Registry button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRegistrySectionOpen((prev) => !prev);
+                      if (!registrySectionOpen) setIsParityExpanded(false);
+                    }}
+                    className={`flex flex-1 items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition-colors ${registrySectionOpen ? "border-emerald-500/40 bg-emerald-500/5" : "border-white/10 bg-white/5 hover:bg-white/[0.08]"}`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+                      <LayoutGrid className="h-4 w-4 text-emerald-400 shrink-0" />
+                      <span className="text-sm font-semibold text-white shrink-0">Registry</span>
+                      <span
+                        className="text-xs text-slate-500 truncate"
+                        title="Browse and manage iQube templates and instances in the registry"
+                      >
+                        Browse and manage iQube templates and instances
+                      </span>
+                    </div>
+                    <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${registrySectionOpen ? "rotate-180" : ""}`} />
                   </button>
                 </div>
-                <TabsList className="grid h-11 w-full grid-cols-6 items-center rounded-full border border-white/10 bg-slate-950/60 p-1">
-                  <TabsTrigger value="experience" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
-                    <Layers className="h-3.5 w-3.5 shrink-0" />
-                    Experience
-                  </TabsTrigger>
-                  <TabsTrigger value="parity" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
-                    <Palette className="h-3.5 w-3.5 shrink-0" />
-                    Design
-                  </TabsTrigger>
-                  <TabsTrigger value="workflows" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
-                    <Share2 className="h-3.5 w-3.5 shrink-0" />
-                    Workflows
-                  </TabsTrigger>
-                  <TabsTrigger value="surfaces" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
-                    <Monitor className="h-3.5 w-3.5 shrink-0" />
-                    Surfaces
-                  </TabsTrigger>
-                  <TabsTrigger value="pipeline" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
-                    <Activity className="h-3.5 w-3.5 shrink-0" />
-                    Pipeline
-                  </TabsTrigger>
-                  <TabsTrigger value="receipts" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
-                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                    Receipts
-                  </TabsTrigger>
-                </TabsList>
+
+                {/* Plan inner tab strip — visible only when expanded */}
+                {isParityExpanded && (
+                  <TabsList className="grid h-11 w-full grid-cols-6 items-center rounded-full border border-white/10 bg-slate-950/60 p-1">
+                    <TabsTrigger value="experience" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
+                      <Layers className="h-3.5 w-3.5 shrink-0" />
+                      Experience
+                    </TabsTrigger>
+                    <TabsTrigger value="parity" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
+                      <Palette className="h-3.5 w-3.5 shrink-0" />
+                      Design
+                    </TabsTrigger>
+                    <TabsTrigger value="workflows" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
+                      <Share2 className="h-3.5 w-3.5 shrink-0" />
+                      Workflows
+                    </TabsTrigger>
+                    <TabsTrigger value="surfaces" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
+                      <Monitor className="h-3.5 w-3.5 shrink-0" />
+                      Surfaces
+                    </TabsTrigger>
+                    <TabsTrigger value="pipeline" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
+                      <Activity className="h-3.5 w-3.5 shrink-0" />
+                      Pipeline
+                    </TabsTrigger>
+                    <TabsTrigger value="receipts" className={configuratorTabTriggerClass + " gap-1.5 text-[13px]"}>
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                      Receipts
+                    </TabsTrigger>
+                  </TabsList>
+                )}
               </div>
 
               {isParityExpanded ? (
@@ -9705,7 +9749,7 @@ export const ComposerStudio = () => {
 
                       <Tabs value={expModelTab} onValueChange={setExpModelTab}>
                         <TabsList className="grid w-full grid-cols-7 border border-slate-800 bg-slate-950/70">
-                          {(["strategy", "model", "matrix", "ladder", "status", "nbe", "analysis"] as const).map((t) => (
+                          {(["strategy", "model", "ladder", "matrix", "status", "nbe", "analysis"] as const).map((t) => (
                             <TabsTrigger key={t} value={t} className="text-[10px] px-1">
                               {t === "nbe" ? "NBE" : t === "strategy" ? "Strategy" : t === "matrix" ? "Matrix" : t === "ladder" ? "Ladder" : t === "analysis" ? "Analysis" : t.charAt(0).toUpperCase() + t.slice(1)}
                             </TabsTrigger>
@@ -9812,10 +9856,26 @@ export const ComposerStudio = () => {
                             const yReversed = [...m.y_stages].reverse(); // highest engagement at top
                             const xLen = m.x_stages.length;
                             const yLen = yReversed.length;
+                            // Placeholder cohorts (replace with real data when API is wired)
+                            const COHORT_NAMES = ["New Entrants", "Power Users", "Dormant", "Evangelists"];
+                            // Popup helpers
+                            const openPopup = (key: string) => {
+                              if (matrixPopupTimerRef.current) clearTimeout(matrixPopupTimerRef.current);
+                              setMatrixPopupCell(key);
+                              matrixPopupTimerRef.current = setTimeout(() => setMatrixPopupCell(null), 5000);
+                            };
+                            const pausePopupTimer = () => {
+                              if (matrixPopupTimerRef.current) clearTimeout(matrixPopupTimerRef.current);
+                            };
+                            const resumePopupTimer = () => {
+                              if (matrixPopupCell) {
+                                matrixPopupTimerRef.current = setTimeout(() => setMatrixPopupCell(null), 5000);
+                              }
+                            };
                             return (
                               <div className="space-y-2">
-                                {/* Lens toggle */}
-                                <div className="flex items-center gap-1">
+                                {/* Lens toggle + cohort/individual controls */}
+                                <div className="flex items-center gap-1 flex-wrap">
                                   {([
                                     { id: "org" as const, label: "Org", icon: <Globe className="h-3 w-3" /> },
                                     { id: "cohort" as const, label: "Cohort", icon: <Users className="h-3 w-3" /> },
@@ -9831,20 +9891,83 @@ export const ComposerStudio = () => {
                                       {lens.icon} {lens.label}
                                     </button>
                                   ))}
+                                  {/* Cohort buttons — right of toggles when cohort lens is active */}
+                                  {matrixLens === "cohort" && (
+                                    <div className="flex items-center gap-1 ml-2 pl-2 border-l border-slate-800">
+                                      {COHORT_NAMES.map((c) => (
+                                        <button
+                                          key={c}
+                                          type="button"
+                                          onClick={() => setMatrixCohortName(matrixCohortName === c ? null : c)}
+                                          className={`rounded-md border px-2 py-0.5 text-[10px] font-medium transition ${
+                                            matrixCohortName === c
+                                              ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-300"
+                                              : "border-slate-800 text-slate-500 hover:text-slate-300"
+                                          }`}
+                                        >
+                                          {c}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
                                   <span className="ml-auto text-[9px] text-slate-600">
                                     {matrixLens === "org" ? "Full population distribution" : matrixLens === "cohort" ? "Cohort density heatmap" : "Individual NBE pathway"}
                                   </span>
                                 </div>
+
+                                {/* Individual mode controls */}
+                                {matrixLens === "individual" && (
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <input
+                                      value={individualSearch}
+                                      onChange={(e) => setIndividualSearch(e.target.value)}
+                                      placeholder="Search individual…"
+                                      className="flex-1 min-w-[140px] rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+                                    />
+                                    <select
+                                      value={individualPreset}
+                                      onChange={(e) => {
+                                        setIndividualPreset(e.target.value as "" | "most_active" | "least_active");
+                                        setIndividualSelected(null);
+                                      }}
+                                      className="rounded-lg border border-white/10 bg-slate-900 px-2 py-1 text-[11px] text-slate-300 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+                                    >
+                                      <option value="">— quick select —</option>
+                                      <option value="most_active">10 Most Active</option>
+                                      <option value="least_active">10 Least Active</option>
+                                    </select>
+                                    {(individualSearch || individualPreset) && (
+                                      <div className="flex items-center gap-1 flex-wrap">
+                                        {/* Placeholder individual names — replace with real API data */}
+                                        {["User A", "User B", "User C"].map((u) => (
+                                          <button
+                                            key={u}
+                                            type="button"
+                                            onClick={() => setIndividualSelected(individualSelected === u ? null : u)}
+                                            className={`rounded border px-1.5 py-0.5 text-[10px] transition ${
+                                              individualSelected === u
+                                                ? "border-violet-500/40 bg-violet-500/10 text-violet-300"
+                                                : "border-slate-800 text-slate-500 hover:text-slate-300"
+                                            }`}
+                                          >
+                                            {u}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
                                 <div className="flex items-center justify-between text-[10px] text-slate-500">
                                   <span className="uppercase tracking-wide">Engagement ↑</span>
                                   <span className="text-emerald-400/60">Sovereignty journey → &nbsp; goal: top-right ★</span>
                                 </div>
-                                <div className="overflow-x-auto">
+                                <div className="overflow-x-auto relative">
                                   <div style={{ minWidth: `${100 + xLen * 68}px` }}>
                                     {/* X-axis header */}
                                     <div className="grid gap-0.5 mb-1" style={{ gridTemplateColumns: `96px repeat(${xLen}, 1fr)` }}>
                                       <div className="text-[11px] text-slate-600 self-end pb-0.5">Y ╲ X</div>
-                                      {m.x_stages.map((x) => (
+                                      {m.x_stages.map((x: string) => (
                                         <div key={x} className="text-center text-[11px] font-semibold text-slate-500 pb-0.5 truncate" title={x}>{x}</div>
                                       ))}
                                     </div>
@@ -9855,15 +9978,18 @@ export const ComposerStudio = () => {
                                           <div className="text-[11px] font-semibold text-slate-400 pr-1 flex items-center truncate" title={y}>
                                             {y}
                                           </div>
-                                          {m.x_stages.map((x, xi) => {
+                                          {m.x_stages.map((x: string, xi: number) => {
                                             const key = `${y}:${x}`;
-                                            const prescription = m.cells[key] ?? "";
+                                            const prescription = (m.cells as Record<string, string>)[key] ?? "";
                                             const yOrig = yLen - 1 - yi;
                                             const isApex = yi <= 1 && xi >= xLen - 2;
                                             const hasPrescription = !!prescription;
                                             const yNorm = yOrig / Math.max(yLen - 1, 1);
                                             const xNorm = xi / Math.max(xLen - 1, 1);
                                             const isOnDiagonal = Math.abs(yNorm - xNorm) <= 0.28;
+                                            // Cohort/individual highlight
+                                            const isCohortAvg = matrixLens === "cohort" && matrixCohortName && xi === Math.floor(xLen / 2) && yi === Math.floor(yLen / 2);
+                                            const isIndividualPos = matrixLens === "individual" && individualSelected && xi === Math.floor(xLen / 3) && yi === Math.floor(yLen / 3);
                                             const cellClass = isApex && hasPrescription
                                               ? "border-amber-500/40 bg-amber-500/8 text-amber-200"
                                               : hasPrescription && isOnDiagonal
@@ -9871,11 +9997,37 @@ export const ComposerStudio = () => {
                                                 : hasPrescription
                                                   ? "border-blue-500/25 bg-blue-500/5 text-blue-300"
                                                   : "border-slate-800/30 bg-slate-950/30 text-slate-700";
+                                            const isPopupOpen = matrixPopupCell === key;
                                             return (
-                                              <div key={key}
-                                                className={`rounded border px-0.5 py-1 text-center text-[12px] leading-tight font-medium ${cellClass} cursor-default`}
-                                                title={prescription || `${y} × ${x}`}>
-                                                {prescription ? prescription.split(": ").pop() : "·"}
+                                              <div key={key} className="relative">
+                                                <button
+                                                  type="button"
+                                                  onClick={() => hasPrescription && openPopup(key)}
+                                                  className={`w-full rounded border px-0.5 py-1 text-center text-[12px] leading-tight font-medium ${cellClass} ${hasPrescription ? "cursor-pointer hover:ring-1 hover:ring-white/20" : "cursor-default"} ${isCohortAvg ? "ring-2 ring-cyan-400/60" : ""} ${isIndividualPos ? "ring-2 ring-violet-400/60" : ""}`}
+                                                  title={prescription || `${y} × ${x}`}
+                                                >
+                                                  {prescription ? prescription.split(": ").pop() : "·"}
+                                                  {isCohortAvg && <span className="absolute -top-1.5 -right-1 text-[8px] text-cyan-300">avg</span>}
+                                                  {isIndividualPos && <span className="absolute -top-1.5 -right-1 text-[8px] text-violet-300">★</span>}
+                                                </button>
+                                                {/* Popup */}
+                                                {isPopupOpen && prescription && (
+                                                  <div
+                                                    className="absolute z-20 bottom-full mb-1 left-1/2 -translate-x-1/2 w-48 rounded-lg border border-violet-500/30 bg-slate-900/95 px-3 py-2 shadow-xl backdrop-blur-sm"
+                                                    onMouseEnter={pausePopupTimer}
+                                                    onMouseLeave={resumePopupTimer}
+                                                  >
+                                                    <div className="text-[10px] font-semibold text-violet-300 mb-1">{y} × {x}</div>
+                                                    <p className="text-[11px] text-slate-200">{prescription}</p>
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => { if (matrixPopupTimerRef.current) clearTimeout(matrixPopupTimerRef.current); setMatrixPopupCell(null); }}
+                                                      className="absolute top-1 right-1 text-slate-600 hover:text-slate-300"
+                                                    >
+                                                      <span className="text-[9px]">✕</span>
+                                                    </button>
+                                                  </div>
+                                                )}
                                               </div>
                                             );
                                           })}
@@ -9887,7 +10039,7 @@ export const ComposerStudio = () => {
                                       <span><span className="text-blue-400">■</span> off-diagonal NBE</span>
                                       <span><span className="text-amber-400">■</span> apex zone</span>
                                       <span><span className="text-slate-700">·</span> no prescription</span>
-                                      <span className="ml-auto text-slate-500">hover for full prescription</span>
+                                      <span className="ml-auto text-slate-500">click cell for prescription</span>
                                     </div>
                                   </div>
                                 </div>
@@ -9896,42 +10048,150 @@ export const ComposerStudio = () => {
                           })()}
                         </TabsContent>
 
-                        {/* ── Ladder ── Sovereignty journey (X-axis) with cartridge skin mapping */}
+                        {/* ── Ladder ── 2D cross-highlight grid: select Y row + X column → intersection */}
                         <TabsContent value="ladder" className="mt-3">
                           {(() => {
                             const fw = CARTRIDGE_FRAMEWORK[copilotContextId];
                             const ladder = fw?.ladder ?? null;
+                            const matrix = fw?.matrix ?? null;
                             if (expModelLoading) return <div className="text-slate-400 text-xs">Loading…</div>;
                             if (!ladder) return <div className="text-slate-400 text-xs">No sovereignty ladder configured for this cartridge.</div>;
+
+                            const funnelStages: Array<{ label: string; title: string; description: string; isApex: boolean }> = [
+                              { label: "0", title: "Awareness", description: "Pre-activation — not yet engaged.", isApex: false },
+                              ...ladder.stages.map((s: { label: string; unlock: string }, i: number) => ({
+                                label: String(i + 1),
+                                title: s.label,
+                                description: s.unlock,
+                                isApex: i === ladder.stages.length - 1,
+                              })),
+                            ];
+
+                            const yCategories: string[] = matrix ? [...matrix.y_stages].slice(0, 7).reverse() : [];
+                            const yTotal = yCategories.length;
+                            const xStages = matrix ? (matrix.x_stages as string[]) : [];
+
                             return (
                               <div className="space-y-3">
-                                <div className="text-[10px] text-slate-500 uppercase tracking-wide">Sovereignty journey — X-axis of the experience matrix</div>
-                                <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-xs text-violet-200 font-mono">
-                                  {ladder.canonical}
+                                <div className="text-[10px] text-slate-600">
+                                  Click a row (Y) to select engagement level · Click a column (X) to select funnel stage · their intersection shows the prescription
                                 </div>
-                                <div className="space-y-1.5">
-                                  {[...ladder.stages].reverse().map((stage, i) => {
-                                    const totalStages = ladder.stages.length;
-                                    const stageIdx = totalStages - 1 - i;
-                                    const isApex = stageIdx === totalStages - 1;
-                                    return (
-                                      <div key={stage.id} className={`flex items-start gap-3 rounded-lg border px-3 py-2 ${isApex ? "border-amber-500/30 bg-amber-500/5" : "border-slate-800 bg-slate-900/30"}`}>
-                                        <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[9px] font-bold ${isApex ? "border-amber-500/50 text-amber-300" : "border-slate-700 text-slate-500"}`}>
-                                          {stageIdx + 1}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                          <div className="flex items-center gap-2">
-                                            <span className={`text-xs font-semibold ${isApex ? "text-amber-200" : "text-slate-200"}`}>{stage.label}</span>
-                                            {stage.knyt_label && (
-                                              <span className="text-[10px] text-slate-500">KNYT: {stage.knyt_label}</span>
-                                            )}
+
+                                <div className="overflow-x-auto">
+                                  <div style={{ minWidth: `${88 + funnelStages.length * 68}px` }}>
+                                    {/* X-axis header */}
+                                    <div className="grid gap-0.5 mb-0.5" style={{ gridTemplateColumns: `88px repeat(${funnelStages.length}, 1fr)` }}>
+                                      <div className="text-[10px] text-slate-600 self-end pb-0.5 pl-1">Y \ X</div>
+                                      {funnelStages.map((s, xi) => (
+                                        <button
+                                          key={xi}
+                                          type="button"
+                                          onClick={() => setLadderFunnelStage(ladderFunnelStage === xi ? null : xi)}
+                                          className={`flex flex-col items-center gap-0.5 rounded-lg border px-1 py-1.5 text-center transition-all ${
+                                            ladderFunnelStage === xi
+                                              ? s.isApex
+                                                ? "border-amber-500/60 bg-amber-500/15 text-amber-200"
+                                                : "border-violet-500/50 bg-violet-500/10 text-violet-200"
+                                              : s.isApex
+                                                ? "border-amber-500/20 bg-amber-500/5 text-amber-400/60 hover:border-amber-500/40"
+                                                : xi === 0
+                                                  ? "border-slate-700/40 bg-slate-900/20 text-slate-600 hover:border-slate-600"
+                                                  : "border-slate-800 bg-slate-900/20 text-slate-500 hover:border-slate-700 hover:text-slate-400"
+                                          }`}
+                                        >
+                                          <span className={`text-[8px] font-bold ${s.isApex ? "text-amber-400" : "text-slate-600"}`}>{s.label}</span>
+                                          <span className="text-xs leading-tight truncate w-full">{s.title}</span>
+                                        </button>
+                                      ))}
+                                    </div>
+
+                                    {/* Grid rows (Y reversed: apex at top) */}
+                                    <div className="space-y-0.5">
+                                      {yCategories.map((cat, yi) => {
+                                        const isSelectedY = ladderYCategory === cat;
+                                        const isApex = yi === 0;
+                                        return (
+                                          <div key={cat} className="grid gap-0.5" style={{ gridTemplateColumns: `88px repeat(${funnelStages.length}, 1fr)` }}>
+                                            <button
+                                              type="button"
+                                              onClick={() => setLadderYCategory(isSelectedY ? null : cat)}
+                                              className={`text-xs font-medium px-2 py-2 text-left rounded-lg border transition-all truncate ${
+                                                isSelectedY
+                                                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
+                                                  : isApex
+                                                    ? "border-amber-500/20 bg-amber-500/5 text-amber-400/80 hover:border-amber-500/35"
+                                                    : "border-slate-800 bg-slate-900/20 text-slate-400 hover:border-slate-700 hover:text-slate-300"
+                                              }`}
+                                              title={cat}
+                                            >
+                                              <span className="text-[8px] font-bold text-slate-600 mr-1">{yTotal - yi}</span>
+                                              {cat}
+                                            </button>
+
+                                            {funnelStages.map((s, xi) => {
+                                              const matrixKey = xi >= 1 ? `${cat}:${xStages[xi - 1]}` : null;
+                                              const prescription = matrixKey ? ((matrix?.cells as Record<string, string>)[matrixKey] ?? "") : "";
+                                              const isIntersection = isSelectedY && ladderFunnelStage === xi;
+                                              const isRowHighlight = isSelectedY && ladderFunnelStage !== xi;
+                                              const isColHighlight = !isSelectedY && ladderFunnelStage === xi;
+                                              const hasPrescription = !!prescription;
+
+                                              if (isIntersection) {
+                                                return (
+                                                  <div key={xi} className="rounded-lg border-2 border-violet-500/60 bg-violet-950/30 px-2 py-2 flex flex-col gap-0.5 text-center shadow-sm shadow-violet-950/40">
+                                                    <div className="text-[9px] font-semibold text-violet-300 leading-tight">{cat}</div>
+                                                    <div className="text-[9px] font-semibold text-violet-300 leading-tight">{s.title}</div>
+                                                    {xi === 0 ? (
+                                                      <div className="text-[9px] text-slate-500 mt-0.5">pre-funnel</div>
+                                                    ) : hasPrescription ? (
+                                                      <div className="text-[10px] text-slate-200 font-mono leading-tight mt-0.5">{prescription}</div>
+                                                    ) : (
+                                                      <div className="text-[9px] text-slate-600 mt-0.5">—</div>
+                                                    )}
+                                                  </div>
+                                                );
+                                              }
+
+                                              return (
+                                                <div
+                                                  key={xi}
+                                                  className={`rounded border px-0.5 py-1 text-center text-[11px] leading-tight font-medium transition-colors ${
+                                                    isRowHighlight
+                                                      ? hasPrescription ? "border-emerald-500/20 bg-emerald-950/15 text-emerald-400/70" : "border-emerald-500/10 bg-emerald-950/8 text-slate-700"
+                                                      : isColHighlight
+                                                        ? hasPrescription ? "border-violet-500/20 bg-violet-950/15 text-violet-400/60" : "border-violet-500/10 bg-violet-950/8 text-slate-700"
+                                                        : hasPrescription ? "border-slate-700/40 bg-slate-900/20 text-slate-500" : "border-slate-800/20 bg-slate-950/20 text-slate-800"
+                                                  }`}
+                                                  title={prescription || `${cat} × ${s.title}`}
+                                                >
+                                                  {prescription ? prescription.split(": ").pop()?.slice(0, 6) : "·"}
+                                                </div>
+                                              );
+                                            })}
                                           </div>
-                                          <div className="text-[11px] text-slate-500 mt-0.5">{stage.unlock}</div>
-                                        </div>
-                                        <div className="text-[10px] font-mono text-slate-600 shrink-0">{stage.id}</div>
-                                      </div>
-                                    );
-                                  })}
+                                        );
+                                      })}
+                                    </div>
+
+                                    <div className="flex items-center gap-3 mt-2 text-[10px] text-slate-600">
+                                      <span><span className="text-emerald-400">■</span> selected row</span>
+                                      <span><span className="text-violet-400">■</span> selected column</span>
+                                      <span className="border border-violet-500/50 px-1 rounded text-violet-300">box</span><span> = intersection</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {ladderFunnelStage !== null && (
+                                  <div className="rounded-lg border border-violet-500/20 bg-violet-950/15 px-3 py-2">
+                                    <span className={`text-[11px] font-semibold ${funnelStages[ladderFunnelStage].isApex ? "text-amber-300" : "text-violet-300"}`}>
+                                      #{funnelStages[ladderFunnelStage].label} — {funnelStages[ladderFunnelStage].title}
+                                    </span>
+                                    <p className="text-[11px] text-slate-400 mt-0.5">{funnelStages[ladderFunnelStage].description}</p>
+                                  </div>
+                                )}
+
+                                <div className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-[10px] text-slate-600 font-mono">
+                                  {ladder.canonical}
                                 </div>
                               </div>
                             );
@@ -11558,6 +11818,13 @@ export const ComposerStudio = () => {
                 </>
               ) : null}
             </Tabs>
+
+            {/* Registry panel — mirrors RegistryHome, shown when Registry tab is open */}
+            {registrySectionOpen && (
+              <div className="mt-3 h-[640px] overflow-hidden flex flex-col rounded-xl border border-emerald-500/10 bg-slate-950/30">
+                <RegistryHome />
+              </div>
+            )}
           </div>
       </div>
 
