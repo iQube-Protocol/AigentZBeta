@@ -268,13 +268,13 @@ export function RegistryHome() {
 
   const tabBtnCls = (active: boolean, variant: 'default' | 'amber' | 'emerald' = 'default') => {
     if (active) {
-      if (variant === 'amber') return "px-4 py-2 text-sm font-semibold rounded-xl transition-all bg-amber-500/20 text-amber-200 ring-2 ring-amber-500/50 shadow-sm shadow-amber-500/10";
-      if (variant === 'emerald') return "px-4 py-2 text-sm font-semibold rounded-xl transition-all bg-emerald-500/20 text-emerald-200 ring-2 ring-emerald-500/50 shadow-sm shadow-emerald-500/10";
-      return "px-4 py-2 text-sm font-semibold rounded-xl transition-all bg-indigo-500/20 text-indigo-200 ring-2 ring-indigo-500/50 shadow-sm shadow-indigo-500/10";
+      if (variant === 'amber') return "px-3 py-1.5 text-xs font-semibold rounded-lg transition-all bg-amber-500/20 text-amber-200 ring-2 ring-amber-500/40 shadow-sm shadow-amber-500/10";
+      if (variant === 'emerald') return "px-3 py-1.5 text-xs font-semibold rounded-lg transition-all bg-emerald-500/20 text-emerald-200 ring-2 ring-emerald-500/40 shadow-sm shadow-emerald-500/10";
+      return "px-3 py-1.5 text-xs font-semibold rounded-lg transition-all bg-indigo-500/20 text-indigo-200 ring-2 ring-indigo-500/40 shadow-sm shadow-indigo-500/10";
     }
-    if (variant === 'amber') return "px-4 py-2 text-sm font-medium rounded-xl transition-all text-amber-400/70 border border-amber-500/20 hover:bg-amber-500/10 hover:text-amber-300 hover:border-amber-500/40";
-    if (variant === 'emerald') return "px-4 py-2 text-sm font-medium rounded-xl transition-all text-emerald-400/70 border border-emerald-500/20 hover:bg-emerald-500/10 hover:text-emerald-300 hover:border-emerald-500/40";
-    return "px-4 py-2 text-sm font-medium rounded-xl transition-all text-slate-400 border border-white/10 hover:bg-white/8 hover:text-slate-200 hover:border-white/20";
+    if (variant === 'amber') return "px-3 py-1.5 text-xs font-medium rounded-lg transition-all text-amber-400/70 border border-amber-500/20 hover:bg-amber-500/10 hover:text-amber-300 hover:border-amber-500/40";
+    if (variant === 'emerald') return "px-3 py-1.5 text-xs font-medium rounded-lg transition-all text-emerald-400/70 border border-emerald-500/20 hover:bg-emerald-500/10 hover:text-emerald-300 hover:border-emerald-500/40";
+    return "px-3 py-1.5 text-xs font-medium rounded-lg transition-all text-slate-400 border border-white/10 hover:bg-white/8 hover:text-slate-200 hover:border-white/20";
   };
 
   const sortBtnCls = (active: boolean) =>
@@ -507,35 +507,32 @@ export function RegistryHome() {
             {filteredTemplates.map((t) => (
               <div key={t.id} className="rounded-2xl p-4 bg-white/5 ring-1 ring-white/10">
                 <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="text-sm text-slate-400">Template</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm text-slate-400">{t.iQubeInstanceType || 'template'}</div>
                     <div className="text-lg font-medium truncate" title={t.name}>{t.name}</div>
-                    <div className="mt-1 flex flex-wrap gap-2">
+                    {/* Badges + scores on the same row */}
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                       {t.iQubeType && <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/30" title="Type">{t.iQubeType}</span>}
-                      {(t.iQubeInstanceType || 'template') && <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-sky-500/20 text-sky-300 ring-1 ring-sky-500/30 capitalize" title="Instance">{t.iQubeInstanceType || 'template'}</span>}
                       {t.businessModel && <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30" title="Business Model">{t.businessModel}</span>}
+                      <span className="w-px h-3 bg-slate-700 mx-0.5" />
+                      <span title="Sensitivity" className="inline-flex items-center gap-1 text-[11px] text-slate-500"><span className="text-slate-600">Sen</span><DotsInline value={t.sensitivityScore ?? 0} kind='sensitivity' title="Sensitivity" /></span>
+                      <span title="Accuracy" className="inline-flex items-center gap-1 text-[11px] text-slate-500"><span className="text-slate-600">Acc</span><DotsInline value={t.accuracyScore} kind='accuracy' title="Accuracy" /></span>
+                      <span title="Verifiability" className="inline-flex items-center gap-1 text-[11px] text-slate-500"><span className="text-slate-600">Ver</span><DotsInline value={t.verifiabilityScore} kind='verifiability' title="Verifiability" /></span>
+                      <span title="Risk" className="inline-flex items-center gap-1 text-[11px] text-slate-500"><span className="text-slate-600">Risk</span><DotsInline value={t.riskScore} kind='risk' title="Risk" /></span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3 shrink-0">
                     {typeof t.price === 'number' && !Number.isNaN(t.price) && (
                       <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30" title="Price (Q¢)">
                         {formatQCents(t.price)}
                       </span>
                     )}
-                    <div className="flex items-center gap-2">
-                      <button className="p-2 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white" title="View" onClick={() => router.push(`/registry?template=${t.id}`)}>View</button>
-                      <button className="p-2 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white" title="Edit" onClick={() => router.push(`/registry?template=${t.id}&edit=1`)}>Edit</button>
-                      <button className="p-2 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white" title="Add to cart" onClick={() => handleAddToCart(t.id)}>Cart</button>
-                      <button className="p-2 rounded-lg hover:bg-white/10 text-red-300 hover:text-red-400" title="Delete" onClick={() => setDeleteId(t.id)}>Delete</button>
+                    <div className="flex items-center gap-1">
+                      <button className="px-2.5 py-1.5 text-xs rounded-lg hover:bg-white/10 text-slate-300 hover:text-white border border-white/10" title="View" onClick={() => router.push(`/registry?template=${t.id}`)}>View</button>
+                      <button className="px-2.5 py-1.5 text-xs rounded-lg hover:bg-white/10 text-slate-300 hover:text-white border border-white/10" title="Edit" onClick={() => router.push(`/registry?template=${t.id}&edit=1`)}>Edit</button>
+                      <button className="px-2.5 py-1.5 text-xs rounded-lg hover:bg-white/10 text-slate-300 hover:text-white border border-white/10" title="Add to cart" onClick={() => handleAddToCart(t.id)}>Cart</button>
+                      <button className="px-2.5 py-1.5 text-xs rounded-lg hover:bg-red-500/10 text-red-300 hover:text-red-400 border border-red-500/20" title="Delete" onClick={() => setDeleteId(t.id)}>Delete</button>
                     </div>
-                  </div>
-                </div>
-                <div className="mt-3 text-slate-400 text-sm">
-                  <div className="grid grid-cols-4 gap-2">
-                    <div className="flex flex-col items-center"><div className="text-[11px]" title="Sensitivity: Low 1–4, Medium 5–7, High 8–10">Sensitivity</div><DotsInline value={t.sensitivityScore ?? 0} kind='sensitivity' title="Sensitivity" /></div>
-                    <div className="flex flex-col items-center"><div className="text-[11px]" title="Accuracy: Poor 1–3, Moderate 4–6, High 7–10">Accuracy</div><DotsInline value={t.accuracyScore} kind='accuracy' title="Accuracy" /></div>
-                    <div className="flex flex-col items-center"><div className="text-[11px]" title="Verifiability: Low 1–3, Moderate 4–6, High 7–10">Verifiability</div><DotsInline value={t.verifiabilityScore} kind='verifiability' title="Verifiability" /></div>
-                    <div className="flex flex-col items-center"><div className="text-[11px]" title="Risk: Low 1–4, Medium 5–7, High 8–10">Risk</div><DotsInline value={t.riskScore} kind='risk' title="Risk" /></div>
                   </div>
                 </div>
               </div>
@@ -544,9 +541,9 @@ export function RegistryHome() {
         )}
 
         {activeRegistryTab === "templates" && viewMode === 'table' && (
-          <div className="overflow-x-auto rounded-2xl ring-1 ring-white/10">
+          <div className="overflow-x-auto overflow-y-auto max-h-[480px] rounded-2xl ring-1 ring-white/10">
             <table className="min-w-full text-sm">
-              <thead className="bg-white/5 text-slate-400">
+              <thead className="bg-slate-900/95 text-slate-400 sticky top-0 z-10 backdrop-blur-sm">
                 <tr>
                   <th className="text-left px-4 py-3">Name</th>
                   <th className="text-left px-4 py-3">Type</th>

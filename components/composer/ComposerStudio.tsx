@@ -10048,7 +10048,7 @@ export const ComposerStudio = () => {
                           })()}
                         </TabsContent>
 
-                        {/* ── Ladder ── Engagement (Y-axis) + Intersection + Funnel (X-axis, at bottom) */}
+                        {/* ── Ladder ── 2D cross-highlight grid: select Y row + X column → intersection */}
                         <TabsContent value="ladder" className="mt-3">
                           {(() => {
                             const fw = CARTRIDGE_FRAMEWORK[copilotContextId];
@@ -10057,14 +10057,8 @@ export const ComposerStudio = () => {
                             if (expModelLoading) return <div className="text-slate-400 text-xs">Loading…</div>;
                             if (!ladder) return <div className="text-slate-400 text-xs">No sovereignty ladder configured for this cartridge.</div>;
 
-                            // Funnel X-axis: stage #0 (awareness) + stages #1–N
                             const funnelStages: Array<{ label: string; title: string; description: string; isApex: boolean }> = [
-                              {
-                                label: "0",
-                                title: "Awareness",
-                                description: "Pre-activation stage: entity is at the edge — not yet engaged. May carry neutral or negative sentiment toward the brand or world.",
-                                isApex: false,
-                              },
+                              { label: "0", title: "Awareness", description: "Pre-activation — not yet engaged.", isApex: false },
                               ...ladder.stages.map((s: { label: string; unlock: string }, i: number) => ({
                                 label: String(i + 1),
                                 title: s.label,
@@ -10073,157 +10067,129 @@ export const ComposerStudio = () => {
                               })),
                             ];
 
-                            // Y-axis: reversed so apex (Steward/Franchisee) is at top, Recipient at bottom
                             const yCategories: string[] = matrix ? [...matrix.y_stages].slice(0, 7).reverse() : [];
                             const yTotal = yCategories.length;
-
-                            // Intersection cell
-                            const intersectionKey = (ladderFunnelStage !== null && ladderFunnelStage >= 1 && ladderYCategory !== null && matrix)
-                              ? `${ladderYCategory}:${matrix.x_stages[ladderFunnelStage - 1]}`
-                              : null;
-                            const intersectionPrescription = intersectionKey ? ((matrix?.cells as Record<string, string>)[intersectionKey] ?? null) : null;
+                            const xStages = matrix ? (matrix.x_stages as string[]) : [];
 
                             return (
-                              <div className="space-y-4">
-                                {/* Y-axis engagement categories — intersection prescription embedded inline */}
-                                {yCategories.length > 0 && (
-                                  <div>
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <span className="text-[10px] uppercase tracking-widest text-slate-600">Engagement</span>
-                                      <span className="text-[10px] text-slate-600">— Y-axis{ladderFunnelStage !== null ? ` · funnel #${funnelStages[ladderFunnelStage].label} selected` : ", click to expand"}</span>
+                              <div className="space-y-3">
+                                <div className="text-[10px] text-slate-600">
+                                  Click a row (Y) to select engagement level · Click a column (X) to select funnel stage · their intersection shows the prescription
+                                </div>
+
+                                <div className="overflow-x-auto">
+                                  <div style={{ minWidth: `${88 + funnelStages.length * 68}px` }}>
+                                    {/* X-axis header */}
+                                    <div className="grid gap-0.5 mb-0.5" style={{ gridTemplateColumns: `88px repeat(${funnelStages.length}, 1fr)` }}>
+                                      <div className="text-[10px] text-slate-600 self-end pb-0.5 pl-1">Y \ X</div>
+                                      {funnelStages.map((s, xi) => (
+                                        <button
+                                          key={xi}
+                                          type="button"
+                                          onClick={() => setLadderFunnelStage(ladderFunnelStage === xi ? null : xi)}
+                                          className={`flex flex-col items-center gap-0.5 rounded-lg border px-1 py-1.5 text-center transition-all ${
+                                            ladderFunnelStage === xi
+                                              ? s.isApex
+                                                ? "border-amber-500/60 bg-amber-500/15 text-amber-200"
+                                                : "border-violet-500/50 bg-violet-500/10 text-violet-200"
+                                              : s.isApex
+                                                ? "border-amber-500/20 bg-amber-500/5 text-amber-400/60 hover:border-amber-500/40"
+                                                : xi === 0
+                                                  ? "border-slate-700/40 bg-slate-900/20 text-slate-600 hover:border-slate-600"
+                                                  : "border-slate-800 bg-slate-900/20 text-slate-500 hover:border-slate-700 hover:text-slate-400"
+                                          }`}
+                                        >
+                                          <span className={`text-[8px] font-bold ${s.isApex ? "text-amber-400" : "text-slate-600"}`}>{s.label}</span>
+                                          <span className="text-xs leading-tight truncate w-full">{s.title}</span>
+                                        </button>
+                                      ))}
                                     </div>
-                                    <div className="space-y-1">
+
+                                    {/* Grid rows (Y reversed: apex at top) */}
+                                    <div className="space-y-0.5">
                                       {yCategories.map((cat, yi) => {
-                                        const isSelected = ladderYCategory === cat;
+                                        const isSelectedY = ladderYCategory === cat;
                                         const isApex = yi === 0;
-                                        // Intersection key for this Y row × selected funnel stage
-                                        const rowKey = (ladderFunnelStage !== null && ladderFunnelStage >= 1 && matrix)
-                                          ? `${cat}:${(matrix.x_stages as string[])[ladderFunnelStage - 1]}`
-                                          : null;
-                                        const rowPrescription = rowKey ? ((matrix?.cells as Record<string, string>)[rowKey] ?? null) : null;
-                                        // Whether this row has an intersection to show (even when not expanded)
-                                        const hasIntersection = ladderFunnelStage !== null && ladderFunnelStage >= 1 && !!rowPrescription;
-                                        // General cell prescriptions (for when no funnel stage selected)
-                                        const cellPrescriptions = (!ladderFunnelStage && matrix)
-                                          ? Object.entries(matrix.cells as Record<string, string>)
-                                              .filter(([k]) => k.startsWith(`${cat}:`))
-                                              .map(([, v]) => v)
-                                              .filter(Boolean)
-                                              .slice(0, 3)
-                                          : [];
                                         return (
-                                          <div key={cat}>
+                                          <div key={cat} className="grid gap-0.5" style={{ gridTemplateColumns: `88px repeat(${funnelStages.length}, 1fr)` }}>
                                             <button
                                               type="button"
-                                              onClick={() => setLadderYCategory(isSelected ? null : cat)}
-                                              className={`w-full flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition-all ${
-                                                isSelected
-                                                  ? "border-emerald-500/40 bg-emerald-500/8 text-emerald-200"
-                                                  : hasIntersection
-                                                    ? "border-violet-500/25 bg-violet-950/10 text-slate-300 hover:border-violet-500/40"
-                                                    : isApex
-                                                      ? "border-amber-500/20 bg-amber-500/5 text-amber-400/80 hover:border-amber-500/30"
-                                                      : "border-slate-800 bg-slate-900/20 text-slate-400 hover:border-slate-700 hover:text-slate-300"
+                                              onClick={() => setLadderYCategory(isSelectedY ? null : cat)}
+                                              className={`text-xs font-medium px-2 py-2 text-left rounded-lg border transition-all truncate ${
+                                                isSelectedY
+                                                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
+                                                  : isApex
+                                                    ? "border-amber-500/20 bg-amber-500/5 text-amber-400/80 hover:border-amber-500/35"
+                                                    : "border-slate-800 bg-slate-900/20 text-slate-400 hover:border-slate-700 hover:text-slate-300"
                                               }`}
+                                              title={cat}
                                             >
-                                              <div className="flex items-center gap-2 min-w-0">
-                                                <span className="text-[9px] font-bold text-slate-600 shrink-0">{yTotal - yi}</span>
-                                                <span className="text-xs font-medium truncate">{cat}</span>
-                                                {/* Inline intersection hint when funnel is selected */}
-                                                {hasIntersection && !isSelected && (
-                                                  <span className="text-[10px] text-violet-400/70 truncate font-mono">
-                                                    → {rowPrescription!.split(": ").pop()}
-                                                  </span>
-                                                )}
-                                              </div>
-                                              <ChevronDown className={`h-3 w-3 shrink-0 text-slate-600 transition-transform ${isSelected ? "rotate-180" : ""}`} />
+                                              <span className="text-[8px] font-bold text-slate-600 mr-1">{yTotal - yi}</span>
+                                              {cat}
                                             </button>
-                                            {isSelected && (
-                                              <div className="mt-1 ml-3 space-y-1.5">
-                                                {/* Intersection prescription — at the top when funnel stage is selected */}
-                                                {ladderFunnelStage !== null && (
-                                                  <div className={`rounded-lg border px-3 py-2 ${rowPrescription ? "border-violet-500/40 bg-violet-950/20" : "border-slate-700/20 bg-slate-950/20"}`}>
-                                                    <div className="text-[10px] font-semibold text-violet-300 mb-1">
-                                                      {cat} × {funnelStages[ladderFunnelStage].title}
-                                                    </div>
-                                                    {ladderFunnelStage === 0 ? (
-                                                      <p className="text-[11px] text-slate-500">Stage 0 (Awareness) is pre-funnel — no matrix prescription.</p>
-                                                    ) : rowPrescription ? (
-                                                      <p className="text-[11px] text-slate-200 font-mono">{rowPrescription}</p>
+
+                                            {funnelStages.map((s, xi) => {
+                                              const matrixKey = xi >= 1 ? `${cat}:${xStages[xi - 1]}` : null;
+                                              const prescription = matrixKey ? ((matrix?.cells as Record<string, string>)[matrixKey] ?? "") : "";
+                                              const isIntersection = isSelectedY && ladderFunnelStage === xi;
+                                              const isRowHighlight = isSelectedY && ladderFunnelStage !== xi;
+                                              const isColHighlight = !isSelectedY && ladderFunnelStage === xi;
+                                              const hasPrescription = !!prescription;
+
+                                              if (isIntersection) {
+                                                return (
+                                                  <div key={xi} className="rounded-lg border-2 border-violet-500/60 bg-violet-950/30 px-2 py-2 flex flex-col gap-0.5 text-center shadow-sm shadow-violet-950/40">
+                                                    <div className="text-[9px] font-semibold text-violet-300 leading-tight">{cat}</div>
+                                                    <div className="text-[9px] font-semibold text-violet-300 leading-tight">{s.title}</div>
+                                                    {xi === 0 ? (
+                                                      <div className="text-[9px] text-slate-500 mt-0.5">pre-funnel</div>
+                                                    ) : hasPrescription ? (
+                                                      <div className="text-[10px] text-slate-200 font-mono leading-tight mt-0.5">{prescription}</div>
                                                     ) : (
-                                                      <p className="text-[11px] text-slate-500">No prescription configured for this intersection.</p>
+                                                      <div className="text-[9px] text-slate-600 mt-0.5">—</div>
                                                     )}
                                                   </div>
-                                                )}
-                                                {/* General cartridge context */}
-                                                <div className="rounded-lg border border-emerald-500/20 bg-emerald-950/20 px-3 py-2 space-y-1.5">
-                                                  <div className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400">
-                                                    {cat} — {copilotContextId.replace(/-/g, ' ')} cartridge
-                                                  </div>
-                                                  {cellPrescriptions.length > 0 ? (
-                                                    <div className="space-y-0.5">
-                                                      <div className="text-[10px] text-slate-500">All prescriptions at this level:</div>
-                                                      {cellPrescriptions.map((p, pi) => (
-                                                        <div key={pi} className="text-[11px] text-slate-300 font-mono">{p}</div>
-                                                      ))}
-                                                    </div>
-                                                  ) : (
-                                                    <p className="text-[11px] text-slate-500">
-                                                      Entities at the <span className="text-emerald-300">{cat}</span> level engage in a {cat.toLowerCase()} capacity. Configure prescriptions in the Experience Matrix.
-                                                    </p>
-                                                  )}
+                                                );
+                                              }
+
+                                              return (
+                                                <div
+                                                  key={xi}
+                                                  className={`rounded border px-0.5 py-1 text-center text-[11px] leading-tight font-medium transition-colors ${
+                                                    isRowHighlight
+                                                      ? hasPrescription ? "border-emerald-500/20 bg-emerald-950/15 text-emerald-400/70" : "border-emerald-500/10 bg-emerald-950/8 text-slate-700"
+                                                      : isColHighlight
+                                                        ? hasPrescription ? "border-violet-500/20 bg-violet-950/15 text-violet-400/60" : "border-violet-500/10 bg-violet-950/8 text-slate-700"
+                                                        : hasPrescription ? "border-slate-700/40 bg-slate-900/20 text-slate-500" : "border-slate-800/20 bg-slate-950/20 text-slate-800"
+                                                  }`}
+                                                  title={prescription || `${cat} × ${s.title}`}
+                                                >
+                                                  {prescription ? prescription.split(": ").pop()?.slice(0, 6) : "·"}
                                                 </div>
-                                              </div>
-                                            )}
+                                              );
+                                            })}
                                           </div>
                                         );
                                       })}
                                     </div>
+
+                                    <div className="flex items-center gap-3 mt-2 text-[10px] text-slate-600">
+                                      <span><span className="text-emerald-400">■</span> selected row</span>
+                                      <span><span className="text-violet-400">■</span> selected column</span>
+                                      <span className="border border-violet-500/50 px-1 rounded text-violet-300">box</span><span> = intersection</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {ladderFunnelStage !== null && (
+                                  <div className="rounded-lg border border-violet-500/20 bg-violet-950/15 px-3 py-2">
+                                    <span className={`text-[11px] font-semibold ${funnelStages[ladderFunnelStage].isApex ? "text-amber-300" : "text-violet-300"}`}>
+                                      #{funnelStages[ladderFunnelStage].label} — {funnelStages[ladderFunnelStage].title}
+                                    </span>
+                                    <p className="text-[11px] text-slate-400 mt-0.5">{funnelStages[ladderFunnelStage].description}</p>
                                   </div>
                                 )}
 
-                                {/* Funnel row — at bottom */}
-                                <div>
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <span className="text-[10px] uppercase tracking-widest text-slate-600">Funnel</span>
-                                    <span className="text-[10px] text-slate-600">— X-axis, click to select stage</span>
-                                  </div>
-                                  <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${funnelStages.length}, 1fr)` }}>
-                                    {funnelStages.map((s, idx) => (
-                                      <button
-                                        key={idx}
-                                        type="button"
-                                        onClick={() => setLadderFunnelStage(ladderFunnelStage === idx ? null : idx)}
-                                        className={`flex flex-col items-center gap-0.5 rounded-lg border px-1 py-2 text-center transition-all ${
-                                          ladderFunnelStage === idx
-                                            ? s.isApex
-                                              ? "border-amber-500/60 bg-amber-500/15 text-amber-200"
-                                              : "border-violet-500/50 bg-violet-500/10 text-violet-200"
-                                            : s.isApex
-                                              ? "border-amber-500/20 bg-amber-500/5 text-amber-400/70 hover:border-amber-500/40"
-                                              : idx === 0
-                                                ? "border-slate-700/50 bg-slate-900/30 text-slate-600 hover:border-slate-600"
-                                                : "border-slate-800 bg-slate-900/20 text-slate-500 hover:border-slate-700"
-                                        }`}
-                                      >
-                                        <span className={`text-[9px] font-bold ${s.isApex ? "text-amber-400" : "text-slate-600"}`}>{s.label}</span>
-                                        <span className="text-xs leading-tight truncate w-full">{s.title}</span>
-                                      </button>
-                                    ))}
-                                  </div>
-                                  {ladderFunnelStage !== null && (
-                                    <div className="mt-2 rounded-lg border border-violet-500/20 bg-violet-950/20 px-3 py-2">
-                                      <div className="flex items-center gap-1.5 mb-1">
-                                        <span className={`text-[11px] font-semibold ${funnelStages[ladderFunnelStage].isApex ? "text-amber-300" : "text-violet-300"}`}>
-                                          #{funnelStages[ladderFunnelStage].label} — {funnelStages[ladderFunnelStage].title}
-                                        </span>
-                                      </div>
-                                      <p className="text-[11px] text-slate-400">{funnelStages[ladderFunnelStage].description}</p>
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Canonical path reference */}
                                 <div className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-[10px] text-slate-600 font-mono">
                                   {ladder.canonical}
                                 </div>
