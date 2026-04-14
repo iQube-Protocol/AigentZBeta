@@ -99,45 +99,38 @@ export const IQubeCard: React.FC<IQubeTemplateCardProps> = ({
         )}
       </div>
       <div className="text-lg font-medium truncate" title={name}>{name}</div>
-      {/* Badges + Provenance + Price */}
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <div className="flex flex-wrap gap-2">
-          {iQubeType && (
-            <span title="iQube Type" className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/30">{iQubeType}</span>
-          )}
-          {businessModel && (
-            <span title="Business Model" className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30">{businessModel}</span>
-          )}
-          <span title="Provenance depth (fork generations from origin)" className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-slate-500/20 text-slate-300 ring-1 ring-slate-500/30">Prov {(typeof provenance === 'number' && provenance >= 0) ? provenance : 0}</span>
-          {/* Price badge (USD) */}
-          {(() => {
-            const p = Number(price);
-            if (Number.isFinite(p)) {
-              return (
-                <span title="Price (Q¢)" className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30">{formatQCents(p)}</span>
-              );
-            }
-            return null;
-          })()}
-        </div>
-        {/* Right side price display removed in favor of price badge */}
+      {/* Badges + Scores on same row */}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {iQubeType && (
+          <span title="iQube Type" className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/30">{iQubeType}</span>
+        )}
+        {businessModel && (
+          <span title="Business Model" className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30">{businessModel}</span>
+        )}
+        <span title="Provenance depth (fork generations from origin)" className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-slate-500/20 text-slate-300 ring-1 ring-slate-500/30">Prov {(typeof provenance === 'number' && provenance >= 0) ? provenance : 0}</span>
+        {(() => {
+          const p = Number(price);
+          if (Number.isFinite(p)) {
+            return (
+              <span title="Price (QriptoCents — native platform currency, 1 Q¢ = $0.01)" className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30">{formatQCents(p)}</span>
+            );
+          }
+          return null;
+        })()}
+        {/* Scores inline */}
+        <span title="Reliability: Accuracy (60%) + Verifiability (40%)" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] bg-white/5 ring-1 ring-white/10">
+          <span className="text-slate-500">Rel</span>
+          <Dots value={calculateReliabilityScore(accuracyScore, verifiabilityScore)} kind='reliability' title="Reliability" size="xs" />
+        </span>
+        <span title="Trust: inverse of Sensitivity (40%) + Risk (60%)" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] bg-white/5 ring-1 ring-white/10">
+          <span className="text-slate-500">Trust</span>
+          <Dots value={calculateTrustScore(sensitivityScore ?? 0, riskScore)} kind='trust' title="Trust" size="xs" />
+        </span>
       </div>
       <p className="mt-2 text-slate-300 text-sm line-clamp-4">{description}</p>
 
-      {/* Actions with derived scores */}
-      <div className="mt-4 flex items-center justify-between">
-        {/* Derived scores on the left */}
-        <div className="flex items-center gap-4 text-slate-400 text-sm">
-          <div className="flex flex-col items-center">
-            <div className="text-[11px]" title="Reliability: Derived from Accuracy (60%) + Verifiability (40%)">Reliability</div>
-            <Dots value={calculateReliabilityScore(accuracyScore, verifiabilityScore)} kind='reliability' title="Reliability" size="xs" />
-          </div>
-          <div className="flex flex-col items-center">
-            <div className="text-[11px]" title="Trust: Derived from inverse of Sensitivity (40%) + Risk (60%)">Trust</div>
-            <Dots value={calculateTrustScore(sensitivityScore ?? 0, riskScore)} kind='trust' title="Trust" size="xs" />
-          </div>
-        </div>
-        
+      {/* Actions */}
+      <div className="mt-4 flex items-center justify-end">
         {/* Action buttons on the right */}
         <div className="flex items-center gap-2">
         <button

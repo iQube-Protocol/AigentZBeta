@@ -10085,18 +10085,26 @@ export const ComposerStudio = () => {
 
                             return (
                               <div className="space-y-4">
-                                {/* Y-axis engagement categories */}
+                                {/* Y-axis engagement categories — intersection prescription embedded inline */}
                                 {yCategories.length > 0 && (
                                   <div>
                                     <div className="flex items-center gap-2 mb-2">
                                       <span className="text-[10px] uppercase tracking-widest text-slate-600">Engagement</span>
-                                      <span className="text-[10px] text-slate-600">— Y-axis, click to see cartridge description</span>
+                                      <span className="text-[10px] text-slate-600">— Y-axis{ladderFunnelStage !== null ? ` · funnel #${funnelStages[ladderFunnelStage].label} selected` : ", click to expand"}</span>
                                     </div>
                                     <div className="space-y-1">
                                       {yCategories.map((cat, yi) => {
                                         const isSelected = ladderYCategory === cat;
-                                        const isApex = yi === 0; // reversed: apex is first
-                                        const cellPrescriptions = matrix
+                                        const isApex = yi === 0;
+                                        // Intersection key for this Y row × selected funnel stage
+                                        const rowKey = (ladderFunnelStage !== null && ladderFunnelStage >= 1 && matrix)
+                                          ? `${cat}:${(matrix.x_stages as string[])[ladderFunnelStage - 1]}`
+                                          : null;
+                                        const rowPrescription = rowKey ? ((matrix?.cells as Record<string, string>)[rowKey] ?? null) : null;
+                                        // Whether this row has an intersection to show (even when not expanded)
+                                        const hasIntersection = ladderFunnelStage !== null && ladderFunnelStage >= 1 && !!rowPrescription;
+                                        // General cell prescriptions (for when no funnel stage selected)
+                                        const cellPrescriptions = (!ladderFunnelStage && matrix)
                                           ? Object.entries(matrix.cells as Record<string, string>)
                                               .filter(([k]) => k.startsWith(`${cat}:`))
                                               .map(([, v]) => v)
@@ -10111,34 +10119,60 @@ export const ComposerStudio = () => {
                                               className={`w-full flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition-all ${
                                                 isSelected
                                                   ? "border-emerald-500/40 bg-emerald-500/8 text-emerald-200"
-                                                  : isApex
-                                                    ? "border-amber-500/20 bg-amber-500/5 text-amber-400/80 hover:border-amber-500/30"
-                                                    : "border-slate-800 bg-slate-900/20 text-slate-400 hover:border-slate-700 hover:text-slate-300"
+                                                  : hasIntersection
+                                                    ? "border-violet-500/25 bg-violet-950/10 text-slate-300 hover:border-violet-500/40"
+                                                    : isApex
+                                                      ? "border-amber-500/20 bg-amber-500/5 text-amber-400/80 hover:border-amber-500/30"
+                                                      : "border-slate-800 bg-slate-900/20 text-slate-400 hover:border-slate-700 hover:text-slate-300"
                                               }`}
                                             >
                                               <div className="flex items-center gap-2 min-w-0">
                                                 <span className="text-[9px] font-bold text-slate-600 shrink-0">{yTotal - yi}</span>
                                                 <span className="text-xs font-medium truncate">{cat}</span>
+                                                {/* Inline intersection hint when funnel is selected */}
+                                                {hasIntersection && !isSelected && (
+                                                  <span className="text-[10px] text-violet-400/70 truncate font-mono">
+                                                    → {rowPrescription!.split(": ").pop()}
+                                                  </span>
+                                                )}
                                               </div>
                                               <ChevronDown className={`h-3 w-3 shrink-0 text-slate-600 transition-transform ${isSelected ? "rotate-180" : ""}`} />
                                             </button>
                                             {isSelected && (
-                                              <div className="mt-1 ml-3 rounded-lg border border-emerald-500/20 bg-emerald-950/20 px-3 py-2 space-y-1.5">
-                                                <div className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400">
-                                                  {cat} — {copilotContextId.replace(/-/g, ' ')} cartridge
-                                                </div>
-                                                {cellPrescriptions.length > 0 ? (
-                                                  <div className="space-y-0.5">
-                                                    <div className="text-[10px] text-slate-500">NBE prescriptions at this engagement level:</div>
-                                                    {cellPrescriptions.map((p, pi) => (
-                                                      <div key={pi} className="text-[11px] text-slate-300 font-mono">{p}</div>
-                                                    ))}
+                                              <div className="mt-1 ml-3 space-y-1.5">
+                                                {/* Intersection prescription — at the top when funnel stage is selected */}
+                                                {ladderFunnelStage !== null && (
+                                                  <div className={`rounded-lg border px-3 py-2 ${rowPrescription ? "border-violet-500/40 bg-violet-950/20" : "border-slate-700/20 bg-slate-950/20"}`}>
+                                                    <div className="text-[10px] font-semibold text-violet-300 mb-1">
+                                                      {cat} × {funnelStages[ladderFunnelStage].title}
+                                                    </div>
+                                                    {ladderFunnelStage === 0 ? (
+                                                      <p className="text-[11px] text-slate-500">Stage 0 (Awareness) is pre-funnel — no matrix prescription.</p>
+                                                    ) : rowPrescription ? (
+                                                      <p className="text-[11px] text-slate-200 font-mono">{rowPrescription}</p>
+                                                    ) : (
+                                                      <p className="text-[11px] text-slate-500">No prescription configured for this intersection.</p>
+                                                    )}
                                                   </div>
-                                                ) : (
-                                                  <p className="text-[11px] text-slate-500">
-                                                    Entities at the <span className="text-emerald-300">{cat}</span> level are engaged with this cartridge in a {cat.toLowerCase()} capacity. Configure prescriptions in the Experience Matrix.
-                                                  </p>
                                                 )}
+                                                {/* General cartridge context */}
+                                                <div className="rounded-lg border border-emerald-500/20 bg-emerald-950/20 px-3 py-2 space-y-1.5">
+                                                  <div className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400">
+                                                    {cat} — {copilotContextId.replace(/-/g, ' ')} cartridge
+                                                  </div>
+                                                  {cellPrescriptions.length > 0 ? (
+                                                    <div className="space-y-0.5">
+                                                      <div className="text-[10px] text-slate-500">All prescriptions at this level:</div>
+                                                      {cellPrescriptions.map((p, pi) => (
+                                                        <div key={pi} className="text-[11px] text-slate-300 font-mono">{p}</div>
+                                                      ))}
+                                                    </div>
+                                                  ) : (
+                                                    <p className="text-[11px] text-slate-500">
+                                                      Entities at the <span className="text-emerald-300">{cat}</span> level engage in a {cat.toLowerCase()} capacity. Configure prescriptions in the Experience Matrix.
+                                                    </p>
+                                                  )}
+                                                </div>
                                               </div>
                                             )}
                                           </div>
@@ -10148,29 +10182,11 @@ export const ComposerStudio = () => {
                                   </div>
                                 )}
 
-                                {/* Intersection cell: shown when both funnel stage + Y-category are selected */}
-                                {ladderFunnelStage !== null && ladderYCategory !== null && (
-                                  <div className={`rounded-lg border px-3 py-2.5 ${intersectionPrescription ? "border-violet-500/30 bg-violet-950/20" : "border-slate-700/30 bg-slate-950/20"}`}>
-                                    <div className="flex items-center gap-2 mb-1.5">
-                                      <span className="text-[10px] font-semibold text-violet-300 uppercase tracking-wide">
-                                        {funnelStages[ladderFunnelStage].title} × {ladderYCategory}
-                                      </span>
-                                    </div>
-                                    {ladderFunnelStage === 0 ? (
-                                      <p className="text-[11px] text-slate-500">Stage 0 (Awareness) is pre-funnel — no matrix prescription applies.</p>
-                                    ) : intersectionPrescription ? (
-                                      <p className="text-[11px] text-slate-300 font-mono">{intersectionPrescription}</p>
-                                    ) : (
-                                      <p className="text-[11px] text-slate-500">No prescription configured for this intersection. Add one in the Experience Matrix.</p>
-                                    )}
-                                  </div>
-                                )}
-
                                 {/* Funnel row — at bottom */}
                                 <div>
                                   <div className="flex items-center gap-2 mb-2">
                                     <span className="text-[10px] uppercase tracking-widest text-slate-600">Funnel</span>
-                                    <span className="text-[10px] text-slate-600">— X-axis, click to inspect</span>
+                                    <span className="text-[10px] text-slate-600">— X-axis, click to select stage</span>
                                   </div>
                                   <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${funnelStages.length}, 1fr)` }}>
                                     {funnelStages.map((s, idx) => (
@@ -10191,7 +10207,7 @@ export const ComposerStudio = () => {
                                         }`}
                                       >
                                         <span className={`text-[9px] font-bold ${s.isApex ? "text-amber-400" : "text-slate-600"}`}>{s.label}</span>
-                                        <span className="text-[10px] leading-tight truncate w-full">{s.title}</span>
+                                        <span className="text-xs leading-tight truncate w-full">{s.title}</span>
                                       </button>
                                     ))}
                                   </div>

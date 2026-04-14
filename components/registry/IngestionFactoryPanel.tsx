@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Upload, GitBranch, Package2, Plug, FileText, Workflow, Loader2, ChevronRight, SlidersHorizontal, X, Zap, RefreshCw, AlertTriangle, CheckCircle2, Clock, XCircle, Share2 } from "lucide-react";
+import { Upload, GitBranch, Package2, Plug, FileText, Workflow, Loader2, ChevronRight, SlidersHorizontal, X, Zap, RefreshCw, AlertTriangle, CheckCircle2, Clock, XCircle, Share2, Wrench, Network, GitMerge } from "lucide-react";
 import { AssetDetailPanel } from "./AssetDetailPanel";
+import { ViewModeToggle, type ViewMode } from "./ViewModeToggle";
 import type {
   IngestionSourceType,
   RegistryAssetSummary,
@@ -580,6 +581,44 @@ function IntakePipelineView() {
 // Main panel
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Asset card (grid view placeholder — full card design in next workstream)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ASSET_CLASS_ICON: Record<RegistryAssetClass, React.ReactNode> = {
+  ToolQube:      <Wrench className="h-5 w-5" />,
+  SkillQube:     <Network className="h-5 w-5" />,
+  WorkflowQube:  <GitMerge className="h-5 w-5" />,
+  ConnectorQube: <Plug className="h-5 w-5" />,
+};
+
+function AssetCard({ asset, onClick }: { asset: RegistryAssetSummary; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full text-left flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition-colors focus-within:ring-2 focus-within:ring-amber-500/40"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-slate-500">{ASSET_CLASS_ICON[asset.assetClass] ?? <Workflow className="h-5 w-5" />}</span>
+        <span className={`text-[10px] px-1.5 py-0.5 rounded ring-1 ${
+          asset.publicationStatus === "published"
+            ? "bg-emerald-500/20 text-emerald-300 ring-emerald-500/30"
+            : "bg-slate-700/30 text-slate-400 ring-slate-500/20"
+        }`}>{asset.publicationStatus}</span>
+      </div>
+      <div>
+        <div className="text-sm font-medium text-slate-200 truncate">{asset.name}</div>
+        <div className="text-[10px] text-slate-500 mt-0.5">{ASSET_CLASS_LABELS[asset.assetClass]}</div>
+      </div>
+      {asset.description && (
+        <p className="text-[11px] text-slate-500 line-clamp-2">{asset.description}</p>
+      )}
+      <div className={`text-[10px] ${BAND_COLORS[asset.trustBand]}`}>{TBL[asset.trustBand]}</div>
+    </button>
+  );
+}
+
 export function IngestionFactoryPanel() {
   const [assets, setAssets] = useState<RegistryAssetSummary[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
@@ -590,6 +629,7 @@ export function IngestionFactoryPanel() {
   const [statusFilter, setStatusFilter] = useState<AssetStatus | "">("");
   const [showFilters, setShowFilters] = useState(false);
   const [activeSection, setActiveSection] = useState<"ingest" | "pipeline" | "assets">("ingest");
+  const [assetsViewMode, setAssetsViewMode] = useState<ViewMode>("list");
   const [ingestSubmitting, setIngestSubmitting] = useState(false);
   const [ingestCanSubmit, setIngestCanSubmit] = useState(true);
 
@@ -718,11 +758,12 @@ export function IngestionFactoryPanel() {
                 </span>
               )}
             </button>
+            <ViewModeToggle value={assetsViewMode} onChange={setAssetsViewMode} />
           </div>
 
-          {/* Filter dropdowns */}
+          {/* Filter dropdowns — green glass panel */}
           {showFilters && (
-            <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/10 backdrop-blur-sm p-3 space-y-2 shadow-lg shadow-emerald-950/20">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase tracking-widest text-slate-500">Filters</span>
                 {activeFilterCount > 0 && (
@@ -812,8 +853,8 @@ export function IngestionFactoryPanel() {
           )}
 
           {loadingAssets ? (
-            <div className="space-y-2 animate-pulse">
-              {[1, 2, 3].map((i) => <div key={i} className="h-14 rounded-xl bg-white/5" />)}
+            <div className={assetsViewMode === "grid" ? "grid grid-cols-2 gap-3 sm:grid-cols-3 animate-pulse" : "space-y-2 animate-pulse"}>
+              {[1, 2, 3].map((i) => <div key={i} className={`rounded-xl bg-white/5 ${assetsViewMode === "grid" ? "h-36" : "h-14"}`} />)}
             </div>
           ) : assets.length === 0 ? (
             <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-8 text-center text-sm text-slate-400">
@@ -822,6 +863,49 @@ export function IngestionFactoryPanel() {
               ) : (
                 <>No assets yet. <button type="button" onClick={() => setActiveSection("ingest")} className="text-amber-400 hover:text-amber-300 underline">Ingest your first asset</button></>
               )}
+            </div>
+          ) : assetsViewMode === "grid" ? (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {assets.map((a) => (
+                <AssetCard
+                  key={a.assetId}
+                  asset={a}
+                  onClick={() => setSelectedAssetId(a.assetId)}
+                />
+              ))}
+            </div>
+          ) : assetsViewMode === "table" ? (
+            <div className="overflow-x-auto rounded-2xl ring-1 ring-white/10">
+              <table className="min-w-full text-sm">
+                <thead className="bg-white/5 text-slate-400">
+                  <tr>
+                    <th className="text-left px-4 py-3">Name</th>
+                    <th className="text-left px-4 py-3">Class</th>
+                    <th className="text-left px-4 py-3">Trust Band</th>
+                    <th className="text-left px-4 py-3">Status</th>
+                    <th className="text-left px-4 py-3">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {assets.map((a) => (
+                    <tr key={a.assetId} className="border-t border-white/10 hover:bg-white/5 cursor-pointer" onClick={() => setSelectedAssetId(a.assetId)}>
+                      <td className="px-4 py-3 text-slate-200 truncate max-w-xs" title={a.name}>{a.name}</td>
+                      <td className="px-4 py-3 text-slate-300">{ASSET_CLASS_LABELS[a.assetClass]}</td>
+                      <td className={`px-4 py-3 text-[11px] ${BAND_COLORS[a.trustBand]}`}>{TBL[a.trustBand]}</td>
+                      <td className="px-4 py-3">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded ring-1 ${
+                          a.publicationStatus === "published"
+                            ? "bg-emerald-500/20 text-emerald-300 ring-emerald-500/30"
+                            : "bg-slate-700/30 text-slate-400 ring-slate-500/20"
+                        }`}>{a.publicationStatus}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button type="button" className="text-[11px] text-amber-400 hover:text-amber-300" onClick={(e) => { e.stopPropagation(); setSelectedAssetId(a.assetId); }}>View</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
             <div className="space-y-1.5">

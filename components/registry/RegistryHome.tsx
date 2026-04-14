@@ -268,11 +268,13 @@ export function RegistryHome() {
 
   const tabBtnCls = (active: boolean, variant: 'default' | 'amber' | 'emerald' = 'default') => {
     if (active) {
-      if (variant === 'amber') return "px-3 py-1.5 text-xs font-medium rounded-lg transition-colors bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30";
-      if (variant === 'emerald') return "px-3 py-1.5 text-xs font-medium rounded-lg transition-colors bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/25";
-      return "px-3 py-1.5 text-xs font-medium rounded-lg transition-colors bg-slate-500/20 text-slate-200 ring-1 ring-slate-500/30";
+      if (variant === 'amber') return "px-4 py-2 text-sm font-semibold rounded-xl transition-all bg-amber-500/20 text-amber-200 ring-2 ring-amber-500/50 shadow-sm shadow-amber-500/10";
+      if (variant === 'emerald') return "px-4 py-2 text-sm font-semibold rounded-xl transition-all bg-emerald-500/20 text-emerald-200 ring-2 ring-emerald-500/50 shadow-sm shadow-emerald-500/10";
+      return "px-4 py-2 text-sm font-semibold rounded-xl transition-all bg-indigo-500/20 text-indigo-200 ring-2 ring-indigo-500/50 shadow-sm shadow-indigo-500/10";
     }
-    return "px-3 py-1.5 text-xs font-medium rounded-lg transition-colors text-slate-400 hover:text-slate-200 hover:bg-white/5";
+    if (variant === 'amber') return "px-4 py-2 text-sm font-medium rounded-xl transition-all text-amber-400/70 border border-amber-500/20 hover:bg-amber-500/10 hover:text-amber-300 hover:border-amber-500/40";
+    if (variant === 'emerald') return "px-4 py-2 text-sm font-medium rounded-xl transition-all text-emerald-400/70 border border-emerald-500/20 hover:bg-emerald-500/10 hover:text-emerald-300 hover:border-emerald-500/40";
+    return "px-4 py-2 text-sm font-medium rounded-xl transition-all text-slate-400 border border-white/10 hover:bg-white/8 hover:text-slate-200 hover:border-white/20";
   };
 
   const sortBtnCls = (active: boolean) =>
@@ -283,7 +285,8 @@ export function RegistryHome() {
       {/* Sticky Header */}
       <div className="sticky top-0 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 z-10 pb-4 space-y-3">
 
-        {/* Row 1: 6 filters — snap-carousel on mobile, 6-col grid on lg+ */}
+        {/* Row 1: 6 filters — green glass panel, snap-carousel on mobile, 6-col grid on lg+ */}
+        <div className="rounded-xl border border-emerald-500/25 bg-emerald-950/8 backdrop-blur-sm p-3 shadow-sm shadow-emerald-950/20">
         <div className="flex gap-2 overflow-x-auto snap-x snap-mandatory pb-0.5 scrollbar-hide lg:grid lg:grid-cols-6 lg:overflow-visible">
           {/* Search */}
           <div className="snap-start shrink-0 min-w-[155px] lg:min-w-0">
@@ -387,6 +390,7 @@ export function RegistryHome() {
             </select>
           </div>
         </div>
+        </div>
 
         {/* Row 2: Tab-buttons LEFT + Controls RIGHT */}
         <div className="flex items-center justify-between gap-3">
@@ -421,10 +425,10 @@ export function RegistryHome() {
           <div className="flex items-center gap-2 flex-shrink-0">
             {/* Q¢ currency badge */}
             <span
-              className="inline-flex items-center px-2 py-1 rounded-md text-[11px] font-medium bg-amber-500/10 text-amber-300 ring-1 ring-amber-500/20 cursor-default"
-              title="Prices shown in Q¢ (QuCents). 1 Q¢ = $0.01 USD. 1 KQ¢ = 1,000 Q¢ = $10 USD."
+              className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-500/10 text-amber-300 ring-1 ring-amber-500/25 cursor-default whitespace-nowrap"
+              title="Prices shown in Q¢ (QriptoCents) — the native payment currency of the iQube platform. 1 Q¢ = $0.01 USD. 1 KQ¢ = 1,000 Q¢ = $10 USD."
             >
-              Q¢
+              Prices in Q¢
             </span>
             {/* Sort */}
             <button
