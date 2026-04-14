@@ -4689,6 +4689,32 @@ export default function MetaMeRuntimeClient() {
         personaId={activePersonaId || undefined}
         initialTab="wallet"
       />
+      {settingsDrawerOpen ? (
+        <div
+          className="absolute inset-0 z-40 bg-black/50"
+          onClick={() => setSettingsDrawerOpen(false)}
+        />
+      ) : null}
+      <div
+        className={`absolute left-0 top-0 bottom-0 z-50 w-80 bg-slate-950 border-r border-white/10 overflow-y-auto transform transition-transform duration-300 ease-in-out ${settingsDrawerOpen ? "translate-x-0" : "-translate-x-full"}`}
+        aria-hidden={!settingsDrawerOpen}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 sticky top-0 bg-slate-950 z-10">
+          <span className="text-sm font-medium text-slate-200 flex items-center gap-2">
+            <SlidersHorizontal className="h-3.5 w-3.5 text-slate-400" />
+            metaMe Settings
+          </span>
+          <button
+            type="button"
+            onClick={() => setSettingsDrawerOpen(false)}
+            className="rounded p-1 text-slate-400 hover:bg-white/10 hover:text-white transition"
+            aria-label="Close settings"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <MetaMeSettingsPanel />
+      </div>
     </div>
   );
 
