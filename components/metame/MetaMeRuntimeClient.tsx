@@ -3935,6 +3935,7 @@ export default function MetaMeRuntimeClient() {
               : null;
         const DRAWER_ACTION_HANDLERS: Record<string, () => void> = {
           wallet: () => setWalletDrawerOpen(true),
+          settings: () => setSettingsDrawerOpen(true),
         };
         if (menuActionId && menuActionId in DRAWER_ACTION_HANDLERS) {
           DRAWER_ACTION_HANDLERS[menuActionId]?.();
