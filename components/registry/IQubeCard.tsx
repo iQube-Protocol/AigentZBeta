@@ -45,10 +45,15 @@ export const IQubeCard: React.FC<IQubeTemplateCardProps> = ({
   onDelete,
   visibility,
 }) => {
-  const formatUSD = (v: number) => `$${v.toFixed(2)}`;
-  // Fixed conversion: $0.01 = 10 sats => $1 = 1000 sats
-  const toSats = (usd: number) => Math.round(usd * 1000);
-  const formatSats = (s: number) => `${s.toLocaleString()} sats`;
+  // Q¢ pricing: 1Q¢ = $0.01. Over Q¢999 → KQ¢ (1KQ¢ = 1,000Q¢ = $10)
+  const formatQCents = (usd: number): string => {
+    const qc = Math.round(usd * 100);
+    if (qc >= 1000) {
+      const kqc = qc / 1000;
+      return `${kqc % 1 === 0 ? kqc.toFixed(0) : kqc.toFixed(1)}KQ¢`;
+    }
+    return `Q¢${qc}`;
+  };
   const [minted, setMinted] = useState(false);
   const [activePrivate, setActivePrivate] = useState(false);
   const [activeRegistry, setActiveRegistry] = useState(false);
@@ -109,7 +114,7 @@ export const IQubeCard: React.FC<IQubeTemplateCardProps> = ({
             const p = Number(price);
             if (Number.isFinite(p)) {
               return (
-                <span title="Price (USD)" className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30">{formatUSD(p)}</span>
+                <span title="Price (Q¢)" className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30">{formatQCents(p)}</span>
               );
             }
             return null;

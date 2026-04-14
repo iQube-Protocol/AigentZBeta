@@ -1835,6 +1835,12 @@ export const ComposerStudio = () => {
   const [registrySectionOpen, setRegistrySectionOpen] = useState(false);
   const [ladderFunnelStage, setLadderFunnelStage] = useState<number | null>(null);
   const [ladderYCategory, setLadderYCategory] = useState<string | null>(null);
+  const [matrixPopupCell, setMatrixPopupCell] = useState<string | null>(null);
+  const matrixPopupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [matrixCohortName, setMatrixCohortName] = useState<string | null>(null);
+  const [individualSearch, setIndividualSearch] = useState("");
+  const [individualPreset, setIndividualPreset] = useState<"" | "most_active" | "least_active">("");
+  const [individualSelected, setIndividualSelected] = useState<string | null>(null);
   const [pendingProductionConfig, setPendingProductionConfig] = useState<{
     templateKey: string;
     seedData: Record<string, unknown>;
@@ -9850,10 +9856,26 @@ export const ComposerStudio = () => {
                             const yReversed = [...m.y_stages].reverse(); // highest engagement at top
                             const xLen = m.x_stages.length;
                             const yLen = yReversed.length;
+                            // Placeholder cohorts (replace with real data when API is wired)
+                            const COHORT_NAMES = ["New Entrants", "Power Users", "Dormant", "Evangelists"];
+                            // Popup helpers
+                            const openPopup = (key: string) => {
+                              if (matrixPopupTimerRef.current) clearTimeout(matrixPopupTimerRef.current);
+                              setMatrixPopupCell(key);
+                              matrixPopupTimerRef.current = setTimeout(() => setMatrixPopupCell(null), 5000);
+                            };
+                            const pausePopupTimer = () => {
+                              if (matrixPopupTimerRef.current) clearTimeout(matrixPopupTimerRef.current);
+                            };
+                            const resumePopupTimer = () => {
+                              if (matrixPopupCell) {
+                                matrixPopupTimerRef.current = setTimeout(() => setMatrixPopupCell(null), 5000);
+                              }
+                            };
                             return (
                               <div className="space-y-2">
-                                {/* Lens toggle */}
-                                <div className="flex items-center gap-1">
+                                {/* Lens toggle + cohort/individual controls */}
+                                <div className="flex items-center gap-1 flex-wrap">
                                   {([
                                     { id: "org" as const, label: "Org", icon: <Globe className="h-3 w-3" /> },
                                     { id: "cohort" as const, label: "Cohort", icon: <Users className="h-3 w-3" /> },
@@ -9869,20 +9891,83 @@ export const ComposerStudio = () => {
                                       {lens.icon} {lens.label}
                                     </button>
                                   ))}
+                                  {/* Cohort buttons — right of toggles when cohort lens is active */}
+                                  {matrixLens === "cohort" && (
+                                    <div className="flex items-center gap-1 ml-2 pl-2 border-l border-slate-800">
+                                      {COHORT_NAMES.map((c) => (
+                                        <button
+                                          key={c}
+                                          type="button"
+                                          onClick={() => setMatrixCohortName(matrixCohortName === c ? null : c)}
+                                          className={`rounded-md border px-2 py-0.5 text-[10px] font-medium transition ${
+                                            matrixCohortName === c
+                                              ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-300"
+                                              : "border-slate-800 text-slate-500 hover:text-slate-300"
+                                          }`}
+                                        >
+                                          {c}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
                                   <span className="ml-auto text-[9px] text-slate-600">
                                     {matrixLens === "org" ? "Full population distribution" : matrixLens === "cohort" ? "Cohort density heatmap" : "Individual NBE pathway"}
                                   </span>
                                 </div>
+
+                                {/* Individual mode controls */}
+                                {matrixLens === "individual" && (
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <input
+                                      value={individualSearch}
+                                      onChange={(e) => setIndividualSearch(e.target.value)}
+                                      placeholder="Search individual…"
+                                      className="flex-1 min-w-[140px] rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+                                    />
+                                    <select
+                                      value={individualPreset}
+                                      onChange={(e) => {
+                                        setIndividualPreset(e.target.value as "" | "most_active" | "least_active");
+                                        setIndividualSelected(null);
+                                      }}
+                                      className="rounded-lg border border-white/10 bg-slate-900 px-2 py-1 text-[11px] text-slate-300 focus:outline-none focus:ring-1 focus:ring-violet-500/40"
+                                    >
+                                      <option value="">— quick select —</option>
+                                      <option value="most_active">10 Most Active</option>
+                                      <option value="least_active">10 Least Active</option>
+                                    </select>
+                                    {(individualSearch || individualPreset) && (
+                                      <div className="flex items-center gap-1 flex-wrap">
+                                        {/* Placeholder individual names — replace with real API data */}
+                                        {["User A", "User B", "User C"].map((u) => (
+                                          <button
+                                            key={u}
+                                            type="button"
+                                            onClick={() => setIndividualSelected(individualSelected === u ? null : u)}
+                                            className={`rounded border px-1.5 py-0.5 text-[10px] transition ${
+                                              individualSelected === u
+                                                ? "border-violet-500/40 bg-violet-500/10 text-violet-300"
+                                                : "border-slate-800 text-slate-500 hover:text-slate-300"
+                                            }`}
+                                          >
+                                            {u}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
                                 <div className="flex items-center justify-between text-[10px] text-slate-500">
                                   <span className="uppercase tracking-wide">Engagement ↑</span>
                                   <span className="text-emerald-400/60">Sovereignty journey → &nbsp; goal: top-right ★</span>
                                 </div>
-                                <div className="overflow-x-auto">
+                                <div className="overflow-x-auto relative">
                                   <div style={{ minWidth: `${100 + xLen * 68}px` }}>
                                     {/* X-axis header */}
                                     <div className="grid gap-0.5 mb-1" style={{ gridTemplateColumns: `96px repeat(${xLen}, 1fr)` }}>
                                       <div className="text-[11px] text-slate-600 self-end pb-0.5">Y ╲ X</div>
-                                      {m.x_stages.map((x) => (
+                                      {m.x_stages.map((x: string) => (
                                         <div key={x} className="text-center text-[11px] font-semibold text-slate-500 pb-0.5 truncate" title={x}>{x}</div>
                                       ))}
                                     </div>
@@ -9893,15 +9978,18 @@ export const ComposerStudio = () => {
                                           <div className="text-[11px] font-semibold text-slate-400 pr-1 flex items-center truncate" title={y}>
                                             {y}
                                           </div>
-                                          {m.x_stages.map((x, xi) => {
+                                          {m.x_stages.map((x: string, xi: number) => {
                                             const key = `${y}:${x}`;
-                                            const prescription = m.cells[key] ?? "";
+                                            const prescription = (m.cells as Record<string, string>)[key] ?? "";
                                             const yOrig = yLen - 1 - yi;
                                             const isApex = yi <= 1 && xi >= xLen - 2;
                                             const hasPrescription = !!prescription;
                                             const yNorm = yOrig / Math.max(yLen - 1, 1);
                                             const xNorm = xi / Math.max(xLen - 1, 1);
                                             const isOnDiagonal = Math.abs(yNorm - xNorm) <= 0.28;
+                                            // Cohort/individual highlight
+                                            const isCohortAvg = matrixLens === "cohort" && matrixCohortName && xi === Math.floor(xLen / 2) && yi === Math.floor(yLen / 2);
+                                            const isIndividualPos = matrixLens === "individual" && individualSelected && xi === Math.floor(xLen / 3) && yi === Math.floor(yLen / 3);
                                             const cellClass = isApex && hasPrescription
                                               ? "border-amber-500/40 bg-amber-500/8 text-amber-200"
                                               : hasPrescription && isOnDiagonal
@@ -9909,11 +9997,37 @@ export const ComposerStudio = () => {
                                                 : hasPrescription
                                                   ? "border-blue-500/25 bg-blue-500/5 text-blue-300"
                                                   : "border-slate-800/30 bg-slate-950/30 text-slate-700";
+                                            const isPopupOpen = matrixPopupCell === key;
                                             return (
-                                              <div key={key}
-                                                className={`rounded border px-0.5 py-1 text-center text-[12px] leading-tight font-medium ${cellClass} cursor-default`}
-                                                title={prescription || `${y} × ${x}`}>
-                                                {prescription ? prescription.split(": ").pop() : "·"}
+                                              <div key={key} className="relative">
+                                                <button
+                                                  type="button"
+                                                  onClick={() => hasPrescription && openPopup(key)}
+                                                  className={`w-full rounded border px-0.5 py-1 text-center text-[12px] leading-tight font-medium ${cellClass} ${hasPrescription ? "cursor-pointer hover:ring-1 hover:ring-white/20" : "cursor-default"} ${isCohortAvg ? "ring-2 ring-cyan-400/60" : ""} ${isIndividualPos ? "ring-2 ring-violet-400/60" : ""}`}
+                                                  title={prescription || `${y} × ${x}`}
+                                                >
+                                                  {prescription ? prescription.split(": ").pop() : "·"}
+                                                  {isCohortAvg && <span className="absolute -top-1.5 -right-1 text-[8px] text-cyan-300">avg</span>}
+                                                  {isIndividualPos && <span className="absolute -top-1.5 -right-1 text-[8px] text-violet-300">★</span>}
+                                                </button>
+                                                {/* Popup */}
+                                                {isPopupOpen && prescription && (
+                                                  <div
+                                                    className="absolute z-20 bottom-full mb-1 left-1/2 -translate-x-1/2 w-48 rounded-lg border border-violet-500/30 bg-slate-900/95 px-3 py-2 shadow-xl backdrop-blur-sm"
+                                                    onMouseEnter={pausePopupTimer}
+                                                    onMouseLeave={resumePopupTimer}
+                                                  >
+                                                    <div className="text-[10px] font-semibold text-violet-300 mb-1">{y} × {x}</div>
+                                                    <p className="text-[11px] text-slate-200">{prescription}</p>
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => { if (matrixPopupTimerRef.current) clearTimeout(matrixPopupTimerRef.current); setMatrixPopupCell(null); }}
+                                                      className="absolute top-1 right-1 text-slate-600 hover:text-slate-300"
+                                                    >
+                                                      <span className="text-[9px]">✕</span>
+                                                    </button>
+                                                  </div>
+                                                )}
                                               </div>
                                             );
                                           })}
@@ -9925,7 +10039,7 @@ export const ComposerStudio = () => {
                                       <span><span className="text-blue-400">■</span> off-diagonal NBE</span>
                                       <span><span className="text-amber-400">■</span> apex zone</span>
                                       <span><span className="text-slate-700">·</span> no prescription</span>
-                                      <span className="ml-auto text-slate-500">hover for full prescription</span>
+                                      <span className="ml-auto text-slate-500">click cell for prescription</span>
                                     </div>
                                   </div>
                                 </div>
@@ -9934,7 +10048,7 @@ export const ComposerStudio = () => {
                           })()}
                         </TabsContent>
 
-                        {/* ── Ladder ── Funnel (X-axis) + Engagement (Y-axis) */}
+                        {/* ── Ladder ── Engagement (Y-axis) + Intersection + Funnel (X-axis, at bottom) */}
                         <TabsContent value="ladder" className="mt-3">
                           {(() => {
                             const fw = CARTRIDGE_FRAMEWORK[copilotContextId];
@@ -9943,7 +10057,7 @@ export const ComposerStudio = () => {
                             if (expModelLoading) return <div className="text-slate-400 text-xs">Loading…</div>;
                             if (!ladder) return <div className="text-slate-400 text-xs">No sovereignty ladder configured for this cartridge.</div>;
 
-                            // Funnel X-axis: stage #0 (awareness) + stages #1–7
+                            // Funnel X-axis: stage #0 (awareness) + stages #1–N
                             const funnelStages: Array<{ label: string; title: string; description: string; isApex: boolean }> = [
                               {
                                 label: "0",
@@ -9951,7 +10065,7 @@ export const ComposerStudio = () => {
                                 description: "Pre-activation stage: entity is at the edge — not yet engaged. May carry neutral or negative sentiment toward the brand or world.",
                                 isApex: false,
                               },
-                              ...ladder.stages.map((s, i) => ({
+                              ...ladder.stages.map((s: { label: string; unlock: string }, i: number) => ({
                                 label: String(i + 1),
                                 title: s.label,
                                 description: s.unlock,
@@ -9959,52 +10073,18 @@ export const ComposerStudio = () => {
                               })),
                             ];
 
-                            // Y-axis engagement categories from matrix y_stages (up to 7)
-                            const yCategories: string[] = matrix ? [...matrix.y_stages].slice(0, 7) : [];
+                            // Y-axis: reversed so apex (Steward/Franchisee) is at top, Recipient at bottom
+                            const yCategories: string[] = matrix ? [...matrix.y_stages].slice(0, 7).reverse() : [];
+                            const yTotal = yCategories.length;
+
+                            // Intersection cell
+                            const intersectionKey = (ladderFunnelStage !== null && ladderFunnelStage >= 1 && ladderYCategory !== null && matrix)
+                              ? `${ladderYCategory}:${matrix.x_stages[ladderFunnelStage - 1]}`
+                              : null;
+                            const intersectionPrescription = intersectionKey ? ((matrix?.cells as Record<string, string>)[intersectionKey] ?? null) : null;
 
                             return (
                               <div className="space-y-4">
-                                {/* Funnel row */}
-                                <div>
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <span className="text-[10px] uppercase tracking-widest text-slate-600">Funnel</span>
-                                    <span className="text-[10px] text-slate-600">— X-axis, click to inspect</span>
-                                  </div>
-                                  <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${funnelStages.length}, 1fr)` }}>
-                                    {funnelStages.map((s, idx) => (
-                                      <button
-                                        key={idx}
-                                        type="button"
-                                        onClick={() => setLadderFunnelStage(ladderFunnelStage === idx ? null : idx)}
-                                        className={`flex flex-col items-center gap-0.5 rounded-lg border px-1 py-2 text-center transition-all ${
-                                          ladderFunnelStage === idx
-                                            ? s.isApex
-                                              ? "border-amber-500/60 bg-amber-500/15 text-amber-200"
-                                              : "border-violet-500/50 bg-violet-500/10 text-violet-200"
-                                            : s.isApex
-                                              ? "border-amber-500/20 bg-amber-500/5 text-amber-400/70 hover:border-amber-500/40"
-                                              : idx === 0
-                                                ? "border-slate-700/50 bg-slate-900/30 text-slate-600 hover:border-slate-600"
-                                                : "border-slate-800 bg-slate-900/20 text-slate-500 hover:border-slate-700"
-                                        }`}
-                                      >
-                                        <span className={`text-[9px] font-bold ${s.isApex ? "text-amber-400" : "text-slate-600"}`}>{s.label}</span>
-                                        <span className="text-[9px] leading-tight truncate w-full">{s.title}</span>
-                                      </button>
-                                    ))}
-                                  </div>
-                                  {ladderFunnelStage !== null && (
-                                    <div className="mt-2 rounded-lg border border-violet-500/20 bg-violet-950/20 px-3 py-2">
-                                      <div className="flex items-center gap-1.5 mb-1">
-                                        <span className={`text-[11px] font-semibold ${funnelStages[ladderFunnelStage].isApex ? "text-amber-300" : "text-violet-300"}`}>
-                                          #{funnelStages[ladderFunnelStage].label} — {funnelStages[ladderFunnelStage].title}
-                                        </span>
-                                      </div>
-                                      <p className="text-[11px] text-slate-400">{funnelStages[ladderFunnelStage].description}</p>
-                                    </div>
-                                  )}
-                                </div>
-
                                 {/* Y-axis engagement categories */}
                                 {yCategories.length > 0 && (
                                   <div>
@@ -10015,11 +10095,11 @@ export const ComposerStudio = () => {
                                     <div className="space-y-1">
                                       {yCategories.map((cat, yi) => {
                                         const isSelected = ladderYCategory === cat;
-                                        // Get matrix cells for this Y stage to infer cartridge description
+                                        const isApex = yi === 0; // reversed: apex is first
                                         const cellPrescriptions = matrix
-                                          ? Object.entries(matrix.cells)
+                                          ? Object.entries(matrix.cells as Record<string, string>)
                                               .filter(([k]) => k.startsWith(`${cat}:`))
-                                              .map(([, v]) => v as string)
+                                              .map(([, v]) => v)
                                               .filter(Boolean)
                                               .slice(0, 3)
                                           : [];
@@ -10031,13 +10111,13 @@ export const ComposerStudio = () => {
                                               className={`w-full flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left transition-all ${
                                                 isSelected
                                                   ? "border-emerald-500/40 bg-emerald-500/8 text-emerald-200"
-                                                  : yi === yCategories.length - 1
+                                                  : isApex
                                                     ? "border-amber-500/20 bg-amber-500/5 text-amber-400/80 hover:border-amber-500/30"
                                                     : "border-slate-800 bg-slate-900/20 text-slate-400 hover:border-slate-700 hover:text-slate-300"
                                               }`}
                                             >
                                               <div className="flex items-center gap-2 min-w-0">
-                                                <span className="text-[9px] font-bold text-slate-600 shrink-0">{yi + 1}</span>
+                                                <span className="text-[9px] font-bold text-slate-600 shrink-0">{yTotal - yi}</span>
                                                 <span className="text-xs font-medium truncate">{cat}</span>
                                               </div>
                                               <ChevronDown className={`h-3 w-3 shrink-0 text-slate-600 transition-transform ${isSelected ? "rotate-180" : ""}`} />
@@ -10067,6 +10147,65 @@ export const ComposerStudio = () => {
                                     </div>
                                   </div>
                                 )}
+
+                                {/* Intersection cell: shown when both funnel stage + Y-category are selected */}
+                                {ladderFunnelStage !== null && ladderYCategory !== null && (
+                                  <div className={`rounded-lg border px-3 py-2.5 ${intersectionPrescription ? "border-violet-500/30 bg-violet-950/20" : "border-slate-700/30 bg-slate-950/20"}`}>
+                                    <div className="flex items-center gap-2 mb-1.5">
+                                      <span className="text-[10px] font-semibold text-violet-300 uppercase tracking-wide">
+                                        {funnelStages[ladderFunnelStage].title} × {ladderYCategory}
+                                      </span>
+                                    </div>
+                                    {ladderFunnelStage === 0 ? (
+                                      <p className="text-[11px] text-slate-500">Stage 0 (Awareness) is pre-funnel — no matrix prescription applies.</p>
+                                    ) : intersectionPrescription ? (
+                                      <p className="text-[11px] text-slate-300 font-mono">{intersectionPrescription}</p>
+                                    ) : (
+                                      <p className="text-[11px] text-slate-500">No prescription configured for this intersection. Add one in the Experience Matrix.</p>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Funnel row — at bottom */}
+                                <div>
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-[10px] uppercase tracking-widest text-slate-600">Funnel</span>
+                                    <span className="text-[10px] text-slate-600">— X-axis, click to inspect</span>
+                                  </div>
+                                  <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${funnelStages.length}, 1fr)` }}>
+                                    {funnelStages.map((s, idx) => (
+                                      <button
+                                        key={idx}
+                                        type="button"
+                                        onClick={() => setLadderFunnelStage(ladderFunnelStage === idx ? null : idx)}
+                                        className={`flex flex-col items-center gap-0.5 rounded-lg border px-1 py-2 text-center transition-all ${
+                                          ladderFunnelStage === idx
+                                            ? s.isApex
+                                              ? "border-amber-500/60 bg-amber-500/15 text-amber-200"
+                                              : "border-violet-500/50 bg-violet-500/10 text-violet-200"
+                                            : s.isApex
+                                              ? "border-amber-500/20 bg-amber-500/5 text-amber-400/70 hover:border-amber-500/40"
+                                              : idx === 0
+                                                ? "border-slate-700/50 bg-slate-900/30 text-slate-600 hover:border-slate-600"
+                                                : "border-slate-800 bg-slate-900/20 text-slate-500 hover:border-slate-700"
+                                        }`}
+                                      >
+                                        <span className={`text-[9px] font-bold ${s.isApex ? "text-amber-400" : "text-slate-600"}`}>{s.label}</span>
+                                        <span className="text-[10px] leading-tight truncate w-full">{s.title}</span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                  {ladderFunnelStage !== null && (
+                                    <div className="mt-2 rounded-lg border border-violet-500/20 bg-violet-950/20 px-3 py-2">
+                                      <div className="flex items-center gap-1.5 mb-1">
+                                        <span className={`text-[11px] font-semibold ${funnelStages[ladderFunnelStage].isApex ? "text-amber-300" : "text-violet-300"}`}>
+                                          #{funnelStages[ladderFunnelStage].label} — {funnelStages[ladderFunnelStage].title}
+                                        </span>
+                                      </div>
+                                      <p className="text-[11px] text-slate-400">{funnelStages[ladderFunnelStage].description}</p>
+                                    </div>
+                                  )}
+                                </div>
 
                                 {/* Canonical path reference */}
                                 <div className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2 text-[10px] text-slate-600 font-mono">
@@ -11700,7 +11839,7 @@ export const ComposerStudio = () => {
 
             {/* Registry panel — mirrors RegistryHome, shown when Registry tab is open */}
             {registrySectionOpen && (
-              <div className="mt-3 max-h-[640px] overflow-y-auto rounded-xl border border-emerald-500/10 bg-slate-950/30 p-3">
+              <div className="mt-3 h-[640px] overflow-hidden flex flex-col rounded-xl border border-emerald-500/10 bg-slate-950/30">
                 <RegistryHome />
               </div>
             )}

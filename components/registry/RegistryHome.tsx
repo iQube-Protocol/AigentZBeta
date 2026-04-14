@@ -57,6 +57,15 @@ const filterInputCls =
   "w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-600/50";
 const filterLabelCls = "text-[11px] text-slate-500 mb-1 block truncate";
 
+const formatQCents = (usd: number): string => {
+  const qc = Math.round(usd * 100);
+  if (qc >= 1000) {
+    const kqc = qc / 1000;
+    return `${kqc % 1 === 0 ? kqc.toFixed(0) : kqc.toFixed(1)}KQ¢`;
+  }
+  return `Q¢${qc}`;
+};
+
 export function RegistryHome() {
   const [activeRegistryTab, setActiveRegistryTab] = useState<"templates" | "factory">("templates");
   const [templates, setTemplates] = useState<IQubeTemplate[]>([]);
@@ -408,8 +417,15 @@ export function RegistryHome() {
             </Link>
           </div>
 
-          {/* RIGHT: Sort + View mode + Cart */}
+          {/* RIGHT: Q¢ badge + Sort + View mode + Cart */}
           <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Q¢ currency badge */}
+            <span
+              className="inline-flex items-center px-2 py-1 rounded-md text-[11px] font-medium bg-amber-500/10 text-amber-300 ring-1 ring-amber-500/20 cursor-default"
+              title="Prices shown in Q¢ (QuCents). 1 Q¢ = $0.01 USD. 1 KQ¢ = 1,000 Q¢ = $10 USD."
+            >
+              Q¢
+            </span>
             {/* Sort */}
             <button
               type="button"
@@ -498,11 +514,9 @@ export function RegistryHome() {
                   </div>
                   <div className="flex items-center gap-4">
                     {typeof t.price === 'number' && !Number.isNaN(t.price) && (
-                      <div className="text-xs text-slate-200/90" title="Quoted using fixed rate: $1 = 1000 sats">
-                        <span className="font-medium">{(Math.round((t.price || 0) * 1000)).toLocaleString()} sats</span>
-                        <span className="mx-1 text-slate-400">·</span>
-                        <span>${(t.price || 0).toFixed(2)}</span>
-                      </div>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30" title="Price (Q¢)">
+                        {formatQCents(t.price)}
+                      </span>
                     )}
                     <div className="flex items-center gap-2">
                       <button className="p-2 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white" title="View" onClick={() => router.push(`/registry?template=${t.id}`)}>View</button>
@@ -551,7 +565,7 @@ export function RegistryHome() {
                     <td className="px-4 py-3 text-slate-300">{t.iQubeInstanceType || 'template'}</td>
                     <td className="px-4 py-3 text-slate-300">{t.businessModel || '—'}</td>
                     <td className="px-4 py-3 text-slate-300">{typeof t.provenance === 'number' ? t.provenance : 0}</td>
-                    <td className="px-4 py-3 text-slate-200">{typeof t.price === 'number' ? `${(Math.round(t.price*1000)).toLocaleString()} sats · $${t.price.toFixed(2)}` : '—'}</td>
+                    <td className="px-4 py-3 text-amber-300">{typeof t.price === 'number' ? formatQCents(t.price) : '—'}</td>
                     <td className="px-4 py-3"><DotsInline value={t.sensitivityScore ?? 0} kind='sensitivity' title="Sensitivity" /></td>
                     <td className="px-4 py-3"><DotsInline value={t.accuracyScore} kind='accuracy' title="Accuracy" /></td>
                     <td className="px-4 py-3"><DotsInline value={t.verifiabilityScore} kind='verifiability' title="Verifiability" /></td>

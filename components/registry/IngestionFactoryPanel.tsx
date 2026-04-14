@@ -86,7 +86,7 @@ interface MakeScenario {
   isActive: boolean;
 }
 
-function IntakeForm({ onSuccess }: { onSuccess: (assetId: string) => void }) {
+function IntakeForm({ onSuccess, formId, onSubmittingChange }: { onSuccess: (assetId: string) => void; formId?: string; onSubmittingChange?: (v: boolean, canSubmit: boolean) => void }) {
   const [sourceType, setSourceType] = useState<IngestionSourceType>("github_repo");
   const [sourceUri, setSourceUri] = useState("");
   const [name, setName] = useState("");
@@ -103,6 +103,12 @@ function IntakeForm({ onSuccess }: { onSuccess: (assetId: string) => void }) {
   const [showMakePicker, setShowMakePicker] = useState(false);
 
   const selectedType = SOURCE_TYPES.find((t) => t.id === sourceType)!;
+
+  // Notify parent of submitting + canSubmit state for external button
+  useEffect(() => {
+    const canSubmit = !(sourceType === "make_scenario" && !selectedMakeScenario);
+    onSubmittingChange?.(submitting, canSubmit);
+  }, [submitting, sourceType, selectedMakeScenario, onSubmittingChange]);
 
   function fetchMakeScenarios() {
     setMakeScenarioLoading(true);
@@ -190,7 +196,7 @@ function IntakeForm({ onSuccess }: { onSuccess: (assetId: string) => void }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form id={formId} onSubmit={handleSubmit} className="space-y-5">
       {/* Source type selector */}
       <div>
         <div className="text-[11px] uppercase tracking-widest text-slate-500 mb-2">Source Type</div>
@@ -287,7 +293,11 @@ function IntakeForm({ onSuccess }: { onSuccess: (assetId: string) => void }) {
                 </div>
               )}
               {makeScenarioError && (
-                <p className="text-red-400 text-[11px]">{makeScenarioError}</p>
+                <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 px-3 py-2 text-[11px] text-rose-300">
+                  {makeScenarioError.toLowerCase().includes("not configured")
+                    ? "Make.com API token is not configured. Add MAKE_API_TOKEN to your environment variables."
+                    : makeScenarioError}
+                </div>
               )}
               {makeScenarios && makeScenarios.length === 0 && (
                 <p className="text-slate-400 text-[11px]">No scenarios found in your Make team.</p>
@@ -346,25 +356,15 @@ function IntakeForm({ onSuccess }: { onSuccess: (assetId: string) => void }) {
         </div>
       </div>
 
-      {/* Submit + status */}
-      <div className="flex items-center gap-4">
-        <button
-          type="submit"
-          disabled={submitting || (sourceType === "make_scenario" && !selectedMakeScenario)}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/40 hover:bg-amber-500/25 disabled:opacity-50 transition-colors"
-        >
-          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-          {submitting ? "Processing…" : sourceType === "make_scenario" ? "Connect Scenario" : "Ingest Asset"}
-        </button>
-        {statusMsg && (
-          <div className={`text-xs ${step === "error" ? "text-red-400" : step === "done" ? "text-emerald-400" : "text-slate-400"}`}>
-            {step !== "idle" && step !== "done" && step !== "error" && (
-              <Loader2 className="inline h-3 w-3 animate-spin mr-1" />
-            )}
-            {statusMsg}
-          </div>
-        )}
-      </div>
+      {/* Status message */}
+      {statusMsg && (
+        <div className={`text-xs ${step === "error" ? "text-red-400" : step === "done" ? "text-emerald-400" : "text-slate-400"}`}>
+          {step !== "idle" && step !== "done" && step !== "error" && (
+            <Loader2 className="inline h-3 w-3 animate-spin mr-1" />
+          )}
+          {statusMsg}
+        </div>
+      )}
 
       {/* Pipeline progress */}
       {submitting && (
@@ -590,6 +590,13 @@ export function IngestionFactoryPanel() {
   const [statusFilter, setStatusFilter] = useState<AssetStatus | "">("");
   const [showFilters, setShowFilters] = useState(false);
   const [activeSection, setActiveSection] = useState<"ingest" | "pipeline" | "assets">("ingest");
+  const [ingestSubmitting, setIngestSubmitting] = useState(false);
+  const [ingestCanSubmit, setIngestCanSubmit] = useState(true);
+
+  const handleIngestStateChange = useCallback((submitting: boolean, canSubmit: boolean) => {
+    setIngestSubmitting(submitting);
+    setIngestCanSubmit(canSubmit);
+  }, []);
 
   const activeFilterCount = [classFilter, bandFilter, statusFilter].filter(Boolean).length;
 
@@ -628,28 +635,39 @@ export function IngestionFactoryPanel() {
 
   return (
     <div className="space-y-6">
-      {/* Q¢ Platform Rail */}
-      <PlatformRailBanner />
-
-      {/* Section tabs */}
-      <div className="flex items-center gap-1 border-b border-white/10 pb-0">
-        {(["ingest", "pipeline", "assets"] as const).map((s) => (
+      {/* Section tabs + right-justified ingest button */}
+      <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-0">
+        <div className="flex items-center gap-1">
+          {(["ingest", "pipeline", "assets"] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => {
+                setActiveSection(s);
+                if (s === "assets") loadAssets();
+              }}
+              className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                activeSection === s
+                  ? "text-white border-b-2 border-amber-400"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              {s === "ingest" ? "Ingest New Asset" : s === "pipeline" ? "Pipeline Status" : "Ingested Assets"}
+            </button>
+          ))}
+        </div>
+        {/* Ingest / Connect button — only visible on ingest tab */}
+        {activeSection === "ingest" && (
           <button
-            key={s}
-            type="button"
-            onClick={() => {
-              setActiveSection(s);
-              if (s === "assets") loadAssets();
-            }}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-              activeSection === s
-                ? "text-white border-b-2 border-amber-400"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
+            type="submit"
+            form="registry-intake-form"
+            disabled={ingestSubmitting || !ingestCanSubmit}
+            className="inline-flex items-center gap-2 px-4 py-1.5 mb-0.5 rounded-lg text-sm font-semibold bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/40 hover:bg-amber-500/25 disabled:opacity-50 transition-colors"
           >
-            {s === "ingest" ? "Ingest New Asset" : s === "pipeline" ? "Pipeline Status" : "Ingested Assets"}
+            {ingestSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+            {ingestSubmitting ? "Processing…" : "Ingest Asset"}
           </button>
-        ))}
+        )}
       </div>
 
       {activeSection === "ingest" && (
@@ -660,7 +678,7 @@ export function IngestionFactoryPanel() {
             Submitted assets appear in the <strong className="text-slate-300">Pipeline Status</strong> tab
             and, once published, in the AgentiQ Codex Registry tab.
           </div>
-          <IntakeForm onSuccess={handleIngestionSuccess} />
+          <IntakeForm formId="registry-intake-form" onSuccess={handleIngestionSuccess} onSubmittingChange={handleIngestStateChange} />
         </div>
       )}
 
