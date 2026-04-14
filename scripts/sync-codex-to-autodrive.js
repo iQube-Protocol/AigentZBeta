@@ -2,10 +2,15 @@
 /**
  * AgentiQ Codex → Autonomys Auto-Drive Sync
  *
- * Uploads all AgentiQ Codex artifacts to Autonomys Auto-Drive (mainnet),
- * records CIDs, and writes a sync manifest into index.json.
+ * Uploads all Codex artifacts (markdown + json) for a given pack to
+ * Autonomys Auto-Drive (mainnet), records CIDs, and writes a sync manifest
+ * into the pack's index.json.
  *
- * Usage: node scripts/sync-codex-to-autodrive.js
+ * Usage:
+ *   node scripts/sync-codex-to-autodrive.js                 # defaults to aigency
+ *   node scripts/sync-codex-to-autodrive.js --pack knyt     # sync KNYT pack
+ *   CODEX_PACK=knyt node scripts/sync-codex-to-autodrive.js # env-var form
+ *
  * Required env: AUTONOMYS_API_KEY
  *
  * Uses dynamic import() for @autonomys/auto-drive (ESM-safe).
@@ -14,11 +19,34 @@
 const fs = require("fs");
 const path = require("path");
 
-const CODEX_ROOT = path.resolve("codexes/packs/aigency");
+// ── Pack selection ─────────────────────────────────────────────────────────
+// Priority: --pack <name> CLI arg → CODEX_PACK env → default "aigency"
+function resolvePack() {
+  const argIndex = process.argv.indexOf("--pack");
+  if (argIndex !== -1 && process.argv[argIndex + 1]) {
+    return process.argv[argIndex + 1];
+  }
+  return process.env.CODEX_PACK || "aigency";
+}
+
+const PACK_NAME = resolvePack();
+const CODEX_ROOT = path.resolve(`codexes/packs/${PACK_NAME}`);
 const API_KEY = process.env.AUTONOMYS_API_KEY;
 
-// Prefixes all uploaded filenames so they're identifiable on Autonomys
-const UPLOAD_PREFIX = "AigencyCodex/repos/AigentZBeta";
+// Per-pack upload prefix map — keeps each pack in its own Autonomys namespace
+const UPLOAD_PREFIX_MAP = {
+  aigency: "AigencyCodex/repos/AigentZBeta",
+  knyt: "KnytCodex/repos/AigentZBeta",
+};
+const UPLOAD_PREFIX = UPLOAD_PREFIX_MAP[PACK_NAME] || `${PACK_NAME}Codex/repos/AigentZBeta`;
+
+if (!fs.existsSync(CODEX_ROOT)) {
+  console.error(`Pack directory not found: ${CODEX_ROOT}`);
+  process.exit(1);
+}
+
+console.log(`Syncing pack: ${PACK_NAME} (${CODEX_ROOT})`);
+console.log(`Upload prefix: ${UPLOAD_PREFIX}`);
 
 if (!API_KEY) {
   console.error("AUTONOMYS_API_KEY not set — aborting sync.");

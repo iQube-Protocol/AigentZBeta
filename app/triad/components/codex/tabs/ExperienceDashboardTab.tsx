@@ -1279,6 +1279,73 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
                           </div>
                         </div>
                       )}
+                      {/* KNYT Wheel Campaign Status — shown whenever nakamoto record exists */}
+                      {nakamotoData?.knytPersona && (() => {
+                        const kp = nakamotoData.knytPersona as Record<string, any>;
+                        const nakId = String(kp.id ?? '');
+                        const cohort = String(kp.campaign_cohort ?? '');
+                        const state  = String(kp.campaign_state ?? '');
+                        const ksClicked = !!kp.kickstarter_clicked_at;
+                        const ksBacked  = !!kp.kickstarter_backed_at;
+                        const notes = String(kp.campaign_notes ?? '');
+                        const ksTrackUrl = nakId ? `/api/crm/track/ks?uid=${nakId}&utm_source=knyt_wheel&utm_medium=codex` : '';
+                        return (
+                          <div className="rounded-xl border border-rose-500/20 bg-rose-500/5 p-4">
+                            <div className="text-xs font-semibold uppercase tracking-wide text-rose-400 mb-3 flex items-center justify-between">
+                              <span className="flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5" />KNYT Wheel Campaign</span>
+                              {ksBacked
+                                ? <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">BACKED</span>
+                                : ksClicked
+                                ? <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-bold">VISITED KS</span>
+                                : null
+                              }
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs mb-3">
+                              <div className="rounded border border-rose-500/20 px-2 py-1.5">
+                                <div className="text-slate-500">Cohort</div>
+                                <div className="font-semibold text-rose-300 capitalize">{cohort || '—'}</div>
+                              </div>
+                              <div className="rounded border border-rose-500/20 px-2 py-1.5">
+                                <div className="text-slate-500">State</div>
+                                <div className="font-semibold text-slate-200 capitalize">{state || 'unsent'}</div>
+                              </div>
+                              <div className="rounded border border-rose-500/20 px-2 py-1.5">
+                                <div className="text-slate-500">KS Visit</div>
+                                <div className={`font-semibold ${ksClicked ? 'text-amber-400' : 'text-slate-500'}`}>{ksClicked ? '✓ Clicked' : 'Not yet'}</div>
+                              </div>
+                              <div className="rounded border border-rose-500/20 px-2 py-1.5">
+                                <div className="text-slate-500">KS Backed</div>
+                                <div className={`font-semibold ${ksBacked ? 'text-emerald-400' : 'text-slate-500'}`}>{ksBacked ? '✓ Backed' : 'Not yet'}</div>
+                              </div>
+                            </div>
+                            {notes && (
+                              <p className="text-xs text-slate-400 mb-3 italic">"{notes}"</p>
+                            )}
+                            {ksTrackUrl && !ksBacked && (
+                              <div className="flex items-center gap-2">
+                                <a
+                                  href={ksTrackUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 ring-1 ring-rose-500/30 text-rose-300 rounded-lg text-xs font-medium transition"
+                                >
+                                  <TrendingUp className="h-3 w-3" />
+                                  Open KS Tracking Link
+                                </a>
+                                <button
+                                  onClick={() => {
+                                    const full = `${window.location.origin}${ksTrackUrl}`;
+                                    navigator.clipboard?.writeText(full);
+                                  }}
+                                  className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white ring-1 ring-white/10 rounded-lg text-xs transition"
+                                >
+                                  Copy link
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
 

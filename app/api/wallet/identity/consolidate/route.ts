@@ -10,7 +10,9 @@
  *  3. Finds the Supabase auth.users.id for the email
  *  4. Links all found UUIDs to the canonical CRM profile via crm_auth_profile_links
  *  5. Re-assigns personas that carry a non-canonical UUID to the canonical one
- *  6. Returns a summary: canonicalId, linkedIds[], personaCount
+ *  6. Detects "activated investors": if email matches a nakamoto_knyt_personas row,
+ *     stamps platform_activated_at and platform_auth_profile_id on that investor record
+ *  7. Returns a summary: canonicalId, linkedIds[], personaCount, activatedInvestorId
  *
  * Requires: Authorization: Bearer <supabase_access_token>
  */
@@ -150,6 +152,39 @@ export async function POST(request: NextRequest) {
       .select('id', { count: 'exact', head: true })
       .in('auth_profile_id', allLinkedIds);
 
+    // -------------------------------------------------------------------------
+    // Step 6 — Activated investor detection
+    // If this email matches a nakamoto_knyt_personas investor record that hasn't
+    // been linked yet, stamp platform_activated_at and platform_auth_profile_id.
+    // This is idempotent — already-activated records are left unchanged.
+    // -------------------------------------------------------------------------
+    let activatedInvestorId: string | null = null;
+    try {
+      const { data: investorMatch } = await admin
+        .from('nakamoto_knyt_personas')
+        .select('id, platform_activated_at, "Total-Invested"')
+        .ilike('"Email"', email)
+        .maybeSingle();
+
+      if (investorMatch && !investorMatch.platform_activated_at) {
+        await admin
+          .from('nakamoto_knyt_personas')
+          .update({
+            platform_activated_at: new Date().toISOString(),
+            platform_auth_profile_id: canonicalId,
+          })
+          .eq('id', investorMatch.id);
+        activatedInvestorId = investorMatch.id;
+        console.info(
+          `[consolidate] activated investor detected: ${investorMatch.id} ` +
+          `(invested: $${investorMatch['Total-Invested'] ?? 0})`
+        );
+      }
+    } catch (err) {
+      // Non-fatal — investor activation is best-effort
+      console.warn('[consolidate] investor activation check failed:', err instanceof Error ? err.message : err);
+    }
+
     return NextResponse.json({
       canonicalId,
       email,
@@ -157,6 +192,7 @@ export async function POST(request: NextRequest) {
       linkedProfileIds: Array.from(linkedIds),
       personasReassigned,
       totalPersonas: personaCount ?? 0,
+      activatedInvestorId,
     });
   } catch (error) {
     return NextResponse.json(

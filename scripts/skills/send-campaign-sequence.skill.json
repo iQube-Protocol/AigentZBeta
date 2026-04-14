@@ -1,0 +1,64 @@
+{
+  "assetClass": "SkillQube",
+  "name": "Send Campaign Sequence",
+  "slug": "send-campaign-sequence",
+  "description": "Dispatches a KNYT Wheel campaign sequence to a cohort of investors via the channel registry. Supports dry-run mode, cohort filtering, state filtering, and explicit recipient ID lists. Primary Marketa activation skill.",
+  "currentVersion": "1.0.0",
+  "trustBand": "L2_VERIFIED_COMMUNITY",
+  "publicationStatus": "draft",
+  "policyClass": "operator_only",
+  "wrapperStrategy": "skill",
+  "interfaceSchema": {
+    "inputs": {
+      "NEXT_PUBLIC_SUPABASE_URL":  { "type": "string", "source": "env", "required": true },
+      "SUPABASE_SERVICE_ROLE_KEY": { "type": "string", "source": "env", "required": true },
+      "MARKETA_WEBHOOK_SECRET":    { "type": "string", "source": "env", "required": false },
+      "sequence": {
+        "type": "string", "source": "arg", "required": true,
+        "enum": ["knyt_top_shelf_v1", "knyt_zero_v1", "knyt_reactivation_v1", "knyt_general_v1"]
+      },
+      "cohort": {
+        "type": "string", "source": "arg", "required": false, "default": "all",
+        "enum": ["top_shelf", "zero_knyt", "reactivation", "general", "all"]
+      },
+      "channel": {
+        "type": "string", "source": "arg", "required": false, "default": "email_mailjet",
+        "enum": ["email_mailjet", "email_sendgrid", "make_com"]
+      },
+      "ids":      { "type": "string",  "source": "arg", "required": false, "description": "Comma-separated nakamoto IDs" },
+      "state":    { "type": "string",  "source": "arg", "required": false, "default": "unsent,sent" },
+      "limit":    { "type": "integer", "source": "arg", "required": false },
+      "dry_run":  { "type": "boolean", "source": "arg", "required": false, "default": false },
+      "app_url":  { "type": "string",  "source": "arg", "required": false, "default": "https://dev-beta.aigentz.me" }
+    },
+    "outputs": {
+      "dispatched": { "type": "integer", "description": "Number of emails dispatched" },
+      "errors":     { "type": "array",   "description": "Any dispatch errors" },
+      "exit_code":  { "type": "integer", "description": "0 = success, 1 = failure" }
+    }
+  },
+  "capabilities": [
+    { "id": "cohort_query",       "name": "Query Cohort",          "description": "Fetches eligible recipient IDs from nakamoto_knyt_personas by cohort + state" },
+    { "id": "dispatch_sequence",  "name": "Dispatch Sequence",     "description": "POSTs to /api/marketa/sequence/dispatch with recipient IDs and sequence ID" },
+    { "id": "dry_run_preview",    "name": "Dry Run Preview",       "description": "Lists recipients without sending when --dry-run is set" }
+  ],
+  "steps": [
+    { "name": "resolve_recipients", "tool": "python",   "prompt": "Query nakamoto_knyt_personas by cohort + state filter, or use explicit --ids" },
+    { "name": "dry_run_check",      "tool": "python",   "prompt": "If --dry-run, print recipient list and exit" },
+    { "name": "confirm",            "tool": "stdin",    "prompt": "Prompt operator to confirm send count" },
+    { "name": "dispatch",           "tool": "http_post","prompt": "POST /api/marketa/sequence/dispatch with sequenceId, recipientIds, channel, context" },
+    { "name": "report",             "tool": "stdout",   "prompt": "Print dispatched count and any errors" }
+  ],
+  "tags": ["campaign", "email", "dispatch", "marketa", "knyt-wheel", "activation"],
+  "metadata": {
+    "entrypoint":    "scripts/send_campaign_sequence.py",
+    "language":      "python",
+    "runtime":       "python3",
+    "claudeCommand": "/send-campaign-sequence",
+    "marketaActivationRole": "primary",
+    "dispatchApi":   "/api/marketa/sequence/dispatch",
+    "channelRegistry": "services/campaign/channelRegistry.ts"
+  },
+  "createdBy": "claude-code",
+  "createdAt": "2026-04-13"
+}

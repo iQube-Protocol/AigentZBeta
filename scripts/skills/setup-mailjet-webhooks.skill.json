@@ -1,0 +1,48 @@
+{
+  "assetClass": "SkillQube",
+  "name": "Setup Mailjet Webhooks",
+  "slug": "setup-mailjet-webhooks",
+  "description": "Registers or updates all 6 KNYT Wheel event webhooks in Mailjet via the REST API (open, click, bounce, spam, unsub, blocked). Idempotent — safe to re-run.",
+  "currentVersion": "1.0.0",
+  "trustBand": "L2_VERIFIED_COMMUNITY",
+  "publicationStatus": "draft",
+  "policyClass": "operator_only",
+  "wrapperStrategy": "skill",
+  "interfaceSchema": {
+    "inputs": {
+      "MAILJET_API_KEY":        { "type": "string", "source": "env", "required": true },
+      "MAILJET_SECRET_KEY":     { "type": "string", "source": "env", "required": true },
+      "MAILJET_WEBHOOK_SECRET": { "type": "string", "source": "env", "required": false,
+                                  "description": "Appended as ?secret=... to the callback URL" },
+      "NEXT_PUBLIC_APP_URL":    { "type": "string", "source": "env", "required": false,
+                                  "default": "https://dev-beta.aigentz.me" }
+    },
+    "outputs": {
+      "registered": { "type": "integer", "description": "Number of webhooks successfully registered/updated" },
+      "exit_code":  { "type": "integer", "description": "0 = all registered, 1 = failures" }
+    }
+  },
+  "capabilities": [
+    { "id": "list_webhooks",   "name": "List Existing Webhooks", "description": "GET /v3/REST/eventcallbackurl to find existing registrations" },
+    { "id": "create_webhook",  "name": "Create Webhook",         "description": "POST /v3/REST/eventcallbackurl for a new event type" },
+    { "id": "update_webhook",  "name": "Update Webhook",         "description": "PUT /v3/REST/eventcallbackurl/{id} to update existing entry" }
+  ],
+  "steps": [
+    { "name": "load_env",       "tool": "python",    "prompt": "Load MAILJET_API_KEY, MAILJET_SECRET_KEY, MAILJET_WEBHOOK_SECRET" },
+    { "name": "build_url",      "tool": "python",    "prompt": "Construct callback URL with ?secret= query param" },
+    { "name": "list_existing",  "tool": "http_get",  "prompt": "GET /v3/REST/eventcallbackurl" },
+    { "name": "register_events","tool": "http_post", "prompt": "POST or PUT each of: open, click, bounce, spam, unsub, blocked" },
+    { "name": "report",         "tool": "stdout",    "prompt": "Print registered/updated status per event type" }
+  ],
+  "tags": ["campaign", "mailjet", "webhooks", "setup", "knyt-wheel", "operator-tool"],
+  "metadata": {
+    "entrypoint":    "scripts/mailjet_setup_webhooks.py",
+    "language":      "python",
+    "runtime":       "python3",
+    "claudeCommand": "/setup-mailjet-webhooks",
+    "webhookHandler": "app/api/crm/webhooks/mailjet/route.ts",
+    "events": ["open", "click", "bounce", "spam", "unsub", "blocked"]
+  },
+  "createdBy": "claude-code",
+  "createdAt": "2026-04-13"
+}

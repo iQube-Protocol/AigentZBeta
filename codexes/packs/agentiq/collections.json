@@ -73,6 +73,13 @@
       ]
     },
     {
+      "id": "col_agentiq_knyt",
+      "title": "AgentiQ KNYT",
+      "items": [
+        "items/AGENTIQ_KNYT.md"
+      ]
+    },
+    {
       "id": "col_agentiq_os",
       "title": "AgentiQ OS",
       "items": [

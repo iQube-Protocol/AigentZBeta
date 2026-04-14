@@ -1,0 +1,53 @@
+{
+  "assetClass": "SkillQube",
+  "name": "Sync KS Backers",
+  "slug": "sync-ks-backers",
+  "description": "Syncs a Kickstarter backer export CSV into nakamoto_knyt_personas. Matches by email — sets kickstarter_backed_at and advances campaign_state to 'backed' on existing rows; inserts new ks_backer prospect rows for new emails.",
+  "currentVersion": "1.0.0",
+  "trustBand": "L2_VERIFIED_COMMUNITY",
+  "publicationStatus": "draft",
+  "policyClass": "operator_only",
+  "wrapperStrategy": "skill",
+  "interfaceSchema": {
+    "inputs": {
+      "NEXT_PUBLIC_SUPABASE_URL":  { "type": "string", "source": "env", "required": true },
+      "SUPABASE_SERVICE_ROLE_KEY": { "type": "string", "source": "env", "required": true },
+      "csv":    { "type": "string",  "source": "arg", "required": true,  "description": "Path to Kickstarter backer export CSV" },
+      "apply":  { "type": "boolean", "source": "arg", "default": false,  "description": "Write changes to Supabase (default: dry run)" },
+      "status": { "type": "string",  "source": "arg", "default": "",     "description": "Filter by KS Status column (e.g. 'collected')" }
+    },
+    "outputs": {
+      "matched":   { "type": "integer", "description": "Existing investor rows updated" },
+      "inserted":  { "type": "integer", "description": "New ks_backer prospect rows inserted" },
+      "skipped":   { "type": "integer", "description": "Rows skipped (already backed or no email)" },
+      "exit_code": { "type": "integer" }
+    }
+  },
+  "capabilities": [
+    { "id": "load_csv",         "name": "Load CSV",            "description": "Parse Kickstarter backer export CSV, normalise column names" },
+    { "id": "fetch_investors",  "name": "Fetch Investors",     "description": "Paginated fetch of nakamoto_knyt_personas email index" },
+    { "id": "match_backers",    "name": "Match Backers",       "description": "Email-match CSV rows to existing investor records" },
+    { "id": "update_backed",    "name": "Update Backed State", "description": "PATCH kickstarter_backed_at + campaign_state='backed' on matched rows" },
+    { "id": "insert_prospects", "name": "Insert New Backers",  "description": "INSERT new prospect rows for emails not already in DB" }
+  ],
+  "steps": [
+    { "name": "load_csv",         "tool": "python", "prompt": "Load and parse the KS CSV; normalise column names to lowercase" },
+    { "name": "fetch_investors",  "tool": "python", "prompt": "Paginated GET nakamoto_knyt_personas selecting id, Email, kickstarter_backed_at, campaign_state" },
+    { "name": "match_backers",    "tool": "python", "prompt": "Build email→id lookup; classify each CSV row as match/new/skip" },
+    { "name": "preview",          "tool": "stdout", "prompt": "Print counts: matched, new, skipped — prompt to run with --apply" },
+    { "name": "apply_updates",    "tool": "python", "prompt": "PATCH matched rows; INSERT new prospect rows (only if --apply)" }
+  ],
+  "tags": ["campaign", "kickstarter", "backers", "sync", "knyt-wheel"],
+  "metadata": {
+    "entrypoint":    "scripts/ks_backer_sync.py",
+    "language":      "python",
+    "runtime":       "python3",
+    "claudeCommand": "/sync-ks-backers",
+    "csvColumns": {
+      "required": ["Email", "Backer Name", "Pledge Amount", "Pledged At"],
+      "optional": ["Reward Title", "Status"]
+    }
+  },
+  "createdBy": "claude-code",
+  "createdAt": "2026-04-13"
+}

@@ -35,10 +35,12 @@ import { KnytTab } from "./tabs/KnytTab";
 import { MoneyPennyTab } from "./tabs/MoneyPennyTab";
 import { NakamotoTab } from "./tabs/NakamotoTab";
 import { ExperienceDashboardTab } from "./tabs/ExperienceDashboardTab";
+import { InvestorDirectoryTab } from "./tabs/InvestorDirectoryTab";
 import { ArtifactTraceabilityTab } from "./tabs/ArtifactTraceabilityTab";
 import { FactoryIntakeTab } from "./tabs/FactoryIntakeTab";
 import { RegistrySupplyTab } from "./tabs/RegistrySupplyTab";
 import KnytRuntimeSurface from "./tabs/KnytRuntimeSurface";
+import { KnytTreasuryTab } from "./tabs/KnytTreasuryTab";
 
 interface TabRendererProps {
   tab: CodexTab;
@@ -70,10 +72,12 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   PlaceholderTab,
   MoneyPennyTab,
   ExperienceDashboardTab,
+  InvestorDirectoryTab,
   ArtifactTraceabilityTab,
   FactoryIntakeTab,
   RegistrySupplyTab,
   KnytRuntimeSurface,
+  KnytTreasuryTab,
   RewardsTab: PlaceholderTab,
   DocsTab: PlaceholderTab,
   APITab: PlaceholderTab,

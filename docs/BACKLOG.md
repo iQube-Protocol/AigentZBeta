@@ -473,6 +473,55 @@ trust.scoring → review.pending → asset.published
 
 ---
 
+## 🛠 Campaign Skills Registry
+
+Skills built during the KNYT Wheel campaign that are candidates for ingestion into the Factory as SkillQubes and exposure to Marketa for automated campaign execution.
+
+All skills have:
+- A Claude Code slash command in `.claude/commands/`
+- An implementation script in `scripts/`
+- A SkillQube manifest in `scripts/skills/` ready for ingestion
+
+### Built
+
+| Skill | Slash Command | Script | SkillQube Manifest | Status |
+|---|---|---|---|---|
+| Create Mailjet Templates | `/create-mailjet-templates` | `scripts/mailjet_create_templates.py` | `scripts/skills/create-mailjet-templates.skill.json` | ✅ Ready to ingest |
+| Run Campaign Smoke Test | `/run-campaign-smoke-test` | `scripts/campaign_smoke_test.py` | `scripts/skills/run-campaign-smoke-test.skill.json` | ✅ Ready to ingest |
+| Send Campaign Sequence | `/send-campaign-sequence` | `scripts/send_campaign_sequence.py` | `scripts/skills/send-campaign-sequence.skill.json` | ✅ Ready to ingest |
+| Setup Mailjet Webhooks | `/setup-mailjet-webhooks` | `scripts/mailjet_setup_webhooks.py` | `scripts/skills/setup-mailjet-webhooks.skill.json` | ✅ Ready to ingest |
+| Assign Campaign Cohorts | `/assign-cohorts` | `scripts/assign_cohorts.py` | `scripts/skills/assign-cohorts.skill.json` | ✅ Ready to ingest |
+| Sync KS Backers | `/sync-ks-backers` | `scripts/ks_backer_sync.py` | `scripts/skills/sync-ks-backers.skill.json` | ✅ Ready to ingest |
+
+### Needed — Campaign Automation
+
+| Skill | Description | Priority |
+|---|---|---|
+| `send-campaign-sequence` | ~~Dispatch a named KNYT Wheel sequence to a cohort via the channel registry~~ **Built** | ~~High~~ |
+| `assign-cohorts-bulk` | Bulk-assign `campaign_cohort` to investors by filter (investment band, state) | High |
+| `sync-ks-backers` | ~~Ingest Kickstarter backer CSV → set `kickstarter_backed_at + campaign_state=backed`~~ **Built** | ~~High~~ |
+| `campaign-metrics-snapshot` | Pull the 11 dashboard metrics and emit a structured report | Medium |
+| `reactivation-queue-build` | Query `knyt_followup_queue` for high-urgency prospects and build the reactivation send list | Medium |
+| `partner-outreach-update` | Update partner status in `partner_outreach` table from a structured list | Low |
+
+### Needed — Channel Adapters (Marketa use)
+
+| Skill | Description | Priority |
+|---|---|---|
+| `create-sendgrid-templates` | Same as Mailjet equivalent but for SendGrid Dynamic Templates | Medium |
+| `create-twilio-sms-templates` | Register SMS message templates in Twilio for KNYT Wheel sequences | Low |
+| `send-telegram-blast` | Dispatch a campaign message via Telegram Bot API | Low |
+
+### Ingestion Plan
+
+When Gates 3 + 4 are complete:
+1. Submit each `scripts/skills/*.skill.json` manifest to the Factory via `POST /api/registry/intake`
+2. The Skills Ingestion Agent (`agentiq-skills-packager`) auto-packages each SkillQube through sandbox smoke test + interface conformance validation
+3. Published SkillQubes become callable by Marketa via the channel registry or a `SkillQube.invoke()` API
+4. Marketa can trigger `send-campaign-sequence` or `reactivation-queue-build` as part of automated activation flows
+
+---
+
 **Maintained by**: Development Team  
 **Review Schedule**: Monthly  
-**Last Review**: April 8, 2026
+**Last Review**: April 13, 2026

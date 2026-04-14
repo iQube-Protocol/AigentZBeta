@@ -1,0 +1,104 @@
+{
+  "agent": "aigent-kn0w1",
+  "cartridge": "knyt",
+  "version": "0.1.0",
+  "description": "Know1 alpha skill family for the KNYT cartridge. These are the eight curated internal skills Know1 draws from in KNYT context.",
+  "skills": [
+    {
+      "id": "information_value_interpret",
+      "name": "Information Value Interpreter",
+      "description": "Frame what a piece of knowledge or content is worth inside the KNYT system. Surfaces value signals without overstating.",
+      "inputs": ["content_ref", "context"],
+      "outputs": ["value_framing", "trust_signal"],
+      "authority_required": "none",
+      "trust_level": "L1",
+      "pricing_qc": 0,
+      "receipt_emitted": true,
+      "cartridge_overlays": ["knyt"]
+    },
+    {
+      "id": "risk_frame_humanize",
+      "name": "Risk Frame Humanizer",
+      "description": "Translate risk and uncertainty into plain language without minimising or alarming. Used when explaining provisional states, economic volatility, or uncertain outcomes.",
+      "inputs": ["risk_context"],
+      "outputs": ["plain_language_framing"],
+      "authority_required": "none",
+      "trust_level": "L1",
+      "pricing_qc": 0,
+      "receipt_emitted": false,
+      "cartridge_overlays": ["knyt"]
+    },
+    {
+      "id": "pricing_logic_explain",
+      "name": "Pricing Logic Explainer",
+      "description": "Explain how Qc pricing works for skills, sessions, and actions inside the stack. Makes the economic grammar legible to humans.",
+      "inputs": ["action_type", "session_context"],
+      "outputs": ["pricing_explanation"],
+      "authority_required": "none",
+      "trust_level": "L1",
+      "pricing_qc": 0,
+      "receipt_emitted": false,
+      "cartridge_overlays": ["knyt", "agentiq"]
+    },
+    {
+      "id": "knyt_treasury_explain",
+      "name": "KNYT Treasury Explainer",
+      "description": "Explain the KNYT Treasury clearly and honestly — what it is, what it holds, how it sustains the cartridge economy, what flows in and out.",
+      "inputs": ["user_context", "treasury_state"],
+      "outputs": ["treasury_explanation"],
+      "authority_required": "none",
+      "trust_level": "L1",
+      "pricing_qc": 0,
+      "receipt_emitted": true,
+      "cartridge_overlays": ["knyt"]
+    },
+    {
+      "id": "knyt_rewards_explain",
+      "name": "KNYT Rewards Explainer",
+      "description": "Explain the KNYT rewards model — what meaningful participation earns, how rewards are recognised, the difference between provisional and finalised state.",
+      "inputs": ["user_stage", "participation_history"],
+      "outputs": ["rewards_explanation", "provisional_status"],
+      "authority_required": "none",
+      "trust_level": "L1",
+      "pricing_qc": 0,
+      "receipt_emitted": true,
+      "cartridge_overlays": ["knyt"]
+    },
+    {
+      "id": "qc_vs_knyt_explain",
+      "name": "Qc vs $KNYT Distinction Explainer",
+      "description": "Explain the Qc / $KNYT distinction cleanly every time it is needed. Governing rule: Qc helps KNYT operate. $KNYT helps KNYT express and reward native value. These must not be conflated.",
+      "inputs": ["user_question"],
+      "outputs": ["distinction_explanation"],
+      "authority_required": "none",
+      "trust_level": "L1",
+      "pricing_qc": 0,
+      "receipt_emitted": false,
+      "cartridge_overlays": ["knyt"]
+    },
+    {
+      "id": "21sats_structure_explain",
+      "name": "21 Sats Structure Explainer",
+      "description": "Explain what 21 Sats is, how it sits inside KNYT as the community world, what coordination means here, and the feeder path toward AVS.",
+      "inputs": ["user_context"],
+      "outputs": ["structure_explanation"],
+      "authority_required": "none",
+      "trust_level": "L1",
+      "pricing_qc": 0,
+      "receipt_emitted": false,
+      "cartridge_overlays": ["knyt"]
+    },
+    {
+      "id": "opportunity_shape",
+      "name": "Opportunity Shaper",
+      "description": "Help a participant see and articulate their next real move inside the KNYT system. Surfaces venture pathways, contribution opportunities, and progression steps without pushing.",
+      "inputs": ["user_stage", "interests", "participation_history"],
+      "outputs": ["opportunity_framing", "suggested_next_move"],
+      "authority_required": "none",
+      "trust_level": "L1",
+      "pricing_qc": 0,
+      "receipt_emitted": true,
+      "cartridge_overlays": ["knyt"]
+    }
+  ]
+}
