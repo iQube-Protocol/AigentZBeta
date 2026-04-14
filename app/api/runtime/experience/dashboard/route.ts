@@ -287,8 +287,11 @@ export async function GET(request: NextRequest) {
 
   // ── Matrix distribution view ──────────────────────────────────────────────────
   // Reads nakamoto_knyt_personas to build aggregate cell counts for the KNYT
-  // experience matrix. All investors are at Y=Collector (they hold collectibles:
-  // shares, cards, or other assets). X-position is derived from OM-Tier-Status.
+  // experience matrix.
+  // Y-axis:
+  //   - Has OM-Tier-Status value → Collector (they have invested = hold collectibles)
+  //   - No OM-Tier-Status       → Observer  (prospect, not yet invested)
+  // X-axis: derived from OM-Tier-Status value (Keta/Keji/First/Zero/Sat KNYT/Prospect)
   if (view === 'matrix') {
     // OM-Tier-Status → x_stage label in the KNYT matrix
     const TIER_TO_X: Record<string, string> = {
@@ -297,37 +300,53 @@ export async function GET(request: NextRequest) {
 
     const crmClient = getCrmClient();
     const tierCounts: Record<string, number> = {};
-    let total = 0;
+    let totalInvestors = 0;
+    let totalProspects = 0;
     let page = 0;
     const PAGE = 1000;
 
-    // Paginate through all records — PostgREST hard-caps at 1000 per request
+    // Paginate through all records — PostgREST hard-caps at 1000 per request.
+    // Use select('*') — hyphenated column names cannot be reliably quoted in
+    // the Supabase JS client's select() string syntax.
     while (true) {
       const { data, error } = await crmClient
         .from('nakamoto_knyt_personas')
-        .select('"OM-Tier-Status"')
+        .select('*')
         .range(page * PAGE, (page + 1) * PAGE - 1);
       if (error || !data || data.length === 0) break;
       for (const row of data) {
-        const tier = (((row as Record<string, unknown>)['OM-Tier-Status'] as string) || '').toUpperCase().trim();
-        tierCounts[tier] = (tierCounts[tier] ?? 0) + 1;
-        total++;
+        const r = row as Record<string, unknown>;
+        const tier = ((r['OM-Tier-Status'] as string) || '').toUpperCase().trim();
+        if (tier) {
+          // Has an OM tier → actual investor (Collector on Y-axis)
+          tierCounts[tier] = (tierCounts[tier] ?? 0) + 1;
+          totalInvestors++;
+        } else {
+          // No tier → prospect (Observer on Y-axis)
+          totalProspects++;
+        }
       }
       if (data.length < PAGE) break;
       page++;
     }
 
-    // Build cell map: Y is always "Collector", X from tier
+    // Build cell map
+    // Investors: Y=Collector, X from OM-Tier-Status
     const cells: Record<string, number> = {};
     for (const [tier, count] of Object.entries(tierCounts)) {
       const xStage = TIER_TO_X[tier] ?? 'Prospect';
-      const cellKey = `Collector:${xStage}`;
-      cells[cellKey] = (cells[cellKey] ?? 0) + count;
+      cells[`Collector:${xStage}`] = (cells[`Collector:${xStage}`] ?? 0) + count;
+    }
+    // Prospects: Y=Observer, X=Prospect
+    if (totalProspects > 0) {
+      cells['Observer:Prospect'] = (cells['Observer:Prospect'] ?? 0) + totalProspects;
     }
 
     return NextResponse.json({
       view: 'matrix',
-      total,
+      total: totalInvestors + totalProspects,
+      total_investors: totalInvestors,
+      total_prospects: totalProspects,
       y_default: 'Collector',
       tier_distribution: tierCounts,
       cells,
