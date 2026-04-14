@@ -515,10 +515,10 @@ export function RegistryHome() {
                       {t.iQubeType && <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-indigo-500/20 text-indigo-300 ring-1 ring-indigo-500/30" title="Type">{t.iQubeType}</span>}
                       {t.businessModel && <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30" title="Business Model">{t.businessModel}</span>}
                       <span className="w-px h-3 bg-slate-700 mx-0.5" />
-                      <span title="Sensitivity" className="inline-flex items-center gap-1 text-[11px] text-slate-500"><span className="text-slate-600">Sen</span><DotsInline value={t.sensitivityScore ?? 0} kind='sensitivity' title="Sensitivity" /></span>
-                      <span title="Accuracy" className="inline-flex items-center gap-1 text-[11px] text-slate-500"><span className="text-slate-600">Acc</span><DotsInline value={t.accuracyScore} kind='accuracy' title="Accuracy" /></span>
-                      <span title="Verifiability" className="inline-flex items-center gap-1 text-[11px] text-slate-500"><span className="text-slate-600">Ver</span><DotsInline value={t.verifiabilityScore} kind='verifiability' title="Verifiability" /></span>
-                      <span title="Risk" className="inline-flex items-center gap-1 text-[11px] text-slate-500"><span className="text-slate-600">Risk</span><DotsInline value={t.riskScore} kind='risk' title="Risk" /></span>
+                      <span title="Sensitivity" className="inline-flex items-center gap-1 text-[11px] text-slate-500"><span className="text-slate-200">Sen</span><DotsInline value={t.sensitivityScore ?? 0} kind='sensitivity' title="Sensitivity" /></span>
+                      <span title="Accuracy" className="inline-flex items-center gap-1 text-[11px] text-slate-500"><span className="text-slate-200">Acc</span><DotsInline value={t.accuracyScore} kind='accuracy' title="Accuracy" /></span>
+                      <span title="Verifiability" className="inline-flex items-center gap-1 text-[11px] text-slate-500"><span className="text-slate-200">Ver</span><DotsInline value={t.verifiabilityScore} kind='verifiability' title="Verifiability" /></span>
+                      <span title="Risk" className="inline-flex items-center gap-1 text-[11px] text-slate-500"><span className="text-slate-200">Risk</span><DotsInline value={t.riskScore} kind='risk' title="Risk" /></span>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
