@@ -289,14 +289,24 @@ export async function GET(request: NextRequest) {
   // Reads nakamoto_knyt_personas to build aggregate cell counts for the KNYT
   // experience matrix.
   // Y-axis:
-  //   - Has OM-Tier-Status value → Collector (they have invested = hold collectibles)
-  //   - No OM-Tier-Status       → Observer  (prospect, not yet invested)
-  // X-axis: derived from OM-Tier-Status value (Keta/Keji/First/Zero/Sat KNYT/Prospect)
+  //   - Has resolved tier (OM-Tier-Status or derived from Total-Invested) → Collector
+  //   - No tier / no investment                                            → Observer
+  // X-axis: derived from tier value (Keta/Keji/First/Zero/Sat KNYT/Prospect)
   if (view === 'matrix') {
-    // OM-Tier-Status → x_stage label in the KNYT matrix
+    // OM-Tier-Status (or amount-derived tier) → x_stage label in the KNYT matrix
     const TIER_TO_X: Record<string, string> = {
       SAT: 'Sat KNYT', ZERO: 'Zero', FIRST: 'First', KEJI: 'Keji', KETA: 'Keta',
     };
+
+    // Mirrors tierFromInvested() in scripts/import-nakamoto-to-qubebase.js
+    function deriveTierFromAmount(amount: number): string {
+      if (amount >= 25000) return 'SAT';
+      if (amount >= 1000)  return 'ZERO';
+      if (amount >= 500)   return 'FIRST';
+      if (amount >= 250)   return 'KEJI';
+      if (amount >= 100)   return 'KETA';
+      return '';
+    }
 
     const crmClient = getCrmClient();
     const tierCounts: Record<string, number> = {};
@@ -316,13 +326,21 @@ export async function GET(request: NextRequest) {
       if (error || !data || data.length === 0) break;
       for (const row of data) {
         const r = row as Record<string, unknown>;
-        const tier = ((r['OM-Tier-Status'] as string) || '').toUpperCase().trim();
+
+        // Prefer explicit OM-Tier-Status; fall back to investment amount
+        let tier = ((r['OM-Tier-Status'] as string) || '').toUpperCase().trim();
+        if (!tier) {
+          const investedRaw = String(r['Total-Invested'] || '0');
+          const invested = parseFloat(investedRaw.replace(/[^0-9.]/g, '')) || 0;
+          tier = deriveTierFromAmount(invested);
+        }
+
         if (tier) {
-          // Has an OM tier → actual investor (Collector on Y-axis)
+          // Has a resolved tier → actual investor (Collector on Y-axis)
           tierCounts[tier] = (tierCounts[tier] ?? 0) + 1;
           totalInvestors++;
         } else {
-          // No tier → prospect (Observer on Y-axis)
+          // No tier, no investment → prospect (Observer on Y-axis)
           totalProspects++;
         }
       }
@@ -331,7 +349,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Build cell map
-    // Investors: Y=Collector, X from OM-Tier-Status
+    // Investors: Y=Collector, X from resolved tier
     const cells: Record<string, number> = {};
     for (const [tier, count] of Object.entries(tierCounts)) {
       const xStage = TIER_TO_X[tier] ?? 'Prospect';
