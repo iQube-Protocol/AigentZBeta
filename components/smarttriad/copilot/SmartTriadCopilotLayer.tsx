@@ -457,7 +457,7 @@ function FloatingCopilot({
 }) {
   
   return (
-    <div className="fixed inset-0 z-50 flex">
+    <div className="fixed inset-0 z-[200] flex">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
