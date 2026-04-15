@@ -249,36 +249,43 @@ export async function POST(request: NextRequest) {
     }
 
     // ── 3. Write updates (if not dry run) ─────────────────────────────────────
+    // Group rows by their computed value combination so we do one UPDATE per
+    // unique value set rather than one per row. With only ~5 distinct y_stages
+    // and ~6 band values this reduces ~3500 DB calls to ~15.
     let bandsSet   = 0;
     let cohortsSet = 0;
     let yStagesSet = 0;
 
     if (!dryRun && rowUpdates.length > 0) {
-      // Group by update signature to minimize DB round-trips
       const CHUNK = 200;
 
-      // Write in chunks of individual row updates
-      for (let i = 0; i < rowUpdates.length; i += CHUNK) {
-        const chunk = rowUpdates.slice(i, i + CHUNK);
+      // Build a map: serialised payload → ids[]
+      const byPayload = new Map<string, { payload: Record<string, string>; ids: string[] }>();
+      for (const upd of rowUpdates) {
+        const payload: Record<string, string> = {};
+        if (upd.investment_amount_band) payload['investment_amount_band'] = upd.investment_amount_band;
+        if (upd.campaign_cohort)        payload['campaign_cohort']        = upd.campaign_cohort;
+        if (upd.matrix_y_stage)         payload['matrix_y_stage']         = upd.matrix_y_stage;
+        const key = JSON.stringify(payload);
+        if (!byPayload.has(key)) byPayload.set(key, { payload, ids: [] });
+        byPayload.get(key)!.ids.push(upd.id);
+      }
 
-        // Build individual update objects keyed by id
-        for (const upd of chunk) {
-          const payload: Record<string, string> = {};
-          if (upd.investment_amount_band) payload['investment_amount_band'] = upd.investment_amount_band;
-          if (upd.campaign_cohort)        payload['campaign_cohort']        = upd.campaign_cohort;
-          if (upd.matrix_y_stage)         payload['matrix_y_stage']         = upd.matrix_y_stage;
-
+      // One UPDATE per unique value combination, chunked by id list size
+      for (const { payload, ids } of byPayload.values()) {
+        for (let i = 0; i < ids.length; i += CHUNK) {
           const { error } = await client
             .from('nakamoto_knyt_personas')
             .update(payload)
-            .eq('id', upd.id);
+            .in('id', ids.slice(i, i + CHUNK));
 
           if (error) {
-            errors.push(`Update failed for ${upd.id}: ${error.message}`);
+            errors.push(`Batch update failed (${JSON.stringify(payload)}): ${error.message}`);
           } else {
-            if (upd.investment_amount_band) bandsSet++;
-            if (upd.campaign_cohort)        cohortsSet++;
-            if (upd.matrix_y_stage)         yStagesSet++;
+            const count = Math.min(CHUNK, ids.length - i);
+            if (payload['investment_amount_band']) bandsSet   += count;
+            if (payload['campaign_cohort'])        cohortsSet += count;
+            if (payload['matrix_y_stage'])         yStagesSet += count;
           }
         }
       }
