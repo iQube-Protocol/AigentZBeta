@@ -41,8 +41,20 @@ const STAGE_DEPTH: Record<string, string> = {
   'sat knyt': 'codex',
 };
 
+// Normalize raw tier values ("Sat KNYT", "SAT KNYT", "SAT", "Zero", etc.)
+// before the switch — mirrors normalizeTier() in import-nakamoto-to-qubebase.js.
+function normalizeTierKey(raw: string): string {
+  const c = (raw || '').toUpperCase().replace(/[^A-Z]/g, '');
+  if (c.includes('SAT'))   return 'SAT';
+  if (c.includes('ZERO'))  return 'ZERO';
+  if (c.includes('FIRST')) return 'FIRST';
+  if (c.includes('KEJI'))  return 'KEJI';
+  if (c.includes('KETA'))  return 'KETA';
+  return '';
+}
+
 function orderTierToStage(tier: string | null): string {
-  switch ((tier ?? '').toUpperCase()) {
+  switch (normalizeTierKey(tier ?? '')) {
     case 'SAT':   return 'sat knyt'; // Apex Satoshi franchisees — distinct from Zero KNYT
     case 'ZERO':  return 'zero';
     case 'FIRST': return 'first';
