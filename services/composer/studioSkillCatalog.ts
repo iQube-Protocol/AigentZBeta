@@ -210,6 +210,68 @@ export const STUDIO_SKILLS: StudioSkillEntry[] = [
       ],
     },
   },
+  {
+    id: "skill:crm_data_cleanup",
+    name: "CRM Data Cleanup",
+    description:
+      "Audits and normalises the nakamoto_knyt_personas CRM dataset. Reports duplicate records by email, non-canonical OM-Tier-Status values (e.g. 'Sat KNYT' → canonical form), and phantom rows with no identifying data. Optionally applies fixes. dry_run:true by default — safe to invoke for inspection.",
+    assetClass: "SkillQube",
+    trustBand: "L3_PRODUCTION_CANDIDATE",
+    badge: "A",
+    compositeScore: 72,
+    provider: "agentiq",
+    invokeEndpoint: "/api/skills/crm/data-cleanup",
+    tags: ["crm", "data-cleanup", "normalisation", "deduplication", "nakamoto", "knyt"],
+    interfaceSchema: {
+      inputs: [
+        { name: "dry_run",        type: "boolean", required: false, description: "Default true. Set false to apply changes." },
+        { name: "fix_tiers",      type: "boolean", required: false, description: "Default true. Normalise OM-Tier-Status to canonical form." },
+        { name: "merge_dupes",    type: "boolean", required: false, description: "Default false. Delete duplicate rows, keeping richest record." },
+        { name: "phantom_report", type: "boolean", required: false, description: "Default true. Report rows with no name, email, or investment." },
+      ],
+      outputs: [
+        { name: "total_rows",        type: "number" },
+        { name: "tier_report",       type: "object[]", description: "Non-canonical tier values with fix targets and counts" },
+        { name: "tiers_would_fix",   type: "number" },
+        { name: "dupe_groups",       type: "object[]", description: "Duplicate email groups" },
+        { name: "dupes_would_delete", type: "number" },
+        { name: "phantom_rows",      type: "object[]" },
+        { name: "errors",            type: "string[]" },
+      ],
+    },
+  },
+  {
+    id: "skill:crm_matrix_prep",
+    name: "CRM Matrix Prep",
+    description:
+      "Prepares the nakamoto_knyt_personas CRM dataset for the KNYT experience matrix. Derives investment_amount_band, assigns campaign_cohort, and computes matrix_y_stage (observer → collector → curator → correspondent → remixer → creator → steward → franchisee) from engagement signals. Writes computed values back to the DB. dry_run:true by default.",
+    assetClass: "SkillQube",
+    trustBand: "L3_PRODUCTION_CANDIDATE",
+    badge: "A",
+    compositeScore: 74,
+    provider: "agentiq",
+    invokeEndpoint: "/api/skills/crm/matrix-prep",
+    tags: ["crm", "matrix", "experience-matrix", "y-stage", "investment-band", "cohort", "nakamoto", "knyt"],
+    interfaceSchema: {
+      inputs: [
+        { name: "dry_run",           type: "boolean", required: false, description: "Default true. Set false to write changes." },
+        { name: "assign_bands",      type: "boolean", required: false, description: "Default true. Derive investment_amount_band." },
+        { name: "assign_cohorts",    type: "boolean", required: false, description: "Default true. Set campaign_cohort from band." },
+        { name: "compute_y_stage",   type: "boolean", required: false, description: "Default true. Compute and write matrix_y_stage." },
+        { name: "overwrite_cohort",  type: "boolean", required: false, description: "Default false. Re-assign even if already set." },
+        { name: "overwrite_y_stage", type: "boolean", required: false, description: "Default false. Re-compute even if already set." },
+      ],
+      outputs: [
+        { name: "total_rows",            type: "number" },
+        { name: "x_stage_distribution", type: "object", description: "Count per X-axis tier label" },
+        { name: "y_stage_distribution", type: "object", description: "Count per Y-axis stage" },
+        { name: "band_distribution",     type: "object" },
+        { name: "cohort_distribution",   type: "object" },
+        { name: "y_stages_would_set",    type: "number" },
+        { name: "errors",               type: "string[]" },
+      ],
+    },
+  },
 ];
 
 export const STUDIO_BUNDLES: StudioBundleEntry[] = [
