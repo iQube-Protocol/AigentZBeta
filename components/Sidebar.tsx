@@ -236,6 +236,14 @@ export const Sidebar = () => {
       setStudioExpanded(next);
       if (!next) {
         setStudioMenuVisible(false);
+      } else {
+        // Entering studio mode — cancel any pending non-studio collapse and clear pinnedOpen
+        // so the sidebar doesn't stick open after navigating from a non-studio page
+        if (collapseTimerRef.current) {
+          clearTimeout(collapseTimerRef.current);
+          collapseTimerRef.current = null;
+        }
+        setPinnedOpen(false);
       }
     };
 
