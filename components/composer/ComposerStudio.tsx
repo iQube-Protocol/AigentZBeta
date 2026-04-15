@@ -1914,6 +1914,17 @@ export const ComposerStudio = () => {
     const TIER_TO_STAGE: Record<string, string> = {
       SAT: 'Sat KNYT', ZERO: 'Zero', FIRST: 'First', KEJI: 'Keji', KETA: 'Keta',
     };
+    // Mirrors normalizeTier() in import-nakamoto-to-qubebase.js.
+    // Raw DB values can be "Sat KNYT", "SAT KNYT", "SAT", "Zero", "KETA", etc.
+    const normTier = (raw: string) => {
+      const c = (raw || '').toUpperCase().replace(/[^A-Z]/g, '');
+      if (c.includes('SAT'))   return 'SAT';
+      if (c.includes('ZERO'))  return 'ZERO';
+      if (c.includes('FIRST')) return 'FIRST';
+      if (c.includes('KEJI'))  return 'KEJI';
+      if (c.includes('KETA'))  return 'KETA';
+      return '';
+    };
     Promise.all([
       fetch("/api/runtime/experience/dashboard?view=matrix")
         .then((r) => (r.ok ? r.json() : null)),
@@ -1929,7 +1940,7 @@ export const ComposerStudio = () => {
           setMatrixIndividuals(
             (investorData.data as Record<string, unknown>[]).map((inv) => ({
               name: (inv.name as string) || (inv.email as string) || (inv.id as string) || "Unknown",
-              stage: TIER_TO_STAGE[((inv.omTier as string) || '').toUpperCase()] ?? 'Prospect',
+              stage: TIER_TO_STAGE[normTier((inv.omTier as string) || '')] ?? 'Prospect',
               omTier: (inv.omTier as string) || '',
             }))
           );
@@ -1958,6 +1969,15 @@ export const ComposerStudio = () => {
     const TIER_TO_STAGE: Record<string, string> = {
       SAT: "Sat KNYT", ZERO: "Zero", FIRST: "First", KEJI: "Keji", KETA: "Keta",
     };
+    const normTier = (raw: string) => {
+      const c = (raw || '').toUpperCase().replace(/[^A-Z]/g, '');
+      if (c.includes('SAT'))   return 'SAT';
+      if (c.includes('ZERO'))  return 'ZERO';
+      if (c.includes('FIRST')) return 'FIRST';
+      if (c.includes('KEJI'))  return 'KEJI';
+      if (c.includes('KETA'))  return 'KETA';
+      return '';
+    };
     const timer = setTimeout(() => {
       fetch(`/api/crm/investors?search=${encodeURIComponent(individualSearch.trim())}&limit=50`)
         .then((r) => (r.ok ? r.json() : null))
@@ -1966,7 +1986,7 @@ export const ComposerStudio = () => {
             setIndividualSearchResults(
               (data.data as Record<string, unknown>[]).map((inv) => ({
                 name: (inv.name as string) || (inv.email as string) || "Unknown",
-                stage: TIER_TO_STAGE[((inv.omTier as string) || "").toUpperCase()] ?? "Prospect",
+                stage: TIER_TO_STAGE[normTier((inv.omTier as string) || "")] ?? "Prospect",
                 omTier: (inv.omTier as string) || "",
               }))
             );
