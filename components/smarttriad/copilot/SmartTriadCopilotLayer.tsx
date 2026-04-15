@@ -259,15 +259,26 @@ export function SmartTriadCopilotLayer({
           content: typeof m.content === 'string' ? m.content : '',
         }));
 
+      // Map persona to the correct KB search domain:
+      // KNYT agents search the metaKnyts codex; MoneyPenny searches Qriptopian;
+      // platform agents (Aigent Z/C) pass 'agentiq' — the route treats unknown domains
+      // as platform-only and skips KNYT codex injection.
+      const resolvedPersona = personaId ?? 'aigent-kn0w1';
+      const domainForPersona = (() => {
+        if (resolvedPersona === 'aigent-kn0w1' || resolvedPersona === 'aigent-marketa') return 'metaKnyts';
+        if (resolvedPersona === 'aigent-moneypenny') return 'qriptopian';
+        return 'agentiq'; // aigent-z, aigent-c, metaMe, etc.
+      })();
+
       const res = await fetch('/api/codex/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: sentInput,
           chatHistory,
-          persona: personaId ?? 'aigent-kn0w1',
-          aigentId: personaId ?? 'aigent-kn0w1',
-          domain: 'metaKnyts',
+          persona: resolvedPersona,
+          aigentId: resolvedPersona,
+          domain: domainForPersona,
           provider_id: selectedProvider,
         }),
       });

@@ -130,6 +130,10 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
       }
       // Always reload so badge + button state reflect actual DB state
       await loadAll();
+      // Notify sibling components (e.g. IngestionFactoryPanel) so listing cards update too
+      if (data.ok) {
+        window.dispatchEvent(new CustomEvent('iqube-asset-published', { detail: { assetId } }));
+      }
     } finally {
       setPublishing(false);
     }
