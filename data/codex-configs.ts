@@ -704,26 +704,29 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
         description: 'Latest direct-push commits with context'
       }
     },
-    // ─── agentiq pack — build-layer docs ─────────────────────────────────
+    // ─── Venture Lab α group — build-layer docs ───────────────────────────
+    // All three tabs live together: Venture Lab α (planning corpus), AgentiQ α
+    // (platform build programme), AgentiQ OS (builder layer).
     {
-      id: 'agentiq-os',
-      label: 'AgentiQ OS',
-      slug: 'agentiq-os',
+      id: 'agentiq-knyt',
+      label: 'Venture Lab α',
+      slug: 'agentiq-knyt',
       enabled: true,
+      adminOnly: true,
       order: 8,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
         props: {
-          packId: 'agentiq',
-          collectionId: 'col_agentiq_os',
-          defaultPath: 'items/OS_README.md'
+          packId: 'alpha-knyt',
+          collectionId: 'col_venture_lab',
+          defaultPath: 'items/01-alpha-program-positioning.md'
         }
       },
       metadata: {
-        icon: 'Code',
-        description: 'AgentiQ OS — builder onboarding, contribution categories, packaging, submission',
-        color: 'green'
+        icon: 'Zap',
+        description: 'Venture Lab α — planning corpus, KNYT live cartridge programme, AgentiQ OS engine, and Qriptopian support layer.',
+        color: 'amber'
       }
     },
     {
@@ -731,6 +734,7 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       label: 'AgentiQ α',
       slug: 'alpha-program',
       enabled: true,
+      adminOnly: true,
       order: 9,
       type: 'static',
       config: {
@@ -748,9 +752,9 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       }
     },
     {
-      id: 'agentiq-knyt',
-      label: 'Venture Lab α',
-      slug: 'agentiq-knyt',
+      id: 'agentiq-os',
+      label: 'AgentiQ OS',
+      slug: 'agentiq-os',
       enabled: true,
       adminOnly: true,
       order: 10,
@@ -758,15 +762,15 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       config: {
         component: 'AgentiqCartridgeTab',
         props: {
-          packId: 'alpha-knyt',
-          collectionId: 'col_venture_lab',
-          defaultPath: 'items/01-alpha-program-positioning.md'
+          packId: 'agentiq',
+          collectionId: 'col_agentiq_os',
+          defaultPath: 'items/OS_README.md'
         }
       },
       metadata: {
-        icon: 'Zap',
-        description: 'Next-stage Alpha Program package for the metaMe / AgentiQ / AgentiQ OS engine, with KNYT as the primary live cartridge and Qriptopian as its support layer.',
-        color: 'amber'
+        icon: 'Code',
+        description: 'AgentiQ OS — builder onboarding, contribution categories, packaging, submission',
+        color: 'green'
       }
     },
     {
