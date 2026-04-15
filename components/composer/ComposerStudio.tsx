@@ -1925,10 +1925,21 @@ export const ComposerStudio = () => {
       if (c.includes('KETA'))  return 'KETA';
       return '';
     };
+    // Fallback: derive tier key from Total-Invested when OM-Tier-Status is absent.
+    // Mirrors tierKeyFromAmount() in matrix-prep skill and dashboard matrix view.
+    const tierFromAmount = (raw: string) => {
+      const amt = parseFloat((raw || '').replace(/[^0-9.]/g, '')) || 0;
+      if (amt >= 25000) return 'SAT';
+      if (amt >= 1000)  return 'ZERO';
+      if (amt >= 500)   return 'FIRST';
+      if (amt >= 250)   return 'KEJI';
+      if (amt >= 100)   return 'KETA';
+      return '';
+    };
     Promise.all([
       fetch("/api/runtime/experience/dashboard?view=matrix")
         .then((r) => (r.ok ? r.json() : null)),
-      fetch("/api/crm/investors?limit=500&sort=tier")
+      fetch("/api/crm/investors?limit=5000&sort=tier")
         .then((r) => (r.ok ? r.json() : null)),
     ])
       .then(([matrixData, investorData]) => {
@@ -1940,7 +1951,7 @@ export const ComposerStudio = () => {
           setMatrixIndividuals(
             (investorData.data as Record<string, unknown>[]).map((inv) => ({
               name: (inv.name as string) || (inv.email as string) || (inv.id as string) || "Unknown",
-              stage: TIER_TO_STAGE[normTier((inv.omTier as string) || '')] ?? 'Prospect',
+              stage: TIER_TO_STAGE[normTier((inv.omTier as string) || '') || tierFromAmount((inv.totalInvested as string) || '')] ?? 'Prospect',
               omTier: (inv.omTier as string) || '',
             }))
           );
@@ -1978,6 +1989,15 @@ export const ComposerStudio = () => {
       if (c.includes('KETA'))  return 'KETA';
       return '';
     };
+    const tierFromAmount = (raw: string) => {
+      const amt = parseFloat((raw || '').replace(/[^0-9.]/g, '')) || 0;
+      if (amt >= 25000) return 'SAT';
+      if (amt >= 1000)  return 'ZERO';
+      if (amt >= 500)   return 'FIRST';
+      if (amt >= 250)   return 'KEJI';
+      if (amt >= 100)   return 'KETA';
+      return '';
+    };
     const timer = setTimeout(() => {
       fetch(`/api/crm/investors?search=${encodeURIComponent(individualSearch.trim())}&limit=50`)
         .then((r) => (r.ok ? r.json() : null))
@@ -1986,7 +2006,7 @@ export const ComposerStudio = () => {
             setIndividualSearchResults(
               (data.data as Record<string, unknown>[]).map((inv) => ({
                 name: (inv.name as string) || (inv.email as string) || "Unknown",
-                stage: TIER_TO_STAGE[normTier((inv.omTier as string) || "")] ?? "Prospect",
+                stage: TIER_TO_STAGE[normTier((inv.omTier as string) || '') || tierFromAmount((inv.totalInvested as string) || '')] ?? "Prospect",
                 omTier: (inv.omTier as string) || "",
               }))
             );
