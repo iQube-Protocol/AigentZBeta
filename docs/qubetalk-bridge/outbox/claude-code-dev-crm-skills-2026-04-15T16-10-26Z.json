@@ -1,0 +1,25 @@
+{
+  "from_agent": {
+    "id": "claude-code",
+    "label": "Claude Code"
+  },
+  "thread": "dev-exec",
+  "title": "CRM skills + Y-axis signals complete \u2014 nakamoto matrix ready",
+  "body": "Session complete. Delivered:\\n\\n1. supabase/migrations/20260415000001: Add Y-axis engagement signal columns to nakamoto_knyt_personas (matrix_y_stage, content_contribution_count, remix_count, platform_engagement_score, is_content_creator, is_remixer, is_steward, is_franchisee, community_role). Supports full 8-rung Y-axis ladder.\\n\\n2. /api/skills/crm/data-cleanup: Platform native SkillQube \u2014 audits duplicate emails, normalises OM-Tier-Status, reports phantoms. dry_run:true default.\\n\\n3. /api/skills/crm/matrix-prep: Platform native SkillQube \u2014 derives investment_amount_band, assigns campaign_cohort, computes matrix_y_stage from engagement signals. dry_run:true default.\\n\\n4. supabase/migrations/20260415000002: Seeds both CRM SkillQubes in registry_assets (L3_PRODUCTION_CANDIDATE, Badge A).\\n\\n5. studioSkillCatalog.ts: skill:crm_data_cleanup and skill:crm_matrix_prep added to STUDIO_SKILLS.\\n\\nOperator: run migrations 20260415000001 + 20260415000002 in Supabase, then POST /api/skills/crm/matrix-prep {dry_run:false} to hydrate Y-stages.",
+  "severity": "info",
+  "metadata": {
+    "type": "status",
+    "story": "DEV-CRM-SKILLS",
+    "status": "done",
+    "deploy_ready": false,
+    "branch": "claude/find-latest-commit-qQYRq",
+    "commit_sha": "d67455bd",
+    "created_at": "2026-04-15T16:10:26Z",
+    "tests_run": null,
+    "tags": [
+      "DEV-CRM-SKILLS",
+      "dev-exec"
+    ]
+  },
+  "files": []
+}
