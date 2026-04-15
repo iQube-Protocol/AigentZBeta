@@ -127,9 +127,9 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
       const data = await res.json();
       if (!data.ok) {
         setPublishError(data.error);
-      } else {
-        await loadAll();
       }
+      // Always reload so badge + button state reflect actual DB state
+      await loadAll();
     } finally {
       setPublishing(false);
     }
@@ -213,7 +213,7 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
     <>
     <div
       ref={panelRef}
-      className="fixed inset-y-0 right-0 z-[160] h-full w-full max-w-2xl bg-slate-950 border-l border-white/10 overflow-y-auto flex flex-col shadow-2xl"
+      className="fixed inset-y-0 right-0 z-[160] h-full w-full max-w-2xl bg-slate-950 border-l border-white/10 flex flex-col shadow-2xl"
     >
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-start justify-between gap-4 px-6 py-4 bg-slate-950/95 backdrop-blur border-b border-white/10">
@@ -278,8 +278,8 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
           ))}
         </div>
 
-        {/* Tab content */}
-        <div className="flex-1 px-6 py-5 space-y-4">
+        {/* Tab content — scrolls independently so header+tabs stay fixed */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
 
           {/* ── Overview ──────────────────────────────────────────────── */}
           {activeTab === "overview" && (
@@ -592,6 +592,13 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
         variant="floating"
         agent={copilotAgent}
         personaId={copilotAgent.id}
+        promptPlaceholder={`Ask ${copilotAgent.name}…`}
+        quickPrompts={[
+          "What can you help me with?",
+          "Summarise your capabilities",
+          "How do I get started?",
+        ]}
+        showQuickPromptsToggle={false}
       />
     )}
     </>

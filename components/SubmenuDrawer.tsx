@@ -3561,7 +3561,7 @@ export const SubmenuDrawer = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex">
+    <div className="fixed inset-0 z-[125] flex">
       <div className="absolute inset-0 bg-black/50 drawer-backdrop" onClick={onClose}></div>
       <div
         className={`relative bg-black/30 ring-1 ring-white/10 backdrop-blur-xl h-full shadow-xl animate-slide-in-right drawer-content flex flex-col transition-[margin] duration-200 ${
@@ -3601,16 +3601,8 @@ export const SubmenuDrawer = ({
                 <span className="font-semibold text-white">iQube Operations</span>
               </div>
               <div className="flex items-center gap-2">
-                <button 
-                  onClick={() => setIsFullscreen((prev) => !prev)}
-                  className="text-slate-400 hover:text-white transition-colors"
-                  aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-                  title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-                >
-                  {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-                </button>
-                <button 
-                  onClick={onClose} 
+                <button
+                  onClick={onClose}
                   className="text-slate-400 hover:text-white transition-colors"
                   aria-label="Close drawer"
                   title="Close drawer"

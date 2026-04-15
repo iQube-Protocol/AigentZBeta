@@ -23,10 +23,12 @@ import {
   CheckSquare,
   Trophy,
   Gift,
+  CreditCard,
   PanelRightClose,
   PanelRightOpen,
   PanelBottomClose,
 } from "lucide-react";
+import SmartWalletDrawer from "@/app/components/content/SmartWalletDrawer";
 
 // Import CSS
 import "./styles/smarttriad-copilot.css";
@@ -86,7 +88,7 @@ interface SmartTriadCopilotLayerProps {
 }
 
 type CopilotMode = "chat" | "avatar";
-type WalletTab = "wallet" | "library" | "tasks" | "reputation" | "rewards";
+type WalletTab = "wallet" | "library" | "tasks" | "reputation" | "rewards" | "payments";
 type QuickPrompt =
   | string
   | {
@@ -363,6 +365,8 @@ export function SmartTriadCopilotLayer({
           tenantConfig={tenantConfig}
           onModelChange={handleModelChange}
           personaId={personaId}
+          agentName={agent?.name}
+          agentId={agent?.id}
         />
       ) : (
         <EmbeddedCopilot
@@ -428,6 +432,8 @@ function FloatingCopilot({
   tenantConfig,
   onModelChange,
   personaId,
+  agentName,
+  agentId,
 }: {
   messages: SmartTriadMessage[];
   input: string;
@@ -454,97 +460,219 @@ function FloatingCopilot({
   tenantConfig?: any;
   onModelChange: (model: string, provider: string) => void;
   personaId?: string;
+  agentName?: string;
+  agentId?: string;
 }) {
-  
+  const [walletPanelOpen, setWalletPanelOpen] = useState(false);
+  const [walletPanelTab, setWalletPanelTab] = useState<WalletTab>("wallet");
+  const [walletActionsCollapsed, setWalletActionsCollapsed] = useState(false);
+  const visibleQuickPrompts = showQuickPrompts && quickPrompts.length > 0;
+
+  // Dark-mode CSS variable overrides so SmartTriad CSS renders on dark background
+  const darkCssOverrides: React.CSSProperties = {
+    "--smarttriad-foreground": "hsl(220, 14%, 90%)",
+    "--smarttriad-foreground-muted": "hsl(220, 9%, 65%)",
+    "--smarttriad-foreground-muted-foreground": "hsl(220, 9%, 55%)",
+    "--smarttriad-agent-bg": "hsla(220, 14%, 96%, 0.06)",
+    "--smarttriad-agent-border": "hsla(220, 14%, 71%, 0.15)",
+    "--smarttriad-user-bg": "hsla(188, 94%, 43%, 0.12)",
+    "--smarttriad-user-border": "hsla(188, 94%, 43%, 0.25)",
+    "--smarttriad-border": "hsla(220, 13%, 91%, 0.12)",
+    "--smarttriad-muted": "hsla(220, 14%, 96%, 0.05)",
+    "--smarttriad-card": "hsla(220, 20%, 14%, 0.8)",
+  } as React.CSSProperties;
+
   return (
-    <div className="fixed inset-0 z-[200] flex">
-      {/* Backdrop */}
-      <div 
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
-      
-      {/* Copilot Panel */}
-      <div className="relative ml-auto h-full w-full max-w-md bg-background shadow-2xl flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b">
-          <div className="flex items-center gap-3">
+    <>
+      <div className="fixed inset-0 z-[200] flex">
+        {/* Backdrop */}
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          onClick={onClose}
+        />
+
+        {/* Copilot Panel — dark panel chrome, SmartTriad CSS for message rendering */}
+        <div
+          className={`relative ml-auto h-full w-full max-w-md bg-black/30 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden ${panelBorder ? "ring-1 ring-white/10" : ""}`}
+          style={darkCssOverrides}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 bg-slate-950/90 border-b border-white/10 flex-shrink-0">
             <div className="flex items-center gap-2">
-              <Bot className="w-5 h-5 text-cyan-600" />
-              <h2 className="font-semibold text-foreground">SmartTriad Copilot</h2>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-cyan-100 text-cyan-800">
-                Advanced Rendering
+              <Bot className="w-4 h-4 text-cyan-400" />
+              <span className="text-sm font-semibold text-white/90 leading-none">
+                {agentName ?? "Aigent Copilot"}
+              </span>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-500/30">
+                Chat
               </span>
             </div>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+              aria-label="Close"
+            >
+              <PanelRightClose className="w-4 h-4" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-muted rounded-lg transition-colors"
-          >
-            <PanelRightClose className="w-4 h-4" />
-          </button>
-        </div>
-        
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.map((message) => (
-            <SmartTriadInferenceRenderer
-              key={message.id}
-              message={message}
-              showMetadata={enableAdvancedRendering}
-              showScores={enableAdvancedRendering}
-              enableModelSelector={tenantConfig?.enableModelSelection}
-              onModelChange={onModelChange}
-              tenantConfig={tenantConfig}
-            />
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
-        
-        {/* Input */}
-        {!disablePromptInput && (
-          <div className="p-4 border-t">
-            <div className="flex gap-2">
-              <input
-                ref={inputRef}
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    onSend();
-                  }
-                }}
-                placeholder={promptPlaceholder}
-                className="flex-1 px-3 py-2 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                disabled={isProcessing}
+
+          {/* Messages — SmartTriadInferenceRenderer with dark CSS overrides */}
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1 overscroll-contain">
+            {messages.map((message) => (
+              <SmartTriadInferenceRenderer
+                key={message.id}
+                message={message}
+                showMetadata={enableAdvancedRendering}
+                showScores={false}
+                enableModelSelector={false}
+                tenantConfig={tenantConfig}
               />
-              <button
-                onClick={onSend}
-                disabled={!input.trim() || isProcessing}
-                className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {isProcessing ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
+            ))}
+            {isProcessing && (
+              <div className="flex justify-start">
+                <div className="bg-white/5 px-3 py-2 rounded-xl rounded-bl-sm ring-1 ring-white/10">
+                  <Loader2 className="w-4 h-4 animate-spin text-white/60" />
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Floating wallet quick-actions bar */}
+          <div className="mx-3 mb-2 pointer-events-auto">
+            <div className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-transparent px-3 py-2">
+              {!walletActionsCollapsed ? (
+                <div className="min-w-0 flex-1 overflow-x-auto no-scrollbar">
+                  <div className="grid min-w-full grid-flow-col auto-cols-[minmax(2.5rem,1fr)] items-center gap-2">
+                    {(["wallet", "library", "tasks", "reputation", "rewards", "payments"] as WalletTab[]).map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => {
+                          setWalletPanelTab(tab);
+                          setWalletPanelOpen(true);
+                        }}
+                        className={`h-10 w-full rounded-lg ring-1 transition-colors ${
+                          walletPanelOpen && walletPanelTab === tab
+                            ? "bg-cyan-500/20 ring-cyan-500/30 text-cyan-200"
+                            : "bg-white/5 ring-white/10 text-white/70 hover:text-white hover:bg-white/10"
+                        }`}
+                      >
+                        <span className="flex h-full w-full items-center justify-center">
+                          {tab === "wallet" && <Wallet className="w-4 h-4" />}
+                          {tab === "library" && <BookOpen className="w-4 h-4" />}
+                          {tab === "tasks" && <CheckSquare className="w-4 h-4" />}
+                          {tab === "reputation" && <Trophy className="w-4 h-4" />}
+                          {tab === "rewards" && <Gift className="w-4 h-4" />}
+                          {tab === "payments" && <CreditCard className="w-4 h-4" />}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-1 items-center justify-center">
+                  <button
+                    onClick={() => setWalletActionsCollapsed(false)}
+                    className="p-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white/70 hover:text-white hover:bg-white/10"
+                  >
+                    <Wallet className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+              <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                {!walletActionsCollapsed && (
+                  <button
+                    onClick={() => setWalletActionsCollapsed(true)}
+                    className="p-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white/70 hover:text-white hover:bg-white/10"
+                  >
+                    <PanelBottomClose className="w-4 h-4" />
+                  </button>
                 )}
-              </button>
+                <button
+                  onClick={() => setWalletPanelOpen((prev) => !prev)}
+                  className="p-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white/70 hover:text-white hover:bg-white/10"
+                >
+                  {walletPanelOpen ? (
+                    <PanelRightClose className="w-4 h-4" />
+                  ) : (
+                    <PanelRightOpen className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
-        )}
-        
-        {/* Footer */}
-        {footerContent && (
-          <div className="p-4 border-t bg-muted/50">
-            {footerContent}
-          </div>
-        )}
+
+          {/* Quick prompts strip (above input) */}
+          {visibleQuickPrompts && (
+            <div className="px-3 pb-1 flex gap-1.5 flex-wrap">
+              {quickPrompts.slice(0, 4).map((qp, i) => {
+                const label = typeof qp === "string" ? qp : qp.label;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => onQuickPrompt(qp)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-white/5 text-white/70 ring-1 ring-white/10 hover:bg-white/10 hover:text-white transition-colors"
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Input */}
+          {!disablePromptInput && (
+            <div className="px-3 pb-3 pt-2 border-t border-white/10 flex-shrink-0">
+              <div className="flex gap-2 items-center">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      onSend();
+                    }
+                  }}
+                  placeholder={promptPlaceholder}
+                  className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-white/40 focus:outline-none focus:ring-1 focus:ring-cyan-500/60 focus:border-cyan-500/40 transition-colors"
+                  disabled={isProcessing}
+                />
+                <button
+                  onClick={onSend}
+                  disabled={!input.trim() || isProcessing}
+                  className="p-2 bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors flex-shrink-0"
+                >
+                  {isProcessing ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Footer */}
+          {footerContent && (
+            <div className="px-4 pb-3 border-t border-white/10">
+              {footerContent}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+
+      {/* SmartWallet Drawer — opens alongside the copilot panel */}
+      <SmartWalletDrawer
+        open={walletPanelOpen}
+        onClose={() => setWalletPanelOpen(false)}
+        variant="overlay"
+        agent={{ id: agentId ?? "aigent-z", name: agentName ?? "Aigent" }}
+        personaId={personaId}
+        initialTab={walletPanelTab}
+      />
+    </>
   );
 }
 
