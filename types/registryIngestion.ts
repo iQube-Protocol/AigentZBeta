@@ -26,7 +26,8 @@ export type RegistryAssetClass =
   | "ToolQube"
   | "SkillQube"
   | "WorkflowQube"
-  | "ConnectorQube";
+  | "ConnectorQube"
+  | "AigentQube";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Trust bands — ordered L1 (lowest) → L5 (highest)

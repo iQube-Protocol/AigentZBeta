@@ -1,0 +1,25 @@
+{
+  "from_agent": {
+    "id": "claude-code",
+    "label": "Claude Code"
+  },
+  "thread": "ui-shell",
+  "title": "CORRECTION: settings drawer is iframe-side only \u2014 thin client sends MENU_ACTION",
+  "body": "CORRECTION to previous ui-shell packet. The settings drawer must NOT be rendered by the thin client. The pattern in this codebase is: thin client sends MENU_ACTION postMessage into the iframe, the Next.js app opens the drawer from within itself.\n\nWHAT IS ALREADY DONE (committed to dev):\n1. MetaMeRuntimeClient.tsx DRAWER_ACTION_HANDLERS now includes:\n   settings: () => setSettingsDrawerOpen(true)\n   This mirrors the existing wallet: () => setWalletDrawerOpen(true) pattern.\n\n2. The settings drawer already renders inside the Next.js app (absolute left-0 top-0 bottom-0 z-50, w-80, MetaMeSettingsPanel, translate-x animation). Committed on dev.\n\nWHAT LOVABLE MUST DO \u2014 thin client only:\nIn apps/metame-runtime-shell/app/page.tsx (or SmartMenu), add a small settings sub-button in the Be tab area that calls:\n\n  postShellEvent('MENU_ACTION', { action_id: 'settings' })\n\nThat is the ONLY change needed in the thin client. The existing postShellEvent at line 710 already routes MENU_ACTION messages to the iframe DRAWER_ACTION_HANDLERS.\n\nDO NOT render a drawer in the thin client.\nDO NOT import MetaMeSettingsPanel in the thin client.\nDO NOT manage settingsDrawerOpen state in the thin client.\n\nThe thin client is a pass-through. All drawers render inside the iframe.\n\nThe button HTML for the thin client Be tab area:\n<button\n  type='button'\n  onClick={() => postShellEvent('MENU_ACTION', { action_id: 'settings' })}\n  className='flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] text-slate-500 hover:text-slate-300 hover:bg-white/10 transition'\n  title='metaMe Settings'\n>\n  <SlidersHorizontal className='h-2.5 w-2.5' />\n  <span>settings</span>\n</button>\n\nThis is documented in CLAUDE.md: all UI actions in the thin client must route through the iframe bridge (postShellEvent / MENU_ACTION) \u2014 the thin client does not render panels or drawers.",
+  "severity": "warn",
+  "metadata": {
+    "type": "patch",
+    "story": "DEV-0414",
+    "status": "done",
+    "deploy_ready": false,
+    "branch": "claude/setup-knyt-codex-Mrinp",
+    "commit_sha": "a48b3ad7",
+    "created_at": "2026-04-14T22:15:00Z",
+    "tests_run": null,
+    "tags": [
+      "DEV-0414",
+      "ui-shell"
+    ]
+  },
+  "files": []
+}

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, ExternalLink, ShieldCheck, ClipboardList, Receipt, Star, Plus, Play, Terminal, Loader2 } from "lucide-react";
+import { X, ExternalLink, ShieldCheck, ClipboardList, Receipt, Star, Plus, Play, Terminal, Loader2, Brain, Layers, Coins, ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { TrustPanel } from "./TrustPanel";
 import { ValidationPanel } from "./ValidationPanel";
 import type {
@@ -26,6 +27,7 @@ interface AssetDetailPanelProps {
 type DetailTab = "overview" | "validation" | "trust" | "receipts" | "reviews" | "invoke";
 
 export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
+  const router = useRouter();
   const [asset, setAsset] = useState<RegistryAsset | null>(null);
   const [score, setScore] = useState<TrustScore | null>(null);
   const [validation, setValidation] = useState<ValidationQube | null>(null);
@@ -297,6 +299,11 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
                       </div>
                     </div>
                   )}
+                  {/* ── AigentQube Agent Section ─────────────────────── */}
+                  {asset?.assetClass === "AigentQube" && asset.metadata && (
+                    <AgentSection metadata={asset.metadata} personaKey={asset.metadata?.personaKey as string | undefined} onChat={(key) => { onClose(); router.push(`/aigents/${key}`); }} />
+                  )}
+
                   {asset && asset.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1.5">
                       {asset.tags.map((tag) => (
@@ -564,6 +571,93 @@ function Detail({ label, value }: { label: string; value?: string }) {
     <div>
       <div className="text-[10px] uppercase tracking-widest text-slate-500">{label}</div>
       <div className="mt-0.5 text-slate-200">{value ?? "—"}</div>
+    </div>
+  );
+}
+
+interface AgentSectionProps {
+  metadata: Record<string, unknown>;
+  personaKey?: string;
+  onChat: (personaKey: string) => void;
+}
+
+function AgentSection({ metadata, personaKey, onChat }: AgentSectionProps) {
+  const cartridgeOverlays = Array.isArray(metadata.cartridgeOverlays) ? (metadata.cartridgeOverlays as string[]) : [];
+  const pricingQc = typeof metadata.pricingQc === "number" ? metadata.pricingQc : null;
+  const receiptEmitted = typeof metadata.receiptEmitted === "boolean" ? metadata.receiptEmitted : null;
+  const trustLevel = typeof metadata.trustLevel === "string" ? (metadata.trustLevel as string) : null;
+  const metaMePosture = typeof metadata.metaMePosture === "string" ? (metadata.metaMePosture as string) : null;
+  const skillCount = typeof metadata.skillCount === "number" ? metadata.skillCount : null;
+
+  return (
+    <div className="rounded-xl border border-amber-800/40 bg-amber-950/15 p-4 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Brain className="h-3.5 w-3.5 text-amber-400" />
+          <span className="text-[10px] uppercase tracking-widest text-amber-400 font-semibold">AgentQube</span>
+        </div>
+        {personaKey && (
+          <button
+            type="button"
+            onClick={() => onChat(personaKey)}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30 hover:bg-amber-500/30 transition-colors"
+          >
+            Open chat <ArrowRight className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        {trustLevel && (
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-slate-500">Trust level</div>
+            <div className="mt-0.5 text-slate-200">{trustLevel}</div>
+          </div>
+        )}
+        {pricingQc !== null && (
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-slate-500 flex items-center gap-1">
+              <Coins className="h-2.5 w-2.5" /> Qc pricing
+            </div>
+            <div className="mt-0.5 text-slate-200">{pricingQc === 0 ? "0 Q¢ (alpha)" : `${pricingQc} Q¢`}</div>
+          </div>
+        )}
+        {receiptEmitted !== null && (
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-slate-500">DVN receipt</div>
+            <div className={`mt-0.5 ${receiptEmitted ? "text-emerald-300" : "text-slate-400"}`}>
+              {receiptEmitted ? "Emitted on use" : "Not emitted"}
+            </div>
+          </div>
+        )}
+        {skillCount !== null && (
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-slate-500">Skills</div>
+            <div className="mt-0.5 text-slate-200">{skillCount} alpha skills</div>
+          </div>
+        )}
+        {metaMePosture && (
+          <div className="col-span-2">
+            <div className="text-[10px] uppercase tracking-widest text-slate-500">metaMe posture</div>
+            <div className="mt-0.5 text-slate-200">{metaMePosture}</div>
+          </div>
+        )}
+      </div>
+
+      {cartridgeOverlays.length > 0 && (
+        <div>
+          <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-1.5 flex items-center gap-1">
+            <Layers className="h-2.5 w-2.5" /> Cartridge overlays
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {cartridgeOverlays.map((c) => (
+              <span key={c} className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/25">
+                {c}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
