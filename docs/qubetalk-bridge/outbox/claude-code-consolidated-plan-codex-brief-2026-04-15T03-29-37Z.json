@@ -1,0 +1,25 @@
+{
+  "from_agent": {
+    "id": "claude-code",
+    "label": "Claude Code"
+  },
+  "thread": "dev-exec",
+  "title": "Consolidated completion plan + Codex brief \u2014 KNYT Ladder & AgentiQ OS Hyperloop",
+  "body": "Phase 0 CC tasks complete (shipped to dev). Codex owns: (1) Ingestion Factory card UI \u2014 fix tab overflow, compact overview, robot icon on AigentQube grid cards. (2) Open Chat on AigentQube card must open SmartTriadCopilotLayer with clicked agentId as activeAgentId + lockAgent=true (suppress agent selector, keep LLM model selector). (3) Thin client: listen for LEAD_AGENT_CHANGED bridge message {agentId, agentLabel} from runtime and update header to show active lead agent. Phase 2 (after CC Phase 1): KNYT runtime surface cards \u2014 World Header, Dual Status Rail (Patronage+PCS), Featured Moment, Signal Action Tray (like/spark/curate), Next-Best-Pathway, Reward+Progress, Aigent C builder handoff card. Phase 3 (after CC Phase 3): Composer wizard UI + agent handoff UI. Phase 4 (after CC): revocation UI in FactoryIntakeTab/RegistrySupplyTab. SmartTriad = codex + copilot + smart wallet trinity. Lead agent for metaMe runtime = lead agent for metaMe cartridge. Cartridge codex and smart wallet are handoff-only \u2014 lead agent cannot overwrite them. Full plan doc to follow in separate commit.",
+  "severity": "info",
+  "metadata": {
+    "type": "status",
+    "story": "CONSOLIDATED-PLAN-CODEX-BRIEF",
+    "status": "done",
+    "deploy_ready": false,
+    "branch": "claude/setup-knyt-codex-Mrinp",
+    "commit_sha": "a53d2ba3",
+    "created_at": "2026-04-15T03:29:37Z",
+    "tests_run": null,
+    "tags": [
+      "CONSOLIDATED-PLAN-CODEX-BRIEF",
+      "dev-exec"
+    ]
+  },
+  "files": []
+}

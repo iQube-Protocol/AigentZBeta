@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Upload, GitBranch, Package2, Plug, FileText, Workflow, Loader2, ChevronRight, SlidersHorizontal, X, Zap, RefreshCw, AlertTriangle, CheckCircle2, Clock, XCircle, Share2, Wrench, Network, GitMerge } from "lucide-react";
+import { Upload, GitBranch, Package2, Plug, FileText, Workflow, Loader2, ChevronRight, SlidersHorizontal, X, Zap, RefreshCw, AlertTriangle, CheckCircle2, Clock, XCircle, Share2, Wrench, Network, GitMerge, Bot } from "lucide-react";
 import { AssetDetailPanel } from "./AssetDetailPanel";
 import { ViewModeToggle, type ViewMode } from "./ViewModeToggle";
 import type {
@@ -587,6 +587,7 @@ function IntakePipelineView() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ASSET_CLASS_ICON: Record<RegistryAssetClass, React.ReactNode> = {
+  AigentQube:    <Bot className="h-5 w-5" />,
   ToolQube:      <Wrench className="h-5 w-5" />,
   SkillQube:     <Network className="h-5 w-5" />,
   WorkflowQube:  <GitMerge className="h-5 w-5" />,

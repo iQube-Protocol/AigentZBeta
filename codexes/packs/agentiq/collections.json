@@ -76,7 +76,11 @@
       "id": "col_agentiq_knyt",
       "title": "AgentiQ KNYT",
       "items": [
-        "items/AGENTIQ_KNYT.md"
+        "items/AGENTIQ_KNYT.md",
+        "items/GATE8_WALKTHROUGH_PACK.md",
+        "items/GOLDEN_PATH_DEMO.md",
+        "items/POLICY_PERIMETER_ARCHITECTURE_OUTLINE.md",
+        "items/POLICY_PERIMETER_POSITION_PAPER.md"
       ]
     },
     {

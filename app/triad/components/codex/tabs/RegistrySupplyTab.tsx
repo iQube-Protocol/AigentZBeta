@@ -41,6 +41,7 @@ const TRUST_STYLES: Record<TrustBand, string> = {
 };
 
 const CLASS_STYLES: Record<RegistryAssetClass, string> = {
+  AigentQube:    "border-amber-400/70 text-amber-200",
   ToolQube:      "border-sky-400/70 text-sky-200",
   SkillQube:     "border-indigo-400/70 text-indigo-200",
   WorkflowQube:  "border-orange-400/70 text-orange-200",
@@ -96,7 +97,7 @@ interface Asset {
 
 const TRUST_BANDS: Array<TrustBand | ""> = ["", ...TRUST_BAND_ORDER];
 const ASSET_CLASSES: Array<RegistryAssetClass | ""> = [
-  "", "ToolQube", "SkillQube", "WorkflowQube", "ConnectorQube",
+  "", "AigentQube", "ToolQube", "SkillQube", "WorkflowQube", "ConnectorQube",
 ];
 
 interface RegistrySupplyTabProps {
@@ -154,7 +155,7 @@ export function RegistrySupplyTab({ theme = "dark", codexId }: RegistrySupplyTab
     } finally {
       setLoading(false);
     }
-  }, [trustFilter, classFilter, search]);
+  }, [trustFilter, classFilter, search, cartridgeFilter, cartridgeSlug]);
 
   useEffect(() => { void load(); }, [load, cartridgeFilter]);
 

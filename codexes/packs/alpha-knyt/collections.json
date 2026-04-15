@@ -1,0 +1,31 @@
+{
+  "collections": [
+    {
+      "id": "col_venture_lab",
+      "title": "Venture Lab α",
+      "description": "Full 20-doc AgentiQ KNYT planning package — strategy, agent specs, economics, cartridge design, and implementation PRDs.",
+      "items": [
+        "items/01-alpha-program-positioning.md",
+        "items/02-engine-thesis.md",
+        "items/03-stack-architecture.md",
+        "items/04-reference-agent-model.md",
+        "items/05-aigent-z-spec.md",
+        "items/06-marketa-spec.md",
+        "items/07-know1-spec.md",
+        "items/08-know1-knyt-addendum.md",
+        "items/09-metame-template-spec.md",
+        "items/10-agentqube-card-spec.md",
+        "items/11-skillqube-spec.md",
+        "items/12-qc-economic-grammar.md",
+        "items/13-dvn-receipt-rebate-extension.md",
+        "items/14-orgqube-policy-pack-spec.md",
+        "items/15-knyt-cartridge-spec.md",
+        "items/16-knyt-treasury-rewards-mvp.md",
+        "items/17-qriptopian-support-spec.md",
+        "items/18-knyt-alpha-mvp-workback.md",
+        "items/19-engine-strategy-prd.md",
+        "items/20-dev-implementation-prd.md"
+      ]
+    }
+  ]
+}

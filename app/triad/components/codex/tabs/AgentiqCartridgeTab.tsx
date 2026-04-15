@@ -196,10 +196,10 @@ export function AgentiqCartridgeTab({ packId, collectionId, defaultPath, editabl
   }
 
   return (
-    <div className="flex h-full">
-      <div className="w-64 flex-shrink-0 border-r border-slate-800 bg-slate-900/40 p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+    <div className="flex min-h-full">
+      <div className="w-56 flex-shrink-0 border-r border-slate-800 bg-slate-900/40 p-3">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
             {collection.title}
           </h3>
           {items.length > 1 && (
@@ -218,20 +218,20 @@ export function AgentiqCartridgeTab({ packId, collectionId, defaultPath, editabl
             <button
               key={item}
               onClick={() => setActivePath(item)}
-              className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition ${
+              className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition ${
                 item === activePath
                   ? "bg-blue-500/20 text-blue-200"
                   : "bg-white/5 text-slate-300 hover:bg-white/10"
               }`}
             >
-              <FileText className="h-4 w-4 text-slate-400" />
+              <FileText className="h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
               <span className="truncate">{formatLabel(item)}</span>
             </button>
           ))}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4">
         {contentLoading ? (
           <div className="flex items-center text-slate-400">
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />

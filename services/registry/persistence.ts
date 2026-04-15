@@ -335,7 +335,7 @@ export async function listAssets(filter: AssetListFilter): Promise<RegistryAsset
   if (filter.publicationStatus) q = q.eq("publication_status", filter.publicationStatus);
   if (filter.policyClass) q = q.eq("policy_class", filter.policyClass);
   if (filter.search) {
-    q = q.or(`name.ilike.%${filter.search}%,description.ilike.%${filter.search}%`);
+    q = q.or(`name.ilike.%${filter.search}%,description.ilike.%${filter.search}%,tags::text.ilike.%${filter.search}%`);
   }
 
   q = q.order("updated_at", { ascending: false })

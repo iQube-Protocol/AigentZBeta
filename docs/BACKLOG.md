@@ -1,6 +1,6 @@
 # AigentZ Beta - Product Backlog
 
-**Last Updated**: October 17, 2025  
+**Last Updated**: 2026-04-15  
 **Status**: Active tracking of deprioritized and deferred work items
 
 ---
@@ -8,6 +8,42 @@
 ## 📋 Purpose
 
 This document tracks work items from sprint plans that have been deprioritized or deferred. Items here remain valuable but are not currently scheduled for active development.
+
+---
+
+## 🔒 Post-Alpha Security Infrastructure
+
+These items were identified during the AgentiQ OS / KNYT Laddering Phase 5 security audit. They are intentionally deferred until after alpha — implementing them correctly requires a proper auth middleware layer that is out of scope for alpha.
+
+### **Persona Ownership Auth on Runtime Endpoints** (Post-Alpha)
+**Status**: Deferred — no auth middleware layer yet  
+**Priority**: High (post-alpha)
+
+Runtime API endpoints currently accept `personaId` as a query/body parameter with no verification that the authenticated caller owns that persona:
+- `GET /api/runtime/journey`
+- `GET /api/runtime/nbe`
+- `GET /api/runtime/knyt-state`
+- `GET /api/runtime/qriptopian-readiness`
+
+**Required work:**
+- [ ] Implement session/JWT auth middleware for Next.js API routes
+- [ ] Verify `req.user.personaId === params.personaId` before serving data
+- [ ] Return 401/403 for mismatched or unauthenticated requests
+- [ ] Integrate with existing Supabase Auth or AA-API session tokens
+
+### **Admin Role Gate on Registry `force` Parameter** (Post-Alpha)
+**Status**: Deferred — no role system at API layer yet  
+**Priority**: Medium (post-alpha)
+
+The `force: true` parameter in `POST /api/registry/intake/package-skill` is documented as admin-only but is not enforced. Any caller can pass it to bypass trust-band gating.
+
+**Required work:**
+- [ ] Implement RBAC middleware that resolves caller role from session token
+- [ ] Check `role === 'admin'` or `crm_admin_roles` presence before allowing `force: true`
+- [ ] Return 403 if non-admin caller passes `force: true`
+- [ ] Extend to other admin-only flags across registry governance endpoints
+
+---
 
 ---
 

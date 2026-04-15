@@ -728,7 +728,7 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
     },
     {
       id: 'alpha-program',
-      label: 'Alpha Program',
+      label: 'AgentiQ α',
       slug: 'alpha-program',
       enabled: true,
       order: 9,
@@ -749,7 +749,7 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
     },
     {
       id: 'agentiq-knyt',
-      label: 'AgentiQ KNYT',
+      label: 'Venture Lab α',
       slug: 'agentiq-knyt',
       enabled: true,
       adminOnly: true,
@@ -758,9 +758,9 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       config: {
         component: 'AgentiqCartridgeTab',
         props: {
-          packId: 'agentiq',
-          collectionId: 'col_agentiq_knyt',
-          defaultPath: 'items/AGENTIQ_KNYT.md'
+          packId: 'alpha-knyt',
+          collectionId: 'col_venture_lab',
+          defaultPath: 'items/01-alpha-program-positioning.md'
         }
       },
       metadata: {
@@ -774,7 +774,7 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       label: 'Updates',
       slug: 'updates',
       enabled: true,
-      order: 10,
+      order: 11,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -793,7 +793,7 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       label: 'Retrieval Index',
       slug: 'retrieval-index',
       enabled: true,
-      order: 11,
+      order: 12,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -814,7 +814,7 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       slug: 'factory-intake',
       enabled: true,
       adminOnly: true,
-      order: 10,
+      order: 13,
       type: 'static',
       config: {
         component: 'FactoryIntakeTab',
@@ -831,7 +831,7 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       label: 'Registry',
       slug: 'registry-supply',
       enabled: true,
-      order: 11,
+      order: 14,
       type: 'static',
       config: {
         component: 'RegistrySupplyTab',
@@ -849,7 +849,7 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       slug: 'operators-manual',
       enabled: true,
       adminOnly: true,
-      order: 12,
+      order: 15,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
