@@ -32,10 +32,14 @@ function str(v: unknown): string {
   return typeof v === 'string' ? v.trim() : '';
 }
 
-/** Returns true if this record looks like a real investor, not a test/system account */
+/** Returns true if this record looks like a real investor/prospect, not a test/system account.
+ * nakamoto_knyt_personas only contains real people — any row with an email is legitimate.
+ * The filter exists solely to drop genuinely empty/system rows with no identifying data at all.
+ */
 function isRealInvestor(inv: Record<string, unknown>): boolean {
   const firstName = str(inv['First-Name']);
   const lastName = str(inv['Last-Name']);
+  const email = str(inv['Email']);
   const invested = str(inv['Total-Invested']);
   const shares = str(inv['Metaiye-Shares-Owned']);
   const omTier = str(inv['OM-Tier-Status']);
@@ -49,14 +53,15 @@ function isRealInvestor(inv: Record<string, unknown>): boolean {
   const knytCards = str(inv['KNYT-Cards-Owned']);
   const characters = str(inv['Characters-Owned']);
 
-  // Must have a real name OR at least one investment/identity signal
-  const hasName = !!(firstName || lastName);
+  const hasName       = !!(firstName || lastName);
+  const hasEmail      = !!email;
   const hasInvestment = !!(
     invested || shares || omTier || knytId || knytCoyn ||
     csvStatus || motionComics || paperComics || digitalComics ||
     knytPosters || knytCards || characters
   );
-  return hasName || hasInvestment;
+  // Any row with name, email, or investment signal is a real person
+  return hasName || hasEmail || hasInvestment;
 }
 
 export async function GET(request: NextRequest) {
