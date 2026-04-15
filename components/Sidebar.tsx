@@ -625,37 +625,32 @@ export const Sidebar = () => {
     }
   }, [hovering, pinnedOpen, studioExpanded]);
 
-  const effectiveCollapsed = studioExpanded ? false : collapsed;
+  // Sidebar is always floating overlay (w-72), never collapsed
+  const effectiveCollapsed = false;
 
   const scheduleCollapse = (delayMs = 4500) => {
-    if (studioExpanded) return;
     if (collapseTimerRef.current) {
       clearTimeout(collapseTimerRef.current);
     }
     setPinnedOpen(true);
     collapseTimerRef.current = setTimeout(() => {
       setPinnedOpen(false);
-      setCollapsed(true);
     }, delayMs);
   };
 
   const handleHoverStart = () => {
     if (studioExpanded) {
       setStudioMenuVisible(true);
-      return;
+    } else {
+      setHovering(true);
     }
-    setHovering(true);
-    setCollapsed(false);
   };
 
   const handleHoverEnd = () => {
     if (studioExpanded) {
       setStudioMenuVisible(false);
-      return;
-    }
-    setHovering(false);
-    if (!pinnedOpen) {
-      setCollapsed(true);
+    } else {
+      setHovering(false);
     }
   };
   
@@ -978,37 +973,12 @@ export const Sidebar = () => {
   };
   
   const toggleSidebar = () => {
-    if (studioExpanded) {
-      setStudioMenuVisible((prev) => !prev);
-      return;
-    }
-
-    const newState = !collapsed;
-    setCollapsed(newState);
-    if (!newState) {
-      scheduleCollapse();
-    } else {
-      setPinnedOpen(false);
-      if (collapseTimerRef.current) {
-        clearTimeout(collapseTimerRef.current);
-      }
-    }
-    
-    // When collapsing the sidebar, ensure all sections show only active items
-    if (newState) { // newState is true when collapsing
-      const updatedShowOnlyActive: Record<string, boolean> = {};
-      sections.forEach(section => {
-        updatedShowOnlyActive[section.label] = true;
-      });
-      setShowOnlyActive(updatedShowOnlyActive);
-      
-      if (storageAvailable) {
-        safeLocalStorage.setItem('showOnlyActive', JSON.stringify(updatedShowOnlyActive));
-      }
-    }
-    
-    if (storageAvailable) {
-      safeLocalStorage.setItem('sidebarCollapsed', JSON.stringify(true));
+    // Sidebar is always floating — the «/» button dismisses it
+    setHovering(false);
+    setPinnedOpen(false);
+    setStudioMenuVisible(false);
+    if (collapseTimerRef.current) {
+      clearTimeout(collapseTimerRef.current);
     }
   };
 
@@ -1087,28 +1057,23 @@ export const Sidebar = () => {
 
   return (
     <>
-      {studioExpanded && (
-        <div
-          className="fixed inset-y-0 left-0 z-[115] w-5"
-          onMouseEnter={() => setStudioMenuVisible(true)}
-          onMouseLeave={(event) => {
-            const relatedTarget = event.relatedTarget as Node | null;
-            if (!relatedTarget || !asideRef.current?.contains(relatedTarget)) {
-              setStudioMenuVisible(false);
-            }
-          }}
-          aria-hidden="true"
-        />
-      )}
+      <div
+        className="fixed inset-y-0 left-0 z-[115] w-5"
+        onMouseEnter={() => studioExpanded ? setStudioMenuVisible(true) : setHovering(true)}
+        onMouseLeave={(event) => {
+          const relatedTarget = event.relatedTarget as Node | null;
+          if (!relatedTarget || !asideRef.current?.contains(relatedTarget)) {
+            if (studioExpanded) setStudioMenuVisible(false);
+            else setHovering(false);
+          }
+        }}
+        aria-hidden="true"
+      />
       <aside
         ref={asideRef}
-        className={
-          studioExpanded
-            ? `fixed left-0 top-0 z-[120] h-screen w-72 flex flex-col overflow-hidden bg-black/80 p-4 md:p-6 backdrop-blur-xl ring-1 ring-white/10 shadow-2xl transition-all duration-200 ${
-                studioMenuVisible ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0 pointer-events-none"
-              }`
-            : `${effectiveCollapsed ? "w-16" : "w-72"} relative z-[90] pointer-events-auto transition-all duration-200 bg-black/30 ring-1 ring-white/10 backdrop-blur-xl p-4 md:p-6 flex-shrink-0 h-screen flex flex-col overflow-hidden`
-        }
+        className={`fixed left-0 top-0 z-[120] h-screen w-72 flex flex-col overflow-hidden bg-black/80 p-4 md:p-6 backdrop-blur-xl ring-1 ring-white/10 shadow-2xl transition-all duration-200 ${
+          hovering || pinnedOpen || studioMenuVisible ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0 pointer-events-none"
+        }`}
         onMouseEnter={handleHoverStart}
         onMouseLeave={handleHoverEnd}
       >

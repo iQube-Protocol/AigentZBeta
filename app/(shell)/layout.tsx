@@ -102,14 +102,14 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
               <style
                 dangerouslySetInnerHTML={{
                   __html: `
-                    body[data-metame-studio-expanded="true"] .agentiq-shell-sidebar-host {
+                    .agentiq-shell-sidebar-host {
                       width: 0 !important;
                       min-width: 0 !important;
                       flex-basis: 0 !important;
                       overflow: visible !important;
                     }
 
-                    body[data-metame-studio-expanded="true"] .agentiq-shell-main {
+                    .agentiq-shell-main {
                       width: 100% !important;
                     }
                   `,
