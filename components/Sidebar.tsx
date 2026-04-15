@@ -237,13 +237,14 @@ export const Sidebar = () => {
       if (!next) {
         setStudioMenuVisible(false);
       } else {
-        // Entering studio mode — cancel any pending non-studio collapse and clear pinnedOpen
-        // so the sidebar doesn't stick open after navigating from a non-studio page
+        // Entering studio mode — cancel any pending collapse and clear all open-sidebar flags
+        // (hovering may have been set to true while the user was navigating FROM a non-studio page)
         if (collapseTimerRef.current) {
           clearTimeout(collapseTimerRef.current);
           collapseTimerRef.current = null;
         }
         setPinnedOpen(false);
+        setHovering(false);
       }
     };
 
@@ -656,10 +657,12 @@ export const Sidebar = () => {
   };
 
   const handleHoverEnd = () => {
+    // Always clear hovering so it doesn't stay true when transitioning into studio mode.
+    // (Previously only one of the two was cleared depending on studioExpanded, which
+    //  left hovering=true stuck after navigating from a non-studio page into Studio.)
+    setHovering(false);
     if (studioExpanded) {
       setStudioMenuVisible(false);
-    } else {
-      setHovering(false);
     }
   };
   

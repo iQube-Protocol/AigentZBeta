@@ -6,7 +6,7 @@
  * advanced inference rendering capabilities.
  */
 
-import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import { useIsMobile } from "@/app/hooks/use-mobile";
 import { SmartTriadInferenceRenderer, type SmartTriadMessage } from "./SmartTriadInferenceRenderer";
@@ -17,20 +17,10 @@ import {
   ChevronDown,
   Send,
   Loader2,
-  BookOpen,
-  Sparkles,
-  Wallet,
-  CheckSquare,
-  Trophy,
-  Gift,
-  CreditCard,
   Mic,
   MicOff,
   PanelRightClose,
-  PanelRightOpen,
-  PanelBottomClose,
 } from "lucide-react";
-import SmartWalletDrawer from "@/app/components/content/SmartWalletDrawer";
 
 // Import CSS
 import "./styles/smarttriad-copilot.css";
@@ -90,7 +80,6 @@ interface SmartTriadCopilotLayerProps {
 }
 
 type CopilotMode = "chat" | "avatar";
-type WalletTab = "wallet" | "library" | "tasks" | "reputation" | "rewards" | "payments";
 type QuickPrompt =
   | string
   | {
@@ -146,7 +135,7 @@ export function SmartTriadCopilotLayer({
   const [mode, setMode] = useState<CopilotMode>("chat");
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const [activeWalletTab, setActiveWalletTab] = useState<WalletTab>("wallet");
+  const [selectedProvider, setSelectedProvider] = useState<string>("anthropic");
   const [showQuickPrompts, setShowQuickPrompts] = useState(true);
   const [selectedContext, setSelectedContext] = useState(contextId || contextOptions[0]?.id);
   const avatarContainer = variant === "embedded" ? "copilot" : "codexCopilot";
@@ -244,61 +233,78 @@ export function SmartTriadCopilotLayer({
     releaseAvatar(avatarContainer);
   }, [mode, isOpen, requestAvatar, releaseAvatar, avatarContainer, agent?.id]);
   
-  // Handle sending messages
+  // Handle sending messages — calls the real /api/codex/chat inference endpoint
   const handleSend = useCallback(async () => {
     if (!input.trim() || isProcessing) return;
-    
+
+    const sentInput = input.trim();
+
     const userMessage: SmartTriadMessage = {
       id: `user-${Date.now()}`,
       role: 'user',
-      content: input.trim(),
+      content: sentInput,
       timestamp: new Date(),
     };
-    
+
     updateMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsProcessing(true);
-    
+
     try {
-      // Simulate AI response (replace with actual API call)
-      await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
-      
+      const chatHistory = messages
+        .filter((m) => m.role !== 'system')
+        .slice(-10)
+        .map((m) => ({
+          role: m.role as 'user' | 'assistant',
+          content: typeof m.content === 'string' ? m.content : '',
+        }));
+
+      const res = await fetch('/api/codex/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: sentInput,
+          chatHistory,
+          persona: personaId ?? 'aigent-kn0w1',
+          aigentId: personaId ?? 'aigent-kn0w1',
+          domain: 'metaKnyts',
+          provider_id: selectedProvider,
+        }),
+      });
+
+      const data = await res.json();
+
       const assistantMessage: SmartTriadMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
-        content: generateMockResponse(input.trim()),
+        content: data.response || 'No response received.',
         timestamp: new Date(),
         metadata: {
-          model: 'gpt-4',
-          provider: trustProvider,
-          trustScore: 7 + Math.random() * 3,
-          reliabilityScore: 6 + Math.random() * 4,
-          riskScore: Math.random() * 5,
-          processingTime: 500 + Math.random() * 1500,
-          mcpVersion: '1.0',
-          theme: selectedContext as any
-        }
+          model: data.model_used ?? selectedProvider,
+          provider: data.provider_used ?? selectedProvider,
+          theme: 'aigent',
+        },
       };
-      
+
       updateMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Failed to get response:', error);
-      
+
       const errorMessage: SmartTriadMessage = {
         id: `error-${Date.now()}`,
         role: 'system',
         content: 'Sorry, I encountered an error while processing your request. Please try again.',
         timestamp: new Date(),
         metadata: {
-          theme: 'aigent'
-        }
+          theme: 'aigent',
+        },
       };
-      
+
       updateMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsProcessing(false);
     }
-  }, [input, isProcessing, updateMessages, trustProvider, selectedContext]);
+  }, [input, isProcessing, updateMessages, messages, personaId, selectedProvider]);
   
   // Handle quick prompt selection
   const handleQuickPrompt = useCallback((prompt: QuickPrompt) => {
@@ -312,28 +318,11 @@ export function SmartTriadCopilotLayer({
     }
   }, [onPrompt, handleSend]);
   
-  // Handle model change (for future integration with metaMe runtime)
-  const handleModelChange = useCallback((model: string, provider: string) => {
-    console.log('Model changed:', { model, provider });
-    // This will be integrated with metaMe runtime AgentModelSelector
+  // Provider change is handled via selectedProvider state lifted to this component
+  // and forwarded to FloatingCopilot which updates it via setSelectedProvider
+  const handleModelChange = useCallback((provider: string) => {
+    setSelectedProvider(provider);
   }, []);
-  
-  // Generate mock responses (replace with actual AI integration)
-  const generateMockResponse = (userInput: string): string => {
-    const responses = [
-      `Based on the SmartTriad inference system, I can help you understand that "${userInput}" relates to the broader Qriptopian narrative structure. The key aspects involve the interplay between different realms and character archetypes.`,
-      
-      `Let me explain this concept in the context of the Codex. The SmartTriad system processes this through multiple layers of analysis, considering both the literal and metaphorical dimensions of your query about "${userInput}".`,
-      
-      `Here's what you need to know about this topic: The inference rendering system identifies key patterns and relationships that might not be immediately apparent. This involves analyzing the semantic connections between "${userInput}" and related concepts in the knowledge base.`,
-      
-      `The key thing about "${userInput}" is its relationship to the broader metaMe runtime architecture. When viewed through the lens of the SmartTriad system, we can see how this connects to various other elements in the ecosystem.`,
-      
-      `Important: The SmartTriad copilot uses advanced inference rendering to provide contextual responses. Your query about "${userInput}" triggers multiple processing pipelines that ensure comprehensive and accurate information delivery.`
-    ];
-    
-    return responses[Math.floor(Math.random() * responses.length)];
-  };
   
   // If not open, render nothing
   if (!isOpen) return null;
@@ -369,6 +358,8 @@ export function SmartTriadCopilotLayer({
           personaId={personaId}
           agentName={agent?.name}
           agentId={agent?.id}
+          selectedProvider={selectedProvider}
+          setSelectedProvider={setSelectedProvider}
         />
       ) : (
         <EmbeddedCopilot
@@ -443,6 +434,8 @@ function FloatingCopilot({
   personaId,
   agentName,
   agentId,
+  selectedProvider,
+  setSelectedProvider,
 }: {
   messages: SmartTriadMessage[];
   input: string;
@@ -467,20 +460,15 @@ function FloatingCopilot({
   panelBorder: boolean;
   enableAdvancedRendering: boolean;
   tenantConfig?: any;
-  onModelChange: (model: string, provider: string) => void;
+  onModelChange: (provider: string) => void;
   personaId?: string;
   agentName?: string;
   agentId?: string;
+  selectedProvider: string;
+  setSelectedProvider: (p: string) => void;
 }) {
-  const [walletPanelOpen, setWalletPanelOpen] = useState(false);
-  const [walletPanelTab, setWalletPanelTab] = useState<WalletTab>("wallet");
-  const [walletActionsCollapsed, setWalletActionsCollapsed] = useState(false);
-  const [walletMenuVisible, setWalletMenuVisible] = useState(true);
-  const [walletMenuHover, setWalletMenuHover] = useState(false);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState<string>("anthropic");
   const [micActive, setMicActive] = useState(false);
-  const walletTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const visibleQuickPrompts = showQuickPrompts && quickPrompts.length > 0;
 
   // Dark-mode CSS variable overrides so SmartTriad CSS renders on dark background
@@ -519,17 +507,6 @@ function FloatingCopilot({
         })}
       </div>
     );
-  };
-
-  const handleWalletMenuEnter = () => {
-    if (walletTimerRef.current) clearTimeout(walletTimerRef.current);
-    setWalletMenuHover(true);
-    setWalletMenuVisible(true);
-  };
-  const handleWalletMenuLeave = () => {
-    setWalletMenuHover(false);
-    if (walletTimerRef.current) clearTimeout(walletTimerRef.current);
-    walletTimerRef.current = setTimeout(() => setWalletMenuVisible(false), 4000);
   };
 
   return (
@@ -573,12 +550,10 @@ function FloatingCopilot({
             </div>
           </div>
 
-          {/* Messages + floating wallet bar */}
+          {/* Messages */}
           <div className="flex-1 relative overflow-hidden">
-            {/* Scrollable messages — padded at bottom so content doesn't hide under wallet bar */}
             <div
               className="absolute inset-0 overflow-y-auto px-4 py-3 space-y-1 overscroll-contain"
-              style={{ paddingBottom: "84px" }}
             >
               {messages.map((message) => (
                 <SmartTriadInferenceRenderer
@@ -598,73 +573,6 @@ function FloatingCopilot({
                 </div>
               )}
               <div ref={messagesEndRef} />
-            </div>
-
-            {/* Hover trigger strip at bottom to reveal wallet bar */}
-            <div
-              className="absolute left-0 right-0 bottom-0 h-20 z-10"
-              onMouseEnter={() => { if (walletTimerRef.current) clearTimeout(walletTimerRef.current); setWalletMenuVisible(true); }}
-            />
-
-            {/* Floating wallet quick-actions bar */}
-            <div
-              className={`absolute left-3 right-3 bottom-2 z-20 transition-opacity duration-200 ${walletMenuVisible || walletMenuHover ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
-              onMouseEnter={handleWalletMenuEnter}
-              onMouseLeave={handleWalletMenuLeave}
-            >
-              <div className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-black/40 backdrop-blur-sm px-3 py-2">
-                {!walletActionsCollapsed ? (
-                  <div className="min-w-0 flex-1 overflow-x-auto no-scrollbar">
-                    <div className="grid min-w-full grid-flow-col auto-cols-[minmax(2.5rem,1fr)] items-center gap-2">
-                      {(["wallet", "library", "tasks", "reputation", "rewards", "payments"] as WalletTab[]).map((tab) => (
-                        <button
-                          key={tab}
-                          onClick={() => { setWalletPanelTab(tab); setWalletPanelOpen(true); }}
-                          className={`h-10 w-full rounded-lg ring-1 transition-colors ${
-                            walletPanelOpen && walletPanelTab === tab
-                              ? "bg-cyan-500/20 ring-cyan-500/30 text-cyan-200"
-                              : "bg-white/5 ring-white/10 text-white/70 hover:text-white hover:bg-white/10"
-                          }`}
-                        >
-                          <span className="flex h-full w-full items-center justify-center">
-                            {tab === "wallet" && <Wallet className="w-4 h-4" />}
-                            {tab === "library" && <BookOpen className="w-4 h-4" />}
-                            {tab === "tasks" && <CheckSquare className="w-4 h-4" />}
-                            {tab === "reputation" && <Trophy className="w-4 h-4" />}
-                            {tab === "rewards" && <Gift className="w-4 h-4" />}
-                            {tab === "payments" && <CreditCard className="w-4 h-4" />}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-1 items-center justify-center">
-                    <button
-                      onClick={() => setWalletActionsCollapsed(false)}
-                      className="p-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white/70 hover:text-white hover:bg-white/10"
-                    >
-                      <Wallet className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-                <div className="flex items-center gap-2 ml-2 flex-shrink-0">
-                  {!walletActionsCollapsed && (
-                    <button
-                      onClick={() => setWalletActionsCollapsed(true)}
-                      className="p-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white/70 hover:text-white hover:bg-white/10"
-                    >
-                      <PanelBottomClose className="w-4 h-4" />
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setWalletPanelOpen((prev) => !prev)}
-                    className="p-2 rounded-lg bg-white/5 ring-1 ring-white/10 text-white/70 hover:text-white hover:bg-white/10"
-                  >
-                    {walletPanelOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -766,7 +674,7 @@ function FloatingCopilot({
                     {Object.entries(PROVIDER_ICON_URL).map(([id]) => (
                       <button
                         key={id}
-                        onClick={() => { setSelectedProvider(id); onModelChange(id, id); setModelMenuOpen(false); }}
+                        onClick={() => { setSelectedProvider(id); onModelChange(id); setModelMenuOpen(false); }}
                         className={`w-full flex items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition ${
                           id === selectedProvider ? "bg-cyan-500/15 text-cyan-200" : "text-white/70 hover:bg-white/5"
                         }`}
@@ -809,15 +717,6 @@ function FloatingCopilot({
         </div>
       </div>
 
-      {/* SmartWallet Drawer */}
-      <SmartWalletDrawer
-        open={walletPanelOpen}
-        onClose={() => setWalletPanelOpen(false)}
-        variant="overlay"
-        agent={{ id: agentId ?? "aigent-z", name: agentName ?? "Aigent" }}
-        personaId={personaId}
-        initialTab={walletPanelTab}
-      />
     </>
   );
 }
