@@ -9966,6 +9966,20 @@ export const ComposerStudio = () => {
                               return matrixCellCounts[`${y}:${x}`] ?? 0;
                             };
 
+                            // Cohort mode: find the ONE cell with the highest count in the selected
+                            // column — this is the "average state" of the cohort on the Y-axis.
+                            // Only highlight this single peak cell, not the whole column.
+                            const peakCohortKey = (() => {
+                              if (matrixLens !== "cohort" || !matrixCohortName) return null;
+                              let best = "";
+                              let bestCount = 0;
+                              for (const yStage of yReversed as string[]) {
+                                const count = matrixCellCounts[`${yStage}:${matrixCohortName}`] ?? 0;
+                                if (count > bestCount) { bestCount = count; best = `${yStage}:${matrixCohortName}`; }
+                              }
+                              return bestCount > 0 ? best : null;
+                            })();
+
                             // Individual lens: server-side search results OR preset slice from top-500
                             const filteredIndividuals =
                               individualPreset === "most_active"
@@ -9977,9 +9991,9 @@ export const ComposerStudio = () => {
                                     : [];
                             const liveIndividualNames = filteredIndividuals.map((u) => u.name);
 
-                            // Selected individual's matrix position (all investors are at Collector Y)
+                            // Selected individual's matrix position — check top-500 cache, then server results
                             const selectedUser = individualSelected
-                              ? matrixIndividuals.find((u) => u.name === individualSelected) ?? null
+                              ? (matrixIndividuals.find((u) => u.name === individualSelected) ?? individualSearchResults.find((u) => u.name === individualSelected) ?? null)
                               : null;
                             const selectedCellXi = selectedUser
                               ? (m.x_stages as string[]).indexOf(selectedUser.stage)
@@ -10181,8 +10195,8 @@ export const ComposerStudio = () => {
                                             const cellCount = getCellCount(y, x);
                                             // Individual: highlight the selected user's actual cell
                                             const isIndividualPos = matrixLens === "individual" && individualSelected !== null && xi === selectedCellXi && yi === selectedCellYi && selectedCellXi >= 0 && selectedCellYi >= 0;
-                                            // Cohort: highlight selected column
-                                            const isSelectedCohortCol = matrixLens === "cohort" && matrixCohortName !== null && x === matrixCohortName;
+                                            // Cohort: highlight only the peak state cell (highest count in selected column)
+                                            const isPeakCohortCell = peakCohortKey !== null && key === peakCohortKey;
                                             const cellClass = isApex && hasPrescription
                                               ? "border-amber-500/40 bg-amber-500/8 text-amber-200"
                                               : hasPrescription && isOnDiagonal
@@ -10196,7 +10210,7 @@ export const ComposerStudio = () => {
                                                 <button
                                                   type="button"
                                                   onClick={() => hasPrescription && openPopup(key)}
-                                                  className={`w-full rounded border px-0.5 py-1 text-center text-[12px] leading-tight font-medium ${cellClass} ${hasPrescription ? "cursor-pointer hover:ring-1 hover:ring-white/20" : "cursor-default"} ${isIndividualPos ? "ring-2 ring-violet-400/60" : ""} ${isSelectedCohortCol ? "ring-1 ring-cyan-500/40 bg-cyan-950/10" : ""}`}
+                                                  className={`w-full rounded border px-0.5 py-1 text-center text-[12px] leading-tight font-medium ${cellClass} ${hasPrescription ? "cursor-pointer hover:ring-1 hover:ring-white/20" : "cursor-default"} ${isIndividualPos ? "ring-2 ring-violet-400/60" : ""} ${isPeakCohortCell ? "ring-2 ring-cyan-400/70 !bg-cyan-950/25 !border-cyan-500/30" : ""}`}
                                                   title={`${y} × ${x}${cellCount ? ` · ${cellCount} user${cellCount > 1 ? "s" : ""}` : ""}${prescription ? `\n${prescription}` : ""}`}
                                                 >
                                                   {prescription ? prescription.split(": ").pop() : "·"}
