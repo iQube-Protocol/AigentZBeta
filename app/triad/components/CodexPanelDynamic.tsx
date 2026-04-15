@@ -38,24 +38,28 @@ type IssueOption = {
   count?: number;
 };
 
-/** Two-column economic framing strip shown in KNYT and AgentiQ codex headers. */
-function EconomicSplitBanner() {
+/** Compact inline badge pair for the KNYT economy tokens — shown only in Treasury and Order tabs. */
+function KnytEconomyBadges() {
   return (
-    <div className="flex gap-2 border-b border-slate-800/80 bg-slate-900/60 px-4 py-2">
-      <div className="flex flex-1 items-center gap-2 rounded-lg border border-indigo-500/20 bg-indigo-500/5 px-3 py-1.5">
-        <Zap className="h-3.5 w-3.5 flex-shrink-0 text-indigo-400" />
-        <div className="min-w-0">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-indigo-400">Q¢ &mdash; Platform Rail</span>
-          <p className="truncate text-[11px] text-slate-400">Base currency for content, access, and platform rewards across all cartridges.</p>
-        </div>
+    <div className="flex items-center gap-2 px-4 py-1.5 border-b border-slate-800/60 bg-slate-900/40">
+      <div className="flex items-center gap-1.5 rounded-full border border-indigo-500/25 bg-indigo-500/8 px-2.5 py-0.5">
+        <Zap className="h-3 w-3 flex-shrink-0 text-indigo-400" />
+        <span className="text-[10px] font-semibold text-indigo-400">Q¢ Platform Rail</span>
       </div>
-      <div className="flex flex-1 items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-1.5">
-        <Coins className="h-3.5 w-3.5 flex-shrink-0 text-amber-400" />
-        <div className="min-w-0">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-400">$KNYT &mdash; Cartridge Economy</span>
-          <p className="truncate text-[11px] text-slate-400">KNYT-native token earned by curating, remixing, and participating in the living canon.</p>
-        </div>
+      <div className="flex items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/8 px-2.5 py-0.5">
+        <Coins className="h-3 w-3 flex-shrink-0 text-amber-400" />
+        <span className="text-[10px] font-semibold text-amber-400">$KNYT Economy</span>
       </div>
+    </div>
+  );
+}
+
+/** Compact badge shown in the AgentiQ side menu area — Q¢ only (platform-wide rail). */
+export function AgentiQEconomyBadge() {
+  return (
+    <div className="flex items-center gap-1.5 rounded-full border border-indigo-500/25 bg-indigo-500/8 px-2.5 py-0.5">
+      <Zap className="h-3 w-3 flex-shrink-0 text-indigo-400" />
+      <span className="text-[10px] font-semibold text-indigo-400">Q¢ Platform Rail</span>
     </div>
   );
 }
@@ -390,16 +394,16 @@ export default function CodexPanelDynamic({
                     <button
                       key={tab.id}
                       onClick={() => setActiveTabSlug(tab.slug)}
-                      className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors border-b-2 whitespace-nowrap ${
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap rounded-lg ${
                         isActive
-                          ? `border-${codex.metadata.color || 'indigo'}-500 text-${codex.metadata.color || 'indigo'}-400`
-                          : 'border-transparent text-slate-400 hover:text-slate-300'
+                          ? `bg-white/8 border border-white/12 shadow-sm backdrop-blur-sm text-${codex.metadata.color || 'indigo'}-300 ring-1 ring-${codex.metadata.color || 'indigo'}-500/20`
+                          : 'border border-transparent text-slate-400 hover:text-slate-300 hover:bg-white/4'
                       }`}
                     >
                       <Icon className="w-3.5 h-3.5 flex-shrink-0" />
                       {density === 'wide' && tab.label}
                       {badge && (
-                        <span className="ml-1 px-1.5 py-0.5 text-xs bg-indigo-500/20 text-indigo-300 rounded">
+                        <span className="ml-1 px-1.5 py-0.5 text-xs bg-white/10 text-slate-300 rounded-full">
                           {badge}
                         </span>
                       )}
@@ -444,9 +448,9 @@ export default function CodexPanelDynamic({
           </div>
         </div>
 
-        {(codexId === 'knyt-codex' || codexId === 'agentiq-codex') && (
+        {codexId === 'knyt-codex' && (activeTabSlug === 'treasury' || activeTabSlug === 'order') && (
           <div className="flex-shrink-0">
-            <EconomicSplitBanner />
+            <KnytEconomyBadges />
           </div>
         )}
 
