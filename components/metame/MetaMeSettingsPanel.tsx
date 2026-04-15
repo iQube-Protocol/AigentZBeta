@@ -6,7 +6,7 @@ import { CheckCircle, ChevronDown } from "lucide-react";
 export const METAME_SETTINGS_KEY = "metame_alpha_settings";
 
 export type BudgetPosture = "low" | "medium" | "high";
-export type LeadAgent = "aigent-kn0w1" | "aigent-z" | "aigent-c";
+export type LeadAgent = "aigent-kn0w1" | "aigent-marketa" | "aigent-c";
 
 export interface MetaMeSettings {
   guardianMode: boolean;
@@ -132,6 +132,7 @@ function SettingSelect<T extends string>({
 export function MetaMeSettingsPanel() {
   const [settings, setSettings] = useState<MetaMeSettings>(METAME_ALPHA_DEFAULTS);
   const [saved, setSaved] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -141,11 +142,13 @@ export function MetaMeSettingsPanel() {
 
   function update<K extends keyof MetaMeSettings>(key: K, value: MetaMeSettings[K]) {
     setSettings((prev) => ({ ...prev, [key]: value }));
+    setIsDirty(true);
     setSaved(false);
   }
 
   function handleSave() {
     saveMetaMeSettings(settings);
+    setIsDirty(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
@@ -156,29 +159,8 @@ export function MetaMeSettingsPanel() {
 
   return (
     <div className="flex flex-col">
-      {/* Save button — at top so it's always above the fold */}
-      <div className="px-4 pt-3 pb-2">
-        <button
-          type="button"
-          onClick={handleSave}
-          className="w-full rounded-lg border border-white/10 bg-white/[0.08] backdrop-blur-sm text-slate-100 text-sm font-semibold py-2 transition-colors hover:bg-white/[0.13] active:bg-white/[0.06]"
-        >
-          {saved ? (
-            <span className="inline-flex items-center gap-1.5 justify-center text-emerald-400">
-              <CheckCircle className="h-3.5 w-3.5" />
-              Saved
-            </span>
-          ) : (
-            "Save"
-          )}
-        </button>
-      </div>
-
-      {/* Divider */}
-      <div className="mx-4 border-t border-slate-800" />
-
       {/* Settings rows */}
-      <div className="px-4 pt-1 pb-4">
+      <div className="px-4 pt-2 pb-2">
         <SettingRow
           label="Guardian Mode"
           description="Require approval before agents take actions on your behalf."
@@ -187,15 +169,15 @@ export function MetaMeSettingsPanel() {
         </SettingRow>
 
         <SettingRow
-          label="Lead Agent"
-          description="Primary agent that handles your requests."
+          label="Lead Runtime Agent"
+          description="Primary agent that handles your runtime requests."
         >
           <SettingSelect
             value={settings.leadAgent}
             options={[
-              { value: "aigent-kn0w1", label: "Aigent Kn0w1" },
-              { value: "aigent-z",     label: "Aigent Z" },
-              { value: "aigent-c",     label: "Aigent C" },
+              { value: "aigent-kn0w1",   label: "Aigent Kn0w1" },
+              { value: "aigent-marketa", label: "Aigent Marketa" },
+              { value: "aigent-c",       label: "Aigent C" },
             ]}
             onChange={(v) => update("leadAgent", v as LeadAgent)}
           />
@@ -236,6 +218,32 @@ export function MetaMeSettingsPanel() {
         >
           <Toggle checked={settings.explanationFirst} onChange={(v) => update("explanationFirst", v)} />
         </SettingRow>
+      </div>
+
+      {/* Save button — below last row, above the fold; lights up when there are unsaved changes */}
+      <div className="px-4 pt-1 pb-4">
+        <button
+          type="button"
+          onClick={handleSave}
+          className={`w-full rounded-lg border backdrop-blur-sm text-sm font-semibold py-2 transition-all duration-200 ${
+            saved
+              ? "border-emerald-400/40 bg-emerald-500/20 text-emerald-300"
+              : isDirty
+              ? "border-emerald-400/50 bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30 active:bg-emerald-500/15"
+              : "border-white/10 bg-white/[0.08] text-slate-400 hover:bg-white/[0.13] active:bg-white/[0.06]"
+          }`}
+        >
+          {saved ? (
+            <span className="inline-flex items-center gap-1.5 justify-center text-emerald-400">
+              <CheckCircle className="h-3.5 w-3.5" />
+              Saved
+            </span>
+          ) : isDirty ? (
+            "Save changes"
+          ) : (
+            "Save"
+          )}
+        </button>
       </div>
     </div>
   );
