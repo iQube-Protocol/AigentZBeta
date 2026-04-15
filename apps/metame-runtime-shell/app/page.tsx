@@ -610,6 +610,29 @@ export default function RuntimeShellHomePage() {
           return;
         }
         router.push(target);
+        return;
+      }
+
+      if (message.type === "LEAD_AGENT_CHANGED") {
+        const p = message.payload as Record<string, unknown>;
+        const incomingId = typeof p.agentId === "string" ? p.agentId
+          : typeof p.aigent_id === "string" ? p.aigent_id
+          : null;
+        if (!incomingId) return;
+        // Functional update avoids stale closure — safe to call inside this effect
+        setConfig((current) => {
+          if (!current) return current;
+          const matched = current.selectors.aigent.options.find((o) => o.id === incomingId);
+          if (!matched) return current;
+          return {
+            ...current,
+            selectors: {
+              ...current.selectors,
+              aigent: { ...current.selectors.aigent, current: matched },
+            },
+          };
+        });
+        return;
       }
     }
 

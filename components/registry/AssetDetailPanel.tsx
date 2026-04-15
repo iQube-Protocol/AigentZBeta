@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X, ExternalLink, ShieldCheck, ClipboardList, Receipt, Star, Plus, Play, Terminal, Loader2, Brain, Layers, Coins, ArrowRight } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { SmartTriadCopilotLayer } from "@/components/smarttriad/copilot";
 import { TrustPanel } from "./TrustPanel";
 import { ValidationPanel } from "./ValidationPanel";
 import type {
@@ -27,7 +27,6 @@ interface AssetDetailPanelProps {
 type DetailTab = "overview" | "validation" | "trust" | "receipts" | "reviews" | "invoke";
 
 export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
-  const router = useRouter();
   const [asset, setAsset] = useState<RegistryAsset | null>(null);
   const [score, setScore] = useState<TrustScore | null>(null);
   const [validation, setValidation] = useState<ValidationQube | null>(null);
@@ -43,6 +42,9 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
   const [invokeResult, setInvokeResult] = useState<string | null>(null);
   const [invoking, setInvoking] = useState(false);
   const [invokeError, setInvokeError] = useState<string | null>(null);
+  // SmartTriad copilot for "Open chat"
+  const [copilotOpen, setCopilotOpen] = useState(false);
+  const [copilotAgent, setCopilotAgent] = useState<{ id: string; name: string } | null>(null);
   // Review creation
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewNotes, setReviewNotes] = useState("");
@@ -194,6 +196,7 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
   }
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-end justify-end bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div
         className="relative h-full w-full max-w-2xl bg-slate-950 border-l border-white/10 overflow-y-auto flex flex-col"
@@ -301,7 +304,14 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
                   )}
                   {/* ── AigentQube Agent Section ─────────────────────── */}
                   {asset?.assetClass === "AigentQube" && asset.metadata && (
-                    <AgentSection metadata={asset.metadata} personaKey={asset.metadata?.personaKey as string | undefined} onChat={(key) => { onClose(); router.push(`/aigents/${key}`); }} />
+                    <AgentSection
+                      metadata={asset.metadata}
+                      personaKey={asset.metadata?.personaKey as string | undefined}
+                      onChat={(key) => {
+                        setCopilotAgent({ id: `aigent-${key}`, name: asset.name });
+                        setCopilotOpen(true);
+                      }}
+                    />
                   )}
 
                   {asset && asset.tags.length > 0 && (
@@ -563,6 +573,15 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
         </div>
       </div>
     </div>
+    {copilotAgent && (
+      <SmartTriadCopilotLayer
+        isOpen={copilotOpen}
+        onClose={() => setCopilotOpen(false)}
+        variant="floating"
+        agent={copilotAgent}
+      />
+    )}
+    </>
   );
 }
 
