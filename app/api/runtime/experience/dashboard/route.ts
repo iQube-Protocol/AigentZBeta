@@ -298,6 +298,19 @@ export async function GET(request: NextRequest) {
       SAT: 'Sat KNYT', ZERO: 'Zero', FIRST: 'First', KEJI: 'Keji', KETA: 'Keta',
     };
 
+    // Mirrors normalizeTier() in scripts/import-nakamoto-to-qubebase.js.
+    // Raw DB values can be "Sat KNYT", "SAT", "Zero", "ZERO KNYT", etc.
+    // Strip all non-alpha chars then substring-match to get the canonical key.
+    function normalizeTierKey(raw: string): string {
+      const c = raw.toUpperCase().replace(/[^A-Z]/g, '');
+      if (c.includes('SAT'))   return 'SAT';
+      if (c.includes('ZERO'))  return 'ZERO';
+      if (c.includes('FIRST')) return 'FIRST';
+      if (c.includes('KEJI'))  return 'KEJI';
+      if (c.includes('KETA'))  return 'KETA';
+      return '';
+    }
+
     // Mirrors tierFromInvested() in scripts/import-nakamoto-to-qubebase.js
     function deriveTierFromAmount(amount: number): string {
       if (amount >= 25000) return 'SAT';
@@ -327,8 +340,9 @@ export async function GET(request: NextRequest) {
       for (const row of data) {
         const r = row as Record<string, unknown>;
 
-        // Prefer explicit OM-Tier-Status; fall back to investment amount
-        let tier = ((r['OM-Tier-Status'] as string) || '').toUpperCase().trim();
+        // Prefer explicit OM-Tier-Status; fall back to investment amount.
+        // normalizeTierKey handles raw CSV variants: "Sat KNYT", "SAT KNYT", "SAT", "Zero", etc.
+        let tier = normalizeTierKey((r['OM-Tier-Status'] as string) || '');
         if (!tier) {
           const investedRaw = String(r['Total-Invested'] || '0');
           const invested = parseFloat(investedRaw.replace(/[^0-9.]/g, '')) || 0;
