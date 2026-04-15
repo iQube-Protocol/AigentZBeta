@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, ExternalLink, ShieldCheck, ClipboardList, Receipt, Star, Plus, Play, Terminal, Loader2, Brain, Layers, Coins, ArrowRight } from "lucide-react";
 import { SmartTriadCopilotLayer } from "@/components/smarttriad/copilot";
 import { TrustPanel } from "./TrustPanel";
@@ -45,6 +45,8 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
   // SmartTriad copilot for "Open chat"
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [copilotAgent, setCopilotAgent] = useState<{ id: string; name: string } | null>(null);
+  // Panel ref for click-outside-to-close (no blocking backdrop)
+  const panelRef = useRef<HTMLDivElement>(null);
   // Review creation
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewNotes, setReviewNotes] = useState("");
@@ -54,6 +56,18 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
   useEffect(() => {
     loadAll();
   }, [assetId]);
+
+  // Close panel when clicking outside — disabled while copilot is open so copilot backdrop clicks don't cascade
+  useEffect(() => {
+    if (copilotOpen) return;
+    const handleMouseDown = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener("mousedown", handleMouseDown);
+    return () => document.removeEventListener("mousedown", handleMouseDown);
+  }, [onClose, copilotOpen]);
 
   async function loadAll() {
     setLoading(true);
@@ -108,7 +122,7 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
       const res = await fetch(`/api/registry/assets/${assetId}/publish`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ publishedBy: "user", force: true }),
+        body: JSON.stringify({ publishedBy: "user", tenantId: asset?.tenantId ?? "platform", force: true }),
       });
       const data = await res.json();
       if (!data.ok) {
@@ -197,11 +211,9 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
 
   return (
     <>
-    {/* Transparent click-to-close zone — no dimming so codex tabs remain visible */}
-    <div className="fixed inset-0 z-[159]" onClick={onClose} />
     <div
+      ref={panelRef}
       className="fixed inset-y-0 right-0 z-[160] h-full w-full max-w-2xl bg-slate-950 border-l border-white/10 overflow-y-auto flex flex-col shadow-2xl"
-      onClick={(e) => e.stopPropagation()}
     >
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-start justify-between gap-4 px-6 py-4 bg-slate-950/95 backdrop-blur border-b border-white/10">
