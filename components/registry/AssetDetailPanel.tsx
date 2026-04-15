@@ -197,7 +197,7 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
 
   return (
     <>
-    <div className="fixed inset-0 z-50 flex items-end justify-end bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[160] flex items-end justify-end bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div
         className="relative h-full w-full max-w-2xl bg-slate-950 border-l border-white/10 overflow-y-auto flex flex-col"
         onClick={(e) => e.stopPropagation()}
