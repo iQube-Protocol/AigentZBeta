@@ -197,11 +197,12 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
 
   return (
     <>
-    <div className="fixed inset-0 z-[160] flex items-end justify-end bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div
-        className="relative h-full w-full max-w-2xl bg-slate-950 border-l border-white/10 overflow-y-auto flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
+    {/* Transparent click-to-close zone — no dimming so codex tabs remain visible */}
+    <div className="fixed inset-0 z-[159]" onClick={onClose} />
+    <div
+      className="fixed inset-y-0 right-0 z-[160] h-full w-full max-w-2xl bg-slate-950 border-l border-white/10 overflow-y-auto flex flex-col shadow-2xl"
+      onClick={(e) => e.stopPropagation()}
+    >
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-start justify-between gap-4 px-6 py-4 bg-slate-950/95 backdrop-blur border-b border-white/10">
           <div className="min-w-0">
@@ -308,7 +309,7 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
                       metadata={asset.metadata}
                       personaKey={asset.metadata?.personaKey as string | undefined}
                       onChat={(key) => {
-                        setCopilotAgent({ id: `aigent-${key}`, name: asset.name });
+                        setCopilotAgent({ id: key, name: asset.name });
                         setCopilotOpen(true);
                       }}
                     />
@@ -572,13 +573,13 @@ export function AssetDetailPanel({ assetId, onClose }: AssetDetailPanelProps) {
           )}
         </div>
       </div>
-    </div>
     {copilotAgent && (
       <SmartTriadCopilotLayer
         isOpen={copilotOpen}
         onClose={() => setCopilotOpen(false)}
         variant="floating"
         agent={copilotAgent}
+        personaId={copilotAgent.id}
       />
     )}
     </>
