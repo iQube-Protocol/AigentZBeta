@@ -749,7 +749,7 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
     },
     {
       id: 'agentiq-knyt',
-      label: 'AgentiQ KNYT',
+      label: 'Venture Lab α',
       slug: 'agentiq-knyt',
       enabled: true,
       adminOnly: true,
@@ -758,9 +758,9 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       config: {
         component: 'AgentiqCartridgeTab',
         props: {
-          packId: 'agentiq',
-          collectionId: 'col_agentiq_knyt',
-          defaultPath: 'items/AGENTIQ_KNYT.md'
+          packId: 'alpha-knyt',
+          collectionId: 'col_venture_lab',
+          defaultPath: 'items/01-alpha-program-positioning.md'
         }
       },
       metadata: {
