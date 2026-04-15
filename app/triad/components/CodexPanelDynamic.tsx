@@ -380,7 +380,7 @@ export default function CodexPanelDynamic({
                 )}
                 {displayCodexName}
               </h2>
-              <div className="flex gap-1 overflow-x-auto">
+              <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
                 {enabledTabs.map((tab) => {
                   const Icon = getIconComponent(tab.metadata?.icon || 'Circle');
                   const isActive = tab.slug === activeTabSlug;
@@ -390,13 +390,13 @@ export default function CodexPanelDynamic({
                     <button
                       key={tab.id}
                       onClick={() => setActiveTabSlug(tab.slug)}
-                      className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
+                      className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors border-b-2 whitespace-nowrap ${
                         isActive
                           ? `border-${codex.metadata.color || 'indigo'}-500 text-${codex.metadata.color || 'indigo'}-400`
                           : 'border-transparent text-slate-400 hover:text-slate-300'
                       }`}
                     >
-                      <Icon className="w-4 h-4" />
+                      <Icon className="w-3.5 h-3.5 flex-shrink-0" />
                       {density === 'wide' && tab.label}
                       {badge && (
                         <span className="ml-1 px-1.5 py-0.5 text-xs bg-indigo-500/20 text-indigo-300 rounded">
@@ -445,7 +445,9 @@ export default function CodexPanelDynamic({
         </div>
 
         {(codexId === 'knyt-codex' || codexId === 'agentiq-codex') && (
-          <EconomicSplitBanner />
+          <div className="flex-shrink-0">
+            <EconomicSplitBanner />
+          </div>
         )}
 
         {activeTab && (
@@ -465,7 +467,7 @@ export default function CodexPanelDynamic({
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           {activeTab && (
             <TabRenderer
               tab={activeTab}
