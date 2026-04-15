@@ -28,6 +28,18 @@ const TIER_RANK: Record<string, number> = {
   KETA: 5, KEJI: 4, FIRST: 3, ZERO: 2, SAT: 1,
 };
 
+// Normalize raw OM-Tier-Status values from the DB ("Sat KNYT", "SAT KNYT", "SAT", "Zero", etc.)
+// to the canonical short code used in TIER_RANK / TIER_TO_X.
+function normalizeTierKey(raw: string): string {
+  const c = raw.toUpperCase().replace(/[^A-Z]/g, '');
+  if (c.includes('SAT'))   return 'SAT';
+  if (c.includes('ZERO'))  return 'ZERO';
+  if (c.includes('FIRST')) return 'FIRST';
+  if (c.includes('KEJI'))  return 'KEJI';
+  if (c.includes('KETA'))  return 'KETA';
+  return raw.toUpperCase().trim();
+}
+
 function str(v: unknown): string {
   return typeof v === 'string' ? v.trim() : '';
 }
@@ -204,8 +216,8 @@ export async function GET(request: NextRequest) {
     });
   } else if (sort === 'tier') {
     results.sort((a, b) => {
-      const aRank = TIER_RANK[a.omTier?.toUpperCase()] ?? 0;
-      const bRank = TIER_RANK[b.omTier?.toUpperCase()] ?? 0;
+      const aRank = TIER_RANK[normalizeTierKey(a.omTier ?? '')] ?? 0;
+      const bRank = TIER_RANK[normalizeTierKey(b.omTier ?? '')] ?? 0;
       if (aRank !== bRank) return bRank - aRank;
       return a.name.localeCompare(b.name);
     });
