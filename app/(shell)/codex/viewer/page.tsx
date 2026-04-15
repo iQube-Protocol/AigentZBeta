@@ -167,8 +167,8 @@ export default function CodexViewerPage() {
               onClick={() => setCodexId(codex.id)}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 codexId === codex.id
-                  ? `bg-white/10 border border-white/15 backdrop-blur-sm shadow-sm text-${codex.color}-300 ring-1 ring-${codex.color}-500/25`
-                  : "border border-transparent bg-slate-700/30 text-slate-400 hover:bg-white/6 hover:text-slate-300"
+                  ? `bg-${codex.color}-500/10 ring-1 ring-${codex.color}-500/30 text-${codex.color}-300`
+                  : "bg-slate-700/30 text-slate-400 hover:bg-white/6 hover:text-slate-300"
               }`}
             >
               {codex.label}

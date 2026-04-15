@@ -396,8 +396,8 @@ export default function CodexPanelDynamic({
                       onClick={() => setActiveTabSlug(tab.slug)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap rounded-lg ${
                         isActive
-                          ? `bg-white/8 border border-white/12 shadow-sm backdrop-blur-sm text-${codex.metadata.color || 'indigo'}-300 ring-1 ring-${codex.metadata.color || 'indigo'}-500/20`
-                          : 'border border-transparent text-slate-400 hover:text-slate-300 hover:bg-white/4'
+                          ? `bg-${codex.metadata.color || 'indigo'}-500/10 ring-1 ring-${codex.metadata.color || 'indigo'}-500/30 text-${codex.metadata.color || 'indigo'}-300`
+                          : 'text-slate-400 hover:text-slate-300 hover:bg-white/4'
                       }`}
                     >
                       <Icon className="w-3.5 h-3.5 flex-shrink-0" />
