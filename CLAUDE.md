@@ -16,6 +16,27 @@ When the operator needs to take any action, always provide the exact command(s) 
 
 ---
 
+## Security — Access Gates (PARAMOUNT)
+
+**NEVER remove, weaken, or bypass any access control gate without explicit written consent from an admin.**
+
+This includes but is not limited to:
+
+- `adminOnly` flags on codex tabs, routes, or UI components
+- Role checks (`isAdmin`, `isSuperAdmin`, RBAC guards)
+- Supabase Row Level Security (RLS) policies
+- API route authentication middleware
+- Feature flags that gate sensitive functionality
+
+**If a gate appears to be blocking legitimate access**, the correct response is to:
+1. Report the access issue to the operator and ask for explicit authorisation to change it
+2. Investigate the auth resolution path (how `isAdmin` is set, what role is required) and fix the upstream auth flow — not remove the gate
+3. Never remove a gate as a debugging shortcut or workaround
+
+Violating this rule is a critical security incident regardless of intent.
+
+---
+
 ## Core Principle: Extend, Don't Duplicate
 
 This is a mature, actively evolving codebase. Before writing any new code:
