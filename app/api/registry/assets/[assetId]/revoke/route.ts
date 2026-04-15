@@ -5,7 +5,8 @@
  * to 'revoked' and resets the asset's publicationStatus to 'draft'.
  * Emits an asset.published receipt with revoked=true for the audit trail.
  *
- * Body: { revokedBy: string, reason: string }
+ * Body: { revokedBy: string, reason: string, tenantId: string }
+ * tenantId is required — verified against asset.tenantId to prevent cross-tenant revocation.
  *
  * Phase 4 — Registry Governance
  */
@@ -29,19 +30,25 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   try {
     const { assetId } = params;
     const body = await req.json();
-    const { revokedBy, reason } = body;
+    const { revokedBy, reason, tenantId } = body;
 
-    if (!revokedBy || !reason) {
+    if (!revokedBy || !reason || !tenantId) {
       return NextResponse.json(
-        { ok: false, error: "revokedBy and reason are required" },
+        { ok: false, error: "revokedBy, reason, and tenantId are required" },
         { status: 400 }
       );
     }
 
-    // Confirm asset exists
+    // Confirm asset exists and belongs to the caller's tenant
     const asset = await getAsset(assetId);
     if (!asset) {
       return NextResponse.json({ ok: false, error: "Asset not found" }, { status: 404 });
+    }
+    if (asset.tenantId !== tenantId) {
+      return NextResponse.json(
+        { ok: false, error: "Forbidden: asset does not belong to this tenant" },
+        { status: 403 }
+      );
     }
 
     // Find active (published) publication for this asset

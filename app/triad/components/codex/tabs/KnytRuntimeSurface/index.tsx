@@ -326,35 +326,43 @@ export default function KnytRuntimeSurface({
     ksTrackingUrl?: string;
   } | null>(null);
 
-  // Load the persona's journey state to resolve their actual axes
+  // Aggregate state from /api/runtime/knyt-state — replaces separate experience/dashboard load
+  const [worldHeader, setWorldHeader] = useState<{ title: string; subtitle: string } | null>(null);
+  const [signalCounts, setSignalCounts] = useState<{ like: number; spark: number; curate: number; total: number } | null>(null);
+  const [knytBalance, setKnytBalance] = useState<number | null>(null);
+  const [nbePlan, setNbePlan] = useState<{ disposition: string; next_experience_depth: string; rationale: string } | null>(null);
+
   useEffect(() => {
     if (!personaId) return;
     let cancelled = false;
 
-    async function loadJourneyState() {
+    async function loadKnytState() {
       try {
-        const params = new URLSearchParams({
-          view: "individual",
-          tenantId: "nakamoto",
-          personaId,
-          limit: "1",
-        });
-        const res = await fetch(`/api/runtime/experience/dashboard?${params}`, { cache: "no-store" });
+        const res = await fetch(`/api/runtime/knyt-state?personaId=${encodeURIComponent(personaId!)}`, { cache: "no-store" });
         if (!res.ok || cancelled) return;
         const data = await res.json();
-        const state = data?.data?.[0];
-        if (!state || cancelled) return;
-        setPatronageStage(stageToPatronage(state.stage));
-        // Use inferred PCS from depth as best available signal
-        setPcsStage(depthToPcs(state.depth));
+        if (cancelled) return;
+        // Resolve journey stages from the knyt-state response
+        if (data.journey?.stage) {
+          setPatronageStage(stageToPatronage(data.journey.stage));
+          setPcsStage(depthToPcs(data.journey.depth));
+        }
+        if (data.world_header) setWorldHeader(data.world_header);
+        if (data.signal_counts) setSignalCounts(data.signal_counts);
+        if (typeof data.knyt_balance === "number") setKnytBalance(data.knyt_balance);
+        if (data.nbe) setNbePlan(data.nbe);
+        // Use editorial featured moment if available; living-canon load acts as fallback
+        if (data.featured_moment?.content_id && !featuredMoment) {
+          setFeaturedMoment({ id: data.featured_moment.content_id, branch: "editorial" });
+        }
       } catch {
         // Fall back silently to prop defaults
       }
     }
 
-    loadJourneyState();
+    loadKnytState();
     return () => { cancelled = true; };
-  }, [personaId]);
+  }, [personaId]); // featuredMoment intentionally excluded — living-canon load below handles it
 
   // Load investor campaign status for the KNYT Wheel CTA lane
   useEffect(() => {
@@ -531,8 +539,8 @@ export default function KnytRuntimeSurface({
         <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
           <div>
             <p className="text-xs uppercase tracking-wide text-amber-500">KNYT Cartridge</p>
-            <h2 className="text-xl font-semibold text-slate-100">Live Runtime Surface</h2>
-            <p className="text-xs text-slate-400">The Order is active. Your next move matters here.</p>
+            <h2 className="text-xl font-semibold text-slate-100">{worldHeader?.title ?? "Live Runtime Surface"}</h2>
+            <p className="text-xs text-slate-400">{worldHeader?.subtitle ?? "The Order is active. Your next move matters here."}</p>
           </div>
           <div className="flex items-center gap-2">
             <Badge className="border-amber-800 bg-amber-950 text-amber-300">{runtimeState.patronage_stage}</Badge>
@@ -640,15 +648,26 @@ export default function KnytRuntimeSurface({
           <p className="text-xs text-slate-400">
             {(runtimeState.available_actions.find((action) => action.isPrimary) ?? runtimeState.available_actions[0])?.helperText}
           </p>
+          {signalCounts && signalCounts.total > 0 && (
+            <div className="flex flex-wrap gap-2 pt-1 text-[11px] text-slate-500">
+              {signalCounts.like > 0 && <span>{signalCounts.like} like{signalCounts.like !== 1 ? "s" : ""}</span>}
+              {signalCounts.spark > 0 && <span>{signalCounts.spark} spark{signalCounts.spark !== 1 ? "s" : ""}</span>}
+              {signalCounts.curate > 0 && <span>{signalCounts.curate} curation{signalCounts.curate !== 1 ? "s" : ""}</span>}
+              <span className="text-slate-600">— {signalCounts.total} total signal{signalCounts.total !== 1 ? "s" : ""}</span>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {(runtimeState.latest_reward || runtimeState.balance_preview) ? (
+      {(runtimeState.latest_reward || runtimeState.balance_preview || (knytBalance !== null && knytBalance > 0)) ? (
         <Card className="rounded-xl border border-emerald-900 bg-emerald-950/20">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-emerald-200">Reward + Progress</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
+            {knytBalance !== null && knytBalance > 0 && (
+              <p className="text-emerald-100 font-semibold">{knytBalance.toFixed(4)} $KNYT balance</p>
+            )}
             {runtimeState.latest_reward ? <p className="text-emerald-100">{runtimeState.latest_reward}</p> : null}
             {runtimeState.reward_reason ? <p className="text-emerald-300/90">{runtimeState.reward_reason}</p> : null}
             {runtimeState.balance_preview ? <p className="text-emerald-400 text-xs">{runtimeState.balance_preview}</p> : null}
@@ -661,8 +680,16 @@ export default function KnytRuntimeSurface({
           <CardTitle className="text-sm font-medium text-slate-300">Your Next Best Step</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
+          {nbePlan && (
+            <p className="text-[11px] uppercase tracking-wide text-cyan-400 font-semibold mb-1">
+              NBE: {nbePlan.disposition} → {nbePlan.next_experience_depth}
+            </p>
+          )}
           <p className="font-semibold text-slate-100">{runtimeState.next_best_step.action}</p>
           <p className="text-slate-300">{runtimeState.next_best_step.rationale}</p>
+          {nbePlan?.rationale && nbePlan.rationale !== runtimeState.next_best_step.rationale && (
+            <p className="text-xs text-cyan-300/80">{nbePlan.rationale}</p>
+          )}
           {runtimeState.next_best_step.unlock ? (
             <p className="text-xs text-amber-300/80">Unlocks: {runtimeState.next_best_step.unlock}</p>
           ) : null}

@@ -73,14 +73,17 @@ export async function GET(request: NextRequest) {
   const limitParam = searchParams.get('limit');
   const journey_stage = searchParams.get('journey_stage') ?? undefined;
 
+  // personaId is required — prevents cross-persona event disclosure
+  if (!personaId) {
+    return NextResponse.json({ error: 'personaId required' }, { status: 400 });
+  }
+
   const limit = limitParam ? Math.min(parseInt(limitParam, 10), 100) : 20;
 
   const events = await getRecentOrchestrationEvents({ limit, journey_stage });
 
-  // Filter client-side by personaId if provided (metadata.persona_id)
-  const filtered = personaId
-    ? events.filter((e) => e.metadata?.persona_id === personaId)
-    : events;
+  // Filter server-side by personaId via metadata.persona_id
+  const filtered = events.filter((e) => e.metadata?.persona_id === personaId);
 
   return NextResponse.json({ events: filtered, count: filtered.length });
 }
