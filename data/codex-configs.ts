@@ -94,7 +94,7 @@ export const KNYT_LIVING_CANON: LivingCanonBranchConfig = {
 
 export const KNYT_CODEX: CodexConfig = {
   id: 'knyt-codex',
-  name: 'KNYT Codex',
+  name: 'KNYT Cartridge',
   slug: 'knyt-codex',
   enabled: true,
   version: '1.0.0',
@@ -387,7 +387,7 @@ export const KNYT_CODEX: CodexConfig = {
 
 export const QRIPTO_CODEX: CodexConfig = {
   id: 'qripto-codex',
-  name: 'Qriptopian Codex',
+  name: 'Qriptopian Cartridge',
   slug: 'qripto',
   enabled: true,
   version: '1.0.0',
@@ -536,7 +536,7 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
   //   packId 'agentiq' → codexes/packs/agentiq/  (build-layer docs: AgentiQ OS, Alpha Program)
   //   static components → FactoryIntakeTab, RegistrySupplyTab
   id: 'agentiq-codex',
-  name: 'AgentiQ Codex',
+  name: 'AgentiQ Cartridge',
   slug: 'agentiq',
   enabled: true,
   version: '1.0.0',
@@ -753,7 +753,7 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
     },
     {
       id: 'agentiq-os',
-      label: 'AgentiQ OS',
+      label: 'AgentiQ OS α',
       slug: 'agentiq-os',
       enabled: true,
       adminOnly: true,
@@ -946,7 +946,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
     },
     {
       id: 'agentiq-os-vl',
-      label: 'AgentiQ OS',
+      label: 'AgentiQ OS α',
       slug: 'agentiq-os-vl',
       enabled: true,
       adminOnly: true,
@@ -981,7 +981,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
 
 export const METAME_CODEX: CodexConfig = {
   id: 'metame-codex',
-  name: 'metaMe Codex',
+  name: 'metaMe Cartridge',
   slug: 'metame',
   enabled: true,
   version: '1.0.0',
