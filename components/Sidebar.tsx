@@ -629,6 +629,7 @@ export const Sidebar = () => {
   const effectiveCollapsed = false;
 
   const scheduleCollapse = (delayMs = 4500) => {
+    if (studioExpanded) return; // studio uses studioMenuVisible, not pinnedOpen
     if (collapseTimerRef.current) {
       clearTimeout(collapseTimerRef.current);
     }
@@ -986,8 +987,13 @@ export const Sidebar = () => {
     if (!href || href.startsWith('#')) {
       return;
     }
-    scheduleCollapse();
-    
+    // In studio mode, close the overlay immediately instead of keeping it pinned open
+    if (studioExpanded) {
+      setStudioMenuVisible(false);
+    } else {
+      scheduleCollapse();
+    }
+
     try {
       router.push(href);
     } catch (error) {
@@ -1078,11 +1084,10 @@ export const Sidebar = () => {
         onMouseLeave={handleHoverEnd}
       >
         <div className="flex-shrink-0">
-          <button className="mb-6 text-sm font-semibold text-slate-200 hover:text-white flex items-center gap-2 uppercase tracking-wider" onClick={toggleSidebar}>
+          <div className="mb-6 text-sm font-semibold text-slate-200 flex items-center gap-2 uppercase tracking-wider">
             <Bot size={18} className="text-blue-400" />
-            {!effectiveCollapsed && <span>QRIPTO: AGENTIQ</span>}
-            {!effectiveCollapsed && <span className="ml-auto">«</span>}
-          </button>
+            <span>QRIPTO: AGENTIQ</span>
+          </div>
         </div>
       <nav className="space-y-6 flex-1 overflow-y-auto pr-1 pb-6">
         {sections.map((section) => {
@@ -1550,11 +1555,12 @@ export const Sidebar = () => {
         })}
       </nav>
       </aside>
-      <SubmenuDrawer 
-        isOpen={drawerOpen} 
-        onClose={() => setDrawerOpen(false)} 
-        iQubeId={iQubeId} 
-        drawerType={drawerType} 
+      <SubmenuDrawer
+        isOpen={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        iQubeId={iQubeId}
+        drawerType={drawerType}
+        sidebarVisible={hovering || pinnedOpen || studioMenuVisible}
       />
     </>
   );
