@@ -303,6 +303,44 @@ Full type definitions: `types/orchestration.ts`, `types/studioArtifact.ts`
 
 ---
 
+## Project Workstreams — Three Distinct Programs
+
+There are three parallel workstreams in this codebase. Do **not** conflate them with each other.
+
+### 1. AgentiQ Alpha — Platform Build (current phase)
+
+The in-progress platform hardening and first-ship phase. Established the base registry, runtime shell, SmartTriad, codex system, and core agent infrastructure.
+
+- **Docs:** `codexes/packs/agentiq/items/ALPHA_*.md` — Overview, Build Plan, Asset Map, Architecture Memo
+- **Codex tab:** AgentiQ Cartridge → "Alpha Program" tab (`slug: alpha-program`)
+- **Status:** Active — this is the primary development context for most engineering tasks
+
+### 2. Venture Lab α — AgentiQ Ventures Studio / AgentiQ Lab (next phase)
+
+The next-stage program: builds the live **metaMe / AgentiQ / AgentiQ OS engine** on top of the Alpha foundation. Formally called the **AgentiQ Ventures Studio → AgentiQ Lab foundational capabilities workstream**. Operationalizes the platform into a coherent live system with the reference agent trio (Aigent Z, Marketa, Know1), the first cartridge pair (KNYT + Qriptopian), and the KNYT Alpha launch.
+
+**Naming note:** The codebase pack is `alpha-knyt` (historical name) but the project is "Venture Lab α" / "AgentiQ Lab" / "alpha-lab" in product and planning terms. Use "Venture Lab α" or "AgentiQ Lab" when referring to this workstream — not "AgentiQ KNYT" (which is ambiguous with the KNYT cartridge itself).
+
+- **Docs:** `docs/alpha/agentiq-knyt/` — 23 codex-grade planning docs (01–23)
+- **Pack:** `codexes/packs/alpha-knyt/` (symlinks `items/` → `docs/alpha/agentiq-knyt/`)
+- **Codex tab:** AgentiQ Cartridge → "Venture Lab α" tab (`slug: agentiq-knyt`, `adminOnly: true`)
+- **Overview doc:** `codexes/packs/agentiq/items/AGENTIQ_KNYT.md`
+- **Status:** Planning complete (23 docs); build starts after Alpha ships
+
+When docs 24+ are added to `docs/alpha/agentiq-knyt/`, also add them to `codexes/packs/alpha-knyt/collections.json` (`col_venture_lab` items array).
+
+### 3. KNYT Wheel — Activation Campaign (marketing / ops)
+
+The KNYT product launch and activation campaign. This is a **marketing and operations workstream** — not a platform build workstream. It covers the launch plan, copy packs, CRM model, partner activation, and 30-day calendar for taking KNYT to market.
+
+**Do not confuse** this with Venture Lab α (which builds the engine) or AgentiQ Alpha (which builds the platform).
+
+- **Docs:** `codexes/packs/knyt/items/KNYT_CAMPAIGN_*.md` (15 operator docs) + experience pack and runtime surface specs
+- **Codex:** `knyt-codex` — the live KNYT product codex (character cards, scrolls, shop, balance)
+- **Status:** Campaign ops in progress — touches CRM routes, email sequences, Marketa activation
+
+---
+
 ## metaProof Agent Harness
 
 Canonical specs live in `docs/agent-harness/`. These are the single source of truth for all agents (Claude Code, Codex, Lovable):
