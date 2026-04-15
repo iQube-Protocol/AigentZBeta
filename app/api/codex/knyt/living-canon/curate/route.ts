@@ -24,6 +24,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { emitJourneyTelemetry } from '@/services/orchestration/journeyTelemetry';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -62,6 +63,19 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Already curated this content' }, { status: 409 });
       throw signalErr;
     }
+
+    // Emit orchestration telemetry — fire-and-forget
+    void emitJourneyTelemetry({
+      event: 'experience_activated',
+      persona_id,
+      agent_id: 'aigent-kn0w1',
+      metadata: {
+        signal_type: 'curate',
+        content_id,
+        signal_id: signal.id,
+        active_cartridge: 'knyt',
+      },
+    });
 
     return NextResponse.json({
       success: true,

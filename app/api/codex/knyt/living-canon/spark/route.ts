@@ -22,6 +22,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { emitJourneyTelemetry } from '@/services/orchestration/journeyTelemetry';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -57,6 +58,20 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Already sparked this content' }, { status: 409 });
       throw signalErr;
     }
+
+    // Emit orchestration telemetry — fire-and-forget
+    void emitJourneyTelemetry({
+      event: 'experience_activated',
+      persona_id,
+      agent_id: 'aigent-kn0w1',
+      metadata: {
+        signal_type: 'spark',
+        content_id,
+        signal_id: signal.id,
+        reward_knyt: SPARK_REWARD_KNYT,
+        active_cartridge: 'knyt',
+      },
+    });
 
     // Emit micro-reward — async, non-blocking
     supabase.from('knyt_reward_grants').insert({
