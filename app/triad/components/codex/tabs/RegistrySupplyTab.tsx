@@ -155,7 +155,7 @@ export function RegistrySupplyTab({ theme = "dark", codexId }: RegistrySupplyTab
     } finally {
       setLoading(false);
     }
-  }, [trustFilter, classFilter, search]);
+  }, [trustFilter, classFilter, search, cartridgeFilter, cartridgeSlug]);
 
   useEffect(() => { void load(); }, [load, cartridgeFilter]);
 
