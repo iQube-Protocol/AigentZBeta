@@ -84,13 +84,15 @@ interface SubmenuDrawerProps {
   onClose: () => void;
   iQubeId: string;
   drawerType?: 'view' | 'decrypt' | 'mint' | 'activate' | 'use' | 'edit';
+  sidebarVisible?: boolean;
 }
 
 export const SubmenuDrawer = ({
   isOpen,
   onClose,
   iQubeId,
-  drawerType
+  drawerType,
+  sidebarVisible = false,
 }: SubmenuDrawerProps) => {
   // Original state - keeping for backward compatibility
   const [metaQubeData, setMetaQubeData] = useState<MetaQubeItem[]>([]);
@@ -3562,8 +3564,10 @@ export const SubmenuDrawer = ({
     <div className="fixed inset-0 z-50 flex">
       <div className="absolute inset-0 bg-black/50 drawer-backdrop" onClick={onClose}></div>
       <div
-        className={`relative bg-black/30 ring-1 ring-white/10 backdrop-blur-xl h-full shadow-xl animate-slide-in-right drawer-content flex flex-col ${
-          isFullscreen ? "w-[calc(100vw-4rem)] ml-16" : "w-96 ml-72"
+        className={`relative bg-black/30 ring-1 ring-white/10 backdrop-blur-xl h-full shadow-xl animate-slide-in-right drawer-content flex flex-col transition-[margin] duration-200 ${
+          isFullscreen
+            ? sidebarVisible ? "w-[calc(100vw-18rem)] ml-72" : "w-full ml-0"
+            : sidebarVisible ? "w-96 ml-72" : "w-96 ml-0"
         }`}
       >
         {/* Sticky Header and Tabs */}

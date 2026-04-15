@@ -1550,11 +1550,12 @@ export const Sidebar = () => {
         })}
       </nav>
       </aside>
-      <SubmenuDrawer 
-        isOpen={drawerOpen} 
-        onClose={() => setDrawerOpen(false)} 
-        iQubeId={iQubeId} 
-        drawerType={drawerType} 
+      <SubmenuDrawer
+        isOpen={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        iQubeId={iQubeId}
+        drawerType={drawerType}
+        sidebarVisible={hovering || pinnedOpen || studioMenuVisible}
       />
     </>
   );
