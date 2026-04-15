@@ -29,6 +29,7 @@ export type RuntimeInboundType =
   | "PROCESSING_START"
   | "INFERENCE_COMPLETE"
   | "RENDER_COMPLETE"
+  | "LEAD_AGENT_CHANGED"
   | BrowserRuntimeToShellType;
 
 export type BridgeSource = "shell" | "runtime";
@@ -121,6 +122,7 @@ export function isRuntimeInboundMessage(value: unknown): value is RuntimeInbound
     "PROCESSING_START",
     "INFERENCE_COMPLETE",
     "RENDER_COMPLETE",
+    "LEAD_AGENT_CHANGED",
     ...browserRuntimeToShellTypes,
   ];
   return runtimeTypes.includes(value.type as RuntimeInboundType);

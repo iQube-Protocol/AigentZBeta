@@ -67,7 +67,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { MetaMeSettingsPanel } from "@/components/metame/MetaMeSettingsPanel";
+import { MetaMeSettingsPanel, loadMetaMeSettings, type LeadAgent } from "@/components/metame/MetaMeSettingsPanel";
 import type { ScreenFraction, SmartContentQube } from "@/types/smartContent";
 import type { RuntimeCapsuleRecord } from "@/types/runtimeCapsules";
 
@@ -3403,6 +3403,35 @@ export default function MetaMeRuntimeClient() {
       postRuntimeEvent(type, payload);
     },
   });
+
+  // Apply a lead agent by ID — sets the active agent and notifies the thin client shell
+  const applyLeadAgentSetting = useCallback(
+    (leadAgentId: LeadAgent) => {
+      const agent = RUNTIME_AGENTS.find((a) => a.id === leadAgentId);
+      if (!agent) return;
+      setSelectedAgent(agent);
+      postRuntimeEvent("LEAD_AGENT_CHANGED", {
+        agentId: agent.id,
+        agentLabel: agent.label,
+      });
+    },
+    [postRuntimeEvent]
+  );
+
+  // Sync lead agent from metaMe settings on mount and whenever settings change
+  useEffect(() => {
+    const stored = loadMetaMeSettings();
+    applyLeadAgentSetting(stored.leadAgent);
+
+    function onSettingsChanged(e: Event) {
+      const settings = (e as CustomEvent).detail;
+      if (settings?.leadAgent) {
+        applyLeadAgentSetting(settings.leadAgent as LeadAgent);
+      }
+    }
+    window.addEventListener("metame_settings_changed", onSettingsChanged);
+    return () => window.removeEventListener("metame_settings_changed", onSettingsChanged);
+  }, [applyLeadAgentSetting]);
 
   const handlePrompt = useCallback(
     async (

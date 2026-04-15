@@ -64,6 +64,8 @@ interface ChatMessage {
 type UserRole = 'investor' | 'creative' | 'developer' | 'entrepreneur' | 'fan';
 type ContentDomain = 'metaKnyts' | 'qriptopian';
 
+type BudgetPosture = 'low' | 'medium' | 'high';
+
 interface UserContext {
   domain: ContentDomain;
   roles: UserRole[];
@@ -72,6 +74,12 @@ interface UserContext {
   nftCount?: number;
   isFirstVisit?: boolean;
   visitCount?: number;
+  // metaMe settings — applied as policy constraints in system prompt
+  guardianMode?: boolean;
+  budgetPosture?: BudgetPosture;
+  receiptVisibility?: boolean;
+  skillFilter?: 'curated' | 'all';
+  explanationFirst?: boolean;
 }
 
 interface CodexMetadata {
@@ -1353,7 +1361,34 @@ function buildSystemPrompt(
   // Get role-specific guidelines
   const roleGuidelines = userContext ? getRoleGuidelines(userContext.primaryRole) : getRoleGuidelines('fan');
 
-  return `${personaIntro}
+  // Build metaMe policy block when settings are present
+  const policyLines: string[] = [];
+  if (userContext) {
+    if (userContext.guardianMode) {
+      policyLines.push('- GUARDIAN MODE is ON: Before taking any action on behalf of the user, briefly state what you are about to do and wait for explicit confirmation.');
+    }
+    if (userContext.explanationFirst) {
+      policyLines.push('- EXPLAIN BEFORE ACTING: Always explain your plan or reasoning before executing any step or making recommendations.');
+    }
+    if (userContext.budgetPosture === 'low') {
+      policyLines.push('- SPEND AUTONOMY: Low — never recommend purchases or token spend without explicit user request. Flag costs clearly.');
+    } else if (userContext.budgetPosture === 'medium') {
+      policyLines.push('- SPEND AUTONOMY: Medium — may suggest low-cost actions but always show the price first.');
+    } else if (userContext.budgetPosture === 'high') {
+      policyLines.push('- SPEND AUTONOMY: High — may proactively surface purchase opportunities when relevant.');
+    }
+    if (userContext.skillFilter === 'curated') {
+      policyLines.push('- CURATED SKILLS ONLY: Only invoke or reference skills from the pre-approved curated skill set. Do not suggest or use experimental or community skills.');
+    }
+    if (userContext.receiptVisibility === false) {
+      policyLines.push('- RECEIPTS: Suppress transaction receipt display in responses.');
+    }
+  }
+  const policyBlock = policyLines.length > 0
+    ? `\n\n## Active Policy Rules (metaMe Settings)\n\n${policyLines.join('\n')}`
+    : '';
+
+  return `${personaIntro}${policyBlock}
 
 ${roleGuidelines}
 
@@ -1444,6 +1479,12 @@ export async function POST(request: NextRequest) {
       provider_id,
       llm_id,
       aigentId,
+      // metaMe settings policy fields
+      guardian_mode,
+      budget_posture,
+      receipt_visibility,
+      skill_filter,
+      explanation_first,
     } = body;
 
     if (!message) {
@@ -1456,7 +1497,7 @@ export async function POST(request: NextRequest) {
     // Infer primary role from message and declared roles
     const primaryRole = inferPrimaryRole(message, declaredRoles);
     
-    // Build user context
+    // Build user context (includes metaMe policy settings when provided)
     const userContext: UserContext = {
       domain,
       roles: declaredRoles || [primaryRole],
@@ -1465,6 +1506,15 @@ export async function POST(request: NextRequest) {
       nftCount,
       isFirstVisit,
       visitCount,
+      guardianMode: typeof guardian_mode === 'boolean' ? guardian_mode : undefined,
+      budgetPosture: typeof budget_posture === 'string' && ['low','medium','high'].includes(budget_posture)
+        ? (budget_posture as BudgetPosture)
+        : undefined,
+      receiptVisibility: typeof receipt_visibility === 'boolean' ? receipt_visibility : undefined,
+      skillFilter: skill_filter === true || skill_filter === 'curated' ? 'curated'
+        : skill_filter === false || skill_filter === 'all' ? 'all'
+        : undefined,
+      explanationFirst: typeof explanation_first === 'boolean' ? explanation_first : undefined,
     };
 
     console.log('[CodexChat] User context:', { 
