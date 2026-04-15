@@ -728,7 +728,7 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
     },
     {
       id: 'alpha-program',
-      label: 'Alpha Program',
+      label: 'AgentiQ α',
       slug: 'alpha-program',
       enabled: true,
       order: 9,
