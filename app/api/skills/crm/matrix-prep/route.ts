@@ -93,8 +93,17 @@ function parseAmount(raw: unknown): number {
   return parseFloat(String(raw).replace(/[^0-9.]/g, '')) || 0;
 }
 
+// Derive X-axis tier key from investment amount — mirrors dashboard matrix view
+function tierKeyFromAmount(amount: number): string {
+  if (amount >= 25000) return 'SAT';
+  if (amount >= 1000)  return 'ZERO';
+  if (amount >= 500)   return 'FIRST';
+  if (amount >= 250)   return 'KEJI';
+  if (amount >= 100)   return 'KETA';
+  return '';
+}
+
 function deriveBand(invested: number): string {
-  if (invested >= 5000) return 'top_shelf';
   if (invested >= 2000) return 'top_shelf';
   if (invested >= 1000) return 'zero_knyt';
   if (invested >= 100)  return 'reactivation';
@@ -179,7 +188,7 @@ export async function POST(request: NextRequest) {
     for (const row of allRows) {
       const id = str(row['id']);
       const invested = parseAmount(row['Total-Invested']);
-      const tierKey  = normalizeTierKey(str(row['OM-Tier-Status']));
+      const tierKey  = normalizeTierKey(str(row['OM-Tier-Status'])) || tierKeyFromAmount(invested);
       const xStage   = tierKey ? (TIER_TO_X_STAGE[tierKey] ?? 'Prospect') : 'Prospect';
 
       xDist[xStage] = (xDist[xStage] ?? 0) + 1;
