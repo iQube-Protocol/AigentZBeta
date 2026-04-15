@@ -413,6 +413,7 @@ export default function CodexPanelDynamic({
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {codexId === 'aigentiq-codex' && <AgentiQEconomyBadge />}
               {isQriptopian && (
                 <select
                   value={issueSlug}
