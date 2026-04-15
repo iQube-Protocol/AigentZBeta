@@ -13,6 +13,8 @@ import AgentiQBootstrap from "../providers/AgentiQBootstrap";
 import { usePathname, useSearchParams } from "next/navigation";
 // Global SmartContent provider
 import { SmartContentActionProvider } from "../contexts/SmartContentActionContext";
+import { SmartMenuProvider } from "../contexts/SmartMenuContext";
+import { SmartMenuBar } from "../../components/shell/SmartMenuBar";
 
 function ShellLayoutContent({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
@@ -87,6 +89,7 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <AGUIProvider runtimeUrl="/api/copilotkit">
+        <SmartMenuProvider>
         <SmartContentActionProvider>
           <ToastProvider>
             <div className="h-full bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-slate-100">
@@ -121,8 +124,9 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
                     <Sidebar />
                   </div>
                 )}
-                <main className={`agentiq-shell-main flex-1 ${isIsolatedContent ? "overflow-hidden" : "overflow-y-auto"}`}>
-                  <div className="h-full w-full p-0">
+                <main className={`agentiq-shell-main flex-1 flex flex-col overflow-hidden`}>
+                  {!isIsolatedContent && <SmartMenuBar />}
+                  <div className={`flex-1 w-full p-0 ${isIsolatedContent ? "overflow-hidden" : "overflow-y-auto"}`}>
                     <Suspense fallback={null}>{children}</Suspense>
                   </div>
                 </main>
@@ -130,6 +134,7 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
             </div>
           </ToastProvider>
         </SmartContentActionProvider>
+        </SmartMenuProvider>
       </AGUIProvider>
       
       {/* GLOBAL PERSISTENT METAAVATAR */}
