@@ -752,6 +752,7 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       label: 'AgentiQ KNYT',
       slug: 'agentiq-knyt',
       enabled: true,
+      adminOnly: true,
       order: 10,
       type: 'static',
       config: {
