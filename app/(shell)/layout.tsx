@@ -121,8 +121,8 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
                     <Sidebar />
                   </div>
                 )}
-                <main className={`agentiq-shell-main flex-1 ${isIsolatedContent ? "overflow-hidden" : "overflow-y-auto"}` }>
-                  <div className={isIsolatedContent ? "h-full w-full p-0" : "p-6 md:p-8 lg:p-10"}>
+                <main className={`agentiq-shell-main flex-1 ${isIsolatedContent ? "overflow-hidden" : "overflow-y-auto"}`}>
+                  <div className="h-full w-full p-0">
                     <Suspense fallback={null}>{children}</Suspense>
                   </div>
                 </main>
