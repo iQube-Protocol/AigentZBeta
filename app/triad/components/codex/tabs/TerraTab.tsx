@@ -128,7 +128,7 @@ function ContentCard({
 
       {/* Cover / video thumbnail */}
       {item.coverImageUrl && (
-        <div className="relative h-36 w-full bg-slate-900 overflow-hidden">
+        <div className="relative h-24 w-full bg-slate-900 overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={item.coverImageUrl}
@@ -166,7 +166,7 @@ function ContentCard({
       )}
 
       {/* Content body */}
-      <div className="p-4 space-y-3">
+      <div className="p-2.5 space-y-2">
 
         {!item.coverImageUrl && item.featured && (
           <span className="absolute top-3 right-3 text-[10px] font-semibold uppercase tracking-wide text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-full px-2 py-0.5">
@@ -174,10 +174,10 @@ function ContentCard({
           </span>
         )}
 
-        <div className={!item.coverImageUrl && item.featured ? "pr-16" : ""}>
-          <p className="text-sm font-semibold text-slate-100 leading-snug">{item.title}</p>
+        <div className={!item.coverImageUrl && item.featured ? "pr-12" : ""}>
+          <p className="text-xs font-semibold text-slate-100 leading-snug line-clamp-2">{item.title}</p>
           {item.description && (
-            <p className="text-xs text-slate-400 mt-1 leading-snug line-clamp-2">
+            <p className="text-[10px] text-slate-400 mt-0.5 leading-snug line-clamp-1">
               {item.description}
             </p>
           )}
@@ -185,10 +185,10 @@ function ContentCard({
 
         {item.tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {item.tags.slice(0, 4).map((tag) => (
+            {item.tags.slice(0, 2).map((tag) => (
               <span
                 key={tag}
-                className="text-[10px] text-slate-400 bg-white/[0.06] rounded px-1.5 py-0.5 border border-white/[0.08]"
+                className="text-[9px] text-slate-400 bg-white/[0.06] rounded px-1 py-0.5 border border-white/[0.08]"
               >
                 #{tag}
               </span>
@@ -207,58 +207,56 @@ function ContentCard({
           onView={() => openContent(null)}
         />
 
-        {/* KNYT engagement signals */}
-        <div className="flex items-center justify-between pt-1 border-t border-white/[0.06]">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleLike}
-              title="Signal value"
-              className={`flex items-center gap-1 text-xs rounded-lg px-2.5 py-1.5 border transition-all ${
-                liked
-                  ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-400"
-                  : "border-white/10 bg-white/[0.04] text-slate-400 hover:text-slate-200 hover:border-white/20"
-              }`}
-            >
-              <ThumbsUp className="h-3 w-3" />
-              <span>{liked ? "Valued" : "Value"}</span>
-            </button>
+        {/* KNYT engagement signals — compact row */}
+        <div className="flex items-center gap-1 pt-1 border-t border-white/[0.06]">
+          <button
+            type="button"
+            onClick={handleLike}
+            title="Signal value"
+            className={`flex items-center gap-1 text-[10px] rounded px-1.5 py-1 border transition-all flex-1 justify-center ${
+              liked
+                ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-400"
+                : "border-white/10 bg-white/[0.04] text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <ThumbsUp className="h-2.5 w-2.5" />
+            <span>{liked ? "✓" : "Value"}</span>
+          </button>
 
-            <button
-              type="button"
-              onClick={handleSpark}
-              title="Spark this"
-              className={`flex items-center gap-1 text-xs rounded-lg px-2.5 py-1.5 border transition-all ${
-                sparked
-                  ? "border-yellow-400/40 bg-yellow-500/10 text-yellow-300"
-                  : "border-white/10 bg-white/[0.04] text-slate-400 hover:text-slate-200 hover:border-white/20"
-              }`}
-            >
-              <Zap className="h-3 w-3" />
-              <span>{sparked ? "Sparked" : "Spark"}</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleSpark}
+            title="Spark this"
+            className={`flex items-center gap-1 text-[10px] rounded px-1.5 py-1 border transition-all flex-1 justify-center ${
+              sparked
+                ? "border-yellow-400/40 bg-yellow-500/10 text-yellow-300"
+                : "border-white/10 bg-white/[0.04] text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Zap className="h-2.5 w-2.5" />
+            <span>{sparked ? "✓" : "Spark"}</span>
+          </button>
 
           <button
             type="button"
             onClick={handleShare}
             title="Share — earn Herald rewards"
-            className={`relative flex items-center gap-1 text-xs rounded-lg px-2.5 py-1.5 border transition-all ${
+            className={`relative flex items-center gap-1 text-[10px] rounded px-1.5 py-1 border transition-all flex-1 justify-center ${
               shareState === "done"
                 ? "border-cyan-400/40 bg-cyan-500/10 text-cyan-300"
-                : "border-white/10 bg-white/[0.04] text-slate-400 hover:text-slate-200 hover:border-white/20"
+                : "border-white/10 bg-white/[0.04] text-slate-400 hover:text-slate-200"
             }`}
           >
             {shareState === "sharing" ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
+              <Loader2 className="h-2.5 w-2.5 animate-spin" />
             ) : (
-              <Share2 className="h-3 w-3" />
+              <Share2 className="h-2.5 w-2.5" />
             )}
-            <span>{shareState === "done" ? "Shared" : "Share"}</span>
+            <span>{shareState === "done" ? "✓" : "Share"}</span>
 
             {rewardEarned !== null && (
-              <span className="absolute -top-7 right-0 text-[10px] font-bold text-amber-300 bg-amber-900/80 border border-amber-500/30 rounded-full px-2 py-0.5 whitespace-nowrap">
-                +{rewardEarned} $KNYT
+              <span className="absolute -top-6 right-0 text-[9px] font-bold text-amber-300 bg-amber-900/80 border border-amber-500/30 rounded-full px-1.5 py-0.5 whitespace-nowrap">
+                +{rewardEarned}
               </span>
             )}
           </button>
@@ -328,7 +326,7 @@ export function TerraTab({ personaId }: TerraTabProps) {
         <span className="text-[10px] text-slate-500">{items.length} items</span>
       </div>
 
-      <div className="space-y-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {items.map((item) => (
           <ContentCard key={item.id} item={item} personaId={personaId} />
         ))}
