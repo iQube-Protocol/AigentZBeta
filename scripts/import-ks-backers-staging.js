@@ -89,17 +89,17 @@ function loadSeedRecords() {
 /** Build a Set of normalized emails already in nakamoto_knyt_personas */
 async function loadCanonicalEmailMap() {
   console.log("Loading canonical email index from nakamoto_knyt_personas…");
-  const map = new Map(); // normalized_email → { id, ks_backer }
+  const map = new Map(); // normalized_email → { id }
   let offset = 0;
   const limit = 1000;
   while (true) {
     const rows = await supabaseRequest(
-      `/nakamoto_knyt_personas?select=id,"Email","ks_backer"&limit=${limit}&offset=${offset}`
+      `/nakamoto_knyt_personas?select=id,"Email"&limit=${limit}&offset=${offset}`
     );
     if (!rows || rows.length === 0) break;
     for (const row of rows) {
       const ne = normalizeEmail(row["Email"]);
-      if (ne) map.set(ne, { id: row.id, ks_backer: row.ks_backer });
+      if (ne) map.set(ne, { id: row.id });
     }
     if (rows.length < limit) break;
     offset += limit;
@@ -173,7 +173,7 @@ async function main() {
       imported_by: "import-ks-backers-staging.js",
     };
     toInsert.push(row);
-    if (canonical && !canonical.ks_backer) {
+    if (canonical) {
       canonicalUpdates.push(canonical.id);
     }
   }
@@ -209,6 +209,8 @@ async function main() {
   console.log(`\n  Done: ${inserted} inserted, ${failed} failed.`);
 
   // ── Flag matched canonical records with ks_backer=true ────────────────────
+  // Requires ks_backer column on nakamoto_knyt_personas (migration 20260416120000).
+  // Skips gracefully if column not yet added.
   if (canonicalUpdates.length > 0) {
     console.log(`\nFlagging ${canonicalUpdates.length} canonical records ks_backer=true…`);
     let flagged = 0;
@@ -223,6 +225,10 @@ async function main() {
         );
         flagged += batch.length;
       } catch (err) {
+        if (err.message.includes("42703")) {
+          console.warn(`  ks_backer column not yet on nakamoto_knyt_personas — run migration 20260416120000 first.`);
+          break;
+        }
         console.error(`  Batch flag failed: ${err.message}`);
       }
     }
