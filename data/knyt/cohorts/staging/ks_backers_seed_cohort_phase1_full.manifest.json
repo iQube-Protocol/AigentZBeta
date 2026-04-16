@@ -1,0 +1,11 @@
+{
+  "source_file": "ks_backers_seed_cohort.json",
+  "output_file": "ks_backers_seed_cohort_deduped_valid.json",
+  "records_input": 3267,
+  "records_output": 3267,
+  "duplicates_removed": 0,
+  "invalid_email_records_removed": 0,
+  "email_validation_method": "email_validator(check_deliverability=False)",
+  "email_validation_note": "Format/syntax validation only. This does not verify mailbox existence, inbox status, or bounce likelihood.",
+  "dedupe_key": "normalized_email"
+}
