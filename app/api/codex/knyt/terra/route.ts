@@ -1,16 +1,19 @@
 /**
  * GET /api/codex/knyt/terra
  *
- * Returns all metaKNYT-related Qriptopian content for the KNYT Terra tab.
+ * Returns ALL metaKNYT-related content from across the entire Qriptopian cartridge.
+ * Four parallel streams merged and deduplicated by id:
  *
- * Content is fetched from three parallel streams and merged (deduplicated by id):
- *   A. All scrolls content that is not synthsims (mirrors QriptoScrollsTab metaKnyts logic)
- *   B. Content in ANY section whose placement.tab = 'metaknyts'
- *   C. Content in ANY section whose title contains 'metaknyt', 'knyt', or 'meta-knyt'
- *      (catches latest-news, home-hero etc. not explicitly placement-tagged)
+ *   A. All scrolls content that is not synthsims (core metaKnyts feed)
+ *   B. Any section with placement.tab = 'metaknyts' (explicit editorial tag)
+ *   C. Title sweep: title contains 'knyt', 'metaknyt', 'meta-knyt', 'qriptographic'
+ *      (catches latest-news, home-hero, knowdz etc. not placement-tagged)
+ *   D. Tags overlap: content tagged knyt/metaknyt/knyts in any section
  *
- * Status filter: published + archived (codex scope).
- * Falls back to an empty array on any DB error.
+ * Synthsims items from stream A are filtered. All other streams include
+ * content from any section of the Qriptopian.
+ *
+ * Status filter: published + live + active + archived (full codex scope).
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -96,8 +99,8 @@ export async function GET(_req: NextRequest) {
   }
 
   try {
-    // All three streams run in parallel
-    const [issueScoped, metaknytsAll, titleSweep] = await Promise.all([
+    // All four streams run in parallel
+    const [issueScoped, metaknytsAll, titleSweep, tagsSweep] = await Promise.all([
       // A1: scrolls with issue placement (matches QriptoScrollsTab primary path)
       runQuery(supabase, { section: "scrolls", issue: "issue-1" }),
       // B: any section explicitly tagged tab=metaknyts
@@ -106,10 +109,18 @@ export async function GET(_req: NextRequest) {
       supabase
         .from("content")
         .select("*")
-        .or("title.ilike.%metaknyt%,title.ilike.%meta-knyt%,title.ilike.%qriptographic%")
+        .or("title.ilike.%metaknyt%,title.ilike.%meta-knyt%,title.ilike.%knyt%,title.ilike.%qriptographic%")
         .in("status", LIVE_STATUSES)
         .order("created_at", { ascending: false })
-        .limit(40),
+        .limit(60),
+      // D: tags overlap — any section tagged knyt/metaknyt/knyts
+      supabase
+        .from("content")
+        .select("*")
+        .overlaps("tags", ["knyt", "metaknyt", "knyts", "metaknyts", "meta-knyt"])
+        .in("status", LIVE_STATUSES)
+        .order("created_at", { ascending: false })
+        .limit(60),
     ]);
 
     // Stream A: issue-scoped scrolls, fallback to unscoped
@@ -125,13 +136,14 @@ export async function GET(_req: NextRequest) {
 
     const metaknytsRows = (!metaknytsAll.error ? (metaknytsAll.data ?? []) : []) as Record<string, unknown>[];
     const titleRows     = (!titleSweep.error   ? (titleSweep.data   ?? []) : []) as Record<string, unknown>[];
+    const tagsRows      = (!tagsSweep.error    ? (tagsSweep.data    ?? []) : []) as Record<string, unknown>[];
 
-    // Merge all three, deduplicate by id; exclude synthsims from scrolls stream
+    // Merge all four, deduplicate by id; exclude synthsims from scrolls stream
     const seen = new Set<string>();
     const merged: Record<string, unknown>[] = [];
     const scrollsSet = new Set(scrollsRows.map((r) => r.id as string));
 
-    for (const row of [...scrollsRows, ...metaknytsRows, ...titleRows]) {
+    for (const row of [...scrollsRows, ...metaknytsRows, ...titleRows, ...tagsRows]) {
       const id = row.id as string;
       if (seen.has(id)) continue;
       seen.add(id);
@@ -155,6 +167,7 @@ export async function GET(_req: NextRequest) {
         scrollsCount: scrollsRows.length,
         metaknytsTabCount: metaknytsRows.length,
         titleSweepCount: titleRows.length,
+        tagsSweepCount: tagsRows.length,
         mergedTotal: items.length,
       },
     });
