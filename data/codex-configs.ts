@@ -778,16 +778,12 @@ export const AGENTIQ_CARTRIDGE: CodexConfig = {
       order: 10,
       type: 'static',
       config: {
-        component: 'AgentiqCartridgeTab',
-        props: {
-          packId: 'agentiq',
-          collectionId: 'col_agentiq_os',
-          defaultPath: 'items/OS_README.md'
-        }
+        component: 'AgentiQOSTab',
+        props: {}
       },
       metadata: {
         icon: 'Code',
-        description: 'AgentiQ OS — builder onboarding, contribution categories, packaging, submission',
+        description: 'AgentiQ OS — live builder substrate dashboard: agent registry, skill catalog, factory pipeline, contribution types',
         color: 'green'
       }
     },
@@ -971,16 +967,12 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       order: 3,
       type: 'static',
       config: {
-        component: 'AgentiqCartridgeTab',
-        props: {
-          packId: 'agentiq',
-          collectionId: 'col_agentiq_os',
-          defaultPath: 'items/OS_README.md'
-        }
+        component: 'AgentiQOSTab',
+        props: {}
       },
       metadata: {
         icon: 'Code',
-        description: 'AgentiQ OS — builder onboarding, contribution categories, packaging, submission',
+        description: 'AgentiQ OS — live builder substrate dashboard: agent registry, skill catalog, factory pipeline, contribution types',
         color: 'green'
       }
     }

@@ -42,6 +42,7 @@ import { RegistrySupplyTab } from "./tabs/RegistrySupplyTab";
 import KnytRuntimeSurface from "./tabs/KnytRuntimeSurface";
 import { KnytTreasuryTab } from "./tabs/KnytTreasuryTab";
 import { KnytAlphaTab } from "./tabs/KnytAlphaTab";
+import { AgentiQOSTab } from "./tabs/AgentiQOSTab";
 
 interface TabRendererProps {
   tab: CodexTab;
@@ -80,6 +81,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   KnytRuntimeSurface,
   KnytTreasuryTab,
   KnytAlphaTab,
+  AgentiQOSTab,
   RewardsTab: PlaceholderTab,
   DocsTab: PlaceholderTab,
   APITab: PlaceholderTab,
