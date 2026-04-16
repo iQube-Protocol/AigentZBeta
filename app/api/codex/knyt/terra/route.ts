@@ -3,9 +3,11 @@
  *
  * Returns all metaKNYT-related Qriptopian content for the KNYT Terra tab.
  *
- * Content is fetched from two parallel streams and merged (deduplicated by id):
+ * Content is fetched from three parallel streams and merged (deduplicated by id):
  *   A. All scrolls content that is not synthsims (mirrors QriptoScrollsTab metaKnyts logic)
- *   B. Content in ANY section whose placement.tab = 'metaknyts' (catches hero, knowdz, news, etc.)
+ *   B. Content in ANY section whose placement.tab = 'metaknyts'
+ *   C. Content in ANY section whose title contains 'metaknyt', 'knyt', or 'meta-knyt'
+ *      (catches latest-news, home-hero etc. not explicitly placement-tagged)
  *
  * Status filter: published + archived (codex scope).
  * Falls back to an empty array on any DB error.
@@ -94,20 +96,27 @@ export async function GET(_req: NextRequest) {
   }
 
   try {
-    // Stream A: All scrolls content — try issue-scoped, fall back to unscoped
-    const [issueScoped, metaknytsAll] = await Promise.all([
+    // All three streams run in parallel
+    const [issueScoped, metaknytsAll, titleSweep] = await Promise.all([
       // A1: scrolls with issue placement (matches QriptoScrollsTab primary path)
       runQuery(supabase, { section: "scrolls", issue: "issue-1" }),
-      // B: any section with tab=metaknyts (catches hero, knowdz, news drawers)
+      // B: any section explicitly tagged tab=metaknyts
       runQuery(supabase, { tab: "metaknyts" }),
+      // C: title sweep — catches latest-news/hero/knowdz items with KNYT in title
+      supabase
+        .from("content")
+        .select("*")
+        .or("title.ilike.%metaknyt%,title.ilike.%meta-knyt%,title.ilike.%qriptographic%")
+        .in("status", LIVE_STATUSES)
+        .order("created_at", { ascending: false })
+        .limit(40),
     ]);
 
+    // Stream A: issue-scoped scrolls, fallback to unscoped
     let scrollsRows: Record<string, unknown>[] = [];
-
     if (!issueScoped.error && issueScoped.data && issueScoped.data.length > 0) {
       scrollsRows = issueScoped.data as Record<string, unknown>[];
     } else {
-      // A2: fall back to unscoped scrolls
       const unscoped = await runQuery(supabase, { section: "scrolls" });
       if (!unscoped.error) {
         scrollsRows = (unscoped.data ?? []) as Record<string, unknown>[];
@@ -115,17 +124,18 @@ export async function GET(_req: NextRequest) {
     }
 
     const metaknytsRows = (!metaknytsAll.error ? (metaknytsAll.data ?? []) : []) as Record<string, unknown>[];
+    const titleRows     = (!titleSweep.error   ? (titleSweep.data   ?? []) : []) as Record<string, unknown>[];
 
-    // Merge streams, deduplicate by id
+    // Merge all three, deduplicate by id; exclude synthsims from scrolls stream
     const seen = new Set<string>();
     const merged: Record<string, unknown>[] = [];
+    const scrollsSet = new Set(scrollsRows.map((r) => r.id as string));
 
-    for (const row of [...scrollsRows, ...metaknytsRows]) {
+    for (const row of [...scrollsRows, ...metaknytsRows, ...titleRows]) {
       const id = row.id as string;
       if (seen.has(id)) continue;
       seen.add(id);
-      // Stream A: filter out synthsims (stream B already targeted metaknyts only)
-      if (scrollsRows.includes(row) && isSynthsims(row)) continue;
+      if (scrollsSet.has(id) && isSynthsims(row)) continue;
       merged.push(row);
     }
 
@@ -143,7 +153,8 @@ export async function GET(_req: NextRequest) {
       total: items.length,
       debug: {
         scrollsCount: scrollsRows.length,
-        metaknytsAllCount: metaknytsRows.length,
+        metaknytsTabCount: metaknytsRows.length,
+        titleSweepCount: titleRows.length,
         mergedTotal: items.length,
       },
     });
