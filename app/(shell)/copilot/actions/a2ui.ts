@@ -244,4 +244,74 @@ Use when user asks to generate A2UI from SmartTriad runtime capsules in one step
   },
 };
 
-export const a2uiActions = [a2uiGenerateSurfacePayloadAction, a2uiGeneratePayloadFromCapsulesAction];
+/**
+ * Skill: Surface Planner — optimal rendering config for content type + context + breakpoint.
+ * Wraps /api/skills/surface-plan for use inside the runtime copilot.
+ */
+export const skillSurfacePlanAction = {
+  name: "skill_surface_plan",
+  description: `Determine the optimal rendering configuration for a piece of content.
+Given contentType (video/image/article/carousel/audio/link), displayContext (list/card/modal/detail/preview/embed),
+and breakpoint (mobile/tablet/desktop), returns templateId, columns, thumbnailAspect, thumbnailSize, modalSize,
+showPlayOverlay, cardDensity, layoutVariant, the CopilotKit copilotAction name to invoke, and a reasoning string.
+Use before rendering any content surface to pick the right Liquid UI template and layout.`,
+  parameters: [
+    {
+      name: "contentType",
+      type: "string" as const,
+      description: "Type of content: video | image | article | carousel | audio | link",
+      required: true,
+    },
+    {
+      name: "displayContext",
+      type: "string" as const,
+      description: "Where the content is being displayed: list | card | modal | detail | preview | embed",
+      required: true,
+    },
+    {
+      name: "breakpoint",
+      type: "string" as const,
+      description: "Active viewport breakpoint: mobile | tablet | desktop",
+      required: true,
+    },
+    {
+      name: "itemCount",
+      type: "number" as const,
+      description: "Number of content items in the collection (affects column count). Default: 10.",
+      required: false,
+    },
+  ],
+  handler: async ({
+    contentType,
+    displayContext,
+    breakpoint,
+    itemCount = 10,
+  }: {
+    contentType: string;
+    displayContext: string;
+    breakpoint: string;
+    itemCount?: number;
+  }) => {
+    try {
+      const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+      const res = await fetch(`${baseUrl}/api/skills/surface-plan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentType, displayContext, breakpoint, itemCount }),
+      });
+      if (!res.ok) {
+        return { success: false, error: `surface-plan skill returned ${res.status}` };
+      }
+      const json = await res.json();
+      return { success: true, ...json.data };
+    } catch (error: any) {
+      return { success: false, error: error?.message || "surface-plan skill failed" };
+    }
+  },
+};
+
+export const a2uiActions = [
+  a2uiGenerateSurfacePayloadAction,
+  a2uiGeneratePayloadFromCapsulesAction,
+  skillSurfacePlanAction,
+];
