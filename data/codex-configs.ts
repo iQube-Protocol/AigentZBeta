@@ -292,12 +292,30 @@ export const KNYT_CODEX: CodexConfig = {
       }
     },
     {
+      id: 'knyt-alpha',
+      label: 'Venture Lab α',
+      slug: 'knyt-alpha',
+      enabled: true,
+      adminOnly: true,   // Internal alpha — admin-gated during Venture Lab α phase
+      order: 10,
+      type: 'static',
+      config: {
+        component: 'KnytAlphaTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'FlaskConical',
+        description: 'Kn0w1-first Venture Lab α entry — alpha programme framing, Know1 guide, 8 alpha skills, AgentiQ OS primitives',
+        color: 'amber'
+      }
+    },
+    {
       id: 'experience-dashboard',
       label: 'Experience',
       slug: 'experience-dashboard',
       enabled: true,
       adminOnly: true,   // Sensitive admin data — hidden from all non-admin users
-      order: 10,
+      order: 11,
       type: 'static',
       config: {
         component: 'ExperienceDashboardTab',
@@ -315,7 +333,7 @@ export const KNYT_CODEX: CodexConfig = {
       slug: 'experience-pack',
       enabled: true,
       adminOnly: true,   // Internal stakeholder doc — hidden from end users
-      order: 11,
+      order: 12,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -337,7 +355,7 @@ export const KNYT_CODEX: CodexConfig = {
       slug: 'wheel',
       enabled: true,
       adminOnly: true,   // Live operator bundle — admin-gated working access
-      order: 12,
+      order: 13,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -359,7 +377,7 @@ export const KNYT_CODEX: CodexConfig = {
       slug: 'investors',
       enabled: true,
       adminOnly: true,
-      order: 10,
+      order: 14,
       type: 'static',
       config: {
         component: 'InvestorDirectoryTab',
