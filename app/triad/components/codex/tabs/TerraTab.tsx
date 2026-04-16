@@ -13,12 +13,18 @@
  */
 
 import React, { useEffect, useState, useCallback } from "react";
-import { Play, Loader2, Newspaper, Share2, ThumbsUp, Zap } from "lucide-react";
+import { Play, Loader2, Newspaper, Share2, ThumbsUp, Zap, TrendingUp } from "lucide-react";
 import { useSmartTriad } from "@/app/components/content/SmartTriadProvider";
 import { CodexActionRow } from "@/app/triad/components/codex/CodexActionRow";
 import type { TerraItem } from "@/app/api/codex/knyt/terra/route";
 
 type SignalType = "share" | "like" | "spark";
+
+interface SignalData {
+  hotContentIds: string[];
+  signalSummary: { totalLikes: number; totalSparks: number; totalCurations: number };
+  totalSignals: number;
+}
 
 interface TerraTabProps {
   theme?: "light" | "dark";
@@ -56,9 +62,11 @@ async function emitSignal(
 function ContentCard({
   item,
   personaId,
+  isHot,
 }: {
   item: TerraItem;
   personaId?: string;
+  isHot?: boolean;
 }) {
   const { actions } = useSmartTriad();
 
@@ -157,6 +165,13 @@ function ContentCard({
             </span>
           )}
 
+          {isHot && !item.featured && (
+            <span className="absolute top-2 right-2 flex items-center gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange-300 bg-black/60 border border-orange-400/30 rounded-full px-2 py-0.5 backdrop-blur-sm">
+              <TrendingUp className="h-2.5 w-2.5" />
+              Trending
+            </span>
+          )}
+
           {item.section && item.section !== "scrolls" && (
             <span className="absolute top-2 left-2 text-[10px] font-semibold uppercase tracking-wide text-cyan-300 bg-black/60 border border-cyan-400/20 rounded-full px-2 py-0.5 backdrop-blur-sm">
               {item.section}
@@ -171,6 +186,12 @@ function ContentCard({
         {!item.coverImageUrl && item.featured && (
           <span className="absolute top-3 right-3 text-[10px] font-semibold uppercase tracking-wide text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-full px-2 py-0.5">
             Featured
+          </span>
+        )}
+        {!item.coverImageUrl && isHot && !item.featured && (
+          <span className="absolute top-3 right-3 flex items-center gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange-300 bg-orange-500/10 border border-orange-400/20 rounded-full px-2 py-0.5">
+            <TrendingUp className="h-2.5 w-2.5" />
+            Trending
           </span>
         )}
 
@@ -273,18 +294,18 @@ export function TerraTab({ personaId }: TerraTabProps) {
   const [items, setItems] = useState<TerraItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [signal, setSignal] = useState<SignalData | null>(null);
 
   useEffect(() => {
-    fetch("/api/codex/knyt/terra")
-      .then((r) => r.json())
-      .then((json) => {
-        if (json.ok) {
-          setItems(json.data ?? []);
-        } else {
-          setError("Could not load content.");
-        }
-      })
-      .catch(() => setError("Could not load content."))
+    // Fetch content and KNYT participation signals in parallel
+    Promise.all([
+      fetch("/api/codex/knyt/terra").then((r) => r.json()),
+      fetch("/api/codex/qriptopian/signal").then((r) => r.json()).catch(() => null),
+    ]).then(([contentJson, signalJson]) => {
+      if (contentJson.ok) setItems(contentJson.data ?? []);
+      else setError("Could not load content.");
+      if (signalJson?.ok && signalJson.data) setSignal(signalJson.data);
+    }).catch(() => setError("Could not load content."))
       .finally(() => setLoading(false));
   }, []);
 
@@ -317,6 +338,8 @@ export function TerraTab({ personaId }: TerraTabProps) {
     );
   }
 
+  const hotSet = new Set(signal?.hotContentIds ?? []);
+
   return (
     <div className="p-4 space-y-3">
       <div className="flex items-center justify-between mb-1">
@@ -326,9 +349,27 @@ export function TerraTab({ personaId }: TerraTabProps) {
         <span className="text-[10px] text-slate-500">{items.length} items</span>
       </div>
 
+      {/* KNYT participation pulse — outbound signal from KNYT back to Qriptopian */}
+      {signal && signal.totalSignals > 0 && (
+        <div className="flex items-center gap-2 rounded-lg border border-orange-400/20 bg-orange-500/[0.06] px-3 py-2">
+          <TrendingUp className="h-3.5 w-3.5 text-orange-400 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <span className="text-[10px] text-orange-300 font-medium">KNYT community is active</span>
+            <span className="text-[10px] text-slate-500 ml-2">
+              {signal.signalSummary.totalLikes} values · {signal.signalSummary.totalSparks} sparks · {signal.signalSummary.totalCurations} curations
+            </span>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {items.map((item) => (
-          <ContentCard key={item.id} item={item} personaId={personaId} />
+          <ContentCard
+            key={item.id}
+            item={item}
+            personaId={personaId}
+            isHot={hotSet.has(item.id)}
+          />
         ))}
       </div>
 

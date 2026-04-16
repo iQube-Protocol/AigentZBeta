@@ -1,18 +1,33 @@
 /**
+ * GET  /api/codex/qriptopian/signal
+ *   Returns aggregated KNYT engagement signals from knyt_signals.
+ *   Powers the outbound direction of the Qriptopian↔KNYT bidirectional flow:
+ *   KNYT participation (likes, sparks, curations) creates editorial context
+ *   back in the Qriptopian Terra tab — hot content surfaces prominently.
+ *
+ *   Query params:
+ *     limit?     — max content IDs to return as hot (default 10)
+ *     since?     — ISO date string; only count signals after this date
+ *
+ *   Response:
+ *     hotContentIds  — content IDs ranked by signal count (descending)
+ *     signalCounts   — per-content { like, spark, curate } totals
+ *     signalSummary  — org-wide { totalLikes, totalSparks, totalCurations }
+ *     totalSignals   — total signals in window
+ *
  * POST /api/codex/qriptopian/signal
+ *   Logs Qriptopian engagement/amplification events for KNYT-related content.
+ *   Acts as the signal bridge between Qriptopian (prepares and amplifies) and
+ *   KNYT (activates and retains), per 17-qriptopian-support-spec.md.
  *
- * Logs Qriptopian engagement/amplification events for KNYT-related content.
- * Acts as the signal bridge between Qriptopian (prepares and amplifies) and
- * KNYT (activates and retains), per 17-qriptopian-support-spec.md.
+ *   Signal types:
+ *     view  — content viewed; metered to Qc ledger, no reward
+ *     share — content shared; metered + Herald of the Order reward eligible
+ *     like  — positive signal; metered + inserts into knyt_signals
+ *     spark — strong endorsement; metered + inserts into knyt_signals
  *
- * Signal types:
- *   view  — content viewed; metered to Qc ledger, no reward
- *   share — content shared; metered + Herald of the Order reward eligible
- *   like  — positive signal; metered + inserts into knyt_signals
- *   spark — strong endorsement; metered + inserts into knyt_signals
- *
- * All events are fire-and-forget / metered at 0 Qc in alpha.
- * Share events with a personaId trigger HeraldCuriosityClicks reward evaluation.
+ *   All events are fire-and-forget / metered at 0 Qc in alpha.
+ *   Share events with a personaId trigger HeraldCuriosityClicks reward evaluation.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -22,6 +37,88 @@ import { emitReceiptSilent } from "@/services/registry/receiptEmitter";
 import { getRewardService, RewardTaskType } from "@/services/rewards/rewardService";
 
 export const dynamic = "force-dynamic";
+
+// ─── GET — aggregated signal feed (outbound KNYT → Qriptopian) ───────────────
+
+export async function GET(req: NextRequest) {
+  const supabase = getSupabaseServer();
+  if (!supabase) {
+    return NextResponse.json({ ok: true, data: null, debug: "no_supabase" });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const limit = Math.min(parseInt(searchParams.get("limit") ?? "10", 10), 50);
+  const since = searchParams.get("since") ?? undefined;
+
+  try {
+    let query = supabase
+      .from("knyt_signals")
+      .select("content_id, signal_type");
+
+    if (since) {
+      query = query.gte("created_at", since);
+    }
+
+    const { data, error } = await query.limit(2000);
+
+    if (error || !data) {
+      // Table may not exist yet in all environments — return empty gracefully
+      return NextResponse.json({
+        ok: true,
+        data: {
+          hotContentIds: [],
+          signalCounts: {},
+          signalSummary: { totalLikes: 0, totalSparks: 0, totalCurations: 0 },
+          totalSignals: 0,
+        },
+      });
+    }
+
+    // Aggregate per content_id
+    const counts: Record<string, { like: number; spark: number; curate: number; total: number }> = {};
+    let totalLikes = 0, totalSparks = 0, totalCurations = 0;
+
+    for (const row of data as Array<{ content_id: string; signal_type: string }>) {
+      if (!counts[row.content_id]) {
+        counts[row.content_id] = { like: 0, spark: 0, curate: 0, total: 0 };
+      }
+      counts[row.content_id][row.signal_type as "like" | "spark" | "curate"]++;
+      counts[row.content_id].total++;
+      if (row.signal_type === "like") totalLikes++;
+      else if (row.signal_type === "spark") totalSparks++;
+      else if (row.signal_type === "curate") totalCurations++;
+    }
+
+    // Sort by total signals desc, take top N
+    const hotContentIds = Object.entries(counts)
+      .sort(([, a], [, b]) => b.total - a.total)
+      .slice(0, limit)
+      .map(([id]) => id);
+
+    return NextResponse.json({
+      ok: true,
+      data: {
+        hotContentIds,
+        signalCounts: counts,
+        signalSummary: { totalLikes, totalSparks, totalCurations },
+        totalSignals: data.length,
+      },
+    });
+  } catch (err) {
+    console.error("[qriptopian/signal] GET error:", err);
+    return NextResponse.json({
+      ok: true,
+      data: {
+        hotContentIds: [],
+        signalCounts: {},
+        signalSummary: { totalLikes: 0, totalSparks: 0, totalCurations: 0 },
+        totalSignals: 0,
+      },
+    });
+  }
+}
+
+// ─── POST — log engagement signal ────────────────────────────────────────────
 
 type QriptopianSignalType = "view" | "share" | "like" | "spark";
 
