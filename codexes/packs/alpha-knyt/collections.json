@@ -45,6 +45,14 @@
         "items/31-ks-backers-hygiene-and-canonization-gate.md",
         "items/32-email-sequence-placeholder-and-naming-note.md"
       ]
+    },
+    {
+      "id": "col_alpha_programme",
+      "title": "α Programme",
+      "description": "Four-workstream programme overview with live progress report — AgentiQ Alpha (complete), KNYT Wheel (active), Relationship Builder α (MVP in progress), Venture Lab α (queued).",
+      "items": [
+        "items/33-alpha-program-overview-and-progress.md"
+      ]
     }
   ]
 }

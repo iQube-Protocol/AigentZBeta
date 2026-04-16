@@ -1005,6 +1005,28 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
         description: 'AgentiQ OS — builder onboarding, contribution categories, packaging, submission',
         color: 'green'
       }
+    },
+    {
+      id: 'alpha-programme',
+      label: 'α Programme',
+      slug: 'alpha-programme',
+      enabled: true,
+      adminOnly: true,
+      order: 5,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'alpha-knyt',
+          collectionId: 'col_alpha_programme',
+          defaultPath: 'items/33-alpha-program-overview-and-progress.md'
+        }
+      },
+      metadata: {
+        icon: 'LayoutDashboard',
+        description: 'Four-workstream programme overview with live progress report — AgentiQ Alpha (complete), KNYT Wheel (active), Relationship Builder α (MVP in progress), Venture Lab α (queued).',
+        color: 'violet'
+      }
     }
   ],
   permissions: {
