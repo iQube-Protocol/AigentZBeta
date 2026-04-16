@@ -29,6 +29,19 @@
         "items/22-engineering-checklist.md",
         "items/23-linear-jira-ticket-set.md"
       ]
+    },
+    {
+      "id": "col_relationship_builder_alpha",
+      "title": "Relationship Builder α",
+      "description": "AVL Relationship Builder α — KNYT Relationship Composer, partner and customer journey orchestration, Studio/Experience Matrix alignment, execution rails, reporting, reward visibility, and continuity beyond Kickstarter.",
+      "items": [
+        "items/24-relationship-builder-overview.md",
+        "items/25-avl-knyt-prd.md",
+        "items/26-avl-continuity-addendum.md",
+        "items/27-avl-dev-implementation-prd.md",
+        "items/28-avl-claude-code-operator-pack.md",
+        "items/29-avl-customer-surface-addendum.md"
+      ]
     }
   ]
 }

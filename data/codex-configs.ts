@@ -936,8 +936,30 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       },
       metadata: {
         icon: 'Zap',
-        description: 'Full 20-doc Venture Lab α planning corpus — strategy, agent specs, economics, cartridge design',
+        description: 'Full 23-doc Venture Lab α planning corpus — strategy, agent specs, economics, cartridge design, implementation PRDs',
         color: 'amber'
+      }
+    },
+    {
+      id: 'relationship-builder-alpha',
+      label: 'Relationship Builder α',
+      slug: 'relationship-builder-alpha',
+      enabled: true,
+      adminOnly: true,
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'alpha-knyt',
+          collectionId: 'col_relationship_builder_alpha',
+          defaultPath: 'items/24-relationship-builder-overview.md'
+        }
+      },
+      metadata: {
+        icon: 'Users',
+        description: 'AVL Relationship Builder α — KNYT Relationship Composer, partner and customer surfaces, Studio-powered journey orchestration, and continuity beyond Kickstarter.',
+        color: 'rose'
       }
     },
     {
@@ -946,7 +968,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'agentiq-alpha',
       enabled: true,
       adminOnly: true,
-      order: 2,
+      order: 3,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -968,7 +990,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'agentiq-os-vl',
       enabled: true,
       adminOnly: true,
-      order: 3,
+      order: 4,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
