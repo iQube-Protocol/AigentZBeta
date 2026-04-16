@@ -3,12 +3,12 @@
  *
  * Returns metaKNYT-related Qriptopian content for the KNYT Terra tab.
  *
- * Mirrors the QriptoScrollsTab metaKnyts classification exactly:
- *   - Fetch all content with placement.section = 'scrolls'
- *   - Exclude items whose placement.tab = 'synthsims'
- *   - Everything else defaults to metaKnyts (same logic as QriptoScrollsTab)
+ * Query strategy mirrors /api/content/section/[section] exactly:
+ *   1. Try placement @> {section:"scrolls", issue:"issue-1"} (issue-scoped)
+ *   2. Fall back to placement @> {section:"scrolls"} (unscoped)
+ *   3. Filter: exclude placement.tab = 'synthsims' (same as QriptoScrollsTab)
  *
- * Status filter includes 'archived' to match the scrolls route codex scope.
+ * Status filter: ['published', 'archived'] (codex scope, matches scrolls route).
  * Falls back to an empty array on any DB error.
  */
 
@@ -17,8 +17,10 @@ import { getSupabaseServer } from "@/app/api/_lib/supabaseServer";
 
 export const dynamic = "force-dynamic";
 
-// Match the codex-scope status filter used by /api/content/section/scrolls?scope=codex
-const LIVE_STATUSES = ["published", "live", "archived"];
+const LIVE_STATUSES = ["published", "archived"];
+const SELECT_COLS =
+  "id, title, excerpt, placement, tags, status, thumbnail, " +
+  "cover_image_url, image, modalities, format, type, created_at";
 
 interface TerraItem {
   id: string;
@@ -51,40 +53,55 @@ function mapRow(r: Record<string, unknown>): TerraItem {
   };
 }
 
+function isSynthsims(r: Record<string, unknown>): boolean {
+  const placement = (r.placement as Record<string, unknown> | null) ?? {};
+  const tab = ((placement.tab as string) ?? "").toLowerCase();
+  return tab === "synthsims" || tab.includes("synth");
+}
+
 export async function GET(_req: NextRequest) {
   const supabase = getSupabaseServer();
   if (!supabase) {
-    return NextResponse.json({ ok: true, data: [], total: 0 });
+    return NextResponse.json({ ok: true, data: [], total: 0, debug: "no_supabase" });
   }
 
   try {
-    // Fetch all scrolls content (same source as QriptoScrollsTab)
-    const { data, error } = await supabase
+    // Step 1: try issue-scoped query (same as section/scrolls route primary path)
+    let { data, error } = await supabase
       .from("content")
-      .select(
-        "id, title, excerpt, placement, tags, status, thumbnail, " +
-        "cover_image_url, image, modalities, format, type, created_at"
-      )
-      .contains("placement", { section: "scrolls" })
+      .select(SELECT_COLS)
+      .contains("placement", { section: "scrolls", issue: "issue-1" })
       .in("status", LIVE_STATUSES)
       .order("created_at", { ascending: false })
       .limit(60);
 
+    const step1Count = data?.length ?? 0;
+
+    // Step 2: fall back to unscoped if issue-scoped returns nothing
+    if (!error && (!data || data.length === 0)) {
+      const fallback = await supabase
+        .from("content")
+        .select(SELECT_COLS)
+        .contains("placement", { section: "scrolls" })
+        .in("status", LIVE_STATUSES)
+        .order("created_at", { ascending: false })
+        .limit(60);
+
+      data = fallback.data;
+      error = fallback.error;
+    }
+
+    const step2Count = data?.length ?? 0;
+
     if (error) {
       console.error("[codex/knyt/terra] DB error:", error.message);
-      return NextResponse.json({ ok: true, data: [], total: 0 });
+      return NextResponse.json({ ok: true, data: [], total: 0, debug: `db_error: ${error.message}` });
     }
 
     const rows = (data ?? []) as Record<string, unknown>[];
 
-    // Mirror QriptoScrollsTab classification:
-    // Exclude synthsims; everything else is metaKnyts
-    const metaKnyts = rows.filter((r) => {
-      const placement = (r.placement as Record<string, unknown> | null) ?? {};
-      const tab = ((placement.tab as string) ?? "").toLowerCase();
-      return tab !== "synthsims";
-    });
-
+    // Mirror QriptoScrollsTab classification: exclude synthsims, rest is metaKnyts
+    const metaKnyts = rows.filter((r) => !isSynthsims(r));
     const items = metaKnyts.map(mapRow);
 
     // Featured first, then newest
@@ -93,9 +110,14 @@ export async function GET(_req: NextRequest) {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
-    return NextResponse.json({ ok: true, data: items, total: items.length });
+    return NextResponse.json({
+      ok: true,
+      data: items,
+      total: items.length,
+      debug: { step1Count, step2Count, afterFilter: items.length },
+    });
   } catch (err) {
     console.error("[codex/knyt/terra] unexpected error:", err);
-    return NextResponse.json({ ok: true, data: [], total: 0 });
+    return NextResponse.json({ ok: true, data: [], total: 0, debug: "caught_error" });
   }
 }
