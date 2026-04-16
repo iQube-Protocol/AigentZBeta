@@ -19,7 +19,11 @@ export async function GET(req: NextRequest) {
       assetClass: "SkillQube",
       tenantId: searchParams.get("tenantId") ?? undefined,
       trustBand: (searchParams.get("trustBand") as TrustBand) || undefined,
-      publicationStatus: searchParams.get("publicationStatus") || undefined,
+      // Default to published-only in alpha; pass publicationStatus=all to bypass
+      publicationStatus:
+        searchParams.get("publicationStatus") === "all"
+          ? undefined
+          : (searchParams.get("publicationStatus") || "published"),
       policyClass: (searchParams.get("policyClass") as PolicyClass) || undefined,
       // search="know1" is the idiomatic way to get Know1's skill family
       search: searchParams.get("search") || undefined,
