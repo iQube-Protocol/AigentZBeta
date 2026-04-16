@@ -21,8 +21,10 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ArrowRight,
   Brain,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
+  Clock,
   Cpu,
   FlaskConical,
   Layers,
@@ -63,6 +65,31 @@ interface CohortEntry {
   role: string;
   personaCount: number;
   totalGrantsForRole: number;
+}
+
+interface ReceiptRow {
+  receiptId: string;
+  eventType: string;
+  provisional: boolean;
+  finalizedAt: string | null;
+  createdAt: string;
+}
+
+interface QcEventRow {
+  eventId: string;
+  actionType: string;
+  direction: string;
+  amountQc: number;
+  provisional: boolean;
+  createdAt: string;
+  skillId: string | null;
+}
+
+interface LedgerSummary {
+  provisionalReceipts: number;
+  finalizedReceipts: number;
+  totalEvents: number;
+  totalQc: number;
 }
 
 // ─── Style helpers ────────────────────────────────────────────────────────────
@@ -233,6 +260,109 @@ function ParticipationPanel({
   );
 }
 
+// ─── DVN Ledger panel ─────────────────────────────────────────────────────────
+
+function DvnLedgerPanel({
+  receipts,
+  events,
+  summary,
+  loading,
+}: {
+  receipts: ReceiptRow[];
+  events: QcEventRow[];
+  summary: LedgerSummary | null;
+  loading: boolean;
+}) {
+  if (loading) {
+    return <div className="text-xs text-slate-500 py-3 text-center">Loading ledger…</div>;
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Summary tiles */}
+      <div className="grid grid-cols-2 gap-2">
+        {[
+          { label: "Provisional Receipts", value: summary?.provisionalReceipts ?? 0, accent: "text-amber-300" },
+          { label: "Finalized Receipts",   value: summary?.finalizedReceipts ?? 0, accent: "text-emerald-300" },
+          { label: "Qc Events",            value: summary?.totalEvents ?? 0, accent: "text-sky-300" },
+          { label: "Total Q¢ Metered",     value: summary?.totalQc ?? 0, accent: "text-slate-300" },
+        ].map(({ label, value, accent }) => (
+          <div key={label} className="rounded-lg border border-slate-800 bg-slate-900/50 p-2.5 text-center">
+            <div className={`text-lg font-bold leading-none ${accent}`}>{value}</div>
+            <div className="text-[10px] text-slate-500 mt-0.5">{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Recent receipts */}
+      {receipts.length > 0 && (
+        <div>
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+            Recent Receipts
+          </div>
+          <div className="space-y-1">
+            {receipts.slice(0, 6).map((r) => (
+              <div
+                key={r.receiptId}
+                className="flex items-center justify-between text-[10px] py-1 border-b border-slate-800/50 last:border-0 gap-2"
+              >
+                <span className="flex items-center gap-1 text-slate-400 min-w-0">
+                  {r.provisional
+                    ? <Clock className="h-2.5 w-2.5 text-amber-400 flex-shrink-0" />
+                    : <CheckCircle2 className="h-2.5 w-2.5 text-emerald-400 flex-shrink-0" />}
+                  <span className="truncate">{r.eventType}</span>
+                </span>
+                <span className={`shrink-0 font-medium ${r.provisional ? "text-amber-400" : "text-emerald-400"}`}>
+                  {r.provisional ? "provisional" : "finalized"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recent Qc events */}
+      {events.length > 0 && (
+        <div>
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+            Recent Qc Events
+          </div>
+          <div className="space-y-1">
+            {events.slice(0, 6).map((e) => (
+              <div
+                key={e.eventId}
+                className="flex items-center justify-between text-[10px] py-1 border-b border-slate-800/50 last:border-0 gap-2"
+              >
+                <span className="text-slate-400 truncate min-w-0">
+                  {e.actionType}{e.skillId ? ` · ${e.skillId}` : ""}
+                </span>
+                <span className={`shrink-0 font-medium font-mono ${
+                  e.direction === "credit" ? "text-emerald-400"
+                  : e.direction === "debit" ? "text-red-400"
+                  : "text-slate-500"
+                }`}>
+                  {e.direction === "credit" ? "+" : e.direction === "debit" ? "-" : "~"}
+                  {e.amountQc} Q¢
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {receipts.length === 0 && events.length === 0 && (
+        <p className="text-xs text-slate-500 text-center py-2">
+          No ledger activity yet — receipts will appear as participation actions are taken.
+        </p>
+      )}
+
+      <p className="text-[10px] text-slate-600">
+        All amounts are 0 Q¢ in alpha. DVN anchoring finalizes provisional receipts on-chain.
+      </p>
+    </div>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 interface KnytAlphaTabProps {
@@ -242,11 +372,14 @@ interface KnytAlphaTabProps {
 export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
   const router = useRouter();
 
-  const [agents,   setAgents]   = useState<Asset[]>([]);
-  const [skills,   setSkills]   = useState<Asset[]>([]);
-  const [org,      setOrg]      = useState<OrgStats | null>(null);
-  const [cohorts,  setCohorts]  = useState<CohortEntry[]>([]);
-  const [loading,  setLoading]  = useState(true);
+  const [agents,       setAgents]       = useState<Asset[]>([]);
+  const [skills,       setSkills]       = useState<Asset[]>([]);
+  const [org,          setOrg]          = useState<OrgStats | null>(null);
+  const [cohorts,      setCohorts]      = useState<CohortEntry[]>([]);
+  const [ledgerReceipts, setLedgerReceipts] = useState<ReceiptRow[]>([]);
+  const [ledgerEvents,   setLedgerEvents]   = useState<QcEventRow[]>([]);
+  const [ledgerSummary,  setLedgerSummary]  = useState<LedgerSummary | null>(null);
+  const [loading,      setLoading]      = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -254,11 +387,15 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
       const participationUrl = personaId
         ? `/api/codex/knyt/participation?personaId=${encodeURIComponent(personaId)}`
         : "/api/codex/knyt/participation";
+      const ledgerUrl = personaId
+        ? `/api/codex/knyt/ledger?personaId=${encodeURIComponent(personaId)}`
+        : "/api/codex/knyt/ledger";
 
-      const [agentsRes, skillsRes, partRes] = await Promise.all([
+      const [agentsRes, skillsRes, partRes, ledgerRes] = await Promise.all([
         fetch("/api/registry/assets?assetClass=AigentQube&publicationStatus=published&tenantId=platform&limit=10"),
         fetch("/api/registry/assets?assetClass=SkillQube&publicationStatus=published&tenantId=platform&limit=20"),
         fetch(participationUrl).catch(() => null),
+        fetch(ledgerUrl).catch(() => null),
       ]);
 
       if (agentsRes.ok) {
@@ -274,6 +411,14 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
         if (d.data) {
           setOrg(d.data.org ?? null);
           setCohorts(d.data.cohorts ?? []);
+        }
+      }
+      if (ledgerRes?.ok) {
+        const d = await ledgerRes.json();
+        if (d.data) {
+          setLedgerReceipts(d.data.receipts ?? []);
+          setLedgerEvents(d.data.events ?? []);
+          setLedgerSummary(d.data.summary ?? null);
         }
       }
     } finally {
@@ -439,6 +584,25 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
         bgClass="bg-emerald-950/10"
       >
         <ParticipationPanel org={org} cohorts={cohorts} loading={loading} />
+      </ExplainerSection>
+
+      {/* ── DVN Receipt + Qc accounting ledger ── */}
+      <ExplainerSection
+        title="DVN Receipt & Qc Ledger"
+        icon={CheckCircle2}
+        accentClass="text-sky-300"
+        borderClass="border-sky-900/40"
+        bgClass="bg-sky-950/10"
+      >
+        <p className="text-xs text-slate-300">
+          Economic lifecycle view — every participation action emits a DVN receipt that moves from provisional to finalized as the on-chain anchor confirms.
+        </p>
+        <DvnLedgerPanel
+          receipts={ledgerReceipts}
+          events={ledgerEvents}
+          summary={ledgerSummary}
+          loading={loading}
+        />
       </ExplainerSection>
 
       {/* ── AgentiQ OS primitives (live counts) ── */}
