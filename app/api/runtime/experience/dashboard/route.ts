@@ -136,9 +136,48 @@ export async function GET(request: NextRequest) {
     if (personaId) baseQ = (baseQ as any).eq('persona_id', personaId);
     if (stageFilter) baseQ = (baseQ as any).eq('stage', stageFilter);
 
+    // When a search query is present, resolve matching persona_ids from the CRM
+    // tables first — this ensures search works across ALL records, not just the
+    // paginated window (the recency-ordered limit would otherwise hide older records).
+    if (searchQuery) {
+      const like = `%${searchQuery}%`;
+      const [personaHitsRes, crmHitsRes, jsHitsRes] = await Promise.all([
+        supabase
+          .from('personas')
+          .select('id')
+          .or(`display_name.ilike.${like},fio_handle.ilike.${like},id.ilike.${like}`),
+        supabase
+          .from('crm_personas')
+          .select('identity_persona_id')
+          .or(`display_name.ilike.${like},first_name.ilike.${like},last_name.ilike.${like},fio_handle.ilike.${like}`),
+        supabase
+          .from('journey_states')
+          .select('persona_id')
+          .ilike('persona_id', like),
+      ]);
+
+      const matchingIds = new Set<string>();
+      for (const p of personaHitsRes.data ?? []) if (p?.id) matchingIds.add(p.id);
+      for (const cp of crmHitsRes.data ?? []) if (cp?.identity_persona_id) matchingIds.add(cp.identity_persona_id);
+      for (const js of jsHitsRes.data ?? []) if (js?.persona_id) matchingIds.add(js.persona_id);
+
+      if (matchingIds.size === 0) {
+        return NextResponse.json({
+          view: 'individual',
+          tenant_id: tenantId,
+          stage_filter: stageFilter,
+          search: searchQuery,
+          total: 0,
+          individuals: [],
+        });
+      }
+
+      baseQ = (baseQ as any).in('persona_id', [...matchingIds]);
+    }
+
     const { data: states, error: statesError } = await (baseQ as any)
       .order('active_at', { ascending: false })
-      .limit(limit);
+      .limit(searchQuery ? 500 : limit);
 
     if (statesError) {
       return NextResponse.json(
@@ -242,17 +281,8 @@ export async function GET(request: NextRequest) {
       crm: crmByPersona[s.persona_id] ?? null,
     }));
 
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      individuals = individuals.filter((ind) => {
-        const crm = ind.crm;
-        return (
-          ind.persona_id.toLowerCase().includes(q) ||
-          (crm?.display_name ?? '').toLowerCase().includes(q) ||
-          (crm?.fio_handle ?? '').toLowerCase().includes(q)
-        );
-      });
-    }
+    // Note: when searchQuery is present the persona_id IN filter above already
+    // scopes results to exact matches — no further client-side filtering needed.
 
     return NextResponse.json({
       view: 'individual',
