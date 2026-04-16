@@ -17,29 +17,29 @@ Replace all remaining `[Kickstarter URL]` placeholders in emails, SMS, social, p
 
 ---
 
-## Real partner list
+## Real partner list (18 total)
 
-### Wave 1 (initial outreach — relationship-ordered)
-- Autonomys
-- Fio Protocol
-- ChainGPT
-- Lamina1
-- LayerZero
-- Project Liberty
-- CryptoMondays / DAIA
-- PAL Capital
-- Distro
-- NEAR
-- Polygon
-- Secret Network
-- Decentralized Media
-- Horizen
-- Bitcoin Harlem
-- PubKey
+### Wave 1 — First cohort (initial outreach — relationship-ordered, 16 partners)
+1. Autonomys
+2. Fio Protocol
+3. ChainGPT
+4. Lamina1
+5. LayerZero
+6. Project Liberty
+7. CryptoMondays / DAIA
+8. PAL Capital
+9. Distro
+10. NEAR
+11. Polygon
+12. Secret Network
+13. Decentralized Media
+14. Horizen
+15. Bitcoin Harlem
+16. PubKey
 
-### Wave 2 (top-tier — activate once Wave 1 ignition is visible)
-- Comic Republic — top-tier media/comics partner; high audience overlap with KNYT IP
-- World Class Scholars — top-tier education/culture partner; collector and patron audience alignment
+### Wave 2 — Second cohort (top-tier — activate once Wave 1 ignition is visible, 2 partners)
+17. Comic Republic — top-tier media/comics partner; high audience overlap with KNYT IP
+18. World Class Scholars — top-tier education/culture partner; collector and patron audience alignment
 
 ## Sequencing rule
 Use the provided partner list order as the operational outreach sequence for initial first contact. Do not re-order by abstract category if the relationship-based order is already stronger.

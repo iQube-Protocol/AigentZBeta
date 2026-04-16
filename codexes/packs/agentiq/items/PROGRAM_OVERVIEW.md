@@ -100,7 +100,7 @@ Phase 2 (Queued — starts after Phase 1 stabilised)
 | Investor segmentation | ✅ Complete | 6 cohorts (A–F) + priority overlay `cohort_zero_knyt_legacy_1000_plus` (190+ investors with $1,000+ historical investment) |
 | Offer architecture | ✅ Defined | Top KNYT Shelf ($288, 21 available), Zero KNYT tier (21 available). Investor privilege tiers: Keta 10%, Keji 15%, First 20%, Zero 25%. |
 | Campaign copy | ✅ Complete | 19 operator docs in KNYT Wheel collection (indexed in Marketa KB) |
-| Partner activation | 🔴 Not started | **Wave 1 (16):** Autonomys → Fio Protocol → ChainGPT → Lamina1 → LayerZero → Project Liberty → CryptoMondays/DAIA → PAL Capital → Distro → NEAR → Polygon → Secret Network → Decentralized Media → Horizen → Bitcoin Harlem → PubKey. **Wave 2 (top tier):** Comic Republic → World Class Scholars |
+| Partner activation | 🔴 Not started | **18 partners total.** **Wave 1 / Cohort 1 (16):** Autonomys → Fio Protocol → ChainGPT → Lamina1 → LayerZero → Project Liberty → CryptoMondays/DAIA → PAL Capital → Distro → NEAR → Polygon → Secret Network → Decentralized Media → Horizen → Bitcoin Harlem → PubKey. **Wave 2 / Cohort 2 (2):** Comic Republic → World Class Scholars |
 | In-product runtime prompts | ✅ Complete | Campaign entry points live in Runtime Surface (investor tier chips, KS path CTAs, backed confirmation) |
 | Marketa full activation | ✅ Complete | Persona wired, inference correct, 19 KNYT Wheel KB docs indexed and searchable |
 
@@ -167,8 +167,8 @@ The sequencing that unlocks everything:
    → Inference correct, 19 KNYT Wheel KB docs indexed
 
 5. Partner activation sequence — ACTIVE
-   → Wave 1: 16 partners (Autonomys first)
-   → Wave 2 top tier: Comic Republic, World Class Scholars
+   → Wave 1 / Cohort 1: 16 partners (Autonomys first)
+   → Wave 2 / Cohort 2: Comic Republic, World Class Scholars
 
 6. CRM DataQube canonization — PENDING
    → CRM cleaned and ready; needs formal DataQube registration
