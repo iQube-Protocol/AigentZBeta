@@ -70,8 +70,14 @@ async function supabaseRequest(path, method = "GET", body = null) {
   return res.json();
 }
 
-/** Load all records from the 7-part seed files */
+/** Load all records — prefers full single file, falls back to 7-part index */
 function loadSeedRecords() {
+  const fullFile = path.join(STAGING_DIR, "ks_backers_seed_cohort_phase1_full.json");
+  if (fs.existsSync(fullFile)) {
+    console.log(`Loading from full file: ks_backers_seed_cohort_phase1_full.json`);
+    return JSON.parse(fs.readFileSync(fullFile, "utf-8"));
+  }
+  console.log("Loading from 7-part index…");
   const index = JSON.parse(fs.readFileSync(INDEX_FILE, "utf-8"));
   const records = [];
   for (const partPath of index.parts) {
