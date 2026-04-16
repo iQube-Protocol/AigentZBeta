@@ -53,34 +53,15 @@ Phase 2 (Queued — starts after Phase 1 stabilised)
 | Agent inference routing | ✅ Complete | Correct KB domains per agent — KNYT context only injected for kn0w1/marketa; platform agents (aigent-z, aigent-c) receive only their system prompt |
 | SmartTriad copilot | ✅ Complete | Inference wired to `/api/codex/chat`, rendering fixed (newline preservation), sidebar navigation fixed, provider dropdown functional |
 | Published card refresh | ✅ Complete | Factory listing cards update without page refresh via CustomEvent after publish |
-| KNYT Runtime Surface | ⚠️ Exists, needs upgrade | Lives in KNYT Cartridge → Runtime tab. 6-block structure present: Live Runtime Surface header, Patronage Axis, PCS Axis, Featured Moment, Signal Action Tray, Reward+Progress Card, NBE Pathway Card. UI is functional but not runtime-grade — needs CSS alignment with Runtime/Studio design language and chips upgraded to platform-consistent components. |
-| Experience capsule delivery | 🔴 Not built | The matrix prescription mechanism exists in Studio but is not wired to the metaMe Runtime. The path — matrix cell prescription → NBE plan → runtime chip → personalized experience surface — does not yet exist as a live delivery pipeline. This is the primary remaining engineering gap. |
+| KNYT Runtime Surface | ✅ Complete | CSS upgrade done — 21 Sats design language, axis step chains, icon chips, capsule wrappers. All 6 blocks runtime-grade. |
+| Experience capsule delivery | ✅ Complete | POST /api/experience/capsule live. Featured Moment + Next Best Step wired to live matrix prescription for authenticated user. |
 | AgentQube / AigentQube | ✅ Structural | Factory intake, classification, agent card in AssetDetailPanel, copilot wiring all in place. |
 
 ---
 
-#### Remaining Phase 1 Engineering Work (priority order)
+#### Phase 1 Engineering — Complete
 
-**1. KNYT Runtime Surface CSS upgrade**
-- Align all 6 surface blocks with Runtime/Studio CSS tokens (backgrounds, text hierarchy, borders, interactive states)
-- Upgrade Patronage Axis and PCS Axis progress indicators to platform chip style
-- Signal Action Tray buttons to match runtime chip component spec
-- Reward+Progress Card and NBE Pathway Card to runtime-grade card components
-- Goal: a user arriving in the KNYT cartridge Runtime tab sees a polished, brand-consistent surface
-
-**2. Experience capsule delivery pipeline**
-- API endpoint: given a `userId` and their current `journey_state` (patronage_stage × pcs_stage), query the experience matrix and return the prescribed capsule with content, actions, and next-best-step
-- Runtime chip component: renders the prescribed experience as an interactive chip/capsule in the metaMe Runtime
-- Wire to KNYT Runtime Surface: Featured Moment block and NBE Pathway Card pull from the live prescription for the authenticated user
-- Goal: each investor/user sees a personalized experience surface driven by their actual matrix position, not generic placeholder content
-
-**3. Marketa runtime verification**
-- Confirm Marketa is accessing KNYT Wheel KB content correctly via her copilot
-- Test her responses against live campaign scenarios (investor tier queries, KS path, offer comparison)
-
-**4. In-product campaign entry points**
-- Runtime tasks, signal prompts, and KS path prompts referenced in the KNYT Wheel launch runbook
-- Depend on the runtime surface upgrade (#1) being complete
+All engineering work complete as of 2026-04-16. Active operational work: partner activation sequence (18 partners, managed via Relationship Builder α).
 
 ---
 
@@ -94,7 +75,7 @@ Phase 2 (Queued — starts after Phase 1 stabilised)
 |------|--------|-------|
 | KS campaign | ✅ Live | Campaign launched and running |
 | Investor emails | ✅ Sent | Emails sent to top_knyt_shelf and zero_knyt cohorts from the system |
-| CRM | ✅ Ready to canonize | Cleaned, deduped, extensively tested. Ready to be canonized as a first-grade DataQube for the KNYT cartridge |
+| CRM | ✅ Canonized | dataqube-knyt-crm registered L4_PRODUCTION_APPROVED. Pushed to Autonomys mainnet (24 files, manifest CID: bafkr6ibez…). |
 | Experience model + matrix | ✅ Complete | Cohort and individual mapping done. Journey states defined for each investor and prospect. Individual experience journeys plotted. |
 | Nakamoto CRM integration | ✅ Complete | CRM database extended with state-change signals — signals fire as users carry out activities that advance their journey state |
 | Investor segmentation | ✅ Complete | 6 cohorts (A–F) + priority overlay `cohort_zero_knyt_legacy_1000_plus` (190+ investors with $1,000+ historical investment) |
