@@ -381,6 +381,10 @@ export default function KnytRuntimeSurface({
   const [signalCounts, setSignalCounts] = useState<{ like: number; spark: number; curate: number; total: number } | null>(null);
   const [knytBalance, setKnytBalance] = useState<number | null>(null);
   const [nbePlan, setNbePlan] = useState<{ disposition: string; next_experience_depth: string; rationale: string } | null>(null);
+  // Capsule prescription from /api/experience/capsule — live matrix-based delivery
+  const [capsule, setCapsule] = useState<{
+    depth: string; label: string; cta_label: string; cta_action: string; next_depth: string; fallback: boolean;
+  } | null>(null);
 
   useEffect(() => {
     if (!personaId) return;
@@ -413,6 +417,28 @@ export default function KnytRuntimeSurface({
     loadKnytState();
     return () => { cancelled = true; };
   }, [personaId]); // featuredMoment intentionally excluded — living-canon load below handles it
+
+  // Load capsule prescription whenever stages resolve
+  useEffect(() => {
+    let cancelled = false;
+    async function loadCapsule() {
+      try {
+        const res = await fetch('/api/experience/capsule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ patronage_stage: patronageStage, pcs_stage: pcsStage }),
+          cache: 'no-store',
+        });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (!cancelled) setCapsule(data);
+      } catch {
+        // Degrade silently — static fallback content remains visible
+      }
+    }
+    loadCapsule();
+    return () => { cancelled = true; };
+  }, [patronageStage, pcsStage]);
 
   // Load investor campaign status for the KNYT Wheel CTA lane
   useEffect(() => {
@@ -657,6 +683,12 @@ export default function KnytRuntimeSurface({
         {runtimeState.featured_moment ? (
           <>
             <div className="flex flex-wrap items-center gap-1.5">
+              {/* Live matrix prescription badge */}
+              {capsule && (
+                <span className="inline-flex items-center rounded-full bg-amber-950/40 border border-amber-700/40 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+                  {capsule.depth} · {capsule.label}
+                </span>
+              )}
               <span className="inline-flex items-center rounded-full border border-slate-700/60 px-2 py-0.5 text-[10px] text-slate-400">
                 {runtimeState.featured_moment.type}
               </span>
@@ -678,7 +710,7 @@ export default function KnytRuntimeSurface({
             )}
             <div className="flex gap-2 pt-1">
               <button className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black transition">
-                {runtimeState.featured_moment.primary_cta}
+                {capsule?.cta_label ?? runtimeState.featured_moment.primary_cta}
               </button>
               {runtimeState.featured_moment.secondary_cta && (
                 <button className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition">
@@ -736,11 +768,18 @@ export default function KnytRuntimeSurface({
       {/* ── Next Best Step capsule ── */}
       <div className="rounded-xl border border-white/5 bg-slate-950/80 p-4 space-y-3">
         <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500">Next Best Step</p>
-        {nbePlan && (
-          <span className="inline-flex items-center rounded-full border border-cyan-800/40 bg-cyan-950/30 px-2 py-0.5 text-[10px] font-semibold text-cyan-400">
-            NBE {nbePlan.disposition} → {nbePlan.next_experience_depth}
-          </span>
-        )}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {nbePlan && (
+            <span className="inline-flex items-center rounded-full border border-cyan-800/40 bg-cyan-950/30 px-2 py-0.5 text-[10px] font-semibold text-cyan-400">
+              NBE {nbePlan.disposition} → {nbePlan.next_experience_depth}
+            </span>
+          )}
+          {capsule && (
+            <span className="inline-flex items-center rounded-full border border-indigo-800/40 bg-indigo-950/25 px-2 py-0.5 text-[10px] font-semibold text-indigo-300">
+              next: {capsule.next_depth}
+            </span>
+          )}
+        </div>
         <p className="text-sm font-semibold text-slate-100">{runtimeState.next_best_step.action}</p>
         <p className="text-xs text-slate-300 leading-relaxed">{runtimeState.next_best_step.rationale}</p>
         {nbePlan?.rationale && nbePlan.rationale !== runtimeState.next_best_step.rationale && (
