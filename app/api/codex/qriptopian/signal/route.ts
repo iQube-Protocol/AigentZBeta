@@ -57,34 +57,42 @@ export async function POST(req: NextRequest) {
 
   const actorId = personaId ?? "anonymous";
 
-  // ── 1. Log Qc event (fire-and-forget, 0 Qc in alpha) ─────────────────────
-  logQcEventSilent({
-    personaId: actorId,
-    actionType: "session_metered",
-    amountQc: 0,
-    direction: "meter",
-    cartridgeId: "qriptopian",
-    metadata: {
-      signalType,
-      contentId,
-      platform: platform ?? null,
-      source: "qriptopian_content",
-      ...metadata,
-    },
-  });
+  // view signals are free content access — no Qc metering, no receipt.
+  // Only share/like/spark represent economically meaningful participation.
+  const isParticipationSignal = signalType !== "view";
 
-  // ── 2. Emit DVN participation receipt (fire-and-forget) ───────────────────
-  emitReceiptSilent({
-    eventType: "participation.metered",
-    actorId,
-    tenantId: "platform",
-    payload: {
-      signalType,
-      contentId,
-      platform: platform ?? null,
+  // ── 1. Log Qc event for participation signals only ────────────────────────
+  if (isParticipationSignal) {
+    logQcEventSilent({
+      personaId: actorId,
+      actionType: "session_metered",
+      amountQc: 0,
+      direction: "meter",
       cartridgeId: "qriptopian",
-    },
-  });
+      metadata: {
+        signalType,
+        contentId,
+        platform: platform ?? null,
+        source: "qriptopian_content",
+        ...metadata,
+      },
+    });
+  }
+
+  // ── 2. Emit DVN receipt for participation signals only ────────────────────
+  if (isParticipationSignal) {
+    emitReceiptSilent({
+      eventType: "participation.metered",
+      actorId,
+      tenantId: "platform",
+      payload: {
+        signalType,
+        contentId,
+        platform: platform ?? null,
+        cartridgeId: "qriptopian",
+      },
+    });
+  }
 
   // ── 3. Insert into knyt_signals for like/spark (engagement signals) ───────
   if (personaId && KNYT_SIGNAL_TYPES.has(signalType)) {
