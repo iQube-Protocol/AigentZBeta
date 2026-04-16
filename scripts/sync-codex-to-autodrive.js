@@ -19,6 +19,20 @@
 const fs = require("fs");
 const path = require("path");
 
+// ── Load .env.local (same pattern as other scripts in this repo) ───────────
+const envPath = path.resolve(__dirname, "../.env.local");
+if (fs.existsSync(envPath)) {
+  for (const line of fs.readFileSync(envPath, "utf-8").split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq < 0) continue;
+    const key = trimmed.slice(0, eq).trim();
+    const val = trimmed.slice(eq + 1).trim().replace(/^['"]|['"]$/g, "");
+    if (!(key in process.env)) process.env[key] = val;
+  }
+}
+
 // ── Pack selection ─────────────────────────────────────────────────────────
 // Priority: --pack <name> CLI arg → CODEX_PACK env → default "aigency"
 function resolvePack() {
