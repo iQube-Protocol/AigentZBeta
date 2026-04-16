@@ -18,9 +18,7 @@ import { getSupabaseServer } from "@/app/api/_lib/supabaseServer";
 export const dynamic = "force-dynamic";
 
 const LIVE_STATUSES = ["published", "live", "active", "archived"];
-const SELECT_COLS =
-  "id, title, excerpt, placement, tags, status, thumbnail, " +
-  "cover_image_url, image, modalities, format, type, created_at";
+const SELECT_COLS = "*";
 
 interface TerraItem {
   id: string;
