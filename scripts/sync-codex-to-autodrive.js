@@ -88,9 +88,8 @@ function collectFiles(dir, base = CODEX_ROOT) {
 async function uploadWithRetry(api, content, filename, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const cid = await api.uploadFileFromBuffer(content, filename, {
-        compression: false,
-      });
+      // Pass no options — explicitly setting compression:false triggers 500 on some server versions
+      const cid = await api.uploadFileFromBuffer(content, filename);
       if (!cid) throw new Error("No CID returned");
       return cid;
     } catch (err) {
@@ -105,9 +104,10 @@ async function uploadWithRetry(api, content, filename, maxRetries = 3) {
 async function main() {
   // Dynamic import — handles ESM and CJS packages
   const { createAutoDriveApi } = await import("@autonomys/auto-drive");
+  const { NetworkId } = await import("@autonomys/auto-utils");
 
   console.log("Initialising Autonomys Auto-Drive API (mainnet)…");
-  const api = createAutoDriveApi({ apiKey: API_KEY, network: "mainnet" });
+  const api = createAutoDriveApi({ apiKey: API_KEY, network: NetworkId.MAINNET });
 
   const files = collectFiles(CODEX_ROOT);
   console.log(`Found ${files.length} file(s) to sync.`);
