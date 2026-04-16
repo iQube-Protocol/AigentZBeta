@@ -85,8 +85,9 @@
     "pack": "knyt",
     "namespace": "KnytCodex/repos/AigentZBeta",
     "manifest_path": "dataqube.json",
-    "cid": null,
-    "pushed_at": null
+    "cid": "bafkr6iftviupqpggqugazyfxrh7hjw6krt6q6r7poynx5uftjf4bm6ki4i",
+    "manifest_cid": "bafkr6ibezddlzhv7qepi2w3mfrgo3nliy4hy5aldxyk4t7hu25udb2mhem",
+    "pushed_at": "2026-04-16T00:00:00Z"
   },
   "tags": [
     "crm", "knyt", "nakamoto", "investor", "backer",
