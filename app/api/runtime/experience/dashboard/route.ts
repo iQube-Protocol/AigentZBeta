@@ -139,27 +139,32 @@ export async function GET(request: NextRequest) {
     // When a search query is present, resolve matching persona_ids from the CRM
     // tables first — this ensures search works across ALL records, not just the
     // paginated window (the recency-ordered limit would otherwise hide older records).
+    // Use separate .ilike() calls per column to avoid .or() wildcard parsing issues.
     if (searchQuery) {
       const like = `%${searchQuery}%`;
-      const [personaHitsRes, crmHitsRes, jsHitsRes] = await Promise.all([
-        supabase
-          .from('personas')
-          .select('id')
-          .or(`display_name.ilike.${like},fio_handle.ilike.${like},id.ilike.${like}`),
-        supabase
-          .from('crm_personas')
-          .select('identity_persona_id')
-          .or(`display_name.ilike.${like},first_name.ilike.${like},last_name.ilike.${like},fio_handle.ilike.${like}`),
-        supabase
-          .from('journey_states')
-          .select('persona_id')
-          .ilike('persona_id', like),
+      const [
+        crmFirstRes,
+        crmLastRes,
+        crmDisplayRes,
+        crmFioRes,
+        personaDisplayRes,
+        personaFioRes,
+      ] = await Promise.all([
+        supabase.from('crm_personas').select('identity_persona_id').ilike('first_name', like).not('identity_persona_id', 'is', null).limit(500),
+        supabase.from('crm_personas').select('identity_persona_id').ilike('last_name', like).not('identity_persona_id', 'is', null).limit(500),
+        supabase.from('crm_personas').select('identity_persona_id').ilike('display_name', like).not('identity_persona_id', 'is', null).limit(500),
+        supabase.from('crm_personas').select('identity_persona_id').ilike('fio_handle', like).not('identity_persona_id', 'is', null).limit(500),
+        supabase.from('personas').select('id').ilike('display_name', like).limit(500),
+        supabase.from('personas').select('id').ilike('fio_handle', like).limit(500),
       ]);
 
       const matchingIds = new Set<string>();
-      for (const p of personaHitsRes.data ?? []) if (p?.id) matchingIds.add(p.id);
-      for (const cp of crmHitsRes.data ?? []) if (cp?.identity_persona_id) matchingIds.add(cp.identity_persona_id);
-      for (const js of jsHitsRes.data ?? []) if (js?.persona_id) matchingIds.add(js.persona_id);
+      for (const r of crmFirstRes.data ?? []) if (r?.identity_persona_id) matchingIds.add(r.identity_persona_id);
+      for (const r of crmLastRes.data ?? []) if (r?.identity_persona_id) matchingIds.add(r.identity_persona_id);
+      for (const r of crmDisplayRes.data ?? []) if (r?.identity_persona_id) matchingIds.add(r.identity_persona_id);
+      for (const r of crmFioRes.data ?? []) if (r?.identity_persona_id) matchingIds.add(r.identity_persona_id);
+      for (const r of personaDisplayRes.data ?? []) if (r?.id) matchingIds.add(r.id);
+      for (const r of personaFioRes.data ?? []) if (r?.id) matchingIds.add(r.id);
 
       if (matchingIds.size === 0) {
         return NextResponse.json({
