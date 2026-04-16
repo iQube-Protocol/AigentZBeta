@@ -18,6 +18,8 @@ Replace all remaining `[Kickstarter URL]` placeholders in emails, SMS, social, p
 ---
 
 ## Real partner list
+
+### Wave 1 (initial outreach — relationship-ordered)
 - Autonomys
 - Fio Protocol
 - ChainGPT
@@ -34,6 +36,10 @@ Replace all remaining `[Kickstarter URL]` placeholders in emails, SMS, social, p
 - Horizen
 - Bitcoin Harlem
 - PubKey
+
+### Wave 2 (top-tier — activate once Wave 1 ignition is visible)
+- Comic Republic — top-tier media/comics partner; high audience overlap with KNYT IP
+- World Class Scholars — top-tier education/culture partner; collector and patron audience alignment
 
 ## Sequencing rule
 Use the provided partner list order as the operational outreach sequence for initial first contact. Do not re-order by abstract category if the relationship-based order is already stronger.

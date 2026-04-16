@@ -99,10 +99,10 @@ Phase 2 (Queued — starts after Phase 1 stabilised)
 | Nakamoto CRM integration | ✅ Complete | CRM database extended with state-change signals — signals fire as users carry out activities that advance their journey state |
 | Investor segmentation | ✅ Complete | 6 cohorts (A–F) + priority overlay `cohort_zero_knyt_legacy_1000_plus` (190+ investors with $1,000+ historical investment) |
 | Offer architecture | ✅ Defined | Top KNYT Shelf ($288, 21 available), Zero KNYT tier (21 available). Investor privilege tiers: Keta 10%, Keji 15%, First 20%, Zero 25%. |
-| Campaign copy | ✅ Complete | 15 operator docs in KNYT Wheel collection |
-| Partner activation | 🔴 Not started | 16 partners in activation order: Autonomys → Fio Protocol → ChainGPT → Lamina1 → LayerZero → Project Liberty → CryptoMondays/DAIA → PAL Capital → Distro → NEAR → Polygon → Secret Network → Decentralized Media → Horizen → Bitcoin Harlem → PubKey |
-| In-product runtime prompts | 🔴 Blocked | Depends on KNYT Runtime Surface upgrade (Phase 1 engineering #1 above) |
-| Marketa full activation | ⚠️ Partial | Persona wired and inference correct; campaign scenario testing pending |
+| Campaign copy | ✅ Complete | 19 operator docs in KNYT Wheel collection (indexed in Marketa KB) |
+| Partner activation | 🔴 Not started | **Wave 1 (16):** Autonomys → Fio Protocol → ChainGPT → Lamina1 → LayerZero → Project Liberty → CryptoMondays/DAIA → PAL Capital → Distro → NEAR → Polygon → Secret Network → Decentralized Media → Horizen → Bitcoin Harlem → PubKey. **Wave 2 (top tier):** Comic Republic → World Class Scholars |
+| In-product runtime prompts | ✅ Complete | Campaign entry points live in Runtime Surface (investor tier chips, KS path CTAs, backed confirmation) |
+| Marketa full activation | ✅ Complete | Persona wired, inference correct, 19 KNYT Wheel KB docs indexed and searchable |
 
 **The KNYT Loop (campaign activation path):**
 ```
@@ -151,25 +151,27 @@ Specifications complete for: platform thesis, reference agent trio (Aigent Z, Ma
 The sequencing that unlocks everything:
 
 ```
-1. KNYT Runtime Surface CSS upgrade
-   → unlocks in-product campaign entry points
-   → is the visible face of the KNYT experience
+1. KNYT Runtime Surface CSS upgrade ✅ DONE
+   → 21 Sats design language, axis step chains, icon chips, capsule wrappers
 
-2. Experience capsule delivery pipeline
-   (can partially parallel with #1 — backend API is independent of CSS)
-   → connects the matrix prescription to the user's runtime surface
-   → enables individualised experience delivery
+2. Experience capsule delivery pipeline ✅ DONE
+   → POST /api/experience/capsule live
+   → Featured Moment + Next Best Step wired to live matrix prescription
 
-3. Marketa campaign scenario testing
-   → confirm she's hitting the right KB and responding correctly
+3. In-product campaign entry points ✅ DONE
+   → Investor tier chips in Signal Action Tray
+   → KS path CTAs and privilege block in NBE card
+   → Backed confirmation badge in header
 
-4. Partner activation sequence
-   → 16 partners, ordered activation
-   → does not depend on #1/#2 (channel-independent)
+4. Marketa full activation ✅ DONE
+   → Inference correct, 19 KNYT Wheel KB docs indexed
 
-5. CRM DataQube canonization
-   → formalize the cleaned CRM as a first-grade DataQube
-   → enables structured KB access for Marketa
+5. Partner activation sequence — ACTIVE
+   → Wave 1: 16 partners (Autonomys first)
+   → Wave 2 top tier: Comic Republic, World Class Scholars
+
+6. CRM DataQube canonization — PENDING
+   → CRM cleaned and ready; needs formal DataQube registration
 ```
 
 ---
