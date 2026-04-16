@@ -97,11 +97,38 @@ async function run() {
     try {
       const content = readFileSync(join(DOCS_DIR, filename), 'utf-8');
 
-      // Upsert document record
-      const { data: doc, error: docErr } = await db
+      // Check if document already exists
+      const { data: existing } = await db
         .from('codex_kb_documents')
-        .upsert(
-          {
+        .select('id')
+        .eq('source_id', sourceId)
+        .maybeSingle();
+
+      let docId;
+      if (existing?.id) {
+        // Update existing record
+        const { error: updateErr } = await db
+          .from('codex_kb_documents')
+          .update({
+            title,
+            domain:           DOMAIN,
+            series:           SERIES,
+            content_category: CATEGORY,
+            tags:             ['campaign', 'knyt-wheel', 'marketa'],
+            extraction_status:'completed',
+          })
+          .eq('id', existing.id);
+        if (updateErr) {
+          console.log(`FAIL (update): ${updateErr.message}`);
+          failed++;
+          continue;
+        }
+        docId = existing.id;
+      } else {
+        // Insert new record
+        const { data: doc, error: docErr } = await db
+          .from('codex_kb_documents')
+          .insert({
             source_type:      'markdown',
             source_id:        sourceId,
             title,
@@ -110,25 +137,24 @@ async function run() {
             content_category: CATEGORY,
             tags:             ['campaign', 'knyt-wheel', 'marketa'],
             extraction_status:'completed',
-          },
-          { onConflict: 'source_id' }
-        )
-        .select('id')
-        .single();
-
-      if (docErr || !doc) {
-        console.log(`FAIL (doc): ${docErr?.message ?? 'no doc'}`);
-        failed++;
-        continue;
+          })
+          .select('id')
+          .single();
+        if (docErr || !doc) {
+          console.log(`FAIL (doc): ${docErr?.message ?? 'no doc'}`);
+          failed++;
+          continue;
+        }
+        docId = doc.id;
       }
 
       // Delete existing chunks (idempotent re-run)
-      await db.from('codex_kb_chunks').delete().eq('document_id', doc.id);
+      await db.from('codex_kb_chunks').delete().eq('document_id', docId);
 
       // Chunk + insert
       const chunks = chunkMarkdown(content);
       const records = chunks.map((text, idx) => ({
-        document_id:   doc.id,
+        document_id:   docId,
         content:       text,
         chunk_index:   idx,
         chunk_type:    'paragraph',
