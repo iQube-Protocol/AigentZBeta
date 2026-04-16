@@ -18,6 +18,7 @@ import { getSupabaseServer } from "@/app/api/_lib/supabaseServer";
 import { getAsset } from "./persistence";
 import { emitReceipt } from "./receiptEmitter";
 import { PolicyClass, WrapperStrategy } from "@/types/registryIngestion";
+import { evaluateSkillQubePolicy } from "@/services/policy/skillQubePolicyGate";
 
 function generateId(): string {
   return `inv_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -62,6 +63,27 @@ export async function invokeAsset(req: InvocationRequest): Promise<InvocationRes
       status: "blocked_approval",
       error: "This asset requires human approval before each invocation.",
     };
+  }
+
+  // Policy gate 3: SkillQube curated alpha policy
+  if (asset.assetClass === "SkillQube") {
+    const policyEval = evaluateSkillQubePolicy({
+      skillId: asset.assetId,
+      trustBand: asset.trustBand,
+      policyClass: asset.policyClass,
+      publicationStatus: asset.publicationStatus,
+      cartridgeId: (asset.metadata?.cartridge as string) ?? undefined,
+      requiredCartridge: (req.input?.cartridgeId as string) ?? undefined,
+      personaId: req.invokedBy,
+      tenantId: req.tenantId,
+    });
+    if (!policyEval.allowed) {
+      return {
+        ok: false,
+        status: "blocked_policy",
+        error: `SkillQube policy gate: ${policyEval.reasons.join("; ")}`,
+      };
+    }
   }
 
   const invocationId = generateId();
