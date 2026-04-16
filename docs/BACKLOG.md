@@ -435,6 +435,39 @@ When moving an item from backlog to active sprint:
 - Always reference source documents for full context
 - Keep this document updated as work progresses
 
+## 🎛 SmartMenuBar — Be/Earn/Play/Make/Share Mode Bar (Deferred)
+
+**Priority:** Medium  
+**Status:** Infrastructure built, deferred — not mission critical for alpha  
+**Background:** The thin client (Lovable) exposes a horizontal Be/Earn/Play/Make/Share mode bar
+that fires `MENU_ACTION` postMessages to the MetaMe runtime iframe and calls
+`POST /api/aa/v1/runtime/menu-action`. This work replicates that UI in the Next.js app shell.
+
+### What's done (code exists, just not wired up)
+
+All backend infrastructure already exists: `MENU_ITEMS` in `runtimeShell.ts`,
+`POST /api/aa/v1/runtime/menu-action`, `createShellMessage` factory in `iframe-bridge`.
+Context and component were built and reverted in April 2026 — recreate from scratch when needed.
+
+### What's needed
+
+- [ ] `app/contexts/SmartMenuContext.tsx` — active mode state + `activateMode()` that fires
+  `POST /api/aa/v1/runtime/menu-action` + postMessage to `iframe[data-metame-runtime]`
+- [ ] `components/shell/SmartMenuBar.tsx` — horizontal pill bar (Be/Earn/Play/Make/Share),
+  ring-1 glass active state, Lucide icons (Users/Coins/PlayCircle/Pencil/Share2),
+  accent colors from `runtimeShell.ts` MENU_ITEMS
+- [ ] Wire `SmartMenuProvider` + `<SmartMenuBar />` into `app/(shell)/layout.tsx`
+  above the main content area, hidden on `isIsolatedContent` surfaces
+
+### Design notes
+
+- Active pill: `ring-1 ring-{color}/30 bg-{color}/10` (platform glass pattern)
+- Colors: be=slate-400, earn=emerald-400, play=cyan-400, make=violet-400, share=amber-400
+- Hidden when `isIsolatedContent` (embedded MetaMe runtime, studio experience editor)
+- The bar should NOT appear at the top of all pages (position below sidebar, above page content)
+
+---
+
 ## Runtime Backlog Additions
 
 - **Medium**: Add an admin UI control in the metaMe Runtime to trigger and monitor KB re-embedding batches, including active embedding provider/model display and batch progress status.

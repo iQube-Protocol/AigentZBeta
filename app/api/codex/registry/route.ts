@@ -43,8 +43,10 @@ export async function GET(request: NextRequest) {
       if (!allowOverrides) {
         packCodexes = packCodexes.filter((codex) => codex.id !== 'knyt-codex');
       }
-      const packIds = new Set(packCodexes.map(codex => codex.id));
-      let codexes = [...packCodexes, ...CODEX_DEFINITIONS.filter(codex => !packIds.has(codex.id))];
+      // CODEX_DEFINITIONS takes priority over pack-loaded codexes for tab structure.
+      // Pack-loaded codexes fill in any ids not explicitly defined.
+      const definedIds = new Set(CODEX_DEFINITIONS.map(c => c.id));
+      let codexes = [...CODEX_DEFINITIONS, ...packCodexes.filter(c => !definedIds.has(c.id))];
       
       if (enabledFilter !== null) {
         const enabled = enabledFilter === 'true';

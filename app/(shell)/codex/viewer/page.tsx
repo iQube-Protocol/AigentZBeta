@@ -112,9 +112,9 @@ export default function CodexViewerPage() {
   }, [tabOptions]);
 
   const fallbackCodexes = useMemo<CodexOption[]>(() => ([
-    { id: "knyt-codex", label: "KNYT Codex", color: "purple" },
-    { id: "qripto-codex", label: "Qriptopian Codex", color: "indigo" },
-    { id: "agentiq-codex", label: "AgentiQ Codex", color: "blue" },
+    { id: "knyt-codex", label: "KNYT Cartridge", color: "purple" },
+    { id: "qripto-codex", label: "Qriptopian Cartridge", color: "indigo" },
+    { id: "agentiq-codex", label: "AgentiQ Cartridge", color: "blue" },
     { id: "marketa-codex", label: "Aigent Marketa", color: "rose" },
     { id: "moneypenny-codex", label: "Aigent MoneyPenny", color: "green" },
     { id: "nakamoto-codex", label: "Aigent Nakamoto", color: "orange" },
@@ -157,7 +157,7 @@ export default function CodexViewerPage() {
   const sections = [
     {
       id: "codex",
-      label: "Select Codex",
+      label: "Select Cartridge",
       icon: BookOpen,
       content: (
         <div className="flex flex-col gap-2">
@@ -165,10 +165,10 @@ export default function CodexViewerPage() {
             <button
               key={codex.id}
               onClick={() => setCodexId(codex.id)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 codexId === codex.id
-                  ? `bg-${codex.color}-500 text-white`
-                  : "bg-slate-700/50 text-slate-400 hover:bg-slate-700"
+                  ? `bg-${codex.color}-500/10 ring-1 ring-${codex.color}-500/30 text-${codex.color}-300`
+                  : "bg-slate-700/30 text-slate-400 hover:bg-white/6 hover:text-slate-300"
               }`}
             >
               {codex.label}
@@ -320,7 +320,7 @@ export default function CodexViewerPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <BookOpen className="w-6 h-6 text-purple-400" />
-            <h1 className="text-xl font-bold text-white">Multi-Codex Viewer</h1>
+            <h1 className="text-xl font-bold text-white">Multi-Cartridge Viewer</h1>
             <span className="text-sm text-slate-400">Test and configure Codex embed components</span>
           </div>
           <div className="flex items-center gap-2">
