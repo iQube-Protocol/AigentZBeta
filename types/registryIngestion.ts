@@ -117,6 +117,7 @@ export interface ValidationStageResult {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type ReceiptEventType =
+  // ── Registry / ingestion factory events ──────────────────────────────────
   | "intake.created"
   | "source.fetched"
   | "source.classified"
@@ -128,7 +129,14 @@ export type ReceiptEventType =
   | "review.rejected"
   | "asset.published"
   | "asset.invoked"
-  | "asset.version.deprecated";
+  | "asset.version.deprecated"
+  // ── Participation / cartridge events (DVN rebate extension) ──────────────
+  | "reward.granted"        // KNYT reward recognised for meaningful participation
+  | "skill.invoked"         // SkillQube invocation (metered even at 0 Qc in alpha)
+  | "participation.metered" // Generic Qc-metered participation event
+  | "receipt.finalized"     // DVN anchor confirmed; provisional → finalized
+  | "receipt.disputed"      // Actor raised a dispute against this receipt
+  | "receipt.reversed";     // Reversal applied (dispute resolved against)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Ingestion pipeline stage names (mirrors pipeline_runs convention)

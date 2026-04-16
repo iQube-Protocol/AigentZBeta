@@ -11,6 +11,8 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { emitReceiptSilent } from '@/services/registry/receiptEmitter';
+import { logQcEventSilent } from '@/services/qc/qcEventService';
 
 // =============================================================================
 // TYPES
@@ -314,7 +316,33 @@ export class RewardService {
         amount: finalAmount,
         rewardGrantId: grant.id,
       });
-      
+
+      // 9. Emit DVN participation receipt (fire-and-forget)
+      emitReceiptSilent({
+        eventType: 'reward.granted',
+        actorId: personaId,
+        tenantId: 'platform',
+        payload: {
+          taskType,
+          baseAmount,
+          finalAmount,
+          repMultiplier,
+          rewardGrantId: grant.id,
+          sourceEventId: sourceEventId ?? null,
+        },
+      });
+
+      // 10. Log Qc event (fire-and-forget — 0 Qc in alpha, direction='meter')
+      logQcEventSilent({
+        personaId,
+        actionType: 'reward_granted',
+        amountQc: 0,
+        direction: 'meter',
+        cartridgeId: (metadata?.cartridgeId as string) ?? 'knyt',
+        rewardGrantId: grant.id,
+        metadata: { taskType, finalAmount, sourceEventId },
+      });
+
       return {
         success: true,
         rewardGrantId: grant.id,
