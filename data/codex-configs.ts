@@ -207,15 +207,15 @@ export const KNYT_CODEX: CodexConfig = {
       slug: 'terra',
       enabled: true,
       order: 5,
-      type: 'liquid-ui',
+      type: 'static',
       config: {
-        liquidTemplate: 'knyt:realm_bridge_map_v1',
+        component: 'TerraTab',
         dataSource: '/api/codex/knyt/terra',
-        // Physical realm content and interactions
+        props: {},
       },
       metadata: {
         icon: 'Globe',
-        description: 'Physical realm interface',
+        description: 'metaKNYT content from Qriptopian — share to earn Herald rewards',
         color: 'green'
       }
     },
