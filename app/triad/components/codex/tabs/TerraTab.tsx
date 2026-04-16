@@ -16,21 +16,20 @@
  */
 
 import React, { useEffect, useState, useCallback } from "react";
+import Image from "next/image";
 import { Share2, ThumbsUp, Zap, ExternalLink, Loader2, Newspaper } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface TerraContentItem {
   id: string;
-  slug: string;
   title: string;
   description?: string;
   tags: string[];
   type: string;
-  strand: string;
   featured: boolean;
+  coverImageUrl?: string;
   socialUrl?: string;
-  viewsCount: number;
   createdAt: string;
 }
 
@@ -87,7 +86,7 @@ function ContentCard({
     if (shareState !== "idle") return;
     setShareState("sharing");
 
-    const shareUrl = item.socialUrl ?? `${typeof window !== "undefined" ? window.location.origin : ""}/content/${item.slug}`;
+    const shareUrl = item.socialUrl ?? (typeof window !== "undefined" ? window.location.href : "");
     const shareData = {
       title: item.title,
       text: item.description ?? item.title,
@@ -134,16 +133,35 @@ function ContentCard({
   }, [item.id, personaId, sparked]);
 
   return (
-    <div className="relative rounded-xl border border-white/10 bg-white/[0.04] p-4 space-y-3 hover:border-white/20 transition-colors">
-      {/* Featured badge */}
-      {item.featured && (
+    <div className="relative rounded-xl border border-white/10 bg-white/[0.04] overflow-hidden hover:border-white/20 transition-colors">
+      {/* Cover image */}
+      {item.coverImageUrl && (
+        <div className="relative h-32 w-full bg-slate-900">
+          <Image
+            src={item.coverImageUrl}
+            alt={item.title}
+            fill
+            className="object-cover opacity-80"
+            sizes="(max-width: 640px) 100vw, 400px"
+          />
+          {item.featured && (
+            <span className="absolute top-2 right-2 text-[10px] font-semibold uppercase tracking-wide text-amber-400 bg-black/60 border border-amber-400/30 rounded-full px-2 py-0.5 backdrop-blur-sm">
+              Featured
+            </span>
+          )}
+        </div>
+      )}
+
+      <div className="p-4 space-y-3">
+      {/* Featured badge (no cover image case) */}
+      {!item.coverImageUrl && item.featured && (
         <span className="absolute top-3 right-3 text-[10px] font-semibold uppercase tracking-wide text-amber-400 bg-amber-400/10 border border-amber-400/20 rounded-full px-2 py-0.5">
           Featured
         </span>
       )}
 
       {/* Title + meta */}
-      <div className="pr-16">
+      <div className={item.featured && !item.coverImageUrl ? "pr-16" : ""}>
         <p className="text-sm font-semibold text-slate-100 leading-snug">{item.title}</p>
         {item.description && (
           <p className="text-xs text-slate-400 mt-1 leading-snug line-clamp-2">{item.description}</p>
@@ -237,7 +255,7 @@ function ContentCard({
             )}
           </button>
         </div>
-      </div>
+      </div>{/* end p-4 */}
     </div>
   );
 }
