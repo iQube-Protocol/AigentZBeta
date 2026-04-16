@@ -2,11 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Brain, Compass, Wifi, WifiOff } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import {
+  ArrowRight, Brain, Compass, Wifi, WifiOff,
+  Heart, Zap, CheckCircle2, Layers, Shuffle, Upload, Star, ThumbsUp, MessageCircle,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type PatronageStage = "OutsideOrder" | "Acolyte" | "Keta" | "Keji" | "First" | "Zero" | "Satoshi";
@@ -110,27 +109,78 @@ export interface KnytRuntimeSurfaceProps {
   featuredContentId?: string;
 }
 
-function getAxisProgress<T extends string>(axis: T[], value: T | undefined): number {
-  if (!value) return 0;
-  const index = axis.indexOf(value);
-  if (index < 0) return 0;
-  return Math.round((index / (axis.length - 1)) * 100);
+
+function AxisSteps({ label, axis, active, accentActive, accentText }: {
+  label: string;
+  axis: string[];
+  active: string;
+  accentActive: string;  // e.g. "bg-amber-500/20 border-amber-500/40 text-amber-300"
+  accentText: string;    // e.g. "text-amber-300"
+}) {
+  const activeIdx = axis.indexOf(active);
+  return (
+    <div className="rounded-xl border border-white/5 bg-slate-950/80 p-4 space-y-3">
+      <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500">{label}</p>
+      <p className={`text-sm font-semibold ${accentText}`}>{active}</p>
+      <div className="flex flex-wrap gap-1">
+        {axis.map((stage, i) => {
+          const isActive = i === activeIdx;
+          const isPast = i < activeIdx;
+          return (
+            <span
+              key={stage}
+              className={
+                isActive
+                  ? `inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${accentActive}`
+                  : isPast
+                  ? "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] text-slate-500 bg-slate-800/60"
+                  : "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] text-slate-600"
+              }
+            >
+              {stage}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
-function StageRail({ label, stage, progress, accentClass }: { label: string; stage: string; progress: number; accentClass: string }) {
+const ACTION_ICONS: Record<ActionId, React.ComponentType<{ className?: string }>> = {
+  like: Heart,
+  spark: Zap,
+  vote: CheckCircle2,
+  curate: Layers,
+  remix: Shuffle,
+  contribute: Upload,
+  patronize: Star,
+  endorse: ThumbsUp,
+  respond: MessageCircle,
+};
+
+function ActionChip({ action, isPrimary, disabled, loading, onClick }: {
+  action: RuntimeAction;
+  isPrimary: boolean;
+  disabled: boolean;
+  loading: boolean;
+  onClick: () => void;
+}) {
+  const Icon = ACTION_ICONS[action.id];
   return (
-    <Card className="rounded-xl border border-slate-800 bg-slate-950/80">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium text-slate-300">{label}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <span className={`text-sm font-semibold ${accentClass}`}>{stage}</span>
-          <span className="text-xs text-slate-400">{progress}%</span>
-        </div>
-        <Progress value={progress} className="h-2 bg-slate-900" />
-      </CardContent>
-    </Card>
+    <button
+      onClick={onClick}
+      disabled={disabled || loading}
+      title={action.helperText}
+      className={
+        "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed " +
+        (isPrimary
+          ? "bg-amber-500 hover:bg-amber-400 text-black"
+          : "border border-slate-700 text-slate-200 hover:border-slate-500 hover:text-white bg-transparent")
+      }
+    >
+      {Icon && <Icon className="h-3 w-3" />}
+      {action.label}
+    </button>
   );
 }
 
@@ -387,8 +437,6 @@ export default function KnytRuntimeSurface({
     return () => { cancelled = true; };
   }, [personaId]);
 
-  const patronageProgress = useMemo(() => getAxisProgress(PATRONAGE_AXIS, patronageStage), [patronageStage]);
-  const pcsProgress = useMemo(() => getAxisProgress(PCS_AXIS, pcsStage), [pcsStage]);
   const networkOnline = typeof navigator === "undefined" ? true : navigator.onLine;
   const runtimeState = useMemo(
     () => ({
@@ -535,271 +583,268 @@ export default function KnytRuntimeSurface({
 
   return (
     <div className="grid gap-4 p-4 md:p-6">
-      <Card className="rounded-xl border border-slate-800 bg-slate-950/90">
-        <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
+      {/* ── Header capsule ── */}
+      <div className="rounded-xl border border-white/5 bg-slate-950/90 p-4">
+        <p className="text-[10px] uppercase tracking-widest font-semibold text-amber-500/80 mb-2">KNYT Cartridge</p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-wide text-amber-500">KNYT Cartridge</p>
-            <h2 className="text-xl font-semibold text-slate-100">{worldHeader?.title ?? "Live Runtime Surface"}</h2>
-            <p className="text-xs text-slate-400">{worldHeader?.subtitle ?? "The Order is active. Your next move matters here."}</p>
+            <h2 className="text-lg font-semibold text-slate-100 leading-tight">{worldHeader?.title ?? "Live Runtime Surface"}</h2>
+            <p className="text-xs text-slate-400 mt-0.5">{worldHeader?.subtitle ?? "The Order is active. Your next move matters here."}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge className="border-amber-800 bg-amber-950 text-amber-300">{runtimeState.patronage_stage}</Badge>
-            <Badge variant="outline" className="border-slate-700 text-slate-300">
-              {networkOnline ? <Wifi className="mr-1 h-3 w-3 text-emerald-400" /> : <WifiOff className="mr-1 h-3 w-3 text-rose-400" />}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="inline-flex items-center rounded-full border border-amber-700/50 bg-amber-950/40 px-2.5 py-0.5 text-xs font-semibold text-amber-300">
+              {runtimeState.patronage_stage}
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-slate-700/60 px-2.5 py-0.5 text-xs text-slate-300">
+              {networkOnline
+                ? <Wifi className="h-3 w-3 text-emerald-400" />
+                : <WifiOff className="h-3 w-3 text-rose-400" />}
               {networkOnline ? "Network OK" : "Offline"}
-            </Badge>
-            {runtimeState.handoffs.kn0w1 ? (
-              <Badge variant="outline" className="border-amber-700 text-amber-300">Kn0w1 lead</Badge>
-            ) : null}
-            {personaId ? (
-              <Badge variant="outline" className="border-slate-700 text-slate-400">Persona {personaId.slice(0, 8)}…</Badge>
-            ) : null}
+            </span>
+            {runtimeState.handoffs.kn0w1 && (
+              <span className="inline-flex items-center rounded-full border border-amber-700/40 px-2.5 py-0.5 text-xs text-amber-400">Kn0w1 lead</span>
+            )}
           </div>
-        </CardContent>
-      </Card>
-
-      {/* KNYT Wheel investor CTA — shown to known investors who haven't backed yet */}
-      {investorStatus?.isInvestor && !investorStatus.ksBacked && investorStatus.ksTrackingUrl && (
-        <Card className="rounded-xl border border-amber-700/40 bg-amber-950/25">
-          <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
-            <div>
-              <p className="text-xs uppercase tracking-wide text-amber-500 mb-1">KNYT Wheel — Live Now</p>
-              <p className="text-sm font-semibold text-slate-100">Secure your slot before the window closes.</p>
-              <p className="text-xs text-slate-400 mt-0.5">
-                {investorStatus.campaignCohort === "top_shelf"
-                  ? "You are eligible for the Top Shelf equity offer."
-                  : investorStatus.campaignCohort === "zero_knyt"
-                  ? "Your Zero KNYT collectible offer is waiting."
-                  : "The KNYT Wheel campaign is live on Kickstarter."}
-              </p>
-            </div>
-            <a
-              href={investorStatus.ksTrackingUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black text-sm font-semibold rounded-lg transition whitespace-nowrap"
-            >
-              Back on Kickstarter <ArrowRight className="h-4 w-4" />
-            </a>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <StageRail label="Patronage Axis" stage={patronageStage} progress={patronageProgress} accentClass="text-amber-300" />
-        <StageRail label="PCS Axis" stage={pcsStage} progress={pcsProgress} accentClass="text-indigo-300" />
+        </div>
       </div>
 
-      <Card className="rounded-xl border border-slate-800 bg-slate-950/80">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-slate-300">Featured Moment</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          {runtimeState.featured_moment ? (
-            <>
-              <p className="font-semibold text-slate-100">{runtimeState.featured_moment.title}</p>
-              <p className="text-slate-300">{runtimeState.featured_moment.description}</p>
-              {featuredMoment ? (
-                <p className="text-slate-400">
-                  Content ID: <span className="font-mono text-slate-300">{featuredMoment.id}</span>
-                </p>
-              ) : null}
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="outline" className="border-slate-700 text-slate-300">{runtimeState.featured_moment.type}</Badge>
-                {featuredMoment?.branch ? <Badge variant="outline" className="border-slate-700 text-slate-300">{featuredMoment.branch}</Badge> : null}
-                {featuredMoment?.state ? <Badge variant="outline" className="border-slate-700 text-slate-300">{featuredMoment.state}</Badge> : null}
-              </div>
-              <div className="flex gap-2 pt-1">
-                <Button size="sm" variant="secondary" className="bg-amber-600 hover:bg-amber-500 text-white">
-                  {runtimeState.featured_moment.primary_cta}
-                </Button>
-                {runtimeState.featured_moment.secondary_cta ? (
-                  <Button size="sm" variant="outline" className="border-slate-700 text-slate-100">
-                    {runtimeState.featured_moment.secondary_cta}
-                  </Button>
-                ) : null}
-              </div>
-            </>
-          ) : (
-            <p className="text-slate-400">No live featured moment available yet.</p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="rounded-xl border border-slate-800 bg-slate-950/80">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-slate-300">Signal Action Tray</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <div className="flex flex-wrap gap-2">
-            {runtimeState.available_actions.map((action) => (
-              <Button
-                key={action.id}
-                size="sm"
-                variant={action.isPrimary ? "secondary" : "outline"}
-                className={action.isPrimary ? "bg-cyan-600 hover:bg-cyan-500 text-white" : "border-slate-700 text-slate-100"}
-                disabled={submittingAction !== null || !action.isEnabled || (action.id === "vote" && !openElection?.id)}
-                onClick={() => submitSignalAction(action.id)}
-              >
-                {action.label}
-              </Button>
-            ))}
+      {/* ── KNYT Wheel investor CTA ── */}
+      {investorStatus?.isInvestor && !investorStatus.ksBacked && investorStatus.ksTrackingUrl && (
+        <div className="rounded-xl border border-amber-700/30 bg-amber-950/20 p-4 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-[10px] uppercase tracking-widest font-semibold text-amber-500/80 mb-1">KNYT Wheel — Live Now</p>
+            <p className="text-sm font-semibold text-slate-100">Secure your slot before the window closes.</p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {investorStatus.campaignCohort === "top_shelf"
+                ? "You are eligible for the Top Shelf equity offer."
+                : investorStatus.campaignCohort === "zero_knyt"
+                ? "Your Zero KNYT collectible offer is waiting."
+                : "The KNYT Wheel campaign is live on Kickstarter."}
+            </p>
           </div>
-          <p className="text-xs text-slate-400">
-            {(runtimeState.available_actions.find((action) => action.isPrimary) ?? runtimeState.available_actions[0])?.helperText}
-          </p>
-          {signalCounts && signalCounts.total > 0 && (
-            <div className="flex flex-wrap gap-2 pt-1 text-[11px] text-slate-500">
-              {signalCounts.like > 0 && <span>{signalCounts.like} like{signalCounts.like !== 1 ? "s" : ""}</span>}
-              {signalCounts.spark > 0 && <span>{signalCounts.spark} spark{signalCounts.spark !== 1 ? "s" : ""}</span>}
-              {signalCounts.curate > 0 && <span>{signalCounts.curate} curation{signalCounts.curate !== 1 ? "s" : ""}</span>}
-              <span className="text-slate-600">— {signalCounts.total} total signal{signalCounts.total !== 1 ? "s" : ""}</span>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {(runtimeState.latest_reward || runtimeState.balance_preview || (knytBalance !== null && knytBalance > 0)) ? (
-        <Card className="rounded-xl border border-emerald-900 bg-emerald-950/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-emerald-200">Reward + Progress</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1 text-sm">
-            {knytBalance !== null && knytBalance > 0 && (
-              <p className="text-emerald-100 font-semibold">{knytBalance.toFixed(4)} $KNYT balance</p>
-            )}
-            {runtimeState.latest_reward ? <p className="text-emerald-100">{runtimeState.latest_reward}</p> : null}
-            {runtimeState.reward_reason ? <p className="text-emerald-300/90">{runtimeState.reward_reason}</p> : null}
-            {runtimeState.balance_preview ? <p className="text-emerald-400 text-xs">{runtimeState.balance_preview}</p> : null}
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <Card className="rounded-xl border border-slate-800 bg-slate-950/80">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-slate-300">Your Next Best Step</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          {nbePlan && (
-            <p className="text-[11px] uppercase tracking-wide text-cyan-400 font-semibold mb-1">
-              NBE: {nbePlan.disposition} → {nbePlan.next_experience_depth}
-            </p>
-          )}
-          <p className="font-semibold text-slate-100">{runtimeState.next_best_step.action}</p>
-          <p className="text-slate-300">{runtimeState.next_best_step.rationale}</p>
-          {nbePlan?.rationale && nbePlan.rationale !== runtimeState.next_best_step.rationale && (
-            <p className="text-xs text-cyan-300/80">{nbePlan.rationale}</p>
-          )}
-          {runtimeState.next_best_step.unlock ? (
-            <p className="text-xs text-amber-300/80">Unlocks: {runtimeState.next_best_step.unlock}</p>
-          ) : null}
-          <Button size="sm" className="bg-amber-600 hover:bg-amber-500 text-white">
-            Do this now <ArrowRight className="ml-1 h-3.5 w-3.5" />
-          </Button>
-        </CardContent>
-      </Card>
-
-      {runtimeState.handoffs.kn0w1 ? (
-        <Card className="rounded-xl border border-amber-700/40 bg-amber-950/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-amber-300 flex items-center gap-2">
-              <Brain className="h-4 w-4 text-amber-400" />
-              Kn0w1 — KNYT Intelligence
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-xs text-amber-200/80">
-              Kn0w1 is your lead intelligence surface for the KNYT cartridge. Ask about treasury, rewards, Qc vs $KNYT, your progression, and what your next real move inside the system is.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                className="bg-amber-500 hover:bg-amber-400 text-black font-semibold"
-                onClick={() => router.push("/aigents/aigent-kn0w1")}
-              >
-                Ask Kn0w1 <ArrowRight className="ml-1 h-3.5 w-3.5" />
-              </Button>
-              {runtimeState.handoffs.metame ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="border-slate-600 text-slate-200 hover:border-slate-500"
-                  onClick={() => router.push("/metame")}
-                >
-                  See your path in metaMe
-                </Button>
-              ) : null}
-              {runtimeState.handoffs.aigent_c ? (
-                <Button size="sm" variant="outline" className="border-slate-700 text-slate-100">
-                  Builder path with Aigent C
-                </Button>
-              ) : null}
-              {runtimeState.handoffs.marketa ? (
-                <Button size="sm" variant="outline" className="border-slate-700 text-slate-100">
-                  Marketa context
-                </Button>
-              ) : null}
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="rounded-xl border border-slate-800 bg-slate-950/80">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-slate-300">Go Deeper</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            {runtimeState.handoffs.metame ? (
-              <Button size="sm" variant="outline" className="border-slate-700 text-slate-100" onClick={() => router.push("/metame")}>
-                See your path in metaMe
-              </Button>
-            ) : null}
-            {runtimeState.handoffs.aigent_c ? (
-              <Button size="sm" variant="outline" className="border-slate-700 text-slate-100">Explore builder path with Aigent C</Button>
-            ) : null}
-            {runtimeState.handoffs.marketa ? (
-              <Button size="sm" variant="outline" className="border-slate-700 text-slate-100">Launch context from Marketa</Button>
-            ) : null}
-          </CardContent>
-        </Card>
+          <a
+            href={investorStatus.ksTrackingUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black text-sm font-semibold rounded-full transition whitespace-nowrap"
+          >
+            Back on Kickstarter <ArrowRight className="h-3.5 w-3.5" />
+          </a>
+        </div>
       )}
 
-      {runtimeState.contributor_pathway_flag ? (
-        <Card className="rounded-xl border border-fuchsia-900 bg-fuchsia-950/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-fuchsia-200">Contribution Path</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-fuchsia-100">
-            You are eligible for deeper contributor pathways. Continue high-quality contribution signals to advance.
-          </CardContent>
-        </Card>
-      ) : null}
+      {/* ── Axis capsules ── */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <AxisSteps
+          label="PATRONAGE AXIS"
+          axis={PATRONAGE_AXIS}
+          active={patronageStage}
+          accentActive="bg-amber-500/15 border-amber-500/40 text-amber-300"
+          accentText="text-amber-300"
+        />
+        <AxisSteps
+          label="PCS AXIS"
+          axis={PCS_AXIS}
+          active={pcsStage}
+          accentActive="bg-indigo-500/15 border-indigo-500/40 text-indigo-300"
+          accentText="text-indigo-300"
+        />
+      </div>
 
-      {runtimeState.stewardship_candidate_flag ? (
-        <Card className="rounded-xl border border-amber-900 bg-amber-950/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-amber-200">Stewardship Path</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-amber-100">
-            Stewardship is active. Focus on world-supportive leadership actions and long-horizon alignment.
-          </CardContent>
-        </Card>
-      ) : null}
+      {/* ── Featured Moment capsule ── */}
+      <div className="rounded-xl border border-white/5 bg-slate-950/80 p-4 space-y-3">
+        <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500">Featured Moment</p>
+        {runtimeState.featured_moment ? (
+          <>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="inline-flex items-center rounded-full border border-slate-700/60 px-2 py-0.5 text-[10px] text-slate-400">
+                {runtimeState.featured_moment.type}
+              </span>
+              {featuredMoment?.branch && (
+                <span className="inline-flex items-center rounded-full border border-slate-700/60 px-2 py-0.5 text-[10px] text-slate-400">
+                  {featuredMoment.branch}
+                </span>
+              )}
+              {featuredMoment?.state && (
+                <span className="inline-flex items-center rounded-full bg-emerald-900/30 border border-emerald-700/30 px-2 py-0.5 text-[10px] text-emerald-400">
+                  {featuredMoment.state}
+                </span>
+              )}
+            </div>
+            <p className="text-sm font-semibold text-slate-100">{runtimeState.featured_moment.title}</p>
+            <p className="text-xs text-slate-300 leading-relaxed">{runtimeState.featured_moment.description}</p>
+            {featuredMoment && (
+              <p className="text-[10px] font-mono text-slate-600 truncate">{featuredMoment.id}</p>
+            )}
+            <div className="flex gap-2 pt-1">
+              <button className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black transition">
+                {runtimeState.featured_moment.primary_cta}
+              </button>
+              {runtimeState.featured_moment.secondary_cta && (
+                <button className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition">
+                  {runtimeState.featured_moment.secondary_cta}
+                </button>
+              )}
+            </div>
+          </>
+        ) : (
+          <p className="text-xs text-slate-500">No live featured moment available yet.</p>
+        )}
+      </div>
 
-      {runtimeState.current_signals.length ? (
-        <Card className="rounded-xl border border-slate-800 bg-slate-950/80">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-slate-300 flex items-center gap-2">
-              <Compass className="h-4 w-4 text-cyan-400" />
-              Recent Activity
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1 text-sm text-slate-300">
-            {runtimeState.current_signals.map((signal, index) => (
-              <p key={`${signal}-${index}`}>• You triggered {getActionLabel(signal)} in the live world.</p>
-            ))}
-          </CardContent>
-        </Card>
-      ) : null}
+      {/* ── Signal Action Tray capsule ── */}
+      <div className="rounded-xl border border-white/5 bg-slate-950/80 p-4 space-y-3">
+        <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500">Signal Action Tray</p>
+        <div className="flex flex-wrap gap-2">
+          {runtimeState.available_actions.map((action) => (
+            <ActionChip
+              key={action.id}
+              action={action}
+              isPrimary={!!action.isPrimary}
+              disabled={!action.isEnabled || (action.id === "vote" && !openElection?.id)}
+              loading={submittingAction === action.id}
+              onClick={() => submitSignalAction(action.id)}
+            />
+          ))}
+        </div>
+        <p className="text-[11px] text-slate-500">
+          {(runtimeState.available_actions.find((a) => a.isPrimary) ?? runtimeState.available_actions[0])?.helperText}
+        </p>
+        {signalCounts && signalCounts.total > 0 && (
+          <div className="flex flex-wrap gap-3 text-[10px] text-slate-600">
+            {signalCounts.like > 0 && <span>{signalCounts.like} like{signalCounts.like !== 1 ? "s" : ""}</span>}
+            {signalCounts.spark > 0 && <span>{signalCounts.spark} spark{signalCounts.spark !== 1 ? "s" : ""}</span>}
+            {signalCounts.curate > 0 && <span>{signalCounts.curate} curation{signalCounts.curate !== 1 ? "s" : ""}</span>}
+            <span>— {signalCounts.total} total</span>
+          </div>
+        )}
+      </div>
+
+      {/* ── Reward + Progress capsule (conditional) ── */}
+      {(runtimeState.latest_reward || runtimeState.balance_preview || (knytBalance !== null && knytBalance > 0)) && (
+        <div className="rounded-xl border border-emerald-900/40 bg-emerald-950/15 p-4 space-y-2">
+          <p className="text-[10px] uppercase tracking-widest font-semibold text-emerald-600">Reward + Progress</p>
+          {knytBalance !== null && knytBalance > 0 && (
+            <p className="text-sm font-semibold text-emerald-100">{knytBalance.toFixed(4)} $KNYT</p>
+          )}
+          {runtimeState.latest_reward && <p className="text-xs text-emerald-200">{runtimeState.latest_reward}</p>}
+          {runtimeState.reward_reason && <p className="text-xs text-emerald-400/80">{runtimeState.reward_reason}</p>}
+          {runtimeState.balance_preview && <p className="text-[10px] text-emerald-500">{runtimeState.balance_preview}</p>}
+        </div>
+      )}
+
+      {/* ── Next Best Step capsule ── */}
+      <div className="rounded-xl border border-white/5 bg-slate-950/80 p-4 space-y-3">
+        <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500">Next Best Step</p>
+        {nbePlan && (
+          <span className="inline-flex items-center rounded-full border border-cyan-800/40 bg-cyan-950/30 px-2 py-0.5 text-[10px] font-semibold text-cyan-400">
+            NBE {nbePlan.disposition} → {nbePlan.next_experience_depth}
+          </span>
+        )}
+        <p className="text-sm font-semibold text-slate-100">{runtimeState.next_best_step.action}</p>
+        <p className="text-xs text-slate-300 leading-relaxed">{runtimeState.next_best_step.rationale}</p>
+        {nbePlan?.rationale && nbePlan.rationale !== runtimeState.next_best_step.rationale && (
+          <p className="text-[11px] text-cyan-300/70">{nbePlan.rationale}</p>
+        )}
+        {runtimeState.next_best_step.unlock && (
+          <p className="text-[11px] text-amber-400/80">
+            Unlocks: {runtimeState.next_best_step.unlock}
+          </p>
+        )}
+        <button className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black transition">
+          Do this now <ArrowRight className="h-3 w-3" />
+        </button>
+      </div>
+
+      {/* ── Kn0w1 intel capsule ── */}
+      {runtimeState.handoffs.kn0w1 ? (
+        <div className="rounded-xl border border-amber-900/30 bg-amber-950/15 p-4 space-y-3">
+          <p className="text-[10px] uppercase tracking-widest font-semibold text-amber-500/80">Kn0w1 — KNYT Intelligence</p>
+          <p className="text-xs text-amber-200/70 leading-relaxed">
+            Kn0w1 is your lead intelligence surface for the KNYT cartridge. Ask about treasury, rewards, Q¢ vs $KNYT, your progression, and what your next real move inside the system is.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black transition"
+              onClick={() => router.push("/aigents/aigent-kn0w1")}
+            >
+              <Brain className="h-3 w-3" /> Ask Kn0w1 <ArrowRight className="h-3 w-3" />
+            </button>
+            {runtimeState.handoffs.metame && (
+              <button
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition"
+                onClick={() => router.push("/metame")}
+              >
+                See your path in metaMe
+              </button>
+            )}
+            {runtimeState.handoffs.aigent_c && (
+              <button className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition">
+                Builder path with Aigent C
+              </button>
+            )}
+            {runtimeState.handoffs.marketa && (
+              <button className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition">
+                Marketa context
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-white/5 bg-slate-950/80 p-4 space-y-3">
+          <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500">Go Deeper</p>
+          <div className="flex flex-wrap gap-2">
+            {runtimeState.handoffs.metame && (
+              <button
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition"
+                onClick={() => router.push("/metame")}
+              >
+                See your path in metaMe
+              </button>
+            )}
+            {runtimeState.handoffs.aigent_c && (
+              <button className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition">
+                Explore builder path with Aigent C
+              </button>
+            )}
+            {runtimeState.handoffs.marketa && (
+              <button className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition">
+                Launch context from Marketa
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Contribution path (conditional) ── */}
+      {runtimeState.contributor_pathway_flag && (
+        <div className="rounded-xl border border-fuchsia-900/30 bg-fuchsia-950/15 p-4 space-y-1">
+          <p className="text-[10px] uppercase tracking-widest font-semibold text-fuchsia-500/80">Contribution Path</p>
+          <p className="text-xs text-fuchsia-200/80">You are eligible for deeper contributor pathways. Continue high-quality contribution signals to advance.</p>
+        </div>
+      )}
+
+      {/* ── Stewardship path (conditional) ── */}
+      {runtimeState.stewardship_candidate_flag && (
+        <div className="rounded-xl border border-amber-900/30 bg-amber-950/15 p-4 space-y-1">
+          <p className="text-[10px] uppercase tracking-widest font-semibold text-amber-500/80">Stewardship Path</p>
+          <p className="text-xs text-amber-200/80">Stewardship is active. Focus on world-supportive leadership actions and long-horizon alignment.</p>
+        </div>
+      )}
+
+      {/* ── Recent activity (conditional) ── */}
+      {runtimeState.current_signals.length > 0 && (
+        <div className="rounded-xl border border-white/5 bg-slate-950/80 p-4 space-y-2">
+          <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500 flex items-center gap-1.5">
+            <Compass className="h-3 w-3 text-cyan-500" /> Recent Activity
+          </p>
+          {runtimeState.current_signals.map((signal, index) => (
+            <p key={`${signal}-${index}`} className="text-xs text-slate-400">
+              • You triggered {getActionLabel(signal)} in the live world.
+            </p>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
