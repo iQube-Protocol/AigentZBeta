@@ -1,0 +1,95 @@
+{
+  "dataqube_id": "dataqube-knyt-crm",
+  "asset_class": "DataQube",
+  "version": "1.0.0",
+  "name": "KNYT CRM DataQube",
+  "slug": "dataqube-knyt-crm",
+  "description": "Canonical KNYT investor and backer CRM dataset. Primary source: nakamoto_knyt_personas (3,748 cleaned, deduped rows) with enriched profile, social, and investment signals. Secondary: crm_personas linked by identity_persona_id. Powers KNYT campaign cohort assignment, Experience Matrix Y-stage computation, investor outreach sequencing, and the AVL Relationship Builder customer surface.",
+  "trust_band": "L4_PRODUCTION_APPROVED",
+  "trust_composite": 82,
+  "publication_status": "published",
+  "policy_class": "read_only",
+  "canonized_at": "2026-04-16T00:00:00Z",
+  "canonized_by": "aigent-z",
+  "tenant": "platform",
+  "domain": "crm",
+  "primary_dataset": {
+    "table": "nakamoto_knyt_personas",
+    "schema": "public",
+    "row_count": 3748,
+    "last_cleaned_at": "2026-04-16T00:00:00Z",
+    "key_columns": [
+      "id", "Email", "First-Name", "Last-Name",
+      "Total-Invested", "OM-Tier-Status",
+      "campaign_cohort", "investment_amount_band",
+      "matrix_y_stage", "ks_backer",
+      "campaign_state", "offer_fit"
+    ]
+  },
+  "secondary_dataset": {
+    "table": "crm_personas",
+    "schema": "public",
+    "link_key": "identity_persona_id",
+    "key_columns": [
+      "id", "email", "first_name", "last_name",
+      "display_name", "fio_handle",
+      "order_tier", "knyt_id"
+    ]
+  },
+  "cohorts": [
+    "cohort_a_high_confidence_early_backer",
+    "cohort_b_dormant_legacy_believer",
+    "cohort_c_collector_oriented",
+    "cohort_d_status_order_oriented",
+    "cohort_e_digital_ecosystem_forward",
+    "cohort_f_strategic_champion",
+    "cohort_zero_knyt_legacy_1000_plus"
+  ],
+  "campaign_states": [
+    "campaign_dormant", "campaign_warming", "campaign_reactivated",
+    "campaign_engaged", "campaign_advocate", "campaign_recruiter",
+    "campaign_contributor_champion"
+  ],
+  "offer_fit_tags": [
+    "fit_top_knyt_shelf", "fit_zero_knyt",
+    "fit_post_campaign_digital", "offer_interest_unknown"
+  ],
+  "patronage_stages": [
+    "OutsideOrder", "Acolyte", "Keta KNYT",
+    "Keji KNYT", "First KNYT", "Zero KNYT", "Sat KNYT"
+  ],
+  "pcs_stages": [
+    "Lurker", "Observer", "Participant", "Contributor",
+    "Curator", "Remixer", "Ambassador", "Champion"
+  ],
+  "capabilities": [
+    "list_personas",
+    "get_persona",
+    "search_personas",
+    "aggregate_by_cohort",
+    "aggregate_by_tier",
+    "ladder_distribution",
+    "pipeline_candidates"
+  ],
+  "endpoints": {
+    "query": "/api/crm/investors",
+    "search": "/api/runtime/experience/dashboard?view=individual",
+    "cohorts": "/api/runtime/experience/dashboard?view=cohort",
+    "sync": "/api/crm/sync"
+  },
+  "skill_dependencies": [
+    "agentiq-native-crm-data-cleanup",
+    "agentiq-native-crm-matrix-prep"
+  ],
+  "autodrive": {
+    "pack": "knyt",
+    "namespace": "KnytCodex/repos/AigentZBeta",
+    "manifest_path": "dataqube.json",
+    "cid": null,
+    "pushed_at": null
+  },
+  "tags": [
+    "crm", "knyt", "nakamoto", "investor", "backer",
+    "personas", "campaign", "data-source", "foundational", "first-class"
+  ]
+}

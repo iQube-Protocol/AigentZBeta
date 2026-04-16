@@ -170,8 +170,11 @@ The sequencing that unlocks everything:
    → Wave 1 / Cohort 1: 16 partners (Autonomys first)
    → Wave 2 / Cohort 2: Comic Republic, World Class Scholars
 
-6. CRM DataQube canonization — PENDING
-   → CRM cleaned and ready; needs formal DataQube registration
+6. CRM DataQube canonization ✅ DONE
+   → dataqube-knyt-crm registered in registry_assets (L4_PRODUCTION_APPROVED)
+   → DataQube manifest: codexes/packs/knyt/dataqube.json
+   → DataQube type added to RegistryAssetClass + RegistryAsset union
+   → Autodrive push: node scripts/sync-codex-to-autodrive.js --pack knyt
 ```
 
 ---
