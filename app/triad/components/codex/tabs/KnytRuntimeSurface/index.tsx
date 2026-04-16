@@ -349,6 +349,20 @@ function getRuntimeState({
   };
 }
 
+function getInvestorPrivilege(cohort: string | null | undefined, band: string | null | undefined): { tier: string; discount: string } {
+  if (cohort === 'zero_knyt') return { tier: 'Zero KNYT', discount: '25%' };
+  if (cohort === 'top_shelf') return { tier: 'Top KNYT Shelf', discount: '20%' };
+  if (band === '5000+') return { tier: 'First KNYT', discount: '20%' };
+  if (band === '2000-4999') return { tier: 'Keji KNYT', discount: '15%' };
+  return { tier: 'Keta KNYT', discount: '10%' };
+}
+
+function getCohortOffer(cohort: string | null | undefined): string {
+  if (cohort === 'top_shelf') return 'Top KNYT Shelf (21 available)';
+  if (cohort === 'zero_knyt') return 'Zero KNYT collector tier';
+  return 'KNYT Codex collector path';
+}
+
 export default function KnytRuntimeSurface({
   personaId,
   patronageStage: patronageStageProp = "OutsideOrder",
@@ -371,8 +385,10 @@ export default function KnytRuntimeSurface({
   const [investorStatus, setInvestorStatus] = useState<{
     isInvestor: boolean;
     ksBacked?: boolean;
+    ksClicked?: boolean;
     campaignState?: string | null;
     campaignCohort?: string | null;
+    investmentBand?: string | null;
     ksTrackingUrl?: string;
   } | null>(null);
 
@@ -464,6 +480,8 @@ export default function KnytRuntimeSurface({
   }, [personaId]);
 
   const networkOnline = typeof navigator === "undefined" ? true : navigator.onLine;
+  const investorPrivilege = getInvestorPrivilege(investorStatus?.campaignCohort, investorStatus?.investmentBand);
+  const cohortOffer = getCohortOffer(investorStatus?.campaignCohort);
   const runtimeState = useMemo(
     () => ({
       ...getRuntimeState({ patronageStage, pcsStage, featuredMoment, openElection }),
@@ -630,6 +648,16 @@ export default function KnytRuntimeSurface({
             {runtimeState.handoffs.kn0w1 && (
               <span className="inline-flex items-center rounded-full border border-amber-700/40 px-2.5 py-0.5 text-xs text-amber-400">Kn0w1 lead</span>
             )}
+            {investorStatus?.isInvestor && investorStatus.ksBacked && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-900/30 border border-emerald-700/30 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
+                ✓ Patron backed
+              </span>
+            )}
+            {investorStatus?.isInvestor && !investorStatus.ksBacked && investorStatus.ksClicked && (
+              <span className="inline-flex items-center rounded-full border border-amber-700/40 px-2.5 py-0.5 text-xs text-amber-300/80">
+                KS viewed
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -728,6 +756,19 @@ export default function KnytRuntimeSurface({
       <div className="rounded-xl border border-white/5 bg-slate-950/80 p-4 space-y-3">
         <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500">Signal Action Tray</p>
         <div className="flex flex-wrap gap-2">
+          {/* Campaign chip — primary for unbacked investors */}
+          {investorStatus?.isInvestor && !investorStatus.ksBacked && investorStatus.ksTrackingUrl && (
+            <a
+              href={investorStatus.ksTrackingUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black transition"
+            >
+              <Star className="h-3 w-3" />
+              {investorPrivilege.tier} — {investorPrivilege.discount} off
+              <ArrowRight className="h-3 w-3" />
+            </a>
+          )}
           {runtimeState.available_actions.map((action) => (
             <ActionChip
               key={action.id}
@@ -790,9 +831,34 @@ export default function KnytRuntimeSurface({
             Unlocks: {runtimeState.next_best_step.unlock}
           </p>
         )}
-        <button className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black transition">
-          Do this now <ArrowRight className="h-3 w-3" />
-        </button>
+        {/* Investor privilege override — shown for unbacked investors */}
+        {investorStatus?.isInvestor && !investorStatus.ksBacked && investorStatus.ksTrackingUrl ? (
+          <div className="rounded-lg border border-amber-700/30 bg-amber-950/20 p-3 space-y-2">
+            <p className="text-[10px] uppercase tracking-widest font-semibold text-amber-500/80">Investor privilege active</p>
+            <p className="text-xs text-amber-200/80 leading-relaxed">
+              As a <span className="font-semibold text-amber-300">{investorPrivilege.tier}</span> you unlock{" "}
+              <span className="font-semibold text-amber-300">{investorPrivilege.discount} off</span> the {cohortOffer}.
+              This Kickstarter-only privilege does not carry forward post-campaign.
+            </p>
+            <a
+              href={investorStatus.ksTrackingUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black transition"
+            >
+              Claim on Kickstarter <ArrowRight className="h-3 w-3" />
+            </a>
+          </div>
+        ) : investorStatus?.isInvestor && investorStatus.ksBacked ? (
+          <div className="rounded-lg border border-emerald-800/30 bg-emerald-950/15 p-3 space-y-1">
+            <p className="text-[10px] uppercase tracking-widest font-semibold text-emerald-600">Patron confirmed</p>
+            <p className="text-xs text-emerald-200/80">Your backing is live. Now activate your KNYT presence — signal, collect, and move up the Order.</p>
+          </div>
+        ) : (
+          <button className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black transition">
+            Do this now <ArrowRight className="h-3 w-3" />
+          </button>
+        )}
       </div>
 
       {/* ── Kn0w1 intel capsule ── */}
