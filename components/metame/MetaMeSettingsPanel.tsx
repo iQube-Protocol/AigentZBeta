@@ -127,18 +127,38 @@ function SettingSelect<T extends string>({
  * - MetaMeRuntimeClient left-entering drawer (Be tab sub-item) — no inner header needed
  * - /metame/settings standalone page
  *
+ * When personaId is provided: loads from and saves to /api/metame/settings.
+ * Without personaId: falls back to localStorage (offline / unauthenticated).
+ *
  * Uses slate-* and white/* classes throughout so mm-light remapping applies correctly.
  */
-export function MetaMeSettingsPanel() {
+export function MetaMeSettingsPanel({ personaId }: { personaId?: string } = {}) {
   const [settings, setSettings] = useState<MetaMeSettings>(METAME_ALPHA_DEFAULTS);
   const [saved, setSaved] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    setSettings(loadMetaMeSettings());
-    setHydrated(true);
-  }, []);
+    if (personaId) {
+      fetch(`/api/metame/settings?personaId=${encodeURIComponent(personaId)}`)
+        .then((r) => r.json())
+        .then((json) => {
+          if (json.ok && json.data) {
+            // Persist to localStorage so loadMetaMeSettings() returns fresh data
+            saveMetaMeSettings(json.data);
+            setSettings(json.data);
+          } else {
+            setSettings(loadMetaMeSettings());
+          }
+        })
+        .catch(() => setSettings(loadMetaMeSettings()))
+        .finally(() => setHydrated(true));
+    } else {
+      setSettings(loadMetaMeSettings());
+      setHydrated(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personaId]);
 
   function update<K extends keyof MetaMeSettings>(key: K, value: MetaMeSettings[K]) {
     setSettings((prev) => ({ ...prev, [key]: value }));
@@ -147,7 +167,19 @@ export function MetaMeSettingsPanel() {
   }
 
   function handleSave() {
+    // Always update localStorage so runtime consumers get the event immediately
     saveMetaMeSettings(settings);
+
+    if (personaId) {
+      fetch("/api/metame/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ personaId, settings }),
+      }).catch((err) =>
+        console.warn("[MetaMeSettingsPanel] API save failed, localStorage updated:", err)
+      );
+    }
+
     setIsDirty(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);

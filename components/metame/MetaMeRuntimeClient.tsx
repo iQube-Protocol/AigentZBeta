@@ -4520,7 +4520,7 @@ export default function MetaMeRuntimeClient() {
             <X className="h-4 w-4" />
           </button>
         </div>
-        <MetaMeSettingsPanel />
+        <MetaMeSettingsPanel personaId={activePersonaId ?? undefined} />
       </div>
       {/* Absolute overlay: prompt bar (live view only) + runtimeMenu stacked at bottom */}
       {!thinShellMode ? (
@@ -4742,7 +4742,7 @@ export default function MetaMeRuntimeClient() {
             <X className="h-4 w-4" />
           </button>
         </div>
-        <MetaMeSettingsPanel />
+        <MetaMeSettingsPanel personaId={activePersonaId ?? undefined} />
       </div>
     </div>
   );
