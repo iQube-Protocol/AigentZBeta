@@ -165,8 +165,8 @@ function ContentCard({
             </span>
           )}
 
-          {isHot && !item.featured && (
-            <span className="absolute top-2 right-2 flex items-center gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange-300 bg-black/60 border border-orange-400/30 rounded-full px-2 py-0.5 backdrop-blur-sm">
+          {isHot && (
+            <span className={`absolute ${item.featured ? "top-8" : "top-2"} right-2 flex items-center gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange-300 bg-black/60 border border-orange-400/30 rounded-full px-2 py-0.5 backdrop-blur-sm`}>
               <TrendingUp className="h-2.5 w-2.5" />
               Trending
             </span>
@@ -188,8 +188,8 @@ function ContentCard({
             Featured
           </span>
         )}
-        {!item.coverImageUrl && isHot && !item.featured && (
-          <span className="absolute top-3 right-3 flex items-center gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange-300 bg-orange-500/10 border border-orange-400/20 rounded-full px-2 py-0.5">
+        {!item.coverImageUrl && isHot && (
+          <span className={`absolute ${item.featured ? "top-9" : "top-3"} right-3 flex items-center gap-0.5 text-[10px] font-semibold uppercase tracking-wide text-orange-300 bg-orange-500/10 border border-orange-400/20 rounded-full px-2 py-0.5`}>
             <TrendingUp className="h-2.5 w-2.5" />
             Trending
           </span>
