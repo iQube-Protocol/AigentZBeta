@@ -89,16 +89,10 @@ CREATE INDEX IF NOT EXISTS ks_backers_staging_status_idx
 -- RLS: admin-only, never exposed to public
 ALTER TABLE ks_backers_staging ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "ks_backers_staging_admin_only"
+CREATE POLICY "ks_backers_staging_service_role"
   ON ks_backers_staging
   FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM personas p
-      WHERE p.user_id = auth.uid()
-        AND p.role IN ('admin', 'super_admin')
-    )
-  );
+  USING (auth.role() = 'service_role');
 
 COMMENT ON TABLE ks_backers_staging IS
   'Phase-1 staging dataset for 3,267 KS backers. Non-canonical until Phase 2 '
