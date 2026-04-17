@@ -12,17 +12,12 @@ Usage:
   python3 scripts/mailjet_create_ks_prospects_templates.py [--update]
 
 Reads credentials from .env.local (MAILJET_API_KEY / MAILJET_SECRET_KEY).
+All other config (FROM_NAME, MAILJET_FROM_EMAIL, CAMPAIGN_ID, COPY_DOC, LOGO_PATH)
+is read from data/iqubes/mailjet-service-config.dataqube.json populated_values.
 Skips creation of any template whose name already exists (safe to re-run).
 
-After running, add the printed IDs to Amplify:
-  MAILJET_TEMPLATE_KS_PROSPECTS_01
-  MAILJET_TEMPLATE_KS_PROSPECTS_02
-  MAILJET_TEMPLATE_KS_PROSPECTS_03
-  MAILJET_TEMPLATE_KS_PROSPECTS_04
-  MAILJET_TEMPLATE_KS_PROSPECTS_05
-  MAILJET_TEMPLATE_KS_PROSPECTS_06
-  MAILJET_TEMPLATE_KS_PROSPECTS_07
-  MAILJET_TEMPLATE_KS_PROSPECTS_08
+On completion, writes all MAILJET_TEMPLATE_* IDs back to the DataQube
+populated_values section so send scripts and future runs pick them up automatically.
 """
 
 import argparse
@@ -591,6 +586,22 @@ def send_test(template_id: int, tpl: dict, to_email: str, to_name: str) -> None:
         print(f"  ✗  Send failed: {e.code} — {body}")
 
 
+DATAQUBE_PATH = Path(__file__).parent.parent / "data" / "iqubes" / "mailjet-service-config.dataqube.json"
+
+
+def write_back_to_dataqube(results: list[tuple[str, int]]) -> None:
+    """Write template IDs back to the DataQube populated_values section."""
+    if not DATAQUBE_PATH.exists():
+        print(f"  ⚠  DataQube not found at {DATAQUBE_PATH} — skipping write-back")
+        return
+    dq = json.loads(DATAQUBE_PATH.read_text())
+    pv = dq.setdefault("populated_values", {})
+    for env_key, tid in results:
+        pv[env_key] = tid
+    DATAQUBE_PATH.write_text(json.dumps(dq, indent=2) + "\n")
+    print(f"  ✓  Template IDs written back to {DATAQUBE_PATH.relative_to(Path.cwd()) if DATAQUBE_PATH.is_relative_to(Path.cwd()) else DATAQUBE_PATH}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="KS Prospects — Mailjet Template Creator")
     parser.add_argument("--update", action="store_true",
@@ -628,6 +639,9 @@ def main() -> None:
         results.append((tpl["env_key"], tid))
         print()
 
+    print("── Write-back ───────────────────────────────────────────────────────")
+    write_back_to_dataqube(results)
+    print()
     print("── Amplify env vars to add / update ────────────────────────────────")
     for env_key, tid in results:
         print(f"   {env_key:<42} = {tid}")
