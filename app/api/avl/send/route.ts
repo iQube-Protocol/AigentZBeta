@@ -6,6 +6,13 @@
  *
  * Safe by default — dry_run:true returns a preview without sending.
  *
+ * Templates support:
+ *   {{partner.first_name}}  — First name extracted from contact_name
+ *   {{partner.contact}}     — Full contact name
+ *   {{partner.name}}        — Organisation name
+ *   {{partner.org}}         — Organisation name (alias)
+ *   [link text](url)        — Rendered as <a href="url"> in HTML email
+ *
  * Request body:
  *   pack_slug     string    Required. Slug from avl_comms_packs.
  *   partner_ids   string[]  Required. IDs from avl_partner_contacts.
@@ -23,6 +30,8 @@ export const dynamic = "force-dynamic";
 
 const MAILJET_API_URL = "https://api.mailjet.com/v3.1/send";
 const MAILJET_BATCH   = 50;
+const CC_EMAIL        = "dele@metame.com";
+const CC_NAME         = "Dele Atanda";
 
 function basicAuth() {
   const key    = process.env.MAILJET_API_KEY    ?? "";
@@ -37,6 +46,29 @@ function renderTemplate(template: string, vars: Record<string, string>): string 
 function pickSubject(subjectLines: unknown, index: number): string {
   const lines = Array.isArray(subjectLines) ? (subjectLines as string[]) : [];
   return lines[index] ?? lines[0] ?? "(no subject)";
+}
+
+function firstNameFrom(contactName: string): string {
+  return contactName.split(/\s+/)[0] ?? contactName;
+}
+
+// Convert plain text with [text](url) markdown links to a simple HTML email.
+function toHtml(text: string): string {
+  // Convert markdown links → HTML anchors
+  let html = text.replace(
+    /\[([^\]]+)\]\(([^)]+)\)/g,
+    '<a href="$2" style="color:#4F8C98;text-decoration:underline">$1</a>',
+  );
+  // Split on double newlines → paragraphs; single newlines → <br>
+  const paragraphs = html
+    .split(/\n\n+/)
+    .map((p) => `<p style="margin:0 0 14px 0;line-height:1.6">${p.replace(/\n/g, "<br>")}</p>`);
+  return [
+    '<!DOCTYPE html><html><body style="font-family:Georgia,serif;font-size:15px;color:#1a1a1a;',
+    'max-width:580px;margin:0 auto;padding:32px 24px;background:#fff">',
+    paragraphs.join(""),
+    "</body></html>",
+  ].join("");
 }
 
 export async function POST(req: NextRequest) {
@@ -93,10 +125,10 @@ export async function POST(req: NextRequest) {
     first_contact_at: string | null;
   }>;
 
-  const template      = (pack.template_markdown as string) ?? "";
-  const subjectRaw    = pickSubject(pack.subject_lines, subject_index);
-  const fromEmail     = process.env.MAILJET_FROM_EMAIL ?? "";
-  const fromName      = process.env.MAILJET_FROM_NAME  ?? "KNYT Team";
+  const template   = (pack.template_markdown as string) ?? "";
+  const subjectRaw = pickSubject(pack.subject_lines, subject_index);
+  const fromEmail  = process.env.MAILJET_FROM_EMAIL ?? "";
+  const fromName   = process.env.MAILJET_FROM_NAME  ?? "Dele Atanda";
 
   const errors: string[] = [];
   let sent    = 0;
@@ -106,9 +138,11 @@ export async function POST(req: NextRequest) {
 
   // ── Build messages ──────────────────────────────────────────────────────────
   type MjMessage = {
-    From: { Email: string; Name: string };
-    To: [{ Email: string; Name: string }];
-    Subject: string;
+    From:     { Email: string; Name: string };
+    To:       [{ Email: string; Name: string }];
+    Cc:       [{ Email: string; Name: string }];
+    Subject:  string;
+    HTMLPart: string;
     TextPart: string;
     CustomID: string;
   };
@@ -120,28 +154,33 @@ export async function POST(req: NextRequest) {
       skipped++;
       continue;
     }
-    const contactName = p.contact_name || "Team";
+    const contactName = p.contact_name || "there";
+    const firstName   = firstNameFrom(contactName);
     const vars: Record<string, string> = {
-      "partner.name":    p.name,
-      "partner.org":     p.org,
-      "partner.contact": contactName,
-      "assigned_agent":  p.assigned_agent,
+      "partner.first_name": firstName,
+      "partner.contact":    contactName,
+      "partner.name":       p.name,
+      "partner.org":        p.org,
+      "assigned_agent":     p.assigned_agent,
     };
-    const subject = renderTemplate(subjectRaw, vars);
-    const body    = renderTemplate(template, vars);
+    const subject  = renderTemplate(subjectRaw, vars);
+    const bodyText = renderTemplate(template, vars);
+    const bodyHtml = toHtml(bodyText);
 
     if (dryRun) {
-      preview.push({ partner: p.name, to: p.contact_email, subject, body });
+      preview.push({ partner: p.name, to: p.contact_email, subject, body: bodyText });
       continue;
     }
 
     toSend.push({
       partner: p,
       message: {
-        From: { Email: fromEmail, Name: fromName },
-        To:   [{ Email: p.contact_email, Name: contactName }],
+        From:    { Email: fromEmail, Name: fromName },
+        To:      [{ Email: p.contact_email, Name: contactName }],
+        Cc:      [{ Email: CC_EMAIL, Name: CC_NAME }],
         Subject: subject,
-        TextPart: body,
+        HTMLPart: bodyHtml,
+        TextPart: bodyText,
         CustomID: `avl|${p.id}|${pack_slug}`,
       },
     });
@@ -162,20 +201,14 @@ export async function POST(req: NextRequest) {
 
     if (res.ok) {
       sent += batch.length;
-      // Update outreach status + timestamps for sent partners
-      const now   = new Date().toISOString();
-      const ids   = batch.map((b) => b.partner.id);
-      const { error: upErr } = await supabase
-        .from("avl_partner_contacts")
-        .update({
-          outreach_status: "contacted",
-          last_contact_at: now,
-        })
-        .in("id", ids)
-        .is("first_contact_at", null);
-      if (upErr) errors.push(`Status update failed: ${upErr.message}`);
+      const now = new Date().toISOString();
+      const ids = batch.map((b) => b.partner.id);
 
-      // Set first_contact_at only where it was null
+      await supabase
+        .from("avl_partner_contacts")
+        .update({ outreach_status: "contacted", last_contact_at: now })
+        .in("id", ids);
+
       const firstTimers = batch.filter((b) => !b.partner.first_contact_at).map((b) => b.partner.id);
       if (firstTimers.length > 0) {
         await supabase
