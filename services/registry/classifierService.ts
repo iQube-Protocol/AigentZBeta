@@ -73,7 +73,7 @@ function inferClassification(
   // Explicit override from submitter takes highest priority
   if (typeof payload.assetClass === "string") {
     const explicit = payload.assetClass as RegistryAssetClass;
-    const validClasses: RegistryAssetClass[] = ["ToolQube", "SkillQube", "WorkflowQube", "ConnectorQube"];
+    const validClasses: RegistryAssetClass[] = ["ToolQube", "SkillQube", "WorkflowQube", "ConnectorQube", "DataQube"];
     if (validClasses.includes(explicit)) {
       return {
         assetClass: explicit,
@@ -166,6 +166,7 @@ function inferWrapperStrategy(
   if (assetClass === "ConnectorQube") return "mcp";
   if (assetClass === "WorkflowQube") return "workflow";
   if (assetClass === "SkillQube") return "skill";
+  if (assetClass === "DataQube") return "skill";
   // ToolQube: check if it's a CLI/container pattern
   const name = (manifest.name ?? "").toLowerCase();
   const hasBin = (manifest.entryPoints ?? []).length > 0;

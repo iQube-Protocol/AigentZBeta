@@ -1,0 +1,122 @@
+{
+  "assetClass": "DataQube",
+  "name": "Mailjet Email Service Config",
+  "slug": "mailjet-service-config",
+  "description": "Configuration and output store for the setup-mailjet-service skill. Populate credentials, sender identity, branding, and campaign fields before running /setup-mailjet-service. The skill reads all inputs from this DataQube and writes template IDs back to populated_values on completion — so subsequent send scripts and skill re-runs pick them up automatically.",
+  "currentVersion": "1.0.0",
+  "trustBand": "L2_VERIFIED_COMMUNITY",
+  "publicationStatus": "draft",
+  "policyClass": "secret_bound",
+  "wrapperStrategy": "skill",
+  "consumedBySkill": {
+    "slug": "setup-mailjet-service",
+    "access": "read_write",
+    "readSections": ["credentials", "sender_identity", "branding", "campaign"],
+    "writeSections": ["template_ids"],
+    "writebackStep": "write_back_ids",
+    "description": "The skill reads all inputs from this DataQube at startup and writes MAILJET_TEMPLATE_* IDs back to populated_values after template creation."
+  },
+  "contactUpload": {
+    "endpoint": "POST /api/crm/contacts/upload",
+    "accepts": ["CSV", "JSON"],
+    "description": "Upload any crowdfunding or patronage contact list directly from your machine — no terminal scripts. Works for Kickstarter, Indiegogo, Patreon, newsletter exports, etc. CSV must have first_name, last_name, email columns (case-insensitive). JSON must be an array of contact objects. Pass cohort_id and campaign_id to namespace the records. Supports dry_run=true to preview counts before committing.",
+    "requiredFields": ["cohort_id", "campaign_id"],
+    "destination": "ks_backers_staging",
+    "deduplication": "Cross-references nakamoto_knyt_personas and existing ks_backers_staging records before insert"
+  },
+  "lifecycle": {
+    "before_skill": "Operator populates all required fields in populated_values (credentials via .env.local, all others here)",
+    "during_skill": "Skill reads populated_values as its primary config source",
+    "after_skill": "Skill writes MAILJET_TEMPLATE_{CAMPAIGN_ID}_{N} IDs back to populated_values — these are then ready for send scripts and Amplify env vars"
+  },
+  "schema": {
+    "credentials": {
+      "description": "Loaded from .env.local only — never stored in populated_values",
+      "MAILJET_API_KEY": {
+        "type": "string",
+        "required": true,
+        "secret": true,
+        "source": "env_only",
+        "description": "Mailjet public API key — found in Mailjet account → API Keys"
+      },
+      "MAILJET_SECRET_KEY": {
+        "type": "string",
+        "required": true,
+        "secret": true,
+        "source": "env_only",
+        "description": "Mailjet secret API key — found in Mailjet account → API Keys"
+      }
+    },
+    "sender_identity": {
+      "MAILJET_FROM_NAME": {
+        "type": "string",
+        "required": true,
+        "example": "Dele Atanda",
+        "description": "Sender display name shown to recipients"
+      },
+      "MAILJET_FROM_EMAIL": {
+        "type": "string",
+        "required": true,
+        "example": "dele@metaknyt.com",
+        "description": "Verified sender email — must be verified in Mailjet before sending"
+      }
+    },
+    "branding": {
+      "MAILJET_LOGO_PATH": {
+        "type": "string",
+        "required": false,
+        "default": "public/images/metaknyt-logo.png",
+        "description": "Relative path to logo image (PNG preferred, JPG accepted). Resized to 560px max and embedded as base64. No CDN or external hosting required."
+      }
+    },
+    "campaign": {
+      "MAILJET_CAMPAIGN_ID": {
+        "type": "string",
+        "required": true,
+        "example": "ks_prospects",
+        "description": "Short identifier for the campaign. Used to namespace template env var names: MAILJET_TEMPLATE_{CAMPAIGN_ID}_{N}"
+      },
+      "MAILJET_COPY_DOC": {
+        "type": "string",
+        "required": true,
+        "example": "docs/alpha/agentiq-knyt/32-ks-backers-email-sequence.md",
+        "description": "Path to the campaign copy markdown doc containing the full email sequence"
+      }
+    },
+    "template_ids": {
+      "description": "Written back automatically by the write_back_ids step of /setup-mailjet-service. Add these values to .env.local and Amplify env vars.",
+      "writtenBy": "setup-mailjet-service skill (write_back_ids step)",
+      "MAILJET_TEMPLATE_KS_PROSPECTS_01": { "type": "integer", "description": "Email 1 — Introduction / Awareness" },
+      "MAILJET_TEMPLATE_KS_PROSPECTS_02": { "type": "integer", "description": "Email 2 — Interest / Why it exists" },
+      "MAILJET_TEMPLATE_KS_PROSPECTS_03": { "type": "integer", "description": "Email 3 — Craft + uniqueness" },
+      "MAILJET_TEMPLATE_KS_PROSPECTS_04": { "type": "integer", "description": "Email 4 — Conversion / Direct ask" },
+      "MAILJET_TEMPLATE_KS_PROSPECTS_05": { "type": "integer", "description": "Email 5 — Mid-campaign reminder" },
+      "MAILJET_TEMPLATE_KS_PROSPECTS_06": { "type": "integer", "description": "Email 6 — 48-hour urgency" },
+      "MAILJET_TEMPLATE_KS_PROSPECTS_07": { "type": "integer", "description": "Email 7 — Final day" },
+      "MAILJET_TEMPLATE_KS_PROSPECTS_08": { "type": "integer", "description": "Email 8 — Post-campaign continuity" }
+    }
+  },
+  "populated_values": {
+    "MAILJET_FROM_NAME":  "Dele Atanda",
+    "MAILJET_FROM_EMAIL": "info@metame.com",
+    "MAILJET_LOGO_PATH":  "public/images/metaknyt-logo.png",
+    "MAILJET_CAMPAIGN_ID": "ks_prospects",
+    "MAILJET_COPY_DOC":   "docs/alpha/agentiq-knyt/32-ks-backers-email-sequence.md",
+    "MAILJET_TEMPLATE_KS_PROSPECTS_01": 7936171,
+    "MAILJET_TEMPLATE_KS_PROSPECTS_02": 7936172,
+    "MAILJET_TEMPLATE_KS_PROSPECTS_03": 7936173,
+    "MAILJET_TEMPLATE_KS_PROSPECTS_04": 7936174,
+    "MAILJET_TEMPLATE_KS_PROSPECTS_05": 7936175,
+    "MAILJET_TEMPLATE_KS_PROSPECTS_06": 7936176,
+    "MAILJET_TEMPLATE_KS_PROSPECTS_07": 7936177,
+    "MAILJET_TEMPLATE_KS_PROSPECTS_08": 7936178
+  },
+  "tags": ["email", "mailjet", "campaign", "config", "ks-prospects"],
+  "metadata": {
+    "skillQube":       "scripts/skills/setup-mailjet-service.skill.json",
+    "sendScript":      "scripts/send-ks-prospects-email1.js",
+    "templatesScript": "scripts/mailjet_create_ks_prospects_templates.py"
+  },
+  "createdBy": "claude-code",
+  "createdAt": "2026-04-17"
+}

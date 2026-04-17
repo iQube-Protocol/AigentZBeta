@@ -5,9 +5,13 @@
  * events and advances campaign_state on nakamoto_knyt_personas, then
  * triggers the signal steering engine.
  *
+ * Also updates ks_backers_staging.engagement_status / suppression_status
+ * for KS Prospect contacts who are not in nakamoto_knyt_personas.
+ *
  * Attribution uses the `CustomID` field embedded by the Mailjet adapter:
- *   format: "<investor_id>|<sequence_id>"
- * When CustomID is absent, falls back to email → nakamoto lookup.
+ *   format: "<investor_id>|<sequence_id>"          — nakamoto_knyt_personas
+ *   format: "stg_<staging_id>|<email_number>"      — ks_backers_staging
+ * When CustomID is absent, falls back to email → both tables.
  *
  * Auth: shared secret as a query param (Mailjet's supported method):
  *   ?secret=<MAILJET_WEBHOOK_SECRET>
@@ -21,10 +25,10 @@
  * Mailjet event types handled:
  *   open    → opened    (from unsent / sent)
  *   click   → clicked   (from unsent / sent / opened)
- *   bounce  → log only
+ *   bounce  → suppressed in staging; log only in personas
  *   blocked → log only
- *   spam    → opted_out
- *   unsub   → opted_out
+ *   spam    → opted_out / suppressed
+ *   unsub   → opted_out / suppressed
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -71,26 +75,37 @@ const MJ_TO_STEERING: Record<string, SteeringEvent> = {
   blocked: 'bounced',
 };
 
-// ── Investor ID resolution ────────────────────────────────────────────────────
+// ── ID resolution ─────────────────────────────────────────────────────────────
 
-function parseCustomId(customId: string | undefined): { investorId: string | null; sequenceId: string | null } {
-  if (!customId) return { investorId: null, sequenceId: null };
+type CustomIdKind = 'investor' | 'staging' | 'unknown';
+
+function parseCustomId(customId: string | undefined): {
+  kind: CustomIdKind;
+  id: string | null;
+  sequenceId: string | null;
+} {
+  if (!customId) return { kind: 'unknown', id: null, sequenceId: null };
   const parts = customId.split('|');
-  return {
-    investorId: parts[0] || null,
-    sequenceId: parts[1] || null,
-  };
+  if (parts[0]?.startsWith('stg_')) {
+    return { kind: 'staging', id: parts[0].slice(4) || null, sequenceId: parts[1] || null };
+  }
+  return { kind: 'investor', id: parts[0] || null, sequenceId: parts[1] || null };
 }
 
 async function resolveInvestorId(
   ev: MjEvent,
   client: ReturnType<typeof getCrmClient>
 ): Promise<{ investorId: string | null; sequenceId: string | null }> {
-  // Fast path: CustomID carries investor_id|sequence_id
   const parsed = parseCustomId(ev.CustomID);
-  if (parsed.investorId) return parsed;
-
-  // Fallback: resolve via email
+  // CustomID explicitly targets an investor record
+  if (parsed.kind === 'investor' && parsed.id) {
+    return { investorId: parsed.id, sequenceId: parsed.sequenceId };
+  }
+  // CustomID targets staging — skip investor resolution
+  if (parsed.kind === 'staging') {
+    return { investorId: null, sequenceId: parsed.sequenceId };
+  }
+  // No CustomID — fall back to email lookup in personas
   if (!ev.email) return { investorId: null, sequenceId: null };
   const { data } = await client
     .from('nakamoto_knyt_personas')
@@ -100,6 +115,63 @@ async function resolveInvestorId(
   return { investorId: data?.id ?? null, sequenceId: null };
 }
 
+// ── Staging engagement tracking ───────────────────────────────────────────────
+
+// Engagement transitions applied to ks_backers_staging
+const STAGING_ENGAGEMENT: Record<string, string> = {
+  open:    'opened',
+  click:   'clicked',
+  bounce:  'bounced',
+  spam:    'opted_out',
+  unsub:   'opted_out',
+};
+
+const STAGING_SUPPRESS = new Set(['bounce', 'spam', 'unsub']);
+
+async function updateStagingById(
+  id: string,
+  eventType: string,
+  client: ReturnType<typeof getCrmClient>
+): Promise<void> {
+  const newEngagement = STAGING_ENGAGEMENT[eventType];
+  if (!newEngagement) return;
+
+  const patch: Record<string, unknown> = {
+    engagement_status: newEngagement,
+    last_event_at: new Date().toISOString(),
+  };
+  if (STAGING_SUPPRESS.has(eventType)) patch.suppression_status = 'suppressed';
+
+  await client.from('ks_backers_staging').update(patch).eq('id', id);
+}
+
+async function updateStagingByEmail(
+  email: string,
+  eventType: string,
+  client: ReturnType<typeof getCrmClient>
+): Promise<boolean> {
+  const newEngagement = STAGING_ENGAGEMENT[eventType];
+  if (!newEngagement) return false;
+
+  const { data } = await client
+    .from('ks_backers_staging')
+    .select('id, suppression_status')
+    .eq('normalized_email', email.toLowerCase())
+    .eq('suppression_status', 'active')
+    .maybeSingle();
+
+  if (!data) return false;
+
+  const patch: Record<string, unknown> = {
+    engagement_status: newEngagement,
+    last_event_at: new Date().toISOString(),
+  };
+  if (STAGING_SUPPRESS.has(eventType)) patch.suppression_status = 'suppressed';
+
+  await client.from('ks_backers_staging').update(patch).eq('id', data.id);
+  return true;
+}
+
 // ── Event processor ───────────────────────────────────────────────────────────
 
 async function processEvent(
@@ -107,23 +179,43 @@ async function processEvent(
   client: ReturnType<typeof getCrmClient>
 ): Promise<'advanced' | 'skipped' | 'error'> {
   const rule = EVENT_RULE[ev.event];
-
-  // Unknown or no-op event types
   if (rule === undefined) return 'skipped';
 
-  // Log-only events (bounce, blocked)
+  // ── Staging fast path: CustomID = "stg_<id>|<email_number>" ──────────────
+  const parsed = parseCustomId(ev.CustomID);
+  if (parsed.kind === 'staging' && parsed.id) {
+    await updateStagingById(parsed.id, ev.event, client);
+    console.info(`[webhooks/mailjet] staging ${parsed.id}: ${ev.event}`);
+    return 'advanced';
+  }
+
+  // ── Log-only events (bounce, blocked) for investor path ──────────────────
   if (rule === null) {
-    console.info(`[webhooks/mailjet] ${ev.event} for ${ev.email} — no state change`);
+    // Still suppress in staging if we can resolve by email
+    if (ev.email && STAGING_SUPPRESS.has(ev.event)) {
+      await updateStagingByEmail(ev.email, ev.event, client);
+    }
+    console.info(`[webhooks/mailjet] ${ev.event} for ${ev.email} — no persona state change`);
     return 'skipped';
   }
 
+  // ── Investor path ─────────────────────────────────────────────────────────
   const { investorId, sequenceId } = await resolveInvestorId(ev, client);
+
   if (!investorId) {
-    console.warn(`[webhooks/mailjet] could not resolve investor for ${ev.email}`);
+    // Not a known investor — try staging by email as fallback
+    if (ev.email) {
+      const updated = await updateStagingByEmail(ev.email, ev.event, client);
+      if (updated) {
+        console.info(`[webhooks/mailjet] staging fallback: ${ev.event} for ${ev.email}`);
+        return 'advanced';
+      }
+    }
+    console.warn(`[webhooks/mailjet] could not resolve record for ${ev.email}`);
     return 'skipped';
   }
 
-  // Fetch current state
+  // Fetch current persona state
   const { data: current, error: fetchErr } = await client
     .from('nakamoto_knyt_personas')
     .select('campaign_state')
@@ -133,8 +225,8 @@ async function processEvent(
   if (fetchErr || !current) return 'skipped';
 
   const currentState = (current.campaign_state ?? 'unsent') as string;
-  if (TERMINAL_STATES.has(currentState))      return 'skipped';
-  if (!rule.fromAllowed.has(currentState))     return 'skipped';
+  if (TERMINAL_STATES.has(currentState))   return 'skipped';
+  if (!rule.fromAllowed.has(currentState)) return 'skipped';
 
   const updatePayload: Record<string, unknown> = { campaign_state: rule.to };
   if (sequenceId) updatePayload.last_campaign_sequence = sequenceId;
@@ -154,7 +246,6 @@ async function processEvent(
     (sequenceId ? ` seq=${sequenceId}` : '')
   );
 
-  // Steer signal — fire-and-forget
   const steeringEvent = MJ_TO_STEERING[ev.event];
   if (steeringEvent) {
     void steerSignal(investorId, steeringEvent, sequenceId ?? undefined).catch(

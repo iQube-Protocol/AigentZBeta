@@ -51,6 +51,11 @@ function normalizeEmail(email) {
   return (email || "").toLowerCase().trim();
 }
 
+function sanitizeText(val) {
+  if (val == null) return null;
+  return String(val).replace(/\u0000/g, "").trim() || null;
+}
+
 async function supabaseRequest(path, method = "GET", body = null) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
     method,
@@ -66,8 +71,9 @@ async function supabaseRequest(path, method = "GET", body = null) {
     const text = await res.text();
     throw new Error(`Supabase ${method} ${path} → ${res.status}: ${text}`);
   }
-  if (res.status === 204) return null;
-  return res.json();
+  if (res.status === 204 || res.status === 201) return null;
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
 }
 
 /** Load all records — prefers full single file, falls back to 7-part index */
@@ -165,9 +171,9 @@ async function main() {
     }
     const canonical = canonicalMap.get(r.normalized_email);
     const row = {
-      first_name: r.first_name || null,
-      last_name: r.last_name || null,
-      email: r.email,
+      first_name: sanitizeText(r.first_name),
+      last_name: sanitizeText(r.last_name),
+      email: sanitizeText(r.email),
       cohort_id: "ks_backers",
       campaign_id: "knyt_ks_campaign",
       seed_source: "ks_backers_seed_phase1",

@@ -1,0 +1,220 @@
+{
+  "assetClass": "SkillQube",
+  "name": "Setup Mailjet Email Service",
+  "slug": "setup-mailjet-service",
+  "description": "End-to-end Mailjet campaign email service setup. Reads all configuration from a mailjet-service-config DataQube, validates credentials, embeds a logo image, creates responsive HTML+text templates from a copy document, sends test emails, and writes all template IDs back to the DataQube. Idempotent — safe to re-run to update existing templates.",
+  "currentVersion": "1.0.0",
+  "trustBand": "L2_VERIFIED_COMMUNITY",
+  "publicationStatus": "draft",
+  "policyClass": "secret_bound",
+  "wrapperStrategy": "skill",
+  "requiredDataQube": {
+    "slug": "mailjet-service-config",
+    "role": "config_store",
+    "description": "Provides all inputs (credentials, sender identity, branding, campaign config) before the skill runs. Template IDs are written back to populated_values on completion.",
+    "access": "read_write",
+    "writebackFields": ["template_ids"]
+  },
+  "uploadEndpoint": {
+    "path": "/api/crm/contacts/upload",
+    "method": "POST",
+    "contentType": "multipart/form-data",
+    "description": "Upload a CSV or JSON file of prospect contacts directly from the operator's machine. Works for any crowdfunding or patronage list (Kickstarter, Indiegogo, Patreon, newsletter, etc). Deduplicates against existing staging records and nakamoto_knyt_personas, then inserts into ks_backers_staging. No terminal script required.",
+    "fields": {
+      "file":        { "type": "File",   "required": true,  "accept": ".csv,.json", "description": "CSV with first_name/last_name/email columns, or JSON array of contact objects" },
+      "cohort_id":   { "type": "string", "required": true,  "description": "Identifies the contact cohort (e.g. ks_prospects, patreon_backers, indiegogo_leads)" },
+      "campaign_id": { "type": "string", "required": true,  "description": "Identifies the campaign (e.g. knyt_ks_2026, knyt_patreon_q1)" },
+      "source_name": { "type": "string", "required": false, "description": "Label for the upload source, stored in seed_source (e.g. ks_export_apr_2026)" },
+      "dry_run":     { "type": "boolean","required": false, "default": false, "description": "Preview import counts without writing to the database" }
+    },
+    "response": {
+      "inserted":             "number of new records added",
+      "skipped_staged":       "records already in ks_backers_staging",
+      "duplicate_canonical":  "records matched to nakamoto_knyt_personas",
+      "unique":               "brand-new records not in any existing table",
+      "failed":               "records that errored during insert"
+    }
+  },
+  "interfaceSchema": {
+    "inputs": {
+      "MAILJET_API_KEY": {
+        "type": "string",
+        "source": "dataqube",
+        "dataQubeSection": "credentials",
+        "required": true,
+        "secret": true,
+        "description": "Mailjet public API key — read from DataQube credentials section"
+      },
+      "MAILJET_SECRET_KEY": {
+        "type": "string",
+        "source": "dataqube",
+        "dataQubeSection": "credentials",
+        "required": true,
+        "secret": true,
+        "description": "Mailjet secret API key — read from DataQube credentials section"
+      },
+      "MAILJET_FROM_NAME": {
+        "type": "string",
+        "source": "dataqube",
+        "dataQubeSection": "sender_identity",
+        "required": true,
+        "description": "Sender display name shown to recipients"
+      },
+      "MAILJET_FROM_EMAIL": {
+        "type": "string",
+        "source": "dataqube",
+        "dataQubeSection": "sender_identity",
+        "required": true,
+        "description": "Verified sender email address — must be verified in Mailjet account"
+      },
+      "MAILJET_LOGO_PATH": {
+        "type": "string",
+        "source": "dataqube",
+        "dataQubeSection": "branding",
+        "required": false,
+        "default": "public/images/metaknyt-logo.png",
+        "description": "Relative path to logo image (PNG or JPG). Embedded as base64 — no external hosting required."
+      },
+      "MAILJET_CAMPAIGN_ID": {
+        "type": "string",
+        "source": "dataqube",
+        "dataQubeSection": "campaign",
+        "required": true,
+        "description": "Unique campaign identifier used to namespace template names (e.g. ks_prospects)"
+      },
+      "MAILJET_COPY_DOC": {
+        "type": "string",
+        "source": "dataqube",
+        "dataQubeSection": "campaign",
+        "required": true,
+        "description": "Path to campaign copy markdown doc containing email sequence definitions"
+      },
+      "MAILJET_TEST_EMAIL": {
+        "type": "string",
+        "source": "arg",
+        "required": false,
+        "description": "If provided, sends a test of Email 1 to this address after template creation"
+      },
+      "MAILJET_EMAIL_NUMBER": {
+        "type": "integer",
+        "source": "arg",
+        "required": false,
+        "description": "If provided, creates/updates only this email number (1-based). Omit to process all."
+      },
+      "MAILJET_UPDATE": {
+        "type": "boolean",
+        "source": "arg",
+        "required": false,
+        "default": false,
+        "description": "If true, force-updates content of templates that already exist"
+      }
+    },
+    "outputs": {
+      "template_ids": {
+        "type": "object",
+        "description": "Map of env var name → Mailjet template ID for all created templates. Also written back to DataQube populated_values."
+      },
+      "amplify_env_block": {
+        "type": "string",
+        "description": "Ready-to-paste block of MAILJET_TEMPLATE_* env vars for Amplify"
+      },
+      "templates_created": {
+        "type": "integer",
+        "description": "Number of new templates created in this run"
+      },
+      "templates_updated": {
+        "type": "integer",
+        "description": "Number of existing templates updated in this run"
+      }
+    }
+  },
+  "capabilities": [
+    {
+      "id": "upload_contacts",
+      "name": "Upload Prospect Contact List",
+      "description": "Accepts a CSV or JSON file from the operator's machine via POST /api/crm/contacts/upload. Works for any crowdfunding or patronage source. Parses, deduplicates, cross-references against nakamoto_knyt_personas, and inserts new records into ks_backers_staging namespaced by cohort_id and campaign_id. No terminal or seed-file handling required.",
+      "inputs": ["file (CSV or JSON)", "campaign_id", "cohort_id", "dry_run"],
+      "outputs": ["inserted", "skipped_staged", "duplicate_canonical", "unique", "failed"]
+    },
+    {
+      "id": "load_config",
+      "name": "Load Config from DataQube",
+      "description": "Reads all non-secret inputs from the mailjet-service-config DataQube populated_values. Secrets (MAILJET_API_KEY, MAILJET_SECRET_KEY) are loaded from .env.local only.",
+      "inputs": ["mailjet-service-config DataQube"],
+      "outputs": ["MAILJET_FROM_NAME", "MAILJET_FROM_EMAIL", "MAILJET_LOGO_PATH", "MAILJET_CAMPAIGN_ID", "MAILJET_COPY_DOC"]
+    },
+    {
+      "id": "validate_credentials",
+      "name": "Validate Mailjet Credentials",
+      "description": "Verifies MAILJET_API_KEY and MAILJET_SECRET_KEY by calling GET /v3/REST/template",
+      "inputs": ["MAILJET_API_KEY", "MAILJET_SECRET_KEY"],
+      "outputs": ["credential_status"]
+    },
+    {
+      "id": "embed_logo",
+      "name": "Embed Logo Image",
+      "description": "Reads logo from MAILJET_LOGO_PATH, resizes to max 560px wide via Pillow, encodes as base64 data URI. Falls back to text wordmark if no logo found.",
+      "inputs": ["MAILJET_LOGO_PATH"],
+      "outputs": ["logo_src"]
+    },
+    {
+      "id": "create_templates",
+      "name": "Create Email Templates",
+      "description": "Creates responsive HTML + plain-text Mailjet templates from campaign copy doc. Header: white background with logo. Body: dark (#111111) with gold (#f5c842) CTA button. Footer: sender attribution + unsubscribe link.",
+      "inputs": ["MAILJET_API_KEY", "MAILJET_SECRET_KEY", "MAILJET_FROM_NAME", "MAILJET_FROM_EMAIL", "MAILJET_CAMPAIGN_ID", "MAILJET_COPY_DOC"],
+      "outputs": ["template_ids"]
+    },
+    {
+      "id": "send_test",
+      "name": "Send Test Email",
+      "description": "Sends a test of a specified email (default: Email 1) to MAILJET_TEST_EMAIL using the created template, with live KS URL and first_name variable populated.",
+      "inputs": ["MAILJET_TEST_EMAIL", "template_ids"],
+      "outputs": ["send_status"]
+    },
+    {
+      "id": "persist_template_ids",
+      "name": "Persist Template IDs to DataQube",
+      "description": "Writes all MAILJET_TEMPLATE_* IDs back to the mailjet-service-config DataQube populated_values section, so they are available to send scripts and future skill runs without manual env var setup.",
+      "inputs": ["template_ids", "MAILJET_CAMPAIGN_ID"],
+      "outputs": ["dataqube_updated"]
+    },
+    {
+      "id": "output_env_vars",
+      "name": "Output Env Var Block",
+      "description": "Prints all MAILJET_TEMPLATE_* env var names and IDs ready to paste into Amplify or .env.local",
+      "inputs": ["template_ids", "MAILJET_CAMPAIGN_ID"],
+      "outputs": ["amplify_env_block"]
+    }
+  ],
+  "steps": [
+    { "name": "upload_contacts",    "tool": "file_upload","prompt": "POST multipart/form-data to /api/crm/ks-backers/upload with operator-supplied CSV or JSON file; show dry-run summary before committing" },
+    { "name": "load_config",        "tool": "json_read",  "prompt": "Read populated_values from data/iqubes/mailjet-service-config.dataqube.json; overlay with .env.local for secrets" },
+    { "name": "validate_creds",     "tool": "http_get",   "prompt": "GET /v3/REST/template to verify credentials and fetch existing template names" },
+    { "name": "embed_logo",         "tool": "python",     "prompt": "Read logo file, resize with Pillow (560px max), encode as base64 data URI" },
+    { "name": "parse_copy_doc",     "tool": "python",     "prompt": "Parse campaign copy markdown doc to extract subject, preheader, body, and CTA per email" },
+    { "name": "create_templates",   "tool": "http_post",  "prompt": "POST /v3/REST/template for each email in sequence (skip if exists and not --update)" },
+    { "name": "set_content",        "tool": "http_post",  "prompt": "POST /v3/REST/template/{id}/detailcontent with HTML shell + parsed copy per email" },
+    { "name": "write_back_ids",     "tool": "json_write", "prompt": "Update populated_values in data/iqubes/mailjet-service-config.dataqube.json with all MAILJET_TEMPLATE_* IDs returned by Mailjet" },
+    { "name": "send_test",          "tool": "http_post",  "prompt": "POST /v3.1/send test email if MAILJET_TEST_EMAIL provided" },
+    { "name": "output_ids",         "tool": "stdout",     "prompt": "Print MAILJET_TEMPLATE_{CAMPAIGN}_{N} env var block ready for Amplify" }
+  ],
+  "tags": ["email", "mailjet", "campaign", "templates", "operator-tool", "setup"],
+  "metadata": {
+    "entrypoint":    "scripts/mailjet_create_ks_prospects_templates.py",
+    "language":      "python",
+    "runtime":       "python3",
+    "claudeCommand": "/setup-mailjet-service",
+    "configIQube":   "data/iqubes/mailjet-service-config.dataqube.json",
+    "relatedAdapter": "services/campaign/adapters/mailjetAdapter.ts",
+    "relatedWebhook": "app/api/crm/webhooks/mailjet/route.ts",
+    "relatedScripts": [
+      "scripts/mailjet_create_templates.py",
+      "scripts/mailjet_create_ks_prospects_templates.py",
+      "scripts/send-ks-prospects-email1.js"
+    ],
+    "requirements": ["Pillow (pip install Pillow) — optional, used for logo resizing"],
+    "notes": "From email must be a verified sender in the Mailjet account before templates can be used for live sends."
+  },
+  "createdBy": "claude-code",
+  "createdAt": "2026-04-17"
+}

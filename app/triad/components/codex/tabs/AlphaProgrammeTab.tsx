@@ -15,6 +15,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  ArrowUpRight,
   CheckCircle2,
   Circle,
   Clock,
@@ -217,6 +218,7 @@ const WORKSTREAMS: Array<{
   label: string;
   status: WsStatus;
   summary: string;
+  link?: string;
   items: Array<{ text: string; done: boolean }>;
 }> = [
   {
@@ -237,12 +239,14 @@ const WORKSTREAMS: Array<{
     label: "KNYT Wheel",
     status: "active",
     summary: "Live campaign — KS launch, investor emails, cohort management, Marketa activation.",
+    link: "/triad/embed/codex/knyt-codex?tab=venture-lab-alpha",
     items: [
       { text: "KS campaign live", done: true },
       { text: "Investor cohorts segmented", done: true },
-      { text: "Email sequences sent", done: true },
+      { text: "8-email funnel live (E1 → 3.2k contacts)", done: true },
       { text: "Marketa fully activated", done: true },
       { text: "DVN receipt layer", done: true },
+      { text: "Webhook engagement tracking live", done: true },
       { text: "Partner activation (18 partners)", done: false },
     ],
   },
@@ -256,8 +260,8 @@ const WORKSTREAMS: Array<{
       { text: "Studio Composer", done: true },
       { text: "Registry integration", done: true },
       { text: "Experience + capsule delivery", done: true },
-      { text: "Light mode (Parchment Intelligence)", done: true  },
-      { text: "metaMe guardian policy hook", done: false },
+      { text: "Light mode (Parchment Intelligence)", done: true },
+      { text: "metaMe guardian policy hook", done: true },
       { text: "Personal sovereignty settings UI", done: false },
     ],
   },
@@ -278,28 +282,29 @@ const WORKSTREAMS: Array<{
   {
     id: "agentiq-os",
     label: "AgentiQ OS α",
-    status: "queued",
+    status: "in-progress",
     summary: "Open source sovereign framework and operating system underpinning the entire stack and ecosystem.",
     items: [
       { text: "23-doc planning corpus complete", done: true },
-      { text: "Kn0w1-first KNYT Alpha shell", done: false },
+      { text: "Kn0w1-first KNYT Alpha shell", done: true },
+      { text: "SkillQube + DataQube registry wired", done: true },
       { text: "Treasury / rewards MVP", done: false },
-      { text: "SkillQube + OrgQube live", done: false },
       { text: "Reference agent trio live", done: false },
     ],
   },
   {
     id: "relationship-builder",
     label: "Relationship Builder α",
-    status: "in-progress",
+    status: "active",
     summary: "7,000+ persona/investor backer CRM — 18-partner activation pipeline + KS backer cohorts.",
     items: [
       { text: "Docs + cartridge tab wired", done: true },
       { text: "QubeTalk feed live", done: true },
       { text: "DB migration + 18 partner seed", done: true },
-      { text: "KS backer import", done: true },
+      { text: "KS backer import + CSV upload endpoint", done: true },
       { text: "Partners + Customers UI (Phase 1)", done: true },
-      { text: "Composer + Marketa send (Phase 2)", done: false },
+      { text: "Composer + Marketa send (Phase 2)", done: true },
+      { text: "Partner Wave 1 activation", done: false },
     ],
   },
 ];
@@ -331,8 +336,9 @@ const CRITICAL_PATH = [
   { text: "KNYT Wheel operational",                          done: true  },
   { text: "Relationship Builder α cartridge wired",          done: true  },
   { text: "DB migration + partner seed + KS backer import",  done: true  },
-  { text: "Partner Wave 1 outreach launched (16 partners)",  done: false },
-  { text: "KS Backer email funnel active",                   done: false },
+  { text: "KS Backer email funnel active (8-email sequence)", done: true  },
+  { text: "SkillQube / DataQube registry wired",             done: true  },
+  { text: "Partner Wave 1 outreach launched (18 partners)",  done: false },
   { text: "Partner ignition signal (≥3 responded)",          done: false },
   { text: "AgentiQ OS α build gate open",                    done: false },
 ];
@@ -397,9 +403,10 @@ export function AlphaProgrammeTab() {
             </div>
             <div className="flex items-center flex-wrap gap-1.5">
               <Badge variant="outline" className="border-emerald-500/25 bg-emerald-500/10 text-emerald-300/80 backdrop-blur-sm text-[10px]">Qriptopian ✓</Badge>
-              <Badge variant="outline" className="border-amber-500/25 bg-amber-500/10 text-amber-300/80 backdrop-blur-sm text-[10px]">KNYT ✓</Badge>
-              <Badge variant="outline" className="border-sky-500/25 bg-sky-500/10 text-sky-300/80 backdrop-blur-sm text-[10px]">metaMe</Badge>
               <Badge variant="outline" className="border-emerald-500/25 bg-emerald-500/10 text-emerald-300/80 backdrop-blur-sm text-[10px]">AgentiQ α ✓</Badge>
+              <Badge variant="outline" className="border-amber-500/25 bg-amber-500/10 text-amber-300/80 backdrop-blur-sm text-[10px]">KNYT ✓</Badge>
+              <Badge variant="outline" className="border-amber-500/25 bg-amber-500/10 text-amber-300/80 backdrop-blur-sm text-[10px]">Rel. Builder ✓</Badge>
+              <Badge variant="outline" className="border-sky-500/25 bg-sky-500/10 text-sky-300/80 backdrop-blur-sm text-[10px]">metaMe</Badge>
               <Button
                 size="sm" variant="ghost"
                 className="h-7 w-7 p-0"
@@ -451,6 +458,7 @@ export function AlphaProgrammeTab() {
       {/* Workstream status grid */}
       <div className="space-y-2">
         <h3 className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Programme Workstreams</h3>
+        <div className="grid grid-cols-2 gap-2">
         {WORKSTREAMS.map((ws) => {
           const style = STATUS_STYLES[ws.status];
           const Icon  = style.icon;
@@ -462,9 +470,20 @@ export function AlphaProgrammeTab() {
                   <Icon className={`h-4 w-4 flex-shrink-0 ${style.iconClass}`} />
                   <span className="text-xs font-semibold text-slate-100">{ws.label}</span>
                 </div>
-                <Badge variant="outline" className={`text-[9px] shrink-0 ${style.badge}`}>
-                  {STATUS_LABEL[ws.status]}
-                </Badge>
+                <div className="flex items-center gap-1 shrink-0">
+                  {ws.link && (
+                    <a
+                      href={ws.link}
+                      className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] text-amber-400/70 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+                      title="Open in codex"
+                    >
+                      <ArrowUpRight className="h-3 w-3" />
+                    </a>
+                  )}
+                  <Badge variant="outline" className={`text-[9px] ${style.badge}`}>
+                    {STATUS_LABEL[ws.status]}
+                  </Badge>
+                </div>
               </div>
               <p className="text-[11px] text-slate-400 leading-snug">{ws.summary}</p>
               <div className="flex items-center gap-2">
@@ -484,6 +503,7 @@ export function AlphaProgrammeTab() {
             </div>
           );
         })}
+        </div>
       </div>
 
       {/* Critical path */}
