@@ -20,7 +20,7 @@ export async function GET() {
       .from("avl_comms_packs")
       .select("slug, title, comms_type, template_markdown, subject_lines, cta_options, active")
       .eq("active", true)
-      .order("created_at", { ascending: true });
+      .order("slug", { ascending: true });
 
     if (error) throw error;
 
