@@ -53,6 +53,8 @@ function CodexContent() {
     "aaAuthProfileId",
   ]);
   const queryIsAdmin = searchParams?.get("isAdmin") === "true" || searchParams?.get("admin") === "1";
+  const queryIsPartner = searchParams?.get("isPartner") === "true" || searchParams?.get("partner") === "1";
+  const queryPartnerId = readFirst(searchParams, ["partnerId", "partner_id"]);
   const { personaId, isAdmin } = useCodexEmbedAuthBridge({
     initialPersonaId: queryPersonaId,
     initialAuthProfileId: queryAuthProfileId,
@@ -71,6 +73,8 @@ function CodexContent() {
       initialTab={tab}
       personaId={personaId}
       isAdmin={isAdmin}
+      isPartner={queryIsPartner || undefined}
+      partnerId={queryPartnerId || undefined}
       useDefaults={true}
     />
   );
