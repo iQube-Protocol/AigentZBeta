@@ -213,7 +213,7 @@ TEMPLATES = [
         "preheader": "A prestige graphic novel, a hidden mystery, and a new kind of entry into story.",
         "html_body": (
             p("Hi {{var:first_name:\"there\"}},")
-            + p("We\u2019d love to introduce you to <strong style=\"color:#f0f0f0;\">metaKnyts: The Agentic Graphic Novel</strong>.")
+            + p("We\u2019d love to introduce you to <strong style=\"color:#f0f0f0;\">metaKnyt: The Agentic Graphic Novel</strong>.")
             + p("On one level, it is a beautifully crafted graphic novel featuring a portal war between physical and digital worlds, a hidden Order, and a mystery at its center:")
             + p("<em style=\"color:#f0f0f0;\">Why did Satoshi disappear?</em>")
             + p("But the vision goes beyond the book.")
@@ -226,7 +226,7 @@ TEMPLATES = [
         "text_body": [
             "Hi {{var:first_name:\"there\"}},",
             "",
-            "We'd love to introduce you to metaKnyts: The Agentic Graphic Novel.",
+            "We'd love to introduce you to metaKnyt: The Agentic Graphic Novel.",
             "",
             "On one level, it is a beautifully crafted graphic novel featuring a portal war",
             "between physical and digital worlds, a hidden Order, and a mystery at its center:",
