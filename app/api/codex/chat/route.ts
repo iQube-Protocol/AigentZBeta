@@ -62,7 +62,7 @@ interface ChatMessage {
 }
 
 type UserRole = 'investor' | 'creative' | 'developer' | 'entrepreneur' | 'fan';
-type ContentDomain = 'metaKnyts' | 'qriptopian';
+type ContentDomain = 'metaKnyts' | 'qriptopian' | 'protocol';
 
 type BudgetPosture = 'low' | 'medium' | 'high';
 
@@ -1128,6 +1128,21 @@ function generateComposerFallbackResponse({
   ].join('\n\n');
 }
 
+// ── Protocol KB Query Detection ─────────────────────────────────────────────
+// Returns true when the message touches protocol economics topics.
+// Triggers a secondary KB search against domain='protocol' for all agents.
+const PROTOCOL_PATTERNS = [
+  /\bqc\b/i, /qriptocent/i, /q¢/i, /\$knyt/i, /\bknyt\b.*token/i,
+  /token.*\bknyt\b/i, /micro.?stable/i, /micro.?payment/i, /settlement rail/i,
+  /pricing rail/i, /franchise token/i, /knyt.*treasury/i, /treasury.*knyt/i,
+  /knyt.*reward/i, /reward.*knyt/i, /what is qc/i, /what is \$knyt/i,
+  /qc.*vs.*knyt|\bknyt.*vs.*qc/i, /difference.*qc|qc.*differ/i,
+];
+
+function isProtocolQuery(message: string): boolean {
+  return PROTOCOL_PATTERNS.some(p => p.test(message));
+}
+
 // ── Kn0w1 Inference Core ────────────────────────────────────────────────────
 
 type Know1SkillId =
@@ -1693,17 +1708,26 @@ export async function POST(request: NextRequest) {
       const resolvedAgentForFetch = (typeof aigentId === 'string' && normalizeAgentId(aigentId)) || defaultAgentIdForPersona(persona);
       const isKn0w1 = resolvedAgentForFetch === 'aigent-kn0w1';
       const activeSkill = isKn0w1 ? detectSkillIntent(message) : null;
+      const needsProtocolKB = isProtocolQuery(message);
 
-      // Fetch codex metadata, KB results, and (for Kn0w1) live KNYT state in parallel
-      const [resolvedMetadata, resolvedKbResults, resolvedLiveContext] = await Promise.all([
+      // Fetch codex metadata, KB results, protocol KB (when relevant), and live KNYT state in parallel
+      const [resolvedMetadata, resolvedKbResults, resolvedProtocolResults, resolvedLiveContext] = await Promise.all([
         fetchCodexMetadata(domain),
         searchKnowledgeBase(message, domain, 3),
+        needsProtocolKB ? searchKnowledgeBase(message, 'protocol', 3) : Promise.resolve([]),
         isKn0w1 ? fetchKnytLiveContext(typeof personaId === 'string' ? personaId : undefined) : Promise.resolve(undefined),
       ]);
       metadata = resolvedMetadata;
-      kbResults = resolvedKbResults;
+      // Merge domain KB + protocol KB results, deduplicated by content prefix
+      const seen = new Set<string>();
+      kbResults = [...resolvedKbResults, ...resolvedProtocolResults].filter(r => {
+        const key = r.content.slice(0, 60);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
 
-      console.log(`[CodexChat] KB search returned ${kbResults.length} results${isKn0w1 ? `, skill intent: ${activeSkill ?? 'none'}` : ''}`);
+      console.log(`[CodexChat] KB: ${resolvedKbResults.length} domain + ${resolvedProtocolResults.length} protocol results${isKn0w1 ? `, skill: ${activeSkill ?? 'none'}` : ''}`);
 
       systemPrompt = buildSystemPrompt(metadata, persona, userContext, kbResults, resolvedLiveContext ?? undefined, activeSkill);
     }
