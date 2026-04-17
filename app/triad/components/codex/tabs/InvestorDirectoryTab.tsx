@@ -897,14 +897,20 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
               </div>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {([
-                  ['Cohort', 'campaign_cohort', COHORT_OPTIONS],
-                  ['State', 'campaign_state', STATE_OPTIONS],
-                  ['Channel', 'preferred_channel_primary', CHANNEL_OPTIONS],
-                ] as const).map(([lbl, key, opts]) => (
+                  ['Cohort', 'campaign_cohort', COHORT_OPTIONS, true],
+                  ['State', 'campaign_state', STATE_OPTIONS, true],
+                  ['Channel', 'preferred_channel_primary', CHANNEL_OPTIONS, false],
+                ] as const).map(([lbl, key, opts, locked]) => (
                   <div key={key}>
-                    <label className="text-xs text-slate-400 mb-1 block">{lbl}</label>
-                    <select value={(editForm as Record<string, string>)[key]} onChange={(e) => setEditForm({ ...editForm, [key]: e.target.value })}
-                      className="w-full bg-slate-800 border border-white/10 rounded-lg text-xs text-slate-300 px-2 py-1.5 focus:outline-none">
+                    <label className="text-xs text-slate-400 mb-1 flex items-center gap-1">
+                      {lbl}
+                      {locked && <span className="text-[9px] text-amber-600/70 font-medium">locked</span>}
+                    </label>
+                    <select
+                      value={(editForm as Record<string, string>)[key]}
+                      onChange={(e) => setEditForm({ ...editForm, [key]: e.target.value })}
+                      disabled={!!locked}
+                      className={`w-full bg-slate-800 border rounded-lg text-xs px-2 py-1.5 focus:outline-none ${locked ? 'border-white/5 text-slate-600 cursor-not-allowed opacity-50' : 'border-white/10 text-slate-300'}`}>
                       <option value="">None</option>
                       {opts.map((o) => <option key={o} value={o}>{o}</option>)}
                     </select>
