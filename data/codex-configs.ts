@@ -387,6 +387,24 @@ export const KNYT_CODEX: CodexConfig = {
         description: 'Full investor directory — all 3,501 StartEngine / Metaiye Media investors with campaign cohort tagging, bulk sequence dispatch, and the KNYT Wheel campaign dashboard',
         color: 'amber'
       }
+    },
+    {
+      id: 'outreach',
+      label: 'Outreach',
+      slug: 'outreach',
+      enabled: true,
+      adminOnly: true,
+      order: 15,
+      type: 'static',
+      config: {
+        component: 'RelationshipBuilderTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Users',
+        description: 'Partner and customer outreach — 18 AVL partner contacts, KS Prospects funnel, campaign composer for Marketa email dispatch',
+        color: 'violet'
+      }
     }
   ],
   permissions: {
@@ -1004,15 +1022,15 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'relationship-builder',
       enabled: true,
       adminOnly: true,
-      order: 4,
+      order: 5,
       type: 'static',
       config: {
         component: 'RelationshipBuilderTab',
         props: {}
       },
       metadata: {
-        icon: 'MessageSquare',
-        description: 'QubeTalk agent coordination channel — bridge packets, live messages, and partner connection graph',
+        icon: 'Users',
+        description: 'Partner and customer outreach — AVL partner contacts, KS Prospects funnel, campaign composer, and QubeTalk agent coordination',
         color: 'violet'
       }
     },
@@ -1022,7 +1040,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'alpha-programme',
       enabled: true,
       adminOnly: true,
-      order: 5,
+      order: 6,
       type: 'static',
       config: {
         component: 'AlphaProgrammeTab',
