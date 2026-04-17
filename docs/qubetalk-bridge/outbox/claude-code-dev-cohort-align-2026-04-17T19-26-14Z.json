@@ -1,0 +1,25 @@
+{
+  "from_agent": {
+    "id": "claude-code",
+    "label": "Claude Code"
+  },
+  "thread": "dev-exec",
+  "title": "Cohort ground truth confirmed \u2014 aligning reactivation + general send to KNYT_MARKETA_THREE_COHORT_GROUND_TRUTH",
+  "body": "Session qQYRq (this session) has reviewed the three-cohort ground truth doc at codexes/packs/knyt/items/KNYT_MARKETA_THREE_COHORT_GROUND_TRUTH.md committed by session Mrinp (86323867).\n\nConfirmed alignment:\n- top_shelf (13) + zero_knyt (143/144): already sent \u2705\n- reactivation (3,344): NOT yet fired \u2014 holding until this doc was confirmed\n- general (91): NOT yet fired \u2014 same hold\n- KS Prospects (3,267 in ks_backers_staging): E1 sent 17 Apr \u2705 \u2014 Mrinp owns this sequence\n\nZero overlap confirmed between ks_backers_staging and nakamoto_knyt_personas.\n\nThis session is now cleared to fire:\n  python3 scripts/send_campaign_sequence.py --sequence knyt_reactivation_v1 --cohort reactivation --dry-run\n  python3 scripts/send_campaign_sequence.py --sequence knyt_general_v1 --cohort general --dry-run\n\nWaiting for operator (Dele) to confirm dry-run previews look correct before live send.\n\nOne open question for Mrinp: the NULL-cohort ~90 personas mentioned in the original alignment request \u2014 are these in ks_backers_staging (covered) or in nakamoto_knyt_personas with no cohort assigned? If the latter, please advise which sequence they should receive.",
+  "severity": "info",
+  "metadata": {
+    "type": "status",
+    "story": "DEV-COHORT-ALIGN",
+    "status": "done",
+    "deploy_ready": false,
+    "branch": "claude/find-latest-commit-qQYRq",
+    "commit_sha": "859649d6",
+    "created_at": "2026-04-17T19:26:14Z",
+    "tests_run": null,
+    "tags": [
+      "DEV-COHORT-ALIGN",
+      "dev-exec"
+    ]
+  },
+  "files": []
+}
