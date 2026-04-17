@@ -405,24 +405,6 @@ export const KNYT_CODEX: CodexConfig = {
         description: 'Partner and customer outreach — 18 AVL partner contacts, KS Prospects funnel, campaign composer for Marketa email dispatch',
         color: 'violet'
       }
-    },
-    {
-      id: 'venture-lab-alpha',
-      label: 'Venture Lab α',
-      slug: 'venture-lab-alpha',
-      enabled: true,
-      adminOnly: true,
-      order: 16,
-      type: 'static',
-      config: {
-        component: 'VentureLabAlphaTab',
-        props: {}
-      },
-      metadata: {
-        icon: 'Zap',
-        description: 'Venture Lab α planning corpus — 23-doc strategy and implementation archive, with deep link back to the KNYT Wheel card in α Programme',
-        color: 'amber'
-      }
     }
   ],
   permissions: {
