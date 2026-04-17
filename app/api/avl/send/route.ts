@@ -32,6 +32,10 @@ const MAILJET_API_URL = "https://api.mailjet.com/v3.1/send";
 const MAILJET_BATCH   = 50;
 const CC_EMAIL        = "dele@metame.com";
 const CC_NAME         = "Dele Atanda";
+// Same URL used by the KS backer investor emails — driven by env var so it stays in sync
+const KS_URL =
+  process.env.KICKSTARTER_CAMPAIGN_URL ??
+  "https://www.kickstarter.com/projects/430245948/metaknyt-the-legend-of-kn0w1-and-the-21-sats";
 
 function basicAuth() {
   const key    = process.env.MAILJET_API_KEY    ?? "";
@@ -162,6 +166,7 @@ export async function POST(req: NextRequest) {
       "partner.name":       p.name,
       "partner.org":        p.org,
       "assigned_agent":     p.assigned_agent,
+      "ks_url":             KS_URL,
     };
     const subject  = renderTemplate(subjectRaw, vars);
     const bodyText = renderTemplate(template, vars);
