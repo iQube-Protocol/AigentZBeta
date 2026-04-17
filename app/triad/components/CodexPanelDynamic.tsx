@@ -27,6 +27,8 @@ interface CodexPanelDynamicProps {
   hiddenTabs?: string[];
   personaId?: string;
   isAdmin?: boolean;            // Explicit admin override — hides adminOnly tabs from non-admins
+  isPartner?: boolean;          // Partner identity — shows partnerOnly tabs, hides adminOnly tabs
+  partnerId?: string;           // avl_partner_contacts.id — passed to partner tab components
   useDefaults?: boolean;        // Use hardcoded configs vs database
   previewDevice?: DeviceType;
   onClose?: () => void;         // Direct close callback (inline rendering)
@@ -90,6 +92,8 @@ export default function CodexPanelDynamic({
   hiddenTabs = [],
   personaId,
   isAdmin: isAdminProp,
+  isPartner: isPartnerProp,
+  partnerId,
   useDefaults = true,
   previewDevice,
   onClose,
@@ -124,10 +128,11 @@ export default function CodexPanelDynamic({
   // already resolved admin status from Supabase/AA-API). Falls back to false so adminOnly
   // tabs stay hidden when no explicit admin signal is received.
   const isAdmin = isAdminProp === true;
+  const isPartner = isPartnerProp === true;
 
   const enabledTabs = useMemo(
-    () => getEnabledTabs(codex, isAdmin).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
-    [codex, isAdmin, hiddenTabSet]
+    () => getEnabledTabs(codex, isAdmin, isPartner).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
+    [codex, isAdmin, isPartner, hiddenTabSet]
   );
   
   const [activeTabSlug, setActiveTabSlug] = useState<string>(
@@ -480,6 +485,9 @@ export default function CodexPanelDynamic({
               theme={resolvedTheme}
               density={density}
               personaId={personaId}
+              isAdmin={isAdmin}
+              isPartner={isPartner}
+              partnerId={partnerId}
               issueSlug={isQriptopian ? issueSlug : undefined}
               previewDevice={previewDevice}
             />
