@@ -49,10 +49,10 @@ export async function PATCH(
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  // Only apply allowed campaign fields
+  // Only apply allowed campaign fields; skip empty strings (treat as "no change")
   const updatePayload: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(body)) {
-    if (ALLOWED_FIELDS.has(key)) {
+    if (ALLOWED_FIELDS.has(key) && value !== '') {
       updatePayload[key] = value;
     }
   }
