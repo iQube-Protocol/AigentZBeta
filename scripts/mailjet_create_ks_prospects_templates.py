@@ -58,17 +58,31 @@ FROM_EMAIL = os.environ.get("MAILJET_FROM_EMAIL", "dele@metaknyt.com")
 KS_URL     = "https://www.kickstarter.com/projects/430245948/metaknyt-the-legend-of-kn0w1-and-the-21-sats?ref=project_build"
 
 # Logo: embed from local file as base64 data URI (no external hosting needed)
-# Prefers .png over .jpg
+# Prefers .png over .jpg; resizes to max 400px wide to keep email size manageable
 _LOGO_PNG = Path(__file__).parent.parent / "public" / "images" / "metaknyt-logo.png"
 _LOGO_JPG = Path(__file__).parent.parent / "public" / "images" / "metaknyt-logo.jpg"
+
+def _encode_logo(path: Path, mime: str) -> str:
+    try:
+        from PIL import Image
+        import io
+        img = Image.open(path).convert("RGBA" if mime == "image/png" else "RGB")
+        img.thumbnail((400, 300), Image.LANCZOS)
+        buf = io.BytesIO()
+        if mime == "image/png":
+            img.save(buf, format="PNG", optimize=True)
+        else:
+            img.convert("RGB").save(buf, format="JPEG", quality=85)
+        return f"data:{mime};base64,{base64.b64encode(buf.getvalue()).decode()}"
+    except ImportError:
+        return f"data:{mime};base64,{base64.b64encode(path.read_bytes()).decode()}"
+
 if _LOGO_PNG.exists():
-    _logo_b64 = base64.b64encode(_LOGO_PNG.read_bytes()).decode()
-    LOGO_SRC  = f"data:image/png;base64,{_logo_b64}"
+    LOGO_SRC = _encode_logo(_LOGO_PNG, "image/png")
 elif _LOGO_JPG.exists():
-    _logo_b64 = base64.b64encode(_LOGO_JPG.read_bytes()).decode()
-    LOGO_SRC  = f"data:image/jpeg;base64,{_logo_b64}"
+    LOGO_SRC = _encode_logo(_LOGO_JPG, "image/jpeg")
 else:
-    LOGO_SRC  = os.environ.get("METAKNYT_LOGO_URL", "")
+    LOGO_SRC = os.environ.get("METAKNYT_LOGO_URL", "")
 
 if not API_KEY or not SECRET_KEY:
     sys.exit("ERROR: MAILJET_API_KEY / MAILJET_SECRET_KEY not set in .env.local or environment.")
