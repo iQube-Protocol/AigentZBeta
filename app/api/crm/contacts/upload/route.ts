@@ -1,17 +1,22 @@
 /**
- * POST /api/crm/ks-backers/upload
+ * POST /api/crm/contacts/upload
  *
- * Accepts a CSV or JSON file of KS Prospect contacts, deduplicates them
+ * Accepts a CSV or JSON file of prospect contacts, deduplicates them
  * against ks_backers_staging and nakamoto_knyt_personas, then inserts
  * new records into ks_backers_staging.
  *
+ * Works for any crowdfunding or patronage CRM import — Kickstarter, Indiegogo,
+ * Patreon, direct newsletter lists, etc. Use cohort_id and campaign_id to
+ * namespace the records for the specific campaign.
+ *
  * FormData fields:
  *   file        File     required — CSV or JSON (array of {first_name,last_name,email})
- *   campaign_id string   optional — defaults to "knyt_ks_campaign"
- *   cohort_id   string   optional — defaults to "ks_backers"
+ *   cohort_id   string   required — identifies the contact cohort (e.g. "ks_prospects", "patreon_backers")
+ *   campaign_id string   required — identifies the campaign (e.g. "knyt_ks_2026", "knyt_patreon_q1")
+ *   source_name string   optional — label for the upload source, stored in seed_source (e.g. "ks_export_apr_2026")
  *   dry_run     string   optional — "true" to preview without writing
  *
- * CSV column names accepted (case-insensitive):
+ * CSV column names accepted (case-insensitive, with or without spaces):
  *   email / Email / EMAIL
  *   first_name / First Name / firstname / FirstName
  *   last_name  / Last Name  / lastname  / LastName
@@ -41,10 +46,12 @@ function parseCSV(text: string): Record<string, string>[] {
   const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
   if (lines.length < 2) return [];
 
-  const header = splitCSVRow(lines[0]).map((h) => h.trim().toLowerCase()
-    .replace(/\s+/g, "_")
-    .replace(/firstname/, "first_name")
-    .replace(/lastname/, "last_name"));
+  const header = splitCSVRow(lines[0]).map((h) =>
+    h.trim().toLowerCase()
+      .replace(/\s+/g, "_")
+      .replace(/firstname/, "first_name")
+      .replace(/lastname/, "last_name")
+  );
 
   const rows: Record<string, string>[] = [];
   for (let i = 1; i < lines.length; i++) {
@@ -144,9 +151,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "No file provided" }, { status: 400 });
     }
 
-    const campaignId = (formData.get("campaign_id") as string | null) ?? "knyt_ks_campaign";
-    const cohortId   = (formData.get("cohort_id")   as string | null) ?? "ks_backers";
+    const cohortId   = (formData.get("cohort_id")   as string | null)?.trim();
+    const campaignId = (formData.get("campaign_id") as string | null)?.trim();
+    const sourceName = (formData.get("source_name") as string | null)?.trim() ?? "csv_upload";
     const dryRun     = (formData.get("dry_run") as string | null) === "true";
+
+    if (!cohortId || !campaignId) {
+      return NextResponse.json(
+        { ok: false, error: "cohort_id and campaign_id are required" },
+        { status: 400 }
+      );
+    }
 
     const text = await file.text();
     const fileName = file.name.toLowerCase();
@@ -162,7 +177,6 @@ export async function POST(req: NextRequest) {
       }
       rawContacts = parsed as RawContact[];
     } else {
-      // Default: treat as CSV
       const csvRows = parseCSV(text);
       if (csvRows.length === 0) {
         return NextResponse.json({ ok: false, error: "CSV file is empty or has no data rows" }, { status: 400 });
@@ -176,7 +190,7 @@ export async function POST(req: NextRequest) {
 
     const supabase = getSupabase();
 
-    // ── Load existing email sets ──────────────────────────────────────────────
+    // ── Load existing email sets in parallel ──────────────────────────────────
 
     const [canonicalMap, stagingMap] = await Promise.all([
       fetchAllEmails(supabase, "nakamoto_knyt_personas", "Email"),
@@ -198,21 +212,21 @@ export async function POST(req: NextRequest) {
 
       const canonicalId = canonicalMap.get(ne) ?? null;
       toInsert.push({
-        first_name:          sanitize(r.first_name),
-        last_name:           sanitize(r.last_name),
-        email:               sanitize(r.email),
-        normalized_email:    ne,
-        cohort_id:           cohortId,
-        campaign_id:         campaignId,
-        seed_source:         "csv_upload",
-        storage_tier:        "staging",
-        canonical_dataset:   false,
-        dedup_status:        canonicalId ? "duplicate_canonical" : "unique",
+        first_name:           sanitize(r.first_name),
+        last_name:            sanitize(r.last_name),
+        email:                sanitize(r.email),
+        normalized_email:     ne,
+        cohort_id:            cohortId,
+        campaign_id:          campaignId,
+        seed_source:          sourceName,
+        storage_tier:         "staging",
+        canonical_dataset:    false,
+        dedup_status:         canonicalId ? "duplicate_canonical" : "unique",
         canonical_persona_id: canonicalId,
-        enrichment_status:   canonicalId ? "cross_referenced" : "seed_only",
-        suppression_status:  "active",
-        engagement_status:   "not_contacted",
-        imported_by:         "api/crm/ks-backers/upload",
+        enrichment_status:    canonicalId ? "cross_referenced" : "seed_only",
+        suppression_status:   "active",
+        engagement_status:    "not_contacted",
+        imported_by:          "api/crm/contacts/upload",
       });
     }
 
@@ -251,17 +265,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Flag matched canonical records as ks_backer=true (best-effort)
+    // Flag matched canonical records (best-effort — graceful if column absent)
     const canonicalIds = toInsert
       .filter((r) => r.canonical_persona_id)
       .map((r) => r.canonical_persona_id as string);
     if (canonicalIds.length > 0) {
       for (let i = 0; i < canonicalIds.length; i += BATCH_SIZE) {
-        const batch = canonicalIds.slice(i, i + BATCH_SIZE);
         await supabase
           .from("nakamoto_knyt_personas")
           .update({ ks_backer: true })
-          .in("id", batch)
+          .in("id", canonicalIds.slice(i, i + BATCH_SIZE))
           .then(() => void 0);
       }
     }
@@ -281,7 +294,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err) {
-    console.error("[crm/ks-backers/upload] POST error:", err);
+    console.error("[crm/contacts/upload] POST error:", err);
     return NextResponse.json({ ok: false, error: "Internal server error" }, { status: 500 });
   }
 }

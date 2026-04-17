@@ -17,9 +17,10 @@
     "description": "The skill reads all inputs from this DataQube at startup and writes MAILJET_TEMPLATE_* IDs back to populated_values after template creation."
   },
   "contactUpload": {
-    "endpoint": "POST /api/crm/ks-backers/upload",
+    "endpoint": "POST /api/crm/contacts/upload",
     "accepts": ["CSV", "JSON"],
-    "description": "Upload a prospect contact list directly from your machine — no terminal scripts. CSV must have first_name, last_name, email columns (case-insensitive). JSON must be an array of contact objects. Supports dry_run=true to preview counts before committing.",
+    "description": "Upload any crowdfunding or patronage contact list directly from your machine — no terminal scripts. Works for Kickstarter, Indiegogo, Patreon, newsletter exports, etc. CSV must have first_name, last_name, email columns (case-insensitive). JSON must be an array of contact objects. Pass cohort_id and campaign_id to namespace the records. Supports dry_run=true to preview counts before committing.",
+    "requiredFields": ["cohort_id", "campaign_id"],
     "destination": "ks_backers_staging",
     "deduplication": "Cross-references nakamoto_knyt_personas and existing ks_backers_staging records before insert"
   },
