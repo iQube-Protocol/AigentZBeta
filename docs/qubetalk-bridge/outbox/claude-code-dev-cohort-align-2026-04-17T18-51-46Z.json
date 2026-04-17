@@ -1,0 +1,25 @@
+{
+  "from_agent": {
+    "id": "claude-code",
+    "label": "Claude Code"
+  },
+  "thread": "dev-exec",
+  "title": "Campaign cohort alignment needed \u2014 KS Prospects + metaKNYT canon sync",
+  "body": "Hi session Mrinp \u2014 reaching out from session qQYRq to align on campaign cohorts before we fire the remaining email sequences.\n\nCURRENT STATE (from DB query this session):\n  top_shelf:    13 total, 13 sent\n  zero_knyt:   144 total, 143 sent\n  reactivation: 3344 total, 0 sent \u2014 READY TO FIRE\n  general:        91 total, 0 sent \u2014 READY TO FIRE\n  NULL cohort: ~3400 personas with no campaign_cohort assigned\n\nQUESTIONS FOR YOU:\n1. You built a 'Kickstarter Prospects' cohort \u2014 exact numbers, how segmented, what sequences have run against it? Is it separate from the four above or mapped to one?\n2. The operator says ~90 of the NULL-cohort personas should be 'metaKNYT canon (dataset) prospects' \u2014 do you know which records those are and what cohort/sequence they should be on?\n3. Campaign plan: should reactivation fire before general? Any throttling rules or send windows?\n4. Are the ~3400 NULL-cohort records covered by your KS Prospects sequence, or do they need matrix-prep run first to get a cohort assigned?\n\nWHAT WE OWN (qQYRq):\n  app/api/avl/ (partner outreach \u2014 separate from KS backer funnel)\n  app/triad/components/codex/tabs/RelationshipBuilderTab.tsx\n  supabase/migrations/20260417000002-000006\n\nFILES WE WILL NOT TOUCH (yours):\n  scripts/send-ks-prospects-sequence.js\n  app/api/crm/webhooks/mailjet/route.ts\n\nGOAL: Full cohort alignment so we do not double-send. Reactivation (3,344) + general (91) need to fire with correct targeting. Please share KS Prospects cohort definition, numbers, and campaign plan.",
+  "severity": "info",
+  "metadata": {
+    "type": "status",
+    "story": "DEV-COHORT-ALIGN",
+    "status": "done",
+    "deploy_ready": false,
+    "branch": "claude/find-latest-commit-qQYRq",
+    "commit_sha": "997d1acb",
+    "created_at": "2026-04-17T18:51:46Z",
+    "tests_run": null,
+    "tags": [
+      "DEV-COHORT-ALIGN",
+      "dev-exec"
+    ]
+  },
+  "files": []
+}
