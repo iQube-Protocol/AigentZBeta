@@ -19,6 +19,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  ArrowLeft,
   ArrowRight,
   Brain,
   CheckCircle2,
@@ -453,6 +454,14 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <a
+              href="/triad/embed/codex/venture-lab?tab=alpha-programme"
+              className="flex items-center gap-1 rounded-md border border-amber-700/40 bg-amber-900/20 px-2.5 py-1 text-[11px] text-amber-400 hover:text-amber-300 hover:bg-amber-900/30 transition-colors"
+              title="Back to α Programme"
+            >
+              <ArrowLeft className="h-3 w-3" />
+              α Programme
+            </a>
             <Badge className="border-amber-800 bg-amber-950 text-amber-300">Alpha</Badge>
             <Badge variant="outline" className="border-slate-700 text-slate-300">Provisional</Badge>
             <Button
