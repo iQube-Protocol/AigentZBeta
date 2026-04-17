@@ -1025,12 +1025,8 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       order: 5,
       type: 'static',
       config: {
-        component: 'AgentiqCartridgeTab',
-        props: {
-          packId: 'alpha-knyt',
-          collectionId: 'col_alpha_programme',
-          defaultPath: 'items/33-alpha-program-overview-and-progress.md'
-        }
+        component: 'AlphaProgrammeTab',
+        props: {}
       },
       metadata: {
         icon: 'LayoutDashboard',

@@ -44,6 +44,7 @@ import { KnytTreasuryTab } from "./tabs/KnytTreasuryTab";
 import { KnytAlphaTab } from "./tabs/KnytAlphaTab";
 import { AgentiQOSTab } from "./tabs/AgentiQOSTab";
 import { RelationshipBuilderTab } from "./tabs/RelationshipBuilderTab";
+import { AlphaProgrammeTab } from "./tabs/AlphaProgrammeTab";
 
 interface TabRendererProps {
   tab: CodexTab;
@@ -84,6 +85,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   KnytAlphaTab,
   AgentiQOSTab,
   RelationshipBuilderTab,
+  AlphaProgrammeTab,
   RewardsTab: PlaceholderTab,
   DocsTab: PlaceholderTab,
   APITab: PlaceholderTab,
