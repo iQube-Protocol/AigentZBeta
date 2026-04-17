@@ -56,7 +56,14 @@ SECRET_KEY = os.environ.get("MAILJET_SECRET_KEY", "")
 FROM_NAME  = "Dele Atanda"
 FROM_EMAIL = os.environ.get("MAILJET_FROM_EMAIL", "dele@metaknyt.com")
 KS_URL     = "https://www.kickstarter.com/projects/430245948/metaknyt-the-legend-of-kn0w1-and-the-21-sats?ref=project_build"
-LOGO_URL   = os.environ.get("METAKNYT_LOGO_URL", "")
+
+# Logo: embed from local file as base64 data URI (no external hosting needed)
+_LOGO_LOCAL = Path(__file__).parent.parent / "public" / "images" / "metaknyt-logo.jpg"
+if _LOGO_LOCAL.exists():
+    _logo_b64 = base64.b64encode(_LOGO_LOCAL.read_bytes()).decode()
+    LOGO_SRC  = f"data:image/jpeg;base64,{_logo_b64}"
+else:
+    LOGO_SRC  = os.environ.get("METAKNYT_LOGO_URL", "")
 
 if not API_KEY or not SECRET_KEY:
     sys.exit("ERROR: MAILJET_API_KEY / MAILJET_SECRET_KEY not set in .env.local or environment.")
@@ -112,8 +119,8 @@ def html_template(subject: str, preheader: str, body_html: str, cta_text: str) -
 
           <!-- Header logo -->
           <tr>
-            <td style="background:#ffffff;padding:24px 36px;border-bottom:1px solid #1e1e1e;text-align:left;">
-              {'<img src="' + LOGO_URL + '" alt="metaKnyt" width="180" style="display:block;border:0;max-width:180px;" />' if LOGO_URL else '<p style="margin:0;color:#888888;font-size:11px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;">metaKnyt</p>'}
+            <td style="background:#ffffff;padding:20px 36px;border-bottom:1px solid #1e1e1e;text-align:left;">
+              {'<img src="' + LOGO_SRC + '" alt="metaKnyt" width="200" style="display:block;border:0;max-width:200px;" />' if LOGO_SRC else '<p style="margin:0;color:#888888;font-size:11px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;">metaKnyt</p>'}
             </td>
           </tr>
 
