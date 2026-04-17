@@ -27,14 +27,23 @@ const ALPHA_DEFAULT = {
   trustThresholdMin:   25,
   skillBudgetPosture:  "open",
   nativeAssetExposure: "none",
-  requiredReceipts:    ["agent:onboard", "skill:grant", "treasury:withdrawal", "cartridge:publish"] as string[],
+  requiredReceipts:    [
+    "agent:create", "skill:grant", "trust:change",
+    "treasury:withdrawal", "cartridge:publish", "policy:change",
+  ] as string[],
   escalationBehavior:  {},
   active:              true,
   targets: {
     trustThresholdMin:   70,
     skillBudgetPosture:  "conservative",
     nativeAssetExposure: "limited",
-    requiredReceipts:    ["agent:onboard", "skill:grant", "trust:change", "treasury:withdrawal", "cartridge:publish"],
+    requiredReceipts:    [
+      "agent:create", "agent:update", "agent:deactivate",
+      "skill:grant", "skill:update", "skill:revoke",
+      "cartridge:publish", "cartridge:update", "cartridge:unpublish",
+      "trust:change", "treasury:withdrawal", "treasury:transfer",
+      "policy:change", "receipt:finalize",
+    ],
   },
 };
 
