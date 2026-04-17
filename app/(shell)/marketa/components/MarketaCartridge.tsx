@@ -135,7 +135,7 @@ export default function MarketaCartridge() {
       }
       if (partnerRes.ok) {
         const d = await partnerRes.json();
-        if (d.ok) setAvlPartners(d.partners ?? []);
+        if (d.ok) setAvlPartners(d.data?.partners ?? []);
       }
       if (kpiRes?.ok) {
         const d = await kpiRes.json();
