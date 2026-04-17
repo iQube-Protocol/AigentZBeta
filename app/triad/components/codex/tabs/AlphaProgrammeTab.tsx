@@ -451,6 +451,7 @@ export function AlphaProgrammeTab() {
       {/* Workstream status grid */}
       <div className="space-y-2">
         <h3 className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Programme Workstreams</h3>
+        <div className="grid grid-cols-2 gap-2">
         {WORKSTREAMS.map((ws) => {
           const style = STATUS_STYLES[ws.status];
           const Icon  = style.icon;
@@ -484,6 +485,7 @@ export function AlphaProgrammeTab() {
             </div>
           );
         })}
+        </div>
       </div>
 
       {/* Critical path */}

@@ -405,6 +405,24 @@ export const KNYT_CODEX: CodexConfig = {
         description: 'Partner and customer outreach — 18 AVL partner contacts, KS Prospects funnel, campaign composer for Marketa email dispatch',
         color: 'violet'
       }
+    },
+    {
+      id: 'venture-lab-alpha',
+      label: 'Venture Lab α',
+      slug: 'venture-lab-alpha',
+      enabled: true,
+      adminOnly: true,
+      order: 16,
+      type: 'static',
+      config: {
+        component: 'VentureLabAlphaTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Zap',
+        description: 'Venture Lab α planning corpus — 23-doc strategy and implementation archive, with deep link back to the KNYT Wheel card in α Programme',
+        color: 'amber'
+      }
     }
   ],
   permissions: {
@@ -933,78 +951,12 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
   },
   tabs: [
     {
-      id: 'venture-lab-docs',
-      label: 'Venture Lab α',
-      slug: 'venture-lab-docs',
-      enabled: true,
-      adminOnly: true,
-      order: 1,
-      type: 'static',
-      config: {
-        component: 'AgentiqCartridgeTab',
-        props: {
-          packId: 'alpha-knyt',
-          collectionId: 'col_venture_lab',
-          defaultPath: 'items/01-alpha-program-positioning.md'
-        }
-      },
-      metadata: {
-        icon: 'Zap',
-        description: 'Full 23-doc Venture Lab α planning corpus — strategy, agent specs, economics, cartridge design, implementation PRDs',
-        color: 'amber'
-      }
-    },
-    {
-      id: 'relationship-builder-alpha',
-      label: 'Relationship Builder α',
-      slug: 'relationship-builder-alpha',
-      enabled: true,
-      adminOnly: true,
-      order: 2,
-      type: 'static',
-      config: {
-        component: 'AgentiqCartridgeTab',
-        props: {
-          packId: 'alpha-knyt',
-          collectionId: 'col_relationship_builder_alpha',
-          defaultPath: 'items/24-relationship-builder-overview.md'
-        }
-      },
-      metadata: {
-        icon: 'Users',
-        description: 'AVL Relationship Builder α — KNYT Relationship Composer, partner and customer surfaces, Studio-powered journey orchestration, and continuity beyond Kickstarter.',
-        color: 'rose'
-      }
-    },
-    {
-      id: 'agentiq-alpha',
-      label: 'AgentiQ α',
-      slug: 'agentiq-alpha',
-      enabled: true,
-      adminOnly: true,
-      order: 3,
-      type: 'static',
-      config: {
-        component: 'AgentiqCartridgeTab',
-        props: {
-          packId: 'agentiq',
-          collectionId: 'col_alpha_program',
-          defaultPath: 'items/ALPHA_PROGRAM_OVERVIEW.md'
-        }
-      },
-      metadata: {
-        icon: 'Rocket',
-        description: 'AgentiQ Alpha launch programme — architecture, build plan, asset map',
-        color: 'amber'
-      }
-    },
-    {
       id: 'agentiq-os-vl',
       label: 'AgentiQ OS α',
       slug: 'agentiq-os-vl',
       enabled: true,
       adminOnly: true,
-      order: 4,
+      order: 1,
       type: 'static',
       config: {
         component: 'AgentiQOSTab',
@@ -1022,7 +974,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'relationship-builder',
       enabled: true,
       adminOnly: true,
-      order: 5,
+      order: 2,
       type: 'static',
       config: {
         component: 'RelationshipBuilderTab',
@@ -1040,7 +992,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'alpha-programme',
       enabled: true,
       adminOnly: true,
-      order: 6,
+      order: 3,
       type: 'static',
       config: {
         component: 'AlphaProgrammeTab',
@@ -1050,6 +1002,24 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
         icon: 'LayoutDashboard',
         description: 'Four-workstream programme overview with live progress report — AgentiQ Alpha (complete), KNYT Wheel (active), Relationship Builder α (MVP in progress), Venture Lab α (queued).',
         color: 'violet'
+      }
+    },
+    {
+      id: 'alpha-docs',
+      label: 'α Docs',
+      slug: 'alpha-docs',
+      enabled: true,
+      adminOnly: true,
+      order: 4,
+      type: 'static',
+      config: {
+        component: 'AlphaDocsTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'BookOpen',
+        description: 'All planning corpora — Venture Labs α, AgentiQ α, AgentiQ OS α, and Programme α docs in one place',
+        color: 'amber'
       }
     }
   ],
