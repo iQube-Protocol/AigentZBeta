@@ -219,7 +219,7 @@ TEMPLATES = [
             + p("But the vision goes beyond the book.")
             + p("metaKnyt is designed as the gateway into a larger story world, one that can evolve over time through media, technology, and deeper audience participation.")
             + p("So yes, there is a book.<br>But there is also a world behind it.")
-            + p("If that sounds like something you\u2019d enjoy exploring, you can see the live Kickstarter here. More soon, including why this project is being built differently.")
+            + p("If that sounds like something you\u2019d enjoy exploring, you can see the live Kickstarter <a href=\"{{var:ks_url}}\" style=\"color:#f5c842;\">here</a>. More soon, including why this project is being built differently.")
             + p("Warmly,<br><strong style=\"color:#f0f0f0;\">Dele Atanda</strong><br><span style=\"color:#888888;\">metaKnyts</span>")
         ),
         "cta_text": "Explore on Kickstarter",
