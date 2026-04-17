@@ -217,7 +217,7 @@ TEMPLATES = [
             + p("On one level, it is a beautifully crafted graphic novel featuring a portal war between physical and digital worlds, a hidden Order, and a mystery at its center:")
             + p("<em style=\"color:#f0f0f0;\"><strong>Why did Satoshi disappear?</strong></em>")
             + p("But the vision goes beyond the book.")
-            + p("metaKnyts is designed as the gateway into a larger story world, one that can evolve over time through media, technology, and deeper audience participation.")
+            + p("metaKnyt is designed as the gateway into a larger story world, one that can evolve over time through media, technology, and deeper audience participation.")
             + p("So yes, there is a book.<br>But there is also a world behind it.")
             + p("If that sounds like something you\u2019d enjoy exploring, you can see the live Kickstarter here. More soon, including why this project is being built differently.")
             + p("Warmly,<br><strong style=\"color:#f0f0f0;\">Dele Atanda</strong><br><span style=\"color:#888888;\">metaKnyts</span>")
@@ -235,7 +235,7 @@ TEMPLATES = [
             "",
             "But the vision goes beyond the book.",
             "",
-            "metaKnyts is designed as the gateway into a larger story world, one that can",
+            "metaKnyt is designed as the gateway into a larger story world, one that can",
             "evolve over time through media, technology, and deeper audience participation.",
             "",
             "So yes, there is a book.",
