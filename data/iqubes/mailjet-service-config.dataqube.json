@@ -1,0 +1,97 @@
+{
+  "assetClass": "DataQube",
+  "name": "Mailjet Email Service Config",
+  "slug": "mailjet-service-config",
+  "description": "Configuration iQube for the Mailjet email service setup skill. Populate with your Mailjet credentials, sender identity, logo path, and campaign copy doc before running /setup-mailjet-service. Template IDs are written back here after creation.",
+  "currentVersion": "1.0.0",
+  "trustBand": "L2_VERIFIED_COMMUNITY",
+  "publicationStatus": "draft",
+  "policyClass": "secret_bound",
+  "wrapperStrategy": "skill",
+  "schema": {
+    "credentials": {
+      "MAILJET_API_KEY": {
+        "type": "string",
+        "required": true,
+        "secret": true,
+        "description": "Mailjet public API key — found in Mailjet account → API Keys"
+      },
+      "MAILJET_SECRET_KEY": {
+        "type": "string",
+        "required": true,
+        "secret": true,
+        "description": "Mailjet secret API key — found in Mailjet account → API Keys"
+      }
+    },
+    "sender_identity": {
+      "MAILJET_FROM_NAME": {
+        "type": "string",
+        "required": true,
+        "example": "Dele Atanda",
+        "description": "Sender display name shown to recipients"
+      },
+      "MAILJET_FROM_EMAIL": {
+        "type": "string",
+        "required": true,
+        "example": "dele@metaknyt.com",
+        "description": "Verified sender email — must be verified in Mailjet before sending"
+      }
+    },
+    "branding": {
+      "MAILJET_LOGO_PATH": {
+        "type": "string",
+        "required": false,
+        "default": "public/images/metaknyt-logo.png",
+        "description": "Relative path to logo image (PNG preferred, JPG accepted). Resized to 560px max and embedded as base64. No CDN or external hosting required."
+      }
+    },
+    "campaign": {
+      "MAILJET_CAMPAIGN_ID": {
+        "type": "string",
+        "required": true,
+        "example": "ks_prospects",
+        "description": "Short identifier for the campaign. Used to namespace template env var names: MAILJET_TEMPLATE_{CAMPAIGN_ID}_{N}"
+      },
+      "MAILJET_COPY_DOC": {
+        "type": "string",
+        "required": true,
+        "example": "docs/alpha/agentiq-knyt/32-ks-backers-email-sequence.md",
+        "description": "Path to the campaign copy markdown doc containing the full email sequence"
+      }
+    },
+    "template_ids": {
+      "description": "Populated automatically by /setup-mailjet-service after template creation. Add to .env.local and Amplify env vars.",
+      "MAILJET_TEMPLATE_KS_PROSPECTS_01": { "type": "integer", "description": "Email 1 — Introduction / Awareness" },
+      "MAILJET_TEMPLATE_KS_PROSPECTS_02": { "type": "integer", "description": "Email 2 — Interest / Why it exists" },
+      "MAILJET_TEMPLATE_KS_PROSPECTS_03": { "type": "integer", "description": "Email 3 — Craft + uniqueness" },
+      "MAILJET_TEMPLATE_KS_PROSPECTS_04": { "type": "integer", "description": "Email 4 — Conversion / Direct ask" },
+      "MAILJET_TEMPLATE_KS_PROSPECTS_05": { "type": "integer", "description": "Email 5 — Mid-campaign reminder" },
+      "MAILJET_TEMPLATE_KS_PROSPECTS_06": { "type": "integer", "description": "Email 6 — 48-hour urgency" },
+      "MAILJET_TEMPLATE_KS_PROSPECTS_07": { "type": "integer", "description": "Email 7 — Final day" },
+      "MAILJET_TEMPLATE_KS_PROSPECTS_08": { "type": "integer", "description": "Email 8 — Post-campaign continuity" }
+    }
+  },
+  "populated_values": {
+    "MAILJET_FROM_NAME":  "Dele Atanda",
+    "MAILJET_FROM_EMAIL": "info@metame.com",
+    "MAILJET_LOGO_PATH":  "public/images/metaknyt-logo.png",
+    "MAILJET_CAMPAIGN_ID": "ks_prospects",
+    "MAILJET_COPY_DOC":   "docs/alpha/agentiq-knyt/32-ks-backers-email-sequence.md",
+    "MAILJET_TEMPLATE_KS_PROSPECTS_01": 7936171,
+    "MAILJET_TEMPLATE_KS_PROSPECTS_02": 7936172,
+    "MAILJET_TEMPLATE_KS_PROSPECTS_03": 7936173,
+    "MAILJET_TEMPLATE_KS_PROSPECTS_04": 7936174,
+    "MAILJET_TEMPLATE_KS_PROSPECTS_05": 7936175,
+    "MAILJET_TEMPLATE_KS_PROSPECTS_06": 7936176,
+    "MAILJET_TEMPLATE_KS_PROSPECTS_07": 7936177,
+    "MAILJET_TEMPLATE_KS_PROSPECTS_08": 7936178
+  },
+  "tags": ["email", "mailjet", "campaign", "config", "ks-prospects"],
+  "metadata": {
+    "skillQube":     "scripts/skills/setup-mailjet-service.skill.json",
+    "sendScript":    "scripts/send-ks-prospects-email1.js",
+    "templatesScript": "scripts/mailjet_create_ks_prospects_templates.py"
+  },
+  "createdBy": "claude-code",
+  "createdAt": "2026-04-17"
+}

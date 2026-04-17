@@ -1,0 +1,161 @@
+{
+  "assetClass": "SkillQube",
+  "name": "Setup Mailjet Email Service",
+  "slug": "setup-mailjet-service",
+  "description": "End-to-end Mailjet campaign email service setup. Validates credentials, embeds a logo image, creates responsive HTML+text templates from a copy document, sends test emails, and outputs all template IDs as ready-to-paste env vars. Idempotent — safe to re-run to update existing templates.",
+  "currentVersion": "1.0.0",
+  "trustBand": "L2_VERIFIED_COMMUNITY",
+  "publicationStatus": "draft",
+  "policyClass": "secret_bound",
+  "wrapperStrategy": "skill",
+  "interfaceSchema": {
+    "inputs": {
+      "MAILJET_API_KEY": {
+        "type": "string",
+        "source": "env",
+        "required": true,
+        "description": "Mailjet public API key"
+      },
+      "MAILJET_SECRET_KEY": {
+        "type": "string",
+        "source": "env",
+        "required": true,
+        "description": "Mailjet secret API key"
+      },
+      "MAILJET_FROM_NAME": {
+        "type": "string",
+        "source": "env",
+        "required": true,
+        "description": "Sender display name shown to recipients"
+      },
+      "MAILJET_FROM_EMAIL": {
+        "type": "string",
+        "source": "env",
+        "required": true,
+        "description": "Verified sender email address in Mailjet account"
+      },
+      "MAILJET_LOGO_PATH": {
+        "type": "string",
+        "source": "env",
+        "required": false,
+        "default": "public/images/metaknyt-logo.png",
+        "description": "Relative path to logo image (PNG or JPG). Embedded as base64 — no external hosting required."
+      },
+      "MAILJET_CAMPAIGN_ID": {
+        "type": "string",
+        "source": "arg",
+        "required": true,
+        "description": "Unique campaign identifier used to namespace template names (e.g. ks_prospects, investor_wheel)"
+      },
+      "MAILJET_COPY_DOC": {
+        "type": "string",
+        "source": "arg",
+        "required": true,
+        "description": "Path to campaign copy markdown doc containing email sequence definitions"
+      },
+      "MAILJET_TEST_EMAIL": {
+        "type": "string",
+        "source": "arg",
+        "required": false,
+        "description": "If provided, sends a test of Email 1 to this address after template creation"
+      },
+      "MAILJET_EMAIL_NUMBER": {
+        "type": "integer",
+        "source": "arg",
+        "required": false,
+        "description": "If provided, creates/updates only this email number (1-based). Omit to process all."
+      },
+      "MAILJET_UPDATE": {
+        "type": "boolean",
+        "source": "arg",
+        "required": false,
+        "default": false,
+        "description": "If true, force-updates content of templates that already exist"
+      }
+    },
+    "outputs": {
+      "template_ids": {
+        "type": "object",
+        "description": "Map of env var name → Mailjet template ID for all created templates"
+      },
+      "amplify_env_block": {
+        "type": "string",
+        "description": "Ready-to-paste block of MAILJET_TEMPLATE_* env vars for Amplify"
+      },
+      "templates_created": {
+        "type": "integer",
+        "description": "Number of new templates created in this run"
+      },
+      "templates_updated": {
+        "type": "integer",
+        "description": "Number of existing templates updated in this run"
+      }
+    }
+  },
+  "capabilities": [
+    {
+      "id": "validate_credentials",
+      "name": "Validate Mailjet Credentials",
+      "description": "Verifies MAILJET_API_KEY and MAILJET_SECRET_KEY by calling GET /v3/REST/template",
+      "inputs": ["MAILJET_API_KEY", "MAILJET_SECRET_KEY"],
+      "outputs": ["credential_status"]
+    },
+    {
+      "id": "embed_logo",
+      "name": "Embed Logo Image",
+      "description": "Reads logo from MAILJET_LOGO_PATH, resizes to max 560px wide via Pillow, encodes as base64 data URI. Falls back to text wordmark if no logo found.",
+      "inputs": ["MAILJET_LOGO_PATH"],
+      "outputs": ["logo_src"]
+    },
+    {
+      "id": "create_templates",
+      "name": "Create Email Templates",
+      "description": "Creates responsive HTML + plain-text Mailjet templates from campaign copy doc. Header: white background with logo. Body: dark (#111111) with gold (#f5c842) CTA button. Footer: sender attribution + unsubscribe link.",
+      "inputs": ["MAILJET_API_KEY", "MAILJET_SECRET_KEY", "MAILJET_FROM_NAME", "MAILJET_FROM_EMAIL", "MAILJET_CAMPAIGN_ID", "MAILJET_COPY_DOC"],
+      "outputs": ["template_ids"]
+    },
+    {
+      "id": "send_test",
+      "name": "Send Test Email",
+      "description": "Sends a test of a specified email (default: Email 1) to MAILJET_TEST_EMAIL using the created template, with live KS URL and first_name variable populated.",
+      "inputs": ["MAILJET_TEST_EMAIL", "template_ids"],
+      "outputs": ["send_status"]
+    },
+    {
+      "id": "output_env_vars",
+      "name": "Output Env Var Block",
+      "description": "Prints all MAILJET_TEMPLATE_* env var names and IDs ready to paste into Amplify or .env.local",
+      "inputs": ["template_ids", "MAILJET_CAMPAIGN_ID"],
+      "outputs": ["amplify_env_block"]
+    }
+  ],
+  "steps": [
+    { "name": "load_env",          "tool": "python",    "prompt": "Load credentials and config from .env.local" },
+    { "name": "validate_creds",    "tool": "http_get",  "prompt": "GET /v3/REST/template to verify credentials and fetch existing template names" },
+    { "name": "embed_logo",        "tool": "python",    "prompt": "Read logo file, resize with Pillow (560px max), encode as base64 data URI" },
+    { "name": "parse_copy_doc",    "tool": "python",    "prompt": "Parse campaign copy markdown doc to extract subject, preheader, body, and CTA per email" },
+    { "name": "create_templates",  "tool": "http_post", "prompt": "POST /v3/REST/template for each email in sequence (skip if exists and not --update)" },
+    { "name": "set_content",       "tool": "http_post", "prompt": "POST /v3/REST/template/{id}/detailcontent with HTML shell + parsed copy per email" },
+    { "name": "send_test",         "tool": "http_post", "prompt": "POST /v3.1/send test email if MAILJET_TEST_EMAIL provided" },
+    { "name": "output_ids",        "tool": "stdout",    "prompt": "Print MAILJET_TEMPLATE_{CAMPAIGN}_{N} env var block ready for Amplify" }
+  ],
+  "tags": ["email", "mailjet", "campaign", "templates", "operator-tool", "setup"],
+  "metadata": {
+    "entrypoint":    "scripts/mailjet_create_ks_prospects_templates.py",
+    "language":      "python",
+    "runtime":       "python3",
+    "claudeCommand": "/setup-mailjet-service",
+    "configIQube":   "data/iqubes/mailjet-service-config.dataqube.json",
+    "relatedAdapter": "services/campaign/adapters/mailjetAdapter.ts",
+    "relatedWebhook": "app/api/crm/webhooks/mailjet/route.ts",
+    "relatedScripts": [
+      "scripts/mailjet_create_templates.py",
+      "scripts/mailjet_create_ks_prospects_templates.py",
+      "scripts/send-ks-prospects-email1.js"
+    ],
+    "requirements": ["Pillow (pip install Pillow) — optional, used for logo resizing"],
+    "notes": "From email must be a verified sender in the Mailjet account before templates can be used for live sends."
+  },
+  "createdBy": "claude-code",
+  "createdAt": "2026-04-17"
+}
