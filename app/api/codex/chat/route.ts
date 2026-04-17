@@ -1128,6 +1128,117 @@ function generateComposerFallbackResponse({
   ].join('\n\n');
 }
 
+// ── Kn0w1 Inference Core ────────────────────────────────────────────────────
+
+type Know1SkillId =
+  | 'information_value_interpret'
+  | 'risk_frame_humanize'
+  | 'pricing_logic_explain'
+  | 'knyt_treasury_explain'
+  | 'knyt_rewards_explain'
+  | 'qc_vs_knyt_explain'
+  | '21sats_structure_explain'
+  | 'opportunity_shape';
+
+const SKILL_INTENT_PATTERNS: Array<{ skill: Know1SkillId; patterns: RegExp[] }> = [
+  { skill: 'knyt_treasury_explain',      patterns: [/treasury/i, /what.*hold/i, /\bfund\b/i] },
+  { skill: 'knyt_rewards_explain',       patterns: [/reward/i, /\bearn\b/i, /\$knyt/i, /balance/i, /how much.*have/i, /provisional/i, /finalised?/i] },
+  { skill: 'qc_vs_knyt_explain',         patterns: [/\bqc\b/i, /qriptocent/i, /qc.*vs|vs.*qc/i, /difference.*qc/i, /qc.*differ/i, /qc.*\$knyt|\$knyt.*qc/i] },
+  { skill: 'pricing_logic_explain',      patterns: [/pric/i, /\bcost\b/i, /how much.*skill/i, /session.*cost/i, /\bfee\b/i] },
+  { skill: '21sats_structure_explain',   patterns: [/21\s*sats/i, /satoshi/i, /\bavs\b/i, /sub.?tenant/i] },
+  { skill: 'opportunity_shape',          patterns: [/next.*move/i, /what.*(?:do|should)/i, /how.*participate/i, /venture/i, /progression/i, /my path/i] },
+  { skill: 'risk_frame_humanize',        patterns: [/\brisk/i, /uncertain/i, /\bvolatil/i, /\bsafe\b/i] },
+  { skill: 'information_value_interpret', patterns: [/\bworth\b/i, /value of/i, /what.*mean/i, /\binterpret\b/i] },
+];
+
+function detectSkillIntent(message: string): Know1SkillId | null {
+  for (const { skill, patterns } of SKILL_INTENT_PATTERNS) {
+    if (patterns.some(p => p.test(message))) return skill;
+  }
+  return null;
+}
+
+interface KnytLiveContext {
+  knyt_balance: number | null;
+  signal_counts: { like: number; spark: number; curate: number; total: number } | null;
+  patronage_stage: string | null;
+  pcs_stage: string | null;
+  active_elections: Array<{ id: string; title: string; closes_at: string | null; branch: string }>;
+  recent_participation: Array<{ action_type: string; created_at: string; provisional: boolean }>;
+}
+
+async function fetchKnytLiveContext(personaId?: string): Promise<KnytLiveContext> {
+  const empty: KnytLiveContext = {
+    knyt_balance: null, signal_counts: null, patronage_stage: null,
+    pcs_stage: null, active_elections: [], recent_participation: [],
+  };
+
+  const url  = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return empty;
+
+  const db = createClient(url, key);
+
+  // Wrap Supabase PromiseLike in a real Promise with timeout + error swallow
+  function safeQuery<T>(query: PromiseLike<{ data: T | null }>, fallback: T, ms = 3000): Promise<T> {
+    return Promise.race([
+      Promise.resolve(query).then(({ data }) => data ?? fallback).catch(() => fallback),
+      new Promise<T>(r => setTimeout(() => r(fallback), ms)),
+    ]);
+  }
+
+  const [balanceRows, journeyRow, signalRows, electionsRows, participationRows] =
+    await Promise.all([
+      personaId
+        ? safeQuery(db.from('knyt_reward_grants').select('amount_knyt').eq('persona_id', personaId), [])
+        : Promise.resolve([]),
+      personaId
+        ? safeQuery(db.from('journey_states').select('stage').eq('persona_id', personaId)
+            .order('active_at', { ascending: false }).limit(1).maybeSingle() as PromiseLike<{ data: { stage: string } | null }>, null)
+        : Promise.resolve(null),
+      personaId
+        ? safeQuery(db.from('knyt_signals').select('signal_type').eq('persona_id', personaId), [])
+        : Promise.resolve([]),
+      safeQuery(
+        db.from('knyt_elections').select('id, title, closes_at, branch')
+          .eq('status', 'open').order('closes_at', { ascending: true }).limit(3),
+        []
+      ),
+      personaId
+        ? safeQuery(db.from('knyt_qc_events').select('action_type, created_at, provisional')
+            .eq('persona_id', personaId).order('created_at', { ascending: false }).limit(5), [])
+        : Promise.resolve([]),
+    ]);
+
+  const stage = (journeyRow as { stage: string } | null)?.stage ?? 'prospect';
+  const rows = signalRows as Array<{ signal_type: string }>;
+  const like   = rows.filter(s => s.signal_type === 'like').length;
+  const spark  = rows.filter(s => s.signal_type === 'spark').length;
+  const curate = rows.filter(s => s.signal_type === 'curate').length;
+  const total  = like + spark + curate;
+  const signalCounts = rows.length > 0 ? { like, spark, curate, total } : null;
+  const pcsStageLabel = (() => {
+    if (total >= 100) return 'Upstream'; if (total >= 50) return 'Creator';
+    if (total >= 20) return 'Operator'; if (total >= 10) return 'Correspondent';
+    if (total >= 3) return 'Community'; return 'Participant';
+  })();
+  const patronageMap: Record<string, string> = {
+    prospect: 'Outside Order', acolyte: 'Apprentice', keta: 'Knight',
+    keji: 'Esquire', first: 'Sennight', zero: 'Satoshi',
+  };
+  const balance = (balanceRows as Array<{ amount_knyt: unknown }>)
+    .reduce((s, g) => s + parseFloat(String(g.amount_knyt ?? 0)), 0);
+
+  return {
+    knyt_balance: (balanceRows as unknown[]).length > 0 ? parseFloat(balance.toFixed(8)) : null,
+    signal_counts: signalCounts,
+    patronage_stage: personaId ? (patronageMap[stage] ?? 'Outside Order') : null,
+    pcs_stage: personaId ? pcsStageLabel : null,
+    active_elections: electionsRows as KnytLiveContext['active_elections'],
+    recent_participation: participationRows as KnytLiveContext['recent_participation'],
+  };
+}
+
 // Search Knowledge Base for relevant content with timeout
 async function searchKnowledgeBase(
   query: string, 
@@ -1340,7 +1451,9 @@ function buildSystemPrompt(
   metadata: CodexMetadata,
   aigentId: string,
   userContext?: UserContext,
-  kbContext?: KBSearchResult[]
+  kbContext?: KBSearchResult[],
+  liveContext?: KnytLiveContext,
+  activeSkill?: Know1SkillId | null,
 ): string {
   // Normalize short keys ('marketa', 'kn0w1') to full IDs ('aigent-marketa', 'aigent-kn0w1')
   const resolvedPersonaId = normalizeAgentId(aigentId) ?? 'aigent-kn0w1';
@@ -1405,6 +1518,50 @@ ${kb.content.substring(0, 800)}${kb.content.length > 800 ? '...' : ''}`).join('\
   Synopsis: ${e.synopsis?.substring(0, 200) || 'No synopsis'}...`;
     }).join('\n\n');
 
+    // Live KNYT state injection (balance, stage, elections, participation)
+    let liveSection = '';
+    if (liveContext) {
+      const lines: string[] = [];
+      if (liveContext.knyt_balance !== null)
+        lines.push(`- $KNYT balance: **${liveContext.knyt_balance}** (combined pending + settled)`);
+      if (liveContext.patronage_stage)
+        lines.push(`- Patronage stage: **${liveContext.patronage_stage}**`);
+      if (liveContext.pcs_stage)
+        lines.push(`- PCS stage: **${liveContext.pcs_stage}**`);
+      if (liveContext.signal_counts)
+        lines.push(`- Signals: ${liveContext.signal_counts.like} likes, ${liveContext.signal_counts.spark} sparks, ${liveContext.signal_counts.curate} curations (total: ${liveContext.signal_counts.total})`);
+      if (liveContext.active_elections.length > 0) {
+        const electionList = liveContext.active_elections
+          .map(e => `  • "${e.title}" (${e.branch} branch${e.closes_at ? `, closes ${new Date(e.closes_at).toLocaleDateString()}` : ''})`)
+          .join('\n');
+        lines.push(`- Active Living Canon elections:\n${electionList}`);
+      }
+      if (liveContext.recent_participation.length > 0) {
+        const partList = liveContext.recent_participation
+          .map(p => `  • ${p.action_type}${p.provisional ? ' (provisional)' : ''} — ${new Date(p.created_at).toLocaleDateString()}`)
+          .join('\n');
+        lines.push(`- Recent participation:\n${partList}`);
+      }
+      if (lines.length > 0) {
+        liveSection = `\n\n## This User's Live KNYT State\n\n${lines.join('\n')}`;
+      }
+    }
+
+    // Active skill focus — tell Kn0w1 which of its 8 skills the query triggers
+    const SKILL_DESCRIPTIONS: Record<Know1SkillId, string> = {
+      information_value_interpret: 'Frame what this knowledge or content is worth inside the KNYT system.',
+      risk_frame_humanize:         'Translate risk or uncertainty into plain language — honest, not alarming.',
+      pricing_logic_explain:       'Explain Qc pricing for skills, sessions, or actions.',
+      knyt_treasury_explain:       'Explain the KNYT Treasury — what it is, what it holds, how it sustains the economy.',
+      knyt_rewards_explain:        'Explain the KNYT rewards model — what participation earns, provisional vs finalised.',
+      qc_vs_knyt_explain:          'Explain the Qc / $KNYT distinction. Governing rule: Qc operates; $KNYT expresses and rewards.',
+      '21sats_structure_explain':  'Explain 21 Sats — what it is, how it sits inside KNYT, the coordination path to AVS.',
+      opportunity_shape:           "Help the user see and articulate their next real move inside the system.",
+    };
+    const skillFocusSection = activeSkill
+      ? `\n\n## Active Skill Focus\n\nThe user's query activates skill: **${activeSkill}**\nFocus: ${SKILL_DESCRIPTIONS[activeSkill]}\nApply this skill's framing as your primary lens for this response.`
+      : '';
+
     return `${personaIntro}${policyBlock}
 
 ${roleGuidelines}
@@ -1445,7 +1602,7 @@ After your response, add:
 3. Help users discover content they might enjoy
 4. Reference specific episodes or characters when relevant
 5. If asked about something not in your knowledge base, acknowledge it gracefully
-6. Be engaging and immersive — you are a guide to this universe${kbSection}`;
+6. Be engaging and immersive — you are a guide to this universe${kbSection}${liveSection}${skillFocusSection}`;
   }
 
   // Platform/system agents: persona system prompt only, plus any KB hits
@@ -1483,6 +1640,8 @@ export async function POST(request: NextRequest) {
       receipt_visibility,
       skill_filter,
       explanation_first,
+      // Kn0w1 live context — optional personaId to fetch live KNYT state
+      personaId,
     } = body;
 
     if (!message) {
@@ -1531,18 +1690,22 @@ export async function POST(request: NextRequest) {
     if (isComposerMode) {
       systemPrompt = buildComposerSystemPrompt(composerSessionContext as ComposerSessionContext);
     } else {
-      // Fetch codex metadata and search KB in parallel
-      const [resolvedMetadata, resolvedKbResults] = await Promise.all([
+      const resolvedAgentForFetch = (typeof aigentId === 'string' && normalizeAgentId(aigentId)) || defaultAgentIdForPersona(persona);
+      const isKn0w1 = resolvedAgentForFetch === 'aigent-kn0w1';
+      const activeSkill = isKn0w1 ? detectSkillIntent(message) : null;
+
+      // Fetch codex metadata, KB results, and (for Kn0w1) live KNYT state in parallel
+      const [resolvedMetadata, resolvedKbResults, resolvedLiveContext] = await Promise.all([
         fetchCodexMetadata(domain),
         searchKnowledgeBase(message, domain, 3),
+        isKn0w1 ? fetchKnytLiveContext(typeof personaId === 'string' ? personaId : undefined) : Promise.resolve(undefined),
       ]);
       metadata = resolvedMetadata;
       kbResults = resolvedKbResults;
 
-      console.log(`[CodexChat] KB search returned ${kbResults.length} results`);
-      
-      // Build system prompt with codex context, user role, AND KB content
-      systemPrompt = buildSystemPrompt(metadata, persona, userContext, kbResults);
+      console.log(`[CodexChat] KB search returned ${kbResults.length} results${isKn0w1 ? `, skill intent: ${activeSkill ?? 'none'}` : ''}`);
+
+      systemPrompt = buildSystemPrompt(metadata, persona, userContext, kbResults, resolvedLiveContext ?? undefined, activeSkill);
     }
 
     const requestedProviderId = normalizeRuntimeProviderId(provider_id);
