@@ -239,7 +239,7 @@ const WORKSTREAMS: Array<{
     label: "KNYT Wheel",
     status: "active",
     summary: "Live campaign — KS launch, investor emails, cohort management, Marketa activation.",
-    link: "/triad/embed/codex/knyt-codex?tab=venture-lab-alpha",
+    link: "/triad/embed/codex/venture-lab?tab=alpha-docs",
     items: [
       { text: "KS campaign live", done: true },
       { text: "Investor cohorts segmented", done: true },
