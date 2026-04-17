@@ -533,12 +533,49 @@ def set_content(template_id: int, tpl: dict) -> None:
     print(f"     Content set for ID {template_id}")
 
 
+def send_test(template_id: int, tpl: dict, to_email: str, to_name: str) -> None:
+    """Send a single test email via Mailjet Send API v3.1."""
+    payload = {
+        "Messages": [{
+            "From":     {"Email": FROM_EMAIL, "Name": FROM_NAME},
+            "To":       [{"Email": to_email, "Name": to_name}],
+            "Subject":  f"[TEST] {tpl['subject']}",
+            "TemplateID": template_id,
+            "TemplateLanguage": True,
+            "Variables": {
+                "first_name": to_name.split()[0] if to_name else "there",
+                "ks_url": "https://kickstarter.com",
+                "unsubscribe_url": "#",
+            },
+        }]
+    }
+    data = json.dumps(payload).encode()
+    req  = urllib.request.Request(
+        "https://api.mailjet.com/v3.1/send",
+        data=data,
+        headers={"Authorization": AUTH, "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req) as resp:
+            result = json.loads(resp.read())
+        status = result["Messages"][0]["Status"]
+        print(f"  ✉  Test sent to {to_email} — status: {status}")
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        print(f"  ✗  Send failed: {e.code} — {body}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="KS Prospects — Mailjet Template Creator")
     parser.add_argument("--update", action="store_true",
                         help="Force-update content of existing templates")
     parser.add_argument("--email", type=int, choices=range(1, 9), metavar="N",
                         help="Create/update only Email N (1–8)")
+    parser.add_argument("--test", metavar="EMAIL",
+                        help="Send a test of --email N to this address")
+    parser.add_argument("--test-name", metavar="NAME", default="Test",
+                        help="Recipient name for test send (default: Test)")
     args = parser.parse_args()
 
     print("\n── KS Prospects — Mailjet Template Creator ──────────────────────────")
@@ -561,6 +598,8 @@ def main() -> None:
             set_content(tid, tpl)
         else:
             print(f"     Skipping content update (use --update to refresh)")
+        if args.test:
+            send_test(tid, tpl, args.test, args.test_name)
         results.append((tpl["env_key"], tid))
         print()
 
