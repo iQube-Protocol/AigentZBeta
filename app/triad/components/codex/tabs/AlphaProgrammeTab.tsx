@@ -120,7 +120,10 @@ function OrgPolicyPanel({ policy, isDefault, loading }: {
   );
 }
 
-// ─── Workstream definitions (canonical from doc 33) ───────────────────────────
+// ─── Workstream definitions ────────────────────────────────────────────────────
+// Five projects that run through the Venture Lab α programme model.
+// VL α itself is the programme frame — its infra readiness is derived from
+// the aggregate completion across all five workstreams.
 
 type WsStatus = "complete" | "active" | "in-progress" | "queued";
 
@@ -132,17 +135,16 @@ const WORKSTREAMS: Array<{
   items: Array<{ text: string; done: boolean }>;
 }> = [
   {
-    id: "agentiq-alpha",
-    label: "AgentiQ Alpha",
+    id: "qriptopian",
+    label: "Qriptopian",
     status: "complete",
-    summary: "Platform foundation — registry, runtime, studio, SDK, experience model, capsule delivery.",
+    summary: "Live content cartridge — Terra feed, bidirectional KNYT signal, community engagement layer.",
     items: [
-      { text: "Registry pipeline", done: true },
-      { text: "KNYT signal routes", done: true },
-      { text: "Experience model + matrix", done: true },
-      { text: "Agent personas + routing", done: true },
-      { text: "SmartTriad copilot", done: true },
-      { text: "KNYT Runtime Surface", done: true },
+      { text: "Terra content feed live", done: true },
+      { text: "KNYT signal routes wired", done: true },
+      { text: "Bidirectional signal (outbound)", done: true },
+      { text: "Trending badge + pulse banner", done: true },
+      { text: "Signal aggregation API", done: true },
     ],
   },
   {
@@ -155,14 +157,42 @@ const WORKSTREAMS: Array<{
       { text: "Investor cohorts segmented", done: true },
       { text: "Email sequences sent", done: true },
       { text: "Marketa fully activated", done: true },
+      { text: "DVN receipt layer", done: true },
       { text: "Partner activation (18 partners)", done: false },
+    ],
+  },
+  {
+    id: "agentiq-alpha",
+    label: "AgentiQ α",
+    status: "complete",
+    summary: "Platform foundation — registry, runtime, studio, SDK, experience model, capsule delivery.",
+    items: [
+      { text: "Registry pipeline", done: true },
+      { text: "Experience model + matrix", done: true },
+      { text: "Agent personas + routing", done: true },
+      { text: "SmartTriad copilot", done: true },
+      { text: "KNYT Runtime Surface", done: true },
+      { text: "OrgQube governance layer", done: true },
+    ],
+  },
+  {
+    id: "agentiq-os",
+    label: "AgentiQ OS α",
+    status: "queued",
+    summary: "Next-phase engine — metaMe runtime, Kn0w1-first agent shell, treasury/rewards MVP.",
+    items: [
+      { text: "23-doc planning corpus complete", done: true },
+      { text: "metaMe OS runtime", done: false },
+      { text: "Kn0w1-first KNYT Alpha shell", done: false },
+      { text: "Treasury / rewards MVP", done: false },
+      { text: "Reference agent trio live", done: false },
     ],
   },
   {
     id: "relationship-builder",
     label: "Relationship Builder α",
     status: "in-progress",
-    summary: "Partner + customer activation surface — 18-partner pipeline + 3,748-person investor/backer CRM.",
+    summary: "Partner + customer activation — 18-partner pipeline + 3,748-person investor/backer CRM.",
     items: [
       { text: "Docs + cartridge tab wired", done: true },
       { text: "QubeTalk feed live", done: true },
@@ -172,21 +202,12 @@ const WORKSTREAMS: Array<{
       { text: "Composer + Marketa send (Phase 2)", done: false },
     ],
   },
-  {
-    id: "venture-lab",
-    label: "Venture Lab α",
-    status: "queued",
-    summary: "Next-phase engine — metaMe / AgentiQ OS, reference agents, KNYT cartridge pair, treasury/rewards.",
-    items: [
-      { text: "23-doc planning corpus complete", done: true },
-      { text: "Kn0w1-first KNYT Alpha shell", done: false },
-      { text: "Treasury / rewards MVP", done: false },
-      { text: "OrgQube policy layer", done: false },
-      { text: "Qriptopian bidirectional signal", done: true },
-      { text: "DVN receipt layer", done: true },
-    ],
-  },
 ];
+
+// VL α infrastructure readiness = aggregate of all workstream checklist items
+const VL_INFRA_ITEMS = WORKSTREAMS.flatMap((ws) => ws.items);
+const VL_INFRA_DONE  = VL_INFRA_ITEMS.filter((i) => i.done).length;
+const VL_INFRA_PCT   = Math.round((VL_INFRA_DONE / VL_INFRA_ITEMS.length) * 100);
 
 const STATUS_STYLES: Record<WsStatus, { badge: string; border: string; icon: typeof CheckCircle2; iconClass: string }> = {
   complete:    { badge: "border-emerald-700/60 text-emerald-300", border: "border-emerald-900/30", icon: CheckCircle2, iconClass: "text-emerald-400" },
@@ -202,17 +223,18 @@ const STATUS_LABEL: Record<WsStatus, string> = {
   queued:      "Queued",
 };
 
-// ─── Critical path items (from doc 33) ────────────────────────────────────────
+// ─── Critical path (VL α gate sequence) ──────────────────────────────────────
 
 const CRITICAL_PATH = [
-  { text: "AgentiQ Alpha complete",                          done: true },
-  { text: "KNYT Wheel operational",                          done: true },
-  { text: "Relationship Builder α docs + cartridge wired",   done: true },
+  { text: "Qriptopian live + bidirectional signal",           done: true  },
+  { text: "AgentiQ α platform complete",                     done: true  },
+  { text: "KNYT Wheel operational",                          done: true  },
+  { text: "Relationship Builder α cartridge wired",          done: true  },
   { text: "DB migration + partner seed + KS backer import",  done: false },
   { text: "Partner Wave 1 outreach launched (16 partners)",  done: false },
-  { text: "KS Backer email funnel active",                    done: false },
-  { text: "Partner Wave 1 ignition signal (≥3 responded)",   done: false },
-  { text: "Campaign momentum → Venture Lab α build starts",  done: false },
+  { text: "KS Backer email funnel active",                   done: false },
+  { text: "Partner ignition signal (≥3 responded)",          done: false },
+  { text: "AgentiQ OS α build gate open",                    done: false },
 ];
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -266,23 +288,36 @@ export function AlphaProgrammeTab() {
 
       {/* Header */}
       <Card className="rounded-xl border border-amber-800/40 bg-amber-950/10">
-        <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-amber-500 mb-0.5">Programme Status</p>
-            <h2 className="text-xl font-semibold text-slate-100">AgentiQ α Programme</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Four workstreams. One system.</p>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-amber-500 mb-0.5">Programme Frame</p>
+              <h2 className="text-xl font-semibold text-slate-100">Venture Lab α</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Five workstreams. One programme model.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge className="border-emerald-800 bg-emerald-950 text-emerald-300">Qriptopian ✓</Badge>
+              <Badge className="border-emerald-800 bg-emerald-950 text-emerald-300">AgentiQ α ✓</Badge>
+              <Badge className="border-amber-800 bg-amber-950 text-amber-300">KNYT Active</Badge>
+              <Button
+                size="sm" variant="ghost"
+                className="h-7 w-7 p-0"
+                onClick={() => void load()}
+                disabled={loading}
+              >
+                <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge className="border-emerald-800 bg-emerald-950 text-emerald-300">WS1 Complete</Badge>
-            <Badge className="border-amber-800 bg-amber-950 text-amber-300">WS2 Active</Badge>
-            <Button
-              size="sm" variant="ghost"
-              className="h-7 w-7 p-0"
-              onClick={() => void load()}
-              disabled={loading}
-            >
-              <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
-            </Button>
+          {/* VL α infrastructure readiness bar */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-[10px]">
+              <span className="text-slate-500 uppercase tracking-wide font-semibold">Infrastructure Readiness</span>
+              <span className="text-amber-400 font-semibold">{VL_INFRA_DONE}/{VL_INFRA_ITEMS.length} · {VL_INFRA_PCT}%</span>
+            </div>
+            <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
+              <div className="h-full rounded-full bg-amber-500 transition-all" style={{ width: `${VL_INFRA_PCT}%` }} />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -314,7 +349,7 @@ export function AlphaProgrammeTab() {
 
       {/* Workstream status grid */}
       <div className="space-y-2">
-        <h3 className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Workstreams</h3>
+        <h3 className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Programme Workstreams</h3>
         {WORKSTREAMS.map((ws) => {
           const style = STATUS_STYLES[ws.status];
           const Icon  = style.icon;
@@ -383,7 +418,7 @@ export function AlphaProgrammeTab() {
       {/* Link to full docs */}
       <div className="text-center">
         <p className="text-[10px] text-slate-600">
-          Full 23-doc planning corpus in the Venture Lab α docs tab · Programme detail in α Programme tab
+          Full 23-doc planning corpus in the Venture Lab α docs tab · Governance detail in the Institutional Governance panel above
         </p>
       </div>
 
