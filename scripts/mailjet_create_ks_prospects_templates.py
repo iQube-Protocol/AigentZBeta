@@ -215,7 +215,7 @@ TEMPLATES = [
             p("Hi {{var:first_name:\"there\"}},")
             + p("We\u2019d love to introduce you to <strong style=\"color:#f0f0f0;\">metaKnyt: The Agentic Graphic Novel</strong>.")
             + p("On one level, it is a beautifully crafted graphic novel featuring a portal war between physical and digital worlds, a hidden Order, and a mystery at its center:")
-            + p("<em style=\"color:#f0f0f0;\">Why did Satoshi disappear?</em>")
+            + p("<em style=\"color:#f0f0f0;\"><strong>Why did Satoshi disappear?</strong></em>")
             + p("But the vision goes beyond the book.")
             + p("metaKnyts is designed as the gateway into a larger story world, one that can evolve over time through media, technology, and deeper audience participation.")
             + p("So yes, there is a book.<br>But there is also a world behind it.")
