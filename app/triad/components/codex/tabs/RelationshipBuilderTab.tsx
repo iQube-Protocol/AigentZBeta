@@ -11,19 +11,23 @@
  * QubeTalk feed is the headline showcase per VL workstream direction.
  */
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bot,
   Building2,
+  Check,
+  ChevronDown,
   ChevronRight,
   Clock,
   Filter,
   Loader2,
   MessageSquare,
   RefreshCw,
+  Search,
   Send,
   Shield,
   Star,
+  UserCheck,
   Users,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -68,6 +72,25 @@ interface PartnerSummary {
   tier1: number;
   uncontacted: number;
   responded: number;
+}
+
+interface Customer {
+  id: string;
+  name: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  knytId: string;
+  omTier: string;
+  totalInvested: string;
+  metaiyeShares: string;
+  knytCoyn: string;
+  isActivated: boolean;
+  campaign_cohort: string | null;
+  campaign_state: string | null;
+  investment_amount_band: string | null;
+  city: string;
+  profession: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -118,6 +141,37 @@ const BD_STAGE_LABEL: Record<string, string> = {
   low_signal:           "Low Signal",
 };
 
+const BD_STAGE_ORDER = [
+  "uncontacted", "first_contact", "responded", "active",
+  "co_activation_agreed", "integration_scoped", "integration_active",
+  "live_partner", "low_signal",
+];
+
+const TIER_STYLES: Record<string, string> = {
+  KETA:  "border-amber-500/50 bg-amber-500/10 text-amber-300",
+  KEJI:  "border-violet-500/50 bg-violet-500/10 text-violet-300",
+  FIRST: "border-cyan-500/50 bg-cyan-500/10 text-cyan-300",
+  ZERO:  "border-emerald-500/50 bg-emerald-500/10 text-emerald-300",
+  SAT:   "border-slate-600/50 bg-slate-700/30 text-slate-400",
+};
+
+const COHORT_STYLES: Record<string, string> = {
+  top_shelf:    "border-amber-700/40 text-amber-400",
+  zero_knyt:    "border-emerald-700/40 text-emerald-400",
+  reactivation: "border-sky-700/40 text-sky-400",
+  ks_backers:   "border-violet-700/40 text-violet-400",
+};
+
+function normalizeTierKey(raw: string): string {
+  const c = raw.toUpperCase().replace(/[^A-Z]/g, "");
+  if (c.includes("KETA"))  return "KETA";
+  if (c.includes("KEJI"))  return "KEJI";
+  if (c.includes("FIRST")) return "FIRST";
+  if (c.includes("ZERO"))  return "ZERO";
+  if (c.includes("SAT"))   return "SAT";
+  return raw.toUpperCase().trim();
+}
+
 function TierStars({ tier }: { tier: number | null }) {
   if (!tier) return null;
   return (
@@ -132,10 +186,85 @@ function TierStars({ tier }: { tier: number | null }) {
   );
 }
 
-function PartnerCard({ partner }: { partner: Partner }) {
+function StageDropdown({
+  current,
+  onSelect,
+  onClose,
+}: {
+  current: string;
+  onSelect: (stage: string) => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [onClose]);
+
+  return (
+    <div ref={ref} className="absolute right-0 top-full mt-1 z-50 w-44 rounded-lg border border-white/10 bg-slate-900/95 backdrop-blur-md shadow-xl py-1">
+      {BD_STAGE_ORDER.map((stage) => {
+        const style = BD_STAGE_STYLES[stage] ?? "";
+        const label = BD_STAGE_LABEL[stage] ?? stage;
+        const isCurrent = stage === current;
+        return (
+          <button
+            key={stage}
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onSelect(stage); }}
+            className={`w-full text-left px-3 py-1.5 text-[10px] flex items-center gap-2 transition-colors ${
+              isCurrent ? "bg-white/[0.06]" : "hover:bg-white/[0.04]"
+            }`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full border ${style}`} />
+            <span className={isCurrent ? "text-slate-100 font-medium" : "text-slate-400"}>{label}</span>
+            {isCurrent && <Check className="h-2.5 w-2.5 text-emerald-400 ml-auto" />}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function PartnerCard({ partner, onRefresh }: { partner: Partner; onRefresh: () => void }) {
   const [expanded, setExpanded] = useState(false);
+  const [stageOpen, setStageOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editingNext, setEditingNext] = useState(false);
+  const [nextDraft, setNextDraft] = useState(partner.next_action ?? "");
   const stageStyle = BD_STAGE_STYLES[partner.bd_stage] ?? BD_STAGE_STYLES.uncontacted;
   const stageLabel = BD_STAGE_LABEL[partner.bd_stage] ?? partner.bd_stage;
+
+  const patchPartner = useCallback(async (fields: Record<string, unknown>) => {
+    setSaving(true);
+    try {
+      await fetch("/api/avl/partners", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: partner.id, ...fields }),
+      });
+      onRefresh();
+    } finally {
+      setSaving(false);
+    }
+  }, [partner.id, onRefresh]);
+
+  const handleStageSelect = useCallback((stage: string) => {
+    setStageOpen(false);
+    if (stage === partner.bd_stage) return;
+    void patchPartner({ bd_stage: stage });
+  }, [partner.bd_stage, patchPartner]);
+
+  const handleNextSave = useCallback(() => {
+    setEditingNext(false);
+    const trimmed = nextDraft.trim() || null;
+    if (trimmed === partner.next_action) return;
+    void patchPartner({ next_action: trimmed });
+  }, [nextDraft, partner.next_action, patchPartner]);
 
   return (
     <div
@@ -158,14 +287,24 @@ function PartnerCard({ partner }: { partner: Partner }) {
             <p className="text-[10px] text-slate-500 mt-0.5 leading-snug line-clamp-1">{partner.audience_overlap_notes}</p>
           )}
         </div>
-        <div className="shrink-0 flex flex-col items-end gap-1">
-          <span className={`rounded-full border px-2 py-0.5 text-[9px] font-medium ${stageStyle}`}>{stageLabel}</span>
+        <div className="shrink-0 flex flex-col items-end gap-1 relative">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setStageOpen((o) => !o); }}
+            disabled={saving}
+            className={`rounded-full border px-2 py-0.5 text-[9px] font-medium transition-all hover:ring-1 hover:ring-white/20 ${stageStyle}`}
+          >
+            {saving ? <Loader2 className="h-2.5 w-2.5 animate-spin inline" /> : stageLabel}
+          </button>
+          {stageOpen && (
+            <StageDropdown current={partner.bd_stage} onSelect={handleStageSelect} onClose={() => setStageOpen(false)} />
+          )}
           <ChevronRight className={`h-3 w-3 text-slate-700 transition-transform ${expanded ? "rotate-90" : ""}`} />
         </div>
       </div>
 
       {expanded && (
-        <div className="border-t border-white/[0.05] pt-2 space-y-1.5 text-[10px]">
+        <div className="border-t border-white/[0.05] pt-2 space-y-1.5 text-[10px]" onClick={(e) => e.stopPropagation()}>
           {partner.contact_name && (
             <div className="flex gap-2">
               <span className="text-slate-600 w-20 shrink-0">Contact</span>
@@ -184,12 +323,31 @@ function PartnerCard({ partner }: { partner: Partner }) {
               <span className="text-amber-300">{partner.response_signal}</span>
             </div>
           )}
-          {partner.next_action && (
-            <div className="flex gap-2">
-              <span className="text-slate-600 w-20 shrink-0">Next</span>
-              <span className="text-sky-300">{partner.next_action}</span>
-            </div>
-          )}
+          <div className="flex gap-2 items-start">
+            <span className="text-slate-600 w-20 shrink-0">Next</span>
+            {editingNext ? (
+              <div className="flex-1 flex gap-1">
+                <input
+                  type="text"
+                  className="flex-1 bg-white/[0.04] border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-slate-200 outline-none focus:border-sky-600/60"
+                  value={nextDraft}
+                  onChange={(e) => setNextDraft(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleNextSave(); if (e.key === "Escape") setEditingNext(false); }}
+                  autoFocus
+                />
+                <button type="button" onClick={handleNextSave} className="text-emerald-400 hover:text-emerald-300">
+                  <Check className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              <span
+                className={`${partner.next_action ? "text-sky-300" : "text-slate-700"} cursor-pointer hover:text-sky-200`}
+                onClick={() => { setNextDraft(partner.next_action ?? ""); setEditingNext(true); }}
+              >
+                {partner.next_action || "Set next action…"}
+              </span>
+            )}
+          </div>
           {partner.audience_overlap_notes && (
             <div className="flex gap-2">
               <span className="text-slate-600 w-20 shrink-0">Notes</span>
@@ -282,7 +440,253 @@ function PartnersPanel() {
         <div className="text-center py-8 text-slate-600 text-sm">No partners found.</div>
       ) : (
         <div className="space-y-2">
-          {partners.map((p) => <PartnerCard key={p.id} partner={p} />)}
+          {partners.map((p) => <PartnerCard key={p.id} partner={p} onRefresh={() => void load(waveFilter)} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CustomerCard({ customer }: { customer: Customer }) {
+  const [expanded, setExpanded] = useState(false);
+  const tierKey = customer.omTier ? normalizeTierKey(customer.omTier) : "";
+  const tierStyle = TIER_STYLES[tierKey] ?? "border-slate-700/50 bg-slate-800/30 text-slate-500";
+  const cohortStyle = customer.campaign_cohort
+    ? COHORT_STYLES[customer.campaign_cohort] ?? "border-slate-700/40 text-slate-400"
+    : "";
+
+  return (
+    <div
+      className="rounded-xl border border-white/[0.07] bg-white/[0.02] hover:border-white/10 transition-colors p-3 space-y-2 cursor-pointer"
+      onClick={() => setExpanded((e) => !e)}
+    >
+      <div className="flex items-start gap-2">
+        <div className={`h-8 w-8 shrink-0 rounded-full border flex items-center justify-center text-[10px] font-bold ${
+          customer.isActivated
+            ? "border-emerald-600/40 bg-emerald-900/30 text-emerald-300"
+            : "border-slate-700/40 bg-slate-800/30 text-slate-500"
+        }`}>
+          {customer.firstName?.[0]?.toUpperCase() || customer.email?.[0]?.toUpperCase() || "?"}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[11px] font-semibold text-slate-100">{customer.name}</span>
+            {customer.isActivated && (
+              <UserCheck className="h-3 w-3 text-emerald-400" />
+            )}
+            {tierKey && (
+              <span className={`rounded-full border px-1.5 py-0 text-[8px] font-medium ${tierStyle}`}>{tierKey}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            {customer.email && <span className="text-[10px] text-slate-500 truncate">{customer.email}</span>}
+          </div>
+        </div>
+        <div className="shrink-0 flex flex-col items-end gap-1">
+          {customer.campaign_cohort && (
+            <Badge variant="outline" className={`text-[8px] py-0 px-1.5 ${cohortStyle}`}>
+              {customer.campaign_cohort.replace(/_/g, " ")}
+            </Badge>
+          )}
+          <ChevronDown className={`h-3 w-3 text-slate-700 transition-transform ${expanded ? "rotate-180" : ""}`} />
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="border-t border-white/[0.05] pt-2 space-y-1.5 text-[10px]">
+          {customer.knytId && (
+            <div className="flex gap-2">
+              <span className="text-slate-600 w-20 shrink-0">KNYT ID</span>
+              <span className="text-slate-300">{customer.knytId}</span>
+            </div>
+          )}
+          {customer.totalInvested && (
+            <div className="flex gap-2">
+              <span className="text-slate-600 w-20 shrink-0">Invested</span>
+              <span className="text-amber-300">{customer.totalInvested}</span>
+            </div>
+          )}
+          {customer.metaiyeShares && (
+            <div className="flex gap-2">
+              <span className="text-slate-600 w-20 shrink-0">Shares</span>
+              <span className="text-slate-300">{customer.metaiyeShares}</span>
+            </div>
+          )}
+          {customer.knytCoyn && (
+            <div className="flex gap-2">
+              <span className="text-slate-600 w-20 shrink-0">KNYT COYN</span>
+              <span className="text-emerald-300">{customer.knytCoyn}</span>
+            </div>
+          )}
+          {customer.investment_amount_band && (
+            <div className="flex gap-2">
+              <span className="text-slate-600 w-20 shrink-0">Band</span>
+              <span className="text-sky-300">{customer.investment_amount_band.replace(/_/g, " ")}</span>
+            </div>
+          )}
+          {customer.campaign_state && (
+            <div className="flex gap-2">
+              <span className="text-slate-600 w-20 shrink-0">Campaign</span>
+              <span className="text-violet-300">{customer.campaign_state}</span>
+            </div>
+          )}
+          {customer.profession && (
+            <div className="flex gap-2">
+              <span className="text-slate-600 w-20 shrink-0">Role</span>
+              <span className="text-slate-400">{customer.profession}</span>
+            </div>
+          )}
+          {customer.city && (
+            <div className="flex gap-2">
+              <span className="text-slate-600 w-20 shrink-0">City</span>
+              <span className="text-slate-400">{customer.city}</span>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <span className="text-slate-600 w-20 shrink-0">Status</span>
+            <span className={customer.isActivated ? "text-emerald-300" : "text-slate-500"}>
+              {customer.isActivated ? "Activated" : "Inactive"}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CustomersPanel() {
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [total,     setTotal]     = useState(0);
+  const [loading,   setLoading]   = useState(true);
+  const [search,    setSearch]    = useState("");
+  const [cohort,    setCohort]    = useState("");
+  const [sort,      setSort]      = useState("tier");
+  const [page,      setPage]      = useState(0);
+  const PAGE_SIZE = 50;
+
+  const load = useCallback(async (opts: { search: string; cohort: string; sort: string; offset: number }) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(opts.offset), sort: opts.sort });
+      if (opts.search) params.set("search", opts.search);
+      if (opts.cohort) params.set("cohort", opts.cohort);
+      const res = await fetch(`/api/crm/investors?${params}`);
+      const json = await res.json() as { data: Customer[]; total: number };
+      setCustomers(json.data ?? []);
+      setTotal(json.total ?? 0);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void load({ search, cohort, sort, offset: page * PAGE_SIZE }); }, [load, search, cohort, sort, page]);
+
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  return (
+    <div className="space-y-3">
+      {/* Summary row */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="rounded-lg border border-white/[0.07] bg-white/[0.03] p-2.5 text-center">
+          <div className="text-base font-bold leading-none text-slate-200">{total}</div>
+          <div className="text-[10px] text-slate-600 mt-0.5">Total</div>
+        </div>
+        <div className="rounded-lg border border-white/[0.07] bg-white/[0.03] p-2.5 text-center">
+          <div className="text-base font-bold leading-none text-emerald-300">
+            {customers.filter((c) => c.isActivated).length > 0 ? `${customers.filter((c) => c.isActivated).length}+` : "—"}
+          </div>
+          <div className="text-[10px] text-slate-600 mt-0.5">Activated</div>
+        </div>
+        <div className="rounded-lg border border-white/[0.07] bg-white/[0.03] p-2.5 text-center">
+          <div className="text-base font-bold leading-none text-amber-300">
+            {customers.filter((c) => c.omTier).length > 0 ? `${customers.filter((c) => c.omTier).length}` : "—"}
+          </div>
+          <div className="text-[10px] text-slate-600 mt-0.5">Tiered</div>
+        </div>
+      </div>
+
+      {/* Search bar */}
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-600" />
+        <input
+          type="text"
+          placeholder="Search by name, email, KNYT ID…"
+          className="w-full bg-white/[0.03] border border-white/[0.08] rounded-lg pl-7 pr-3 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-600 outline-none focus:border-white/15"
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+        />
+      </div>
+
+      {/* Filters: cohort + sort */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        {([
+          ["", "All"],
+          ["top_shelf", "Top Shelf"],
+          ["zero_knyt", "Zero KNYT"],
+          ["reactivation", "Reactivation"],
+          ["ks_backers", "KS Backers"],
+        ] as const).map(([val, label]) => (
+          <button
+            key={val}
+            type="button"
+            onClick={() => { setCohort(val); setPage(0); }}
+            className={`text-[10px] rounded-full px-2.5 py-0.5 border transition-colors ${
+              cohort === val
+                ? "border-violet-600/60 bg-violet-500/10 text-violet-300"
+                : "border-white/10 text-slate-500 hover:text-slate-300"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+        <select
+          className="ml-auto text-[10px] bg-white/[0.04] border border-white/10 rounded px-1.5 py-0.5 text-slate-400 outline-none"
+          value={sort}
+          onChange={(e) => { setSort(e.target.value); setPage(0); }}
+        >
+          <option value="tier">By Tier</option>
+          <option value="name">By Name</option>
+          <option value="invested">By Invested</option>
+          <option value="activated">By Status</option>
+        </select>
+      </div>
+
+      {/* Customer list */}
+      {loading ? (
+        <div className="flex items-center justify-center py-8 gap-2 text-slate-500">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-xs">Loading customers…</span>
+        </div>
+      ) : customers.length === 0 ? (
+        <div className="text-center py-8 text-slate-600 text-sm">No customers found.</div>
+      ) : (
+        <div className="space-y-2">
+          {customers.map((c) => <CustomerCard key={c.id} customer={c} />)}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between text-[10px] text-slate-500">
+          <span>Page {page + 1} of {totalPages} · {total} total</span>
+          <div className="flex gap-1">
+            <button
+              type="button"
+              disabled={page === 0}
+              onClick={() => setPage((p) => p - 1)}
+              className="rounded px-2 py-0.5 border border-white/10 disabled:opacity-30 hover:text-slate-300"
+            >
+              Prev
+            </button>
+            <button
+              type="button"
+              disabled={page >= totalPages - 1}
+              onClick={() => setPage((p) => p + 1)}
+              className="rounded px-2 py-0.5 border border-white/10 disabled:opacity-30 hover:text-slate-300"
+            >
+              Next
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -369,7 +773,7 @@ interface RelationshipBuilderTabProps {
 }
 
 export function RelationshipBuilderTab({ personaId }: RelationshipBuilderTabProps) {
-  const [activeNav, setActiveNav]  = useState<"qubetalk" | "partners">("partners");
+  const [activeNav, setActiveNav]  = useState<"partners" | "customers" | "qubetalk">("partners");
   const [feed,      setFeed]       = useState<FeedMessage[]>([]);
   const [loading,   setLoading]    = useState(true);
   const [sources,   setSources]    = useState<{ bridge: number; live: number }>({ bridge: 0, live: 0 });
@@ -451,10 +855,11 @@ export function RelationshipBuilderTab({ personaId }: RelationshipBuilderTabProp
         )}
       </div>
 
-      {/* Nav tabs: Partners | QubeTalk */}
+      {/* Nav tabs: Partners | Customers | QubeTalk */}
       <div className="flex gap-1 border-b border-white/[0.06] pb-0">
         {([
           { key: "partners",  label: "Partners",  icon: Building2 },
+          { key: "customers", label: "Customers", icon: Users },
           { key: "qubetalk",  label: "QubeTalk",  icon: MessageSquare },
         ] as const).map(({ key, label, icon: Icon }) => (
           <button
@@ -475,6 +880,9 @@ export function RelationshipBuilderTab({ personaId }: RelationshipBuilderTabProp
 
       {/* Partners panel */}
       {activeNav === "partners" && <PartnersPanel />}
+
+      {/* Customers panel */}
+      {activeNav === "customers" && <CustomersPanel />}
 
       {/* QubeTalk panel */}
       {activeNav === "qubetalk" && (
