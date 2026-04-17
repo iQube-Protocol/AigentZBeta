@@ -6,10 +6,10 @@
  * posture, and receipt requirements.
  *
  * Query params:
- *   orgId?  — org/tenant identifier (default: 'nakamoto')
+ *   orgId?  — org/tenant identifier (default: 'venture-lab')
  *
  * Response:
- *   policy  — OrgQube policy row (null if not configured)
+ *   policy    — OrgQube policy row (null if not configured)
  *   isDefault — true if falling back to built-in alpha defaults
  */
 
@@ -19,22 +19,28 @@ import { getSupabaseServer } from "@/app/api/_lib/supabaseServer";
 export const dynamic = "force-dynamic";
 
 const ALPHA_DEFAULT = {
-  orgId:               "nakamoto",
-  policyName:          "Nakamoto Alpha Policy",
+  orgId:               "venture-lab",
+  policyName:          "Venture Lab α Policy",
   allowedAgents:       ["aigent-z", "aigent-c", "aigent-kn0w1", "aigent-marketa", "metame"],
   allowedSkills:       ["*"],
   allowedCartridges:   ["knyt", "qriptopian", "agentiq", "metame"],
-  trustThresholdMin:   0,
+  trustThresholdMin:   25,
   skillBudgetPosture:  "open",
   nativeAssetExposure: "none",
-  requiredReceipts:    [] as string[],
+  requiredReceipts:    ["agent:onboard", "skill:grant", "treasury:withdrawal", "cartridge:publish"] as string[],
   escalationBehavior:  {},
   active:              true,
+  targets: {
+    trustThresholdMin:   70,
+    skillBudgetPosture:  "conservative",
+    nativeAssetExposure: "limited",
+    requiredReceipts:    ["agent:onboard", "skill:grant", "trust:change", "treasury:withdrawal", "cartridge:publish"],
+  },
 };
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const orgId = searchParams.get("orgId") ?? "nakamoto";
+  const orgId = searchParams.get("orgId") ?? "venture-lab";
 
   const supabase = getSupabaseServer();
   if (!supabase) {
@@ -64,6 +70,7 @@ export async function GET(req: NextRequest) {
       required_receipts: string[];
       escalation_behavior: Record<string, unknown>;
       active: boolean;
+      targets: Record<string, unknown> | null;
     };
 
     return NextResponse.json({
@@ -81,6 +88,7 @@ export async function GET(req: NextRequest) {
           requiredReceipts:    row.required_receipts,
           escalationBehavior:  row.escalation_behavior,
           active:              row.active,
+          targets:             row.targets ?? {},
         },
         isDefault: false,
       },
