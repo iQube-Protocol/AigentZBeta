@@ -58,14 +58,16 @@ export function AlphaDocsTab() {
         ))}
       </div>
 
-      {/* Content */}
-      <div className="flex-1 min-h-0 overflow-hidden">
-        <AgentiqCartridgeTab
-          key={current.id}
-          packId={current.packId}
-          collectionId={current.collectionId}
-          defaultPath={current.defaultPath}
-        />
+      {/* Content — absolute inset so the bounded flex item constrains scroll */}
+      <div className="flex-1 min-h-0 relative">
+        <div className="absolute inset-0 overflow-y-auto">
+          <AgentiqCartridgeTab
+            key={current.id}
+            packId={current.packId}
+            collectionId={current.collectionId}
+            defaultPath={current.defaultPath}
+          />
+        </div>
       </div>
     </div>
   );

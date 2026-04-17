@@ -951,12 +951,30 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
   },
   tabs: [
     {
+      id: 'alpha-programme',
+      label: 'α Programme',
+      slug: 'alpha-programme',
+      enabled: true,
+      adminOnly: true,
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'AlphaProgrammeTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'LayoutDashboard',
+        description: 'Six-workstream programme overview with live progress report',
+        color: 'violet'
+      }
+    },
+    {
       id: 'agentiq-os-vl',
       label: 'AgentiQ OS α',
       slug: 'agentiq-os-vl',
       enabled: true,
       adminOnly: true,
-      order: 1,
+      order: 2,
       type: 'static',
       config: {
         component: 'AgentiQOSTab',
@@ -974,7 +992,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       slug: 'relationship-builder',
       enabled: true,
       adminOnly: true,
-      order: 2,
+      order: 3,
       type: 'static',
       config: {
         component: 'RelationshipBuilderTab',
@@ -983,24 +1001,6 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       metadata: {
         icon: 'Users',
         description: 'Partner and customer outreach — AVL partner contacts, KS Prospects funnel, campaign composer, and QubeTalk agent coordination',
-        color: 'violet'
-      }
-    },
-    {
-      id: 'alpha-programme',
-      label: 'α Programme',
-      slug: 'alpha-programme',
-      enabled: true,
-      adminOnly: true,
-      order: 3,
-      type: 'static',
-      config: {
-        component: 'AlphaProgrammeTab',
-        props: {}
-      },
-      metadata: {
-        icon: 'LayoutDashboard',
-        description: 'Four-workstream programme overview with live progress report — AgentiQ Alpha (complete), KNYT Wheel (active), Relationship Builder α (MVP in progress), Venture Lab α (queued).',
         color: 'violet'
       }
     },
