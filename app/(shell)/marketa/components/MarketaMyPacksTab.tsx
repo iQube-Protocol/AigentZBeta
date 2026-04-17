@@ -147,7 +147,8 @@ function PackCard({ pack, theme, onPublish }: {
             ) : (
               <Button
                 size="sm"
-                className="h-7 text-xs bg-rose-600 hover:bg-rose-700 text-white"
+                variant="outline"
+                className={`h-7 text-xs bg-transparent ${d ? 'border-rose-500/30 text-rose-300 hover:bg-rose-500/10 hover:border-rose-500/40' : 'border-rose-500/40 text-rose-700 hover:bg-rose-50'}`}
                 onClick={handlePublish}
                 disabled={publishing}
               >

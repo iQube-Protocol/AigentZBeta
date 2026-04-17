@@ -183,7 +183,8 @@ function PackCard({ pack, theme, onAction }: {
           <div className="flex items-center gap-2 flex-wrap">
             <Button
               size="sm"
-              className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+              variant="outline"
+              className={`h-7 text-xs bg-transparent ${d ? 'border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10 hover:border-emerald-500/40' : 'border-emerald-500/40 text-emerald-700 hover:bg-emerald-50'}`}
               onClick={() => act('approved')}
               disabled={loading !== null}
             >
@@ -290,7 +291,7 @@ export function MarketaApprovalQueueTab({ theme = 'dark' }: Props) {
               onClick={() => setFilter(f)}
               className={`px-3 py-1.5 flex-1 transition-colors capitalize ${
                 filter === f
-                  ? 'bg-rose-500 text-white font-medium'
+                  ? d ? 'bg-rose-500/10 text-rose-300 font-medium' : 'bg-rose-50 text-rose-700 font-medium'
                   : d ? 'bg-slate-900/60 text-slate-400 hover:text-slate-200' : 'bg-white text-slate-600 hover:text-slate-800'
               }`}
             >
