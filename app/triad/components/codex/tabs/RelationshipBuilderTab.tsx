@@ -231,12 +231,49 @@ function StageDropdown({
   );
 }
 
+function InlineField({
+  label, value, placeholder, onSave,
+}: { label: string; value: string | null; placeholder: string; onSave: (v: string | null) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft]     = useState(value ?? "");
+  const save = () => {
+    setEditing(false);
+    const t = draft.trim() || null;
+    if (t !== value) onSave(t);
+  };
+  return (
+    <div className="flex gap-2 items-center">
+      <span className="text-slate-600 w-20 shrink-0">{label}</span>
+      {editing ? (
+        <div className="flex-1 flex gap-1">
+          <input
+            type="text"
+            className="flex-1 bg-white/[0.04] border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-slate-200 outline-none focus:border-sky-600/60"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") setEditing(false); }}
+            autoFocus
+          />
+          <button type="button" onClick={save} className="text-emerald-400 hover:text-emerald-300">
+            <Check className="h-3 w-3" />
+          </button>
+        </div>
+      ) : (
+        <span
+          className={`${value ? "text-slate-300" : "text-slate-700"} cursor-pointer hover:text-slate-100`}
+          onClick={() => { setDraft(value ?? ""); setEditing(true); }}
+        >
+          {value || placeholder}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function PartnerCard({ partner, onRefresh }: { partner: Partner; onRefresh: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const [stageOpen, setStageOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [editingNext, setEditingNext] = useState(false);
-  const [nextDraft, setNextDraft] = useState(partner.next_action ?? "");
   const stageStyle = BD_STAGE_STYLES[partner.bd_stage] ?? BD_STAGE_STYLES.uncontacted;
   const stageLabel = BD_STAGE_LABEL[partner.bd_stage] ?? partner.bd_stage;
 
@@ -259,13 +296,6 @@ function PartnerCard({ partner, onRefresh }: { partner: Partner; onRefresh: () =
     if (stage === partner.bd_stage) return;
     void patchPartner({ bd_stage: stage });
   }, [partner.bd_stage, patchPartner]);
-
-  const handleNextSave = useCallback(() => {
-    setEditingNext(false);
-    const trimmed = nextDraft.trim() || null;
-    if (trimmed === partner.next_action) return;
-    void patchPartner({ next_action: trimmed });
-  }, [nextDraft, partner.next_action, patchPartner]);
 
   return (
     <div
@@ -306,49 +336,15 @@ function PartnerCard({ partner, onRefresh }: { partner: Partner; onRefresh: () =
 
       {expanded && (
         <div className="border-t border-white/[0.05] pt-2 space-y-1.5 text-[10px]" onClick={(e) => e.stopPropagation()}>
-          {partner.contact_name && (
-            <div className="flex gap-2">
-              <span className="text-slate-600 w-20 shrink-0">Contact</span>
-              <span className="text-slate-300">{partner.contact_name}</span>
-            </div>
-          )}
-          {partner.contact_email && (
-            <div className="flex gap-2">
-              <span className="text-slate-600 w-20 shrink-0">Email</span>
-              <span className="text-slate-300">{partner.contact_email}</span>
-            </div>
-          )}
+          <InlineField label="Contact" value={partner.contact_name} placeholder="Add contact name…" onSave={(v) => void patchPartner({ contact_name: v })} />
+          <InlineField label="Email"   value={partner.contact_email} placeholder="Add email…"       onSave={(v) => void patchPartner({ contact_email: v })} />
           {partner.response_signal && (
             <div className="flex gap-2">
               <span className="text-slate-600 w-20 shrink-0">Signal</span>
               <span className="text-amber-300">{partner.response_signal}</span>
             </div>
           )}
-          <div className="flex gap-2 items-start">
-            <span className="text-slate-600 w-20 shrink-0">Next</span>
-            {editingNext ? (
-              <div className="flex-1 flex gap-1">
-                <input
-                  type="text"
-                  className="flex-1 bg-white/[0.04] border border-white/10 rounded px-1.5 py-0.5 text-[10px] text-slate-200 outline-none focus:border-sky-600/60"
-                  value={nextDraft}
-                  onChange={(e) => setNextDraft(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") handleNextSave(); if (e.key === "Escape") setEditingNext(false); }}
-                  autoFocus
-                />
-                <button type="button" onClick={handleNextSave} className="text-emerald-400 hover:text-emerald-300">
-                  <Check className="h-3 w-3" />
-                </button>
-              </div>
-            ) : (
-              <span
-                className={`${partner.next_action ? "text-sky-300" : "text-slate-700"} cursor-pointer hover:text-sky-200`}
-                onClick={() => { setNextDraft(partner.next_action ?? ""); setEditingNext(true); }}
-              >
-                {partner.next_action || "Set next action…"}
-              </span>
-            )}
-          </div>
+          <InlineField label="Next" value={partner.next_action} placeholder="Set next action…" onSave={(v) => void patchPartner({ next_action: v })} />
           {partner.audience_overlap_notes && (
             <div className="flex gap-2">
               <span className="text-slate-600 w-20 shrink-0">Notes</span>
@@ -365,11 +361,75 @@ function PartnerCard({ partner, onRefresh }: { partner: Partner; onRefresh: () =
   );
 }
 
+function AddPartnerForm({ onSaved }: { onSaved: () => void }) {
+  const [name,    setName]    = useState("");
+  const [org,     setOrg]     = useState("");
+  const [contact, setContact] = useState("");
+  const [email,   setEmail]   = useState("");
+  const [wave,    setWave]    = useState<1 | 2>(1);
+  const [saving,  setSaving]  = useState(false);
+  const [err,     setErr]     = useState("");
+
+  const handleSave = async () => {
+    if (!name.trim()) { setErr("Name required"); return; }
+    setSaving(true); setErr("");
+    try {
+      const res = await fetch("/api/avl/partners", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), org: org.trim() || name.trim(), wave, contact_name: contact.trim() || null, contact_email: email.trim() || null }),
+      });
+      const j = await res.json() as { ok: boolean; error?: string };
+      if (j.ok) { setName(""); setOrg(""); setContact(""); setEmail(""); onSaved(); }
+      else setErr(j.error ?? "Failed");
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-3 space-y-2">
+      <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Add Partner</div>
+      <div className="grid grid-cols-2 gap-2">
+        {[
+          { label: "Org name *", val: name,    set: setName },
+          { label: "Org (display)", val: org,  set: setOrg },
+          { label: "Contact name", val: contact, set: setContact },
+          { label: "Contact email", val: email,  set: setEmail },
+        ].map(({ label, val, set }) => (
+          <div key={label}>
+            <div className="text-[9px] text-slate-600 mb-0.5">{label}</div>
+            <input
+              type="text"
+              className="w-full bg-white/[0.04] border border-white/10 rounded px-2 py-1 text-[10px] text-slate-200 outline-none focus:border-amber-600/50"
+              value={val}
+              onChange={(e) => set(e.target.value)}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="text-[9px] text-slate-600">Wave</div>
+        {([1, 2] as const).map((w) => (
+          <button key={w} type="button" onClick={() => setWave(w)}
+            className={`text-[10px] rounded-full border px-2 py-0.5 transition-colors ${wave === w ? "border-amber-600/60 bg-amber-500/10 text-amber-300" : "border-white/10 text-slate-500"}`}>
+            W{w}
+          </button>
+        ))}
+        <Button size="sm" className="ml-auto h-6 text-[10px] bg-amber-600 hover:bg-amber-500 text-white" disabled={saving || !name.trim()} onClick={handleSave}>
+          {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 mr-1" />}
+          Save
+        </Button>
+      </div>
+      {err && <div className="text-[10px] text-red-400">{err}</div>}
+    </div>
+  );
+}
+
 function PartnersPanel() {
-  const [partners,  setPartners]  = useState<Partner[]>([]);
-  const [summary,   setSummary]   = useState<PartnerSummary | null>(null);
-  const [loading,   setLoading]   = useState(true);
+  const [partners,   setPartners]   = useState<Partner[]>([]);
+  const [summary,    setSummary]    = useState<PartnerSummary | null>(null);
+  const [loading,    setLoading]    = useState(true);
   const [waveFilter, setWaveFilter] = useState<"" | "1" | "2">("");
+  const [addingNew,  setAddingNew]  = useState(false);
 
   const load = useCallback(async (wave: "" | "1" | "2") => {
     setLoading(true);
@@ -429,7 +489,17 @@ function PartnersPanel() {
         >
           <RefreshCw className={`h-3 w-3 ${loading ? "animate-spin" : ""}`} />
         </Button>
+        <Button
+          size="sm" variant="ghost"
+          className={`h-6 px-2 text-[10px] transition-colors ${addingNew ? "text-amber-300" : "text-slate-500 hover:text-slate-300"}`}
+          onClick={() => setAddingNew((a) => !a)}
+        >
+          <PenLine className="h-3 w-3 mr-1" />
+          {addingNew ? "Cancel" : "Add"}
+        </Button>
       </div>
+
+      {addingNew && <AddPartnerForm onSaved={() => { setAddingNew(false); void load(waveFilter); }} />}
 
       {/* Partner list */}
       {loading ? (

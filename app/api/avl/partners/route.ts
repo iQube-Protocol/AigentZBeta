@@ -99,3 +99,46 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Update failed" }, { status: 500 });
   }
 }
+
+export async function POST(req: NextRequest) {
+  const supabase = getSupabaseServer();
+  if (!supabase) {
+    return NextResponse.json({ ok: false, error: "DB unavailable" }, { status: 503 });
+  }
+
+  try {
+    const body = await req.json() as {
+      name?: string;
+      org?: string;
+      wave?: number;
+      contact_name?: string;
+      contact_email?: string;
+      strategic_value_tier?: number;
+      audience_overlap_notes?: string;
+      assigned_agent?: string;
+    };
+
+    if (!body.name?.trim()) return NextResponse.json({ ok: false, error: "name required" }, { status: 400 });
+
+    const { data, error } = await supabase
+      .from("avl_partner_contacts")
+      .insert({
+        name:                  body.name.trim(),
+        org:                   (body.org ?? body.name).trim(),
+        wave:                  body.wave ?? 1,
+        contact_name:          body.contact_name?.trim() || null,
+        contact_email:         body.contact_email?.trim() || null,
+        strategic_value_tier:  body.strategic_value_tier ?? 2,
+        audience_overlap_notes: body.audience_overlap_notes?.trim() || null,
+        assigned_agent:        body.assigned_agent ?? "marketa",
+      })
+      .select("id")
+      .single();
+
+    if (error) throw error;
+    return NextResponse.json({ ok: true, id: (data as { id: string }).id });
+  } catch (err) {
+    console.error("[avl/partners POST] error:", err);
+    return NextResponse.json({ ok: false, error: "Create failed" }, { status: 500 });
+  }
+}
