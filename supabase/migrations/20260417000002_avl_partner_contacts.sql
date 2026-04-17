@@ -40,14 +40,11 @@ CREATE INDEX IF NOT EXISTS idx_avl_partners_status ON public.avl_partner_contact
 
 ALTER TABLE public.avl_partner_contacts ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "avl_partners_admin_full"
-  ON public.avl_partner_contacts FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.personas p
-      WHERE p.auth_profile_id = auth.uid() AND p.is_admin = true
-    )
-  );
+CREATE POLICY "avl_partners_read_authenticated"
+  ON public.avl_partner_contacts FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "avl_partners_write_service"
+  ON public.avl_partner_contacts FOR ALL USING (auth.role() = 'service_role');
 
 -- Auto-update updated_at
 CREATE OR REPLACE FUNCTION public.set_avl_partner_updated_at()
@@ -76,14 +73,11 @@ CREATE INDEX IF NOT EXISTS idx_avl_stage_events_partner ON public.avl_partner_st
 
 ALTER TABLE public.avl_partner_stage_events ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "avl_stage_events_admin_full"
-  ON public.avl_partner_stage_events FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.personas p
-      WHERE p.auth_profile_id = auth.uid() AND p.is_admin = true
-    )
-  );
+CREATE POLICY "avl_stage_events_read_authenticated"
+  ON public.avl_partner_stage_events FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "avl_stage_events_write_service"
+  ON public.avl_partner_stage_events FOR ALL USING (auth.role() = 'service_role');
 
 -- ── Comms packs registry ──────────────────────────────────────────────────────
 
@@ -104,14 +98,11 @@ CREATE TABLE IF NOT EXISTS public.avl_comms_packs (
 
 ALTER TABLE public.avl_comms_packs ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "avl_comms_packs_admin_full"
-  ON public.avl_comms_packs FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.personas p
-      WHERE p.auth_profile_id = auth.uid() AND p.is_admin = true
-    )
-  );
+CREATE POLICY "avl_comms_packs_read_authenticated"
+  ON public.avl_comms_packs FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "avl_comms_packs_write_service"
+  ON public.avl_comms_packs FOR ALL USING (auth.role() = 'service_role');
 
 -- ── Partner seed data — 18 partners from KNYT activation addendum ─────────────
 -- Wave 1 (16): Autonomys → PubKey
