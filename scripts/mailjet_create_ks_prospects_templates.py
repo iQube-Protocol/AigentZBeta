@@ -67,7 +67,7 @@ def _encode_logo(path: Path, mime: str) -> str:
         from PIL import Image
         import io
         img = Image.open(path).convert("RGBA" if mime == "image/png" else "RGB")
-        img.thumbnail((400, 300), Image.LANCZOS)
+        img.thumbnail((560, 400), Image.LANCZOS)
         buf = io.BytesIO()
         if mime == "image/png":
             img.save(buf, format="PNG", optimize=True)
@@ -139,7 +139,7 @@ def html_template(subject: str, preheader: str, body_html: str, cta_text: str) -
           <!-- Header logo -->
           <tr>
             <td style="background:#ffffff;padding:20px 36px;border-bottom:1px solid #1e1e1e;text-align:left;">
-              {'<img src="' + LOGO_SRC + '" alt="metaKnyt" width="200" style="display:block;border:0;max-width:200px;" />' if LOGO_SRC else '<p style="margin:0;color:#888888;font-size:11px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;">metaKnyt</p>'}
+              {'<img src="' + LOGO_SRC + '" alt="metaKnyt" width="508" style="display:block;border:0;width:100%;max-width:508px;" />' if LOGO_SRC else '<p style="margin:0;color:#888888;font-size:11px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;">metaKnyt</p>'}
             </td>
           </tr>
 
@@ -209,44 +209,44 @@ TEMPLATES = [
     {
         "env_key":  "MAILJET_TEMPLATE_KS_PROSPECTS_01",
         "name":     "KS Prospects Email 1 — Introduction v1",
-        "subject":  "A graphic novel — and something more",
+        "subject":  "A graphic novel and something more",
         "preheader": "A prestige graphic novel, a hidden mystery, and a new kind of entry into story.",
         "html_body": (
             p("Hi {{var:first_name:\"there\"}},")
-            + p("We wanted to introduce you to <strong style=\"color:#f0f0f0;\">metaKnyt: The Agentic Graphic Novel</strong>.")
-            + p("At one level, it is a beautifully crafted graphic novel: a portal war between physical and digital worlds, a hidden Order, and a mystery thread woven through it asking a haunting question:")
+            + p("We\u2019d love to introduce you to <strong style=\"color:#f0f0f0;\">metaKnyts: The Agentic Graphic Novel</strong>.")
+            + p("On one level, it is a beautifully crafted graphic novel featuring a portal war between physical and digital worlds, a hidden Order, and a mystery at its center:")
             + p("<em style=\"color:#f0f0f0;\">Why did Satoshi disappear?</em>")
-            + p("But the deeper ambition is larger than a book alone.")
-            + p("We\u2019re building this as the opening into a story world that can keep unfolding \u2014 one where backing doesn\u2019t just put a finished object in your hands, but gives you entry into a richer media experience built to expand over time.")
+            + p("But the vision goes beyond the book.")
+            + p("metaKnyts is designed as the gateway into a larger story world, one that can evolve over time through media, technology, and deeper audience participation.")
             + p("So yes, there is a book.<br>But there is also a world behind it.")
-            + p("If that sounds like your kind of project, you can explore it on Kickstarter. And if you\u2019d like a better sense of what makes it distinct, keep an eye out for our next note \u2014 we\u2019ll show you how the project is designed and why we made it this way.")
-            + sig()
+            + p("If that sounds like something you\u2019d enjoy exploring, you can see the live Kickstarter here. More soon, including why this project is being built differently.")
+            + p("Warmly,<br><strong style=\"color:#f0f0f0;\">Dele Atanda</strong><br><span style=\"color:#888888;\">metaKnyts</span>")
         ),
-        "cta_text": "Explore the campaign",
+        "cta_text": "Explore on Kickstarter",
         "text_body": [
             "Hi {{var:first_name:\"there\"}},",
             "",
-            "We wanted to introduce you to metaKnyt: The Agentic Graphic Novel.",
+            "We'd love to introduce you to metaKnyts: The Agentic Graphic Novel.",
             "",
-            "At one level, it is a beautifully crafted graphic novel: a portal war between",
-            "physical and digital worlds, a hidden Order, and a mystery thread woven through it",
-            "asking a haunting question:",
+            "On one level, it is a beautifully crafted graphic novel featuring a portal war",
+            "between physical and digital worlds, a hidden Order, and a mystery at its center:",
             "",
             "  Why did Satoshi disappear?",
             "",
-            "But the deeper ambition is larger than a book alone.",
+            "But the vision goes beyond the book.",
             "",
-            "We're building this as the opening into a story world that can keep unfolding —",
-            "one where backing doesn't just put a finished object in your hands, but gives you",
-            "entry into a richer media experience built to expand over time.",
+            "metaKnyts is designed as the gateway into a larger story world, one that can",
+            "evolve over time through media, technology, and deeper audience participation.",
             "",
             "So yes, there is a book.",
             "But there is also a world behind it.",
             "",
-            "If that sounds like your kind of project, you can explore it on Kickstarter.",
+            "If that sounds like something you'd enjoy exploring, you can see the live",
+            "Kickstarter here. More soon, including why this project is being built differently.",
             "",
             "Warmly,",
-            "Marketa",
+            "Dele Atanda",
+            "metaKnyts",
         ],
     },
     {
