@@ -22,6 +22,7 @@ import {
   Filter,
   Loader2,
   MessageSquare,
+  PenLine,
   RefreshCw,
   Search,
   Send,
@@ -765,6 +766,276 @@ function MessageCard({ msg }: { msg: FeedMessage }) {
   );
 }
 
+// ─── Composer panel ───────────────────────────────────────────────────────────
+
+interface CommsPack {
+  slug: string;
+  title: string;
+  template_markdown: string;
+  subject_lines: string[];
+}
+
+function ComposerPanel() {
+  const [packs,         setPacks]         = useState<CommsPack[]>([]);
+  const [partners,      setPartners]      = useState<Partner[]>([]);
+  const [selectedPack,  setSelectedPack]  = useState("");
+  const [subjectIndex,  setSubjectIndex]  = useState(0);
+  const [selectedIds,   setSelectedIds]   = useState<Set<string>>(new Set());
+  const [loadingInit,   setLoadingInit]   = useState(true);
+  const [preview,       setPreview]       = useState<Array<{ partner: string; to: string; subject: string; body: string }>>([]);
+  const [previewing,    setPreviewing]    = useState(false);
+  const [sending,       setSending]       = useState(false);
+  const [result,        setResult]        = useState<{ sent: number; skipped: number; failed: number; errors: string[] } | null>(null);
+
+  // Load packs + partners on mount
+  useEffect(() => {
+    void (async () => {
+      setLoadingInit(true);
+      const [packsRes, partnersRes] = await Promise.all([
+        fetch("/api/avl/comms-packs").catch(() => null),
+        fetch("/api/avl/partners").catch(() => null),
+      ]);
+      if (packsRes?.ok) {
+        const j = await packsRes.json() as { ok: boolean; data?: CommsPack[] };
+        if (j.ok && j.data) { setPacks(j.data); setSelectedPack(j.data[0]?.slug ?? ""); }
+      }
+      if (partnersRes?.ok) {
+        const j = await partnersRes.json() as { ok: boolean; data?: { partners: Partner[] } };
+        if (j.ok && j.data) setPartners(j.data.partners.filter((p) => p.contact_email));
+      }
+      setLoadingInit(false);
+    })();
+  }, []);
+
+  const togglePartner = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selectedIds.size === partners.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(partners.map((p) => p.id)));
+  };
+
+  const handlePreview = useCallback(async () => {
+    if (!selectedPack || selectedIds.size === 0) return;
+    setPreviewing(true);
+    setPreview([]);
+    setResult(null);
+    try {
+      const res = await fetch("/api/avl/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dry_run:       true,
+          pack_slug:     selectedPack,
+          partner_ids:   Array.from(selectedIds),
+          subject_index: subjectIndex,
+        }),
+      });
+      const j = await res.json() as { ok: boolean; preview?: typeof preview };
+      if (j.ok && j.preview) setPreview(j.preview);
+    } finally {
+      setPreviewing(false);
+    }
+  }, [selectedPack, selectedIds, subjectIndex]);
+
+  const handleSend = useCallback(async () => {
+    if (!selectedPack || selectedIds.size === 0) return;
+    setSending(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/avl/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          dry_run:       false,
+          pack_slug:     selectedPack,
+          partner_ids:   Array.from(selectedIds),
+          subject_index: subjectIndex,
+        }),
+      });
+      const j = await res.json() as { ok: boolean; sent?: number; skipped?: number; failed?: number; errors?: string[] };
+      if (j.ok) {
+        setResult({ sent: j.sent ?? 0, skipped: j.skipped ?? 0, failed: j.failed ?? 0, errors: j.errors ?? [] });
+        setPreview([]);
+        setSelectedIds(new Set());
+      }
+    } finally {
+      setSending(false);
+    }
+  }, [selectedPack, selectedIds, subjectIndex]);
+
+  const currentPack = packs.find((p) => p.slug === selectedPack);
+  const subjects    = currentPack?.subject_lines ?? [];
+  const readyToSend = selectedPack && selectedIds.size > 0;
+
+  if (loadingInit) {
+    return (
+      <div className="flex items-center justify-center py-10 gap-2 text-slate-500">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span className="text-xs">Loading…</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Pack selector */}
+      <div className="space-y-1.5">
+        <div className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Comms Pack</div>
+        <div className="flex gap-1.5 flex-wrap">
+          {packs.map((p) => (
+            <button
+              key={p.slug}
+              type="button"
+              onClick={() => setSelectedPack(p.slug)}
+              className={`text-[10px] rounded-lg border px-2.5 py-1 transition-colors ${
+                selectedPack === p.slug
+                  ? "border-amber-600/60 bg-amber-500/10 text-amber-300"
+                  : "border-white/10 text-slate-500 hover:text-slate-300"
+              }`}
+            >
+              {p.title}
+            </button>
+          ))}
+          {packs.length === 0 && (
+            <span className="text-[10px] text-slate-600">No packs found — run the comms packs SQL migration first.</span>
+          )}
+        </div>
+      </div>
+
+      {/* Subject line variant */}
+      {subjects.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Subject line</div>
+          <div className="space-y-1">
+            {subjects.map((s, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setSubjectIndex(i)}
+                className={`w-full text-left rounded-lg border px-2.5 py-1.5 text-[10px] transition-colors flex items-center gap-2 ${
+                  subjectIndex === i
+                    ? "border-sky-600/50 bg-sky-900/20 text-sky-300"
+                    : "border-white/[0.07] text-slate-500 hover:text-slate-300"
+                }`}
+              >
+                <span className={`h-2 w-2 rounded-full border shrink-0 ${subjectIndex === i ? "bg-sky-400 border-sky-400" : "border-slate-600"}`} />
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Partner selector */}
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2">
+          <div className="text-[10px] text-slate-500 font-medium uppercase tracking-wide flex-1">
+            Partners with email ({partners.length})
+          </div>
+          <button type="button" onClick={toggleAll} className="text-[10px] text-slate-600 hover:text-slate-400">
+            {selectedIds.size === partners.length ? "Deselect all" : "Select all"}
+          </button>
+        </div>
+        <div className="space-y-1 max-h-52 overflow-y-auto">
+          {partners.map((p) => {
+            const checked = selectedIds.has(p.id);
+            const stageStyle = BD_STAGE_STYLES[p.bd_stage] ?? "";
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => togglePartner(p.id)}
+                className={`w-full text-left rounded-lg border px-2.5 py-1.5 flex items-center gap-2 transition-colors ${
+                  checked
+                    ? "border-amber-600/40 bg-amber-500/[0.06]"
+                    : "border-white/[0.07] hover:border-white/10"
+                }`}
+              >
+                <div className={`h-3.5 w-3.5 rounded border flex items-center justify-center shrink-0 ${
+                  checked ? "border-amber-500 bg-amber-500/20" : "border-slate-700"
+                }`}>
+                  {checked && <Check className="h-2.5 w-2.5 text-amber-400" />}
+                </div>
+                <span className="text-[10px] text-slate-200 flex-1">{p.name}</span>
+                <span className={`text-[9px] rounded-full border px-1.5 py-0 ${stageStyle}`}>
+                  {BD_STAGE_LABEL[p.bd_stage] ?? p.bd_stage}
+                </span>
+              </button>
+            );
+          })}
+          {partners.length === 0 && (
+            <div className="text-[10px] text-slate-600 py-3 text-center">No partners with email addresses yet.</div>
+          )}
+        </div>
+      </div>
+
+      {/* Action bar */}
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm" variant="outline"
+          className="h-7 px-3 text-[11px] border-sky-800/50 text-sky-300 hover:bg-sky-500/10"
+          disabled={!readyToSend || previewing}
+          onClick={handlePreview}
+        >
+          {previewing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <PenLine className="h-3 w-3 mr-1" />}
+          Preview
+        </Button>
+        <Button
+          size="sm"
+          className="h-7 px-3 text-[11px] bg-amber-600 hover:bg-amber-500 text-white"
+          disabled={!readyToSend || sending || preview.length === 0}
+          onClick={handleSend}
+        >
+          {sending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Send className="h-3 w-3 mr-1" />}
+          Send to {selectedIds.size} partner{selectedIds.size !== 1 ? "s" : ""}
+        </Button>
+        {selectedIds.size > 0 && (
+          <span className="text-[10px] text-slate-600">{selectedIds.size} selected</span>
+        )}
+      </div>
+
+      {/* Preview */}
+      {preview.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Preview ({preview.length})</div>
+          {preview.map((p, i) => (
+            <div key={i} className="rounded-xl border border-sky-900/40 bg-sky-950/10 p-3 space-y-1.5">
+              <div className="flex gap-2 text-[10px]">
+                <span className="text-slate-600 w-14 shrink-0">To</span>
+                <span className="text-slate-300">{p.partner} &lt;{p.to}&gt;</span>
+              </div>
+              <div className="flex gap-2 text-[10px]">
+                <span className="text-slate-600 w-14 shrink-0">Subject</span>
+                <span className="text-sky-300">{p.subject}</span>
+              </div>
+              <div className="border-t border-white/[0.05] pt-1.5 text-[10px] text-slate-400 whitespace-pre-wrap leading-relaxed max-h-32 overflow-y-auto">
+                {p.body}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Send result */}
+      {result && (
+        <div className={`rounded-xl border p-3 text-[10px] space-y-1 ${
+          result.failed > 0 ? "border-red-800/50 bg-red-950/10" : "border-emerald-800/50 bg-emerald-950/10"
+        }`}>
+          <div className="font-semibold text-emerald-300">Send complete</div>
+          <div className="text-slate-400">Sent: {result.sent} · Skipped: {result.skipped} · Failed: {result.failed}</div>
+          {result.errors.map((e, i) => <div key={i} className="text-red-400">{e}</div>)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main tab ─────────────────────────────────────────────────────────────────
 
 interface RelationshipBuilderTabProps {
@@ -773,7 +1044,7 @@ interface RelationshipBuilderTabProps {
 }
 
 export function RelationshipBuilderTab({ personaId }: RelationshipBuilderTabProps) {
-  const [activeNav, setActiveNav]  = useState<"partners" | "customers" | "qubetalk">("partners");
+  const [activeNav, setActiveNav]  = useState<"partners" | "customers" | "compose" | "qubetalk">("partners");
   const [feed,      setFeed]       = useState<FeedMessage[]>([]);
   const [loading,   setLoading]    = useState(true);
   const [sources,   setSources]    = useState<{ bridge: number; live: number }>({ bridge: 0, live: 0 });
@@ -855,11 +1126,12 @@ export function RelationshipBuilderTab({ personaId }: RelationshipBuilderTabProp
         )}
       </div>
 
-      {/* Nav tabs: Partners | Customers | QubeTalk */}
+      {/* Nav tabs: Partners | Customers | Compose | QubeTalk */}
       <div className="flex gap-1 border-b border-white/[0.06] pb-0">
         {([
           { key: "partners",  label: "Partners",  icon: Building2 },
           { key: "customers", label: "Customers", icon: Users },
+          { key: "compose",   label: "Compose",   icon: PenLine },
           { key: "qubetalk",  label: "QubeTalk",  icon: MessageSquare },
         ] as const).map(({ key, label, icon: Icon }) => (
           <button
@@ -883,6 +1155,9 @@ export function RelationshipBuilderTab({ personaId }: RelationshipBuilderTabProp
 
       {/* Customers panel */}
       {activeNav === "customers" && <CustomersPanel />}
+
+      {/* Compose panel */}
+      {activeNav === "compose" && <ComposerPanel />}
 
       {/* QubeTalk panel */}
       {activeNav === "qubetalk" && (
