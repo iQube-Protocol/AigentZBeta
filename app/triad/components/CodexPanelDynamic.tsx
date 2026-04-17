@@ -130,9 +130,35 @@ export default function CodexPanelDynamic({
   const isAdmin = isAdminProp === true;
   const isPartner = isPartnerProp === true;
 
+  // Auto-resolve partner identity for the Marketa cartridge when personaId is an email.
+  // Follows the same pattern as the admin-check in useCodexEmbedAuthBridge.
+  const [resolvedIsPartner, setResolvedIsPartner] = useState(false);
+  const [resolvedPartnerId, setResolvedPartnerId] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (codexId !== 'marketa-codex') return;
+    if (!personaId?.includes('@')) return;
+    if (isAdmin) return; // admins see all tabs regardless
+
+    let cancelled = false;
+    fetch(`/api/avl/partners/by-email?email=${encodeURIComponent(personaId)}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (!cancelled && d.ok && d.partner?.id) {
+          setResolvedIsPartner(true);
+          setResolvedPartnerId(d.partner.id);
+        }
+      })
+      .catch(() => { /* non-fatal — partner tabs simply stay hidden */ });
+    return () => { cancelled = true; };
+  }, [codexId, personaId, isAdmin]);
+
+  const effectiveIsPartner = isPartner || resolvedIsPartner;
+  const effectivePartnerId = partnerId || resolvedPartnerId;
+
   const enabledTabs = useMemo(
-    () => getEnabledTabs(codex, isAdmin, isPartner).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
-    [codex, isAdmin, isPartner, hiddenTabSet]
+    () => getEnabledTabs(codex, isAdmin, effectiveIsPartner).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
+    [codex, isAdmin, effectiveIsPartner, hiddenTabSet]
   );
   
   const [activeTabSlug, setActiveTabSlug] = useState<string>(
@@ -486,8 +512,8 @@ export default function CodexPanelDynamic({
               density={density}
               personaId={personaId}
               isAdmin={isAdmin}
-              isPartner={isPartner}
-              partnerId={partnerId}
+              isPartner={effectiveIsPartner}
+              partnerId={effectivePartnerId}
               issueSlug={isQriptopian ? issueSlug : undefined}
               previewDevice={previewDevice}
             />
