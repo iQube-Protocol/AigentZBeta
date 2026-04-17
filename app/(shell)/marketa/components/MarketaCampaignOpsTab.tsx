@@ -44,24 +44,24 @@ interface CohortState {
   error: string | null;
 }
 
-const COHORT_COLORS: Record<string, { accent: string; bg: string; actionBg: string; actionHover: string }> = {
+const COHORT_COLORS: Record<string, { accent: string; bg: string; actionDark: string; actionLight: string }> = {
   ks_prospects: {
     accent:      'text-sky-400',
     bg:          'dark:border-sky-500/20 dark:bg-sky-500/[0.05] border-sky-200 bg-sky-50',
-    actionBg:    'bg-sky-600 hover:bg-sky-700',
-    actionHover: '',
+    actionDark:  'border-sky-500/30 bg-sky-500/[0.08] text-sky-300 hover:bg-sky-500/[0.15] hover:border-sky-500/40',
+    actionLight: 'border-sky-500/40 bg-sky-50 text-sky-700 hover:bg-sky-100',
   },
   knyt_codex: {
     accent:      'text-violet-400',
     bg:          'dark:border-violet-500/20 dark:bg-violet-500/[0.05] border-violet-200 bg-violet-50',
-    actionBg:    'bg-violet-600 hover:bg-violet-700',
-    actionHover: '',
+    actionDark:  'border-violet-500/30 bg-violet-500/[0.08] text-violet-300 hover:bg-violet-500/[0.15] hover:border-violet-500/40',
+    actionLight: 'border-violet-500/40 bg-violet-50 text-violet-700 hover:bg-violet-100',
   },
   knyt_partners: {
     accent:      'text-rose-400',
     bg:          'dark:border-rose-500/20 dark:bg-rose-500/[0.05] border-rose-200 bg-rose-50',
-    actionBg:    'bg-rose-600 hover:bg-rose-700',
-    actionHover: '',
+    actionDark:  'border-rose-500/30 bg-rose-500/[0.08] text-rose-300 hover:bg-rose-500/[0.15] hover:border-rose-500/40',
+    actionLight: 'border-rose-500/40 bg-rose-50 text-rose-700 hover:bg-rose-100',
   },
 };
 
@@ -222,7 +222,8 @@ export function MarketaCampaignOpsTab({ theme = 'dark' }: Props) {
                     </Button>
                     <Button
                       size="sm"
-                      className={`h-7 text-xs text-white ${colors.actionBg}`}
+                      variant="outline"
+                      className={`h-7 text-xs bg-transparent ${d ? colors.actionDark : colors.actionLight}`}
                       onClick={() => handleFire(cohort.id)}
                       disabled={cs?.loading || cohort.actionable === 0}
                     >

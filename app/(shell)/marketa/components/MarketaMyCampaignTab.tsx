@@ -227,7 +227,8 @@ export function MarketaMyCampaignTab({ theme = 'dark', partnerId }: Props) {
           {error && <p className="text-xs text-red-400">{error}</p>}
 
           <Button
-            className="w-full sm:w-auto bg-rose-600 hover:bg-rose-700 text-white"
+            variant="outline"
+            className={`w-full sm:w-auto bg-transparent ${isDark ? 'border-rose-500/30 text-rose-300 hover:bg-rose-500/10 hover:border-rose-500/40' : 'border-rose-500/40 text-rose-700 hover:bg-rose-50'}`}
             onClick={handleConfirm}
             disabled={saving || channels.length === 0}
           >

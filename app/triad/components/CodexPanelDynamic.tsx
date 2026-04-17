@@ -399,86 +399,91 @@ export default function CodexPanelDynamic({
     }
   };
 
+  // When only one tab is available, the tab shell manages its own navigation chrome.
+  const singleTabMode = enabledTabs.length <= 1;
+
   return (
     <SmartTriadProvider personaId={personaId}>
       <div className={`flex flex-col h-full w-full ${resolvedTheme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
-        <div className="flex-shrink-0 border-b border-slate-700/50 px-4">
-          <div className="flex items-center justify-between gap-3 py-3">
-            <div className="flex min-w-0 items-center gap-4">
-              <h2
-                className="text-xl font-bold flex items-center gap-2 whitespace-nowrap"
-                title={codex.metadata.description || undefined}
-              >
-                {codex.metadata.icon && React.createElement(
-                  getIconComponent(codex.metadata.icon),
-                  { className: `w-5 h-5 text-${codex.metadata.color || 'indigo'}-400` }
-                )}
-                {displayCodexName}
-              </h2>
-              <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
-                {enabledTabs.map((tab) => {
-                  const Icon = getIconComponent(tab.metadata?.icon || 'Circle');
-                  const isActive = tab.slug === activeTabSlug;
-                  const badge = tabBadgeText(tab);
+        {!singleTabMode && (
+          <div className="flex-shrink-0 border-b border-slate-700/50 px-4">
+            <div className="flex items-center justify-between gap-3 py-3">
+              <div className="flex min-w-0 items-center gap-4">
+                <h2
+                  className="text-xl font-bold flex items-center gap-2 whitespace-nowrap"
+                  title={codex.metadata.description || undefined}
+                >
+                  {codex.metadata.icon && React.createElement(
+                    getIconComponent(codex.metadata.icon),
+                    { className: `w-5 h-5 text-${codex.metadata.color || 'indigo'}-400` }
+                  )}
+                  {displayCodexName}
+                </h2>
+                <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
+                  {enabledTabs.map((tab) => {
+                    const Icon = getIconComponent(tab.metadata?.icon || 'Circle');
+                    const isActive = tab.slug === activeTabSlug;
+                    const badge = tabBadgeText(tab);
 
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTabSlug(tab.slug)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap rounded-lg ${
-                        isActive
-                          ? `bg-${codex.metadata.color || 'indigo'}-500/10 ring-1 ring-${codex.metadata.color || 'indigo'}-500/30 text-${codex.metadata.color || 'indigo'}-300`
-                          : 'text-slate-400 hover:text-slate-300 hover:bg-white/4'
-                      }`}
-                    >
-                      <Icon className="w-3.5 h-3.5 flex-shrink-0" />
-                      {density === 'wide' && tab.label}
-                      {badge && (
-                        <span className="ml-1 px-1.5 py-0.5 text-xs bg-white/10 text-slate-300 rounded-full">
-                          {badge}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTabSlug(tab.slug)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap rounded-lg ${
+                          isActive
+                            ? `bg-${codex.metadata.color || 'indigo'}-500/10 ring-1 ring-${codex.metadata.color || 'indigo'}-500/30 text-${codex.metadata.color || 'indigo'}-300`
+                            : 'text-slate-400 hover:text-slate-300 hover:bg-white/4'
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5 flex-shrink-0" />
+                        {density === 'wide' && tab.label}
+                        {badge && (
+                          <span className="ml-1 px-1.5 py-0.5 text-xs bg-white/10 text-slate-300 rounded-full">
+                            {badge}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {codexId === 'aigentiq-codex' && <AgentiQEconomyBadge />}
+                {isQriptopian && (
+                  <select
+                    value={issueSlug}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setIssueSlug(next);
+                      const params = new URLSearchParams(window.location.search);
+                      params.set('issue', next);
+                      router.replace(`${pathname}?${params.toString()}`);
+                    }}
+                    disabled={issueOptionsLoading && issueOptions.length === 0}
+                    className="rounded-md border border-slate-700 bg-slate-900/60 px-2 py-1 text-sm text-slate-200"
+                  >
+                    {(issueOptions.length > 0 ? issueOptions : fallbackIssueOptions).map((opt) => (
+                      <option key={opt.slug} value={opt.slug}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {showCloseLayerButton ? (
+                  <button
+                    type="button"
+                    onClick={handleCloseLayer}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-600/80 bg-slate-900/70 text-slate-300 transition-colors hover:border-slate-400 hover:text-white"
+                    title="Close codex layer"
+                    aria-label="Close codex layer"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                ) : null}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {codexId === 'aigentiq-codex' && <AgentiQEconomyBadge />}
-              {isQriptopian && (
-                <select
-                  value={issueSlug}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    setIssueSlug(next);
-                    const params = new URLSearchParams(window.location.search);
-                    params.set('issue', next);
-                    router.replace(`${pathname}?${params.toString()}`);
-                  }}
-                  disabled={issueOptionsLoading && issueOptions.length === 0}
-                  className="rounded-md border border-slate-700 bg-slate-900/60 px-2 py-1 text-sm text-slate-200"
-                >
-                  {(issueOptions.length > 0 ? issueOptions : fallbackIssueOptions).map((opt) => (
-                    <option key={opt.slug} value={opt.slug}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              )}
-              {showCloseLayerButton ? (
-                <button
-                  type="button"
-                  onClick={handleCloseLayer}
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-600/80 bg-slate-900/70 text-slate-300 transition-colors hover:border-slate-400 hover:text-white"
-                  title="Close codex layer"
-                  aria-label="Close codex layer"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              ) : null}
-            </div>
           </div>
-        </div>
+        )}
 
         {codexId === 'knyt-codex' && (activeTabSlug === 'treasury' || activeTabSlug === 'order') && (
           <div className="flex-shrink-0">
@@ -486,7 +491,7 @@ export default function CodexPanelDynamic({
           </div>
         )}
 
-        {activeTab && (
+        {activeTab && !singleTabMode && (
           <div className="flex-shrink-0 border-b border-slate-800/80 px-4 py-2">
             <div className="flex items-center gap-3 min-w-0">
               <ActiveTabIcon className="h-4 w-4 flex-shrink-0 text-slate-300" />

@@ -67,7 +67,7 @@ function useTheme(theme: 'light' | 'dark') {
       ? 'appearance-none bg-slate-900/60 border border-white/10 text-slate-300 focus:outline-none focus:border-rose-500/50'
       : 'appearance-none bg-white border border-slate-300 text-slate-700 focus:outline-none focus:border-rose-500',
     // Wave filter buttons
-    waveActive:   'bg-rose-500 text-white',
+    waveActive:   d ? 'bg-rose-500/10 text-rose-300 font-medium' : 'bg-rose-50 text-rose-700 font-medium',
     waveInactive: d ? 'bg-slate-900/60 text-slate-400 hover:text-slate-200' : 'bg-white text-slate-600 hover:text-slate-800',
     waveBorder:   d ? 'border border-white/10' : 'border border-slate-200',
     // Status colors (outreach)
@@ -312,7 +312,8 @@ export function MarketaPartnersAdminTab({ theme = 'dark' }: Props) {
             {selectedPack && (
               <Button
                 size="sm"
-                className="h-7 text-xs bg-violet-600 hover:bg-violet-700 text-white"
+                variant="outline"
+                className={`h-7 text-xs bg-transparent ${t.isDark ? 'border-violet-500/30 text-violet-300 hover:bg-violet-500/10 hover:border-violet-500/40' : 'border-violet-500/40 text-violet-700 hover:bg-violet-50'}`}
                 onClick={handleBulkSend}
                 disabled={bulkSending}
               >
@@ -389,7 +390,12 @@ export function MarketaPartnersAdminTab({ theme = 'dark' }: Props) {
                   </Button>
                   <Button
                     size="sm"
-                    className={`h-6 text-[10px] ${state?.result ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'} text-white`}
+                    variant="outline"
+                    className={`h-6 text-[10px] bg-transparent ${
+                      state?.result
+                        ? (t.isDark ? 'border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10' : 'border-emerald-500/40 text-emerald-700 hover:bg-emerald-50')
+                        : (t.isDark ? 'border-rose-500/30 text-rose-300 hover:bg-rose-500/10' : 'border-rose-500/40 text-rose-700 hover:bg-rose-50')
+                    }`}
                     onClick={() => handleSend(partner.id)}
                     disabled={state?.loading || !!state?.result}
                   >

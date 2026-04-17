@@ -314,9 +314,10 @@ export function MarketaProposeTab({ theme = 'dark', partnerId }: Props) {
           {error && <p className="text-xs text-red-400">{error}</p>}
 
           <Button
+            variant="outline"
             onClick={handleBuild}
             disabled={building || !intent.trim() || channels.length === 0 || !partnerId}
-            className="w-full sm:w-auto bg-violet-600 hover:bg-violet-700 text-white font-semibold"
+            className={`w-full sm:w-auto font-semibold bg-transparent ${d ? 'border-violet-500/30 text-violet-300 hover:bg-violet-500/10 hover:border-violet-500/40' : 'border-violet-500/40 text-violet-700 hover:bg-violet-50'}`}
           >
             {building ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Marketa is building your pack…</>
@@ -349,9 +350,10 @@ export function MarketaProposeTab({ theme = 'dark', partnerId }: Props) {
 
           <div className="flex items-center gap-3">
             <Button
+              variant="outline"
               onClick={handleSubmit}
               disabled={submitting}
-              className="bg-rose-600 hover:bg-rose-700 text-white font-semibold"
+              className={`font-semibold bg-transparent ${d ? 'border-rose-500/30 text-rose-300 hover:bg-rose-500/10 hover:border-rose-500/40' : 'border-rose-500/40 text-rose-700 hover:bg-rose-50'}`}
             >
               {submitting ? (
                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Submitting…</>
