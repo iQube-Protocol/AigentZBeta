@@ -16,7 +16,7 @@ They share no contacts. They use separate tables, separate send scripts, and sep
 | **Size** | 3,267 | 3,748 | 18 |
 | **Overlap with others** | Zero | Zero | Zero |
 | **Sequence length** | 8 emails | Per sub-cohort | 2 waves |
-| **E1 status** | ✅ Sent 17 Apr | ⏳ Not yet sent | ⏳ Not yet sent |
+| **E1 status** | ✅ Sent 17 Apr | Partial — see sub-cohort table | ⏳ Not yet sent |
 | **Engagement tracking** | `engagement_status` + `suppression_status` | `campaign_state` | Manual |
 | **Webhook attribution** | `CustomID: stg_<id>\|N` | `CustomID: <investor_id>\|<seq>` | — |
 
@@ -65,21 +65,32 @@ Always run `--dry-run` first to confirm contact count before firing.
 **Source:** `nakamoto_knyt_personas`
 - Filter: `campaign_state NOT IN ('backed', 'opted_out')`
 
-**Sub-cohorts:**
+**Sub-cohorts — send status as of 17 Apr 2026:**
 
-| Sub-cohort | Criteria | Priority | Sequence type |
+| Sub-cohort | Size | E1 Status | Notes |
 |---|---|---|---|
-| `top_shelf` | Investment band ≥ $2,000 | Highest | High-touch personal |
-| `zero_knyt` | Band $1,000–$1,999 | High | Mid-tier |
-| `reactivation` | Band $100–$999 + has CRM row + not yet backed | Medium | Re-engagement |
-| `general` | Everyone else with email | Standard | Broadcast |
+| `top_shelf` | 13 | ✅ All sent | Complete |
+| `zero_knyt` | 144 | ✅ 143 sent | 1 contact (Gisclerc Morisset) reverted to null cohort — will be re-cohorted properly before next send |
+| `reactivation` | 3,344 | ⏳ Not yet sent | Cleared — dry-run before firing |
+| `general` | 91 | ⏳ Not yet sent | Cleared — dry-run before firing |
 
-**Send order:** top_shelf → zero_knyt → reactivation → general. Do not blast all cohorts simultaneously.
+**Send order:** top_shelf → zero_knyt → reactivation → general. Never fire all cohorts simultaneously.
 
-**Engagement tracking:** `campaign_state` field advances via the Mailjet webhook automatically:
-- `sent` → `opened` → `clicked` → `backed` / `opted_out`
+**Send commands (other agent's script):**
+```bash
+# Always dry-run first
+python3 scripts/send_campaign_sequence.py --sequence knyt_reactivation_v1 --cohort reactivation --dry-run
+python3 scripts/send_campaign_sequence.py --sequence knyt_general_v1 --cohort general --dry-run
 
-**Status:** No emails sent yet. The other Claude Code agent owns the send scripts for this cohort. Coordinate with them before firing.
+# Then live
+python3 scripts/send_campaign_sequence.py --sequence knyt_reactivation_v1 --cohort reactivation --channel email_mailjet
+python3 scripts/send_campaign_sequence.py --sequence knyt_general_v1 --cohort general --channel email_mailjet
+```
+
+**Engagement tracking:** `campaign_state` advances automatically via the Mailjet webhook:
+`unsent → sent → opened → clicked → backed / opted_out`
+
+**Important:** Cohort and campaign_state fields are **locked** in the Investor Directory UI during active campaign. Changes must go through the cohort assignment script or a deliberate SQL with documented reason.
 
 ---
 
@@ -112,10 +123,27 @@ Always run `--dry-run` first to confirm contact count before firing.
 
 ---
 
+## Operator Surfaces — Where to Work With Marketa
+
+| Task | Surface |
+|---|---|
+| Campaign orchestration overview | **Aigent Marketa cartridge** → Campaigns tab |
+| KS Prospects — monitor + compose | **KNYT Codex → Outreach tab** (RelationshipBuilderTab) |
+| KNYT Codex investors — view CRM | **KNYT Codex → Investors tab** (InvestorDirectoryTab) |
+| Partner outreach | **KNYT Codex → Outreach tab** → Partners panel |
+| Agent coordination (Marketa ↔ Claude) | **Venture Lab α → Relationship Builder tab** → QubeTalk feed |
+| Fire KS Prospects emails | Terminal: `node scripts/send-ks-prospects-sequence.js --email N` |
+| Fire KNYT Codex emails | Terminal: `python3 scripts/send_campaign_sequence.py --cohort X` |
+
+The Marketa cartridge is the **command centre** — dashboard, campaign status, partner overview. The KNYT Codex tabs are the **execution surfaces** for specific data and sends.
+
+---
+
 ## What's Next (as of 17 Apr 2026)
 
 | Cohort | Next action |
 |---|---|
 | KS Prospects | Fire Email 2 — targets: `engagement_status IN ('sent', 'opened')` |
-| KNYT Codex | Coordinate with other agent — fire top_shelf sequence first |
+| KNYT Codex — reactivation | Dry-run then fire: 3,344 contacts cleared |
+| KNYT Codex — general | Dry-run then fire: 91 contacts cleared |
 | KNYT Partners | Launch Wave 1 — 18 partner activation outreach |
