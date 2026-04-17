@@ -15,6 +15,25 @@
     "access": "read_write",
     "writebackFields": ["template_ids"]
   },
+  "uploadEndpoint": {
+    "path": "/api/crm/ks-backers/upload",
+    "method": "POST",
+    "contentType": "multipart/form-data",
+    "description": "Upload a CSV or JSON file of prospect contacts directly from the operator's machine. Deduplicates against existing staging records and nakamoto_knyt_personas, then inserts into ks_backers_staging. No terminal script required.",
+    "fields": {
+      "file":        { "type": "File",   "required": true,  "accept": ".csv,.json", "description": "CSV with first_name/last_name/email columns, or JSON array of contact objects" },
+      "campaign_id": { "type": "string", "required": false, "default": "knyt_ks_campaign" },
+      "cohort_id":   { "type": "string", "required": false, "default": "ks_backers" },
+      "dry_run":     { "type": "boolean","required": false, "default": false, "description": "Preview import counts without writing to the database" }
+    },
+    "response": {
+      "inserted":             "number of new records added",
+      "skipped_staged":       "records already in ks_backers_staging",
+      "duplicate_canonical":  "records matched to nakamoto_knyt_personas",
+      "unique":               "brand-new records not in any existing table",
+      "failed":               "records that errored during insert"
+    }
+  },
   "interfaceSchema": {
     "inputs": {
       "MAILJET_API_KEY": {
@@ -110,6 +129,13 @@
   },
   "capabilities": [
     {
+      "id": "upload_contacts",
+      "name": "Upload Prospect Contact List",
+      "description": "Accepts a CSV or JSON file from the operator's machine via POST /api/crm/ks-backers/upload. Parses, deduplicates, cross-references against nakamoto_knyt_personas, and inserts new records into ks_backers_staging. No terminal or seed-file handling required.",
+      "inputs": ["file (CSV or JSON)", "campaign_id", "cohort_id", "dry_run"],
+      "outputs": ["inserted", "skipped_staged", "duplicate_canonical", "unique", "failed"]
+    },
+    {
       "id": "load_config",
       "name": "Load Config from DataQube",
       "description": "Reads all non-secret inputs from the mailjet-service-config DataQube populated_values. Secrets (MAILJET_API_KEY, MAILJET_SECRET_KEY) are loaded from .env.local only.",
@@ -160,6 +186,7 @@
     }
   ],
   "steps": [
+    { "name": "upload_contacts",    "tool": "file_upload","prompt": "POST multipart/form-data to /api/crm/ks-backers/upload with operator-supplied CSV or JSON file; show dry-run summary before committing" },
     { "name": "load_config",        "tool": "json_read",  "prompt": "Read populated_values from data/iqubes/mailjet-service-config.dataqube.json; overlay with .env.local for secrets" },
     { "name": "validate_creds",     "tool": "http_get",   "prompt": "GET /v3/REST/template to verify credentials and fetch existing template names" },
     { "name": "embed_logo",         "tool": "python",     "prompt": "Read logo file, resize with Pillow (560px max), encode as base64 data URI" },

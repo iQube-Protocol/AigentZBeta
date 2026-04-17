@@ -16,6 +16,13 @@
     "writebackStep": "write_back_ids",
     "description": "The skill reads all inputs from this DataQube at startup and writes MAILJET_TEMPLATE_* IDs back to populated_values after template creation."
   },
+  "contactUpload": {
+    "endpoint": "POST /api/crm/ks-backers/upload",
+    "accepts": ["CSV", "JSON"],
+    "description": "Upload a prospect contact list directly from your machine — no terminal scripts. CSV must have first_name, last_name, email columns (case-insensitive). JSON must be an array of contact objects. Supports dry_run=true to preview counts before committing.",
+    "destination": "ks_backers_staging",
+    "deduplication": "Cross-references nakamoto_knyt_personas and existing ks_backers_staging records before insert"
+  },
   "lifecycle": {
     "before_skill": "Operator populates all required fields in populated_values (credentials via .env.local, all others here)",
     "during_skill": "Skill reads populated_values as its primary config source",
