@@ -44,6 +44,13 @@ interface OrgStats {
   finalizedGrants: number;
 }
 
+interface PolicyTargets {
+  trustThresholdMin?: number;
+  skillBudgetPosture?: string;
+  nativeAssetExposure?: string;
+  requiredReceipts?: string[];
+}
+
 interface OrgPolicy {
   orgId: string;
   policyName: string;
@@ -55,6 +62,7 @@ interface OrgPolicy {
   nativeAssetExposure: string;
   requiredReceipts: string[];
   active: boolean;
+  targets?: PolicyTargets;
 }
 
 // ─── OrgQube Policy panel ─────────────────────────────────────────────────────
@@ -70,6 +78,29 @@ const EXPOSURE_STYLES: Record<string, string> = {
   full:    "border-orange-800/40 text-orange-300",
 };
 
+function DimTile({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-2.5 space-y-1.5">
+      <div className="text-[10px] text-slate-500">{label}</div>
+      {children}
+    </div>
+  );
+}
+
+function TargetArrow({ current, target, styles }: { current: string; target?: string; styles: Record<string, string> }) {
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <Badge variant="outline" className={`text-[10px] font-medium capitalize ${styles[current] ?? styles.open}`}>{current}</Badge>
+      {target && target !== current && (
+        <>
+          <span className="text-[9px] text-slate-600">→</span>
+          <Badge variant="outline" className={`text-[10px] font-medium capitalize opacity-60 ${styles[target] ?? styles.open}`}>{target}</Badge>
+        </>
+      )}
+    </div>
+  );
+}
+
 function OrgPolicyPanel({ policy, isDefault, loading }: {
   policy: OrgPolicy | null;
   isDefault: boolean;
@@ -78,8 +109,16 @@ function OrgPolicyPanel({ policy, isDefault, loading }: {
   if (loading) return <div className="text-xs text-slate-500 py-3 text-center">Loading policy…</div>;
   if (!policy)  return <div className="text-xs text-slate-500 py-3 text-center">No policy configured.</div>;
 
+  const tgt = policy.targets ?? {};
+  const trustTarget = tgt.trustThresholdMin ?? policy.trustThresholdMin;
+  const trustPct    = trustTarget > 0 ? Math.min(100, Math.round((policy.trustThresholdMin / trustTarget) * 100)) : 100;
+
+  const receipts       = policy.requiredReceipts.length ? policy.requiredReceipts : [];
+  const targetReceipts = tgt.requiredReceipts ?? receipts;
+
   return (
     <div className="space-y-3">
+      {/* Policy name + status */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs font-medium text-slate-200">{policy.policyName}</span>
         {isDefault && <Badge variant="outline" className="text-[9px] border-slate-700 text-slate-500">alpha defaults</Badge>}
@@ -87,19 +126,59 @@ function OrgPolicyPanel({ policy, isDefault, loading }: {
           {policy.active ? "active" : "inactive"}
         </Badge>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        {[
-          { label: "Skill Budget Posture", render: <Badge variant="outline" className={`text-[10px] font-medium capitalize ${POSTURE_STYLES[policy.skillBudgetPosture] ?? POSTURE_STYLES.open}`}>{policy.skillBudgetPosture}</Badge> },
-          { label: "Asset Exposure",       render: <Badge variant="outline" className={`text-[10px] font-medium capitalize ${EXPOSURE_STYLES[policy.nativeAssetExposure] ?? EXPOSURE_STYLES.none}`}>{policy.nativeAssetExposure}</Badge> },
-          { label: "Trust Floor",          render: <span className="text-sm font-bold text-slate-200">{policy.trustThresholdMin}<span className="text-[10px] text-slate-500 ml-0.5">/ 100</span></span> },
-          { label: "Required Receipts",    render: <span className="text-sm font-bold text-slate-200">{policy.requiredReceipts.length}</span> },
-        ].map(({ label, render }) => (
-          <div key={label} className="rounded-lg border border-slate-800 bg-slate-900/50 p-2.5 space-y-0.5">
-            <div className="text-[10px] text-slate-500">{label}</div>
-            {render}
+
+      {/* Trust floor — actual vs target */}
+      <DimTile label="Trust Floor">
+        <div className="flex items-end justify-between gap-2">
+          <div>
+            <span className="text-sm font-bold text-slate-200">{policy.trustThresholdMin}</span>
+            <span className="text-[10px] text-slate-500 ml-1">actual</span>
           </div>
-        ))}
+          <div className="text-right">
+            <span className="text-[10px] text-slate-500">target </span>
+            <span className="text-sm font-bold text-amber-400">{trustTarget}</span>
+          </div>
+        </div>
+        <div className="w-full h-1 rounded-full bg-slate-800 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-amber-500/70 transition-all"
+            style={{ width: `${trustPct}%` }}
+          />
+        </div>
+        <div className="text-[9px] text-slate-600">Experimental phase — hardening to {trustTarget}% as agents and skills mature</div>
+      </DimTile>
+
+      {/* Posture + Exposure */}
+      <div className="grid grid-cols-2 gap-2">
+        <DimTile label="Skill Budget Posture">
+          <TargetArrow current={policy.skillBudgetPosture} target={tgt.skillBudgetPosture} styles={POSTURE_STYLES} />
+        </DimTile>
+        <DimTile label="Asset Exposure">
+          <TargetArrow current={policy.nativeAssetExposure} target={tgt.nativeAssetExposure} styles={EXPOSURE_STYLES} />
+        </DimTile>
       </div>
+
+      {/* Required receipts — per state-change type */}
+      <div>
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
+          Required Receipts <span className="text-slate-600 normal-case font-normal">(per state-change type)</span>
+        </div>
+        <div className="flex flex-wrap gap-1 mb-1">
+          {receipts.length ? receipts.map((r) => (
+            <span key={r} className="rounded-full border border-slate-700 bg-slate-800/60 px-2 py-0.5 text-[10px] text-slate-300 font-mono">{r}</span>
+          )) : <span className="text-[10px] text-slate-600">none currently required</span>}
+        </div>
+        {targetReceipts.length > receipts.length && (
+          <div className="flex flex-wrap gap-1 mt-0.5">
+            <span className="text-[9px] text-slate-600 mr-1">target →</span>
+            {targetReceipts.filter((r) => !receipts.includes(r)).map((r) => (
+              <span key={r} className="rounded-full border border-slate-700/50 bg-slate-800/30 px-2 py-0.5 text-[10px] text-slate-500 font-mono opacity-60">{r}</span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Allowed agents */}
       <div>
         <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Allowed Agents</div>
         <div className="flex flex-wrap gap-1">
@@ -108,8 +187,10 @@ function OrgPolicyPanel({ policy, isDefault, loading }: {
           ))}
         </div>
       </div>
+
+      {/* Lab native cartridges */}
       <div>
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Allowed Cartridges</div>
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Lab Native Cartridges</div>
         <div className="flex flex-wrap gap-1">
           {(policy.allowedCartridges.length ? policy.allowedCartridges : ["All cartridges"]).map((c) => (
             <span key={c} className="rounded-full border border-slate-700 bg-slate-800/60 px-2 py-0.5 text-[10px] text-slate-300">{c}</span>
