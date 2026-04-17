@@ -2,54 +2,70 @@
   "assetClass": "SkillQube",
   "name": "Setup Mailjet Email Service",
   "slug": "setup-mailjet-service",
-  "description": "End-to-end Mailjet campaign email service setup. Validates credentials, embeds a logo image, creates responsive HTML+text templates from a copy document, sends test emails, and outputs all template IDs as ready-to-paste env vars. Idempotent — safe to re-run to update existing templates.",
+  "description": "End-to-end Mailjet campaign email service setup. Reads all configuration from a mailjet-service-config DataQube, validates credentials, embeds a logo image, creates responsive HTML+text templates from a copy document, sends test emails, and writes all template IDs back to the DataQube. Idempotent — safe to re-run to update existing templates.",
   "currentVersion": "1.0.0",
   "trustBand": "L2_VERIFIED_COMMUNITY",
   "publicationStatus": "draft",
   "policyClass": "secret_bound",
   "wrapperStrategy": "skill",
+  "requiredDataQube": {
+    "slug": "mailjet-service-config",
+    "role": "config_store",
+    "description": "Provides all inputs (credentials, sender identity, branding, campaign config) before the skill runs. Template IDs are written back to populated_values on completion.",
+    "access": "read_write",
+    "writebackFields": ["template_ids"]
+  },
   "interfaceSchema": {
     "inputs": {
       "MAILJET_API_KEY": {
         "type": "string",
-        "source": "env",
+        "source": "dataqube",
+        "dataQubeSection": "credentials",
         "required": true,
-        "description": "Mailjet public API key"
+        "secret": true,
+        "description": "Mailjet public API key — read from DataQube credentials section"
       },
       "MAILJET_SECRET_KEY": {
         "type": "string",
-        "source": "env",
+        "source": "dataqube",
+        "dataQubeSection": "credentials",
         "required": true,
-        "description": "Mailjet secret API key"
+        "secret": true,
+        "description": "Mailjet secret API key — read from DataQube credentials section"
       },
       "MAILJET_FROM_NAME": {
         "type": "string",
-        "source": "env",
+        "source": "dataqube",
+        "dataQubeSection": "sender_identity",
         "required": true,
         "description": "Sender display name shown to recipients"
       },
       "MAILJET_FROM_EMAIL": {
         "type": "string",
-        "source": "env",
+        "source": "dataqube",
+        "dataQubeSection": "sender_identity",
         "required": true,
-        "description": "Verified sender email address in Mailjet account"
+        "description": "Verified sender email address — must be verified in Mailjet account"
       },
       "MAILJET_LOGO_PATH": {
         "type": "string",
-        "source": "env",
+        "source": "dataqube",
+        "dataQubeSection": "branding",
         "required": false,
         "default": "public/images/metaknyt-logo.png",
         "description": "Relative path to logo image (PNG or JPG). Embedded as base64 — no external hosting required."
       },
       "MAILJET_CAMPAIGN_ID": {
         "type": "string",
-        "source": "arg",
+        "source": "dataqube",
+        "dataQubeSection": "campaign",
         "required": true,
-        "description": "Unique campaign identifier used to namespace template names (e.g. ks_prospects, investor_wheel)"
+        "description": "Unique campaign identifier used to namespace template names (e.g. ks_prospects)"
       },
       "MAILJET_COPY_DOC": {
         "type": "string",
-        "source": "arg",
+        "source": "dataqube",
+        "dataQubeSection": "campaign",
         "required": true,
         "description": "Path to campaign copy markdown doc containing email sequence definitions"
       },
@@ -76,7 +92,7 @@
     "outputs": {
       "template_ids": {
         "type": "object",
-        "description": "Map of env var name → Mailjet template ID for all created templates"
+        "description": "Map of env var name → Mailjet template ID for all created templates. Also written back to DataQube populated_values."
       },
       "amplify_env_block": {
         "type": "string",
@@ -93,6 +109,13 @@
     }
   },
   "capabilities": [
+    {
+      "id": "load_config",
+      "name": "Load Config from DataQube",
+      "description": "Reads all non-secret inputs from the mailjet-service-config DataQube populated_values. Secrets (MAILJET_API_KEY, MAILJET_SECRET_KEY) are loaded from .env.local only.",
+      "inputs": ["mailjet-service-config DataQube"],
+      "outputs": ["MAILJET_FROM_NAME", "MAILJET_FROM_EMAIL", "MAILJET_LOGO_PATH", "MAILJET_CAMPAIGN_ID", "MAILJET_COPY_DOC"]
+    },
     {
       "id": "validate_credentials",
       "name": "Validate Mailjet Credentials",
@@ -122,6 +145,13 @@
       "outputs": ["send_status"]
     },
     {
+      "id": "persist_template_ids",
+      "name": "Persist Template IDs to DataQube",
+      "description": "Writes all MAILJET_TEMPLATE_* IDs back to the mailjet-service-config DataQube populated_values section, so they are available to send scripts and future skill runs without manual env var setup.",
+      "inputs": ["template_ids", "MAILJET_CAMPAIGN_ID"],
+      "outputs": ["dataqube_updated"]
+    },
+    {
       "id": "output_env_vars",
       "name": "Output Env Var Block",
       "description": "Prints all MAILJET_TEMPLATE_* env var names and IDs ready to paste into Amplify or .env.local",
@@ -130,14 +160,15 @@
     }
   ],
   "steps": [
-    { "name": "load_env",          "tool": "python",    "prompt": "Load credentials and config from .env.local" },
-    { "name": "validate_creds",    "tool": "http_get",  "prompt": "GET /v3/REST/template to verify credentials and fetch existing template names" },
-    { "name": "embed_logo",        "tool": "python",    "prompt": "Read logo file, resize with Pillow (560px max), encode as base64 data URI" },
-    { "name": "parse_copy_doc",    "tool": "python",    "prompt": "Parse campaign copy markdown doc to extract subject, preheader, body, and CTA per email" },
-    { "name": "create_templates",  "tool": "http_post", "prompt": "POST /v3/REST/template for each email in sequence (skip if exists and not --update)" },
-    { "name": "set_content",       "tool": "http_post", "prompt": "POST /v3/REST/template/{id}/detailcontent with HTML shell + parsed copy per email" },
-    { "name": "send_test",         "tool": "http_post", "prompt": "POST /v3.1/send test email if MAILJET_TEST_EMAIL provided" },
-    { "name": "output_ids",        "tool": "stdout",    "prompt": "Print MAILJET_TEMPLATE_{CAMPAIGN}_{N} env var block ready for Amplify" }
+    { "name": "load_config",        "tool": "json_read",  "prompt": "Read populated_values from data/iqubes/mailjet-service-config.dataqube.json; overlay with .env.local for secrets" },
+    { "name": "validate_creds",     "tool": "http_get",   "prompt": "GET /v3/REST/template to verify credentials and fetch existing template names" },
+    { "name": "embed_logo",         "tool": "python",     "prompt": "Read logo file, resize with Pillow (560px max), encode as base64 data URI" },
+    { "name": "parse_copy_doc",     "tool": "python",     "prompt": "Parse campaign copy markdown doc to extract subject, preheader, body, and CTA per email" },
+    { "name": "create_templates",   "tool": "http_post",  "prompt": "POST /v3/REST/template for each email in sequence (skip if exists and not --update)" },
+    { "name": "set_content",        "tool": "http_post",  "prompt": "POST /v3/REST/template/{id}/detailcontent with HTML shell + parsed copy per email" },
+    { "name": "write_back_ids",     "tool": "json_write", "prompt": "Update populated_values in data/iqubes/mailjet-service-config.dataqube.json with all MAILJET_TEMPLATE_* IDs returned by Mailjet" },
+    { "name": "send_test",          "tool": "http_post",  "prompt": "POST /v3.1/send test email if MAILJET_TEST_EMAIL provided" },
+    { "name": "output_ids",         "tool": "stdout",     "prompt": "Print MAILJET_TEMPLATE_{CAMPAIGN}_{N} env var block ready for Amplify" }
   ],
   "tags": ["email", "mailjet", "campaign", "templates", "operator-tool", "setup"],
   "metadata": {
