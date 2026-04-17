@@ -58,9 +58,14 @@ FROM_EMAIL = os.environ.get("MAILJET_FROM_EMAIL", "dele@metaknyt.com")
 KS_URL     = "https://www.kickstarter.com/projects/430245948/metaknyt-the-legend-of-kn0w1-and-the-21-sats?ref=project_build"
 
 # Logo: embed from local file as base64 data URI (no external hosting needed)
-_LOGO_LOCAL = Path(__file__).parent.parent / "public" / "images" / "metaknyt-logo.jpg"
-if _LOGO_LOCAL.exists():
-    _logo_b64 = base64.b64encode(_LOGO_LOCAL.read_bytes()).decode()
+# Prefers .png over .jpg
+_LOGO_PNG = Path(__file__).parent.parent / "public" / "images" / "metaknyt-logo.png"
+_LOGO_JPG = Path(__file__).parent.parent / "public" / "images" / "metaknyt-logo.jpg"
+if _LOGO_PNG.exists():
+    _logo_b64 = base64.b64encode(_LOGO_PNG.read_bytes()).decode()
+    LOGO_SRC  = f"data:image/png;base64,{_logo_b64}"
+elif _LOGO_JPG.exists():
+    _logo_b64 = base64.b64encode(_LOGO_JPG.read_bytes()).decode()
     LOGO_SRC  = f"data:image/jpeg;base64,{_logo_b64}"
 else:
     LOGO_SRC  = os.environ.get("METAKNYT_LOGO_URL", "")
