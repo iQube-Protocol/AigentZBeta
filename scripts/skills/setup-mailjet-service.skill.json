@@ -16,14 +16,15 @@
     "writebackFields": ["template_ids"]
   },
   "uploadEndpoint": {
-    "path": "/api/crm/ks-backers/upload",
+    "path": "/api/crm/contacts/upload",
     "method": "POST",
     "contentType": "multipart/form-data",
-    "description": "Upload a CSV or JSON file of prospect contacts directly from the operator's machine. Deduplicates against existing staging records and nakamoto_knyt_personas, then inserts into ks_backers_staging. No terminal script required.",
+    "description": "Upload a CSV or JSON file of prospect contacts directly from the operator's machine. Works for any crowdfunding or patronage list (Kickstarter, Indiegogo, Patreon, newsletter, etc). Deduplicates against existing staging records and nakamoto_knyt_personas, then inserts into ks_backers_staging. No terminal script required.",
     "fields": {
       "file":        { "type": "File",   "required": true,  "accept": ".csv,.json", "description": "CSV with first_name/last_name/email columns, or JSON array of contact objects" },
-      "campaign_id": { "type": "string", "required": false, "default": "knyt_ks_campaign" },
-      "cohort_id":   { "type": "string", "required": false, "default": "ks_backers" },
+      "cohort_id":   { "type": "string", "required": true,  "description": "Identifies the contact cohort (e.g. ks_prospects, patreon_backers, indiegogo_leads)" },
+      "campaign_id": { "type": "string", "required": true,  "description": "Identifies the campaign (e.g. knyt_ks_2026, knyt_patreon_q1)" },
+      "source_name": { "type": "string", "required": false, "description": "Label for the upload source, stored in seed_source (e.g. ks_export_apr_2026)" },
       "dry_run":     { "type": "boolean","required": false, "default": false, "description": "Preview import counts without writing to the database" }
     },
     "response": {
@@ -131,7 +132,7 @@
     {
       "id": "upload_contacts",
       "name": "Upload Prospect Contact List",
-      "description": "Accepts a CSV or JSON file from the operator's machine via POST /api/crm/ks-backers/upload. Parses, deduplicates, cross-references against nakamoto_knyt_personas, and inserts new records into ks_backers_staging. No terminal or seed-file handling required.",
+      "description": "Accepts a CSV or JSON file from the operator's machine via POST /api/crm/contacts/upload. Works for any crowdfunding or patronage source. Parses, deduplicates, cross-references against nakamoto_knyt_personas, and inserts new records into ks_backers_staging namespaced by cohort_id and campaign_id. No terminal or seed-file handling required.",
       "inputs": ["file (CSV or JSON)", "campaign_id", "cohort_id", "dry_run"],
       "outputs": ["inserted", "skipped_staged", "duplicate_canonical", "unique", "failed"]
     },
