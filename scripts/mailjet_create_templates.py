@@ -55,6 +55,32 @@ AUTH = "Basic " + base64.b64encode(f"{API_KEY}:{SECRET_KEY}".encode()).decode()
 
 BASE_URL = "https://api.mailjet.com/v3/REST"
 
+# ── Logo (shared with KS Prospects templates) ─────────────────────────────────
+_LOGO_PNG = Path(__file__).parent.parent / "public" / "images" / "metaknyt-logo.png"
+_LOGO_JPG = Path(__file__).parent.parent / "public" / "images" / "metaknyt-logo.jpg"
+
+def _encode_logo(path: Path, mime: str) -> str:
+    try:
+        from PIL import Image
+        import io
+        img = Image.open(path).convert("RGBA" if mime == "image/png" else "RGB")
+        img.thumbnail((560, 400), Image.LANCZOS)
+        buf = io.BytesIO()
+        if mime == "image/png":
+            img.save(buf, format="PNG", optimize=True)
+        else:
+            img.convert("RGB").save(buf, format="JPEG", quality=85)
+        return f"data:{mime};base64,{base64.b64encode(buf.getvalue()).decode()}"
+    except ImportError:
+        return f"data:{mime};base64,{base64.b64encode(path.read_bytes()).decode()}"
+
+if _LOGO_PNG.exists():
+    LOGO_SRC = _encode_logo(_LOGO_PNG, "image/png")
+elif _LOGO_JPG.exists():
+    LOGO_SRC = _encode_logo(_LOGO_JPG, "image/jpeg")
+else:
+    LOGO_SRC = ""
+
 # ── HTTP helpers ──────────────────────────────────────────────────────────────
 
 def mj_post(path: str, payload: dict) -> dict:
@@ -103,12 +129,10 @@ def html_template(subject: str, preheader: str, body_html: str, cta_text: str) -
         <table width="600" cellpadding="0" cellspacing="0" border="0"
                style="max-width:600px;width:100%;background:#111111;border-radius:8px;overflow:hidden;">
 
-          <!-- Header -->
+          <!-- Header logo -->
           <tr>
-            <td style="background:#1a1a1a;padding:24px 32px;border-bottom:1px solid #2a2a2a;">
-              <p style="margin:0;color:#f5c842;font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;">
-                KNYT Wheel · Metaiye Media
-              </p>
+            <td style="background:#ffffff;padding:20px 32px;border-bottom:1px solid #2a2a2a;text-align:left;">
+              {('<img src="' + LOGO_SRC + '" alt="metaKnyt" width="508" style="display:block;border:0;width:100%;max-width:508px;" />') if LOGO_SRC else '<p style="margin:0;color:#f5c842;font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;">KNYT Wheel · Metaiye Media</p>'}
             </td>
           </tr>
 
