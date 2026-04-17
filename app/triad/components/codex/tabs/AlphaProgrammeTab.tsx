@@ -68,20 +68,20 @@ interface OrgPolicy {
 // ─── OrgQube Policy panel ─────────────────────────────────────────────────────
 
 const POSTURE_STYLES: Record<string, string> = {
-  open:         "border-emerald-800/40 text-emerald-300",
-  conservative: "border-amber-800/40 text-amber-300",
-  strict:       "border-red-800/40 text-red-300",
+  open:         "border-emerald-500/30 text-emerald-300 bg-emerald-500/10",
+  conservative: "border-amber-500/30 text-amber-300 bg-amber-500/10",
+  strict:       "border-red-500/30 text-red-300 bg-red-500/10",
 };
 const EXPOSURE_STYLES: Record<string, string> = {
-  none:    "border-slate-700 text-slate-400",
-  limited: "border-amber-800/40 text-amber-300",
-  full:    "border-orange-800/40 text-orange-300",
+  none:    "border-slate-600/40 text-slate-400 bg-slate-500/10",
+  limited: "border-amber-500/30 text-amber-300 bg-amber-500/10",
+  full:    "border-orange-500/30 text-orange-300 bg-orange-500/10",
 };
 
-function DimTile({ label, children }: { label: string; children: React.ReactNode }) {
+function GlassTile({ label, accent, children }: { label: string; accent?: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-2.5 space-y-1.5">
-      <div className="text-[10px] text-slate-500">{label}</div>
+    <div className={`rounded-xl border p-3 space-y-2 backdrop-blur-sm ${accent ?? "border-white/[0.07] bg-white/[0.03]"}`}>
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{label}</div>
       {children}
     </div>
   );
@@ -90,11 +90,11 @@ function DimTile({ label, children }: { label: string; children: React.ReactNode
 function TargetArrow({ current, target, styles }: { current: string; target?: string; styles: Record<string, string> }) {
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
-      <Badge variant="outline" className={`text-[10px] font-medium capitalize ${styles[current] ?? styles.open}`}>{current}</Badge>
+      <Badge variant="outline" className={`text-[10px] font-medium capitalize backdrop-blur-sm ${styles[current] ?? styles.open}`}>{current}</Badge>
       {target && target !== current && (
         <>
           <span className="text-[9px] text-slate-600">→</span>
-          <Badge variant="outline" className={`text-[10px] font-medium capitalize opacity-60 ${styles[target] ?? styles.open}`}>{target}</Badge>
+          <Badge variant="outline" className={`text-[10px] font-medium capitalize opacity-50 backdrop-blur-sm ${styles[target] ?? styles.open}`}>{target}</Badge>
         </>
       )}
     </div>
@@ -109,102 +109,106 @@ function OrgPolicyPanel({ policy, isDefault, loading }: {
   if (loading) return <div className="text-xs text-slate-500 py-3 text-center">Loading policy…</div>;
   if (!policy)  return <div className="text-xs text-slate-500 py-3 text-center">No policy configured.</div>;
 
-  const tgt = policy.targets ?? {};
-  const trustTarget = tgt.trustThresholdMin ?? policy.trustThresholdMin;
-  const trustPct    = trustTarget > 0 ? Math.min(100, Math.round((policy.trustThresholdMin / trustTarget) * 100)) : 100;
-
+  const tgt            = policy.targets ?? {};
+  const trustTarget    = tgt.trustThresholdMin ?? 70;
   const receipts       = policy.requiredReceipts.length ? policy.requiredReceipts : [];
   const targetReceipts = tgt.requiredReceipts ?? receipts;
+  const addedReceipts  = targetReceipts.filter((r) => !receipts.includes(r));
 
   return (
     <div className="space-y-3">
       {/* Policy name + status */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs font-medium text-slate-200">{policy.policyName}</span>
-        {isDefault && <Badge variant="outline" className="text-[9px] border-slate-700 text-slate-500">alpha defaults</Badge>}
-        <Badge variant="outline" className={`text-[9px] ${policy.active ? "border-emerald-800/40 text-emerald-400" : "border-red-800/40 text-red-400"}`}>
+        {isDefault && <Badge variant="outline" className="text-[9px] border-white/10 bg-white/[0.04] text-slate-500 backdrop-blur-sm">alpha defaults</Badge>}
+        <Badge variant="outline" className={`text-[9px] backdrop-blur-sm ${policy.active ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" : "border-red-500/30 bg-red-500/10 text-red-400"}`}>
           {policy.active ? "active" : "inactive"}
         </Badge>
       </div>
 
-      {/* Trust floor — actual vs target */}
-      <DimTile label="Trust Floor">
-        <div className="flex items-end justify-between gap-2">
+      {/* Trust floor — 0-100 gauge with target marker */}
+      <GlassTile label="Trust Floor" accent="border-amber-500/20 bg-amber-500/[0.06] backdrop-blur-sm">
+        <div className="flex items-baseline justify-between">
           <div>
-            <span className="text-sm font-bold text-slate-200">{policy.trustThresholdMin}</span>
-            <span className="text-[10px] text-slate-500 ml-1">actual</span>
+            <span className="text-xl font-bold text-amber-300">{policy.trustThresholdMin}</span>
+            <span className="text-[10px] text-slate-500 ml-1.5">actual</span>
           </div>
           <div className="text-right">
             <span className="text-[10px] text-slate-500">target </span>
-            <span className="text-sm font-bold text-amber-400">{trustTarget}</span>
+            <span className="text-base font-semibold text-amber-400/70">{trustTarget}</span>
+            <span className="text-[10px] text-slate-600 ml-0.5">/ 100</span>
           </div>
         </div>
-        <div className="w-full h-1 rounded-full bg-slate-800 overflow-hidden">
+        {/* 0-100 gauge track with target marker pin */}
+        <div className="relative w-full h-2 rounded-full bg-slate-800/80 overflow-visible">
           <div
-            className="h-full rounded-full bg-amber-500/70 transition-all"
-            style={{ width: `${trustPct}%` }}
+            className="absolute left-0 top-0 h-full rounded-full bg-amber-500/80"
+            style={{ width: `${policy.trustThresholdMin}%` }}
+          />
+          <div
+            className="absolute top-1/2 -translate-y-1/2 w-px h-4 bg-amber-400/50"
+            style={{ left: `${trustTarget}%` }}
           />
         </div>
-        <div className="text-[9px] text-slate-600">Experimental phase — hardening to {trustTarget}% as agents and skills mature</div>
-      </DimTile>
+        <div className="flex justify-between text-[9px] text-slate-600">
+          <span>0</span>
+          <span className="text-amber-600/60">▲ target {trustTarget}</span>
+          <span>100</span>
+        </div>
+        <div className="text-[9px] text-amber-900/80">Experimental phase — hardening toward {trustTarget} as agents and skills mature</div>
+      </GlassTile>
 
       {/* Posture + Exposure */}
       <div className="grid grid-cols-2 gap-2">
-        <DimTile label="Skill Budget Posture">
+        <GlassTile label="Skill Budget Posture" accent="border-emerald-500/15 bg-emerald-500/[0.04] backdrop-blur-sm">
           <TargetArrow current={policy.skillBudgetPosture} target={tgt.skillBudgetPosture} styles={POSTURE_STYLES} />
-        </DimTile>
-        <DimTile label="Asset Exposure">
+        </GlassTile>
+        <GlassTile label="Asset Exposure" accent="border-sky-500/15 bg-sky-500/[0.04] backdrop-blur-sm">
           <TargetArrow current={policy.nativeAssetExposure} target={tgt.nativeAssetExposure} styles={EXPOSURE_STYLES} />
-        </DimTile>
+        </GlassTile>
       </div>
 
-      {/* Required receipts — per state-change type */}
-      <div>
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">
-          Required Receipts <span className="text-slate-600 normal-case font-normal">(per state-change type)</span>
-        </div>
-        <div className="flex flex-wrap gap-1 mb-1">
+      {/* Required receipts — all material CRUD state changes */}
+      <GlassTile label="Required Receipts — material state changes" accent="border-sky-500/15 bg-sky-500/[0.03] backdrop-blur-sm">
+        <div className="flex flex-wrap gap-1">
           {receipts.length ? receipts.map((r) => (
-            <span key={r} className="rounded-full border border-slate-700 bg-slate-800/60 px-2 py-0.5 text-[10px] text-slate-300 font-mono">{r}</span>
+            <span key={r} className="rounded-full border border-sky-500/25 bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-300/80 font-mono">{r}</span>
           )) : <span className="text-[10px] text-slate-600">none currently required</span>}
         </div>
-        {targetReceipts.length > receipts.length && (
-          <div className="flex flex-wrap gap-1 mt-0.5">
-            <span className="text-[9px] text-slate-600 mr-1">target →</span>
-            {targetReceipts.filter((r) => !receipts.includes(r)).map((r) => (
-              <span key={r} className="rounded-full border border-slate-700/50 bg-slate-800/30 px-2 py-0.5 text-[10px] text-slate-500 font-mono opacity-60">{r}</span>
+        {addedReceipts.length > 0 && (
+          <div className="flex flex-wrap gap-1 pt-0.5 border-t border-white/[0.05] mt-1">
+            <span className="text-[9px] text-slate-600 self-center mr-0.5">target +</span>
+            {addedReceipts.map((r) => (
+              <span key={r} className="rounded-full border border-sky-500/15 bg-sky-500/[0.06] px-2 py-0.5 text-[10px] text-sky-400/50 font-mono">{r}</span>
             ))}
           </div>
         )}
-      </div>
+      </GlassTile>
 
-      {/* Allowed agents */}
-      <div>
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Allowed Agents</div>
-        <div className="flex flex-wrap gap-1">
-          {(policy.allowedAgents.length ? policy.allowedAgents : ["All agents"]).map((a) => (
-            <span key={a} className="rounded-full border border-slate-700 bg-slate-800/60 px-2 py-0.5 text-[10px] text-slate-300">{a}</span>
-          ))}
-        </div>
-      </div>
-
-      {/* Lab native cartridges */}
-      <div>
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5">Lab Native Cartridges</div>
-        <div className="flex flex-wrap gap-1">
-          {(policy.allowedCartridges.length ? policy.allowedCartridges : ["All cartridges"]).map((c) => (
-            <span key={c} className="rounded-full border border-slate-700 bg-slate-800/60 px-2 py-0.5 text-[10px] text-slate-300">{c}</span>
-          ))}
-        </div>
+      {/* Allowed Agents + Lab Native Cartridges — side by side */}
+      <div className="grid grid-cols-2 gap-2">
+        <GlassTile label="Allowed Aigents" accent="border-violet-500/15 bg-violet-500/[0.04] backdrop-blur-sm">
+          <div className="flex flex-wrap gap-1">
+            {(policy.allowedAgents.length ? policy.allowedAgents : ["All"]).map((a) => (
+              <span key={a} className="rounded-full border border-violet-500/25 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300/80">{a}</span>
+            ))}
+          </div>
+        </GlassTile>
+        <GlassTile label="Lab Native Cartridges" accent="border-emerald-500/15 bg-emerald-500/[0.04] backdrop-blur-sm">
+          <div className="flex flex-wrap gap-1">
+            {(policy.allowedCartridges.length ? policy.allowedCartridges : ["All"]).map((c) => (
+              <span key={c} className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300/80">{c}</span>
+            ))}
+          </div>
+        </GlassTile>
       </div>
     </div>
   );
 }
 
 // ─── Workstream definitions ────────────────────────────────────────────────────
-// Five projects that run through the Venture Lab α programme model.
-// VL α itself is the programme frame — its infra readiness is derived from
-// the aggregate completion across all five workstreams.
+// Six projects running through the Venture Lab α programme model.
+// VL α is the programme frame — its infra readiness is the aggregate of all six.
 
 type WsStatus = "complete" | "active" | "in-progress" | "queued";
 
@@ -243,29 +247,43 @@ const WORKSTREAMS: Array<{
     ],
   },
   {
+    id: "metame",
+    label: "metaMe",
+    status: "in-progress",
+    summary: "Runtime, studio, registry, experience and capsule delivery — personal sovereignty and intelligence surface.",
+    items: [
+      { text: "Runtime client built", done: true },
+      { text: "Studio Composer", done: true },
+      { text: "Registry integration", done: true },
+      { text: "Experience + capsule delivery", done: true },
+      { text: "metaMe guardian policy hook", done: false },
+      { text: "Personal sovereignty settings UI", done: false },
+    ],
+  },
+  {
     id: "agentiq-alpha",
     label: "AgentiQ α",
     status: "complete",
-    summary: "Platform foundation — registry, runtime, studio, SDK, experience model, capsule delivery.",
+    summary: "Aigent, cartridge & iQube composition, Ingestion Factory, DVN, infrastructure, policy enforcement, SDK tier.",
     items: [
-      { text: "Registry pipeline", done: true },
-      { text: "Experience model + matrix", done: true },
+      { text: "Ingestion Factory pipeline", done: true },
+      { text: "iQube composition layer", done: true },
       { text: "Agent personas + routing", done: true },
-      { text: "SmartTriad copilot", done: true },
-      { text: "KNYT Runtime Surface", done: true },
-      { text: "OrgQube governance layer", done: true },
+      { text: "DVN receipt infrastructure", done: true },
+      { text: "OrgQube policy enforcement", done: true },
+      { text: "SDK tier", done: true },
     ],
   },
   {
     id: "agentiq-os",
     label: "AgentiQ OS α",
     status: "queued",
-    summary: "Next-phase engine — metaMe runtime, Kn0w1-first agent shell, treasury/rewards MVP.",
+    summary: "Open source sovereign framework and operating system underpinning the entire stack and ecosystem.",
     items: [
       { text: "23-doc planning corpus complete", done: true },
-      { text: "metaMe OS runtime", done: false },
       { text: "Kn0w1-first KNYT Alpha shell", done: false },
       { text: "Treasury / rewards MVP", done: false },
+      { text: "SkillQube + OrgQube live", done: false },
       { text: "Reference agent trio live", done: false },
     ],
   },
@@ -273,11 +291,11 @@ const WORKSTREAMS: Array<{
     id: "relationship-builder",
     label: "Relationship Builder α",
     status: "in-progress",
-    summary: "Partner + customer activation — 18-partner pipeline + 3,748-person investor/backer CRM.",
+    summary: "7,000+ persona/investor backer CRM — 18-partner activation pipeline + KS backer cohorts.",
     items: [
       { text: "Docs + cartridge tab wired", done: true },
       { text: "QubeTalk feed live", done: true },
-      { text: "DB migration + partner seed", done: false },
+      { text: "DB migration + 18 partner seed", done: true },
       { text: "KS backer import", done: false },
       { text: "Partners + Customers UI (Phase 1)", done: false },
       { text: "Composer + Marketa send (Phase 2)", done: false },
@@ -374,12 +392,13 @@ export function AlphaProgrammeTab() {
             <div>
               <p className="text-xs uppercase tracking-wide text-amber-500 mb-0.5">Programme Frame</p>
               <h2 className="text-xl font-semibold text-slate-100">Venture Lab α</h2>
-              <p className="text-xs text-slate-400 mt-0.5">Five workstreams. One programme model.</p>
+              <p className="text-xs text-slate-400 mt-0.5">Six workstreams. One programme model.</p>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge className="border-emerald-800 bg-emerald-950 text-emerald-300">Qriptopian ✓</Badge>
-              <Badge className="border-emerald-800 bg-emerald-950 text-emerald-300">AgentiQ α ✓</Badge>
-              <Badge className="border-amber-800 bg-amber-950 text-amber-300">KNYT Active</Badge>
+            <div className="flex items-center flex-wrap gap-1.5">
+              <Badge variant="outline" className="border-emerald-500/25 bg-emerald-500/10 text-emerald-300/80 backdrop-blur-sm text-[10px]">Qriptopian ✓</Badge>
+              <Badge variant="outline" className="border-amber-500/25 bg-amber-500/10 text-amber-300/80 backdrop-blur-sm text-[10px]">KNYT ✓</Badge>
+              <Badge variant="outline" className="border-sky-500/25 bg-sky-500/10 text-sky-300/80 backdrop-blur-sm text-[10px]">metaMe</Badge>
+              <Badge variant="outline" className="border-emerald-500/25 bg-emerald-500/10 text-emerald-300/80 backdrop-blur-sm text-[10px]">AgentiQ α ✓</Badge>
               <Button
                 size="sm" variant="ghost"
                 className="h-7 w-7 p-0"
