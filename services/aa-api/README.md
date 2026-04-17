@@ -1,97 +1,62 @@
 # AigentZ AA API
 
-**AA API** is the backend service for the AigentZ / metaMe platform. "AA" is short for **AigentZ API** — it has no other expansion. Think of it as the server that sits between the frontend (or any thin client) and the underlying systems (database, asset registry, payment processor).
+Core orchestration service for AigentZ. Handles DID auth, tenant/role policy, asset registration and policies, x402 quotes/settlement webhooks, entitlement issuance, SSE events, and Registry calls. Data plane (tables, migrations, storage, SDK) resides in QubeBase.
 
-If you're looking at the code and thinking "this is a directory full of route handlers" — you're right. That's exactly what it is. Each route group handles a different concern:
-
-```
-thin client  →  AA API  →  Supabase (database)
-                        →  Registry (asset metadata)
-                        →  X402 (micropayments)
-```
-
-The frontend never talks to Supabase or the Registry directly. All reads and writes go through AA API so that auth, tenant scoping, and policy enforcement happen in one place.
-
----
-
-## What each route group does
-
-| Route prefix | Plain-language purpose |
-|---|---|
-| `/aa/v1/auth` | Log in with a DID (decentralised identity). Returns a JWT you use for all other requests. |
-| `/aa/v1/assets` | Upload a file, register it in the asset registry, and set who can access it. |
-| `/aa/v1/entitlements` | Grant or list a user's access rights to assets. |
-| `/aa/v1/quotes` | Start an X402 micropayment flow (get a price quote for an asset). |
-| `/aa/v1/payments` | Receive the webhook when an X402 payment settles. |
-| `/aa/v1/runtime` | Return the shell configuration — menus, selected Aigent, LLM selector, iframe URL — so the frontend knows what to render. Also handles menu and prompt actions. |
-| `/aa/v1/updates` | Server-Sent Events stream. Pushes real-time updates to a connected client (e.g. "your asset registered successfully"). |
-| `/aa/v1/browser` | Create and control automated browser sessions (Playwright / Browserbase) on behalf of an agent. |
-| `/aa/v1/supabase` | Internal DB helper endpoints. Not intended for external callers. |
-| `/health` | Health check. Returns `{ ok: true }`. |
-
----
+## Ownership
+- Repository: AigentZBeta
+- Package: `aigentz-aa-api`
+- Service path: `services/aa-api`
 
 ## Run
+- From root using root env:
+  - Install: `npm run aa:install`
+  - Build: `npm run aa:build`
+  - Start: `npm run aa:start`
+  - Dev: `npm run aa:dev`
+- Node: v20+ (see `.nvmrc` at repo root). The service enforces `engines.node =20.x`.
 
-From the repo root (uses root `.env.local`):
+## Environment
+Required variables (read from root `.env.local` via DOTENV_CONFIG_PATH):
+- `AA_JWT_SECRET`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_STORAGE_BUCKET` (if used by storage endpoints)
+- `REGISTRY_ENDPOINT`
+- `REGISTRY_API_KEY`
+- `X402_FACILITATOR_ENDPOINT`
+- `X402_SIGNING_PRIVATE_KEY`
+- `X402_CALLBACK_PUBLIC_BASE`
+- `CORS_ORIGIN`
+- `RUNTIME_IFRAME_URL` (optional; default `http://localhost:3000/metame/runtime?embed=1`)
+- `RUNTIME_IFRAME_ORIGIN` (optional; defaults to iframe URL origin)
+- `DEFAULT_TENANT_ID` (optional)
+- `DEFAULT_PERSONA_ID` (optional)
 
-```bash
-npm run aa:install   # install dependencies
-npm run aa:dev       # development (hot reload)
-npm run aa:build     # compile TypeScript
-npm run aa:start     # run compiled build
-```
+Compatibility alias:
+- `SUPABASE_JWT_SECRET` falls back to `AA_JWT_SECRET` in `src/env.ts`.
 
-Node v20+ required (see `.nvmrc` at repo root).
+## Endpoints
+- `GET /health` health check
+- `POST /aa/v1/auth/challenge` → start DID challenge
+- `POST /aa/v1/auth/verify` → verify DID and issue JWT
+- `GET/POST /aa/v1/assets/*` → initiate upload, upload binary, register, set policies, list
+- `GET/POST /aa/v1/entitlements/*` → create/list/update entitlements
+- `POST /aa/v1/payments/*` → x402 settlement webhooks (quotes/commits)
+- `POST /aa/v1/quotes/*` → x402 quote publish/flow
+- `GET /aa/v1/updates` → SSE stream
+- `GET /aa/v1/runtime/shell-config` → runtime shell hydration payload
+- `POST /aa/v1/runtime/selectors` → update selected Aigent/LLM
+- `POST /aa/v1/runtime/menu-action` → apply menu action + return updated shell config
+- `POST /aa/v1/runtime/prompt-action` → apply prompt submission/reset + return updated shell config
 
----
+## Integration with AigentZ SDK
+- The SDK should call AA API endpoints for orchestration and use QubeBase SDK for data access.
+- Shared types and adapters should be promoted to `/packages` (future work):
+  - `packages/aigentz-sdk` (client)
+  - `packages/aigentz-types` (DTO/Zod)
+  - `packages/registry-adapter`, `packages/x402-adapter`
 
-## Environment variables
-
-These must be present in `.env.local` at the repo root:
-
-| Variable | What it does |
-|---|---|
-| `AA_JWT_SECRET` | Signs and verifies the JWTs issued by `/auth/verify`. |
-| `SUPABASE_URL` | Your Supabase project URL. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role key — full DB access, never expose to the browser. |
-| `SUPABASE_STORAGE_BUCKET` | Storage bucket name for asset uploads (if used). |
-| `REGISTRY_ENDPOINT` | URL of the asset registry service. |
-| `REGISTRY_API_KEY` | API key for the registry. |
-| `X402_FACILITATOR_ENDPOINT` | URL of the X402 payment facilitator. |
-| `X402_SIGNING_PRIVATE_KEY` | Private key used to sign X402 payment payloads. |
-| `X402_CALLBACK_PUBLIC_BASE` | Public base URL for X402 settlement callbacks. |
-| `CORS_ORIGIN` | Comma-separated list of allowed origins, or `*` for all. |
-| `RUNTIME_IFRAME_URL` | URL of the embedded runtime iframe (default: `http://localhost:3000/metame/runtime?embed=1`). |
-| `RUNTIME_IFRAME_ORIGIN` | Origin of the iframe (defaults to the origin of `RUNTIME_IFRAME_URL`). |
-| `DEFAULT_TENANT_ID` | Optional fallback tenant ID when none is in the JWT. |
-| `DEFAULT_PERSONA_ID` | Optional fallback persona ID. |
-
-Compatibility alias: `SUPABASE_JWT_SECRET` is accepted as a fallback for `AA_JWT_SECRET`.
-
----
-
-## How auth works
-
-1. Client calls `POST /aa/v1/auth/challenge` with a DID → gets a challenge string back.
-2. Client signs the challenge with their private key → calls `POST /aa/v1/auth/verify` with the signature.
-3. AA API verifies the signature → issues a JWT.
-4. Client includes `Authorization: Bearer <token>` on all subsequent requests.
-
-The JWT carries `tenantId` and `personaId` claims. Every route that touches data uses these to scope the query to the right tenant.
-
----
-
-## How the frontend connects
-
-The Next.js app **does not call AA API directly**. It proxies through `/app/api/aa/*` Next.js API routes. Those routes add server-side concerns (cookie-based sessions, additional auth checks) before forwarding to AA API.
-
-The `@metame/aa-client` package (`/packages/aa-client`) is the typed client used by the frontend to call those Next.js proxy routes.
-
----
-
-## Scaling notes
-
-- **SSE is in-memory.** For multi-instance deployments, replace with Redis pub/sub.
-- **Rate limiting** is not yet implemented on public endpoints — add it before production scale.
-- The Registry and X402 adapters are entirely env-driven; swap endpoints via env vars per environment.
+## Notes
+- CORS and Helmet enabled; consider rate limiting for public endpoints.
+- SSE is in-memory; for scale-out, use Redis pub/sub or a fanout layer.
+- Registry/x402 adapters are env-driven; wire to prod endpoints/keys per environment.
