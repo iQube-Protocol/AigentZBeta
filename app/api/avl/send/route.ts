@@ -64,7 +64,7 @@ function toHtml(text: string): string {
     .split(/\n\n+/)
     .map((p) => `<p style="margin:0 0 14px 0;line-height:1.6">${p.replace(/\n/g, "<br>")}</p>`);
   return [
-    '<!DOCTYPE html><html><body style="font-family:Georgia,serif;font-size:15px;color:#1a1a1a;',
+    '<!DOCTYPE html><html><body style="font-family:Georgia,serif;font-size:17px;color:#1a1a1a;',
     'max-width:580px;margin:0 auto;padding:32px 24px;background:#fff">',
     paragraphs.join(""),
     "</body></html>",
