@@ -1332,6 +1332,9 @@ This user is a story enthusiast interested in the metaKnyts universe.
   }
 }
 
+// Agents that need the KNYT codex character/episode context injected
+const KNYT_FOCUSED_AGENTS = new Set(['aigent-kn0w1', 'aigent-marketa']);
+
 // Build system prompt with codex context, user role, and KB content
 function buildSystemPrompt(
   metadata: CodexMetadata,
@@ -1339,18 +1342,6 @@ function buildSystemPrompt(
   userContext?: UserContext,
   kbContext?: KBSearchResult[]
 ): string {
-  const characterSummaries = metadata.characters.map(c => {
-    const card = c.knyt_card;
-    return `- **${c.digiterra_name}** (${c.terra_name}): ${c.profile?.substring(0, 200) || 'No profile'}...
-  Affiliation: ${c.affiliation || 'Unknown'}, Base: ${c.base || 'Unknown'}
-  ${card ? `Powers: ${card.powers?.substring(0, 150) || 'Unknown'}... Primary Weapon: ${card.primary_weapon || 'None'}` : ''}`;
-  }).join('\n\n');
-
-  const episodeSummaries = metadata.episodes.map(e => {
-    return `- **Episode ${e.issue_number}: ${e.title}** (Focus: ${e.knytcard_focus || 'Various'})
-  Synopsis: ${e.synopsis?.substring(0, 200) || 'No synopsis'}...`;
-  }).join('\n\n');
-
   // Normalize short keys ('marketa', 'kn0w1') to full IDs ('aigent-marketa', 'aigent-kn0w1')
   const resolvedPersonaId = normalizeAgentId(aigentId) ?? 'aigent-kn0w1';
   const personaConfig =
@@ -1388,7 +1379,33 @@ function buildSystemPrompt(
     ? `\n\n## Active Policy Rules (metaMe Settings)\n\n${policyLines.join('\n')}`
     : '';
 
-  return `${personaIntro}${policyBlock}
+  // Shared KB context section (appended for all agents when search returns results)
+  const kbSection = kbContext && kbContext.length > 0 ? `
+
+## Relevant Knowledge Base Content
+
+The following content from the knowledge base is relevant to the user's query:
+
+${kbContext.map((kb, i) => `### Source ${i + 1}: ${kb.title} (${kb.contentCategory})
+${kb.content.substring(0, 800)}${kb.content.length > 800 ? '...' : ''}`).join('\n\n')}` : '';
+
+  // KNYT-focused agents (Kn0w1, Marketa) get the full codex character/episode context injected.
+  // Platform/system agents (Aigent Z, Aigent C, etc.) use only their own system prompt + KB hits —
+  // injecting KNYT characters/episodes into Aigent Z's context would override its engineering identity.
+  if (KNYT_FOCUSED_AGENTS.has(resolvedPersonaId)) {
+    const characterSummaries = metadata.characters.map(c => {
+      const card = c.knyt_card;
+      return `- **${c.digiterra_name}** (${c.terra_name}): ${c.profile?.substring(0, 200) || 'No profile'}...
+  Affiliation: ${c.affiliation || 'Unknown'}, Base: ${c.base || 'Unknown'}
+  ${card ? `Powers: ${card.powers?.substring(0, 150) || 'Unknown'}... Primary Weapon: ${card.primary_weapon || 'None'}` : ''}`;
+    }).join('\n\n');
+
+    const episodeSummaries = metadata.episodes.map(e => {
+      return `- **Episode ${e.issue_number}: ${e.title}** (Focus: ${e.knytcard_focus || 'Various'})
+  Synopsis: ${e.synopsis?.substring(0, 200) || 'No synopsis'}...`;
+    }).join('\n\n');
+
+    return `${personaIntro}${policyBlock}
 
 ${roleGuidelines}
 
@@ -1412,28 +1429,14 @@ ${episodeSummaries || 'No episodes loaded yet.'}
 
 **Structure your responses for readability:**
 - Break information into short paragraphs (2-3 sentences each)
-- Use **bold** for character names, episode titles, and key terms
 - Use bullet points (•) for lists of powers, weapons, or episode highlights
-- Use *italics* for quotes or emphasis
 - When asked for a diagram, include a valid Mermaid diagram in a fenced code block using \`\`\`mermaid
 
-**Diagram behavior:**
-- You can generate Mermaid diagrams directly in your response
-- Do not claim you cannot create diagrams
-- Prefer simple, readable Mermaid flows (graph TD / flowchart / sequence) unless the user asks for a specific type
-
-**Content sections to include when relevant:**
-- A brief intro paragraph answering the question
-- Key details organized with bullets or short paragraphs
-- A "sidebar" section using → for related lore or connections
-
 **Always end with 2-3 follow-up questions:**
-After your response, add a section like:
+After your response, add:
 "---
-**Explore further:**
-• [Question about a related character]
-• [Question about an episode featuring this character]
-• [Question about powers or lore connection]"
+• [Follow-up question]
+• [Follow-up question]"
 
 ## Content Guidelines
 
@@ -1442,16 +1445,11 @@ After your response, add a section like:
 3. Help users discover content they might enjoy
 4. Reference specific episodes or characters when relevant
 5. If asked about something not in your knowledge base, acknowledge it gracefully
-6. Be engaging and immersive - you're a guide to this universe
-7. When users ask to read or view content, guide them to the appropriate episode in the Codex
-8. Keep responses concise but well-structured${kbContext && kbContext.length > 0 ? `
+6. Be engaging and immersive — you are a guide to this universe${kbSection}`;
+  }
 
-## Relevant Knowledge Base Content
-
-The following content from the knowledge base is relevant to the user's query. Use this information to provide accurate and detailed responses:
-
-${kbContext.map((kb, i) => `### Source ${i + 1}: ${kb.title} (${kb.contentCategory})
-${kb.content.substring(0, 800)}${kb.content.length > 800 ? '...' : ''}`).join('\n\n')}` : ''}`;
+  // Platform/system agents: persona system prompt only, plus any KB hits
+  return `${personaIntro}${policyBlock}${kbSection}`;
 }
 
 // CORS headers for cross-origin requests from Vite dev server

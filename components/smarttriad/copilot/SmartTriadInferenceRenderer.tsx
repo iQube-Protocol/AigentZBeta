@@ -226,11 +226,13 @@ function processMessageContent(content: string): string {
     }
   );
 
-  // Step 2: Strip HTML div wrappers and clean up
+  // Step 2: Strip HTML div wrappers; normalise horizontal whitespace only.
+  // NOTE: do NOT collapse newlines here — the line-level renderer and markdown
+  // transformation both depend on \n being preserved.
   processedContent = processedContent
     .replace(/<\/?div[^>]*>/g, '')
-    .replace(/<br\s*\/?>/gi, '')
-    .replace(/\s+/g, ' ')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/[ \t]{2,}/g, ' ')
     .trim();
 
   // Step 3: Markdown transformation

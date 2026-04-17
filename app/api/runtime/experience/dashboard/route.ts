@@ -136,9 +136,53 @@ export async function GET(request: NextRequest) {
     if (personaId) baseQ = (baseQ as any).eq('persona_id', personaId);
     if (stageFilter) baseQ = (baseQ as any).eq('stage', stageFilter);
 
+    // When a search query is present, resolve matching persona_ids from the CRM
+    // tables first — this ensures search works across ALL records, not just the
+    // paginated window (the recency-ordered limit would otherwise hide older records).
+    // Use separate .ilike() calls per column to avoid .or() wildcard parsing issues.
+    if (searchQuery) {
+      const like = `%${searchQuery}%`;
+      const [
+        crmFirstRes,
+        crmLastRes,
+        crmDisplayRes,
+        crmFioRes,
+        personaDisplayRes,
+        personaFioRes,
+      ] = await Promise.all([
+        supabase.from('crm_personas').select('identity_persona_id').ilike('first_name', like).not('identity_persona_id', 'is', null).limit(500),
+        supabase.from('crm_personas').select('identity_persona_id').ilike('last_name', like).not('identity_persona_id', 'is', null).limit(500),
+        supabase.from('crm_personas').select('identity_persona_id').ilike('display_name', like).not('identity_persona_id', 'is', null).limit(500),
+        supabase.from('crm_personas').select('identity_persona_id').ilike('fio_handle', like).not('identity_persona_id', 'is', null).limit(500),
+        supabase.from('personas').select('id').ilike('display_name', like).limit(500),
+        supabase.from('personas').select('id').ilike('fio_handle', like).limit(500),
+      ]);
+
+      const matchingIds = new Set<string>();
+      for (const r of crmFirstRes.data ?? []) if (r?.identity_persona_id) matchingIds.add(r.identity_persona_id);
+      for (const r of crmLastRes.data ?? []) if (r?.identity_persona_id) matchingIds.add(r.identity_persona_id);
+      for (const r of crmDisplayRes.data ?? []) if (r?.identity_persona_id) matchingIds.add(r.identity_persona_id);
+      for (const r of crmFioRes.data ?? []) if (r?.identity_persona_id) matchingIds.add(r.identity_persona_id);
+      for (const r of personaDisplayRes.data ?? []) if (r?.id) matchingIds.add(r.id);
+      for (const r of personaFioRes.data ?? []) if (r?.id) matchingIds.add(r.id);
+
+      if (matchingIds.size === 0) {
+        return NextResponse.json({
+          view: 'individual',
+          tenant_id: tenantId,
+          stage_filter: stageFilter,
+          search: searchQuery,
+          total: 0,
+          individuals: [],
+        });
+      }
+
+      baseQ = (baseQ as any).in('persona_id', [...matchingIds]);
+    }
+
     const { data: states, error: statesError } = await (baseQ as any)
       .order('active_at', { ascending: false })
-      .limit(limit);
+      .limit(searchQuery ? 500 : limit);
 
     if (statesError) {
       return NextResponse.json(
@@ -242,17 +286,8 @@ export async function GET(request: NextRequest) {
       crm: crmByPersona[s.persona_id] ?? null,
     }));
 
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      individuals = individuals.filter((ind) => {
-        const crm = ind.crm;
-        return (
-          ind.persona_id.toLowerCase().includes(q) ||
-          (crm?.display_name ?? '').toLowerCase().includes(q) ||
-          (crm?.fio_handle ?? '').toLowerCase().includes(q)
-        );
-      });
-    }
+    // Note: when searchQuery is present the persona_id IN filter above already
+    // scopes results to exact matches — no further client-side filtering needed.
 
     return NextResponse.json({
       view: 'individual',

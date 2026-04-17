@@ -3,7 +3,7 @@
     {
       "id": "col_venture_lab",
       "title": "Venture Lab α",
-      "description": "Full 20-doc AgentiQ KNYT planning package — strategy, agent specs, economics, cartridge design, and implementation PRDs.",
+      "description": "Full 23-doc AgentiQ KNYT planning package — strategy, agent specs, economics, cartridge design, implementation PRDs, engineering checklist, and ticket set.",
       "items": [
         "items/01-alpha-program-positioning.md",
         "items/02-engine-thesis.md",
@@ -24,7 +24,34 @@
         "items/17-qriptopian-support-spec.md",
         "items/18-knyt-alpha-mvp-workback.md",
         "items/19-engine-strategy-prd.md",
-        "items/20-dev-implementation-prd.md"
+        "items/20-dev-implementation-prd.md",
+        "items/21-operator-prompt-pack.md",
+        "items/22-engineering-checklist.md",
+        "items/23-linear-jira-ticket-set.md"
+      ]
+    },
+    {
+      "id": "col_relationship_builder_alpha",
+      "title": "Relationship Builder α",
+      "description": "AVL Relationship Builder α — KNYT Relationship Composer, partner and customer journey orchestration, Studio/Experience Matrix alignment, execution rails, reporting, reward visibility, and continuity beyond Kickstarter.",
+      "items": [
+        "items/24-relationship-builder-overview.md",
+        "items/25-avl-knyt-prd.md",
+        "items/26-avl-continuity-addendum.md",
+        "items/27-avl-dev-implementation-prd.md",
+        "items/28-avl-claude-code-operator-pack.md",
+        "items/29-avl-customer-surface-addendum.md",
+        "items/30-ks-backers-recruitment-and-activation-plan.md",
+        "items/31-ks-backers-hygiene-and-canonization-gate.md",
+        "items/32-email-sequence-placeholder-and-naming-note.md"
+      ]
+    },
+    {
+      "id": "col_alpha_programme",
+      "title": "α Programme",
+      "description": "Four-workstream programme overview with live progress report — AgentiQ Alpha (complete), KNYT Wheel (active), Relationship Builder α (MVP in progress), Venture Lab α (queued).",
+      "items": [
+        "items/33-alpha-program-overview-and-progress.md"
       ]
     }
   ]

@@ -1,0 +1,19 @@
+{
+  "dataset_name": "ks_backers_seed_cohort_phase1",
+  "cohort_id": "ks_backers",
+  "campaign_id": "knyt_ks_campaign",
+  "canonical_dataset": false,
+  "storage_tier": "staging",
+  "chunked": true,
+  "record_count": 3267,
+  "parts": [
+    "data/knyt/cohorts/staging/ks_backers_seed_cohort_phase1.part_01.json",
+    "data/knyt/cohorts/staging/ks_backers_seed_cohort_phase1.part_02.json",
+    "data/knyt/cohorts/staging/ks_backers_seed_cohort_phase1.part_03.json",
+    "data/knyt/cohorts/staging/ks_backers_seed_cohort_phase1.part_04.json",
+    "data/knyt/cohorts/staging/ks_backers_seed_cohort_phase1.part_05.json",
+    "data/knyt/cohorts/staging/ks_backers_seed_cohort_phase1.part_06.json",
+    "data/knyt/cohorts/staging/ks_backers_seed_cohort_phase1.part_07.json"
+  ],
+  "notes": "Use all parts together. This seed cohort is intentionally kept separate from the canonical KNYT dataset until phase 2 of the Relationship Builder work plan."
+}

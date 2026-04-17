@@ -27,7 +27,8 @@ export type RegistryAssetClass =
   | "SkillQube"
   | "WorkflowQube"
   | "ConnectorQube"
-  | "AigentQube";
+  | "AigentQube"
+  | "DataQube";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Trust bands — ordered L1 (lowest) → L5 (highest)
@@ -367,8 +368,43 @@ export interface ConnectorQube {
   updatedAt: string;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// DataQube — wraps a governed, queryable dataset
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface DataQube {
+  assetId: string;
+  tenantId: string;
+  assetClass: "DataQube";
+  name: string;
+  slug: string;
+  description?: string;
+  iconUrl?: string;
+  sourceId?: string;
+  intakeId?: string;
+  currentVersion: string;
+  trustBand: TrustBand;
+  publicationStatus: string;
+  policyClass: PolicyClass;
+  wrapperStrategy: WrapperStrategy;
+  /** Schema of the primary dataset — columns, types, row count */
+  interfaceSchema: Record<string, unknown>;
+  capabilities: CapabilityDescriptor[];
+  /** Primary Supabase table this DataQube surfaces */
+  primaryTable?: string;
+  /** Secondary table joined by linkKey */
+  secondaryTable?: string;
+  linkKey?: string;
+  rowCount?: number;
+  tags: string[];
+  metadata: Record<string, unknown>;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Union type covering all asset classes
-export type RegistryAsset = ToolQube | SkillQube | WorkflowQube | ConnectorQube;
+export type RegistryAsset = ToolQube | SkillQube | WorkflowQube | ConnectorQube | DataQube;
 
 // Lightweight summary used in list views
 export interface RegistryAssetSummary {

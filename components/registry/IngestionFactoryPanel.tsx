@@ -663,6 +663,15 @@ export function IngestionFactoryPanel() {
     if (activeSection === "assets") loadAssets();
   }, [classFilter, bandFilter, statusFilter, activeSection, loadAssets]);
 
+  // Reload when an asset is published in the detail panel (no page refresh needed)
+  useEffect(() => {
+    const handler = () => {
+      if (activeSection === "assets") loadAssets();
+    };
+    window.addEventListener("iqube-asset-published", handler);
+    return () => window.removeEventListener("iqube-asset-published", handler);
+  }, [activeSection, loadAssets]);
+
   function handleIngestionSuccess(assetId: string) {
     setActiveSection("assets");
     loadAssets().then(() => setSelectedAssetId(assetId));

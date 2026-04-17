@@ -1,0 +1,19 @@
+{
+  "dataset_name": "ks_backers_seed_cohort_phase1",
+  "cohort_id": "ks_backers",
+  "campaign_id": "knyt_ks_campaign",
+  "seed_source": "imported_seed_pdf_extract",
+  "canonical_dataset": false,
+  "canonicalization_phase": "phase_2",
+  "storage_tier": "staging",
+  "intended_module": "knyt_crm",
+  "record_count": 3267,
+  "schema": [
+    "first_name",
+    "last_name",
+    "email"
+  ],
+  "deduped_by": "normalized_email",
+  "email_validation": "syntax_only",
+  "notes": "Seed cohort for KNYT KS campaign. Kept separate from canonical dataset until phase 2 of the Relationship Builder work plan."
+}
