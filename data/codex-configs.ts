@@ -975,6 +975,24 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
         description: 'AgentiQ OS — live builder substrate dashboard: agent registry, skill catalog, factory pipeline, contribution types',
         color: 'green'
       }
+    },
+    {
+      id: 'relationship-builder',
+      label: 'Relationship Builder',
+      slug: 'relationship-builder',
+      enabled: true,
+      adminOnly: true,
+      order: 4,
+      type: 'static',
+      config: {
+        component: 'RelationshipBuilderTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'MessageSquare',
+        description: 'QubeTalk agent coordination channel — bridge packets, live messages, and partner connection graph',
+        color: 'violet'
+      }
     }
   ],
   permissions: {
