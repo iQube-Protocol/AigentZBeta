@@ -59,6 +59,15 @@ export default function CodexViewerPage() {
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>("desktop");
   const [copilotOpen, setCopilotOpen] = useState(false);
 
+  // Sync codexId and activeTab when navigating between cartridges via URL (same-path navigation)
+  useEffect(() => {
+    const newId = searchParams.get("id");
+    const newTab = searchParams.get("tab");
+    if (newId && newId !== codexId) setCodexId(newId);
+    if (newTab && newTab !== activeTab) setActiveTab(newTab);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   // Resolve active session persona so SmartTriadProvider queries the right ownership data
   const { sessionPersonas } = useSupabaseSessionPersonas();
   const activePersonaId = useMemo(() => {
@@ -452,6 +461,7 @@ export default function CodexViewerPage() {
               }`}
             >
               <CodexPanelDynamic
+                key={codexId}
                 codexId={codexId}
                 theme={theme}
                 density={density}

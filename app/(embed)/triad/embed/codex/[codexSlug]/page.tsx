@@ -71,6 +71,7 @@ function DynamicCodexContent() {
 
   return (
     <CodexPanelDynamic
+      key={codexId}
       codexId={codexId}
       theme={theme}
       density={density}
