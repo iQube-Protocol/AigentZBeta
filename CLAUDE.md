@@ -163,6 +163,60 @@ New work should land in the correct layer. Don't mix concerns across layers.
 
 ---
 
+## Inter-Cartridge Navigation — Identity Propagation (CANONICAL RULE)
+
+When navigating from one codex or cartridge to another, **personaId and access flags MUST travel with the link**. This is a first-class platform rule — not optional.
+
+### The rule
+
+> Every link that crosses a codex/cartridge boundary MUST carry `personaId` (and optionally `isAdmin`, `isPartner`) as URL query parameters. The receiving embed route reads and forwards these automatically. Never rely on localStorage alone — URL params are explicit, auditable, and work regardless of storage state.
+
+### Implementation
+
+Use `buildCodexUrl()` from `utils/codex-nav.ts` for all inter-cartridge links:
+
+```ts
+import { buildCodexUrl } from "@/utils/codex-nav";
+
+// Back-link from KNYT Alpha → Venture Lab α Programme
+href={buildCodexUrl("alpha-knyt", { tab: "alpha-programme", personaId, from: "knyt", fromTab: "knyt-alpha" })}
+
+// Deep-link from Venture Lab α Programme → KNYT Wheel tab
+link: buildCodexUrl("knyt-codex", { tab: "knyt-alpha", personaId, from: "alpha-knyt", fromTab: "alpha-programme" })
+```
+
+### How the receiving side works
+
+`/triad/embed/codex/[codexSlug]/page.tsx` already reads:
+- `?personaId=` → passed to `useCodexEmbedAuthBridge` and all tab components
+- `?isAdmin=true` → used for optimistic gate rendering (server re-validates)
+- `?isPartner=true` → same
+- `?from=` and `?fromTab=` → available for breadcrumb construction
+
+`useCodexEmbedAuthBridge` provides a secondary fallback via localStorage (`currentPersonaId`, `activePersonaId`) but the URL param is always preferred.
+
+### Access rights enforcement
+
+- Access gates (`adminOnly`, `partnerOnly`) are **always resolved server-side** from the persona at load time. URL params for `isAdmin`/`isPartner` are only for **optimistic client-side UI** — they never bypass server enforcement.
+- Never pass `isAdmin=true` in a hardcoded link. Only propagate it dynamically when the current session has that right: `isAdmin={isAdmin}` in `buildCodexUrl`.
+
+### Where this applies
+
+- Any `<a href>` or `router.push()` that points to `/triad/embed/codex/...`
+- Back-buttons on codex tabs that link to another cartridge
+- Workstream cards in `AlphaProgrammeTab` that deep-link into KNYT codex
+- Any future cross-cartridge CTAs (e.g. Qriptopian → AgentiQ)
+
+### Files
+
+| File | Role |
+|------|------|
+| `utils/codex-nav.ts` | Canonical `buildCodexUrl()` helper — use this everywhere |
+| `app/(embed)/triad/embed/codex/[codexSlug]/page.tsx` | Reads and forwards all identity params |
+| `app/(embed)/triad/embed/codex/_lib/useCodexEmbedAuthBridge.ts` | Resolves personaId from URL or localStorage |
+
+---
+
 ## Local Development Path
 
 The canonical local root for this project is:

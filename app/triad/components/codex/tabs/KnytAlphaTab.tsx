@@ -18,6 +18,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { buildCodexUrl } from "@/utils/codex-nav";
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 import {
   ArrowLeft,
@@ -464,7 +465,7 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
           </div>
           <div className="flex items-center gap-2">
             <a
-              href="/triad/embed/codex/alpha-knyt?tab=alpha-programme"
+              href={buildCodexUrl("alpha-knyt", { tab: "alpha-programme", personaId, from: "knyt", fromTab: "knyt-alpha" })}
               className="flex items-center gap-1 rounded-md border border-amber-700/30 bg-amber-900/15 backdrop-blur-sm px-2.5 py-1 text-[11px] text-amber-400/80 hover:text-amber-300 hover:bg-amber-900/25 transition-colors"
               title="Back to α Programme"
             >
