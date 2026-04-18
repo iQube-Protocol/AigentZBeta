@@ -32,6 +32,10 @@ interface CodexPanelDynamicProps {
   useDefaults?: boolean;        // Use hardcoded configs vs database
   previewDevice?: DeviceType;
   onClose?: () => void;         // Direct close callback (inline rendering)
+  /** Rendering shell context — controls where cross-cartridge links navigate.
+   *  "embed" (default): standalone thin-client embed, no platform chrome.
+   *  "viewer": inside AgentiQ platform shell (multi-cartridge viewer). */
+  shell?: 'embed' | 'viewer';
 }
 
 type IssueOption = {
@@ -97,6 +101,7 @@ export default function CodexPanelDynamic({
   useDefaults = true,
   previewDevice,
   onClose,
+  shell = 'embed',
 }: CodexPanelDynamicProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -521,6 +526,7 @@ export default function CodexPanelDynamic({
               partnerId={effectivePartnerId}
               issueSlug={isQriptopian ? issueSlug : undefined}
               previewDevice={previewDevice}
+              shell={shell}
             />
           )}
         </div>
