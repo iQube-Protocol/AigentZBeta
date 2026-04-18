@@ -463,8 +463,8 @@ export function AlphaProgrammeTab() {
           const style = STATUS_STYLES[ws.status];
           const Icon  = style.icon;
           const doneItems = ws.items.filter((i) => i.done).length;
-          return (
-            <div key={ws.id} className={`rounded-xl border ${style.border} bg-slate-950/40 p-3 space-y-2`}>
+          const cardContent = (
+            <>
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                   <Icon className={`h-4 w-4 flex-shrink-0 ${style.iconClass}`} />
@@ -472,13 +472,7 @@ export function AlphaProgrammeTab() {
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   {ws.link && (
-                    <a
-                      href={ws.link}
-                      className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] text-amber-400/70 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
-                      title="Open in codex"
-                    >
-                      <ArrowUpRight className="h-3 w-3" />
-                    </a>
+                    <ArrowUpRight className="h-3 w-3 text-amber-400/60" />
                   )}
                   <Badge variant="outline" className={`text-[9px] ${style.badge}`}>
                     {STATUS_LABEL[ws.status]}
@@ -500,6 +494,19 @@ export function AlphaProgrammeTab() {
                 </div>
                 <span className="text-[10px] text-slate-500 shrink-0">{doneItems}/{ws.items.length}</span>
               </div>
+            </>
+          );
+          return ws.link ? (
+            <a
+              key={ws.id}
+              href={ws.link}
+              className={`rounded-xl border ${style.border} bg-slate-950/40 p-3 space-y-2 block cursor-pointer hover:bg-slate-900/60 hover:border-amber-700/50 transition-colors`}
+            >
+              {cardContent}
+            </a>
+          ) : (
+            <div key={ws.id} className={`rounded-xl border ${style.border} bg-slate-950/40 p-3 space-y-2`}>
+              {cardContent}
             </div>
           );
         })}

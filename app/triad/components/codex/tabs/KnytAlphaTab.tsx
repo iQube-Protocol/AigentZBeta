@@ -128,7 +128,7 @@ function ExplainerSection({
   bgClass: string;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   return (
     <Card className={`rounded-xl border ${borderClass} ${bgClass}`}>
       <CardHeader
@@ -446,10 +446,10 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
     <div className="grid gap-4 p-4 md:p-6">
 
       {/* ── Header ── */}
-      <Card className="rounded-xl border border-amber-800/40 bg-amber-950/20">
+      <Card className="rounded-xl border border-amber-800/30 bg-amber-950/10 backdrop-blur-sm">
         <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
           <div>
-            <p className="text-xs uppercase tracking-wide text-amber-500 mb-0.5">Venture Lab α</p>
+            <p className="text-xs uppercase tracking-wide text-amber-500/80 mb-0.5">Venture Lab α</p>
             <h2 className="text-xl font-semibold text-slate-100">Know1-First KNYT Alpha</h2>
             <p className="text-xs text-slate-400 mt-0.5">
               The reference alpha experience for the KNYT Cartridge — guided by Know1, backed by AgentiQ OS primitives.
@@ -457,15 +457,15 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
           </div>
           <div className="flex items-center gap-2">
             <a
-              href="/triad/embed/codex/venture-lab?tab=alpha-programme"
-              className="flex items-center gap-1 rounded-md border border-amber-700/40 bg-amber-900/20 px-2.5 py-1 text-[11px] text-amber-400 hover:text-amber-300 hover:bg-amber-900/30 transition-colors"
+              href="/triad/embed/codex/alpha-knyt?tab=alpha-programme"
+              className="flex items-center gap-1 rounded-md border border-amber-700/30 bg-amber-900/15 backdrop-blur-sm px-2.5 py-1 text-[11px] text-amber-400/80 hover:text-amber-300 hover:bg-amber-900/25 transition-colors"
               title="Back to α Programme"
             >
               <ArrowLeft className="h-3 w-3" />
               α Programme
             </a>
-            <Badge className="border-amber-800 bg-amber-950 text-amber-300">Alpha</Badge>
-            <Badge variant="outline" className="border-slate-700 text-slate-300">Provisional</Badge>
+            <Badge variant="outline" className="border-amber-500/25 bg-amber-500/10 text-amber-300/70 backdrop-blur-sm text-[10px]">Alpha</Badge>
+            <Badge variant="outline" className="border-slate-600/40 bg-slate-800/30 text-slate-400/70 backdrop-blur-sm text-[10px]">Provisional</Badge>
             <Button
               size="sm"
               variant="ghost"

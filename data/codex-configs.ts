@@ -333,7 +333,7 @@ export const KNYT_CODEX: CodexConfig = {
       slug: 'experience-pack',
       enabled: true,
       adminOnly: true,   // Internal stakeholder doc — hidden from end users
-      order: 12,
+      order: 14,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -355,7 +355,7 @@ export const KNYT_CODEX: CodexConfig = {
       slug: 'wheel',
       enabled: true,
       adminOnly: true,   // Live operator bundle — admin-gated working access
-      order: 13,
+      order: 15,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -377,7 +377,7 @@ export const KNYT_CODEX: CodexConfig = {
       slug: 'investors',
       enabled: true,
       adminOnly: true,
-      order: 14,
+      order: 12,
       type: 'static',
       config: {
         component: 'InvestorDirectoryTab',
@@ -394,7 +394,7 @@ export const KNYT_CODEX: CodexConfig = {
       slug: 'outreach',
       enabled: true,
       adminOnly: true,
-      order: 15,
+      order: 13,
       type: 'static',
       config: {
         component: 'RelationshipBuilderTab',
