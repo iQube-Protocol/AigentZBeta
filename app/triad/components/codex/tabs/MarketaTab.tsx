@@ -253,7 +253,7 @@ export function MarketaTab({ theme: themeProp = 'dark', isAdmin = false, isPartn
         onClose={() => setCopilotOpen(false)}
         onOpen={() => setCopilotOpen(true)}
         variant="floating"
-        accentColor="fuchsia"
+        accentColor="rose"
         agent={{ id: 'aigent-marketa', name: 'Marketa' }}
         personaId="aigent-marketa"
         onUserPrompt={handleMarketaPrompt}
