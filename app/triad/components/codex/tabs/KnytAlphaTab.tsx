@@ -119,6 +119,7 @@ function ExplainerSection({
   accentClass,
   borderClass,
   bgClass,
+  summary,
   children,
 }: {
   title: string;
@@ -126,23 +127,29 @@ function ExplainerSection({
   accentClass: string;
   borderClass: string;
   bgClass: string;
+  summary?: string;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <Card className={`rounded-xl border ${borderClass} ${bgClass}`}>
+    <Card className={`rounded-xl border ${borderClass} ${bgClass} backdrop-blur-sm`}>
       <CardHeader
-        className="pb-2 cursor-pointer select-none"
+        className={`${open ? "pb-2" : "pb-3"} cursor-pointer select-none`}
         onClick={() => setOpen((prev) => !prev)}
       >
-        <CardTitle className={`text-sm font-semibold flex items-center justify-between gap-2 ${accentClass}`}>
-          <span className="flex items-center gap-2">
-            <Icon className="h-4 w-4" />
-            {title}
+        <CardTitle className={`text-sm font-semibold flex items-start justify-between gap-2 ${accentClass}`}>
+          <span className="flex flex-col gap-0.5 min-w-0">
+            <span className="flex items-center gap-2">
+              <Icon className="h-4 w-4 shrink-0" />
+              {title}
+            </span>
+            {!open && summary && (
+              <span className="text-[10px] font-normal text-slate-500 pl-6 leading-snug">{summary}</span>
+            )}
           </span>
           {open
-            ? <ChevronDown className="h-4 w-4 opacity-60" />
-            : <ChevronRight className="h-4 w-4 opacity-60" />}
+            ? <ChevronDown className="h-4 w-4 opacity-60 shrink-0 mt-0.5" />
+            : <ChevronRight className="h-4 w-4 opacity-60 shrink-0 mt-0.5" />}
         </CardTitle>
       </CardHeader>
       {open && <CardContent className="space-y-2 text-sm">{children}</CardContent>}
@@ -487,6 +494,7 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
         accentClass="text-violet-300"
         borderClass="border-violet-900/40"
         bgClass="bg-violet-950/10"
+        summary="Know1-first reference alpha · proves 7 platform propositions: receipted participation, Qc/$KNYT distinction, DVN receipts, 21 Sats coordination, sovereignty via Runtime"
       >
         <p className="text-slate-300">
           A Know1-first living cartridge that demonstrates the platform&apos;s core propositions at small scale before broader rollout.
@@ -512,6 +520,7 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
         accentClass="text-amber-300"
         borderClass="border-amber-900/40"
         bgClass="bg-amber-950/10"
+        summary={loading ? "Loading…" : `${agents.length || 1} agent${agents.length !== 1 ? "s" : ""} · Know1-led · knowledge, lore, opportunity synthesis · 0 Q¢ in alpha`}
       >
         {loading ? (
           <div className="text-xs text-slate-500 py-2 text-center">Loading agents…</div>
@@ -569,6 +578,7 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
         accentClass="text-sky-300"
         borderClass="border-sky-900/40"
         bgClass="bg-sky-950/10"
+        summary={loading ? "Loading…" : `${displaySkills.length} skills · info value, risk, pricing, treasury, rewards, Qc/$KNYT, 21 Sats, opportunity · 0 Q¢`}
       >
         <p className="text-slate-300 text-xs">
           Curated internal skills Know1 draws from in the KNYT cartridge context. Hit &ldquo;Ask Know1&rdquo; to open Know1 with the skill context pre-loaded.
@@ -593,6 +603,7 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
         accentClass="text-emerald-300"
         borderClass="border-emerald-900/40"
         bgClass="bg-emerald-950/10"
+        summary={loading ? "Loading…" : org ? `${org.totalRewardGrants} reward grants · ${org.totalReceipts} receipts · ${org.finalizedGrants} finalised · ${org.provisionalGrants} provisional` : "Participation data loading — actions and grants tracked per role"}
       >
         <ParticipationPanel org={org} cohorts={cohorts} loading={loading} />
       </ExplainerSection>
@@ -604,6 +615,7 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
         accentClass="text-sky-300"
         borderClass="border-sky-900/40"
         bgClass="bg-sky-950/10"
+        summary={loading ? "Loading…" : ledgerSummary ? `${ledgerSummary.provisionalReceipts} provisional · ${ledgerSummary.finalizedReceipts} finalised · ${ledgerSummary.totalEvents} Qc events · ${ledgerSummary.totalQc} Q¢ metered` : "Provisional DVN receipts emitted per action · finalised on-chain · all alpha actions at 0 Q¢"}
       >
         <p className="text-xs text-slate-300">
           Economic lifecycle view — every participation action emits a DVN receipt that moves from provisional to finalized as the on-chain anchor confirms.
@@ -623,6 +635,7 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
         accentClass="text-emerald-300"
         borderClass="border-slate-800/60"
         bgClass="bg-slate-950/40"
+        summary={loading ? "Loading…" : `${agents.length} reference agents · ${displaySkills.length} skills · DVN ledger + receipts live · JourneyState + NBEPlan routing active`}
       >
         <p className="text-slate-300 text-xs">
           These are live operational service contracts — not stubs.
@@ -638,7 +651,7 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
       </ExplainerSection>
 
       {/* ── Know1 CTA ── */}
-      <Card className="rounded-xl border border-amber-700/40 bg-amber-950/20">
+      <Card className="rounded-xl border border-amber-700/30 bg-amber-950/10 backdrop-blur-sm">
         <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
           <div>
             <p className="text-sm font-semibold text-amber-200 flex items-center gap-2">
