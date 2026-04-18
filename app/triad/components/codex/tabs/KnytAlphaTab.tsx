@@ -18,6 +18,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 import {
   ArrowRight,
   Brain,
@@ -37,7 +38,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useRouter } from "next/navigation";
 import { TRUST_BAND_LABELS, type TrustBand } from "@/types/registryIngestion";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -370,7 +370,9 @@ interface KnytAlphaTabProps {
 }
 
 export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
-  const router = useRouter();
+  const [copilotOpen,     setCopilotOpen]     = useState(false);
+  const [copilotMessages, setCopilotMessages] = useState<CopilotMessage[]>([]);
+  const [copilotInitialMsg, setCopilotInitialMsg] = useState<string | undefined>();
 
   const [agents,       setAgents]       = useState<Asset[]>([]);
   const [skills,       setSkills]       = useState<Asset[]>([]);
@@ -429,9 +431,9 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
   useEffect(() => { void load(); }, [load]);
 
   const askKnow1 = useCallback((skill: Asset) => {
-    const q = encodeURIComponent(`Tell me about ${skill.name}: ${skill.description ?? ""}`);
-    router.push(`/aigents/aigent-kn0w1?q=${q}`);
-  }, [router]);
+    setCopilotInitialMsg(`Tell me about ${skill.name}: ${skill.description ?? ""}`);
+    setCopilotOpen(true);
+  }, []);
 
   // Filter to Know1's skill family (skills with know1 in assetId or tagged)
   const know1Skills = skills.filter(
@@ -643,7 +645,7 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
               size="sm"
               variant="outline"
               className="border-amber-800/50 text-amber-300 hover:bg-amber-500/10 text-xs"
-              onClick={() => router.push("/aigents/aigent-kn0w1?q=" + encodeURIComponent("What is the KNYT Treasury and how do rewards work?"))}
+              onClick={() => { setCopilotInitialMsg("What is the KNYT Treasury and how do rewards work?"); setCopilotOpen(true); }}
             >
               <Zap className="mr-1 h-3 w-3" />
               Ask about Treasury
@@ -651,13 +653,26 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
             <Button
               size="sm"
               className="bg-amber-500 hover:bg-amber-400 text-black font-semibold whitespace-nowrap"
-              onClick={() => router.push("/aigents/aigent-kn0w1")}
+              onClick={() => setCopilotOpen(true)}
             >
               Talk to Know1 <ArrowRight className="ml-1 h-3.5 w-3.5" />
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      <CodexCopilotLayer
+        isOpen={copilotOpen}
+        onClose={() => setCopilotOpen(false)}
+        onOpen={() => setCopilotOpen(true)}
+        variant="floating"
+        enableInferenceRendering
+        personaId={personaId}
+        contextId="knyt-alpha"
+        messages={copilotMessages}
+        onMessagesChange={setCopilotMessages}
+        initialMessage={copilotInitialMsg}
+      />
     </div>
   );
 }

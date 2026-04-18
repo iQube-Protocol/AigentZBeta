@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useKnytBalance } from "@/app/hooks/useKnytBalance";
 import { useBaseQcBalance } from "@/app/hooks/useBaseQcBalance";
-import { useRouter } from "next/navigation";
+import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 
 interface KnytTreasuryTabProps {
   personaId?: string;
@@ -58,9 +58,10 @@ function FactRow({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export function KnytTreasuryTab({ personaId }: KnytTreasuryTabProps) {
-  const router = useRouter();
   const { balance: knytBal, loading: knytLoading, refreshBalance } = useKnytBalance(personaId);
   const { balance: qcBal, loading: qcLoading, refresh: refreshQc } = useBaseQcBalance(personaId);
+  const [copilotOpen, setCopilotOpen] = useState(false);
+  const [copilotMessages, setCopilotMessages] = useState<CopilotMessage[]>([]);
 
   function handleRefresh() {
     refreshBalance();
@@ -212,12 +213,24 @@ export function KnytTreasuryTab({ personaId }: KnytTreasuryTabProps) {
           <Button
             size="sm"
             className="bg-amber-500 hover:bg-amber-400 text-black font-semibold whitespace-nowrap"
-            onClick={() => router.push("/aigents/aigent-kn0w1")}
+            onClick={() => setCopilotOpen(true)}
           >
             Ask Kn0w1 <ArrowRight className="ml-1 h-3.5 w-3.5" />
           </Button>
         </CardContent>
       </Card>
+
+      <CodexCopilotLayer
+        isOpen={copilotOpen}
+        onClose={() => setCopilotOpen(false)}
+        onOpen={() => setCopilotOpen(true)}
+        variant="floating"
+        enableInferenceRendering
+        personaId={personaId}
+        contextId="knyt-treasury"
+        messages={copilotMessages}
+        onMessagesChange={setCopilotMessages}
+      />
     </div>
   );
 }

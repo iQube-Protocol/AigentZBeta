@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 import {
   ArrowRight, Brain, Compass, Wifi, WifiOff,
   Heart, Zap, CheckCircle2, Layers, Shuffle, Upload, Star, ThumbsUp, MessageCircle,
@@ -371,6 +372,8 @@ export default function KnytRuntimeSurface({
 }: KnytRuntimeSurfaceProps) {
   const { toast } = useToast();
   const router = useRouter();
+  const [copilotOpen, setCopilotOpen] = useState(false);
+  const [copilotMessages, setCopilotMessages] = useState<CopilotMessage[]>([]);
   const [featuredMoment, setFeaturedMoment] = useState<FeaturedMoment | null>(null);
   const [openElection, setOpenElection] = useState<OpenElection | null>(null);
   const [submittingAction, setSubmittingAction] = useState<string | null>(null);
@@ -871,7 +874,7 @@ export default function KnytRuntimeSurface({
           <div className="flex flex-wrap gap-2">
             <button
               className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black transition"
-              onClick={() => router.push("/aigents/aigent-kn0w1")}
+              onClick={() => setCopilotOpen(true)}
             >
               <Brain className="h-3 w-3" /> Ask Kn0w1 <ArrowRight className="h-3 w-3" />
             </button>
@@ -950,6 +953,18 @@ export default function KnytRuntimeSurface({
           ))}
         </div>
       )}
+
+      <CodexCopilotLayer
+        isOpen={copilotOpen}
+        onClose={() => setCopilotOpen(false)}
+        onOpen={() => setCopilotOpen(true)}
+        variant="floating"
+        enableInferenceRendering
+        personaId={personaId}
+        contextId="knyt-runtime"
+        messages={copilotMessages}
+        onMessagesChange={setCopilotMessages}
+      />
     </div>
   );
 }
