@@ -461,6 +461,7 @@ export default function CodexViewerPage() {
                 useDefaults={true}
                 previewDevice={previewDevice}
                 personaId={activePersonaId}
+                shell="viewer"
               />
             </div>
           </div>

@@ -66,6 +66,8 @@ interface TabRendererProps {
   partnerId?: string;
   issueSlug?: string;
   previewDevice?: DeviceType;
+  /** Rendering shell — forwarded to tab components that generate cross-cartridge links. */
+  shell?: 'embed' | 'viewer';
 }
 
 // Component registry for static tabs
@@ -113,7 +115,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   TutorialsTab: PlaceholderTab,
 };
 
-export function TabRenderer({ tab, codexId, theme, density, personaId, isAdmin, isPartner, partnerId, issueSlug, previewDevice }: TabRendererProps) {
+export function TabRenderer({ tab, codexId, theme, density, personaId, isAdmin, isPartner, partnerId, issueSlug, previewDevice, shell }: TabRendererProps) {
   // Handle static tabs
   if (tab.type === 'static') {
     const componentName = tab.config.component;
@@ -151,6 +153,7 @@ export function TabRenderer({ tab, codexId, theme, density, personaId, isAdmin, 
         forcedDevice={previewDevice}
         tabSlug={tab.slug}
         codexId={codexId}
+        shell={shell}
         {...tab.config.props}
       />
     );
