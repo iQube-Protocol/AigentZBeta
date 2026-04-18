@@ -14,6 +14,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { Play, Loader2, Newspaper, Share2, ThumbsUp, Zap, TrendingUp } from "lucide-react";
+import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 import { useSmartTriad } from "@/app/components/content/SmartTriadProvider";
 import { CodexActionRow } from "@/app/triad/components/codex/CodexActionRow";
 import type { TerraItem } from "@/app/api/codex/knyt/terra/route";
@@ -291,6 +292,8 @@ function ContentCard({
 // ─── Tab ─────────────────────────────────────────────────────────────────────
 
 export function TerraTab({ personaId }: TerraTabProps) {
+  const [copilotOpen, setCopilotOpen] = useState(false);
+  const [copilotMessages, setCopilotMessages] = useState<CopilotMessage[]>([]);
   const [items, setItems] = useState<TerraItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -376,6 +379,18 @@ export function TerraTab({ personaId }: TerraTabProps) {
       <p className="text-[10px] text-slate-600 text-center pt-2">
         Share earns Herald of the Order rewards · Value and Spark signal to the community
       </p>
+
+      <CodexCopilotLayer
+        isOpen={copilotOpen}
+        onClose={() => setCopilotOpen(false)}
+        onOpen={() => setCopilotOpen(true)}
+        variant="floating"
+        enableInferenceRendering
+        personaId={personaId}
+        contextId="knyt-terra"
+        messages={copilotMessages}
+        onMessagesChange={setCopilotMessages}
+      />
     </div>
   );
 }
