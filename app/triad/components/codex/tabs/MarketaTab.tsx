@@ -15,6 +15,7 @@ import {
   MessageSquare, Megaphone, Sparkles, Package, BarChart3,
   TrendingUp, FileEdit,
 } from 'lucide-react';
+import { CodexCopilotLayer } from '@/app/components/codex/CodexCopilotLayer';
 
 import { MarketaCampaignDashboardTab } from '@/app/(shell)/marketa/components/MarketaCampaignDashboardTab';
 import { MarketaCampaignOpsTab }       from '@/app/(shell)/marketa/components/MarketaCampaignOpsTab';
@@ -118,6 +119,24 @@ export function MarketaTab({ theme: themeProp = 'dark', isAdmin = false, isPartn
 
   const isDark = theme === 'dark';
   const s = th(isDark);
+
+  const [copilotOpen, setCopilotOpen] = useState(false);
+
+  const handleMarketaPrompt = useCallback(async (prompt: string): Promise<string> => {
+    try {
+      const res = await fetch('/api/codex/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: prompt, persona: 'aigent-marketa', domain: 'marketa' }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      return data.response || 'No response — try again.';
+    } catch (err) {
+      console.error('[MarketaTab] copilot error:', err);
+      return 'Something went wrong. Please try again.';
+    }
+  }, []);
 
   // Determine which parent tabs are visible
   const showAdmin   = isAdmin;
@@ -228,6 +247,27 @@ export function MarketaTab({ theme: themeProp = 'dark', isAdmin = false, isPartn
           <ActiveComponent {...subProps} />
         )}
       </div>
+
+      <CodexCopilotLayer
+        isOpen={copilotOpen}
+        onClose={() => setCopilotOpen(false)}
+        onOpen={() => setCopilotOpen(true)}
+        variant="floating"
+        accentColor="fuchsia"
+        agent={{ id: 'aigent-marketa', name: 'Marketa' }}
+        personaId="aigent-marketa"
+        onUserPrompt={handleMarketaPrompt}
+        enableInferenceRendering
+        promptPlaceholder="Ask Marketa about campaigns, partners, or content..."
+        initialMessage="I'm Marketa — your venture studio copilot. Ask me about the active campaigns (KS Prospects, KNYT Investors, Partners), partner activation, content packs, or what to do next."
+        quickPrompts={[
+          'Campaign status',
+          'Next email to fire',
+          'Partner pipeline',
+          'Write a social post',
+          'Propose a content pack',
+        ]}
+      />
     </div>
   );
 }
