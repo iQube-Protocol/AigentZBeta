@@ -175,7 +175,7 @@ function ActionChip({ action, isPrimary, disabled, loading, onClick }: {
       className={
         "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed " +
         (isPrimary
-          ? "bg-amber-500 hover:bg-amber-400 text-black"
+          ? "border border-amber-700/50 bg-amber-950/30 backdrop-blur-sm text-amber-300 hover:bg-amber-950/50"
           : "border border-slate-700 text-slate-200 hover:border-slate-500 hover:text-white bg-white/[0.03] backdrop-blur-sm")
       }
     >
@@ -683,7 +683,7 @@ export default function KnytRuntimeSurface({
             href={investorStatus.ksTrackingUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black text-sm font-semibold rounded-full transition whitespace-nowrap"
+            className="inline-flex items-center gap-2 px-4 py-2 border border-amber-700/50 bg-amber-950/30 backdrop-blur-sm text-amber-300 text-sm font-semibold rounded-full hover:bg-amber-950/50 transition whitespace-nowrap"
           >
             Back on Kickstarter <ArrowRight className="h-3.5 w-3.5" />
           </a>
@@ -740,7 +740,7 @@ export default function KnytRuntimeSurface({
               <p className="text-[10px] font-mono text-slate-600 truncate">{featuredMoment.id}</p>
             )}
             <div className="flex gap-2 pt-1">
-              <button className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black transition">
+              <button className="inline-flex items-center gap-1.5 rounded-full border border-amber-700/50 bg-amber-950/30 backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-950/50 transition">
                 {capsule?.cta_label ?? runtimeState.featured_moment.primary_cta}
               </button>
               {runtimeState.featured_moment.secondary_cta && (
@@ -765,7 +765,7 @@ export default function KnytRuntimeSurface({
               href={investorStatus.ksTrackingUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black transition"
+              className="inline-flex items-center gap-1.5 rounded-full border border-amber-700/50 bg-amber-950/30 backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-950/50 transition"
             >
               <Star className="h-3 w-3" />
               {investorPrivilege.tier} — {investorPrivilege.discount} off
@@ -847,7 +847,7 @@ export default function KnytRuntimeSurface({
               href={investorStatus.ksTrackingUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black transition"
+              className="inline-flex items-center gap-1.5 rounded-full border border-amber-700/50 bg-amber-950/30 backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-950/50 transition"
             >
               Claim on Kickstarter <ArrowRight className="h-3 w-3" />
             </a>
@@ -873,7 +873,7 @@ export default function KnytRuntimeSurface({
           </p>
           <div className="flex flex-wrap gap-2">
             <button
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black transition"
+              className="inline-flex items-center gap-1.5 rounded-full border border-amber-700/50 bg-amber-950/30 backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-950/50 transition"
               onClick={() => setCopilotOpen(true)}
             >
               <Brain className="h-3 w-3" /> Ask Kn0w1 <ArrowRight className="h-3 w-3" />

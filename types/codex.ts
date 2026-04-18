@@ -42,6 +42,15 @@ export interface CodexTabMetadata {
   color?: string;
 }
 
+/** Visual group that clusters related tabs under a single top-level header. */
+export interface TabGroup {
+  id: string;          // Unique within the codex; referenced by CodexTab.group
+  label: string;       // Display name shown in the primary tab bar
+  icon?: string;       // Optional icon key from iconMap
+  adminOnly?: boolean; // Hide the whole group from non-admins
+  order: number;       // Position in the primary tab bar (interleaved with standalone tabs)
+}
+
 export interface CodexTab {
   id: string;
   label: string;
@@ -53,6 +62,8 @@ export interface CodexTab {
   type: CodexTabType;
   config: CodexTabConfig;
   metadata?: CodexTabMetadata;
+  /** If set, this tab is a sub-tab of the named TabGroup (references TabGroup.id). */
+  group?: string;
 }
 
 export interface CodexConfig {
@@ -64,6 +75,8 @@ export interface CodexConfig {
   owner: string;                 // Tenant/persona ID
   metadata: CodexMetadata;
   tabs: CodexTab[];
+  /** Optional tab groups — define top-level headers that cluster sub-tabs. */
+  tabGroups?: TabGroup[];
   permissions: CodexPermissions;
   liquidUI?: CodexLiquidUIConfig;
   createdAt: string;
