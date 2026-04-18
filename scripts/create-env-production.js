@@ -69,6 +69,11 @@ const envVars = [
   'MAKE_API_BASE_URL',
   // Admin monitor — receives every campaign email as first recipient
   'CAMPAIGN_ADMIN_EMAIL',
+  // Marketa portal
+  'MARKETA_CREATOR_DID',
+  'MARKETA_SYSTEM_AGENT_ID',
+  'SEQUENCE_DISPATCH_SECRET',
+  'LVB_BRIDGE_DEFAULT_PERSONA_ID',
 ];
 
 let content = '';
