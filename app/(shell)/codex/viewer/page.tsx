@@ -140,10 +140,11 @@ export default function CodexViewerPage() {
 
   useEffect(() => {
     if (!codexOptions.length) return;
+    if (searchParams.get("id")) return; // URL-provided codex ID may not be in the picker list (e.g. admin-only)
     if (!codexOptions.some(option => option.id === codexId)) {
       setCodexId(codexOptions[0].id);
     }
-  }, [codexOptions, codexId]);
+  }, [codexOptions, codexId, searchParams]);
 
   useEffect(() => {
     if (!enabledTabs.length) return; // don't reset until real config tabs are loaded (prevents fallback list from overriding URL-provided tab)
