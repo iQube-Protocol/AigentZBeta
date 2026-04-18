@@ -52,7 +52,17 @@ export default function CodexViewerPage() {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [density, setDensity] = useState<"narrow" | "wide">("wide");
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") ?? "scrolls");
-  const [hiddenTabs, setHiddenTabs] = useState<string[]>([]);
+  const [hiddenTabs, setHiddenTabs] = useState<string[]>(() => {
+    // Restore per-codex hidden tabs from localStorage on mount
+    if (typeof window === "undefined") return [];
+    try {
+      const key = `viewer_hidden_${searchParams.get("id") ?? "knyt-codex"}`;
+      const stored = localStorage.getItem(key);
+      return stored ? (JSON.parse(stored) as string[]) : [];
+    } catch {
+      return [];
+    }
+  });
   const [configCollapsed, setConfigCollapsed] = useState(false);
   const [activeSection, setActiveSection] = useState<ConfigSection>("codex");
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -63,10 +73,26 @@ export default function CodexViewerPage() {
   useEffect(() => {
     const newId = searchParams.get("id");
     const newTab = searchParams.get("tab");
-    if (newId && newId !== codexId) setCodexId(newId);
+    if (newId && newId !== codexId) {
+      setCodexId(newId);
+      // Restore hidden tabs for the new codex
+      try {
+        const stored = localStorage.getItem(`viewer_hidden_${newId}`);
+        setHiddenTabs(stored ? (JSON.parse(stored) as string[]) : []);
+      } catch {
+        setHiddenTabs([]);
+      }
+    }
     if (newTab && newTab !== activeTab) setActiveTab(newTab);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  // Persist hidden tabs to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem(`viewer_hidden_${codexId}`, JSON.stringify(hiddenTabs));
+    } catch { /* storage unavailable */ }
+  }, [hiddenTabs, codexId]);
 
   // Resolve active session persona so SmartTriadProvider queries the right ownership data
   const { sessionPersonas } = useSupabaseSessionPersonas();
