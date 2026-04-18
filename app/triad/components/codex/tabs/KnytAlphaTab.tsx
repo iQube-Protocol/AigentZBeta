@@ -376,9 +376,10 @@ function DvnLedgerPanel({
 
 interface KnytAlphaTabProps {
   personaId?: string;
+  isAdmin?: boolean;
 }
 
-export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
+export function KnytAlphaTab({ personaId, isAdmin }: KnytAlphaTabProps = {}) {
   const [copilotOpen,     setCopilotOpen]     = useState(false);
   const [copilotMessages, setCopilotMessages] = useState<CopilotMessage[]>([]);
   const [copilotInitialMsg, setCopilotInitialMsg] = useState<string | undefined>();
@@ -465,7 +466,7 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
           </div>
           <div className="flex items-center gap-2">
             <a
-              href={buildCodexUrl("alpha-knyt", { tab: "alpha-programme", personaId, from: "knyt", fromTab: "knyt-alpha" })}
+              href={buildCodexUrl("alpha-knyt", { tab: "alpha-programme", personaId, isAdmin, from: "knyt", fromTab: "knyt-alpha" })}
               className="flex items-center gap-1 rounded-md border border-amber-700/30 bg-amber-900/15 backdrop-blur-sm px-2.5 py-1 text-[11px] text-amber-400/80 hover:text-amber-300 hover:bg-amber-900/25 transition-colors"
               title="Back to α Programme"
             >

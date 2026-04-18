@@ -348,9 +348,10 @@ const CRITICAL_PATH = [
 
 interface AlphaProgrammeTabProps {
   personaId?: string;
+  isAdmin?: boolean;
 }
 
-export function AlphaProgrammeTab({ personaId }: AlphaProgrammeTabProps = {}) {
+export function AlphaProgrammeTab({ personaId, isAdmin }: AlphaProgrammeTabProps = {}) {
   const [signals,       setSignals]       = useState<SignalSummary | null>(null);
   const [orgStats,      setOrgStats]      = useState<OrgStats | null>(null);
   const [policy,        setPolicy]        = useState<OrgPolicy | null>(null);
@@ -398,6 +399,7 @@ export function AlphaProgrammeTab({ personaId }: AlphaProgrammeTabProps = {}) {
         link: buildCodexUrl("knyt-codex", {
           tab: "knyt-alpha",
           personaId,
+          isAdmin,
           from: "alpha-knyt",
           fromTab: "alpha-programme",
         }),
