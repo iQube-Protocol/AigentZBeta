@@ -13,7 +13,8 @@
  * for the full 23-doc planning corpus.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { buildCodexUrl } from "@/utils/codex-nav";
 import {
   ArrowUpRight,
   CheckCircle2,
@@ -345,7 +346,11 @@ const CRITICAL_PATH = [
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function AlphaProgrammeTab() {
+interface AlphaProgrammeTabProps {
+  personaId?: string;
+}
+
+export function AlphaProgrammeTab({ personaId }: AlphaProgrammeTabProps = {}) {
   const [signals,       setSignals]       = useState<SignalSummary | null>(null);
   const [orgStats,      setOrgStats]      = useState<OrgStats | null>(null);
   const [policy,        setPolicy]        = useState<OrgPolicy | null>(null);
@@ -384,6 +389,22 @@ export function AlphaProgrammeTab() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  // Build workstream list with dynamic KNYT Wheel deep-link carrying personaId
+  const workstreams = useMemo(() => WORKSTREAMS.map((ws) => {
+    if (ws.id === "knyt-wheel") {
+      return {
+        ...ws,
+        link: buildCodexUrl("knyt-codex", {
+          tab: "knyt-alpha",
+          personaId,
+          from: "alpha-knyt",
+          fromTab: "alpha-programme",
+        }),
+      };
+    }
+    return ws;
+  }), [personaId]);
 
   const doneCount   = CRITICAL_PATH.filter((i) => i.done).length;
   const totalCount  = CRITICAL_PATH.length;
@@ -459,7 +480,7 @@ export function AlphaProgrammeTab() {
       <div className="space-y-2">
         <h3 className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Programme Workstreams</h3>
         <div className="grid grid-cols-2 gap-2">
-        {WORKSTREAMS.map((ws) => {
+        {workstreams.map((ws) => {
           const style = STATUS_STYLES[ws.status];
           const Icon  = style.icon;
           const doneItems = ws.items.filter((i) => i.done).length;

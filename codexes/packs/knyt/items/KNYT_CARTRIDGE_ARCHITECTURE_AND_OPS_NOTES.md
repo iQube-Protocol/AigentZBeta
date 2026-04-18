@@ -182,3 +182,54 @@ supabase/migrations/20260417000008_protocol_kb_chunks.sql
 3. **If static:** create the component in `tabs/`, register it in `TabRenderer.tsx`, add `CodexCopilotLayer` using the pattern in §7
 4. **If it shows a document viewer:** add files to `codexes/packs/knyt/items/` and register the collection in `collections.json`
 5. If admin-only, set `adminOnly: true` — never gate-strip without authorisation
+
+
+---
+
+## 11. Inter-Cartridge Identity — How personaId Travels
+
+**Decision (2026-04-18):** personaId and access rights must travel explicitly via URL params on every cross-cartridge navigation link. This is a platform-wide canonical rule, not a KNYT-specific concern.
+
+### Why
+
+When a user moves between the KNYT Cartridge and Venture Lab α (or any other cartridge), their persona context must arrive with them. Without it:
+- Tab components cannot load personalised data (balance, journey state, participation)
+- Access gates (`adminOnly`, `partnerOnly`) cannot be bootstrapped for optimistic client UI
+- The back-button cannot reconstruct correct breadcrumbs
+
+### How it works in KNYT
+
+| Link | Source | Target | Carries |
+|------|--------|--------|---------|
+| Back-button in `KnytAlphaTab` | knyt-codex / knyt-alpha | alpha-knyt / alpha-programme | `personaId`, `from=knyt`, `fromTab=knyt-alpha` |
+| KNYT Wheel card in `AlphaProgrammeTab` | alpha-knyt / alpha-programme | knyt-codex / knyt-alpha | `personaId`, `from=alpha-knyt`, `fromTab=alpha-programme` |
+
+### Code
+
+```tsx
+import { buildCodexUrl } from "@/utils/codex-nav";
+
+// Back-button (KnytAlphaTab)
+href={buildCodexUrl("alpha-knyt", {
+  tab: "alpha-programme",
+  personaId,        // from component props
+  from: "knyt",
+  fromTab: "knyt-alpha",
+})}
+
+// Deep-link card (AlphaProgrammeTab → KNYT Wheel)
+buildCodexUrl("knyt-codex", {
+  tab: "knyt-alpha",
+  personaId,        // from component props
+  from: "alpha-knyt",
+  fromTab: "alpha-programme",
+})
+```
+
+### Access gate rule
+
+`isAdmin` and `isPartner` flags in the URL are **optimistic only** — the server re-validates from the persona record on every load. Access gates cannot be bypassed via URL manipulation. Only propagate these flags dynamically when the current session holds them.
+
+### Full platform rule
+
+See `CLAUDE.md` § "Inter-Cartridge Navigation — Identity Propagation" and `codexes/packs/agentiq/items/SYSTEM_MAP.md` § 5.
