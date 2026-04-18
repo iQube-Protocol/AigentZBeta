@@ -13,7 +13,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Sun, Moon, LayoutDashboard, Target, Users, ClipboardList,
   MessageSquare, Megaphone, Sparkles, Package, BarChart3,
-  TrendingUp,
+  TrendingUp, FileEdit,
 } from 'lucide-react';
 
 import { MarketaCampaignDashboardTab } from '@/app/(shell)/marketa/components/MarketaCampaignDashboardTab';
@@ -25,6 +25,7 @@ import { MarketaProposeTab }           from '@/app/(shell)/marketa/components/Ma
 import { MarketaMyPacksTab }           from '@/app/(shell)/marketa/components/MarketaMyPacksTab';
 import { MarketaMyReportsTab }         from '@/app/(shell)/marketa/components/MarketaMyReportsTab';
 import MarketaQubeTalk                 from '@/app/(shell)/marketa/components/MarketaQubeTalk';
+import { MarketaPublishTab }           from '@/app/(shell)/marketa/components/MarketaPublishTab';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -53,6 +54,7 @@ const ADMIN_TABS: SubTab[] = [
   { id: 'campaigns',  label: 'Campaign Ops',  Icon: Target,          Component: MarketaCampaignOpsTab },
   { id: 'partners',   label: 'Partners',      Icon: Users,           Component: MarketaPartnersAdminTab },
   { id: 'approvals',  label: 'Queue',         Icon: ClipboardList,   Component: MarketaApprovalQueueTab },
+  { id: 'publish',    label: 'Publish',       Icon: FileEdit,        Component: MarketaPublishTab },
   { id: 'qt-admin',   label: 'QubeTalk',      Icon: MessageSquare,   Component: MarketaQubeTalk },
 ];
 
