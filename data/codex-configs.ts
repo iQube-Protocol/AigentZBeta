@@ -1085,12 +1085,49 @@ export const METAME_CODEX: CodexConfig = {
   updatedAt: new Date().toISOString()
 };
 
+export const MARKETA_CARTRIDGE: CodexConfig = {
+  id: 'marketa-codex',
+  name: 'Marketa',
+  slug: 'marketa',
+  enabled: true,
+  version: '1.0.0',
+  owner: 'aigent-marketa',
+  metadata: {
+    description: 'Venture Studio Partner OS — campaign management, partner co-design, and pack publishing',
+    icon: 'TrendingUp',
+    color: 'rose',
+    category: 'campaign',
+    tags: ['marketa', 'campaign', 'partners', 'packs'],
+  },
+  tabs: [
+    {
+      id: 'marketa-shell',
+      label: 'Marketa',
+      slug: 'marketa',
+      enabled: true,
+      order: 1,
+      type: 'static',
+      config: { component: 'MarketaTab', props: {} },
+      metadata: { icon: 'TrendingUp', description: 'Venture Studio Partner OS' },
+    },
+  ],
+  permissions: {
+    view: ['*'],
+    edit: ['aigent-marketa', 'admin'],
+    admin: ['aigent-marketa', 'admin'],
+  },
+  liquidUI: { enabled: false },
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
+
 export const CODEX_DEFINITIONS: CodexConfig[] = [
   KNYT_CODEX,
   QRIPTO_CODEX,
   AGENTIQ_CARTRIDGE,
   VENTURE_LAB_CODEX,
-  METAME_CODEX
+  METAME_CODEX,
+  MARKETA_CARTRIDGE,
 ];
 
 export function getCodexById(id: string): CodexConfig | undefined {

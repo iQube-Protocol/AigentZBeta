@@ -5,59 +5,32 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  TrendingUp, 
-  Users, 
-  Target, 
-  BarChart3, 
-  Settings, 
-  Plus,
-  Eye,
-  Edit,
+import {
+  TrendingUp,
+  Users,
+  Target,
+  BarChart3,
+  Settings,
   MessageSquare,
   Package,
   Bot,
   Clock,
   CheckCircle,
   AlertCircle,
-  RefreshCcw
+  RefreshCcw,
+  Mail,
+  ArrowRight,
+  Zap,
 } from 'lucide-react';
 
-// Import existing Marketa components
 import MarketaQubeTalk from './MarketaQubeTalk';
 import MarketaSmartTriad from './MarketaSmartTriad';
 import CRMIntegration from './CRMIntegration';
 
-// Glass effect styling (consistent with existing design)
 const GLASS_CARD = "bg-slate-950/60 backdrop-blur-xl ring-1 ring-white/10 shadow-xl";
 const GLASS_HOVER = "hover:bg-slate-900/80 hover:ring-white/20 transition-all duration-300";
 
-// Types (ported from marketa-agent-hub)
-interface Campaign {
-  id: string;
-  name: string;
-  description: string;
-  status: 'active' | 'paused' | 'completed';
-  budget: number;
-  channels: string[];
-  created_at: string;
-  performance?: {
-    impressions: number;
-    clicks: number;
-    conversions: number;
-    revenue: number;
-  };
-}
-
-interface Partner {
-  id: string;
-  name: string;
-  type: 'creator' | 'brand' | 'agency';
-  status: 'active' | 'pending' | 'inactive';
-  campaigns_count: number;
-  total_revenue: number;
-  created_at: string;
-}
+// ── Types ──────────────────────────────────────────────────────────────────────
 
 interface KPIStats {
   packsPendingApproval: number;
@@ -67,130 +40,125 @@ interface KPIStats {
   rewardsQc: number;
 }
 
-export default function MarketaCartridge() {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [partners, setPartners] = useState<Partner[]>([]);
-  const [kpiStats, setKpiStats] = useState<KPIStats>({
-    packsPendingApproval: 0,
-    packsApproved: 0,
-    packsSent: 0,
-    rewardsKnyt: 0,
-    rewardsQc: 0
-  });
-  const [isLoading, setIsLoading] = useState(false);
+interface KsProspectsCampaign {
+  id: 'ks_prospects';
+  name: string;
+  description: string;
+  status: string;
+  cohort_size: number;
+  active: number;
+  suppressed: number;
+  emails_sent: number;
+  opened: number;
+  clicked: number;
+  open_rate: number;
+  click_rate: number;
+  current_email: number;
+  next_email: number;
+  next_action: string;
+  send_command: string;
+}
 
-  // Load data on mount
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
+interface KnytSubCohort {
+  cohort: string;
+  size: number;
+  sent: number;
+  unsent: number;
+  opened: number;
+  clicked: number;
+  backed: number;
+  open_rate: number;
+  status: string;
+}
+
+interface KnytCampaign {
+  id: 'knyt_codex';
+  name: string;
+  description: string;
+  status: string;
+  cohort_size: number;
+  unassigned: number;
+  sub_cohorts: KnytSubCohort[];
+  next_action: string;
+  send_command: string | null;
+}
+
+interface PartnerCampaign {
+  id: 'knyt_partners';
+  name: string;
+  description: string;
+  status: string;
+  total: number;
+  wave_1: { total: number; contacted: number; responded: number };
+  wave_2: { total: number; contacted: number };
+  next_action: string;
+  send_command: null;
+}
+
+interface AvlPartner {
+  id: string;
+  name: string;
+  org: string;
+  wave: number;
+  contact_email: string | null;
+  contact_name: string | null;
+  outreach_status: string;
+  bd_stage: string;
+  response_signal: string | null;
+}
+
+type LiveCampaign = KsProspectsCampaign | KnytCampaign | PartnerCampaign;
+
+export default function MarketaCartridge() {
+  const [activeTab, setActiveTab]           = useState('dashboard');
+  const [liveCampaigns, setLiveCampaigns]   = useState<LiveCampaign[]>([]);
+  const [avlPartners, setAvlPartners]       = useState<AvlPartner[]>([]);
+  const [kpiStats, setKpiStats]             = useState<KPIStats>({
+    packsPendingApproval: 0, packsApproved: 0, packsSent: 0, rewardsKnyt: 0, rewardsQc: 0,
+  });
+  const [isLoading, setIsLoading]           = useState(false);
+  const [asOf, setAsOf]                     = useState<string | null>(null);
+
+  useEffect(() => { loadDashboardData(); }, []);
 
   const loadDashboardData = async () => {
     setIsLoading(true);
     try {
-      // Load campaigns via bridge API
-      const campaignsResponse = await fetch('/api/marketa/bridge?action=campaign_catalog', {
-        headers: {
-          'x-persona-id': 'test-persona-admin',
-          'x-tenant-id': 'agq-tenant',
-          'x-dev-override': 'true'
-        }
-      });
-      if (campaignsResponse.ok) {
-        const campaignsData = await campaignsResponse.json();
-        // Normalize the data if needed
-        if (campaignsData.success && campaignsData.joined_campaigns) {
-          const normalizedCampaigns = campaignsData.joined_campaigns.map((campaign: any) => ({
-            id: campaign.id || campaign.campaign_id,
-            name: campaign.name || campaign.marketa_campaigns?.name || 'Unknown Campaign',
-            description: campaign.description || campaign.marketa_campaigns?.description || '',
-            status: campaign.status || 'active',
-            budget: campaign.budget || campaign.marketa_campaigns?.metadata?.budget || 0,
-            channels: campaign.channels || [],
-            created_at: campaign.created_at || new Date().toISOString(),
-            performance: campaign.performance || {
-              impressions: Math.floor(Math.random() * 100000),
-              clicks: Math.floor(Math.random() * 5000),
-              conversions: Math.floor(Math.random() * 200),
-              revenue: Math.floor(Math.random() * 50000)
-            }
-          }));
-          setCampaigns(normalizedCampaigns);
-        }
+      const [campaignRes, partnerRes, kpiRes] = await Promise.all([
+        fetch('/api/marketa/campaigns'),
+        fetch('/api/avl/partners'),
+        fetch('/api/marketa/kpi').catch(() => null),
+      ]);
+      if (campaignRes.ok) {
+        const d = await campaignRes.json();
+        if (d.ok) { setLiveCampaigns(d.campaigns); setAsOf(d.as_of); }
       }
-
-      // Load partners via bridge API
-      const partnersResponse = await fetch('/api/marketa/bridge?action=partner_catalog', {
-        headers: {
-          'x-persona-id': 'test-persona-admin',
-          'x-tenant-id': 'agq-tenant',
-          'x-dev-override': 'true'
-        }
-      });
-      if (partnersResponse.ok) {
-        const partnersData = await partnersResponse.json();
-        if (partnersData.success && partnersData.partners) {
-          const normalizedPartners = partnersData.partners.map((partner: any) => ({
-            id: partner.id,
-            name: partner.name,
-            type: partner.type || 'creator',
-            status: partner.status || 'active',
-            campaigns_count: partner.campaigns_count || 0,
-            total_revenue: partner.total_revenue || 0,
-            created_at: partner.created_at || new Date().toISOString()
-          }));
-          setPartners(normalizedPartners);
-        }
+      if (partnerRes.ok) {
+        const d = await partnerRes.json();
+        if (d.ok) setAvlPartners(d.data?.partners ?? []);
       }
-
-      // Load KPI stats via local API
-      const statsResponse = await fetch('/api/marketa/kpi');
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
-        setKpiStats(statsData);
+      if (kpiRes?.ok) {
+        const d = await kpiRes.json();
+        setKpiStats(d);
       }
     } catch (error) {
-      console.error('Failed to load dashboard data:', error);
-      // Fallback to mock data
-      setCampaigns([
-        {
-          id: '1',
-          name: 'Q1 Product Launch',
-          description: 'Multi-channel campaign for new product line',
-          status: 'active',
-          budget: 50000,
-          channels: ['email', 'social', 'web'],
-          created_at: new Date().toISOString(),
-          performance: {
-            impressions: 125000,
-            clicks: 3200,
-            conversions: 128,
-            revenue: 25600
-          }
-        }
-      ]);
-      setPartners([
-        {
-          id: '1',
-          name: 'Tech Influencer Co',
-          type: 'creator',
-          status: 'active',
-          campaigns_count: 3,
-          total_revenue: 15000,
-          created_at: new Date().toISOString()
-        }
-      ]);
-      setKpiStats({
-        packsPendingApproval: 3,
-        packsApproved: 12,
-        packsSent: 45,
-        rewardsKnyt: 125000,
-        rewardsQc: 8500
-      });
+      console.error('Failed to load Marketa data:', error);
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Derived helpers
+  const ksCampaign      = liveCampaigns.find((c) => c.id === 'ks_prospects') as KsProspectsCampaign | undefined;
+  const knytCampaign    = liveCampaigns.find((c) => c.id === 'knyt_codex')   as KnytCampaign | undefined;
+  const partnerCampaign = liveCampaigns.find((c) => c.id === 'knyt_partners') as PartnerCampaign | undefined;
+
+  // Keep legacy props for SmartTriad (it expects old shape — leave unchanged)
+  const legacyCampaigns = liveCampaigns.map((c) => ({
+    id: c.id, name: c.name, description: c.description,
+    status: c.status as 'active' | 'paused' | 'completed',
+    budget: 0, channels: ['email'], created_at: new Date().toISOString(),
+  }));
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -355,162 +323,212 @@ export default function MarketaCartridge() {
 
           {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-4 mt-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Recent Campaigns */}
-              <div>
-                <h3 className="text-lg font-semibold text-white mb-4">Recent Campaigns</h3>
-                <div className="space-y-3">
-                  {campaigns.slice(0, 3).map((campaign) => (
-                    <GlassCard key={campaign.id} className="p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium text-white">{campaign.name}</span>
-                        <Badge className={getStatusColor(campaign.status)}>
-                          {campaign.status}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-slate-400 mb-2">{campaign.description}</p>
-                      <div className="flex items-center justify-between text-xs text-slate-500">
-                        <span>Budget: {formatCurrency(campaign.budget)}</span>
-                        <span>{campaign.channels.length} channels</span>
-                      </div>
-                      {campaign.performance && (
-                        <div className="mt-3 pt-3 border-t border-white/10">
-                          <div className="grid grid-cols-2 gap-2 text-xs">
-                            <div>
-                              <span className="text-slate-400">Impressions:</span>
-                              <span className="text-white ml-1">{formatNumber(campaign.performance.impressions)}</span>
-                            </div>
-                            <div>
-                              <span className="text-slate-400">Revenue:</span>
-                              <span className="text-green-400 ml-1">{formatCurrency(campaign.performance.revenue)}</span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </GlassCard>
-                  ))}
-                </div>
-              </div>
-
-              {/* Recent Partners */}
-              <div>
-                <h3 className="text-lg font-semibold text-white mb-4">Recent Partners</h3>
-                <div className="space-y-3">
-                  {partners.slice(0, 3).map((partner) => (
-                    <GlassCard key={partner.id} className="p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium text-white">{partner.name}</span>
-                        <Badge className={getStatusColor(partner.status)}>
-                          {partner.status}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center justify-between text-sm text-slate-400">
-                        <span className="capitalize">{partner.type}</span>
-                        <span>{partner.campaigns_count} campaigns</span>
-                      </div>
-                      <div className="mt-2 text-xs text-green-400">
-                        Revenue: {formatCurrency(partner.total_revenue)}
-                      </div>
-                    </GlassCard>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </TabsContent>
-
-          {/* Campaigns Tab */}
-          <TabsContent value="campaigns" className="space-y-4 mt-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Campaign Management</h3>
-              <Button className="bg-rose-500 hover:bg-rose-600 text-white">
-                <Plus className="w-4 h-4 mr-2" />
-                New Campaign
-              </Button>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-              {campaigns.map((campaign) => (
-                <GlassCard key={campaign.id} className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <Badge className={getStatusColor(campaign.status)}>
-                      {campaign.status}
-                    </Badge>
-                    <div className="flex gap-1">
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                    </div>
+            {asOf && <p className="text-[10px] text-slate-600">Live data as of {new Date(asOf).toLocaleTimeString()}</p>}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* KS Prospects summary */}
+              {ksCampaign && (
+                <GlassCard className="p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-amber-400" />
+                    <span className="font-semibold text-white text-sm">{ksCampaign.name}</span>
+                    <Badge className={getStatusColor(ksCampaign.status)}>{ksCampaign.status}</Badge>
                   </div>
-                  <h4 className="font-semibold text-white mb-2">{campaign.name}</h4>
-                  <p className="text-sm text-slate-400 mb-3">{campaign.description}</p>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Budget:</span>
-                      <span className="text-white">{formatCurrency(campaign.budget)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Channels:</span>
-                      <span className="text-white">{campaign.channels.join(', ')}</span>
-                    </div>
+                  <div className="grid grid-cols-3 gap-1 text-center text-xs pt-1">
+                    <div><p className="text-lg font-bold text-amber-300">{ksCampaign.emails_sent.toLocaleString()}</p><p className="text-slate-500">sent</p></div>
+                    <div><p className="text-lg font-bold text-sky-300">{ksCampaign.open_rate}%</p><p className="text-slate-500">open rate</p></div>
+                    <div><p className="text-lg font-bold text-emerald-300">{ksCampaign.click_rate}%</p><p className="text-slate-500">click rate</p></div>
                   </div>
-                  {campaign.performance && (
-                    <div className="mt-3 pt-3 border-t border-white/10">
-                      <div className="text-xs text-slate-400 mb-1">Performance</div>
-                      <div className="grid grid-cols-2 gap-1 text-xs">
-                        <div>{formatNumber(campaign.performance.impressions)} impressions</div>
-                        <div>{formatNumber(campaign.performance.clicks)} clicks</div>
-                        <div>{campaign.performance.conversions} conversions</div>
-                        <div className="text-green-400">{formatCurrency(campaign.performance.revenue)} revenue</div>
-                      </div>
-                    </div>
-                  )}
+                  <p className="text-[10px] text-amber-400/80 border-t border-white/10 pt-2">{ksCampaign.next_action}</p>
                 </GlassCard>
-              ))}
+              )}
+              {/* KNYT Codex summary */}
+              {knytCampaign && (
+                <GlassCard className="p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-rose-400" />
+                    <span className="font-semibold text-white text-sm">{knytCampaign.name}</span>
+                  </div>
+                  <div className="space-y-1">
+                    {knytCampaign.sub_cohorts.map((sc) => (
+                      <div key={sc.cohort} className="flex items-center justify-between text-xs">
+                        <span className="text-slate-400 capitalize">{sc.cohort.replace('_', ' ')}</span>
+                        <span className={sc.status === 'pending' ? 'text-slate-500' : sc.status === 'complete' ? 'text-emerald-400' : 'text-amber-300'}>
+                          {sc.sent}/{sc.size} sent
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-amber-400/80 border-t border-white/10 pt-2">{knytCampaign.next_action}</p>
+                </GlassCard>
+              )}
+              {/* Partners summary */}
+              {partnerCampaign && (
+                <GlassCard className="p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-violet-400" />
+                    <span className="font-semibold text-white text-sm">{partnerCampaign.name}</span>
+                    <Badge className="bg-slate-700/50 text-slate-400 border-slate-600">pending</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1 text-xs text-center pt-1">
+                    <div><p className="text-lg font-bold text-violet-300">{partnerCampaign.wave_1.contacted}</p><p className="text-slate-500">Wave 1 contacted</p></div>
+                    <div><p className="text-lg font-bold text-violet-300">{partnerCampaign.wave_1.responded}</p><p className="text-slate-500">responded</p></div>
+                  </div>
+                  <p className="text-[10px] text-amber-400/80 border-t border-white/10 pt-2">{partnerCampaign.next_action}</p>
+                </GlassCard>
+              )}
             </div>
           </TabsContent>
 
-          {/* Partners Tab */}
-          <TabsContent value="partners" className="space-y-4 mt-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Partner Management</h3>
-              <Button className="bg-rose-500 hover:bg-rose-600 text-white">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Partner
-              </Button>
+          {/* Campaigns Tab — live three-campaign command view */}
+          <TabsContent value="campaigns" className="space-y-6 mt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Campaign Command Centre</h3>
+                {asOf && <p className="text-[10px] text-slate-500 mt-0.5">Live · {new Date(asOf).toLocaleString()}</p>}
+              </div>
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-              {partners.map((partner) => (
-                <GlassCard key={partner.id} className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <Badge className={getStatusColor(partner.status)}>
-                      {partner.status}
+
+            {/* KS Prospects */}
+            {ksCampaign && (
+              <GlassCard className="p-5 space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-5 h-5 text-amber-400" />
+                    <div>
+                      <h4 className="font-semibold text-white">{ksCampaign.name}</h4>
+                      <p className="text-xs text-slate-400">{ksCampaign.description}</p>
+                    </div>
+                  </div>
+                  <Badge className={getStatusColor(ksCampaign.status)}>{ksCampaign.status}</Badge>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {[
+                    { label: 'Total', value: ksCampaign.cohort_size.toLocaleString(), color: 'text-white' },
+                    { label: 'Active', value: ksCampaign.active.toLocaleString(), color: 'text-amber-300' },
+                    { label: 'Open rate', value: `${ksCampaign.open_rate}%`, color: 'text-sky-300' },
+                    { label: 'Click rate', value: `${ksCampaign.click_rate}%`, color: 'text-emerald-300' },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="rounded-lg bg-slate-900/60 p-3 text-center">
+                      <p className={`text-xl font-bold ${color}`}>{value}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">{label}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-2.5">
+                  <div>
+                    <p className="text-xs font-semibold text-amber-300">Next: Email {ksCampaign.next_email}</p>
+                    <p className="text-[10px] text-slate-400 font-mono mt-0.5">{ksCampaign.send_command}</p>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-amber-400 shrink-0" />
+                </div>
+              </GlassCard>
+            )}
+
+            {/* KNYT Codex */}
+            {knytCampaign && (
+              <GlassCard className="p-5 space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-rose-400" />
+                    <div>
+                      <h4 className="font-semibold text-white">{knytCampaign.name}</h4>
+                      <p className="text-xs text-slate-400">{knytCampaign.description}</p>
+                    </div>
+                  </div>
+                  {knytCampaign.unassigned > 0 && (
+                    <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30">
+                      {knytCampaign.unassigned} unassigned
                     </Badge>
-                    <div className="flex gap-1">
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                        <Edit className="w-4 h-4" />
-                      </Button>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {knytCampaign.sub_cohorts.map((sc) => (
+                    <div key={sc.cohort} className="rounded-lg bg-slate-900/60 p-3 flex items-center gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-medium text-slate-200 capitalize">{sc.cohort.replace(/_/g, ' ')}</span>
+                          <span className="text-[10px] text-slate-500">{sc.sent}/{sc.size}</span>
+                        </div>
+                        <div className="h-1 rounded-full bg-slate-800">
+                          <div className={`h-full rounded-full ${sc.status === 'complete' ? 'bg-emerald-500' : sc.status === 'partial' ? 'bg-amber-500' : 'bg-slate-700'}`}
+                            style={{ width: sc.size > 0 ? `${Math.round((sc.sent / sc.size) * 100)}%` : '0%' }} />
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        {sc.backed > 0 && <p className="text-[10px] text-emerald-400">{sc.backed} backed</p>}
+                        {sc.open_rate > 0 && <p className="text-[10px] text-sky-400">{sc.open_rate}% open</p>}
+                      </div>
+                      <Badge className={sc.status === 'pending' ? 'bg-slate-700/50 text-slate-400 border-slate-600 text-[9px]' : sc.status === 'complete' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[9px]' : 'bg-amber-500/20 text-amber-300 border-amber-500/30 text-[9px]'}>
+                        {sc.status}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+                {knytCampaign.send_command && (
+                  <div className="flex items-center justify-between rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-2.5">
+                    <div>
+                      <p className="text-xs font-semibold text-rose-300">{knytCampaign.next_action}</p>
+                      <p className="text-[10px] text-slate-400 font-mono mt-0.5">{knytCampaign.send_command}</p>
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-rose-400 shrink-0" />
+                  </div>
+                )}
+              </GlassCard>
+            )}
+
+            {/* Partners */}
+            {partnerCampaign && (
+              <GlassCard className="p-5 space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-5 h-5 text-violet-400" />
+                    <div>
+                      <h4 className="font-semibold text-white">{partnerCampaign.name}</h4>
+                      <p className="text-xs text-slate-400">{partnerCampaign.description}</p>
                     </div>
                   </div>
-                  <h4 className="font-semibold text-white mb-2">{partner.name}</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Type:</span>
-                      <span className="text-white capitalize">{partner.type}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { label: 'Wave 1 total', value: partnerCampaign.wave_1.total },
+                    { label: 'Wave 1 contacted', value: partnerCampaign.wave_1.contacted },
+                    { label: 'Wave 1 responded', value: partnerCampaign.wave_1.responded },
+                    { label: 'Wave 2 total', value: partnerCampaign.wave_2.total },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="rounded-lg bg-slate-900/60 p-3 text-center">
+                      <p className="text-xl font-bold text-violet-300">{value}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">{label}</p>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Campaigns:</span>
-                      <span className="text-white">{partner.campaigns_count}</span>
+                  ))}
+                </div>
+                <div className="rounded-lg bg-violet-500/10 border border-violet-500/20 px-4 py-2.5">
+                  <p className="text-xs font-semibold text-violet-300">{partnerCampaign.next_action}</p>
+                </div>
+              </GlassCard>
+            )}
+          </TabsContent>
+
+          {/* Partners Tab — live AVL partner list */}
+          <TabsContent value="partners" className="space-y-4 mt-6">
+            <h3 className="text-lg font-semibold text-white">AVL Partners — Wave Activation</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              {avlPartners.map((partner) => (
+                <GlassCard key={partner.id} className="p-4">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="min-w-0">
+                      <p className="font-medium text-white text-sm truncate">{partner.name}</p>
+                      <p className="text-[11px] text-slate-400 truncate">{partner.org}</p>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Total Revenue:</span>
-                      <span className="text-green-400">{formatCurrency(partner.total_revenue)}</span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Badge className="text-[9px] bg-violet-500/10 text-violet-300 border-violet-500/20">Wave {partner.wave}</Badge>
+                      <Badge className={`text-[9px] ${partner.outreach_status === 'pending' ? 'bg-slate-700/50 text-slate-400 border-slate-600' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'}`}>
+                        {partner.outreach_status}
+                      </Badge>
                     </div>
                   </div>
+                  {partner.contact_email && (
+                    <p className="text-[10px] text-slate-500 truncate">{partner.contact_name ? `${partner.contact_name} · ` : ''}{partner.contact_email}</p>
+                  )}
                 </GlassCard>
               ))}
             </div>
@@ -525,7 +543,6 @@ export default function MarketaCartridge() {
                 Multi-channel content publishing and distribution
               </p>
               <Button className="bg-rose-500 hover:bg-rose-600 text-white">
-                <Plus className="w-4 h-4 mr-2" />
                 Create Content Pack
               </Button>
             </div>
@@ -543,30 +560,20 @@ export default function MarketaCartridge() {
               <div>
                 <h3 className="text-lg font-semibold text-white mb-4">SmartTriad Integration</h3>
                 <GlassCard className="p-4">
-                  <MarketaSmartTriad 
-                    data={{ campaigns, partners, kpiStats, recentActivity: [] }}
-                    onAction={(action, item) => {
-                      console.log(`SmartTriad action: ${action}`, item);
-                      // Handle SmartTriad actions
+                  <MarketaSmartTriad
+                    data={{ campaigns: legacyCampaigns, partners: avlPartners, kpiStats, recentActivity: [] }}
+                    onAction={(action) => {
                       switch (action) {
                         case 'view_campaign':
-                          // Navigate to campaign detail
-                          setActiveTab('campaigns');
-                          break;
                         case 'create_campaign':
-                          // Open campaign creation
                           setActiveTab('campaigns');
                           break;
                         case 'open_full':
-                          // Open full Marketa console
                           window.open('/marketa', '_blank');
                           break;
                         case 'qubetalk':
-                          // Switch to QubeTalk tab
                           setActiveTab('qubetalk');
                           break;
-                        default:
-                          console.log('Unknown SmartTriad action:', action);
                       }
                     }}
                   />
@@ -581,12 +588,10 @@ export default function MarketaCartridge() {
                     This is how Marketa appears in SmartTriad drawers:
                   </div>
                   <div className="bg-slate-900/50 rounded-lg border border-white/10 p-4">
-                    <MarketaSmartTriad 
+                    <MarketaSmartTriad
                       compact={true}
-                      data={{ campaigns, partners, kpiStats, recentActivity: [] }}
-                      onAction={(action, item) => {
-                        console.log(`Compact SmartTriad action: ${action}`, item);
-                      }}
+                      data={{ campaigns: legacyCampaigns, partners: avlPartners, kpiStats, recentActivity: [] }}
+                      onAction={() => {}}
                     />
                   </div>
                 </GlassCard>

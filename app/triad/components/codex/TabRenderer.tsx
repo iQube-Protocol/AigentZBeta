@@ -46,6 +46,14 @@ import { AgentiQOSTab } from "./tabs/AgentiQOSTab";
 import { RelationshipBuilderTab } from "./tabs/RelationshipBuilderTab";
 import { AlphaProgrammeTab } from "./tabs/AlphaProgrammeTab";
 import { AlphaDocsTab } from "./tabs/AlphaDocsTab";
+import { MarketaPartnersAdminTab } from "@/app/(shell)/marketa/components/MarketaPartnersAdminTab";
+import { MarketaMyCampaignTab } from "@/app/(shell)/marketa/components/MarketaMyCampaignTab";
+import { MarketaProposeTab } from "@/app/(shell)/marketa/components/MarketaProposeTab";
+import { MarketaApprovalQueueTab } from "@/app/(shell)/marketa/components/MarketaApprovalQueueTab";
+import { MarketaCampaignDashboardTab } from "@/app/(shell)/marketa/components/MarketaCampaignDashboardTab";
+import { MarketaCampaignOpsTab } from "@/app/(shell)/marketa/components/MarketaCampaignOpsTab";
+import { MarketaMyPacksTab } from "@/app/(shell)/marketa/components/MarketaMyPacksTab";
+import { MarketaMyReportsTab } from "@/app/(shell)/marketa/components/MarketaMyReportsTab";
 
 interface TabRendererProps {
   tab: CodexTab;
@@ -53,6 +61,9 @@ interface TabRendererProps {
   theme?: 'light' | 'dark';
   density?: 'narrow' | 'wide';
   personaId?: string;
+  isAdmin?: boolean;
+  isPartner?: boolean;
+  partnerId?: string;
   issueSlug?: string;
   previewDevice?: DeviceType;
 }
@@ -88,13 +99,21 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   RelationshipBuilderTab,
   AlphaProgrammeTab,
   AlphaDocsTab,
+  MarketaPartnersAdminTab,
+  MarketaMyCampaignTab,
+  MarketaProposeTab,
+  MarketaApprovalQueueTab,
+  MarketaCampaignDashboardTab,
+  MarketaCampaignOpsTab,
+  MarketaMyPacksTab,
+  MarketaMyReportsTab,
   RewardsTab: PlaceholderTab,
   DocsTab: PlaceholderTab,
   APITab: PlaceholderTab,
   TutorialsTab: PlaceholderTab,
 };
 
-export function TabRenderer({ tab, codexId, theme, density, personaId, issueSlug, previewDevice }: TabRendererProps) {
+export function TabRenderer({ tab, codexId, theme, density, personaId, isAdmin, isPartner, partnerId, issueSlug, previewDevice }: TabRendererProps) {
   // Handle static tabs
   if (tab.type === 'static') {
     const componentName = tab.config.component;
@@ -125,6 +144,9 @@ export function TabRenderer({ tab, codexId, theme, density, personaId, issueSlug
         theme={theme}
         density={density}
         personaId={personaId}
+        isAdmin={isAdmin}
+        isPartner={isPartner}
+        partnerId={partnerId}
         issueSlug={issueSlug}
         forcedDevice={previewDevice}
         tabSlug={tab.slug}
