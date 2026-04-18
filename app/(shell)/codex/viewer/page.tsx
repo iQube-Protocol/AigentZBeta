@@ -146,11 +146,12 @@ export default function CodexViewerPage() {
   }, [codexOptions, codexId]);
 
   useEffect(() => {
+    if (!enabledTabs.length) return; // don't reset until real config tabs are loaded (prevents fallback list from overriding URL-provided tab)
     if (!visibleTabOptions.length) return;
     if (!visibleTabOptions.some(tab => tab.slug === activeTab)) {
       setActiveTab(visibleTabOptions[0].slug);
     }
-  }, [visibleTabOptions, activeTab]);
+  }, [visibleTabOptions, activeTab, enabledTabs]);
 
   const codexSlug = codexId.replace("-codex", "");
   const hiddenTabsParam = hiddenTabs.length > 0 ? `&hiddenTabs=${encodeURIComponent(hiddenTabs.join(","))}` : "";
