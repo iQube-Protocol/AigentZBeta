@@ -585,6 +585,23 @@ export const QRIPTO_CODEX: CodexConfig = {
         icon: 'Sparkles',
         description: 'The vision of Qriptopia'
       }
+    },
+    {
+      id: 'edit',
+      label: 'Edit',
+      slug: 'edit',
+      enabled: true,
+      adminOnly: true,
+      order: 7,
+      type: 'static',
+      config: {
+        component: 'QriptopianEditTab'
+      },
+      metadata: {
+        icon: 'FileEdit',
+        description: 'Create, edit and publish articles to the Qriptopian cartridge',
+        color: 'indigo'
+      }
     }
   ],
   permissions: {

@@ -23,6 +23,7 @@ import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
 import { AgenticDesignParityPanel } from "@/components/composer/AgenticDesignParityPanel";
 import SurfacePlanningPanel from "@/components/composer/SurfacePlanningPanel";
 import DVNReceiptsPanel from "@/components/composer/DVNReceiptsPanel";
+import { CartridgePublishPanel } from "@/components/composer/CartridgePublishPanel";
 import {
   buildComposerSessionContext,
   getComposerProviderKnowledge,
@@ -12632,6 +12633,10 @@ export const ComposerStudio = () => {
                     {mcpError}
                   </div>
                 )}
+
+                <div className="border-t border-slate-800/80 pt-3">
+                  <CartridgePublishPanel prefillTitle={mcpExperience?.name ?? ''} />
+                </div>
 
                 <div className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-3 text-xs">
                   <div className="flex items-center justify-between gap-3">
