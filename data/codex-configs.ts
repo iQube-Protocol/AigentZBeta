@@ -472,12 +472,7 @@ export const QRIPTO_CODEX: CodexConfig = {
     category: 'publication',
     tags: ['qriptopian', 'news', 'features', 'community']
   },
-  tabGroups: [
-    { id: 'read',    label: 'Read',    icon: 'BookOpen', order: 1 },
-    { id: 'explore', label: 'Explore', icon: 'Compass',  order: 2 },
-  ],
   tabs: [
-    // ── Codex home (standalone) ───────────────────────────────
     {
       id: 'codex',
       label: 'Codex',
@@ -495,15 +490,12 @@ export const QRIPTO_CODEX: CodexConfig = {
         color: 'indigo'
       }
     },
-
-    // ── Read group ────────────────────────────────────────────
     {
       id: 'features',
       label: 'Features',
       slug: 'features',
       enabled: true,
-      group: 'read',
-      order: 0,
+      order: 1,
       type: 'static',
       config: {
         component: 'FeaturesTab',
@@ -521,8 +513,7 @@ export const QRIPTO_CODEX: CodexConfig = {
       label: 'PennyDrops',
       slug: 'pennydrops',
       enabled: true,
-      group: 'read',
-      order: 1,
+      order: 2,
       type: 'dynamic',
       config: {
         component: 'PennyDropsTab',
@@ -539,8 +530,7 @@ export const QRIPTO_CODEX: CodexConfig = {
       label: 'Scrolls',
       slug: 'scrolls',
       enabled: true,
-      group: 'read',
-      order: 2,
+      order: 3,
       type: 'static',
       config: {
         component: 'QriptoScrollsTab'
@@ -550,15 +540,12 @@ export const QRIPTO_CODEX: CodexConfig = {
         description: 'Qriptopian scrolls and archives'
       }
     },
-
-    // ── Explore group ─────────────────────────────────────────
     {
       id: 'kn0wdz',
       label: 'Kn0wdZ',
       slug: 'kn0wdz',
       enabled: true,
-      group: 'explore',
-      order: 0,
+      order: 4,
       type: 'static',
       config: {
         component: 'Kn0wdZTab'
@@ -573,8 +560,7 @@ export const QRIPTO_CODEX: CodexConfig = {
       label: 'Rewards',
       slug: 'rewards',
       enabled: true,
-      group: 'explore',
-      order: 1,
+      order: 5,
       type: 'dynamic',
       config: {
         component: 'RewardsTab',
@@ -590,8 +576,7 @@ export const QRIPTO_CODEX: CodexConfig = {
       label: 'Qriptopia',
       slug: 'qriptopia',
       enabled: true,
-      group: 'explore',
-      order: 2,
+      order: 6,
       type: 'static',
       config: {
         component: 'QriptopiaTab'
