@@ -44,21 +44,6 @@ type IssueOption = {
   count?: number;
 };
 
-/** Compact inline badge pair for the KNYT economy tokens — shown only in Treasury and Order tabs. */
-function KnytEconomyBadges() {
-  return (
-    <div className="flex items-center gap-2 px-4 py-1.5 border-b border-slate-800/60 bg-slate-900/40">
-      <div className="flex items-center gap-1.5 rounded-full border border-indigo-500/25 bg-indigo-500/8 px-2.5 py-0.5">
-        <Zap className="h-3 w-3 flex-shrink-0 text-indigo-400" />
-        <span className="text-[10px] font-semibold text-indigo-400">Q¢ Platform Rail</span>
-      </div>
-      <div className="flex items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/8 px-2.5 py-0.5">
-        <Coins className="h-3 w-3 flex-shrink-0 text-amber-400" />
-        <span className="text-[10px] font-semibold text-amber-400">$KNYT Economy</span>
-      </div>
-    </div>
-  );
-}
 
 /** Compact badge shown in the AgentiQ side menu area — Q¢ only (platform-wide rail). */
 export function AgentiQEconomyBadge() {
@@ -455,6 +440,11 @@ export default function CodexPanelDynamic({
                       )}
                       {displayCodexName}
                     </h2>
+                    {codexId === 'knyt-codex' && activeTabSlug === 'terra' && (
+                      <div className="flex items-center gap-1 rounded-md border border-green-500/25 bg-green-500/8 px-2 py-0.5 flex-shrink-0">
+                        <span className="text-[10px] font-semibold text-green-400">metaKNYT · Qriptopian Signal</span>
+                      </div>
+                    )}
                     <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
                       {topItems.map((item) => {
                         if (item.kind === 'group') {
@@ -567,6 +557,18 @@ export default function CodexPanelDynamic({
                 <div className="ml-auto flex items-center gap-2 min-w-0 flex-shrink-0">
                   <ActiveTabIcon className="h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
                   <span className="text-xs font-semibold text-white whitespace-nowrap">{activeTabTitle}</span>
+                  {codexId === 'knyt-codex' && (activeTabSlug === 'order' || activeTabSlug === 'treasury') && (
+                    <>
+                      <div className="flex items-center gap-1 rounded-md border border-indigo-500/25 bg-indigo-500/8 px-2 py-0.5 flex-shrink-0">
+                        <Zap className="h-3 w-3 flex-shrink-0 text-indigo-400" />
+                        <span className="text-[10px] font-semibold text-indigo-400">Q¢ Platform Rail</span>
+                      </div>
+                      <div className="flex items-center gap-1 rounded-md border border-amber-500/25 bg-amber-500/8 px-2 py-0.5 flex-shrink-0">
+                        <Coins className="h-3 w-3 flex-shrink-0 text-amber-400" />
+                        <span className="text-[10px] font-semibold text-amber-400">$KNYT Economy</span>
+                      </div>
+                    </>
+                  )}
                   {activeTabDescription && (
                     <span className="hidden sm:block truncate text-xs text-slate-500 max-w-52" title={activeTabDescription}>
                       {activeTabDescription}
@@ -578,11 +580,6 @@ export default function CodexPanelDynamic({
           );
         })()}
 
-        {codexId === 'knyt-codex' && (activeTabSlug === 'treasury' || activeTabSlug === 'order') && (
-          <div className="flex-shrink-0">
-            <KnytEconomyBadges />
-          </div>
-        )}
 
 
         <div className="flex-1 min-h-0 overflow-y-auto">

@@ -111,7 +111,6 @@ export const KNYT_CODEX: CodexConfig = {
     { id: 'store',       label: 'Store',  icon: 'ShoppingBag', order: 1 },
     { id: 'order-group', label: 'Order',  icon: 'Shield',      order: 3 },
     { id: 'admin',       label: 'Admin',  icon: 'Settings',    order: 5, adminOnly: true },
-    { id: 'docs',        label: 'Docs',   icon: 'FileText',    order: 6, adminOnly: true },
   ],
   tabs: [
     // ── Codex group ────────────────────────────────────────────
@@ -396,15 +395,15 @@ export const KNYT_CODEX: CodexConfig = {
       }
     },
 
-    // ── Docs group (admin-gated) ───────────────────────────────
+    // ── Docs (admin group, continued) ─────────────────────────
     {
       id: 'experience-pack',
       label: 'Experience Pack',
       slug: 'experience-pack',
       enabled: true,
-      group: 'docs',
+      group: 'admin',
       adminOnly: true,
-      order: 0,
+      order: 4,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -425,9 +424,9 @@ export const KNYT_CODEX: CodexConfig = {
       label: 'KNYT Wheel',
       slug: 'wheel',
       enabled: true,
-      group: 'docs',
+      group: 'admin',
       adminOnly: true,
-      order: 1,
+      order: 5,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
