@@ -54,6 +54,8 @@ import { MarketaCampaignDashboardTab } from "@/app/(shell)/marketa/components/Ma
 import { MarketaCampaignOpsTab } from "@/app/(shell)/marketa/components/MarketaCampaignOpsTab";
 import { MarketaMyPacksTab } from "@/app/(shell)/marketa/components/MarketaMyPacksTab";
 import { MarketaMyReportsTab } from "@/app/(shell)/marketa/components/MarketaMyReportsTab";
+import { VentureLabGrowthMatrixTab } from "./tabs/VentureLabGrowthMatrixTab";
+import { VentureLabPortfolioTab } from "./tabs/VentureLabPortfolioTab";
 
 interface TabRendererProps {
   tab: CodexTab;
@@ -109,6 +111,8 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   MarketaCampaignOpsTab,
   MarketaMyPacksTab,
   MarketaMyReportsTab,
+  VentureLabGrowthMatrixTab,
+  VentureLabPortfolioTab,
   RewardsTab: PlaceholderTab,
   DocsTab: PlaceholderTab,
   APITab: PlaceholderTab,

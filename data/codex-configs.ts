@@ -1040,6 +1040,42 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
         description: 'All planning corpora — Venture Labs α, AgentiQ α, AgentiQ OS α, and Programme α docs in one place',
         color: 'amber'
       }
+    },
+    {
+      id: 'growth-matrix',
+      label: 'Growth Matrix',
+      slug: 'growth-matrix',
+      enabled: true,
+      adminOnly: true,
+      order: 5,
+      type: 'static',
+      config: {
+        component: 'VentureLabGrowthMatrixTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Grid3x3',
+        description: 'Interactive 7×7 venture growth matrix — plot ventures by development maturity and commercialization strength',
+        color: 'amber'
+      }
+    },
+    {
+      id: 'portfolio',
+      label: 'Portfolio',
+      slug: 'portfolio',
+      enabled: true,
+      adminOnly: true,
+      order: 6,
+      type: 'static',
+      config: {
+        component: 'VentureLabPortfolioTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Briefcase',
+        description: 'Venture portfolio board — scorecards, council agenda, and action tracking',
+        color: 'violet'
+      }
     }
   ],
   permissions: {

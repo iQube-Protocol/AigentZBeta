@@ -104,6 +104,7 @@ interface CodexCopilotLayerProps {
     walletAddress?: string;
   };
   personaId?: string;
+  accentColor?: 'cyan' | 'fuchsia' | 'rose';
 }
 
 type CopilotMode = "chat" | "avatar";
@@ -170,7 +171,13 @@ export function CodexCopilotLayer({
   walletAllowWideLayout = true,
   agent,
   personaId,
+  accentColor = 'cyan',
 }: CodexCopilotLayerProps) {
+  const ACCENT = {
+    cyan:    { hex: 'text-cyan-400/90',    bot: 'text-cyan-300',    bubble: 'bg-cyan-500/20 text-cyan-100 ring-cyan-500/30' },
+    fuchsia: { hex: 'text-fuchsia-400/90', bot: 'text-fuchsia-300', bubble: 'bg-fuchsia-500/20 text-fuchsia-100 ring-fuchsia-500/30' },
+    rose:    { hex: 'text-rose-400/90',    bot: 'text-rose-300',    bubble: 'bg-rose-500/20 text-rose-100 ring-rose-500/30' },
+  }[accentColor];
   const isMobile = useIsMobile();
   const { requestAvatar, releaseAvatar } = useMetaAvatar();
 
@@ -890,8 +897,8 @@ export function CodexCopilotLayer({
           aria-label="Open Copilot"
         >
           <span className="relative flex h-12 w-12 items-center justify-center md:h-14 md:w-14">
-            <Hexagon className="absolute inset-0 h-full w-full text-cyan-400/90" strokeWidth={1.1} />
-            <Bot className="relative h-5 w-5 text-cyan-300 md:h-6 md:w-6" />
+            <Hexagon className={`absolute inset-0 h-full w-full ${ACCENT.hex}`} strokeWidth={1.1} />
+            <Bot className={`relative h-5 w-5 ${ACCENT.bot} md:h-6 md:w-6`} />
           </span>
         </button>
       )}
@@ -965,7 +972,7 @@ export function CodexCopilotLayer({
                               <div
                                 className={`max-w-[90%] px-3 py-2 rounded-xl ring-1 ${
                                   msg.role === "user"
-                                    ? "bg-cyan-500/20 text-cyan-100 rounded-br-sm ring-cyan-500/30 text-sm"
+                                    ? `${ACCENT.bubble} rounded-br-sm text-sm`
                                     : "bg-white/5 text-white/90 rounded-bl-sm ring-white/10"
                                 }`}
                               >
