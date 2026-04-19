@@ -35,11 +35,17 @@ export function SequenceDayCard({ item, theme = "dark", onAssetClick, onCtaClick
           onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder.svg"; }}
         />
 
-        {/* Hover play overlay */}
-        {!locked && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* Hover play overlay — clicking thumbnail opens video */}
+        {!locked && item.cta_url && (
+          <button
+            onClick={() => {
+              onAssetClick?.(item);
+              window.open(item.cta_url!, "_blank", "noopener");
+            }}
+            className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity"
+          >
             <Play className="w-6 h-6 text-rose-400 fill-rose-400" />
-          </div>
+          </button>
         )}
 
         {/* Lock icon */}
@@ -90,14 +96,23 @@ export function SequenceDayCard({ item, theme = "dark", onAssetClick, onCtaClick
         </div>
 
         {/* Actions */}
-        {!locked && (item.asset_ref || item.cta_url) && (
+        {!locked && item.cta_url && (
           <div className="flex items-center gap-2 mt-2">
-            {(item.asset_ref || item.cta_url) && (
+            <button
+              onClick={() => {
+                onCtaClick?.(item);
+                window.open(item.cta_url!, "_blank", "noopener");
+              }}
+              className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 transition-colors border border-rose-500/20"
+            >
+              <Video className="w-3 h-3" />
+              {item.cta_url.match(/\.(mp4|mov|webm)/i) ? "Watch" : "Open"}
+            </button>
+            {item.asset_ref && !item.asset_ref.startsWith("smart_content_qubes:") && (
               <button
                 onClick={() => {
                   onAssetClick?.(item);
-                  const url = item.asset_ref || item.cta_url;
-                  if (url) window.open(url, "_blank", "noopener");
+                  window.open(item.asset_ref!, "_blank", "noopener");
                 }}
                 className={cn(
                   "flex items-center gap-1 text-xs px-2 py-1 rounded-lg border transition-colors",
@@ -108,18 +123,6 @@ export function SequenceDayCard({ item, theme = "dark", onAssetClick, onCtaClick
               >
                 <ExternalLink className="w-3 h-3" />
                 View Asset
-              </button>
-            )}
-            {item.cta_url && (
-              <button
-                onClick={() => {
-                  onCtaClick?.(item);
-                  window.open(item.cta_url!, "_blank", "noopener");
-                }}
-                className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 transition-colors border border-rose-500/20"
-              >
-                <Video className="w-3 h-3" />
-                Watch
               </button>
             )}
           </div>
