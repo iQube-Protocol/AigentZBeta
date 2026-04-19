@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
   ArrowLeft, Sparkles, Megaphone, Calendar, Zap, CheckCircle2,
   RefreshCw, Clock, Info, ChevronRight,
@@ -109,6 +110,15 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
   const dark = theme === "dark";
   const s = t(dark);
   const pid = personaId ?? partnerId ?? "qriptiq@knyt";
+  const router     = useRouter();
+  const pathname   = usePathname();
+  const searchParams = useSearchParams();
+
+  function navigateToTab(slug: string) {
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.set("tab", slug);
+    router.push(`${pathname}?${params.toString()}`);
+  }
 
   // catalog
   const [catalog, setCatalog]           = useState<CampaignCatalogItem[]>([]);
@@ -239,7 +249,7 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
             <p className={cn("text-sm mt-0.5", s.sub)}>Join coordinated campaigns (sequences) or propose your own one-off campaign</p>
           </div>
           <button
-            onClick={() => {/* navigate to propose tab */}}
+            onClick={() => navigateToTab("propose-campaign")}
             className="flex-shrink-0 flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-semibold transition-colors"
           >
             + Propose Campaign
@@ -257,7 +267,7 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
             <p><span className="font-semibold text-white/70">Available</span>: campaigns you can join (not active for you yet).</p>
             <p><span className="font-semibold text-white/70">Joined</span>: campaigns you&apos;ve joined (automation + reporting active).</p>
             <p><span className="font-semibold text-white/70">Sequences</span>: multi-day daily content (e.g. 21 Awakenings). <span className="font-semibold text-white/70">One-off</span>: single campaign with custom assets.</p>
-            <p><span className="font-semibold text-white/70">Packs</span>: weekly content packs (separate from campaigns).</p>
+            <p><span className="font-semibold text-white/70">Packs</span>: weekly content packs (separate from campaigns). <button onClick={() => navigateToTab("my-packs")} className="text-rose-400 hover:underline">Go to Packs →</button></p>
           </div>
         </div>
 
@@ -278,11 +288,11 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
           })}
         </div>
 
-        {/* Campaign list */}
+        {/* Campaign grid */}
         {catalogLoading ? (
           <div className={cn("rounded-2xl border p-10 text-center text-sm", s.card, s.sub)}>Loading campaigns…</div>
         ) : (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {(catalogTab === "available" ? available : joined).map((c) => (
               <CampaignCard
                 key={c.id} c={c} dark={dark}
