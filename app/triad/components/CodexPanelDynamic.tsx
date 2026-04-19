@@ -13,7 +13,7 @@ import { useCodexConfig, getEnabledTabs } from "@/app/hooks/useCodexConfig";
 import { CodexTab, TabGroup } from "@/types/codex";
 import type { DeviceType } from "@/app/types/knytLiquidUI";
 import { Loader2, AlertCircle, X, Coins, Zap, Sun, Moon } from "lucide-react";
-import CodexCopilotLayer from "@/app/components/codex/CodexCopilotLayer";
+import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
 import { SmartTriadProvider, SmartTriadSurfaces } from "@/app/components/content";
 import { TabRenderer } from "./codex/TabRenderer";
 import { getIconComponent } from "./codex/iconMap";
