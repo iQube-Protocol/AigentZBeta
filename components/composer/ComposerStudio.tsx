@@ -12390,6 +12390,8 @@ export const ComposerStudio = () => {
                   </select>
                 </div>
 
+                <CartridgePublishPanel prefillTitle={mcpExperience?.name ?? ''} />
+
                 <div className="grid gap-2">
                   <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-100">
                     <div className="font-medium">
@@ -12633,10 +12635,6 @@ export const ComposerStudio = () => {
                     {mcpError}
                   </div>
                 )}
-
-                <div className="border-t border-slate-800/80 pt-3">
-                  <CartridgePublishPanel prefillTitle={mcpExperience?.name ?? ''} />
-                </div>
 
                 <div className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-3 text-xs">
                   <div className="flex items-center justify-between gap-3">
