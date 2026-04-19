@@ -22,9 +22,9 @@ export async function GET() {
 
   try {
     const [ksResult, knytResult, partnerResult] = await Promise.all([
-      supabase.from("ks_backers_staging").select("engagement_status, suppression_status"),
-      supabase.from("nakamoto_knyt_personas").select("campaign_cohort, campaign_state").not("Email", "is", null),
-      supabase.from("avl_partner_contacts").select("wave, outreach_status"),
+      supabase.from("ks_backers_staging").select("engagement_status, suppression_status").range(0, 9999),
+      supabase.from("nakamoto_knyt_personas").select("campaign_cohort, campaign_state").not("Email", "is", null).range(0, 9999),
+      supabase.from("avl_partner_contacts").select("wave, outreach_status").range(0, 999),
     ]);
 
     // ── KS Prospects ───────────────────────────────────────────────────────────

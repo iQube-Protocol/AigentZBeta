@@ -54,6 +54,10 @@ import { MarketaCampaignDashboardTab } from "@/app/(shell)/marketa/components/Ma
 import { MarketaCampaignOpsTab } from "@/app/(shell)/marketa/components/MarketaCampaignOpsTab";
 import { MarketaMyPacksTab } from "@/app/(shell)/marketa/components/MarketaMyPacksTab";
 import { MarketaMyReportsTab } from "@/app/(shell)/marketa/components/MarketaMyReportsTab";
+import MarketaLaunchOpsTab from "@/app/(shell)/marketa/components/MarketaLaunchOpsTab";
+import MarketaQubeTalk from "@/app/(shell)/marketa/components/MarketaQubeTalk";
+import { MarketaReportsTab } from "@/app/(shell)/marketa/components/MarketaReportsTab";
+import { MarketaPublishTab } from "@/app/(shell)/marketa/components/MarketaPublishTab";
 import { VentureLabGrowthMatrixTab } from "./tabs/VentureLabGrowthMatrixTab";
 import { VentureLabPortfolioTab } from "./tabs/VentureLabPortfolioTab";
 import { QriptopianEditTab } from "./tabs/QriptopianEditTab";
@@ -112,6 +116,10 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   MarketaCampaignOpsTab,
   MarketaMyPacksTab,
   MarketaMyReportsTab,
+  MarketaLaunchOpsTab,
+  MarketaQubeTalk,
+  MarketaReportsTab,
+  MarketaPublishTab,
   VentureLabGrowthMatrixTab,
   VentureLabPortfolioTab,
   QriptopianEditTab,

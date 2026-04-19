@@ -82,7 +82,7 @@ export async function PATCH(req: NextRequest) {
     const { id, ...fields } = await req.json() as { id: string; [key: string]: unknown };
     if (!id) return NextResponse.json({ ok: false, error: "id required" }, { status: 400 });
 
-    const allowed = ["outreach_status", "bd_stage", "next_action", "notes", "contact_email", "contact_name", "response_signal"];
+    const allowed = ["outreach_status", "bd_stage", "next_action", "notes", "contact_email", "contact_name", "response_signal", "wave", "strategic_value_tier", "name", "org"];
     const update = Object.fromEntries(
       Object.entries(fields).filter(([k]) => allowed.includes(k))
     );
@@ -140,5 +140,23 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("[avl/partners POST] error:", err);
     return NextResponse.json({ ok: false, error: "Create failed" }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get("id");
+  if (!id) return NextResponse.json({ ok: false, error: "id required" }, { status: 400 });
+
+  const supabase = getSupabaseServer();
+  if (!supabase) return NextResponse.json({ ok: false, error: "DB unavailable" }, { status: 503 });
+
+  try {
+    const { error } = await supabase.from("avl_partner_contacts").delete().eq("id", id);
+    if (error) throw error;
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("[avl/partners DELETE] error:", err);
+    return NextResponse.json({ ok: false, error: "Delete failed" }, { status: 500 });
   }
 }
