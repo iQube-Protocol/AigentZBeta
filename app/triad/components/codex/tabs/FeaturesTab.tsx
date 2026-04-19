@@ -175,16 +175,6 @@ export function FeaturesTab({ theme = 'dark', issueSlug }: FeaturesTabProps) {
 
   return (
     <div className="space-y-10">
-      <div>
-        <h3 className={`text-xl font-bold ${textClass} flex items-center gap-2`}>
-          <Sparkles className="w-5 h-5 text-indigo-400" />
-          Featured Content
-        </h3>
-        <p className={`text-sm ${mutedClass} mt-1`}>
-          Explore the latest articles, insights, and stories from The Qriptopian
-        </p>
-      </div>
-
       <QriptopianFeatureSections
         theme={theme}
         heroArticles={heroArticles}
