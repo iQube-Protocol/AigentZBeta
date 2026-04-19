@@ -25,7 +25,15 @@ export interface MarketaSequenceItem {
   cta_url?: string | null;
   asset_ref?: string | null;
   status: CampaignItemStatus;
-  // future: studio_artifact_id?: string;
+  // Extended fields (added via ALTER TABLE)
+  channels?: string[];
+  publish_day?: number;
+  reward_knyt?: number;
+  reward_trigger?: string;
+  nbe_disposition?: string;
+  experience_goal_id?: string | null;
+  studio_artifact_id?: string | null;
+  metaproof_milestone?: string;
 }
 
 export interface MarketaPartnerReward {
