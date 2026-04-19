@@ -72,3 +72,18 @@ body {
 .inline-flex.items-center.px-2.py-0\.5.rounded-full.text-\[11px\] {
   border-radius: 0.375rem !important;
 }
+
+/* ── Modal / dialog borders: no harsh white rims ────────────────
+   All Radix UI overlay panels (Dialog, AlertDialog, Sheet) receive
+   role="dialog". Override the border-color to the standard glass
+   value used throughout the dark design system. */
+[role="dialog"] {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+/* Popover, dropdown, select, tooltip — same rule */
+[role="listbox"],
+[role="menu"],
+[role="tooltip"],
+[data-radix-popper-content-wrapper] > * {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}

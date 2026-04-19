@@ -18,6 +18,8 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { buildCodexUrl } from "@/utils/codex-nav";
+import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 import {
   ArrowLeft,
   ArrowRight,
@@ -38,7 +40,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useRouter } from "next/navigation";
 import { TRUST_BAND_LABELS, type TrustBand } from "@/types/registryIngestion";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -119,6 +120,7 @@ function ExplainerSection({
   accentClass,
   borderClass,
   bgClass,
+  summary,
   children,
 }: {
   title: string;
@@ -126,23 +128,29 @@ function ExplainerSection({
   accentClass: string;
   borderClass: string;
   bgClass: string;
+  summary?: string;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   return (
-    <Card className={`rounded-xl border ${borderClass} ${bgClass}`}>
+    <Card className={`rounded-xl border ${borderClass} ${bgClass} backdrop-blur-sm`}>
       <CardHeader
-        className="pb-2 cursor-pointer select-none"
+        className={`${open ? "pb-2" : "pb-3"} cursor-pointer select-none`}
         onClick={() => setOpen((prev) => !prev)}
       >
-        <CardTitle className={`text-sm font-semibold flex items-center justify-between gap-2 ${accentClass}`}>
-          <span className="flex items-center gap-2">
-            <Icon className="h-4 w-4" />
-            {title}
+        <CardTitle className={`text-sm font-semibold flex items-start justify-between gap-2 ${accentClass}`}>
+          <span className="flex flex-col gap-0.5 min-w-0">
+            <span className="flex items-center gap-2">
+              <Icon className="h-4 w-4 shrink-0" />
+              {title}
+            </span>
+            {!open && summary && (
+              <span className="text-[10px] font-normal text-slate-500 pl-6 leading-snug">{summary}</span>
+            )}
           </span>
           {open
-            ? <ChevronDown className="h-4 w-4 opacity-60" />
-            : <ChevronRight className="h-4 w-4 opacity-60" />}
+            ? <ChevronDown className="h-4 w-4 opacity-60 shrink-0 mt-0.5" />
+            : <ChevronRight className="h-4 w-4 opacity-60 shrink-0 mt-0.5" />}
         </CardTitle>
       </CardHeader>
       {open && <CardContent className="space-y-2 text-sm">{children}</CardContent>}
@@ -368,10 +376,14 @@ function DvnLedgerPanel({
 
 interface KnytAlphaTabProps {
   personaId?: string;
+  isAdmin?: boolean;
+  shell?: 'embed' | 'viewer';
 }
 
-export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
-  const router = useRouter();
+export function KnytAlphaTab({ personaId, isAdmin, shell }: KnytAlphaTabProps = {}) {
+  const [copilotOpen,     setCopilotOpen]     = useState(false);
+  const [copilotMessages, setCopilotMessages] = useState<CopilotMessage[]>([]);
+  const [copilotInitialMsg, setCopilotInitialMsg] = useState<string | undefined>();
 
   const [agents,       setAgents]       = useState<Asset[]>([]);
   const [skills,       setSkills]       = useState<Asset[]>([]);
@@ -430,9 +442,9 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
   useEffect(() => { void load(); }, [load]);
 
   const askKnow1 = useCallback((skill: Asset) => {
-    const q = encodeURIComponent(`Tell me about ${skill.name}: ${skill.description ?? ""}`);
-    router.push(`/aigents/aigent-kn0w1?q=${q}`);
-  }, [router]);
+    setCopilotInitialMsg(`Tell me about ${skill.name}: ${skill.description ?? ""}`);
+    setCopilotOpen(true);
+  }, []);
 
   // Filter to Know1's skill family (skills with know1 in assetId or tagged)
   const know1Skills = skills.filter(
@@ -444,10 +456,10 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
     <div className="grid gap-4 p-4 md:p-6">
 
       {/* ── Header ── */}
-      <Card className="rounded-xl border border-amber-800/40 bg-amber-950/20">
+      <Card className="rounded-xl border border-amber-800/30 bg-amber-950/10 backdrop-blur-sm">
         <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
           <div>
-            <p className="text-xs uppercase tracking-wide text-amber-500 mb-0.5">Venture Lab α</p>
+            <p className="text-xs uppercase tracking-wide text-amber-500/80 mb-0.5">Venture Lab α</p>
             <h2 className="text-xl font-semibold text-slate-100">Know1-First KNYT Alpha</h2>
             <p className="text-xs text-slate-400 mt-0.5">
               The reference alpha experience for the KNYT Cartridge — guided by Know1, backed by AgentiQ OS primitives.
@@ -455,15 +467,15 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
           </div>
           <div className="flex items-center gap-2">
             <a
-              href="/triad/embed/codex/venture-lab?tab=alpha-programme"
-              className="flex items-center gap-1 rounded-md border border-amber-700/40 bg-amber-900/20 px-2.5 py-1 text-[11px] text-amber-400 hover:text-amber-300 hover:bg-amber-900/30 transition-colors"
+              href={buildCodexUrl("alpha-knyt", { tab: "alpha-programme", personaId, isAdmin, shell, from: "knyt", fromTab: "knyt-alpha" })}
+              className="flex items-center gap-1 rounded-md border border-amber-700/30 bg-amber-900/15 backdrop-blur-sm px-2.5 py-1 text-[11px] text-amber-400/80 hover:text-amber-300 hover:bg-amber-900/25 transition-colors"
               title="Back to α Programme"
             >
               <ArrowLeft className="h-3 w-3" />
               α Programme
             </a>
-            <Badge className="border-amber-800 bg-amber-950 text-amber-300">Alpha</Badge>
-            <Badge variant="outline" className="border-slate-700 text-slate-300">Provisional</Badge>
+            <Badge variant="outline" className="border-amber-500/25 bg-amber-500/10 text-amber-300/70 backdrop-blur-sm text-[10px]">Alpha</Badge>
+            <Badge variant="outline" className="border-slate-600/40 bg-slate-800/30 text-slate-400/70 backdrop-blur-sm text-[10px]">Provisional</Badge>
             <Button
               size="sm"
               variant="ghost"
@@ -485,6 +497,7 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
         accentClass="text-violet-300"
         borderClass="border-violet-900/40"
         bgClass="bg-violet-950/10"
+        summary="Know1-first reference alpha · proves 7 platform propositions: receipted participation, Qc/$KNYT distinction, DVN receipts, 21 Sats coordination, sovereignty via Runtime"
       >
         <p className="text-slate-300">
           A Know1-first living cartridge that demonstrates the platform&apos;s core propositions at small scale before broader rollout.
@@ -510,6 +523,7 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
         accentClass="text-amber-300"
         borderClass="border-amber-900/40"
         bgClass="bg-amber-950/10"
+        summary={loading ? "Loading…" : `${agents.length || 1} agent${agents.length !== 1 ? "s" : ""} · Know1-led · knowledge, lore, opportunity synthesis · 0 Q¢ in alpha`}
       >
         {loading ? (
           <div className="text-xs text-slate-500 py-2 text-center">Loading agents…</div>
@@ -567,6 +581,7 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
         accentClass="text-sky-300"
         borderClass="border-sky-900/40"
         bgClass="bg-sky-950/10"
+        summary={loading ? "Loading…" : `${displaySkills.length} skills · info value, risk, pricing, treasury, rewards, Qc/$KNYT, 21 Sats, opportunity · 0 Q¢`}
       >
         <p className="text-slate-300 text-xs">
           Curated internal skills Know1 draws from in the KNYT cartridge context. Hit &ldquo;Ask Know1&rdquo; to open Know1 with the skill context pre-loaded.
@@ -591,6 +606,7 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
         accentClass="text-emerald-300"
         borderClass="border-emerald-900/40"
         bgClass="bg-emerald-950/10"
+        summary={loading ? "Loading…" : org ? `${org.totalRewardGrants} reward grants · ${org.totalReceipts} receipts · ${org.finalizedGrants} finalised · ${org.provisionalGrants} provisional` : "Participation data loading — actions and grants tracked per role"}
       >
         <ParticipationPanel org={org} cohorts={cohorts} loading={loading} />
       </ExplainerSection>
@@ -602,6 +618,7 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
         accentClass="text-sky-300"
         borderClass="border-sky-900/40"
         bgClass="bg-sky-950/10"
+        summary={loading ? "Loading…" : ledgerSummary ? `${ledgerSummary.provisionalReceipts} provisional · ${ledgerSummary.finalizedReceipts} finalised · ${ledgerSummary.totalEvents} Qc events · ${ledgerSummary.totalQc} Q¢ metered` : "Provisional DVN receipts emitted per action · finalised on-chain · all alpha actions at 0 Q¢"}
       >
         <p className="text-xs text-slate-300">
           Economic lifecycle view — every participation action emits a DVN receipt that moves from provisional to finalized as the on-chain anchor confirms.
@@ -621,6 +638,7 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
         accentClass="text-emerald-300"
         borderClass="border-slate-800/60"
         bgClass="bg-slate-950/40"
+        summary={loading ? "Loading…" : `${agents.length} reference agents · ${displaySkills.length} skills · DVN ledger + receipts live · JourneyState + NBEPlan routing active`}
       >
         <p className="text-slate-300 text-xs">
           These are live operational service contracts — not stubs.
@@ -636,7 +654,7 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
       </ExplainerSection>
 
       {/* ── Know1 CTA ── */}
-      <Card className="rounded-xl border border-amber-700/40 bg-amber-950/20">
+      <Card className="rounded-xl border border-amber-700/30 bg-amber-950/10 backdrop-blur-sm">
         <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
           <div>
             <p className="text-sm font-semibold text-amber-200 flex items-center gap-2">
@@ -652,7 +670,7 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
               size="sm"
               variant="outline"
               className="border-amber-800/50 text-amber-300 hover:bg-amber-500/10 text-xs"
-              onClick={() => router.push("/aigents/aigent-kn0w1?q=" + encodeURIComponent("What is the KNYT Treasury and how do rewards work?"))}
+              onClick={() => { setCopilotInitialMsg("What is the KNYT Treasury and how do rewards work?"); setCopilotOpen(true); }}
             >
               <Zap className="mr-1 h-3 w-3" />
               Ask about Treasury
@@ -660,13 +678,26 @@ export function KnytAlphaTab({ personaId }: KnytAlphaTabProps = {}) {
             <Button
               size="sm"
               className="bg-amber-500 hover:bg-amber-400 text-black font-semibold whitespace-nowrap"
-              onClick={() => router.push("/aigents/aigent-kn0w1")}
+              onClick={() => setCopilotOpen(true)}
             >
               Talk to Know1 <ArrowRight className="ml-1 h-3.5 w-3.5" />
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      <CodexCopilotLayer
+        isOpen={copilotOpen}
+        onClose={() => setCopilotOpen(false)}
+        onOpen={() => setCopilotOpen(true)}
+        variant="floating"
+        enableInferenceRendering
+        personaId={personaId}
+        contextId="knyt-alpha"
+        messages={copilotMessages}
+        onMessagesChange={setCopilotMessages}
+        initialMessage={copilotInitialMsg}
+      />
     </div>
   );
 }

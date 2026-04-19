@@ -48,6 +48,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Dots } from "@/components/registry/scoreUtils";
+import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 
 type FranchiseData = {
   total_journeys: number;
@@ -603,6 +604,9 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
   const isMetaMe = tenantId === "metame";
   const activeStages = isMetaMe ? METAME_STAGES : KNYT_STAGES;
   const activeStageColors = isMetaMe ? METAME_STAGE_COLORS : KNYT_STAGE_COLORS;
+
+  const [copilotOpen, setCopilotOpen] = useState(false);
+  const [copilotMessages, setCopilotMessages] = useState<CopilotMessage[]>([]);
 
   const [activeView, setActiveView] = useState("franchise");
   const [franchise, setFranchise] = useState<FranchiseData | null>(null);
@@ -1902,6 +1906,17 @@ export function ExperienceDashboardTab({ personaId, tenantId, theme = "dark" }: 
           </div>
         </TabsContent>
       </Tabs>
+      <CodexCopilotLayer
+        isOpen={copilotOpen}
+        onClose={() => setCopilotOpen(false)}
+        onOpen={() => setCopilotOpen(true)}
+        variant="floating"
+        enableInferenceRendering
+        personaId={personaId}
+        contextId="knyt-experience"
+        messages={copilotMessages}
+        onMessagesChange={setCopilotMessages}
+      />
     </div>
   );
 }

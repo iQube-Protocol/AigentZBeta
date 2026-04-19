@@ -52,12 +52,47 @@ export default function CodexViewerPage() {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [density, setDensity] = useState<"narrow" | "wide">("wide");
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") ?? "scrolls");
-  const [hiddenTabs, setHiddenTabs] = useState<string[]>([]);
+  const [hiddenTabs, setHiddenTabs] = useState<string[]>(() => {
+    // Restore per-codex hidden tabs from localStorage on mount
+    if (typeof window === "undefined") return [];
+    try {
+      const key = `viewer_hidden_${searchParams.get("id") ?? "knyt-codex"}`;
+      const stored = localStorage.getItem(key);
+      return stored ? (JSON.parse(stored) as string[]) : [];
+    } catch {
+      return [];
+    }
+  });
   const [configCollapsed, setConfigCollapsed] = useState(false);
   const [activeSection, setActiveSection] = useState<ConfigSection>("codex");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>("desktop");
   const [copilotOpen, setCopilotOpen] = useState(false);
+
+  // Sync codexId and activeTab when navigating between cartridges via URL (same-path navigation)
+  useEffect(() => {
+    const newId = searchParams.get("id");
+    const newTab = searchParams.get("tab");
+    if (newId && newId !== codexId) {
+      setCodexId(newId);
+      // Restore hidden tabs for the new codex
+      try {
+        const stored = localStorage.getItem(`viewer_hidden_${newId}`);
+        setHiddenTabs(stored ? (JSON.parse(stored) as string[]) : []);
+      } catch {
+        setHiddenTabs([]);
+      }
+    }
+    if (newTab && newTab !== activeTab) setActiveTab(newTab);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // Persist hidden tabs to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem(`viewer_hidden_${codexId}`, JSON.stringify(hiddenTabs));
+    } catch { /* storage unavailable */ }
+  }, [hiddenTabs, codexId]);
 
   // Resolve active session persona so SmartTriadProvider queries the right ownership data
   const { sessionPersonas } = useSupabaseSessionPersonas();
@@ -131,17 +166,19 @@ export default function CodexViewerPage() {
 
   useEffect(() => {
     if (!codexOptions.length) return;
+    if (searchParams.get("id")) return; // URL-provided codex ID may not be in the picker list (e.g. admin-only)
     if (!codexOptions.some(option => option.id === codexId)) {
       setCodexId(codexOptions[0].id);
     }
-  }, [codexOptions, codexId]);
+  }, [codexOptions, codexId, searchParams]);
 
   useEffect(() => {
+    if (!enabledTabs.length) return; // don't reset until real config tabs are loaded (prevents fallback list from overriding URL-provided tab)
     if (!visibleTabOptions.length) return;
     if (!visibleTabOptions.some(tab => tab.slug === activeTab)) {
       setActiveTab(visibleTabOptions[0].slug);
     }
-  }, [visibleTabOptions, activeTab]);
+  }, [visibleTabOptions, activeTab, enabledTabs]);
 
   const codexSlug = codexId.replace("-codex", "");
   const hiddenTabsParam = hiddenTabs.length > 0 ? `&hiddenTabs=${encodeURIComponent(hiddenTabs.join(","))}` : "";
@@ -452,6 +489,7 @@ export default function CodexViewerPage() {
               }`}
             >
               <CodexPanelDynamic
+                key={codexId}
                 codexId={codexId}
                 theme={theme}
                 density={density}
@@ -461,6 +499,7 @@ export default function CodexViewerPage() {
                 useDefaults={true}
                 previewDevice={previewDevice}
                 personaId={activePersonaId}
+                shell="viewer"
               />
             </div>
           </div>

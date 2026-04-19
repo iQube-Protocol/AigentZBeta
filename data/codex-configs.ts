@@ -106,36 +106,26 @@ export const KNYT_CODEX: CodexConfig = {
     category: 'protocol',
     tags: ['knyt', 'protocol', 'lore', 'world-building']
   },
+  tabGroups: [
+    { id: 'codex',       label: 'Codex',  icon: 'BookOpen',    order: 0 },
+    { id: 'store',       label: 'Store',  icon: 'ShoppingBag', order: 1 },
+    { id: 'order-group', label: 'Order',  icon: 'Shield',      order: 3 },
+    { id: 'admin',       label: 'Admin',  icon: 'Settings',    order: 5, adminOnly: true },
+    { id: 'docs',        label: 'Docs',   icon: 'FileText',    order: 6, adminOnly: true },
+  ],
   tabs: [
-    {
-      id: 'codex',
-      label: 'Codex',
-      slug: 'codex',
-      enabled: true,
-      order: 0,
-      type: 'liquid-ui',
-      config: {
-        liquidTemplate: 'knyt:drawer_grid_v1',
-        dataSource: '/api/codex/knyt/home'
-      },
-      metadata: {
-        icon: 'Home',
-        description: 'KNYT Codex home and overview',
-        color: 'purple'
-      }
-    },
+    // ── Codex group ────────────────────────────────────────────
     {
       id: 'scrolls',
       label: 'Scrolls',
       slug: 'scrolls',
       enabled: true,
-      order: 1,
+      group: 'codex',
+      order: 0,
       type: 'liquid-ui',
       config: {
         liquidTemplate: 'knyt:motion_stage_v1',
         dataSource: '/api/admin/codex/status?series=metaKnyts',
-        // Uses existing API: /api/admin/codex/status?series=metaKnyts
-        // Backward compatible with Qriptopian useCodexEpisodes hook
       },
       metadata: {
         icon: 'Scroll',
@@ -149,13 +139,12 @@ export const KNYT_CODEX: CodexConfig = {
       label: 'Characters',
       slug: 'characters',
       enabled: true,
-      order: 2,
+      group: 'codex',
+      order: 1,
       type: 'liquid-ui',
       config: {
         liquidTemplate: 'knyt:dual_poster_stage_v1',
         dataSource: '/api/codex/knyt-cards',
-        // Uses existing API: /api/codex/knyt-cards
-        // Backward compatible with Qriptopian useCodexCharacters hook
       },
       metadata: {
         icon: 'Users',
@@ -169,44 +158,63 @@ export const KNYT_CODEX: CodexConfig = {
       label: 'Lore',
       slug: 'lore',
       enabled: true,
-      order: 3,
+      group: 'codex',
+      adminOnly: true,
+      order: 2,
       type: 'liquid-ui',
       config: {
         liquidTemplate: 'knyt:drawer_grid_v1',
         dataSource: '/api/content/assets?kinds=background_lore_doc,twenty_one_sats_concept',
-        // Uses existing API: /api/content/assets?kinds=background_lore_doc,twenty_one_sats_concept
-        // Backward compatible with Qriptopian useCodexLore hook
       },
       metadata: {
         icon: 'FileText',
-        description: 'World lore and background',
+        description: 'World lore and background — admin access',
         color: 'purple'
       }
     },
+
+    // ── Store group (placeholder — content TBD) ────────────────
     {
-      id: 'digiterra',
-      label: 'DigiTerra',
-      slug: 'digiterra',
+      id: 'store-episodes',
+      label: 'Episodes',
+      slug: 'store-episodes',
       enabled: true,
-      order: 4,
-      type: 'liquid-ui',
-      config: {
-        liquidTemplate: 'knyt:motion_stage_v1',
-        dataSource: '/api/codex/knyt/digiterra',
-        // Digital realm content and interactions
-      },
-      metadata: {
-        icon: 'Cpu',
-        description: 'Digital realm interface',
-        color: 'cyan'
-      }
+      group: 'store',
+      order: 0,
+      type: 'static',
+      config: { component: 'PlaceholderTab', props: { title: 'Episodes', description: 'KNYT episode drops — coming soon' } },
+      metadata: { icon: 'Film', description: 'Episode drops and collectibles', color: 'cyan' }
     },
+    {
+      id: 'store-characters',
+      label: 'Characters',
+      slug: 'store-characters',
+      enabled: true,
+      group: 'store',
+      order: 1,
+      type: 'static',
+      config: { component: 'PlaceholderTab', props: { title: 'Characters', description: 'KNYT character collectibles — coming soon' } },
+      metadata: { icon: 'UserSquare', description: 'Character collectibles', color: 'cyan' }
+    },
+    {
+      id: 'store-bundles',
+      label: 'Bundles',
+      slug: 'store-bundles',
+      enabled: true,
+      group: 'store',
+      order: 2,
+      type: 'static',
+      config: { component: 'PlaceholderTab', props: { title: 'Bundles', description: 'KNYT bundle offers — coming soon' } },
+      metadata: { icon: 'Package', description: 'Bundle offers', color: 'cyan' }
+    },
+
+    // ── Terra (standalone) ─────────────────────────────────────
     {
       id: 'terra',
       label: 'Terra',
       slug: 'terra',
       enabled: true,
-      order: 5,
+      order: 2,
       type: 'static',
       config: {
         component: 'TerraTab',
@@ -219,17 +227,19 @@ export const KNYT_CODEX: CodexConfig = {
         color: 'green'
       }
     },
+
+    // ── Order group ────────────────────────────────────────────
     {
       id: 'order',
       label: 'Order',
       slug: 'order',
       enabled: true,
-      order: 6,
+      group: 'order-group',
+      order: 0,
       type: 'liquid-ui',
       config: {
         liquidTemplate: 'knyt:quest_hud_hub_v1',
         dataSource: '/api/codex/knyt/order',
-        // Order of Metaiye: live progression, ascension, and reputation
       },
       metadata: {
         icon: 'Shield',
@@ -238,48 +248,12 @@ export const KNYT_CODEX: CodexConfig = {
       }
     },
     {
-      id: 'living-canon',
-      label: '21 Sats',
-      slug: 'living-canon',
-      enabled: true,
-      order: 7,
-      type: 'liquid-ui',
-      config: {
-        liquidTemplate: 'knyt:living_canon_v1',
-        dataSource: '/api/codex/knyt/living-canon',
-        // Living Canon — Canon / Community / Correspondent branch navigation
-        // One active canonical community world (21 Sats) at launch
-      },
-      metadata: {
-        icon: 'Layers',
-        description: 'Living Canon — Canon, Community, and Correspondent branches',
-        color: 'amber',
-        badge: 'Active'
-      }
-    },
-    {
-      id: 'runtime',
-      label: 'Runtime',
-      slug: 'runtime',
-      enabled: true,
-      order: 8,
-      type: 'static',
-      config: {
-        component: 'KnytRuntimeSurface',
-        props: {}
-      },
-      metadata: {
-        icon: 'Zap',
-        description: 'KNYT Live Runtime Surface — patronage axis, PCS axis, signals, next-best-step',
-        color: 'amber'
-      }
-    },
-    {
       id: 'treasury',
       label: 'Treasury',
       slug: 'treasury',
       enabled: true,
-      order: 9,
+      group: 'order-group',
+      order: 1,
       type: 'static',
       config: {
         component: 'KnytTreasuryTab',
@@ -292,12 +266,68 @@ export const KNYT_CODEX: CodexConfig = {
       }
     },
     {
+      id: 'runtime',
+      label: 'Runtime',
+      slug: 'runtime',
+      enabled: true,
+      group: 'order-group',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'KnytRuntimeSurface',
+        props: {}
+      },
+      metadata: {
+        icon: 'Zap',
+        description: 'KNYT Live Runtime Surface — patronage axis, PCS axis, signals, next-best-step',
+        color: 'amber'
+      }
+    },
+    {
+      id: 'shelf',
+      label: 'Shelf',
+      slug: 'shelf',
+      enabled: true,
+      group: 'order-group',
+      order: 3,
+      type: 'static',
+      config: { component: 'PlaceholderTab', props: { title: 'Shelf', description: "Your library of owned KNYT items — coming soon" } },
+      metadata: {
+        icon: 'Library',
+        description: "Active persona's owned codex items library",
+        color: 'indigo'
+      }
+    },
+
+    // ── 21 Sats (standalone) ───────────────────────────────────
+    {
+      id: 'living-canon',
+      label: '21 Sats',
+      slug: 'living-canon',
+      enabled: true,
+      order: 4,
+      type: 'liquid-ui',
+      config: {
+        liquidTemplate: 'knyt:living_canon_v1',
+        dataSource: '/api/codex/knyt/living-canon',
+      },
+      metadata: {
+        icon: 'Layers',
+        description: 'Living Canon — Canon, Community, and Correspondent branches',
+        color: 'amber',
+        badge: 'Active'
+      }
+    },
+
+    // ── Admin group (admin-gated) ──────────────────────────────
+    {
       id: 'knyt-alpha',
-      label: 'Venture Lab α',
+      label: 'Venture Labs',
       slug: 'knyt-alpha',
       enabled: true,
-      adminOnly: true,   // Internal alpha — admin-gated during Venture Lab α phase
-      order: 10,
+      group: 'admin',
+      adminOnly: true,
+      order: 0,
       type: 'static',
       config: {
         component: 'KnytAlphaTab',
@@ -314,8 +344,9 @@ export const KNYT_CODEX: CodexConfig = {
       label: 'Experience',
       slug: 'experience-dashboard',
       enabled: true,
-      adminOnly: true,   // Sensitive admin data — hidden from all non-admin users
-      order: 11,
+      group: 'admin',
+      adminOnly: true,
+      order: 1,
       type: 'static',
       config: {
         component: 'ExperienceDashboardTab',
@@ -328,12 +359,52 @@ export const KNYT_CODEX: CodexConfig = {
       }
     },
     {
+      id: 'investors',
+      label: 'Investors',
+      slug: 'investors',
+      enabled: true,
+      group: 'admin',
+      adminOnly: true,
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'InvestorDirectoryTab',
+      },
+      metadata: {
+        icon: 'TrendingUp',
+        description: 'Full investor directory — all 3,501 StartEngine / Metaiye Media investors with campaign cohort tagging, bulk sequence dispatch, and the KNYT Wheel campaign dashboard',
+        color: 'amber'
+      }
+    },
+    {
+      id: 'outreach',
+      label: 'Outreach',
+      slug: 'outreach',
+      enabled: true,
+      group: 'admin',
+      adminOnly: true,
+      order: 3,
+      type: 'static',
+      config: {
+        component: 'RelationshipBuilderTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Users',
+        description: 'Partner and customer outreach — 18 AVL partner contacts, KS Prospects funnel, campaign composer for Marketa email dispatch',
+        color: 'violet'
+      }
+    },
+
+    // ── Docs group (admin-gated) ───────────────────────────────
+    {
       id: 'experience-pack',
       label: 'Experience Pack',
       slug: 'experience-pack',
       enabled: true,
-      adminOnly: true,   // Internal stakeholder doc — hidden from end users
-      order: 12,
+      group: 'docs',
+      adminOnly: true,
+      order: 0,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -354,8 +425,9 @@ export const KNYT_CODEX: CodexConfig = {
       label: 'KNYT Wheel',
       slug: 'wheel',
       enabled: true,
-      adminOnly: true,   // Live operator bundle — admin-gated working access
-      order: 13,
+      group: 'docs',
+      adminOnly: true,
+      order: 1,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -367,45 +439,10 @@ export const KNYT_CODEX: CodexConfig = {
       },
       metadata: {
         icon: 'Megaphone',
-        description: 'KNYT Wheel — the KNYT Activation Campaign genesis bundle: operator brief, activation blueprint, copy packs, operations, deployment handoff, marketa plans, 30-day calendar, CRM schema, dashboard spec, partner/investor addenda, and launch runbook (13 core docs + AutoDrive canonicalization companion)',
+        description: 'KNYT Wheel — the KNYT Activation Campaign genesis bundle',
         color: 'rose'
       }
     },
-    {
-      id: 'investors',
-      label: 'Investors',
-      slug: 'investors',
-      enabled: true,
-      adminOnly: true,
-      order: 14,
-      type: 'static',
-      config: {
-        component: 'InvestorDirectoryTab',
-      },
-      metadata: {
-        icon: 'TrendingUp',
-        description: 'Full investor directory — all 3,501 StartEngine / Metaiye Media investors with campaign cohort tagging, bulk sequence dispatch, and the KNYT Wheel campaign dashboard',
-        color: 'amber'
-      }
-    },
-    {
-      id: 'outreach',
-      label: 'Outreach',
-      slug: 'outreach',
-      enabled: true,
-      adminOnly: true,
-      order: 15,
-      type: 'static',
-      config: {
-        component: 'RelationshipBuilderTab',
-        props: {}
-      },
-      metadata: {
-        icon: 'Users',
-        description: 'Partner and customer outreach — 18 AVL partner contacts, KS Prospects funnel, campaign composer for Marketa email dispatch',
-        color: 'violet'
-      }
-    }
   ],
   permissions: {
     view: ['*'],

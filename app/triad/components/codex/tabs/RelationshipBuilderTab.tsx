@@ -12,6 +12,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 import {
   Bot,
   Building2,
@@ -1114,6 +1115,9 @@ interface RelationshipBuilderTabProps {
 }
 
 export function RelationshipBuilderTab({ personaId }: RelationshipBuilderTabProps) {
+  const [copilotOpen, setCopilotOpen] = useState(false);
+  const [copilotMessages, setCopilotMessages] = useState<CopilotMessage[]>([]);
+
   const [activeNav, setActiveNav]  = useState<"partners" | "customers" | "compose" | "qubetalk">("partners");
   const [feed,      setFeed]       = useState<FeedMessage[]>([]);
   const [loading,   setLoading]    = useState(true);
@@ -1317,6 +1321,18 @@ export function RelationshipBuilderTab({ personaId }: RelationshipBuilderTabProp
           </div>
         </>
       )}
+
+      <CodexCopilotLayer
+        isOpen={copilotOpen}
+        onClose={() => setCopilotOpen(false)}
+        onOpen={() => setCopilotOpen(true)}
+        variant="floating"
+        enableInferenceRendering
+        personaId={personaId}
+        contextId="knyt-outreach"
+        messages={copilotMessages}
+        onMessagesChange={setCopilotMessages}
+      />
     </div>
   );
 }

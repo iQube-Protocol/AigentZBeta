@@ -16,6 +16,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 import {
   Users, Search, TrendingUp, ChevronRight, AlertCircle,
   Zap, Clock, Filter, CheckSquare, Square, Send, Edit2,
@@ -133,6 +134,9 @@ interface Props {
 
 export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: _personaId }: Props) {
   const router = useRouter();
+
+  const [copilotOpen, setCopilotOpen] = useState(false);
+  const [copilotMessages, setCopilotMessages] = useState<CopilotMessage[]>([]);
 
   const [activeView, setActiveView] = useState<'investors' | 'dashboard' | 'tracking' | 'queue'>('investors');
   const [investors, setInvestors] = useState<Investor[]>([]);
@@ -1056,6 +1060,18 @@ export function InvestorDirectoryTab({ tab: _tab, codexId: _codexId, personaId: 
           )}
         </>
       )}
+
+      <CodexCopilotLayer
+        isOpen={copilotOpen}
+        onClose={() => setCopilotOpen(false)}
+        onOpen={() => setCopilotOpen(true)}
+        variant="floating"
+        enableInferenceRendering
+        personaId={_personaId}
+        contextId="knyt-investors"
+        messages={copilotMessages}
+        onMessagesChange={setCopilotMessages}
+      />
     </div>
   );
 }

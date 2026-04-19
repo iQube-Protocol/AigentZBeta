@@ -10,7 +10,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCodexConfig, getEnabledTabs } from "@/app/hooks/useCodexConfig";
-import { CodexTab } from "@/types/codex";
+import { CodexTab, TabGroup } from "@/types/codex";
 import type { DeviceType } from "@/app/types/knytLiquidUI";
 import { Loader2, AlertCircle, X, Coins, Zap } from "lucide-react";
 import { SmartTriadProvider, SmartTriadSurfaces } from "@/app/components/content";
@@ -32,6 +32,10 @@ interface CodexPanelDynamicProps {
   useDefaults?: boolean;        // Use hardcoded configs vs database
   previewDevice?: DeviceType;
   onClose?: () => void;         // Direct close callback (inline rendering)
+  /** Rendering shell context — controls where cross-cartridge links navigate.
+   *  "embed" (default): standalone thin-client embed, no platform chrome.
+   *  "viewer": inside AgentiQ platform shell (multi-cartridge viewer). */
+  shell?: 'embed' | 'viewer';
 }
 
 type IssueOption = {
@@ -97,6 +101,7 @@ export default function CodexPanelDynamic({
   useDefaults = true,
   previewDevice,
   onClose,
+  shell = 'embed',
 }: CodexPanelDynamicProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -405,85 +410,164 @@ export default function CodexPanelDynamic({
   return (
     <SmartTriadProvider personaId={personaId}>
       <div className={`flex flex-col h-full w-full ${resolvedTheme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
-        {!singleTabMode && (
-          <div className="flex-shrink-0 border-b border-slate-700/50 px-4">
-            <div className="flex items-center justify-between gap-3 py-3">
-              <div className="flex min-w-0 items-center gap-4">
-                <h2
-                  className="text-xl font-bold flex items-center gap-2 whitespace-nowrap"
-                  title={codex.metadata.description || undefined}
-                >
-                  {codex.metadata.icon && React.createElement(
-                    getIconComponent(codex.metadata.icon),
-                    { className: `w-5 h-5 text-${codex.metadata.color || 'indigo'}-400` }
-                  )}
-                  {displayCodexName}
-                </h2>
-                <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
-                  {enabledTabs.map((tab) => {
-                    const Icon = getIconComponent(tab.metadata?.icon || 'Circle');
-                    const isActive = tab.slug === activeTabSlug;
-                    const badge = tabBadgeText(tab);
+        {!singleTabMode && (() => {
+          const accentColor = codex.metadata.color || 'indigo';
+          // ── Build top-level nav items (groups + standalone tabs) ──
+          const groups: TabGroup[] = codex.tabGroups ?? [];
+          // Visible groups: admin-gated groups hidden when not admin
+          const visibleGroups = groups.filter(g => !g.adminOnly || isAdmin);
+          // Standalone tabs: enabled tabs with no group, sorted by order
+          const standaloneTabs = enabledTabs.filter(t => !t.group);
+          // Active leaf tab's group (if any)
+          const activeGroup = enabledTabs.find(t => t.slug === activeTabSlug)?.group ?? null;
+          // Sub-tabs for the active group
+          const activeGroupSubTabs = activeGroup
+            ? enabledTabs.filter(t => t.group === activeGroup)
+            : [];
 
-                    return (
-                      <button
-                        key={tab.id}
-                        onClick={() => setActiveTabSlug(tab.slug)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap rounded-lg ${
-                          isActive
-                            ? `bg-${codex.metadata.color || 'indigo'}-500/10 ring-1 ring-${codex.metadata.color || 'indigo'}-500/30 text-${codex.metadata.color || 'indigo'}-300`
-                            : 'text-slate-400 hover:text-slate-300 hover:bg-white/4'
-                        }`}
+          // Build ordered list of top-level items: groups and standalone tabs sorted by order
+          type TopItem =
+            | { kind: 'group'; group: TabGroup }
+            | { kind: 'tab'; tab: CodexTab };
+          const topItems: TopItem[] = [
+            ...visibleGroups.map(g => ({ kind: 'group' as const, group: g, order: g.order })),
+            ...standaloneTabs.map(t => ({ kind: 'tab' as const, tab: t, order: t.order })),
+          ].sort((a, b) => a.order - b.order);
+
+          const handleGroupClick = (groupId: string) => {
+            const firstSub = enabledTabs.find(t => t.group === groupId);
+            if (firstSub) setActiveTabSlug(firstSub.slug);
+          };
+
+          return (
+            <>
+              {/* Primary tab bar */}
+              <div className="flex-shrink-0 border-b border-slate-700/50 px-4">
+                <div className="flex items-center justify-between gap-3 py-3">
+                  <div className="flex min-w-0 items-center gap-4">
+                    <h2
+                      className="text-xl font-bold flex items-center gap-2 whitespace-nowrap"
+                      title={codex.metadata.description || undefined}
+                    >
+                      {codex.metadata.icon && React.createElement(
+                        getIconComponent(codex.metadata.icon),
+                        { className: `w-5 h-5 text-${accentColor}-400` }
+                      )}
+                      {displayCodexName}
+                    </h2>
+                    <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
+                      {topItems.map((item) => {
+                        if (item.kind === 'group') {
+                          const { group } = item;
+                          const isActiveGroup = activeGroup === group.id;
+                          const Icon = getIconComponent(group.icon || 'Circle');
+                          return (
+                            <button
+                              key={`group-${group.id}`}
+                              onClick={() => handleGroupClick(group.id)}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap rounded-lg ${
+                                isActiveGroup
+                                  ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/30 text-${accentColor}-300`
+                                  : 'text-slate-400 hover:text-slate-300 hover:bg-white/4'
+                              }`}
+                            >
+                              <Icon className="w-3.5 h-3.5 flex-shrink-0" />
+                              {density === 'wide' && group.label}
+                            </button>
+                          );
+                        }
+                        // standalone tab
+                        const { tab } = item;
+                        const Icon = getIconComponent(tab.metadata?.icon || 'Circle');
+                        const isActive = tab.slug === activeTabSlug;
+                        const badge = tabBadgeText(tab);
+                        return (
+                          <button
+                            key={tab.id}
+                            onClick={() => setActiveTabSlug(tab.slug)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap rounded-lg ${
+                              isActive
+                                ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/30 text-${accentColor}-300`
+                                : 'text-slate-400 hover:text-slate-300 hover:bg-white/4'
+                            }`}
+                          >
+                            <Icon className="w-3.5 h-3.5 flex-shrink-0" />
+                            {density === 'wide' && tab.label}
+                            {badge && (
+                              <span className="ml-1 px-1.5 py-0.5 text-xs bg-white/10 text-slate-300 rounded-full">
+                                {badge}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {codexId === 'aigentiq-codex' && <AgentiQEconomyBadge />}
+                    {isQriptopian && (
+                      <select
+                        value={issueSlug}
+                        onChange={(e) => {
+                          const next = e.target.value;
+                          setIssueSlug(next);
+                          const params = new URLSearchParams(window.location.search);
+                          params.set('issue', next);
+                          router.replace(`${pathname}?${params.toString()}`);
+                        }}
+                        disabled={issueOptionsLoading && issueOptions.length === 0}
+                        className="rounded-md border border-slate-700 bg-slate-900/60 px-2 py-1 text-sm text-slate-200"
                       >
-                        <Icon className="w-3.5 h-3.5 flex-shrink-0" />
-                        {density === 'wide' && tab.label}
-                        {badge && (
-                          <span className="ml-1 px-1.5 py-0.5 text-xs bg-white/10 text-slate-300 rounded-full">
-                            {badge}
-                          </span>
-                        )}
+                        {(issueOptions.length > 0 ? issueOptions : fallbackIssueOptions).map((opt) => (
+                          <option key={opt.slug} value={opt.slug}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {showCloseLayerButton ? (
+                      <button
+                        type="button"
+                        onClick={handleCloseLayer}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-600/80 bg-slate-900/70 text-slate-300 transition-colors hover:border-slate-400 hover:text-white"
+                        title="Close codex layer"
+                        aria-label="Close codex layer"
+                      >
+                        <X className="h-3.5 w-3.5" />
                       </button>
-                    );
-                  })}
+                    ) : null}
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                {codexId === 'aigentiq-codex' && <AgentiQEconomyBadge />}
-                {isQriptopian && (
-                  <select
-                    value={issueSlug}
-                    onChange={(e) => {
-                      const next = e.target.value;
-                      setIssueSlug(next);
-                      const params = new URLSearchParams(window.location.search);
-                      params.set('issue', next);
-                      router.replace(`${pathname}?${params.toString()}`);
-                    }}
-                    disabled={issueOptionsLoading && issueOptions.length === 0}
-                    className="rounded-md border border-slate-700 bg-slate-900/60 px-2 py-1 text-sm text-slate-200"
-                  >
-                    {(issueOptions.length > 0 ? issueOptions : fallbackIssueOptions).map((opt) => (
-                      <option key={opt.slug} value={opt.slug}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                {showCloseLayerButton ? (
-                  <button
-                    type="button"
-                    onClick={handleCloseLayer}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-600/80 bg-slate-900/70 text-slate-300 transition-colors hover:border-slate-400 hover:text-white"
-                    title="Close codex layer"
-                    aria-label="Close codex layer"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        )}
+
+              {/* Secondary sub-tab bar — shown only when a group is active */}
+              {activeGroup && activeGroupSubTabs.length > 1 && (
+                <div className="flex-shrink-0 border-b border-slate-800/60 bg-slate-900/40 px-4 py-1.5">
+                  <div className="flex gap-1 overflow-x-auto">
+                    {activeGroupSubTabs.map((tab) => {
+                      const isActive = tab.slug === activeTabSlug;
+                      const Icon = getIconComponent(tab.metadata?.icon || 'Circle');
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => setActiveTabSlug(tab.slug)}
+                          className={`flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium transition-all whitespace-nowrap rounded-md ${
+                            isActive
+                              ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/25 text-${accentColor}-300`
+                              : 'text-slate-500 hover:text-slate-300 hover:bg-white/4'
+                          }`}
+                        >
+                          <Icon className="w-3 h-3 flex-shrink-0" />
+                          {tab.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
 
         {codexId === 'knyt-codex' && (activeTabSlug === 'treasury' || activeTabSlug === 'order') && (
           <div className="flex-shrink-0">
@@ -521,6 +605,7 @@ export default function CodexPanelDynamic({
               partnerId={effectivePartnerId}
               issueSlug={isQriptopian ? issueSlug : undefined}
               previewDevice={previewDevice}
+              shell={shell}
             />
           )}
         </div>

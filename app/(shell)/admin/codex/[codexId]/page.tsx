@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCodexConfig } from '@/app/hooks/useCodexConfig';
-import { 
-  ArrowLeft, Save, Plus, Trash2, Eye, EyeOff, GripVertical, 
-  Settings, BookOpen, AlertCircle, CheckCircle 
+import {
+  ArrowLeft, Save, Plus, Trash2, Eye, EyeOff, GripVertical,
+  Settings, BookOpen, AlertCircle, CheckCircle, ChevronUp, ChevronDown
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -43,6 +43,9 @@ export default function CodexDetailPage() {
   const [draftSlug, setDraftSlug] = useState('');
   const [draftDescription, setDraftDescription] = useState('');
   const [draftEnabled, setDraftEnabled] = useState(false);
+  const [reorderStatus, setReorderStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  // Local tab order (array of tab ids in display order) — initialised from codex after load
+  const [tabOrder, setTabOrder] = useState<string[]>([]);
 
   useEffect(() => {
     if (!codex) return;
@@ -50,7 +53,40 @@ export default function CodexDetailPage() {
     setDraftSlug(codex.slug ?? '');
     setDraftDescription(codex.metadata?.description ?? '');
     setDraftEnabled(Boolean(codex.enabled));
+    // Initialise tab order from current codex tabs sorted by their order field
+    setTabOrder([...codex.tabs].sort((a, b) => a.order - b.order).map(t => t.id));
   }, [codex]);
+
+  const handleMoveTab = async (tabId: string, direction: 'up' | 'down') => {
+    const idx = tabOrder.indexOf(tabId);
+    if (idx < 0) return;
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= tabOrder.length) return;
+
+    const next = [...tabOrder];
+    [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+    setTabOrder(next);
+
+    setReorderStatus('saving');
+    try {
+      const payload = next.map((id, i) => ({ id, order: i }));
+      const res = await fetch(`/api/codex/registry/${codex!.id}/tabs/reorder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tabOrder: payload }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Reorder failed');
+      setReorderStatus('success');
+      await refetch();
+      setTimeout(() => setReorderStatus('idle'), 2000);
+    } catch {
+      setReorderStatus('error');
+      // Revert optimistic update
+      setTabOrder(tabOrder);
+      setTimeout(() => setReorderStatus('idle'), 3000);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -262,6 +298,9 @@ export default function CodexDetailPage() {
                 <h2 className="text-xl font-semibold text-white flex items-center gap-2">
                   <Settings className="w-5 h-5 text-purple-400" />
                   Tabs ({codex.tabs.length})
+                  {reorderStatus === 'saving' && <span className="text-xs text-slate-400 font-normal">Saving order…</span>}
+                  {reorderStatus === 'success' && <span className="text-xs text-green-400 font-normal">Order saved</span>}
+                  {reorderStatus === 'error' && <span className="text-xs text-red-400 font-normal">Save failed — reverted</span>}
                 </h2>
                 <button className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg transition-colors">
                   <Plus className="w-4 h-4" />
@@ -270,45 +309,78 @@ export default function CodexDetailPage() {
               </div>
 
               <div className="space-y-2">
-                {codex.tabs.map((tab, index) => (
-                  <div
-                    key={tab.id}
-                    className="flex items-center gap-3 p-4 bg-slate-900 rounded-lg hover:bg-slate-800/80 transition-colors"
-                  >
-                    <GripVertical className="w-5 h-5 text-slate-600 cursor-move" />
-                    
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-white">{tab.label}</span>
-                        <span className="px-2 py-0.5 bg-slate-700 text-slate-300 rounded text-xs">
-                          {tab.type}
-                        </span>
-                        {tab.metadata?.badge && (
-                          <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded text-xs">
-                            {tab.metadata.badge}
-                          </span>
-                        )}
+                {tabOrder.map((tabId, index) => {
+                  const tab = codex.tabs.find(t => t.id === tabId);
+                  if (!tab) return null;
+                  return (
+                    <div
+                      key={tab.id}
+                      className="flex items-center gap-3 p-4 bg-slate-900 rounded-lg hover:bg-slate-800/80 transition-colors"
+                    >
+                      {/* Move buttons replacing the non-functional GripVertical */}
+                      <div className="flex flex-col gap-0.5">
+                        <button
+                          onClick={() => handleMoveTab(tab.id, 'up')}
+                          disabled={index === 0 || reorderStatus === 'saving'}
+                          className="p-0.5 rounded hover:bg-slate-700 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                          title="Move tab up"
+                        >
+                          <ChevronUp className="w-4 h-4 text-slate-400" />
+                        </button>
+                        <button
+                          onClick={() => handleMoveTab(tab.id, 'down')}
+                          disabled={index === tabOrder.length - 1 || reorderStatus === 'saving'}
+                          className="p-0.5 rounded hover:bg-slate-700 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                          title="Move tab down"
+                        >
+                          <ChevronDown className="w-4 h-4 text-slate-400" />
+                        </button>
                       </div>
-                      <div className="text-sm text-slate-400">
-                        {tab.metadata?.description || tab.slug}
-                      </div>
-                    </div>
 
-                    <div className="flex items-center gap-2">
-                      {tab.enabled ? (
-                        <Eye className="w-4 h-4 text-green-400" />
-                      ) : (
-                        <EyeOff className="w-4 h-4 text-slate-600" />
-                      )}
-                      <button className="p-2 hover:bg-slate-700 rounded transition-colors">
-                        <Settings className="w-4 h-4 text-slate-400" />
-                      </button>
-                      <button className="p-2 hover:bg-red-500/20 rounded transition-colors">
-                        <Trash2 className="w-4 h-4 text-red-400" />
-                      </button>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="font-medium text-white">{tab.label}</span>
+                          <span className="px-2 py-0.5 bg-slate-700 text-slate-300 rounded text-xs">
+                            {tab.type}
+                          </span>
+                          {(tab as any).group && (
+                            <span className="px-2 py-0.5 bg-indigo-500/15 text-indigo-300 rounded text-xs">
+                              {(tab as any).group}
+                            </span>
+                          )}
+                          {tab.adminOnly && (
+                            <span className="px-2 py-0.5 bg-amber-500/15 text-amber-300 rounded text-xs">admin</span>
+                          )}
+                          {tab.partnerOnly && (
+                            <span className="px-2 py-0.5 bg-emerald-500/15 text-emerald-300 rounded text-xs">partner</span>
+                          )}
+                          {tab.metadata?.badge && (
+                            <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 rounded text-xs">
+                              {tab.metadata.badge}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-slate-400">
+                          {tab.metadata?.description || tab.slug}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {tab.enabled ? (
+                          <Eye className="w-4 h-4 text-green-400" />
+                        ) : (
+                          <EyeOff className="w-4 h-4 text-slate-600" />
+                        )}
+                        <button className="p-2 hover:bg-slate-700 rounded transition-colors">
+                          <Settings className="w-4 h-4 text-slate-400" />
+                        </button>
+                        <button className="p-2 hover:bg-red-500/20 rounded transition-colors">
+                          <Trash2 className="w-4 h-4 text-red-400" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>

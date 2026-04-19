@@ -10,6 +10,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { AlertCircle, ArrowDownUp, CheckCircle2, FileText, Loader2, Pencil, X } from "lucide-react";
 import { getCachedOrFetch } from "../cache";
 import { CopilotInferenceBodyRenderer } from "@/app/components/codex/CopilotInferenceBodyRenderer";
+import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 
 interface CollectionEntry {
   id: string;
@@ -39,6 +40,9 @@ function formatLabel(path: string): string {
 }
 
 export function AgentiqCartridgeTab({ packId, collectionId, defaultPath, editable = false }: CartridgeTabProps) {
+  const [copilotOpen, setCopilotOpen] = useState(false);
+  const [copilotMessages, setCopilotMessages] = useState<CopilotMessage[]>([]);
+
   const [collection, setCollection] = useState<CollectionEntry | null>(null);
   const [activePath, setActivePath] = useState<string | null>(null);
   const [content, setContent] = useState<string>("");
@@ -303,6 +307,17 @@ export function AgentiqCartridgeTab({ packId, collectionId, defaultPath, editabl
           </div>
         )}
       </div>
+
+      <CodexCopilotLayer
+        isOpen={copilotOpen}
+        onClose={() => setCopilotOpen(false)}
+        onOpen={() => setCopilotOpen(true)}
+        variant="floating"
+        enableInferenceRendering
+        contextId="knyt-cartridge-doc"
+        messages={copilotMessages}
+        onMessagesChange={setCopilotMessages}
+      />
     </div>
   );
 }

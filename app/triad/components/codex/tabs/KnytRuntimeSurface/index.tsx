@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 import {
   ArrowRight, Brain, Compass, Wifi, WifiOff,
   Heart, Zap, CheckCircle2, Layers, Shuffle, Upload, Star, ThumbsUp, MessageCircle,
@@ -119,7 +120,7 @@ function AxisSteps({ label, axis, active, accentActive, accentText }: {
 }) {
   const activeIdx = axis.indexOf(active);
   return (
-    <div className="rounded-xl border border-white/5 bg-slate-950/80 p-4 space-y-3">
+    <div className="rounded-xl border border-white/8 bg-slate-950/60 backdrop-blur-sm p-4 space-y-3">
       <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500">{label}</p>
       <p className={`text-sm font-semibold ${accentText}`}>{active}</p>
       <div className="flex flex-wrap gap-1">
@@ -174,8 +175,8 @@ function ActionChip({ action, isPrimary, disabled, loading, onClick }: {
       className={
         "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed " +
         (isPrimary
-          ? "bg-amber-500 hover:bg-amber-400 text-black"
-          : "border border-slate-700 text-slate-200 hover:border-slate-500 hover:text-white bg-transparent")
+          ? "border border-amber-700/50 bg-amber-950/30 backdrop-blur-sm text-amber-300 hover:bg-amber-950/50"
+          : "border border-slate-700 text-slate-200 hover:border-slate-500 hover:text-white bg-white/[0.03] backdrop-blur-sm")
       }
     >
       {Icon && <Icon className="h-3 w-3" />}
@@ -371,6 +372,8 @@ export default function KnytRuntimeSurface({
 }: KnytRuntimeSurfaceProps) {
   const { toast } = useToast();
   const router = useRouter();
+  const [copilotOpen, setCopilotOpen] = useState(false);
+  const [copilotMessages, setCopilotMessages] = useState<CopilotMessage[]>([]);
   const [featuredMoment, setFeaturedMoment] = useState<FeaturedMoment | null>(null);
   const [openElection, setOpenElection] = useState<OpenElection | null>(null);
   const [submittingAction, setSubmittingAction] = useState<string | null>(null);
@@ -628,7 +631,7 @@ export default function KnytRuntimeSurface({
   return (
     <div className="grid gap-4 p-4 md:p-6">
       {/* ── Header capsule ── */}
-      <div className="rounded-xl border border-white/5 bg-slate-950/90 p-4">
+      <div className="rounded-xl border border-white/8 bg-slate-950/60 backdrop-blur-sm p-4">
         <p className="text-[10px] uppercase tracking-widest font-semibold text-amber-500/80 mb-2">KNYT Cartridge</p>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -636,17 +639,17 @@ export default function KnytRuntimeSurface({
             <p className="text-xs text-slate-400 mt-0.5">{worldHeader?.subtitle ?? "The Order is active. Your next move matters here."}</p>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="inline-flex items-center rounded-full border border-amber-700/50 bg-amber-950/40 px-2.5 py-0.5 text-xs font-semibold text-amber-300">
+            <span className="inline-flex items-center rounded-full border border-amber-700/50 bg-amber-950/30 backdrop-blur-sm px-2.5 py-0.5 text-xs font-semibold text-amber-300">
               {runtimeState.patronage_stage}
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-slate-700/60 px-2.5 py-0.5 text-xs text-slate-300">
+            <span className="inline-flex items-center gap-1 rounded-full border border-slate-700/60 bg-white/[0.03] backdrop-blur-sm px-2.5 py-0.5 text-xs text-slate-300">
               {networkOnline
                 ? <Wifi className="h-3 w-3 text-emerald-400" />
                 : <WifiOff className="h-3 w-3 text-rose-400" />}
               {networkOnline ? "Network OK" : "Offline"}
             </span>
             {runtimeState.handoffs.kn0w1 && (
-              <span className="inline-flex items-center rounded-full border border-amber-700/40 px-2.5 py-0.5 text-xs text-amber-400">Kn0w1 lead</span>
+              <span className="inline-flex items-center rounded-full border border-amber-700/40 bg-amber-950/20 backdrop-blur-sm px-2.5 py-0.5 text-xs text-amber-400">Kn0w1 lead</span>
             )}
             {investorStatus?.isInvestor && investorStatus.ksBacked && (
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-900/30 border border-emerald-700/30 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
@@ -664,7 +667,7 @@ export default function KnytRuntimeSurface({
 
       {/* ── KNYT Wheel investor CTA ── */}
       {investorStatus?.isInvestor && !investorStatus.ksBacked && investorStatus.ksTrackingUrl && (
-        <div className="rounded-xl border border-amber-700/30 bg-amber-950/20 p-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="rounded-xl border border-amber-700/25 bg-amber-950/10 backdrop-blur-sm p-4 flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-[10px] uppercase tracking-widest font-semibold text-amber-500/80 mb-1">KNYT Wheel — Live Now</p>
             <p className="text-sm font-semibold text-slate-100">Secure your slot before the window closes.</p>
@@ -680,7 +683,7 @@ export default function KnytRuntimeSurface({
             href={investorStatus.ksTrackingUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black text-sm font-semibold rounded-full transition whitespace-nowrap"
+            className="inline-flex items-center gap-2 px-4 py-2 border border-amber-700/50 bg-amber-950/30 backdrop-blur-sm text-amber-300 text-sm font-semibold rounded-full hover:bg-amber-950/50 transition whitespace-nowrap"
           >
             Back on Kickstarter <ArrowRight className="h-3.5 w-3.5" />
           </a>
@@ -706,14 +709,14 @@ export default function KnytRuntimeSurface({
       </div>
 
       {/* ── Featured Moment capsule ── */}
-      <div className="rounded-xl border border-white/5 bg-slate-950/80 p-4 space-y-3">
+      <div className="rounded-xl border border-white/8 bg-slate-950/60 backdrop-blur-sm p-4 space-y-3">
         <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500">Featured Moment</p>
         {runtimeState.featured_moment ? (
           <>
             <div className="flex flex-wrap items-center gap-1.5">
               {/* Live matrix prescription badge */}
               {capsule && (
-                <span className="inline-flex items-center rounded-full bg-amber-950/40 border border-amber-700/40 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+                <span className="inline-flex items-center rounded-full bg-amber-950/30 border border-amber-700/40 backdrop-blur-sm px-2 py-0.5 text-[10px] font-semibold text-amber-300">
                   {capsule.depth} · {capsule.label}
                 </span>
               )}
@@ -737,11 +740,11 @@ export default function KnytRuntimeSurface({
               <p className="text-[10px] font-mono text-slate-600 truncate">{featuredMoment.id}</p>
             )}
             <div className="flex gap-2 pt-1">
-              <button className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black transition">
+              <button className="inline-flex items-center gap-1.5 rounded-full border border-amber-700/50 bg-amber-950/30 backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-950/50 transition">
                 {capsule?.cta_label ?? runtimeState.featured_moment.primary_cta}
               </button>
               {runtimeState.featured_moment.secondary_cta && (
-                <button className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition">
+                <button className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-white/[0.03] backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition">
                   {runtimeState.featured_moment.secondary_cta}
                 </button>
               )}
@@ -753,7 +756,7 @@ export default function KnytRuntimeSurface({
       </div>
 
       {/* ── Signal Action Tray capsule ── */}
-      <div className="rounded-xl border border-white/5 bg-slate-950/80 p-4 space-y-3">
+      <div className="rounded-xl border border-white/8 bg-slate-950/60 backdrop-blur-sm p-4 space-y-3">
         <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500">Signal Action Tray</p>
         <div className="flex flex-wrap gap-2">
           {/* Campaign chip — primary for unbacked investors */}
@@ -762,7 +765,7 @@ export default function KnytRuntimeSurface({
               href={investorStatus.ksTrackingUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black transition"
+              className="inline-flex items-center gap-1.5 rounded-full border border-amber-700/50 bg-amber-950/30 backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-950/50 transition"
             >
               <Star className="h-3 w-3" />
               {investorPrivilege.tier} — {investorPrivilege.discount} off
@@ -795,7 +798,7 @@ export default function KnytRuntimeSurface({
 
       {/* ── Reward + Progress capsule (conditional) ── */}
       {(runtimeState.latest_reward || runtimeState.balance_preview || (knytBalance !== null && knytBalance > 0)) && (
-        <div className="rounded-xl border border-emerald-900/40 bg-emerald-950/15 p-4 space-y-2">
+        <div className="rounded-xl border border-emerald-900/30 bg-emerald-950/10 backdrop-blur-sm p-4 space-y-2">
           <p className="text-[10px] uppercase tracking-widest font-semibold text-emerald-600">Reward + Progress</p>
           {knytBalance !== null && knytBalance > 0 && (
             <p className="text-sm font-semibold text-emerald-100">{knytBalance.toFixed(4)} $KNYT</p>
@@ -807,16 +810,16 @@ export default function KnytRuntimeSurface({
       )}
 
       {/* ── Next Best Step capsule ── */}
-      <div className="rounded-xl border border-white/5 bg-slate-950/80 p-4 space-y-3">
+      <div className="rounded-xl border border-white/8 bg-slate-950/60 backdrop-blur-sm p-4 space-y-3">
         <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500">Next Best Step</p>
         <div className="flex flex-wrap items-center gap-1.5">
           {nbePlan && (
-            <span className="inline-flex items-center rounded-full border border-cyan-800/40 bg-cyan-950/30 px-2 py-0.5 text-[10px] font-semibold text-cyan-400">
+            <span className="inline-flex items-center rounded-full border border-cyan-800/40 bg-cyan-950/20 backdrop-blur-sm px-2 py-0.5 text-[10px] font-semibold text-cyan-400">
               NBE {nbePlan.disposition} → {nbePlan.next_experience_depth}
             </span>
           )}
           {capsule && (
-            <span className="inline-flex items-center rounded-full border border-indigo-800/40 bg-indigo-950/25 px-2 py-0.5 text-[10px] font-semibold text-indigo-300">
+            <span className="inline-flex items-center rounded-full border border-indigo-800/40 bg-indigo-950/20 backdrop-blur-sm px-2 py-0.5 text-[10px] font-semibold text-indigo-300">
               next: {capsule.next_depth}
             </span>
           )}
@@ -833,7 +836,7 @@ export default function KnytRuntimeSurface({
         )}
         {/* Investor privilege override — shown for unbacked investors */}
         {investorStatus?.isInvestor && !investorStatus.ksBacked && investorStatus.ksTrackingUrl ? (
-          <div className="rounded-lg border border-amber-700/30 bg-amber-950/20 p-3 space-y-2">
+          <div className="rounded-lg border border-amber-700/25 bg-amber-950/10 backdrop-blur-sm p-3 space-y-2">
             <p className="text-[10px] uppercase tracking-widest font-semibold text-amber-500/80">Investor privilege active</p>
             <p className="text-xs text-amber-200/80 leading-relaxed">
               As a <span className="font-semibold text-amber-300">{investorPrivilege.tier}</span> you unlock{" "}
@@ -844,18 +847,18 @@ export default function KnytRuntimeSurface({
               href={investorStatus.ksTrackingUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black transition"
+              className="inline-flex items-center gap-1.5 rounded-full border border-amber-700/50 bg-amber-950/30 backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-950/50 transition"
             >
               Claim on Kickstarter <ArrowRight className="h-3 w-3" />
             </a>
           </div>
         ) : investorStatus?.isInvestor && investorStatus.ksBacked ? (
-          <div className="rounded-lg border border-emerald-800/30 bg-emerald-950/15 p-3 space-y-1">
+          <div className="rounded-lg border border-emerald-800/25 bg-emerald-950/10 backdrop-blur-sm p-3 space-y-1">
             <p className="text-[10px] uppercase tracking-widest font-semibold text-emerald-600">Patron confirmed</p>
             <p className="text-xs text-emerald-200/80">Your backing is live. Now activate your KNYT presence — signal, collect, and move up the Order.</p>
           </div>
         ) : (
-          <button className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black transition">
+          <button className="inline-flex items-center gap-1.5 rounded-full border border-amber-700/50 bg-amber-950/30 backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-950/50 transition">
             Do this now <ArrowRight className="h-3 w-3" />
           </button>
         )}
@@ -863,57 +866,57 @@ export default function KnytRuntimeSurface({
 
       {/* ── Kn0w1 intel capsule ── */}
       {runtimeState.handoffs.kn0w1 ? (
-        <div className="rounded-xl border border-amber-900/30 bg-amber-950/15 p-4 space-y-3">
+        <div className="rounded-xl border border-amber-900/25 bg-amber-950/10 backdrop-blur-sm p-4 space-y-3">
           <p className="text-[10px] uppercase tracking-widest font-semibold text-amber-500/80">Kn0w1 — KNYT Intelligence</p>
           <p className="text-xs text-amber-200/70 leading-relaxed">
             Kn0w1 is your lead intelligence surface for the KNYT cartridge. Ask about treasury, rewards, Q¢ vs $KNYT, your progression, and what your next real move inside the system is.
           </p>
           <div className="flex flex-wrap gap-2">
             <button
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-black transition"
-              onClick={() => router.push("/aigents/aigent-kn0w1")}
+              className="inline-flex items-center gap-1.5 rounded-full border border-amber-700/50 bg-amber-950/30 backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-950/50 transition"
+              onClick={() => setCopilotOpen(true)}
             >
               <Brain className="h-3 w-3" /> Ask Kn0w1 <ArrowRight className="h-3 w-3" />
             </button>
             {runtimeState.handoffs.metame && (
               <button
-                className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition"
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-white/[0.03] backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition"
                 onClick={() => router.push("/metame")}
               >
                 See your path in metaMe
               </button>
             )}
             {runtimeState.handoffs.aigent_c && (
-              <button className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition">
+              <button className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-white/[0.03] backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition">
                 Builder path with Aigent C
               </button>
             )}
             {runtimeState.handoffs.marketa && (
-              <button className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition">
+              <button className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-white/[0.03] backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition">
                 Marketa context
               </button>
             )}
           </div>
         </div>
       ) : (
-        <div className="rounded-xl border border-white/5 bg-slate-950/80 p-4 space-y-3">
+        <div className="rounded-xl border border-white/8 bg-slate-950/60 backdrop-blur-sm p-4 space-y-3">
           <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500">Go Deeper</p>
           <div className="flex flex-wrap gap-2">
             {runtimeState.handoffs.metame && (
               <button
-                className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition"
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-white/[0.03] backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition"
                 onClick={() => router.push("/metame")}
               >
                 See your path in metaMe
               </button>
             )}
             {runtimeState.handoffs.aigent_c && (
-              <button className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition">
+              <button className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-white/[0.03] backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition">
                 Explore builder path with Aigent C
               </button>
             )}
             {runtimeState.handoffs.marketa && (
-              <button className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition">
+              <button className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-white/[0.03] backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition">
                 Launch context from Marketa
               </button>
             )}
@@ -923,7 +926,7 @@ export default function KnytRuntimeSurface({
 
       {/* ── Contribution path (conditional) ── */}
       {runtimeState.contributor_pathway_flag && (
-        <div className="rounded-xl border border-fuchsia-900/30 bg-fuchsia-950/15 p-4 space-y-1">
+        <div className="rounded-xl border border-fuchsia-900/25 bg-fuchsia-950/10 backdrop-blur-sm p-4 space-y-1">
           <p className="text-[10px] uppercase tracking-widest font-semibold text-fuchsia-500/80">Contribution Path</p>
           <p className="text-xs text-fuchsia-200/80">You are eligible for deeper contributor pathways. Continue high-quality contribution signals to advance.</p>
         </div>
@@ -931,7 +934,7 @@ export default function KnytRuntimeSurface({
 
       {/* ── Stewardship path (conditional) ── */}
       {runtimeState.stewardship_candidate_flag && (
-        <div className="rounded-xl border border-amber-900/30 bg-amber-950/15 p-4 space-y-1">
+        <div className="rounded-xl border border-amber-900/25 bg-amber-950/10 backdrop-blur-sm p-4 space-y-1">
           <p className="text-[10px] uppercase tracking-widest font-semibold text-amber-500/80">Stewardship Path</p>
           <p className="text-xs text-amber-200/80">Stewardship is active. Focus on world-supportive leadership actions and long-horizon alignment.</p>
         </div>
@@ -939,7 +942,7 @@ export default function KnytRuntimeSurface({
 
       {/* ── Recent activity (conditional) ── */}
       {runtimeState.current_signals.length > 0 && (
-        <div className="rounded-xl border border-white/5 bg-slate-950/80 p-4 space-y-2">
+        <div className="rounded-xl border border-white/8 bg-slate-950/60 backdrop-blur-sm p-4 space-y-2">
           <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500 flex items-center gap-1.5">
             <Compass className="h-3 w-3 text-cyan-500" /> Recent Activity
           </p>
@@ -950,6 +953,18 @@ export default function KnytRuntimeSurface({
           ))}
         </div>
       )}
+
+      <CodexCopilotLayer
+        isOpen={copilotOpen}
+        onClose={() => setCopilotOpen(false)}
+        onOpen={() => setCopilotOpen(true)}
+        variant="floating"
+        enableInferenceRendering
+        personaId={personaId}
+        contextId="knyt-runtime"
+        messages={copilotMessages}
+        onMessagesChange={setCopilotMessages}
+      />
     </div>
   );
 }
