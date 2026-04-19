@@ -14,13 +14,24 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 // Valid sections
 const VALID_SECTIONS = [
   'home-hero',
-  'latest-news', 
+  'latest-news',
   'second-hero',
   'pennydrops',
   'scrolls',
   '21knowdz',
   'staybull'
 ];
+
+// Map legacy section names to smart_content target_section values published via CartridgePublishPanel
+const SMART_SECTION_MAP: Record<string, string[]> = {
+  'home-hero':   ['features', 'home-hero'],
+  'latest-news': ['features', 'latest-news'],
+  'second-hero': ['features', 'second-hero'],
+  'pennydrops':  ['pennydrops'],
+  'scrolls':     ['scrolls'],
+  '21knowdz':    ['kn0wdz', '21knowdz'],
+  'staybull':    ['rewards', 'staybull'],
+};
 
 function normalizeIssueSlug(raw: string | null): string {
   if (!raw) return 'issue-1';
@@ -214,6 +225,48 @@ function mapSectionItem(item: any, section: string) {
   };
 }
 
+async function fetchSmartContentForSection(
+  supabase: ReturnType<typeof getSupabaseServer>,
+  section: string,
+): Promise<any[]> {
+  if (!supabase) return [];
+  const smartSections = SMART_SECTION_MAP[section];
+  if (!smartSections?.length) return [];
+
+  try {
+    const { data, error } = await supabase
+      .from('smart_content_qubes')
+      .select('id,title,slug,description,cover_image_uri,status,created_at,updated_at,structure_data,layout_hints')
+      .eq('tenant_id', 'qriptopian')
+      .eq('status', 'published')
+      .in('layout_hints->>section', smartSections)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error || !data) return [];
+
+    return data.map((row: any) => ({
+      id: row.id,
+      title: row.title,
+      excerpt: row.description || '',
+      slug: row.slug,
+      status: 'published',
+      tags: [],
+      thumbnail: row.cover_image_uri || '',
+      cover_image_url: row.cover_image_uri || '',
+      cover_image_uri: row.cover_image_uri || '',
+      placement: { section },
+      modalities: { read: { text: row.structure_data?.body, duration: '5 min read' } },
+      published_at: row.updated_at || row.created_at,
+      created_at: row.created_at,
+      _source: 'smart_content',
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { section: string } }
@@ -349,8 +402,15 @@ export async function GET(
       }
     }
 
+    // Fetch smart_content articles published via CartridgePublishPanel and merge
+    const smartItems = await fetchSmartContentForSection(supabase, section);
+    const legacyIds = new Set((sortedContent || []).map((c: any) => c.id));
+    const dedupedSmartItems = smartItems.filter(s => !legacyIds.has(s.id));
+
+    const allContent = [...(sortedContent || []), ...dedupedSmartItems];
+
     // Transform to match Liquid UI format expected by frontend
-    const transformedContent = sortedContent.map((item: any) => mapSectionItem(item, section));
+    const transformedContent = allContent.map((item: any) => mapSectionItem(item, section));
 
     return NextResponse.json({
       content: transformedContent,
@@ -358,13 +418,14 @@ export async function GET(
       section,
       tab: tab || null,
       issue,
-      source: 'database',
+      source: dedupedSmartItems.length > 0 ? 'database+smart_content' : 'database',
       timestamp: new Date().toISOString(),
       debug: {
         query_section: section,
         query_tab: tab,
         query_issue: issue,
         total_found: content?.length || 0,
+        smart_content_found: dedupedSmartItems.length,
         sample_ids: transformedContent.slice(0, 3).map((item: any) => ({ id: item.id, title: item.title.slice(0, 30) }))
       }
     });
