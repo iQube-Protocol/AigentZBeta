@@ -70,7 +70,7 @@ do $$ begin
   create type lo_task_type as enum (
     'strategy','copy','offer_design','ops_copy','crm','analytics','content_ops',
     'faq','creative','email','direct_outreach','sms','research','community',
-    'social','product','growth','decision','memo'
+    'social','product','growth','decision','memo','proof_build'
   );
 exception when duplicate_object then null; end $$;
 
