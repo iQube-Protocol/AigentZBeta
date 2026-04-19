@@ -9,7 +9,8 @@ import {
   Linkedin, Instagram, Copy, Check, Zap, Target, BarChart3, Sparkles, Film,
 } from 'lucide-react';
 import { bridgeGet } from './bridgeFetch';
-import { CampaignCatalogItem, CampaignDetail } from '@/types/marketaCampaigns';
+import { CampaignCatalogItem, CampaignDetail, MarketaSequenceItem } from '@/types/marketaCampaigns';
+import { SequenceItemManagePanel } from './SequenceItemManagePanel';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -278,6 +279,10 @@ export function MarketaCampaignOpsTab({ theme = 'dark' }: Props) {
   const [expandedSeq, setExpandedSeq]     = useState<string | null>(null);
   const [seqDetail, setSeqDetail]         = useState<Record<string, CampaignDetail>>({});
   const [campaignActions, setCampaignActions] = useState<Record<string, 'loading' | 'done' | 'error'>>({});
+  // cartridge context per campaign (for experience goal scoping)
+  const [cartridgeCtx, setCartridgeCtx] = useState<Record<string, string>>({});
+  // which item's manage panel is open: key = `${campaignId}:${itemId}`
+  const [managingItem, setManagingItem] = useState<string | null>(null);
   const [firingEmail, setFiringEmail]     = useState<number | null>(null);
   const [firingCohort, setFiringCohort]   = useState<string | null>(null);
   const [fired, setFired]                 = useState<Record<string, boolean>>({});
@@ -542,7 +547,23 @@ export function MarketaCampaignOpsTab({ theme = 'dark' }: Props) {
 
                       {/* Expanded items */}
                       {expandedSeq === seq.id && (
-                        <div className="mt-2 space-y-1.5">
+                        <div className="mt-2 space-y-1">
+                          {/* Cartridge selector */}
+                          <div className={`flex items-center gap-2 px-2 py-1.5 rounded border mb-2 ${d ? 'border-white/[0.05] bg-white/[0.02]' : 'border-black/[0.05] bg-black/[0.01]'}`}>
+                            <span className={`text-[10px] ${s.textSubtle}`}>Cartridge context:</span>
+                            <select
+                              value={cartridgeCtx[seq.id] ?? 'knyt'}
+                              onChange={(e) => setCartridgeCtx((prev) => ({ ...prev, [seq.id]: e.target.value }))}
+                              className={`text-[10px] rounded px-1.5 py-0.5 border outline-none ${d ? 'bg-white/[0.04] border-white/10 text-white/70' : 'bg-white border-black/10 text-black/70'}`}
+                            >
+                              <option value="knyt">KNYT</option>
+                              <option value="qriptopian">Qriptopian (stub)</option>
+                              <option value="agentiq">AgentiQ (stub)</option>
+                              <option value="metame">metaMe (stub)</option>
+                            </select>
+                            <span className={`text-[9px] ml-auto ${s.textSubtle}`}>Sets experience goal scope for item management</span>
+                          </div>
+
                           {!seqDetail[seq.id] ? (
                             <div className={`text-xs text-center py-4 ${s.textSubtle}`}>Loading…</div>
                           ) : (
@@ -553,14 +574,52 @@ export function MarketaCampaignOpsTab({ theme = 'dark' }: Props) {
                               {(seqDetail[seq.id].marketa_sequence_items ?? [])
                                 .slice()
                                 .sort((a, b) => a.day_number - b.day_number)
-                                .map((item) => (
-                                  <div key={item.id} className={`flex items-center gap-3 rounded px-2 py-1.5 ${s.emailRow}`}>
-                                    <span className={`text-[10px] font-mono w-10 flex-shrink-0 ${s.textSubtle}`}>Day {item.day_number}</span>
-                                    <span className={`text-xs truncate flex-1 ${s.textSecondary}`}>{item.title}</span>
-                                    {item.explainer && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 flex-shrink-0">Explainer</span>}
-                                    <span className={`text-[10px] capitalize flex-shrink-0 ${item.status === 'sent' || item.status === 'viewed' ? 'text-emerald-400' : s.textSubtle}`}>{item.status}</span>
-                                  </div>
-                                ))}
+                                .map((item) => {
+                                  const panelKey = `${seq.id}:${item.id}`;
+                                  const isManaging = managingItem === panelKey;
+                                  return (
+                                    <div key={item.id}>
+                                      <div className={`flex items-center gap-3 rounded px-2 py-1.5 ${s.emailRow}`}>
+                                        <span className={`text-[10px] font-mono w-10 flex-shrink-0 ${s.textSubtle}`}>Day {item.day_number}</span>
+                                        <span className={`text-xs truncate flex-1 ${s.textSecondary}`}>{item.title}</span>
+                                        {item.explainer && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 flex-shrink-0">Explainer</span>}
+                                        {item.reward_knyt ? (
+                                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 flex-shrink-0">
+                                            {item.reward_knyt} KNYT
+                                          </span>
+                                        ) : null}
+                                        <span className={`text-[10px] capitalize flex-shrink-0 ${item.status === 'sent' || item.status === 'viewed' ? 'text-emerald-400' : s.textSubtle}`}>{item.status}</span>
+                                        <button
+                                          onClick={() => setManagingItem(isManaging ? null : panelKey)}
+                                          className={`text-[10px] px-2 py-0.5 rounded border flex-shrink-0 transition-colors ${isManaging ? s.btnRose : s.btnGhost}`}
+                                        >
+                                          {isManaging ? 'Close' : 'Manage'}
+                                        </button>
+                                      </div>
+
+                                      {/* Third-level manage panel */}
+                                      {isManaging && (
+                                        <SequenceItemManagePanel
+                                          item={item}
+                                          dark={d}
+                                          cartridgeContext={cartridgeCtx[seq.id] ?? 'knyt'}
+                                          onClose={() => setManagingItem(null)}
+                                          onSaved={(updated) => {
+                                            setSeqDetail((prev) => ({
+                                              ...prev,
+                                              [seq.id]: {
+                                                ...prev[seq.id],
+                                                marketa_sequence_items: (prev[seq.id].marketa_sequence_items ?? []).map(
+                                                  (i) => i.id === updated.id ? { ...i, ...updated } : i
+                                                ),
+                                              },
+                                            }));
+                                          }}
+                                        />
+                                      )}
+                                    </div>
+                                  );
+                                })}
                             </>
                           )}
                         </div>
