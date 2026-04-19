@@ -111,6 +111,7 @@ export const KNYT_CODEX: CodexConfig = {
     { id: 'store',       label: 'Store',  icon: 'ShoppingBag', order: 1 },
     { id: 'order-group', label: 'Order',  icon: 'Shield',      order: 3 },
     { id: 'admin',       label: 'Admin',  icon: 'Settings',    order: 5, adminOnly: true },
+    { id: 'docs',        label: 'Docs',   icon: 'FileText',    order: 6, adminOnly: true },
   ],
   tabs: [
     // ── Codex group ────────────────────────────────────────────
@@ -395,15 +396,15 @@ export const KNYT_CODEX: CodexConfig = {
       }
     },
 
-    // ── Docs (admin group, continued) ─────────────────────────
+    // ── Docs group (admin-gated) ───────────────────────────────
     {
       id: 'experience-pack',
       label: 'Experience Pack',
       slug: 'experience-pack',
       enabled: true,
-      group: 'admin',
+      group: 'docs',
       adminOnly: true,
-      order: 4,
+      order: 0,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -424,9 +425,9 @@ export const KNYT_CODEX: CodexConfig = {
       label: 'KNYT Wheel',
       slug: 'wheel',
       enabled: true,
-      group: 'admin',
+      group: 'docs',
       adminOnly: true,
-      order: 5,
+      order: 1,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -471,7 +472,12 @@ export const QRIPTO_CODEX: CodexConfig = {
     category: 'publication',
     tags: ['qriptopian', 'news', 'features', 'community']
   },
+  tabGroups: [
+    { id: 'read',    label: 'Read',    icon: 'BookOpen', order: 1 },
+    { id: 'explore', label: 'Explore', icon: 'Compass',  order: 2 },
+  ],
   tabs: [
+    // ── Codex home (standalone) ───────────────────────────────
     {
       id: 'codex',
       label: 'Codex',
@@ -489,12 +495,15 @@ export const QRIPTO_CODEX: CodexConfig = {
         color: 'indigo'
       }
     },
+
+    // ── Read group ────────────────────────────────────────────
     {
       id: 'features',
       label: 'Features',
       slug: 'features',
       enabled: true,
-      order: 1,
+      group: 'read',
+      order: 0,
       type: 'static',
       config: {
         component: 'FeaturesTab',
@@ -512,7 +521,8 @@ export const QRIPTO_CODEX: CodexConfig = {
       label: 'PennyDrops',
       slug: 'pennydrops',
       enabled: true,
-      order: 2,
+      group: 'read',
+      order: 1,
       type: 'dynamic',
       config: {
         component: 'PennyDropsTab',
@@ -529,7 +539,8 @@ export const QRIPTO_CODEX: CodexConfig = {
       label: 'Scrolls',
       slug: 'scrolls',
       enabled: true,
-      order: 3,
+      group: 'read',
+      order: 2,
       type: 'static',
       config: {
         component: 'QriptoScrollsTab'
@@ -539,12 +550,15 @@ export const QRIPTO_CODEX: CodexConfig = {
         description: 'Qriptopian scrolls and archives'
       }
     },
+
+    // ── Explore group ─────────────────────────────────────────
     {
       id: 'kn0wdz',
       label: 'Kn0wdZ',
       slug: 'kn0wdz',
       enabled: true,
-      order: 4,
+      group: 'explore',
+      order: 0,
       type: 'static',
       config: {
         component: 'Kn0wdZTab'
@@ -559,7 +573,8 @@ export const QRIPTO_CODEX: CodexConfig = {
       label: 'Rewards',
       slug: 'rewards',
       enabled: true,
-      order: 5,
+      group: 'explore',
+      order: 1,
       type: 'dynamic',
       config: {
         component: 'RewardsTab',
@@ -575,7 +590,8 @@ export const QRIPTO_CODEX: CodexConfig = {
       label: 'Qriptopia',
       slug: 'qriptopia',
       enabled: true,
-      order: 6,
+      group: 'explore',
+      order: 2,
       type: 'static',
       config: {
         component: 'QriptopiaTab'
