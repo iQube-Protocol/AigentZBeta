@@ -1301,7 +1301,7 @@ export const MARKETA_CARTRIDGE: CodexConfig = {
       group: 'partner',
       order: 0,
       type: 'static',
-      config: { component: 'MarketaMyCampaignTab', props: {} },
+      config: { component: 'MarketaMyCampaignTab', props: { previewCampaignId: 'campaign_1768709183190_qq6f0x0sj' } },
       metadata: { icon: 'Star', description: 'Your campaign invitation and channel join flow' },
     },
     {
