@@ -310,7 +310,7 @@ export function MarketaApprovalQueueTab({ theme = 'dark' }: Props) {
         <div className={`rounded-xl ${s.card} p-10 text-center`}>
           <ClipboardList className={`w-8 h-8 mx-auto mb-3 ${s.textSubtle}`} />
           <p className={`text-sm ${s.textMuted}`}>
-            {filter === 'pending_review' ? 'No packs awaiting review.' : 'No packs in this category.'}
+            {filter === 'pending_review' ? 'No content packs awaiting review.' : 'No content packs in this category.'}
           </p>
         </div>
       ) : (

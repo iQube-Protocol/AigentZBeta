@@ -7,6 +7,7 @@ import {
   Clock, Info, ChevronRight,
 } from "lucide-react";
 import { SequenceDayCard } from "./SequenceDayCard";
+import { PartnerJourneySteps } from "./PartnerJourneySteps";
 import { CampaignCatalogItem, CampaignDetail, CampaignStatusResult, CAMPAIGN_21_AWAKENINGS_ID } from "@/types/marketaCampaigns";
 import { bridgeGet, bridgePost, trackEngagement } from "./bridgeFetch";
 import { cn } from "@/utils/cn";
@@ -256,18 +257,24 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
           </button>
         </div>
 
+        {/* Journey stepper */}
+        <PartnerJourneySteps
+          currentStep={joined.length > 0 ? 2 : 1}
+          dark={dark}
+        />
+
         {/* Explainer card */}
         <div className={cn("rounded-2xl border p-4 space-y-2", dark ? "bg-white/[0.02] border-white/[0.07]" : "bg-white border-black/[0.07]")}>
           <div className="flex items-center gap-2">
             <Info className="w-4 h-4 text-rose-400 flex-shrink-0" />
             <span className={cn("text-sm font-semibold", s.page)}>What you&apos;re looking at</span>
           </div>
-          <p className={cn("text-xs", s.sub)}>Quick guide to &quot;Campaigns&quot; vs &quot;Packs&quot; so it&apos;s easy to navigate.</p>
+          <p className={cn("text-xs", s.sub)}>Quick guide to &quot;Campaigns&quot; vs &quot;Content Packs&quot; so it&apos;s easy to navigate.</p>
           <div className={cn("text-xs space-y-1", s.sub)}>
             <p><span className="font-semibold text-white/70">Available</span>: campaigns you can join (not active for you yet).</p>
             <p><span className="font-semibold text-white/70">Joined</span>: campaigns you&apos;ve joined (automation + reporting active).</p>
             <p><span className="font-semibold text-white/70">Sequences</span>: multi-day daily content (e.g. 21 Awakenings). <span className="font-semibold text-white/70">One-off</span>: single campaign with custom assets.</p>
-            <p><span className="font-semibold text-white/70">Packs</span>: weekly content packs (separate from campaigns). <button onClick={() => navigateToTab("my-packs")} className="text-rose-400 hover:underline">Go to Packs →</button></p>
+            <p><span className="font-semibold text-white/70">Content Packs</span>: your custom campaign content, built by Marketa AI around your brand. <button onClick={() => navigateToTab("my-packs")} className="text-rose-400 hover:underline">Go to Content Packs →</button></p>
           </div>
         </div>
 

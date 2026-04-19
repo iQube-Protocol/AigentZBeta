@@ -8,6 +8,7 @@ import {
   ExternalLink, AlertCircle, Clock, ThumbsUp, XCircle,
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
+import { PartnerJourneySteps, JourneyStep } from './PartnerJourneySteps';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -136,7 +137,7 @@ function PackCatalogCard({
               dark ? 'border-white/10 text-white/50 hover:text-white/80 hover:border-white/20' : 'border-black/10 text-black/40 hover:text-black/70',
             )}
           >
-            View Pack
+            View Content Pack
           </button>
           {isApproved && (
             <button
@@ -355,7 +356,7 @@ function PackDetailView({
           {pack.status === 'approved' && (
             <div className={cn('rounded-xl border p-4', dark ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-emerald-200 bg-emerald-50')}>
               <p className={cn('text-xs font-semibold mb-3', dark ? 'text-emerald-300' : 'text-emerald-700')}>
-                This pack is approved — ready to publish to your channels.
+                This content pack is approved — ready to publish to your channels.
               </p>
               <div className="flex gap-2">
                 {published ? (
@@ -407,7 +408,7 @@ function PackDetailView({
       {activeTab === 'details' && (
         <div className={cn('rounded-xl border divide-y', dark ? 'border-white/[0.06] divide-white/[0.06]' : 'border-black/[0.06] divide-black/[0.06]')}>
           {[
-            { label: 'Pack ID', value: pack.id },
+            { label: 'Content Pack ID', value: pack.id },
             { label: 'Status', value: pack.status.replace('_', ' ') },
             { label: 'Created', value: new Date(pack.created_at).toLocaleDateString() },
             ...(pack.approved_at ? [{ label: 'Approved', value: new Date(pack.approved_at).toLocaleDateString() }] : []),
@@ -469,6 +470,12 @@ export function MarketaMyPacksTab({ theme = 'dark', partnerId, personaId }: Prop
     catalogTab === 'review'   ? reviewPacks   :
     packs;
 
+  const journeyStep: JourneyStep =
+    approvedPacks.length > 0  ? 4 :
+    reviewPacks.length > 0    ? 3 :
+    packs.length > 0          ? 3 :
+    2;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-16">
@@ -492,9 +499,9 @@ export function MarketaMyPacksTab({ theme = 'dark', partnerId, personaId }: Prop
           {/* Catalog header */}
           <div className="flex items-start justify-between gap-2">
             <div>
-              <h1 className={cn('text-lg font-bold', dark ? 'text-white/90' : 'text-black/80')}>My Packs</h1>
+              <h1 className={cn('text-lg font-bold', dark ? 'text-white/90' : 'text-black/80')}>My Content Packs</h1>
               <p className={cn('text-xs mt-0.5', dark ? 'text-white/40' : 'text-black/40')}>
-                Campaign content packs created by Marketa AI for you.
+                Content packs built by Marketa AI to align your brand with the campaign.
               </p>
             </div>
             <button
@@ -502,14 +509,17 @@ export function MarketaMyPacksTab({ theme = 'dark', partnerId, personaId }: Prop
               className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-rose-500/50 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 transition-colors whitespace-nowrap flex-shrink-0 backdrop-blur-sm"
             >
               <Sparkles className="w-3 h-3" />
-              Propose Pack
+              Propose Content Pack
             </button>
           </div>
+
+          {/* Journey stepper */}
+          <PartnerJourneySteps currentStep={journeyStep} dark={dark} />
 
           {/* Info card */}
           <div className={cn('rounded-xl border p-3 flex items-center justify-between', dark ? 'border-white/[0.06] bg-white/[0.02]' : 'border-black/[0.06] bg-black/[0.02]')}>
             <p className={cn('text-xs', dark ? 'text-white/40' : 'text-black/40')}>
-              Packs are created when you propose a campaign. Once approved, you can publish them to your channels.
+              Content packs are built by Marketa AI to align your brand voice with the campaign. Once approved, publish directly to your channels.
             </p>
             <button
               onClick={() => navigateToTab('my-campaign')}
@@ -556,9 +566,9 @@ export function MarketaMyPacksTab({ theme = 'dark', partnerId, personaId }: Prop
           {displayedPacks.length === 0 ? (
             <div className={cn('rounded-xl border p-10 text-center', dark ? 'border-white/[0.06]' : 'border-black/[0.06]')}>
               <Package className={cn('w-8 h-8 mx-auto mb-3', dark ? 'text-white/20' : 'text-black/20')} />
-              <p className={cn('text-sm mb-1', dark ? 'text-white/50' : 'text-black/50')}>No packs yet.</p>
+              <p className={cn('text-sm mb-1', dark ? 'text-white/50' : 'text-black/50')}>No content packs yet.</p>
               <p className={cn('text-xs', dark ? 'text-white/30' : 'text-black/30')}>
-                Use &ldquo;Propose Pack&rdquo; to create your first campaign pack.
+                Use &ldquo;Propose Content Pack&rdquo; to create your first content pack.
               </p>
             </div>
           ) : (

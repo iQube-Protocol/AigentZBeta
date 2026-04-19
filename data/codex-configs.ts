@@ -1236,7 +1236,7 @@ export const MARKETA_CARTRIDGE: CodexConfig = {
       order: 4,
       type: 'static',
       config: { component: 'MarketaApprovalQueueTab', props: {} },
-      metadata: { icon: 'CheckSquare', description: 'Review and approve partner-proposed packs' },
+      metadata: { icon: 'CheckSquare', description: 'Review and approve partner-proposed content packs' },
     },
     {
       id: 'marketa-reports',
@@ -1297,11 +1297,11 @@ export const MARKETA_CARTRIDGE: CodexConfig = {
       order: 1,
       type: 'static',
       config: { component: 'MarketaProposeTab', props: {} },
-      metadata: { icon: 'PenTool', description: 'Build a campaign pack with Marketa AI' },
+      metadata: { icon: 'PenTool', description: 'Build a content pack with Marketa AI' },
     },
     {
       id: 'my-packs',
-      label: 'My Packs',
+      label: 'My Content Packs',
       slug: 'my-packs',
       enabled: true,
       partnerOnly: true,
@@ -1309,7 +1309,7 @@ export const MARKETA_CARTRIDGE: CodexConfig = {
       order: 2,
       type: 'static',
       config: { component: 'MarketaMyPacksTab', props: {} },
-      metadata: { icon: 'Package', description: 'Your assigned packs, status, and publish actions' },
+      metadata: { icon: 'Package', description: 'Your content packs, status, and publish actions' },
     },
     {
       id: 'my-reports',
