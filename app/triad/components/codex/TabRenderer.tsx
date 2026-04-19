@@ -54,6 +54,7 @@ import { MarketaCampaignDashboardTab } from "@/app/(shell)/marketa/components/Ma
 import { MarketaCampaignOpsTab } from "@/app/(shell)/marketa/components/MarketaCampaignOpsTab";
 import { MarketaMyPacksTab } from "@/app/(shell)/marketa/components/MarketaMyPacksTab";
 import { MarketaMyReportsTab } from "@/app/(shell)/marketa/components/MarketaMyReportsTab";
+import MarketaLaunchOpsTab from "@/app/(shell)/marketa/components/MarketaLaunchOpsTab";
 import { VentureLabGrowthMatrixTab } from "./tabs/VentureLabGrowthMatrixTab";
 import { VentureLabPortfolioTab } from "./tabs/VentureLabPortfolioTab";
 
@@ -111,6 +112,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   MarketaCampaignOpsTab,
   MarketaMyPacksTab,
   MarketaMyReportsTab,
+  MarketaLaunchOpsTab,
   VentureLabGrowthMatrixTab,
   VentureLabPortfolioTab,
   RewardsTab: PlaceholderTab,
