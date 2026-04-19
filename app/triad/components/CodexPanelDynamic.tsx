@@ -540,10 +540,10 @@ export default function CodexPanelDynamic({
                 </div>
               </div>
 
-              {/* Secondary sub-tab bar — shown only when a group is active */}
-              {activeGroup && activeGroupSubTabs.length > 1 && (
-                <div className="flex-shrink-0 border-b border-slate-800/60 bg-slate-900/40 px-4 py-1.5">
-                  <div className="flex gap-1 overflow-x-auto">
+              {/* Single combined sub-header: sub-tabs on left, tab context on right */}
+              <div className="flex-shrink-0 border-b border-slate-800/60 bg-slate-900/40 px-4 py-1.5 flex items-center gap-3 min-w-0">
+                {activeGroup && activeGroupSubTabs.length > 1 && (
+                  <div className="flex gap-1 overflow-x-auto flex-shrink-0">
                     {activeGroupSubTabs.map((tab) => {
                       const isActive = tab.slug === activeTabSlug;
                       const Icon = getIconComponent(tab.metadata?.icon || 'Circle');
@@ -563,8 +563,17 @@ export default function CodexPanelDynamic({
                       );
                     })}
                   </div>
+                )}
+                <div className="ml-auto flex items-center gap-2 min-w-0 flex-shrink-0">
+                  <ActiveTabIcon className="h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
+                  <span className="text-xs font-semibold text-white whitespace-nowrap">{activeTabTitle}</span>
+                  {activeTabDescription && (
+                    <span className="hidden sm:block truncate text-xs text-slate-500 max-w-52" title={activeTabDescription}>
+                      {activeTabDescription}
+                    </span>
+                  )}
                 </div>
-              )}
+              </div>
             </>
           );
         })()}
@@ -575,22 +584,6 @@ export default function CodexPanelDynamic({
           </div>
         )}
 
-        {activeTab && !singleTabMode && (
-          <div className="flex-shrink-0 border-b border-slate-800/80 px-4 py-2">
-            <div className="flex items-center gap-3 min-w-0">
-              <ActiveTabIcon className="h-4 w-4 flex-shrink-0 text-slate-300" />
-              <h3 className="text-sm font-semibold text-white whitespace-nowrap">{activeTabTitle}</h3>
-              {activeTabDescription ? (
-                <p
-                  className="min-w-0 flex-1 truncate text-xs text-slate-400 sm:text-sm"
-                  title={activeTabDescription}
-                >
-                  {activeTabDescription}
-                </p>
-              ) : null}
-            </div>
-          </div>
-        )}
 
         <div className="flex-1 min-h-0 overflow-y-auto">
           {activeTab && (
