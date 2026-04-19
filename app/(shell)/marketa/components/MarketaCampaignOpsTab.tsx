@@ -393,82 +393,6 @@ export function MarketaCampaignOpsTab({ theme = 'dark' }: Props) {
       ) : (
         <div className="space-y-3">
 
-          {/* ── KS Prospects ───────────────────────────────────────────────── */}
-          <div className={`rounded-xl ${s.card} p-4`}>
-            <Section
-              title="KS Prospects"
-              icon={Target}
-              accent="text-rose-400"
-              badge={ksStat && (
-                <div className="flex items-center gap-1.5 mr-1">
-                  <Badge className={d ? 'bg-rose-500/10 text-rose-300 border-rose-500/20 text-[9px]' : 'bg-rose-50 text-rose-700 border-rose-200 text-[9px]'}>
-                    {ksStat.active ?? 0} active
-                  </Badge>
-                  {(ksStat.emails_sent ?? 0) > 0 && (
-                    <Badge className={d ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20 text-[9px]' : 'bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px]'}>
-                      {ksStat.emails_sent} sent · {ksStat.open_rate ?? 0}% open
-                    </Badge>
-                  )}
-                </div>
-              )}
-              open={openSections.ks}
-              onToggle={() => toggle('ks')}
-            >
-              {/* Stats strip */}
-              {ksStat && (
-                <div className="grid grid-cols-4 gap-2 mb-3">
-                  {[
-                    { label: 'Total',    value: ksStat.cohort_size ?? 0, accent: s.textPrimary },
-                    { label: 'Active',   value: ksStat.active ?? 0,      accent: d ? 'text-sky-400' : 'text-sky-700' },
-                    { label: 'Sent',     value: ksStat.emails_sent ?? 0, accent: d ? 'text-emerald-400' : 'text-emerald-700' },
-                    { label: 'Open %',   value: `${ksStat.open_rate ?? 0}%`, accent: d ? 'text-amber-400' : 'text-amber-700' },
-                  ].map(({ label, value, accent }) => (
-                    <div key={label} className={`rounded-lg ${s.innerCard} p-2 text-center`}>
-                      <p className={`text-sm font-bold ${accent}`}>{value}</p>
-                      <p className={`text-[10px] ${s.textSubtle}`}>{label}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Next action callout */}
-              {content?.ks_prospects && (
-                <div className={`mb-3 rounded-lg px-3 py-2 ${d ? 'bg-rose-950/20 border border-rose-500/20' : 'bg-rose-50 border border-rose-200'}`}>
-                  <p className={`text-[10px] font-semibold ${d ? 'text-rose-300' : 'text-rose-700'}`}>
-                    Next: Fire Email {content.ks_prospects.next_to_fire}
-                  </p>
-                  <p className={`text-[10px] mt-0.5 ${s.textSubtle}`}>
-                    {content.ks_prospects.emails[content.ks_prospects.next_to_fire - 1]?.target_filter}
-                  </p>
-                </div>
-              )}
-
-              {/* Email sequence */}
-              <div className="space-y-1.5">
-                {(content?.ks_prospects?.emails ?? []).map((email) => (
-                  <EmailRow
-                    key={email.n}
-                    email={email}
-                    isNext={content?.ks_prospects.next_to_fire === email.n}
-                    isDark={d}
-                    onDryRun={() => handleKsAction(email.n, true)}
-                    onFire={() => handleKsAction(email.n, false)}
-                    firing={firingEmail === email.n}
-                  />
-                ))}
-              </div>
-
-              {/* Feedback */}
-              {Object.entries(cmdResult)
-                .filter(([k]) => k.startsWith('ks_'))
-                .map(([k, msg]) => (
-                  <p key={k} className={`mt-2 text-[10px] ${msg.includes('error') || msg.includes('fail') ? 'text-red-400' : d ? 'text-emerald-400' : 'text-emerald-700'}`}>
-                    {msg}
-                  </p>
-                ))}
-            </Section>
-          </div>
-
           {/* ── KNYT Investors ─────────────────────────────────────────────── */}
           <div className={`rounded-xl ${s.card} p-4`}>
             <Section
@@ -561,6 +485,75 @@ export function MarketaCampaignOpsTab({ theme = 'dark' }: Props) {
                   );
                 })}
               </div>
+            </Section>
+          </div>
+
+          {/* ── KS Prospects ───────────────────────────────────────────────── */}
+          <div className={`rounded-xl ${s.card} p-4`}>
+            <Section
+              title="KS Prospects"
+              icon={Target}
+              accent="text-rose-400"
+              badge={ksStat && (
+                <div className="flex items-center gap-1.5 mr-1">
+                  <Badge className={d ? 'bg-rose-500/10 text-rose-300 border-rose-500/20 text-[9px]' : 'bg-rose-50 text-rose-700 border-rose-200 text-[9px]'}>
+                    {ksStat.active ?? 0} active
+                  </Badge>
+                  {(ksStat.emails_sent ?? 0) > 0 && (
+                    <Badge className={d ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20 text-[9px]' : 'bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px]'}>
+                      {ksStat.emails_sent} sent · {ksStat.open_rate ?? 0}% open
+                    </Badge>
+                  )}
+                </div>
+              )}
+              open={openSections.ks}
+              onToggle={() => toggle('ks')}
+            >
+              {ksStat && (
+                <div className="grid grid-cols-4 gap-2 mb-3">
+                  {[
+                    { label: 'Total',  value: ksStat.cohort_size ?? 0, accent: s.textPrimary },
+                    { label: 'Active', value: ksStat.active ?? 0,      accent: d ? 'text-sky-400' : 'text-sky-700' },
+                    { label: 'Sent',   value: ksStat.emails_sent ?? 0, accent: d ? 'text-emerald-400' : 'text-emerald-700' },
+                    { label: 'Open %', value: `${ksStat.open_rate ?? 0}%`, accent: d ? 'text-amber-400' : 'text-amber-700' },
+                  ].map(({ label, value, accent }) => (
+                    <div key={label} className={`rounded-lg ${s.innerCard} p-2 text-center`}>
+                      <p className={`text-sm font-bold ${accent}`}>{value}</p>
+                      <p className={`text-[10px] ${s.textSubtle}`}>{label}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {content?.ks_prospects && (
+                <div className={`mb-3 rounded-lg px-3 py-2 ${d ? 'bg-rose-950/20 border border-rose-500/20' : 'bg-rose-50 border border-rose-200'}`}>
+                  <p className={`text-[10px] font-semibold ${d ? 'text-rose-300' : 'text-rose-700'}`}>
+                    Next: Fire Email {content.ks_prospects.next_to_fire}
+                  </p>
+                  <p className={`text-[10px] mt-0.5 ${s.textSubtle}`}>
+                    {content.ks_prospects.emails[content.ks_prospects.next_to_fire - 1]?.target_filter}
+                  </p>
+                </div>
+              )}
+              <div className="space-y-1.5">
+                {(content?.ks_prospects?.emails ?? []).map((email) => (
+                  <EmailRow
+                    key={email.n}
+                    email={email}
+                    isNext={content?.ks_prospects.next_to_fire === email.n}
+                    isDark={d}
+                    onDryRun={() => handleKsAction(email.n, true)}
+                    onFire={() => handleKsAction(email.n, false)}
+                    firing={firingEmail === email.n}
+                  />
+                ))}
+              </div>
+              {Object.entries(cmdResult)
+                .filter(([k]) => k.startsWith('ks_'))
+                .map(([k, msg]) => (
+                  <p key={k} className={`mt-2 text-[10px] ${msg.includes('error') || msg.includes('fail') ? 'text-red-400' : d ? 'text-emerald-400' : 'text-emerald-700'}`}>
+                    {msg}
+                  </p>
+                ))}
             </Section>
           </div>
 

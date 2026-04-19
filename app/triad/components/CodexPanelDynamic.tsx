@@ -13,6 +13,7 @@ import { useCodexConfig, getEnabledTabs } from "@/app/hooks/useCodexConfig";
 import { CodexTab, TabGroup } from "@/types/codex";
 import type { DeviceType } from "@/app/types/knytLiquidUI";
 import { Loader2, AlertCircle, X, Coins, Zap, Sun, Moon } from "lucide-react";
+import CodexCopilotLayer from "@/app/components/codex/CodexCopilotLayer";
 import { SmartTriadProvider, SmartTriadSurfaces } from "@/app/components/content";
 import { TabRenderer } from "./codex/TabRenderer";
 import { getIconComponent } from "./codex/iconMap";
@@ -93,6 +94,7 @@ export default function CodexPanelDynamic({
   const searchParams = useSearchParams();
   const { data: codex, isLoading, error } = useCodexConfig({ codexId, useDefaults });
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(theme === 'light' ? 'light' : 'dark');
+  const [marketaCopilotOpen, setMarketaCopilotOpen] = useState(false);
   const normalizedInitialTab = (initialTab || '').trim().toLowerCase();
   const lastAppliedInitialTabRef = useRef<string>("");
 
@@ -541,7 +543,7 @@ export default function CodexPanelDynamic({
               </div>
 
               {/* Single combined sub-header: sub-tabs on left, tab context on right */}
-              <div className={`flex-shrink-0 border-b px-4 py-1.5 flex items-center gap-3 min-w-0 ${isDark ? 'border-slate-800/60 bg-slate-900/40' : 'border-slate-200 bg-slate-50'}`}>
+              <div className={`flex-shrink-0 border-b px-4 py-1.5 flex items-center gap-3 min-w-0 ${isDark ? 'border-white/[0.06] bg-white/[0.02] backdrop-blur-sm' : 'border-slate-200 bg-slate-50'}`}>
                 {activeGroup && activeGroupSubTabs.length > 1 && (
                   <div className="flex gap-1 overflow-x-auto flex-shrink-0">
                     {activeGroupSubTabs.map((tab) => {
@@ -617,6 +619,22 @@ export default function CodexPanelDynamic({
       </div>
 
       <SmartTriadSurfaces personaId={personaId} />
+
+      {codexId === 'marketa-codex' && (
+        <CodexCopilotLayer
+          isOpen={marketaCopilotOpen}
+          onClose={() => setMarketaCopilotOpen(false)}
+          onOpen={() => setMarketaCopilotOpen(true)}
+          variant="floating"
+          accentColor="rose"
+          agent={{ id: 'aigent-marketa', name: 'Marketa' }}
+          personaId={personaId ?? 'aigent-marketa'}
+          enableInferenceRendering
+          promptPlaceholder="Ask Marketa about campaigns, partners, or content..."
+          initialMessage="I'm Marketa — your venture studio copilot. Ask me about the active campaigns, partner activation, content packs, or what to do next."
+          quickPrompts={['Campaign status', 'Next email to fire', 'Partner pipeline', 'Write a social post', 'Propose a content pack']}
+        />
+      )}
     </SmartTriadProvider>
   );
 }
