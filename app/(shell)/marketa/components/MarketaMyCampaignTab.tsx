@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
   ArrowLeft, Sparkles, Megaphone, Calendar, Zap, CheckCircle2,
-  Clock, Info, ChevronRight,
+  RefreshCw, Clock, Info, ChevronRight,
 } from "lucide-react";
 import { SequenceDayCard } from "./SequenceDayCard";
 import { PartnerJourneySteps } from "./PartnerJourneySteps";
