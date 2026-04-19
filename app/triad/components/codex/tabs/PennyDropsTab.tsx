@@ -199,16 +199,6 @@ export function PennyDropsTab({ theme = 'dark', personaId, issueSlug, dataSource
 
   return (
     <div className="p-4 space-y-6">
-      <div>
-        <h3 className={`text-xl font-bold ${textClass} flex items-center gap-2`}>
-          <Coins className="w-5 h-5 text-amber-400" />
-          PennyDrops
-        </h3>
-        <p className={`text-sm ${mutedClass} mt-1`}>
-          Issue-scoped insights and drops
-        </p>
-      </div>
-
       {error && (
         <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-300">
           {error}

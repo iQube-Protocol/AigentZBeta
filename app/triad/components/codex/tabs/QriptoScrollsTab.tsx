@@ -194,16 +194,6 @@ export function QriptoScrollsTab({ theme = 'dark', personaId, issueSlug }: Qript
 
   return (
     <div className="p-4 space-y-6">
-      <div>
-        <h3 className={`text-xl font-bold ${textClass} flex items-center gap-2`}>
-          <BookOpen className="w-5 h-5 text-indigo-400" />
-          Scrolls
-        </h3>
-        <p className={`text-sm ${mutedClass} mt-1`}>
-          Issue-scoped scrolls and archives
-        </p>
-      </div>
-
       <div className="flex flex-wrap gap-2">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;

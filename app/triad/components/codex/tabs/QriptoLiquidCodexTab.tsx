@@ -208,18 +208,6 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
 
   return (
     <div className="p-4 space-y-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h3 className={`text-xl font-bold ${textClass} flex items-center gap-2`}>
-            <Sparkles className="w-5 h-5 text-indigo-400" />
-            Codex Omni Surface
-          </h3>
-          <p className={`text-sm ${mutedClass} mt-1`}>
-            Issue {payload?.issue || 'issue-1'}
-          </p>
-        </div>
-      </div>
-
       {error && (
         <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-300">
           {error}

@@ -17,7 +17,6 @@ interface QriptopiaTabProps {
 export function QriptopiaTab({ theme = 'dark', density = 'wide' }: QriptopiaTabProps) {
   return (
     <div className="p-4 space-y-6">
-      <h3 className="text-lg font-semibold">The Vision of Qriptopia</h3>
       <div className="bg-gradient-to-br from-purple-900/20 via-pink-900/20 to-indigo-900/20 rounded-lg p-8 border border-purple-700/50">
         <Sparkles className="w-16 h-16 text-purple-400 mb-6 mx-auto" />
         <h4 className="text-2xl font-bold mb-4 text-center">A World United</h4>

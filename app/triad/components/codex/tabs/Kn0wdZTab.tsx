@@ -265,16 +265,6 @@ export function Kn0wdZTab({ theme = 'dark', personaId, issueSlug }: Kn0wdZTabPro
 
   return (
     <div className="p-4 space-y-6">
-      <div>
-        <h3 className={`text-xl font-bold ${textClass} flex items-center gap-2`}>
-          <Brain className="w-5 h-5 text-indigo-400" />
-          Kn0wdZ
-        </h3>
-        <p className={`text-sm ${mutedClass} mt-1`}>
-          Issue-scoped knowledge and learning resources
-        </p>
-      </div>
-
       <div className="flex flex-wrap gap-2">
         {tabOrder.map((tab) => {
           const tabConfig = panels[tab];
