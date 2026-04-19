@@ -272,11 +272,12 @@ export function MarketaCampaignOpsTab({ theme = 'dark' }: Props) {
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    sequences: true, ks: true, knyt: false, partners: false, social: false,
+    sequences: false, ks: false, knyt: false, partners: false, social: false,
   });
   const [sequences, setSequences]         = useState<CampaignCatalogItem[]>([]);
   const [expandedSeq, setExpandedSeq]     = useState<string | null>(null);
   const [seqDetail, setSeqDetail]         = useState<Record<string, CampaignDetail>>({});
+  const [campaignActions, setCampaignActions] = useState<Record<string, 'loading' | 'done' | 'error'>>({});
   const [firingEmail, setFiringEmail]     = useState<number | null>(null);
   const [firingCohort, setFiringCohort]   = useState<string | null>(null);
   const [fired, setFired]                 = useState<Record<string, boolean>>({});
@@ -296,13 +297,15 @@ export function MarketaCampaignOpsTab({ theme = 'dark' }: Props) {
       const contentData = contentRes.ok ? await contentRes.json() : null;
       if (statsData?.ok)   setStats(statsData.campaigns ?? []);
       if (contentData?.ok) setContent(contentData);
-      // load sequences from bridge (non-blocking)
-      bridgeGet<{ available_campaigns?: Array<{ id: string; name: string; campaign_type: string; sequence_length?: number; metadata?: unknown }>; joined_campaigns?: unknown[] }>('campaign_catalog', {})
+      // load ALL campaigns from bridge for admin management (non-blocking)
+      bridgeGet<{ available_campaigns?: Array<{ id: string; name: string; description?: string; campaign_type: string; sequence_length?: number; metadata?: unknown; channels?: string[] }>; joined_campaigns?: unknown[] }>('campaign_catalog', {})
         .then(({ available_campaigns = [] }) => {
-          const seqs = available_campaigns
-            .filter((c) => c.campaign_type === 'sequence')
-            .map((c) => ({ id: c.id, name: c.name, description: '', campaign_type: c.campaign_type as CampaignCatalogItem['campaign_type'], duration_days: c.sequence_length, channels: [], is_joined: false }));
-          setSequences(seqs);
+          const all = available_campaigns.map((c) => ({
+            id: c.id, name: c.name, description: c.description ?? '',
+            campaign_type: c.campaign_type as CampaignCatalogItem['campaign_type'],
+            duration_days: c.sequence_length, channels: c.channels ?? [], is_joined: false,
+          }));
+          setSequences(all);
         })
         .catch(() => {});
     } finally {
@@ -368,6 +371,43 @@ export function MarketaCampaignOpsTab({ theme = 'dark' }: Props) {
     }
   };
 
+  // ── Campaign admin actions ────────────────────────────────────────────────
+
+  const handleCampaignStatus = async (campaignId: string, status: string) => {
+    setCampaignActions((prev) => ({ ...prev, [campaignId]: 'loading' }));
+    try {
+      const res = await fetch(`/api/marketa/campaigns/${campaignId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) {
+        setCampaignActions((prev) => ({ ...prev, [campaignId]: 'done' }));
+        setSequences((prev) => prev.map((c) => c.id === campaignId ? { ...c } : c));
+        setTimeout(() => setCampaignActions((prev) => { const n = { ...prev }; delete n[campaignId]; return n; }), 2000);
+      } else {
+        setCampaignActions((prev) => ({ ...prev, [campaignId]: 'error' }));
+      }
+    } catch {
+      setCampaignActions((prev) => ({ ...prev, [campaignId]: 'error' }));
+    }
+  };
+
+  const handleCampaignDelete = async (campaignId: string) => {
+    if (!confirm('Delete this campaign and all its sequence items? This cannot be undone.')) return;
+    setCampaignActions((prev) => ({ ...prev, [`del_${campaignId}`]: 'loading' }));
+    try {
+      const res = await fetch(`/api/marketa/campaigns/${campaignId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setSequences((prev) => prev.filter((c) => c.id !== campaignId));
+      } else {
+        setCampaignActions((prev) => ({ ...prev, [`del_${campaignId}`]: 'error' }));
+      }
+    } catch {
+      setCampaignActions((prev) => ({ ...prev, [`del_${campaignId}`]: 'error' }));
+    }
+  };
+
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   const ksStat    = stats.find((c) => c.id === 'ks_prospects');
@@ -419,18 +459,26 @@ export function MarketaCampaignOpsTab({ theme = 'dark' }: Props) {
                 onToggle={() => toggle('sequences')}
               >
                 <div className="space-y-3 mt-2">
-                  {sequences.map((seq) => (
+                  {sequences.length === 0 && (
+                    <p className={`text-xs text-center py-4 ${s.textSubtle}`}>No campaigns found in the bridge.</p>
+                  )}
+                  {sequences.map((seq) => {
+                    const actionState = campaignActions[seq.id];
+                    const delState = campaignActions[`del_${seq.id}`];
+                    return (
                     <div key={seq.id} className={`rounded-lg border p-3 space-y-2 ${s.innerCard}`}>
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
                           {seq.name.toLowerCase().includes('awaken') && <Sparkles className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />}
                           <span className={`text-sm font-medium truncate ${s.textPrimary}`}>{seq.name}</span>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 flex-shrink-0`}>active</span>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${seq.campaign_type === 'sequence' ? 'bg-rose-500/15 text-rose-400 border-rose-500/30' : 'bg-amber-500/15 text-amber-400 border-amber-500/30'} flex-shrink-0`}>
+                            {seq.campaign_type}
+                          </span>
                           {seq.duration_days && (
                             <span className={`text-[10px] ${s.textSubtle}`}>{seq.duration_days}d</span>
                           )}
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
                           <button
                             onClick={() => {
                               if (expandedSeq === seq.id) { setExpandedSeq(null); return; }
@@ -443,7 +491,7 @@ export function MarketaCampaignOpsTab({ theme = 'dark' }: Props) {
                             }}
                             className={`text-[10px] px-2 py-1 rounded border transition-colors ${s.btnGhost}`}
                           >
-                            {expandedSeq === seq.id ? 'Collapse' : 'View Details'}
+                            {expandedSeq === seq.id ? 'Collapse' : 'Details'}
                           </button>
                         </div>
                       </div>
@@ -457,6 +505,41 @@ export function MarketaCampaignOpsTab({ theme = 'dark' }: Props) {
                         </div>
                       )}
 
+                      {/* Admin actions */}
+                      <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-white/[0.05]">
+                        <span className={`text-[10px] ${s.textSubtle} mr-1`}>Admin:</span>
+                        <button
+                          onClick={() => handleCampaignStatus(seq.id, 'active')}
+                          disabled={!!actionState}
+                          className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${s.btnEmerald} disabled:opacity-50`}
+                        >
+                          {actionState === 'loading' ? <Loader2 className="w-3 h-3 animate-spin inline" /> : '✓ Activate'}
+                        </button>
+                        <button
+                          onClick={() => handleCampaignStatus(seq.id, 'draft')}
+                          disabled={!!actionState}
+                          className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${s.btnAmber} disabled:opacity-50`}
+                        >
+                          ↺ Draft
+                        </button>
+                        <button
+                          onClick={() => handleCampaignStatus(seq.id, 'archived')}
+                          disabled={!!actionState}
+                          className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${s.btnGhost} disabled:opacity-50`}
+                        >
+                          Archive
+                        </button>
+                        <button
+                          onClick={() => handleCampaignDelete(seq.id)}
+                          disabled={!!delState}
+                          className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${s.btnRose} disabled:opacity-50 ml-auto`}
+                        >
+                          {delState === 'loading' ? <Loader2 className="w-3 h-3 animate-spin inline" /> : '✕ Delete'}
+                        </button>
+                        {actionState === 'done' && <span className="text-[10px] text-emerald-400">✓ Updated</span>}
+                        {actionState === 'error' && <span className="text-[10px] text-rose-400">Error</span>}
+                      </div>
+
                       {/* Expanded items */}
                       {expandedSeq === seq.id && (
                         <div className="mt-2 space-y-1.5">
@@ -465,7 +548,7 @@ export function MarketaCampaignOpsTab({ theme = 'dark' }: Props) {
                           ) : (
                             <>
                               <p className={`text-[10px] uppercase tracking-wide font-semibold ${s.textSubtle} mb-1`}>
-                                {seqDetail[seq.id].marketa_sequence_items?.length ?? 0} items
+                                {seqDetail[seq.id].marketa_sequence_items?.length ?? 0} sequence items
                               </p>
                               {(seqDetail[seq.id].marketa_sequence_items ?? [])
                                 .slice()
@@ -483,7 +566,8 @@ export function MarketaCampaignOpsTab({ theme = 'dark' }: Props) {
                         </div>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </Section>
             </div>

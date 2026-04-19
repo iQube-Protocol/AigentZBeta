@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
   ArrowLeft, Sparkles, Megaphone, Calendar, Zap, CheckCircle2,
-  RefreshCw, Clock, Info, ChevronRight,
+  Clock, Info, ChevronRight,
 } from "lucide-react";
 import { SequenceDayCard } from "./SequenceDayCard";
 import { CampaignCatalogItem, CampaignDetail, CampaignStatusResult, CAMPAIGN_21_AWAKENINGS_ID } from "@/types/marketaCampaigns";
@@ -46,8 +46,8 @@ function t(dark: boolean) {
 // ── Type badge ────────────────────────────────────────────────────────────────
 function TypeBadge({ type }: { type: string }) {
   return type === "sequence"
-    ? <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-rose-500 text-white font-semibold">Sequence</span>
-    : <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-amber-500/80 text-white font-semibold">One-off</span>;
+    ? <span className="text-[11px] px-2.5 py-0.5 rounded-full border border-rose-500/50 bg-rose-500/20 text-rose-300 font-semibold backdrop-blur-sm">Sequence</span>
+    : <span className="text-[11px] px-2.5 py-0.5 rounded-full border border-amber-500/50 bg-amber-500/20 text-amber-300 font-semibold backdrop-blur-sm">One-off</span>;
 }
 
 // ── Status badge ──────────────────────────────────────────────────────────────
@@ -96,7 +96,7 @@ function CampaignCard({ c, dark, onView, onJoin }: { c: CampaignCatalogItem; dar
           <button onClick={onView} className={cn("flex-1 text-sm py-2 rounded-xl border font-medium transition-colors", s.btnGhost)}>
             View Campaign
           </button>
-          <button onClick={onJoin} className="flex-1 text-sm py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-semibold transition-colors flex items-center justify-center gap-1.5">
+          <button onClick={onJoin} className="flex-1 text-sm py-2 rounded-xl border border-rose-500/50 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-semibold transition-colors flex items-center justify-center gap-1.5 backdrop-blur-sm">
             Join Campaign <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -241,7 +241,7 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
   // ── CATALOG VIEW ─────────────────────────────────────────────────────────────
   if (!selectedId) {
     return (
-      <div className="space-y-5">
+      <div className="space-y-5 p-3 sm:p-4 lg:p-5">
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -250,7 +250,7 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
           </div>
           <button
             onClick={() => navigateToTab("propose-campaign")}
-            className="flex-shrink-0 flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-semibold transition-colors"
+            className="flex-shrink-0 flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl border border-rose-500/50 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 font-semibold transition-colors backdrop-blur-sm"
           >
             + Propose Campaign
           </button>
@@ -313,7 +313,7 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
 
   // ── DETAIL VIEW ─────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 p-3 sm:p-4 lg:p-5">
 
       {/* Header */}
       <div className="space-y-2">
@@ -433,7 +433,7 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
               {joinErr && <p className="text-xs text-rose-400">{joinErr}</p>}
 
               <button onClick={handleJoin} disabled={joining || selChannels.length === 0 || !approved}
-                className="w-full py-3 rounded-xl bg-rose-500 hover:bg-rose-600 disabled:opacity-40 text-white font-semibold transition-colors">
+                className="w-full py-3 rounded-xl border border-rose-500/50 bg-rose-500/20 hover:bg-rose-500/30 disabled:opacity-40 text-rose-300 font-semibold transition-colors backdrop-blur-sm">
                 {joining ? "Joining…" : `Join ${detail.name}`}
               </button>
             </div>

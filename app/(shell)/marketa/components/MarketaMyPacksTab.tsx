@@ -141,7 +141,7 @@ function PackCatalogCard({
           {isApproved && (
             <button
               onClick={(e) => { e.stopPropagation(); onSelect(); }}
-              className="flex-1 flex items-center justify-center gap-1.5 text-xs py-1.5 rounded-lg bg-rose-500 text-white hover:bg-rose-600 transition-colors"
+              className="flex-1 flex items-center justify-center gap-1.5 text-xs py-1.5 rounded-lg border border-rose-500/50 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 transition-colors backdrop-blur-sm"
             >
               <Send className="w-3 h-3" />
               Publish
@@ -367,7 +367,7 @@ function PackDetailView({
                   <button
                     onClick={handlePublish}
                     disabled={publishing}
-                    className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg bg-rose-500 text-white hover:bg-rose-600 transition-colors disabled:opacity-60"
+                    className="flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg border border-rose-500/50 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 transition-colors disabled:opacity-60 backdrop-blur-sm"
                   >
                     {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
                     Publish to My Channels
@@ -499,7 +499,7 @@ export function MarketaMyPacksTab({ theme = 'dark', partnerId, personaId }: Prop
             </div>
             <button
               onClick={() => navigateToTab('propose-campaign')}
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-rose-500 text-white hover:bg-rose-600 transition-colors whitespace-nowrap flex-shrink-0"
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-rose-500/50 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 transition-colors whitespace-nowrap flex-shrink-0 backdrop-blur-sm"
             >
               <Sparkles className="w-3 h-3" />
               Propose Pack
