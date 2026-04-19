@@ -12,7 +12,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCodexConfig, getEnabledTabs } from "@/app/hooks/useCodexConfig";
 import { CodexTab, TabGroup } from "@/types/codex";
 import type { DeviceType } from "@/app/types/knytLiquidUI";
-import { Loader2, AlertCircle, X, Coins, Zap } from "lucide-react";
+import { Loader2, AlertCircle, X, Coins, Zap, Sun, Moon } from "lucide-react";
 import { SmartTriadProvider, SmartTriadSurfaces } from "@/app/components/content";
 import { TabRenderer } from "./codex/TabRenderer";
 import { getIconComponent } from "./codex/iconMap";
@@ -92,7 +92,7 @@ export default function CodexPanelDynamic({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { data: codex, isLoading, error } = useCodexConfig({ codexId, useDefaults });
-  const resolvedTheme: 'light' | 'dark' = theme === 'light' ? 'light' : 'dark';
+  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(theme === 'light' ? 'light' : 'dark');
   const normalizedInitialTab = (initialTab || '').trim().toLowerCase();
   const lastAppliedInitialTabRef = useRef<string>("");
 
@@ -424,10 +424,11 @@ export default function CodexPanelDynamic({
             if (firstSub) setActiveTabSlug(firstSub.slug);
           };
 
+          const isDark = resolvedTheme === 'dark';
           return (
             <>
               {/* Primary tab bar */}
-              <div className="flex-shrink-0 border-b border-slate-700/50 px-4">
+              <div className={`flex-shrink-0 border-b px-4 ${isDark ? 'border-slate-700/50' : 'border-slate-200 bg-white'}`}>
                 <div className="flex items-center justify-between gap-3 py-3">
                   <div className="flex min-w-0 items-center gap-4">
                     <h2
@@ -452,8 +453,8 @@ export default function CodexPanelDynamic({
                               onClick={() => handleGroupClick(group.id)}
                               className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap rounded-lg ${
                                 isActiveGroup
-                                  ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/30 text-${accentColor}-300`
-                                  : 'text-slate-400 hover:text-slate-300 hover:bg-white/4'
+                                  ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/30 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
+                                  : isDark ? 'text-slate-400 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
                               }`}
                             >
                               <Icon className="w-3.5 h-3.5 flex-shrink-0" />
@@ -472,14 +473,14 @@ export default function CodexPanelDynamic({
                             onClick={() => setActiveTabSlug(tab.slug)}
                             className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap rounded-lg ${
                               isActive
-                                ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/30 text-${accentColor}-300`
-                                : 'text-slate-400 hover:text-slate-300 hover:bg-white/4'
+                                ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/30 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
+                                : isDark ? 'text-slate-400 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
                             }`}
                           >
                             <Icon className="w-3.5 h-3.5 flex-shrink-0" />
                             {density === 'wide' && tab.label}
                             {badge && (
-                              <span className="ml-1 px-1.5 py-0.5 text-xs bg-white/10 text-slate-300 rounded-full">
+                              <span className={`ml-1 px-1.5 py-0.5 text-xs rounded-full ${isDark ? 'bg-white/10 text-slate-300' : 'bg-slate-200 text-slate-600'}`}>
                                 {badge}
                               </span>
                             )}
@@ -489,6 +490,20 @@ export default function CodexPanelDynamic({
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    {/* Theme toggle */}
+                    <button
+                      type="button"
+                      onClick={() => setResolvedTheme(r => r === 'dark' ? 'light' : 'dark')}
+                      className={`inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
+                        isDark
+                          ? 'border-slate-600/80 bg-slate-900/70 text-slate-300 hover:border-slate-400 hover:text-white'
+                          : 'border-slate-300 bg-white text-slate-500 hover:border-slate-400 hover:text-slate-800'
+                      }`}
+                      title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                      aria-label="Toggle theme"
+                    >
+                      {isDark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+                    </button>
                     {codexId === 'aigentiq-codex' && <AgentiQEconomyBadge />}
                     {isQriptopian && (
                       <select
@@ -526,7 +541,7 @@ export default function CodexPanelDynamic({
               </div>
 
               {/* Single combined sub-header: sub-tabs on left, tab context on right */}
-              <div className="flex-shrink-0 border-b border-slate-800/60 bg-slate-900/40 px-4 py-1.5 flex items-center gap-3 min-w-0">
+              <div className={`flex-shrink-0 border-b px-4 py-1.5 flex items-center gap-3 min-w-0 ${isDark ? 'border-slate-800/60 bg-slate-900/40' : 'border-slate-200 bg-slate-50'}`}>
                 {activeGroup && activeGroupSubTabs.length > 1 && (
                   <div className="flex gap-1 overflow-x-auto flex-shrink-0">
                     {activeGroupSubTabs.map((tab) => {
@@ -538,8 +553,8 @@ export default function CodexPanelDynamic({
                           onClick={() => setActiveTabSlug(tab.slug)}
                           className={`flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium transition-all whitespace-nowrap rounded-md ${
                             isActive
-                              ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/25 text-${accentColor}-300`
-                              : 'text-slate-500 hover:text-slate-300 hover:bg-white/4'
+                              ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/25 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
+                              : isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
                           }`}
                         >
                           <Icon className="w-3 h-3 flex-shrink-0" />
