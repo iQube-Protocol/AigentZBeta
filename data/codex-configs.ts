@@ -1251,6 +1251,18 @@ export const MARKETA_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'FileText', description: 'Aggregate stats across all partners and cohorts' },
     },
     {
+      id: 'marketa-publish',
+      label: 'Publish',
+      slug: 'marketa-publish',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 5,
+      type: 'static',
+      config: { component: 'MarketaPublishTab', props: {} },
+      metadata: { icon: 'Send', description: 'Publish approved content packs to Qriptopian and partner channels' },
+    },
+    {
       id: 'marketa-qubetalk',
       label: 'QubeTalk',
       slug: 'marketa-qubetalk',
