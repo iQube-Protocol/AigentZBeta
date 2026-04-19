@@ -6,8 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import {
   Send, RefreshCcw, Loader2, Eye, CheckCircle2, AlertCircle,
   ChevronDown, ChevronRight, Mail, Users, Megaphone, Twitter,
-  Linkedin, Instagram, Copy, Check, Zap, Target, BarChart3,
+  Linkedin, Instagram, Copy, Check, Zap, Target, BarChart3, Sparkles, Film,
 } from 'lucide-react';
+import { bridgeGet } from './bridgeFetch';
+import { CampaignCatalogItem, CampaignDetail } from '@/types/marketaCampaigns';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -270,8 +272,11 @@ export function MarketaCampaignOpsTab({ theme = 'dark' }: Props) {
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    ks: true, knyt: false, partners: false, social: false,
+    sequences: true, ks: true, knyt: false, partners: false, social: false,
   });
+  const [sequences, setSequences]         = useState<CampaignCatalogItem[]>([]);
+  const [expandedSeq, setExpandedSeq]     = useState<string | null>(null);
+  const [seqDetail, setSeqDetail]         = useState<Record<string, CampaignDetail>>({});
   const [firingEmail, setFiringEmail]     = useState<number | null>(null);
   const [firingCohort, setFiringCohort]   = useState<string | null>(null);
   const [fired, setFired]                 = useState<Record<string, boolean>>({});
@@ -291,6 +296,15 @@ export function MarketaCampaignOpsTab({ theme = 'dark' }: Props) {
       const contentData = contentRes.ok ? await contentRes.json() : null;
       if (statsData?.ok)   setStats(statsData.campaigns ?? []);
       if (contentData?.ok) setContent(contentData);
+      // load sequences from bridge (non-blocking)
+      bridgeGet<{ available_campaigns?: Array<{ id: string; name: string; campaign_type: string; sequence_length?: number; metadata?: unknown }>; joined_campaigns?: unknown[] }>('campaign_catalog', {})
+        .then(({ available_campaigns = [] }) => {
+          const seqs = available_campaigns
+            .filter((c) => c.campaign_type === 'sequence')
+            .map((c) => ({ id: c.id, name: c.name, description: '', campaign_type: c.campaign_type as CampaignCatalogItem['campaign_type'], duration_days: c.sequence_length, channels: [], is_joined: false }));
+          setSequences(seqs);
+        })
+        .catch(() => {});
     } finally {
       setLoading(false);
     }
@@ -392,6 +406,88 @@ export function MarketaCampaignOpsTab({ theme = 'dark' }: Props) {
         </div>
       ) : (
         <div className="space-y-3">
+
+          {/* ── Sequences ──────────────────────────────────────────────────── */}
+          {sequences.length > 0 && (
+            <div className={`rounded-xl ${s.card} p-4`}>
+              <Section
+                title="Live Sequences"
+                icon={Film}
+                accent="text-violet-400"
+                badge={<span className={`text-[10px] px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-400`}>{sequences.length}</span>}
+                open={openSections.sequences}
+                onToggle={() => toggle('sequences')}
+              >
+                <div className="space-y-3 mt-2">
+                  {sequences.map((seq) => (
+                    <div key={seq.id} className={`rounded-lg border p-3 space-y-2 ${s.innerCard}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {seq.name.toLowerCase().includes('awaken') && <Sparkles className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" />}
+                          <span className={`text-sm font-medium truncate ${s.textPrimary}`}>{seq.name}</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 flex-shrink-0`}>active</span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {seq.duration_days && (
+                            <span className={`text-[10px] ${s.textSubtle}`}>{seq.duration_days}d</span>
+                          )}
+                          <button
+                            onClick={() => {
+                              if (expandedSeq === seq.id) { setExpandedSeq(null); return; }
+                              setExpandedSeq(seq.id);
+                              if (!seqDetail[seq.id]) {
+                                bridgeGet<{ success: boolean; campaign: CampaignDetail }>('campaign_detail', { campaignId: seq.id })
+                                  .then(({ campaign }) => setSeqDetail((prev) => ({ ...prev, [seq.id]: campaign })))
+                                  .catch(() => {});
+                              }
+                            }}
+                            className={`text-[10px] px-2 py-1 rounded border transition-colors ${s.btnGhost}`}
+                          >
+                            {expandedSeq === seq.id ? 'Collapse' : 'View Details'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Channel chips */}
+                      {(seq.channels ?? []).length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {seq.channels.map((ch) => (
+                            <span key={ch} className={`text-[10px] px-1.5 py-0.5 rounded border ${d ? 'border-white/10 text-white/40' : 'border-black/10 text-black/40'}`}>{ch}</span>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Expanded items */}
+                      {expandedSeq === seq.id && (
+                        <div className="mt-2 space-y-1.5">
+                          {!seqDetail[seq.id] ? (
+                            <div className={`text-xs text-center py-4 ${s.textSubtle}`}>Loading…</div>
+                          ) : (
+                            <>
+                              <p className={`text-[10px] uppercase tracking-wide font-semibold ${s.textSubtle} mb-1`}>
+                                {seqDetail[seq.id].marketa_sequence_items?.length ?? 0} items
+                              </p>
+                              {(seqDetail[seq.id].marketa_sequence_items ?? [])
+                                .slice()
+                                .sort((a, b) => a.day_number - b.day_number)
+                                .map((item) => (
+                                  <div key={item.id} className={`flex items-center gap-3 rounded px-2 py-1.5 ${s.emailRow}`}>
+                                    <span className={`text-[10px] font-mono w-10 flex-shrink-0 ${s.textSubtle}`}>Day {item.day_number}</span>
+                                    <span className={`text-xs truncate flex-1 ${s.textSecondary}`}>{item.title}</span>
+                                    {item.explainer && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 flex-shrink-0">Explainer</span>}
+                                    <span className={`text-[10px] capitalize flex-shrink-0 ${item.status === 'sent' || item.status === 'viewed' ? 'text-emerald-400' : s.textSubtle}`}>{item.status}</span>
+                                  </div>
+                                ))}
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            </div>
+          )}
 
           {/* ── KNYT Investors ─────────────────────────────────────────────── */}
           <div className={`rounded-xl ${s.card} p-4`}>
