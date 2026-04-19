@@ -5,7 +5,7 @@ import { Plus, X } from 'lucide-react';
 import {
   Venture, IndustryOverlay,
   Y_LABELS, X_LABELS, computeZone, ZONE_STYLE,
-  GOLDEN_PATH, OVERLAY_ZONE, ZONE_NBA,
+  GOLDEN_PATH, OVERLAY_ZONE, ZONE_NBA, CELL_LABEL,
 } from './_ventureLabData';
 
 // ── Add Venture Modal ─────────────────────────────────────────────────────────
@@ -18,13 +18,13 @@ interface AddModalProps {
 }
 
 export function AddVentureModal({ onClose, onSave, preY, preX }: AddModalProps) {
-  const [name,  setName]  = useState('');
-  const [slug,  setSlug]  = useState('');
-  const [y,     setY]     = useState(preY ?? 1);
-  const [x,     setX]     = useState(preX ?? 1);
-  const [desc,  setDesc]  = useState('');
-  const [tags,  setTags]  = useState('');
-  const [saving,setSaving]= useState(false);
+  const [name,   setName]  = useState('');
+  const [slug,   setSlug]  = useState('');
+  const [y,      setY]     = useState(preY ?? 1);
+  const [x,      setX]     = useState(preX ?? 1);
+  const [desc,   setDesc]  = useState('');
+  const [tags,   setTags]  = useState('');
+  const [saving, setSaving]= useState(false);
 
   const handleName = (v: string) => {
     setName(v);
@@ -82,7 +82,7 @@ export function AddVentureModal({ onClose, onSave, preY, preX }: AddModalProps) 
           <div>
             <label className="block text-xs text-slate-400 mb-1">Description (optional)</label>
             <textarea value={desc} onChange={e => setDesc(e.target.value)} rows={2}
-              className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none resize-none" />
+              className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none resize-none" />
           </div>
           <div>
             <label className="block text-xs text-slate-400 mb-1">Tags (comma-separated)</label>
@@ -104,6 +104,10 @@ export function AddVentureModal({ onClose, onSave, preY, preX }: AddModalProps) 
 }
 
 // ── Matrix View ───────────────────────────────────────────────────────────────
+// Cells show named prescriptions (like studio matrix).
+// Color coding: emerald=golden path, amber=apex, blue=off-diagonal, slate=empty.
+// Venture count badge on cells that have ventures.
+// Click cell → popup with full prescription + ventures.
 
 interface MatrixViewProps {
   ventures: Venture[];
@@ -115,176 +119,163 @@ interface MatrixViewProps {
 }
 
 export function MatrixView({ ventures, overlay, showGoldenPath, isAdmin, onAdd, onSeedSamples }: MatrixViewProps) {
-  const [selCell, setSelCell]       = useState<{ y: number; x: number } | null>(null);
-  const [selVenture, setSelVenture] = useState<Venture | null>(null);
+  const [popup, setPopup] = useState<string | null>(null); // key = `${y},${x}`
 
-  const cellVentures = (y: number, x: number) => ventures.filter(v => v.y_maturity === y && v.x_commercialization === x);
+  const cellVentures = (y: number, x: number) =>
+    ventures.filter(v => v.y_maturity === y && v.x_commercialization === x);
 
-  const handleCell = (y: number, x: number) => {
-    if (selCell?.y === y && selCell?.x === x) { setSelCell(null); setSelVenture(null); }
-    else { setSelCell({ y, x }); setSelVenture(null); }
-  };
+  const yNorm = (y: number) => (y - 1) / 6;
+  const xNorm = (x: number) => (x - 1) / 6;
+  const isOnDiagonal = (y: number, x: number) =>
+    showGoldenPath ? GOLDEN_PATH.has(`${y},${x}`) : Math.abs(yNorm(y) - xNorm(x)) <= 0.28;
+  const isApex = (y: number, x: number) => y >= 6 && x >= 6;
 
   return (
-    <div className="flex gap-4 p-4 overflow-auto">
+    <div className="p-4 overflow-auto">
+      <div style={{ minWidth: `${88 + X_LABELS.length * 80}px` }}>
 
-      {/* Grid */}
-      <div className="flex-1 min-w-0">
-        {/* X-axis header */}
-        <div className="flex mb-1 ml-[88px]">
+        {/* Header row: ENGAGEMENT label + X-axis headers */}
+        <div className="grid gap-0.5 mb-0.5" style={{ gridTemplateColumns: `88px repeat(${X_LABELS.length}, 1fr)` }}>
+          <div className="text-[10px] text-slate-600 self-end pb-0.5">
+            <span className="block text-slate-700">MATURITY ↑</span>
+            <span className="text-[9px]">Y \ X</span>
+          </div>
           {X_LABELS.map(col => (
-            <div key={col.n} className="flex-1 text-center">
-              <div className="text-[10px] font-semibold text-slate-400 truncate px-0.5">{col.label}</div>
-              <div className="text-[9px] text-slate-600">X{col.n}</div>
+            <div key={col.n} className="text-center pb-0.5">
+              <div className={`text-[10px] font-semibold truncate px-0.5 ${col.n >= 6 ? 'text-amber-400/70' : 'text-slate-400'}`}>{col.label}</div>
+              <div className="text-[9px] text-slate-600">{col.n}</div>
             </div>
           ))}
         </div>
 
-        {/* Rows Y7→Y1 */}
-        {Y_LABELS.map(row => (
-          <div key={row.n} className="flex items-stretch gap-0 mb-1">
-            {/* Y label */}
-            <div className="w-[88px] flex-shrink-0 flex flex-col justify-center pr-2 text-right">
-              <div className="text-[10px] font-semibold text-slate-400 leading-tight">{row.label}</div>
-              <div className="text-[9px] text-slate-600">Y{row.n}</div>
-            </div>
+        {/* X-axis label */}
+        <div className="text-right pr-2 mb-1">
+          <span className="text-[9px] text-slate-700">COMMERCIALIZATION → &nbsp; goal: top-right ★</span>
+        </div>
 
-            {/* Cells */}
-            {X_LABELS.map(col => {
-              const zone  = computeZone(row.n, col.n);
-              const zs    = ZONE_STYLE[zone];
-              const cvs   = cellVentures(row.n, col.n);
-              const isSel = selCell?.y === row.n && selCell?.x === col.n;
-              const isGP  = showGoldenPath && GOLDEN_PATH.has(`${row.n},${col.n}`);
-
-              return (
-                <div
-                  key={col.n}
-                  onClick={() => handleCell(row.n, col.n)}
-                  className={`flex-1 min-h-[52px] border rounded-sm cursor-pointer transition-all relative group
-                    ${zs.bg} ${zs.border}
-                    ${isSel ? `ring-1 ${zs.ring} ring-inset` : 'hover:ring-1 hover:ring-white/20 hover:ring-inset'}`}
-                >
-                  {/* Venture dots */}
-                  <div className="absolute inset-0 flex flex-wrap gap-[3px] p-1.5 content-start">
-                    {cvs.map(v => (
-                      <button key={v.id} onClick={e => { e.stopPropagation(); setSelVenture(v); setSelCell({ y: row.n, x: col.n }); }}
-                        title={v.venture_name}
-                        className={`w-2 h-2 rounded-full ${zs.dot} hover:scale-150 transition-transform z-10`} />
-                    ))}
-                  </div>
-
-                  {/* Golden path marker */}
-                  {isGP && (
-                    <div className="absolute top-0.5 right-0.5 text-amber-400/60 text-[8px] leading-none select-none">◆</div>
-                  )}
-
-                  {/* Add on hover (admin, empty cell) */}
-                  {isAdmin && cvs.length === 0 && (
-                    <button onClick={e => { e.stopPropagation(); onAdd(row.n, col.n); }}
-                      className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Plus className="w-3 h-3 text-slate-500" />
-                    </button>
-                  )}
-
-                  {/* Coord */}
-                  <div className="absolute bottom-0.5 right-1 text-[7px] text-slate-700">{col.n},{row.n}</div>
+        {/* Grid rows Y7→Y1 */}
+        <div className="space-y-0.5">
+          {Y_LABELS.map(row => (
+            <div key={row.n} className="grid gap-0.5" style={{ gridTemplateColumns: `88px repeat(${X_LABELS.length}, 1fr)` }}>
+              {/* Y-axis label */}
+              <div className={`flex items-center pr-2 text-right ${row.n >= 6 ? 'text-amber-400/80' : 'text-slate-400'}`}>
+                <div className="w-full">
+                  <div className="text-[10px] font-semibold truncate leading-tight">{row.label}</div>
+                  <div className="text-[9px] text-slate-600">Y{row.n}</div>
                 </div>
-              );
-            })}
-          </div>
-        ))}
+              </div>
 
-        {/* X axis label */}
-        <div className="mt-1 ml-[88px] text-center text-[10px] text-slate-600 tracking-wide">← Commercialization Strength →</div>
+              {/* Cells */}
+              {X_LABELS.map(col => {
+                const key       = `${row.n},${col.n}`;
+                const label     = CELL_LABEL[key] ?? '';
+                const cvs       = cellVentures(row.n, col.n);
+                const count     = cvs.length;
+                const apex      = isApex(row.n, col.n);
+                const diagonal  = isOnDiagonal(row.n, col.n);
+                const hasLabel  = !!label;
+                const isPopup   = popup === key;
+
+                // Cell color: apex > diagonal (golden path) > off-diagonal > empty
+                const cellClass = apex && hasLabel
+                  ? 'border-amber-500/40 bg-amber-500/8 text-amber-200 cursor-pointer hover:ring-1 hover:ring-amber-400/30'
+                  : hasLabel && diagonal
+                    ? 'border-emerald-500/25 bg-emerald-500/5 text-emerald-300 cursor-pointer hover:ring-1 hover:ring-emerald-400/30'
+                    : hasLabel
+                      ? 'border-blue-500/20 bg-blue-500/5 text-blue-300 cursor-pointer hover:ring-1 hover:ring-blue-400/20'
+                      : 'border-slate-800/30 bg-slate-950/30 text-slate-800 cursor-default';
+
+                return (
+                  <div key={col.n} className="relative">
+                    <button
+                      type="button"
+                      onClick={() => hasLabel && setPopup(isPopup ? null : key)}
+                      className={`w-full rounded border px-0.5 py-1.5 text-center text-[11px] leading-tight font-medium transition-all ${cellClass}`}
+                      title={`${row.label} × ${col.label}${label ? ` — ${label}` : ''}${count ? ` · ${count} venture${count > 1 ? 's' : ''}` : ''}`}
+                    >
+                      {hasLabel ? label : '·'}
+                    </button>
+
+                    {/* Venture count badge */}
+                    {count > 0 && (
+                      <span className="absolute -top-1.5 -right-1 text-[8px] font-bold leading-[14px] rounded-full px-1 min-w-[14px] text-center bg-rose-500/80 text-white z-10">
+                        {count}
+                      </span>
+                    )}
+
+                    {/* Golden path marker */}
+                    {showGoldenPath && GOLDEN_PATH.has(key) && (
+                      <span className="absolute top-0.5 left-0.5 text-amber-400/50 text-[7px] leading-none select-none">◆</span>
+                    )}
+
+                    {/* Popup */}
+                    {isPopup && (
+                      <div className="absolute z-20 bottom-full mb-1 left-1/2 -translate-x-1/2 w-56 rounded-lg border border-white/10 bg-slate-900/98 px-3 py-2.5 shadow-xl backdrop-blur-sm">
+                        <button onClick={() => setPopup(null)} className="absolute top-1.5 right-1.5 text-slate-600 hover:text-slate-300">
+                          <X className="w-3 h-3" />
+                        </button>
+                        <div className={`text-[10px] font-semibold mb-1 ${
+                          apex ? 'text-amber-300' : diagonal ? 'text-emerald-300' : 'text-blue-300'
+                        }`}>
+                          Y{row.n} {row.label} × X{col.n} {col.label}
+                        </div>
+                        <p className="text-xs text-slate-200 font-medium mb-1">{label}</p>
+                        {/* Overlay context */}
+                        {(() => {
+                          const zone = computeZone(row.n, col.n);
+                          const ctx  = OVERLAY_ZONE[overlay]?.[zone];
+                          const nba  = ZONE_NBA[zone];
+                          return (
+                            <div className="space-y-1">
+                              {ctx && <p className="text-[10px] text-slate-400">{ctx.milestone}</p>}
+                              {nba && <p className="text-[10px] text-slate-500 italic">{nba.action.slice(0, 80)}…</p>}
+                            </div>
+                          );
+                        })()}
+                        {/* Ventures */}
+                        {cvs.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {cvs.map(v => (
+                              <span key={v.id} className="px-1.5 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/20">
+                                {v.venture_name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {isAdmin && (
+                          <button onClick={() => { setPopup(null); onAdd(row.n, col.n); }}
+                            className="mt-2 w-full flex items-center justify-center gap-1 py-1 rounded border border-dashed border-white/10 text-[10px] text-slate-500 hover:text-slate-300 hover:border-white/20 transition-all">
+                            <Plus className="w-2.5 h-2.5" />Add venture here
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+
+        {/* Legend */}
+        <div className="flex items-center gap-3 mt-3 text-[11px] text-slate-600">
+          <span><span className="text-emerald-400">■</span> optimal path</span>
+          <span><span className="text-blue-400">■</span> off-diagonal</span>
+          <span><span className="text-amber-400">■</span> apex zone</span>
+          <span><span className="text-slate-700">·</span> no prescription</span>
+          {showGoldenPath && <span><span className="text-amber-400/50">◆</span> golden path</span>}
+          <span className="ml-auto text-slate-500">click cell for prescription</span>
+        </div>
       </div>
 
-      {/* Detail panel */}
-      {(selCell || selVenture) && (
-        <div className="w-60 flex-shrink-0 bg-slate-900/60 border border-white/[0.07] rounded-xl p-4 flex flex-col gap-3 self-start">
-          {selVenture ? (
-            <>
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-sm font-semibold text-slate-100 leading-tight">{selVenture.venture_name}</p>
-                  <p className={`text-[10px] mt-0.5 capitalize ${ZONE_STYLE[selVenture.zone]?.label}`}>
-                    Y{selVenture.y_maturity} · X{selVenture.x_commercialization} · {selVenture.zone}
-                  </p>
-                </div>
-                <button onClick={() => setSelVenture(null)} className="text-slate-600 hover:text-slate-400"><X className="w-3.5 h-3.5" /></button>
-              </div>
-              {selVenture.payload?.description && <p className="text-xs text-slate-400 leading-relaxed">{selVenture.payload.description}</p>}
-              {/* Overlay context for this venture's zone */}
-              {(() => { const ctx = OVERLAY_ZONE[overlay]?.[selVenture.zone]; return ctx ? (
-                <div className="bg-black/20 rounded-lg p-2.5 space-y-1">
-                  <p className={`text-[10px] font-medium ${ZONE_STYLE[selVenture.zone]?.label}`}>{ctx.title}</p>
-                  <p className="text-[10px] text-slate-400">{ctx.milestone}</p>
-                </div>
-              ) : null; })()}
-              {/* NBA */}
-              {(() => { const nba = ZONE_NBA[selVenture.zone]; return nba ? (
-                <p className="text-[10px] text-slate-400 leading-relaxed"><span className="text-slate-500">NBA: </span>{nba.action}</p>
-              ) : null; })()}
-              {Array.isArray(selVenture.payload?.tags) && (selVenture.payload.tags as string[]).length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {(selVenture.payload.tags as string[]).map(t => (
-                    <span key={t} className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400">{t}</span>
-                  ))}
-                </div>
-              )}
-            </>
-          ) : selCell ? (
-            <>
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-xs font-semibold text-slate-300">
-                    {Y_LABELS.find(r => r.n === selCell.y)?.label} × {X_LABELS.find(c => c.n === selCell.x)?.label}
-                  </p>
-                  <p className={`text-[10px] mt-0.5 capitalize ${ZONE_STYLE[computeZone(selCell.y, selCell.x)]?.label}`}>
-                    {computeZone(selCell.y, selCell.x)} zone
-                  </p>
-                </div>
-                <button onClick={() => setSelCell(null)} className="text-slate-600 hover:text-slate-400"><X className="w-3.5 h-3.5" /></button>
-              </div>
-              {/* Overlay context for cell */}
-              {(() => { const z = computeZone(selCell.y, selCell.x); const ctx = OVERLAY_ZONE[overlay]?.[z]; return ctx ? (
-                <div className="bg-black/20 rounded-lg p-2.5 space-y-1">
-                  <p className={`text-[10px] font-medium ${ZONE_STYLE[z]?.label}`}>{ctx.title}</p>
-                  <p className="text-[10px] text-slate-400">{ctx.milestone}</p>
-                  <p className="text-[10px] text-slate-500">KPI: {ctx.kpi}</p>
-                </div>
-              ) : null; })()}
-              {/* Ventures in cell */}
-              {cellVentures(selCell.y, selCell.x).length === 0
-                ? <p className="text-xs text-slate-600 italic">No ventures plotted here.</p>
-                : cellVentures(selCell.y, selCell.x).map(v => (
-                    <button key={v.id} onClick={() => setSelVenture(v)}
-                      className="text-left px-2.5 py-2 rounded-lg bg-slate-800/60 hover:bg-slate-800 transition-all">
-                      <p className="text-xs font-medium text-slate-200">{v.venture_name}</p>
-                      {v.payload?.description && <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-2">{String(v.payload.description)}</p>}
-                    </button>
-                  ))}
-              {isAdmin && (
-                <button onClick={() => onAdd(selCell.y, selCell.x)}
-                  className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-dashed border-white/10 text-xs text-slate-500 hover:text-slate-300 hover:border-white/20 transition-all">
-                  <Plus className="w-3 h-3" />Add venture here
-                </button>
-              )}
-            </>
-          ) : null}
-        </div>
-      )}
-
       {/* Empty state */}
-      {ventures.length === 0 && !selCell && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="text-center pointer-events-auto">
-            <p className="text-sm text-slate-500 mb-3">No ventures plotted yet.</p>
-            <button onClick={onSeedSamples}
-              className="px-4 py-2 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 text-sm transition-all">
-              Load Sample Ventures (MetaKnyt + MetaIye)
-            </button>
-          </div>
+      {ventures.length === 0 && (
+        <div className="mt-8 text-center">
+          <p className="text-sm text-slate-500 mb-3">No ventures plotted yet.</p>
+          <button onClick={onSeedSamples}
+            className="px-4 py-2 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 text-sm transition-all">
+            Load Sample Ventures (MetaKnyt + MetaIye)
+          </button>
         </div>
       )}
     </div>

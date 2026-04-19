@@ -178,3 +178,23 @@ export const SAMPLE_VENTURES: Array<Omit<Venture, 'id' | 'status'>> = [
     },
   },
 ];
+
+// ── Cell prescriptions — 49 cells (y=1..7, x=1..7) ──────────────────────────
+// key: `${y},${x}` — short action label for each matrix intersection
+
+export const CELL_LABEL: Record<string, string> = {
+  '1,1': 'Problem Discovery',  '1,2': 'Market Scan',        '1,3': 'Early Pitch',
+  '1,4': 'Oversold',           '1,5': 'Premature Scale',    '1,6': 'Exposure Risk',    '1,7': 'Off-map',
+  '2,1': 'Build Signal',       '2,2': 'ICP Definition',     '2,3': 'Sales Learning',
+  '2,4': 'Channel Ahead',      '2,5': 'Overextended',       '2,6': 'Scale Debt',       '2,7': 'Reality Reset',
+  '3,1': 'Build Mode',         '3,2': 'Market Test',        '3,3': 'First Deals',
+  '3,4': 'PMF Hunt',           '3,5': 'Channel Risk',       '3,6': 'Scale Trap',       '3,7': 'Off-map',
+  '4,1': 'Distribution Gap',   '4,2': 'Soft Launch',        '4,3': 'Beta Customers',
+  '4,4': 'Traction Signal',    '4,5': 'Overreach',          '4,6': 'Scale Debt',       '4,7': 'Off-map',
+  '5,1': 'Revenue Block',      '5,2': 'GTM Build',          '5,3': 'First Revenue',
+  '5,4': 'Repeat Revenue',     '5,5': 'Channel Scale',      '5,6': 'Category Move',    '5,7': 'Platform Signal',
+  '6,1': 'PMF Bottleneck',     '6,2': 'Distribution Gap',   '6,3': 'Funnel Refinement',
+  '6,4': 'PMF + Growth',       '6,5': 'Scaling PMF',        '6,6': 'Category Leader',  '6,7': 'Platform Expansion',
+  '7,1': 'Scale Block',        '7,2': 'Demand Gen',         '7,3': 'Sales Buildout',
+  '7,4': 'Growth Engine',      '7,5': 'Platform Build',     '7,6': 'Market Scale',     '7,7': 'Market Leader',
+};
