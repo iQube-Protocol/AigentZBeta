@@ -2,7 +2,7 @@
 
 import { Play, Lock, ExternalLink, Video, Sparkles } from "lucide-react";
 import { MarketaSequenceItem } from "@/types/marketaCampaigns";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 interface Props {
   item: MarketaSequenceItem;

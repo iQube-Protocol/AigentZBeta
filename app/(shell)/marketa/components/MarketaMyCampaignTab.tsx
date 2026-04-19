@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { SequenceDayCard } from "./SequenceDayCard";
 import { CampaignCatalogItem, CampaignDetail, CampaignStatusResult, CAMPAIGN_21_AWAKENINGS_ID } from "@/types/marketaCampaigns";
 import { bridgeGet, bridgePost, trackEngagement } from "./bridgeFetch";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utils/cn";
 
 interface Props {
   theme?: "dark" | "light";
