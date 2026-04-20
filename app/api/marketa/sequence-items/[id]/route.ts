@@ -49,23 +49,31 @@ export async function PATCH(
 
   const body = await req.json().catch(() => ({})) as Record<string, unknown>;
 
-  // Whitelist fields
-  const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  // Whitelist fields — no updated_at (column may not exist on this table)
+  const update: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(body)) {
     if (EDITABLE.has(k)) update[k] = v;
   }
 
-  if (Object.keys(update).length === 1) {
+  if (Object.keys(update).length === 0) {
     return NextResponse.json({ ok: false, error: 'No valid fields to update' }, { status: 400 });
   }
 
-  const { data, error } = await client
+  // Update (no .select().single() — avoids "coerce" error on Supabase)
+  const { error: updateError } = await client
     .from('marketa_sequence_items')
     .update(update)
-    .eq('id', params.id)
+    .eq('id', params.id);
+
+  if (updateError) return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 });
+
+  // Re-fetch the updated row cleanly
+  const { data, error: fetchError } = await client
+    .from('marketa_sequence_items')
     .select('*')
+    .eq('id', params.id)
     .single();
 
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  if (fetchError) return NextResponse.json({ ok: true, item: { id: params.id, ...update } });
   return NextResponse.json({ ok: true, item: data });
 }
