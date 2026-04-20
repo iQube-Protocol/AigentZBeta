@@ -3,8 +3,9 @@
  *
  * GET /api/knyt/thumbnails?series=metaKnyts
  *
- * Returns cover_thumb_url and character_poster thumb_url per episode.
- * No auth required — these are Supabase Storage public URLs.
+ * Returns cover_thumb_url (preferred) or decrypting cover proxy URL per episode.
+ * Falls back to /api/content/cover/{cid} for assets not yet thumbnail-generated.
+ * No auth required.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -14,6 +15,7 @@ export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
   const series = req.nextUrl.searchParams.get('series') || 'metaKnyts';
+  const origin = req.nextUrl.origin;
 
   const supabase = getSupabaseServer();
   if (!supabase) {
@@ -22,11 +24,10 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabase
     .from('codex_media_assets')
-    .select('episode_number, asset_kind, cover_thumb_url, rarity_tier, title')
+    .select('episode_number, asset_kind, cover_thumb_url, auto_drive_cid, rarity_tier, title')
     .eq('series', series)
     .eq('status', 'active')
     .in('asset_kind', ['cover_image', 'cover_pdf', 'character_poster'])
-    .not('cover_thumb_url', 'is', null)
     .order('episode_number', { ascending: true })
     .order('asset_kind', { ascending: true }); // cover_image before cover_pdf
 
@@ -37,24 +38,41 @@ export async function GET(req: NextRequest) {
 
   const assets = data ?? [];
 
+  // Resolve thumb URL: prefer CDN thumb, fall back to decrypting cover proxy
+  function resolveThumb(a: { cover_thumb_url: string | null; auto_drive_cid: string | null }): string | null {
+    if (a.cover_thumb_url) return a.cover_thumb_url;
+    if (a.auto_drive_cid) return `${origin}/api/content/cover/${a.auto_drive_cid}`;
+    return null;
+  }
+
   // DB episode_number convention: 0 = GN, 1 = Episode #0, 2 = Episode #1 ... 13 = Episode #12
   // Pricing episodeNumber convention:    -1 = GN, 0 = Episode #0, 1 = Episode #1 ... 12 = Episode #12
   // Offset: pricingEpisodeNumber = dbEpisodeNumber - 1
   const covers = assets
     .filter((a) => a.asset_kind === 'cover_image' || a.asset_kind === 'cover_pdf')
-    .map((a) => ({
-      episodeNumber: (a.episode_number as number) - 1,
-      thumbUrl: a.cover_thumb_url as string,
-      rarityTier: a.rarity_tier as string | null,
-    }));
+    .map((a) => {
+      const thumbUrl = resolveThumb(a);
+      if (!thumbUrl) return null;
+      return {
+        episodeNumber: (a.episode_number as number) - 1,
+        thumbUrl,
+        rarityTier: a.rarity_tier as string | null,
+      };
+    })
+    .filter(Boolean) as { episodeNumber: number; thumbUrl: string; rarityTier: string | null }[];
 
   const characters = assets
     .filter((a) => a.asset_kind === 'character_poster')
-    .map((a) => ({
-      episodeNumber: (a.episode_number as number) - 1,
-      thumbUrl: a.cover_thumb_url as string,
-      title: a.title as string,
-    }));
+    .map((a) => {
+      const thumbUrl = resolveThumb(a);
+      if (!thumbUrl) return null;
+      return {
+        episodeNumber: (a.episode_number as number) - 1,
+        thumbUrl,
+        title: a.title as string,
+      };
+    })
+    .filter(Boolean) as { episodeNumber: number; thumbUrl: string; title: string }[];
 
   return NextResponse.json(
     { covers, characters },

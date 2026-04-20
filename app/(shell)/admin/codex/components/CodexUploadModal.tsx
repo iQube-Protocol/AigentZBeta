@@ -327,7 +327,46 @@ function UploadQueueItem({ item, category, onUpdate, onRemove }: QueueItemProps)
             <p className="mt-1 text-xs text-red-400">{item.error}</p>
           )}
           {item.status === 'success' && item.result && (
-            <p className="mt-1 truncate font-mono text-xs text-green-400">CID: {item.result.cid}</p>
+            <div className="mt-1.5 space-y-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[10px] text-gray-500 shrink-0">CID:</span>
+                <a
+                  href={`/api/content/cover/${item.result.cid}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="truncate font-mono text-[10px] text-cyan-400 hover:text-cyan-300 underline underline-offset-2 max-w-[180px]"
+                  title={item.result.cid}
+                >
+                  {item.result.cid}
+                </a>
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard.writeText(item.result!.cid)}
+                  className="text-[9px] rounded border border-gray-600 bg-gray-700 px-1 py-0.5 text-gray-400 hover:text-white transition-colors shrink-0"
+                >
+                  copy
+                </button>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-gray-500 shrink-0">ID:</span>
+                <span className="font-mono text-[10px] text-green-400">{item.result.id}</span>
+                <button
+                  type="button"
+                  onClick={() => navigator.clipboard.writeText(item.result!.id)}
+                  className="text-[9px] rounded border border-gray-600 bg-gray-700 px-1 py-0.5 text-gray-400 hover:text-white transition-colors shrink-0"
+                >
+                  copy
+                </button>
+              </div>
+              <a
+                href={`/api/content/cover/${item.result.cid}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[10px] text-cyan-400 hover:text-cyan-300 font-medium"
+              >
+                <Image className="h-3 w-3" /> Preview asset →
+              </a>
+            </div>
           )}
           {item.status === 'uploading' && (
             <div className="mt-2 h-1 overflow-hidden rounded-full bg-gray-700">
