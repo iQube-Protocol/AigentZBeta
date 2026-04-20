@@ -80,15 +80,25 @@ export function getEpisodePairPrice(ep: EpisodePricing): number {
   return Math.round(ep.digitalPrice * 2 * 0.8 * 100) / 100;
 }
 
-// Print Provenance: $3 USD or 2 KNYT — provides Common edition cover to KNYT Shelf
+// Print Provenance — episode comics: $3 USD / 2 KNYT; Graphic Novel: $38 USD / 27 KNYT
 export const PRINT_PROVENANCE_PRICE_USD   = 3;
 export const PRINT_PROVENANCE_PRICE_KNYT  = 2;
+export const GN_PROVENANCE_PRICE_USD      = 38;
+export const GN_PROVENANCE_PRICE_KNYT     = 27;
+
+// USD → KNYT conversion rate (1 KNYT = $1.40)
+export const KNYT_USD_RATE = 1.40;
+export function usdToKnyt(usd: number): number {
+  return Math.round((usd / KNYT_USD_RATE) * 100) / 100;
+}
 
 export interface BundlePricing {
   id: string;
   label: string;
   episodes: number[];
   digitalPrice: number;
+  memberPrice?: number;    // persona-gated cohort price (e.g. ZeroKNYT members)
+  memberCohort?: string;   // cohort slug required to unlock memberPrice
   isFullSeason: boolean;
   isInvestorOnly?: boolean;
   isLimited?: boolean;
@@ -136,7 +146,9 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     id: 'zero-knyt-investor',
     label: 'Zero KNYT',
     episodes: [-1,0,1,2,3,4,5,6,7,8,9,10,11,12],
-    digitalPrice: 500,
+    digitalPrice: 1000,
+    memberPrice: 500,
+    memberCohort: 'zero-knyt',
     isFullSeason: false,
     isInvestorOnly: true,
     isLimited: true,
