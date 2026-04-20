@@ -207,6 +207,18 @@ export const KNYT_CODEX: CodexConfig = {
       config: { component: 'KnytStoreBundlesTab' },
       metadata: { icon: 'Package', description: 'Episode bundles and Graphic Novel editions', color: 'cyan' }
     },
+    {
+      id: 'store-admin',
+      label: 'Store Admin',
+      slug: 'store-admin',
+      enabled: true,
+      adminOnly: true,
+      group: 'store',
+      order: 99,
+      type: 'static',
+      config: { component: 'KnytStoreAdminTab' },
+      metadata: { icon: 'Settings', description: 'Admin controls for store pricing and bundles', color: 'indigo' }
+    },
 
     // ── Terra (standalone) ─────────────────────────────────────
     {

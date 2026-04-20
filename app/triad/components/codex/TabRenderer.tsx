@@ -65,6 +65,7 @@ import { QriptopianAdminTab } from "./tabs/QriptopianAdminTab";
 import { KnytStoreEpisodesTab } from "./tabs/KnytStoreEpisodesTab";
 import { KnytStoreCardsTab } from "./tabs/KnytStoreCardsTab";
 import { KnytStoreBundlesTab } from "./tabs/KnytStoreBundlesTab";
+import { KnytStoreAdminTab } from "./tabs/KnytStoreAdminTab";
 import { KnytShelfTab } from "./tabs/KnytShelfTab";
 
 interface TabRendererProps {
@@ -132,6 +133,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   KnytStoreEpisodesTab,
   KnytStoreCardsTab,
   KnytStoreBundlesTab,
+  KnytStoreAdminTab,
   KnytShelfTab,
   RewardsTab: PlaceholderTab,
   DocsTab: PlaceholderTab,
