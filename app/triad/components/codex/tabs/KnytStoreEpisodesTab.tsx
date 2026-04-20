@@ -1,21 +1,35 @@
 'use client';
 
-import React from 'react';
-import { useState } from 'react';
-import { ArrowLeft, BookOpen, Film, Zap } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowLeft, BookOpen, Film, ShoppingCart, Zap } from 'lucide-react';
 import {
   EPISODE_PRICING,
   QRIPTO_SUPPLY,
+  GN_PROVENANCE_PRICE_USD,
+  GN_PROVENANCE_PRICE_KNYT,
+  PRINT_PROVENANCE_PRICE_USD,
+  PRINT_PROVENANCE_PRICE_KNYT,
   getEpisodePairPrice,
   getKnytDiscountedPrice,
   KNYT_COYN_DISCOUNT,
+  usdToKnyt,
   type EpisodePricing,
 } from '@/types/knyt-store';
 import { useKnytThumbnails } from './useKnytThumbnails';
+import { ContentPurchaseModal } from '../../content/ContentPurchaseModal';
+import type { ContentType } from '../../content/ContentPurchaseModal';
 
 interface Props {
   personaId?: string;
   theme?: 'light' | 'dark';
+}
+
+interface PendingPurchase {
+  contentType: ContentType;
+  contentId: string;
+  contentTitle: string;
+  contentImage?: string;
+  priceUsdOverride: number;
 }
 
 // ── GN SKUs — 4 fixed formats (no motion comic for GN) ────────────────────────
@@ -32,10 +46,10 @@ interface GNSku {
 }
 
 const GN_SKUS: GNSku[] = [
-  { id: 'gn-qripto',    label: 'GN Qripto',   sublabel: 'Collectible · Still', price: GN_EP?.qriptoPrice ?? 78,  layer: 'qripto'  },
-  { id: 'gn-digital',   label: 'GN Digital',  sublabel: 'Digital · Still',     price: GN_EP?.digitalPrice ?? 78,  layer: 'digital' },
-  { id: 'gn-paperback', label: 'Paperback',   sublabel: '−1α · Print',        price: GN_EP?.printVariants?.[0]?.price ?? 186, layer: 'print', printVariant: 'paperback' },
-  { id: 'gn-hardcover', label: 'Hardcover',   sublabel: '−1β · Print',        price: GN_EP?.printVariants?.[1]?.price ?? 210, layer: 'print', printVariant: 'hardcover' },
+  { id: 'gn-qripto',    label: 'GN Qripto',   sublabel: 'Collectible · Still', price: GN_EP?.qriptoPrice ?? 78,                  layer: 'qripto'  },
+  { id: 'gn-digital',   label: 'GN Digital',  sublabel: 'Digital · Still',     price: GN_EP?.digitalPrice ?? 78,                 layer: 'digital' },
+  { id: 'gn-paperback', label: 'Paperback',   sublabel: '−1α · Print',        price: GN_EP?.printVariants?.[0]?.price ?? 186,   layer: 'print',  printVariant: 'paperback' },
+  { id: 'gn-hardcover', label: 'Hardcover',   sublabel: '−1β · Print',        price: GN_EP?.printVariants?.[1]?.price ?? 210,   layer: 'print',  printVariant: 'hardcover' },
 ];
 
 // ── View state ────────────────────────────────────────────────────────────────
@@ -67,9 +81,40 @@ function KnytPricePill({ basePrice }: { basePrice: number }) {
   );
 }
 
-// ── GN grid card (4-col, single price) ───────────────────────────────────────
+function CartButton({
+  label,
+  onClick,
+  className,
+}: {
+  label?: string;
+  onClick: (e: React.MouseEvent) => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onClick(e); }}
+      className={`flex items-center gap-1 rounded-lg bg-teal-700/80 hover:bg-teal-600 px-2 py-1 text-[9px] font-semibold text-white transition-colors ${className ?? ''}`}
+    >
+      <ShoppingCart className="h-3 w-3 shrink-0" />
+      {label && <span>{label}</span>}
+    </button>
+  );
+}
 
-function GNGridCard({ sku, thumbUrl, onClick }: { sku: GNSku; thumbUrl?: string; onClick: () => void }) {
+// ── GN grid card (4-col, single price + cart) ────────────────────────────────
+
+function GNGridCard({
+  sku,
+  thumbUrl,
+  onClick,
+  onBuy,
+}: {
+  sku: GNSku;
+  thumbUrl?: string;
+  onClick: () => void;
+  onBuy: (e: React.MouseEvent) => void;
+}) {
   const badgeClass = LAYER_BADGE[sku.layer];
   return (
     <button
@@ -85,22 +130,37 @@ function GNGridCard({ sku, thumbUrl, onClick }: { sku: GNSku; thumbUrl?: string;
             <Film className="h-5 w-5" />
           </div>
         )}
-        <div className={`absolute top-1 right-1 rounded border px-1 py-0.5 text-[7px] font-bold capitalize ${badgeClass}`}>
+        <div className={`absolute top-1 right-1 rounded border px-1.5 py-0.5 text-[9px] font-bold capitalize ${badgeClass}`}>
           {sku.layer}
         </div>
       </div>
-      <div className="px-1.5 pt-1 pb-1.5">
+      <div className="px-1.5 pt-1 pb-1.5 space-y-1">
         <p className="text-[10px] font-semibold text-white leading-tight">{sku.label}</p>
-        <p className="text-[8px] text-slate-500 leading-tight">{sku.sublabel}</p>
-        <p className="text-[11px] font-bold text-white mt-0.5">${sku.price}</p>
+        <p className="text-[9px] text-slate-500 leading-tight">{sku.sublabel}</p>
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] font-bold text-white">${sku.price}</p>
+          <CartButton onClick={onBuy} />
+        </div>
       </div>
     </button>
   );
 }
 
-// ── Episode grid card (4-col, 3-price strip) ─────────────────────────────────
+// ── Episode grid card (4-col, 3-price layout) ─────────────────────────────────
+// Row 1: "Ep. N" left, "Print $X.XX" right
+// Row 2: "Qripto $X" left, "Digital $X" right
 
-function EpisodeGridCard({ ep, thumbUrl, onClick }: { ep: EpisodePricing; thumbUrl?: string; onClick: () => void }) {
+function EpisodeGridCard({
+  ep,
+  thumbUrl,
+  onClick,
+  onBuy,
+}: {
+  ep: EpisodePricing;
+  thumbUrl?: string;
+  onClick: () => void;
+  onBuy: (e: React.MouseEvent) => void;
+}) {
   return (
     <button
       type="button"
@@ -116,12 +176,20 @@ function EpisodeGridCard({ ep, thumbUrl, onClick }: { ep: EpisodePricing; thumbU
           </div>
         )}
       </div>
-      <div className="px-1.5 pt-1 pb-1.5">
-        <p className="text-[10px] font-semibold text-white">Ep. {ep.episodeNumber}</p>
-        <div className="flex justify-between mt-0.5">
-          <span className="text-[7px] text-purple-400">Q ${ep.qriptoPrice}</span>
-          <span className="text-[7px] text-sky-400">D ${ep.digitalPrice}</span>
-          <span className="text-[7px] text-amber-400">P ${ep.printPrice}</span>
+      <div className="px-1.5 pt-1 pb-1.5 space-y-0.5">
+        {/* Row 1: episode number + print price */}
+        <div className="flex items-baseline justify-between">
+          <span className="text-[10px] font-semibold text-white">Ep. {ep.episodeNumber}</span>
+          <span className="text-[10px] font-semibold text-amber-400">Print ${ep.printPrice}</span>
+        </div>
+        {/* Row 2: Qripto + Digital */}
+        <div className="flex items-baseline justify-between">
+          <span className="text-[10px] text-purple-400">Qripto ${ep.qriptoPrice}</span>
+          <span className="text-[10px] text-sky-400">Digital ${ep.digitalPrice}</span>
+        </div>
+        {/* Cart button */}
+        <div className="flex justify-end pt-0.5">
+          <CartButton onClick={onBuy} />
         </div>
       </div>
     </button>
@@ -150,21 +218,19 @@ function PortraitColumn({
           </div>
         )}
       </div>
-      {/* Still preview stub */}
       <div className="rounded-lg border border-white/10 bg-slate-800/40 px-2 py-1.5 flex items-start gap-1.5">
         <BookOpen className="h-3 w-3 text-slate-500 shrink-0 mt-0.5" />
         <div>
-          <p className="text-[9px] text-slate-400 font-medium">Still Preview</p>
-          <p className="text-[8px] text-slate-600">First 5 pages · PDF reader coming soon</p>
+          <p className="text-[10px] text-slate-400 font-medium">Still Preview</p>
+          <p className="text-[9px] text-slate-600">First 5 pages · PDF reader coming soon</p>
         </div>
       </div>
-      {/* Motion preview stub (episodes only) */}
       {showMotionStub && (
         <div className="rounded-lg border border-white/10 bg-slate-800/40 px-2 py-1.5 flex items-start gap-1.5">
           <Film className="h-3 w-3 text-slate-500 shrink-0 mt-0.5" />
           <div>
-            <p className="text-[9px] text-slate-400 font-medium">Motion Preview</p>
-            <p className="text-[8px] text-slate-600">First 45 sec · Video player coming soon</p>
+            <p className="text-[10px] text-slate-400 font-medium">Motion Preview</p>
+            <p className="text-[9px] text-slate-600">First 45 sec · Video player coming soon</p>
           </div>
         </div>
       )}
@@ -174,79 +240,112 @@ function PortraitColumn({
 
 // ── Episode detail — all 3 prices shown simultaneously ───────────────────────
 
-function EpisodeDetail({ ep, thumbUrl }: { ep: EpisodePricing; thumbUrl?: string }) {
+function EpisodeDetail({
+  ep,
+  thumbUrl,
+  onBuy,
+}: {
+  ep: EpisodePricing;
+  thumbUrl?: string;
+  onBuy: (p: PendingPurchase) => void;
+}) {
   const pairPrice = getEpisodePairPrice(ep);
   const amazonUrl = ep.printVariants?.[0]?.amazonUrl;
+  const label = `Episode ${ep.episodeNumber}`;
 
   return (
     <div className="p-3 grid grid-cols-2 gap-3 items-start">
-      <PortraitColumn thumbUrl={thumbUrl} altText={`Episode ${ep.episodeNumber}`} showMotionStub />
+      <PortraitColumn thumbUrl={thumbUrl} altText={label} showMotionStub />
 
       <div className="space-y-2 min-w-0">
-        {/* Header */}
         <div>
-          <p className="text-[9px] text-slate-500 uppercase tracking-wide">Episode {ep.episodeNumber}</p>
+          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Episode {ep.episodeNumber}</p>
           <p className="text-sm font-bold text-white">metaKnyt</p>
         </div>
 
         {/* Qripto */}
         <div className="rounded-xl border border-purple-800/30 bg-purple-900/10 p-2.5 space-y-1.5">
-          <span className="rounded border border-purple-700/40 bg-purple-900/70 px-1.5 py-0.5 text-[7px] font-bold text-purple-300">
-            Qripto
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="rounded border border-purple-700/40 bg-purple-900/70 px-1.5 py-0.5 text-[9px] font-bold text-purple-300">
+              Qripto
+            </span>
+            <span className="text-[8px] text-purple-400/60 italic">Special Introductory Price</span>
+          </div>
           <div className="flex items-baseline gap-1">
             <span className="text-lg font-bold text-white">${ep.qriptoPrice}</span>
-            <span className="text-[9px] text-slate-400">/ modal</span>
+            <span className="text-[10px] text-slate-400">/ modal</span>
           </div>
           <KnytPricePill basePrice={ep.qriptoPrice} />
-          <p className="text-[8px] text-slate-400">
+          <p className="text-[9px] text-slate-400">
             {QRIPTO_SUPPLY.toLocaleString()} total · 18 Legendary · 186 Epic · 1,656 Rare
           </p>
           <div className="flex gap-1">
             <div className="flex-1 rounded bg-slate-800/60 px-1 py-1 text-center">
-              <p className="text-[7px] text-slate-500">Still</p>
+              <p className="text-[9px] text-slate-500">Still</p>
               <p className="text-[10px] font-bold text-white">${ep.qriptoPrice}</p>
             </div>
             <div className="flex-1 rounded bg-slate-800/60 px-1 py-1 text-center">
-              <p className="text-[7px] text-slate-500">Motion</p>
+              <p className="text-[9px] text-slate-500">Motion</p>
               <p className="text-[10px] font-bold text-white">${ep.qriptoPrice}</p>
             </div>
           </div>
+          <CartButton
+            label="Buy Qripto"
+            onClick={() => onBuy({
+              contentType: 'scroll_still',
+              contentId: `episode-${ep.episodeNumber}-qripto`,
+              contentTitle: `${label} — Qripto`,
+              contentImage: thumbUrl,
+              priceUsdOverride: ep.qriptoPrice,
+            })}
+            className="w-full justify-center"
+          />
         </div>
 
         {/* Digital */}
         <div className="rounded-xl border border-sky-800/30 bg-sky-900/10 p-2.5 space-y-1.5">
-          <span className="rounded border border-sky-700/40 bg-sky-900/70 px-1.5 py-0.5 text-[7px] font-bold text-sky-300">
+          <span className="rounded border border-sky-700/40 bg-sky-900/70 px-1.5 py-0.5 text-[9px] font-bold text-sky-300">
             Digital
           </span>
           <div className="flex items-baseline gap-1">
             <span className="text-lg font-bold text-white">${ep.digitalPrice}</span>
-            <span className="text-[9px] text-slate-400">/ modal</span>
+            <span className="text-[10px] text-slate-400">/ modal</span>
           </div>
           <KnytPricePill basePrice={ep.digitalPrice} />
-          <p className="text-[8px] text-slate-400">Unlimited non-Qripto Digital editions</p>
+          <p className="text-[9px] text-slate-400">Unlimited non-Qripto Digital editions</p>
           <div className="flex gap-1">
             <div className="flex-1 rounded bg-slate-800/60 px-1 py-1 text-center">
-              <p className="text-[7px] text-slate-500">Still</p>
+              <p className="text-[9px] text-slate-500">Still</p>
               <p className="text-[10px] font-bold text-white">${ep.digitalPrice}</p>
             </div>
             <div className="flex-1 rounded bg-slate-800/60 px-1 py-1 text-center">
-              <p className="text-[7px] text-slate-500">Motion</p>
+              <p className="text-[9px] text-slate-500">Motion</p>
               <p className="text-[10px] font-bold text-white">${ep.digitalPrice}</p>
             </div>
           </div>
+          <CartButton
+            label="Buy Digital"
+            onClick={() => onBuy({
+              contentType: 'scroll_still',
+              contentId: `episode-${ep.episodeNumber}-digital`,
+              contentTitle: `${label} — Digital`,
+              contentImage: thumbUrl,
+              priceUsdOverride: ep.digitalPrice,
+            })}
+            className="w-full justify-center"
+          />
         </div>
 
         {/* Print */}
         <div className="rounded-xl border border-amber-800/30 bg-amber-900/10 p-2.5 space-y-1.5">
-          <span className="rounded border border-amber-700/40 bg-amber-900/70 px-1.5 py-0.5 text-[7px] font-bold text-amber-300">
-            Print
+          <span className="rounded border border-amber-700/40 bg-amber-900/70 px-1.5 py-0.5 text-[9px] font-bold text-amber-300">
+            Print Paperback
           </span>
           <div className="flex items-baseline gap-1">
             <span className="text-lg font-bold text-white">${ep.printPrice}</span>
-            <span className="text-[9px] text-slate-400">USD</span>
+            <span className="text-[10px] text-slate-400">USD</span>
           </div>
-          <p className="text-[8px] text-slate-400">Unlimited first editions</p>
+          <p className="text-[9px] text-slate-400">Unlimited first editions</p>
           {amazonUrl && (
             <a
               href={amazonUrl}
@@ -257,16 +356,50 @@ function EpisodeDetail({ ep, thumbUrl }: { ep: EpisodePricing; thumbUrl?: string
               <BookOpen className="h-2.5 w-2.5" /> Buy on Amazon →
             </a>
           )}
+          <CartButton
+            label="Buy Print"
+            onClick={() => onBuy({
+              contentType: 'scroll_still',
+              contentId: `episode-${ep.episodeNumber}-print`,
+              contentTitle: `${label} — Print`,
+              contentImage: thumbUrl,
+              priceUsdOverride: ep.printPrice,
+            })}
+            className="w-full justify-center"
+          />
         </div>
 
         {/* Still + Motion Bundle */}
-        <div className="rounded-xl border border-teal-800/30 bg-teal-900/10 p-2.5 space-y-1">
-          <p className="text-[9px] font-semibold text-teal-300">Still + Motion Bundle</p>
+        <div className="rounded-xl border border-teal-800/30 bg-teal-900/10 p-2.5 space-y-1.5">
+          <p className="text-[10px] font-semibold text-teal-300">Still + Motion Bundle</p>
           <div className="flex items-baseline gap-1">
             <span className="text-lg font-bold text-teal-400">${pairPrice}</span>
-            <span className="text-[9px] text-slate-400">USD</span>
+            <span className="text-[10px] text-slate-400">USD</span>
           </div>
-          <p className="text-[8px] text-slate-500">Both modalities together · save 20%</p>
+          <p className="text-[9px] text-slate-500">Both modalities together · save 20%</p>
+          <CartButton
+            label="Buy Bundle"
+            onClick={() => onBuy({
+              contentType: 'scroll_still',
+              contentId: `episode-${ep.episodeNumber}-bundle`,
+              contentTitle: `${label} — Still + Motion`,
+              contentImage: thumbUrl,
+              priceUsdOverride: pairPrice,
+            })}
+            className="w-full justify-center"
+          />
+        </div>
+
+        {/* Print Provenance */}
+        <div className="rounded-lg border border-white/10 bg-slate-800/40 p-2.5 space-y-1">
+          <p className="text-[10px] font-semibold text-slate-300">Print Provenance</p>
+          <div className="flex items-baseline justify-between">
+            <span className="text-[9px] text-slate-400">Register print copy</span>
+            <span className="text-sm font-bold text-amber-400">
+              ${PRINT_PROVENANCE_PRICE_USD}
+              <span className="text-[9px] font-normal text-amber-600"> / {PRINT_PROVENANCE_PRICE_KNYT} KNYT</span>
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -275,7 +408,15 @@ function EpisodeDetail({ ep, thumbUrl }: { ep: EpisodePricing; thumbUrl?: string
 
 // ── GN SKU detail — focused single-format view ────────────────────────────────
 
-function GNSkuDetail({ sku, thumbUrl }: { sku: GNSku; thumbUrl?: string }) {
+function GNSkuDetail({
+  sku,
+  thumbUrl,
+  onBuy,
+}: {
+  sku: GNSku;
+  thumbUrl?: string;
+  onBuy: (p: PendingPurchase) => void;
+}) {
   const isPrint  = sku.layer === 'print';
   const isQripto = sku.layer === 'qripto';
 
@@ -284,63 +425,91 @@ function GNSkuDetail({ sku, thumbUrl }: { sku: GNSku; thumbUrl?: string }) {
       <PortraitColumn thumbUrl={thumbUrl} altText={sku.label} showMotionStub={false} />
 
       <div className="space-y-2.5 min-w-0">
-        {/* Header */}
         <div>
-          <p className="text-[9px] text-slate-500 uppercase tracking-wide">Graphic Novel</p>
+          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Graphic Novel</p>
           <p className="text-sm font-bold text-white">{sku.label}</p>
-          <p className="text-[9px] text-slate-400 mt-0.5">{sku.sublabel}</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">{sku.sublabel}</p>
         </div>
 
-        {/* Price */}
         <div className="rounded-xl border border-white/5 bg-slate-900/60 p-3 space-y-1.5">
+          {isQripto && (
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="rounded border border-purple-700/40 bg-purple-900/70 px-1.5 py-0.5 text-[9px] font-bold text-purple-300">
+                Qripto
+              </span>
+              <span className="text-[8px] text-purple-400/60 italic">Special Introductory Price</span>
+            </div>
+          )}
           <div className="flex items-baseline gap-1.5">
             <span className="text-2xl font-bold text-white">${sku.price}</span>
             <span className="text-[10px] text-slate-400">{isPrint ? 'USD' : 'USD / modal'}</span>
           </div>
           {!isPrint && <KnytPricePill basePrice={sku.price} />}
-          {isPrint && <p className="text-[9px] text-slate-500">Print · no $KNYT COYN discount</p>}
+          {isPrint && <p className="text-[10px] text-slate-500">Print · no $KNYT COYN discount</p>}
         </div>
 
-        {/* Qripto supply */}
         {isQripto && (
           <div className="rounded-xl border border-purple-800/30 bg-purple-900/10 p-2.5">
-            <p className="text-[9px] font-semibold text-purple-300 mb-1">
+            <p className="text-[10px] font-semibold text-purple-300 mb-1">
               {QRIPTO_SUPPLY.toLocaleString()} total editions
             </p>
-            <p className="text-[8px] text-slate-300">18 Legendary · 186 Epic · 1,656 Rare</p>
-            <p className="text-[8px] text-slate-500 mt-0.5">Rarity randomly assigned on reveal</p>
+            <p className="text-[9px] text-slate-300">18 Legendary · 186 Epic · 1,656 Rare</p>
+            <p className="text-[9px] text-slate-500 mt-0.5">Rarity randomly assigned on reveal</p>
           </div>
         )}
 
-        {/* Digital supply */}
         {sku.layer === 'digital' && (
           <div className="rounded-xl border border-sky-800/30 bg-sky-900/10 p-2.5">
-            <p className="text-[9px] text-slate-300">Unlimited non-Qripto Digital editions</p>
+            <p className="text-[10px] text-slate-300">Unlimited non-Qripto Digital editions</p>
           </div>
         )}
 
-        {/* Print edition info */}
         {isPrint && (
           <div className="rounded-xl border border-amber-800/30 bg-amber-900/10 p-2.5">
-            <p className="text-[9px] text-slate-300">Unlimited first edition</p>
-            <p className="text-[8px] text-slate-500 mt-0.5">
+            <p className="text-[10px] text-slate-300">Unlimited first edition</p>
+            <p className="text-[9px] text-slate-500 mt-0.5">
               {sku.printVariant === 'hardcover' ? 'Hardcover (−1β)' : 'Paperback (−1α)'}
             </p>
           </div>
         )}
 
-        {/* Modal */}
         {!isPrint && (
           <div className="rounded-lg border border-white/10 bg-slate-800/40 px-2 py-2">
-            <p className="text-[8px] text-slate-500 mb-1">Modal</p>
+            <p className="text-[9px] text-slate-500 mb-1">Modal</p>
             <div className="flex gap-1">
               <div className="rounded bg-slate-700/60 px-2 py-1 flex items-center gap-1">
                 <BookOpen className="h-2.5 w-2.5 text-slate-400" />
-                <span className="text-[9px] text-slate-300">Still</span>
+                <span className="text-[10px] text-slate-300">Still</span>
               </div>
             </div>
           </div>
         )}
+
+        {/* GN Provenance (print only) */}
+        {isPrint && (
+          <div className="rounded-lg border border-white/10 bg-slate-800/40 p-2.5 space-y-1">
+            <p className="text-[10px] font-semibold text-slate-300">Print Provenance</p>
+            <div className="flex items-baseline justify-between">
+              <span className="text-[9px] text-slate-400">Register print GN</span>
+              <span className="text-sm font-bold text-amber-400">
+                ${GN_PROVENANCE_PRICE_USD}
+                <span className="text-[9px] font-normal text-amber-600"> / {GN_PROVENANCE_PRICE_KNYT} KNYT</span>
+              </span>
+            </div>
+          </div>
+        )}
+
+        <CartButton
+          label={`Buy ${sku.label}`}
+          onClick={(e) => { e.stopPropagation(); onBuy({
+            contentType: isPrint ? 'scroll_still' : 'scroll_still',
+            contentId: `gn-${sku.id}`,
+            contentTitle: `metaKnyt GN — ${sku.label}`,
+            contentImage: thumbUrl,
+            priceUsdOverride: sku.price,
+          }); }}
+          className="w-full justify-center"
+        />
       </div>
     </div>
   );
@@ -348,8 +517,9 @@ function GNSkuDetail({ sku, thumbUrl }: { sku: GNSku; thumbUrl?: string }) {
 
 // ── Root component ────────────────────────────────────────────────────────────
 
-export function KnytStoreEpisodesTab({ personaId: _personaId, theme: _theme }: Props) {
+export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
   const [view, setView] = useState<EpisodesView>({ kind: 'list' });
+  const [purchase, setPurchase] = useState<PendingPurchase | null>(null);
   const { getCoverThumb } = useKnytThumbnails();
 
   const episodes = EPISODE_PRICING
@@ -383,48 +553,91 @@ export function KnytStoreEpisodesTab({ personaId: _personaId, theme: _theme }: P
           <div className="p-2.5 space-y-4">
             {/* Graphic Novel — 4 SKUs, no motion */}
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide px-0.5 mb-2">
+              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide px-0.5 mb-2">
                 Graphic Novel
               </p>
               <div className="grid grid-cols-4 gap-1.5">
-                {GN_SKUS.map((sku) => (
-                  <GNGridCard
-                    key={sku.id}
-                    sku={sku}
-                    thumbUrl={getCoverThumb(-1)}
-                    onClick={() => setView({ kind: 'gn-sku', sku })}
-                  />
-                ))}
+                {GN_SKUS.map((sku) => {
+                  const thumb = getCoverThumb(-1);
+                  return (
+                    <GNGridCard
+                      key={sku.id}
+                      sku={sku}
+                      thumbUrl={thumb}
+                      onClick={() => setView({ kind: 'gn-sku', sku })}
+                      onBuy={() => setPurchase({
+                        contentType: 'scroll_still',
+                        contentId: `gn-${sku.id}`,
+                        contentTitle: `metaKnyt GN — ${sku.label}`,
+                        contentImage: thumb,
+                        priceUsdOverride: sku.price,
+                      })}
+                    />
+                  );
+                })}
               </div>
             </div>
 
             {/* Episodes 0–12 */}
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide px-0.5 mb-2">
+              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide px-0.5 mb-2">
                 Episodes 0–12
               </p>
               <div className="grid grid-cols-4 gap-1.5">
-                {episodes.map((ep) => (
-                  <EpisodeGridCard
-                    key={ep.episodeNumber}
-                    ep={ep}
-                    thumbUrl={getCoverThumb(ep.episodeNumber)}
-                    onClick={() => setView({ kind: 'episode', ep })}
-                  />
-                ))}
+                {episodes.map((ep) => {
+                  const thumb = getCoverThumb(ep.episodeNumber);
+                  return (
+                    <EpisodeGridCard
+                      key={ep.episodeNumber}
+                      ep={ep}
+                      thumbUrl={thumb}
+                      onClick={() => setView({ kind: 'episode', ep })}
+                      onBuy={() => setPurchase({
+                        contentType: 'scroll_still',
+                        contentId: `episode-${ep.episodeNumber}`,
+                        contentTitle: `Episode ${ep.episodeNumber}`,
+                        contentImage: thumb,
+                        priceUsdOverride: ep.digitalPrice,
+                      })}
+                    />
+                  );
+                })}
               </div>
             </div>
           </div>
         )}
 
         {view.kind === 'episode' && (
-          <EpisodeDetail ep={view.ep} thumbUrl={getCoverThumb(view.ep.episodeNumber)} />
+          <EpisodeDetail
+            ep={view.ep}
+            thumbUrl={getCoverThumb(view.ep.episodeNumber)}
+            onBuy={setPurchase}
+          />
         )}
 
         {view.kind === 'gn-sku' && (
-          <GNSkuDetail sku={view.sku} thumbUrl={getCoverThumb(-1)} />
+          <GNSkuDetail
+            sku={view.sku}
+            thumbUrl={getCoverThumb(-1)}
+            onBuy={setPurchase}
+          />
         )}
       </div>
+
+      {/* Purchase modal */}
+      {purchase && (
+        <ContentPurchaseModal
+          open={true}
+          onClose={() => setPurchase(null)}
+          personaId={personaId}
+          contentType={purchase.contentType}
+          contentId={purchase.contentId}
+          contentTitle={purchase.contentTitle}
+          contentImage={purchase.contentImage}
+          priceUsdOverride={purchase.priceUsdOverride}
+          baseKnytOverride={usdToKnyt(purchase.priceUsdOverride)}
+        />
+      )}
     </div>
   );
 }
