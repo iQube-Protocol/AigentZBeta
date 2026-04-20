@@ -5,6 +5,18 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, CheckCircle2, Eye, Loader2, Save, Upload } from 'lucide-react';
 
+// ── Section → codex tab mapping ───────────────────────────────────────────────
+
+const SECTION_TAB_MAP: Record<string, string> = {
+  'home-hero':   'features',
+  'latest-news': 'features',
+  'second-hero': 'features',
+  'pennydrops':  'pennydrops',
+  'scrolls':     'scrolls',
+  '21knowdz':    'kn0wdz',
+  'staybull':    'rewards',
+};
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type Modality = 'read' | 'watch' | 'listen' | 'link';
@@ -306,7 +318,7 @@ export default function EditArticlePage() {
         </div>
         <div className="flex items-center gap-2">
           <Link
-            href={`/content/${section}`}
+            href={`/triad/embed/codex/qripto?tab=${SECTION_TAB_MAP[section] ?? 'features'}`}
             target="_blank"
             className="flex items-center gap-2 rounded-lg border border-gray-700 px-3 py-2 text-sm text-gray-300 hover:border-gray-500 hover:text-white"
           >

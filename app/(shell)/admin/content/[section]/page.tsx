@@ -37,14 +37,14 @@ interface ContentItem {
 
 // ── Section labels ────────────────────────────────────────────────────────────
 
-const SECTION_META: Record<string, { label: string; description: string }> = {
-  'home-hero':   { label: 'Home Hero Articles',  description: 'Manage the 3 main hero articles' },
-  'latest-news': { label: 'Latest News',          description: 'Manage the news carousel articles' },
-  'second-hero': { label: 'Second Hero',          description: 'Manage the bottom featured article' },
-  'pennydrops':  { label: 'PennyDrops',           description: 'Manage financial insight articles' },
-  'scrolls':     { label: 'Scrolls',              description: 'Manage metaKnyts & The SynthSims scrolls' },
-  '21knowdz':    { label: 'Kn0wdZ',               description: 'Manage Dev & Creative resources' },
-  'staybull':    { label: 'StayBull',             description: 'Manage market update articles' },
+const SECTION_META: Record<string, { label: string; description: string; previewTab: string }> = {
+  'home-hero':   { label: 'Home Hero Articles',  description: 'Manage the 3 main hero articles',              previewTab: 'features'   },
+  'latest-news': { label: 'Latest News',          description: 'Manage the news carousel articles',            previewTab: 'features'   },
+  'second-hero': { label: 'Second Hero',          description: 'Manage the bottom featured article',           previewTab: 'features'   },
+  'pennydrops':  { label: 'PennyDrops',           description: 'Manage financial insight articles',            previewTab: 'pennydrops' },
+  'scrolls':     { label: 'Scrolls',              description: 'Manage metaKnyts & The SynthSims scrolls',    previewTab: 'scrolls'    },
+  '21knowdz':    { label: 'Kn0wdZ',               description: 'Manage Dev & Creative resources',              previewTab: 'kn0wdz'     },
+  'staybull':    { label: 'StayBull',             description: 'Manage market update articles',                previewTab: 'rewards'    },
 };
 
 // ── Modality chips ────────────────────────────────────────────────────────────
@@ -140,7 +140,7 @@ function ArticleRow({
         ) : (
           <>
             <Link
-              href={`/content/${section}`}
+              href={`/triad/embed/codex/qripto?tab=${SECTION_META[section]?.previewTab ?? 'features'}`}
               target="_blank"
               className="rounded-lg p-2 text-gray-400 hover:bg-[#1e2a3a] hover:text-white"
               title="Preview on site"
