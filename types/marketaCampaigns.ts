@@ -1,6 +1,6 @@
 export type CampaignType = "wpp" | "custom" | "sequence";
 export type CampaignStatus = "draft" | "active" | "paused" | "archived";
-export type CampaignItemStatus = "pending" | "sent" | "viewed" | "clicked" | "locked" | "available" | "completed";
+export type CampaignItemStatus = "locked" | "draft" | "ready" | "viewed" | "clicked";
 
 export interface MarketaCampaign {
   id: string;
