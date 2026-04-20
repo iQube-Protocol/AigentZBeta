@@ -10,8 +10,16 @@ interface Props {
   size?: "sm" | "lg";
   onAssetClick?: (item: MarketaSequenceItem) => void;
   onCtaClick?: (item: MarketaSequenceItem) => void;
-  /** Called when the user clicks Play/Watch — parent opens in-app player */
+  /** Called when the user clicks Watch — parent opens in-app player (only for video files) */
   onPlay?: (item: MarketaSequenceItem) => void;
+}
+
+// Supabase storage URLs and direct video files can be played by <video>
+function isDirectVideoUrl(url: string): boolean {
+  return (
+    url.includes("supabase.co/storage") ||
+    /\.(mp4|webm|ogg|mov|m3u8)(\?|$)/i.test(url)
+  );
 }
 
 export function SequenceDayCard({ item, theme = "dark", size = "sm", onAssetClick, onCtaClick, onPlay }: Props) {
@@ -20,8 +28,11 @@ export function SequenceDayCard({ item, theme = "dark", size = "sm", onAssetClic
   const rawThumb = item.thumbnail_url;
   const thumbnail = (rawThumb && !rawThumb.startsWith("smart_content_qubes:")) ? rawThumb : "/placeholder.svg";
   const isLg = size === "lg";
-  // A smart_content_qubes: token is not a navigable URL — only real URLs are playable
-  const hasPlayableUrl = !!item.cta_url && !item.cta_url.startsWith("smart_content_qubes:");
+
+  const ctaUrl = item.cta_url;
+  const hasRealUrl = !!ctaUrl && !ctaUrl.startsWith("smart_content_qubes:");
+  const hasVideoUrl = hasRealUrl && isDirectVideoUrl(ctaUrl!);
+  const hasExternalUrl = hasRealUrl && !hasVideoUrl;
 
   const statusColor =
     item.status === "ready"   ? (dark ? "text-emerald-400" : "text-emerald-600") :
@@ -29,10 +40,16 @@ export function SequenceDayCard({ item, theme = "dark", size = "sm", onAssetClic
     item.status === "clicked" ? (dark ? "text-rose-400"    : "text-rose-600")    :
                                 (dark ? "text-white/30"    : "text-black/30");
 
-  function handlePlay(e: React.MouseEvent) {
+  function handleWatch(e: React.MouseEvent) {
     e.stopPropagation();
     onPlay?.(item);
     onCtaClick?.(item);
+  }
+
+  function handleExternal(e: React.MouseEvent) {
+    e.stopPropagation();
+    onCtaClick?.(item);
+    window.open(ctaUrl!, "_blank", "noopener,noreferrer");
   }
 
   return (
@@ -59,10 +76,10 @@ export function SequenceDayCard({ item, theme = "dark", size = "sm", onAssetClic
           onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder.svg"; }}
         />
 
-        {/* Play overlay — only when there's a real playable URL */}
-        {!locked && hasPlayableUrl && (
+        {/* Play overlay — video files open in-app, external links open in tab */}
+        {!locked && hasRealUrl && (
           <button
-            onClick={handlePlay}
+            onClick={hasVideoUrl ? handleWatch : handleExternal}
             className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity"
           >
             <Play className="w-6 h-6 text-rose-400 fill-rose-400" />
@@ -103,10 +120,10 @@ export function SequenceDayCard({ item, theme = "dark", size = "sm", onAssetClic
         </div>
 
         {/* Actions */}
-        {!locked && hasPlayableUrl && (
+        {!locked && hasRealUrl && (
           <div className="flex items-center gap-2 mt-2">
             <button
-              onClick={(e) => { e.stopPropagation(); onAssetClick?.(item); onPlay?.(item); }}
+              onClick={(e) => { e.stopPropagation(); onAssetClick?.(item); window.open(ctaUrl!, "_blank", "noopener,noreferrer"); }}
               className={cn(
                 "flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-colors",
                 dark ? "border-white/10 text-white/60 hover:text-white/90 hover:border-white/20" : "border-black/10 text-black/50 hover:text-black/80"
@@ -115,18 +132,20 @@ export function SequenceDayCard({ item, theme = "dark", size = "sm", onAssetClic
               <ExternalLink className="w-3 h-3" />
               View
             </button>
-            <button
-              onClick={handlePlay}
-              className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-rose-500/50 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 transition-colors backdrop-blur-sm"
-            >
-              <Video className="w-3 h-3" />
-              Watch
-            </button>
+            {hasVideoUrl && (
+              <button
+                onClick={handleWatch}
+                className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-rose-500/50 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 transition-colors backdrop-blur-sm"
+              >
+                <Video className="w-3 h-3" />
+                Watch
+              </button>
+            )}
           </div>
         )}
 
         {/* Token ref — not yet linked to a playable URL */}
-        {!locked && !hasPlayableUrl && item.cta_url?.startsWith("smart_content_qubes:") && (
+        {!locked && !hasRealUrl && ctaUrl?.startsWith("smart_content_qubes:") && (
           <span className={cn("text-[10px] mt-2", dark ? "text-white/25" : "text-black/25")}>
             Content pending link
           </span>
