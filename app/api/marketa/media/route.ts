@@ -52,6 +52,18 @@ export async function GET(req: NextRequest) {
     if (v) resHeaders.set(h, v);
   }
 
+  // Supabase returns application/octet-stream for uppercase extensions (.MP4, .JPG).
+  // Force the correct MIME type so <video> and <img> elements accept the response.
+  const upstreamType = upstream.headers.get("content-type") ?? "";
+  if (!upstreamType || upstreamType === "application/octet-stream") {
+    const ext = raw.split("?")[0].split(".").pop()?.toLowerCase();
+    const mime: Record<string, string> = {
+      mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime", ogg: "video/ogg",
+      jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp",
+    };
+    if (ext && mime[ext]) resHeaders.set("content-type", mime[ext]);
+  }
+
   // Ensure Accept-Ranges is set so browsers attempt range requests for seeking
   if (!resHeaders.has("accept-ranges")) {
     resHeaders.set("accept-ranges", "bytes");
