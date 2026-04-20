@@ -10,19 +10,29 @@ interface Props {
   size?: "sm" | "lg";
   onAssetClick?: (item: MarketaSequenceItem) => void;
   onCtaClick?: (item: MarketaSequenceItem) => void;
+  /** Called when the user clicks Play/Watch — parent opens in-app player */
+  onPlay?: (item: MarketaSequenceItem) => void;
 }
 
-export function SequenceDayCard({ item, theme = "dark", size = "sm", onAssetClick, onCtaClick }: Props) {
+export function SequenceDayCard({ item, theme = "dark", size = "sm", onAssetClick, onCtaClick, onPlay }: Props) {
   const dark = theme === "dark";
   const locked = item.status === "locked" || item.status === "draft";
   const thumbnail = item.thumbnail_url || "/placeholder.svg";
   const isLg = size === "lg";
+  // A smart_content_qubes: token is not a navigable URL — only real URLs are playable
+  const hasPlayableUrl = !!item.cta_url && !item.cta_url.startsWith("smart_content_qubes:");
 
   const statusColor =
     item.status === "ready"   ? (dark ? "text-emerald-400" : "text-emerald-600") :
     item.status === "viewed"  ? (dark ? "text-sky-400"     : "text-sky-600")     :
     item.status === "clicked" ? (dark ? "text-rose-400"    : "text-rose-600")    :
                                 (dark ? "text-white/30"    : "text-black/30");
+
+  function handlePlay(e: React.MouseEvent) {
+    e.stopPropagation();
+    onPlay?.(item);
+    onCtaClick?.(item);
+  }
 
   return (
     <div
@@ -48,10 +58,10 @@ export function SequenceDayCard({ item, theme = "dark", size = "sm", onAssetClic
           onError={(e) => { (e.target as HTMLImageElement).src = "/placeholder.svg"; }}
         />
 
-        {/* Play overlay */}
-        {!locked && item.cta_url && (
+        {/* Play overlay — only when there's a real playable URL */}
+        {!locked && hasPlayableUrl && (
           <button
-            onClick={() => { onAssetClick?.(item); window.open(item.cta_url!, "_blank", "noopener"); }}
+            onClick={handlePlay}
             className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity"
           >
             <Play className="w-6 h-6 text-rose-400 fill-rose-400" />
@@ -92,26 +102,33 @@ export function SequenceDayCard({ item, theme = "dark", size = "sm", onAssetClic
         </div>
 
         {/* Actions */}
-        {!locked && item.cta_url && (
+        {!locked && hasPlayableUrl && (
           <div className="flex items-center gap-2 mt-2">
             <button
-              onClick={() => { onAssetClick?.(item); window.open(item.cta_url!, "_blank", "noopener"); }}
+              onClick={(e) => { e.stopPropagation(); onAssetClick?.(item); onPlay?.(item); }}
               className={cn(
                 "flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-colors",
                 dark ? "border-white/10 text-white/60 hover:text-white/90 hover:border-white/20" : "border-black/10 text-black/50 hover:text-black/80"
               )}
             >
               <ExternalLink className="w-3 h-3" />
-              View Asset
+              View
             </button>
             <button
-              onClick={() => { onCtaClick?.(item); window.open(item.cta_url!, "_blank", "noopener"); }}
-              className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-rose-500 text-white hover:bg-rose-600 transition-colors"
+              onClick={handlePlay}
+              className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-rose-500/50 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 transition-colors backdrop-blur-sm"
             >
               <Video className="w-3 h-3" />
               Watch
             </button>
           </div>
+        )}
+
+        {/* Token ref — not yet linked to a playable URL */}
+        {!locked && !hasPlayableUrl && item.cta_url?.startsWith("smart_content_qubes:") && (
+          <span className={cn("text-[10px] mt-2", dark ? "text-white/25" : "text-black/25")}>
+            Content pending link
+          </span>
         )}
       </div>
     </div>
