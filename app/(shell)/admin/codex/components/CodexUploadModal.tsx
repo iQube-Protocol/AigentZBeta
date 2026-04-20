@@ -51,7 +51,7 @@ interface UploadItem {
   error?: string;
   result?: { id: string; cid: string };
   variantName?: string;
-  rarityTier?: 'legendary' | 'rare' | 'common';
+  rarityTier?: 'legendary' | 'epic' | 'rare' | 'common';
   editionMax?: number;
   editionTier?: EditionTier;
   displayMode?: DisplayMode;
@@ -157,8 +157,9 @@ const ASSET_CATEGORIES: {
 
 const RARITY_TIERS = [
   { value: 'legendary' as const, label: 'Legendary', color: 'text-yellow-400' },
-  { value: 'rare' as const, label: 'Rare', color: 'text-purple-400' },
-  { value: 'common' as const, label: 'Common', color: 'text-gray-400' },
+  { value: 'epic' as const,      label: 'Epic',      color: 'text-purple-400' },
+  { value: 'rare' as const,      label: 'Rare',      color: 'text-blue-400'   },
+  { value: 'common' as const,    label: 'Common',    color: 'text-gray-400'   },
 ];
 
 const EDITION_TIERS = [
@@ -287,7 +288,7 @@ function UploadQueueItem({ item, category, onUpdate, onRemove }: QueueItemProps)
               />
               <select
                 value={item.rarityTier ?? 'common'}
-                onChange={(e) => onUpdate({ rarityTier: e.target.value as 'legendary' | 'rare' | 'common' })}
+                onChange={(e) => onUpdate({ rarityTier: e.target.value as 'legendary' | 'epic' | 'rare' | 'common' })}
                 className="rounded border border-gray-600 bg-gray-700 px-2 py-1 text-sm text-white"
               >
                 {RARITY_TIERS.map((t) => (
