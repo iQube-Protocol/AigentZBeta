@@ -182,30 +182,30 @@ export const KNYT_CODEX: CodexConfig = {
       group: 'store',
       order: 0,
       type: 'static',
-      config: { component: 'PlaceholderTab', props: { title: 'Episodes', description: 'KNYT episode drops — coming soon' } },
+      config: { component: 'KnytStoreEpisodesTab' },
       metadata: { icon: 'Film', description: 'Episode drops and collectibles', color: 'cyan' }
     },
     {
       id: 'store-characters',
-      label: 'Characters',
+      label: 'KNYT Cards',
       slug: 'store-characters',
       enabled: true,
       group: 'store',
       order: 1,
       type: 'static',
-      config: { component: 'PlaceholderTab', props: { title: 'Characters', description: 'KNYT character collectibles — coming soon' } },
-      metadata: { icon: 'UserSquare', description: 'Character collectibles', color: 'cyan' }
+      config: { component: 'KnytStoreCardsTab' },
+      metadata: { icon: 'UserSquare', description: 'KNYT Cards — digital, physical, and Qripto packs', color: 'cyan' }
     },
     {
       id: 'store-bundles',
-      label: 'Bundles',
+      label: 'Bundles & GN',
       slug: 'store-bundles',
       enabled: true,
       group: 'store',
       order: 2,
       type: 'static',
-      config: { component: 'PlaceholderTab', props: { title: 'Bundles', description: 'KNYT bundle offers — coming soon' } },
-      metadata: { icon: 'Package', description: 'Bundle offers', color: 'cyan' }
+      config: { component: 'KnytStoreBundlesTab' },
+      metadata: { icon: 'Package', description: 'Episode bundles and Graphic Novel editions', color: 'cyan' }
     },
 
     // ── Terra (standalone) ─────────────────────────────────────
@@ -285,16 +285,16 @@ export const KNYT_CODEX: CodexConfig = {
     },
     {
       id: 'shelf',
-      label: 'Shelf',
+      label: 'KNYT Shelf',
       slug: 'shelf',
       enabled: true,
       group: 'order-group',
       order: 3,
       type: 'static',
-      config: { component: 'PlaceholderTab', props: { title: 'Shelf', description: "Your library of owned KNYT items — coming soon" } },
+      config: { component: 'KnytShelfTab' },
       metadata: {
         icon: 'Library',
-        description: "Active persona's owned codex items library",
+        description: "Owned codex, cartridge, and provenance assets — your KNYT library",
         color: 'indigo'
       }
     },
