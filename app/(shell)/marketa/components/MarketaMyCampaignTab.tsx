@@ -10,7 +10,7 @@ import { SequenceDayCard } from "./SequenceDayCard";
 import { PartnerJourneySteps } from "./PartnerJourneySteps";
 import { VideoModal, VideoItem } from "@agentiq/smarttriad";
 import { CampaignCatalogItem, CampaignDetail, CampaignStatusResult, CAMPAIGN_21_AWAKENINGS_ID, MarketaSequenceItem } from "@/types/marketaCampaigns";
-import { bridgeGet, bridgePost, trackEngagement } from "./bridgeFetch";
+import { bridgeGet, bridgePost, trackEngagement, storageUrl } from "./bridgeFetch";
 import { cn } from "@/utils/cn";
 
 interface Props {
@@ -252,7 +252,7 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
   function buildPlaylist(sourceItems: MarketaSequenceItem[]) {
     return sourceItems
       .filter((i) => i.cta_url && !i.cta_url.startsWith("smart_content_qubes:") && isDirectVideo(i.cta_url))
-      .map((i) => ({ id: i.id, title: `Day ${i.day_number} — ${i.title}`, videoUrl: i.cta_url! }));
+      .map((i) => ({ id: i.id, title: `Day ${i.day_number} — ${i.title}`, videoUrl: storageUrl(i.cta_url) ?? i.cta_url! }));
   }
 
   function openPlayer(item: MarketaSequenceItem) {
