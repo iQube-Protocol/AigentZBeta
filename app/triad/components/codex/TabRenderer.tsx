@@ -62,6 +62,10 @@ import { VentureLabGrowthMatrixTab } from "./tabs/VentureLabGrowthMatrixTab";
 import { VentureLabPortfolioTab } from "./tabs/VentureLabPortfolioTab";
 import { QriptopianEditTab } from "./tabs/QriptopianEditTab";
 import { QriptopianAdminTab } from "./tabs/QriptopianAdminTab";
+import { KnytStoreEpisodesTab } from "./tabs/KnytStoreEpisodesTab";
+import { KnytStoreCardsTab } from "./tabs/KnytStoreCardsTab";
+import { KnytStoreBundlesTab } from "./tabs/KnytStoreBundlesTab";
+import { KnytShelfTab } from "./tabs/KnytShelfTab";
 
 interface TabRendererProps {
   tab: CodexTab;
@@ -125,6 +129,10 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   VentureLabPortfolioTab,
   QriptopianEditTab,
   QriptopianAdminTab,
+  KnytStoreEpisodesTab,
+  KnytStoreCardsTab,
+  KnytStoreBundlesTab,
+  KnytShelfTab,
   RewardsTab: PlaceholderTab,
   DocsTab: PlaceholderTab,
   APITab: PlaceholderTab,
