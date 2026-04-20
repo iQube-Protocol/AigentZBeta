@@ -2,6 +2,18 @@ import { DEFAULT_PERSONA, DEFAULT_TENANT } from "@/types/marketaCampaigns";
 
 const BRIDGE_BASE = "/api/marketa/lvb/bridge";
 
+/**
+ * Proxy Supabase storage URLs through our own origin to avoid
+ * OpaqueResponseBlocking / CORS issues in <video> and <img> elements.
+ */
+export function storageUrl(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  if (url.includes("supabase.co/storage")) {
+    return `/api/marketa/media?url=${encodeURIComponent(url)}`;
+  }
+  return url;
+}
+
 function bridgeHeaders(personaId: string): Record<string, string> {
   return {
     "Content-Type": "application/json",

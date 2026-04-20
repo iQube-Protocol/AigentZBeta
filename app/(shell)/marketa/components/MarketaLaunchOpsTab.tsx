@@ -182,7 +182,7 @@ function WeekCard({
   updatingTask: string | null;
   isDark: boolean;
 }) {
-  const [expanded, setExpanded] = useState(week.status === 'doing');
+  const [expanded, setExpanded] = useState(false);
   const s = th(isDark);
   const done = week.tasks.filter((t) => t.status === 'done').length;
   const total = week.tasks.length;

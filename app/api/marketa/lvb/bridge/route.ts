@@ -245,11 +245,11 @@ async function getCampaignCatalogForTenant(tenantId: string): Promise<NextRespon
     return NextResponse.json({ error: 'Failed to fetch joined campaigns' }, { status: 500 });
   }
 
-  // "Available" campaigns (active, owned by agq-tenant) - simple catalog
+  // "Available" campaigns — include draft/ready so partners see campaigns before they go fully live
   const { data: available, error: availableError } = await marketa
     .from('marketa_campaigns')
     .select('*')
-    .eq('status', 'active')
+    .in('status', ['active', 'ready', 'draft'])
     .order('created_at', { ascending: false })
     .limit(200);
 
@@ -280,7 +280,7 @@ async function getCampaignDetailForTenant(tenantId: string, campaignId: string):
 
   const { data: sequenceItems, error: seqError } = await marketa
     .from('marketa_sequence_items')
-    .select('day_number,title,description,asset_ref,cta_url,explainer,status,thumbnail_url,duration_seconds,tags')
+    .select('id,campaign_id,day_number,title,description,asset_ref,cta_url,explainer,status,thumbnail_url,duration_seconds,tags')
     .eq('campaign_id', campaignId)
     .order('day_number', { ascending: true });
 
