@@ -280,7 +280,7 @@ async function getCampaignDetailForTenant(tenantId: string, campaignId: string):
 
   const { data: sequenceItems, error: seqError } = await marketa
     .from('marketa_sequence_items')
-    .select('day_number,title,description,asset_ref,cta_url,explainer,status,thumbnail_url,duration_seconds,tags')
+    .select('id,campaign_id,day_number,title,description,asset_ref,cta_url,explainer,status,thumbnail_url,duration_seconds,tags')
     .eq('campaign_id', campaignId)
     .order('day_number', { ascending: true });
 

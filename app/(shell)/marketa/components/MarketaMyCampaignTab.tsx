@@ -245,10 +245,13 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
   const available = catalog.filter((c) => !c.is_joined);
   const joined    = catalog.filter((c) => c.is_joined);
 
-  // Build VideoItem playlist from playable sequence items (real URLs only)
+  // Only direct video files (Supabase storage or known video extensions) go into the VideoModal playlist
+  function isDirectVideo(url: string) {
+    return url.includes("supabase.co/storage") || /\.(mp4|webm|ogg|mov|m3u8)(\?|$)/i.test(url);
+  }
   function buildPlaylist(sourceItems: MarketaSequenceItem[]) {
     return sourceItems
-      .filter((i) => i.cta_url && !i.cta_url.startsWith("smart_content_qubes:"))
+      .filter((i) => i.cta_url && !i.cta_url.startsWith("smart_content_qubes:") && isDirectVideo(i.cta_url))
       .map((i) => ({ id: i.id, title: `Day ${i.day_number} — ${i.title}`, videoUrl: i.cta_url! }));
   }
 
