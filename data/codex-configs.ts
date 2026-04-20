@@ -602,6 +602,23 @@ export const QRIPTO_CODEX: CodexConfig = {
         description: 'Create, edit and publish articles to the Qriptopian cartridge',
         color: 'indigo'
       }
+    },
+    {
+      id: 'admin',
+      label: 'Admin',
+      slug: 'admin',
+      enabled: true,
+      adminOnly: true,
+      order: 8,
+      type: 'static',
+      config: {
+        component: 'QriptopianAdminTab'
+      },
+      metadata: {
+        icon: 'Settings',
+        description: 'Content management admin portal',
+        color: 'indigo'
+      }
     }
   ],
   permissions: {
