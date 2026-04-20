@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowLeft, BookOpen, Package, Zap } from 'lucide-react';
+import { ArrowLeft, BookOpen, Crown, Lock, Package, Sparkles, Zap } from 'lucide-react';
 import {
   BUNDLE_PRICING,
   GRAPHIC_NOVEL_PRICING,
@@ -35,19 +35,31 @@ function KnytPricePill({ basePrice }: { basePrice: number }) {
   );
 }
 
-function BundleDetail({ bundle, onBack }: { bundle: BundlePricing; onBack: () => void }) {
+function BundleDetail({ bundle, onBack: _onBack }: { bundle: BundlePricing; onBack: () => void }) {
   const includedEpisodes = EPISODE_PRICING.filter((ep) => bundle.episodes.includes(ep.episodeNumber));
 
   return (
     <div className="p-4 space-y-5">
       <div>
-        <p className="text-xs text-slate-500 mb-0.5">Episode Bundle</p>
+        <p className="text-xs text-slate-500 mb-0.5">{bundle.isInvestorOnly ? 'Investor Bundle' : 'Episode Bundle'}</p>
         <h2 className="text-xl font-bold text-white">{bundle.label}</h2>
-        {bundle.isFullSeason && (
-          <span className="mt-1 inline-block rounded-full bg-teal-900/40 border border-teal-700/40 px-2 py-0.5 text-[10px] font-semibold text-teal-400">
-            Full Season
-          </span>
-        )}
+        <div className="flex flex-wrap gap-1.5 mt-1">
+          {bundle.isFullSeason && (
+            <span className="rounded-full bg-teal-900/40 border border-teal-700/40 px-2 py-0.5 text-[10px] font-semibold text-teal-400">
+              Full Season
+            </span>
+          )}
+          {bundle.isInvestorOnly && (
+            <span className="rounded-full bg-yellow-900/40 border border-yellow-700/40 px-2 py-0.5 text-[10px] font-semibold text-yellow-400">
+              Investor Only
+            </span>
+          )}
+          {bundle.isLimited && bundle.limitedSupply && (
+            <span className="rounded-full bg-red-900/40 border border-red-700/40 px-2 py-0.5 text-[10px] font-semibold text-red-400">
+              Limited — {bundle.limitedSupply} units
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Pricing */}
@@ -62,6 +74,31 @@ function BundleDetail({ bundle, onBack }: { bundle: BundlePricing; onBack: () =>
           <p className="text-xs text-amber-300">{getPrintFulfillmentMessage(false)}</p>
         </div>
       </div>
+
+      {/* Investor includes list */}
+      {bundle.includes && bundle.includes.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-slate-300 mb-2">What's Included</p>
+          <div className="space-y-1">
+            {bundle.includes.map((item, i) => (
+              <div key={i} className="flex items-start gap-2 text-xs text-slate-300">
+                <span className="text-yellow-400 shrink-0 mt-0.5">•</span>
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {bundle.accessGrant && (
+        <div className="rounded-xl border border-yellow-700/30 bg-yellow-900/10 p-3 flex items-start gap-2">
+          <Crown className="h-4 w-4 text-yellow-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-xs font-semibold text-yellow-300">Order of Metaiye Access</p>
+            <p className="text-xs text-slate-400 mt-0.5">Grants instant Zero KNYT tier access upon purchase.</p>
+          </div>
+        </div>
+      )}
 
       {/* Included episodes */}
       <div>
@@ -96,7 +133,7 @@ function BundleDetail({ bundle, onBack }: { bundle: BundlePricing; onBack: () =>
   );
 }
 
-function GnDetail({ option, onBack }: { option: GraphicNovelPricing; onBack: () => void }) {
+function GnDetail({ option, onBack: _onBack }: { option: GraphicNovelPricing; onBack: () => void }) {
   const isPrint  = option.layer === 'print';
   const isQripto = option.layer === 'qripto';
 
@@ -127,6 +164,17 @@ function GnDetail({ option, onBack }: { option: GraphicNovelPricing; onBack: () 
         </div>
       )}
 
+      {isPrint && option.amazonUrl && (
+        <a
+          href={option.amazonUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 rounded-xl border border-amber-700/40 bg-amber-900/10 py-3 text-sm font-semibold text-amber-300 hover:bg-amber-800/20 transition-colors"
+        >
+          <BookOpen className="h-4 w-4" /> Buy on Amazon
+        </a>
+      )}
+
       {isPrint && (
         <div className="rounded-xl border border-white/5 bg-slate-800/40 p-3 flex items-start gap-2">
           <BookOpen className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
@@ -143,7 +191,10 @@ function GnDetail({ option, onBack }: { option: GraphicNovelPricing; onBack: () 
   );
 }
 
-export function KnytStoreBundlesTab({ personaId, theme }: Props) {
+const publicBundles = BUNDLE_PRICING.filter((b) => !b.isInvestorOnly);
+const investorBundles = BUNDLE_PRICING.filter((b) => b.isInvestorOnly);
+
+export function KnytStoreBundlesTab({ personaId: _personaId, theme: _theme }: Props) {
   const [view, setView] = useState<BundleView>({ kind: 'landing' });
 
   const headerLabel =
@@ -176,7 +227,7 @@ export function KnytStoreBundlesTab({ personaId, theme }: Props) {
             <div>
               <p className="text-xs font-semibold text-slate-300 mb-3">Episode Bundles</p>
               <div className="space-y-2">
-                {BUNDLE_PRICING.map((bundle) => (
+                {publicBundles.map((bundle) => (
                   <button
                     key={bundle.id}
                     type="button"
@@ -199,6 +250,45 @@ export function KnytStoreBundlesTab({ personaId, theme }: Props) {
                     <div className="text-right">
                       <p className="text-xl font-bold text-white">${bundle.digitalPrice}</p>
                       <p className="text-xs text-slate-500">{bundle.episodes.length} eps</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Investor bundles */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <p className="text-xs font-semibold text-slate-300">Investor Bundles</p>
+                <Lock className="h-3 w-3 text-yellow-500" />
+              </div>
+              <div className="rounded-xl border border-yellow-800/30 bg-yellow-900/10 px-3 py-2 mb-3 flex items-start gap-2">
+                <Sparkles className="h-3.5 w-3.5 text-yellow-400 shrink-0 mt-0.5" />
+                <p className="text-[10px] text-yellow-300">Token-gated. Requires investor access to unlock.</p>
+              </div>
+              <div className="space-y-2">
+                {investorBundles.map((bundle) => (
+                  <button
+                    key={bundle.id}
+                    type="button"
+                    onClick={() => setView({ kind: 'bundle-detail', bundle })}
+                    className="w-full flex items-center justify-between rounded-xl border border-yellow-800/30 bg-slate-900/60 p-4 hover:border-yellow-600/40 hover:bg-slate-800/60 transition-colors opacity-80 hover:opacity-100"
+                  >
+                    <div className="text-left">
+                      <div className="flex items-center gap-2">
+                        <Crown className="h-3.5 w-3.5 text-yellow-500 shrink-0" />
+                        <p className="text-sm font-semibold text-white">{bundle.label}</p>
+                        {bundle.isLimited && bundle.limitedSupply && (
+                          <span className="rounded-full bg-red-900/40 border border-red-700/40 px-2 py-0.5 text-[10px] font-semibold text-red-400">
+                            Limited {bundle.limitedSupply}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">{bundle.episodes.length} items</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xl font-bold text-white">${bundle.digitalPrice}</p>
+                      <p className="text-[10px] text-yellow-600">Investor only</p>
                     </div>
                   </button>
                 ))}

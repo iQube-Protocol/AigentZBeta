@@ -40,14 +40,27 @@ export const QRIPTO_RARITY_ORDER: QriptoRarity[] = ['legendary', 'epic', 'rare']
 // ── Pricing catalog ────────────────────────────────────────────────────────
 
 export interface EpisodePricing {
-  episodeNumber: number;
-  digitalPrice: number;   // USD
-  printPrice: number;     // Amazon RRP USD
-  qriptoPrice: number;    // same as digital
+  episodeNumber: number;   // -1 = Graphic Novel pre-episode
+  digitalPrice: number;    // per modality (still or motion) — same price for each
+  printPrice: number;      // primary print SKU (Amazon RRP)
+  qriptoPrice: number;     // same as digitalPrice per modality
+  // Episode -1 (GN) has two print variants; all others use printPrice for the single Amazon listing
+  printVariants?: Array<{ sku: string; label: string; price: number; amazonUrl?: string }>;
 }
 
 export const EPISODE_PRICING: EpisodePricing[] = [
-  { episodeNumber: 0,  digitalPrice: 9,  printPrice: 14.75, qriptoPrice: 9  },
+  // Episode -1 = Graphic Novel — digital $78 per modality, two print variants
+  {
+    episodeNumber: -1,
+    digitalPrice:  78,
+    printPrice:    186,
+    qriptoPrice:   78,
+    printVariants: [
+      { sku: 'gn-1a', label: 'Paperback (−1\u03b1)', price: 186, amazonUrl: 'https://www.amazon.com/dp/B0BYGPS1HC?binding=paperback' },
+      { sku: 'gn-1b', label: 'Hardcover (−1\u03b2)', price: 210, amazonUrl: 'https://www.amazon.com/dp/B0BYGPS1HC?binding=hardcover' },
+    ],
+  },
+  { episodeNumber: 0,  digitalPrice: 9,  printPrice: 14.75, qriptoPrice: 9,  printVariants: [{ sku: 'ep0-pb', label: 'Paperback', price: 14.75, amazonUrl: 'https://www.amazon.com/dp/B0BYGPS1HC?binding=paperback&searchxofy=true&ref_=dbs_s_bs_series_rwt_tpbk&qid=1776652520&sr=1-1' }] },
   { episodeNumber: 1,  digitalPrice: 9,  printPrice: 14.75, qriptoPrice: 9  },
   { episodeNumber: 2,  digitalPrice: 9,  printPrice: 14.75, qriptoPrice: 9  },
   { episodeNumber: 3,  digitalPrice: 9,  printPrice: 14.75, qriptoPrice: 9  },
@@ -62,33 +75,115 @@ export const EPISODE_PRICING: EpisodePricing[] = [
   { episodeNumber: 12, digitalPrice: 18, printPrice: 36,    qriptoPrice: 18 },
 ];
 
+// Still + Motion pair bundle per episode = 2x digital price − 20%
+export function getEpisodePairPrice(ep: EpisodePricing): number {
+  return Math.round(ep.digitalPrice * 2 * 0.8 * 100) / 100;
+}
+
+// Print Provenance: $3 USD or 2 KNYT — provides Common edition cover to KNYT Shelf
+export const PRINT_PROVENANCE_PRICE_USD   = 3;
+export const PRINT_PROVENANCE_PRICE_KNYT  = 2;
+
 export interface BundlePricing {
   id: string;
   label: string;
   episodes: number[];
   digitalPrice: number;
   isFullSeason: boolean;
-  printFulfillment: 'post-kickstarter';
+  isInvestorOnly?: boolean;
+  isLimited?: boolean;
+  limitedSupply?: number;
+  printFulfillment: 'post-kickstarter' | 'publisher' | 'signed-author';
+  includes?: string[];   // human-readable contents for special bundles
+  accessGrant?: string;  // e.g. 'zero-knyt-order' for Order of Metaiye tiers
 }
 
 export const BUNDLE_PRICING: BundlePricing[] = [
-  { id: 'bundle-0-2',  label: 'Episodes 0–2',  episodes: [0,1,2],             digitalPrice: 18, isFullSeason: false, printFulfillment: 'post-kickstarter' },
-  { id: 'bundle-3-7',  label: 'Episodes 3–7',  episodes: [3,4,5,6,7],         digitalPrice: 35, isFullSeason: false, printFulfillment: 'post-kickstarter' },
-  { id: 'bundle-8-12', label: 'Episodes 8–12', episodes: [8,9,10,11,12],      digitalPrice: 48, isFullSeason: false, printFulfillment: 'post-kickstarter' },
-  { id: 'bundle-full', label: 'Full Season 0–12', episodes: [0,1,2,3,4,5,6,7,8,9,10,11,12], digitalPrice: 90, isFullSeason: true, printFulfillment: 'post-kickstarter' },
+  { id: 'bundle-0-2',  label: 'Episodes 0–2',     episodes: [0,1,2],                                         digitalPrice: 18,   isFullSeason: false, printFulfillment: 'post-kickstarter' },
+  { id: 'bundle-3-7',  label: 'Episodes 3–7',     episodes: [3,4,5,6,7],                                     digitalPrice: 35,   isFullSeason: false, printFulfillment: 'post-kickstarter' },
+  { id: 'bundle-8-12', label: 'Episodes 8–12',    episodes: [8,9,10,11,12],                                  digitalPrice: 48,   isFullSeason: false, printFulfillment: 'post-kickstarter' },
+  { id: 'bundle-full', label: 'Full Season 0–12', episodes: [0,1,2,3,4,5,6,7,8,9,10,11,12],                 digitalPrice: 90,   isFullSeason: true,  printFulfillment: 'post-kickstarter' },
+
+  // Investor-gated bundles
+  {
+    id: 'knyt-codex-investor',
+    label: 'KNYT Codex',
+    episodes: [-1,0,1,2,3,4,5,6,7,8,9,10,11,12],
+    digitalPrice: 168,
+    isFullSeason: false,
+    isInvestorOnly: true,
+    printFulfillment: 'post-kickstarter',
+    includes: [
+      '1 Qripto Still + 1 Qripto Motion per episode (all 13)',
+      '1 Qripto Still + 1 Qripto Animated per character card (all 13)',
+      '1 Qripto Graphic Novel (Still)',
+    ],
+  },
+  {
+    id: 'top-knyt-investor',
+    label: 'Top KNYT Shelf',
+    episodes: [-1,0,1,2,3,4,5,6,7,8,9,10,11,12],
+    digitalPrice: 288,
+    isFullSeason: false,
+    isInvestorOnly: true,
+    printFulfillment: 'post-kickstarter',
+    includes: [
+      'Everything in KNYT Codex bundle',
+      'Paperback Graphic Novel',
+    ],
+  },
+  {
+    id: 'zero-knyt-investor',
+    label: 'Zero KNYT',
+    episodes: [-1,0,1,2,3,4,5,6,7,8,9,10,11,12],
+    digitalPrice: 500,
+    isFullSeason: false,
+    isInvestorOnly: true,
+    isLimited: true,
+    limitedSupply: 21,
+    printFulfillment: 'signed-author',
+    accessGrant: 'zero-knyt-order',
+    includes: [
+      'Everything in Top KNYT Shelf bundle',
+      'Hardcover Graphic Novel (author signed)',
+      'Instant access: Zero KNYT tier — Order of Metaiye',
+    ],
+  },
+  {
+    id: 'satoshi-knyt-investor',
+    label: 'Satoshi KNYT Collection',
+    episodes: [-1,0,1,2,3,4,5,6,7,8,9,10,11,12],
+    digitalPrice: 2100,
+    isFullSeason: false,
+    isInvestorOnly: true,
+    isLimited: true,
+    limitedSupply: 21,
+    printFulfillment: 'signed-author',
+    accessGrant: 'zero-knyt-order',
+    includes: [
+      '1 author-signed leatherbound hardback Graphic Novel',
+      '1 standard hardback Graphic Novel',
+      '2 KNYT Codex claims',
+      '2× Print bundle claims (all author signed)',
+      'Instant access: Zero KNYT tier — Order of Metaiye',
+    ],
+  },
 ];
 
 export interface GraphicNovelPricing {
   layer: CommercialLayer;
   label: string;
   price: number;
+  sku?: string;
+  amazonUrl?: string;
 }
 
+// GN order: Qripto → Digital → Paperback → Hardback
 export const GRAPHIC_NOVEL_PRICING: GraphicNovelPricing[] = [
-  { layer: 'digital-common', label: 'Digital / Common', price: 78  },
-  { layer: 'print',          label: 'Paperback',        price: 186 },
-  { layer: 'print',          label: 'Hardcover',        price: 210 },
-  { layer: 'qripto',         label: 'Qripto Edition',   price: 78  },
+  { layer: 'qripto',         label: 'Qripto Edition',   price: 78,  sku: 'gn-qripto' },
+  { layer: 'digital-common', label: 'Digital / Common', price: 78,  sku: 'gn-digital' },
+  { layer: 'print',          label: 'Paperback (−1α)',  price: 186, sku: 'gn-1a', amazonUrl: 'https://www.amazon.com/dp/B0BYGPS1HC?binding=paperback' },
+  { layer: 'print',          label: 'Hardcover (−1β)',  price: 210, sku: 'gn-1b', amazonUrl: 'https://www.amazon.com/dp/B0BYGPS1HC?binding=hardcover' },
 ];
 
 export interface CardsPricing {
@@ -97,10 +192,11 @@ export interface CardsPricing {
   price: number;
 }
 
+// Qripto first, then Digital, then Physical
 export const KNYT_CARDS_PRICING: CardsPricing[] = [
-  { layer: 'physical',       label: 'Physical Pack',        price: 26 },
+  { layer: 'qripto',         label: 'Qripto Pack',          price: 26 },
   { layer: 'digital-common', label: 'Digital / Common Pack', price: 26 },
-  { layer: 'qripto',         label: 'Qripto Pack',           price: 26 },
+  { layer: 'physical',       label: 'Physical Pack',         price: 26 },
 ];
 
 // 20% discount when paying with KNYT / $KNYT COYN

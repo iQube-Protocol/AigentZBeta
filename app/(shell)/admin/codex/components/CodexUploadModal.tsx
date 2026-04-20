@@ -20,7 +20,7 @@ import {
 // ── Types ────────────────────────────────────────────────────────────────────
 
 type CodexTab = 'knyt' | 'qriptopian';
-type UploadCategory = 'master' | 'print' | 'cover' | 'character' | 'lore' | 'game' | 'social';
+type UploadCategory = 'master' | 'print' | 'cover' | 'motion-covers' | 'character' | 'lore' | 'game' | 'social';
 type MasterContentType = 'episode_still' | 'episode_motion' | 'episode_print';
 type EditionTier = 'rare' | 'epic' | 'legendary';
 type DisplayMode = 'pdf' | 'image' | 'video' | 'text_extract';
@@ -35,7 +35,8 @@ type CodexAssetKind =
   | 'social_campaign_video'
   | 'social_campaign_image'
   | 'cover_pdf'
-  | 'cover_image';
+  | 'cover_image'
+  | 'cover_motion';
 
 interface UploadItem {
   id: string;
@@ -66,6 +67,7 @@ type Props = {
 
 const EPISODES: { number: number | null; title: string }[] = [
   { number: null, title: 'Series/Saga (All Episodes)' },
+  { number: 0, title: 'Episode #-1 (Graphic Novel)' },
   ...Array.from({ length: 13 }, (_, i) => ({
     number: i + 1,
     title: `Episode #${i}`,
@@ -97,11 +99,18 @@ const ASSET_CATEGORIES: {
     id: 'cover',
     label: 'Covers',
     icon: Image,
-    description: 'Limited edition cover variants',
+    description: 'Limited edition still cover variants (PDF or image)',
     assetKinds: [
       { value: 'cover_pdf', label: 'Cover PDF', accept: '.pdf' },
       { value: 'cover_image', label: 'Cover Image', accept: '.png,.jpg,.jpeg,.webp' },
     ],
+  },
+  {
+    id: 'motion-covers',
+    label: 'Motion Covers',
+    icon: Video,
+    description: 'Animated / motion cover variants (video)',
+    assetKinds: [{ value: 'cover_motion', label: 'Motion Cover (Video)', accept: '.mp4,.webm,.mov' }],
   },
   {
     id: 'character',
