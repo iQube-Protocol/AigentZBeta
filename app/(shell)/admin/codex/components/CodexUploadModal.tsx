@@ -1,7 +1,60 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { AlertCircle, CheckCircle, Loader2, Upload, X } from 'lucide-react';
+import { useCallback, useRef, useState } from 'react';
+import {
+  AlertCircle,
+  BookOpen,
+  CheckCircle,
+  FileText,
+  Gamepad2,
+  Image,
+  Loader2,
+  Share2,
+  Sparkles,
+  Upload,
+  Users,
+  Video,
+  X,
+} from 'lucide-react';
+
+// ── Types ────────────────────────────────────────────────────────────────────
+
+type CodexTab = 'knyt' | 'qriptopian';
+type UploadCategory = 'master' | 'print' | 'cover' | 'character' | 'lore' | 'game' | 'social';
+type MasterContentType = 'episode_still' | 'episode_motion' | 'episode_print';
+type EditionTier = 'rare' | 'epic' | 'legendary';
+type DisplayMode = 'pdf' | 'image' | 'video' | 'text_extract';
+type CodexAssetKind =
+  | 'character_poster'
+  | 'powers_sheet'
+  | 'background_lore_doc'
+  | 'game_concept_doc'
+  | 'game_still'
+  | 'game_video'
+  | 'twenty_one_sats_concept'
+  | 'social_campaign_video'
+  | 'social_campaign_image'
+  | 'cover_pdf'
+  | 'cover_image';
+
+interface UploadItem {
+  id: string;
+  file: File;
+  category: UploadCategory;
+  assetKind?: CodexAssetKind;
+  masterType?: MasterContentType;
+  episodeNumber?: number | null;
+  title: string;
+  status: 'pending' | 'uploading' | 'success' | 'error';
+  progress: number;
+  error?: string;
+  result?: { id: string; cid: string };
+  variantName?: string;
+  rarityTier?: 'legendary' | 'rare' | 'common';
+  editionMax?: number;
+  editionTier?: EditionTier;
+  displayMode?: DisplayMode;
+}
 
 type Props = {
   isOpen: boolean;
@@ -9,28 +62,107 @@ type Props = {
   onUploadComplete?: () => void;
 };
 
-type Category = 'master_motion' | 'master_print' | 'cover' | 'character' | 'lore';
-type PaymentSurface = 'overlay' | 'embedded' | 'liquid';
+// ── Constants ────────────────────────────────────────────────────────────────
 
-type QueueItem = {
-  id: string;
-  file: File;
-  title: string;
-  status: 'pending' | 'uploading' | 'success' | 'error';
-  error?: string;
-};
+const EPISODES: { number: number | null; title: string }[] = [
+  { number: null, title: 'Series/Saga (All Episodes)' },
+  ...Array.from({ length: 13 }, (_, i) => ({
+    number: i + 1,
+    title: `Episode #${i}`,
+  })),
+];
 
-const CATEGORY_CONFIG: Record<Category, { label: string; accept: string }> = {
-  master_motion: { label: 'Episode Motion Master', accept: '.mp4,.webm,.mov' },
-  master_print: { label: 'Episode Print Master', accept: '.pdf' },
-  cover: { label: 'Cover Asset', accept: '.pdf,.png,.jpg,.jpeg,.webp' },
-  character: { label: 'Character Asset', accept: '.pdf,.png,.jpg,.jpeg,.webp' },
-  lore: { label: 'Lore Document', accept: '.pdf,.txt,.md' },
-};
+const ASSET_CATEGORIES: {
+  id: UploadCategory;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  description: string;
+  assetKinds: { value: CodexAssetKind | MasterContentType; label: string; accept: string }[];
+}[] = [
+  {
+    id: 'print',
+    label: 'Print Editions',
+    icon: BookOpen,
+    description: 'Complete print comic PDFs (Rare, Epic, Legendary editions)',
+    assetKinds: [{ value: 'episode_print', label: 'Print Edition PDF', accept: '.pdf' }],
+  },
+  {
+    id: 'master',
+    label: 'Motion Comics',
+    icon: Video,
+    description: 'Motion comic videos',
+    assetKinds: [{ value: 'episode_motion', label: 'Motion Comic (Video)', accept: '.mp4,.webm,.mov' }],
+  },
+  {
+    id: 'cover',
+    label: 'Covers',
+    icon: Image,
+    description: 'Limited edition cover variants',
+    assetKinds: [
+      { value: 'cover_pdf', label: 'Cover PDF', accept: '.pdf' },
+      { value: 'cover_image', label: 'Cover Image', accept: '.png,.jpg,.jpeg,.webp' },
+    ],
+  },
+  {
+    id: 'character',
+    label: 'Characters',
+    icon: Users,
+    description: 'Character posters and power sheets',
+    assetKinds: [
+      { value: 'character_poster', label: 'Character Poster', accept: '.png,.jpg,.jpeg,.webp,.pdf' },
+      { value: 'powers_sheet', label: 'Powers Sheet', accept: '.pdf,.png,.jpg,.jpeg' },
+    ],
+  },
+  {
+    id: 'lore',
+    label: 'Lore & Docs',
+    icon: FileText,
+    description: 'Background lore and concept documents. Choose "Extract Text" to enable copilot.',
+    assetKinds: [
+      { value: 'background_lore_doc', label: 'Background Lore', accept: '.pdf,.txt,.md' },
+      { value: 'twenty_one_sats_concept', label: '21 Sats Concept', accept: '.pdf,.txt,.md' },
+    ],
+  },
+  {
+    id: 'game',
+    label: 'Game Assets',
+    icon: Gamepad2,
+    description: 'Game concepts, stills, and videos',
+    assetKinds: [
+      { value: 'game_concept_doc', label: 'Game Concept Doc', accept: '.pdf,.txt,.md' },
+      { value: 'game_still', label: 'Game Still', accept: '.png,.jpg,.jpeg,.webp' },
+      { value: 'game_video', label: 'Game Video', accept: '.mp4,.webm' },
+    ],
+  },
+  {
+    id: 'social',
+    label: 'Social Media',
+    icon: Share2,
+    description: 'Campaign images and videos for social sharing',
+    assetKinds: [
+      { value: 'social_campaign_image', label: 'Campaign Image', accept: '.png,.jpg,.jpeg,.webp,.gif' },
+      { value: 'social_campaign_video', label: 'Campaign Video', accept: '.mp4,.webm' },
+    ],
+  },
+];
 
-const EPISODES = [
-  { number: '', label: 'Series / Saga' },
-  ...Array.from({ length: 13 }, (_, index) => ({ number: String(index + 1), label: `Episode ${index + 1}` })),
+const RARITY_TIERS = [
+  { value: 'legendary' as const, label: 'Legendary', color: 'text-yellow-400' },
+  { value: 'rare' as const, label: 'Rare', color: 'text-purple-400' },
+  { value: 'common' as const, label: 'Common', color: 'text-gray-400' },
+];
+
+const EDITION_TIERS = [
+  { value: 'rare' as EditionTier, label: 'Rare', color: 'text-blue-400' },
+  { value: 'epic' as EditionTier, label: 'Epic', color: 'text-purple-400' },
+  { value: 'legendary' as EditionTier, label: 'Legendary', color: 'text-amber-400' },
+];
+
+const DISPLAY_MODES = [
+  { value: 'text_extract' as DisplayMode, label: 'Extract Text', description: 'Extract text for copilot & formatted display' },
+  { value: 'pdf' as DisplayMode, label: 'PDF Viewer', description: 'Display as PDF' },
+  { value: 'image' as DisplayMode, label: 'Image', description: 'Display as image' },
+  { value: 'video' as DisplayMode, label: 'Video', description: 'Display as video' },
 ];
 
 function getAccessTokenFromStorage(): string | null {
@@ -50,305 +182,454 @@ function getAccessTokenFromStorage(): string | null {
   return null;
 }
 
-export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
-  const [category, setCategory] = useState<Category>('master_motion');
-  const [episodeNumber, setEpisodeNumber] = useState('1');
-  const [priceAmount, setPriceAmount] = useState('');
-  const [paymentType, setPaymentType] = useState<'one-time' | 'subscription'>('one-time');
-  const [paymentSurface, setPaymentSurface] = useState<PaymentSurface>('overlay');
-  const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+// ── FileIcon ─────────────────────────────────────────────────────────────────
 
-  const pendingCount = useMemo(() => queue.filter((item) => item.status === 'pending').length, [queue]);
+function FileIcon({ mimeType }: { mimeType: string }) {
+  if (mimeType.startsWith('image/')) return <Image className="h-5 w-5 text-purple-400" />;
+  if (mimeType.startsWith('video/')) return <Video className="h-5 w-5 text-blue-400" />;
+  return <FileText className="h-5 w-5 text-gray-400" />;
+}
 
-  const reset = () => {
-    setQueue([]);
-    setMessage(null);
-    setError(null);
-  };
+// ── UploadQueueItem ───────────────────────────────────────────────────────────
 
-  const onFilesSelected = (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    const items: QueueItem[] = Array.from(files).map((file) => ({
-      id: `${file.name}-${file.size}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-      file,
-      title: file.name.replace(/\.[^/.]+$/, ''),
-      status: 'pending',
-    }));
-    setQueue((prev) => [...prev, ...items]);
-    setMessage(null);
-    setError(null);
-  };
+interface QueueItemProps {
+  item: UploadItem;
+  category: typeof ASSET_CATEGORIES[0];
+  onUpdate: (updates: Partial<UploadItem>) => void;
+  onRemove: () => void;
+}
 
-  const updateTitle = (id: string, title: string) => {
-    setQueue((prev) => prev.map((item) => (item.id === id ? { ...item, title } : item)));
-  };
+function UploadQueueItem({ item, category, onUpdate, onRemove }: QueueItemProps) {
+  const isCover = item.category === 'cover';
+  const isMaster = item.category === 'master';
+  const isPrint = item.category === 'print';
+  const isLore = item.category === 'lore';
 
-  const removeItem = (id: string) => {
-    setQueue((prev) => prev.filter((item) => item.id !== id));
-  };
-
-  const buildRequest = (item: QueueItem) => {
-    const formData = new FormData();
-    formData.append('file', item.file);
-    formData.append('title', item.title || item.file.name);
-    formData.append('series', 'metaKnyts');
-    if (episodeNumber) formData.append('episodeNumber', episodeNumber);
-    if (priceAmount.trim()) formData.append('priceAmount', priceAmount.trim());
-    formData.append('paymentType', paymentType);
-    formData.append('paymentSurface', paymentSurface);
-
-    if (category === 'master_motion') {
-      formData.append('contentType', 'episode_motion');
-      return { endpoint: '/api/admin/codex/upload-master', formData };
-    }
-    if (category === 'master_print') {
-      formData.append('contentType', 'episode_print');
-      formData.append('editionTier', 'rare');
-      return { endpoint: '/api/admin/codex/upload-master', formData };
-    }
-
-    const assetKind = category === 'cover'
-      ? 'cover_image'
-      : category === 'character'
-        ? 'character_poster'
-        : 'background_lore_doc';
-    formData.append('assetKind', assetKind);
-    return { endpoint: '/api/admin/codex/upload-asset', formData };
-  };
-
-  const uploadAll = async () => {
-    const pending = queue.filter((item) => item.status === 'pending');
-    if (pending.length === 0) return;
-
-    const requiresEpisode = category === 'master_motion' || category === 'master_print' || category === 'cover';
-    if (requiresEpisode && !episodeNumber) {
-      setError('Episode selection is required for this category.');
-      return;
-    }
-
-    setIsUploading(true);
-    setMessage(null);
-    setError(null);
-
-    const token = getAccessTokenFromStorage();
-    let hasFailure = false;
-
-    for (const item of pending) {
-      setQueue((prev) => prev.map((x) => (x.id === item.id ? { ...x, status: 'uploading', error: undefined } : x)));
-      try {
-        const { endpoint, formData } = buildRequest(item);
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-          body: formData,
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data?.error || 'Upload failed');
-        setQueue((prev) => prev.map((x) => (x.id === item.id ? { ...x, status: 'success' } : x)));
-      } catch (e) {
-        hasFailure = true;
-        const msg = e instanceof Error ? e.message : 'Upload failed';
-        setQueue((prev) => prev.map((x) => (x.id === item.id ? { ...x, status: 'error', error: msg } : x)));
-      }
-    }
-
-    setIsUploading(false);
-    if (hasFailure) {
-      setError('Some uploads failed. Review errors in the queue.');
-    } else {
-      setMessage('All uploads completed successfully.');
-      onUploadComplete?.();
-    }
-  };
-
-  const closeModal = () => {
-    reset();
-    onClose();
-  };
-
-  if (!isOpen) return null;
+  const borderColor =
+    item.status === 'success' ? 'border-green-500/30 bg-green-500/10' :
+    item.status === 'error'   ? 'border-red-500/30 bg-red-500/10' :
+    item.status === 'uploading' ? 'border-cyan-500/30 bg-cyan-500/10' :
+    'border-gray-700 bg-gray-800';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={closeModal}>
-      <div
-        className="w-full max-w-3xl rounded-xl border border-slate-700 bg-slate-900 shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-center justify-between border-b border-slate-700 p-4">
-          <div>
-            <h2 className="text-lg font-semibold text-white">Codex Upload</h2>
-            <p className="text-xs text-slate-400">Upload master content and codex assets</p>
-          </div>
-          <button className="rounded-md p-2 text-slate-400 hover:bg-slate-800 hover:text-white" onClick={closeModal}>
-            <X className="h-4 w-4" />
-          </button>
+    <div className={`rounded-lg border p-3 ${borderColor}`}>
+      <div className="flex items-start gap-3">
+        <div className="mt-0.5">
+          {item.status === 'success' ? (
+            <CheckCircle className="h-5 w-5 text-green-400" />
+          ) : item.status === 'error' ? (
+            <AlertCircle className="h-5 w-5 text-red-400" />
+          ) : item.status === 'uploading' ? (
+            <Loader2 className="h-5 w-5 animate-spin text-cyan-400" />
+          ) : (
+            <FileIcon mimeType={item.file.type} />
+          )}
         </div>
 
-        <div className="space-y-4 p-4">
-          <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
-            <div>
-              <label className="mb-1 block text-xs text-slate-300">Category</label>
+        <div className="min-w-0 flex-1">
+          <input
+            type="text"
+            value={item.title}
+            onChange={(e) => onUpdate({ title: e.target.value })}
+            disabled={item.status !== 'pending'}
+            className="w-full bg-transparent font-medium text-white focus:outline-none disabled:opacity-50"
+          />
+
+          <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-gray-400">
+            <span>{(item.file.size / 1024 / 1024).toFixed(2)} MB</span>
+            <span>{item.episodeNumber != null ? `Ep. #${item.episodeNumber - 1}` : 'Series'}</span>
+
+            {item.status === 'pending' && !isPrint && (
               <select
-                value={category}
-                onChange={(event) => setCategory(event.target.value as Category)}
-                className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white"
-                disabled={isUploading}
+                value={isMaster ? item.masterType : item.assetKind}
+                onChange={(e) => {
+                  if (isMaster) onUpdate({ masterType: e.target.value as MasterContentType });
+                  else onUpdate({ assetKind: e.target.value as CodexAssetKind });
+                }}
+                className="rounded border border-gray-600 bg-gray-700 px-1.5 py-0.5 text-gray-300"
               >
-                {(Object.keys(CATEGORY_CONFIG) as Category[]).map((key) => (
-                  <option key={key} value={key}>{CATEGORY_CONFIG[key].label}</option>
+                {category.assetKinds.map((k) => (
+                  <option key={k.value} value={k.value}>{k.label}</option>
                 ))}
               </select>
-            </div>
+            )}
 
-            <div>
-              <label className="mb-1 block text-xs text-slate-300">Episode</label>
+            {item.status === 'pending' && isPrint && (
               <select
-                value={episodeNumber}
-                onChange={(event) => setEpisodeNumber(event.target.value)}
-                className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white"
-                disabled={isUploading}
+                value={item.editionTier ?? 'rare'}
+                onChange={(e) => onUpdate({ editionTier: e.target.value as EditionTier })}
+                className="rounded border border-gray-600 bg-gray-700 px-1.5 py-0.5 text-gray-300"
               >
-                {EPISODES.map((episode) => (
-                  <option key={episode.label} value={episode.number}>{episode.label}</option>
+                {EDITION_TIERS.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
                 ))}
               </select>
-            </div>
-
-            <div>
-              <label className="mb-1 block text-xs text-slate-300">Add files</label>
-              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200 hover:bg-slate-700">
-                <Upload className="h-4 w-4" />
-                Choose files
-                <input
-                  type="file"
-                  className="hidden"
-                  multiple
-                  accept={CATEGORY_CONFIG[category].accept}
-                  onChange={(event) => {
-                    onFilesSelected(event.target.files);
-                    event.currentTarget.value = '';
-                  }}
-                  disabled={isUploading}
-                />
-              </label>
-            </div>
-
-            <div>
-              <label className="mb-1 block text-xs text-slate-300">Price (Q¢)</label>
-              <input
-                type="number"
-                min="0"
-                step="1"
-                value={priceAmount}
-                onChange={(event) => setPriceAmount(event.target.value)}
-                placeholder="Optional"
-                className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white"
-                disabled={isUploading}
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block text-xs text-slate-300">Payment Type</label>
-              <select
-                value={paymentType}
-                onChange={(event) => setPaymentType(event.target.value as 'one-time' | 'subscription')}
-                className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white"
-                disabled={isUploading}
-              >
-                <option value="one-time">One-time</option>
-                <option value="subscription">Subscription</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-1 block text-xs text-slate-300">Payment Surface</label>
-              <select
-                value={paymentSurface}
-                onChange={(event) => setPaymentSurface(event.target.value as PaymentSurface)}
-                className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white"
-                disabled={isUploading}
-              >
-                <option value="overlay">Overlay</option>
-                <option value="embedded">Embedded</option>
-                <option value="liquid">Liquid</option>
-              </select>
-            </div>
-          </div>
-
-          {message && (
-            <div className="flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
-              <CheckCircle className="h-4 w-4" />
-              <span>{message}</span>
-            </div>
-          )}
-
-          {error && (
-            <div className="flex items-center gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
-              <AlertCircle className="h-4 w-4" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          <div className="max-h-72 space-y-2 overflow-y-auto rounded-md border border-slate-700 bg-slate-950/40 p-2">
-            {queue.length === 0 ? (
-              <p className="px-2 py-6 text-center text-sm text-slate-500">No files selected yet.</p>
-            ) : (
-              queue.map((item) => (
-                <div key={item.id} className="rounded-md border border-slate-800 bg-slate-900/80 p-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <input
-                        value={item.title}
-                        onChange={(event) => updateTitle(item.id, event.target.value)}
-                        className="w-full rounded border border-slate-700 bg-slate-800 px-2 py-1 text-sm text-white"
-                        disabled={isUploading || item.status === 'uploading'}
-                      />
-                      <p className="mt-1 truncate text-xs text-slate-400">{item.file.name}</p>
-                      {item.error && <p className="mt-1 text-xs text-red-400">{item.error}</p>}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-400">{item.status}</span>
-                      {item.status !== 'uploading' && (
-                        <button
-                          onClick={() => removeItem(item.id)}
-                          className="rounded p-1 text-slate-500 hover:bg-slate-800 hover:text-red-300"
-                          disabled={isUploading}
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))
             )}
           </div>
 
-          <div className="flex items-center justify-between border-t border-slate-800 pt-3">
-            <p className="text-xs text-slate-400">{pendingCount} pending</p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={reset}
-                className="rounded-md border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800"
-                disabled={isUploading || queue.length === 0}
+          {isCover && item.status === 'pending' && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <input
+                type="text"
+                value={item.variantName ?? ''}
+                onChange={(e) => onUpdate({ variantName: e.target.value })}
+                placeholder="Variant name"
+                className="flex-1 rounded border border-gray-600 bg-gray-700 px-2 py-1 text-sm text-white"
+              />
+              <select
+                value={item.rarityTier ?? 'common'}
+                onChange={(e) => onUpdate({ rarityTier: e.target.value as 'legendary' | 'rare' | 'common' })}
+                className="rounded border border-gray-600 bg-gray-700 px-2 py-1 text-sm text-white"
               >
-                Clear
-              </button>
-              <button
-                onClick={uploadAll}
-                className="inline-flex items-center gap-2 rounded-md bg-purple-600 px-3 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={isUploading || pendingCount === 0}
-              >
-                {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                {isUploading ? 'Uploading...' : `Upload ${pendingCount}`}
-              </button>
+                {RARITY_TIERS.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+              <input
+                type="number"
+                value={item.editionMax ?? ''}
+                onChange={(e) => onUpdate({ editionMax: Number(e.target.value) || undefined })}
+                placeholder="Max"
+                className="w-20 rounded border border-gray-600 bg-gray-700 px-2 py-1 text-sm text-white"
+              />
             </div>
-          </div>
+          )}
+
+          {isLore && item.status === 'pending' && (
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-xs text-gray-400">Display as:</span>
+              <select
+                value={item.displayMode ?? 'text_extract'}
+                onChange={(e) => onUpdate({ displayMode: e.target.value as DisplayMode })}
+                className="flex-1 rounded border border-gray-600 bg-gray-700 px-2 py-1 text-sm text-white"
+              >
+                {DISPLAY_MODES.map((m) => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+              {(item.displayMode === 'text_extract' || !item.displayMode) && (
+                <span className="text-xs text-cyan-400">Copilot enabled</span>
+              )}
+            </div>
+          )}
+
+          {item.status === 'error' && item.error && (
+            <p className="mt-1 text-xs text-red-400">{item.error}</p>
+          )}
+          {item.status === 'success' && item.result && (
+            <p className="mt-1 truncate font-mono text-xs text-green-400">CID: {item.result.cid}</p>
+          )}
+          {item.status === 'uploading' && (
+            <div className="mt-2 h-1 overflow-hidden rounded-full bg-gray-700">
+              <div
+                className="h-full bg-cyan-400 transition-all duration-300"
+                style={{ width: `${item.progress}%` }}
+              />
+            </div>
+          )}
         </div>
+
+        {item.status === 'pending' && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="p-1 text-gray-400 transition-colors hover:text-red-400"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
     </div>
   );
 }
+
+// ── Main component ────────────────────────────────────────────────────────────
+
+export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
+  const [activeTab, setActiveTab] = useState<CodexTab>('knyt');
+  const [selectedCategory, setSelectedCategory] = useState<UploadCategory>('master');
+  const [selectedEpisode, setSelectedEpisode] = useState<number | null>(1);
+  const [uploadQueue, setUploadQueue] = useState<UploadItem[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const currentCategory = ASSET_CATEGORIES.find((c) => c.id === selectedCategory)!;
+
+  const handleFileSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(e.target.files ?? []);
+      if (files.length === 0) return;
+
+      const isMaster = selectedCategory === 'master';
+      const isPrint = selectedCategory === 'print';
+      const isCover = selectedCategory === 'cover';
+      const isLore = selectedCategory === 'lore';
+      const defaultKind = currentCategory.assetKinds[0];
+
+      const newItems: UploadItem[] = files.map((file, idx) => ({
+        id: `${Date.now()}-${idx}`,
+        file,
+        category: selectedCategory,
+        assetKind: isMaster || isPrint ? undefined : (defaultKind.value as CodexAssetKind),
+        masterType: isMaster || isPrint ? (defaultKind.value as MasterContentType) : undefined,
+        episodeNumber: selectedEpisode,
+        title: file.name.replace(/\.[^/.]+$/, ''),
+        status: 'pending',
+        progress: 0,
+        ...(isCover && { variantName: '', rarityTier: 'common' as const, editionMax: 100 }),
+        ...(isPrint && { editionTier: 'rare' as EditionTier }),
+        ...(isLore && { displayMode: 'text_extract' as DisplayMode }),
+      }));
+
+      setUploadQueue((prev) => [...prev, ...newItems]);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    },
+    [selectedCategory, selectedEpisode, currentCategory],
+  );
+
+  const updateItem = useCallback((id: string, updates: Partial<UploadItem>) => {
+    setUploadQueue((prev) => prev.map((item) => (item.id === id ? { ...item, ...updates } : item)));
+  }, []);
+
+  const removeItem = useCallback((id: string) => {
+    setUploadQueue((prev) => prev.filter((item) => item.id !== id));
+  }, []);
+
+  const clearCompleted = () => {
+    setUploadQueue((prev) => prev.filter((item) => item.status !== 'success'));
+  };
+
+  const uploadItem = async (item: UploadItem) => {
+    updateItem(item.id, { status: 'uploading', progress: 10 });
+    try {
+      const token = getAccessTokenFromStorage();
+      const formData = new FormData();
+      formData.append('file', item.file);
+      formData.append('title', item.title);
+      formData.append('episodeNumber', String(item.episodeNumber ?? 0));
+      formData.append('series', 'metaKnyts');
+
+      let endpoint: string;
+      if (item.category === 'master' || item.category === 'print') {
+        endpoint = '/api/admin/codex/upload-master';
+        formData.append('contentType', item.masterType ?? 'episode_motion');
+        if (item.category === 'print' && item.editionTier) {
+          formData.append('editionTier', item.editionTier);
+        }
+      } else {
+        endpoint = '/api/admin/codex/upload-asset';
+        formData.append('assetKind', item.assetKind ?? 'character_poster');
+        if (item.category === 'cover') {
+          if (item.variantName) formData.append('variantName', item.variantName);
+          if (item.rarityTier) formData.append('rarityTier', item.rarityTier);
+          if (item.editionMax) formData.append('editionMax', String(item.editionMax));
+        }
+        if (item.category === 'lore' && item.displayMode) {
+          formData.append('displayMode', item.displayMode);
+        }
+      }
+
+      updateItem(item.id, { progress: 30 });
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: formData,
+      });
+
+      updateItem(item.id, { progress: 80 });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? 'Upload failed');
+
+      updateItem(item.id, { status: 'success', progress: 100, result: { id: data.id, cid: data.cid } });
+    } catch (err) {
+      updateItem(item.id, { status: 'error', progress: 0, error: err instanceof Error ? err.message : 'Upload failed' });
+    }
+  };
+
+  const uploadAll = async () => {
+    setIsUploading(true);
+    for (const item of uploadQueue.filter((i) => i.status === 'pending')) {
+      await uploadItem(item);
+    }
+    setIsUploading(false);
+    onUploadComplete?.();
+  };
+
+  if (!isOpen) return null;
+
+  const pendingCount = uploadQueue.filter((i) => i.status === 'pending').length;
+  const successCount = uploadQueue.filter((i) => i.status === 'success').length;
+  const errorCount = uploadQueue.filter((i) => i.status === 'error').length;
+  const CategoryIcon = currentCategory.icon;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-gray-700 bg-gray-900 shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-gray-700 px-6 py-4">
+          <div className="flex items-center gap-3">
+            <Sparkles className="h-6 w-6 text-cyan-400" />
+            <h2 className="text-xl font-bold text-white">Codex Upload</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex border-b border-gray-700">
+          {(['knyt', 'qriptopian'] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 px-6 py-3 text-sm font-medium transition-colors ${
+                activeTab === tab
+                  ? tab === 'knyt'
+                    ? 'border-b-2 border-cyan-400 bg-cyan-400/5 text-cyan-400'
+                    : 'border-b-2 border-purple-400 bg-purple-400/5 text-purple-400'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              {tab === 'knyt' ? 'KNYT Codex' : 'Qriptopian Codex'}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {activeTab === 'knyt' ? (
+            <div className="space-y-5">
+              {/* Episode + Category selectors */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-300">Episode / Scope</label>
+                  <select
+                    value={selectedEpisode ?? 'saga'}
+                    onChange={(e) => setSelectedEpisode(e.target.value === 'saga' ? null : Number(e.target.value))}
+                    className="w-full rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 text-white focus:border-cyan-400 focus:outline-none"
+                  >
+                    {EPISODES.map((ep) => (
+                      <option key={ep.number ?? 'saga'} value={ep.number ?? 'saga'}>{ep.title}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-300">Asset Category</label>
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value as UploadCategory)}
+                    className="w-full rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 text-white focus:border-cyan-400 focus:outline-none"
+                  >
+                    {ASSET_CATEGORIES.map((cat) => (
+                      <option key={cat.id} value={cat.id}>{cat.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Category description */}
+              <div className="flex items-center gap-3 rounded-lg border border-gray-700 bg-gray-800/50 p-4">
+                <CategoryIcon className="h-5 w-5 text-cyan-400" />
+                <div>
+                  <p className="font-medium text-white">{currentCategory.label}</p>
+                  <p className="text-sm text-gray-400">{currentCategory.description}</p>
+                </div>
+              </div>
+
+              {/* Drop zone */}
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => fileInputRef.current?.click()}
+                onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
+                className="cursor-pointer rounded-xl border-2 border-dashed border-gray-600 p-8 text-center transition-colors hover:border-cyan-400 hover:bg-cyan-400/5"
+              >
+                <Upload className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                <p className="mb-2 font-medium text-white">Click to select files or drag and drop</p>
+                <p className="text-sm text-gray-400">
+                  Accepted: {currentCategory.assetKinds.map((k) => k.accept).join(', ')}
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept={currentCategory.assetKinds.map((k) => k.accept).join(',')}
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+              </div>
+
+              {/* Queue */}
+              {uploadQueue.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-medium text-gray-300">Upload Queue ({uploadQueue.length})</h3>
+                    {successCount > 0 && (
+                      <button type="button" onClick={clearCompleted} className="text-sm text-gray-400 hover:text-white">
+                        Clear completed
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-64 space-y-2 overflow-y-auto">
+                    {uploadQueue.map((item) => (
+                      <UploadQueueItem
+                        key={item.id}
+                        item={item}
+                        category={currentCategory}
+                        onUpdate={(updates) => updateItem(item.id, updates)}
+                        onRemove={() => removeItem(item.id)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-purple-500/10">
+                <Sparkles className="h-8 w-8 text-purple-400" />
+              </div>
+              <h3 className="mb-2 text-lg font-medium text-white">Qriptopian Codex Coming Soon</h3>
+              <p className="max-w-md text-gray-400">
+                The Qriptopian Codex will support uploading Qriptopian-specific content, including
+                world-building documents, character profiles, and interactive experiences.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        {activeTab === 'knyt' && uploadQueue.length > 0 && (
+          <div className="flex items-center justify-between border-t border-gray-700 bg-gray-800/50 px-6 py-4">
+            <div className="flex items-center gap-4 text-sm">
+              {pendingCount > 0 && <span className="text-gray-400">{pendingCount} pending</span>}
+              {successCount > 0 && <span className="text-green-400">{successCount} uploaded</span>}
+              {errorCount > 0 && <span className="text-red-400">{errorCount} failed</span>}
+            </div>
+            <button
+              type="button"
+              onClick={uploadAll}
+              disabled={isUploading || pendingCount === 0}
+              className="flex items-center gap-2 rounded-lg bg-cyan-500 px-6 py-2 font-medium text-white transition-colors hover:bg-cyan-600 disabled:cursor-not-allowed disabled:bg-gray-600"
+            >
+              {isUploading ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Uploading...</>
+              ) : (
+                <><Upload className="h-4 w-4" /> Upload All ({pendingCount})</>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default CodexUploadModal;
