@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
             ? paymentSurface
             : undefined,
         variantName: variantName || undefined,
-        rarityTier: rarityTier as 'legendary' | 'rare' | 'common' | undefined,
+        rarityTier: rarityTier as 'legendary' | 'epic' | 'rare' | 'common' | undefined,
         editionMax: editionMax ? parseInt(editionMax, 10) : undefined,
         displayMode: displayMode as DisplayMode | undefined,
       };
