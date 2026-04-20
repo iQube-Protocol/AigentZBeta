@@ -17,7 +17,8 @@ interface Props {
 export function SequenceDayCard({ item, theme = "dark", size = "sm", onAssetClick, onCtaClick, onPlay }: Props) {
   const dark = theme === "dark";
   const locked = item.status === "locked" || item.status === "draft";
-  const thumbnail = item.thumbnail_url || "/placeholder.svg";
+  const rawThumb = item.thumbnail_url;
+  const thumbnail = (rawThumb && !rawThumb.startsWith("smart_content_qubes:")) ? rawThumb : "/placeholder.svg";
   const isLg = size === "lg";
   // A smart_content_qubes: token is not a navigable URL — only real URLs are playable
   const hasPlayableUrl = !!item.cta_url && !item.cta_url.startsWith("smart_content_qubes:");
