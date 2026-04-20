@@ -2,6 +2,7 @@
 
 import { Play, Lock, ExternalLink, Video, Sparkles } from "lucide-react";
 import { MarketaSequenceItem } from "@/types/marketaCampaigns";
+import { storageUrl } from "./bridgeFetch";
 import { cn } from "@/utils/cn";
 
 interface Props {
@@ -26,7 +27,9 @@ export function SequenceDayCard({ item, theme = "dark", size = "sm", onAssetClic
   const dark = theme === "dark";
   const locked = item.status === "locked" || item.status === "draft";
   const rawThumb = item.thumbnail_url;
-  const thumbnail = (rawThumb && !rawThumb.startsWith("smart_content_qubes:")) ? rawThumb : "/placeholder.svg";
+  const thumbnail = (rawThumb && !rawThumb.startsWith("smart_content_qubes:"))
+    ? (storageUrl(rawThumb) ?? "/placeholder.svg")
+    : "/placeholder.svg";
   const isLg = size === "lg";
 
   const ctaUrl = item.cta_url;
