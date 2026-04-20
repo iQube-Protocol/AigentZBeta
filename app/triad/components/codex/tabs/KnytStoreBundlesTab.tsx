@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowLeft, BookOpen, Crown, Lock, Package, Sparkles, Zap } from 'lucide-react';
+import { ArrowLeft, BookOpen, Crown, Film, Lock, Package, Sparkles, Zap } from 'lucide-react';
 import {
   BUNDLE_PRICING,
   GRAPHIC_NOVEL_PRICING,
@@ -12,6 +12,7 @@ import {
   type BundlePricing,
   type GraphicNovelPricing,
 } from '@/types/knyt-store';
+import { useKnytThumbnails } from './useKnytThumbnails';
 
 interface Props {
   personaId?: string;
@@ -35,8 +36,21 @@ function KnytPricePill({ basePrice }: { basePrice: number }) {
   );
 }
 
-function BundleDetail({ bundle, onBack: _onBack }: { bundle: BundlePricing; onBack: () => void }) {
+function BundleDetail({
+  bundle,
+  onBack: _onBack,
+  getCoverThumb,
+}: {
+  bundle: BundlePricing;
+  onBack: () => void;
+  getCoverThumb: (epNum: number) => string | undefined;
+}) {
   const includedEpisodes = EPISODE_PRICING.filter((ep) => bundle.episodes.includes(ep.episodeNumber));
+  // Cover thumbnails for included episodes (max 6 shown)
+  const thumbs = includedEpisodes
+    .slice(0, 6)
+    .map((ep) => ({ epNum: ep.episodeNumber, url: getCoverThumb(ep.episodeNumber) }))
+    .filter((t) => t.url) as { epNum: number; url: string }[];
 
   return (
     <div className="p-4 space-y-5">
@@ -61,6 +75,22 @@ function BundleDetail({ bundle, onBack: _onBack }: { bundle: BundlePricing; onBa
           )}
         </div>
       </div>
+
+      {/* Episode cover thumbnail strip */}
+      {thumbs.length > 0 && (
+        <div className="flex gap-1.5 overflow-hidden rounded-xl">
+          {thumbs.map(({ epNum, url }) => (
+            <div key={epNum} className="flex-1 aspect-[3/4] min-w-0 overflow-hidden rounded-lg bg-slate-800">
+              <img src={url} alt={`Ep ${epNum}`} className="w-full h-full object-cover" loading="lazy" />
+            </div>
+          ))}
+          {includedEpisodes.length > 6 && (
+            <div className="flex-1 min-w-0 aspect-[3/4] rounded-lg bg-slate-800/80 flex items-center justify-center border border-white/5">
+              <span className="text-[10px] font-semibold text-slate-400">+{includedEpisodes.length - 6}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Pricing */}
       <div className="rounded-xl border border-white/5 bg-slate-900/60 p-4 space-y-3">
@@ -133,16 +163,37 @@ function BundleDetail({ bundle, onBack: _onBack }: { bundle: BundlePricing; onBa
   );
 }
 
-function GnDetail({ option, onBack: _onBack }: { option: GraphicNovelPricing; onBack: () => void }) {
+function GnDetail({
+  option,
+  onBack: _onBack,
+  gnThumbUrl,
+}: {
+  option: GraphicNovelPricing;
+  onBack: () => void;
+  gnThumbUrl?: string;
+}) {
   const isPrint  = option.layer === 'print';
   const isQripto = option.layer === 'qripto';
 
   return (
     <div className="p-4 space-y-5">
-      <div>
-        <p className="text-xs text-slate-500 mb-0.5">Graphic Novel</p>
-        <h2 className="text-xl font-bold text-white">metaKnyt — {option.label}</h2>
-      </div>
+      {/* GN cover thumbnail hero */}
+      {gnThumbUrl && (
+        <div className="rounded-xl overflow-hidden aspect-[3/4] max-h-56 bg-slate-800 relative">
+          <img src={gnThumbUrl} alt="Graphic Novel cover" className="w-full h-full object-cover" />
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-3 py-2">
+            <p className="text-xs font-bold text-white">metaKnyt</p>
+            <p className="text-[10px] text-slate-300">{option.label}</p>
+          </div>
+        </div>
+      )}
+
+      {!gnThumbUrl && (
+        <div>
+          <p className="text-xs text-slate-500 mb-0.5">Graphic Novel</p>
+          <h2 className="text-xl font-bold text-white">metaKnyt — {option.label}</h2>
+        </div>
+      )}
 
       <div className="rounded-xl border border-white/5 bg-slate-900/60 p-4 space-y-3">
         <div className="flex items-end gap-3">
@@ -196,6 +247,9 @@ const investorBundles = BUNDLE_PRICING.filter((b) => b.isInvestorOnly);
 
 export function KnytStoreBundlesTab({ personaId: _personaId, theme: _theme }: Props) {
   const [view, setView] = useState<BundleView>({ kind: 'landing' });
+  const { getCoverThumb } = useKnytThumbnails();
+  // Episode -1 is the GN; maps to episodeNumber -1 in DB
+  const gnThumbUrl = getCoverThumb(-1);
 
   const headerLabel =
     view.kind === 'landing' ? 'Bundles & Graphic Novel'
@@ -227,32 +281,53 @@ export function KnytStoreBundlesTab({ personaId: _personaId, theme: _theme }: Pr
             <div>
               <p className="text-xs font-semibold text-slate-300 mb-3">Episode Bundles</p>
               <div className="space-y-2">
-                {publicBundles.map((bundle) => (
+                {publicBundles.map((bundle) => {
+                  // Show up to 3 cover thumbs for included episodes
+                  const bundleThumbs = bundle.episodes
+                    .slice(0, 3)
+                    .map((epNum) => getCoverThumb(epNum))
+                    .filter(Boolean) as string[];
+                  return (
                   <button
                     key={bundle.id}
                     type="button"
                     onClick={() => setView({ kind: 'bundle-detail', bundle })}
-                    className="w-full flex items-center justify-between rounded-xl border border-white/5 bg-slate-900/60 p-4 hover:border-teal-500/30 hover:bg-slate-800/60 transition-colors"
+                    className="w-full flex items-center gap-3 rounded-xl border border-white/5 bg-slate-900/60 p-3 hover:border-teal-500/30 hover:bg-slate-800/60 transition-colors text-left"
                   >
-                    <div className="text-left">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-white">{bundle.label}</p>
+                    {/* Thumbnail stack */}
+                    {bundleThumbs.length > 0 && (
+                      <div className="flex gap-0.5 shrink-0">
+                        {bundleThumbs.map((url, i) => (
+                          <div key={i} className="w-8 aspect-[3/4] rounded overflow-hidden bg-slate-800">
+                            <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {bundleThumbs.length === 0 && (
+                      <div className="w-8 aspect-[3/4] rounded bg-slate-800 flex items-center justify-center shrink-0">
+                        <Film className="h-3 w-3 text-slate-600" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-semibold text-white truncate">{bundle.label}</p>
                         {bundle.isFullSeason && (
-                          <span className="rounded-full bg-teal-900/40 border border-teal-700/40 px-2 py-0.5 text-[10px] font-semibold text-teal-400">
+                          <span className="rounded-full bg-teal-900/40 border border-teal-700/40 px-1.5 py-0.5 text-[9px] font-semibold text-teal-400 shrink-0">
                             Full Season
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-yellow-400 mt-0.5">
+                      <p className="text-[10px] text-yellow-400 mt-0.5">
                         ${getKnytDiscountedPrice(bundle.digitalPrice).toFixed(2)} w/ $KNYT COYN
                       </p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <p className="text-xl font-bold text-white">${bundle.digitalPrice}</p>
-                      <p className="text-xs text-slate-500">{bundle.episodes.length} eps</p>
+                      <p className="text-[10px] text-slate-500">{bundle.episodes.length} eps</p>
                     </div>
                   </button>
-                ))}
+                );})}
               </div>
             </div>
 
@@ -304,17 +379,26 @@ export function KnytStoreBundlesTab({ personaId: _personaId, theme: _theme }: Pr
                     key={i}
                     type="button"
                     onClick={() => setView({ kind: 'gn-detail', option })}
-                    className="w-full flex items-center justify-between rounded-xl border border-white/5 bg-slate-900/60 p-4 hover:border-teal-500/30 hover:bg-slate-800/60 transition-colors"
+                    className="w-full flex items-center gap-3 rounded-xl border border-white/5 bg-slate-900/60 p-3 hover:border-teal-500/30 hover:bg-slate-800/60 transition-colors text-left"
                   >
-                    <div className="text-left">
+                    {gnThumbUrl ? (
+                      <div className="w-10 aspect-[3/4] rounded overflow-hidden bg-slate-800 shrink-0">
+                        <img src={gnThumbUrl} alt="GN" className="w-full h-full object-cover" loading="lazy" />
+                      </div>
+                    ) : (
+                      <div className="w-10 aspect-[3/4] rounded bg-slate-800 flex items-center justify-center shrink-0">
+                        <Film className="h-3 w-3 text-slate-600" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-white">{option.label}</p>
                       {option.layer !== 'print' && (
-                        <p className="text-xs text-yellow-400 mt-0.5">
+                        <p className="text-[10px] text-yellow-400 mt-0.5">
                           ${getKnytDiscountedPrice(option.price).toFixed(2)} w/ $KNYT COYN
                         </p>
                       )}
                     </div>
-                    <p className="text-xl font-bold text-white">${option.price}</p>
+                    <p className="text-xl font-bold text-white shrink-0">${option.price}</p>
                   </button>
                 ))}
               </div>
@@ -322,10 +406,10 @@ export function KnytStoreBundlesTab({ personaId: _personaId, theme: _theme }: Pr
           </div>
         )}
         {view.kind === 'bundle-detail' && (
-          <BundleDetail bundle={view.bundle} onBack={() => setView({ kind: 'landing' })} />
+          <BundleDetail bundle={view.bundle} onBack={() => setView({ kind: 'landing' })} getCoverThumb={getCoverThumb} />
         )}
         {view.kind === 'gn-detail' && (
-          <GnDetail option={view.option} onBack={() => setView({ kind: 'landing' })} />
+          <GnDetail option={view.option} onBack={() => setView({ kind: 'landing' })} gnThumbUrl={gnThumbUrl} />
         )}
       </div>
     </div>
