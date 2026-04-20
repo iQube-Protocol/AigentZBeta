@@ -31,9 +31,9 @@ export async function GET(req: NextRequest) {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
   if (key) fetchHeaders["Authorization"] = `Bearer ${key}`;
 
-  // Forward Range header so the browser can seek inside the video
-  const range = req.headers.get("range");
-  if (range) fetchHeaders["Range"] = range;
+  // Do NOT forward Range to Supabase — Supabase returns 400 for range requests
+  // on some storage configurations. We fetch the full file and let CloudFront
+  // handle range responses for the browser.
 
   let upstream: Response;
   try {
@@ -65,11 +65,6 @@ export async function GET(req: NextRequest) {
   } else {
     const upstreamType = upstream.headers.get("content-type");
     if (upstreamType) resHeaders.set("content-type", upstreamType);
-  }
-
-  // Ensure Accept-Ranges is set so browsers attempt range requests for seeking
-  if (!resHeaders.has("accept-ranges")) {
-    resHeaders.set("accept-ranges", "bytes");
   }
 
   return new Response(upstream.body, {
