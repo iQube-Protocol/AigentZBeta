@@ -37,10 +37,13 @@ export async function GET(req: NextRequest) {
 
   const assets = data ?? [];
 
+  // DB episode_number convention: 0 = GN, 1 = Episode #0, 2 = Episode #1 ... 13 = Episode #12
+  // Pricing episodeNumber convention:    -1 = GN, 0 = Episode #0, 1 = Episode #1 ... 12 = Episode #12
+  // Offset: pricingEpisodeNumber = dbEpisodeNumber - 1
   const covers = assets
     .filter((a) => a.asset_kind === 'cover_image' || a.asset_kind === 'cover_pdf')
     .map((a) => ({
-      episodeNumber: a.episode_number as number,
+      episodeNumber: (a.episode_number as number) - 1,
       thumbUrl: a.cover_thumb_url as string,
       rarityTier: a.rarity_tier as string | null,
     }));
@@ -48,7 +51,7 @@ export async function GET(req: NextRequest) {
   const characters = assets
     .filter((a) => a.asset_kind === 'character_poster')
     .map((a) => ({
-      episodeNumber: a.episode_number as number,
+      episodeNumber: (a.episode_number as number) - 1,
       thumbUrl: a.cover_thumb_url as string,
       title: a.title as string,
     }));
