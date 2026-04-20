@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { CodexUploadModal } from '@/app/(shell)/admin/codex/components/CodexUploadModal';
 import {
   Activity,
   AlertCircle,
@@ -56,7 +57,8 @@ type AdminView =
   | { kind: 'section'; section: string }
   | { kind: 'editor'; id: string | null; section: string }
   | { kind: 'codex' }
-  | { kind: 'import' };
+  | { kind: 'import' }
+  | { kind: 'embed-health' };
 
 interface Props {
   isAdmin?: boolean;
@@ -857,11 +859,14 @@ function AssetCard({ icon: Icon, label, count, iconColor }: { icon: React.Compon
 }
 
 function CodexManager() {
-  const [activeTab,  setActiveTab]  = useState<CodexSeries>('knyt');
-  const [episodes,   setEpisodes]   = useState<EpisodeStatus[]>([]);
-  const [stats,      setStats]      = useState<GlobalStats | null>(null);
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState<string | null>(null);
+  const [activeTab,    setActiveTab]    = useState<CodexSeries>('knyt');
+  const [episodes,     setEpisodes]     = useState<EpisodeStatus[]>([]);
+  const [stats,        setStats]        = useState<GlobalStats | null>(null);
+  const [loading,      setLoading]      = useState(true);
+  const [error,        setError]        = useState<string | null>(null);
+  const [uploadOpen,   setUploadOpen]   = useState(false);
+  const [importing,    setImporting]    = useState(false);
+  const importRef      = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -900,16 +905,61 @@ function CodexManager() {
             <p className="text-xs text-slate-400">KNYT and Qriptopian digital scrolls &amp; collectibles</p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => void load()}
-          disabled={loading}
-          className="flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs text-slate-300 hover:border-slate-500 hover:text-white disabled:opacity-50"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={loading}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs text-slate-300 hover:border-slate-500 hover:text-white disabled:opacity-50"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+          <button
+            type="button"
+            onClick={() => importRef.current?.click()}
+            disabled={importing}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs text-slate-300 hover:border-slate-500 hover:text-white disabled:opacity-50"
+          >
+            {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+            Import Metadata
+          </button>
+          <input
+            ref={importRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              setImporting(true);
+              try {
+                const fd = new FormData();
+                fd.append('file', file);
+                await fetch('/api/admin/codex/import', { method: 'POST', body: fd });
+                void load();
+              } finally {
+                setImporting(false);
+                e.target.value = '';
+              }
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => setUploadOpen(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-500"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            Upload Content
+          </button>
+        </div>
       </div>
+
+      <CodexUploadModal
+        isOpen={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        onUploadComplete={() => { setUploadOpen(false); void load(); }}
+      />
 
       {/* Series tabs */}
       <div className="mb-4 flex border-b border-white/5">
@@ -1110,6 +1160,71 @@ function BulkImporter() {
   );
 }
 
+// ── Embed Health Check ────────────────────────────────────────────────────────
+
+const TEST_URLS = [
+  { label: 'Qriptopian Features',  url: '/triad/embed/codex/qripto?tab=features'   },
+  { label: 'Qriptopian PennyDrops', url: '/triad/embed/codex/qripto?tab=pennydrops' },
+  { label: 'Qriptopian Scrolls',   url: '/triad/embed/codex/qripto?tab=scrolls'    },
+  { label: 'Qriptopian Kn0wdZ',    url: '/triad/embed/codex/qripto?tab=kn0wdz'     },
+  { label: 'Qriptopian Rewards',   url: '/triad/embed/codex/qripto?tab=rewards'     },
+];
+
+function EmbedHealthCheck() {
+  const [selected, setSelected] = useState(TEST_URLS[0].url);
+  const [loaded,   setLoaded]   = useState(false);
+  const [error,    setError]    = useState(false);
+
+  const handleChange = (url: string) => { setSelected(url); setLoaded(false); setError(false); };
+
+  return (
+    <div className="p-4 flex flex-col gap-4">
+      <div>
+        <h2 className="text-base font-bold text-white">Embed Health Check</h2>
+        <p className="text-xs text-slate-400">Test that cartridge embeds load correctly inside iframes</p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {TEST_URLS.map(({ label, url }) => (
+          <button
+            key={url}
+            type="button"
+            onClick={() => handleChange(url)}
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              selected === url
+                ? 'bg-teal-600 text-white'
+                : 'border border-slate-700 text-slate-300 hover:border-slate-500 hover:text-white'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="relative rounded-xl border border-white/5 overflow-hidden" style={{ height: '60vh' }}>
+        {!loaded && !error && (
+          <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
+            <Loader2 className="h-6 w-6 animate-spin text-teal-400" />
+          </div>
+        )}
+        {error && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-900 text-red-400">
+            <AlertCircle className="h-6 w-6" />
+            <p className="text-xs">Failed to load embed</p>
+          </div>
+        )}
+        <iframe
+          key={selected}
+          src={selected}
+          className="h-full w-full"
+          onLoad={() => setLoaded(true)}
+          onError={() => setError(true)}
+          title="Embed preview"
+        />
+      </div>
+      <p className="text-xs text-slate-500">Testing: <span className="text-slate-300">{selected}</span></p>
+    </div>
+  );
+}
+
 // ── Root tab ──────────────────────────────────────────────────────────────────
 
 export function QriptopianAdminTab({ isAdmin, theme, personaId }: Props) {
@@ -1123,7 +1238,7 @@ export function QriptopianAdminTab({ isAdmin, theme, personaId }: Props) {
     } else if (key === 'bulk-import') {
       setView({ kind: 'import' });
     } else if (key === 'embed-health') {
-      window.open('/admin/embed-health', '_blank');
+      setView({ kind: 'embed-health' });
     }
   };
 
@@ -1146,6 +1261,7 @@ export function QriptopianAdminTab({ isAdmin, theme, personaId }: Props) {
     : view.kind === 'editor' ? (view.id ? 'Edit Article' : 'New Article')
     : view.kind === 'codex' ? 'SmartTriad Codex Manager'
     : view.kind === 'import' ? 'Bulk Import'
+    : view.kind === 'embed-health' ? 'Embed Health Check'
     : null;
 
   return (
@@ -1196,6 +1312,7 @@ export function QriptopianAdminTab({ isAdmin, theme, personaId }: Props) {
         )}
         {view.kind === 'codex' && <CodexManager />}
         {view.kind === 'import' && <BulkImporter />}
+        {view.kind === 'embed-health' && <EmbedHealthCheck />}
       </div>
     </div>
   );
