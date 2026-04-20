@@ -140,7 +140,7 @@ const sections: SidebarSection[] = [
       { href: "/content/library", label: "My Library", icon: <Library size={14} className="text-cyan-400" /> },
       { href: "/content/create", label: "Create", icon: <PlusCircle size={14} className="text-emerald-400" /> },
       { href: "/content/demo", label: "Demo Gallery", icon: <Grid3X3 size={14} className="text-purple-400" /> },
-      { href: "/admin/qriptopian", label: "Qriptopian Admin", icon: <FileText size={14} className="text-purple-400" /> },
+      { href: "/admin", label: "Content Admin", icon: <FileText size={14} className="text-purple-400" /> },
     ],
   },
   {
