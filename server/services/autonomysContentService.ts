@@ -53,7 +53,8 @@ export type CodexAssetKind =
   | 'social_campaign_video'
   | 'social_campaign_image'
   | 'cover_pdf'
-  | 'cover_image';
+  | 'cover_image'
+  | 'cover_motion';
 
 export interface MasterUploadParams {
   file: Buffer;
@@ -541,6 +542,7 @@ export function validateFileType(
     social_campaign_image: ['image/png', 'image/jpeg', 'image/webp', 'image/gif'],
     cover_pdf: ['application/pdf'],
     cover_image: ['image/png', 'image/jpeg', 'image/webp'],
+    cover_motion: ['video/mp4', 'video/webm', 'video/quicktime'],
   };
 
   const allowed = allowedTypes[assetKind];

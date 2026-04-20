@@ -138,6 +138,7 @@ export async function POST(req: NextRequest) {
       'social_campaign_image',
       'cover_pdf',
       'cover_image',
+      'cover_motion',
     ];
 
     if (!validAssetKinds.includes(metadata.assetKind)) {
