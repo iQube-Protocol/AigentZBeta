@@ -8,7 +8,8 @@ import {
 } from "lucide-react";
 import { SequenceDayCard } from "./SequenceDayCard";
 import { PartnerJourneySteps } from "./PartnerJourneySteps";
-import { CampaignCatalogItem, CampaignDetail, CampaignStatusResult, CAMPAIGN_21_AWAKENINGS_ID } from "@/types/marketaCampaigns";
+import { VideoModal, VideoItem } from "@agentiq/smarttriad";
+import { CampaignCatalogItem, CampaignDetail, CampaignStatusResult, CAMPAIGN_21_AWAKENINGS_ID, MarketaSequenceItem } from "@/types/marketaCampaigns";
 import { bridgeGet, bridgePost, trackEngagement } from "./bridgeFetch";
 import { cn } from "@/utils/cn";
 
@@ -133,6 +134,11 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
   const [status, setStatus]             = useState<CampaignStatusResult | null>(null);
   const [detailTab, setDetailTab]       = useState<DetailTab>("sequence");
 
+  // in-app video player
+  const [playerOpen, setPlayerOpen]     = useState(false);
+  const [playerItems, setPlayerItems]   = useState<VideoItem[]>([]);
+  const [playerIndex, setPlayerIndex]   = useState(0);
+
   // join form
   const [selChannels, setSelChannels]   = useState<string[]>([]);
   const [startDate, setStartDate]       = useState("");
@@ -238,6 +244,22 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
 
   const available = catalog.filter((c) => !c.is_joined);
   const joined    = catalog.filter((c) => c.is_joined);
+
+  // Build VideoItem playlist from playable sequence items (real URLs only)
+  function buildPlaylist(sourceItems: MarketaSequenceItem[]) {
+    return sourceItems
+      .filter((i) => i.cta_url && !i.cta_url.startsWith("smart_content_qubes:"))
+      .map((i) => ({ id: i.id, title: `Day ${i.day_number} — ${i.title}`, videoUrl: i.cta_url! }));
+  }
+
+  function openPlayer(item: MarketaSequenceItem) {
+    const playlist = buildPlaylist(items);
+    const idx = playlist.findIndex((v) => v.id === item.id);
+    setPlayerItems(playlist);
+    setPlayerIndex(idx >= 0 ? idx : 0);
+    setPlayerOpen(true);
+    trackEngagement({ campaign_id: selectedId!, event_type: "cta_click", sequence_day: item.day_number, asset_ref: item.asset_ref ?? undefined, persona_id: pid });
+  }
 
   // ── CATALOG VIEW ─────────────────────────────────────────────────────────────
   if (!selectedId) {
@@ -480,6 +502,7 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
                       <SequenceDayCard key={item.id} item={item} theme={theme} size="lg"
                         onAssetClick={(i) => trackEngagement({ campaign_id: selectedId, event_type: "asset_click", sequence_day: i.day_number, asset_ref: i.asset_ref ?? undefined, persona_id: pid })}
                         onCtaClick={(i) => trackEngagement({ campaign_id: selectedId, event_type: "cta_click", sequence_day: i.day_number, persona_id: pid })}
+                        onPlay={openPlayer}
                       />
                     ))}
                   </div>
@@ -498,6 +521,7 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
                       <SequenceDayCard key={item.id} item={item} theme={theme} size="lg"
                         onAssetClick={(i) => trackEngagement({ campaign_id: selectedId, event_type: "asset_click", sequence_day: i.day_number, asset_ref: i.asset_ref ?? undefined, persona_id: pid })}
                         onCtaClick={(i) => trackEngagement({ campaign_id: selectedId, event_type: "cta_click", sequence_day: i.day_number, persona_id: pid })}
+                        onPlay={openPlayer}
                       />
                     ))}
                   </div>
@@ -561,6 +585,14 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
           )}
         </>
       )}
+
+      {/* In-app video player */}
+      <VideoModal
+        isOpen={playerOpen}
+        onClose={() => setPlayerOpen(false)}
+        items={playerItems}
+        initialIndex={playerIndex}
+      />
     </div>
   );
 }
