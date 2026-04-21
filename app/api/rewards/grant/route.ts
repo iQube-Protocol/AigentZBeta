@@ -11,19 +11,26 @@ import { getRewardService, RewardTaskType } from '@/services/rewards/rewardServi
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { personaId, taskType, sourceEventId, metadata, customBaseAmount, skipCaps } = body;
-    
+    const { personaId, taskType, sourceEventId, metadata, customBaseAmount, skipCaps, mintingMode } = body;
+
     if (!personaId) {
       return NextResponse.json({ error: 'personaId is required' }, { status: 400 });
     }
-    
+
     if (!taskType || !Object.values(RewardTaskType).includes(taskType)) {
-      return NextResponse.json({ 
-        error: 'Invalid taskType', 
-        validTypes: Object.values(RewardTaskType) 
+      return NextResponse.json({
+        error: 'Invalid taskType',
+        validTypes: Object.values(RewardTaskType),
       }, { status: 400 });
     }
-    
+
+    if (mintingMode && !['immediate', 'deferred', 'canonical'].includes(mintingMode)) {
+      return NextResponse.json({
+        error: 'Invalid mintingMode',
+        validModes: ['immediate', 'deferred', 'canonical'],
+      }, { status: 400 });
+    }
+
     const rewardService = getRewardService();
     const result = await rewardService.grantRewardForTask({
       personaId,
@@ -32,6 +39,7 @@ export async function POST(request: NextRequest) {
       metadata,
       customBaseAmount,
       skipCaps,
+      mintingMode,
     });
     
     if (!result.success) {

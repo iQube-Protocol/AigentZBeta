@@ -29,8 +29,10 @@ export interface KnytMintResult {
   error?: string;
 }
 
-async function ethCall(rpc: string, to: string, data: string): Promise<string> {
-  const res = await fetch(rpc, {
+// ─── Read helpers (raw JSON-RPC, no external chain library required) ──────────
+
+async function ethCall(to: string, data: string): Promise<string> {
+  const res = await fetch(BASE_RPC, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -44,7 +46,6 @@ async function ethCall(rpc: string, to: string, data: string): Promise<string> {
 }
 
 function encodeBalanceOf(address: string): string {
-  // balanceOf(address) — pad address to 32 bytes
   const stripped = address.toLowerCase().replace(/^0x/, '').padStart(64, '0');
   return ERC20_BALANCE_OF + stripped;
 }
@@ -61,11 +62,13 @@ function formatUnits18(hex: string): string {
   return `${whole}.${fracStr}`;
 }
 
+// ─── Public API ───────────────────────────────────────────────────────────────
+
 export async function getEvmKnytBalance(evmAddress: string): Promise<EvmKnytBalance | null> {
   try {
     const callData = encodeBalanceOf(evmAddress);
     const results = await Promise.all(
-      KNYT_CONTRACTS.map(addr => ethCall(BASE_RPC, addr, callData))
+      KNYT_CONTRACTS.map(addr => ethCall(addr, callData))
     );
     const total = results.reduce((sum, hex) => {
       const raw = hex.replace(/^0x/, '') || '0';

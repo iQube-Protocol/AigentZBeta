@@ -13,6 +13,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { emitReceiptSilent } from '@/services/registry/receiptEmitter';
 import { logQcEventSilent } from '@/services/qc/qcEventService';
+import { createKnytClaim } from '@/services/wallet/knyt/knytClaimService';
+import { mintKnyt } from '@/services/wallet/knyt/evmKnytService';
+import type { KnytMintingMode } from '@/services/wallet/knyt/types';
 
 // =============================================================================
 // TYPES
@@ -69,6 +72,13 @@ export interface GrantRewardRequest {
   customBaseAmount?: number;
   /** Skip caps check (for airdrops) */
   skipCaps?: boolean;
+  /**
+   * Minting mode for this reward:
+   * - 'immediate' (default) — credit DVN KNYT ledger now
+   * - 'deferred' — create an open claim the persona redeems explicitly
+   * - 'canonical' — mint EVM KNYT on-chain (Phase 3b)
+   */
+  mintingMode?: KnytMintingMode;
 }
 
 /** Grant reward result */
@@ -187,7 +197,7 @@ export class RewardService {
    * Grant a reward for completing a task
    */
   async grantRewardForTask(req: GrantRewardRequest): Promise<GrantRewardResult> {
-    const { personaId, taskType, sourceEventId, metadata, customBaseAmount, skipCaps } = req;
+    const { personaId, taskType, sourceEventId, metadata, customBaseAmount, skipCaps, mintingMode = 'immediate' } = req;
     
     try {
       // 1. Get base amount
@@ -288,27 +298,34 @@ export class RewardService {
         return { success: false, baseAmount, finalAmount, repMultiplier, error: 'Failed to record reward' };
       }
       
-      // 6. Credit KNYT via wallet_transactions
-      const { error: txError } = await this.supabase
-        .from('wallet_transactions')
-        .insert({
-          persona_id: personaId,
-          asset: 'KNYT',
-          amount: finalAmount,
-          direction: 'credit',
-          source: 'reward_task',
-          reference_type: 'reward_grant',
-          reference_id: grant.id,
-          metadata: { taskType, sourceEventId, repMultiplier },
+      // 6. Credit KNYT — mode determined by caller (default: immediate)
+      if (mintingMode === 'deferred') {
+        // Deferred: create an open claim the persona explicitly redeems
+        const claimResult = await createKnytClaim(personaId, finalAmount, 'reward_task', {
+          taskType, sourceEventId, repMultiplier, rewardGrantId: grant.id,
         });
-      
-      if (txError) {
-        console.error('[RewardService] Failed to insert wallet transaction:', txError);
-        // Don't fail - grant is recorded, balance update can be retried
+        if (!claimResult.success) {
+          console.error('[RewardService] Failed to create deferred claim:', claimResult.error);
+          // Non-fatal — grant is recorded; operator can reprocess
+        }
+      } else if (mintingMode === 'canonical') {
+        // Canonical: EVM KNYT on-chain mint to the persona's registered EVM address
+        const evmAddress = await this._getPersonaEvmAddress(personaId);
+        if (evmAddress) {
+          const mintResult = await mintKnyt(evmAddress, finalAmount);
+          if (!mintResult.success) {
+            console.error('[RewardService] canonical mint failed, falling back to immediate:', mintResult.error);
+            await this._creditImmediate(personaId, finalAmount, taskType, sourceEventId, repMultiplier, grant.id);
+          }
+        } else {
+          // No EVM address on file — fall back to immediate and log
+          console.warn('[RewardService] canonical mode but no EVM address for persona; falling back to immediate');
+          await this._creditImmediate(personaId, finalAmount, taskType, sourceEventId, repMultiplier, grant.id);
+        }
+      } else {
+        // Immediate (default): credit DVN KNYT ledger now
+        await this._creditImmediate(personaId, finalAmount, taskType, sourceEventId, repMultiplier, grant.id);
       }
-      
-      // 7. Update wallet_balances
-      await this.updateWalletBalance(personaId, finalAmount);
       
       // 8. Emit reputation event
       await this.emitReputationEvent(personaId, 'reward_earned', {
@@ -400,6 +417,46 @@ export class RewardService {
    * Update wallet balance (upsert)
    * Uses the correct schema: balance column with asset_code='KNYT'
    */
+  private async _creditImmediate(
+    personaId: string,
+    finalAmount: number,
+    taskType: RewardTaskType,
+    sourceEventId: string | undefined,
+    repMultiplier: number,
+    grantId: string,
+  ): Promise<void> {
+    const { error: txError } = await this.supabase
+      .from('wallet_transactions')
+      .insert({
+        persona_id: personaId,
+        asset: 'KNYT',
+        amount: finalAmount,
+        direction: 'credit',
+        source: 'reward_task',
+        reference_type: 'reward_grant',
+        reference_id: grantId,
+        metadata: { taskType, sourceEventId, repMultiplier },
+      });
+    if (txError) {
+      console.error('[RewardService] Failed to insert wallet transaction:', txError);
+    }
+    await this.updateWalletBalance(personaId, finalAmount);
+  }
+
+  private async _getPersonaEvmAddress(personaId: string): Promise<string | null> {
+    for (const table of ['personas', 'persona']) {
+      const { data } = await this.supabase
+        .from(table)
+        .select('evm_address')
+        .eq('id', personaId)
+        .maybeSingle();
+      if (data?.evm_address && typeof data.evm_address === 'string') {
+        return data.evm_address;
+      }
+    }
+    return null;
+  }
+
   private async updateWalletBalance(personaId: string, amountDelta: number): Promise<void> {
     // Try to update existing balance
     const { data: existing } = await this.supabase
