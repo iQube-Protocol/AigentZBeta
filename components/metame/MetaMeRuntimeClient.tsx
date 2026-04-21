@@ -1848,6 +1848,7 @@ export default function MetaMeRuntimeClient() {
   const [activeCartridgeOverlay, setActiveCartridgeOverlay] = useState<{
     slug: string;
     title: string;
+    initialTab?: string;
   } | null>(null);
   const [agentProviderMap, setAgentProviderMap] = useState<Record<string, AgentProviderOption[]>>(staticProviderMap);
   const [selectedModelByAgent, setSelectedModelByAgent] = useState<RuntimeAgentModelMap>(() =>
@@ -2478,14 +2479,40 @@ export default function MetaMeRuntimeClient() {
               </div>
             )}
 
-            {content.runtimeLaunchHref ? (
-              <a
-                href={content.runtimeLaunchHref}
-                className="inline-flex rounded-lg border border-emerald-300/30 bg-emerald-500/15 px-3 py-1.5 text-[11px] text-emerald-100 hover:bg-emerald-500/25"
-              >
-                Open Source Capsule
-              </a>
-            ) : null}
+            {content.runtimeLaunchHref ? (() => {
+              const codexMatch = content.runtimeLaunchHref?.match(/\/triad\/embed\/codex\/([^/?#]+)/);
+              if (codexMatch) {
+                const codexSlug = codexMatch[1];
+                let initialTab: string | undefined;
+                try {
+                  const url = new URL(content.runtimeLaunchHref, 'http://x');
+                  const tab = url.searchParams.get('tab') || url.searchParams.get('initialTab');
+                  if (tab) initialTab = tab;
+                } catch { /* invalid url — no tab */ }
+                return (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const title = content.title || codexSlug.charAt(0).toUpperCase() + codexSlug.slice(1);
+                      setActiveCartridgeOverlay({ slug: codexSlug, title, initialTab });
+                    }}
+                    className="inline-flex rounded-lg border border-emerald-300/30 bg-emerald-500/15 px-3 py-1.5 text-[11px] text-emerald-100 hover:bg-emerald-500/25"
+                  >
+                    Open in Codex
+                  </button>
+                );
+              }
+              return (
+                <a
+                  href={content.runtimeLaunchHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex rounded-lg border border-emerald-300/30 bg-emerald-500/15 px-3 py-1.5 text-[11px] text-emerald-100 hover:bg-emerald-500/25"
+                >
+                  Open Source Capsule
+                </a>
+              );
+            })() : null}
           </div>
         );
       }
@@ -2858,7 +2885,7 @@ export default function MetaMeRuntimeClient() {
         </div>
       );
     },
-    [activeDevice, buildSharePanel, dismissCodexPanels, embedMode, renderRuntimeFramePanel, runtimeAdminMode, setRuntimeExperienceOverrides]
+    [activeDevice, buildSharePanel, dismissCodexPanels, embedMode, renderRuntimeFramePanel, runtimeAdminMode, setRuntimeExperienceOverrides, setActiveCartridgeOverlay]
   );
 
   const launchCapsule = useCallback(
@@ -2867,7 +2894,8 @@ export default function MetaMeRuntimeClient() {
       if (content.runtimeSource === "codex") {
         const slug = content.runtimeCodexSlug || "knyt";
         const title = content.title || slug.charAt(0).toUpperCase() + slug.slice(1);
-        setActiveCartridgeOverlay({ slug, title });
+        const initialTab = content.runtimeCodexInitialTab || undefined;
+        setActiveCartridgeOverlay({ slug, title, initialTab });
         return;
       }
       // Non-codex content (smart-content, experience) still goes into the message feed
@@ -4598,7 +4626,7 @@ export default function MetaMeRuntimeClient() {
             </button>
           </div>
           <iframe
-            src={`/triad/embed/codex/${activeCartridgeOverlay.slug}?theme=dark&closable=0`}
+            src={`/triad/embed/codex/${activeCartridgeOverlay.slug}?theme=dark&closable=0${activeCartridgeOverlay.initialTab ? `&tab=${encodeURIComponent(activeCartridgeOverlay.initialTab)}` : ''}`}
             title={`${activeCartridgeOverlay.title} Cartridge`}
             className="min-h-0 flex-1 w-full border-0"
           />
