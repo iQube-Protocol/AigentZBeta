@@ -134,17 +134,28 @@ export const CHAINS: Record<ChainId, ChainConfig> = {
     id: 'base',
     name: 'Base',
     shortName: 'BASE',
-    chainId: 84532, // Base Sepolia testnet
+    // Chain ID 8453 = Base mainnet; 84532 = Base Sepolia.
+    // We use mainnet when QCT_BASE_MAINNET is configured.
+    chainId: process.env.NEXT_PUBLIC_QCT_BASE_MAINNET ? 8453 : 84532,
     nativeToken: 'ETH',
     supportedTokens: ['QCT'],
     rpcUrlTestnet: process.env.NEXT_PUBLIC_RPC_BASE_SEPOLIA || 'https://sepolia.base.org',
-    rpcUrlMainnet: 'https://mainnet.base.org',
-    explorerUrl: 'https://sepolia.basescan.org',
+    rpcUrlMainnet: process.env.NEXT_PUBLIC_RPC_BASE_MAINNET || 'https://mainnet.base.org',
+    explorerUrl: process.env.NEXT_PUBLIC_QCT_BASE_MAINNET
+      ? 'https://basescan.org'
+      : 'https://sepolia.basescan.org',
     tokenContracts: {
       testnet: {
         QCT: process.env.NEXT_PUBLIC_QCT_BASE_SEPOLIA || '',
         KNYT: '',
       },
+      mainnet: {
+        QCT: process.env.NEXT_PUBLIC_QCT_BASE_MAINNET || '',
+        KNYT: '',
+      },
+      // Base mainnet USDC (canonical Circle address) — used by QCTReserve
+      // Reserve contract: NEXT_PUBLIC_QCT_RESERVE_BASE_MAINNET
+      // USDC contract:    0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
     },
     isEvm: true,
     isEnabled: true,

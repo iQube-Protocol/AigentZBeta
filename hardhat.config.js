@@ -51,6 +51,11 @@ module.exports = {
       url: process.env.NEXT_PUBLIC_RPC_BASE_SEPOLIA || "",
       accounts: process.env.EVM_DEPLOYER_KEY ? [process.env.EVM_DEPLOYER_KEY] : [],
       chainId: 84532
+    },
+    base: {
+      url: process.env.NEXT_PUBLIC_RPC_BASE_MAINNET || "https://mainnet.base.org",
+      accounts: process.env.EVM_DEPLOYER_KEY ? [process.env.EVM_DEPLOYER_KEY] : [],
+      chainId: 8453
     }
   },
   paths: {
