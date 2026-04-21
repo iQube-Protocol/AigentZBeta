@@ -17,10 +17,19 @@ export type KnytTxSource =
   | 'airdrop'              // Admin airdrop
   | 'admin_grant'          // Manual admin grant
   | 'admin_debit'          // Manual admin debit
-  | 'deferred_claim'       // Redemption of a deferred claim (KNYT_MINTING_MODE=deferred)
+  | 'deferred_claim'       // Redemption of a deferred claim
   | 'canonical_mint'       // Canonical EVM KNYT minting (Phase 3b)
   | 'transfer_in'          // Transfer from another persona (future)
   | 'transfer_out';        // Transfer to another persona (future)
+
+/**
+ * Minting mode for a KNYT issuance operation.
+ *
+ * - immediate  → credit the DVN KNYT ledger now (remote custody / default)
+ * - deferred   → create an open claim the persona explicitly redeems
+ * - canonical  → mint EVM KNYT on-chain (Phase 3b; requires minter role)
+ */
+export type KnytMintingMode = 'immediate' | 'deferred' | 'canonical';
 
 /** Direction of a KNYT transaction */
 export type KnytTxDirection = 'credit' | 'debit';
