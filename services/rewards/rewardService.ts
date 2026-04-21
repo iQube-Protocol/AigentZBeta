@@ -14,6 +14,7 @@ import { createClient } from '@supabase/supabase-js';
 import { emitReceiptSilent } from '@/services/registry/receiptEmitter';
 import { logQcEventSilent } from '@/services/qc/qcEventService';
 import { createKnytClaim } from '@/services/wallet/knyt/knytClaimService';
+import { mintKnyt } from '@/services/wallet/knyt/evmKnytService';
 import type { KnytMintingMode } from '@/services/wallet/knyt/types';
 
 // =============================================================================
@@ -308,10 +309,19 @@ export class RewardService {
           // Non-fatal — grant is recorded; operator can reprocess
         }
       } else if (mintingMode === 'canonical') {
-        // Canonical: EVM KNYT mint — implemented in Phase 3b
-        // For now falls back to immediate so rewards are never silently lost
-        console.warn('[RewardService] canonical minting not yet active; falling back to immediate');
-        await this._creditImmediate(personaId, finalAmount, taskType, sourceEventId, repMultiplier, grant.id);
+        // Canonical: EVM KNYT on-chain mint to the persona's registered EVM address
+        const evmAddress = await this._getPersonaEvmAddress(personaId);
+        if (evmAddress) {
+          const mintResult = await mintKnyt(evmAddress, finalAmount);
+          if (!mintResult.success) {
+            console.error('[RewardService] canonical mint failed, falling back to immediate:', mintResult.error);
+            await this._creditImmediate(personaId, finalAmount, taskType, sourceEventId, repMultiplier, grant.id);
+          }
+        } else {
+          // No EVM address on file — fall back to immediate and log
+          console.warn('[RewardService] canonical mode but no EVM address for persona; falling back to immediate');
+          await this._creditImmediate(personaId, finalAmount, taskType, sourceEventId, repMultiplier, grant.id);
+        }
       } else {
         // Immediate (default): credit DVN KNYT ledger now
         await this._creditImmediate(personaId, finalAmount, taskType, sourceEventId, repMultiplier, grant.id);
@@ -431,6 +441,20 @@ export class RewardService {
       console.error('[RewardService] Failed to insert wallet transaction:', txError);
     }
     await this.updateWalletBalance(personaId, finalAmount);
+  }
+
+  private async _getPersonaEvmAddress(personaId: string): Promise<string | null> {
+    for (const table of ['personas', 'persona']) {
+      const { data } = await this.supabase
+        .from(table)
+        .select('evm_address')
+        .eq('id', personaId)
+        .maybeSingle();
+      if (data?.evm_address && typeof data.evm_address === 'string') {
+        return data.evm_address;
+      }
+    }
+    return null;
   }
 
   private async updateWalletBalance(personaId: string, amountDelta: number): Promise<void> {
