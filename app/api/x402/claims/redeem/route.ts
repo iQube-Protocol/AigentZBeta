@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServer } from '../../../_lib/supabaseServer';
 import { executeClaimRedeem } from '@/services/x402/exec';
+import { creditKnyt } from '@/services/wallet/knyt/knytLedgerService';
 
 export async function POST(req: NextRequest) {
   const supabase = getSupabaseServer();
@@ -30,7 +31,35 @@ export async function POST(req: NextRequest) {
     }
     if (claim.status !== 'open') return NextResponse.json({ ok: false, error: `Claim status is ${claim.status}` }, { status: 400 });
 
-    // Convert amount (q¢ integer) to wei for QCT-like flows (18 decimals)
+    // KNYT ledger claims — credit the DVN KNYT balance directly, no EVM exec needed
+    if (claim.asset === 'knyt') {
+      const amountKnyt = parseFloat(String(claim.amount || '0'));
+      if (amountKnyt <= 0) return NextResponse.json({ ok: false, error: 'Invalid KNYT claim amount' }, { status: 400 });
+
+      const creditResult = await creditKnyt(
+        String(claim.to_did),
+        amountKnyt,
+        'deferred_claim',
+        { claimId: String(claim.claim_id || claim.id) },
+      );
+
+      if (!creditResult.success) {
+        return NextResponse.json({ ok: false, error: creditResult.error || 'KNYT credit failed' }, { status: 500 });
+      }
+
+      await supabase.from('claims').update({ status: 'redeemed' }).eq('claim_id', claimId);
+
+      return NextResponse.json({
+        ok: true,
+        executed: true,
+        asset: 'knyt',
+        amountKnyt,
+        newBalance: creditResult.newBalance,
+        transactionId: creditResult.transaction?.id,
+      });
+    }
+
+    // EVM / QCT claims — convert amount to wei and execute on-chain
     const amountQcent = BigInt(String((claim.amount ?? claim.amount_qcent) || '0'));
     const amountWei = (amountQcent * 10n ** 18n).toString();
 
