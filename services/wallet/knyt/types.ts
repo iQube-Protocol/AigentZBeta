@@ -9,7 +9,7 @@
 // =============================================================================
 
 /** Source of a KNYT transaction */
-export type KnytTxSource = 
+export type KnytTxSource =
   | 'paypal_purchase'      // User bought KNYT with PayPal
   | 'content_purchase'     // User spent KNYT on content (Codex, Scroll, etc.)
   | 'reward'               // User earned KNYT from quest/task completion
@@ -17,6 +17,8 @@ export type KnytTxSource =
   | 'airdrop'              // Admin airdrop
   | 'admin_grant'          // Manual admin grant
   | 'admin_debit'          // Manual admin debit
+  | 'deferred_claim'       // Redemption of a deferred claim (KNYT_MINTING_MODE=deferred)
+  | 'canonical_mint'       // Canonical EVM KNYT minting (Phase 3b)
   | 'transfer_in'          // Transfer from another persona (future)
   | 'transfer_out';        // Transfer to another persona (future)
 

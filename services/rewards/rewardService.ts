@@ -13,6 +13,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { emitReceiptSilent } from '@/services/registry/receiptEmitter';
 import { logQcEventSilent } from '@/services/qc/qcEventService';
+import { isKnytDeferred, createKnytClaim } from '@/services/wallet/knyt/knytClaimService';
 
 // =============================================================================
 // TYPES
@@ -288,27 +289,39 @@ export class RewardService {
         return { success: false, baseAmount, finalAmount, repMultiplier, error: 'Failed to record reward' };
       }
       
-      // 6. Credit KNYT via wallet_transactions
-      const { error: txError } = await this.supabase
-        .from('wallet_transactions')
-        .insert({
-          persona_id: personaId,
-          asset: 'KNYT',
-          amount: finalAmount,
-          direction: 'credit',
-          source: 'reward_task',
-          reference_type: 'reward_grant',
-          reference_id: grant.id,
-          metadata: { taskType, sourceEventId, repMultiplier },
+      // 6. Credit KNYT — immediate (default) or deferred claim
+      if (isKnytDeferred()) {
+        // Deferred: create a claimable record the persona redeems explicitly
+        const claimResult = await createKnytClaim(personaId, finalAmount, 'reward_task', {
+          taskType, sourceEventId, repMultiplier, rewardGrantId: grant.id,
         });
-      
-      if (txError) {
-        console.error('[RewardService] Failed to insert wallet transaction:', txError);
-        // Don't fail - grant is recorded, balance update can be retried
+        if (!claimResult.success) {
+          console.error('[RewardService] Failed to create deferred claim:', claimResult.error);
+          // Non-fatal — grant is recorded; operator can reprocess
+        }
+      } else {
+        // Immediate: write to wallet_transactions + update balance
+        const { error: txError } = await this.supabase
+          .from('wallet_transactions')
+          .insert({
+            persona_id: personaId,
+            asset: 'KNYT',
+            amount: finalAmount,
+            direction: 'credit',
+            source: 'reward_task',
+            reference_type: 'reward_grant',
+            reference_id: grant.id,
+            metadata: { taskType, sourceEventId, repMultiplier },
+          });
+
+        if (txError) {
+          console.error('[RewardService] Failed to insert wallet transaction:', txError);
+          // Don't fail - grant is recorded, balance update can be retried
+        }
+
+        // 7. Update wallet_balances
+        await this.updateWalletBalance(personaId, finalAmount);
       }
-      
-      // 7. Update wallet_balances
-      await this.updateWalletBalance(personaId, finalAmount);
       
       // 8. Emit reputation event
       await this.emitReputationEvent(personaId, 'reward_earned', {
