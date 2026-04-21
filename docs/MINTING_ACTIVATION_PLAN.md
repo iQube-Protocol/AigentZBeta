@@ -98,18 +98,33 @@ Receipts are created as `provisional=true` and never closed. The schema (`regist
 
 ## 3. Gap Analysis
 
-| Gap | Effort | Blocker? |
+| Gap | Effort | Dev days | Blocker? |
+|---|---|---|---|
+| Deferred claim issuance for KNYT | Small | 1 | No — x402 claims infra exists |
+| KNYT claim redemption → creditKnyt() | Small | 0.5 | No |
+| Deferred claim for Q¢ | Small | 0.5 | No |
+| SmartWallet UI — pending claims display | Small | 1 | No |
+| DVN receipt finalization service | Medium | 3–4 | Yes — all receipts stay provisional without this |
+| Replace mock DVN status with real canister query | Small | 0.5 | No |
+| Base Q¢ mainnet contract deployment | Small | 0.5 | Requires deployer key + ETH on Base mainnet |
+| Q¢ on-chain balance read (mainnet) | Small | 0.5 | Depends on mainnet deploy |
+| Q¢ canonical mint() call wiring | Medium | 1–2 | Depends on mainnet deploy |
+| KNYT canonical mint() call | Medium | 1–2 | Requires confirming writable contract + minter role |
+| EVM KNYT as payment (approve + transferFrom) | Medium | 2–3 | Requires payment-receiving contract or hot wallet |
+| DVN receipts for canonical mint events | Small | 1 | Depends on mint() wiring |
+| btc_signer_psbt canister wiring | Medium | 2–3 | IDL ready; `BTC_SIGNER_CANISTER_ID` env var must be set |
+| Bitcoin mainnet anchoring | Small | 0.5 | Environment flag switch once testnet fully validated |
+| **Total (Phase 1–4)** | | **~15–21 days** | |
+
+### Phase effort summary
+
+| Phase | Scope | Days |
 |---|---|---|
-| Deferred claim issuance for KNYT | Small | No — x402 claims infra exists |
-| KNYT claim redemption → creditKnyt() | Small | No |
-| Deferred claim for Q¢ | Small | No |
-| DVN receipt finalization service | Medium | Yes — all receipts stay provisional without this |
-| KNYT canonical mint() call | Medium | Requires knowing writable KNYT contract + ABI |
-| EVM KNYT as payment (approve + transferFrom) | Medium | Requires payment-receiving contract or hot wallet |
-| Base Q¢ mainnet deploy | Small | Requires deployer key + mainnet ETH for gas |
-| Q¢ canonical mint (EVM) on mainnet | Medium | Depends on mainnet deploy |
-| btc_signer_psbt canister wiring | Medium | IDL ready; needs integration in btcService |
-| Bitcoin mainnet anchoring | Small | Environment flag switch once testnet validated |
+| Phase 1 — Deferred claims | KNYT + Q¢ issuance, redemption, UI | 3 |
+| Phase 2 — DVN finalization | Finalization service + real DVN status | 4–5 |
+| Phase 3a — Base Q¢ mainnet | Deploy + on-chain reads + canonical mint | 2–3 |
+| Phase 3b — KNYT canonical + EVM payment | mint() call + payment flows + receipts | 4–6 |
+| Phase 4 — btc_signer_psbt + mainnet BTC | Canister wiring + mainnet switch | 3 |
 
 ---
 

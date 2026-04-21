@@ -28,7 +28,9 @@
         "items/repos/repo-map.md",
         "items/repos/modules.md",
         "items/repos/conventions.md",
-        "items/repos/release-tracks.md"
+        "items/repos/release-tracks.md",
+        "items/repos/network-and-minting-state.md",
+        "items/repos/identity-and-reputation-state.md"
       ]
     },
     {
