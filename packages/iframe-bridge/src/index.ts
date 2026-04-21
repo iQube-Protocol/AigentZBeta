@@ -14,6 +14,8 @@ export type ShellOutboundType =
   | "PROMPT_SUBMIT"
   | "RESET_WELCOME"
   | "DEVICE_CONTEXT_UPDATE"
+  | "LAUNCH_CARTRIDGE"
+  | "RUNTIME_CONTEXT_CHANGE"
   | BrowserShellToRuntimeType;
 
 export type RuntimeInboundType =
@@ -139,6 +141,8 @@ export function isShellOutboundMessage(value: unknown): value is ShellInboundMes
     "PROMPT_SUBMIT",
     "RESET_WELCOME",
     "DEVICE_CONTEXT_UPDATE",
+    "LAUNCH_CARTRIDGE",
+    "RUNTIME_CONTEXT_CHANGE",
     ...browserShellToRuntimeTypes,
   ];
   return shellTypes.includes(value.type as ShellOutboundType);
