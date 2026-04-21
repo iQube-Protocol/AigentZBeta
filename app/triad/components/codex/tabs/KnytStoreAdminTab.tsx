@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { AlertCircle, BookOpen, Package, Save, Settings } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { AlertCircle, BookOpen, Package, Save, Settings, Zap } from 'lucide-react';
 import {
   EPISODE_PRICING,
   BUNDLE_PRICING,
@@ -15,10 +15,12 @@ import {
 
 interface Props {
   isAdmin?: boolean;
+  personaId?: string;
   theme?: 'light' | 'dark';
 }
 
-type AdminSection = 'overview' | 'episodes' | 'bundles' | 'cards' | 'provenance';
+type AdminSection = 'overview' | 'episodes' | 'bundles' | 'cards' | 'provenance' | 'minting';
+type MintingMode = 'immediate' | 'deferred' | 'canonical';
 
 // ── Simple editable row ───────────────────────────────────────────────────────
 
@@ -148,9 +150,139 @@ function ProvenanceAdmin() {
   );
 }
 
+// ── Minting mode admin ────────────────────────────────────────────────────────
+
+const MINTING_SKUS: Array<{ skuId: string; label: string; group: string }> = [
+  // Episodes
+  { skuId: 'episode_-1', label: 'Graphic Novel (Episode −1)', group: 'Episodes' },
+  ...EPISODE_PRICING.filter((ep) => ep.episodeNumber >= 0).map((ep) => ({
+    skuId: `episode_${ep.episodeNumber}`,
+    label: `Episode ${ep.episodeNumber}`,
+    group: 'Episodes',
+  })),
+  // Bundles
+  ...BUNDLE_PRICING.map((b) => ({ skuId: `bundle_${b.id}`, label: b.label, group: 'Bundles' })),
+  // Asset classes
+  { skuId: 'cards_all', label: 'KNYT Character Cards', group: 'Assets' },
+  { skuId: 'qripto_all', label: 'Qripto Collectibles', group: 'Assets' },
+];
+
+const MODE_LABELS: Record<MintingMode, string> = {
+  immediate: 'Immediate',
+  deferred: 'Deferred claim',
+  canonical: 'EVM on-chain',
+};
+
+const MODE_DESCRIPTIONS: Record<MintingMode, string> = {
+  immediate: 'Credit DVN KNYT ledger instantly',
+  deferred: 'Issue open claim — persona redeems explicitly',
+  canonical: 'Mint EVM KNYT on Ethereum mainnet',
+};
+
+function MintingAdmin({ personaId }: { personaId?: string }) {
+  const [configs, setConfigs] = useState<Record<string, MintingMode>>({});
+  const [saving, setSaving] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/knyt/sku-config');
+      const json = await res.json();
+      if (json.ok) {
+        const map: Record<string, MintingMode> = {};
+        for (const row of json.configs ?? []) {
+          map[row.sku_id] = row.minting_mode as MintingMode;
+        }
+        setConfigs(map);
+      } else {
+        setLoadError(json.error ?? 'Failed to load');
+      }
+    } catch {
+      setLoadError('Network error');
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const setMode = useCallback(async (skuId: string, mode: MintingMode) => {
+    setConfigs((prev) => ({ ...prev, [skuId]: mode }));
+    setSaving(skuId);
+    try {
+      await fetch('/api/admin/knyt/sku-config', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sku_id: skuId, minting_mode: mode, updated_by: personaId }),
+      });
+    } finally {
+      setSaving(null);
+    }
+  }, [personaId]);
+
+  const groups = [...new Set(MINTING_SKUS.map((s) => s.group))];
+
+  return (
+    <div className="space-y-4">
+      {loadError && (
+        <div className="rounded-xl border border-red-800/30 bg-red-900/10 px-3 py-2 flex items-start gap-2">
+          <AlertCircle className="h-3.5 w-3.5 text-red-400 shrink-0 mt-0.5" />
+          <p className="text-[10px] text-red-300">{loadError}</p>
+        </div>
+      )}
+      <div className="rounded-xl border border-blue-800/30 bg-blue-900/10 px-3 py-2 flex items-start gap-2">
+        <Zap className="h-3.5 w-3.5 text-blue-400 shrink-0 mt-0.5" />
+        <p className="text-[10px] text-blue-300">
+          <strong>Immediate</strong> — default, DVN ledger credit. <strong>Deferred</strong> — persona must redeem claim.{' '}
+          <strong>EVM on-chain</strong> — mints real KNYT on Ethereum mainnet (requires KNYT_MINTER_PRIVATE_KEY).
+        </p>
+      </div>
+      {groups.map((group) => (
+        <div key={group} className="rounded-xl border border-white/5 bg-slate-900/60 p-3">
+          <p className="text-xs font-semibold text-slate-200 mb-3">{group}</p>
+          <div className="space-y-2">
+            {MINTING_SKUS.filter((s) => s.group === group).map(({ skuId, label }) => {
+              const current = configs[skuId] ?? 'immediate';
+              return (
+                <div key={skuId} className="rounded-lg border border-white/5 bg-slate-800/40 p-2.5">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[11px] font-medium text-slate-300">{label}</p>
+                    {saving === skuId && (
+                      <span className="text-[9px] text-slate-500 animate-pulse">saving…</span>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    {(['immediate', 'deferred', 'canonical'] as MintingMode[]).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => setMode(skuId, mode)}
+                        title={MODE_DESCRIPTIONS[mode]}
+                        className={`flex-1 rounded px-1.5 py-1 text-[9px] font-semibold transition-colors ${
+                          current === mode
+                            ? mode === 'canonical'
+                              ? 'bg-amber-600 text-white'
+                              : mode === 'deferred'
+                              ? 'bg-blue-700 text-white'
+                              : 'bg-teal-700 text-white'
+                            : 'bg-slate-700/50 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {MODE_LABELS[mode]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Root ──────────────────────────────────────────────────────────────────────
 
-export function KnytStoreAdminTab({ isAdmin, theme: _theme }: Props) {
+export function KnytStoreAdminTab({ isAdmin, personaId, theme: _theme }: Props) {
   const [section, setSection] = useState<AdminSection>('overview');
 
   if (!isAdmin) {
@@ -167,6 +299,7 @@ export function KnytStoreAdminTab({ isAdmin, theme: _theme }: Props) {
     { id: 'episodes',   label: 'Episodes',   icon: BookOpen  },
     { id: 'bundles',    label: 'Bundles',    icon: Package   },
     { id: 'provenance', label: 'Provenance', icon: BookOpen  },
+    { id: 'minting',    label: 'Minting',    icon: Zap       },
   ];
 
   return (
@@ -220,6 +353,7 @@ export function KnytStoreAdminTab({ isAdmin, theme: _theme }: Props) {
         {section === 'episodes'   && <EpisodesAdmin />}
         {section === 'bundles'    && <BundlesAdmin />}
         {section === 'provenance' && <ProvenanceAdmin />}
+        {section === 'minting'    && <MintingAdmin personaId={personaId} />}
       </div>
     </div>
   );
