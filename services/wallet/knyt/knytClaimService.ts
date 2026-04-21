@@ -2,8 +2,9 @@
  * KNYT Claim Service — deferred minting support
  *
  * Creates claim records in the x402 `claims` table for KNYT rewards/purchases
- * when KNYT_MINTING_MODE=deferred. The claim is redeemed later by the persona
- * to credit their DVN KNYT balance via /api/x402/claims/redeem.
+ * when the caller explicitly requests deferred minting mode. The claim is
+ * redeemed later by the persona to credit their DVN KNYT balance via
+ * /api/x402/claims/redeem.
  */
 
 import { getSupabaseServer } from "@/app/api/_lib/supabaseServer";
@@ -15,14 +16,6 @@ export interface KnytClaimResult {
   success: boolean;
   claimId?: string;
   error?: string;
-}
-
-/**
- * Returns true when the platform is configured for deferred KNYT minting.
- * Set KNYT_MINTING_MODE=deferred in env to enable; defaults to immediate.
- */
-export function isKnytDeferred(): boolean {
-  return (process.env.KNYT_MINTING_MODE || "immediate").toLowerCase() === "deferred";
 }
 
 /**
