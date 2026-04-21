@@ -3901,6 +3901,40 @@ export default function MetaMeRuntimeClient() {
 
     function onShellMessage(event: MessageEvent) {
       if (event.source !== window.parent) return;
+
+      // LAUNCH_CARTRIDGE and RUNTIME_CONTEXT_CHANGE may arrive in raw (non-bridge)
+      // format from the Lovable shell. Handle them before the strict bridge check so
+      // they work regardless of whether the shell uses createShellMessage() or not.
+      const raw = event.data;
+      if (raw && typeof raw === "object" && typeof raw.type === "string") {
+        // Support both raw { type, cartridge_id } and bridge { type, payload: { cartridge_id } }
+        const rawPayload = (raw.payload && typeof raw.payload === "object" ? raw.payload : raw) as Record<string, unknown>;
+
+        if (raw.type === "LAUNCH_CARTRIDGE") {
+          const cartridgeId = typeof rawPayload.cartridge_id === "string" ? rawPayload.cartridge_id : null;
+          const codexId = typeof rawPayload.codex_id === "string" ? rawPayload.codex_id : cartridgeId;
+          const rawSlug = codexId || cartridgeId;
+          if (rawSlug) {
+            const slug = (rawSlug as string).replace(/-codex$/i, "");
+            const title = slug.charAt(0).toUpperCase() + slug.slice(1);
+            setActiveCartridgeOverlay({ slug, title });
+          }
+          return;
+        }
+
+        if (raw.type === "RUNTIME_CONTEXT_CHANGE") {
+          const ctx = (rawPayload.context ?? raw.context) === "knyt" ? "knyt" : "metame";
+          setRuntimeContext(ctx as "metame" | "knyt");
+          void handlePrompt(
+            ctx === "knyt"
+              ? "I'd like to explore my KNYT journey"
+              : "I'd like to return to my metaMe context",
+            { source: "text_input", skipInference: false, explicitIntent: "play" }
+          );
+          return;
+        }
+      }
+
       if (!isShellOutboundMessage(event.data)) return;
 
       const message = event.data as ShellInboundMessage;
