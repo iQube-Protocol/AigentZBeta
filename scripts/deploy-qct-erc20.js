@@ -36,6 +36,13 @@ const CHAINS = {
     rpc: process.env.NEXT_PUBLIC_RPC_BASE_SEPOLIA,
     chainId: 84532,
     explorer: "https://sepolia.basescan.org"
+  },
+  // Mainnet — deploy with: npx hardhat run scripts/deploy-qct-erc20.js --network base
+  base: {
+    name: "Base Mainnet",
+    rpc: process.env.NEXT_PUBLIC_RPC_BASE_MAINNET || "https://mainnet.base.org",
+    chainId: 8453,
+    explorer: "https://basescan.org"
   }
 };
 
