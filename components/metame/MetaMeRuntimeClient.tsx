@@ -3485,6 +3485,19 @@ export default function MetaMeRuntimeClient() {
     return () => window.removeEventListener("metame_settings_changed", onSettingsChanged);
   }, [applyLeadAgentSetting]);
 
+  // Notify the thin-client shell whenever the cartridge overlay opens or closes
+  useEffect(() => {
+    if (activeCartridgeOverlay) {
+      postRuntimeEvent("CARTRIDGE_OVERLAY_ACTIVE", {
+        active: true,
+        slug: activeCartridgeOverlay.slug,
+        title: activeCartridgeOverlay.title,
+      });
+    } else {
+      postRuntimeEvent("CARTRIDGE_OVERLAY_ACTIVE", { active: false });
+    }
+  }, [activeCartridgeOverlay, postRuntimeEvent]);
+
   const handlePrompt = useCallback(
     async (
       prompt: string,
@@ -3947,6 +3960,11 @@ export default function MetaMeRuntimeClient() {
             const title = slug.charAt(0).toUpperCase() + slug.slice(1);
             setActiveCartridgeOverlay({ slug, title });
           }
+          return;
+        }
+
+        if (raw.type === "CARTRIDGE_OVERLAY_CLOSE") {
+          setActiveCartridgeOverlay(null);
           return;
         }
 
@@ -4611,24 +4629,13 @@ export default function MetaMeRuntimeClient() {
         personaId={activePersonaId || undefined}
         initialTab="wallet"
       />
-      {/* Cartridge overlay — z-axis layer above the full runtime */}
+      {/* Cartridge overlay — z-axis layer, no internal header (shell header carries the close button) */}
       {activeCartridgeOverlay != null && (
-        <div className="absolute inset-0 z-[60] flex flex-col bg-slate-950">
-          <div className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/80 px-4 py-3">
-            <span className="text-sm font-semibold text-white">{activeCartridgeOverlay.title}</span>
-            <button
-              type="button"
-              onClick={() => setActiveCartridgeOverlay(null)}
-              className="rounded p-1 text-slate-400 hover:bg-white/10 hover:text-white transition"
-              aria-label="Close cartridge"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
+        <div className="absolute inset-0 z-[60]">
           <iframe
             src={`/triad/embed/codex/${activeCartridgeOverlay.slug}?theme=dark&closable=0${activeCartridgeOverlay.initialTab ? `&tab=${encodeURIComponent(activeCartridgeOverlay.initialTab)}` : ''}`}
             title={`${activeCartridgeOverlay.title} Cartridge`}
-            className="min-h-0 flex-1 w-full border-0"
+            className="h-full w-full border-0"
           />
         </div>
       )}
