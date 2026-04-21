@@ -1844,6 +1844,7 @@ export default function MetaMeRuntimeClient() {
   });
 
   const staticProviderMap = useMemo<Record<string, AgentProviderOption[]>>(() => getStaticAgentLlmProviders(), []);
+  const [runtimeContext, setRuntimeContext] = useState<'metame' | 'knyt'>('metame');
   const [agentProviderMap, setAgentProviderMap] = useState<Record<string, AgentProviderOption[]>>(staticProviderMap);
   const [selectedModelByAgent, setSelectedModelByAgent] = useState<RuntimeAgentModelMap>(() =>
     initialModelMap(staticProviderMap)
@@ -2368,7 +2369,7 @@ export default function MetaMeRuntimeClient() {
     setSelectedCapsuleLocal(null);
   }, []);
   const renderRuntimeFramePanel = useCallback(
-    (content: RuntimeCapsule, intent: RuntimeIntent, options: { label: string; frameSrc: string }) => {
+    (content: RuntimeCapsule, intent: RuntimeIntent, options: { label: string; frameSrc: string; onClose?: () => void }) => {
       const moduleConfig = resolveRuntimeModule(activeDevice, intent);
       const heroImage = resolveCapsuleCoverImage(content);
       const frameHeight =
@@ -2380,9 +2381,19 @@ export default function MetaMeRuntimeClient() {
               <p className="text-[10px] uppercase tracking-[0.18em] text-cyan-300/80">{options.label}</p>
               <p className="text-sm font-semibold text-white">{content.title}</p>
             </div>
-            <div className="flex flex-wrap justify-end gap-1.5">
+            <div className="flex flex-wrap items-center justify-end gap-1.5">
               <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] text-cyan-200">{moduleConfig.label}</span>
               <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-slate-300">{moduleConfig.screenFraction}</span>
+              {options.onClose != null && (
+                <button
+                  type="button"
+                  onClick={options.onClose}
+                  className="rounded-md p-1 text-slate-400 hover:bg-slate-700/50 hover:text-white transition-colors"
+                  aria-label="Close cartridge"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
           </div>
           {heroImage ? (
@@ -2486,6 +2497,7 @@ export default function MetaMeRuntimeClient() {
         return renderRuntimeFramePanel(content, intent, {
           label: "Codex Capsule Runtime",
           frameSrc,
+          onClose: () => dismissCodexPanels(codexSlug),
         });
       }
 
@@ -2842,7 +2854,7 @@ export default function MetaMeRuntimeClient() {
         </div>
       );
     },
-    [activeDevice, buildSharePanel, embedMode, renderRuntimeFramePanel, runtimeAdminMode, setRuntimeExperienceOverrides]
+    [activeDevice, buildSharePanel, dismissCodexPanels, embedMode, renderRuntimeFramePanel, runtimeAdminMode, setRuntimeExperienceOverrides]
   );
 
   const launchCapsule = useCallback(
@@ -4031,6 +4043,50 @@ export default function MetaMeRuntimeClient() {
         return;
       }
 
+      if (message.type === "RUNTIME_CONTEXT_CHANGE") {
+        const ctx = payload.context === "knyt" ? "knyt" : "metame";
+        setRuntimeContext(ctx);
+        return;
+      }
+
+      if (message.type === "LAUNCH_CARTRIDGE") {
+        const cartridgeId = typeof payload.cartridge_id === "string" ? payload.cartridge_id : null;
+        const codexId = typeof payload.codex_id === "string" ? payload.codex_id : cartridgeId;
+        const rawSlug = codexId || cartridgeId;
+        if (!rawSlug) return;
+        const slug = rawSlug.replace(/-codex$/i, "");
+        const capsule = {
+          id: `capsule-${slug}-${Date.now()}`,
+          type: "SmartContentQube",
+          app: slug,
+          title: slug.charAt(0).toUpperCase() + slug.slice(1),
+          slug: `${slug}-capsule`,
+          version: 1,
+          description: `${slug} cartridge`,
+          coverImageUri: null,
+          creatorRootDid: `did:iq:${slug}`,
+          tenantId: "metame",
+          modalities: { read: { enabled: true }, watch: { enabled: false }, listen: { enabled: false }, interact: { enabled: true } },
+          structure: { kind: "collection" },
+          pricingModel: { tiers: [{ kind: "free", amount: 0, currency: "QCT", covers: 1 }], acceptedTokens: [] },
+          libraryMetadata: {
+            category: "capsule",
+            tags: ["capsule", "codex", "play"],
+            recommendedShelf: "capsules",
+            expiry: { model: "permanent" },
+            ownership: { status: "available", libraryStatus: "not_owned" },
+            discovery: { featured: true, curated: true, priority: 1 },
+          },
+          status: "published",
+          createdAt: new Date().toISOString(),
+          runtimeSource: "codex" as const,
+          runtimeCodexSlug: slug,
+          runtimeCodexInitialTab: "codex",
+        } as unknown as RuntimeCapsule;
+        launchCapsule(capsule);
+        return;
+      }
+
       if (message.type === "RESET_WELCOME") {
         void resetRuntime();
       }
@@ -4043,8 +4099,10 @@ export default function MetaMeRuntimeClient() {
     applyShellSelectorChange,
     embedMode,
     handlePrompt,
+    launchCapsule,
     postRuntimeEvent,
     resetRuntime,
+    setRuntimeContext,
     showWelcome,
     thinShellMode,
     relayCloseCodexToNestedFrames,
@@ -4063,6 +4121,7 @@ export default function MetaMeRuntimeClient() {
       busy: runtimeProcessing,
       processing: runtimeProcessing,
       inferring: runtimeProcessing,
+      runtime_context: runtimeContext,
     });
 
     if (previousWelcomeRef.current && !showWelcome) {
@@ -4074,7 +4133,7 @@ export default function MetaMeRuntimeClient() {
     }
 
     previousWelcomeRef.current = showWelcome;
-  }, [activeDevice, embedMode, isRuntimeFullscreen, lastIntent, postRuntimeEvent, runtimeProcessing, showWelcome, thinShellMode]);
+  }, [activeDevice, embedMode, isRuntimeFullscreen, lastIntent, postRuntimeEvent, runtimeContext, runtimeProcessing, showWelcome, thinShellMode]);
 
   useEffect(() => {
     if (!embedMode) return;
