@@ -3,12 +3,12 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useRef, useState, useEffect, ReactNode } from "react";
 import { 
-  ChevronDown, 
-  ChevronRight, 
-  Home, 
-  Users, 
-  Database, 
-  FileText, 
+  ChevronDown,
+  ChevronRight,
+  Home,
+  Users,
+  Database,
+  FileText,
   Settings,
   ToggleRight,
   ToggleLeft,
@@ -35,9 +35,11 @@ import {
   Library,
   Sparkles,
   MessageSquare,
-  Hexagon
+  Hexagon,
+  ShieldCheck,
 } from "lucide-react";
 import { SubmenuDrawer } from "./SubmenuDrawer";
+import { PersonaIQubeDrawer } from "./iqube/PersonaIQubeDrawer";
 
 
 
@@ -96,6 +98,8 @@ const sections: SidebarSection[] = [
       { href: "/aigents/generic-ai?iqube=qrypto", label: "Qrypto Persona", icon: <Users size={14} className="text-cyan-400" />, toggleable: true, active: false },
       { href: "/aigents/generic-ai?iqube=knyt", label: "KNYT Persona", icon: <Users size={14} className="text-amber-400" />, toggleable: true, active: false },
       { href: "/aigents/generic-ai?iqube=metaMe", label: "metaMe Persona", icon: <Users size={14} className="text-purple-400" />, toggleable: true, active: false },
+      { href: "#persona-knyt-iqube", label: "KNYT iQube", icon: <ShieldCheck size={14} className="text-amber-400" />, toggleable: false },
+      { href: "#persona-qripto-iqube", label: "Qripto iQube", icon: <ShieldCheck size={14} className="text-cyan-400" />, toggleable: false },
     ],
   },
   {
@@ -214,6 +218,7 @@ export const Sidebar = () => {
   const [iQubeId, setIQubeId] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerType, setDrawerType] = useState<"view" | "decrypt" | "mint" | "activate">("view");
+  const [personaIQubeDrawer, setPersonaIQubeDrawer] = useState<"knyt" | "qripto" | null>(null);
   // Nested groups inside iQubes section
   const [openIQubesGroups, setOpenIQubesGroups] = useState<Record<string, boolean>>({
     "Active iQubes": false,
@@ -931,6 +936,10 @@ export const Sidebar = () => {
 
   
   const handleModelQubeClick = (href: string) => {
+    // Intercept persona iQube drawer links
+    if (href === "#persona-knyt-iqube") { setPersonaIQubeDrawer("knyt"); return; }
+    if (href === "#persona-qripto-iqube") { setPersonaIQubeDrawer("qripto"); return; }
+
     // Check if the current iQube is already active
     const isCurrentQubeActive = toggleStates[href];
     
@@ -1574,6 +1583,12 @@ export const Sidebar = () => {
         drawerType={drawerType}
         sidebarVisible={hovering || pinnedOpen || studioMenuVisible}
       />
+      {personaIQubeDrawer && (
+        <PersonaIQubeDrawer
+          type={personaIQubeDrawer}
+          onClose={() => setPersonaIQubeDrawer(null)}
+        />
+      )}
     </>
   );
 }
