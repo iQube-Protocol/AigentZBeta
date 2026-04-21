@@ -5,6 +5,24 @@ Update it as new patterns and rules are established.
 
 ---
 
+## No Guessing or Hallucinating — Zero Tolerance
+
+**Never guess, invent, or assume any value that cannot be verified from the codebase or a source provided by the operator.**
+
+This applies without exception to:
+
+- **URLs and domains** — never construct or infer a production/staging/dev URL. If a URL is not found in `.env.example`, env files, config files, or code in this repo, say "I cannot find this URL in the codebase — please provide it."
+- **Environment variable values** — only read from actual env files. Never assume a value.
+- **API endpoints, route paths, slugs, IDs** — always verify from source files before stating. If uncertain, search first; if not found, say so.
+- **Third-party service configuration** — do not guess account IDs, project IDs, bucket names, or region names.
+- **Any other factual value** — if it is not in the codebase or explicitly provided by the operator, do not state it as fact.
+
+**When a value cannot be found:** say exactly that — "I cannot find X in the codebase. Please provide it." Do not fill the gap with a plausible-sounding guess.
+
+Guessing critical values (especially URLs) wastes the operator's time, breaks integrations, and erodes trust. This rule is non-negotiable.
+
+---
+
 ## Operator Instructions — Always Provide Runnable Scripts
 
 When the operator needs to take any action, always provide the exact command(s) to run — never describe steps in prose that require manual interpretation.
