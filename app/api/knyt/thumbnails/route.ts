@@ -15,7 +15,6 @@ export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
   const series = req.nextUrl.searchParams.get('series') || 'metaKnyts';
-  const origin = req.nextUrl.origin;
 
   const supabase = getSupabaseServer();
   if (!supabase) {
@@ -38,10 +37,10 @@ export async function GET(req: NextRequest) {
 
   const assets = data ?? [];
 
-  // Resolve thumb URL: prefer CDN thumb, fall back to decrypting cover proxy
+  // Resolve thumb URL: prefer CDN thumb, fall back to decrypting cover proxy (relative so it always works)
   function resolveThumb(a: { cover_thumb_url: string | null; auto_drive_cid: string | null }): string | null {
     if (a.cover_thumb_url) return a.cover_thumb_url;
-    if (a.auto_drive_cid) return `${origin}/api/content/cover/${a.auto_drive_cid}`;
+    if (a.auto_drive_cid) return `/api/content/cover/${a.auto_drive_cid}`;
     return null;
   }
 
