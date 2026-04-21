@@ -1845,6 +1845,10 @@ export default function MetaMeRuntimeClient() {
 
   const staticProviderMap = useMemo<Record<string, AgentProviderOption[]>>(() => getStaticAgentLlmProviders(), []);
   const [runtimeContext, setRuntimeContext] = useState<'metame' | 'knyt'>('metame');
+  const [activeCartridgeOverlay, setActiveCartridgeOverlay] = useState<{
+    slug: string;
+    title: string;
+  } | null>(null);
   const [agentProviderMap, setAgentProviderMap] = useState<Record<string, AgentProviderOption[]>>(staticProviderMap);
   const [selectedModelByAgent, setSelectedModelByAgent] = useState<RuntimeAgentModelMap>(() =>
     initialModelMap(staticProviderMap)
@@ -2859,14 +2863,19 @@ export default function MetaMeRuntimeClient() {
 
   const launchCapsule = useCallback(
     (content: RuntimeCapsule, intent: RuntimeIntent = lastIntent) => {
+      // Codex-source capsules always open as a z-axis overlay so the runtime stays live underneath
+      if (content.runtimeSource === "codex") {
+        const slug = content.runtimeCodexSlug || "knyt";
+        const title = content.title || slug.charAt(0).toUpperCase() + slug.slice(1);
+        setActiveCartridgeOverlay({ slug, title });
+        return;
+      }
+      // Non-codex content (smart-content, experience) still goes into the message feed
       setSelectedCapsuleLocal(content.id);
       const launchMessageId = buildLaunchMessageId({
         runtimeSource: content.runtimeSource,
         runtimeCodexSlug: content.runtimeCodexSlug || null,
       });
-      if (content.runtimeSource === "codex") {
-        activeCodexPanelMessageIdsRef.current.add(launchMessageId);
-      }
       setMessages((prev) => [
         ...prev,
         {
@@ -2878,7 +2887,7 @@ export default function MetaMeRuntimeClient() {
         },
       ]);
     },
-    [buildRuntimeCapsulePanel, lastIntent]
+    [buildRuntimeCapsulePanel, lastIntent, setActiveCartridgeOverlay]
   );
 
   // Moved earlier than its original location (was after runtimeSurface) so the auto-launch
@@ -3115,6 +3124,8 @@ export default function MetaMeRuntimeClient() {
       if (!closeSignal.isClose && !navigateSignal.isClose) return;
       console.warn("[codex-close] onAnyMessage close signal matched", { closeSignal, navigateSignal });
       dismissCodexPanels(closeSignal.isClose ? closeSignal.codexId : navigateSignal.codexId);
+      // Also close the z-axis cartridge overlay if one is active
+      setActiveCartridgeOverlay(null);
       relayCloseCodexToNestedFrames();
     }
 
@@ -3128,6 +3139,7 @@ export default function MetaMeRuntimeClient() {
         const navigateSignal = readNavigateClose(ev.data);
         if (!closeSignal.isClose && !navigateSignal.isClose) return;
         dismissCodexPanels(closeSignal.isClose ? closeSignal.codexId : navigateSignal.codexId);
+        setActiveCartridgeOverlay(null);
         relayCloseCodexToNestedFrames();
       };
     } catch (e) { /* BroadcastChannel not supported */ }
@@ -3136,7 +3148,7 @@ export default function MetaMeRuntimeClient() {
       window.removeEventListener("message", onAnyMessage);
       try { bc?.close(); } catch (_) {}
     };
-  }, [relayCloseCodexToNestedFrames]);
+  }, [relayCloseCodexToNestedFrames, setActiveCartridgeOverlay]);
 
   const capsulePanel = useMemo(
     () => (
@@ -4046,6 +4058,16 @@ export default function MetaMeRuntimeClient() {
       if (message.type === "RUNTIME_CONTEXT_CHANGE") {
         const ctx = payload.context === "knyt" ? "knyt" : "metame";
         setRuntimeContext(ctx);
+        // Trigger the copilot to reframe within the new context.
+        // KNYT: treat the activation as a first-class prompt so Aigent C responds
+        // within the user's KNYT journey. The full system-prompt injection,
+        // persona auto-switch, and journey-data fetch are wired in the next work package.
+        void handlePrompt(
+          ctx === "knyt"
+            ? "I'd like to explore my KNYT journey"
+            : "I'd like to return to my metaMe context",
+          { source: "text_input", skipInference: false, explicitIntent: "play" }
+        );
         return;
       }
 
@@ -4055,35 +4077,8 @@ export default function MetaMeRuntimeClient() {
         const rawSlug = codexId || cartridgeId;
         if (!rawSlug) return;
         const slug = rawSlug.replace(/-codex$/i, "");
-        const capsule = {
-          id: `capsule-${slug}-${Date.now()}`,
-          type: "SmartContentQube",
-          app: slug,
-          title: slug.charAt(0).toUpperCase() + slug.slice(1),
-          slug: `${slug}-capsule`,
-          version: 1,
-          description: `${slug} cartridge`,
-          coverImageUri: null,
-          creatorRootDid: `did:iq:${slug}`,
-          tenantId: "metame",
-          modalities: { read: { enabled: true }, watch: { enabled: false }, listen: { enabled: false }, interact: { enabled: true } },
-          structure: { kind: "collection" },
-          pricingModel: { tiers: [{ kind: "free", amount: 0, currency: "QCT", covers: 1 }], acceptedTokens: [] },
-          libraryMetadata: {
-            category: "capsule",
-            tags: ["capsule", "codex", "play"],
-            recommendedShelf: "capsules",
-            expiry: { model: "permanent" },
-            ownership: { status: "available", libraryStatus: "not_owned" },
-            discovery: { featured: true, curated: true, priority: 1 },
-          },
-          status: "published",
-          createdAt: new Date().toISOString(),
-          runtimeSource: "codex" as const,
-          runtimeCodexSlug: slug,
-          runtimeCodexInitialTab: "codex",
-        } as unknown as RuntimeCapsule;
-        launchCapsule(capsule);
+        const title = slug.charAt(0).toUpperCase() + slug.slice(1);
+        setActiveCartridgeOverlay({ slug, title });
         return;
       }
 
@@ -4099,9 +4094,9 @@ export default function MetaMeRuntimeClient() {
     applyShellSelectorChange,
     embedMode,
     handlePrompt,
-    launchCapsule,
     postRuntimeEvent,
     resetRuntime,
+    setActiveCartridgeOverlay,
     setRuntimeContext,
     showWelcome,
     thinShellMode,
@@ -4554,6 +4549,27 @@ export default function MetaMeRuntimeClient() {
         personaId={activePersonaId || undefined}
         initialTab="wallet"
       />
+      {/* Cartridge overlay — z-axis layer above the full runtime */}
+      {activeCartridgeOverlay != null && (
+        <div className="absolute inset-0 z-[60] flex flex-col bg-slate-950">
+          <div className="flex shrink-0 items-center justify-between border-b border-white/10 bg-slate-900/80 px-4 py-3">
+            <span className="text-sm font-semibold text-white">{activeCartridgeOverlay.title}</span>
+            <button
+              type="button"
+              onClick={() => setActiveCartridgeOverlay(null)}
+              className="rounded p-1 text-slate-400 hover:bg-white/10 hover:text-white transition"
+              aria-label="Close cartridge"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <iframe
+            src={`/triad/embed/codex/${activeCartridgeOverlay.slug}?theme=dark&closable=0`}
+            title={`${activeCartridgeOverlay.title} Cartridge`}
+            className="min-h-0 flex-1 w-full border-0"
+          />
+        </div>
+      )}
       {/* metaMe Settings — left-entering drawer (Be tab sub-item) */}
       {settingsDrawerOpen ? (
         <div
