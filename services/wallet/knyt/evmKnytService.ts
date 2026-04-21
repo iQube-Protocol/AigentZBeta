@@ -1,5 +1,5 @@
 /**
- * EVM KNYT Service - Read-only on-chain KNYT balance lookup on Base (chainId 8453)
+ * EVM KNYT Service - On-chain KNYT balance lookup and canonical minting on Base (chainId 8453)
  */
 
 const KNYT_CONTRACTS = [
@@ -7,7 +7,12 @@ const KNYT_CONTRACTS = [
   '0xCf890B7acBB5ffe0540a01860A75D3d765bF0756',
 ];
 
+// The contract confirmed to hold the minter role
+const KNYT_MINTER_CONTRACT = '0xCf890B7acBB5ffe0540a01860A75D3d765bF0756';
+
 const ERC20_BALANCE_OF = '0x70a08231'; // balanceOf(address) selector
+
+const MINT_ABI = ['function mint(address to, uint256 amount)'];
 
 const BASE_RPC = process.env.BASE_RPC_URL || 'https://mainnet.base.org';
 
@@ -16,6 +21,12 @@ export interface EvmKnytBalance {
   chainName: string;
   balance: string;
   balanceFormatted: string;
+}
+
+export interface KnytMintResult {
+  success: boolean;
+  txHash?: string;
+  error?: string;
 }
 
 async function ethCall(rpc: string, to: string, data: string): Promise<string> {
@@ -80,4 +91,30 @@ export async function getAllEvmKnytBalances(evmAddress: string): Promise<EvmKnyt
 export async function getTotalEvmKnytBalance(evmAddress: string): Promise<{ total: string; byChain: EvmKnytBalance[] }> {
   const balances = await getAllEvmKnytBalances(evmAddress);
   return { total: balances[0]?.balanceFormatted || '0', byChain: balances };
+}
+
+/**
+ * Canonical EVM KNYT mint — calls mint(to, amount) on the KNYT minter contract on Base.
+ * Requires KNYT_MINTER_PRIVATE_KEY to be set to the wallet that holds the minter role.
+ */
+export async function mintKnyt(toAddress: string, amountKnyt: number): Promise<KnytMintResult> {
+  const minterKey = process.env.KNYT_MINTER_PRIVATE_KEY;
+  if (!minterKey || !minterKey.startsWith('0x')) {
+    return { success: false, error: 'KNYT_MINTER_PRIVATE_KEY not configured' };
+  }
+
+  try {
+    const { ethers } = await import('ethers');
+    const provider = new ethers.JsonRpcProvider(BASE_RPC);
+    const wallet = new ethers.Wallet(minterKey, provider);
+    const contract = new ethers.Contract(KNYT_MINTER_CONTRACT, MINT_ABI, wallet);
+    const amountWei = ethers.parseUnits(amountKnyt.toString(), 18);
+    const tx = await contract.mint(toAddress, amountWei) as { hash: string; wait: () => Promise<unknown> };
+    await tx.wait();
+    return { success: true, txHash: tx.hash };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'mint failed';
+    console.error('[EVM KNYT] mintKnyt failed:', msg);
+    return { success: false, error: msg };
+  }
 }
