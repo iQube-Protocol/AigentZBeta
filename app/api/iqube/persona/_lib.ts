@@ -173,7 +173,7 @@ export function shapeAsIQube(
     typeof row["EVM-Public-Key"] === "string" ? row["EVM-Public-Key"] : null;
   const tokenQube = {
     ownerType: "Person",
-    settlementNetwork: "Ethereum Mainnet (chainId 0x1)",
+    settlementNetwork: "Base (chainId 8453)",
     walletRequired: !evmAddress,
     evmAddress,
     fioHandle: row.fio_handle ?? null,
