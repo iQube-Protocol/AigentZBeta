@@ -8,6 +8,7 @@
  */
 
 import { KnytDvnEvent, KnytDvnBatch, KnytDvnSubmitResult, DEFAULT_KNYT_CONFIG } from './types';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
 // In-memory queue (server-side singleton)
 let eventQueue: KnytDvnEvent[] = [];
@@ -109,12 +110,28 @@ export async function flushBatch(): Promise<KnytDvnSubmitResult> {
     }
     
     const result = await response.json();
-    console.log(`[KNYT Batcher] Batch ${batchId} submitted to DVN. MessageId: ${result.messageId}`);
-    
+    const dvnMessageId: string | undefined = result.messageId;
+    console.log(`[KNYT Batcher] Batch ${batchId} submitted to DVN. MessageId: ${dvnMessageId}`);
+
+    // Write DVN message ID back to wallet_transactions so finalization can match them
+    if (dvnMessageId) {
+      const supabase = getSupabaseServer();
+      if (supabase) {
+        const txIds = events.map((e) => e.txId);
+        const { error: updateErr } = await supabase
+          .from('wallet_transactions')
+          .update({ dvn_batch_id: dvnMessageId, dvn_submitted_at: new Date().toISOString() })
+          .in('id', txIds);
+        if (updateErr) {
+          console.error(`[KNYT Batcher] Failed to write dvn_batch_id back:`, updateErr.message);
+        }
+      }
+    }
+
     return {
       success: true,
       batchId,
-      dvnMessageId: result.messageId,
+      dvnMessageId,
     };
   } catch (error) {
     console.error(`[KNYT Batcher] Batch ${batchId} submission failed:`, error);
