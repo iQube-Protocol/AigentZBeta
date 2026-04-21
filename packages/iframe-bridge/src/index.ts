@@ -16,6 +16,7 @@ export type ShellOutboundType =
   | "DEVICE_CONTEXT_UPDATE"
   | "LAUNCH_CARTRIDGE"
   | "RUNTIME_CONTEXT_CHANGE"
+  | "CARTRIDGE_OVERLAY_CLOSE"
   | BrowserShellToRuntimeType;
 
 export type RuntimeInboundType =
@@ -32,6 +33,7 @@ export type RuntimeInboundType =
   | "INFERENCE_COMPLETE"
   | "RENDER_COMPLETE"
   | "LEAD_AGENT_CHANGED"
+  | "CARTRIDGE_OVERLAY_ACTIVE"
   | BrowserRuntimeToShellType;
 
 export type BridgeSource = "shell" | "runtime";
@@ -125,6 +127,7 @@ export function isRuntimeInboundMessage(value: unknown): value is RuntimeInbound
     "INFERENCE_COMPLETE",
     "RENDER_COMPLETE",
     "LEAD_AGENT_CHANGED",
+    "CARTRIDGE_OVERLAY_ACTIVE",
     ...browserRuntimeToShellTypes,
   ];
   return runtimeTypes.includes(value.type as RuntimeInboundType);
@@ -143,6 +146,7 @@ export function isShellOutboundMessage(value: unknown): value is ShellInboundMes
     "DEVICE_CONTEXT_UPDATE",
     "LAUNCH_CARTRIDGE",
     "RUNTIME_CONTEXT_CHANGE",
+    "CARTRIDGE_OVERLAY_CLOSE",
     ...browserShellToRuntimeTypes,
   ];
   return shellTypes.includes(value.type as ShellOutboundType);
