@@ -28,7 +28,8 @@ export async function GET(req: NextRequest) {
     .eq('status', 'active')
     .in('asset_kind', ['cover_image', 'cover_pdf', 'character_poster'])
     .order('episode_number', { ascending: true })
-    .order('asset_kind', { ascending: true }); // cover_image before cover_pdf
+    .order('asset_kind', { ascending: true })    // cover_image before cover_pdf
+    .order('created_at', { ascending: false });  // newest upload wins per episode+kind
 
   if (error) {
     console.error('[knyt/thumbnails]', error.message);
