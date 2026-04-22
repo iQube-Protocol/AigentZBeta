@@ -142,13 +142,28 @@ export function shapeAsIQube(
 ) {
   const scores = META_SCORES[type];
 
-  // metaQube — template structure + non-PII metadata (plaintext)
+  // metaQube — operations portal schema + non-PII provenance (plaintext)
+  const identifier = type === "knyt" ? "KNYT Persona iQube" : "Qripto Persona iQube";
   const metaQube = {
-    "iQube-Identifier": type === "knyt" ? "KNYT Persona iQube" : "Qripto Persona iQube",
+    // iQube Operations portal fields (canonical metaQube schema)
+    "iQube-Identifier": identifier,
+    identifier,
+    creator: scores.designer,
+    ownerType: "Individual",
+    contentType: "Data",
+    ownerIdentifiability: "Semi-Identifiable",
+    transactionDate: row.created_at ?? null,
+    description: scores.use,
+    // Scores (0–10)
+    sensitivity: scores.sensitivity,
+    verifiable: scores.verifiability,
+    accuracy: scores.accuracy,
+    risk: scores.risk,
+    // Extended fields
     "iQube-Type": "DataQube",
     "iQube-Designer": scores.designer,
     "iQube-Use": scores.use,
-    "Owner-Type": "Person",
+    "Owner-Type": "Individual",
     "Owner-Identifiability": "Semi-Identifiable",
     "Date-Minted": row.created_at ?? null,
     "Related-iQubes": scores.relatedIQubes,

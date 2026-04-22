@@ -10,6 +10,7 @@ import {
   shapeAsIQube,
   filterPatch,
   getUserEditableFields,
+  createServerClient,
 } from "../_lib";
 
 export const dynamic = "force-dynamic";
@@ -40,9 +41,32 @@ export async function GET(request: NextRequest) {
       .maybeSingle();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    if (!row) return NextResponse.json({ exists: false, data: null });
 
-    const shaped = shapeAsIQube(row as Record<string, unknown>, "qripto", false);
+    // CRM auto-seed: link existing CRM record by email if no platform row yet
+    let resolvedRow = row;
+    if (!row && user.email) {
+      const service = createServerClient();
+      const { data: crmRow } = await service
+        .from(personaTable("qripto"))
+        .select("*")
+        .ilike("Email", user.email)
+        .is("user_id", null)
+        .maybeSingle();
+
+      if (crmRow) {
+        const { data: linked } = await service
+          .from(personaTable("qripto"))
+          .update({ user_id: user.id, updated_at: new Date().toISOString() })
+          .eq("id", crmRow.id as string)
+          .select("*")
+          .maybeSingle();
+        resolvedRow = linked;
+      }
+    }
+
+    if (!resolvedRow) return NextResponse.json({ exists: false, data: null });
+
+    const shaped = shapeAsIQube(resolvedRow as Record<string, unknown>, "qripto", false);
     return NextResponse.json({ exists: true, data: shaped });
   } catch (err) {
     return NextResponse.json(

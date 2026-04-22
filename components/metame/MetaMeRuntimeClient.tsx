@@ -12,6 +12,7 @@ import {
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 import SmartWalletDrawer from "@/app/components/content/SmartWalletDrawer";
 import { PersonaIQubeDrawer } from "@/components/iqube/PersonaIQubeDrawer";
+import { IdentityIQubeDrawer } from "@/components/iqube/IdentityIQubeDrawer";
 import { PreviewFrame } from "@/components/preview/PreviewFrame";
 import { DevicePreviewSwitcher, type DeviceType } from "@/components/preview/DevicePreviewSwitcher";
 import { useToast } from "@/components/ui/toaster";
@@ -45,12 +46,14 @@ import {
   Coins,
   Compass,
   Eye,
+  Fingerprint,
   Headphones,
   Hexagon,
   Image as ImageIcon,
   Loader2,
   Maximize2,
   Minimize2,
+  Network,
   Pencil,
   PlayCircle,
   FileText,
@@ -59,9 +62,9 @@ import {
   Send,
   Share2,
   SlidersHorizontal,
+  Sparkles,
   Square,
   SquareArrowOutUpRight,
-  Sparkles,
   Sun,
   Moon,
   Tv,
@@ -1826,6 +1829,8 @@ export default function MetaMeRuntimeClient() {
   const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
   const [walletDrawerOpen, setWalletDrawerOpen] = useState(false);
   const [personaIQubeDrawer, setPersonaIQubeDrawer] = useState<"knyt" | "qripto" | null>(null);
+  const [identityIQubeOpen, setIdentityIQubeOpen] = useState(false);
+  const [beMenuOpen, setBeMenuOpen] = useState(false);
   const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
 
   const [selectedAgent, setSelectedAgent] = useState<RuntimeAgent>(RUNTIME_AGENTS[0]);
@@ -4349,25 +4354,36 @@ export default function MetaMeRuntimeClient() {
     <div className="relative z-30 pointer-events-auto border-t border-white/10 bg-white/[0.03] pt-3">
       {isMobileLayout ? (
         <div className="flex items-center justify-between px-4">
-          <div className="flex flex-col items-center gap-0.5">
+          <div className="relative flex flex-col items-center gap-0.5">
+            {/* Be floating quick-links sub-menu */}
+            {beMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-[45]" onClick={() => setBeMenuOpen(false)} />
+                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[46] flex flex-col gap-1 bg-slate-900/95 border border-white/10 rounded-xl p-2 shadow-2xl backdrop-blur-xl min-w-[120px]">
+                  {[
+                    { icon: <Users className="h-4 w-4" />, label: "Persona", action: () => { setPersonaIQubeDrawer("knyt"); setBeMenuOpen(false); } },
+                    { icon: <Fingerprint className="h-4 w-4" />, label: "Identity", action: () => { setIdentityIQubeOpen(true); setBeMenuOpen(false); } },
+                    { icon: <SlidersHorizontal className="h-4 w-4" />, label: "Settings", action: () => { setSettingsDrawerOpen(true); setBeMenuOpen(false); } },
+                    { icon: <Sparkles className="h-4 w-4" />, label: "Memory", action: () => setBeMenuOpen(false) },
+                    { icon: <Network className="h-4 w-4" />, label: "Connections", action: () => setBeMenuOpen(false) },
+                  ].map(({ icon, label, action }) => (
+                    <button key={label} type="button" onClick={action}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                      <span className="text-cyan-400">{icon}</span>{label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
             <button
               type="button"
-              onClick={() => { handleRuntimeMenuIntent("be", "I want to be..."); setPersonaIQubeDrawer("knyt"); }}
+              onClick={() => { handleRuntimeMenuIntent("be", "I want to be..."); setBeMenuOpen(prev => !prev); }}
               className={menuButtonClass("be")}
               title="I want to be..."
               aria-pressed={lastIntent === "be"}
             >
               <Users className="h-4 w-4 text-slate-200" />
               Be
-            </button>
-            <button
-              type="button"
-              onClick={() => setSettingsDrawerOpen(true)}
-              className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] text-slate-500 hover:text-slate-300 hover:bg-white/10 transition"
-              title="metaMe Settings"
-            >
-              <SlidersHorizontal className="h-2.5 w-2.5" />
-              <span>settings</span>
             </button>
           </div>
           <button
@@ -4413,25 +4429,36 @@ export default function MetaMeRuntimeClient() {
         </div>
       ) : (
         <div className="flex items-center justify-between px-4">
-          <div className="flex flex-col items-center gap-0.5">
+          <div className="relative flex flex-col items-center gap-0.5">
+            {/* Be floating quick-links sub-menu (desktop) — shared state with mobile */}
+            {beMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-[45]" onClick={() => setBeMenuOpen(false)} />
+                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[46] flex flex-col gap-1 bg-slate-900/95 border border-white/10 rounded-xl p-2 shadow-2xl backdrop-blur-xl min-w-[130px]">
+                  {[
+                    { icon: <Users className="h-4 w-4" />, label: "Persona", action: () => { setPersonaIQubeDrawer("knyt"); setBeMenuOpen(false); } },
+                    { icon: <Fingerprint className="h-4 w-4" />, label: "Identity", action: () => { setIdentityIQubeOpen(true); setBeMenuOpen(false); } },
+                    { icon: <SlidersHorizontal className="h-4 w-4" />, label: "Settings", action: () => { setSettingsDrawerOpen(true); setBeMenuOpen(false); } },
+                    { icon: <Sparkles className="h-4 w-4" />, label: "Memory", action: () => setBeMenuOpen(false) },
+                    { icon: <Network className="h-4 w-4" />, label: "Connections", action: () => setBeMenuOpen(false) },
+                  ].map(({ icon, label, action }) => (
+                    <button key={label} type="button" onClick={action}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                      <span className="text-cyan-400">{icon}</span>{label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
             <button
               type="button"
-              onClick={() => { handleRuntimeMenuIntent("be", "I want to be..."); setPersonaIQubeDrawer("knyt"); }}
+              onClick={() => { handleRuntimeMenuIntent("be", "I want to be..."); setBeMenuOpen(prev => !prev); }}
               className={menuButtonClass("be")}
               title="I want to be..."
               aria-pressed={lastIntent === "be"}
             >
               <Users className="h-4 w-4 text-slate-200" />
               Be
-            </button>
-            <button
-              type="button"
-              onClick={() => setSettingsDrawerOpen(true)}
-              className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] text-slate-500 hover:text-slate-300 hover:bg-white/10 transition"
-              title="metaMe Settings"
-            >
-              <SlidersHorizontal className="h-2.5 w-2.5" />
-              <span>settings</span>
             </button>
           </div>
           <div className="flex flex-1 items-center justify-center gap-6">
@@ -4704,6 +4731,18 @@ export default function MetaMeRuntimeClient() {
             type={personaIQubeDrawer}
             onClose={() => setPersonaIQubeDrawer(null)}
           />
+        )}
+      </div>
+      {/* Identity iQube — left-entering drawer, z-[57] above persona drawer */}
+      {identityIQubeOpen && (
+        <div className="absolute inset-0 z-[57] bg-black/50" onClick={() => setIdentityIQubeOpen(false)} />
+      )}
+      <div
+        className={`absolute left-0 top-0 bottom-0 z-[58] w-96 overflow-y-auto transform transition-transform duration-300 ease-in-out ${identityIQubeOpen ? "translate-x-0" : "-translate-x-full"}`}
+        aria-hidden={!identityIQubeOpen}
+      >
+        {identityIQubeOpen && (
+          <IdentityIQubeDrawer onClose={() => setIdentityIQubeOpen(false)} />
         )}
       </div>
       {/* Absolute overlay: prompt bar (live view only) + runtimeMenu stacked at bottom */}
