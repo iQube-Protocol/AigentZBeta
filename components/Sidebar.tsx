@@ -219,6 +219,16 @@ export const Sidebar = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerType, setDrawerType] = useState<"view" | "decrypt" | "mint" | "activate">("view");
   const [personaIQubeDrawer, setPersonaIQubeDrawer] = useState<"knyt" | "qripto" | null>(null);
+
+  useEffect(() => {
+    function onOpenPersonaIQube(e: Event) {
+      const type = (e as CustomEvent<{ type: string }>).detail?.type;
+      if (type === "knyt" || type === "qripto") setPersonaIQubeDrawer(type);
+    }
+    window.addEventListener("open-persona-iqube", onOpenPersonaIQube);
+    return () => window.removeEventListener("open-persona-iqube", onOpenPersonaIQube);
+  }, []);
+
   // Nested groups inside iQubes section
   const [openIQubesGroups, setOpenIQubesGroups] = useState<Record<string, boolean>>({
     "Active iQubes": false,

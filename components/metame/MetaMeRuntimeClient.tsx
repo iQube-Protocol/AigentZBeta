@@ -3968,6 +3968,14 @@ export default function MetaMeRuntimeClient() {
           return;
         }
 
+        if (raw.type === "OPEN_PERSONA_IQUBE") {
+          const iQubeType = typeof rawPayload.iqube_type === "string" ? rawPayload.iqube_type : null;
+          if (iQubeType === "knyt" || iQubeType === "qripto") {
+            window.dispatchEvent(new CustomEvent("open-persona-iqube", { detail: { type: iQubeType } }));
+          }
+          return;
+        }
+
         if (raw.type === "RUNTIME_CONTEXT_CHANGE") {
           const ctx = (rawPayload.context ?? raw.context) === "knyt" ? "knyt" : "metame";
           setRuntimeContext(ctx as "metame" | "knyt");
