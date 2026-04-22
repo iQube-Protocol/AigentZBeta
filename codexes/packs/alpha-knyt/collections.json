@@ -53,6 +53,14 @@
       "items": [
         "items/33-alpha-program-overview-and-progress.md"
       ]
+    },
+    {
+      "id": "col_deployment",
+      "title": "Deployment Registry",
+      "description": "Live mainnet contract addresses, deploy procedures, BTC anchoring wiring, and pre-launch key rotation checklist.",
+      "items": [
+        "items/35-mainnet-deployment-registry.md"
+      ]
     }
   ]
 }
