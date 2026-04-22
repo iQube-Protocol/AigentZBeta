@@ -142,7 +142,7 @@ const KNYT_SECTIONS: { title: string; icon: React.ReactNode; fields: FieldDef[] 
     ],
   },
   {
-    title: "Crypto KNYT Holdings",
+    title: "Qripto KNYT Holdings",
     icon: <Database className="h-3.5 w-3.5" />,
     fields: [
       { key: "KNYT-COYN-Owned",        label: "KNYT COYN (EVM Mainnet)", editable: false, source: "chain" },
@@ -151,7 +151,7 @@ const KNYT_SECTIONS: { title: string; icon: React.ReactNode; fields: FieldDef[] 
     ],
   },
   {
-    title: "Non-Crypto KNYT Holdings",
+    title: "Non-Qripto KNYT Holdings",
     icon: <Database className="h-3.5 w-3.5" />,
     fields: [
       { key: "Motion-Comics-Owned",  label: "Motion Comics",  editable: true, source: "user" },
