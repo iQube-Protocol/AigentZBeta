@@ -18,5 +18,11 @@ export async function POST(req: NextRequest) {
 
 export async function GET() {
   const cfg = loadBtcConfig();
-  return NextResponse.json({ ok: true, config: { enabled: cfg.enabled, network: cfg.network } });
+  // raw value exposed for debugging env propagation only
+  const raw = process.env.BTC_CUSTODY_ENABLED;
+  return NextResponse.json({
+    ok: true,
+    config: { enabled: cfg.enabled, network: cfg.network },
+    debug: { raw_BTC_CUSTODY_ENABLED: raw ?? '(not set)', canisterId: cfg.canisterId ? 'set' : '(not set)' },
+  });
 }
