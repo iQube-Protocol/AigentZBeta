@@ -3984,6 +3984,11 @@ export default function MetaMeRuntimeClient() {
           return;
         }
 
+        if (raw.type === "OPEN_IDENTITY_IQUBE") {
+          setIdentityIQubeOpen(true);
+          return;
+        }
+
         if (raw.type === "RUNTIME_CONTEXT_CHANGE") {
           const ctx = (rawPayload.context ?? raw.context) === "knyt" ? "knyt" : "metame";
           setRuntimeContext(ctx as "metame" | "knyt");
