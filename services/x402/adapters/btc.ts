@@ -25,7 +25,7 @@ export function loadBtcConfig() {
   const enabled = (process.env.BTC_CUSTODY_ENABLED || 'false').toLowerCase() === 'true';
   const network = (process.env.BTC_NETWORK || 'testnet') as 'mainnet'|'testnet'|'signet'|'regtest';
   const custodianKeyRef = process.env.BTC_CUSTODIAN_KEY_REF; // do not expose private key
-  const canisterId = process.env.BTC_SIGNER_PSBT_CANISTER_ID;
+  const canisterId = process.env.BTC_SIGNER_CANISTER_ID || process.env.NEXT_PUBLIC_BTC_SIGNER_CANISTER_ID;
   return { enabled, network, custodianKeyRef, canisterId };
 }
 

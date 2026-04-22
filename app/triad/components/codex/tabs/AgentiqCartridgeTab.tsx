@@ -200,8 +200,8 @@ export function AgentiqCartridgeTab({ packId, collectionId, defaultPath, editabl
   }
 
   return (
-    <div className="flex min-h-full">
-      <div className="w-56 flex-shrink-0 border-r border-slate-800 bg-slate-900/40 p-3">
+    <div className="flex h-full overflow-hidden">
+      <div className="w-56 flex-shrink-0 border-r border-slate-800 bg-slate-900/40 p-3 overflow-y-auto">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
             {collection.title}
