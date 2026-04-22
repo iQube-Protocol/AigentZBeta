@@ -3948,6 +3948,7 @@ export default function MetaMeRuntimeClient() {
       // they work regardless of whether the shell uses createShellMessage() or not.
       const raw = event.data;
       if (raw && typeof raw === "object" && typeof raw.type === "string") {
+        console.log("[bridge] shell→runtime message received:", raw.type, raw);
         // Support both raw { type, cartridge_id } and bridge { type, payload: { cartridge_id } }
         const rawPayload = (raw.payload && typeof raw.payload === "object" ? raw.payload : raw) as Record<string, unknown>;
 
