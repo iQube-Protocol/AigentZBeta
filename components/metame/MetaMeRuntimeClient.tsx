@@ -11,6 +11,7 @@ import {
 } from "@metame/iframe-bridge";
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 import SmartWalletDrawer from "@/app/components/content/SmartWalletDrawer";
+import { PersonaIQubeDrawer } from "@/components/iqube/PersonaIQubeDrawer";
 import { PreviewFrame } from "@/components/preview/PreviewFrame";
 import { DevicePreviewSwitcher, type DeviceType } from "@/components/preview/DevicePreviewSwitcher";
 import { useToast } from "@/components/ui/toaster";
@@ -1824,6 +1825,7 @@ export default function MetaMeRuntimeClient() {
   const runtimeReadyPostedRef = useRef(false);
   const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
   const [walletDrawerOpen, setWalletDrawerOpen] = useState(false);
+  const [personaIQubeDrawer, setPersonaIQubeDrawer] = useState<"knyt" | "qripto" | null>(null);
   const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
 
   const [selectedAgent, setSelectedAgent] = useState<RuntimeAgent>(RUNTIME_AGENTS[0]);
@@ -3972,7 +3974,7 @@ export default function MetaMeRuntimeClient() {
         if (raw.type === "OPEN_PERSONA_IQUBE") {
           const iQubeType = typeof rawPayload.iqube_type === "string" ? rawPayload.iqube_type : null;
           if (iQubeType === "knyt" || iQubeType === "qripto") {
-            window.dispatchEvent(new CustomEvent("open-persona-iqube", { detail: { type: iQubeType } }));
+            setPersonaIQubeDrawer(iQubeType);
           }
           return;
         }
@@ -4177,7 +4179,18 @@ export default function MetaMeRuntimeClient() {
     }
 
     window.addEventListener("message", onShellMessage);
-    return () => window.removeEventListener("message", onShellMessage);
+
+    // Platform sidebar fires this custom event for the persona iQube links
+    function onOpenPersonaIQube(e: Event) {
+      const t = (e as CustomEvent<{ type: string }>).detail?.type;
+      if (t === "knyt" || t === "qripto") setPersonaIQubeDrawer(t);
+    }
+    window.addEventListener("open-persona-iqube", onOpenPersonaIQube);
+
+    return () => {
+      window.removeEventListener("message", onShellMessage);
+      window.removeEventListener("open-persona-iqube", onOpenPersonaIQube);
+    };
   }, [
     activeDevice,
     applyShellSelectorChange,
@@ -4339,7 +4352,7 @@ export default function MetaMeRuntimeClient() {
           <div className="flex flex-col items-center gap-0.5">
             <button
               type="button"
-              onClick={() => handleRuntimeMenuIntent("be", "I want to be...")}
+              onClick={() => { handleRuntimeMenuIntent("be", "I want to be..."); setPersonaIQubeDrawer("knyt"); }}
               className={menuButtonClass("be")}
               title="I want to be..."
               aria-pressed={lastIntent === "be"}
@@ -4403,7 +4416,7 @@ export default function MetaMeRuntimeClient() {
           <div className="flex flex-col items-center gap-0.5">
             <button
               type="button"
-              onClick={() => handleRuntimeMenuIntent("be", "I want to be...")}
+              onClick={() => { handleRuntimeMenuIntent("be", "I want to be..."); setPersonaIQubeDrawer("knyt"); }}
               className={menuButtonClass("be")}
               title="I want to be..."
               aria-pressed={lastIntent === "be"}
@@ -4674,6 +4687,24 @@ export default function MetaMeRuntimeClient() {
           </button>
         </div>
         <MetaMeSettingsPanel personaId={activePersonaId ?? undefined} />
+      </div>
+      {/* Persona iQube — left-entering drawer, same pattern as Settings */}
+      {personaIQubeDrawer && (
+        <div
+          className="absolute inset-0 z-[55] bg-black/50"
+          onClick={() => setPersonaIQubeDrawer(null)}
+        />
+      )}
+      <div
+        className={`absolute left-0 top-0 bottom-0 z-[56] w-96 overflow-y-auto transform transition-transform duration-300 ease-in-out ${personaIQubeDrawer ? "translate-x-0" : "-translate-x-full"}`}
+        aria-hidden={!personaIQubeDrawer}
+      >
+        {personaIQubeDrawer && (
+          <PersonaIQubeDrawer
+            type={personaIQubeDrawer}
+            onClose={() => setPersonaIQubeDrawer(null)}
+          />
+        )}
       </div>
       {/* Absolute overlay: prompt bar (live view only) + runtimeMenu stacked at bottom */}
       {!thinShellMode ? (
