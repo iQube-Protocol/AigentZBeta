@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    // CRM auto-seed: if no platform row, link or create one from CRM data keyed by email
+    // CRM auto-seed: if no platform row, find by email (any user_id state) and link if unlinked
     let resolvedRow = row;
     if (!row && user.email) {
       const service = createServerClient();
@@ -54,18 +54,21 @@ export async function GET(request: NextRequest) {
         .from(personaTable("knyt"))
         .select("*")
         .ilike("Email", user.email)
-        .is("user_id", null)
         .maybeSingle();
 
       if (crmRow) {
-        // Link existing CRM record to this platform user
-        const { data: linked } = await service
-          .from(personaTable("knyt"))
-          .update({ user_id: user.id, platform_activated_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-          .eq("id", crmRow.id as string)
-          .select("*")
-          .maybeSingle();
-        resolvedRow = linked;
+        // Only stamp user_id if the record is unlinked — never overwrite a different user's link
+        if (crmRow.user_id == null) {
+          const { data: linked } = await service
+            .from(personaTable("knyt"))
+            .update({ user_id: user.id, platform_activated_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+            .eq("id", crmRow.id as string)
+            .select("*")
+            .maybeSingle();
+          resolvedRow = linked ?? crmRow;
+        } else {
+          resolvedRow = crmRow;
+        }
       }
     }
 
