@@ -13,6 +13,7 @@ import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/C
 import SmartWalletDrawer from "@/app/components/content/SmartWalletDrawer";
 import { PersonaIQubeDrawer } from "@/components/iqube/PersonaIQubeDrawer";
 import { IdentityIQubeDrawer } from "@/components/iqube/IdentityIQubeDrawer";
+import { MemoryIQubeDrawer } from "@/components/iqube/MemoryIQubeDrawer";
 import { PreviewFrame } from "@/components/preview/PreviewFrame";
 import { DevicePreviewSwitcher, type DeviceType } from "@/components/preview/DevicePreviewSwitcher";
 import { useToast } from "@/components/ui/toaster";
@@ -74,6 +75,25 @@ import {
 import { MetaMeSettingsPanel, loadMetaMeSettings, type LeadAgent } from "@/components/metame/MetaMeSettingsPanel";
 import type { ScreenFraction, SmartContentQube } from "@/types/smartContent";
 import type { RuntimeCapsuleRecord } from "@/types/runtimeCapsules";
+
+function getAccessTokenFromStorage(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (key && key.includes("auth-token")) {
+        const raw = window.localStorage.getItem(key);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        const token =
+          (parsed as Record<string, unknown>).access_token ??
+          (parsed as Record<string, { access_token?: unknown }>).currentSession?.access_token;
+        if (typeof token === "string" && token) return token;
+      }
+    }
+  } catch { /* ignore */ }
+  return null;
+}
 
 type RuntimeIntent = "watch" | "listen" | "read" | "play" | "find" | "earn" | "make" | "be";
 type RuntimeContentSource = "experience" | "smart-content" | "codex";
@@ -1826,10 +1846,15 @@ export default function MetaMeRuntimeClient() {
   const shellOriginRef = useRef<string | null>(null);
   const shellContextRef = useRef<{ tenant_id?: string; persona_id?: string }>({});
   const runtimeReadyPostedRef = useRef(false);
+  // Stable conversation ID for the lifetime of this runtime session
+  const conversationIdRef = useRef<string>(
+    typeof crypto !== "undefined" ? crypto.randomUUID() : `conv-${Date.now()}`
+  );
   const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
   const [walletDrawerOpen, setWalletDrawerOpen] = useState(false);
   const [personaIQubeDrawer, setPersonaIQubeDrawer] = useState<"knyt" | "qripto" | null>(null);
   const [identityIQubeOpen, setIdentityIQubeOpen] = useState(false);
+  const [memoryDrawerOpen, setMemoryDrawerOpen] = useState(false);
   const [beMenuOpen, setBeMenuOpen] = useState(false);
   const [earnMenuOpen, setEarnMenuOpen] = useState(false);
   const [walletInitialTab, setWalletInitialTab] = useState<"wallet" | "tasks" | "rewards" | "payments">("wallet");
@@ -3811,6 +3836,33 @@ export default function MetaMeRuntimeClient() {
           capsuleId: leadCapsule?.id ?? null,
           device: activeDevice,
         });
+        // Non-blocking Supabase memory write — fire-and-forget, never blocks rendering
+        void (async () => {
+          try {
+            const token = getAccessTokenFromStorage();
+            if (!token) return;
+            await fetch("/api/iqube/memory", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+              body: JSON.stringify({
+                query: trimmed,
+                response: renderedResponse,
+                interaction_type: intent === "earn" ? "earn" : "aigent",
+                metadata: {
+                  activePersona: activePersonaId,
+                  conversationId: conversationIdRef.current,
+                  agentType: selectedAgent.id,
+                  modelUsed: usedModel,
+                  aiProvider: usedProvider,
+                  intent,
+                  device: activeDevice,
+                },
+              }),
+            });
+          } catch {
+            // Non-fatal — memory write failure never affects the chat experience
+          }
+        })();
         postRuntimeEvent("INFERENCE_COMPLETE", {
           status: "ok",
           intent,
@@ -4371,7 +4423,7 @@ export default function MetaMeRuntimeClient() {
                     { icon: <Users className="h-4 w-4" />, label: "Persona", action: () => { setPersonaIQubeDrawer("knyt"); setBeMenuOpen(false); } },
                     { icon: <Fingerprint className="h-4 w-4" />, label: "Identity", action: () => { setIdentityIQubeOpen(true); setBeMenuOpen(false); } },
                     { icon: <SlidersHorizontal className="h-4 w-4" />, label: "Settings", action: () => { setSettingsDrawerOpen(true); setBeMenuOpen(false); } },
-                    { icon: <Sparkles className="h-4 w-4" />, label: "Memory", action: () => setBeMenuOpen(false) },
+                    { icon: <Sparkles className="h-4 w-4" />, label: "Memory", action: () => { setMemoryDrawerOpen(true); setBeMenuOpen(false); } },
                     { icon: <Network className="h-4 w-4" />, label: "Connections", action: () => setBeMenuOpen(false) },
                   ].map(({ icon, label, action }) => (
                     <button key={label} type="button" onClick={action}
@@ -4467,7 +4519,7 @@ export default function MetaMeRuntimeClient() {
                     { icon: <Users className="h-4 w-4" />, label: "Persona", action: () => { setPersonaIQubeDrawer("knyt"); setBeMenuOpen(false); } },
                     { icon: <Fingerprint className="h-4 w-4" />, label: "Identity", action: () => { setIdentityIQubeOpen(true); setBeMenuOpen(false); } },
                     { icon: <SlidersHorizontal className="h-4 w-4" />, label: "Settings", action: () => { setSettingsDrawerOpen(true); setBeMenuOpen(false); } },
-                    { icon: <Sparkles className="h-4 w-4" />, label: "Memory", action: () => setBeMenuOpen(false) },
+                    { icon: <Sparkles className="h-4 w-4" />, label: "Memory", action: () => { setMemoryDrawerOpen(true); setBeMenuOpen(false); } },
                     { icon: <Network className="h-4 w-4" />, label: "Connections", action: () => setBeMenuOpen(false) },
                   ].map(({ icon, label, action }) => (
                     <button key={label} type="button" onClick={action}
@@ -4794,6 +4846,11 @@ export default function MetaMeRuntimeClient() {
           <IdentityIQubeDrawer onClose={() => setIdentityIQubeOpen(false)} />
         )}
       </div>
+      {/* Memory iQube — left-entering drawer, z-[59] above identity drawer */}
+      <MemoryIQubeDrawer
+        open={memoryDrawerOpen}
+        onClose={() => setMemoryDrawerOpen(false)}
+      />
       {/* Absolute overlay: prompt bar (live view only) + runtimeMenu stacked at bottom */}
       {!thinShellMode ? (
         <div className="absolute inset-x-0 bottom-0 z-30 bg-slate-950/95 backdrop-blur-sm">
