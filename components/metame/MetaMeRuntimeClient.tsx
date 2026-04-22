@@ -1831,6 +1831,8 @@ export default function MetaMeRuntimeClient() {
   const [personaIQubeDrawer, setPersonaIQubeDrawer] = useState<"knyt" | "qripto" | null>(null);
   const [identityIQubeOpen, setIdentityIQubeOpen] = useState(false);
   const [beMenuOpen, setBeMenuOpen] = useState(false);
+  const [earnMenuOpen, setEarnMenuOpen] = useState(false);
+  const [walletInitialTab, setWalletInitialTab] = useState<"wallet" | "tasks" | "rewards" | "payments">("wallet");
   const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
 
   const [selectedAgent, setSelectedAgent] = useState<RuntimeAgent>(RUNTIME_AGENTS[0]);
@@ -4391,16 +4393,37 @@ export default function MetaMeRuntimeClient() {
               Be
             </button>
           </div>
-          <button
-            type="button"
-            onClick={() => handleRuntimeMenuIntent("earn", "How can I earn...")}
-            className={menuButtonClass("earn")}
-            title="How can I earn..."
-            aria-pressed={lastIntent === "earn"}
-          >
-            <Coins className="h-5 w-5 text-emerald-300" />
-            Earn
-          </button>
+          <div className="relative">
+            {earnMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-[45]" onClick={() => setEarnMenuOpen(false)} />
+                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[46] flex flex-col gap-1 bg-slate-900/95 border border-white/10 rounded-xl p-2 shadow-2xl backdrop-blur-xl min-w-[130px]">
+                  {([
+                    { label: "Goal",   tab: "wallet"   },
+                    { label: "Task",   tab: "tasks"    },
+                    { label: "Wallet", tab: "wallet"   },
+                    { label: "Reward", tab: "rewards"  },
+                    { label: "Offer",  tab: "payments" },
+                  ] as const).map(({ label, tab }) => (
+                    <button key={label} type="button" onClick={() => { setWalletInitialTab(tab); setWalletDrawerOpen(true); setEarnMenuOpen(false); }}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                      <Coins className="h-3.5 w-3.5 text-emerald-400" />{label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => { handleRuntimeMenuIntent("earn", "How can I earn..."); setEarnMenuOpen(prev => !prev); }}
+              className={menuButtonClass("earn")}
+              title="How can I earn..."
+              aria-pressed={lastIntent === "earn"}
+            >
+              <Coins className="h-5 w-5 text-emerald-300" />
+              Earn
+            </button>
+          </div>
           <button
             type="button"
             onClick={() => handleRuntimeMenuIntent("play", "I'd like to play experiences.")}
@@ -4467,16 +4490,37 @@ export default function MetaMeRuntimeClient() {
             </button>
           </div>
           <div className="flex flex-1 items-center justify-center gap-6">
-            <button
-              type="button"
-              onClick={() => handleRuntimeMenuIntent("earn", "How can I earn...")}
-              className={menuButtonClass("earn")}
-              title="How can I earn..."
-              aria-pressed={lastIntent === "earn"}
-            >
-              <Coins className="h-5 w-5 text-emerald-300" />
-              Earn
-            </button>
+            <div className="relative">
+              {earnMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-[45]" onClick={() => setEarnMenuOpen(false)} />
+                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[46] flex flex-col gap-1 bg-slate-900/95 border border-white/10 rounded-xl p-2 shadow-2xl backdrop-blur-xl min-w-[130px]">
+                    {([
+                      { label: "Goal",   tab: "wallet"   },
+                      { label: "Task",   tab: "tasks"    },
+                      { label: "Wallet", tab: "wallet"   },
+                      { label: "Reward", tab: "rewards"  },
+                      { label: "Offer",  tab: "payments" },
+                    ] as const).map(({ label, tab }) => (
+                      <button key={label} type="button" onClick={() => { setWalletInitialTab(tab); setWalletDrawerOpen(true); setEarnMenuOpen(false); }}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                        <Coins className="h-3.5 w-3.5 text-emerald-400" />{label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => { handleRuntimeMenuIntent("earn", "How can I earn..."); setEarnMenuOpen(prev => !prev); }}
+                className={menuButtonClass("earn")}
+                title="How can I earn..."
+                aria-pressed={lastIntent === "earn"}
+              >
+                <Coins className="h-5 w-5 text-emerald-300" />
+                Earn
+              </button>
+            </div>
             <button
               type="button"
               onClick={() => handleRuntimeMenuIntent("play", "I'd like to play experiences.")}
@@ -4681,7 +4725,7 @@ export default function MetaMeRuntimeClient() {
         variant="overlay"
         agent={{ id: activePersonaId || selectedAgent.id, name: selectedAgent.label }}
         personaId={activePersonaId || undefined}
-        initialTab="wallet"
+        initialTab={walletInitialTab}
       />
       {/* Cartridge overlay — z-axis layer, no internal header (shell header carries the close button) */}
       {activeCartridgeOverlay != null && (
@@ -4944,7 +4988,7 @@ export default function MetaMeRuntimeClient() {
         variant="overlay"
         agent={{ id: activePersonaId || selectedAgent.id, name: selectedAgent.label }}
         personaId={activePersonaId || undefined}
-        initialTab="wallet"
+        initialTab={walletInitialTab}
       />
       {settingsDrawerOpen ? (
         <div
