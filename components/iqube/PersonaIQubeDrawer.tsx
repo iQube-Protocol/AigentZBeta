@@ -7,6 +7,30 @@ import {
   AlertCircle, CheckCircle2, Loader2,
 } from "lucide-react";
 
+function getAccessTokenFromStorage(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (!key || !key.includes("auth-token")) continue;
+      const raw = window.localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw) as { access_token?: string };
+      if (parsed?.access_token) return parsed.access_token;
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+function authHeaders(extra?: Record<string, string>): Record<string, string> {
+  const token = getAccessTokenFromStorage();
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type PersonaType = "knyt" | "qripto";
@@ -387,8 +411,7 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
     setError(null);
     try {
       const res = await fetch(`/api/iqube/persona/${type}`, {
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        headers: authHeaders(),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed to load");
@@ -417,8 +440,7 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
     try {
       const res = await fetch(`/api/iqube/persona/${type}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        headers: authHeaders(),
         body: JSON.stringify(editValues),
       });
       const json = await res.json();
@@ -440,8 +462,7 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
     try {
       const res = await fetch(`/api/iqube/persona/${type}/mint`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        headers: authHeaders(),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Mint failed");
