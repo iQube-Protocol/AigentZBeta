@@ -333,6 +333,22 @@ export const KNYT_CODEX: CodexConfig = {
 
     // ── Admin group (admin-gated) ──────────────────────────────
     {
+      id: 'aigent-missions',
+      label: 'Missions Board',
+      slug: 'aigent-missions',
+      enabled: true,
+      group: 'admin',
+      adminOnly: true,
+      order: -1,
+      type: 'static',
+      config: { component: 'AigentMissionsBoardTab' },
+      metadata: {
+        icon: 'Target',
+        description: 'KNYT Wheel constitutional pilot — mission board for human and agent participation',
+        color: 'emerald'
+      }
+    },
+    {
       id: 'knyt-alpha',
       label: 'Venture Labs',
       slug: 'knyt-alpha',
