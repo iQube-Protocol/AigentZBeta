@@ -85,6 +85,10 @@ export interface TokenQube {
   key_wrapping_alg: string;
   key_type?: string;
   access_policy?: Record<string, any>;
+  chain_token_id?: number | null;
+  chain_id?: number | null;
+  chain_tx_hash?: string | null;
+  chain_minter?: string | null;
   created_at: string;
 }
 
@@ -251,6 +255,26 @@ export async function getTokenQube(id: string): Promise<TokenQube | null> {
   }
 
   return data;
+}
+
+/**
+ * Record on-chain anchor details after a successful mintQube() call.
+ */
+export async function updateTokenQubeChainAnchor(
+  id: string,
+  anchor: { chainTokenId: number; chainId: number; chainTxHash: string; chainMinter: string },
+): Promise<void> {
+  const supabase = getSupabase();
+  const { error } = await supabase
+    .from('iq_token_qubes')
+    .update({
+      chain_token_id: anchor.chainTokenId,
+      chain_id: anchor.chainId,
+      chain_tx_hash: anchor.chainTxHash,
+      chain_minter: anchor.chainMinter,
+    })
+    .eq('id', id);
+  if (error) throw new Error(`Failed to update TokenQube chain anchor: ${error.message}`);
 }
 
 /**
