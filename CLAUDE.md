@@ -261,6 +261,28 @@ docs/                  — Architecture, operator manuals, progress reports
 
 ---
 
+## Codebase Update Documentation — Canonical Location
+
+**All session documentation that records codebase changes must go in one place:**
+
+```
+codexes/packs/agentiq/updates/
+```
+
+Naming convention: `YYYY-MM-DD_short-description.md`
+
+Every file added here must also be registered in `codexes/packs/agentiq/collections.json` under the `col_updates` collection so it appears in the AgentiQ cartridge "Updates" tab.
+
+This applies to:
+- Deployment records (contract addresses, env vars, deploy steps)
+- Architecture decisions made during a session
+- Engineering session summaries and handoffs
+- Any doc produced as a side-effect of coding work
+
+**Never scatter update docs across other pack directories** (`alpha-knyt`, `knyt`, etc.) and expect the operator to find them. The `agentiq/updates/` folder is the single source of truth for what changed and when. If a doc also belongs in a workstream-specific pack (e.g. Venture Lab α), that is fine as a secondary copy — but `agentiq/updates/` must always be the primary.
+
+---
+
 ## Deployment
 
 Always deploy to **dev** unless explicitly told otherwise.
