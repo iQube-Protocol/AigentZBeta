@@ -4039,6 +4039,28 @@ export default function MetaMeRuntimeClient() {
         try { window.parent.postMessage({ type: "DRAWER_OPENED", source: "runtime", payload: { drawer: "identity" } }, "*"); } catch { /* not in iframe */ }
         return;
       }
+
+      if (raw.type === "OPEN_MEMORY_IQUBE") {
+        setMemoryDrawerOpen(true);
+        try { window.parent.postMessage({ type: "DRAWER_OPENED", source: "runtime", payload: { drawer: "memory" } }, "*"); } catch { /* not in iframe */ }
+        return;
+      }
+
+      if (raw.type === "LAUNCH_CARTRIDGE") {
+        const cartridgeId = typeof rawPayload.cartridge_id === "string" ? rawPayload.cartridge_id : null;
+        if (cartridgeId) {
+          const slug = cartridgeId.replace(/-codex$/i, "");
+          setActiveCartridgeOverlay({ slug, title: slug.charAt(0).toUpperCase() + slug.slice(1) });
+          try { window.parent.postMessage({ type: "DRAWER_OPENED", source: "runtime", payload: { drawer: "cartridge", cartridge_id: cartridgeId } }, "*"); } catch { /* not in iframe */ }
+        }
+        return;
+      }
+
+      if (raw.type === "RUNTIME_CONTEXT_CHANGE") {
+        const ctx = (rawPayload.context ?? (raw as Record<string, unknown>).context) === "knyt" ? "knyt" : "metame";
+        setRuntimeContext(ctx as "metame" | "knyt");
+        return;
+      }
     }
 
     window.addEventListener("message", onDrawerOpen);
