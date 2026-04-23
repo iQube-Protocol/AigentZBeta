@@ -1887,6 +1887,7 @@ export default function MetaMeRuntimeClient() {
   const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
   const [walletDrawerOpen, setWalletDrawerOpen] = useState(false);
   const [personaIQubeDrawer, setPersonaIQubeDrawer] = useState<"knyt" | "qripto" | null>(null);
+  const [personaPickerOpen, setPersonaPickerOpen] = useState(false);
   const [identityIQubeOpen, setIdentityIQubeOpen] = useState(false);
   const [memoryDrawerOpen, setMemoryDrawerOpen] = useState(false);
   const [beMenuOpen, setBeMenuOpen] = useState(false);
@@ -3607,8 +3608,7 @@ export default function MetaMeRuntimeClient() {
           return;
         }
         if (/\b(persona\s+iqube|open\s+persona|my\s+persona|persona\s+qube)\b/.test(lp)) {
-          // Default to knyt if active persona ID suggests it, otherwise let user pick via drawer
-          setPersonaIQubeDrawer("knyt");
+          setPersonaPickerOpen(true);
           return;
         }
         if (/\b(identity\s+iqube|open\s+identity|my\s+identity|identity\s+qube|did\s*qube)\b/.test(lp)) {
@@ -4027,6 +4027,9 @@ export default function MetaMeRuntimeClient() {
         if (iQubeType === "knyt" || iQubeType === "qripto") {
           setPersonaIQubeDrawer(iQubeType);
           try { window.parent.postMessage({ type: "DRAWER_OPENED", source: "runtime", payload: { drawer: "persona", iqube_type: iQubeType } }, "*"); } catch { /* not in iframe */ }
+        } else {
+          // No type specified — open the persona picker so the user can select KNYT or Qripto.
+          setPersonaPickerOpen(true);
         }
         return;
       }
@@ -4525,7 +4528,7 @@ export default function MetaMeRuntimeClient() {
                 <div className="fixed inset-0 z-[45]" onClick={() => setBeMenuOpen(false)} />
                 <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[46] flex flex-col gap-1 bg-slate-900/95 border border-white/10 rounded-xl p-2 shadow-2xl backdrop-blur-xl min-w-[120px]">
                   {[
-                    { icon: <Users className="h-4 w-4" />, label: "Persona", action: () => { setPersonaIQubeDrawer("knyt"); setBeMenuOpen(false); } },
+                    { icon: <Users className="h-4 w-4" />, label: "Persona", action: () => { setPersonaPickerOpen(true); setBeMenuOpen(false); } },
                     { icon: <Fingerprint className="h-4 w-4" />, label: "Identity", action: () => { setIdentityIQubeOpen(true); setBeMenuOpen(false); } },
                     { icon: <SlidersHorizontal className="h-4 w-4" />, label: "Settings", action: () => { setSettingsDrawerOpen(true); setBeMenuOpen(false); } },
                     { icon: <Sparkles className="h-4 w-4" />, label: "Memory", action: () => { setMemoryDrawerOpen(true); setBeMenuOpen(false); } },
@@ -4621,7 +4624,7 @@ export default function MetaMeRuntimeClient() {
                 <div className="fixed inset-0 z-[45]" onClick={() => setBeMenuOpen(false)} />
                 <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[46] flex flex-col gap-1 bg-slate-900/95 border border-white/10 rounded-xl p-2 shadow-2xl backdrop-blur-xl min-w-[130px]">
                   {[
-                    { icon: <Users className="h-4 w-4" />, label: "Persona", action: () => { setPersonaIQubeDrawer("knyt"); setBeMenuOpen(false); } },
+                    { icon: <Users className="h-4 w-4" />, label: "Persona", action: () => { setPersonaPickerOpen(true); setBeMenuOpen(false); } },
                     { icon: <Fingerprint className="h-4 w-4" />, label: "Identity", action: () => { setIdentityIQubeOpen(true); setBeMenuOpen(false); } },
                     { icon: <SlidersHorizontal className="h-4 w-4" />, label: "Settings", action: () => { setSettingsDrawerOpen(true); setBeMenuOpen(false); } },
                     { icon: <Sparkles className="h-4 w-4" />, label: "Memory", action: () => { setMemoryDrawerOpen(true); setBeMenuOpen(false); } },
@@ -4956,6 +4959,41 @@ export default function MetaMeRuntimeClient() {
         open={memoryDrawerOpen}
         onClose={() => setMemoryDrawerOpen(false)}
       />
+      {/* Persona picker — shown when no iqube_type specified, lets user pick KNYT or Qripto */}
+      {personaPickerOpen && (
+        <>
+          <div className="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm" onClick={() => setPersonaPickerOpen(false)} />
+          <div className="absolute inset-x-0 bottom-0 z-[61] flex flex-col gap-0 rounded-t-2xl border-t border-white/10 bg-slate-950 shadow-2xl pb-safe">
+            <div className="flex items-center justify-between px-5 pt-4 pb-2">
+              <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">Select Persona</span>
+              <button type="button" onClick={() => setPersonaPickerOpen(false)} className="rounded-full p-1 text-slate-500 hover:text-white transition">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="flex flex-col gap-2 px-4 pb-6">
+              {([
+                { type: "knyt" as const, label: "KNYT Persona", description: "Your metaKnyt identity & character stats", color: "from-amber-500/20 to-yellow-500/10 border-amber-500/30 hover:border-amber-400/60" },
+                { type: "qripto" as const, label: "Qripto Persona", description: "Your Qriptopian reader identity & collections", color: "from-cyan-500/20 to-blue-500/10 border-cyan-500/30 hover:border-cyan-400/60" },
+              ]).map(({ type, label, description, color }) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => { setPersonaIQubeDrawer(type); setPersonaPickerOpen(false); }}
+                  className={`flex items-center gap-4 rounded-xl border bg-gradient-to-r p-4 text-left transition-all duration-150 ${color}`}
+                >
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-white/10">
+                    <Users className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-white">{label}</div>
+                    <div className="text-xs text-slate-400">{description}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
       {/* Absolute overlay: prompt bar (live view only) + runtimeMenu stacked at bottom */}
       {!thinShellMode ? (
         <div className="absolute inset-x-0 bottom-0 z-30 bg-slate-950/95 backdrop-blur-sm">
