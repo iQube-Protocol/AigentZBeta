@@ -1923,6 +1923,10 @@ export default function MetaMeRuntimeClient() {
   // closes where CARTRIDGE_OVERLAY_CLOSE or a close-signal arrives within the same message
   // batch as LAUNCH_CARTRIDGE.  A 800ms cooldown is applied.
   const cartridgeOverlayOpenedAtRef = useRef<number>(0);
+  // Once the user progresses past the welcome screen (handlePrompt sets showWelcome=false),
+  // prevent any HANDOFF message from flipping it back.  This blocks the Lovable→STATE_SYNC→
+  // HANDOFF feedback loop that was resetting the runtime to the landing page.
+  const didExitWelcomeRef = useRef<boolean>(false);
 
   // Diagnostic: detect iframe/component remounts — if mount count > 1 the iframe is reloading.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3682,6 +3686,7 @@ export default function MetaMeRuntimeClient() {
 
       setCapsuleContents(ranked);
       setLastIntent(intent);
+      didExitWelcomeRef.current = true;
       setShowWelcome(false);
       setWelcomePrompt("");
       const leadCapsule = ranked[0] || null;
@@ -4247,7 +4252,15 @@ export default function MetaMeRuntimeClient() {
             : payload;
         const handoffState = typeof handoffContext.state === "string" ? handoffContext.state : null;
         if (handoffState === "post_welcome") setShowWelcome(false);
-        if (handoffState === "welcome") setShowWelcome(true);
+        // Only accept a "welcome" reset if the user has NOT already progressed past welcome.
+        // Once didExitWelcomeRef is true, HANDOFF cannot flip them back to the landing page —
+        // this blocks the STATE_SYNC→HANDOFF feedback loop that was causing constant resets.
+        if (handoffState === "welcome" && !didExitWelcomeRef.current) {
+          console.warn("[handoff] HANDOFF state=welcome accepted (user hasn't exited welcome yet)");
+          setShowWelcome(true);
+        } else if (handoffState === "welcome" && didExitWelcomeRef.current) {
+          console.warn("[handoff] HANDOFF state=welcome BLOCKED — user already exited welcome, ignoring reset");
+        }
 
         const handoffIntent = typeof handoffContext.intent === "string" ? handoffContext.intent : null;
         if (handoffIntent && (Object.keys(INTENT_KEYWORDS) as RuntimeIntent[]).includes(handoffIntent as RuntimeIntent)) {
