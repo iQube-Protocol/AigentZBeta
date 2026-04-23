@@ -4010,6 +4010,43 @@ export default function MetaMeRuntimeClient() {
   const reliabilityScore = Math.max(1, Math.min(10, providerBaseScore + 0.8));
   const trustScore = Math.max(1, Math.min(10, providerBaseScore));
 
+  // Stable, permanent handler for persona and identity drawer opens.
+  // Uses [] deps so it never tears down/re-registers — immune to dep-array churn in
+  // the main onShellMessage effect. State setters are guaranteed stable by React.
+  useEffect(() => {
+    function onDrawerOpen(event: MessageEvent) {
+      if (event.source !== window.parent) return;
+      const raw = event.data;
+      if (!raw || typeof raw !== "object" || typeof raw.type !== "string") return;
+      const rawPayload = (raw.payload && typeof raw.payload === "object"
+        ? raw.payload
+        : raw) as Record<string, unknown>;
+
+      if (raw.type === "OPEN_PERSONA_IQUBE") {
+        const iQubeType = typeof rawPayload.iqube_type === "string" ? rawPayload.iqube_type : null;
+        if (iQubeType === "knyt" || iQubeType === "qripto") {
+          setPersonaIQubeDrawer(iQubeType);
+          try { window.parent.postMessage({ type: "DRAWER_OPENED", source: "runtime", payload: { drawer: "persona", iqube_type: iQubeType } }, "*"); } catch { /* not in iframe */ }
+        }
+        return;
+      }
+
+      if (raw.type === "OPEN_IDENTITY_IQUBE") {
+        setIdentityIQubeOpen(true);
+        try { window.parent.postMessage({ type: "DRAWER_OPENED", source: "runtime", payload: { drawer: "identity" } }, "*"); } catch { /* not in iframe */ }
+        return;
+      }
+    }
+
+    window.addEventListener("message", onDrawerOpen);
+    // Drain the pre-bootstrap buffer into this stable handler so messages that
+    // arrived before any React effect registered are not lost.
+    _drainEarlyCapture(onDrawerOpen);
+
+    return () => window.removeEventListener("message", onDrawerOpen);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (!embedMode) return;
 
@@ -4093,20 +4130,9 @@ export default function MetaMeRuntimeClient() {
           return;
         }
 
-        if (raw.type === "OPEN_PERSONA_IQUBE") {
-          const iQubeType = typeof rawPayload.iqube_type === "string" ? rawPayload.iqube_type : null;
-          if (iQubeType === "knyt" || iQubeType === "qripto") {
-            setPersonaIQubeDrawer(iQubeType);
-            try { window.parent.postMessage({ type: "DRAWER_OPENED", source: "runtime", payload: { drawer: "persona", iqube_type: iQubeType } }, "*"); } catch { /* not in iframe */ }
-          }
-          return;
-        }
-
-        if (raw.type === "OPEN_IDENTITY_IQUBE") {
-          setIdentityIQubeOpen(true);
-          try { window.parent.postMessage({ type: "DRAWER_OPENED", source: "runtime", payload: { drawer: "identity" } }, "*"); } catch { /* not in iframe */ }
-          return;
-        }
+        // OPEN_PERSONA_IQUBE and OPEN_IDENTITY_IQUBE are handled by the stable
+        // useEffect above — not here — so they are never affected by this
+        // effect's dep-array re-registration cycles.
 
         if (raw.type === "RUNTIME_CONTEXT_CHANGE") {
           const ctx = (rawPayload.context ?? raw.context) === "knyt" ? "knyt" : "metame";
@@ -4309,9 +4335,9 @@ export default function MetaMeRuntimeClient() {
 
     window.addEventListener("message", onShellMessage);
 
-    // Drain any shell messages that arrived before this handler registered,
-    // then remove the early-capture listener so it doesn't double-fire.
-    _drainEarlyCapture(onShellMessage);
+    // NOTE: pre-bootstrap buffer is drained by the stable onDrawerOpen effect above.
+    // Calling _drainEarlyCapture here would be a no-op (buffer already empty + capture
+    // listener already removed) but is safe to skip.
 
     // Emit RUNTIME_READY immediately so the shell knows the runtime is live.
     // We also emit it again in response to SHELL_READY (idempotent via runtimeReadyPostedRef)
