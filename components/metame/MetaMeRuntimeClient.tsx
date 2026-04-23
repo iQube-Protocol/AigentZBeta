@@ -1923,6 +1923,15 @@ export default function MetaMeRuntimeClient() {
   // closes where CARTRIDGE_OVERLAY_CLOSE or a close-signal arrives within the same message
   // batch as LAUNCH_CARTRIDGE.  A 800ms cooldown is applied.
   const cartridgeOverlayOpenedAtRef = useRef<number>(0);
+
+  // Diagnostic: detect iframe/component remounts — if mount count > 1 the iframe is reloading.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    console.warn("[lifecycle] MetaMeRuntimeClient MOUNTED — new session, all state reset to defaults");
+    return () => {
+      console.warn("[lifecycle] MetaMeRuntimeClient UNMOUNTING — iframe/component is being destroyed");
+    };
+  }, []);
   const [agentProviderMap, setAgentProviderMap] = useState<Record<string, AgentProviderOption[]>>(staticProviderMap);
   const [selectedModelByAgent, setSelectedModelByAgent] = useState<RuntimeAgentModelMap>(() =>
     initialModelMap(staticProviderMap)
@@ -2384,6 +2393,8 @@ export default function MetaMeRuntimeClient() {
   }, [fetchRuntimeData, toast]);
 
   const resetRuntime = useCallback(async () => {
+    console.warn("[runtime-reset] resetRuntime() called — tracing call site:");
+    console.trace("[runtime-reset] resetRuntime trace");
     await fetchRuntimeData();
     setMessages([]);
     setShowWelcome(true);
@@ -4145,6 +4156,12 @@ export default function MetaMeRuntimeClient() {
     function onShellMessage(event: MessageEvent) {
       if (event.source !== window.parent) return;
 
+      // ── Universal catch-all log (FIRST thing, before any filtering) ──────────
+      // This log runs for EVERY message from the parent — use it to diagnose
+      // what Lovable is actually sending and in what order.
+      const _rawType = event.data && typeof event.data === "object" ? (event.data as Record<string, unknown>).type : typeof event.data;
+      console.warn("[all-msgs] parent→runtime:", _rawType, event.data);
+
       // LAUNCH_CARTRIDGE and RUNTIME_CONTEXT_CHANGE may arrive in raw (non-bridge)
       // format from the Lovable shell. Handle them before the strict bridge check so
       // they work regardless of whether the shell uses createShellMessage() or not.
@@ -4185,15 +4202,12 @@ export default function MetaMeRuntimeClient() {
         // useEffect above — not here — so they are never affected by this
         // effect's dep-array re-registration cycles.
 
+        // RUNTIME_CONTEXT_CHANGE: only update the context state.
+        // The stable onDrawerOpen handler above already handles this — we must
+        // NOT call handlePrompt here because that triggers full AI inference,
+        // which causes the long loading delay and content flash the user sees.
         if (raw.type === "RUNTIME_CONTEXT_CHANGE") {
-          const ctx = (rawPayload.context ?? raw.context) === "knyt" ? "knyt" : "metame";
-          setRuntimeContext(ctx as "metame" | "knyt");
-          void handlePrompt(
-            ctx === "knyt"
-              ? "I'd like to explore my KNYT journey"
-              : "I'd like to return to my metaMe context",
-            { source: "text_input", skipInference: false, explicitIntent: "play" }
-          );
+          console.warn("[ctx] RUNTIME_CONTEXT_CHANGE in volatile handler — context-only update (no inference)", { raw });
           return;
         }
       }
