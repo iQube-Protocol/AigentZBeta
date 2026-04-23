@@ -1899,6 +1899,8 @@ export default function MetaMeRuntimeClient() {
   const [showAgentSelector, setShowAgentSelector] = useState(false);
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
+  // Mirror of showWelcome for the stable [] onDrawerOpen handler — updated by effect below.
+  const showWelcomeRef = useRef(true);
   const previousWelcomeRef = useRef(true);
   const [isRuntimeFullscreen, setIsRuntimeFullscreen] = useState(false);
   const [welcomePrompt, setWelcomePrompt] = useState("");
@@ -4040,6 +4042,14 @@ export default function MetaMeRuntimeClient() {
   const reliabilityScore = Math.max(1, Math.min(10, providerBaseScore + 0.8));
   const trustScore = Math.max(1, Math.min(10, providerBaseScore));
 
+  // Stable ref to latest handlePrompt — updated whenever handlePrompt changes so
+  // the [] stable handler can call it without capturing a stale closure.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handlePromptRef = useRef<typeof handlePrompt>(handlePrompt);
+  useEffect(() => { handlePromptRef.current = handlePrompt; }, [handlePrompt]);
+  // Keep showWelcomeRef in sync so the [] stable handler can read current welcome state.
+  useEffect(() => { showWelcomeRef.current = showWelcome; }, [showWelcome]);
+
   // Stable, permanent handler for persona and identity drawer opens.
   // Uses [] deps so it never tears down/re-registers — immune to dep-array churn in
   // the main onShellMessage effect. State setters are guaranteed stable by React.
@@ -4052,13 +4062,27 @@ export default function MetaMeRuntimeClient() {
         ? raw.payload
         : raw) as Record<string, unknown>;
 
+      // When triggered from the welcome screen, fire contextual inference first so the
+      // user lands on relevant content underneath the drawer, not a blank landing page.
+      // The drawer opens immediately (don't wait for inference) — hoisted iQubeDrawerLayer
+      // ensures it renders over the welcome screen regardless of showWelcome.
+      const maybeAdvanceWelcome = (prompt: string) => {
+        if (showWelcomeRef.current && handlePromptRef.current) {
+          void handlePromptRef.current(prompt, { source: "text_input", skipInference: false });
+        }
+      };
+
       if (raw.type === "OPEN_PERSONA_IQUBE") {
         const iQubeType = typeof rawPayload.iqube_type === "string" ? rawPayload.iqube_type : null;
         console.warn("[drawer] OPEN_PERSONA_IQUBE received", { iQubeType });
-        if (iQubeType === "knyt" || iQubeType === "qripto") {
-          setPersonaIQubeDrawer(iQubeType);
+        if (iQubeType === "knyt") {
+          maybeAdvanceWelcome("Tell me about my KNYT persona, my metaKnyt character and journey");
+          setPersonaIQubeDrawer("knyt");
+        } else if (iQubeType === "qripto") {
+          maybeAdvanceWelcome("Tell me about my Qriptopian persona and reader identity");
+          setPersonaIQubeDrawer("qripto");
         } else {
-          // No type specified — open the persona picker so the user can select KNYT or Qripto.
+          maybeAdvanceWelcome("Tell me about my personas and how I express my identity in the protocol");
           setPersonaPickerOpen(true);
         }
         return;
@@ -4066,12 +4090,14 @@ export default function MetaMeRuntimeClient() {
 
       if (raw.type === "OPEN_IDENTITY_IQUBE") {
         console.warn("[drawer] OPEN_IDENTITY_IQUBE received → opening");
+        maybeAdvanceWelcome("Tell me about my identity iQube and what it means for my data sovereignty");
         setIdentityIQubeOpen(true);
         return;
       }
 
       if (raw.type === "OPEN_MEMORY_IQUBE") {
         console.warn("[drawer] OPEN_MEMORY_IQUBE received → opening");
+        maybeAdvanceWelcome("Show me my memory iQube and conversation history");
         setMemoryDrawerOpen(true);
         return;
       }
@@ -4999,76 +5025,8 @@ export default function MetaMeRuntimeClient() {
         </div>
         <MetaMeSettingsPanel personaId={activePersonaId ?? undefined} />
       </div>
-      {/* Persona iQube — left-entering drawer, same pattern as Settings */}
-      {personaIQubeDrawer && (
-        <div
-          className="absolute inset-0 z-[55] bg-black/50"
-          onClick={() => setPersonaIQubeDrawer(null)}
-        />
-      )}
-      <div
-        className={`absolute left-0 top-0 bottom-0 z-[56] w-96 overflow-y-auto transform transition-transform duration-300 ease-in-out ${personaIQubeDrawer ? "translate-x-0" : "-translate-x-full"}`}
-        aria-hidden={!personaIQubeDrawer}
-      >
-        {personaIQubeDrawer && (
-          <PersonaIQubeDrawer
-            type={personaIQubeDrawer}
-            onClose={() => setPersonaIQubeDrawer(null)}
-          />
-        )}
-      </div>
-      {/* Identity iQube — left-entering drawer, z-[57] above persona drawer */}
-      {identityIQubeOpen && (
-        <div className="absolute inset-0 z-[57] bg-black/50" onClick={() => setIdentityIQubeOpen(false)} />
-      )}
-      <div
-        className={`absolute left-0 top-0 bottom-0 z-[58] w-96 overflow-y-auto transform transition-transform duration-300 ease-in-out ${identityIQubeOpen ? "translate-x-0" : "-translate-x-full"}`}
-        aria-hidden={!identityIQubeOpen}
-      >
-        {identityIQubeOpen && (
-          <IdentityIQubeDrawer onClose={() => setIdentityIQubeOpen(false)} />
-        )}
-      </div>
-      {/* Memory iQube — left-entering drawer, z-[59] above identity drawer */}
-      <MemoryIQubeDrawer
-        open={memoryDrawerOpen}
-        onClose={() => setMemoryDrawerOpen(false)}
-      />
-      {/* Persona picker — shown when no iqube_type specified, lets user pick KNYT or Qripto */}
-      {personaPickerOpen && (
-        <>
-          <div className="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm" onClick={() => setPersonaPickerOpen(false)} />
-          <div className="absolute inset-x-0 bottom-0 z-[61] flex flex-col gap-0 rounded-t-2xl border-t border-white/10 bg-slate-950 shadow-2xl pb-safe">
-            <div className="flex items-center justify-between px-5 pt-4 pb-2">
-              <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">Select Persona</span>
-              <button type="button" onClick={() => setPersonaPickerOpen(false)} className="rounded-full p-1 text-slate-500 hover:text-white transition">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
-              </button>
-            </div>
-            <div className="flex flex-col gap-2 px-4 pb-6">
-              {([
-                { type: "knyt" as const, label: "KNYT Persona", description: "Your metaKnyt identity & character stats", color: "from-amber-500/20 to-yellow-500/10 border-amber-500/30 hover:border-amber-400/60" },
-                { type: "qripto" as const, label: "Qripto Persona", description: "Your Qriptopian reader identity & collections", color: "from-cyan-500/20 to-blue-500/10 border-cyan-500/30 hover:border-cyan-400/60" },
-              ]).map(({ type, label, description, color }) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => { setPersonaIQubeDrawer(type); setPersonaPickerOpen(false); }}
-                  className={`flex items-center gap-4 rounded-xl border bg-gradient-to-r p-4 text-left transition-all duration-150 ${color}`}
-                >
-                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-white/10">
-                    <Users className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-white">{label}</div>
-                    <div className="text-xs text-slate-400">{description}</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
+      {/* iQube drawers (persona, identity, memory, picker) are hoisted to iQubeDrawerLayer
+          so they render over both the welcome screen and the runtime surface. */}
       {/* Absolute overlay: prompt bar (live view only) + runtimeMenu stacked at bottom */}
       {!thinShellMode ? (
         <div className="absolute inset-x-0 bottom-0 z-30 bg-slate-950/95 backdrop-blur-sm">
@@ -5301,19 +5259,88 @@ export default function MetaMeRuntimeClient() {
         ? "mx-auto w-full max-w-[860px]"
         : "mx-auto w-full max-w-[430px]";
 
+  // iQube drawer layer — rendered outside the welcomeSurface/runtimeSurface toggle so
+  // these drawers are always in the DOM regardless of showWelcome state.  Absolute
+  // positioning scopes to the nearest positioned ancestor (relative outer containers below).
+  const iQubeDrawerLayer = (
+    <>
+      {/* Persona iQube — left-entering drawer */}
+      {personaIQubeDrawer && (
+        <div className="absolute inset-0 z-[55] bg-black/50" onClick={() => setPersonaIQubeDrawer(null)} />
+      )}
+      <div
+        className={`absolute left-0 top-0 bottom-0 z-[56] w-96 overflow-y-auto transform transition-transform duration-300 ease-in-out ${personaIQubeDrawer ? "translate-x-0" : "-translate-x-full"}`}
+        aria-hidden={!personaIQubeDrawer}
+      >
+        {personaIQubeDrawer && (
+          <PersonaIQubeDrawer type={personaIQubeDrawer} onClose={() => setPersonaIQubeDrawer(null)} />
+        )}
+      </div>
+      {/* Identity iQube — left-entering drawer, z-[57] above persona */}
+      {identityIQubeOpen && (
+        <div className="absolute inset-0 z-[57] bg-black/50" onClick={() => setIdentityIQubeOpen(false)} />
+      )}
+      <div
+        className={`absolute left-0 top-0 bottom-0 z-[58] w-96 overflow-y-auto transform transition-transform duration-300 ease-in-out ${identityIQubeOpen ? "translate-x-0" : "-translate-x-full"}`}
+        aria-hidden={!identityIQubeOpen}
+      >
+        {identityIQubeOpen && <IdentityIQubeDrawer onClose={() => setIdentityIQubeOpen(false)} />}
+      </div>
+      {/* Memory iQube drawer */}
+      <MemoryIQubeDrawer open={memoryDrawerOpen} onClose={() => setMemoryDrawerOpen(false)} />
+      {/* Persona picker — bottom sheet when no iqube_type specified */}
+      {personaPickerOpen && (
+        <>
+          <div className="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm" onClick={() => setPersonaPickerOpen(false)} />
+          <div className="absolute inset-x-0 bottom-0 z-[61] flex flex-col gap-0 rounded-t-2xl border-t border-white/10 bg-slate-950 shadow-2xl pb-safe">
+            <div className="flex items-center justify-between px-5 pt-4 pb-2">
+              <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">Select Persona</span>
+              <button type="button" onClick={() => setPersonaPickerOpen(false)} className="rounded-full p-1 text-slate-500 hover:text-white transition">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="flex flex-col gap-2 px-4 pb-6">
+              {([
+                { type: "knyt" as const, label: "KNYT Persona", description: "Your metaKnyt identity & character stats", color: "from-amber-500/20 to-yellow-500/10 border-amber-500/30 hover:border-amber-400/60" },
+                { type: "qripto" as const, label: "Qripto Persona", description: "Your Qriptopian reader identity & collections", color: "from-cyan-500/20 to-blue-500/10 border-cyan-500/30 hover:border-cyan-400/60" },
+              ]).map(({ type, label, description, color }) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => { setPersonaIQubeDrawer(type); setPersonaPickerOpen(false); }}
+                  className={`flex items-center gap-4 rounded-xl border bg-gradient-to-r p-4 text-left transition-all duration-150 ${color}`}
+                >
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-white/10">
+                    <Users className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-white">{label}</div>
+                    <div className="text-xs text-slate-400">{description}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  );
+
   if (embedMode) {
     const embedWidthClass = isRuntimeFullscreen || thinShellMode ? "w-full" : runtimeDeviceWidthClass;
     return (
-      <div className={`h-full w-full bg-slate-950 p-0 ${embedWidthClass}`}>
+      <div className={`relative h-full w-full bg-slate-950 p-0 ${embedWidthClass}`}>
         {showWelcome ? welcomeSurface : runtimeSurface}
+        {iQubeDrawerLayer}
       </div>
     );
   }
 
   if (isRuntimeFullscreen) {
     return (
-      <div className="fixed inset-0 z-[120] bg-slate-950 p-0">
+      <div className="fixed inset-0 z-[120] bg-slate-950 p-0 relative">
         <div className={`h-full ${runtimeDeviceWidthClass}`}>{showWelcome ? welcomeSurface : runtimeSurface}</div>
+        {iQubeDrawerLayer}
       </div>
     );
   }
@@ -5334,7 +5361,7 @@ export default function MetaMeRuntimeClient() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white px-4 py-6">
-      <div className="mx-auto w-full h-[760px]">
+      <div className="relative mx-auto w-full h-[760px]">
         <PreviewFrame
           defaultDevice={defaultDevice}
           onDeviceChange={(device) => setActiveDevice(device)}
@@ -5346,6 +5373,7 @@ export default function MetaMeRuntimeClient() {
         >
           {showWelcome ? welcomeSurface : runtimeSurface}
         </PreviewFrame>
+        {iQubeDrawerLayer}
       </div>
     </div>
   );
