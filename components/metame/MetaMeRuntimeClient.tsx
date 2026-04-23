@@ -1919,6 +1919,10 @@ export default function MetaMeRuntimeClient() {
     title: string;
     initialTab?: string;
   } | null>(null);
+  // Tracks when the cartridge overlay was last opened — used to guard against race-condition
+  // closes where CARTRIDGE_OVERLAY_CLOSE or a close-signal arrives within the same message
+  // batch as LAUNCH_CARTRIDGE.  A 800ms cooldown is applied.
+  const cartridgeOverlayOpenedAtRef = useRef<number>(0);
   const [agentProviderMap, setAgentProviderMap] = useState<Record<string, AgentProviderOption[]>>(staticProviderMap);
   const [selectedModelByAgent, setSelectedModelByAgent] = useState<RuntimeAgentModelMap>(() =>
     initialModelMap(staticProviderMap)
@@ -3219,10 +3223,16 @@ export default function MetaMeRuntimeClient() {
       const closeSignal = readCodexClose(d);
       const navigateSignal = readNavigateClose(d);
       if (!closeSignal.isClose && !navigateSignal.isClose) return;
-      console.warn("[codex-close] onAnyMessage close signal matched", { closeSignal, navigateSignal });
+      const timeSinceOverlayOpen = Date.now() - cartridgeOverlayOpenedAtRef.current;
+      console.warn("[codex-close] onAnyMessage close signal matched", { closeSignal, navigateSignal, timeSinceOverlayOpen, source: event.source === window.parent ? "parent" : "child/other" });
       dismissCodexPanels(closeSignal.isClose ? closeSignal.codexId : navigateSignal.codexId);
-      // Also close the z-axis cartridge overlay if one is active
-      setActiveCartridgeOverlay(null);
+      // Also close the z-axis cartridge overlay if one is active — apply same 800ms cooldown
+      // to guard against race conditions where the overlay was just opened.
+      if (timeSinceOverlayOpen >= 800) {
+        setActiveCartridgeOverlay(null);
+      } else {
+        console.warn("[codex-close] onAnyMessage skipping setActiveCartridgeOverlay(null) — within 800ms of open", { timeSinceOverlayOpen });
+      }
       relayCloseCodexToNestedFrames();
     }
 
@@ -3235,8 +3245,12 @@ export default function MetaMeRuntimeClient() {
         const closeSignal = readCodexClose(ev.data);
         const navigateSignal = readNavigateClose(ev.data);
         if (!closeSignal.isClose && !navigateSignal.isClose) return;
+        const timeSinceBcOpen = Date.now() - cartridgeOverlayOpenedAtRef.current;
+        console.warn("[codex-close] BroadcastChannel close signal", { closeSignal, navigateSignal, timeSinceBcOpen });
         dismissCodexPanels(closeSignal.isClose ? closeSignal.codexId : navigateSignal.codexId);
-        setActiveCartridgeOverlay(null);
+        if (timeSinceBcOpen >= 800) {
+          setActiveCartridgeOverlay(null);
+        }
         relayCloseCodexToNestedFrames();
       };
     } catch (e) { /* BroadcastChannel not supported */ }
@@ -4024,9 +4038,9 @@ export default function MetaMeRuntimeClient() {
 
       if (raw.type === "OPEN_PERSONA_IQUBE") {
         const iQubeType = typeof rawPayload.iqube_type === "string" ? rawPayload.iqube_type : null;
+        console.warn("[drawer] OPEN_PERSONA_IQUBE received", { iQubeType });
         if (iQubeType === "knyt" || iQubeType === "qripto") {
           setPersonaIQubeDrawer(iQubeType);
-          try { window.parent.postMessage({ type: "DRAWER_OPENED", source: "runtime", payload: { drawer: "persona", iqube_type: iQubeType } }, "*"); } catch { /* not in iframe */ }
         } else {
           // No type specified — open the persona picker so the user can select KNYT or Qripto.
           setPersonaPickerOpen(true);
@@ -4035,23 +4049,25 @@ export default function MetaMeRuntimeClient() {
       }
 
       if (raw.type === "OPEN_IDENTITY_IQUBE") {
+        console.warn("[drawer] OPEN_IDENTITY_IQUBE received → opening");
         setIdentityIQubeOpen(true);
-        try { window.parent.postMessage({ type: "DRAWER_OPENED", source: "runtime", payload: { drawer: "identity" } }, "*"); } catch { /* not in iframe */ }
         return;
       }
 
       if (raw.type === "OPEN_MEMORY_IQUBE") {
+        console.warn("[drawer] OPEN_MEMORY_IQUBE received → opening");
         setMemoryDrawerOpen(true);
-        try { window.parent.postMessage({ type: "DRAWER_OPENED", source: "runtime", payload: { drawer: "memory" } }, "*"); } catch { /* not in iframe */ }
         return;
       }
 
       if (raw.type === "LAUNCH_CARTRIDGE") {
         const cartridgeId = typeof rawPayload.cartridge_id === "string" ? rawPayload.cartridge_id : null;
+        console.warn("[drawer] LAUNCH_CARTRIDGE received (stable handler)", { cartridgeId });
         if (cartridgeId) {
           const slug = cartridgeId.replace(/-codex$/i, "");
+          cartridgeOverlayOpenedAtRef.current = Date.now();
+          console.warn("[drawer] LAUNCH_CARTRIDGE → opening overlay", { slug });
           setActiveCartridgeOverlay({ slug, title: slug.charAt(0).toUpperCase() + slug.slice(1) });
-          try { window.parent.postMessage({ type: "DRAWER_OPENED", source: "runtime", payload: { drawer: "cartridge", cartridge_id: cartridgeId } }, "*"); } catch { /* not in iframe */ }
         }
         return;
       }
@@ -4142,15 +4158,25 @@ export default function MetaMeRuntimeClient() {
           const cartridgeId = typeof rawPayload.cartridge_id === "string" ? rawPayload.cartridge_id : null;
           const codexId = typeof rawPayload.codex_id === "string" ? rawPayload.codex_id : cartridgeId;
           const rawSlug = codexId || cartridgeId;
+          console.warn("[drawer] LAUNCH_CARTRIDGE received (volatile handler)", { cartridgeId, codexId, rawSlug });
           if (rawSlug) {
             const slug = (rawSlug as string).replace(/-codex$/i, "");
             const title = slug.charAt(0).toUpperCase() + slug.slice(1);
+            cartridgeOverlayOpenedAtRef.current = Date.now();
+            console.warn("[drawer] LAUNCH_CARTRIDGE → opening overlay (volatile)", { slug });
             setActiveCartridgeOverlay({ slug, title });
           }
           return;
         }
 
         if (raw.type === "CARTRIDGE_OVERLAY_CLOSE") {
+          const timeSinceOpen = Date.now() - cartridgeOverlayOpenedAtRef.current;
+          console.warn("[drawer] CARTRIDGE_OVERLAY_CLOSE received", { timeSinceOpen });
+          if (timeSinceOpen < 800) {
+            console.warn("[drawer] CARTRIDGE_OVERLAY_CLOSE ignored — within 800ms cooldown", { timeSinceOpen });
+            return;
+          }
+          console.warn("[drawer] CARTRIDGE_OVERLAY_CLOSE → closing overlay");
           setActiveCartridgeOverlay(null);
           return;
         }
