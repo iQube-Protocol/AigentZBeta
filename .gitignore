@@ -108,3 +108,10 @@ apps/theqriptopian-web/src/pages/ArticleTest.tsx
 
 *.xd
 scripts/data/
+
+# Capstone secrets (do not commit)
+capstone/**/.env
+capstone/**/env.body
+capstone/**/env.meta
+capstone/**/principal.body
+capstone/**/principal.meta
