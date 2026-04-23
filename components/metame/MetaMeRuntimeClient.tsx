@@ -95,6 +95,40 @@ function getAccessTokenFromStorage(): string | null {
   return null;
 }
 
+// ─── Pre-bootstrap shell message buffer ──────────────────────────────────────
+// Messages from window.parent that arrive before MetaMeRuntimeClient's
+// onShellMessage useEffect has registered will be silently dropped.
+// This module-level FIFO captures them so they can be replayed once the
+// handler is live. Max 32 entries.
+
+let _preBootstrapBuf: MessageEvent[] = [];
+let _preBootstrapCapture: ((e: MessageEvent) => void) | null = null;
+
+function _startEarlyCapture() {
+  if (typeof window === "undefined" || _preBootstrapCapture) return;
+  _preBootstrapCapture = (e: MessageEvent) => {
+    if (e.source !== window.parent) return;
+    const d = e.data as Record<string, unknown> | null;
+    if (!d || typeof d !== "object" || typeof d.type !== "string") return;
+    if (_preBootstrapBuf.length < 32) _preBootstrapBuf.push(e);
+  };
+  window.addEventListener("message", _preBootstrapCapture);
+}
+
+function _drainEarlyCapture(handler: (e: MessageEvent) => void) {
+  if (_preBootstrapCapture) {
+    window.removeEventListener("message", _preBootstrapCapture);
+    _preBootstrapCapture = null;
+  }
+  const drained = _preBootstrapBuf.splice(0);
+  for (const e of drained) {
+    try { handler(e); } catch { /* replay is best-effort */ }
+  }
+}
+
+// Start capturing immediately at module evaluation time
+_startEarlyCapture();
+
 type RuntimeIntent = "watch" | "listen" | "read" | "play" | "find" | "earn" | "make" | "be";
 type RuntimeContentSource = "experience" | "smart-content" | "codex";
 
@@ -3558,6 +3592,35 @@ export default function MetaMeRuntimeClient() {
         return;
       }
 
+      // ── Prompt fast-paths: open iQube drawers without inference ──────────
+      // These match natural-language requests so the drawers are reachable via
+      // the prompt bar as well as via shell postMessage — matching Wallet's
+      // dual-path reliability.
+      {
+        const lp = trimmed.toLowerCase();
+        if (/\b(knyt\s+persona|knyt\s+iqube|open\s+knyt|my\s+knyt\s+profile)\b/.test(lp)) {
+          setPersonaIQubeDrawer("knyt");
+          return;
+        }
+        if (/\b(qripto\s+persona|qripto\s+iqube|open\s+qripto|my\s+qripto\s+profile)\b/.test(lp)) {
+          setPersonaIQubeDrawer("qripto");
+          return;
+        }
+        if (/\b(persona\s+iqube|open\s+persona|my\s+persona|persona\s+qube)\b/.test(lp)) {
+          // Default to knyt if active persona ID suggests it, otherwise let user pick via drawer
+          setPersonaIQubeDrawer("knyt");
+          return;
+        }
+        if (/\b(identity\s+iqube|open\s+identity|my\s+identity|identity\s+qube|did\s*qube)\b/.test(lp)) {
+          setIdentityIQubeOpen(true);
+          return;
+        }
+        if (/\b(my\s+memory|open\s+memory|memory\s+iqube|chat\s+history|conversation\s+history)\b/.test(lp)) {
+          setMemoryDrawerOpen(true);
+          return;
+        }
+      }
+
       const source = options?.source ?? "runtime_ui";
       const intent = options?.explicitIntent ?? inferIntent(trimmed);
       const skipInference = Boolean(options?.skipInference);
@@ -4034,12 +4097,14 @@ export default function MetaMeRuntimeClient() {
           const iQubeType = typeof rawPayload.iqube_type === "string" ? rawPayload.iqube_type : null;
           if (iQubeType === "knyt" || iQubeType === "qripto") {
             setPersonaIQubeDrawer(iQubeType);
+            try { window.parent.postMessage({ type: "DRAWER_OPENED", source: "runtime", payload: { drawer: "persona", iqube_type: iQubeType } }, "*"); } catch { /* not in iframe */ }
           }
           return;
         }
 
         if (raw.type === "OPEN_IDENTITY_IQUBE") {
           setIdentityIQubeOpen(true);
+          try { window.parent.postMessage({ type: "DRAWER_OPENED", source: "runtime", payload: { drawer: "identity" } }, "*"); } catch { /* not in iframe */ }
           return;
         }
 
@@ -4243,6 +4308,20 @@ export default function MetaMeRuntimeClient() {
     }
 
     window.addEventListener("message", onShellMessage);
+
+    // Drain any shell messages that arrived before this handler registered,
+    // then remove the early-capture listener so it doesn't double-fire.
+    _drainEarlyCapture(onShellMessage);
+
+    // Emit RUNTIME_READY immediately so the shell knows the runtime is live.
+    // We also emit it again in response to SHELL_READY (idempotent via runtimeReadyPostedRef)
+    // but this early emission handles the case where SHELL_READY arrived before us.
+    try {
+      window.parent.postMessage(
+        { type: "RUNTIME_READY", source: "runtime", state: showWelcome ? "welcome" : "post_welcome" },
+        "*"
+      );
+    } catch { /* not in an iframe — safe to ignore */ }
 
     // Platform sidebar fires this custom event for the persona iQube links
     function onOpenPersonaIQube(e: Event) {
