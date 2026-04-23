@@ -9,7 +9,9 @@
     "deploy:arbitrum": "hardhat run scripts/deploy-qct.js --network arbitrumSepolia",
     "deploy:optimism": "hardhat run scripts/deploy-qct.js --network optimismSepolia",
     "deploy:base": "hardhat run scripts/deploy-qct.js --network baseSepolia",
-    "deploy:all": "npm run deploy:sepolia && npm run deploy:amoy && npm run deploy:arbitrum && npm run deploy:optimism && npm run deploy:base"
+    "deploy:all": "npm run deploy:sepolia && npm run deploy:amoy && npm run deploy:arbitrum && npm run deploy:optimism && npm run deploy:base",
+    "deploy:iqube-nft:base-sepolia": "hardhat run ../scripts/deploy-iqube-nft.js --network baseSepolia",
+    "deploy:iqube-nft:base": "hardhat run ../scripts/deploy-iqube-nft.js --network base"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^4.9.3"
