@@ -331,23 +331,24 @@ export const KNYT_CODEX: CodexConfig = {
       }
     },
 
-    // ── Admin group (admin-gated) ──────────────────────────────
+    // ── KNYT Wheel (top-level standalone) ────────────────────────
     {
-      id: 'aigent-missions',
-      label: 'Missions Board',
-      slug: 'aigent-missions',
+      id: 'knyt-wheel',
+      label: 'KNYT Wheel',
+      slug: 'knyt-wheel',
       enabled: true,
-      group: 'admin',
-      adminOnly: true,
-      order: -1,
+      order: 5,
       type: 'static',
       config: { component: 'AigentMissionsBoardTab' },
       metadata: {
         icon: 'Target',
-        description: 'KNYT Wheel constitutional pilot — mission board for human and agent participation',
-        color: 'emerald'
+        description: 'KNYT Wheel constitutional pilot — Mythos, Ethos, and Logos participation surfaces',
+        color: 'emerald',
+        badge: 'Pilot'
       }
     },
+
+    // ── Admin group (admin-gated) ──────────────────────────────
     {
       id: 'knyt-alpha',
       label: 'Venture Labs',
