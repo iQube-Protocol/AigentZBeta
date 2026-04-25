@@ -351,6 +351,40 @@ class NoopAgent extends AbstractAgent {
   }
 }
 
+/**
+ * KnytRuntimeAgent — serves the KNYT runtime surface state via AG-UI protocol.
+ * Fetches /api/runtime/knyt-state for the persona and emits a STATE_SNAPSHOT
+ * so reactive CartridgeRuntimeTemplate consumers get fresh state on each run.
+ */
+class KnytRuntimeAgent extends AbstractAgent {
+  protected run(input: RunAgentInput): Observable<BaseEvent> {
+    return new Observable<BaseEvent>((subscriber) => {
+      // Extract personaId from run context or message thread
+      const context = (input as any).context as Record<string, unknown> | undefined;
+      const personaId =
+        (context?.personaId as string | undefined) ??
+        ((input as any).messages as Array<{ role: string; content: string }> | undefined)
+          ?.findLast?.((m) => m.role === "user")
+          ?.content?.match(/personaId[:\s]+([a-z0-9_-]+)/i)?.[1];
+
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+      const stateUrl = personaId
+        ? `${baseUrl}/api/runtime/knyt-state?personaId=${encodeURIComponent(personaId)}`
+        : `${baseUrl}/api/runtime/knyt-state?personaId=anonymous`;
+
+      fetch(stateUrl, { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data) {
+            subscriber.next({ type: "STATE_SNAPSHOT", snapshot: data } as any);
+          }
+          subscriber.complete();
+        })
+        .catch(() => subscriber.complete());
+    });
+  }
+}
+
 function getOpenAI() {
   if (!_openai) {
     _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -382,6 +416,7 @@ async function getCopilotRuntime() {
     const actions = await getActions();
     const agents = {
       default: new NoopAgent({ agentId: "default", description: "Local dev agent" }),
+      "knyt-runtime": new KnytRuntimeAgent({ agentId: "knyt-runtime", description: "KNYT runtime state agent" }),
     } as any;
     _copilotRuntime = new CopilotRuntime({
       actions: actions as any,
