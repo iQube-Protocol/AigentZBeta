@@ -7,6 +7,10 @@ import { updateTokenQubeChainAnchor } from '@/server/services/iqRegistryService'
 // Minimal ABI — only functions called from the server
 const IQUBE_NFT_ABI = [
   'function mintQube(address to, string memory uri) returns (uint256)',
+  'function totalSupply() view returns (uint256)',
+  'function getMetaQubeLocation(uint256 tokenId) view returns (string)',
+  'function minterOf(uint256 tokenId) view returns (address)',
+  'function ownerOf(uint256 tokenId) view returns (address)',
   'event QubeAnchored(uint256 indexed tokenId, address indexed to, address indexed minter, string uri)',
 ] as const;
 
@@ -111,6 +115,50 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error('[mint-tokenqube]', err);
     const message = err instanceof Error ? err.message : 'Mint failed';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+// GET /api/core/mint-tokenqube — list all minted TokenQubes from the contract
+export async function GET() {
+  const contractAddress = process.env.IQUBE_NFT_CONTRACT_ADDRESS;
+  const rpcUrl = process.env.IQUBE_NFT_RPC_URL;
+  const chainId = parseInt(process.env.IQUBE_NFT_CHAIN_ID || '84532', 10);
+
+  if (!contractAddress || !rpcUrl) {
+    return NextResponse.json({ error: 'iQubeNFT not configured' }, { status: 503 });
+  }
+
+  try {
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const contract = new ethers.Contract(contractAddress, IQUBE_NFT_ABI, provider);
+
+    const total = Number(await (contract.totalSupply as () => Promise<bigint>)());
+    if (total === 0) return NextResponse.json({ tokens: [], total: 0, contractAddress, chainId });
+
+    const tokens = await Promise.all(
+      Array.from({ length: total }, (_, i) => i + 1).map(async (tokenId) => {
+        try {
+          const [uri, minter, owner] = await Promise.all([
+            (contract.getMetaQubeLocation as (id: number) => Promise<string>)(tokenId),
+            (contract.minterOf as (id: number) => Promise<string>)(tokenId),
+            (contract.ownerOf as (id: number) => Promise<string>)(tokenId),
+          ]);
+          return { tokenId, uri, minter, owner, explorerUrl: `https://sepolia.basescan.org/token/${contractAddress}?a=${tokenId}` };
+        } catch {
+          return null;
+        }
+      }),
+    );
+
+    return NextResponse.json({
+      tokens: tokens.filter(Boolean),
+      total,
+      contractAddress,
+      chainId,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to list tokens';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
