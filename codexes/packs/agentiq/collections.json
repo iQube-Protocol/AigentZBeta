@@ -115,6 +115,14 @@
       "items": [
         "items/API_INTEGRATION_IQUBE_MINTING.md"
       ]
+    },
+    {
+      "id": "col_architecture",
+      "title": "Architecture",
+      "description": "Aigent identity model, DiDQube design, and trust architecture decisions",
+      "items": [
+        "items/AIGENT_DIDQUBE_IDENTITY_UPGRADE_NOTE.md"
+      ]
     }
   ]
 }

@@ -117,25 +117,6 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
   const [sessionPersonas, setSessionPersonas] = useState<PersonaState[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchPersonas = useCallback(async (accessToken: string) => {
-    try {
-      // Consolidate all identity UUIDs/personas for this email, then link
-      // the device localStorage profile — ensures complete persona discovery.
-      await consolidateIdentity(accessToken);
-      await linkDeviceProfile(accessToken);
-
-      const res = await fetch("/api/wallet/personas", {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      const list = Array.isArray(data) ? data : [];
-      setSessionPersonas(list.map((r: Record<string, unknown>) => mapToPersonaState(r)));
-    } catch {
-      // non-fatal — wallet still works without session personas
-    }
-  }, []);
-
   const signOut = useCallback(async () => {
     const supabase = getSupabaseBrowserClient();
     await supabase.auth.signOut();
@@ -153,10 +134,35 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
   // Stores the current access token so refreshPersonas can re-use it without
   // requiring a new getSession() call on every persona creation.
   const accessTokenRef = useRef<string | null>(null);
+  // Guards against the Supabase double-fire: getSession() resolves AND onAuthStateChange
+  // immediately fires INITIAL_SESSION on mount, causing duplicate consolidate+persona calls.
+  // Track the last consolidation timestamp; skip if within 10 seconds.
+  const lastConsolidatedAtRef = useRef<number>(0);
+
+  const fetchPersonas = useCallback(async (accessToken: string, force = false) => {
+    const now = Date.now();
+    const skipConsolidate = !force && (now - lastConsolidatedAtRef.current) < 10_000;
+    if (!skipConsolidate) {
+      lastConsolidatedAtRef.current = now;
+      await consolidateIdentity(accessToken);
+      await linkDeviceProfile(accessToken);
+    }
+    try {
+      const res = await fetch("/api/wallet/personas", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : [];
+      setSessionPersonas(list.map((r: Record<string, unknown>) => mapToPersonaState(r)));
+    } catch {
+      // non-fatal — wallet still works without session personas
+    }
+  }, []);
 
   const refreshPersonas = useCallback(async () => {
     if (!accessTokenRef.current) return;
-    await fetchPersonas(accessTokenRef.current);
+    await fetchPersonas(accessTokenRef.current, true);
   }, [fetchPersonas]);
 
   useEffect(() => {
@@ -173,7 +179,9 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
       }
     });
 
-    // React to auth state changes (sign-in, sign-out, token refresh)
+    // React to auth state changes (sign-in, sign-out, token refresh).
+    // INITIAL_SESSION fires immediately on subscribe and overlaps with getSession();
+    // the 10s dedup in fetchPersonas prevents a double consolidate+fetch on mount.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user?.email) {
         accessTokenRef.current = session.access_token;

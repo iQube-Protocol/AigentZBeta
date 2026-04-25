@@ -67,6 +67,7 @@ import { KnytStoreCardsTab } from "./tabs/KnytStoreCardsTab";
 import { KnytStoreBundlesTab } from "./tabs/KnytStoreBundlesTab";
 import { KnytStoreAdminTab } from "./tabs/KnytStoreAdminTab";
 import { KnytShelfTab } from "./tabs/KnytShelfTab";
+import { AigentMissionsBoardTab } from "./tabs/AigentMissionsBoardTab";
 
 interface TabRendererProps {
   tab: CodexTab;
@@ -135,6 +136,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   KnytStoreBundlesTab,
   KnytStoreAdminTab,
   KnytShelfTab,
+  AigentMissionsBoardTab,
   RewardsTab: PlaceholderTab,
   DocsTab: PlaceholderTab,
   APITab: PlaceholderTab,

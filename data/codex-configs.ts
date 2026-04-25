@@ -331,6 +331,23 @@ export const KNYT_CODEX: CodexConfig = {
       }
     },
 
+    // ── KNYT Wheel (top-level standalone) ────────────────────────
+    {
+      id: 'knyt-wheel',
+      label: 'KNYT Wheel',
+      slug: 'knyt-wheel',
+      enabled: true,
+      order: 5,
+      type: 'static',
+      config: { component: 'AigentMissionsBoardTab' },
+      metadata: {
+        icon: 'Target',
+        description: 'KNYT Wheel constitutional pilot — Mythos, Ethos, and Logos participation surfaces',
+        color: 'emerald',
+        badge: 'Pilot'
+      }
+    },
+
     // ── Admin group (admin-gated) ──────────────────────────────
     {
       id: 'knyt-alpha',

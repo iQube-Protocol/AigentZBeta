@@ -74,7 +74,7 @@
     {
       "id": "col_knyt_campaign",
       "title": "KNYT Wheel",
-      "description": "KNYT Activation Campaign (aka KNYT Wheel) genesis bundle — 13 core operator docs plus the AutoDrive canonicalization companion: operator brief, activation blueprint, copy packs, operations, deployment handoff, marketa plans, 30-day calendar, CRM schema, dashboard spec, partner/investor addenda, and launch runbook",
+      "description": "KNYT Wheel operating corpus — campaign activation, tracking and telemetry, agent onboarding, constitutional pilot logic, and identity/trust design. Includes the genesis campaign bundle (operator brief, activation blueprint, copy packs, operations, deployment handoff, marketa plans, 30-day calendar, CRM schema, dashboard spec, partner/investor addenda, launch runbook, AutoDrive canonicalization), the tracking agent operator guide, and the agent intelligence layer (charter, missions framework, discovery + identity framework, and constitutional pilot framework).",
       "items": [
         "items/KNYT_CAMPAIGN_OPERATOR_BRIEF.md",
         "items/KNYT_CAMPAIGN_ACTIVATION_BLUEPRINT.md",
@@ -91,7 +91,11 @@
         "items/KNYT_PARTNER_AND_INVESTOR_ACTIVATION_ADDENDUM.md",
         "items/KNYT_LAUNCH_DAY_RUNBOOK_AND_PARTNER_ACTIVATION.md",
         "items/KNYT_CAMPAIGN_AUTODRIVE_CANONICALIZATION.md",
-        "items/KNYT_TRACKING_AGENT_OPERATOR_GUIDE.md"
+        "items/KNYT_TRACKING_AGENT_OPERATOR_GUIDE.md",
+        "items/KNYT_WHEEL_AGENT_CHARTER.md",
+        "items/KNYT_WHEEL_AGENT_MISSIONS_FRAMEWORK.md",
+        "items/KNYT_WHEEL_AGENT_DISCOVERY_AND_IDENTITY_FRAMEWORK.md",
+        "items/KNYT_AGENT_ONBOARDING_CONSTITUTIONAL_PILOT_FRAMEWORK.md"
       ]
     }
   ]

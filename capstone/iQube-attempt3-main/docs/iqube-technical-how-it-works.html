@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>iQube — How It Works (Technical)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --font-body: "Space Grotesk", system-ui, sans-serif;
+      --font-mono: "JetBrains Mono", "SF Mono", Consolas, monospace;
+      --bg: #ffffff;
+      --surface: #f8fafc;
+      --surface2: #f1f5f9;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --text-dim: #64748b;
+      --accent: #2563eb;
+      --accent-bg: #eff6ff;
+      --accent-border: #93c5fd;
+      --chain: #0891b2;
+      --chain-bg: #ecfeff;
+      --chain-border: #a5f3fc;
+      --ipfs: #16a34a;
+      --ipfs-bg: #f0fdf4;
+      --ipfs-border: #bbf7d0;
+      --supa: #7c3aed;
+      --supa-bg: #f5f3ff;
+      --supa-border: #ddd6fe;
+      --client: #ea580c;
+      --client-bg: #fff7ed;
+      --client-border: #fed7aa;
+      --encrypt: #db2777;
+      --encrypt-bg: #fdf2f8;
+      --encrypt-border: #fbcfe8;
+      --server: #0d9488;
+      --server-bg: #f0fdfa;
+      --server-border: #99f6e4;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f172a;
+        --surface: #1e293b;
+        --surface2: #334155;
+        --border: #475569;
+        --text: #f1f5f9;
+        --text-dim: #94a3b8;
+        --accent-bg: #1e3a5f;
+        --accent-border: #3b82f6;
+        --chain-bg: #164e63;
+        --chain-border: #0e7490;
+        --ipfs-bg: #14532d;
+        --ipfs-border: #15803d;
+        --supa-bg: #2e1065;
+        --supa-border: #6d28d9;
+        --client-bg: #431407;
+        --client-border: #c2410c;
+        --encrypt-bg: #500724;
+        --encrypt-border: #be185d;
+        --server-bg: #134e4a;
+        --server-border: #0d9488;
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      padding: 48px 24px 80px;
+      line-height: 1.65;
+    }
+
+    .page { max-width: 920px; margin: 0 auto; }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      font-size: 16px;
+      color: var(--text-dim);
+      margin-bottom: 12px;
+      max-width: 720px;
+    }
+
+    .meta {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-bottom: 40px;
+      padding: 12px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    h2 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-top: 44px;
+      margin-bottom: 18px;
+      letter-spacing: -0.02em;
+    }
+
+    h3 {
+      font-size: 17px;
+      font-weight: 600;
+      margin-top: 24px;
+      margin-bottom: 10px;
+    }
+
+    p, li {
+      font-size: 15px;
+      color: var(--text-dim);
+      margin-bottom: 10px;
+    }
+
+    ul { padding-left: 20px; margin-bottom: 16px; }
+    li { margin-bottom: 6px; }
+
+    code, .mono {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      background: var(--surface2);
+      padding: 2px 8px;
+      border-radius: 6px;
+      color: var(--text);
+    }
+
+    .tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-weight: 500;
+      display: inline-block;
+      margin: 2px 4px 2px 0;
+    }
+
+    .tag--chain { background: var(--chain-bg); color: var(--chain); border: 1px solid var(--chain-border); }
+    .tag--ipfs { background: var(--ipfs-bg); color: var(--ipfs); border: 1px solid var(--ipfs-border); }
+    .tag--supa { background: var(--supa-bg); color: var(--supa); border: 1px solid var(--supa-border); }
+    .tag--client { background: var(--client-bg); color: var(--client); border: 1px solid var(--client-border); }
+    .tag--encrypt { background: var(--encrypt-bg); color: var(--encrypt); border: 1px solid var(--encrypt-border); }
+    .tag--server { background: var(--server-bg); color: var(--server); border: 1px solid var(--server-border); }
+    .tag--accent { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-border); }
+
+    /* ── Steps (mint / decrypt) ── */
+
+    .step {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 28px;
+      align-items: flex-start;
+    }
+
+    .step-num {
+      flex-shrink: 0;
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 17px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .step-body { flex: 1; min-width: 0; }
+    .step-body h3 { margin-top: 0; font-size: 17px; }
+    .step-body p { margin-bottom: 8px; }
+
+    .arrow {
+      display: flex;
+      justify-content: center;
+      padding: 0 0 0 32px;
+      margin-bottom: 28px;
+    }
+
+    .arrow svg {
+      width: 24px;
+      height: 24px;
+      stroke: var(--border);
+      stroke-width: 2.5;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* ── System diagram ── */
+
+    .diagram-wrap {
+      margin: 24px 0 32px;
+      padding: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow-x: auto;
+    }
+
+    .diagram-wrap svg { display: block; margin: 0 auto; min-width: 640px; }
+
+    .box-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      fill: var(--text);
+    }
+
+    .box-sub {
+      font-family: var(--font-body);
+      font-size: 10px;
+      fill: var(--text-dim);
+    }
+
+    /* ── Cards grid ── */
+
+    .cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    @media (max-width: 700px) {
+      .cards { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      border-radius: 14px;
+      padding: 18px 20px;
+      border: 2px solid var(--border);
+      background: var(--surface);
+    }
+
+    .card h4 {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card h4 .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .card .role {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+
+    .card ul { list-style: none; padding-left: 0; margin-bottom: 0; }
+    .card li {
+      font-size: 13px;
+      padding-left: 14px;
+      position: relative;
+      margin-bottom: 4px;
+    }
+
+    .card li::before {
+      content: "›";
+      position: absolute;
+      left: 0;
+      font-weight: 700;
+      color: var(--border);
+    }
+
+    .card--chain { border-color: var(--chain-border); background: var(--chain-bg); }
+    .card--chain .dot { background: var(--chain); }
+    .card--ipfs { border-color: var(--ipfs-border); background: var(--ipfs-bg); }
+    .card--ipfs .dot { background: var(--ipfs); }
+    .card--supa { border-color: var(--supa-border); background: var(--supa-bg); }
+    .card--supa .dot { background: var(--supa); }
+    .card--client { border-color: var(--client-border); background: var(--client-bg); }
+    .card--client .dot { background: var(--client); }
+    .card--server { border-color: var(--server-border); background: var(--server-bg); }
+    .card--server .dot { background: var(--server); }
+
+    .callout {
+      margin-top: 28px;
+      padding: 16px 20px;
+      border-radius: 12px;
+      border: 1px solid var(--accent-border);
+      background: var(--accent-bg);
+      font-size: 14px;
+      color: var(--text-dim);
+    }
+
+    .callout strong { color: var(--text); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      margin: 16px 0 24px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+    }
+
+    th {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      background: var(--surface2);
+      color: var(--text-dim);
+    }
+
+    td { color: var(--text-dim); vertical-align: top; }
+    td:first-child { font-family: var(--font-mono); font-size: 12px; color: var(--text); }
+  </style>
+</head>
+<body>
+<main class="page">
+
+  <h1>iQube — Technical overview</h1>
+  <p class="subtitle">
+    How the React app, encryption layer, decentralized storage, Polygon Amoy, Supabase, and the local Node server fit together in <strong>this repository</strong> (as implemented today).
+  </p>
+  <p class="meta">
+    Open this file in a browser for the layout. Contract address and RPC URLs come from <code>src/utilities/constants.ts</code> and env vars — update this page if you redeploy.
+  </p>
+
+  <h2>What you are building</h2>
+  <p>
+    An <strong>iQube</strong> is an ERC-721 NFT on <strong>Polygon Amoy</strong> whose <code>tokenURI</code> points to a JSON document (on <strong>Pinata/IPFS</strong> or <strong>Autonomys Auto-Drive</strong>). That JSON holds public-style attributes and, when the user added private fields, a <strong>ciphertext blob</strong> (AES-256-GCM). The <strong>data encryption key (DEK)</strong> is <em>not</em> stored on-chain in the current Solidity contract; it is stored through a <strong>Supabase Edge Function</strong> (<code>iqube-key-service</code>) after the user signs an authorization message with their wallet.
+  </p>
+
+  <h2>System map</h2>
+  <div class="diagram-wrap">
+    <svg width="680" height="280" viewBox="0 0 680 280" xmlns="http://www.w3.org/2000/svg" aria-label="iQube system diagram">
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+          <path d="M0,0 L8,4 L0,8 z" fill="#94a3b8" />
+        </marker>
+      </defs>
+      <!-- Browser -->
+      <rect x="20" y="40" width="140" height="100" rx="12" fill="#fff7ed" stroke="#fdba74" stroke-width="2"/>
+      <text x="90" y="72" text-anchor="middle" class="box-label">Browser</text>
+      <text x="90" y="92" text-anchor="middle" class="box-sub">React · Vite</text>
+      <text x="90" y="112" text-anchor="middle" class="box-sub">encryption.ts</text>
+      <text x="90" y="128" text-anchor="middle" class="box-sub">keyWrapping.ts</text>
+      <!-- Local server -->
+      <rect x="220" y="40" width="150" height="100" rx="12" fill="#f0fdfa" stroke="#5eead4" stroke-width="2"/>
+      <text x="295" y="72" text-anchor="middle" class="box-label">Node (optional)</text>
+      <text x="295" y="92" text-anchor="middle" class="box-sub">autodrive-server</text>
+      <text x="295" y="112" text-anchor="middle" class="box-sub">Auto-Drive API</text>
+      <text x="295" y="128" text-anchor="middle" class="box-sub">agent routes</text>
+      <!-- Storage -->
+      <rect x="430" y="20" width="120" height="70" rx="10" fill="#f0fdf4" stroke="#86efac" stroke-width="2"/>
+      <text x="490" y="48" text-anchor="middle" class="box-label">Pinata</text>
+      <text x="490" y="66" text-anchor="middle" class="box-sub">IPFS JSON</text>
+      <rect x="430" y="105" width="120" height="70" rx="10" fill="#f0fdf4" stroke="#86efac" stroke-width="2"/>
+      <text x="490" y="133" text-anchor="middle" class="box-label">Auto-Drive</text>
+      <text x="490" y="151" text-anchor="middle" class="box-sub">metadata CID</text>
+      <!-- Chain -->
+      <rect x="220" y="200" width="150" height="62" rx="12" fill="#ecfeff" stroke="#67e8f9" stroke-width="2"/>
+      <text x="295" y="228" text-anchor="middle" class="box-label">Polygon Amoy</text>
+      <text x="295" y="248" text-anchor="middle" class="box-sub">iQubeNFT · mintQube</text>
+      <!-- Supabase -->
+      <rect x="430" y="200" width="120" height="62" rx="12" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="2"/>
+      <text x="490" y="228" text-anchor="middle" class="box-label">Supabase</text>
+      <text x="490" y="248" text-anchor="middle" class="box-sub">DB + Edge Fn</text>
+      <!-- Arrows -->
+      <line x1="160" y1="90" x2="215" y2="90" stroke="#94a3b8" stroke-width="2" marker-end="url(#arr)"/>
+      <line x1="370" y1="70" x2="425" y2="55" stroke="#94a3b8" stroke-width="2" marker-end="url(#arr)"/>
+      <line x1="370" y1="100" x2="425" y2="135" stroke="#94a3b8" stroke-width="2" marker-end="url(#arr)"/>
+      <line x1="90" y1="140" x2="90" y2="190" stroke="#94a3b8" stroke-width="2" marker-end="url(#arr)"/>
+      <path d="M 90 190 L 90 231 L 215 231" fill="none" stroke="#94a3b8" stroke-width="2" marker-end="url(#arr)"/>
+      <line x1="370" y1="231" x2="425" y2="231" stroke="#94a3b8" stroke-width="2" marker-end="url(#arr)"/>
+      <line x1="295" y1="140" x2="295" y2="195" stroke="#94a3b8" stroke-width="2" marker-end="url(#arr)"/>
+    </svg>
+  </div>
+
+  <h2>App routes (<code>src/main.tsx</code>)</h2>
+  <table>
+    <thead><tr><th>Path</th><th>Screen</th></tr></thead>
+    <tbody>
+      <tr><td>/</td><td><code>CreateIQubeWizard</code> — multi-step mint (Pinata or Auto-Drive).</td></tr>
+      <tr><td>/my-iqubes</td><td><code>MyIQubes</code> — list / manage perspective for the connected wallet.</td></tr>
+      <tr><td>/decrypt</td><td><code>DecryptQube</code> — owner or allowlisted address; fetch metadata; unwrap DEK; decrypt.</td></tr>
+      <tr><td>/transfer</td><td><code>TransferQube</code> — on-chain <code>transferQube</code>.</td></tr>
+      <tr><td>/registry</td><td><code>Registry</code> — discovery / catalog style view.</td></tr>
+      <tr><td>/agent-chat</td><td><code>AgentChat</code> — talks to local server agent endpoints when configured.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Mint pipeline (wizard)</h2>
+
+  <div class="step">
+    <div class="step-num" style="background:var(--client);">1</div>
+    <div class="step-body">
+      <h3>Collect metadata</h3>
+      <p>User picks an iQube type (Data, Content, Tool, Model, Agent), category, access policy, and optional <strong>private fields</strong>. Types and scoring live in <code>src/types/iqube.ts</code>.</p>
+      <div><span class="tag tag--client">Browser</span></div>
+    </div>
+  </div>
+  <div class="arrow"><svg viewBox="0 0 24 24"><path d="M12 5v14M7 14l5 5 5-5"/></svg></div>
+
+  <div class="step">
+    <div class="step-num" style="background:var(--encrypt);">2</div>
+    <div class="step-body">
+      <h3>Encrypt private payload (if any)</h3>
+      <p><code>EncryptionModule</code> in <code>src/utilities/encryption.ts</code> uses the Web Crypto API: <strong>AES-256-GCM</strong>, random IV, ciphertext + auth tag. The exported hex <strong>DEK</strong> stays in memory until step 6.</p>
+      <p>The wizard embeds <code>iv</code>, <code>authTag</code>, and <code>encryptedData</code> (hex) inside the NFT metadata JSON under attributes (trait <code>blakQube</code>).</p>
+      <div><span class="tag tag--encrypt">AES-GCM</span><span class="tag tag--client">Client-side</span></div>
+    </div>
+  </div>
+  <div class="arrow"><svg viewBox="0 0 24 24"><path d="M12 5v14M7 14l5 5 5-5"/></svg></div>
+
+  <div class="step">
+    <div class="step-num" style="background:var(--ipfs);">3</div>
+    <div class="step-body">
+      <h3>Upload JSON metadata</h3>
+      <p><strong>Pinata:</strong> <code>pinata.upload.json</code> via <code>src/utilities/pinata-config.ts</code>; gateway URL from <code>VITE_GATEWAY_URL</code>.</p>
+      <p><strong>Auto-Drive:</strong> <code>POST http://localhost:4000/api/autodrive-upload</code> on <code>autodrive-server.cjs</code>, which uses <code>@autonomys/auto-drive</code>. Returns a public <code>url</code> stored as the on-chain URI.</p>
+      <div><span class="tag tag--ipfs">IPFS / Auto-Drive</span><span class="tag tag--server">Local server</span></div>
+    </div>
+  </div>
+  <div class="arrow"><svg viewBox="0 0 24 24"><path d="M12 5v14M7 14l5 5 5-5"/></svg></div>
+
+  <div class="step">
+    <div class="step-num" style="background:var(--chain);">4</div>
+    <div class="step-body">
+      <h3>Mint ERC-721</h3>
+      <p><code>useMintQube</code> → <code>mintQube(to, metaQubeLocation)</code> in <code>contractUtils.ts</code> using <strong>viem</strong> + injected wallet. Chain: <code>polygonAmoy</code>. ABI: <code>src/utilities/iqubeAbi.ts</code>.</p>
+      <p>On-chain function (matches <code>contract/iqube.sol</code>): <code class="mono">mintQube(address to, string uri)</code> — stores the metadata URL and minter; <strong>no encryption key in calldata</strong>.</p>
+      <div><span class="tag tag--chain">Polygon Amoy</span><span class="tag tag--accent">viem</span></div>
+    </div>
+  </div>
+  <div class="arrow"><svg viewBox="0 0 24 24"><path d="M12 5v14M7 14l5 5 5-5"/></svg></div>
+
+  <div class="step">
+    <div class="step-num" style="background:var(--supa);">5</div>
+    <div class="step-body">
+      <h3>Post-mint bookkeeping</h3>
+      <p><code>getTokenIdFromMintReceipt</code> parses the <code>Transfer</code> log to get <code>tokenId</code>.</p>
+      <p>If Supabase is configured: insert into <code>iqubes</code> (title, type, IPFS URL/hash, tx hash, policies, etc.). For <code>accessPolicy === "specific"</code>, rows go to <code>iqube_access_list</code>.</p>
+      <div><span class="tag tag--supa">Supabase DB</span></div>
+    </div>
+  </div>
+  <div class="arrow"><svg viewBox="0 0 24 24"><path d="M12 5v14M7 14l5 5 5-5"/></svg></div>
+
+  <div class="step">
+    <div class="step-num" style="background:var(--supa);">6</div>
+    <div class="step-body">
+      <h3>Store DEK (encrypted iQubes only)</h3>
+      <p><code>authorizeDekStorage</code> in <code>keyWrapping.ts</code> asks the wallet for <code>personal_sign</code> on a structured message, then invokes the Edge Function <code>iqube-key-service</code> to persist the wrapped key server-side. If Supabase is missing, mint is blocked when there are private fields.</p>
+      <div><span class="tag tag--supa">Edge Function</span><span class="tag tag--client">Wallet signature</span></div>
+    </div>
+  </div>
+
+  <h2>Decrypt pipeline (<code>/decrypt</code>)</h2>
+  <ol style="color:var(--text-dim); font-size:15px; padding-left:22px; margin-bottom:20px;">
+    <li style="margin-bottom:10px;">Resolve <code>ownerOf(tokenId)</code>; if not owner, allow decrypt only if the wallet appears in <code>iqube_access_list</code> (Supabase).</li>
+    <li style="margin-bottom:10px;">Read <code>getMetaQubeLocation(tokenId)</code> from the contract, then <code>fetch</code> the JSON. Autonomys gateway URLs can be proxied through <code>localhost:4000/api/autodrive-metadata</code> to avoid browser CORS issues.</li>
+    <li style="margin-bottom:10px;">Call <code>requestDekForDecryption</code> (Edge Function + signature) to obtain the DEK; support <code>unwrapLegacyDek</code> for older records if needed.</li>
+    <li style="margin-bottom:10px;"><code>EncryptionModule.Decrypt</code> rebuilds the GCM ciphertext and returns plaintext fields.</li>
+  </ol>
+
+  <h2>On-chain contract surface</h2>
+  <p>The frontend ABI includes: <code>mintQube</code>, <code>getMetaQubeLocation</code>, <code>minterOf</code>, <code>ownerOf</code>, <code>transferQube</code>. OpenZeppelin <code>ERC721</code> behavior applies for approvals and <code>tokenURI</code>. Source: <code>contract/iqube.sol</code>.</p>
+
+  <h2>What each layer stores</h2>
+  <div class="cards">
+    <div class="card card--chain">
+      <h4><span class="dot"></span> Polygon Amoy</h4>
+      <div class="role">Ledger</div>
+      <ul>
+        <li>NFT ownership and token IDs</li>
+        <li>Metadata URI per token (IPFS gateway or Auto-Drive URL)</li>
+        <li><code>minterOf</code> mapping</li>
+      </ul>
+    </div>
+    <div class="card card--ipfs">
+      <h4><span class="dot"></span> Pinata / Auto-Drive</h4>
+      <div class="role">Content-addressed JSON</div>
+      <ul>
+        <li>Public attributes + encrypted <code>blakQube</code> blob</li>
+        <li>No DEK in the JSON (only ciphertext components)</li>
+      </ul>
+    </div>
+    <div class="card card--supa">
+      <h4><span class="dot"></span> Supabase</h4>
+      <div class="role">Index + key custody</div>
+      <ul>
+        <li><code>iqubes</code> rows for app features</li>
+        <li><code>iqube_access_list</code> for shared decrypt</li>
+        <li>Edge Function stores / releases DEKs after wallet proof</li>
+      </ul>
+    </div>
+    <div class="card card--client">
+      <h4><span class="dot"></span> Browser</h4>
+      <div class="role">UX + crypto</div>
+      <ul>
+        <li>Wizard, wallet connect, signing</li>
+        <li>AES-GCM encrypt/decrypt</li>
+        <li>Never persists DEK to disk by default</li>
+      </ul>
+    </div>
+    <div class="card card--server" style="grid-column: 1 / -1;">
+      <h4><span class="dot"></span> Local Node server</h4>
+      <div class="role">autodrive-server.cjs</div>
+      <ul>
+        <li>Uploads metadata to Auto-Drive; proxies metadata fetch for decrypt</li>
+        <li>Optional agent chat + rate limiting when Ollama / env vars are set</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout">
+    <strong>Legacy / alternate paths in the repo:</strong> <code>MetaContract.ts</code> and <code>AvalancheMetaInterface.ts</code> target older Web3 flows (e.g. <code>mintQube(uri, encryptionKey)</code> with three conceptual arguments). The <strong>current</strong> UI mint path uses <code>contractUtils.ts</code> + <code>iqubeAbi.ts</code> (two-arg mint). Older HTML docs under <code>docs/</code> may describe the three-arg design; trust the Solidity + ABI in this repo for the deployed shape you are actually calling.
+  </div>
+
+  <h2>Key source files</h2>
+  <table>
+    <thead><tr><th>Path</th><th>Role</th></tr></thead>
+    <tbody>
+      <tr><td>src/main.tsx</td><td>Router and providers.</td></tr>
+      <tr><td>src/context/WalletContext.tsx</td><td>Connected address state.</td></tr>
+      <tr><td>src/hooks/contractHooks.ts</td><td><code>useMintQube</code>, reads for token URI / owner.</td></tr>
+      <tr><td>src/utilities/contractUtils.ts</td><td>viem public + wallet client; mint / transfer / receipt parsing.</td></tr>
+      <tr><td>src/utilities/iqubeAbi.ts</td><td>Minimal ABI aligned with deployed contract.</td></tr>
+      <tr><td>src/utilities/encryption.ts</td><td>AES-256-GCM encrypt/decrypt.</td></tr>
+      <tr><td>src/utilities/keyWrapping.ts</td><td>Supabase Edge Function + <code>personal_sign</code>.</td></tr>
+      <tr><td>src/utilities/supabase.ts</td><td>Client init; <code>isSupabaseConfigured</code>.</td></tr>
+      <tr><td>src/screens/app/CreateIQubeWizard.tsx</td><td>End-to-end mint orchestration.</td></tr>
+      <tr><td>src/screens/app/DecryptQube.tsx</td><td>Ownership / ACL + decrypt.</td></tr>
+      <tr><td>contract/iqube.sol</td><td>Canonical on-chain logic for this repo.</td></tr>
+      <tr><td>autodrive-server.cjs</td><td>Auto-Drive upload + metadata proxy + agent.</td></tr>
+    </tbody>
+  </table>
+
+  <p style="font-size:14px;color:var(--text-dim);margin-top:32px;">
+    Related markdown: <code>docs/MINTING_AND_VERIFICATION.md</code>, <code>BUILD_MANUAL.md</code>. Styled companions: <code>docs/iqube-architecture-chain-ipfs-supabase.html</code>, <code>docs/iqube-repo-overview.html</code> (may predate current routes — compare with <code>main.tsx</code>).
+  </p>
+
+</main>
+</body>
+</html>

@@ -1,0 +1,11 @@
+[{"method":"eth_getTransactionReceipt","params":["0x651bdac768cdb00ea0473c60d70900adb7432d80691e36468d8582d2d8e569fb"],"id":0,"jsonrpc":"2.0"}]
+https://43113.rpc.thirdweb.com/8dc8e3e2452cdf667e0452a5be2906e7
+
+amoy: 0xe41221AcBF53b3A84068DDb2aE6ecDf36b999Fda
+avalanche: 0xf4FaF6adC0f1F0630aDdE957713C163d40c20632
+
+hooks
+src/screens/app/With3rdWeb
+src/screens/app/WithThirdWeb.tsx
+src/utilities
+src/components

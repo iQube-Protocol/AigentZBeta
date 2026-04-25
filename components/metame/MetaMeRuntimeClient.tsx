@@ -11,6 +11,9 @@ import {
 } from "@metame/iframe-bridge";
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 import SmartWalletDrawer from "@/app/components/content/SmartWalletDrawer";
+import { PersonaIQubeDrawer } from "@/components/iqube/PersonaIQubeDrawer";
+import { IdentityIQubeDrawer } from "@/components/iqube/IdentityIQubeDrawer";
+import { MemoryIQubeDrawer } from "@/components/iqube/MemoryIQubeDrawer";
 import { PreviewFrame } from "@/components/preview/PreviewFrame";
 import { DevicePreviewSwitcher, type DeviceType } from "@/components/preview/DevicePreviewSwitcher";
 import { useToast } from "@/components/ui/toaster";
@@ -44,12 +47,14 @@ import {
   Coins,
   Compass,
   Eye,
+  Fingerprint,
   Headphones,
   Hexagon,
   Image as ImageIcon,
   Loader2,
   Maximize2,
   Minimize2,
+  Network,
   Pencil,
   PlayCircle,
   FileText,
@@ -58,9 +63,9 @@ import {
   Send,
   Share2,
   SlidersHorizontal,
+  Sparkles,
   Square,
   SquareArrowOutUpRight,
-  Sparkles,
   Sun,
   Moon,
   Tv,
@@ -70,6 +75,59 @@ import {
 import { MetaMeSettingsPanel, loadMetaMeSettings, type LeadAgent } from "@/components/metame/MetaMeSettingsPanel";
 import type { ScreenFraction, SmartContentQube } from "@/types/smartContent";
 import type { RuntimeCapsuleRecord } from "@/types/runtimeCapsules";
+
+function getAccessTokenFromStorage(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (key && key.includes("auth-token")) {
+        const raw = window.localStorage.getItem(key);
+        if (!raw) continue;
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        const token =
+          (parsed as Record<string, unknown>).access_token ??
+          (parsed as Record<string, { access_token?: unknown }>).currentSession?.access_token;
+        if (typeof token === "string" && token) return token;
+      }
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+// ─── Pre-bootstrap shell message buffer ──────────────────────────────────────
+// Messages from window.parent that arrive before MetaMeRuntimeClient's
+// onShellMessage useEffect has registered will be silently dropped.
+// This module-level FIFO captures them so they can be replayed once the
+// handler is live. Max 32 entries.
+
+let _preBootstrapBuf: MessageEvent[] = [];
+let _preBootstrapCapture: ((e: MessageEvent) => void) | null = null;
+
+function _startEarlyCapture() {
+  if (typeof window === "undefined" || _preBootstrapCapture) return;
+  _preBootstrapCapture = (e: MessageEvent) => {
+    if (e.source !== window.parent) return;
+    const d = e.data as Record<string, unknown> | null;
+    if (!d || typeof d !== "object" || typeof d.type !== "string") return;
+    if (_preBootstrapBuf.length < 32) _preBootstrapBuf.push(e);
+  };
+  window.addEventListener("message", _preBootstrapCapture);
+}
+
+function _drainEarlyCapture(handler: (e: MessageEvent) => void) {
+  if (_preBootstrapCapture) {
+    window.removeEventListener("message", _preBootstrapCapture);
+    _preBootstrapCapture = null;
+  }
+  const drained = _preBootstrapBuf.splice(0);
+  for (const e of drained) {
+    try { handler(e); } catch { /* replay is best-effort */ }
+  }
+}
+
+// Start capturing immediately at module evaluation time
+_startEarlyCapture();
 
 type RuntimeIntent = "watch" | "listen" | "read" | "play" | "find" | "earn" | "make" | "be";
 type RuntimeContentSource = "experience" | "smart-content" | "codex";
@@ -1822,14 +1880,27 @@ export default function MetaMeRuntimeClient() {
   const shellOriginRef = useRef<string | null>(null);
   const shellContextRef = useRef<{ tenant_id?: string; persona_id?: string }>({});
   const runtimeReadyPostedRef = useRef(false);
+  // Stable conversation ID for the lifetime of this runtime session
+  const conversationIdRef = useRef<string>(
+    typeof crypto !== "undefined" ? crypto.randomUUID() : `conv-${Date.now()}`
+  );
   const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
   const [walletDrawerOpen, setWalletDrawerOpen] = useState(false);
+  const [personaIQubeDrawer, setPersonaIQubeDrawer] = useState<"knyt" | "qripto" | null>(null);
+  const [personaPickerOpen, setPersonaPickerOpen] = useState(false);
+  const [identityIQubeOpen, setIdentityIQubeOpen] = useState(false);
+  const [memoryDrawerOpen, setMemoryDrawerOpen] = useState(false);
+  const [beMenuOpen, setBeMenuOpen] = useState(false);
+  const [earnMenuOpen, setEarnMenuOpen] = useState(false);
+  const [walletInitialTab, setWalletInitialTab] = useState<"wallet" | "tasks" | "rewards" | "payments">("wallet");
   const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
 
   const [selectedAgent, setSelectedAgent] = useState<RuntimeAgent>(RUNTIME_AGENTS[0]);
   const [showAgentSelector, setShowAgentSelector] = useState(false);
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
+  // Mirror of showWelcome for the stable [] onDrawerOpen handler — updated by effect below.
+  const showWelcomeRef = useRef(true);
   const previousWelcomeRef = useRef(true);
   const [isRuntimeFullscreen, setIsRuntimeFullscreen] = useState(false);
   const [welcomePrompt, setWelcomePrompt] = useState("");
@@ -1850,6 +1921,23 @@ export default function MetaMeRuntimeClient() {
     title: string;
     initialTab?: string;
   } | null>(null);
+  // Tracks when the cartridge overlay was last opened — used to guard against race-condition
+  // closes where CARTRIDGE_OVERLAY_CLOSE or a close-signal arrives within the same message
+  // batch as LAUNCH_CARTRIDGE.  A 800ms cooldown is applied.
+  const cartridgeOverlayOpenedAtRef = useRef<number>(0);
+  // Once the user progresses past the welcome screen (handlePrompt sets showWelcome=false),
+  // prevent any HANDOFF message from flipping it back.  This blocks the Lovable→STATE_SYNC→
+  // HANDOFF feedback loop that was resetting the runtime to the landing page.
+  const didExitWelcomeRef = useRef<boolean>(false);
+
+  // Diagnostic: detect iframe/component remounts — if mount count > 1 the iframe is reloading.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    console.warn("[lifecycle] MetaMeRuntimeClient MOUNTED — new session, all state reset to defaults");
+    return () => {
+      console.warn("[lifecycle] MetaMeRuntimeClient UNMOUNTING — iframe/component is being destroyed");
+    };
+  }, []);
   const [agentProviderMap, setAgentProviderMap] = useState<Record<string, AgentProviderOption[]>>(staticProviderMap);
   const [selectedModelByAgent, setSelectedModelByAgent] = useState<RuntimeAgentModelMap>(() =>
     initialModelMap(staticProviderMap)
@@ -2311,6 +2399,8 @@ export default function MetaMeRuntimeClient() {
   }, [fetchRuntimeData, toast]);
 
   const resetRuntime = useCallback(async () => {
+    console.warn("[runtime-reset] resetRuntime() called — tracing call site:");
+    console.trace("[runtime-reset] resetRuntime trace");
     await fetchRuntimeData();
     setMessages([]);
     setShowWelcome(true);
@@ -3150,10 +3240,16 @@ export default function MetaMeRuntimeClient() {
       const closeSignal = readCodexClose(d);
       const navigateSignal = readNavigateClose(d);
       if (!closeSignal.isClose && !navigateSignal.isClose) return;
-      console.warn("[codex-close] onAnyMessage close signal matched", { closeSignal, navigateSignal });
+      const timeSinceOverlayOpen = Date.now() - cartridgeOverlayOpenedAtRef.current;
+      console.warn("[codex-close] onAnyMessage close signal matched", { closeSignal, navigateSignal, timeSinceOverlayOpen, source: event.source === window.parent ? "parent" : "child/other" });
       dismissCodexPanels(closeSignal.isClose ? closeSignal.codexId : navigateSignal.codexId);
-      // Also close the z-axis cartridge overlay if one is active
-      setActiveCartridgeOverlay(null);
+      // Also close the z-axis cartridge overlay if one is active — apply same 800ms cooldown
+      // to guard against race conditions where the overlay was just opened.
+      if (timeSinceOverlayOpen >= 800) {
+        setActiveCartridgeOverlay(null);
+      } else {
+        console.warn("[codex-close] onAnyMessage skipping setActiveCartridgeOverlay(null) — within 800ms of open", { timeSinceOverlayOpen });
+      }
       relayCloseCodexToNestedFrames();
     }
 
@@ -3166,8 +3262,12 @@ export default function MetaMeRuntimeClient() {
         const closeSignal = readCodexClose(ev.data);
         const navigateSignal = readNavigateClose(ev.data);
         if (!closeSignal.isClose && !navigateSignal.isClose) return;
+        const timeSinceBcOpen = Date.now() - cartridgeOverlayOpenedAtRef.current;
+        console.warn("[codex-close] BroadcastChannel close signal", { closeSignal, navigateSignal, timeSinceBcOpen });
         dismissCodexPanels(closeSignal.isClose ? closeSignal.codexId : navigateSignal.codexId);
-        setActiveCartridgeOverlay(null);
+        if (timeSinceBcOpen >= 800) {
+          setActiveCartridgeOverlay(null);
+        }
         relayCloseCodexToNestedFrames();
       };
     } catch (e) { /* BroadcastChannel not supported */ }
@@ -3524,6 +3624,34 @@ export default function MetaMeRuntimeClient() {
         return;
       }
 
+      // ── Prompt fast-paths: open iQube drawers without inference ──────────
+      // These match natural-language requests so the drawers are reachable via
+      // the prompt bar as well as via shell postMessage — matching Wallet's
+      // dual-path reliability.
+      {
+        const lp = trimmed.toLowerCase();
+        if (/\b(knyt\s+persona|knyt\s+iqube|open\s+knyt|my\s+knyt\s+profile)\b/.test(lp)) {
+          setPersonaIQubeDrawer("knyt");
+          return;
+        }
+        if (/\b(qripto\s+persona|qripto\s+iqube|open\s+qripto|my\s+qripto\s+profile)\b/.test(lp)) {
+          setPersonaIQubeDrawer("qripto");
+          return;
+        }
+        if (/\b(persona\s+iqube|open\s+persona|my\s+persona|persona\s+qube)\b/.test(lp)) {
+          setPersonaPickerOpen(true);
+          return;
+        }
+        if (/\b(identity\s+iqube|open\s+identity|my\s+identity|identity\s+qube|did\s*qube)\b/.test(lp)) {
+          setIdentityIQubeOpen(true);
+          return;
+        }
+        if (/\b(my\s+memory|open\s+memory|memory\s+iqube|chat\s+history|conversation\s+history)\b/.test(lp)) {
+          setMemoryDrawerOpen(true);
+          return;
+        }
+      }
+
       const source = options?.source ?? "runtime_ui";
       const intent = options?.explicitIntent ?? inferIntent(trimmed);
       const skipInference = Boolean(options?.skipInference);
@@ -3560,6 +3688,7 @@ export default function MetaMeRuntimeClient() {
 
       setCapsuleContents(ranked);
       setLastIntent(intent);
+      didExitWelcomeRef.current = true;
       setShowWelcome(false);
       setWelcomePrompt("");
       const leadCapsule = ranked[0] || null;
@@ -3802,6 +3931,33 @@ export default function MetaMeRuntimeClient() {
           capsuleId: leadCapsule?.id ?? null,
           device: activeDevice,
         });
+        // Non-blocking Supabase memory write — fire-and-forget, never blocks rendering
+        void (async () => {
+          try {
+            const token = getAccessTokenFromStorage();
+            if (!token) return;
+            await fetch("/api/iqube/memory", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+              body: JSON.stringify({
+                query: trimmed,
+                response: renderedResponse,
+                interaction_type: intent === "earn" ? "earn" : "aigent",
+                metadata: {
+                  activePersona: activePersonaId,
+                  conversationId: conversationIdRef.current,
+                  agentType: selectedAgent.id,
+                  modelUsed: usedModel,
+                  aiProvider: usedProvider,
+                  intent,
+                  device: activeDevice,
+                },
+              }),
+            });
+          } catch {
+            // Non-fatal — memory write failure never affects the chat experience
+          }
+        })();
         postRuntimeEvent("INFERENCE_COMPLETE", {
           status: "ok",
           intent,
@@ -3886,6 +4042,94 @@ export default function MetaMeRuntimeClient() {
   const reliabilityScore = Math.max(1, Math.min(10, providerBaseScore + 0.8));
   const trustScore = Math.max(1, Math.min(10, providerBaseScore));
 
+  // Stable ref to latest handlePrompt — updated whenever handlePrompt changes so
+  // the [] stable handler can call it without capturing a stale closure.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handlePromptRef = useRef<typeof handlePrompt>(handlePrompt);
+  useEffect(() => { handlePromptRef.current = handlePrompt; }, [handlePrompt]);
+  // Keep showWelcomeRef in sync so the [] stable handler can read current welcome state.
+  useEffect(() => { showWelcomeRef.current = showWelcome; }, [showWelcome]);
+
+  // Stable, permanent handler for persona and identity drawer opens.
+  // Uses [] deps so it never tears down/re-registers — immune to dep-array churn in
+  // the main onShellMessage effect. State setters are guaranteed stable by React.
+  useEffect(() => {
+    function onDrawerOpen(event: MessageEvent) {
+      if (event.source !== window.parent) return;
+      const raw = event.data;
+      if (!raw || typeof raw !== "object" || typeof raw.type !== "string") return;
+      const rawPayload = (raw.payload && typeof raw.payload === "object"
+        ? raw.payload
+        : raw) as Record<string, unknown>;
+
+      // When triggered from the welcome screen, fire contextual inference first so the
+      // user lands on relevant content underneath the drawer, not a blank landing page.
+      // The drawer opens immediately (don't wait for inference) — hoisted iQubeDrawerLayer
+      // ensures it renders over the welcome screen regardless of showWelcome.
+      const maybeAdvanceWelcome = (prompt: string) => {
+        if (showWelcomeRef.current && handlePromptRef.current) {
+          void handlePromptRef.current(prompt, { source: "text_input", skipInference: false });
+        }
+      };
+
+      if (raw.type === "OPEN_PERSONA_IQUBE") {
+        const iQubeType = typeof rawPayload.iqube_type === "string" ? rawPayload.iqube_type : null;
+        console.warn("[drawer] OPEN_PERSONA_IQUBE received", { iQubeType });
+        if (iQubeType === "knyt") {
+          maybeAdvanceWelcome("Tell me about my KNYT persona, my metaKnyt character and journey");
+          setPersonaIQubeDrawer("knyt");
+        } else if (iQubeType === "qripto") {
+          maybeAdvanceWelcome("Tell me about my Qriptopian persona and reader identity");
+          setPersonaIQubeDrawer("qripto");
+        } else {
+          maybeAdvanceWelcome("Tell me about my personas and how I express my identity in the protocol");
+          setPersonaPickerOpen(true);
+        }
+        return;
+      }
+
+      if (raw.type === "OPEN_IDENTITY_IQUBE") {
+        console.warn("[drawer] OPEN_IDENTITY_IQUBE received → opening");
+        maybeAdvanceWelcome("Tell me about my identity iQube and what it means for my data sovereignty");
+        setIdentityIQubeOpen(true);
+        return;
+      }
+
+      if (raw.type === "OPEN_MEMORY_IQUBE") {
+        console.warn("[drawer] OPEN_MEMORY_IQUBE received → opening");
+        maybeAdvanceWelcome("Show me my memory iQube and conversation history");
+        setMemoryDrawerOpen(true);
+        return;
+      }
+
+      if (raw.type === "LAUNCH_CARTRIDGE") {
+        const cartridgeId = typeof rawPayload.cartridge_id === "string" ? rawPayload.cartridge_id : null;
+        console.warn("[drawer] LAUNCH_CARTRIDGE received (stable handler)", { cartridgeId });
+        if (cartridgeId) {
+          const slug = cartridgeId.replace(/-codex$/i, "");
+          cartridgeOverlayOpenedAtRef.current = Date.now();
+          console.warn("[drawer] LAUNCH_CARTRIDGE → opening overlay", { slug });
+          setActiveCartridgeOverlay({ slug, title: slug.charAt(0).toUpperCase() + slug.slice(1) });
+        }
+        return;
+      }
+
+      if (raw.type === "RUNTIME_CONTEXT_CHANGE") {
+        const ctx = (rawPayload.context ?? (raw as Record<string, unknown>).context) === "knyt" ? "knyt" : "metame";
+        setRuntimeContext(ctx as "metame" | "knyt");
+        return;
+      }
+    }
+
+    window.addEventListener("message", onDrawerOpen);
+    // Drain the pre-bootstrap buffer into this stable handler so messages that
+    // arrived before any React effect registered are not lost.
+    _drainEarlyCapture(onDrawerOpen);
+
+    return () => window.removeEventListener("message", onDrawerOpen);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (!embedMode) return;
 
@@ -3943,11 +4187,18 @@ export default function MetaMeRuntimeClient() {
     function onShellMessage(event: MessageEvent) {
       if (event.source !== window.parent) return;
 
+      // ── Universal catch-all log (FIRST thing, before any filtering) ──────────
+      // This log runs for EVERY message from the parent — use it to diagnose
+      // what Lovable is actually sending and in what order.
+      const _rawType = event.data && typeof event.data === "object" ? (event.data as Record<string, unknown>).type : typeof event.data;
+      console.warn("[all-msgs] parent→runtime:", _rawType, event.data);
+
       // LAUNCH_CARTRIDGE and RUNTIME_CONTEXT_CHANGE may arrive in raw (non-bridge)
       // format from the Lovable shell. Handle them before the strict bridge check so
       // they work regardless of whether the shell uses createShellMessage() or not.
       const raw = event.data;
       if (raw && typeof raw === "object" && typeof raw.type === "string") {
+        console.log("[bridge] shell→runtime message received:", raw.type, raw);
         // Support both raw { type, cartridge_id } and bridge { type, payload: { cartridge_id } }
         const rawPayload = (raw.payload && typeof raw.payload === "object" ? raw.payload : raw) as Record<string, unknown>;
 
@@ -3955,28 +4206,39 @@ export default function MetaMeRuntimeClient() {
           const cartridgeId = typeof rawPayload.cartridge_id === "string" ? rawPayload.cartridge_id : null;
           const codexId = typeof rawPayload.codex_id === "string" ? rawPayload.codex_id : cartridgeId;
           const rawSlug = codexId || cartridgeId;
+          console.warn("[drawer] LAUNCH_CARTRIDGE received (volatile handler)", { cartridgeId, codexId, rawSlug });
           if (rawSlug) {
             const slug = (rawSlug as string).replace(/-codex$/i, "");
             const title = slug.charAt(0).toUpperCase() + slug.slice(1);
+            cartridgeOverlayOpenedAtRef.current = Date.now();
+            console.warn("[drawer] LAUNCH_CARTRIDGE → opening overlay (volatile)", { slug });
             setActiveCartridgeOverlay({ slug, title });
           }
           return;
         }
 
         if (raw.type === "CARTRIDGE_OVERLAY_CLOSE") {
+          const timeSinceOpen = Date.now() - cartridgeOverlayOpenedAtRef.current;
+          console.warn("[drawer] CARTRIDGE_OVERLAY_CLOSE received", { timeSinceOpen });
+          if (timeSinceOpen < 800) {
+            console.warn("[drawer] CARTRIDGE_OVERLAY_CLOSE ignored — within 800ms cooldown", { timeSinceOpen });
+            return;
+          }
+          console.warn("[drawer] CARTRIDGE_OVERLAY_CLOSE → closing overlay");
           setActiveCartridgeOverlay(null);
           return;
         }
 
+        // OPEN_PERSONA_IQUBE and OPEN_IDENTITY_IQUBE are handled by the stable
+        // useEffect above — not here — so they are never affected by this
+        // effect's dep-array re-registration cycles.
+
+        // RUNTIME_CONTEXT_CHANGE: only update the context state.
+        // The stable onDrawerOpen handler above already handles this — we must
+        // NOT call handlePrompt here because that triggers full AI inference,
+        // which causes the long loading delay and content flash the user sees.
         if (raw.type === "RUNTIME_CONTEXT_CHANGE") {
-          const ctx = (rawPayload.context ?? raw.context) === "knyt" ? "knyt" : "metame";
-          setRuntimeContext(ctx as "metame" | "knyt");
-          void handlePrompt(
-            ctx === "knyt"
-              ? "I'd like to explore my KNYT journey"
-              : "I'd like to return to my metaMe context",
-            { source: "text_input", skipInference: false, explicitIntent: "play" }
-          );
+          console.warn("[ctx] RUNTIME_CONTEXT_CHANGE in volatile handler — context-only update (no inference)", { raw });
           return;
         }
       }
@@ -4016,7 +4278,15 @@ export default function MetaMeRuntimeClient() {
             : payload;
         const handoffState = typeof handoffContext.state === "string" ? handoffContext.state : null;
         if (handoffState === "post_welcome") setShowWelcome(false);
-        if (handoffState === "welcome") setShowWelcome(true);
+        // Only accept a "welcome" reset if the user has NOT already progressed past welcome.
+        // Once didExitWelcomeRef is true, HANDOFF cannot flip them back to the landing page —
+        // this blocks the STATE_SYNC→HANDOFF feedback loop that was causing constant resets.
+        if (handoffState === "welcome" && !didExitWelcomeRef.current) {
+          console.warn("[handoff] HANDOFF state=welcome accepted (user hasn't exited welcome yet)");
+          setShowWelcome(true);
+        } else if (handoffState === "welcome" && didExitWelcomeRef.current) {
+          console.warn("[handoff] HANDOFF state=welcome BLOCKED — user already exited welcome, ignoring reset");
+        }
 
         const handoffIntent = typeof handoffContext.intent === "string" ? handoffContext.intent : null;
         if (handoffIntent && (Object.keys(INTENT_KEYWORDS) as RuntimeIntent[]).includes(handoffIntent as RuntimeIntent)) {
@@ -4168,7 +4438,32 @@ export default function MetaMeRuntimeClient() {
     }
 
     window.addEventListener("message", onShellMessage);
-    return () => window.removeEventListener("message", onShellMessage);
+
+    // NOTE: pre-bootstrap buffer is drained by the stable onDrawerOpen effect above.
+    // Calling _drainEarlyCapture here would be a no-op (buffer already empty + capture
+    // listener already removed) but is safe to skip.
+
+    // Emit RUNTIME_READY immediately so the shell knows the runtime is live.
+    // We also emit it again in response to SHELL_READY (idempotent via runtimeReadyPostedRef)
+    // but this early emission handles the case where SHELL_READY arrived before us.
+    try {
+      window.parent.postMessage(
+        { type: "RUNTIME_READY", source: "runtime", state: showWelcome ? "welcome" : "post_welcome" },
+        "*"
+      );
+    } catch { /* not in an iframe — safe to ignore */ }
+
+    // Platform sidebar fires this custom event for the persona iQube links
+    function onOpenPersonaIQube(e: Event) {
+      const t = (e as CustomEvent<{ type: string }>).detail?.type;
+      if (t === "knyt" || t === "qripto") setPersonaIQubeDrawer(t);
+    }
+    window.addEventListener("open-persona-iqube", onOpenPersonaIQube);
+
+    return () => {
+      window.removeEventListener("message", onShellMessage);
+      window.removeEventListener("open-persona-iqube", onOpenPersonaIQube);
+    };
   }, [
     activeDevice,
     applyShellSelectorChange,
@@ -4327,10 +4622,30 @@ export default function MetaMeRuntimeClient() {
     <div className="relative z-30 pointer-events-auto border-t border-white/10 bg-white/[0.03] pt-3">
       {isMobileLayout ? (
         <div className="flex items-center justify-between px-4">
-          <div className="flex flex-col items-center gap-0.5">
+          <div className="relative flex flex-col items-center gap-0.5">
+            {/* Be floating quick-links sub-menu */}
+            {beMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-[45]" onClick={() => setBeMenuOpen(false)} />
+                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[46] flex flex-col gap-1 bg-slate-900/95 border border-white/10 rounded-xl p-2 shadow-2xl backdrop-blur-xl min-w-[120px]">
+                  {[
+                    { icon: <Users className="h-4 w-4" />, label: "Persona", action: () => { setPersonaPickerOpen(true); setBeMenuOpen(false); } },
+                    { icon: <Fingerprint className="h-4 w-4" />, label: "Identity", action: () => { setIdentityIQubeOpen(true); setBeMenuOpen(false); } },
+                    { icon: <SlidersHorizontal className="h-4 w-4" />, label: "Settings", action: () => { setSettingsDrawerOpen(true); setBeMenuOpen(false); } },
+                    { icon: <Sparkles className="h-4 w-4" />, label: "Memory", action: () => { setMemoryDrawerOpen(true); setBeMenuOpen(false); } },
+                    { icon: <Network className="h-4 w-4" />, label: "Connections", action: () => setBeMenuOpen(false) },
+                  ].map(({ icon, label, action }) => (
+                    <button key={label} type="button" onClick={action}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                      <span className="text-cyan-400">{icon}</span>{label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
             <button
               type="button"
-              onClick={() => handleRuntimeMenuIntent("be", "I want to be...")}
+              onClick={() => { handleRuntimeMenuIntent("be", "I want to be..."); setBeMenuOpen(prev => !prev); }}
               className={menuButtonClass("be")}
               title="I want to be..."
               aria-pressed={lastIntent === "be"}
@@ -4338,26 +4653,38 @@ export default function MetaMeRuntimeClient() {
               <Users className="h-4 w-4 text-slate-200" />
               Be
             </button>
+          </div>
+          <div className="relative">
+            {earnMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-[45]" onClick={() => setEarnMenuOpen(false)} />
+                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[46] flex flex-col gap-1 bg-slate-900/95 border border-white/10 rounded-xl p-2 shadow-2xl backdrop-blur-xl min-w-[130px]">
+                  {([
+                    { label: "Goal",   tab: "wallet"   },
+                    { label: "Task",   tab: "tasks"    },
+                    { label: "Wallet", tab: "wallet"   },
+                    { label: "Reward", tab: "rewards"  },
+                    { label: "Offer",  tab: "payments" },
+                  ] as const).map(({ label, tab }) => (
+                    <button key={label} type="button" onClick={() => { setWalletInitialTab(tab); setWalletDrawerOpen(true); setEarnMenuOpen(false); }}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                      <Coins className="h-3.5 w-3.5 text-emerald-400" />{label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
             <button
               type="button"
-              onClick={() => setSettingsDrawerOpen(true)}
-              className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] text-slate-500 hover:text-slate-300 hover:bg-white/10 transition"
-              title="metaMe Settings"
+              onClick={() => { handleRuntimeMenuIntent("earn", "How can I earn..."); setEarnMenuOpen(prev => !prev); }}
+              className={menuButtonClass("earn")}
+              title="How can I earn..."
+              aria-pressed={lastIntent === "earn"}
             >
-              <SlidersHorizontal className="h-2.5 w-2.5" />
-              <span>settings</span>
+              <Coins className="h-5 w-5 text-emerald-300" />
+              Earn
             </button>
           </div>
-          <button
-            type="button"
-            onClick={() => handleRuntimeMenuIntent("earn", "How can I earn...")}
-            className={menuButtonClass("earn")}
-            title="How can I earn..."
-            aria-pressed={lastIntent === "earn"}
-          >
-            <Coins className="h-5 w-5 text-emerald-300" />
-            Earn
-          </button>
           <button
             type="button"
             onClick={() => handleRuntimeMenuIntent("play", "I'd like to play experiences.")}
@@ -4391,10 +4718,30 @@ export default function MetaMeRuntimeClient() {
         </div>
       ) : (
         <div className="flex items-center justify-between px-4">
-          <div className="flex flex-col items-center gap-0.5">
+          <div className="relative flex flex-col items-center gap-0.5">
+            {/* Be floating quick-links sub-menu (desktop) — shared state with mobile */}
+            {beMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-[45]" onClick={() => setBeMenuOpen(false)} />
+                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[46] flex flex-col gap-1 bg-slate-900/95 border border-white/10 rounded-xl p-2 shadow-2xl backdrop-blur-xl min-w-[130px]">
+                  {[
+                    { icon: <Users className="h-4 w-4" />, label: "Persona", action: () => { setPersonaPickerOpen(true); setBeMenuOpen(false); } },
+                    { icon: <Fingerprint className="h-4 w-4" />, label: "Identity", action: () => { setIdentityIQubeOpen(true); setBeMenuOpen(false); } },
+                    { icon: <SlidersHorizontal className="h-4 w-4" />, label: "Settings", action: () => { setSettingsDrawerOpen(true); setBeMenuOpen(false); } },
+                    { icon: <Sparkles className="h-4 w-4" />, label: "Memory", action: () => { setMemoryDrawerOpen(true); setBeMenuOpen(false); } },
+                    { icon: <Network className="h-4 w-4" />, label: "Connections", action: () => setBeMenuOpen(false) },
+                  ].map(({ icon, label, action }) => (
+                    <button key={label} type="button" onClick={action}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                      <span className="text-cyan-400">{icon}</span>{label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
             <button
               type="button"
-              onClick={() => handleRuntimeMenuIntent("be", "I want to be...")}
+              onClick={() => { handleRuntimeMenuIntent("be", "I want to be..."); setBeMenuOpen(prev => !prev); }}
               className={menuButtonClass("be")}
               title="I want to be..."
               aria-pressed={lastIntent === "be"}
@@ -4402,27 +4749,39 @@ export default function MetaMeRuntimeClient() {
               <Users className="h-4 w-4 text-slate-200" />
               Be
             </button>
-            <button
-              type="button"
-              onClick={() => setSettingsDrawerOpen(true)}
-              className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] text-slate-500 hover:text-slate-300 hover:bg-white/10 transition"
-              title="metaMe Settings"
-            >
-              <SlidersHorizontal className="h-2.5 w-2.5" />
-              <span>settings</span>
-            </button>
           </div>
           <div className="flex flex-1 items-center justify-center gap-6">
-            <button
-              type="button"
-              onClick={() => handleRuntimeMenuIntent("earn", "How can I earn...")}
-              className={menuButtonClass("earn")}
-              title="How can I earn..."
-              aria-pressed={lastIntent === "earn"}
-            >
-              <Coins className="h-5 w-5 text-emerald-300" />
-              Earn
-            </button>
+            <div className="relative">
+              {earnMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-[45]" onClick={() => setEarnMenuOpen(false)} />
+                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[46] flex flex-col gap-1 bg-slate-900/95 border border-white/10 rounded-xl p-2 shadow-2xl backdrop-blur-xl min-w-[130px]">
+                    {([
+                      { label: "Goal",   tab: "wallet"   },
+                      { label: "Task",   tab: "tasks"    },
+                      { label: "Wallet", tab: "wallet"   },
+                      { label: "Reward", tab: "rewards"  },
+                      { label: "Offer",  tab: "payments" },
+                    ] as const).map(({ label, tab }) => (
+                      <button key={label} type="button" onClick={() => { setWalletInitialTab(tab); setWalletDrawerOpen(true); setEarnMenuOpen(false); }}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                        <Coins className="h-3.5 w-3.5 text-emerald-400" />{label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => { handleRuntimeMenuIntent("earn", "How can I earn..."); setEarnMenuOpen(prev => !prev); }}
+                className={menuButtonClass("earn")}
+                title="How can I earn..."
+                aria-pressed={lastIntent === "earn"}
+              >
+                <Coins className="h-5 w-5 text-emerald-300" />
+                Earn
+              </button>
+            </div>
             <button
               type="button"
               onClick={() => handleRuntimeMenuIntent("play", "I'd like to play experiences.")}
@@ -4627,7 +4986,7 @@ export default function MetaMeRuntimeClient() {
         variant="overlay"
         agent={{ id: activePersonaId || selectedAgent.id, name: selectedAgent.label }}
         personaId={activePersonaId || undefined}
-        initialTab="wallet"
+        initialTab={walletInitialTab}
       />
       {/* Cartridge overlay — z-axis layer, no internal header (shell header carries the close button) */}
       {activeCartridgeOverlay != null && (
@@ -4666,6 +5025,8 @@ export default function MetaMeRuntimeClient() {
         </div>
         <MetaMeSettingsPanel personaId={activePersonaId ?? undefined} />
       </div>
+      {/* iQube drawers (persona, identity, memory, picker) are hoisted to iQubeDrawerLayer
+          so they render over both the welcome screen and the runtime surface. */}
       {/* Absolute overlay: prompt bar (live view only) + runtimeMenu stacked at bottom */}
       {!thinShellMode ? (
         <div className="absolute inset-x-0 bottom-0 z-30 bg-slate-950/95 backdrop-blur-sm">
@@ -4860,7 +5221,7 @@ export default function MetaMeRuntimeClient() {
         variant="overlay"
         agent={{ id: activePersonaId || selectedAgent.id, name: selectedAgent.label }}
         personaId={activePersonaId || undefined}
-        initialTab="wallet"
+        initialTab={walletInitialTab}
       />
       {settingsDrawerOpen ? (
         <div
@@ -4898,19 +5259,88 @@ export default function MetaMeRuntimeClient() {
         ? "mx-auto w-full max-w-[860px]"
         : "mx-auto w-full max-w-[430px]";
 
+  // iQube drawer layer — rendered outside the welcomeSurface/runtimeSurface toggle so
+  // these drawers are always in the DOM regardless of showWelcome state.  Absolute
+  // positioning scopes to the nearest positioned ancestor (relative outer containers below).
+  const iQubeDrawerLayer = (
+    <>
+      {/* Persona iQube — left-entering drawer */}
+      {personaIQubeDrawer && (
+        <div className="absolute inset-0 z-[55] bg-black/50" onClick={() => setPersonaIQubeDrawer(null)} />
+      )}
+      <div
+        className={`absolute left-0 top-0 bottom-0 z-[56] w-96 overflow-y-auto transform transition-transform duration-300 ease-in-out ${personaIQubeDrawer ? "translate-x-0" : "-translate-x-full"}`}
+        aria-hidden={!personaIQubeDrawer}
+      >
+        {personaIQubeDrawer && (
+          <PersonaIQubeDrawer type={personaIQubeDrawer} onClose={() => setPersonaIQubeDrawer(null)} />
+        )}
+      </div>
+      {/* Identity iQube — left-entering drawer, z-[57] above persona */}
+      {identityIQubeOpen && (
+        <div className="absolute inset-0 z-[57] bg-black/50" onClick={() => setIdentityIQubeOpen(false)} />
+      )}
+      <div
+        className={`absolute left-0 top-0 bottom-0 z-[58] w-96 overflow-y-auto transform transition-transform duration-300 ease-in-out ${identityIQubeOpen ? "translate-x-0" : "-translate-x-full"}`}
+        aria-hidden={!identityIQubeOpen}
+      >
+        {identityIQubeOpen && <IdentityIQubeDrawer onClose={() => setIdentityIQubeOpen(false)} />}
+      </div>
+      {/* Memory iQube drawer */}
+      <MemoryIQubeDrawer open={memoryDrawerOpen} onClose={() => setMemoryDrawerOpen(false)} />
+      {/* Persona picker — bottom sheet when no iqube_type specified */}
+      {personaPickerOpen && (
+        <>
+          <div className="absolute inset-0 z-[60] bg-black/60 backdrop-blur-sm" onClick={() => setPersonaPickerOpen(false)} />
+          <div className="absolute inset-x-0 bottom-0 z-[61] flex flex-col gap-0 rounded-t-2xl border-t border-white/10 bg-slate-950 shadow-2xl pb-safe">
+            <div className="flex items-center justify-between px-5 pt-4 pb-2">
+              <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">Select Persona</span>
+              <button type="button" onClick={() => setPersonaPickerOpen(false)} className="rounded-full p-1 text-slate-500 hover:text-white transition">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="flex flex-col gap-2 px-4 pb-6">
+              {([
+                { type: "knyt" as const, label: "KNYT Persona", description: "Your metaKnyt identity & character stats", color: "from-amber-500/20 to-yellow-500/10 border-amber-500/30 hover:border-amber-400/60" },
+                { type: "qripto" as const, label: "Qripto Persona", description: "Your Qriptopian reader identity & collections", color: "from-cyan-500/20 to-blue-500/10 border-cyan-500/30 hover:border-cyan-400/60" },
+              ]).map(({ type, label, description, color }) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => { setPersonaIQubeDrawer(type); setPersonaPickerOpen(false); }}
+                  className={`flex items-center gap-4 rounded-xl border bg-gradient-to-r p-4 text-left transition-all duration-150 ${color}`}
+                >
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-white/10">
+                    <Users className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-white">{label}</div>
+                    <div className="text-xs text-slate-400">{description}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  );
+
   if (embedMode) {
     const embedWidthClass = isRuntimeFullscreen || thinShellMode ? "w-full" : runtimeDeviceWidthClass;
     return (
-      <div className={`h-full w-full bg-slate-950 p-0 ${embedWidthClass}`}>
+      <div className={`relative h-full w-full bg-slate-950 p-0 ${embedWidthClass}`}>
         {showWelcome ? welcomeSurface : runtimeSurface}
+        {iQubeDrawerLayer}
       </div>
     );
   }
 
   if (isRuntimeFullscreen) {
     return (
-      <div className="fixed inset-0 z-[120] bg-slate-950 p-0">
+      <div className="fixed inset-0 z-[120] bg-slate-950 p-0 relative">
         <div className={`h-full ${runtimeDeviceWidthClass}`}>{showWelcome ? welcomeSurface : runtimeSurface}</div>
+        {iQubeDrawerLayer}
       </div>
     );
   }
@@ -4931,7 +5361,7 @@ export default function MetaMeRuntimeClient() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white px-4 py-6">
-      <div className="mx-auto w-full h-[760px]">
+      <div className="relative mx-auto w-full h-[760px]">
         <PreviewFrame
           defaultDevice={defaultDevice}
           onDeviceChange={(device) => setActiveDevice(device)}
@@ -4943,6 +5373,7 @@ export default function MetaMeRuntimeClient() {
         >
           {showWelcome ? welcomeSurface : runtimeSurface}
         </PreviewFrame>
+        {iQubeDrawerLayer}
       </div>
     </div>
   );

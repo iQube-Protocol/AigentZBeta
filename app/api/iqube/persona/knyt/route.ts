@@ -14,6 +14,7 @@ import {
   refreshKnytBalance,
   filterPatch,
   getUserEditableFields,
+  createServerClient,
 } from "../_lib";
 
 export const dynamic = "force-dynamic";
@@ -44,12 +45,39 @@ export async function GET(request: NextRequest) {
       .maybeSingle();
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    if (!row) return NextResponse.json({ exists: false, data: null }, { status: 200 });
+
+    // CRM auto-seed: if no platform row, find by email (any user_id state) and link if unlinked
+    let resolvedRow = row;
+    if (!row && user.email) {
+      const service = createServerClient();
+      const { data: crmRow } = await service
+        .from(personaTable("knyt"))
+        .select("*")
+        .ilike("Email", user.email)
+        .maybeSingle();
+
+      if (crmRow) {
+        // Only stamp user_id if the record is unlinked — never overwrite a different user's link
+        if (crmRow.user_id == null) {
+          const { data: linked } = await service
+            .from(personaTable("knyt"))
+            .update({ user_id: user.id, platform_activated_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+            .eq("id", crmRow.id as string)
+            .select("*")
+            .maybeSingle();
+          resolvedRow = linked ?? crmRow;
+        } else {
+          resolvedRow = crmRow;
+        }
+      }
+    }
+
+    if (!resolvedRow) return NextResponse.json({ exists: false, data: null }, { status: 200 });
 
     // Refresh KNYT-COYN-Owned from chain if EVM address present (non-blocking)
-    void refreshKnytBalance(supabase, row as Record<string, unknown>);
+    void refreshKnytBalance(supabase, resolvedRow as Record<string, unknown>);
 
-    const shaped = shapeAsIQube(row as Record<string, unknown>, "knyt", false);
+    const shaped = shapeAsIQube(resolvedRow as Record<string, unknown>, "knyt", false);
     return NextResponse.json({ exists: true, data: shaped });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";

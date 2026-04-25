@@ -39,8 +39,6 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { SubmenuDrawer } from "./SubmenuDrawer";
-import { PersonaIQubeDrawer } from "./iqube/PersonaIQubeDrawer";
-
 
 
 interface SidebarItem {
@@ -218,7 +216,6 @@ export const Sidebar = () => {
   const [iQubeId, setIQubeId] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerType, setDrawerType] = useState<"view" | "decrypt" | "mint" | "activate">("view");
-  const [personaIQubeDrawer, setPersonaIQubeDrawer] = useState<"knyt" | "qripto" | null>(null);
   // Nested groups inside iQubes section
   const [openIQubesGroups, setOpenIQubesGroups] = useState<Record<string, boolean>>({
     "Active iQubes": false,
@@ -937,8 +934,8 @@ export const Sidebar = () => {
   
   const handleModelQubeClick = (href: string) => {
     // Intercept persona iQube drawer links
-    if (href === "#persona-knyt-iqube") { setPersonaIQubeDrawer("knyt"); return; }
-    if (href === "#persona-qripto-iqube") { setPersonaIQubeDrawer("qripto"); return; }
+    if (href === "#persona-knyt-iqube") { window.dispatchEvent(new CustomEvent("open-persona-iqube", { detail: { type: "knyt" } })); return; }
+    if (href === "#persona-qripto-iqube") { window.dispatchEvent(new CustomEvent("open-persona-iqube", { detail: { type: "qripto" } })); return; }
 
     // Check if the current iQube is already active
     const isCurrentQubeActive = toggleStates[href];
@@ -1583,12 +1580,6 @@ export const Sidebar = () => {
         drawerType={drawerType}
         sidebarVisible={hovering || pinnedOpen || studioMenuVisible}
       />
-      {personaIQubeDrawer && (
-        <PersonaIQubeDrawer
-          type={personaIQubeDrawer}
-          onClose={() => setPersonaIQubeDrawer(null)}
-        />
-      )}
     </>
   );
 }
