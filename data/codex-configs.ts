@@ -284,14 +284,37 @@ export const KNYT_CODEX: CodexConfig = {
       enabled: true,
       group: 'order-group',
       order: 2,
-      type: 'static',
+      type: 'liquid-ui',
       config: {
-        component: 'KnytRuntimeSurface',
-        props: {}
+        liquidTemplate: 'liquidui:cartridge_runtime_v1',
+        dataSource: '/api/runtime/knyt-state',
+        props: {
+          cartridgeSlug: 'knyt-codex',
+          worldLabel: 'KNYT Cartridge',
+          livingCanonEndpoint: '/api/codex/knyt/living-canon',
+          experienceStrategyId: 'knyt-wheel',
+          patronageAxis: ['OutsideOrder', 'Acolyte', 'Keta', 'Keji', 'First', 'Zero', 'Satoshi'],
+          pcsAxis: ['Observer', 'Collector', 'Curator', 'Remixer', 'Creator', 'Correspondent', 'Steward', 'FranchiseAligned'],
+          defaultStage: 'OutsideOrder',
+          defaultDepth: 'Observer',
+          accentColor: 'amber',
+          pcsAccentColor: 'indigo',
+          agentLeadLabel: 'Kn0w1',
+          agentLeadCopilotContextId: 'knyt-runtime',
+          investorCampaignEnabled: true,
+          signalEndpoints: {
+            like: '/api/codex/knyt/living-canon/like',
+            spark: '/api/codex/knyt/living-canon/spark',
+            vote: '/api/codex/knyt/living-canon/vote',
+            curate: '/api/codex/knyt/living-canon/curate',
+            remix: '/api/codex/knyt/living-canon/remix',
+            contribute: '/api/codex/knyt/living-canon/contribute',
+          },
+        },
       },
       metadata: {
         icon: 'Zap',
-        description: 'KNYT Live Runtime Surface — patronage axis, PCS axis, signals, next-best-step',
+        description: 'KNYT Live Runtime Surface — curated content, NBA chips, next-best-experience',
         color: 'amber'
       }
     },
