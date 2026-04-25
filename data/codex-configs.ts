@@ -281,7 +281,7 @@ export const KNYT_CODEX: CodexConfig = {
       id: 'runtime',
       label: 'Runtime',
       slug: 'runtime',
-      enabled: false,
+      enabled: true,
       group: 'order-group',
       order: 2,
       type: 'liquid-ui',
