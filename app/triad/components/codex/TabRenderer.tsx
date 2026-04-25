@@ -40,6 +40,7 @@ import { ArtifactTraceabilityTab } from "./tabs/ArtifactTraceabilityTab";
 import { FactoryIntakeTab } from "./tabs/FactoryIntakeTab";
 import { RegistrySupplyTab } from "./tabs/RegistrySupplyTab";
 import KnytRuntimeSurface from "./tabs/KnytRuntimeSurface";
+import { KnytRuntimeTab } from "./tabs/KnytRuntimeTab";
 import { KnytTreasuryTab } from "./tabs/KnytTreasuryTab";
 import { KnytAlphaTab } from "./tabs/KnytAlphaTab";
 import { AgentiQOSTab } from "./tabs/AgentiQOSTab";
@@ -109,6 +110,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   FactoryIntakeTab,
   RegistrySupplyTab,
   KnytRuntimeSurface,
+  KnytRuntimeTab,
   KnytTreasuryTab,
   KnytAlphaTab,
   AgentiQOSTab,
