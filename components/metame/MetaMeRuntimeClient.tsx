@@ -503,11 +503,25 @@ function coerceDeviceType(input: unknown): DeviceType | null {
 
 function menuPromptFromActionId(actionId: string): string | null {
   const normalized = actionId.trim().toLowerCase();
+  // Top-level menu items
   if (normalized === "be" || normalized === "compass_be") return "I want to be...";
   if (normalized === "earn" || normalized === "compass_earn") return "How can I earn...";
   if (normalized === "play" || normalized === "compass_play") return "I'd like to play experiences.";
   if (normalized === "make" || normalized === "compass_make") return "I want to make...";
-  if (normalized === "share" || normalized === "compass_share") return "Help me find experiences to share.";
+  if (normalized === "share" || normalized === "compass_share") return "Help me share my experiences.";
+  // Make sub-actions (sent by quick_links or future shell updates)
+  if (normalized === "make-create-design") return "I want to create and design in metaMe Studio.";
+  if (normalized === "make-build") return "I want to build with AgentiQ OS.";
+  if (normalized === "make-remix") return "I want to remix and customise an existing iQube.";
+  // Play sub-actions
+  if (normalized === "play-watch") return "I'd like to watch experiences.";
+  if (normalized === "play-listen") return "I'd like to listen to audio-first experiences.";
+  if (normalized === "play-knyt") return "I'd like to explore my KNYT journey.";
+  // Earn sub-actions
+  if (normalized === "earn-goal") return "Show me my onboarding journey goals and first tasks.";
+  // Share sub-actions
+  if (normalized === "share-message") return "Send a direct message via QubeTalk.";
+  if (normalized === "share-invite") return "Invite someone to a shared QubeTalk environment.";
   return null;
 }
 
@@ -521,6 +535,7 @@ function coerceRuntimeIntent(input: unknown): RuntimeIntent | null {
 function isQuickActionPrompt(prompt: string): boolean {
   const normalized = prompt.trim().toLowerCase();
   const quickActionPrompts = new Set([
+    // Top-level menu items
     "i'd like to watch experiences.",
     "i'd like to listen to experiences.",
     "i'd like to read experiences.",
@@ -529,7 +544,19 @@ function isQuickActionPrompt(prompt: string): boolean {
     "how can i earn...",
     "i'd like to play experiences.",
     "i want to make...",
-    "help me find experiences to share.",
+    "help me share my experiences.",
+    "help me find experiences to share.", // legacy — keep for backwards compat
+    // Sub-action prompts (skip inference — intent is explicit)
+    "i want to create and design in metame studio.",
+    "i want to build with agentiq os.",
+    "i want to remix and customise an existing iqube.",
+    "i'd like to listen to audio-first experiences.",
+    "i'd like to explore my knyt journey.",
+    "show me my onboarding journey goals and first tasks.",
+    "send a direct message via qubetalk.",
+    "invite someone to a shared qubetalk environment.",
+    "help me invite someone to collaborate.",
+    // Launch aliases
     "launching earn…",
     "launching earn...",
     "launching play…",
@@ -4341,8 +4368,21 @@ export default function MetaMeRuntimeClient() {
               ? payload.item_id
               : null;
         const DRAWER_ACTION_HANDLERS: Record<string, () => void> = {
-          wallet: () => setWalletDrawerOpen(true),
-          settings: () => setSettingsDrawerOpen(true),
+          wallet:      () => setWalletDrawerOpen(true),
+          settings:    () => setSettingsDrawerOpen(true),
+          connections: () => setConnectionsDrawerOpen(true),
+          // Make sub-actions — open cartridge overlays
+          "make-create-design": () => setActiveCartridgeOverlay({ slug: 'metame',   title: 'metaMe Studio', initialTab: 'metame-studio'   }),
+          "make-build":         () => setActiveCartridgeOverlay({ slug: 'aigentiq', title: 'AgentiQ OS',    initialTab: 'agentiq-os'       }),
+          "make-remix":         () => setActiveCartridgeOverlay({ slug: 'aigentiq', title: 'iQube Registry', initialTab: 'registry-supply' }),
+          // Play sub-actions
+          "play-knyt": () => { setRuntimeContext('knyt'); },
+          // Share sub-actions — native share (no prompt, side-effect only)
+          "share-refer": () => {
+            const url = typeof window !== 'undefined' ? window.location.href : '';
+            if (navigator.share) { void navigator.share({ title: 'Join me on metaMe', text: 'Explore your metaMe journey', url }); }
+            else { void navigator.clipboard?.writeText(url); }
+          },
         };
         if (menuActionId && menuActionId in DRAWER_ACTION_HANDLERS) {
           DRAWER_ACTION_HANDLERS[menuActionId]?.();
