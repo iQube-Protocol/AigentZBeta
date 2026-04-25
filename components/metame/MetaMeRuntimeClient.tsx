@@ -5213,7 +5213,7 @@ export default function MetaMeRuntimeClient() {
         />
       ) : null}
       <div
-        className={`absolute right-0 top-0 bottom-0 z-50 w-80 bg-slate-950 border-l border-white/10 overflow-y-auto transform transition-transform duration-300 ease-in-out ${connectionsDrawerOpen ? "translate-x-0" : "translate-x-full"}`}
+        className={`absolute left-0 top-0 bottom-0 z-50 w-80 bg-slate-950 border-r border-white/10 overflow-y-auto transform transition-transform duration-300 ease-in-out ${connectionsDrawerOpen ? "translate-x-0" : "-translate-x-full"}`}
         aria-hidden={!connectionsDrawerOpen}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 sticky top-0 bg-slate-950 z-10">
