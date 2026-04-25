@@ -3,10 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
+import { SmartContentCard, useOptionalSmartTriad } from "@/app/components/content";
+import type { SmartContentQube } from "@/types/smartContent";
 import {
   ArrowRight, Brain, Compass, Wifi, WifiOff,
   Heart, Zap, CheckCircle2, Layers, Shuffle, Upload, Star, ThumbsUp, MessageCircle,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 
 type PatronageStage = "OutsideOrder" | "Acolyte" | "Keta" | "Keji" | "First" | "Zero" | "Satoshi";
@@ -120,7 +125,8 @@ function AxisSteps({ label, axis, active, accentActive, accentText }: {
 }) {
   const activeIdx = axis.indexOf(active);
   return (
-    <div className="rounded-xl border border-white/8 bg-slate-950/60 backdrop-blur-sm p-4 space-y-3">
+    <Card className="rounded-xl border border-slate-700/60 bg-slate-900/80 backdrop-blur-sm">
+      <CardContent className="p-4 space-y-3">
       <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500">{label}</p>
       <p className={`text-sm font-semibold ${accentText}`}>{active}</p>
       <div className="flex flex-wrap gap-1">
@@ -143,7 +149,8 @@ function AxisSteps({ label, axis, active, accentActive, accentText }: {
           );
         })}
       </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -381,6 +388,9 @@ export default function KnytRuntimeSurface({
   const [latestReward, setLatestReward] = useState<string | undefined>();
   const [rewardReason, setRewardReason] = useState<string | undefined>();
   const [balancePreview, setBalancePreview] = useState<string | undefined>();
+  // SmartContentCard content objects for Liquid II rendering
+  const [featuredContent, setFeaturedContent] = useState<SmartContentQube | null>(null);
+  const [supportingContent, setSupportingContent] = useState<SmartContentQube[]>([]);
   // Resolved stages — loaded from journey_states when personaId is present
   const [patronageStage, setPatronageStage] = useState<PatronageStage>(patronageStageProp);
   const [pcsStage, setPcsStage] = useState<PcsStage>(pcsStageProp);
@@ -529,6 +539,55 @@ export default function KnytRuntimeSurface({
     };
   }, [featuredContentId]);
 
+  // SmartTriad actions — optional so the component works outside a provider
+  const smartTriad = useOptionalSmartTriad();
+  const openContent = async (content: SmartContentQube) => {
+    if (!smartTriad) return;
+    await smartTriad.actions.loadContent(content.id);
+    smartTriad.actions.setViewerModality("read");
+    smartTriad.actions.setActiveDrawer("contentViewer");
+  };
+  const purchaseContent = async (content: SmartContentQube) => {
+    if (!smartTriad) return;
+    await smartTriad.actions.loadContent(content.id);
+    smartTriad.actions.openWallet("full");
+  };
+  const isOwned = (id: string) => smartTriad ? smartTriad.actions.checkOwnership(id) : false;
+
+  // Fetch full SmartContentQube for featured moment + supporting items
+  useEffect(() => {
+    if (!featuredMoment?.id) { setFeaturedContent(null); setSupportingContent([]); return; }
+    let cancelled = false;
+
+    async function loadContentQubes() {
+      try {
+        const res = await fetch(`/api/content/smart/${encodeURIComponent(featuredMoment!.id)}`, { cache: "no-store" });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (!cancelled && data?.data) setFeaturedContent(data.data);
+      } catch { /* degrade silently — featured moment panel stays as fallback */ }
+
+      try {
+        const res = await fetch("/api/codex/knyt/living-canon?branch=community&limit=4", { cache: "no-store" });
+        if (!res.ok || cancelled) return;
+        const payload = await res.json();
+        const ids: string[] = (payload?.branches?.community?.items ?? [])
+          .map((i: { id: string }) => i.id)
+          .filter((id: string) => id !== featuredMoment?.id)
+          .slice(0, 3);
+        if (!ids.length || cancelled) return;
+        const qubes = await Promise.all(
+          ids.map((id) => fetch(`/api/content/smart/${encodeURIComponent(id)}`, { cache: "no-store" })
+            .then((r) => r.ok ? r.json().then((d) => d?.data ?? null) : null))
+        );
+        if (!cancelled) setSupportingContent(qubes.filter(Boolean) as SmartContentQube[]);
+      } catch { /* non-fatal */ }
+    }
+
+    loadContentQubes();
+    return () => { cancelled = true; };
+  }, [featuredMoment?.id]);
+
   async function submitSignalAction(action: ActionId) {
     if (action === "respond" || action === "patronize" || action === "endorse") {
       toast({
@@ -631,63 +690,58 @@ export default function KnytRuntimeSurface({
   return (
     <div className="grid gap-4 p-4 md:p-6">
       {/* ── Header capsule ── */}
-      <div className="rounded-xl border border-white/8 bg-slate-950/60 backdrop-blur-sm p-4">
-        <p className="text-[10px] uppercase tracking-widest font-semibold text-amber-500/80 mb-2">KNYT Cartridge</p>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-slate-100 leading-tight">{worldHeader?.title ?? "Live Runtime Surface"}</h2>
-            <p className="text-xs text-slate-400 mt-0.5">{worldHeader?.subtitle ?? "The Order is active. Your next move matters here."}</p>
+      <Card className="rounded-xl border border-amber-800/30 bg-amber-950/10 backdrop-blur-sm">
+        <CardContent className="p-4">
+          <p className="text-xs uppercase tracking-wide text-amber-500/80 mb-0.5">KNYT Cartridge</p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold text-slate-100 leading-tight">{worldHeader?.title ?? "Live Runtime Surface"}</h2>
+              <p className="text-xs text-slate-400 mt-0.5">{worldHeader?.subtitle ?? "The Order is active. Your next move matters here."}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-300 backdrop-blur-sm">
+                {runtimeState.patronage_stage}
+              </Badge>
+              <Badge variant="outline" className="border-slate-600/40 bg-slate-800/30 text-slate-300 backdrop-blur-sm gap-1">
+                {networkOnline ? <Wifi className="h-3 w-3 text-emerald-400" /> : <WifiOff className="h-3 w-3 text-rose-400" />}
+                {networkOnline ? "Network OK" : "Offline"}
+              </Badge>
+              {runtimeState.handoffs.kn0w1 && (
+                <Badge variant="outline" className="border-amber-700/40 bg-amber-950/20 text-amber-400 backdrop-blur-sm">Kn0w1 lead</Badge>
+              )}
+              {investorStatus?.isInvestor && investorStatus.ksBacked && (
+                <Badge variant="outline" className="border-emerald-700/30 bg-emerald-900/30 text-emerald-400">✓ Patron backed</Badge>
+              )}
+              {investorStatus?.isInvestor && !investorStatus.ksBacked && investorStatus.ksClicked && (
+                <Badge variant="outline" className="border-amber-700/40 text-amber-300/80">KS viewed</Badge>
+              )}
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="inline-flex items-center rounded-full border border-amber-700/50 bg-amber-950/30 backdrop-blur-sm px-2.5 py-0.5 text-xs font-semibold text-amber-300">
-              {runtimeState.patronage_stage}
-            </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-slate-700/60 bg-white/[0.03] backdrop-blur-sm px-2.5 py-0.5 text-xs text-slate-300">
-              {networkOnline
-                ? <Wifi className="h-3 w-3 text-emerald-400" />
-                : <WifiOff className="h-3 w-3 text-rose-400" />}
-              {networkOnline ? "Network OK" : "Offline"}
-            </span>
-            {runtimeState.handoffs.kn0w1 && (
-              <span className="inline-flex items-center rounded-full border border-amber-700/40 bg-amber-950/20 backdrop-blur-sm px-2.5 py-0.5 text-xs text-amber-400">Kn0w1 lead</span>
-            )}
-            {investorStatus?.isInvestor && investorStatus.ksBacked && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-900/30 border border-emerald-700/30 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
-                ✓ Patron backed
-              </span>
-            )}
-            {investorStatus?.isInvestor && !investorStatus.ksBacked && investorStatus.ksClicked && (
-              <span className="inline-flex items-center rounded-full border border-amber-700/40 px-2.5 py-0.5 text-xs text-amber-300/80">
-                KS viewed
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* ── KNYT Wheel investor CTA ── */}
       {investorStatus?.isInvestor && !investorStatus.ksBacked && investorStatus.ksTrackingUrl && (
-        <div className="rounded-xl border border-amber-700/25 bg-amber-950/10 backdrop-blur-sm p-4 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-[10px] uppercase tracking-widest font-semibold text-amber-500/80 mb-1">KNYT Wheel — Live Now</p>
-            <p className="text-sm font-semibold text-slate-100">Secure your slot before the window closes.</p>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {investorStatus.campaignCohort === "top_shelf"
-                ? "You are eligible for the Top Shelf equity offer."
-                : investorStatus.campaignCohort === "zero_knyt"
-                ? "Your Zero KNYT collectible offer is waiting."
-                : "The KNYT Wheel campaign is live on Kickstarter."}
-            </p>
-          </div>
-          <a
-            href={investorStatus.ksTrackingUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 border border-amber-700/50 bg-amber-950/30 backdrop-blur-sm text-amber-300 text-sm font-semibold rounded-full hover:bg-amber-950/50 transition whitespace-nowrap"
-          >
-            Back on Kickstarter <ArrowRight className="h-3.5 w-3.5" />
-          </a>
-        </div>
+        <Card className="rounded-xl border border-amber-700/25 bg-amber-950/10 backdrop-blur-sm">
+          <CardContent className="p-4 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-amber-500/80 mb-0.5">KNYT Wheel — Live Now</p>
+              <p className="text-sm font-semibold text-slate-100">Secure your slot before the window closes.</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {investorStatus.campaignCohort === "top_shelf"
+                  ? "You are eligible for the Top Shelf equity offer."
+                  : investorStatus.campaignCohort === "zero_knyt"
+                  ? "Your Zero KNYT collectible offer is waiting."
+                  : "The KNYT Wheel campaign is live on Kickstarter."}
+              </p>
+            </div>
+            <Button asChild variant="outline" className="border-amber-700/50 bg-amber-950/30 text-amber-300 hover:bg-amber-950/50 rounded-full gap-2">
+              <a href={investorStatus.ksTrackingUrl} target="_blank" rel="noopener noreferrer">
+                Back on Kickstarter <ArrowRight className="h-3.5 w-3.5" />
+              </a>
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       {/* ── Axis capsules ── */}
@@ -708,55 +762,87 @@ export default function KnytRuntimeSurface({
         />
       </div>
 
-      {/* ── Featured Moment capsule ── */}
-      <div className="rounded-xl border border-white/8 bg-slate-950/60 backdrop-blur-sm p-4 space-y-3">
-        <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500">Featured Moment</p>
-        {runtimeState.featured_moment ? (
-          <>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {/* Live matrix prescription badge */}
-              {capsule && (
-                <span className="inline-flex items-center rounded-full bg-amber-950/30 border border-amber-700/40 backdrop-blur-sm px-2 py-0.5 text-[10px] font-semibold text-amber-300">
-                  {capsule.depth} · {capsule.label}
-                </span>
-              )}
-              <span className="inline-flex items-center rounded-full border border-slate-700/60 px-2 py-0.5 text-[10px] text-slate-400">
-                {runtimeState.featured_moment.type}
-              </span>
-              {featuredMoment?.branch && (
-                <span className="inline-flex items-center rounded-full border border-slate-700/60 px-2 py-0.5 text-[10px] text-slate-400">
-                  {featuredMoment.branch}
-                </span>
-              )}
-              {featuredMoment?.state && (
-                <span className="inline-flex items-center rounded-full bg-emerald-900/30 border border-emerald-700/30 px-2 py-0.5 text-[10px] text-emerald-400">
-                  {featuredMoment.state}
-                </span>
-              )}
-            </div>
-            <p className="text-sm font-semibold text-slate-100">{runtimeState.featured_moment.title}</p>
-            <p className="text-xs text-slate-300 leading-relaxed">{runtimeState.featured_moment.description}</p>
-            {featuredMoment && (
-              <p className="text-[10px] font-mono text-slate-600 truncate">{featuredMoment.id}</p>
+      {/* ── Featured Moment — SmartContentCard hero ── */}
+      {featuredContent ? (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-1.5 px-0.5">
+            {capsule && (
+              <Badge variant="outline" className="border-amber-700/40 bg-amber-950/30 text-amber-300 backdrop-blur-sm text-[10px]">
+                {capsule.depth} · {capsule.label}
+              </Badge>
             )}
-            <div className="flex gap-2 pt-1">
-              <button className="inline-flex items-center gap-1.5 rounded-full border border-amber-700/50 bg-amber-950/30 backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-950/50 transition">
-                {capsule?.cta_label ?? runtimeState.featured_moment.primary_cta}
-              </button>
-              {runtimeState.featured_moment.secondary_cta && (
-                <button className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-white/[0.03] backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition">
-                  {runtimeState.featured_moment.secondary_cta}
-                </button>
-              )}
+            <Badge variant="outline" className="border-slate-700/60 text-slate-400 text-[10px]">
+              {runtimeState.featured_moment.type}
+            </Badge>
+            {featuredMoment?.branch && (
+              <Badge variant="outline" className="border-slate-700/60 text-slate-400 text-[10px]">{featuredMoment.branch}</Badge>
+            )}
+          </div>
+          <SmartContentCard
+            content={featuredContent}
+            variant="hero"
+            heroHeight="short"
+            device="desktop"
+            onSelect={openContent}
+            onPurchase={purchaseContent}
+            isOwned={isOwned(featuredContent.id)}
+          />
+          {/* Supporting items row */}
+          {supportingContent.length > 0 && (
+            <div className="grid grid-cols-3 gap-2">
+              {supportingContent.map((item) => (
+                <SmartContentCard
+                  key={item.id}
+                  content={item}
+                  variant="thumbnailRect"
+                  device="desktop"
+                  onSelect={openContent}
+                  onPurchase={purchaseContent}
+                  isOwned={isOwned(item.id)}
+                />
+              ))}
             </div>
-          </>
-        ) : (
-          <p className="text-xs text-slate-500">No live featured moment available yet.</p>
-        )}
-      </div>
+          )}
+        </div>
+      ) : (
+        /* Fallback text panel while content loads or if no SmartContentQube is available */
+        <Card className="rounded-xl border border-slate-700/60 bg-slate-900/80 backdrop-blur-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-slate-400 flex flex-wrap items-center gap-1.5">
+              <span>Featured Moment</span>
+              {capsule && (
+                <Badge variant="outline" className="border-amber-700/40 bg-amber-950/30 text-amber-300 text-[10px]">
+                  {capsule.depth} · {capsule.label}
+                </Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {runtimeState.featured_moment ? (
+              <>
+                <p className="text-sm font-semibold text-slate-100">{runtimeState.featured_moment.title}</p>
+                <p className="text-xs text-slate-300 leading-relaxed">{runtimeState.featured_moment.description}</p>
+                <div className="flex gap-2 pt-1">
+                  <Button variant="outline" size="sm" className="rounded-full border-amber-700/50 bg-amber-950/30 text-amber-300 hover:bg-amber-950/50">
+                    {capsule?.cta_label ?? runtimeState.featured_moment.primary_cta}
+                  </Button>
+                  {runtimeState.featured_moment.secondary_cta && (
+                    <Button variant="outline" size="sm" className="rounded-full border-slate-700 text-slate-200 hover:border-slate-500">
+                      {runtimeState.featured_moment.secondary_cta}
+                    </Button>
+                  )}
+                </div>
+              </>
+            ) : (
+              <p className="text-xs text-slate-500">No live featured moment available yet.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Signal Action Tray capsule ── */}
-      <div className="rounded-xl border border-white/8 bg-slate-950/60 backdrop-blur-sm p-4 space-y-3">
+      <Card className="rounded-xl border border-slate-700/60 bg-slate-900/80 backdrop-blur-sm">
+       <CardContent className="p-4 space-y-3">
         <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500">Signal Action Tray</p>
         <div className="flex flex-wrap gap-2">
           {/* Campaign chip — primary for unbacked investors */}
@@ -794,11 +880,13 @@ export default function KnytRuntimeSurface({
             <span>— {signalCounts.total} total</span>
           </div>
         )}
-      </div>
+       </CardContent>
+      </Card>
 
       {/* ── Reward + Progress capsule (conditional) ── */}
       {(runtimeState.latest_reward || runtimeState.balance_preview || (knytBalance !== null && knytBalance > 0)) && (
-        <div className="rounded-xl border border-emerald-900/30 bg-emerald-950/10 backdrop-blur-sm p-4 space-y-2">
+        <Card className="rounded-xl border border-emerald-900/30 bg-emerald-950/10 backdrop-blur-sm">
+         <CardContent className="p-4 space-y-2">
           <p className="text-[10px] uppercase tracking-widest font-semibold text-emerald-600">Reward + Progress</p>
           {knytBalance !== null && knytBalance > 0 && (
             <p className="text-sm font-semibold text-emerald-100">{knytBalance.toFixed(4)} $KNYT</p>
@@ -806,22 +894,24 @@ export default function KnytRuntimeSurface({
           {runtimeState.latest_reward && <p className="text-xs text-emerald-200">{runtimeState.latest_reward}</p>}
           {runtimeState.reward_reason && <p className="text-xs text-emerald-400/80">{runtimeState.reward_reason}</p>}
           {runtimeState.balance_preview && <p className="text-[10px] text-emerald-500">{runtimeState.balance_preview}</p>}
-        </div>
+         </CardContent>
+        </Card>
       )}
 
       {/* ── Next Best Step capsule ── */}
-      <div className="rounded-xl border border-white/8 bg-slate-950/60 backdrop-blur-sm p-4 space-y-3">
+      <Card className="rounded-xl border border-slate-700/60 bg-slate-900/80 backdrop-blur-sm">
+       <CardContent className="p-4 space-y-3">
         <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500">Next Best Step</p>
         <div className="flex flex-wrap items-center gap-1.5">
           {nbePlan && (
-            <span className="inline-flex items-center rounded-full border border-cyan-800/40 bg-cyan-950/20 backdrop-blur-sm px-2 py-0.5 text-[10px] font-semibold text-cyan-400">
+            <Badge variant="outline" className="border-cyan-800/40 bg-cyan-950/20 text-cyan-400 backdrop-blur-sm text-[10px]">
               NBE {nbePlan.disposition} → {nbePlan.next_experience_depth}
-            </span>
+            </Badge>
           )}
           {capsule && (
-            <span className="inline-flex items-center rounded-full border border-indigo-800/40 bg-indigo-950/20 backdrop-blur-sm px-2 py-0.5 text-[10px] font-semibold text-indigo-300">
+            <Badge variant="outline" className="border-indigo-800/40 bg-indigo-950/20 text-indigo-300 backdrop-blur-sm text-[10px]">
               next: {capsule.next_depth}
-            </span>
+            </Badge>
           )}
         </div>
         <p className="text-sm font-semibold text-slate-100">{runtimeState.next_best_step.action}</p>
@@ -862,96 +952,90 @@ export default function KnytRuntimeSurface({
             Do this now <ArrowRight className="h-3 w-3" />
           </button>
         )}
-      </div>
+       </CardContent>
+      </Card>
 
       {/* ── Kn0w1 intel capsule ── */}
       {runtimeState.handoffs.kn0w1 ? (
-        <div className="rounded-xl border border-amber-900/25 bg-amber-950/10 backdrop-blur-sm p-4 space-y-3">
-          <p className="text-[10px] uppercase tracking-widest font-semibold text-amber-500/80">Kn0w1 — KNYT Intelligence</p>
+        <Card className="rounded-xl border border-amber-900/25 bg-amber-950/10 backdrop-blur-sm">
+         <CardContent className="p-4 space-y-3">
+          <p className="text-xs uppercase tracking-wide text-amber-500/80 mb-0.5">Kn0w1 — KNYT Intelligence</p>
           <p className="text-xs text-amber-200/70 leading-relaxed">
             Kn0w1 is your lead intelligence surface for the KNYT cartridge. Ask about treasury, rewards, Q¢ vs $KNYT, your progression, and what your next real move inside the system is.
           </p>
           <div className="flex flex-wrap gap-2">
-            <button
-              className="inline-flex items-center gap-1.5 rounded-full border border-amber-700/50 bg-amber-950/30 backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-950/50 transition"
-              onClick={() => setCopilotOpen(true)}
-            >
+            <Button variant="outline" size="sm" className="rounded-full border-amber-700/50 bg-amber-950/30 text-amber-300 hover:bg-amber-950/50 gap-1.5" onClick={() => setCopilotOpen(true)}>
               <Brain className="h-3 w-3" /> Ask Kn0w1 <ArrowRight className="h-3 w-3" />
-            </button>
+            </Button>
             {runtimeState.handoffs.metame && (
-              <button
-                className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-white/[0.03] backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition"
-                onClick={() => router.push("/metame")}
-              >
+              <Button variant="outline" size="sm" className="rounded-full border-slate-700 text-slate-200 hover:border-slate-500 gap-1.5" onClick={() => router.push("/metame")}>
                 See your path in metaMe
-              </button>
+              </Button>
             )}
             {runtimeState.handoffs.aigent_c && (
-              <button className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-white/[0.03] backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition">
-                Builder path with Aigent C
-              </button>
+              <Button variant="outline" size="sm" className="rounded-full border-slate-700 text-slate-200 hover:border-slate-500">Builder path with Aigent C</Button>
             )}
             {runtimeState.handoffs.marketa && (
-              <button className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-white/[0.03] backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition">
-                Marketa context
-              </button>
+              <Button variant="outline" size="sm" className="rounded-full border-slate-700 text-slate-200 hover:border-slate-500">Marketa context</Button>
             )}
           </div>
-        </div>
+         </CardContent>
+        </Card>
       ) : (
-        <div className="rounded-xl border border-white/8 bg-slate-950/60 backdrop-blur-sm p-4 space-y-3">
+        <Card className="rounded-xl border border-slate-700/60 bg-slate-900/80 backdrop-blur-sm">
+         <CardContent className="p-4 space-y-3">
           <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500">Go Deeper</p>
           <div className="flex flex-wrap gap-2">
             {runtimeState.handoffs.metame && (
-              <button
-                className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-white/[0.03] backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition"
-                onClick={() => router.push("/metame")}
-              >
+              <Button variant="outline" size="sm" className="rounded-full border-slate-700 text-slate-200 hover:border-slate-500 gap-1.5" onClick={() => router.push("/metame")}>
                 See your path in metaMe
-              </button>
+              </Button>
             )}
             {runtimeState.handoffs.aigent_c && (
-              <button className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-white/[0.03] backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition">
-                Explore builder path with Aigent C
-              </button>
+              <Button variant="outline" size="sm" className="rounded-full border-slate-700 text-slate-200 hover:border-slate-500">Explore builder path with Aigent C</Button>
             )}
             {runtimeState.handoffs.marketa && (
-              <button className="inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-white/[0.03] backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-slate-500 transition">
-                Launch context from Marketa
-              </button>
+              <Button variant="outline" size="sm" className="rounded-full border-slate-700 text-slate-200 hover:border-slate-500">Launch context from Marketa</Button>
             )}
           </div>
-        </div>
+         </CardContent>
+        </Card>
       )}
 
       {/* ── Contribution path (conditional) ── */}
       {runtimeState.contributor_pathway_flag && (
-        <div className="rounded-xl border border-fuchsia-900/25 bg-fuchsia-950/10 backdrop-blur-sm p-4 space-y-1">
-          <p className="text-[10px] uppercase tracking-widest font-semibold text-fuchsia-500/80">Contribution Path</p>
-          <p className="text-xs text-fuchsia-200/80">You are eligible for deeper contributor pathways. Continue high-quality contribution signals to advance.</p>
-        </div>
+        <Card className="rounded-xl border border-fuchsia-900/25 bg-fuchsia-950/10 backdrop-blur-sm">
+          <CardContent className="p-4 space-y-1">
+            <p className="text-xs uppercase tracking-wide text-fuchsia-500/80 mb-0.5">Contribution Path</p>
+            <p className="text-xs text-fuchsia-200/80">You are eligible for deeper contributor pathways. Continue high-quality contribution signals to advance.</p>
+          </CardContent>
+        </Card>
       )}
 
       {/* ── Stewardship path (conditional) ── */}
       {runtimeState.stewardship_candidate_flag && (
-        <div className="rounded-xl border border-amber-900/25 bg-amber-950/10 backdrop-blur-sm p-4 space-y-1">
-          <p className="text-[10px] uppercase tracking-widest font-semibold text-amber-500/80">Stewardship Path</p>
-          <p className="text-xs text-amber-200/80">Stewardship is active. Focus on world-supportive leadership actions and long-horizon alignment.</p>
-        </div>
+        <Card className="rounded-xl border border-amber-900/25 bg-amber-950/10 backdrop-blur-sm">
+          <CardContent className="p-4 space-y-1">
+            <p className="text-xs uppercase tracking-wide text-amber-500/80 mb-0.5">Stewardship Path</p>
+            <p className="text-xs text-amber-200/80">Stewardship is active. Focus on world-supportive leadership actions and long-horizon alignment.</p>
+          </CardContent>
+        </Card>
       )}
 
       {/* ── Recent activity (conditional) ── */}
       {runtimeState.current_signals.length > 0 && (
-        <div className="rounded-xl border border-white/8 bg-slate-950/60 backdrop-blur-sm p-4 space-y-2">
-          <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500 flex items-center gap-1.5">
-            <Compass className="h-3 w-3 text-cyan-500" /> Recent Activity
-          </p>
-          {runtimeState.current_signals.map((signal, index) => (
-            <p key={`${signal}-${index}`} className="text-xs text-slate-400">
-              • You triggered {getActionLabel(signal)} in the live world.
+        <Card className="rounded-xl border border-slate-700/60 bg-slate-900/80 backdrop-blur-sm">
+          <CardContent className="p-4 space-y-2">
+            <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500 flex items-center gap-1.5">
+              <Compass className="h-3 w-3 text-cyan-500" /> Recent Activity
             </p>
-          ))}
-        </div>
+            {runtimeState.current_signals.map((signal, index) => (
+              <p key={`${signal}-${index}`} className="text-xs text-slate-400">
+                • You triggered {getActionLabel(signal)} in the live world.
+              </p>
+            ))}
+          </CardContent>
+        </Card>
       )}
 
       <CodexCopilotLayer
