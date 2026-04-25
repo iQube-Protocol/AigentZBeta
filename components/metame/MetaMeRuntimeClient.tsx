@@ -4371,6 +4371,9 @@ export default function MetaMeRuntimeClient() {
           wallet:      () => setWalletDrawerOpen(true),
           settings:    () => setSettingsDrawerOpen(true),
           connections: () => setConnectionsDrawerOpen(true),
+          memory:      () => setMemoryDrawerOpen(true),
+          identity:    () => setIdentityIQubeOpen(true),
+          persona:     () => setPersonaPickerOpen(true),
           // Make sub-actions — open cartridge overlays
           "make-create-design": () => setActiveCartridgeOverlay({ slug: 'metame',   title: 'metaMe Studio', initialTab: 'metame-studio'   }),
           "make-build":         () => setActiveCartridgeOverlay({ slug: 'aigentiq', title: 'AgentiQ OS',    initialTab: 'agentiq-os'       }),

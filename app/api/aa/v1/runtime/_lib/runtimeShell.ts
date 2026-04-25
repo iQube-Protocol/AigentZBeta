@@ -101,6 +101,14 @@ const LLM_OPTIONS_BY_AGENT: Record<string, SelectorOption[]> = {
   ],
 };
 
+const BE_CHILDREN: RuntimeMenuItem[] = [
+  { id: "persona",     label: "Persona",     icon: "users",              tooltip: "Your personas and iQube identity",              color: "#cbd5e1", enabled: true },
+  { id: "memory",      label: "Memory",      icon: "sparkles",           tooltip: "Memory iQube and conversation history",         color: "#fcd34d", enabled: true },
+  { id: "identity",    label: "Identity",    icon: "fingerprint",        tooltip: "Identity iQube and data sovereignty",           color: "#a5b4fc", enabled: true },
+  { id: "connections", label: "Connections", icon: "network",            tooltip: "MetaMask and LinkedIn connections",              color: "#6ee7b7", enabled: true },
+  { id: "settings",    label: "Settings",    icon: "sliders-horizontal", tooltip: "metaMe settings",                               color: "#94a3b8", enabled: true },
+];
+
 const MENU_ITEMS: RuntimeMenuItem[] = [
   {
     id: "be",
@@ -110,6 +118,7 @@ const MENU_ITEMS: RuntimeMenuItem[] = [
     color: "#cbd5e1",
     enabled: true,
     edge: true,
+    children: BE_CHILDREN,
     trigger: {
       prompt: "I want to be...",
       intent: "be",
@@ -584,19 +593,63 @@ export function postMenuActionPayload(request: NextRequest, body: Record<string,
 
   const normalizedActionId = ACTION_ALIASES[rawActionId] || rawActionId;
   const menuItem = MENU_ITEMS.find((item) => item.id === normalizedActionId);
+  const childItem = !menuItem ? MENU_ITEMS.flatMap((item) => item.children ?? []).find((child) => child.id === normalizedActionId) : null;
   const quickLink = QUICK_LINKS.find((item) => item.id === normalizedActionId);
   const floatingQuickLink = FLOATING_QUICK_LINKS.find((item) => item.id === normalizedActionId);
 
-  if (!menuItem && !quickLink && !floatingQuickLink) {
+  if (!menuItem && !childItem && !quickLink && !floatingQuickLink) {
     return {
       status: 400,
       body: {
         error: `Unknown action_id: ${rawActionId}`,
         allowed_action_ids: [
           ...MENU_ITEMS.map((item) => item.id),
+          ...MENU_ITEMS.flatMap((item) => (item.children ?? []).map((c) => c.id)),
           ...QUICK_LINKS.map((item) => item.id),
           ...FLOATING_QUICK_LINKS.map((item) => item.id),
         ],
+      },
+    };
+  }
+
+  if (childItem) {
+    const next: RuntimeState = {
+      ...current,
+      welcome_complete: true,
+      last_intent: "be",
+      last_action_id: normalizedActionId,
+      menu_mode: "collapsed",
+      updated_at: nowIso(),
+    };
+    sessionStore.set(sessionKey(ctx), next);
+    const shellConfig = buildShellConfig(ctx, next);
+    return {
+      status: 200,
+      body: {
+        shell_config: shellConfig,
+        menu: shellConfig.menu,
+        session: shellConfig.session,
+        menu_event: {
+          action_id: normalizedActionId,
+          prompt: null,
+          intent: "be",
+          surface_plan_instruction: "open be sub-item drawer",
+          copilot_instruction: `open drawer for be sub-item: ${normalizedActionId}`,
+        },
+        iframe_event: {
+          type: "MENU_ACTION",
+          action_id: normalizedActionId,
+          intent: "be",
+          prompt: null,
+          payload: {
+            action_id: normalizedActionId,
+            intent: "be",
+            prompt: null,
+            menu_mode: "collapsed",
+            tenant_id: ctx.tenantId,
+            persona_id: ctx.personaId,
+          },
+        },
       },
     };
   }
