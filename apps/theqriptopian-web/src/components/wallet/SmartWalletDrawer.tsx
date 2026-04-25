@@ -126,7 +126,7 @@ const isMotionContent = (ent: any): boolean => {
   return assetId.toLowerCase().includes('motion') || coverType.toUpperCase() === 'MOTION';
 };
 
-type DrawerTab = "wallet" | "library" | "tasks" | "reputation" | "rewards";
+type DrawerTab = "wallet" | "library" | "tasks" | "reputation" | "rewards" | "connections";
 
 interface SmartWalletDrawerProps {
   open: boolean;
@@ -148,6 +148,7 @@ interface SmartWalletDrawerProps {
   onPurchaseComplete?: (contentId: string) => void;
   recipientAddress?: string;
   initialTab?: DrawerTab;
+  onTabChange?: (tab: DrawerTab) => void;
   onPersonaChange?: (personaId: string) => void;
   onCreatePersona?: () => void;
   onSubmitReputationClaim?: () => void;
@@ -169,6 +170,7 @@ const TAB_CONFIG: Array<{ key: DrawerTab; label: string; icon: React.ReactNode }
   { key: "tasks", label: "Tasks", icon: <CheckSquare className="w-4 h-4" /> },
   { key: "reputation", label: "Reputation", icon: <Trophy className="w-4 h-4" /> },
   { key: "rewards", label: "Rewards", icon: <Gift className="w-4 h-4" /> },
+  { key: "connections", label: "Connections", icon: <Link className="w-4 h-4" /> },
 ];
 
 export default function SmartWalletDrawer({
@@ -183,6 +185,7 @@ export default function SmartWalletDrawer({
   onPurchaseComplete,
   recipientAddress,
   initialTab = "wallet",
+  onTabChange,
   onPersonaChange,
   onCreatePersona,
   onSubmitReputationClaim,
@@ -824,7 +827,7 @@ export default function SmartWalletDrawer({
           {TAB_CONFIG.map((tab) => (
             <Tooltip key={tab.key} text={tab.label}>
               <button
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => { setActiveTab(tab.key); onTabChange?.(tab.key); }}
                 className={`flex items-center gap-1.5 p-2 rounded-lg transition-colors ${
                   activeTab === tab.key 
                     ? 'text-cyan-400 bg-cyan-500/10' 
@@ -2039,9 +2042,41 @@ export default function SmartWalletDrawer({
               </section>
             </div>
           )}
+
+          {/* ── Connections tab ── */}
+          {activeTab === "connections" && (
+            <div className="space-y-4">
+              <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+                <div className="text-[11px] uppercase tracking-wider text-white/60 mb-3 flex items-center gap-2">
+                  <Link className="w-3.5 h-3.5 text-cyan-400" />
+                  Identity Connections
+                </div>
+                <div className="space-y-2">
+                  {[
+                    { label: "FIO Handle", value: walletNode?.personaContext?.activePersona?.fioHandle || "—", color: "text-cyan-300" },
+                    { label: "EVM Address", value: walletNode?.personaContext?.activePersona?.evmAddress ? `${String(walletNode.personaContext.activePersona.evmAddress).slice(0, 6)}…${String(walletNode.personaContext.activePersona.evmAddress).slice(-4)}` : "—", color: "text-indigo-300" },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
+                      <span className="text-xs text-white/50">{label}</span>
+                      <span className={`text-xs font-mono ${color}`}>{value}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+              <section className="rounded-2xl bg-white/5 ring-1 ring-white/10 p-4">
+                <div className="text-[11px] uppercase tracking-wider text-white/60 mb-3 flex items-center gap-2">
+                  <Users className="w-3.5 h-3.5 text-emerald-400" />
+                  Network
+                </div>
+                <p className="text-xs text-white/40 text-center py-4">
+                  Social graph and partner connections coming soon.
+                </p>
+              </section>
+            </div>
+          )}
         </div>
       </div>
-      
+
       {/* Add Persona Modal */}
       <AddPersonaModal
         isOpen={addPersonaModalOpen}

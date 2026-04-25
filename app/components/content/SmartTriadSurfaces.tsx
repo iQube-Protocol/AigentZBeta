@@ -5,6 +5,7 @@ import ContentViewer from "./ContentViewer";
 import SmartWalletDrawer from "./SmartWalletDrawer";
 import { CopilotWalletDrawer } from "@/app/triad/components/codex/wallet/CopilotWalletDrawer";
 import { useSmartTriad } from "./SmartTriadProvider";
+import { useAGUIActionBridge } from "./useAGUIActionBridge";
 import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal";
 import { agentConfigs } from "@/app/data/agentConfig";
 import { MoneyPennyChat } from "@/app/(shell)/moneypenny/components/MoneyPennyChat";
@@ -24,6 +25,13 @@ interface SmartTriadSurfacesProps {
 
 export function SmartTriadSurfaces({ personaId }: SmartTriadSurfacesProps) {
   const { state, actions } = useSmartTriad();
+
+  // Bridge: thin-client AG-UI actions → platform SmartTriad state
+  useAGUIActionBridge(personaId, {
+    openWallet: actions.openWallet,
+    closeWallet: actions.closeWallet,
+    setActiveDrawer: actions.setActiveDrawer,
+  });
 
   const payer = agentConfigs["aigent-z"];
   const recipient = agentConfigs["aigent-kn0w1"];
