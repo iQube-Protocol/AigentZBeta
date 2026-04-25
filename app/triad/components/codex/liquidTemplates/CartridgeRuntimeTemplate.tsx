@@ -10,10 +10,14 @@ import {
 import { SmartContentCard, useOptionalSmartTriad } from "@/app/components/content";
 import type { SmartContentQube } from "@/types/smartContent";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ArrowRight,
+  Brain,
   CheckCircle2,
   ChevronRight,
+  Compass,
   Heart,
   Layers,
   MessageCircle,
@@ -87,16 +91,16 @@ type ActionId =
   | "vote" | "like" | "spark" | "curate"
   | "remix" | "respond" | "contribute" | "patronize" | "endorse";
 
-const ACTION_META: Record<ActionId, { label: string; Icon: React.ComponentType<{ className?: string }> }> = {
-  vote:       { label: "Vote",       Icon: CheckCircle2 },
-  like:       { label: "Like",       Icon: Heart },
-  spark:      { label: "Spark",      Icon: Zap },
-  curate:     { label: "Curate",     Icon: Layers },
-  remix:      { label: "Remix",      Icon: Shuffle },
-  contribute: { label: "Contribute", Icon: Upload },
-  respond:    { label: "Respond",    Icon: MessageCircle },
-  patronize:  { label: "Patronize",  Icon: Star },
-  endorse:    { label: "Endorse",    Icon: ThumbsUp },
+const ACTION_META: Record<ActionId, { label: string; helper: string; Icon: React.ComponentType<{ className?: string }> }> = {
+  vote:       { label: "Vote",       helper: "Shape what rises in the world.",                   Icon: CheckCircle2 },
+  like:       { label: "Like",       helper: "Signal immediate resonance.",                      Icon: Heart },
+  spark:      { label: "Spark",      helper: "Boost momentum for this moment.",                  Icon: Zap },
+  curate:     { label: "Curate",     helper: "Begin shaping the Order with your taste.",         Icon: Layers },
+  remix:      { label: "Remix",      helper: "Move from audience to maker.",                     Icon: Shuffle },
+  contribute: { label: "Contribute", helper: "Submit a world-facing contribution.",              Icon: Upload },
+  respond:    { label: "Respond",    helper: "Add your correspondent signal.",                   Icon: MessageCircle },
+  patronize:  { label: "Patronize",  helper: "Deepen your place in the Order.",                 Icon: Star },
+  endorse:    { label: "Endorse",    helper: "Signal strategic alignment.",                      Icon: ThumbsUp },
 };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -137,6 +141,76 @@ export interface CartridgeRuntimeTemplateProps {
   agentLeadCopilotContextId?: string;
   investorCampaignEnabled?: boolean;
   signalEndpoints?: Record<string, string>;
+}
+
+// ─── AxisSteps ────────────────────────────────────────────────────────────────
+function AxisSteps({
+  label, axis, active, accentActive, accentText,
+}: {
+  label: string; axis: string[]; active: string;
+  accentActive: string; accentText: string;
+}) {
+  const idx = axis.indexOf(active);
+  return (
+    <Card className="rounded-xl border border-slate-700/60 bg-slate-900/80 backdrop-blur-sm">
+      <CardContent className="p-4 space-y-3">
+        <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500">{label}</p>
+        <p className={`text-sm font-semibold ${accentText}`}>{active}</p>
+        <div className="flex flex-wrap gap-1">
+          {axis.map((stage, i) => (
+            <span
+              key={stage}
+              className={
+                i === idx
+                  ? `inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${accentActive}`
+                  : i < idx
+                  ? "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] text-slate-500 bg-slate-800/60"
+                  : "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] text-slate-600"
+              }
+            >
+              {stage}
+            </span>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── ActionChip ───────────────────────────────────────────────────────────────
+function ActionChip({
+  actionId, isPrimary, disabled, loading, onClick,
+}: {
+  actionId: ActionId; isPrimary: boolean; disabled: boolean; loading: boolean; onClick: () => void;
+}) {
+  const meta = ACTION_META[actionId];
+  if (!meta) return null;
+  const Icon = meta.Icon;
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled || loading}
+      title={meta.helper}
+      className={
+        "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed " +
+        (isPrimary
+          ? "border border-amber-700/50 bg-amber-950/30 backdrop-blur-sm text-amber-300 hover:bg-amber-950/50"
+          : "border border-slate-700 text-slate-200 hover:border-slate-500 hover:text-white bg-white/[0.03] backdrop-blur-sm")
+      }
+    >
+      {Icon && <Icon className="h-3 w-3" />}
+      {meta.label}
+    </button>
+  );
+}
+
+// ─── Investor privilege helper ─────────────────────────────────────────────────
+function getInvestorPrivilege(cohort: string | null | undefined, band: string | null | undefined) {
+  if (cohort === "zero_knyt") return { tier: "Zero KNYT", discount: "25%", offer: "Zero KNYT collectible tier" };
+  if (cohort === "top_shelf") return { tier: "Top KNYT Shelf", discount: "20%", offer: "Top KNYT Shelf (21 available)" };
+  if (band === "5000+") return { tier: "First KNYT", discount: "20%", offer: "KNYT Codex collector path" };
+  if (band === "2000-4999") return { tier: "Keji KNYT", discount: "15%", offer: "KNYT Codex collector path" };
+  return { tier: "Keta KNYT", discount: "10%", offer: "KNYT Codex collector path" };
 }
 
 // ─── Stage strip ──────────────────────────────────────────────────────────────
@@ -244,7 +318,9 @@ export function CartridgeRuntimeTemplate({
   const [investorStatus, setInvestorStatus] = useState<{
     isInvestor: boolean; ksBacked?: boolean;
     ksTrackingUrl?: string; campaignCohort?: string | null;
+    investmentBand?: string | null;
   } | null>(null);
+  const [balancePreview, setBalancePreview] = useState<string | undefined>();
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [copilotMessages, setCopilotMessages] = useState<CopilotMessage[]>([]);
   const [submittingAction, setSubmittingAction] = useState<string | null>(null);
@@ -263,6 +339,24 @@ export function CartridgeRuntimeTemplate({
 
   const nextBestStep = apiState?.next_best_step ?? null;
   const worldHeader = apiState?.world_header ?? null;
+  const signalCounts = apiState?.signal_counts ?? null;
+  const knytBalance = apiState?.knyt_balance ?? null;
+  const nbePlan = apiState?.nbe ?? null;
+
+  const contributorPathwayFlag = stageIdx >= Math.floor(patronageAxis.length * 0.57);
+  const stewardshipCandidateFlag = stageIdx >= patronageAxis.length - 2;
+
+  const handoffs = apiState?.handoffs ?? {
+    kn0w1: !!agentLeadLabel,
+    metame: !!personaId && stageIdx > 0,
+    aigent_c: contributorPathwayFlag,
+    marketa: stageIdx === 0,
+  };
+
+  const investorPrivilege = getInvestorPrivilege(
+    investorStatus?.campaignCohort,
+    investorStatus?.investmentBand,
+  );
 
   // ── SmartTriad ────────────────────────────────────────────────────────────
   const smartTriad = useOptionalSmartTriad();
@@ -466,6 +560,7 @@ export function CartridgeRuntimeTemplate({
         endorse: "Endorsement recorded",
       };
       setLatestReward(REWARD[actionId] ?? "Signal recorded");
+      setBalancePreview(actionId === "curate" ? "Potential +$KNYT pending settlement" : "Reward status updating");
       toast({ title: `${actionId.toUpperCase()} recorded`, description: `Signal sent.` });
     } catch (err) {
       toast({
@@ -541,6 +636,8 @@ export function CartridgeRuntimeTemplate({
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
+    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
     <div className="flex flex-col gap-4 p-4 md:p-5">
 
       {/* Status strip */}
@@ -677,40 +774,255 @@ export function CartridgeRuntimeTemplate({
         />
       )}
 
-      {/* Reward chip — transient */}
-      {latestReward && (
-        <div className="flex items-center gap-2 rounded-xl border border-emerald-900/30 bg-emerald-950/10 px-4 py-2.5 backdrop-blur-sm">
-          <Sparkles className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-          <p className="text-xs text-emerald-200 flex-1">{latestReward}</p>
-          <button
-            onClick={() => setLatestReward(undefined)}
-            className="text-[10px] text-slate-500 hover:text-slate-300"
-          >
-            ×
-          </button>
-        </div>
+
+      {/* ── Axis progress ── */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <AxisSteps
+          label="PATRONAGE AXIS"
+          axis={patronageAxis}
+          active={currentStage}
+          accentActive="bg-amber-500/15 border-amber-500/40 text-amber-300"
+          accentText="text-amber-300"
+        />
+        <AxisSteps
+          label="PCS AXIS"
+          axis={pcsAxis}
+          active={currentDepth}
+          accentActive="bg-indigo-500/15 border-indigo-500/40 text-indigo-300"
+          accentText="text-indigo-300"
+        />
+      </div>
+
+      {/* ── Full signal action tray ── */}
+      <Card className="rounded-xl border border-slate-700/60 bg-slate-900/80 backdrop-blur-sm">
+        <CardContent className="p-4 space-y-3">
+          <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500">Signal Action Tray</p>
+          <div className="flex flex-wrap gap-2">
+            {unbackedInvestor && (
+              <a
+                href={investorStatus!.ksTrackingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-full border border-amber-700/50 bg-amber-950/30 backdrop-blur-sm px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-950/50 transition"
+              >
+                <Star className="h-3 w-3" />
+                {investorPrivilege.tier} — {investorPrivilege.discount} off
+                <ArrowRight className="h-3 w-3" />
+              </a>
+            )}
+            {availableActions.map((actionId, i) => (
+              <ActionChip
+                key={actionId}
+                actionId={actionId}
+                isPrimary={i === 0}
+                disabled={!!(actionId === "vote" && !openElection?.id)}
+                loading={submittingAction === actionId}
+                onClick={() => submitSignalAction(actionId)}
+              />
+            ))}
+          </div>
+          <p className="text-[11px] text-slate-500">
+            {ACTION_META[availableActions[0]]?.helper}
+          </p>
+          {signalCounts && signalCounts.total > 0 && (
+            <div className="flex flex-wrap gap-3 text-[10px] text-slate-600">
+              {signalCounts.like > 0 && <span>{signalCounts.like} like{signalCounts.like !== 1 ? "s" : ""}</span>}
+              {signalCounts.spark > 0 && <span>{signalCounts.spark} spark{signalCounts.spark !== 1 ? "s" : ""}</span>}
+              {signalCounts.curate > 0 && <span>{signalCounts.curate} curation{signalCounts.curate !== 1 ? "s" : ""}</span>}
+              <span>— {signalCounts.total} total</span>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Reward + Progress ── */}
+      {(latestReward || balancePreview || (knytBalance !== null && knytBalance > 0)) && (
+        <Card className="rounded-xl border border-emerald-900/30 bg-emerald-950/10 backdrop-blur-sm">
+          <CardContent className="p-4 space-y-2">
+            <p className="text-[10px] uppercase tracking-widest font-semibold text-emerald-600">Reward + Progress</p>
+            {knytBalance !== null && knytBalance > 0 && (
+              <p className="text-sm font-semibold text-emerald-100">{knytBalance.toFixed(4)} $KNYT</p>
+            )}
+            {latestReward && <p className="text-xs text-emerald-200">{latestReward}</p>}
+            {balancePreview && <p className="text-[10px] text-emerald-500">{balancePreview}</p>}
+          </CardContent>
+        </Card>
       )}
 
-      {/* Signal history — compact, below fold */}
-      {signalHistory.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 px-0.5">
-          {signalHistory.map((sig) => {
-            const meta = ACTION_META[sig as ActionId];
-            if (!meta) return null;
-            return (
-              <Badge
-                key={sig}
-                variant="outline"
-                className="border-slate-700/60 text-slate-500 text-[10px] gap-1"
-              >
-                {sig}
+      {/* ── Next Best Step ── */}
+      <Card className="rounded-xl border border-slate-700/60 bg-slate-900/80 backdrop-blur-sm">
+        <CardContent className="p-4 space-y-3">
+          <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500">Next Best Step</p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {nbePlan && (
+              <Badge variant="outline" className="border-cyan-800/40 bg-cyan-950/20 text-cyan-400 backdrop-blur-sm text-[10px]">
+                NBE {nbePlan.disposition} → {nbePlan.next_experience_depth}
               </Badge>
-            );
-          })}
-          <span className="text-[10px] text-slate-600 self-center ml-1">
-            recent signals
-          </span>
-        </div>
+            )}
+            {capsule && (
+              <Badge variant="outline" className="border-indigo-800/40 bg-indigo-950/20 text-indigo-300 backdrop-blur-sm text-[10px]">
+                next: {capsule.next_depth}
+              </Badge>
+            )}
+          </div>
+          {nextBestStep ? (
+            <>
+              <p className="text-sm font-semibold text-slate-100">{nextBestStep.action}</p>
+              <p className="text-xs text-slate-300 leading-relaxed">{nextBestStep.rationale}</p>
+              {nbePlan?.rationale && nbePlan.rationale !== nextBestStep.rationale && (
+                <p className="text-[11px] text-cyan-300/70">{nbePlan.rationale}</p>
+              )}
+              {nextBestStep.unlock && (
+                <p className="text-[11px] text-amber-400/80">Unlocks: {nextBestStep.unlock}</p>
+              )}
+            </>
+          ) : (
+            <p className="text-xs text-slate-400">Keep engaging — your next step is being calculated.</p>
+          )}
+          {unbackedInvestor ? (
+            <div className="rounded-lg border border-amber-700/25 bg-amber-950/10 p-3 space-y-2">
+              <p className="text-[10px] uppercase tracking-widest font-semibold text-amber-500/80">Investor privilege active</p>
+              <p className="text-xs text-amber-200/80 leading-relaxed">
+                As a <span className="font-semibold text-amber-300">{investorPrivilege.tier}</span> you unlock{" "}
+                <span className="font-semibold text-amber-300">{investorPrivilege.discount} off</span> the {investorPrivilege.offer}.
+              </p>
+              <a
+                href={investorStatus!.ksTrackingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-full border border-amber-700/50 bg-amber-950/30 px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-950/50 transition"
+              >
+                Claim on Kickstarter <ArrowRight className="h-3 w-3" />
+              </a>
+            </div>
+          ) : investorStatus?.isInvestor && investorStatus.ksBacked ? (
+            <div className="rounded-lg border border-emerald-800/25 bg-emerald-950/10 p-3 space-y-1">
+              <p className="text-[10px] uppercase tracking-widest font-semibold text-emerald-600">Patron confirmed</p>
+              <p className="text-xs text-emerald-200/80">Your backing is live. Signal, collect, and move up the Order.</p>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-full border-amber-700/50 bg-amber-950/30 text-amber-300 hover:bg-amber-950/50 gap-1.5"
+              onClick={() => setCopilotOpen(true)}
+            >
+              Do this now <ArrowRight className="h-3 w-3" />
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Agent handoffs ── */}
+      {handoffs.kn0w1 ? (
+        <Card className="rounded-xl border border-amber-900/25 bg-amber-950/10 backdrop-blur-sm">
+          <CardContent className="p-4 space-y-3">
+            <p className="text-xs uppercase tracking-wide text-amber-500/80">
+              {agentLeadLabel ?? "Intelligence"} — {worldLabel ?? cartridgeSlug}
+            </p>
+            <p className="text-xs text-amber-200/70 leading-relaxed">
+              Your lead intelligence surface for this cartridge. Ask about treasury, rewards, progression, and your next real move.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm"
+                className="rounded-full border-amber-700/50 bg-amber-950/30 text-amber-300 hover:bg-amber-950/50 gap-1.5"
+                onClick={() => setCopilotOpen(true)}
+              >
+                <Brain className="h-3 w-3" />
+                Ask {agentLeadLabel ?? "agent"}
+                <ArrowRight className="h-3 w-3" />
+              </Button>
+              {handoffs.metame && (
+                <Button variant="outline" size="sm"
+                  className="rounded-full border-slate-700 text-slate-200 hover:border-slate-500 gap-1.5"
+                  onClick={() => router.push("/metame")}
+                >
+                  See your path in metaMe
+                </Button>
+              )}
+              {handoffs.aigent_c && (
+                <Button variant="outline" size="sm"
+                  className="rounded-full border-slate-700 text-slate-200 hover:border-slate-500"
+                >
+                  Builder path with Aigent C
+                </Button>
+              )}
+              {handoffs.marketa && (
+                <Button variant="outline" size="sm"
+                  className="rounded-full border-slate-700 text-slate-200 hover:border-slate-500"
+                >
+                  Marketa context
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ) : (handoffs.metame || handoffs.aigent_c || handoffs.marketa) ? (
+        <Card className="rounded-xl border border-slate-700/60 bg-slate-900/80 backdrop-blur-sm">
+          <CardContent className="p-4 space-y-3">
+            <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500">Go Deeper</p>
+            <div className="flex flex-wrap gap-2">
+              {handoffs.metame && (
+                <Button variant="outline" size="sm"
+                  className="rounded-full border-slate-700 text-slate-200 hover:border-slate-500 gap-1.5"
+                  onClick={() => router.push("/metame")}
+                >
+                  See your path in metaMe
+                </Button>
+              )}
+              {handoffs.aigent_c && (
+                <Button variant="outline" size="sm"
+                  className="rounded-full border-slate-700 text-slate-200 hover:border-slate-500"
+                >
+                  Explore builder path with Aigent C
+                </Button>
+              )}
+              {handoffs.marketa && (
+                <Button variant="outline" size="sm"
+                  className="rounded-full border-slate-700 text-slate-200 hover:border-slate-500"
+                >
+                  Launch context from Marketa
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {/* ── Contribution path ── */}
+      {contributorPathwayFlag && (
+        <Card className="rounded-xl border border-fuchsia-900/25 bg-fuchsia-950/10 backdrop-blur-sm">
+          <CardContent className="p-4 space-y-1">
+            <p className="text-xs uppercase tracking-wide text-fuchsia-500/80">Contribution Path</p>
+            <p className="text-xs text-fuchsia-200/80">You are eligible for deeper contributor pathways. Continue high-quality contribution signals to advance.</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Stewardship path ── */}
+      {stewardshipCandidateFlag && (
+        <Card className="rounded-xl border border-amber-900/25 bg-amber-950/10 backdrop-blur-sm">
+          <CardContent className="p-4 space-y-1">
+            <p className="text-xs uppercase tracking-wide text-amber-500/80">Stewardship Path</p>
+            <p className="text-xs text-amber-200/80">Stewardship is active. Focus on world-supportive leadership actions and long-horizon alignment.</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Recent activity ── */}
+      {signalHistory.length > 0 && (
+        <Card className="rounded-xl border border-slate-700/60 bg-slate-900/80 backdrop-blur-sm">
+          <CardContent className="p-4 space-y-2">
+            <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500 flex items-center gap-1.5">
+              <Compass className="h-3 w-3 text-cyan-500" /> Recent Activity
+            </p>
+            {signalHistory.map((sig, i) => (
+              <p key={`${sig}-${i}`} className="text-xs text-slate-400">
+                • You triggered {ACTION_META[sig as ActionId]?.label ?? sig} in the live world.
+              </p>
+            ))}
+          </CardContent>
+        </Card>
       )}
 
       {/* Floating copilot */}
@@ -726,6 +1038,8 @@ export function CartridgeRuntimeTemplate({
         onMessagesChange={setCopilotMessages}
         onUserPrompt={handleUserPrompt}
       />
+    </div>
+    </div>
     </div>
   );
 }
