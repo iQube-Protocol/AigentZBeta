@@ -326,6 +326,8 @@ export function CartridgeRuntimeTemplate({
   const [submittingAction, setSubmittingAction] = useState<string | null>(null);
   const [signalHistory, setSignalHistory] = useState<string[]>([]);
   const [latestReward, setLatestReward] = useState<string | undefined>();
+  const [copilotSuggestions, setCopilotSuggestions] = useState<Array<{ actionId: ActionId; reason: string }>>([]);
+  const [streamConnected, setStreamConnected] = useState(false);
 
   // ── Resolved stage ────────────────────────────────────────────────────────
   const currentStage = apiState?.journey?.stage ?? defaultStage ?? patronageAxis[0];
@@ -377,18 +379,37 @@ export function CartridgeRuntimeTemplate({
   );
 
   // ── Load runtime state ────────────────────────────────────────────────────
-  useEffect(() => {
+  const refetchState = useCallback(() => {
     if (!dataSource) return;
-    let cancelled = false;
     const url = personaId
       ? `${dataSource}?personaId=${encodeURIComponent(personaId)}`
       : dataSource;
     fetch(url, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => { if (!cancelled && data) setApiState(data); })
+      .then((data) => { if (data) setApiState(data); })
       .catch(() => {});
-    return () => { cancelled = true; };
   }, [dataSource, personaId]);
+
+  useEffect(() => { refetchState(); }, [refetchState]);
+
+  // ── SSE stream — reactive refresh on heartbeat ────────────────────────────
+  useEffect(() => {
+    if (!personaId) return;
+    const url = `/api/runtime/knyt-stream?personaId=${encodeURIComponent(personaId)}`;
+    let es: EventSource;
+    try {
+      es = new EventSource(url);
+      es.addEventListener("connected", () => setStreamConnected(true));
+      es.addEventListener("refresh", () => refetchState());
+      es.onerror = () => setStreamConnected(false);
+    } catch {
+      return;
+    }
+    return () => {
+      es.close();
+      setStreamConnected(false);
+    };
+  }, [personaId, refetchState]);
 
   // ── Load capsule prescription ─────────────────────────────────────────────
   useEffect(() => {
@@ -597,6 +618,9 @@ export function CartridgeRuntimeTemplate({
       const data = await res.json();
       const text: string = data.response ?? "No response available.";
       const suggestedAction = detectActionIntent(text, availableActions);
+      if (suggestedAction) {
+        setCopilotSuggestions([{ actionId: suggestedAction, reason: text.slice(0, 120) }]);
+      }
       if (suggestedAction && signalEndpoints[suggestedAction]) {
         const meta = ACTION_META[suggestedAction];
         const Icon = meta.Icon;
@@ -657,7 +681,7 @@ export function CartridgeRuntimeTemplate({
               {networkOnline
                 ? <Wifi className="h-2.5 w-2.5 text-emerald-400" />
                 : <WifiOff className="h-2.5 w-2.5 text-rose-400" />}
-              {networkOnline ? "Live" : "Offline"}
+              {streamConnected ? "Streaming" : networkOnline ? "Live" : "Offline"}
             </Badge>
             {investorStatus?.isInvestor && investorStatus.ksBacked && (
               <Badge variant="outline" className="border-emerald-700/30 bg-emerald-900/30 text-emerald-400 text-[10px]">
@@ -678,89 +702,34 @@ export function CartridgeRuntimeTemplate({
         )}
       </div>
 
-      {/* Hero zone — SmartContentCard with overlaid NBA chips */}
-      {featuredContent ? (
-        <div className="relative">
-          <SmartContentCard
-            content={featuredContent}
-            variant="hero"
-            heroHeight="short"
-            device="desktop"
-            onSelect={openContent}
-            onPurchase={purchaseContent}
-            isOwned={isOwned(featuredContent.id)}
-          />
-          {/* Overlaid chips */}
-          <div className="absolute bottom-3 left-3 right-3 flex flex-wrap items-end gap-1.5 pointer-events-none">
-            {availableActions.slice(0, 4).map((actionId) => {
+      {/* Copilot suggestion strip — shown when agent surfaces an action intent */}
+      {copilotSuggestions.length > 0 && (
+        <div className={`rounded-xl border ${a.border} ${a.bg} px-4 py-2.5 backdrop-blur-sm`}>
+          <p className={`text-[10px] uppercase tracking-widest font-semibold ${a.label} mb-2`}>
+            <Brain className="inline h-3 w-3 mr-1" />
+            Agent Suggestion
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {copilotSuggestions.map(({ actionId, reason }) => {
               const meta = ACTION_META[actionId];
               if (!meta) return null;
               const Icon = meta.Icon;
-              const disabled =
-                submittingAction === actionId ||
-                (actionId === "vote" && !openElection?.id);
               return (
-                <button
-                  key={actionId}
-                  disabled={disabled}
-                  onClick={() => submitSignalAction(actionId)}
-                  className={`pointer-events-auto inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm transition-colors disabled:opacity-40 ${a.chip}`}
-                >
-                  <Icon className="h-3 w-3" />
-                  {meta.label}
-                </button>
+                <div key={actionId} className="flex items-center gap-2 w-full">
+                  <button
+                    onClick={() => { submitSignalAction(actionId); setCopilotSuggestions([]); }}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold backdrop-blur-sm transition-colors ${a.chip}`}
+                  >
+                    <Icon className="h-3 w-3" />
+                    {meta.label}
+                    <ArrowRight className="h-3 w-3" />
+                  </button>
+                  <p className="text-[11px] text-slate-400 truncate flex-1">{reason}</p>
+                  <button onClick={() => setCopilotSuggestions([])} className="text-[10px] text-slate-600 hover:text-slate-400 shrink-0">✕</button>
+                </div>
               );
             })}
-            {/* Investor chip */}
-            {unbackedInvestor && (
-              <a
-                href={investorStatus!.ksTrackingUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`pointer-events-auto ml-auto inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold backdrop-blur-sm transition-colors ${a.chip}`}
-              >
-                <Star className="h-3 w-3" />
-                Back on KS
-                <ArrowRight className="h-2.5 w-2.5" />
-              </a>
-            )}
           </div>
-        </div>
-      ) : (
-        /* Loading / empty state */
-        <div
-          className={`rounded-xl border ${a.border} ${a.bg} h-52 flex items-center justify-center backdrop-blur-sm`}
-        >
-          <div className="text-center space-y-2">
-            <Sparkles className={`h-5 w-5 mx-auto ${a.label} animate-pulse`} />
-            <p className="text-xs text-slate-500">
-              {worldHeader?.title ?? "Loading featured content…"}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Supporting content — horizontal scroll */}
-      {supportingContent.length > 0 && (
-        <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden snap-x snap-mandatory">
-          {supportingContent.map((item) => (
-            <div key={item.id} className="flex-shrink-0 w-44 snap-start relative">
-              <SmartContentCard
-                content={item}
-                variant="thumbnailRect"
-                device="mobile"
-                onSelect={openContent}
-                onPurchase={purchaseContent}
-                isOwned={isOwned(item.id)}
-              />
-              <button
-                onClick={() => openContent(item)}
-                className="absolute bottom-2 right-2 inline-flex items-center gap-0.5 rounded-full bg-black/60 backdrop-blur-sm px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-black/80 transition"
-              >
-                Open <ArrowRight className="h-2.5 w-2.5" />
-              </button>
-            </div>
-          ))}
         </div>
       )}
 
