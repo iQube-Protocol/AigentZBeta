@@ -3,8 +3,8 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title iQubeNFT
@@ -23,12 +23,15 @@ contract iQubeNFT is ERC721, Ownable, Pausable, ReentrancyGuard {
     event QubeAnchored(uint256 indexed tokenId, address indexed to, address indexed minter, string uri);
     event QubeTransferred(uint256 indexed tokenId, address indexed from, address indexed to);
 
-    constructor() ERC721("iQubeNFT", "iQNFT") {}
+    constructor(address initialOwner)
+        ERC721("iQubeNFT", "iQNFT")
+        Ownable(initialOwner)
+    {}
 
     /**
      * @notice Mint a new iQube NFT.
-     * @param to      Wallet receiving the token (the iQube owner).
-     * @param uri     MetaQube location — IPFS CID, Autonomys CID, or `iq:<id>` ref.
+     * @param to   Wallet receiving the token (the iQube owner).
+     * @param uri  MetaQube location — IPFS CID, Autonomys CID, or `iq:<id>` ref.
      * @return tokenId The newly minted token ID.
      */
     function mintQube(address to, string memory uri)
@@ -50,7 +53,7 @@ contract iQubeNFT is ERC721, Ownable, Pausable, ReentrancyGuard {
     }
 
     /**
-     * @notice Transfer a qube to a new owner (emits QubeTransferred in addition to ERC721 Transfer).
+     * @notice Transfer a qube to a new owner.
      */
     function transferQube(address to, uint256 tokenId)
         public
@@ -62,9 +65,9 @@ contract iQubeNFT is ERC721, Ownable, Pausable, ReentrancyGuard {
         emit QubeTransferred(tokenId, msg.sender, to);
     }
 
-    /** @notice Returns the metaQube URI for a given token (equivalent to tokenURI). */
+    /** @notice Returns the metaQube URI for a given token. */
     function getMetaQubeLocation(uint256 tokenId) public view returns (string memory) {
-        require(_exists(tokenId), "iQubeNFT: token does not exist");
+        require(_ownerOf(tokenId) != address(0), "iQubeNFT: token does not exist");
         return _tokenURIs[tokenId];
     }
 
@@ -74,7 +77,7 @@ contract iQubeNFT is ERC721, Ownable, Pausable, ReentrancyGuard {
 
     /** @notice Returns the wallet that originally minted this qube. */
     function minterOf(uint256 tokenId) public view returns (address) {
-        require(_exists(tokenId), "iQubeNFT: token does not exist");
+        require(_ownerOf(tokenId) != address(0), "iQubeNFT: token does not exist");
         return _minterOf[tokenId];
     }
 
