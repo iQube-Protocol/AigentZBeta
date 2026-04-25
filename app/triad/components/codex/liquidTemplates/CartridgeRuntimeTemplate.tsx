@@ -326,6 +326,8 @@ export function CartridgeRuntimeTemplate({
   const [submittingAction, setSubmittingAction] = useState<string | null>(null);
   const [signalHistory, setSignalHistory] = useState<string[]>([]);
   const [latestReward, setLatestReward] = useState<string | undefined>();
+  const [copilotSuggestions, setCopilotSuggestions] = useState<Array<{ actionId: ActionId; reason: string }>>([]);
+  const [streamConnected, setStreamConnected] = useState(false);
 
   // ── Resolved stage ────────────────────────────────────────────────────────
   const currentStage = apiState?.journey?.stage ?? defaultStage ?? patronageAxis[0];
@@ -377,18 +379,37 @@ export function CartridgeRuntimeTemplate({
   );
 
   // ── Load runtime state ────────────────────────────────────────────────────
-  useEffect(() => {
+  const refetchState = useCallback(() => {
     if (!dataSource) return;
-    let cancelled = false;
     const url = personaId
       ? `${dataSource}?personaId=${encodeURIComponent(personaId)}`
       : dataSource;
     fetch(url, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => { if (!cancelled && data) setApiState(data); })
+      .then((data) => { if (data) setApiState(data); })
       .catch(() => {});
-    return () => { cancelled = true; };
   }, [dataSource, personaId]);
+
+  useEffect(() => { refetchState(); }, [refetchState]);
+
+  // ── SSE stream — reactive refresh on heartbeat ────────────────────────────
+  useEffect(() => {
+    if (!personaId) return;
+    const url = `/api/runtime/knyt-stream?personaId=${encodeURIComponent(personaId)}`;
+    let es: EventSource;
+    try {
+      es = new EventSource(url);
+      es.addEventListener("connected", () => setStreamConnected(true));
+      es.addEventListener("refresh", () => refetchState());
+      es.onerror = () => setStreamConnected(false);
+    } catch {
+      return;
+    }
+    return () => {
+      es.close();
+      setStreamConnected(false);
+    };
+  }, [personaId, refetchState]);
 
   // ── Load capsule prescription ─────────────────────────────────────────────
   useEffect(() => {
@@ -597,6 +618,9 @@ export function CartridgeRuntimeTemplate({
       const data = await res.json();
       const text: string = data.response ?? "No response available.";
       const suggestedAction = detectActionIntent(text, availableActions);
+      if (suggestedAction) {
+        setCopilotSuggestions([{ actionId: suggestedAction, reason: text.slice(0, 120) }]);
+      }
       if (suggestedAction && signalEndpoints[suggestedAction]) {
         const meta = ACTION_META[suggestedAction];
         const Icon = meta.Icon;
@@ -657,7 +681,7 @@ export function CartridgeRuntimeTemplate({
               {networkOnline
                 ? <Wifi className="h-2.5 w-2.5 text-emerald-400" />
                 : <WifiOff className="h-2.5 w-2.5 text-rose-400" />}
-              {networkOnline ? "Live" : "Offline"}
+              {streamConnected ? "Streaming" : networkOnline ? "Live" : "Offline"}
             </Badge>
             {investorStatus?.isInvestor && investorStatus.ksBacked && (
               <Badge variant="outline" className="border-emerald-700/30 bg-emerald-900/30 text-emerald-400 text-[10px]">
@@ -677,6 +701,37 @@ export function CartridgeRuntimeTemplate({
           </p>
         )}
       </div>
+
+      {/* Copilot suggestion strip — shown when agent surfaces an action intent */}
+      {copilotSuggestions.length > 0 && (
+        <div className={`rounded-xl border ${a.border} ${a.bg} px-4 py-2.5 backdrop-blur-sm`}>
+          <p className={`text-[10px] uppercase tracking-widest font-semibold ${a.label} mb-2`}>
+            <Brain className="inline h-3 w-3 mr-1" />
+            Agent Suggestion
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {copilotSuggestions.map(({ actionId, reason }) => {
+              const meta = ACTION_META[actionId];
+              if (!meta) return null;
+              const Icon = meta.Icon;
+              return (
+                <div key={actionId} className="flex items-center gap-2 w-full">
+                  <button
+                    onClick={() => { submitSignalAction(actionId); setCopilotSuggestions([]); }}
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold backdrop-blur-sm transition-colors ${a.chip}`}
+                  >
+                    <Icon className="h-3 w-3" />
+                    {meta.label}
+                    <ArrowRight className="h-3 w-3" />
+                  </button>
+                  <p className="text-[11px] text-slate-400 truncate flex-1">{reason}</p>
+                  <button onClick={() => setCopilotSuggestions([])} className="text-[10px] text-slate-600 hover:text-slate-400 shrink-0">✕</button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Hero zone — SmartContentCard with overlaid NBA chips */}
       {featuredContent ? (
