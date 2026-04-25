@@ -81,7 +81,10 @@ export type ActionType =
   | 'PURCHASE_CONTENT'
   | 'SELECT_TEMPLATE'
   | 'CHANGE_REALM'
-  | 'COPILOT_PROMPT';
+  | 'COPILOT_PROMPT'
+  | 'OPEN_DRAWER'
+  | 'CLOSE_DRAWER'
+  | 'NAVIGATE_TAB';
 
 export interface AGUIClientConfig {
   platformUrl: string; // Aigent Z platform URL

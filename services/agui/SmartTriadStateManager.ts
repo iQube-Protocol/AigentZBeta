@@ -89,6 +89,10 @@ export interface StateDelta {
 export class SmartTriadStateManager {
   private states: Map<string, SmartTriadState> = new Map();
   private listeners: Map<string, Set<(event: StateEvent) => void>> = new Map();
+  // personaId → set of sessionIds
+  private personaSessions: Map<string, Set<string>> = new Map();
+  // personaId → set of action listeners (for platform bridge)
+  private personaActionListeners: Map<string, Set<(event: ActionEvent) => void>> = new Map();
 
   /**
    * Initialize state for a new session
@@ -154,6 +158,12 @@ export class SmartTriadStateManager {
     };
 
     this.states.set(sessionId, initialState);
+
+    if (!this.personaSessions.has(personaId)) {
+      this.personaSessions.set(personaId, new Set());
+    }
+    this.personaSessions.get(personaId)!.add(sessionId);
+
     return initialState;
   }
 
@@ -310,9 +320,43 @@ export class SmartTriadStateManager {
   }
 
   /**
+   * Emit an action event to all persona-level listeners (platform bridge).
+   * Call this after processing an action in the send route.
+   */
+  emitPersonaAction(personaId: string, action: { type: string; payload?: any }): void {
+    const listeners = this.personaActionListeners.get(personaId);
+    if (listeners) {
+      const event: ActionEvent = { type: 'ACTION', data: action };
+      listeners.forEach(l => l(event));
+    }
+  }
+
+  /** Subscribe to action events for a personaId (platform bridge). */
+  addPersonaActionListener(personaId: string, listener: (event: ActionEvent) => void): () => void {
+    if (!this.personaActionListeners.has(personaId)) {
+      this.personaActionListeners.set(personaId, new Set());
+    }
+    this.personaActionListeners.get(personaId)!.add(listener);
+    return () => {
+      const ls = this.personaActionListeners.get(personaId);
+      if (ls) ls.delete(listener);
+    };
+  }
+
+  /** Returns all known sessionIds for a personaId. */
+  getSessionIdsByPersona(personaId: string): string[] {
+    return Array.from(this.personaSessions.get(personaId) ?? []);
+  }
+
+  /**
    * Clean up session
    */
   destroySession(sessionId: string): void {
+    const state = this.states.get(sessionId);
+    if (state) {
+      const pSessions = this.personaSessions.get(state.session.personaId);
+      if (pSessions) pSessions.delete(sessionId);
+    }
     this.states.delete(sessionId);
     this.listeners.delete(sessionId);
   }
@@ -322,6 +366,8 @@ export type StateEvent =
   | { type: 'STATE_SNAPSHOT'; data: SmartTriadState }
   | { type: 'STATE_DELTA'; data: StateDelta }
   | { type: 'HEARTBEAT'; data: { timestamp: string } };
+
+export type ActionEvent = { type: 'ACTION'; data: { type: string; payload?: any } };
 
 // Singleton instance
 let stateManager: SmartTriadStateManager | null = null;

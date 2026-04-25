@@ -12,6 +12,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { useWalletState } from '@/hooks/useAGUIState';
 import { SmartWalletDrawer } from '@/components/wallet';
 import type { SmartWalletNode, WalletTask, ContentEntitlement, QuestProgress, RecentReward } from '@/types/smartWallet';
 import { createSmartWalletNode } from '@/types/smartWallet';
@@ -23,7 +24,7 @@ import { getMyWalletPersonas, type WalletPersona } from '@/services/walletApi';
 interface WalletDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: 'wallet' | 'library' | 'tasks' | 'reputation' | 'rewards';
+  initialTab?: 'wallet' | 'library' | 'tasks' | 'reputation' | 'rewards' | 'connections';
   variant?: 'overlay' | 'embedded';
   embeddedWidth?: 'fill' | 'fixed';
 }
@@ -42,6 +43,12 @@ export function WalletDrawer({
   variant = 'overlay',
   embeddedWidth = 'fill',
 }: WalletDrawerProps) {
+  const { openDrawer } = useWalletState();
+
+  const handleTabChange = useCallback((tab: string) => {
+    try { openDrawer(tab === 'connections' ? 'connections' : 'wallet', tab); } catch { /* AG-UI not connected */ }
+  }, [openDrawer]);
+
   const [persona, setPersona] = useState<WalletPersona | null>(null);
   const [displayName, setDisplayName] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
@@ -490,6 +497,7 @@ export function WalletDrawer({
         onSubmitReputationClaim={handleSubmitReputationClaim}
         onCreatePersona={handleSignIn}
         initialTab={initialTab}
+        onTabChange={handleTabChange}
       />
     );
   }
@@ -508,6 +516,7 @@ export function WalletDrawer({
       onSubmitReputationClaim={handleSubmitReputationClaim}
       onCreatePersona={fetchPersona}
       initialTab={initialTab}
+      onTabChange={handleTabChange}
       availablePersonas={savedPersonas}
       isLoadingBalances={isLoadingBalances}
       isLoadingWalletData={isLoadingWalletData}
