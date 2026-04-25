@@ -1,6 +1,7 @@
 import type React from "react";
 
 import { QriptoLiquidCodexTab } from "../tabs/QriptoLiquidCodexTab";
+import { CartridgeRuntimeTemplate } from "./CartridgeRuntimeTemplate";
 import { KnytDrawerGridFallbackTemplate } from "./KnytDrawerGridFallbackTemplate";
 import {
   KnytDualPosterStageTemplate,
@@ -49,4 +50,5 @@ export const liquidTemplateRegistry: Record<string, LiquidTemplateComponent> = {
   "knyt:motion_stage_v1": KnytMotionStageTemplate,
   "knyt:quest_hud_hub_v1": KnytQuestHudHubTemplate,
   "knyt:realm_bridge_map_v1": KnytRealmBridgeMapTemplate,
+  "liquidui:cartridge_runtime_v1": CartridgeRuntimeTemplate,
 };
