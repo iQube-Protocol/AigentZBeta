@@ -18,7 +18,10 @@ type ActionType =
   | 'PURCHASE_CONTENT'
   | 'SELECT_TEMPLATE'
   | 'CHANGE_REALM'
-  | 'COPILOT_PROMPT';
+  | 'COPILOT_PROMPT'
+  | 'OPEN_DRAWER'
+  | 'CLOSE_DRAWER'
+  | 'NAVIGATE_TAB';
 
 interface Action {
   type: ActionType;
@@ -116,7 +119,40 @@ export async function POST(req: NextRequest) {
           'liquidUI/userIntent',
           action.payload?.prompt || null
         );
-        // In real implementation, would trigger Copilot processing here
+        break;
+
+      case 'OPEN_DRAWER':
+        delta = stateManager.updateState(sessionId, {
+          smartTriad: {
+            ...currentState.smartTriad,
+            menu: {
+              activeMenuId: action.payload?.drawerId || null,
+              drawerOpen: true,
+              selectedAction: action.payload?.tab || null,
+            },
+          },
+        });
+        break;
+
+      case 'CLOSE_DRAWER':
+        delta = stateManager.updateState(sessionId, {
+          smartTriad: {
+            ...currentState.smartTriad,
+            menu: {
+              activeMenuId: null,
+              drawerOpen: false,
+              selectedAction: null,
+            },
+          },
+        });
+        break;
+
+      case 'NAVIGATE_TAB':
+        delta = stateManager.updateField(
+          sessionId,
+          'smartTriad/content/selectedTabId',
+          action.payload?.tabId || null
+        );
         break;
 
       default:
@@ -125,6 +161,10 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
     }
+
+    // Broadcast to platform bridge (persona-level action listeners)
+    const personaId = currentState.session.personaId;
+    stateManager.emitPersonaAction(personaId, { type: action.type, payload: action.payload });
 
     if (!delta) {
       return NextResponse.json(

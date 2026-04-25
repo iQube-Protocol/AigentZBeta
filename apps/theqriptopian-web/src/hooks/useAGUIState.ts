@@ -109,6 +109,17 @@ export function useWalletState() {
     await sendAction('CLOSE_WALLET');
   }, [sendAction]);
 
+  const openDrawer = useCallback(
+    async (drawerId: string, tab?: string) => {
+      await sendAction('OPEN_DRAWER', { drawerId, tab });
+    },
+    [sendAction]
+  );
+
+  const closeDrawer = useCallback(async () => {
+    await sendAction('CLOSE_DRAWER');
+  }, [sendAction]);
+
   const purchaseContent = useCallback(
     async (contentId: string, chain?: string) => {
       await sendAction('PURCHASE_CONTENT', { contentId, chain });
@@ -125,6 +136,8 @@ export function useWalletState() {
     openWallet,
     closeWallet,
     purchaseContent,
+    openDrawer,
+    closeDrawer,
   };
 }
 
