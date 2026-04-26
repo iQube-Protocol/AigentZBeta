@@ -5208,76 +5208,7 @@ export default function MetaMeRuntimeClient() {
         </div>
         <MetaMeSettingsPanel personaId={activePersonaId ?? undefined} />
       </div>
-      {/* Connections drawer — LinkedIn + MetaMask (Be > Connections) */}
-      {connectionsDrawerOpen ? (
-        <div
-          className="absolute inset-0 z-40 bg-black/50"
-          onClick={() => setConnectionsDrawerOpen(false)}
-        />
-      ) : null}
-      <div
-        className={`absolute left-0 top-0 bottom-0 z-50 w-80 bg-slate-950 border-r border-white/10 overflow-y-auto transform transition-transform duration-300 ease-in-out ${connectionsDrawerOpen ? "translate-x-0" : "-translate-x-full"}`}
-        aria-hidden={!connectionsDrawerOpen}
-      >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 sticky top-0 bg-slate-950 z-10">
-          <span className="text-sm font-medium text-slate-200 flex items-center gap-2">
-            <Network className="h-3.5 w-3.5 text-slate-400" />
-            Connections
-          </span>
-          <button
-            type="button"
-            onClick={() => setConnectionsDrawerOpen(false)}
-            className="rounded p-1 text-slate-400 hover:bg-white/10 hover:text-white transition"
-            aria-label="Close connections"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="p-4 space-y-4">
-          {/* MetaMask */}
-          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Hexagon className="h-4 w-4 text-amber-400" />
-              <span className="text-sm font-medium text-slate-200">MetaMask</span>
-            </div>
-            <p className="text-xs text-slate-400 mb-3">Connect your MetaMask wallet to enable on-chain features.</p>
-            <button
-              type="button"
-              onClick={() => {
-                if (typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).ethereum) {
-                  void (window as unknown as Record<string, { request: (args: Record<string, string>) => Promise<string[]> }>).ethereum
-                    .request({ method: 'eth_requestAccounts' })
-                    .catch(() => {});
-                } else {
-                  window.open('https://metamask.io/download/', '_blank', 'noopener');
-                }
-              }}
-              className="flex items-center justify-center gap-2 w-full rounded-lg bg-amber-500/20 border border-amber-500/30 px-3 py-2 text-xs font-medium text-amber-300 hover:bg-amber-500/30 transition"
-            >
-              <Hexagon className="h-3.5 w-3.5" />
-              Connect MetaMask
-            </button>
-          </div>
-          {/* LinkedIn */}
-          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Users className="h-4 w-4 text-blue-400" />
-              <span className="text-sm font-medium text-slate-200">LinkedIn</span>
-            </div>
-            <p className="text-xs text-slate-400 mb-3">Connect your LinkedIn profile to enrich your metaMe identity.</p>
-            <a
-              href="https://www.linkedin.com/oauth/v2/authorization"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full rounded-lg bg-[#0A66C2] px-3 py-2 text-xs font-medium text-white hover:bg-[#004182] transition"
-            >
-              <SquareArrowOutUpRight className="h-3.5 w-3.5" />
-              Connect LinkedIn
-            </a>
-          </div>
-        </div>
-      </div>
-      {/* iQube drawers (persona, identity, memory, picker) are hoisted to iQubeDrawerLayer
+      {/* iQube drawers (persona, identity, memory, connections, picker) are hoisted to iQubeDrawerLayer
           so they render over both the welcome screen and the runtime surface. */}
       {/* Absolute overlay: prompt bar (live view only) + runtimeMenu stacked at bottom */}
       {!thinShellMode ? (
@@ -5540,6 +5471,70 @@ export default function MetaMeRuntimeClient() {
       </div>
       {/* Memory iQube drawer */}
       <MemoryIQubeDrawer open={memoryDrawerOpen} onClose={() => setMemoryDrawerOpen(false)} />
+      {/* Connections drawer — LinkedIn + MetaMask; hoisted here so it renders regardless of showWelcome */}
+      {connectionsDrawerOpen && (
+        <div className="absolute inset-0 z-[59] bg-black/50" onClick={() => setConnectionsDrawerOpen(false)} />
+      )}
+      <div
+        className={`absolute left-0 top-0 bottom-0 z-[59] w-80 bg-slate-950 border-r border-white/10 overflow-y-auto transform transition-transform duration-300 ease-in-out ${connectionsDrawerOpen ? "translate-x-0" : "-translate-x-full"}`}
+        aria-hidden={!connectionsDrawerOpen}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 sticky top-0 bg-slate-950 z-10">
+          <span className="text-sm font-medium text-slate-200 flex items-center gap-2">
+            <Network className="h-3.5 w-3.5 text-slate-400" />
+            Connections
+          </span>
+          <button
+            type="button"
+            onClick={() => setConnectionsDrawerOpen(false)}
+            className="rounded p-1 text-slate-400 hover:bg-white/10 hover:text-white transition"
+            aria-label="Close connections"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="p-4 space-y-4">
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Hexagon className="h-4 w-4 text-amber-400" />
+              <span className="text-sm font-medium text-slate-200">MetaMask</span>
+            </div>
+            <p className="text-xs text-slate-400 mb-3">Connect your MetaMask wallet to enable on-chain features.</p>
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).ethereum) {
+                  void (window as unknown as Record<string, { request: (args: Record<string, string>) => Promise<string[]> }>).ethereum
+                    .request({ method: 'eth_requestAccounts' })
+                    .catch(() => {});
+                } else {
+                  window.open('https://metamask.io/download/', '_blank', 'noopener');
+                }
+              }}
+              className="flex items-center justify-center gap-2 w-full rounded-lg bg-amber-500/20 border border-amber-500/30 px-3 py-2 text-xs font-medium text-amber-300 hover:bg-amber-500/30 transition"
+            >
+              <Hexagon className="h-3.5 w-3.5" />
+              Connect MetaMask
+            </button>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Users className="h-4 w-4 text-blue-400" />
+              <span className="text-sm font-medium text-slate-200">LinkedIn</span>
+            </div>
+            <p className="text-xs text-slate-400 mb-3">Connect your LinkedIn profile to enrich your metaMe identity.</p>
+            <a
+              href="https://www.linkedin.com/oauth/v2/authorization"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full rounded-lg bg-[#0A66C2] px-3 py-2 text-xs font-medium text-white hover:bg-[#004182] transition"
+            >
+              <SquareArrowOutUpRight className="h-3.5 w-3.5" />
+              Connect LinkedIn
+            </a>
+          </div>
+        </div>
+      </div>
       {/* Persona picker — bottom sheet when no iqube_type specified */}
       {personaPickerOpen && (
         <>
