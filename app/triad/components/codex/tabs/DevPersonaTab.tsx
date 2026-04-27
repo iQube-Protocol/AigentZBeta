@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { User, Wallet, ChevronDown, ChevronUp, Info, Star, Globe, CheckCircle2, Circle, Zap, ExternalLink } from "lucide-react";
+import { User, Wallet, ChevronDown, ChevronUp, Info, Star, Globe, CheckCircle2, Circle, Zap, ExternalLink, Link, Loader2 } from "lucide-react";
 import { PersonaCreationForm } from "@/components/identity/PersonaCreationForm";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 
@@ -84,13 +84,41 @@ const WORLD_ID_LABELS: Record<string, string> = {
 };
 
 export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
-  const { sessionPersonas, isLoading } = useSupabaseSessionPersonas();
+  const { sessionPersonas, isLoading, refreshPersonas } = useSupabaseSessionPersonas();
   const [showForm, setShowForm] = useState(false);
   const [createdId, setCreatedId] = useState<string | null>(null);
   const [showIdentityInfo, setShowIdentityInfo] = useState(false);
   const [showMintInfo, setShowMintInfo] = useState(false);
+  const [walletPersonaId, setWalletPersonaId] = useState<string | null>(null);
+  const [showClaimForm, setShowClaimForm] = useState(false);
+  const [claimHandle, setClaimHandle] = useState('');
+  const [claimKey, setClaimKey] = useState('');
+  const [claiming, setClaiming] = useState(false);
+  const [claimError, setClaimError] = useState<string | null>(null);
+  const [claimSuccess, setClaimSuccess] = useState(false);
 
-  const activePersonaId = createdId ?? personaId ?? null;
+  // Sync with wallet persona selector: read initial value from localStorage and
+  // update whenever the wallet switches personas (same-page event or cross-tab storage event)
+  useEffect(() => {
+    const stored = window.localStorage.getItem("currentPersonaId");
+    if (stored) setWalletPersonaId(stored);
+
+    const handleSwitch = (e: Event) => {
+      const detail = (e as CustomEvent<{ personaId: string }>).detail;
+      if (detail?.personaId) setWalletPersonaId(detail.personaId);
+    };
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "currentPersonaId" && e.newValue) setWalletPersonaId(e.newValue);
+    };
+    window.addEventListener("persona-switched", handleSwitch);
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener("persona-switched", handleSwitch);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
+
+  const activePersonaId = createdId ?? walletPersonaId ?? personaId ?? null;
   const livePersona =
     sessionPersonas.find((p) => p.id === activePersonaId) ??
     (sessionPersonas.length > 0 ? sessionPersonas[0] : null);
@@ -365,15 +393,23 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
         )}
       </div>
 
-      {/* Create persona form */}
-      <div>
+      {/* Action buttons — always visible */}
+      <div className="flex flex-wrap gap-3">
         <button
           type="button"
-          onClick={() => setShowForm((v) => !v)}
+          onClick={() => { setShowForm((v) => !v); setShowClaimForm(false); }}
           className="inline-flex items-center gap-2 rounded-xl border border-blue-500/40 bg-blue-500/10 px-5 py-2.5 text-sm font-semibold text-blue-200 hover:bg-blue-500/20 transition-colors"
         >
           <User className="h-4 w-4" />
           {showForm ? "Hide" : "Create Developer Persona"}
+        </button>
+        <button
+          type="button"
+          onClick={() => { setShowClaimForm((v) => !v); setShowForm(false); setClaimError(null); setClaimSuccess(false); }}
+          className="inline-flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-5 py-2.5 text-sm font-medium text-amber-300 hover:bg-amber-500/20 transition-colors"
+        >
+          <Link className="h-4 w-4" />
+          {showClaimForm ? "Hide" : "Claim existing persona"}
         </button>
       </div>
 
@@ -384,10 +420,101 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
               setCreatedId(id);
               setShowForm(false);
               void emitPersonaCreatedReceipt(id);
+              void refreshPersonas();
               void enrollDevCohort(id);
             }}
             onCancel={() => setShowForm(false)}
           />
+        </div>
+      )}
+
+      {showClaimForm && (
+        <div className="rounded-xl border border-slate-700/60 bg-slate-900/30 p-4 space-y-4">
+          <div>
+            <h4 className="text-sm font-medium text-slate-200 mb-1">Claim by FIO Handle</h4>
+            <p className="text-xs text-slate-500">
+              Created a persona while signed out, or on another device? Enter your FIO handle and private key to link it to this account.
+            </p>
+          </div>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">FIO Handle</label>
+              <input
+                value={claimHandle}
+                onChange={e => setClaimHandle(e.target.value)}
+                placeholder="yourname@knyt"
+                className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-1.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/50 transition"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">Private Key</label>
+              <input
+                value={claimKey}
+                onChange={e => setClaimKey(e.target.value)}
+                type="password"
+                placeholder="Your FIO private key"
+                className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-1.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/50 transition"
+              />
+            </div>
+          </div>
+          {claimError && <p className="text-xs text-red-400">{claimError}</p>}
+          {claimSuccess && <p className="text-xs text-emerald-400">Persona claimed — it will appear in your wallet on next sign-in.</p>}
+          <div className="flex gap-3 justify-end">
+            <button
+              type="button"
+              onClick={() => setShowClaimForm(false)}
+              className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-300 transition"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={claiming || !claimHandle || !claimKey}
+              onClick={async () => {
+                setClaiming(true); setClaimError(null); setClaimSuccess(false);
+                try {
+                  const token = typeof window !== 'undefined'
+                    ? (() => {
+                        for (let i = 0; i < window.localStorage.length; i++) {
+                          const k = window.localStorage.key(i);
+                          if (!k?.includes('auth-token')) continue;
+                          const raw = window.localStorage.getItem(k);
+                          if (!raw) continue;
+                          const p = JSON.parse(raw) as { access_token?: string };
+                          if (p?.access_token) return p.access_token;
+                        }
+                        return null;
+                      })()
+                    : null;
+                  const res = await fetch('/api/identity/persona/claim', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                    },
+                    body: JSON.stringify({ fioHandle: claimHandle, privateKey: claimKey }),
+                  });
+                  const data = await res.json() as { ok?: boolean; personaId?: string; error?: string };
+                  if (!res.ok || !data.ok) {
+                    setClaimError(data.error ?? 'Claim failed');
+                  } else {
+                    setClaimSuccess(true);
+                    setClaimHandle(''); setClaimKey('');
+                    if (data.personaId) setCreatedId(data.personaId);
+                    void refreshPersonas();
+                  }
+                } catch (e: unknown) {
+                  setClaimError(e instanceof Error ? e.message : 'Network error');
+                } finally {
+                  setClaiming(false);
+                }
+              }}
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              {claiming ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+              Claim Persona
+            </button>
+          </div>
         </div>
       )}
     </div>

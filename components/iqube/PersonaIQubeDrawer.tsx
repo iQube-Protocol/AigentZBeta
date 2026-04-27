@@ -431,6 +431,9 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [editValues, setEditValues] = useState<Record<string, string>>({});
 
+  // Root DID bind — captures only this persona's DID ID for the tokenQube display
+  const [didPersonaId, setDidPersonaId] = useState<string | null>(null);
+
   // TokenQube minting state
   const [mintNetwork, setMintNetwork] = useState("base-sepolia");
   const [mintRecipient, setMintRecipient] = useState("");
@@ -446,17 +449,23 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
     setLoading(true);
     setError(null);
     try {
-      // Bind Root DID on every open — idempotent, stamps user_id + did_persona_id if missing
-      void fetch("/api/identity/root-did/bind", {
-        method: "POST",
-        headers: authHeaders(),
-      });
+      // Bind + persona load in parallel — bind stamps did_persona_id on the row
+      const [bindRes, personaRes] = await Promise.all([
+        fetch("/api/identity/root-did/bind", { method: "POST", headers: authHeaders() }),
+        fetch(`/api/iqube/persona/${type}`, { headers: authHeaders() }),
+      ]);
 
-      const res = await fetch(`/api/iqube/persona/${type}`, {
-        headers: authHeaders(),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Failed to load");
+      // Extract only this persona's DID ID for the tokenQube wallet binding row
+      if (bindRes.ok) {
+        const bindJson = await bindRes.json() as {
+          personas?: Array<{ personaType: string; didPersonaId: string }>;
+        };
+        const match = bindJson.personas?.find((p) => p.personaType === type);
+        if (match) setDidPersonaId(match.didPersonaId);
+      }
+
+      const json = await personaRes.json();
+      if (!personaRes.ok) throw new Error(json.error ?? "Failed to load");
       if (json.exists && json.data) {
         setIqubeData(json.data);
       } else {
@@ -695,6 +704,14 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
                           blakQube["knyt_handle"] ||
                           blakQube["KNYT-ID"] ||
                           blakQube["Qripto-ID"] ||
+                          "—"
+                        ),
+                      },
+                      {
+                        label: "Persona DID ID",
+                        val: String(
+                          blakQube["did_persona_id"] ||
+                          didPersonaId ||
                           "—"
                         ),
                       },

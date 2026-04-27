@@ -6,6 +6,7 @@ import {
   ArrowRight,
   Bot,
   CheckCircle,
+  Link,
   Loader2,
   Sparkles,
   User,
@@ -130,6 +131,21 @@ function buildAuthHeaders(): Headers {
   return headers;
 }
 
+function getSupabaseAccessToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (!key?.includes("auth-token")) continue;
+      const raw = window.localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw) as { access_token?: string };
+      if (parsed?.access_token) return parsed.access_token;
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
 function randomEvmAddress(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(20));
   return `0x${Array.from(bytes)
@@ -144,7 +160,11 @@ export function PersonaQuickAddModal({
   onCreated,
   onAdvanced,
 }: PersonaQuickAddModalProps) {
-  const [mode, setMode] = useState<"human" | "agent">("human");
+  const [mode, setMode] = useState<"human" | "agent" | "claim">("human");
+  const [claimHandle, setClaimHandle] = useState("");
+  const [claimPrivateKey, setClaimPrivateKey] = useState("");
+  const [claimError, setClaimError] = useState<string | null>(null);
+  const [claimSuccess, setClaimSuccess] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [agentSearch, setAgentSearch] = useState("");
   const [customAgentHandle, setCustomAgentHandle] = useState("");
@@ -184,6 +204,10 @@ export function PersonaQuickAddModal({
     setCheckingHandle(false);
     setHandleAvailable(null);
     setError(null);
+    setClaimHandle("");
+    setClaimPrivateKey("");
+    setClaimError(null);
+    setClaimSuccess(false);
   }, []);
 
   const filteredAgents = AVAILABLE_AGENTS.filter((agent) => {
@@ -252,7 +276,9 @@ export function PersonaQuickAddModal({
 
   const passwordValidation = validatePassword(password);
   const canSubmit =
-    mode === "agent"
+    mode === "claim"
+      ? !!claimHandle.trim() && !!claimPrivateKey.trim()
+      : mode === "agent"
       ? !!selectedAgent || !!customAgentHandle.trim() || !!selectedDiscoverable
       : !!username &&
         isValidUsername(username) &&
@@ -398,10 +424,45 @@ export function PersonaQuickAddModal({
     }
   };
 
+  const handleClaim = async () => {
+    if (!claimHandle.trim() || !claimPrivateKey.trim()) return;
+    setIsLoading(true);
+    setClaimError(null);
+    setClaimSuccess(false);
+    try {
+      const token = getSupabaseAccessToken();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      const res = await fetch("/api/identity/persona/claim", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ fioHandle: claimHandle.trim(), privateKey: claimPrivateKey.trim() }),
+      });
+      const data = await res.json() as { ok?: boolean; personaId?: string; error?: string };
+      if (!res.ok || !data.ok) {
+        setClaimError(data.error ?? "Claim failed");
+        return;
+      }
+      setClaimSuccess(true);
+      if (data.personaId) {
+        onCreated(data.personaId);
+        onClose();
+      }
+    } catch (err) {
+      setClaimError((err as Error).message || "Network error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleCreate = async () => {
     if (!canSubmit) return;
     if (mode === "agent") {
       await handleAddAgent();
+      return;
+    }
+    if (mode === "claim") {
+      await handleClaim();
       return;
     }
     setIsLoading(true);
@@ -453,13 +514,9 @@ export function PersonaQuickAddModal({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <button
-              onClick={() => {
-                setMode("human");
-                setSelectedAgent(null);
-                setError(null);
-              }}
+              onClick={() => { setMode("human"); setSelectedAgent(null); setError(null); }}
               className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm transition-all ${
                 mode === "human"
                   ? "border-emerald-500 bg-emerald-500/10 text-white"
@@ -467,14 +524,10 @@ export function PersonaQuickAddModal({
               }`}
             >
               <User className="w-4 h-4" />
-              Human Persona
+              Human
             </button>
             <button
-              onClick={() => {
-                setMode("agent");
-                setHandleAvailable(null);
-                setError(null);
-              }}
+              onClick={() => { setMode("agent"); setHandleAvailable(null); setError(null); }}
               className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm transition-all ${
                 mode === "agent"
                   ? "border-emerald-500 bg-emerald-500/10 text-white"
@@ -482,7 +535,18 @@ export function PersonaQuickAddModal({
               }`}
             >
               <Bot className="w-4 h-4" />
-              Agent Persona
+              Agent
+            </button>
+            <button
+              onClick={() => { setMode("claim"); setError(null); setClaimError(null); setClaimSuccess(false); }}
+              className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm transition-all ${
+                mode === "claim"
+                  ? "border-amber-500 bg-amber-500/10 text-white"
+                  : "border-white/10 bg-white/5 text-white/60 hover:text-white"
+              }`}
+            >
+              <Link className="w-4 h-4" />
+              Claim
             </button>
           </div>
 
@@ -743,10 +807,51 @@ export function PersonaQuickAddModal({
               </div>
             </div>
           )}
+          {mode === "claim" && (
+            <div className="space-y-4">
+              <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/20">
+                <p className="text-xs text-amber-300/80">
+                  Created a persona while signed out or on another device? Enter the FIO handle and your private key to link it to this account. Ownership is verified by re-deriving the public key — your private key is never stored.
+                </p>
+              </div>
+              {claimError && (
+                <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2 text-red-400">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-sm">{claimError}</span>
+                </div>
+              )}
+              {claimSuccess && (
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center gap-2 text-emerald-400">
+                  <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                  <span className="text-sm">Persona claimed and linked to your account.</span>
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">FIO Handle</label>
+                <input
+                  type="text"
+                  value={claimHandle}
+                  onChange={(e) => setClaimHandle(e.target.value.toLowerCase())}
+                  placeholder="yourname@knyt"
+                  className="w-full px-4 py-3 bg-black/30 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Private Key</label>
+                <input
+                  type="password"
+                  value={claimPrivateKey}
+                  onChange={(e) => setClaimPrivateKey(e.target.value)}
+                  placeholder="Your FIO private key"
+                  className="w-full px-4 py-3 bg-black/30 border border-white/10 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="px-6 py-4 bg-white/5 border-t border-white/10 flex items-center justify-between">
-          {onAdvanced && mode === "human" ? (
+          {onAdvanced && mode === "human" && !claimSuccess ? (
             <button
               onClick={onAdvanced}
               className="text-xs text-white/60 hover:text-white transition-colors"
@@ -760,16 +865,20 @@ export function PersonaQuickAddModal({
           <button
             onClick={handleCreate}
             disabled={!canSubmit || isLoading}
-            className="px-5 py-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white text-sm font-medium rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className={`px-5 py-2 text-white text-sm font-medium rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 ${
+              mode === "claim"
+                ? "bg-gradient-to-r from-amber-500 to-orange-500"
+                : "bg-gradient-to-r from-emerald-500 to-cyan-500"
+            }`}
           >
             {isLoading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Creating...
+                {mode === "claim" ? "Claiming..." : "Creating..."}
               </>
             ) : (
               <>
-                {mode === "agent" ? "Add Agent Persona" : "Create Persona"}
+                {mode === "claim" ? "Claim Persona" : mode === "agent" ? "Add Agent Persona" : "Create Persona"}
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
