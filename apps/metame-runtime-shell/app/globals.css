@@ -612,6 +612,40 @@ a {
   font-weight: 600;
 }
 
+.context-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--border, #e2e8f0);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.context-toggle:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.context-toggle--active {
+  border-color: #6366f1;
+  background: #6366f120;
+  color: #6366f1;
+}
+
+.context-toggle-pip {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.7;
+}
+
 .error-bar {
   border: 1px solid #f1c5be;
   background: #fff2ef;

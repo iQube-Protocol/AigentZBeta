@@ -33,6 +33,7 @@ import type {
 import { BrowserHistoryDrawer } from "./components/browser/BrowserHistoryDrawer";
 import { BrowserSessionPanel } from "./components/browser/BrowserSessionPanel";
 import { BrowserSurfaceHost } from "./components/browser/BrowserSurfaceHost";
+import { KnytContextToggle } from "./components/KnytContextToggle";
 import { RuntimeFrame } from "./components/RuntimeFrame";
 import { RuntimeHeader } from "./components/RuntimeHeader";
 import { SmartMenu } from "./components/SmartMenu";
@@ -296,6 +297,7 @@ export default function RuntimeShellHomePage() {
   const [browserControlBusy, setBrowserControlBusy] = useState(false);
   const [browserControlStatus, setBrowserControlStatus] = useState<BrowserControlStatus>(null);
   const lastDrawerRefreshStepRef = useRef<string | null>(null);
+  const [localRuntimeContext, setLocalRuntimeContext] = useState<"metame" | "knyt">("metame");
 
   const aaClient = useMemo(() => {
     const baseUrl = process.env.NEXT_PUBLIC_AA_API_BASE_URL;
@@ -710,9 +712,22 @@ export default function RuntimeShellHomePage() {
     [aaClient, config, postShellEvent]
   );
 
+  const handleContextToggle = useCallback(
+    (next: "metame" | "knyt") => {
+      setLocalRuntimeContext(next);
+      postShellEvent("RUNTIME_CONTEXT_CHANGE", { context: next });
+    },
+    [postShellEvent]
+  );
+
   const handleMenuAction = useCallback(
     async (item: RuntimeMenuItem, payload: Record<string, unknown> = {}) => {
       if (!config || !aaClient) return;
+
+      // Keep shell-side context toggle in sync with the play-knyt menu item
+      if (item.id === "play-knyt") {
+        setLocalRuntimeContext("knyt");
+      }
 
       setBusyActionId(item.id);
       setError(null);
@@ -996,7 +1011,14 @@ export default function RuntimeShellHomePage() {
               <span>
                 Tenant: <strong>{config.tenant_id}</strong> · Persona: <strong>{config.persona_id}</strong>
               </span>
-              <span className="status-pill">{runtimeReady ? "Runtime ready" : "Handshake pending"}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <KnytContextToggle
+                  context={localRuntimeContext}
+                  onToggle={handleContextToggle}
+                  disabled={!runtimeReady}
+                />
+                <span className="status-pill">{runtimeReady ? "Runtime ready" : "Handshake pending"}</span>
+              </div>
             </div>
             <div className="runtime-stage">
               <RuntimeFrame

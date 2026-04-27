@@ -3093,6 +3093,9 @@ export default function MetaMeRuntimeClient() {
 
   const launchCapsule = useCallback(
     (content: RuntimeCapsule, intent: RuntimeIntent = lastIntent) => {
+      // Fire a takeover view signal so the feedback loop tracks what the user engaged with
+      fireTakeoverSignal("view", { contentId: content.id, runtimeSource: content.runtimeSource });
+
       // Codex-source capsules always open as a z-axis overlay so the runtime stays live underneath
       if (content.runtimeSource === "codex") {
         const slug = content.runtimeCodexSlug || "knyt";
@@ -3118,7 +3121,7 @@ export default function MetaMeRuntimeClient() {
         },
       ]);
     },
-    [buildRuntimeCapsulePanel, lastIntent, setActiveCartridgeOverlay]
+    [buildRuntimeCapsulePanel, fireTakeoverSignal, lastIntent, setActiveCartridgeOverlay]
   );
 
   // Moved earlier than its original location (was after runtimeSurface) so the auto-launch
