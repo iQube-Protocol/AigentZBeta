@@ -76,6 +76,12 @@ function SmartWalletContent() {
   const agentIdFromQuery = toText(searchParams?.get("agentId"));
   const agentNameFromQuery = toText(searchParams?.get("agentName"));
   const fioHandleFromQuery = toText(searchParams?.get("fioHandle"));
+  const VALID_TABS = ["wallet", "library", "tasks", "reputation", "rewards", "payments", "connections", "iqube"] as const;
+  type EmbedDrawerTab = typeof VALID_TABS[number];
+  const tabFromQuery = toText(searchParams?.get("tab"));
+  const initialTab: EmbedDrawerTab = VALID_TABS.includes(tabFromQuery as EmbedDrawerTab)
+    ? (tabFromQuery as EmbedDrawerTab)
+    : "wallet";
 
   const [personaId, setPersonaId] = useState<string | undefined>(personaIdFromQuery);
   const [agent, setAgent] = useState<EmbedAgent>(() =>
@@ -179,6 +185,7 @@ function SmartWalletContent() {
           allowWideLayout={!isNarrowOnly}
           agent={agent}
           personaId={personaId}
+          initialTab={initialTab}
           codexMode={false} // Regular embed mode, not Codex
         />
       </div>

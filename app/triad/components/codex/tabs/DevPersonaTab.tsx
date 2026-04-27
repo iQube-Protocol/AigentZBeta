@@ -355,7 +355,7 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
               Note: your DVN receipts (mission completions, delegation events, trust progressions) are already anchored to your Root DiD through the ordinal inscription pipeline — you don&apos;t need to mint for those. Minting adds content-addressable persona <em>data</em> on Autonomys.
             </p>
             <a
-              href="/shell/wallet?tab=iqube"
+              href="/triad/embed/wallet?tab=iqube"
               className="inline-flex items-center gap-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-300 hover:bg-violet-500/20 transition-colors"
             >
               <ExternalLink className="h-3.5 w-3.5" />
