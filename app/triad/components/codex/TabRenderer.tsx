@@ -69,6 +69,11 @@ import { KnytStoreBundlesTab } from "./tabs/KnytStoreBundlesTab";
 import { KnytStoreAdminTab } from "./tabs/KnytStoreAdminTab";
 import { KnytShelfTab } from "./tabs/KnytShelfTab";
 import { AigentMissionsBoardTab } from "./tabs/AigentMissionsBoardTab";
+import { AigentCOSTab } from "./tabs/AigentCOSTab";
+import { DevPersonaTab } from "./tabs/DevPersonaTab";
+import { BoundedDelegationTab } from "./tabs/BoundedDelegationTab";
+import { DevMissionBoardTab } from "./tabs/DevMissionBoardTab";
+import { NanOSBridgeTab } from "./tabs/NanOSBridgeTab";
 
 interface TabRendererProps {
   tab: CodexTab;
@@ -139,6 +144,11 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   KnytStoreAdminTab,
   KnytShelfTab,
   AigentMissionsBoardTab,
+  AigentCOSTab,
+  DevPersonaTab,
+  BoundedDelegationTab,
+  DevMissionBoardTab,
+  NanOSBridgeTab,
   RewardsTab: PlaceholderTab,
   DocsTab: PlaceholderTab,
   APITab: PlaceholderTab,

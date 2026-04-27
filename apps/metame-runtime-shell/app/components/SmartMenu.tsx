@@ -51,6 +51,7 @@ export function SmartMenu({ menu, busyActionId, onAction, browserEnabled = false
   const { left: leftEdge, right: rightEdge } = selectEdgeItems(menu.items);
   const edgeEnabled = !!(leftEdge?.enabled || rightEdge?.enabled);
   const shouldCollapseCenter = menu.mode === "collapsed" || (!!menu.policy.collapse_to_metame_button && edgeEnabled);
+  const beChildren = leftEdge?.children ?? [];
 
   if (shouldCollapseCenter) {
     return (
@@ -58,6 +59,22 @@ export function SmartMenu({ menu, busyActionId, onAction, browserEnabled = false
         {browserEnabled && onBrowserLaunch ? (
           <div className="browser-launch-row">
             <BrowserLaunchEntry active={browserActive} onOpen={onBrowserLaunch} />
+          </div>
+        ) : null}
+        {beChildren.length > 0 ? (
+          <div className="menu-be-strip">
+            {beChildren.map((child) => (
+              <button
+                key={child.id}
+                type="button"
+                className="menu-be-child"
+                disabled={!child.enabled || busyActionId === child.id}
+                onClick={() => onAction(child)}
+                aria-busy={busyActionId === child.id}
+              >
+                {child.label}
+              </button>
+            ))}
           </div>
         ) : null}
         <div className="menu-row-collapsed">

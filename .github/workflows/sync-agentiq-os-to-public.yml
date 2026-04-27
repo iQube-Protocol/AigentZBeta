@@ -1,0 +1,105 @@
+name: AgentiQ OS — Sync to Public Repo
+
+# One-way mirror of the AgentiQ OS public content to iQube-Protocol/AgentiQ-OS.
+# AigentZBeta is the source of truth; the public repo is the downstream mirror.
+# Access is strictly one-way: this workflow uses a PAT for the public repo only.
+# The public repo has no credentials for AigentZBeta.
+#
+# What is mirrored (open content):
+#   codexes/packs/agentiq-os/items/ → docs/
+#   codexes/packs/agentiq-os/collections.json → collections.json
+#   codexes/packs/agentiq-os/meta.json → meta.json
+#   packages/agentiq-sdk/ → packages/agentiq-sdk/
+#
+# What is NEVER mirrored (private content):
+#   React components, API routes, Supabase schema, engineering KB, admin tooling
+#
+# Prerequisites:
+#   1. Create repo iQube-Protocol/AgentiQ-OS on GitHub
+#   2. Add PAT with repo scope for that repo as AGENTIQ_OS_DEPLOY_TOKEN in
+#      AigentZBeta's GitHub Secrets
+#   If the secret is absent, this workflow exits cleanly (no-op).
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - "codexes/packs/agentiq-os/**"
+      - "packages/agentiq-sdk/**"
+
+  workflow_dispatch:
+
+jobs:
+  sync_agentiq_os:
+    name: Sync AgentiQ OS to public repo
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check deploy token
+        id: check_token
+        run: |
+          if [ -z "${{ secrets.AGENTIQ_OS_DEPLOY_TOKEN }}" ]; then
+            echo "AGENTIQ_OS_DEPLOY_TOKEN not set — skipping public repo sync."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout AigentZBeta (source)
+        if: steps.check_token.outputs.skip == 'false'
+        uses: actions/checkout@v4
+        with:
+          path: source
+
+      - name: Checkout AgentiQ-OS (destination)
+        if: steps.check_token.outputs.skip == 'false'
+        uses: actions/checkout@v4
+        with:
+          repository: iQube-Protocol/AgentiQ-OS
+          token: ${{ secrets.AGENTIQ_OS_DEPLOY_TOKEN }}
+          path: destination
+
+      - name: Mirror agentiq-os pack content
+        if: steps.check_token.outputs.skip == 'false'
+        run: |
+          set -e
+
+          # Mirror items/ → docs/
+          mkdir -p destination/docs
+          rsync -av --delete \
+            source/codexes/packs/agentiq-os/items/ \
+            destination/docs/
+
+          # Mirror pack metadata
+          cp source/codexes/packs/agentiq-os/collections.json destination/collections.json
+          cp source/codexes/packs/agentiq-os/meta.json destination/meta.json
+
+          # Mirror SDK package (if it exists)
+          if [ -d source/packages/agentiq-sdk ]; then
+            mkdir -p destination/packages
+            rsync -av --delete \
+              source/packages/agentiq-sdk/ \
+              destination/packages/agentiq-sdk/
+          fi
+
+      - name: Commit and push to public repo
+        if: steps.check_token.outputs.skip == 'false'
+        working-directory: destination
+        run: |
+          git config user.name "aigent-z[bot]"
+          git config user.email "aigent-z[bot]@users.noreply.github.com"
+
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "No changes to sync — public repo is already up to date."
+            exit 0
+          fi
+
+          SHORT_SHA="${{ github.sha }}"
+          SHORT_SHA="${SHORT_SHA:0:7}"
+          git commit -m "sync agentiq-os content from AigentZBeta — ${SHORT_SHA}"
+          git push origin HEAD:main
+          echo "Sync complete — pushed to iQube-Protocol/AgentiQ-OS main."

@@ -1,213 +1,164 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { ethers } from 'ethers';
 import { getActor } from '@/services/ops/icAgent';
 import { idlFactory as posIdl } from '@/services/ops/idl/proof_of_state';
-import { idlFactory as dvnIdl } from '@/services/ops/idl/cross_chain_service';
+import { updateTokenQubeChainAnchor } from '@/server/services/iqRegistryService';
 
-// Map network names to chain IDs for DVN
-function getChainId(network: string): number {
-  switch (network.toLowerCase()) {
-    case 'ethereum': return 1;
-    case 'polygon': return 137;
-    case 'optimism': return 10;
-    case 'arbitrum': return 42161;
-    case 'base': return 8453;
-    case 'bitcoin': case 'btc': return 0; // Custom ID for Bitcoin
-    case 'solana': case 'sol': return 101; // Solana mainnet
-    default: return 1; // Default to Ethereum
+// Minimal ABI — only functions called from the server
+const IQUBE_NFT_ABI = [
+  'function mintQube(address to, string memory uri) returns (uint256)',
+  'function totalSupply() view returns (uint256)',
+  'function getMetaQubeLocation(uint256 tokenId) view returns (string)',
+  'function minterOf(uint256 tokenId) view returns (address)',
+  'function ownerOf(uint256 tokenId) view returns (address)',
+  'event QubeAnchored(uint256 indexed tokenId, address indexed to, address indexed minter, string uri)',
+] as const;
+
+function getExplorerUrl(chainId: number, txHash: string): string {
+  switch (chainId) {
+    case 8453:   return `https://basescan.org/tx/${txHash}`;
+    case 84532:  return `https://sepolia.basescan.org/tx/${txHash}`;
+    case 1:      return `https://etherscan.io/tx/${txHash}`;
+    case 11155111: return `https://sepolia.etherscan.io/tx/${txHash}`;
+    default:     return `https://basescan.org/tx/${txHash}`;
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { metaIdentifier, tokenId, network = 'Ethereum' } = body;
-    
+    const { metaIdentifier, tokenQubeId, recipientAddress, network = 'base' } = body;
+
     if (!metaIdentifier) {
+      return NextResponse.json({ error: 'metaIdentifier required' }, { status: 400 });
+    }
+
+    const contractAddress = process.env.IQUBE_NFT_CONTRACT_ADDRESS;
+    const rpcUrl = process.env.IQUBE_NFT_RPC_URL;
+    const deployerKey = process.env.EVM_DEPLOYER_KEY;
+    const chainId = parseInt(process.env.IQUBE_NFT_CHAIN_ID || '84532', 10); // default Base Sepolia
+
+    if (!contractAddress || !rpcUrl || !deployerKey) {
       return NextResponse.json(
-        { error: "Missing required parameter: metaIdentifier" },
-        { status: 400 }
+        { error: 'iQubeNFT not configured — set IQUBE_NFT_CONTRACT_ADDRESS, IQUBE_NFT_RPC_URL, EVM_DEPLOYER_KEY' },
+        { status: 503 },
       );
     }
 
-    // In a production environment, this would proxy to the actual backend service
-    // const response = await fetch(`${process.env.CORE_API_URL}/tokenqube/mint`, {
-    //   method: 'POST',
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //     'Authorization': `Bearer ${process.env.API_KEY}`
-    //   },
-    //   body: JSON.stringify({ metaIdentifier, tokenId, network })
-    // });
-    // 
-    // if (!response.ok) {
-    //   const errorData = await response.json();
-    //   return NextResponse.json(errorData, { status: response.status });
-    // }
-    // 
-    // const data = await response.json();
-    // return NextResponse.json(data);
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const wallet = new ethers.Wallet(deployerKey, provider);
+    const contract = new ethers.Contract(contractAddress, IQUBE_NFT_ABI, wallet);
 
-    // For development, simulate a response
-    // Add a delay to simulate network latency and blockchain confirmation
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // URI: use metaIdentifier as the on-chain pointer (IPFS CID, Autonomys CID, or iq: ref)
+    const uri = metaIdentifier;
+    const to = recipientAddress || wallet.address;
 
-    // Generate a mock transaction hash based on the network
-    let txHash;
-    let explorerUrl;
-    
-    switch (network.toLowerCase()) {
-      case 'ethereum':
-        txHash = `0x${Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join('')}`;
-        explorerUrl = `https://etherscan.io/tx/${txHash}`;
-        break;
-      case 'polygon':
-        txHash = `0x${Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join('')}`;
-        explorerUrl = `https://polygonscan.com/tx/${txHash}`;
-        break;
-      case 'optimism':
-        txHash = `0x${Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join('')}`;
-        explorerUrl = `https://optimistic.etherscan.io/tx/${txHash}`;
-        break;
-      case 'arbitrum':
-        txHash = `0x${Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join('')}`;
-        explorerUrl = `https://arbiscan.io/tx/${txHash}`;
-        break;
-      case 'base':
-        txHash = `0x${Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join('')}`;
-        explorerUrl = `https://basescan.org/tx/${txHash}`;
-        break;
-      case 'bitcoin':
-      case 'btc':
-        // Bitcoin transaction hash: 64 hex characters, no 0x prefix
-        txHash = Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join('');
-        explorerUrl = `https://blockstream.info/tx/${txHash}`;
-        break;
-      case 'solana':
-      case 'sol':
-        // Solana transaction signature: Base58 encoded, ~88 characters
-        const base58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-        txHash = Array.from({length: 88}, () => base58Chars[Math.floor(Math.random() * base58Chars.length)]).join('');
-        explorerUrl = `https://explorer.solana.com/tx/${txHash}`;
-        break;
-      default:
-        txHash = `0x${Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join('')}`;
-        explorerUrl = `https://etherscan.io/tx/${txHash}`;
+    const tx = await (contract.mintQube as (to: string, uri: string) => Promise<ethers.ContractTransactionResponse>)(to, uri);
+    const receipt = await tx.wait();
+    if (!receipt) throw new Error('Transaction receipt not received');
+
+    // Parse tokenId from QubeAnchored event
+    const iface = new ethers.Interface(IQUBE_NFT_ABI);
+    let mintedTokenId: number | null = null;
+    for (const log of receipt.logs) {
+      try {
+        const parsed = iface.parseLog(log);
+        if (parsed?.name === 'QubeAnchored') {
+          mintedTokenId = Number(parsed.args[0]);
+          break;
+        }
+      } catch {
+        // skip unparseable logs
+      }
     }
 
-    // Generate a mock response
-    const actualTokenId = tokenId || `${Math.floor(Math.random() * 1000000)}`;
-    
-    // Generate appropriate addresses based on network first
-    let contractAddress;
-    let owner;
-    
-    switch (network.toLowerCase()) {
-      case 'bitcoin':
-      case 'btc':
-        // Bitcoin doesn't have contract addresses, use null
-        contractAddress = null;
-        // Bitcoin address (P2PKH format)
-        owner = `1${Array.from({length: 33}, () => {
-          const chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-          return chars[Math.floor(Math.random() * chars.length)];
-        }).join('')}`;
-        break;
-      case 'solana':
-      case 'sol':
-        // Solana program address (Base58, 44 characters)
-        const base58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-        contractAddress = Array.from({length: 44}, () => base58Chars[Math.floor(Math.random() * base58Chars.length)]).join('');
-        // Solana wallet address (Base58, 44 characters)
-        owner = Array.from({length: 44}, () => base58Chars[Math.floor(Math.random() * base58Chars.length)]).join('');
-        break;
-      default:
-        // EVM networks use 0x addresses
-        contractAddress = `0x${Array.from({length: 40}, () => Math.floor(Math.random() * 16).toString(16)).join('')}`;
-        owner = `0x${Array.from({length: 40}, () => Math.floor(Math.random() * 16).toString(16)).join('')}`;
+    const txHash = receipt.hash;
+    const explorerUrl = getExplorerUrl(chainId, txHash);
+
+    // Write chain anchor back to Supabase if a tokenQubeId was provided
+    if (tokenQubeId && mintedTokenId !== null) {
+      await updateTokenQubeChainAnchor(tokenQubeId, {
+        chainTokenId: mintedTokenId,
+        chainId,
+        chainTxHash: txHash,
+        chainMinter: wallet.address,
+      });
     }
 
-    // 🔗 INTEGRATE WITH PROOF-OF-STATE CANISTER
-    let receiptId = null;
+    // Fire Proof-of-State receipt (non-blocking)
+    let receiptId: string | null = null;
     try {
       const POS_ID = (process.env.PROOF_OF_STATE_CANISTER_ID || process.env.NEXT_PUBLIC_PROOF_OF_STATE_CANISTER_ID) as string;
       if (POS_ID) {
-        const pos = await getActor<any>(POS_ID, posIdl);
-        // Create a data hash from the mint transaction details
-        const dataHash = `mint_${network.toLowerCase()}_${actualTokenId}_${metaIdentifier}_${Date.now()}`;
-        receiptId = await pos.issue_receipt(dataHash);
-        console.log('🎯 Mint receipt created:', receiptId);
+        const pos = await getActor<{ issue_receipt: (hash: string) => Promise<string> }>(POS_ID, posIdl);
+        receiptId = await pos.issue_receipt(`mint_${chainId}_${mintedTokenId}_${metaIdentifier}`);
       }
-    } catch (error) {
-      console.warn('Failed to create proof-of-state receipt:', error);
-      // Continue with mint even if receipt creation fails
-    }
-    
-    // 🔗 INTEGRATE WITH DVN SYSTEM FOR CROSS-CHAIN TRACKING
-    let dvnMessageId = null;
-    try {
-      const DVN_ID = (process.env.CROSS_CHAIN_SERVICE_CANISTER_ID || process.env.NEXT_PUBLIC_CROSS_CHAIN_SERVICE_CANISTER_ID) as string;
-      if (DVN_ID && receiptId) {
-        const dvn = await getActor<any>(DVN_ID, dvnIdl);
-        
-        // Create DVN message payload with mint details
-        const mintPayload = {
-          action: 'MINT',
-          asset: 'TokenQube',
-          tokenId: actualTokenId,
-          metaIdentifier,
-          network,
-          txHash,
-          receiptId,
-          timestamp: Date.now()
-        };
-        
-        // Convert payload to bytes for DVN
-        const payloadBytes = Array.from(new TextEncoder().encode(JSON.stringify(mintPayload)));
-        const sourceChain = getChainId(network);
-        const destinationChain = 0; // ICP (custom ID)
-        
-        dvnMessageId = await dvn.submit_dvn_message(sourceChain, destinationChain, payloadBytes, owner);
-        console.log('🌐 DVN message created:', dvnMessageId);
-      }
-    } catch (error) {
-      console.warn('Failed to create DVN message:', error);
-      // Continue with mint even if DVN creation fails
+    } catch {
+      // non-fatal
     }
 
-    const mockResponse = {
+    return NextResponse.json({
       success: true,
-      message: "TokenQube minted successfully",
+      message: 'TokenQube minted successfully',
       metaIdentifier,
-      tokenId: actualTokenId,
+      tokenId: mintedTokenId,
       network,
+      chainId,
       contractAddress,
       tx: txHash,
       explorerUrl,
       mintedAt: new Date().toISOString(),
-      owner,
-      // Include proof-of-state receipt info
-      proofOfState: receiptId ? {
-        receiptId,
-        status: 'pending',
-        message: 'Transaction recorded in proof-of-state system'
-      } : null,
-      // Include DVN cross-chain tracking info
-      dvnTracking: dvnMessageId ? {
-        messageId: dvnMessageId,
-        sourceChain: getChainId(network),
-        destinationChain: 0, // ICP
-        status: 'pending',
-        message: 'Cross-chain transaction tracked in DVN system'
-      } : null
-    };
+      owner: to,
+      minter: wallet.address,
+      proofOfState: receiptId ? { receiptId, status: 'pending' } : null,
+    });
+  } catch (err) {
+    console.error('[mint-tokenqube]', err);
+    const message = err instanceof Error ? err.message : 'Mint failed';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
 
-    return NextResponse.json(mockResponse);
+// GET /api/core/mint-tokenqube — list all minted TokenQubes from the contract
+export async function GET() {
+  const contractAddress = process.env.IQUBE_NFT_CONTRACT_ADDRESS;
+  const rpcUrl = process.env.IQUBE_NFT_RPC_URL;
+  const chainId = parseInt(process.env.IQUBE_NFT_CHAIN_ID || '84532', 10);
 
-  } catch (error) {
-    console.error('Error minting TokenQube:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+  if (!contractAddress || !rpcUrl) {
+    return NextResponse.json({ error: 'iQubeNFT not configured' }, { status: 503 });
+  }
+
+  try {
+    const provider = new ethers.JsonRpcProvider(rpcUrl);
+    const contract = new ethers.Contract(contractAddress, IQUBE_NFT_ABI, provider);
+
+    const total = Number(await (contract.totalSupply as () => Promise<bigint>)());
+    if (total === 0) return NextResponse.json({ tokens: [], total: 0, contractAddress, chainId });
+
+    const tokens = await Promise.all(
+      Array.from({ length: total }, (_, i) => i + 1).map(async (tokenId) => {
+        try {
+          const [uri, minter, owner] = await Promise.all([
+            (contract.getMetaQubeLocation as (id: number) => Promise<string>)(tokenId),
+            (contract.minterOf as (id: number) => Promise<string>)(tokenId),
+            (contract.ownerOf as (id: number) => Promise<string>)(tokenId),
+          ]);
+          return { tokenId, uri, minter, owner, explorerUrl: `https://sepolia.basescan.org/token/${contractAddress}?a=${tokenId}` };
+        } catch {
+          return null;
+        }
+      }),
     );
+
+    return NextResponse.json({
+      tokens: tokens.filter(Boolean),
+      total,
+      contractAddress,
+      chainId,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to list tokens';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -130,7 +130,7 @@ function _drainEarlyCapture(handler: (e: MessageEvent) => void) {
 // Start capturing immediately at module evaluation time
 _startEarlyCapture();
 
-type RuntimeIntent = "watch" | "listen" | "read" | "play" | "find" | "earn" | "make" | "be";
+type RuntimeIntent = "watch" | "listen" | "read" | "play" | "find" | "earn" | "make" | "be" | "share";
 type RuntimeContentSource = "experience" | "smart-content" | "codex";
 
 type RuntimeAgent = {
@@ -504,24 +504,39 @@ function coerceDeviceType(input: unknown): DeviceType | null {
 
 function menuPromptFromActionId(actionId: string): string | null {
   const normalized = actionId.trim().toLowerCase();
+  // Top-level menu items
   if (normalized === "be" || normalized === "compass_be") return "I want to be...";
   if (normalized === "earn" || normalized === "compass_earn") return "How can I earn...";
   if (normalized === "play" || normalized === "compass_play") return "I'd like to play experiences.";
   if (normalized === "make" || normalized === "compass_make") return "I want to make...";
-  if (normalized === "share" || normalized === "compass_share") return "Help me find experiences to share.";
+  if (normalized === "share" || normalized === "compass_share") return "Help me share my experiences.";
+  // Make sub-actions (sent by quick_links or future shell updates)
+  if (normalized === "make-create-design") return "I want to create and design in metaMe Studio.";
+  if (normalized === "make-build") return "I want to build with AgentiQ OS.";
+  if (normalized === "make-remix") return "I want to remix and customise an existing iQube.";
+  // Play sub-actions
+  if (normalized === "play-watch") return "I'd like to watch experiences.";
+  if (normalized === "play-listen") return "I'd like to listen to audio-first experiences.";
+  if (normalized === "play-knyt") return "I'd like to explore my KNYT journey.";
+  // Earn sub-actions
+  if (normalized === "earn-goal") return "Show me my onboarding journey goals and first tasks.";
+  // Share sub-actions
+  if (normalized === "share-message") return "Send a direct message via QubeTalk.";
+  if (normalized === "share-invite") return "Invite someone to a shared QubeTalk environment.";
   return null;
 }
 
 function coerceRuntimeIntent(input: unknown): RuntimeIntent | null {
   if (typeof input !== "string") return null;
   const normalized = input.trim().toLowerCase();
-  const intents: RuntimeIntent[] = ["watch", "listen", "read", "play", "find", "earn", "make", "be"];
+  const intents: RuntimeIntent[] = ["watch", "listen", "read", "play", "find", "earn", "make", "be", "share"];
   return intents.includes(normalized as RuntimeIntent) ? (normalized as RuntimeIntent) : null;
 }
 
 function isQuickActionPrompt(prompt: string): boolean {
   const normalized = prompt.trim().toLowerCase();
   const quickActionPrompts = new Set([
+    // Top-level menu items
     "i'd like to watch experiences.",
     "i'd like to listen to experiences.",
     "i'd like to read experiences.",
@@ -530,7 +545,19 @@ function isQuickActionPrompt(prompt: string): boolean {
     "how can i earn...",
     "i'd like to play experiences.",
     "i want to make...",
-    "help me find experiences to share.",
+    "help me share my experiences.",
+    "help me find experiences to share.", // legacy — keep for backwards compat
+    // Sub-action prompts (skip inference — intent is explicit)
+    "i want to create and design in metame studio.",
+    "i want to build with agentiq os.",
+    "i want to remix and customise an existing iqube.",
+    "i'd like to listen to audio-first experiences.",
+    "i'd like to explore my knyt journey.",
+    "show me my onboarding journey goals and first tasks.",
+    "send a direct message via qubetalk.",
+    "invite someone to a shared qubetalk environment.",
+    "help me invite someone to collaborate.",
+    // Launch aliases
     "launching earn…",
     "launching earn...",
     "launching play…",
@@ -1894,6 +1921,10 @@ export default function MetaMeRuntimeClient() {
   const [connectionsDrawerOpen, setConnectionsDrawerOpen] = useState(false);
   const [beMenuOpen, setBeMenuOpen] = useState(false);
   const [earnMenuOpen, setEarnMenuOpen] = useState(false);
+  const [makeMenuOpen, setMakeMenuOpen] = useState(false);
+  const [playMenuOpen, setPlayMenuOpen] = useState(false);
+  const [shareMenuOpen, setShareMenuOpen] = useState(false);
+  const [connectionsDrawerOpen, setConnectionsDrawerOpen] = useState(false);
   const [walletInitialTab, setWalletInitialTab] = useState<"wallet" | "tasks" | "rewards" | "payments">("wallet");
   const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
 
@@ -4104,9 +4135,9 @@ export default function MetaMeRuntimeClient() {
         return;
       }
 
-      if (raw.type === "OPEN_CONNECTIONS_IQUBE") {
-        console.warn("[drawer] OPEN_CONNECTIONS_IQUBE received → opening");
-        maybeAdvanceWelcome("Show me my connections, identity links and network");
+      if (raw.type === "OPEN_CONNECTIONS_DRAWER") {
+        console.warn("[drawer] OPEN_CONNECTIONS_DRAWER received → opening");
+        maybeAdvanceWelcome("Show me my connections — MetaMask and LinkedIn");
         setConnectionsDrawerOpen(true);
         return;
       }
@@ -4346,8 +4377,24 @@ export default function MetaMeRuntimeClient() {
               ? payload.item_id
               : null;
         const DRAWER_ACTION_HANDLERS: Record<string, () => void> = {
-          wallet: () => setWalletDrawerOpen(true),
-          settings: () => setSettingsDrawerOpen(true),
+          wallet:      () => setWalletDrawerOpen(true),
+          settings:    () => setSettingsDrawerOpen(true),
+          connections: () => setConnectionsDrawerOpen(true),
+          memory:      () => setMemoryDrawerOpen(true),
+          identity:    () => setIdentityIQubeOpen(true),
+          persona:     () => setPersonaPickerOpen(true),
+          // Make sub-actions — open cartridge overlays
+          "make-create-design": () => setActiveCartridgeOverlay({ slug: 'metame',   title: 'metaMe Studio', initialTab: 'metame-studio'   }),
+          "make-build":         () => setActiveCartridgeOverlay({ slug: 'aigentiq', title: 'AgentiQ OS',    initialTab: 'agentiq-os'       }),
+          "make-remix":         () => setActiveCartridgeOverlay({ slug: 'aigentiq', title: 'iQube Registry', initialTab: 'registry-supply' }),
+          // Play sub-actions
+          "play-knyt": () => { setRuntimeContext('knyt'); },
+          // Share sub-actions — native share (no prompt, side-effect only)
+          "share-refer": () => {
+            const url = typeof window !== 'undefined' ? window.location.href : '';
+            if (navigator.share) { void navigator.share({ title: 'Join me on metaMe', text: 'Explore your metaMe journey', url }); }
+            else { void navigator.clipboard?.writeText(url); }
+          },
         };
         if (menuActionId && menuActionId in DRAWER_ACTION_HANDLERS) {
           DRAWER_ACTION_HANDLERS[menuActionId]?.();
@@ -4668,14 +4715,14 @@ export default function MetaMeRuntimeClient() {
               <>
                 <div className="fixed inset-0 z-[45]" onClick={() => setEarnMenuOpen(false)} />
                 <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[46] flex flex-col gap-1 bg-slate-900/95 border border-white/10 rounded-xl p-2 shadow-2xl backdrop-blur-xl min-w-[130px]">
-                  {([
-                    { label: "Goal",   tab: "wallet"   },
-                    { label: "Task",   tab: "tasks"    },
-                    { label: "Wallet", tab: "wallet"   },
-                    { label: "Reward", tab: "rewards"  },
-                    { label: "Offer",  tab: "payments" },
-                  ] as const).map(({ label, tab }) => (
-                    <button key={label} type="button" onClick={() => { setWalletInitialTab(tab); setWalletDrawerOpen(true); setEarnMenuOpen(false); }}
+                  {[
+                    { label: "Goal",   action: () => { handleRuntimeMenuIntent("earn", "Show me my onboarding journey goals and first tasks."); setEarnMenuOpen(false); } },
+                    { label: "Task",   action: () => { setWalletInitialTab("tasks");    setWalletDrawerOpen(true); setEarnMenuOpen(false); } },
+                    { label: "Wallet", action: () => { setWalletInitialTab("wallet");   setWalletDrawerOpen(true); setEarnMenuOpen(false); } },
+                    { label: "Reward", action: () => { setWalletInitialTab("rewards");  setWalletDrawerOpen(true); setEarnMenuOpen(false); } },
+                    { label: "Offer",  action: () => { setWalletInitialTab("payments"); setWalletDrawerOpen(true); setEarnMenuOpen(false); } },
+                  ].map(({ label, action }) => (
+                    <button key={label} type="button" onClick={action}
                       className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
                       <Coins className="h-3.5 w-3.5 text-emerald-400" />{label}
                     </button>
@@ -4694,36 +4741,104 @@ export default function MetaMeRuntimeClient() {
               Earn
             </button>
           </div>
-          <button
-            type="button"
-            onClick={() => handleRuntimeMenuIntent("play", "I'd like to play experiences.")}
-            className={menuButtonClass("play")}
-            title="I'd like to play experiences."
-            aria-pressed={lastIntent === "play"}
-          >
-            <PlayCircle className="h-5 w-5 text-cyan-300" />
-            Play
-          </button>
-          <button
-            type="button"
-            onClick={() => handleRuntimeMenuIntent("make", "I want to make...")}
-            className={menuButtonClass("make")}
-            title="I want to make..."
-            aria-pressed={lastIntent === "make"}
-          >
-            <Pencil className="h-5 w-5 text-purple-300" />
-            Make
-          </button>
-          <button
-            type="button"
-            onClick={() => handleRuntimeMenuIntent("find", "Help me find experiences to share.")}
-            className={menuButtonClass("find")}
-            title="Help me find experiences to share."
-            aria-pressed={lastIntent === "find"}
-          >
-            <Users className="h-4 w-4 text-slate-200" />
-            Share
-          </button>
+          <div className="relative flex flex-col items-center gap-0.5">
+            {playMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-[45]" onClick={() => setPlayMenuOpen(false)} />
+                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[46] flex flex-col gap-1 bg-slate-900/95 border border-white/10 rounded-xl p-2 shadow-2xl backdrop-blur-xl min-w-[120px]">
+                  <button type="button" onClick={() => { handleRuntimeMenuIntent("play", "I'd like to watch experiences."); setPlayMenuOpen(false); }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                    <Tv className="h-3.5 w-3.5 text-cyan-400" />Watch
+                  </button>
+                  <button type="button" onClick={() => { handleRuntimeMenuIntent("play", "I'd like to listen to audio-first experiences."); setPlayMenuOpen(false); }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                    <Headphones className="h-3.5 w-3.5 text-cyan-400" />Listen
+                  </button>
+                  <button type="button" onClick={() => { setRuntimeContext('knyt'); handleRuntimeMenuIntent("play", "I'd like to explore my KNYT journey."); setPlayMenuOpen(false); }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                    <Moon className="h-3.5 w-3.5 text-cyan-400" />KNYT
+                  </button>
+                </div>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => { handleRuntimeMenuIntent("play", "I'd like to play experiences."); setPlayMenuOpen(prev => !prev); }}
+              className={menuButtonClass("play")}
+              title="I'd like to play experiences."
+              aria-pressed={lastIntent === "play"}
+            >
+              <PlayCircle className="h-5 w-5 text-cyan-300" />
+              Play
+            </button>
+          </div>
+          <div className="relative flex flex-col items-center gap-0.5">
+            {makeMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-[45]" onClick={() => setMakeMenuOpen(false)} />
+                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[46] flex flex-col gap-1 bg-slate-900/95 border border-white/10 rounded-xl p-2 shadow-2xl backdrop-blur-xl min-w-[140px]">
+                  <button type="button" onClick={() => { setActiveCartridgeOverlay({ slug: 'metame', title: 'metaMe Studio', initialTab: 'metame-studio' }); setMakeMenuOpen(false); }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                    <Sparkles className="h-3.5 w-3.5 text-purple-400" />Create &amp; Design
+                  </button>
+                  <button type="button" onClick={() => { setActiveCartridgeOverlay({ slug: 'aigentiq', title: 'AgentiQ OS', initialTab: 'agentiq-os' }); setMakeMenuOpen(false); }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                    <Hexagon className="h-3.5 w-3.5 text-purple-400" />Build
+                  </button>
+                  <button type="button" onClick={() => { setActiveCartridgeOverlay({ slug: 'aigentiq', title: 'iQube Registry', initialTab: 'registry-supply' }); setMakeMenuOpen(false); }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                    <RotateCcw className="h-3.5 w-3.5 text-purple-400" />Remix
+                  </button>
+                </div>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => { handleRuntimeMenuIntent("make", "I want to make..."); setMakeMenuOpen(prev => !prev); }}
+              className={menuButtonClass("make")}
+              title="I want to make..."
+              aria-pressed={lastIntent === "make"}
+            >
+              <Pencil className="h-5 w-5 text-purple-300" />
+              Make
+            </button>
+          </div>
+          <div className="relative flex flex-col items-center gap-0.5">
+            {shareMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-[45]" onClick={() => setShareMenuOpen(false)} />
+                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[46] flex flex-col gap-1 bg-slate-900/95 border border-white/10 rounded-xl p-2 shadow-2xl backdrop-blur-xl min-w-[130px]">
+                  <button type="button" onClick={() => { handleRuntimeMenuIntent("share", "Send a direct message via QubeTalk."); setShareMenuOpen(false); }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                    <Send className="h-3.5 w-3.5 text-slate-400" />Message
+                  </button>
+                  <button type="button" onClick={() => { handleRuntimeMenuIntent("share", "Invite someone to a shared QubeTalk environment."); setShareMenuOpen(false); }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                    <Users className="h-3.5 w-3.5 text-slate-400" />Invite
+                  </button>
+                  <button type="button" onClick={() => {
+                    const url = typeof window !== 'undefined' ? window.location.href : '';
+                    if (navigator.share) { void navigator.share({ title: 'Join me on metaMe', text: 'Explore your metaMe journey', url }); }
+                    else { void navigator.clipboard?.writeText(url); }
+                    setShareMenuOpen(false);
+                  }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                    <Share2 className="h-3.5 w-3.5 text-slate-400" />Refer
+                  </button>
+                </div>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => { handleRuntimeMenuIntent("share", "Help me share my experiences."); setShareMenuOpen(prev => !prev); }}
+              className={menuButtonClass("share")}
+              title="Share experiences and invite collaborators."
+              aria-pressed={lastIntent === "share"}
+            >
+              <Users className="h-4 w-4 text-slate-200" />
+              Share
+            </button>
+          </div>
         </div>
       ) : (
         <div className="flex items-center justify-between px-4">
@@ -4765,14 +4880,14 @@ export default function MetaMeRuntimeClient() {
                 <>
                   <div className="fixed inset-0 z-[45]" onClick={() => setEarnMenuOpen(false)} />
                   <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[46] flex flex-col gap-1 bg-slate-900/95 border border-white/10 rounded-xl p-2 shadow-2xl backdrop-blur-xl min-w-[130px]">
-                    {([
-                      { label: "Goal",   tab: "wallet"   },
-                      { label: "Task",   tab: "tasks"    },
-                      { label: "Wallet", tab: "wallet"   },
-                      { label: "Reward", tab: "rewards"  },
-                      { label: "Offer",  tab: "payments" },
-                    ] as const).map(({ label, tab }) => (
-                      <button key={label} type="button" onClick={() => { setWalletInitialTab(tab); setWalletDrawerOpen(true); setEarnMenuOpen(false); }}
+                    {[
+                      { label: "Goal",   action: () => { handleRuntimeMenuIntent("earn", "Show me my onboarding journey goals and first tasks."); setEarnMenuOpen(false); } },
+                      { label: "Task",   action: () => { setWalletInitialTab("tasks");    setWalletDrawerOpen(true); setEarnMenuOpen(false); } },
+                      { label: "Wallet", action: () => { setWalletInitialTab("wallet");   setWalletDrawerOpen(true); setEarnMenuOpen(false); } },
+                      { label: "Reward", action: () => { setWalletInitialTab("rewards");  setWalletDrawerOpen(true); setEarnMenuOpen(false); } },
+                      { label: "Offer",  action: () => { setWalletInitialTab("payments"); setWalletDrawerOpen(true); setEarnMenuOpen(false); } },
+                    ].map(({ label, action }) => (
+                      <button key={label} type="button" onClick={action}
                         className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
                         <Coins className="h-3.5 w-3.5 text-emerald-400" />{label}
                       </button>
@@ -4791,37 +4906,105 @@ export default function MetaMeRuntimeClient() {
                 Earn
               </button>
             </div>
+            <div className="relative">
+              {playMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-[45]" onClick={() => setPlayMenuOpen(false)} />
+                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[46] flex flex-col gap-1 bg-slate-900/95 border border-white/10 rounded-xl p-2 shadow-2xl backdrop-blur-xl min-w-[120px]">
+                    <button type="button" onClick={() => { handleRuntimeMenuIntent("play", "I'd like to watch experiences."); setPlayMenuOpen(false); }}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                      <Tv className="h-3.5 w-3.5 text-cyan-400" />Watch
+                    </button>
+                    <button type="button" onClick={() => { handleRuntimeMenuIntent("play", "I'd like to listen to audio-first experiences."); setPlayMenuOpen(false); }}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                      <Headphones className="h-3.5 w-3.5 text-cyan-400" />Listen
+                    </button>
+                    <button type="button" onClick={() => { setRuntimeContext('knyt'); handleRuntimeMenuIntent("play", "I'd like to explore my KNYT journey."); setPlayMenuOpen(false); }}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                      <Moon className="h-3.5 w-3.5 text-cyan-400" />KNYT
+                    </button>
+                  </div>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => { handleRuntimeMenuIntent("play", "I'd like to play experiences."); setPlayMenuOpen(prev => !prev); }}
+                className={menuButtonClass("play")}
+                title="I'd like to play experiences."
+                aria-pressed={lastIntent === "play"}
+              >
+                <PlayCircle className="h-5 w-5 text-cyan-300" />
+                Play
+              </button>
+            </div>
+            <div className="relative">
+              {makeMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-[45]" onClick={() => setMakeMenuOpen(false)} />
+                  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[46] flex flex-col gap-1 bg-slate-900/95 border border-white/10 rounded-xl p-2 shadow-2xl backdrop-blur-xl min-w-[140px]">
+                    <button type="button" onClick={() => { setActiveCartridgeOverlay({ slug: 'metame', title: 'metaMe Studio', initialTab: 'metame-studio' }); setMakeMenuOpen(false); }}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                      <Sparkles className="h-3.5 w-3.5 text-purple-400" />Create &amp; Design
+                    </button>
+                    <button type="button" onClick={() => { setActiveCartridgeOverlay({ slug: 'aigentiq', title: 'AgentiQ OS', initialTab: 'agentiq-os' }); setMakeMenuOpen(false); }}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                      <Hexagon className="h-3.5 w-3.5 text-purple-400" />Build
+                    </button>
+                    <button type="button" onClick={() => { setActiveCartridgeOverlay({ slug: 'aigentiq', title: 'iQube Registry', initialTab: 'registry-supply' }); setMakeMenuOpen(false); }}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                      <RotateCcw className="h-3.5 w-3.5 text-purple-400" />Remix
+                    </button>
+                  </div>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => { handleRuntimeMenuIntent("make", "I want to make..."); setMakeMenuOpen(prev => !prev); }}
+                className={menuButtonClass("make")}
+                title="I want to make..."
+                aria-pressed={lastIntent === "make"}
+              >
+                <Pencil className="h-5 w-5 text-purple-300" />
+                Make
+              </button>
+            </div>
+          </div>
+          <div className="relative flex flex-col items-center gap-0.5">
+            {shareMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-[45]" onClick={() => setShareMenuOpen(false)} />
+                <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[46] flex flex-col gap-1 bg-slate-900/95 border border-white/10 rounded-xl p-2 shadow-2xl backdrop-blur-xl min-w-[130px]">
+                  <button type="button" onClick={() => { handleRuntimeMenuIntent("share", "Send a direct message via QubeTalk."); setShareMenuOpen(false); }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                    <Send className="h-3.5 w-3.5 text-slate-400" />Message
+                  </button>
+                  <button type="button" onClick={() => { handleRuntimeMenuIntent("share", "Invite someone to a shared QubeTalk environment."); setShareMenuOpen(false); }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                    <Users className="h-3.5 w-3.5 text-slate-400" />Invite
+                  </button>
+                  <button type="button" onClick={() => {
+                    const url = typeof window !== 'undefined' ? window.location.href : '';
+                    if (navigator.share) { void navigator.share({ title: 'Join me on metaMe', text: 'Explore your metaMe journey', url }); }
+                    else { void navigator.clipboard?.writeText(url); }
+                    setShareMenuOpen(false);
+                  }}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
+                    <Share2 className="h-3.5 w-3.5 text-slate-400" />Refer
+                  </button>
+                </div>
+              </>
+            )}
             <button
               type="button"
-              onClick={() => handleRuntimeMenuIntent("play", "I'd like to play experiences.")}
-              className={menuButtonClass("play")}
-              title="I'd like to play experiences."
-              aria-pressed={lastIntent === "play"}
+              onClick={() => { handleRuntimeMenuIntent("share", "Help me share my experiences."); setShareMenuOpen(prev => !prev); }}
+              className={menuButtonClass("share")}
+              title="Share experiences and invite collaborators."
+              aria-pressed={lastIntent === "share"}
             >
-              <PlayCircle className="h-5 w-5 text-cyan-300" />
-              Play
-            </button>
-            <button
-              type="button"
-              onClick={() => handleRuntimeMenuIntent("make", "I want to make...")}
-              className={menuButtonClass("make")}
-              title="I want to make..."
-              aria-pressed={lastIntent === "make"}
-            >
-              <Pencil className="h-5 w-5 text-purple-300" />
-              Make
+              <Users className="h-4 w-4 text-slate-200" />
+              Share
             </button>
           </div>
-          <button
-            type="button"
-            onClick={() => handleRuntimeMenuIntent("find", "Help me find experiences to share.")}
-            className={menuButtonClass("find")}
-            title="Help me find experiences to share."
-            aria-pressed={lastIntent === "find"}
-          >
-            <Users className="h-4 w-4 text-slate-200" />
-            Share
-          </button>
         </div>
       )}
     </div>
@@ -5034,7 +5217,7 @@ export default function MetaMeRuntimeClient() {
         </div>
         <MetaMeSettingsPanel personaId={activePersonaId ?? undefined} />
       </div>
-      {/* iQube drawers (persona, identity, memory, picker) are hoisted to iQubeDrawerLayer
+      {/* iQube drawers (persona, identity, memory, connections, picker) are hoisted to iQubeDrawerLayer
           so they render over both the welcome screen and the runtime surface. */}
       {/* Absolute overlay: prompt bar (live view only) + runtimeMenu stacked at bottom */}
       {!thinShellMode ? (
@@ -5297,8 +5480,71 @@ export default function MetaMeRuntimeClient() {
       </div>
       {/* Memory iQube drawer */}
       <MemoryIQubeDrawer open={memoryDrawerOpen} onClose={() => setMemoryDrawerOpen(false)} />
-      {/* Connections iQube drawer */}
-      <ConnectionsIQubeDrawer open={connectionsDrawerOpen} onClose={() => setConnectionsDrawerOpen(false)} />
+      {/* Connections drawer — fixed positioning matches MemoryIQubeDrawer pattern */}
+      {connectionsDrawerOpen && (
+        <>
+          <div className="fixed inset-0 z-[59] bg-black/40 backdrop-blur-sm" onClick={() => setConnectionsDrawerOpen(false)} />
+          <div className="fixed inset-y-0 left-0 z-[60] flex w-full max-w-sm flex-col bg-slate-950/95 border-r border-white/10 shadow-2xl backdrop-blur-xl">
+            <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-green-500/20">
+                  <Network className="h-4 w-4 text-green-400" />
+                </div>
+                <span className="text-sm font-semibold text-white">Connections</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConnectionsDrawerOpen(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white transition"
+                aria-label="Close connections"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-3">
+              <div className="rounded-xl border border-white/10 bg-slate-900/60 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Hexagon className="h-4 w-4 text-amber-400" />
+                  <span className="text-sm font-medium text-slate-200">MetaMask</span>
+                </div>
+                <p className="text-xs text-slate-400 mb-3">Connect your MetaMask wallet to enable on-chain features.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).ethereum) {
+                      void (window as unknown as Record<string, { request: (args: Record<string, string>) => Promise<string[]> }>).ethereum
+                        .request({ method: 'eth_requestAccounts' })
+                        .catch(() => {});
+                    } else {
+                      window.open('https://metamask.io/download/', '_blank', 'noopener');
+                    }
+                  }}
+                  className="flex items-center justify-center gap-2 w-full rounded-lg bg-amber-500/20 border border-amber-500/30 px-3 py-2 text-xs font-medium text-amber-300 hover:bg-amber-500/30 transition"
+                >
+                  <Hexagon className="h-3.5 w-3.5" />
+                  Connect MetaMask
+                </button>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-slate-900/60 p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Users className="h-4 w-4 text-blue-400" />
+                  <span className="text-sm font-medium text-slate-200">LinkedIn</span>
+                </div>
+                <p className="text-xs text-slate-400 mb-3">Connect your LinkedIn profile to enrich your metaMe identity.</p>
+                <a
+                  href="https://www.linkedin.com/oauth/v2/authorization"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full rounded-lg bg-[#0A66C2] px-3 py-2 text-xs font-medium text-white hover:bg-[#004182] transition"
+                >
+                  <SquareArrowOutUpRight className="h-3.5 w-3.5" />
+                  Connect LinkedIn
+                </a>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
       {/* Persona picker — bottom sheet when no iqube_type specified */}
       {personaPickerOpen && (
         <>

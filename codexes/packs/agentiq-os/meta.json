@@ -1,0 +1,10 @@
+{
+  "pack_id": "pack_agentiq_os_v0",
+  "name": "AgentiQ OS",
+  "description": "Developer onboarding and reference documentation for the AgentiQ OS open layer — protocols, SDK, runtime, studio, registry, and bounded delegation.",
+  "version": "0.1.0",
+  "visibility": "public",
+  "orientation": "developer",
+  "tags": ["agentiq-os", "developer", "sdk", "open-source", "protocols"],
+  "owner": "system"
+}
