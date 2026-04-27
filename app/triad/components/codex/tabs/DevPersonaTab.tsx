@@ -144,6 +144,7 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
   }, [autoMarkFio]);
 
   return (
+    <>
     <div className="p-6 space-y-6 max-w-2xl">
       <div className="flex items-start gap-4">
         <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-blue-500/20 border border-blue-500/30">
@@ -531,5 +532,6 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
         agent={{ id: activePersonaId ?? "dev", name: livePersona?.displayName ?? "Developer" }}
       />
     )}
+    </>
   );
 }
