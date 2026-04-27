@@ -59,6 +59,16 @@ const CAT: Record<MissionCategory, { label: string; color: string }> = {
   governance:         { label: "Governance",         color: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30" },
 };
 
+const CAT_CARD: Record<MissionCategory, { bg: string; border: string }> = {
+  segmentation:       { bg: "bg-blue-500/10",   border: "border-blue-500/20" },
+  "outreach-support": { bg: "bg-purple-500/10", border: "border-purple-500/20" },
+  telemetry:          { bg: "bg-cyan-500/10",   border: "border-cyan-500/20" },
+  partner:            { bg: "bg-amber-500/10",  border: "border-amber-500/20" },
+  content:            { bg: "bg-rose-500/10",   border: "border-rose-500/20" },
+  participation:      { bg: "bg-green-500/10",  border: "border-green-500/20" },
+  governance:         { bg: "bg-indigo-500/10", border: "border-indigo-500/20" },
+};
+
 const CLS: Record<TrustClass, { label: string; color: string; desc: string }> = {
   1: { label: "Class 1",  color: "bg-slate-500/20 text-slate-300 border-slate-500/40",  desc: "Observation / analysis — read-only, low risk" },
   2: { label: "Class 2",  color: "bg-blue-500/20 text-blue-300 border-blue-500/40",    desc: "Draft / assist — produces outputs for human review" },
@@ -266,44 +276,50 @@ function FieldRow({ label, value, source }: { label: string; value: string; sour
 function MissionCard({ mission }: { mission: Mission }) {
   const [open, setOpen] = useState(false);
   const cat = CAT[mission.category];
+  const catCard = CAT_CARD[mission.category];
   const cls = CLS[mission.trustClass];
   const stg = STAGE[mission.stage];
 
   return (
-    <div className="rounded-xl border border-slate-700/60 bg-slate-900/60 overflow-hidden">
-      {/* Summary row — always visible */}
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-full text-left p-4 flex items-start gap-3 hover:bg-slate-800/40 transition-colors"
-      >
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap mb-1.5">
-            <span className="text-xs font-mono text-slate-500">{mission.id}</span>
-            <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${cat.color}`}>{cat.label}</span>
-            <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${cls.color}`}>{cls.label}</span>
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${stg.color}`}>{stg.label}</span>
-            {mission.requiresHumanApproval && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-900/30 text-emerald-400 border border-emerald-700/40">Human approval</span>
-            )}
+    <div className={`rounded-xl border ${catCard.border} ${catCard.bg} overflow-hidden`}>
+      {/* Row — always visible */}
+      <div className="flex items-center gap-3 px-3 py-2.5">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="flex-1 text-left text-sm font-medium text-slate-100"
+        >
+          {mission.title}
+        </button>
+        <span className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold flex-shrink-0 ${cat.color}`}>{cat.label}</span>
+        <span className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold flex-shrink-0 ${cls.color}`}>{cls.label}</span>
+        <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium flex-shrink-0 ${stg.color}`}>{stg.label}</span>
+        {mission.requiresHumanApproval && (
+          <div className="flex items-center gap-1 text-[10px] text-slate-500 flex-shrink-0">
+            <Shield className="h-3 w-3" />
+            Approval
           </div>
-          <h3 className="text-sm font-semibold text-slate-100">{mission.title}</h3>
-          <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{mission.objective}</p>
-        </div>
-        <div className="shrink-0 mt-1 text-slate-500">
-          {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-        </div>
-      </button>
+        )}
+        <button type="button" onClick={() => setOpen(!open)} className="flex-shrink-0">
+          {open ? <ChevronUp className="h-4 w-4 text-slate-500" /> : <ChevronDown className="h-4 w-4 text-slate-500" />}
+        </button>
+      </div>
 
       {/* Expanded detail */}
       {open && (
-        <div className="border-t border-slate-700/60 p-4 flex flex-col gap-5">
-          {/* Class description */}
-          <p className="text-xs text-slate-500 italic">{cls.desc}</p>
+        <div className="border-t border-slate-700/40 px-3 pb-4 pt-3 flex flex-col gap-5">
+          {/* Mission ID + objective + class description */}
+          <div className="flex items-start gap-3">
+            <span className="text-[10px] font-mono text-slate-500 flex-shrink-0 pt-0.5">{mission.id}</span>
+            <div className="flex-1 space-y-1">
+              <p className="text-xs text-slate-300 leading-relaxed">{mission.objective}</p>
+              <p className="text-[10px] text-slate-500 italic">{cls.desc}</p>
+            </div>
+          </div>
 
           {/* Scope */}
           <div className="flex flex-col gap-3">
             <h4 className="text-[10px] font-semibold text-emerald-400 uppercase tracking-widest">Scope</h4>
-            <FieldRow label="Objective"      value={mission.objective}    source="admin-defined" />
             <FieldRow label="Why it matters" value={mission.whyItMatters} source="admin-defined" />
             {mission.relatedCampaignPhase && <FieldRow label="Campaign phase" value={mission.relatedCampaignPhase} source="admin-defined" />}
             {mission.relatedInvestorCohort && <FieldRow label="Investor cohort" value={mission.relatedInvestorCohort} source="admin-defined" />}
@@ -315,32 +331,32 @@ function MissionCard({ mission }: { mission: Mission }) {
           {/* Delegation */}
           <div className="flex flex-col gap-3">
             <h4 className="text-[10px] font-semibold text-blue-400 uppercase tracking-widest">Delegation Spec</h4>
-            <FieldRow label="Target agent type"         value={mission.targetAgentType}  source="admin-defined" />
-            <FieldRow label="Inputs provided"           value={mission.inputsProvided}   source="admin-defined" />
-            <FieldRow label="Allowed tools"             value={mission.allowedTools}     source="admin-defined" />
-            <FieldRow label="Constraints / policy boundaries" value={mission.constraints} source="admin-defined" />
+            <FieldRow label="Target agent type"              value={mission.targetAgentType}  source="admin-defined" />
+            <FieldRow label="Inputs provided"                value={mission.inputsProvided}   source="admin-defined" />
+            <FieldRow label="Allowed tools"                  value={mission.allowedTools}     source="admin-defined" />
+            <FieldRow label="Constraints / policy boundaries" value={mission.constraints}      source="admin-defined" />
           </div>
 
           {/* Output */}
           <div className="flex flex-col gap-3">
             <h4 className="text-[10px] font-semibold text-purple-400 uppercase tracking-widest">Output Spec</h4>
             <FieldRow label="Expected output" value={mission.expectedOutput} source="admin-defined" />
-            <FieldRow label="Success metric"  value={mission.successMetric} source="admin-defined" />
+            <FieldRow label="Success metric"  value={mission.successMetric}  source="admin-defined" />
           </div>
 
           {/* Economics */}
           <div className="flex flex-col gap-3">
             <h4 className="text-[10px] font-semibold text-amber-400 uppercase tracking-widest">Economics</h4>
-            <FieldRow label="Reward logic"          value={mission.rewardLogic}          source="admin-defined" />
-            <FieldRow label="Trust impact — positive" value={mission.trustImpactPositive} source="receipt-logged" />
-            <FieldRow label="Trust impact — negative" value={mission.trustImpactNegative} source="receipt-logged" />
+            <FieldRow label="Reward logic"            value={mission.rewardLogic}          source="admin-defined" />
+            <FieldRow label="Trust impact — positive" value={mission.trustImpactPositive}  source="receipt-logged" />
+            <FieldRow label="Trust impact — negative" value={mission.trustImpactNegative}  source="receipt-logged" />
           </div>
 
           {/* Governance */}
           <div className="flex flex-col gap-3">
             <h4 className="text-[10px] font-semibold text-rose-400 uppercase tracking-widest">Governance</h4>
-            <FieldRow label="Escalation rule"   value={mission.escalationRule}  source="admin-defined" />
-            <FieldRow label="Owner / reviewer"  value={mission.ownerReviewer}   source="admin-defined" />
+            <FieldRow label="Escalation rule"  value={mission.escalationRule} source="admin-defined" />
+            <FieldRow label="Owner / reviewer" value={mission.ownerReviewer}  source="admin-defined" />
           </div>
 
           {/* Receipt model */}
