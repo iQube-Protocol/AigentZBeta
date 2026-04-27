@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { User, Wallet, ChevronDown, ChevronUp, Info, Star, Globe } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import { User, Wallet, ChevronDown, ChevronUp, Info, Star, Globe, CheckCircle2, Circle, Zap, ExternalLink } from "lucide-react";
 import { PersonaCreationForm } from "@/components/identity/PersonaCreationForm";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 
@@ -26,6 +26,24 @@ async function emitPersonaCreatedReceipt(personaId: string): Promise<void> {
           cartridge: 'agentiq-os-cartridge',
         },
       }),
+    });
+  } catch {
+    // non-fatal
+  }
+}
+
+async function autoMarkMission(personaId: string, missionId: string): Promise<void> {
+  try {
+    const res = await fetch(`/api/runtime/journey?personaId=${encodeURIComponent(personaId)}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const ids: string[] = data?.journey_state?.completed_experience_ids ?? [];
+    const key = `mission:${missionId}`;
+    if (ids.includes(key)) return;
+    await fetch("/api/runtime/journey", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ personaId, completed_experience_ids: [...ids, key] }),
     });
   } catch {
     // non-fatal
@@ -69,13 +87,31 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
   const { sessionPersonas, isLoading } = useSupabaseSessionPersonas();
   const [showForm, setShowForm] = useState(false);
   const [createdId, setCreatedId] = useState<string | null>(null);
-  const [createdDID, setCreatedDID] = useState<string | null>(null);
   const [showIdentityInfo, setShowIdentityInfo] = useState(false);
+  const [showMintInfo, setShowMintInfo] = useState(false);
 
   const activePersonaId = createdId ?? personaId ?? null;
   const livePersona =
     sessionPersonas.find((p) => p.id === activePersonaId) ??
     (sessionPersonas.length > 0 ? sessionPersonas[0] : null);
+
+  // Root DID is anchored to the FIO handle — did:fio:<handle>
+  const rootDid = livePersona?.fioHandle
+    ? `did:fio:${livePersona.fioHandle}`
+    : activePersonaId
+    ? `did:iqube:${activePersonaId}`
+    : null;
+
+  // Auto-mark the FIO handle mission complete when a handle is detected on the active persona
+  const autoMarkFio = useCallback(async () => {
+    if (livePersona?.fioHandle && activePersonaId) {
+      await autoMarkMission(activePersonaId, "m-register-fio-handle");
+    }
+  }, [livePersona?.fioHandle, activePersonaId]);
+
+  useEffect(() => {
+    void autoMarkFio();
+  }, [autoMarkFio]);
 
   return (
     <div className="p-6 space-y-6 max-w-2xl">
@@ -146,7 +182,7 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Root DiD</span>
               <code className="text-xs text-violet-300 bg-violet-500/10 px-2 py-0.5 rounded break-all max-w-[220px]">
-                {createdDID ?? `did:iqube:${livePersona.id}`}
+                {rootDid ?? `did:iqube:${livePersona.id}`}
               </code>
             </div>
             <div className="flex items-center justify-between">
@@ -220,6 +256,87 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
         </div>
       )}
 
+      {/* Identity lifecycle progress */}
+      <div className="rounded-xl border border-slate-700/60 bg-slate-900/30 p-4 space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Identity Lifecycle</p>
+        {([
+          {
+            label: "FIO Handle registered",
+            done: !!livePersona?.fioHandle,
+            detail: livePersona?.fioHandle ? livePersona.fioHandle : "Create a persona below",
+          },
+          {
+            label: "Root DiD anchored",
+            done: !!livePersona?.fioHandle,
+            detail: livePersona?.fioHandle ? `did:fio:${livePersona.fioHandle}` : "Granted on FIO registration",
+          },
+          {
+            label: "Persona minted as iQube",
+            done: false,
+            detail: "Optional — adds portability, sovereignty, and DVN receipt anchoring",
+          },
+        ] as const).map((step) => (
+          <div key={step.label} className="flex items-start gap-3">
+            {step.done
+              ? <CheckCircle2 className="h-4 w-4 text-green-400 flex-shrink-0 mt-0.5" />
+              : <Circle className="h-4 w-4 text-slate-600 flex-shrink-0 mt-0.5" />
+            }
+            <div className="flex-1 min-w-0">
+              <p className={`text-xs font-medium ${step.done ? "text-slate-200" : "text-slate-500"}`}>{step.label}</p>
+              <p className="text-[11px] text-slate-500 truncate">{step.detail}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Mint as iQube — value explainer + CTA */}
+      <div className="rounded-xl border border-violet-500/20 bg-violet-500/5">
+        <button
+          type="button"
+          onClick={() => setShowMintInfo((v) => !v)}
+          className="flex w-full items-center justify-between px-4 py-3 text-sm hover:bg-violet-500/5 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Zap className="h-4 w-4 text-violet-400" />
+            <span className="font-medium text-violet-300">Mint your Persona as an iQube</span>
+            <span className="text-[10px] text-slate-500 bg-slate-800/60 px-1.5 py-0.5 rounded">Optional</span>
+          </div>
+          {showMintInfo ? <ChevronUp className="h-4 w-4 text-slate-500" /> : <ChevronDown className="h-4 w-4 text-slate-500" />}
+        </button>
+        {showMintInfo && (
+          <div className="px-4 pb-4 space-y-3 border-t border-violet-500/20 pt-3">
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Your FIO handle and Root DiD already anchor your identity within the AgentiQ platform.
+              Minting your persona as a <strong className="text-slate-300">PersonaQube</strong> adds three capabilities:
+            </p>
+            <ul className="space-y-1.5 text-xs text-slate-400">
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-violet-400 flex-shrink-0 mt-0.5" />
+                <span><strong className="text-slate-300">Portability</strong> — your persona works across any system reading the iQube standard, not just AigentZ</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-violet-400 flex-shrink-0 mt-0.5" />
+                <span><strong className="text-slate-300">Sovereignty</strong> — data is controlled by your FIO key, not stored only in a database you don&apos;t own</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-violet-400 flex-shrink-0 mt-0.5" />
+                <span><strong className="text-slate-300">DVN receipt anchoring</strong> — mission completions, trust progressions, and delegation events are stamped on-chain, making reputation tamper-evident</span>
+              </li>
+            </ul>
+            <p className="text-[11px] text-slate-500">
+              Mint via your SmartWallet. Once minted, SkillQubes and AigentQubes can bind to your PersonaQube cryptographically — not just as a database record.
+            </p>
+            <a
+              href="/shell/wallet"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-300 hover:bg-violet-500/20 transition-colors"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Open SmartWallet to mint
+            </a>
+          </div>
+        )}
+      </div>
+
       {/* Wallet state */}
       <div className="rounded-xl border border-slate-700/60 bg-slate-900/30 p-4 space-y-3">
         <div className="flex items-center gap-2">
@@ -265,7 +382,6 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
           <PersonaCreationForm
             onSuccess={(id) => {
               setCreatedId(id);
-              setCreatedDID(`did:iqube:${id}`);
               setShowForm(false);
               void emitPersonaCreatedReceipt(id);
               void enrollDevCohort(id);

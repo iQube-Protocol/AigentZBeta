@@ -31,6 +31,18 @@ const TRACKS: MissionTrack[] = [
     color: "green",
     missions: [
       {
+        id: "m-register-fio-handle",
+        title: "Register a FIO Handle and Root DiD",
+        description: "Create your developer persona with a FIO handle — this anchors your Root DiD (did:fio:<handle>) automatically.",
+        steps: [
+          "Open the Persona tab",
+          "Click 'Create Developer Persona'",
+          "Choose your FIO handle (e.g. yourname@qripto)",
+          "Complete the form — your Root DiD is set automatically",
+        ],
+        reward: "Root DiD badge — auto-detected from persona state",
+      },
+      {
         id: "m-read-start-here",
         title: "Read the Start Here guide",
         description: "Get oriented — understand what AgentiQ OS is and what you can build.",
@@ -42,7 +54,7 @@ const TRACKS: MissionTrack[] = [
         title: "Install the AgentiQ SDK",
         description: "Get the SDK installed in a local project.",
         steps: [
-          "Run `npm install @agentiq/sdk`",
+          "Run `npm install @agentiqos/agentiq-sdk`",
           "Run `npx agentiq init my-cartridge`",
           "Verify the scaffolded directory structure",
         ],
