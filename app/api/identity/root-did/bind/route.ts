@@ -107,7 +107,7 @@ async function upsertPersonaDid(
 ): Promise<string> {
   // Check if already bound
   const { data: existing } = await service
-    .from("persona")
+    .from("did_persona")
     .select("id")
     .eq("payload_row_id", payloadRowId)
     .eq("persona_type", type)
@@ -117,7 +117,7 @@ async function upsertPersonaDid(
 
   // Create new persona DID row
   const { data: created, error } = await service
-    .from("persona")
+    .from("did_persona")
     .insert({
       root_id: rootId,
       persona_type: type,
@@ -188,7 +188,7 @@ export async function GET(request: NextRequest) {
 
     // Load bound personas
     const { data: personaRows } = await service
-      .from("persona")
+      .from("did_persona")
       .select("id, persona_type, payload_row_id, fio_handle")
       .eq("root_id", rootRow.id as string);
 
