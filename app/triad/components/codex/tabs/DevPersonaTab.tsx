@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { User, Wallet, ChevronDown, ChevronUp, Info, Star, Globe, CheckCircle2, Circle, Zap, ExternalLink, Link, Loader2 } from "lucide-react";
+import { User, Wallet, ChevronDown, ChevronUp, Info, Star, Globe, CheckCircle2, Circle, Zap, ExternalLink, Link, Loader2, Layers } from "lucide-react";
 import { PersonaCreationForm } from "@/components/identity/PersonaCreationForm";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
+import SmartWalletDrawer from "@/app/components/content/SmartWalletDrawer";
 
 async function emitPersonaCreatedReceipt(personaId: string): Promise<void> {
   try {
@@ -89,6 +90,7 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
   const [createdId, setCreatedId] = useState<string | null>(null);
   const [showIdentityInfo, setShowIdentityInfo] = useState(false);
   const [showMintInfo, setShowMintInfo] = useState(false);
+  const [walletDrawerOpen, setWalletDrawerOpen] = useState(false);
   const [walletPersonaId, setWalletPersonaId] = useState<string | null>(null);
   const [showClaimForm, setShowClaimForm] = useState(false);
   const [claimHandle, setClaimHandle] = useState('');
@@ -354,13 +356,13 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
             <p className="text-[11px] text-slate-500">
               Note: your DVN receipts (mission completions, delegation events, trust progressions) are already anchored to your Root DiD through the ordinal inscription pipeline — you don&apos;t need to mint for those. Minting adds content-addressable persona <em>data</em> on Autonomys.
             </p>
-            <a
-              href="/triad/embed/wallet?tab=iqube"
+            <button
+              onClick={() => setWalletDrawerOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-300 hover:bg-violet-500/20 transition-colors"
             >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Mint in SmartWallet → iQube tab
-            </a>
+              <Layers className="h-3.5 w-3.5" />
+              Open SmartWallet → iQube tab
+            </button>
           </div>
         )}
       </div>
@@ -518,5 +520,16 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
         </div>
       )}
     </div>
+
+    {walletDrawerOpen && (
+      <SmartWalletDrawer
+        open={walletDrawerOpen}
+        onClose={() => setWalletDrawerOpen(false)}
+        variant="overlay"
+        initialTab="iqube"
+        personaId={activePersonaId ?? undefined}
+        agent={{ id: activePersonaId ?? "dev", name: livePersona?.displayName ?? "Developer" }}
+      />
+    )}
   );
 }

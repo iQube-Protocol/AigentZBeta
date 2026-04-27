@@ -647,7 +647,16 @@ export default function SmartWalletDrawer({
     setMintStatus("staging");
     setMintError(null);
     try {
-      const res = await fetch("/api/iqube/persona/qripto/mint", { method: "POST" });
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
+      );
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+      const res = await fetch("/api/iqube/persona/qripto/mint", { method: "POST", headers });
       const data: { stub_id?: string; status?: string; error?: string } = await res.json();
       if (!res.ok) {
         setMintError(data.error ?? "Staging failed — check that you have an active Qripto persona.");
