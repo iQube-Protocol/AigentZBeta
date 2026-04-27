@@ -34,6 +34,193 @@
  */
 
 import { CodexConfig } from '@/types/codex';
+import type { RuntimeTakeoverConfig } from '@/types/runtimeTakeover';
+
+// =============================================================================
+// RUNTIME TAKEOVER CONFIGS
+// Reference implementations for each cartridge.
+// Attach via CodexConfig.runtimeTakeover.
+// =============================================================================
+
+export const KNYT_RUNTIME_TAKEOVER: RuntimeTakeoverConfig = {
+  enabled: true,
+  priority: 1,
+  cartridgeSlug: 'knyt-codex',
+  displayName: 'KNYT World',
+  contentScope: {
+    types: ['smart-content', 'experience', 'codex'],
+    cartridgeSlugs: ['knyt-codex', 'qripto-codex', 'agentiq-os'],
+    maxCapsules: 12,
+    pinHero: true,
+  },
+  experienceMatrix: {
+    axes: [
+      {
+        id: 'patronage',
+        label: 'Patronage Stage',
+        stages: ['Outside Order', 'Apprentice', 'Knight', 'Esquire', 'Sennight', 'Satoshi'],
+        stateField: 'patronage_stage',
+      },
+      {
+        id: 'pcs',
+        label: 'PCS Stage',
+        stages: ['Participant', 'Community', 'Correspondent', 'Operator', 'Creator', 'Upstream'],
+        stateField: 'pcs_stage',
+      },
+    ],
+  },
+  signalTargets: [
+    { action: 'like',        endpoint: '/api/codex/knyt/living-canon/like',        triggersReInference: false },
+    { action: 'spark',       endpoint: '/api/codex/knyt/living-canon/spark',       triggersReInference: false },
+    { action: 'curate',      endpoint: '/api/codex/knyt/living-canon/curate',      triggersReInference: true  },
+    { action: 'vote',        endpoint: '/api/codex/knyt/living-canon/vote',        triggersReInference: true  },
+    { action: 'remix',       endpoint: '/api/codex/knyt/living-canon/remix',       triggersReInference: true  },
+    { action: 'contribute',  endpoint: '/api/codex/knyt/living-canon/contribute',  triggersReInference: true  },
+  ],
+  inference: {
+    agentPersona: 'aigent-kn0w1',
+    domain: 'metaKnyts',
+    stateFields: [
+      'journey_stage',
+      'patronage_stage',
+      'pcs_stage',
+      'signal_counts',
+      'knyt_balance',
+      'nbe',
+      'recent_participation',
+      'active_elections',
+    ],
+    stateEndpoint: '/api/runtime/knyt-state',
+    promptConstraints:
+      'Select content that matches the user\'s current stage on both axes. ' +
+      'Favour content that advances them toward the next stage unlock. ' +
+      'If an active NBE plan exists, include at least one capsule that fulfils it. ' +
+      'Include at least one Qriptopian SmartContent or ExperienceQube per manifest ' +
+      'to surface cross-world context. Keep the welcome narrative under 40 words.',
+    welcomeVariants: {
+      onArrival: 'Welcome back to the KNYT World.',
+      onToggle:  'Switching to your KNYT Runtime view.',
+      onReturn:  'Welcome back — here\'s where you left off.',
+    },
+    maxTokens: 500,
+  },
+  manifestTtlMinutes: 30,
+};
+
+export const QRIPTO_RUNTIME_TAKEOVER: RuntimeTakeoverConfig = {
+  enabled: true,
+  priority: 2,
+  cartridgeSlug: 'qripto-codex',
+  displayName: 'Qriptopian World',
+  contentScope: {
+    types: ['smart-content', 'experience', 'codex'],
+    cartridgeSlugs: ['qripto-codex', 'knyt-codex'],
+    maxCapsules: 12,
+    pinHero: true,
+  },
+  experienceMatrix: {
+    axes: [
+      {
+        id: 'journey',
+        label: 'Journey Stage',
+        stages: ['prospect', 'acolyte', 'keta', 'keji', 'first', 'zero'],
+        stateField: 'journey_stage',
+      },
+    ],
+  },
+  signalTargets: [],
+  inference: {
+    agentPersona: 'aigent-kn0w1',
+    domain: 'qriptopian',
+    stateFields: ['journey_stage', 'signal_counts', 'qc_balance', 'nbe', 'recent_participation'],
+    stateEndpoint: '/api/runtime/knyt-state',
+    promptConstraints:
+      'Select content rooted in the Qriptopian world. ' +
+      'Surface at least one KNYT cross-world capsule. ' +
+      'Keep the welcome narrative under 40 words.',
+    maxTokens: 500,
+  },
+  manifestTtlMinutes: 30,
+};
+
+export const AGENTIQ_OS_RUNTIME_TAKEOVER: RuntimeTakeoverConfig = {
+  enabled: true,
+  priority: 3,
+  cartridgeSlug: 'agentiq-os',
+  displayName: 'AgentiQ OS',
+  contentScope: {
+    types: ['smart-content', 'experience', 'codex'],
+    cartridgeSlugs: ['agentiq-os', 'knyt-codex', 'qripto-codex'],
+    maxCapsules: 12,
+    pinHero: true,
+  },
+  experienceMatrix: {
+    axes: [
+      {
+        id: 'journey',
+        label: 'Journey Stage',
+        stages: ['prospect', 'acolyte', 'keta', 'keji', 'first', 'zero'],
+        stateField: 'journey_stage',
+      },
+    ],
+  },
+  signalTargets: [],
+  inference: {
+    agentPersona: 'aigent-kn0w1',
+    domain: 'metaKnyts',
+    stateFields: ['journey_stage', 'signal_counts', 'qc_balance', 'nbe', 'persona_badges'],
+    stateEndpoint: '/api/runtime/knyt-state',
+    promptConstraints:
+      'Select content that helps the developer persona build and progress. ' +
+      'Include at least one AgentiQ OS ExperienceQube. ' +
+      'Keep the welcome narrative under 40 words.',
+    maxTokens: 500,
+  },
+  manifestTtlMinutes: 30,
+};
+
+// metaMe default takeover — fires when no cartridge-specific takeover is active.
+// Draws from all cartridges, considers cross-cartridge journey history.
+// Priority 10 = lowest; always yields to a cartridge-specific config.
+export const METAME_RUNTIME_TAKEOVER: RuntimeTakeoverConfig = {
+  enabled: true,
+  priority: 10,
+  cartridgeSlug: 'metame-codex',
+  displayName: 'metaMe',
+  contentScope: {
+    types: ['smart-content', 'experience', 'codex'],
+    cartridgeSlugs: ['knyt-codex', 'qripto-codex', 'agentiq-os', 'metame-codex'],
+    maxCapsules: 12,
+    pinHero: true,
+  },
+  experienceMatrix: {
+    axes: [
+      {
+        id: 'journey',
+        label: 'Journey Stage',
+        stages: ['prospect', 'acolyte', 'keta', 'keji', 'first', 'zero'],
+        stateField: 'journey_stage',
+      },
+    ],
+  },
+  signalTargets: [],
+  inference: {
+    agentPersona: 'aigent-kn0w1',
+    domain: 'metaKnyts',
+    stateFields: [
+      'journey_stage', 'patronage_stage', 'pcs_stage',
+      'signal_counts', 'knyt_balance', 'qc_balance',
+      'nbe', 'recent_participation', 'persona_badges',
+    ],
+    stateEndpoint: '/api/runtime/knyt-state',
+    promptConstraints:
+      'This is the default metaMe runtime. Select a balanced mix of content ' +
+      'across all worlds relevant to this user\'s journey. ' +
+      'Keep the welcome narrative under 40 words.',
+    maxTokens: 500,
+  },
+  manifestTtlMinutes: 30,
+};
 
 // =============================================================================
 // LIVING CANON BRANCH CONFIG
@@ -483,6 +670,7 @@ export const KNYT_CODEX: CodexConfig = {
     templateId: 'knyt:drawer_grid_v1',
     defaultTemplate: 'knyt:drawer_grid_v1'
   },
+  runtimeTakeover: KNYT_RUNTIME_TAKEOVER,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString()
 };
@@ -659,6 +847,7 @@ export const QRIPTO_CODEX: CodexConfig = {
     enabled: true,
     templateId: 'qripto-codex-v1'
   },
+  runtimeTakeover: QRIPTO_RUNTIME_TAKEOVER,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString()
 };
@@ -1210,6 +1399,7 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
     admin: ['admin'],
   },
   liquidUI: { enabled: false },
+  runtimeTakeover: AGENTIQ_OS_RUNTIME_TAKEOVER,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
@@ -1417,6 +1607,7 @@ export const METAME_CODEX: CodexConfig = {
   liquidUI: {
     enabled: false
   },
+  runtimeTakeover: METAME_RUNTIME_TAKEOVER,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString()
 };
