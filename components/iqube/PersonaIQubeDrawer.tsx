@@ -446,6 +446,12 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
     setLoading(true);
     setError(null);
     try {
+      // Bind Root DID on every open — idempotent, stamps user_id + did_persona_id if missing
+      void fetch("/api/identity/root-did/bind", {
+        method: "POST",
+        headers: authHeaders(),
+      });
+
       const res = await fetch(`/api/iqube/persona/${type}`, {
         headers: authHeaders(),
       });
@@ -679,8 +685,19 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
                     <p className="text-[10px] uppercase tracking-wider text-white/40 mb-2">Wallet Binding</p>
                     {([
                       { label: "EVM Address", val: String(tokenQube.evmAddress || blakQube["EVM-Public-Key"] || "—") },
-                      { label: "FIO Handle", val: String(tokenQube.fioHandle || blakQube["fio_handle"] || "—") },
-                      { label: type === "knyt" ? "KNYT Handle" : "Qripto Handle", val: String(tokenQube.knytHandle || blakQube["knyt_handle"] || "—") },
+                      {
+                        label: "Persona Handle (FIO)",
+                        val: String(
+                          tokenQube.personaHandle ||
+                          tokenQube.fioHandle ||
+                          tokenQube.knytHandle ||
+                          blakQube["fio_handle"] ||
+                          blakQube["knyt_handle"] ||
+                          blakQube["KNYT-ID"] ||
+                          blakQube["Qripto-ID"] ||
+                          "—"
+                        ),
+                      },
                       { label: "Mint Status", val: String(tokenQube.mintStatus ?? "unminted"), accent: true },
                     ] as { label: string; val: string; accent?: boolean }[]).map(({ label, val, accent }) => (
                       <div key={label} className="flex items-start justify-between gap-2 py-1 border-b border-slate-800/40 last:border-0">
