@@ -3122,6 +3122,8 @@ export default function SmartWalletDrawer({
             setLocalPersonaId(newPersonaId);
             onPersonaChange?.(newPersonaId);
             setQuickAddOpen(false);
+            window.localStorage.setItem("currentPersonaId", newPersonaId);
+            window.dispatchEvent(new CustomEvent("persona-switched", { detail: { personaId: newPersonaId } }));
             refreshPersonas();
           }}
           onAdvanced={() => {
