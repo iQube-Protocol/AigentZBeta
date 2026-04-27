@@ -77,6 +77,11 @@ import { NanOSBridgeTab } from "./tabs/NanOSBridgeTab";
 import { DevRegistryTab } from "./tabs/DevRegistryTab";
 import { RefRuntimeTab } from "./tabs/RefRuntimeTab";
 import { RefStudioTab } from "./tabs/RefStudioTab";
+import { AgentiqOSHomeTab } from "./tabs/AgentiqOSHomeTab";
+import { AgentiqOSBindTab } from "./tabs/AgentiqOSBindTab";
+import { AgentiqOSBuildTab } from "./tabs/AgentiqOSBuildTab";
+import { AgentiqOSDeployTab } from "./tabs/AgentiqOSDeployTab";
+import { AgentiqOSCommunityTab } from "./tabs/AgentiqOSCommunityTab";
 
 interface TabRendererProps {
   tab: CodexTab;
@@ -155,6 +160,11 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   DevRegistryTab,
   RefRuntimeTab,
   RefStudioTab,
+  AgentiqOSHomeTab,
+  AgentiqOSBindTab,
+  AgentiqOSBuildTab,
+  AgentiqOSDeployTab,
+  AgentiqOSCommunityTab,
   RewardsTab: PlaceholderTab,
   DocsTab: PlaceholderTab,
   APITab: PlaceholderTab,
