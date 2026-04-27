@@ -74,6 +74,9 @@ import { DevPersonaTab } from "./tabs/DevPersonaTab";
 import { BoundedDelegationTab } from "./tabs/BoundedDelegationTab";
 import { DevMissionBoardTab } from "./tabs/DevMissionBoardTab";
 import { NanOSBridgeTab } from "./tabs/NanOSBridgeTab";
+import { DevRegistryTab } from "./tabs/DevRegistryTab";
+import { RefRuntimeTab } from "./tabs/RefRuntimeTab";
+import { RefStudioTab } from "./tabs/RefStudioTab";
 
 interface TabRendererProps {
   tab: CodexTab;
@@ -149,6 +152,9 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   BoundedDelegationTab,
   DevMissionBoardTab,
   NanOSBridgeTab,
+  DevRegistryTab,
+  RefRuntimeTab,
+  RefStudioTab,
   RewardsTab: PlaceholderTab,
   DocsTab: PlaceholderTab,
   APITab: PlaceholderTab,

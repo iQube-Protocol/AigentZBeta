@@ -1100,8 +1100,8 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
       enabled: true,
       order: 6,
       type: 'static',
-      config: { component: 'RegistrySupplyTab', props: {} },
-      metadata: { icon: 'Database', description: 'Browse published Qube assets by trust band' },
+      config: { component: 'DevRegistryTab', props: {} },
+      metadata: { icon: 'Database', description: 'Browse and submit SkillQubes, WorkflowQubes, ConnectorQubes, AigentQubes' },
     },
     {
       id: 'agentiq-os-ref-runtime',
@@ -1110,8 +1110,8 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
       enabled: true,
       order: 7,
       type: 'static',
-      config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_reference', defaultPath: 'items/reference-runtime.md' } },
-      metadata: { icon: 'Play', description: 'Reference runtime pattern' },
+      config: { component: 'RefRuntimeTab', props: {} },
+      metadata: { icon: 'Play', description: 'Reference runtime pattern + interactive routing demo' },
     },
     {
       id: 'agentiq-os-ref-studio',
@@ -1120,8 +1120,8 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
       enabled: true,
       order: 8,
       type: 'static',
-      config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_reference', defaultPath: 'items/reference-studio.md' } },
-      metadata: { icon: 'Pencil', description: 'Reference studio composer pattern' },
+      config: { component: 'RefStudioTab', props: {} },
+      metadata: { icon: 'Pencil', description: 'Reference studio composer pattern + StudioArtifact compose demo' },
     },
     {
       id: 'agentiq-os-smarttriad',

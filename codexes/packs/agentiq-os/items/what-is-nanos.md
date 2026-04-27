@@ -12,15 +12,34 @@ nanOS is not a low-level execution kernel. It is the **operating cartridge** tha
 
 ---
 
+## You Are Not Building for nanOS
+
+This is important to understand: **AgentiQ OS is not a funnel into nanOS.** It is a sovereign, open-source framework for building agent systems — independently of metaMe, independently of nanOS, and independently of any proprietary stack.
+
+As an AgentiQ OS developer, you can:
+
+- Build your own **runtime** using iQube primitives, without ever touching the metaMe production runtime
+- Build your own **studio** for composing agentic experiences without the metaMe Studio
+- Run your own **registry** and governance model for your ecosystem
+- Create fully independent **agent harnesses** — sets of Aigents, SkillQubes, WorkflowQubes, and ConnectorQubes that operate entirely outside the metaMe commercial framework
+- Publish **open-source utilities** that others in the AgentiQ OS ecosystem can call, compose, and build on
+
+AgentiQ OS defines the **protocol layer**: the shared primitives (iQube, Qripto, Aigent), the permission and disclosure model, the trust band taxonomy, the bounded delegation contract, the mission and receipt model. Everything above that layer is yours to design.
+
+nanOS is metaMe's opinionated application of those primitives. Your application can be something completely different.
+
+---
+
 ## AgentiQ OS vs nanOS — By Purpose
 
-| Area | AgentiQ OS Cartridge | nanOS Cartridge |
-|------|---------------------|-----------------|
+| Area | AgentiQ OS (open) | nanOS (metaMe proprietary) |
+|------|-------------------|----------------------------|
 | **Access** | Public / developer-facing | Private / authorized / operator-facing |
-| **Purpose** | Learn, build, submit, onboard | Govern, activate, route, commercialize |
-| **Audience** | Open-source developers, builders | metaMe operators, Aigents, authorized partners |
-| **Runtime** | Reference runtime patterns | Production metaMe Runtime management |
-| **Registry** | Submission standards and SDK | Approval, ranking, monetization, governance |
+| **Purpose** | Build, submit, onboard, govern independently | Govern metaMe's live production ecosystem |
+| **Audience** | All builders — independent or ecosystem | metaMe operators, Aigents, authorized partners |
+| **Runtime** | Reference runtime patterns — build your own | Production metaMe Runtime management |
+| **Studio** | Reference studio patterns — build your own | Production Studio with experience vibing for non-technical users |
+| **Registry** | Open submission registry — anyone can publish | Curated, vetted, production-grade studio registry |
 | **Aigents** | Reference Aigent (Aigent C-OS) | Production Aigent Z, C, Marketa, Kn0w1 |
 | **Persona** | Developer persona creation | Full population identity and persona management |
 | **Wallet** | SmartWallet onboarding stubs | Production wallet, delegation, Qc readiness |
@@ -30,9 +49,9 @@ nanOS is not a low-level execution kernel. It is the **operating cartridge** tha
 
 ---
 
-## Shared Concepts
+## Shared Primitives — Technical Interoperability
 
-Both cartridges operate on the same underlying iQube protocol primitives:
+Both AgentiQ OS and nanOS operate on the same underlying iQube protocol primitives:
 
 - Persona and Root DiD
 - SmartWallet and bounded delegation
@@ -42,11 +61,34 @@ Both cartridges operate on the same underlying iQube protocol primitives:
 - Mission boards and DVN-ready receipts
 - iQube permissions and disclosure classes
 
-AgentiQ OS and nanOS use the same language. They serve different sides of the same ecosystem.
+This means assets built independently on AgentiQ OS are **technically interoperable** with nanOS and the metaMe production stack — not because developers are required to integrate, but because both systems speak the same protocol language. A SkillQube built by an independent developer uses the same interface contract as one built internally by metaMe. A WorkflowQube published to the open registry can, if it clears the production vetting bar, be called from within the metaMe Studio.
+
+This interoperability is a property of the protocol, not of any commercial relationship.
 
 ---
 
-## What nanOS Adds
+## Why nanOS Has a Higher Trust Threshold — Experience Vibing
+
+The metaMe Studio introduces a concept called **experience vibing**: non-technical users compose and deliver live, personalized, agent-powered experiences without writing any code. A creator, community manager, or business operator opens the Studio, selects from available SkillQubes, WorkflowQubes, ToolQubes, and Aigents, configures their intent in natural language, and publishes a live experience — without touching a terminal.
+
+For experience vibing to work, **every utility callable from Studio must be production-grade, composable, and reliable without customization.** Studio users do not debug SkillQubes. They call them. If a service fails silently, requires configuration the user cannot provide, or behaves inconsistently across calls, the experience breaks — and the user cannot fix it.
+
+metaMe therefore maintains a robust vetting process before any asset enters the Studio-accessible production registry. Assets that clear the bar must demonstrate:
+
+- **Reliability under concurrent calls** — no race conditions, no hidden state, predictable outputs
+- **Clean, documented interfaces** — input/output schema is explicit and correct
+- **Correct iQube permission declarations** — forbidden actions declared, disclosure class set, no scope creep
+- **Composability** — plays well with other iQubes; no hidden external dependencies
+- **No customization required** — works out of the box for its declared purpose
+- **Trust band integrity** — the asset does what it claims to do at the trust band it claims
+
+This higher standard is why nanOS operates within **additional commercial and governance parameters** beyond what would be practical for the open-source stratum. The open AgentiQ OS registry welcomes L1_EXPERIMENTAL submissions from any developer. The metaMe production registry is a curated subset of those assets that have been validated to the standard experience vibing requires.
+
+The path from open registry to metaMe production registry is the nanOS Bridge.
+
+---
+
+## What nanOS Adds (Beyond the Open Layer)
 
 nanOS adds the production intelligence layer that AgentiQ OS deliberately does not include:
 
@@ -55,7 +97,7 @@ nanOS adds the production intelligence layer that AgentiQ OS deliberately does n
 - **Experience Matrix** — tracks development and commercialization maturity; generates next-best-action recommendations
 - **CRM and relationships** — manages investor, partner, developer, and commercial relationships with staged engagement logic
 - **Commercial rails** — Qc readiness, $KNYT eligibility, campaign attribution, partner revenue flows
-- **Registry governance** — submission review, approval/rejection/escalation, Qube scoring, commercial eligibility
+- **Registry governance** — submission review, approval/rejection/escalation, Qube scoring, commercial eligibility and production vetting
 - **Governance and policy** — production delegation policy, iQube access policy, Aigent permissions, DVN receipt audit trail
 - **AgentiQ OS Bridge** — identifies which open-source developers are ready for production ecosystem onboarding
 
@@ -66,14 +108,14 @@ nanOS adds the production intelligence layer that AgentiQ OS deliberately does n
 The canonical flow between both cartridges:
 
 ```
-AgentiQ OS Cartridge (open)
+AgentiQ OS (open)
 → developer reads KB and builds developer persona
 → connects SmartWallet, grants bounded delegation
 → completes developer missions
 → builds and submits cartridge / Aigent / ToolQube to Registry
-→ becomes a nanOS Bridge candidate
+→ becomes a nanOS Bridge candidate (optional — not required)
 
-nanOS Cartridge (authorized access)
+nanOS (authorized access)
 → sees candidate via AgentiQ OS Bridge
 → reviews persona, wallet, delegation, Registry submissions, mission state
 → assigns Aigent Z / C / Marketa as appropriate
@@ -81,20 +123,19 @@ nanOS Cartridge (authorized access)
 → tracks next-best-action and DVN receipts
 ```
 
+You are also free to skip the Bridge entirely. Your AgentiQ OS stack is complete and sovereign on its own.
+
 ---
 
 ## From a Developer's Perspective
 
-As an AgentiQ OS developer, you do not interact with nanOS directly. It is private and operator-controlled.
+As an AgentiQ OS developer, you have two valid paths:
 
-Your path toward the nanOS ecosystem:
+**Independent path** — build and operate entirely within the open ecosystem. Publish to the open registry. Run your own runtime. Serve your own users. The iQube protocol gives you everything you need: identity, delegation, receipts, trust bands, experience depth, and composable asset types. No metaMe involvement required.
 
-1. Complete developer missions in this cartridge
-2. Build and submit assets to the Registry
-3. Connect your SmartWallet and establish your Root DiD
-4. Reach a trust band level that qualifies for nanOS candidate review
+**Bridge path** — complete developer missions, achieve trust band progression, and become a nanOS Bridge candidate. If your assets meet the production vetting standard, they may be integrated into the metaMe production registry and become callable from the metaMe Studio. At that point, a metaMe Aigent may reach out via the AgentiQ OS Bridge.
 
-At that point, a metaMe Aigent (Aigent C or Aigent Marketa) may reach out via the AgentiQ OS Bridge to guide you into the production ecosystem.
+Both paths are valid. Both use the same primitives. The difference is who governs and distributes the final experience.
 
 ---
 
