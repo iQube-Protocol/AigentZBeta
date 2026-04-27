@@ -431,19 +431,8 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [editValues, setEditValues] = useState<Record<string, string>>({});
 
-  // Root DID binding state
-  const [bindResult, setBindResult] = useState<{
-    rootDid: string | null;
-    rootId: string | null;
-    isNew?: boolean;
-    personas: Array<{
-      personaType: string;
-      didPersonaId: string;
-      fioHandle: string | null;
-      evmAddress: string | null;
-    }>;
-  } | null>(null);
-  const [bindLoading, setBindLoading] = useState(false);
+  // Root DID bind — captures only this persona's DID ID for the tokenQube display
+  const [didPersonaId, setDidPersonaId] = useState<string | null>(null);
 
   // TokenQube minting state
   const [mintNetwork, setMintNetwork] = useState("base-sepolia");
@@ -458,21 +447,22 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    setBindLoading(true);
     setError(null);
     try {
-      // Run Root DID bind + persona fetch in parallel — bind is idempotent
+      // Bind + persona load in parallel — bind stamps did_persona_id on the row
       const [bindRes, personaRes] = await Promise.all([
         fetch("/api/identity/root-did/bind", { method: "POST", headers: authHeaders() }),
         fetch(`/api/iqube/persona/${type}`, { headers: authHeaders() }),
       ]);
 
-      // Capture bind result for UI display
+      // Extract only this persona's DID ID for the tokenQube wallet binding row
       if (bindRes.ok) {
-        const bindJson = await bindRes.json() as typeof bindResult;
-        setBindResult(bindJson);
+        const bindJson = await bindRes.json() as {
+          personas?: Array<{ personaType: string; didPersonaId: string }>;
+        };
+        const match = bindJson.personas?.find((p) => p.personaType === type);
+        if (match) setDidPersonaId(match.didPersonaId);
       }
-      setBindLoading(false);
 
       const json = await personaRes.json();
       if (!personaRes.ok) throw new Error(json.error ?? "Failed to load");
@@ -485,7 +475,6 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
       setError(e instanceof Error ? e.message : "Load failed");
     } finally {
       setLoading(false);
-      setBindLoading(false);
     }
   }, [type]);
 
@@ -613,11 +602,6 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
                 Active
               </span>
             )}
-            {bindResult?.rootDid && (
-              <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded px-1.5 py-0.5">
-                DID
-              </span>
-            )}
           </div>
           <button
             type="button"
@@ -705,45 +689,6 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
               {activeTab === "tokenQube" && (
                 <div className="space-y-4">
 
-                  {/* Root DID binding status */}
-                  <section className="rounded-xl bg-amber-950/20 ring-1 ring-amber-700/20 p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-[10px] uppercase tracking-wider text-amber-400/70">Root Identity (DID)</p>
-                      {bindLoading && <Loader2 className="h-3 w-3 animate-spin text-amber-500/50" />}
-                      {!bindLoading && bindResult?.rootDid && (
-                        <span className="text-[9px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 rounded px-1.5 py-0.5">Bound</span>
-                      )}
-                      {!bindLoading && !bindResult?.rootDid && (
-                        <span className="text-[9px] bg-slate-700/40 text-slate-500 border border-slate-700/40 rounded px-1.5 py-0.5">Unbound</span>
-                      )}
-                    </div>
-                    {bindResult?.rootDid ? (
-                      <div className="space-y-1">
-                        <div className="flex items-start justify-between gap-2 py-0.5 border-b border-amber-900/30">
-                          <span className="text-[11px] text-slate-500 shrink-0">DID</span>
-                          <span className="text-[11px] font-mono text-amber-300/80 break-all text-right">
-                            {`${bindResult.rootDid.slice(0, 18)}…${bindResult.rootDid.slice(-8)}`}
-                          </span>
-                        </div>
-                        {bindResult.personas.map((p) => (
-                          <div key={p.didPersonaId} className="flex items-start justify-between gap-2 py-0.5">
-                            <span className="text-[11px] text-slate-500 shrink-0 capitalize">{p.personaType} persona</span>
-                            <span className="text-[11px] font-mono text-emerald-400 text-right">
-                              {p.fioHandle ?? `${p.didPersonaId.slice(0, 8)}…`}
-                            </span>
-                          </div>
-                        ))}
-                        {bindResult.isNew && (
-                          <p className="text-[10px] text-amber-400/60 pt-1">Root identity created this session.</p>
-                        )}
-                      </div>
-                    ) : !bindLoading ? (
-                      <p className="text-[11px] text-slate-600">No root identity found — binding will retry on next open.</p>
-                    ) : (
-                      <p className="text-[11px] text-slate-600">Binding identity…</p>
-                    )}
-                  </section>
-
                   {/* Wallet binding summary */}
                   <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
                     <p className="text-[10px] uppercase tracking-wider text-white/40 mb-2">Wallet Binding</p>
@@ -759,6 +704,14 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
                           blakQube["knyt_handle"] ||
                           blakQube["KNYT-ID"] ||
                           blakQube["Qripto-ID"] ||
+                          "—"
+                        ),
+                      },
+                      {
+                        label: "Persona DID ID",
+                        val: String(
+                          blakQube["did_persona_id"] ||
+                          didPersonaId ||
                           "—"
                         ),
                       },

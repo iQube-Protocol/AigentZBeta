@@ -102,6 +102,19 @@ function uid() { return Math.random().toString(36).slice(2); }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+interface RootDidState {
+  rootDid: string | null;
+  rootId: string | null;
+  kycStatus: string | null;
+  isNew?: boolean;
+  personas: Array<{
+    personaType: string;
+    didPersonaId: string;
+    fioHandle: string | null;
+    evmAddress: string | null;
+  }>;
+}
+
 export function IdentityIQubeDrawer({ onClose }: { onClose: () => void }) {
   const [data, setData] = useState<IdentityData>(EMPTY);
   const [loading, setLoading] = useState(true);
@@ -109,17 +122,28 @@ export function IdentityIQubeDrawer({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [rootDid, setRootDid] = useState<RootDidState | null>(null);
+  const [bindLoading, setBindLoading] = useState(true);
 
   const load = useCallback(async () => {
-    setLoading(true); setError(null);
+    setLoading(true); setBindLoading(true); setError(null);
     try {
-      const res = await fetch("/api/iqube/identity", { headers: authHeaders() });
-      const json = await res.json() as { exists?: boolean; data?: IdentityData; error?: string };
-      if (!res.ok) throw new Error(json.error ?? "Failed to load");
+      // Bind root DID + load identity in parallel
+      const [bindRes, identityRes] = await Promise.all([
+        fetch("/api/identity/root-did/bind", { method: "POST", headers: authHeaders() }),
+        fetch("/api/iqube/identity", { headers: authHeaders() }),
+      ]);
+      if (bindRes.ok) {
+        const bindJson = await bindRes.json() as RootDidState;
+        setRootDid(bindJson);
+      }
+      setBindLoading(false);
+      const json = await identityRes.json() as { exists?: boolean; data?: IdentityData; error?: string };
+      if (!identityRes.ok) throw new Error(json.error ?? "Failed to load");
       setData(json.exists && json.data ? json.data : EMPTY);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Load failed");
-    } finally { setLoading(false); }
+    } finally { setLoading(false); setBindLoading(false); }
   }, []);
 
   useEffect(() => { void load(); }, [load]);
@@ -165,6 +189,9 @@ export function IdentityIQubeDrawer({ onClose }: { onClose: () => void }) {
           <Fingerprint className="h-4 w-4 text-cyan-400" />
           <span className="text-sm font-semibold text-slate-200">Identity iQube</span>
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-400 border border-cyan-500/20">DIDQube</span>
+          {rootDid?.rootDid && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">Root DID</span>
+          )}
         </div>
         <button type="button" onClick={onClose} className="rounded p-1 text-slate-400 hover:bg-white/10 hover:text-white transition">
           <X className="h-4 w-4" />
@@ -314,11 +341,96 @@ export function IdentityIQubeDrawer({ onClose }: { onClose: () => void }) {
               </div>
             </Section>
 
-            {/* DIDQube */}
+            {/* DIDQube — sovereign identity layer */}
             <Section icon={<Fingerprint className="h-3.5 w-3.5" />} title="DIDQube" defaultOpen={false}>
               <Field label="FIO Handle" value={data.fio_handle}
                 onChange={v => update({ fio_handle: v })}
                 placeholder="yourname@fio" />
+
+              <div className="mt-3 rounded-xl bg-amber-950/20 ring-1 ring-amber-700/20 p-3 space-y-1">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] uppercase tracking-wider text-amber-400/70">Root Identity</span>
+                  {bindLoading && <Loader2 className="h-3 w-3 animate-spin text-amber-500/40" />}
+                  {!bindLoading && rootDid?.rootDid && (
+                    <span className="text-[9px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 rounded px-1.5 py-0.5">Bound</span>
+                  )}
+                  {!bindLoading && !rootDid?.rootDid && (
+                    <span className="text-[9px] bg-slate-700/40 text-slate-500 border border-slate-700/40 rounded px-1.5 py-0.5">Unbound</span>
+                  )}
+                </div>
+
+                {rootDid?.rootDid ? (
+                  <>
+                    {/* Root DID */}
+                    <div className="flex items-start justify-between gap-2 py-1 border-b border-amber-900/20">
+                      <span className="text-[11px] text-slate-500 shrink-0">Root DID</span>
+                      <span className="text-[11px] font-mono text-amber-300/80 break-all text-right leading-tight">
+                        {rootDid.rootDid}
+                      </span>
+                    </div>
+
+                    {/* Kybe DID — dev stub, activates with proof-of-personhood */}
+                    <div className="flex items-start justify-between gap-2 py-1 border-b border-amber-900/20">
+                      <span className="text-[11px] text-slate-500 shrink-0">Kybe DID</span>
+                      <div className="text-right">
+                        <span className="text-[11px] font-mono text-slate-400">did:kybe:dev:stub:v1</span>
+                        <span className="ml-1.5 text-[9px] bg-slate-700/50 text-slate-500 rounded px-1 py-0.5">dev stub</span>
+                      </div>
+                    </div>
+
+                    {/* KYC status */}
+                    <div className="flex items-center justify-between gap-2 py-1 border-b border-amber-900/20">
+                      <span className="text-[11px] text-slate-500">KYC Status</span>
+                      <span className={`text-[10px] rounded px-1.5 py-0.5 font-medium ${
+                        rootDid.kycStatus === "kycd"
+                          ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20"
+                          : "bg-slate-700/40 text-slate-400 border border-slate-700/40"
+                      }`}>
+                        {rootDid.kycStatus ?? "unverified"}
+                      </span>
+                    </div>
+
+                    {/* Linked personas */}
+                    {rootDid.personas.length > 0 && (
+                      <div className="pt-1 space-y-1">
+                        <span className="text-[10px] uppercase tracking-wider text-slate-600">Linked Personas</span>
+                        {rootDid.personas.map((p) => (
+                          <div key={p.didPersonaId} className="rounded-lg bg-slate-900/60 border border-slate-800/40 p-2 space-y-0.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[11px] font-medium text-slate-300 capitalize">{p.personaType} Persona</span>
+                              {p.fioHandle && (
+                                <span className="text-[10px] font-mono text-cyan-400">{p.fioHandle}</span>
+                              )}
+                            </div>
+                            <div className="flex items-start justify-between gap-2">
+                              <span className="text-[10px] text-slate-600">Persona DID ID</span>
+                              <span className="text-[10px] font-mono text-slate-500 break-all text-right leading-tight">
+                                {p.didPersonaId}
+                              </span>
+                            </div>
+                            {p.evmAddress && (
+                              <div className="flex items-start justify-between gap-2">
+                                <span className="text-[10px] text-slate-600">EVM</span>
+                                <span className="text-[10px] font-mono text-slate-500">
+                                  {`${p.evmAddress.slice(0, 8)}…${p.evmAddress.slice(-6)}`}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {rootDid.isNew && (
+                      <p className="text-[10px] text-amber-400/60 pt-1">Root identity created this session.</p>
+                    )}
+                  </>
+                ) : !bindLoading ? (
+                  <p className="text-[11px] text-slate-600">Open a persona iQube drawer to establish your root identity.</p>
+                ) : (
+                  <p className="text-[11px] text-slate-600">Resolving identity…</p>
+                )}
+              </div>
             </Section>
           </>
         )}
