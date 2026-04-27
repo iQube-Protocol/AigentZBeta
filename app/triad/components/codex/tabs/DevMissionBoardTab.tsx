@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { Target, CheckCircle2, Circle, ChevronDown, ChevronUp, Lock } from "lucide-react";
+import React, { useState, useEffect, useCallback } from "react";
+import { Target, CheckCircle2, Circle, ChevronDown, ChevronUp, Lock, Loader2 } from "lucide-react";
 
 interface Mission {
   id: string;
@@ -17,6 +17,10 @@ interface MissionTrack {
   label: string;
   color: string;
   missions: Mission[];
+}
+
+interface DevMissionBoardTabProps {
+  personaId?: string;
 }
 
 const TRACKS: MissionTrack[] = [
@@ -194,6 +198,9 @@ const TRACKS: MissionTrack[] = [
   },
 ];
 
+const ALL_MISSION_IDS = TRACKS.flatMap((t) => t.missions.map((m) => m.id));
+const TOTAL = ALL_MISSION_IDS.length;
+
 const COLOR_MAP: Record<string, { bg: string; border: string; text: string; badge: string }> = {
   green:  { bg: "bg-green-500/10",  border: "border-green-500/20",  text: "text-green-300",  badge: "bg-green-500/20 text-green-200" },
   blue:   { bg: "bg-blue-500/10",   border: "border-blue-500/20",   text: "text-blue-300",   badge: "bg-blue-500/20 text-blue-200" },
@@ -202,9 +209,57 @@ const COLOR_MAP: Record<string, { bg: string; border: string; text: string; badg
   rose:   { bg: "bg-rose-500/10",   border: "border-rose-500/20",   text: "text-rose-300",   badge: "bg-rose-500/20 text-rose-200" },
 };
 
-export function DevMissionBoardTab() {
+// Persists completed mission IDs in the journey_state.completed_experience_ids field.
+// IDs are prefixed with "mission:" to namespace them from ExperienceQube IDs.
+const MISSION_PREFIX = "mission:";
+
+export function DevMissionBoardTab({ personaId }: DevMissionBoardTabProps) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [completed, setCompleted] = useState<Set<string>>(new Set());
+  const [syncing, setSyncing] = useState(false);
+  const [loadingState, setLoadingState] = useState(true);
+
+  const loadJourneyState = useCallback(async () => {
+    if (!personaId) { setLoadingState(false); return; }
+    try {
+      const res = await fetch(`/api/runtime/journey?personaId=${encodeURIComponent(personaId)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const ids: string[] = data?.journey_state?.completed_experience_ids ?? [];
+      const missionIds = ids
+        .filter((id: string) => id.startsWith(MISSION_PREFIX))
+        .map((id: string) => id.slice(MISSION_PREFIX.length));
+      setCompleted(new Set(missionIds.filter((id: string) => ALL_MISSION_IDS.includes(id))));
+    } catch {
+      // non-fatal — local state still works
+    } finally {
+      setLoadingState(false);
+    }
+  }, [personaId]);
+
+  useEffect(() => {
+    loadJourneyState();
+  }, [loadJourneyState]);
+
+  async function persistCompletion(next: Set<string>) {
+    if (!personaId) return;
+    setSyncing(true);
+    try {
+      const completedIds = [...next].map((id) => `${MISSION_PREFIX}${id}`);
+      await fetch("/api/runtime/journey", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          personaId,
+          completed_experience_ids: completedIds,
+        }),
+      });
+    } catch {
+      // non-fatal
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   function toggle(id: string) {
     setExpanded((prev) => (prev === id ? null : id));
@@ -214,6 +269,7 @@ export function DevMissionBoardTab() {
     setCompleted((prev) => {
       const next = new Set(prev);
       if (next.has(id)) { next.delete(id); } else { next.add(id); }
+      void persistCompletion(next);
       return next;
     });
   }
@@ -232,10 +288,18 @@ export function DevMissionBoardTab() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 text-sm text-slate-400">
-        <CheckCircle2 className="h-4 w-4 text-green-400" />
-        <span>{completed.size} of {TRACKS.reduce((s, t) => s + t.missions.length, 0)} missions completed</span>
-      </div>
+      {loadingState ? (
+        <div className="flex items-center gap-2 text-slate-400 text-sm">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading mission progress…
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 text-sm text-slate-400">
+          <CheckCircle2 className="h-4 w-4 text-green-400" />
+          <span>{completed.size} of {TOTAL} missions completed</span>
+          {syncing && <Loader2 className="h-3 w-3 animate-spin text-slate-500" />}
+        </div>
+      )}
 
       {TRACKS.map((track) => {
         const colors = COLOR_MAP[track.color];
@@ -311,10 +375,6 @@ export function DevMissionBoardTab() {
           </div>
         );
       })}
-
-      <p className="text-xs text-slate-500">
-        Phase 2: Mission completion will sync to your persona&apos;s journey state and unlock trust band progression.
-      </p>
     </div>
   );
 }

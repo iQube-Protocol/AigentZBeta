@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   const body = await request.json();
-  const { personaId, stage, depth, active_cartridge, active_codex } = body;
+  const { personaId, stage, depth, active_cartridge, active_codex, completed_experience_ids } = body;
 
   if (!personaId) {
     return NextResponse.json({ error: 'personaId required' }, { status: 400 });
@@ -68,6 +68,7 @@ export async function PATCH(request: NextRequest) {
   if (depth !== undefined) updates.depth = depth;
   if (active_cartridge !== undefined) updates.current_experience_id = active_cartridge;
   if (active_codex !== undefined) updates.active_codex = active_codex;
+  if (completed_experience_ids !== undefined) updates.completed_experience_ids = completed_experience_ids;
 
   let result;
   if (existing?.id) {

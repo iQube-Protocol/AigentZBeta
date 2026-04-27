@@ -1,7 +1,11 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { Shield, ShieldCheck, ShieldX, Clock, Activity, AlertTriangle, CheckCircle2, Loader2, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Shield, ShieldCheck, ShieldX, Clock, Activity, AlertTriangle,
+  CheckCircle2, Loader2, ChevronDown, ChevronUp, Receipt, Wallet,
+} from "lucide-react";
+import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 
 interface DelegationState {
   active: boolean;
@@ -17,6 +21,14 @@ interface DelegationState {
   agent_root_did?: string;
 }
 
+interface AuditEvent {
+  event_id: string;
+  event_type: string;
+  receipt_eligible: boolean;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
 interface BoundedDelegationTabProps {
   personaId?: string;
 }
@@ -28,13 +40,22 @@ const TRUST_BAND_ACTIONS: Record<string, string[]> = {
   L4_PRODUCTION_APPROVED: ["knowledge_retrieval", "draft_document", "registry_submission_proposal", "registry_publish"],
 };
 
+const TRUST_BANDS = ["L1_EXPERIMENTAL", "L2_VERIFIED_COMMUNITY", "L3_PRODUCTION_CANDIDATE", "L4_PRODUCTION_APPROVED"];
+
 const TTL_OPTIONS = [
   { label: "1 hour", value: 1 },
   { label: "4 hours", value: 4 },
   { label: "8 hours", value: 8 },
 ];
 
-const TRUST_BANDS = ["L1_EXPERIMENTAL", "L2_VERIFIED_COMMUNITY", "L3_PRODUCTION_CANDIDATE", "L4_PRODUCTION_APPROVED"];
+// Reputation bucket (0–4) → max grantable trust band
+const BUCKET_TO_BAND: Record<number, string> = {
+  0: "L1_EXPERIMENTAL",
+  1: "L2_VERIFIED_COMMUNITY",
+  2: "L3_PRODUCTION_CANDIDATE",
+  3: "L4_PRODUCTION_APPROVED",
+  4: "L4_PRODUCTION_APPROVED",
+};
 
 function formatExpiry(isoString: string): string {
   const diff = new Date(isoString).getTime() - Date.now();
@@ -44,7 +65,21 @@ function formatExpiry(isoString: string): string {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
+function formatEventType(t: string): string {
+  return t.replace(/_/g, " ");
+}
+
+function eventTypeColor(t: string): string {
+  if (t === "policy_blocked") return "text-red-400";
+  if (t === "z_delegated") return "text-green-400";
+  if (t === "control_returned_to_metame") return "text-amber-400";
+  return "text-slate-400";
+}
+
 export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
+  const { sessionPersonas } = useSupabaseSessionPersonas();
+  const activePersona = sessionPersonas.find((p) => p.id === personaId) ?? sessionPersonas[0] ?? null;
+
   const [delegation, setDelegation] = useState<DelegationState | null>(null);
   const [loading, setLoading] = useState(true);
   const [granting, setGranting] = useState(false);
@@ -52,13 +87,17 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
   const [error, setError] = useState<string | null>(null);
   const [showGrantForm, setShowGrantForm] = useState(false);
   const [showConcept, setShowConcept] = useState(false);
+  const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [showAudit, setShowAudit] = useState(false);
 
-  // Grant form state
   const [selectedTrustBand, setSelectedTrustBand] = useState("L2_VERIFIED_COMMUNITY");
   const [selectedTtl, setSelectedTtl] = useState(4);
   const [selectedActions, setSelectedActions] = useState<string[]>(["knowledge_retrieval", "draft_document"]);
 
   const pid = personaId ?? "anonymous";
+  const maxGrantableBand = BUCKET_TO_BAND[activePersona?.reputationBucket ?? 0] ?? "L1_EXPERIMENTAL";
+  const bandIndex = TRUST_BANDS.indexOf(maxGrantableBand);
 
   const loadDelegation = useCallback(async () => {
     setLoading(true);
@@ -74,9 +113,28 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
     }
   }, [pid]);
 
+  const loadAuditEvents = useCallback(async () => {
+    setAuditLoading(true);
+    try {
+      const res = await fetch(
+        `/api/codex/chat/agentiq-os/delegation?persona_id=${encodeURIComponent(pid)}&events=1`
+      );
+      const data = await res.json();
+      setAuditEvents(data.events ?? []);
+    } catch {
+      setAuditEvents([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }, [pid]);
+
   useEffect(() => {
     loadDelegation();
   }, [loadDelegation]);
+
+  useEffect(() => {
+    if (showAudit) loadAuditEvents();
+  }, [showAudit, loadAuditEvents]);
 
   async function handleGrant() {
     setGranting(true);
@@ -98,6 +156,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
       } else {
         setShowGrantForm(false);
         await loadDelegation();
+        if (showAudit) await loadAuditEvents();
       }
     } catch {
       setError("Grant request failed.");
@@ -114,6 +173,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         method: "DELETE",
       });
       await loadDelegation();
+      if (showAudit) await loadAuditEvents();
     } catch {
       setError("Revoke request failed.");
     } finally {
@@ -122,6 +182,9 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
   }
 
   const bandActions = TRUST_BAND_ACTIONS[selectedTrustBand] ?? [];
+
+  const lastBlockedEvent = auditEvents.find((e) => e.event_type === "policy_blocked");
+  const hasInjectionWarning = !!lastBlockedEvent;
 
   return (
     <div className="p-6 space-y-5 max-w-2xl">
@@ -137,6 +200,19 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         </div>
       </div>
 
+      {/* Injection warning banner */}
+      {hasInjectionWarning && showAudit && (
+        <div className="flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2.5 text-sm text-red-300">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">Aigent C-OS blocked a potential injection attempt</p>
+            <p className="text-xs text-red-400 mt-0.5">
+              at {new Date(lastBlockedEvent!.created_at).toLocaleString()}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Agent identity card */}
       <div className="rounded-xl border border-slate-700/40 bg-slate-900/30 p-4 space-y-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Aigent C-OS Identity</p>
@@ -150,10 +226,34 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
           <span className="text-slate-400">Bounded persona</span>
           <code className="text-xs text-slate-300 bg-slate-800 px-2 py-0.5 rounded">aigent-c-os</code>
         </div>
-        <p className="text-[11px] text-slate-500 italic">
-          Personas may vary. Accountability does not.
-        </p>
+        <p className="text-[11px] text-slate-500 italic">Personas may vary. Accountability does not.</p>
       </div>
+
+      {/* Persona wallet state */}
+      {activePersona && (
+        <div className="rounded-xl border border-slate-700/40 bg-slate-900/20 p-4 space-y-2">
+          <div className="flex items-center gap-2">
+            <Wallet className="h-4 w-4 text-slate-400" />
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Your Persona</p>
+          </div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+            <span className="text-slate-400">Display name</span>
+            <span className="text-slate-200 truncate">{activePersona.displayName}</span>
+            <span className="text-slate-400">Reputation</span>
+            <span className="text-slate-200">{activePersona.reputationScore} / 100</span>
+            <span className="text-slate-400">Max trust band</span>
+            <span className="text-violet-300 text-xs">{maxGrantableBand.replace(/_/g, " ")}</span>
+            {activePersona.evmAddress && (
+              <>
+                <span className="text-slate-400">EVM address</span>
+                <code className="text-xs text-slate-300 truncate">{activePersona.evmAddress.slice(0, 10)}…</code>
+              </>
+            )}
+            <span className="text-slate-400">World ID</span>
+            <span className="text-xs text-slate-300">{activePersona.worldIdStatus.replace(/_/g, " ")}</span>
+          </div>
+        </div>
+      )}
 
       {/* Concept toggle */}
       <div className="rounded-xl border border-slate-700/40 bg-slate-900/20">
@@ -174,7 +274,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         )}
       </div>
 
-      {/* Delegation state */}
+      {/* Error */}
       {error && (
         <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
           <AlertTriangle className="h-4 w-4 flex-shrink-0" />
@@ -182,6 +282,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         </div>
       )}
 
+      {/* Delegation state */}
       {loading ? (
         <div className="flex items-center gap-2 text-slate-400 text-sm">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -204,7 +305,6 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
               Revoke
             </button>
           </div>
-
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div className="flex items-center gap-1.5 text-slate-400">
               <Clock className="h-3.5 w-3.5" />
@@ -215,7 +315,6 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
               {delegation.actions_taken ?? 0} / {delegation.max_actions ?? 20} actions
             </div>
           </div>
-
           <div>
             <p className="text-xs text-slate-500 mb-1.5">Allowed actions</p>
             <div className="flex flex-wrap gap-1.5">
@@ -269,25 +368,35 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
           <p className="text-sm font-semibold text-slate-200">Configure Delegation</p>
 
           <div className="space-y-1.5">
-            <label className="text-xs text-slate-400">Trust Band</label>
+            <label className="text-xs text-slate-400">
+              Trust Band{" "}
+              <span className="text-slate-500">(max: {maxGrantableBand.replace(/_/g, " ")})</span>
+            </label>
             <div className="grid grid-cols-2 gap-2">
-              {TRUST_BANDS.map((band) => (
-                <button
-                  key={band}
-                  type="button"
-                  onClick={() => {
-                    setSelectedTrustBand(band);
-                    setSelectedActions(TRUST_BAND_ACTIONS[band] ?? []);
-                  }}
-                  className={`rounded-lg border px-3 py-1.5 text-xs text-left transition ${
-                    selectedTrustBand === band
-                      ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
-                      : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600"
-                  }`}
-                >
-                  {band.replace(/_/g, " ")}
-                </button>
-              ))}
+              {TRUST_BANDS.map((band, idx) => {
+                const locked = idx > bandIndex;
+                return (
+                  <button
+                    key={band}
+                    type="button"
+                    disabled={locked}
+                    onClick={() => {
+                      setSelectedTrustBand(band);
+                      setSelectedActions(TRUST_BAND_ACTIONS[band] ?? []);
+                    }}
+                    className={`rounded-lg border px-3 py-1.5 text-xs text-left transition ${
+                      locked
+                        ? "border-slate-800 bg-slate-900/40 text-slate-600 cursor-not-allowed"
+                        : selectedTrustBand === band
+                          ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
+                          : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600"
+                    }`}
+                  >
+                    {band.replace(/_/g, " ")}
+                    {locked && " 🔒"}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -312,18 +421,18 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs text-slate-400">Allowed Actions (from trust band)</label>
+            <label className="text-xs text-slate-400">Allowed Actions</label>
             <div className="flex flex-wrap gap-1.5">
               {bandActions.map((action) => (
                 <label key={action} className="inline-flex items-center gap-1.5 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={selectedActions.includes(action)}
-                    onChange={(e) => {
+                    onChange={(e) =>
                       setSelectedActions((prev) =>
                         e.target.checked ? [...prev, action] : prev.filter((a) => a !== action),
-                      );
-                    }}
+                      )
+                    }
                     className="h-3 w-3 rounded"
                   />
                   <span className="text-xs text-slate-300">{action}</span>
@@ -333,8 +442,8 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
           </div>
 
           <div className="rounded-lg border border-slate-700/40 bg-slate-800/30 px-3 py-2 text-xs text-slate-400 space-y-1">
-            <p className="font-medium text-slate-300">Always forbidden (all trust bands):</p>
-            <p>write_to_aigency_pack, access_supabase_service_role, push_to_registry_live, read_wallet_credentials, modify_other_persona, read_sovereign_iqube</p>
+            <p className="font-medium text-slate-300">Always forbidden:</p>
+            <p>write_to_aigency_pack · access_supabase_service_role · push_to_registry_live · read_wallet_credentials · modify_other_persona · read_sovereign_iqube</p>
           </div>
 
           <button
@@ -349,9 +458,64 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         </div>
       )}
 
-      <div className="text-xs text-slate-500 space-y-1 pt-2 border-t border-slate-800">
-        <p>Phase 2: Audit log from Supabase <code className="bg-slate-800 px-1 rounded">orchestration_events</code> will appear here.</p>
-        <p>Phase 2: SmartWallet balance confirmation required before grant.</p>
+      {/* Audit log */}
+      <div className="rounded-xl border border-slate-700/40 bg-slate-900/20">
+        <button
+          type="button"
+          onClick={() => setShowAudit((v) => !v)}
+          className="flex w-full items-center justify-between px-4 py-3 text-sm text-slate-300"
+        >
+          <div className="flex items-center gap-2">
+            <Receipt className="h-4 w-4 text-slate-400" />
+            <span className="font-medium">DVN Audit Log</span>
+          </div>
+          {showAudit ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </button>
+        {showAudit && (
+          <div className="px-4 pb-4 border-t border-slate-700/40 pt-3">
+            {auditLoading ? (
+              <div className="flex items-center gap-2 text-slate-400 text-sm">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Loading…
+              </div>
+            ) : auditEvents.length === 0 ? (
+              <p className="text-xs text-slate-500">No delegation events recorded for this persona.</p>
+            ) : (
+              <div className="space-y-2">
+                {auditEvents.map((evt) => (
+                  <div key={evt.event_id} className="flex items-start gap-2 text-xs">
+                    <div className="mt-0.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-slate-600" />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`font-medium ${eventTypeColor(evt.event_type)}`}>
+                          {formatEventType(evt.event_type)}
+                        </span>
+                        {evt.receipt_eligible && (
+                          <span className="rounded-full bg-violet-500/10 border border-violet-500/20 px-1.5 py-0.5 text-[10px] text-violet-400">
+                            DVN receipt
+                          </span>
+                        )}
+                        <span className="text-slate-500">
+                          {new Date(evt.created_at).toLocaleString()}
+                        </span>
+                      </div>
+                      {typeof evt.metadata?.trust_band === "string" && (
+                        <p className="text-slate-500 mt-0.5">
+                          Band: {evt.metadata.trust_band as string}
+                        </p>
+                      )}
+                      {typeof evt.metadata?.reason === "string" && (
+                        <p className="text-slate-500 mt-0.5 truncate max-w-xs">
+                          {evt.metadata.reason as string}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
