@@ -2,6 +2,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getFIOService } from '@/services/identity/fioService';
 
+async function resolveUserId(request: NextRequest): Promise<string | null> {
+  const auth = request.headers.get('Authorization') || request.headers.get('authorization');
+  const token = auth?.startsWith('Bearer ') ? auth.slice(7) : null;
+  if (!token) return null;
+  try {
+    const anon = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    const { data } = await anon.auth.getUser(token);
+    return data?.user?.id ?? null;
+  } catch { return null; }
+}
+
 // Ensure this route executes on the Node.js runtime (not Edge)
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -158,6 +172,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Resolve the calling user — if signed in, link persona to their account immediately
+    const callerUserId = await resolveUserId(request);
+
     // STEP 3: Create persona in database with FIO info
     const tenantId = body?.tenantId || 'default';
     const fioDomain = fioHandle.includes('@') ? fioHandle.split('@')[1] : 'qripto';
@@ -176,7 +193,10 @@ export async function POST(req: NextRequest) {
       badges: [],
       status: fioResult.txId.startsWith('fallback_') ? 'pending' : 'active',
       tenant_id: tenantId,
-      auth_profile_id: null,
+      // Link to the calling user so the wallet discovers it on sign-in.
+      // callerUserId is the raw Supabase auth UID — wallet/personas already
+      // includes this in visibleAuthProfileIds so no crm_auth_profiles lookup needed.
+      auth_profile_id: callerUserId ?? null,
       discoverable_within_tenant: false,
       fio_public_key: publicKey,
       fio_tx_id: fioResult.txId,

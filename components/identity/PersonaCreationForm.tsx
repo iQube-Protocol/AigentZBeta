@@ -5,6 +5,21 @@ import { User, Loader2, CheckCircle, Copy, Check } from 'lucide-react';
 import { FIOHandleInput } from './FIOHandleInput';
 import { FIORegistrationModal } from './FIORegistrationModal';
 
+function getAccessToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (!key?.includes("auth-token")) continue;
+      const raw = window.localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw) as { access_token?: string };
+      if (parsed?.access_token) return parsed.access_token;
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
 interface PersonaCreationFormProps {
   onSuccess?: (personaId: string) => void;
   onCancel?: () => void;
@@ -84,9 +99,13 @@ export function PersonaCreationForm({ onSuccess, onCancel }: PersonaCreationForm
 
     try {
       // Use atomic endpoint to create persona + register FIO in one operation
+      const token = getAccessToken();
       const response = await fetch('/api/identity/persona/create-with-fio', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           fioHandle,
           publicKey,
