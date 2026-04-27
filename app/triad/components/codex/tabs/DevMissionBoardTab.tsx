@@ -578,7 +578,7 @@ export function DevMissionBoardTab({ personaId }: DevMissionBoardTabProps) {
               trust classes, bounded delegation scopes, human approval gates, and receipt-eligible reward logic.
             </p>
             <a
-              href={buildCodexUrl("knyt-codex", { tab: "knyt-wheel", from: "agentiq-os", fromTab: "missions", shell: "viewer" })}
+              href={buildCodexUrl("knyt-codex", { tab: "knyt-wheel", from: "agentiq-os", fromTab: "missions" })}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20 transition-colors"
@@ -647,7 +647,7 @@ export function DevMissionBoardTab({ personaId }: DevMissionBoardTabProps) {
                         <span className="text-[11px] text-slate-500">Reward: {m.reward}</span>
                       </div>
                       <a
-                        href={buildCodexUrl("knyt-codex", { tab: "knyt-wheel", from: "agentiq-os", fromTab: "missions", shell: "viewer" })}
+                        href={buildCodexUrl("knyt-codex", { tab: "knyt-wheel", from: "agentiq-os", fromTab: "missions" })}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 transition-colors"
