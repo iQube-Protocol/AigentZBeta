@@ -69,7 +69,7 @@ const COMPARISON_TABLE = [
   { area: "QC standard", open: "L1_EXPERIMENTAL accepted — experiment freely", bridge: "Production vetting: reliability, composability, no hidden deps" },
   { area: "Client stakes", open: "Your own users, your own SLA", bridge: "Enterprise, creator, community — no debugging in production" },
   { area: "Registry", open: "Open submission — any trust band", bridge: "Curated subset — assets proven production-grade" },
-  { area: "Aigents", open: "Aigent C-OS developer copilot", bridge: "Aigent Z, C, Marketa, Kn0w1 production coordination" },
+  { area: "Aigents", open: "Aigent C-OS developer copilot", bridge: "Aigent Z, C, Marketa, Kn0w1, Nakamoto production coordination" },
   { area: "Intelligence", open: "Reference patterns and open SDK", bridge: "NBE/NBA, Experience Matrix, CRM, commercial rails" },
 ];
 
