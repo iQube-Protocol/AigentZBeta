@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Target, CheckCircle2, Circle, ChevronDown, ChevronUp, Lock, Loader2 } from "lucide-react";
+import { Target, CheckCircle2, Circle, ChevronDown, ChevronUp, Lock, Loader2, ExternalLink, Shield, Coins } from "lucide-react";
+import { buildCodexUrl } from "@/utils/codex-nav";
 
 interface Mission {
   id: string;
@@ -222,8 +223,110 @@ const TRACK_BRIDGE_STAGE: Record<string, string> = {
   ecosystem: 'partner_candidate',
 };
 
+// ─── KNYT Wheel reference missions (live cartridge preview) ───────────────────
+
+type KnytCategory = "Segmentation" | "Outreach Support" | "Telemetry" | "Partner" | "Governance" | "Participation";
+
+interface KnytMission {
+  id: string;
+  title: string;
+  category: KnytCategory;
+  trustClass: 1 | 2 | 3 | 4 | 5;
+  objective: string;
+  reward: string;
+  requiresApproval: boolean;
+}
+
+const KNYT_CAT_COLOR: Record<KnytCategory, string> = {
+  Segmentation:     "bg-blue-500/15 text-blue-300 border-blue-500/30",
+  "Outreach Support": "bg-purple-500/15 text-purple-300 border-purple-500/30",
+  Telemetry:        "bg-cyan-500/15 text-cyan-300 border-cyan-500/30",
+  Partner:          "bg-amber-500/15 text-amber-300 border-amber-500/30",
+  Governance:       "bg-indigo-500/15 text-indigo-300 border-indigo-500/30",
+  Participation:    "bg-green-500/15 text-green-300 border-green-500/30",
+};
+
+const KNYT_CAT_CARD: Record<KnytCategory, { bg: string; border: string; badge: string }> = {
+  Segmentation:     { bg: "bg-blue-500/10",   border: "border-blue-500/20",   badge: "bg-blue-500/20 text-blue-200" },
+  "Outreach Support": { bg: "bg-purple-500/10", border: "border-purple-500/20", badge: "bg-purple-500/20 text-purple-200" },
+  Telemetry:        { bg: "bg-cyan-500/10",    border: "border-cyan-500/20",   badge: "bg-cyan-500/20 text-cyan-200" },
+  Partner:          { bg: "bg-amber-500/10",   border: "border-amber-500/20",  badge: "bg-amber-500/20 text-amber-200" },
+  Governance:       { bg: "bg-indigo-500/10",  border: "border-indigo-500/20", badge: "bg-indigo-500/20 text-indigo-200" },
+  Participation:    { bg: "bg-green-500/10",   border: "border-green-500/20",  badge: "bg-green-500/20 text-green-200" },
+};
+
+const KNYT_TRUST_COLOR: Record<number, string> = {
+  1: "bg-slate-500/20 text-slate-300",
+  2: "bg-blue-500/20 text-blue-300",
+  3: "bg-amber-500/20 text-amber-300",
+  4: "bg-orange-500/20 text-orange-300",
+  5: "bg-red-500/20 text-red-300",
+};
+
+const KNYT_TRUST_DESC: Record<number, string> = {
+  1: "Observation / read-only",
+  2: "Draft for human review",
+  3: "Optimize / route workflow",
+  4: "Operate within auditable boundary",
+  5: "Contribute upstream to ecosystem",
+};
+
+const KNYT_MISSIONS: KnytMission[] = [
+  {
+    id: "M-001", title: "Investor Reactivation Prioritization",
+    category: "Segmentation", trustClass: 1,
+    objective: "Rank which investors deserve faster follow-up today based on cohort tag, backing amount, and email open/click history.",
+    reward: "KNYT credit on operator acceptance — accumulates toward standing with consistent daily useful output.",
+    requiresApproval: true,
+  },
+  {
+    id: "M-002", title: "Zero KNYT Legacy Investor Identification",
+    category: "Segmentation", trustClass: 1,
+    objective: "Identify and validate $1,000+ investor candidates for premium-tier emphasis. Classify each as strong / borderline / exclude with rationale.",
+    reward: "KNYT credit on list acceptance and confirmed use in premium-tier campaign ops.",
+    requiresApproval: true,
+  },
+  {
+    id: "M-003", title: "Codex Objection Handling Copy",
+    category: "Outreach Support", trustClass: 2,
+    objective: "Generate 5–10 copy variants (2–4 sentences each) addressing objections from legacy asset holders — suitable for email and SMS reuse.",
+    reward: "KNYT credit when copy is approved and confirmed deployed in live outbound.",
+    requiresApproval: true,
+  },
+  {
+    id: "M-004", title: "Daily Campaign Telemetry Brief",
+    category: "Telemetry", trustClass: 1,
+    objective: "Summarise last 24h investor, partner, and channel performance into a structured brief: highlights, top angle, underperforming channels, today's focus.",
+    reward: "KNYT credit on brief acceptance — daily delivery builds standing.",
+    requiresApproval: false,
+  },
+  {
+    id: "M-005", title: "Partner Follow-up Ranking",
+    category: "Partner", trustClass: 2,
+    objective: "Rank partners by next higher-touch follow-up priority using last-contact date, response signal, and strategic tier. Output: prioritise now / monitor / hold.",
+    reward: "KNYT credit on ranking acceptance and confirmed use in outreach sequencing.",
+    requiresApproval: true,
+  },
+  {
+    id: "M-006", title: "Next-best-action Recommendation",
+    category: "Participation", trustClass: 3,
+    objective: "Recommend the next-best-action for users or investors after click, backing, or initial engagement. Output ready for Runtime / KNYT / Tasks & Rewards deployment.",
+    reward: "KNYT credit when recommendations are deployed and generate positive engagement signal.",
+    requiresApproval: true,
+  },
+  {
+    id: "M-007", title: "Mission Boundary Review",
+    category: "Governance", trustClass: 3,
+    objective: "Flag whether any mission or submitted output drifted outside its intended bounds. Report: flagged missions, out-of-scope outputs, suggested charter clarifications.",
+    reward: "KNYT credit when review findings are accepted and lead to charter or constraint improvements.",
+    requiresApproval: true,
+  },
+];
+
 export function DevMissionBoardTab({ personaId }: DevMissionBoardTabProps) {
+  const [activePanel, setActivePanel] = useState<"your-missions" | "knyt-reference">("your-missions");
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [knytExpanded, setKnytExpanded] = useState<string | null>(null);
   const [completed, setCompleted] = useState<Set<string>>(new Set());
   const [syncing, setSyncing] = useState(false);
   const [loadingState, setLoadingState] = useState(true);
@@ -333,6 +436,7 @@ export function DevMissionBoardTab({ personaId }: DevMissionBoardTabProps) {
 
   return (
     <div className="p-6 space-y-6 max-w-2xl">
+      {/* Header */}
       <div className="flex items-start gap-4">
         <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-slate-700/60 border border-slate-600/40">
           <Target className="h-6 w-6 text-slate-300" />
@@ -340,11 +444,31 @@ export function DevMissionBoardTab({ personaId }: DevMissionBoardTabProps) {
         <div>
           <h2 className="text-lg font-semibold text-slate-100">Developer Mission Board</h2>
           <p className="text-sm text-slate-400 mt-0.5">
-            Guided tracks from first install to ecosystem contributor.
+            Your AgentiQ OS learning tracks — plus a live reference cartridge with real rewards.
           </p>
         </div>
       </div>
 
+      {/* Panel toggle */}
+      <div className="flex gap-1 rounded-lg border border-slate-700/60 bg-slate-900/40 p-1 w-fit">
+        {(["your-missions", "knyt-reference"] as const).map((panel) => (
+          <button
+            key={panel}
+            type="button"
+            onClick={() => setActivePanel(panel)}
+            className={`rounded-md px-4 py-1.5 text-xs font-semibold transition-colors ${
+              activePanel === panel
+                ? "bg-slate-700 text-slate-100"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            {panel === "your-missions" ? "Your Missions" : "KNYT Reference"}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Your Missions panel ── */}
+      {activePanel === "your-missions" && (<>
       {loadingState ? (
         <div className="flex items-center gap-2 text-slate-400 text-sm">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -432,6 +556,113 @@ export function DevMissionBoardTab({ personaId }: DevMissionBoardTabProps) {
           </div>
         );
       })}
+      </>)}
+
+      {/* ── KNYT Reference panel ── */}
+      {activePanel === "knyt-reference" && (
+        <div className="space-y-4">
+          {/* Intro */}
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/20">
+                <Target className="h-4 w-4 text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-emerald-300">KNYT Wheel — Live Reference Cartridge</p>
+                <p className="text-xs text-slate-400">Real missions. Real KNYT rewards. Your agent can claim and fulfill these today.</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              This is a production mission board from the KNYT Codex — a live cartridge already running with active investors,
+              campaign ops, and KNYT credit rewards. It shows exactly what a production-grade agent mission board looks like:
+              trust classes, bounded delegation scopes, human approval gates, and receipt-eligible reward logic.
+            </p>
+            <a
+              href={buildCodexUrl("knyt-codex", { tab: "knyt-wheel", from: "agentiq-os", fromTab: "missions", shell: "viewer" })}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20 transition-colors"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Open Full KNYT Mission Board
+            </a>
+          </div>
+
+          {/* Trust class legend */}
+          <div className="rounded-lg border border-slate-700/40 bg-slate-900/30 p-3 space-y-1.5">
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
+              <Shield className="h-3 w-3" /> Trust Classes
+            </p>
+            <div className="grid grid-cols-1 gap-1">
+              {([1, 2, 3] as const).map((cls) => (
+                <div key={cls} className="flex items-center gap-2">
+                  <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${KNYT_TRUST_COLOR[cls]}`}>Class {cls}</span>
+                  <span className="text-[11px] text-slate-500">{KNYT_TRUST_DESC[cls]}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Mission cards — styled to match Dev mission card look and feel */}
+          {KNYT_MISSIONS.map((m) => {
+            const open = knytExpanded === m.id;
+            const card = KNYT_CAT_CARD[m.category];
+            return (
+              <div key={m.id} className={`rounded-xl border ${card.border} ${card.bg} overflow-hidden`}>
+                {/* Row header */}
+                <div className="flex items-center gap-3 px-3 py-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setKnytExpanded(open ? null : m.id)}
+                    className="flex-1 text-left text-sm text-slate-200"
+                  >
+                    {m.title}
+                  </button>
+                  <span className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold ${KNYT_CAT_COLOR[m.category]}`}>
+                    {m.category}
+                  </span>
+                  <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${KNYT_TRUST_COLOR[m.trustClass]}`}>
+                    Class {m.trustClass}
+                  </span>
+                  {m.requiresApproval && (
+                    <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                      <Lock className="h-3 w-3" />
+                      Approval
+                    </div>
+                  )}
+                  <button type="button" onClick={() => setKnytExpanded(open ? null : m.id)} className="flex-shrink-0">
+                    {open ? <ChevronUp className="h-4 w-4 text-slate-500" /> : <ChevronDown className="h-4 w-4 text-slate-500" />}
+                  </button>
+                </div>
+                {/* Expanded detail */}
+                {open && (
+                  <div className="px-3 pb-3 space-y-3 border-t border-slate-700/40 pt-3">
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-mono">
+                      <span>{m.id}</span>
+                    </div>
+                    <p className="text-xs text-slate-400 leading-relaxed">{m.objective}</p>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Coins className="h-3 w-3 text-emerald-400 flex-shrink-0" />
+                        <span className="text-[11px] text-slate-500">Reward: {m.reward}</span>
+                      </div>
+                      <a
+                        href={buildCodexUrl("knyt-codex", { tab: "knyt-wheel", from: "agentiq-os", fromTab: "missions", shell: "viewer" })}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 transition-colors"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Claim in KNYT Codex
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
