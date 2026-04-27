@@ -19,7 +19,7 @@ AgentiQ OS operates an explicit open/proprietary boundary. This is not a moral p
 | Asset | Reason |
 |-------|--------|
 | AgentiQ Platform (cartridge renderer, multi-codex viewer) | Contains engineering KB and system architecture |
-| nanOS internals | Execution substrate — separate product |
+| nanOS Cartridge | Proprietary production operating layer — Population Console, Aigent Z copilot, CRM, Experience Matrix, commercial rails |
 | Engineering KB (`codexes/packs/aigency/`) | Internal architecture, PRs, decisions |
 | Admin tooling and CRM routes | Operator-sensitive |
 | Supabase schema and RLS policies | Security-sensitive |
