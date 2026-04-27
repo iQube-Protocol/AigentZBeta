@@ -3,6 +3,16 @@
  * AA-API and A2A protocol types for AgentiQ Platform
  */
 
+/** Shared config for AigentQubeRegistry, PersonaCreation, and DelegationService. */
+export interface SDKConfig {
+  /** Base URL of your AgentiQ OS instance. Falls back to AGENTIQ_API_URL env var. */
+  apiUrl?: string;
+  /** Default persona ID for operations that require one. */
+  personaId?: string;
+  /** SDK API key — passed as Authorization header if provided. */
+  apiKey?: string;
+}
+
 /**
  * Chat message structure for AA-API
  */
