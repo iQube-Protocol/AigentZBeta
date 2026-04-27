@@ -313,16 +313,25 @@ export function IdentityIQubeDrawer({ onClose }: { onClose: () => void }) {
 
             {/* Personas */}
             <Section icon={<ShieldCheck className="h-3.5 w-3.5" />} title="Personas" defaultOpen={false}>
-              {data.personas.length === 0 ? (
+              {bindLoading ? (
+                <div className="flex items-center gap-2 text-xs text-slate-600">
+                  <Loader2 className="h-3 w-3 animate-spin" />Resolving personas…
+                </div>
+              ) : !rootDid?.personas?.length ? (
                 <p className="text-xs text-slate-600 italic">No personas linked yet. Your KNYT and Qripto personas will appear here once created.</p>
               ) : (
-                data.personas.map(p => (
-                  <div key={p.id} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
-                    <div>
-                      <span className="text-xs font-medium text-slate-200">{p.label}</span>
-                      <span className="ml-2 text-[10px] text-slate-500 capitalize">{p.type}</span>
+                rootDid.personas.map(p => (
+                  <div key={p.didPersonaId} className="rounded-lg bg-white/5 px-3 py-2 space-y-0.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-medium text-slate-200 capitalize">{p.personaType} Persona</span>
+                      {p.fioHandle && (
+                        <span className="text-[10px] font-mono text-cyan-400">{p.fioHandle}</span>
+                      )}
                     </div>
-                    <span className="font-mono text-[10px] text-slate-600 truncate max-w-[100px]">{p.uuid}</span>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] text-slate-600">DID Persona ID</span>
+                      <span className="font-mono text-[10px] text-slate-500 truncate max-w-[160px]">{p.didPersonaId}</span>
+                    </div>
                   </div>
                 ))
               )}

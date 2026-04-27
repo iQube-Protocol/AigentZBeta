@@ -41,12 +41,14 @@ export function PersonaCreationForm({ onSuccess, onCancel }: PersonaCreationForm
     setError(null);
 
     try {
-      // Use FIOService to generate keys
-      const { FIOService } = await import('@/services/identity/fioService');
-      const keys = await FIOService.generateKeyPair();
-      setPublicKey(keys.publicKey);
-      setPrivateKey(keys.privateKey);
-      setStep('show-keys'); // Show keys to user first
+      const res = await fetch('/api/identity/fio/generate-keypair', { method: 'POST' });
+      const data = await res.json() as { publicKey?: string; privateKey?: string; error?: string };
+      if (!res.ok || !data.publicKey || !data.privateKey) {
+        throw new Error(data.error ?? 'Failed to generate keys');
+      }
+      setPublicKey(data.publicKey);
+      setPrivateKey(data.privateKey);
+      setStep('show-keys');
     } catch (e: any) {
       setError(e.message || 'Failed to generate keys');
     } finally {
