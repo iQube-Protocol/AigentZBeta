@@ -213,6 +213,15 @@ const COLOR_MAP: Record<string, { bg: string; border: string; text: string; badg
 // IDs are prefixed with "mission:" to namespace them from ExperienceQube IDs.
 const MISSION_PREFIX = "mission:";
 
+// Bridge stage to advance when a track is fully completed
+const TRACK_BRIDGE_STAGE: Record<string, string> = {
+  beginner:  'developer_active',
+  builder:   'contributor_candidate',
+  registry:  'registry_candidate',
+  advanced:  'studio_candidate',
+  ecosystem: 'partner_candidate',
+};
+
 export function DevMissionBoardTab({ personaId }: DevMissionBoardTabProps) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [completed, setCompleted] = useState<Set<string>>(new Set());
@@ -254,8 +263,9 @@ export function DevMissionBoardTab({ personaId }: DevMissionBoardTabProps) {
           completed_experience_ids: completedIds,
         }),
       });
-      // Emit DVN receipt-eligible event for newly completed missions
+
       if (justCompleted) {
+        // Emit DVN receipt-eligible event for the mission
         void fetch("/api/runtime/orchestration", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -276,6 +286,25 @@ export function DevMissionBoardTab({ personaId }: DevMissionBoardTabProps) {
             },
           }),
         });
+
+        // Check if this completion finished an entire track → advance CRM bridge stage
+        const track = TRACKS.find((t) => t.missions.some((m) => m.id === justCompleted));
+        if (track) {
+          const allTrackMissionsDone = track.missions.every((m) => next.has(m.id));
+          const bridgeStage = TRACK_BRIDGE_STAGE[track.id];
+          if (allTrackMissionsDone && bridgeStage) {
+            void fetch("/api/codex/agentiq-os/ecosystem-signup", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                persona_id: personaId,
+                bridge_stage: bridgeStage,
+                completed_missions: [...next],
+                notes: `Track completed: ${track.label}`,
+              }),
+            });
+          }
+        }
       }
     } catch {
       // non-fatal
@@ -291,8 +320,13 @@ export function DevMissionBoardTab({ personaId }: DevMissionBoardTabProps) {
   function markComplete(id: string) {
     setCompleted((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) { next.delete(id); } else { next.add(id); }
-      void persistCompletion(next);
+      if (next.has(id)) {
+        next.delete(id);
+        void persistCompletion(next);
+      } else {
+        next.add(id);
+        void persistCompletion(next, id);
+      }
       return next;
     });
   }
