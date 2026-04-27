@@ -14,7 +14,6 @@ import SmartWalletDrawer from "@/app/components/content/SmartWalletDrawer";
 import { PersonaIQubeDrawer } from "@/components/iqube/PersonaIQubeDrawer";
 import { IdentityIQubeDrawer } from "@/components/iqube/IdentityIQubeDrawer";
 import { MemoryIQubeDrawer } from "@/components/iqube/MemoryIQubeDrawer";
-import { ConnectionsIQubeDrawer } from "@/components/iqube/ConnectionsIQubeDrawer";
 import { PreviewFrame } from "@/components/preview/PreviewFrame";
 import { DevicePreviewSwitcher, type DeviceType } from "@/components/preview/DevicePreviewSwitcher";
 import { useToast } from "@/components/ui/toaster";
@@ -1918,7 +1917,6 @@ export default function MetaMeRuntimeClient() {
   const [personaPickerOpen, setPersonaPickerOpen] = useState(false);
   const [identityIQubeOpen, setIdentityIQubeOpen] = useState(false);
   const [memoryDrawerOpen, setMemoryDrawerOpen] = useState(false);
-  const [connectionsDrawerOpen, setConnectionsDrawerOpen] = useState(false);
   const [beMenuOpen, setBeMenuOpen] = useState(false);
   const [earnMenuOpen, setEarnMenuOpen] = useState(false);
   const [makeMenuOpen, setMakeMenuOpen] = useState(false);
