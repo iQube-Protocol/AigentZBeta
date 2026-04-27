@@ -1,0 +1,81 @@
+name: Publish @agentiq/agentiq-sdk to npm
+
+# Triggers:
+#   - Push a version tag: git tag v0.1.0 && git push origin v0.1.0
+#   - Manual dispatch from the Actions tab (for testing / re-publish)
+#
+# Prerequisites (one-time operator setup):
+#   1. Create an npm access token (Automation type) on npmjs.com
+#      under the @agentiq org scope.
+#   2. Add it as a GitHub Secret in AigentZBeta: NPM_TOKEN
+#
+# What the workflow does:
+#   1. Compiles TypeScript → dist/ via tsconfig.build.json
+#   2. Publishes the compiled package as @agentiq/agentiq-sdk
+#   3. The bin/agentiq.js CLI is included automatically via package.json "bin"
+
+on:
+  push:
+    tags:
+      - "sdk-v*"       # e.g. sdk-v0.1.0 — scoped to SDK releases only
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (pack only, no publish)"
+        required: false
+        default: "false"
+
+jobs:
+  publish:
+    name: Build and publish @agentiq/agentiq-sdk
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check npm token
+        run: |
+          if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
+            echo "::error::NPM_TOKEN secret is not set. Add it in GitHub → Settings → Secrets."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+          scope: "@agentiq"
+
+      - name: Install dependencies
+        working-directory: packages/agentiq-sdk
+        run: npm install
+
+      - name: Build (TypeScript → dist/)
+        working-directory: packages/agentiq-sdk
+        run: npm run build
+
+      - name: Verify dist/ was produced
+        working-directory: packages/agentiq-sdk
+        run: |
+          if [ ! -f dist/index.js ]; then
+            echo "::error::dist/index.js not found after build. Check tsconfig.build.json."
+            exit 1
+          fi
+          echo "dist/ contents:"
+          ls dist/
+
+      - name: Dry run — pack only
+        if: github.event.inputs.dry_run == 'true'
+        working-directory: packages/agentiq-sdk
+        run: |
+          npm pack --dry-run
+          echo "Dry run complete. No package was published."
+
+      - name: Publish to npm
+        if: github.event.inputs.dry_run != 'true'
+        working-directory: packages/agentiq-sdk
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

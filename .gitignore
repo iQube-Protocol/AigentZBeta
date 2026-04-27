@@ -8,6 +8,8 @@ build/
 develop-eggs/
 # dist/ - temporarily allow SmartTriad dist folder for Netlify deployment
 # dist/
+# SDK compiled output — built during publish workflow, not committed
+packages/agentiq-sdk/dist/
 downloads/
 eggs/
 .eggs/
