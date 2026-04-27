@@ -3397,8 +3397,8 @@ export default function MetaMeRuntimeClient() {
   const capsulePanel = useMemo(
     () => (
       <div className="space-y-3">
-        {/* Runtime Takeover Welcome Banner — shown only on welcome screen */}
-        {showWelcome && takeoverManifest && (
+        {/* Runtime Takeover Banner — shown whenever a takeover manifest is active */}
+        {takeoverManifest && (
           <RuntimeTakeoverBanner
             manifest={takeoverManifest}
             cartridgeDisplayName={takeoverDisplayName}
@@ -3613,7 +3613,7 @@ export default function MetaMeRuntimeClient() {
         </div>
       </div>
     ),
-    [activeCapsuleId, activeDevice, buildSharePanel, capsuleContents, dismissTakeover, embedMode, launchCapsule, showWelcome, takeoverDisplayName, takeoverManifest]
+    [activeCapsuleId, activeDevice, buildSharePanel, capsuleContents, dismissTakeover, embedMode, launchCapsule, takeoverDisplayName, takeoverManifest]
   );
 
   // Gate capsule-panel message updates by capsule ID list + active capsule + device.
@@ -4561,9 +4561,7 @@ export default function MetaMeRuntimeClient() {
         const ctx = payload.context === "knyt" ? "knyt" : "metame";
         setRuntimeContext(ctx);
         // Trigger the copilot to reframe within the new context.
-        // KNYT: treat the activation as a first-class prompt so Aigent C responds
-        // within the user's KNYT journey. The full system-prompt injection,
-        // persona auto-switch, and journey-data fetch are wired in the next work package.
+        // The prevRuntimeContextRef effect fires after the state update and triggers refreshTakeover.
         void handlePrompt(
           ctx === "knyt"
             ? "I'd like to explore my KNYT journey"
