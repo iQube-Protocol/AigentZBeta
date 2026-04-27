@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Target, CheckCircle2, Circle, ChevronDown, ChevronUp, Lock, Loader2, ExternalLink, Shield, Coins } from "lucide-react";
+import { Target, CheckCircle2, Circle, ChevronDown, ChevronUp, Lock, Loader2, ExternalLink, Shield, Coins, FileCode, Copy, Check } from "lucide-react";
 import { buildCodexUrl } from "@/utils/codex-nav";
 
 interface Mission {
@@ -343,6 +343,52 @@ export function DevMissionBoardTab({ personaId }: DevMissionBoardTabProps) {
   const [syncing, setSyncing] = useState(false);
   const [loadingState, setLoadingState] = useState(true);
 
+  // Registry draft generator state
+  const [draftQubeType, setDraftQubeType] = useState("AigentQube");
+  const [draftName, setDraftName] = useState("");
+  const [draftDesc, setDraftDesc] = useState("");
+  const [draftLoading, setDraftLoading] = useState(false);
+  const [draftResult, setDraftResult] = useState<Record<string, unknown> | null>(null);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [draftCopied, setDraftCopied] = useState(false);
+
+  const generateDraft = useCallback(async () => {
+    if (!draftName.trim() || !draftDesc.trim()) return;
+    setDraftLoading(true);
+    setDraftError(null);
+    setDraftResult(null);
+    try {
+      const res = await fetch("/api/codex/agentiq-os/registry-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          persona_id: personaId,
+          qube_type: draftQubeType,
+          name: draftName.trim(),
+          description: draftDesc.trim(),
+        }),
+      });
+      const data = await res.json() as { ok?: boolean; draft?: Record<string, unknown>; error?: string };
+      if (!res.ok || !data.ok) {
+        setDraftError(data.error ?? "Draft generation failed.");
+      } else {
+        setDraftResult(data.draft ?? null);
+      }
+    } catch {
+      setDraftError("Network error — please try again.");
+    } finally {
+      setDraftLoading(false);
+    }
+  }, [personaId, draftQubeType, draftName, draftDesc]);
+
+  const copyDraft = useCallback(() => {
+    if (!draftResult) return;
+    navigator.clipboard.writeText(JSON.stringify(draftResult, null, 2)).then(() => {
+      setDraftCopied(true);
+      setTimeout(() => setDraftCopied(false), 2000);
+    });
+  }, [draftResult]);
+
   const loadJourneyState = useCallback(async () => {
     if (!personaId) { setLoadingState(false); return; }
     try {
@@ -545,6 +591,67 @@ export function DevMissionBoardTab({ personaId }: DevMissionBoardTabProps) {
                             <li key={i}>{step}</li>
                           ))}
                         </ol>
+                        {/* Registry draft generator — only on m-register-agent */}
+                        {mission.id === "m-register-agent" && (
+                          <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3 space-y-2">
+                            <div className="flex items-center gap-1.5 text-xs font-semibold text-violet-300">
+                              <FileCode className="h-3.5 w-3.5" />
+                              Generate Registry Draft
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <select
+                                value={draftQubeType}
+                                onChange={(e) => setDraftQubeType(e.target.value)}
+                                className="col-span-2 rounded-md border border-slate-700/60 bg-slate-900/60 px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-violet-500/50"
+                              >
+                                {["AigentQube", "SkillQube", "WorkflowQube", "ConnectorQube"].map((t) => (
+                                  <option key={t} value={t}>{t}</option>
+                                ))}
+                              </select>
+                              <input
+                                value={draftName}
+                                onChange={(e) => setDraftName(e.target.value)}
+                                placeholder="Name (e.g. my-search-skill)"
+                                className="col-span-2 rounded-md border border-slate-700/60 bg-slate-900/60 px-2 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500/50"
+                              />
+                              <textarea
+                                value={draftDesc}
+                                onChange={(e) => setDraftDesc(e.target.value)}
+                                placeholder="What does it do?"
+                                rows={2}
+                                className="col-span-2 rounded-md border border-slate-700/60 bg-slate-900/60 px-2 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500/50 resize-none"
+                              />
+                            </div>
+                            {draftError && <p className="text-[11px] text-red-400">{draftError}</p>}
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={generateDraft}
+                                disabled={draftLoading || !draftName.trim() || !draftDesc.trim()}
+                                className="flex items-center gap-1.5 rounded-md border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-300 hover:bg-violet-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                              >
+                                {draftLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileCode className="h-3 w-3" />}
+                                {draftLoading ? "Generating…" : "Generate Draft"}
+                              </button>
+                              {draftResult && (
+                                <button
+                                  type="button"
+                                  onClick={copyDraft}
+                                  className="flex items-center gap-1.5 rounded-md border border-slate-600/40 bg-slate-800/60 px-3 py-1 text-xs font-medium text-slate-300 hover:bg-slate-700/60 transition-colors"
+                                >
+                                  {draftCopied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3" />}
+                                  {draftCopied ? "Copied!" : "Copy JSON"}
+                                </button>
+                              )}
+                            </div>
+                            {draftResult && (
+                              <pre className="rounded-md border border-slate-700/40 bg-slate-950/80 p-2 text-[10px] text-slate-300 overflow-auto max-h-48 leading-relaxed">
+                                {JSON.stringify(draftResult, null, 2)}
+                              </pre>
+                            )}
+                          </div>
+                        )}
+
                         <div className="flex items-center justify-between">
                           <span className="text-[11px] text-slate-500">Reward: {mission.reward}</span>
                           <button

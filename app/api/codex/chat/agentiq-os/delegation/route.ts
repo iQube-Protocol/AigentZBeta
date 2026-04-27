@@ -50,6 +50,16 @@ const TRUST_BAND_ACTIONS: Record<TrustBand, string[]> = {
   L5_CORE_SOVEREIGN: ['knowledge_retrieval', 'draft_document', 'registry_submission_proposal', 'registry_publish', 'full_delegation'],
 };
 
+// Minimum reputation score required to grant each trust band.
+// The client sends its known reputation_score; the server enforces the threshold.
+const BAND_MIN_SCORE: Record<TrustBand, number> = {
+  L1_EXPERIMENTAL: 0,
+  L2_VERIFIED_COMMUNITY: 20,
+  L3_PRODUCTION_CANDIDATE: 50,
+  L4_PRODUCTION_APPROVED: 75,
+  L5_CORE_SOVEREIGN: 100,
+};
+
 const BASE_FORBIDDEN_ACTIONS = [
   'write_to_aigency_pack',
   'access_supabase_service_role',
@@ -136,7 +146,77 @@ export async function GET(request: NextRequest) {
   }
 
   // Default — return active delegation state
-  const record = delegationStore.get(persona_id);
+  let record = delegationStore.get(persona_id);
+
+  // Fallback: if in-memory store lost state (server restart), reconstruct from latest
+  // z_delegated event in orchestration_events if it has not yet expired.
+  if (!record) {
+    try {
+      const db = getDb();
+      const { data: latest } = await db
+        .from('orchestration_events')
+        .select('metadata, created_at')
+        .eq('event_type', 'z_delegated')
+        .eq('active_cartridge', 'agentiq-os-cartridge')
+        .filter('metadata->>persona_id', 'eq', persona_id)
+        .filter('metadata->>handoff_id', 'not.is', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (latest?.metadata) {
+        const meta = latest.metadata as Record<string, unknown>;
+        const expiresAt = typeof meta.expires_at === 'string' ? meta.expires_at : null;
+        const handoffId = typeof meta.handoff_id === 'string' ? meta.handoff_id : null;
+        const allowedActions = Array.isArray(meta.allowed_actions)
+          ? (meta.allowed_actions as string[])
+          : ['knowledge_retrieval'];
+        const trustBand = typeof meta.trust_band === 'string' ? meta.trust_band : 'L2_VERIFIED_COMMUNITY';
+
+        if (expiresAt && handoffId && new Date(expiresAt) > new Date()) {
+          // Reconstruct minimal record from event metadata and re-hydrate the store
+          record = {
+            handoff: {
+              handoff_id: handoffId,
+              from_agent: 'aigent-z',
+              to_agent: 'aigent-c',
+              reason: `Restored from DVN event. Trust band: ${trustBand}.`,
+              user_context_summary: '',
+              journey_state_summary: {
+                persona_id,
+                journey_stage: 'acolyte',
+                experience_depth: 'codex',
+                active_cartridge: 'agentiq-os-cartridge',
+                active_codex: 'agentiq-os-cartridge',
+                blocked_reasons: [],
+                next_likely_step: null,
+                session_id: handoffId,
+              },
+              policy_envelope: {
+                tenant_id: 'default',
+                persona_id,
+                allowed_surfaces: ['agentiq-os-cartridge'],
+                forbidden_actions: BASE_FORBIDDEN_ACTIONS,
+                disclosure_class: 'tenant',
+                requires_guardian_approval: false,
+                cartridge_scope: 'agentiq-os-cartridge',
+              },
+              open_tasks: allowedActions,
+              return_conditions: ['task_complete', 'session_end', 'policy_escalation', 'user_exit'],
+              timestamp: latest.created_at,
+            },
+            expires_at: expiresAt,
+            max_actions: 20,
+            actions_taken: 0,
+            created_at: latest.created_at,
+          };
+          delegationStore.set(persona_id, record);
+        }
+      }
+    } catch {
+      // Fallback reconstruction is non-fatal — return inactive state if it fails
+    }
+  }
 
   if (!record) {
     return NextResponse.json({
@@ -191,12 +271,14 @@ export async function POST(request: NextRequest) {
       selected_actions,
       ttl_hours = 4,
       tenant_id,
+      reputation_score,
     } = body as {
       persona_id?: string;
       trust_band?: TrustBand;
       selected_actions?: string[];
       ttl_hours?: number;
       tenant_id?: string;
+      reputation_score?: number;
     };
 
     if (!persona_id || typeof persona_id !== 'string') {
@@ -206,6 +288,20 @@ export async function POST(request: NextRequest) {
     if (trust_band === 'L5_CORE_SOVEREIGN') {
       return NextResponse.json(
         { error: 'L5_CORE_SOVEREIGN delegation requires metaMe guardian approval. Not available in Phase 1.' },
+        { status: 403 },
+      );
+    }
+
+    // Trust band gating: if the client provides a reputation_score, enforce the minimum.
+    const minScore = BAND_MIN_SCORE[trust_band] ?? 0;
+    if (typeof reputation_score === 'number' && reputation_score < minScore) {
+      return NextResponse.json(
+        {
+          error: `Insufficient reputation for ${trust_band}. Required: ${minScore}, current: ${reputation_score}.`,
+          required_score: minScore,
+          current_score: reputation_score,
+          trust_band,
+        },
         { status: 403 },
       );
     }

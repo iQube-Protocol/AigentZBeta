@@ -165,6 +165,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
           trust_band: selectedTrustBand,
           selected_actions: selectedActions,
           ttl_hours: selectedTtl,
+          reputation_score: activePersona?.reputationScore ?? 0,
         }),
       });
       const data = await res.json();
