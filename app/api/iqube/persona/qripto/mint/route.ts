@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createCipheriv, randomBytes } from "crypto";
-import { shapeAsIQube, personaTable } from "../../_lib";
+import { shapeAsIQube, personaTable, createServerClient } from "../../_lib";
 
 export const dynamic = "force-dynamic";
 
@@ -44,9 +44,22 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (fetchErr) return NextResponse.json({ error: fetchErr.message }, { status: 500 });
-    if (!row) return NextResponse.json({ error: "No Qripto persona found" }, { status: 404 });
 
-    const shaped = shapeAsIQube(row as Record<string, unknown>, "qripto", false);
+    // CRM email fallback: same as GET — if no user_id match, find by email
+    let resolvedRow = row;
+    if (!resolvedRow && user.email) {
+      const service = createServerClient();
+      const { data: crmRow } = await service
+        .from(personaTable("qripto"))
+        .select("*")
+        .ilike("Email", user.email)
+        .maybeSingle();
+      if (crmRow) resolvedRow = crmRow;
+    }
+
+    if (!resolvedRow) return NextResponse.json({ error: "No Qripto persona found" }, { status: 404 });
+
+    const shaped = shapeAsIQube(resolvedRow as Record<string, unknown>, "qripto", false);
 
     const key = getDevEncryptionKey();
     const iv = randomBytes(12);
@@ -57,7 +70,7 @@ export async function POST(request: NextRequest) {
     const { data: stub, error: stubErr } = await supabase
       .from("iqube_mint_stubs")
       .insert({
-        user_id: user.id,
+        user_id: (resolvedRow as Record<string, unknown>).user_id ?? user.id,
         iqube_type: "qripto_persona",
         metaqube_payload: shaped.metaQube,
         blakqube_ciphertext: ciphertext,

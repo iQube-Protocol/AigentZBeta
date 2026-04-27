@@ -142,35 +142,33 @@ export function shapeAsIQube(
 ) {
   const scores = META_SCORES[type];
 
-  // metaQube — operations portal schema + non-PII provenance (plaintext)
-  const identifier = type === "knyt" ? "KNYT Persona iQube" : "Qripto Persona iQube";
+  // Resolve the canonical FIO/persona handle.
+  // FIO handles ARE the persona ID on the FIO protocol (e.g. qryptiq@knyt, qryptiq@qripto).
+  // fio_handle and knyt_handle are the same concept — a FIO handle whose domain is the
+  // persona brand. Fall back to KNYT-ID / Qripto-ID as the DB source of truth.
+  const personaHandle =
+    (typeof row.fio_handle === "string" && row.fio_handle ? row.fio_handle : null) ||
+    (typeof row.knyt_handle === "string" && row.knyt_handle ? row.knyt_handle : null) ||
+    (typeof row["KNYT-ID"] === "string" && row["KNYT-ID"] ? row["KNYT-ID"] : null) ||
+    (typeof row["Qripto-ID"] === "string" && row["Qripto-ID"] ? row["Qripto-ID"] : null) ||
+    null;
+
+  // metaQube — public provenance, non-PII, single canonical field set (no duplicates)
   const metaQube = {
-    // iQube Operations portal fields (canonical metaQube schema)
-    "iQube-Identifier": identifier,
-    identifier,
-    creator: scores.designer,
+    "iQube-Identifier": type === "knyt" ? "KNYT Persona iQube" : "Qripto Persona iQube",
+    "iQube-Type": "DataQube",
     ownerType: "Individual",
-    contentType: "Data",
     ownerIdentifiability: "Semi-Identifiable",
+    contentType: "Data",
+    creator: scores.designer,
     transactionDate: row.created_at ?? null,
     description: scores.use,
-    // Scores (0–10)
+    relatedIQubes: scores.relatedIQubes,
+    // Scores (0–10) — single occurrence only
     sensitivity: scores.sensitivity,
     verifiable: scores.verifiability,
     accuracy: scores.accuracy,
     risk: scores.risk,
-    // Extended fields
-    "iQube-Type": "DataQube",
-    "iQube-Designer": scores.designer,
-    "iQube-Use": scores.use,
-    "Owner-Type": "Individual",
-    "Owner-Identifiability": "Semi-Identifiable",
-    "Date-Minted": row.created_at ?? null,
-    "Related-iQubes": scores.relatedIQubes,
-    "Sensitivity-Score": scores.sensitivity,
-    "Verifiability-Score": scores.verifiability,
-    "Accuracy-Score": scores.accuracy,
-    "Risk-Score": scores.risk,
     persona_type: type,
   };
 
@@ -188,11 +186,12 @@ export function shapeAsIQube(
     typeof row["EVM-Public-Key"] === "string" ? row["EVM-Public-Key"] : null;
   const tokenQube = {
     ownerType: "Person",
-    settlementNetwork: "Base (chainId 8453)",
+    settlementNetwork: "Base Sepolia (chainId 84532)",
     walletRequired: !evmAddress,
     evmAddress,
-    fioHandle: row.fio_handle ?? null,
-    knytHandle: row.knyt_handle ?? null,
+    personaHandle,            // canonical FIO handle (single authoritative field)
+    fioHandle: personaHandle, // backward-compat alias
+    knytHandle: personaHandle, // backward-compat alias
     mintStatus: row._mintStatus ?? "unminted",
   };
 
