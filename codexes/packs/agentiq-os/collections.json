@@ -1,0 +1,54 @@
+{
+  "collections": [
+    {
+      "id": "col_start_here",
+      "title": "Start Here",
+      "items": ["items/start-here.md"]
+    },
+    {
+      "id": "col_docs_kb",
+      "title": "Docs / KB",
+      "items": [
+        "items/what-is-agentiq-os.md",
+        "items/what-is-nanos.md",
+        "items/protocols.md",
+        "items/stack-overview.md",
+        "items/dev-standards.md",
+        "items/governance.md"
+      ]
+    },
+    {
+      "id": "col_delegation",
+      "title": "Delegation",
+      "items": ["items/bounded-delegation.md"]
+    },
+    {
+      "id": "col_sdk_api",
+      "title": "SDK / API",
+      "items": ["items/sdk-quickstart.md"]
+    },
+    {
+      "id": "col_reference",
+      "title": "Reference",
+      "items": [
+        "items/reference-runtime.md",
+        "items/reference-studio.md"
+      ]
+    },
+    {
+      "id": "col_smarttriad",
+      "title": "SmartTriad",
+      "items": ["items/smarttriad.md"]
+    },
+    {
+      "id": "col_liquid_ui",
+      "title": "Liquid UI",
+      "items": ["items/liquid-ui.md"]
+    },
+    {
+      "id": "col_codex",
+      "title": "AgentiQ OS Codex",
+      "items": ["items/agentiq-os-codex.md"]
+    }
+  ]
+}

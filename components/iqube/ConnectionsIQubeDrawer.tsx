@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Copy, Check, Network, X } from "lucide-react";
+import { Link, Loader2, Network, Users, X } from "lucide-react";
 
-// ─── Auth helper (same pattern as MemoryIQubeDrawer / IdentityIQubeDrawer) ───
+// ─── Auth helper ──────────────────────────────────────────────────────────────
 
 function getAccessTokenFromStorage(): string | null {
   if (typeof window === "undefined") return null;
@@ -33,45 +33,47 @@ function authHeaders(): Record<string, string> {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface PersonaData {
-  fio_handle?: string | null;
-  evm_address?: string | null;
-  btc_address?: string | null;
-  [key: string]: unknown;
+interface PersonaIdentity {
+  fioHandle?: string | null;
+  evmAddress?: string | null;
+  btcAddress?: string | null;
+  displayName?: string | null;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function truncate(addr: string | null | undefined, start = 6, end = 4): string {
+  if (!addr) return "—";
+  if (addr.length <= start + end + 3) return addr;
+  return `${addr.slice(0, start)}…${addr.slice(-end)}`;
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function CopyableRow({ label, value }: { label: string; value: string | null | undefined }) {
+function IdentityRow({ label, value, color }: { label: string; value: string; color: string }) {
   const [copied, setCopied] = useState(false);
 
-  const copy = useCallback(async () => {
-    if (!value) return;
-    try {
-      await navigator.clipboard.writeText(value);
+  const copy = () => {
+    if (value === "—") return;
+    navigator.clipboard.writeText(value).then(() => {
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch { /* ignore */ }
-  }, [value]);
-
-  if (!value) return null;
-
-  const display = value.length > 20 ? `${value.slice(0, 10)}…${value.slice(-8)}` : value;
+      setTimeout(() => setCopied(false), 1500);
+    }).catch(() => { /* ignore */ });
+  };
 
   return (
-    <div className="flex items-center justify-between gap-2 rounded-lg bg-slate-800/60 border border-white/6 px-3 py-2">
-      <div className="min-w-0">
-        <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">{label}</p>
-        <p className="text-xs text-slate-300 font-mono truncate">{display}</p>
-      </div>
-      <button
-        type="button"
-        onClick={() => { void copy(); }}
-        className="flex-shrink-0 rounded-md p-1.5 text-slate-500 hover:text-slate-200 hover:bg-white/10 transition"
-        aria-label={`Copy ${label}`}
-      >
-        {copied ? <Check className="h-3.5 w-3.5 text-green-400" /> : <Copy className="h-3.5 w-3.5" />}
-      </button>
+    <div
+      role={value !== "—" ? "button" : undefined}
+      tabIndex={value !== "—" ? 0 : undefined}
+      onClick={copy}
+      onKeyDown={(e) => e.key === "Enter" && copy()}
+      className={`flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 ${value !== "—" ? "cursor-pointer hover:bg-white/8 transition" : ""}`}
+      title={value !== "—" ? "Click to copy" : undefined}
+    >
+      <span className="text-xs text-white/50">{label}</span>
+      <span className={`text-xs font-mono ${color}`}>
+        {copied ? "Copied!" : value}
+      </span>
     </div>
   );
 }
@@ -84,20 +86,40 @@ interface Props {
 }
 
 export function ConnectionsIQubeDrawer({ open, onClose }: Props) {
-  const [persona, setPersona] = useState<PersonaData | null>(null);
+  const [identity, setIdentity] = useState<PersonaIdentity | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/persona/active", { headers: authHeaders() });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json() as { persona?: PersonaIdentity; data?: PersonaIdentity };
+      setIdentity(data.persona ?? data.data ?? null);
+    } catch {
+      const raw = typeof window !== "undefined" ? localStorage.getItem("activePersonaId") : null;
+      setIdentity(raw ? { displayName: raw } : null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!open) return;
-    setLoading(true);
-    fetch("/api/persona/active", { headers: authHeaders() })
-      .then((r) => r.ok ? r.json() as Promise<PersonaData> : null)
-      .then((data) => { if (data) setPersona(data); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [open]);
+    void load();
+  }, [open, load]);
 
   if (!open) return null;
+
+  const fioHandle = identity?.fioHandle || null;
+  const evmAddress = identity?.evmAddress || null;
+  const btcAddress = identity?.btcAddress || null;
+
+  const identityRows: { label: string; raw: string | null; color: string }[] = [
+    { label: "DID / FIO Handle", raw: fioHandle, color: "text-cyan-300" },
+    { label: "EVM Address", raw: evmAddress, color: "text-indigo-300" },
+    { label: "BTC Address", raw: btcAddress, color: "text-amber-300" },
+  ];
 
   return (
     <>
@@ -109,8 +131,8 @@ export function ConnectionsIQubeDrawer({ open, onClose }: Props) {
         {/* Header */}
         <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-white/10">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-green-500/20">
-              <Network className="h-4 w-4 text-green-400" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-500/20">
+              <Network className="h-4 w-4 text-cyan-400" />
             </div>
             <span className="text-sm font-semibold text-white">Connections</span>
           </div>
@@ -124,47 +146,50 @@ export function ConnectionsIQubeDrawer({ open, onClose }: Props) {
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-3">
+        <div className="flex-1 min-h-0 overflow-y-auto px-3 py-4 space-y-4">
           {/* Identity section */}
-          {(loading || persona) && (
-            <div className="space-y-2">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 px-1">Identity</p>
-              {loading && !persona ? (
-                <div className="h-20 rounded-xl border border-white/8 bg-slate-900/40 animate-pulse" />
-              ) : (
-                <>
-                  <CopyableRow label="FIO Handle" value={persona?.fio_handle} />
-                  <CopyableRow label="EVM Address" value={persona?.evm_address} />
-                  <CopyableRow label="BTC Address" value={persona?.btc_address} />
-                </>
-              )}
+          <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
+            <div className="text-[10px] uppercase tracking-wider text-white/60 mb-3 flex items-center gap-2">
+              <Link className="h-3.5 w-3.5 text-cyan-400" />
+              Identity Connections
             </div>
-          )}
 
-          {/* Networks section */}
-          <div className="space-y-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 px-1">Networks</p>
-            <div className="rounded-xl border border-green-500/20 bg-green-900/10 p-4 text-center">
-              <Network className="h-6 w-6 text-green-400/50 mx-auto mb-2" />
-              <p className="text-xs text-slate-400">Network connections coming soon</p>
-              <p className="mt-1 text-[10px] text-slate-600">Connect MetaMask and social accounts to expand your metaMe identity.</p>
+            {loading ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-5 w-5 animate-spin text-cyan-400" />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {identityRows.map(({ label, raw, color }) => (
+                  <IdentityRow
+                    key={label}
+                    label={label}
+                    value={raw ? (label === "DID / FIO Handle" ? raw : truncate(raw)) : "—"}
+                    color={color}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Network section */}
+          <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
+            <div className="text-[10px] uppercase tracking-wider text-white/60 mb-3 flex items-center gap-2">
+              <Users className="h-3.5 w-3.5 text-emerald-400" />
+              Network
             </div>
-          </div>
-
-          {/* Empty identity state */}
-          {!loading && !persona && (
-            <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-green-500/15 border border-green-500/20">
-                <Network className="h-6 w-6 text-green-400/60" />
+            <div className="flex flex-col items-center justify-center py-8 gap-3 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/15 border border-emerald-500/20">
+                <Users className="h-6 w-6 text-emerald-400/60" />
               </div>
               <div>
-                <p className="text-sm font-medium text-slate-300">No connections yet</p>
+                <p className="text-sm font-medium text-slate-300">Social graph coming soon</p>
                 <p className="mt-1 text-xs text-slate-500">
-                  Your identity and network connections will appear here.
+                  Partner connections and your network will appear here.
                 </p>
               </div>
             </div>
-          )}
+          </section>
         </div>
       </div>
     </>
