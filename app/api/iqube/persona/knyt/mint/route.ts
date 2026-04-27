@@ -76,11 +76,13 @@ export async function POST(request: NextRequest) {
     const plaintext = Buffer.from(JSON.stringify(shaped.blakQube), "utf8");
     const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
 
-    // Write stub
-    const { data: stub, error: stubErr } = await supabase
+    // Write stub via service client — auth already verified above;
+    // always use user.id as owner so RLS (auth.uid() = user_id) is satisfied
+    const service = createServerClient();
+    const { data: stub, error: stubErr } = await service
       .from("iqube_mint_stubs")
       .insert({
-        user_id: (resolvedRow as Record<string, unknown>).user_id ?? user.id,
+        user_id: user.id,
         iqube_type: "knyt_persona",
         metaqube_payload: shaped.metaQube,
         blakqube_ciphertext: ciphertext,
