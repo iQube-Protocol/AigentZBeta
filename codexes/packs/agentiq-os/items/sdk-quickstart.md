@@ -1,6 +1,6 @@
 # SDK Quickstart
 
-The AgentiQ OS SDK (`@agentiq/agentiq-sdk`) gives you a CLI for scaffolding and publishing cartridges, plus TypeScript classes for the Registry, Persona, and Delegation APIs.
+The AgentiQ OS SDK (`@agentiqos/agentiq-sdk`) gives you a CLI for scaffolding and publishing cartridges, plus TypeScript classes for the Registry, Persona, and Delegation APIs.
 
 **Requirements:** Node.js 18+ · TypeScript 5+
 
@@ -9,17 +9,17 @@ The AgentiQ OS SDK (`@agentiq/agentiq-sdk`) gives you a CLI for scaffolding and 
 ## Installation
 
 ```bash
-npm install @agentiq/agentiq-sdk
+npm install @agentiqos/agentiq-sdk
 # or
-yarn add @agentiq/agentiq-sdk
+yarn add @agentiqos/agentiq-sdk
 # or
-pnpm add @agentiq/agentiq-sdk
+pnpm add @agentiqos/agentiq-sdk
 ```
 
 Once published to npm, the global CLI will be available as `agentiq`. Until then, invoke it via:
 
 ```bash
-npx @agentiq/agentiq-sdk init my-cartridge
+npx @agentiqos/agentiq-sdk init my-cartridge
 # or after npm install, via package scripts:
 node_modules/.bin/agentiq init my-cartridge
 ```
@@ -29,7 +29,7 @@ node_modules/.bin/agentiq init my-cartridge
 ## Create a Cartridge
 
 ```bash
-npx @agentiq/agentiq-sdk init my-cartridge
+npx @agentiqos/agentiq-sdk init my-cartridge
 cd my-cartridge
 npm install
 ```
@@ -94,7 +94,7 @@ Edit `codexes/packs/my-cartridge/meta.json`:
 ## Register an Asset
 
 ```typescript
-import { AigentQubeRegistry } from '@agentiq/agentiq-sdk';
+import { AigentQubeRegistry } from '@agentiqos/agentiq-sdk';
 
 // Config is read from AGENTIQ_API_URL env var if not passed
 const registry = new AigentQubeRegistry({
@@ -121,7 +121,7 @@ console.log(result.instructions); // Next steps
 ## Create a Developer Persona
 
 ```typescript
-import { PersonaCreation } from '@agentiq/agentiq-sdk';
+import { PersonaCreation } from '@agentiqos/agentiq-sdk';
 
 const persona = await PersonaCreation.create(
   {
@@ -141,7 +141,7 @@ console.log(persona.rootDid);  // Root DiD — accountability anchor
 ## Grant Bounded Delegation
 
 ```typescript
-import { DelegationService } from '@agentiq/agentiq-sdk';
+import { DelegationService } from '@agentiqos/agentiq-sdk';
 
 const delegation = new DelegationService({
   apiUrl: process.env.AGENTIQ_API_URL,
@@ -190,11 +190,11 @@ const copilot = new SmartTriadClient({
 
 ```bash
 # From your cartridge root:
-npx @agentiq/agentiq-sdk publish
+npx @agentiqos/agentiq-sdk publish
 
 # With overrides:
-npx @agentiq/agentiq-sdk publish --trust-band L2_VERIFIED_COMMUNITY
-npx @agentiq/agentiq-sdk publish --pack codexes/packs/my-pack --persona-id abc123
+npx @agentiqos/agentiq-sdk publish --trust-band L2_VERIFIED_COMMUNITY
+npx @agentiqos/agentiq-sdk publish --pack codexes/packs/my-pack --persona-id abc123
 ```
 
 This generates a Registry draft manifest and emits a receipt-eligible OrchestrationEvent.

@@ -1,5 +1,5 @@
 {
-  "name": "@agentiq/agentiq-sdk",
+  "name": "@agentiqos/agentiq-sdk",
   "version": "0.1.0",
   "description": "AgentiQ OS developer SDK — AA-API client, A2A protocol, registry, persona, delegation, and CLI",
   "main": "dist/index.js",

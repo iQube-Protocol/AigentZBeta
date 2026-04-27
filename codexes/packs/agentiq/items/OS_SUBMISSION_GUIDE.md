@@ -10,7 +10,7 @@ Before submitting:
 
 1. You have a packaged contribution with a valid `manifest.json` — see `packaging-standards.md`
 2. You have a `tenantId` and `personaId` (your identity in the platform)
-3. You have installed the SDK: `npm install @agentiq/agentiq-sdk`
+3. You have installed the SDK: `npm install @agentiqos/agentiq-sdk`
 
 ---
 
@@ -48,7 +48,7 @@ POST /api/registry/intake
 ## Submit via SDK
 
 ```typescript
-import { AgentIQClient, createUserMessage } from '@agentiq/agentiq-sdk';
+import { AgentIQClient, createUserMessage } from '@agentiqos/agentiq-sdk';
 
 const client = new AgentIQClient({
   apiUrl: process.env.AGENTIQ_API_URL!,

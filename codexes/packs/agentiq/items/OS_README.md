@@ -85,7 +85,7 @@ Aigent C is the AgentiQ OS builder guide. When you have questions about what to 
 Aigent C is available in the AgentiQ Codex and through the `agentiq-sdk`:
 
 ```typescript
-import { AgentIQClient } from '@agentiq/agentiq-sdk';
+import { AgentIQClient } from '@agentiqos/agentiq-sdk';
 
 const client = new AgentIQClient({ apiUrl: 'https://api.agentiq.ai' });
 const response = await client.chat(
@@ -112,11 +112,11 @@ const response = await client.chat(
 The AgentiQ SDK gives you programmatic access to the platform:
 
 ```bash
-npm install @agentiq/agentiq-sdk
+npm install @agentiqos/agentiq-sdk
 ```
 
 ```typescript
-import { AgentIQClient, createUserMessage } from '@agentiq/agentiq-sdk';
+import { AgentIQClient, createUserMessage } from '@agentiqos/agentiq-sdk';
 ```
 
 Source: `packages/agentiq-sdk/`

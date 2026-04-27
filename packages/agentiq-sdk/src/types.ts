@@ -1,5 +1,5 @@
 /**
- * @agentiq/agentiq-sdk - Type Definitions
+ * @agentiqos/agentiq-sdk - Type Definitions
  * AA-API and A2A protocol types for AgentiQ Platform
  */
 

@@ -1,5 +1,5 @@
 /**
- * @agentiq/agentiq-sdk — Delegation Service Client
+ * @agentiqos/agentiq-sdk — Delegation Service Client
  *
  * Grant, inspect, and revoke bounded delegation envelopes for Aigent C-OS.
  * Wraps POST/GET/DELETE /api/codex/chat/agentiq-os/delegation.
