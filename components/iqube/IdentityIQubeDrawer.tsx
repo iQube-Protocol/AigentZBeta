@@ -124,20 +124,32 @@ export function IdentityIQubeDrawer({ onClose }: { onClose: () => void }) {
   const [dirty, setDirty] = useState(false);
   const [rootDid, setRootDid] = useState<RootDidState | null>(null);
   const [bindLoading, setBindLoading] = useState(true);
+  const [walletPersonas, setWalletPersonas] = useState<Array<{
+    id: string; displayName: string; fioHandle: string | null;
+    worldIdStatus: string | null; status: string;
+  }>>([]);
 
   const load = useCallback(async () => {
     setLoading(true); setBindLoading(true); setError(null);
     try {
-      // Bind root DID + load identity in parallel
-      const [bindRes, identityRes] = await Promise.all([
+      // Bind root DID + load identity + wallet personas in parallel
+      const [bindRes, identityRes, walletRes] = await Promise.all([
         fetch("/api/identity/root-did/bind", { method: "POST", headers: authHeaders() }),
         fetch("/api/iqube/identity", { headers: authHeaders() }),
+        fetch("/api/wallet/personas", { headers: authHeaders() }),
       ]);
       if (bindRes.ok) {
         const bindJson = await bindRes.json() as RootDidState;
         setRootDid(bindJson);
       }
       setBindLoading(false);
+      if (walletRes.ok) {
+        const walletJson = await walletRes.json() as Array<{
+          id: string; displayName: string; fioHandle: string | null;
+          worldIdStatus: string | null; status: string;
+        }>;
+        if (Array.isArray(walletJson)) setWalletPersonas(walletJson);
+      }
       const json = await identityRes.json() as { exists?: boolean; data?: IdentityData; error?: string };
       if (!identityRes.ok) throw new Error(json.error ?? "Failed to load");
       setData(json.exists && json.data ? json.data : EMPTY);
@@ -312,28 +324,50 @@ export function IdentityIQubeDrawer({ onClose }: { onClose: () => void }) {
             </Section>
 
             {/* Personas */}
-            <Section icon={<ShieldCheck className="h-3.5 w-3.5" />} title="Personas" defaultOpen={false}>
+            <Section icon={<ShieldCheck className="h-3.5 w-3.5" />} title={`Personas${walletPersonas.length ? ` (${walletPersonas.length})` : ""}`} defaultOpen={false}>
               {bindLoading ? (
                 <div className="flex items-center gap-2 text-xs text-slate-600">
                   <Loader2 className="h-3 w-3 animate-spin" />Resolving personas…
                 </div>
-              ) : !rootDid?.personas?.length ? (
-                <p className="text-xs text-slate-600 italic">No personas linked yet. Your KNYT and Qripto personas will appear here once created.</p>
+              ) : walletPersonas.length === 0 && !rootDid?.personas?.length ? (
+                <p className="text-xs text-slate-600 italic">No personas linked yet.</p>
               ) : (
-                rootDid.personas.map(p => (
-                  <div key={p.didPersonaId} className="rounded-lg bg-white/5 px-3 py-2 space-y-0.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-medium text-slate-200 capitalize">{p.personaType} Persona</span>
-                      {p.fioHandle && (
-                        <span className="text-[10px] font-mono text-cyan-400">{p.fioHandle}</span>
+                <div className="space-y-1.5">
+                  {walletPersonas.map(p => (
+                    <div key={p.id} className="rounded-lg bg-white/5 px-3 py-2 space-y-0.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-medium text-slate-200">{p.displayName || "Unnamed"}</span>
+                        {p.fioHandle && (
+                          <span className="text-[10px] font-mono text-cyan-400">{p.fioHandle}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] text-slate-600">ID</span>
+                        <span className="font-mono text-[10px] text-slate-500 truncate max-w-[160px]">{p.id}</span>
+                      </div>
+                      {p.worldIdStatus && p.worldIdStatus !== "unverified" && (
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] text-slate-600">Type</span>
+                          <span className="text-[10px] text-slate-400 capitalize">{p.worldIdStatus.replace(/_/g, " ")}</span>
+                        </div>
                       )}
                     </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[10px] text-slate-600">DID Persona ID</span>
-                      <span className="font-mono text-[10px] text-slate-500 truncate max-w-[160px]">{p.didPersonaId}</span>
+                  ))}
+                  {rootDid?.personas?.map(p => (
+                    <div key={p.didPersonaId} className="rounded-lg bg-violet-900/10 border border-violet-700/20 px-3 py-2 space-y-0.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-medium text-slate-200 capitalize">{p.personaType} Persona</span>
+                        {p.fioHandle && (
+                          <span className="text-[10px] font-mono text-cyan-400">{p.fioHandle}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] text-violet-500/60">DID-bound</span>
+                        <span className="font-mono text-[10px] text-slate-500 truncate max-w-[140px]">{p.didPersonaId}</span>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  ))}
+                </div>
               )}
             </Section>
 

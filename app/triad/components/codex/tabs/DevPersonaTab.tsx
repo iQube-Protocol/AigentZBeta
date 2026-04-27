@@ -276,15 +276,23 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
         )}
       </div>
 
-      {/* Create persona form */}
-      <div>
+      {/* Action buttons — always visible */}
+      <div className="flex flex-wrap gap-3">
         <button
           type="button"
-          onClick={() => setShowForm((v) => !v)}
+          onClick={() => { setShowForm((v) => !v); setShowClaimForm(false); }}
           className="inline-flex items-center gap-2 rounded-xl border border-blue-500/40 bg-blue-500/10 px-5 py-2.5 text-sm font-semibold text-blue-200 hover:bg-blue-500/20 transition-colors"
         >
           <User className="h-4 w-4" />
           {showForm ? "Hide" : "Create Developer Persona"}
+        </button>
+        <button
+          type="button"
+          onClick={() => { setShowClaimForm((v) => !v); setShowForm(false); setClaimError(null); setClaimSuccess(false); }}
+          className="inline-flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-5 py-2.5 text-sm font-medium text-amber-300 hover:bg-amber-500/20 transition-colors"
+        >
+          <Link className="h-4 w-4" />
+          {showClaimForm ? "Hide" : "Claim existing persona"}
         </button>
       </div>
 
@@ -303,18 +311,6 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
           />
         </div>
       )}
-
-      {/* Claim an existing persona by FIO handle */}
-      <div>
-        <button
-          type="button"
-          onClick={() => { setShowClaimForm((v) => !v); setClaimError(null); setClaimSuccess(false); }}
-          className="inline-flex items-center gap-2 rounded-xl border border-slate-600/40 bg-slate-800/40 px-5 py-2.5 text-sm font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-colors"
-        >
-          <Link className="h-4 w-4" />
-          {showClaimForm ? "Hide" : "Claim existing persona"}
-        </button>
-      </div>
 
       {showClaimForm && (
         <div className="rounded-xl border border-slate-700/60 bg-slate-900/30 p-4 space-y-4">
