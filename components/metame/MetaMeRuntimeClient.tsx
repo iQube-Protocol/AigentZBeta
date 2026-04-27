@@ -74,6 +74,9 @@ import {
   X,
 } from "lucide-react";
 import { MetaMeSettingsPanel, loadMetaMeSettings, type LeadAgent } from "@/components/metame/MetaMeSettingsPanel";
+import { RuntimeTakeoverBanner } from "@/components/metame/RuntimeTakeoverBanner";
+import { useRuntimeTakeover } from "@/app/hooks/useRuntimeTakeover";
+import { CODEX_DEFINITIONS } from "@/data/codex-configs";
 import type { ScreenFraction, SmartContentQube } from "@/types/smartContent";
 import type { RuntimeCapsuleRecord } from "@/types/runtimeCapsules";
 
@@ -1948,6 +1951,75 @@ export default function MetaMeRuntimeClient() {
 
   const staticProviderMap = useMemo<Record<string, AgentProviderOption[]>>(() => getStaticAgentLlmProviders(), []);
   const [runtimeContext, setRuntimeContext] = useState<'metame' | 'knyt'>('metame');
+
+  // ─── Runtime Takeover ────────────────────────────────────────────────────────
+  // Derive the active takeover cartridge slug from runtimeContext.
+  // 'knyt' → KNYT takeover; default → metaMe fallback takeover.
+  const takeoverCartridgeSlug = runtimeContext === 'knyt' ? 'knyt-codex' : 'metame-codex';
+  const takeoverPersonaId = activePersonaId ?? shellContextRef.current.persona_id ?? null;
+  const {
+    manifest: takeoverManifest,
+    isLoading: takeoverLoading,
+    fireSignal: fireTakeoverSignal,
+    refresh: refreshTakeover,
+    dismiss: dismissTakeover,
+  } = useRuntimeTakeover({
+    cartridgeSlug: takeoverCartridgeSlug,
+    personaId: takeoverPersonaId,
+    entryPoint: "arrival",
+    enabled: true,
+  });
+
+  // When runtimeContext switches to 'knyt' mid-session, refresh as a toggle entry
+  const prevRuntimeContextRef = useRef(runtimeContext);
+  useEffect(() => {
+    if (prevRuntimeContextRef.current !== runtimeContext) {
+      prevRuntimeContextRef.current = runtimeContext;
+      refreshTakeover("toggle");
+    }
+  }, [runtimeContext, refreshTakeover]);
+
+  // When personaId becomes available (wallet sign-in), refresh with personalised state
+  const prevPersonaRef = useRef<string | null>(null);
+  useEffect(() => {
+    const next = activePersonaId ?? shellContextRef.current.persona_id ?? null;
+    if (next && next !== prevPersonaRef.current) {
+      prevPersonaRef.current = next;
+      refreshTakeover("arrival");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePersonaId]);
+
+  // Resolve display name for the banner from the codex config
+  const takeoverDisplayName =
+    CODEX_DEFINITIONS.find((c) => c.slug === takeoverCartridgeSlug || c.id === takeoverCartridgeSlug)
+      ?.runtimeTakeover?.displayName ?? takeoverCartridgeSlug;
+
+  // Re-sort capsuleContents so manifest-priority capsules appear first
+  const applyTakeoverPriority = useCallback(
+    (contents: RuntimeCapsule[]): RuntimeCapsule[] => {
+      if (!takeoverManifest?.capsules?.length) return contents;
+      const ids = takeoverManifest.capsules.map((c) => c.id);
+      const pinId = takeoverManifest.capsules.find((c) => c.pin)?.id;
+      const prioritySet = new Set(ids);
+      const priority = ids
+        .map((id) => contents.find((c) => c.id === id))
+        .filter((c): c is RuntimeCapsule => Boolean(c));
+      const rest = contents.filter((c) => !prioritySet.has(c.id));
+      const sorted = [...priority, ...rest];
+      if (pinId) {
+        const pinIdx = sorted.findIndex((c) => c.id === pinId);
+        if (pinIdx > 0) {
+          const [pinned] = sorted.splice(pinIdx, 1);
+          sorted.unshift(pinned);
+        }
+      }
+      return sorted;
+    },
+    [takeoverManifest]
+  );
+  // ─────────────────────────────────────────────────────────────────────────────
+
   const [activeCartridgeOverlay, setActiveCartridgeOverlay] = useState<{
     slug: string;
     title: string;
@@ -2361,8 +2433,11 @@ export default function MetaMeRuntimeClient() {
         // re-inserting the preview item.
         setCapsuleContents((prev) => {
           const previewItems = prev.filter((item) => !activeSet.some((a) => a.id === item.id));
-          if (previewItems.length === 0) return selectCapsulesForDisplay(activeSet, 12);
-          return selectCapsulesForDisplay([...previewItems, ...activeSet], 12 + previewItems.length).slice(0, 12);
+          const base = previewItems.length === 0
+            ? selectCapsulesForDisplay(activeSet, 12)
+            : selectCapsulesForDisplay([...previewItems, ...activeSet], 12 + previewItems.length).slice(0, 12);
+          // Apply takeover priority ordering if a manifest is active
+          return applyTakeoverPriority(base);
         });
       } else {
         setAllContents([]);
@@ -2372,11 +2447,17 @@ export default function MetaMeRuntimeClient() {
       setAllContents((prev) => prev);
       setCapsuleContents((prev) => prev);
     }
-  }, [fetchRuntimeCapsules]);
+  }, [fetchRuntimeCapsules, applyTakeoverPriority]);
 
   useEffect(() => {
     fetchRuntimeData();
   }, [fetchRuntimeData]);
+
+  // Re-sort capsuleContents whenever the takeover manifest arrives / changes
+  useEffect(() => {
+    if (!takeoverManifest) return;
+    setCapsuleContents((prev) => applyTakeoverPriority(prev));
+  }, [takeoverManifest, applyTakeoverPriority]);
 
   useEffect(() => {
     if (!queryPreviewDisplayCapsule) return;
@@ -3012,6 +3093,9 @@ export default function MetaMeRuntimeClient() {
 
   const launchCapsule = useCallback(
     (content: RuntimeCapsule, intent: RuntimeIntent = lastIntent) => {
+      // Fire a takeover view signal so the feedback loop tracks what the user engaged with
+      fireTakeoverSignal("view", { contentId: content.id, runtimeSource: content.runtimeSource });
+
       // Codex-source capsules always open as a z-axis overlay so the runtime stays live underneath
       if (content.runtimeSource === "codex") {
         const slug = content.runtimeCodexSlug || "knyt";
@@ -3037,7 +3121,7 @@ export default function MetaMeRuntimeClient() {
         },
       ]);
     },
-    [buildRuntimeCapsulePanel, lastIntent, setActiveCartridgeOverlay]
+    [buildRuntimeCapsulePanel, fireTakeoverSignal, lastIntent, setActiveCartridgeOverlay]
   );
 
   // Moved earlier than its original location (was after runtimeSurface) so the auto-launch
@@ -3313,6 +3397,19 @@ export default function MetaMeRuntimeClient() {
   const capsulePanel = useMemo(
     () => (
       <div className="space-y-3">
+        {/* Runtime Takeover Welcome Banner — shown only on welcome screen */}
+        {showWelcome && takeoverManifest && (
+          <RuntimeTakeoverBanner
+            manifest={takeoverManifest}
+            cartridgeDisplayName={takeoverDisplayName}
+            onDismiss={dismissTakeover}
+            onNextBestAction={(target, targetType) => {
+              if (targetType === "codex") {
+                setActiveCartridgeOverlay({ slug: target, title: target });
+              }
+            }}
+          />
+        )}
         {capsuleContents.length === 0 ? (
           <div className="rounded-xl border border-white/10 bg-slate-900/70 p-3 text-[12px] text-slate-300">
             No visual capsules available yet. Try `read`, `watch`, or `find`.
@@ -3516,7 +3613,7 @@ export default function MetaMeRuntimeClient() {
         </div>
       </div>
     ),
-    [activeCapsuleId, activeDevice, buildSharePanel, capsuleContents, embedMode, launchCapsule]
+    [activeCapsuleId, activeDevice, buildSharePanel, capsuleContents, dismissTakeover, embedMode, launchCapsule, showWelcome, takeoverDisplayName, takeoverManifest]
   );
 
   // Gate capsule-panel message updates by capsule ID list + active capsule + device.
@@ -4387,7 +4484,7 @@ export default function MetaMeRuntimeClient() {
           "make-build":         () => setActiveCartridgeOverlay({ slug: 'aigentiq', title: 'AgentiQ OS',    initialTab: 'agentiq-os'       }),
           "make-remix":         () => setActiveCartridgeOverlay({ slug: 'aigentiq', title: 'iQube Registry', initialTab: 'registry-supply' }),
           // Play sub-actions
-          "play-knyt": () => { setRuntimeContext('knyt'); },
+          "play-knyt": () => { setRuntimeContext('knyt'); refreshTakeover("toggle"); },
           // Share sub-actions — native share (no prompt, side-effect only)
           "share-refer": () => {
             const url = typeof window !== 'undefined' ? window.location.href : '';

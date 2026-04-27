@@ -70,6 +70,7 @@ export const KNYT_RUNTIME_TAKEOVER: RuntimeTakeoverConfig = {
     ],
   },
   signalTargets: [
+    { action: 'view',        endpoint: '/api/runtime/takeover/signal',             triggersReInference: false },
     { action: 'like',        endpoint: '/api/codex/knyt/living-canon/like',        triggersReInference: false },
     { action: 'spark',       endpoint: '/api/codex/knyt/living-canon/spark',       triggersReInference: false },
     { action: 'curate',      endpoint: '/api/codex/knyt/living-canon/curate',      triggersReInference: true  },
