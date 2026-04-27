@@ -446,6 +446,12 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
     setLoading(true);
     setError(null);
     try {
+      // Bind Root DID on every open — idempotent, stamps user_id + did_persona_id if missing
+      void fetch("/api/identity/root-did/bind", {
+        method: "POST",
+        headers: authHeaders(),
+      });
+
       const res = await fetch(`/api/iqube/persona/${type}`, {
         headers: authHeaders(),
       });
