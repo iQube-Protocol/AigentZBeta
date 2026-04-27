@@ -66,6 +66,8 @@ export interface CodexTab {
   group?: string;
 }
 
+import type { RuntimeTakeoverConfig } from './runtimeTakeover';
+
 export interface CodexConfig {
   id: string;                    // Unique identifier (e.g., 'knyt-codex')
   name: string;                  // Display name
@@ -79,6 +81,12 @@ export interface CodexConfig {
   tabGroups?: TabGroup[];
   permissions: CodexPermissions;
   liquidUI?: CodexLiquidUIConfig;
+  /**
+   * Optional runtime takeover declaration.
+   * When present and enabled, this cartridge can own the metaMe Runtime
+   * surface for the duration of a user's session.
+   */
+  runtimeTakeover?: RuntimeTakeoverConfig;
   createdAt: string;
   updatedAt: string;
 }
