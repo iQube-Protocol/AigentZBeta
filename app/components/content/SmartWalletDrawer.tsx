@@ -83,6 +83,7 @@ import {
   LogOut,
   LogIn,
   Mail,
+  Layers,
 } from "lucide-react";
 
 
@@ -127,7 +128,7 @@ const isMotionContent = (ent: any): boolean => {
   return assetId.toLowerCase().includes("motion") || String(coverType).toUpperCase() === "MOTION";
 };
 
-type DrawerTab = "wallet" | "library" | "tasks" | "reputation" | "rewards" | "payments" | "connections";
+type DrawerTab = "wallet" | "library" | "tasks" | "reputation" | "rewards" | "payments" | "connections" | "iqube";
 
 interface SmartWalletDrawerProps {
   open: boolean;
@@ -172,6 +173,7 @@ const TAB_CONFIG: Array<{ key: DrawerTab; label: string; icon: React.ReactNode }
   { key: "rewards", label: "Rewards", icon: <Gift className="w-4 h-4" /> },
   { key: "payments", label: "Payments", icon: <CreditCard className="w-4 h-4" /> },
   { key: "connections", label: "Connections", icon: <Link className="w-4 h-4" /> },
+  { key: "iqube",       label: "iQube",       icon: <Layers className="w-4 h-4" /> },
 ];
 
 const TOKEN_LOGOS: Record<string, string> = {
@@ -635,6 +637,30 @@ export default function SmartWalletDrawer({
   const [showUnlockModal, setShowUnlockModal] = useState(false);
   const [isWalletUnlocked, setIsWalletUnlocked] = useState(false);
   const [personaToUnlock, setPersonaToUnlock] = useState<string | null>(null);
+
+  // iQube persona minting state
+  const [mintStatus, setMintStatus] = useState<"idle" | "staging" | "staged" | "error">("idle");
+  const [mintStubId, setMintStubId] = useState<string | null>(null);
+  const [mintError, setMintError] = useState<string | null>(null);
+
+  const handleStageMint = useCallback(async () => {
+    setMintStatus("staging");
+    setMintError(null);
+    try {
+      const res = await fetch("/api/iqube/persona/qripto/mint", { method: "POST" });
+      const data: { stub_id?: string; status?: string; error?: string } = await res.json();
+      if (!res.ok) {
+        setMintError(data.error ?? "Staging failed — check that you have an active Qripto persona.");
+        setMintStatus("error");
+        return;
+      }
+      setMintStubId(data.stub_id ?? null);
+      setMintStatus("staged");
+    } catch {
+      setMintError("Network error — please try again.");
+      setMintStatus("error");
+    }
+  }, []);
 
   const hasPaidTier = useCallback((content?: SmartContentQube | null): boolean => {
     if (!content) return false;
@@ -1965,6 +1991,15 @@ export default function SmartWalletDrawer({
                   </div>
                 </section>
               )}
+
+              {activeTab === "iqube" && (
+                <section className="rounded-xl backdrop-blur-xl bg-slate-900/40 border border-white/10 p-4">
+                  <div className="text-xs uppercase tracking-wider text-white/70 mb-2">PersonaQube</div>
+                  <div className="text-sm text-white/80">
+                    Stage your persona as a content-addressed PersonaQube on Autonomys — enables cryptographic binding to SkillQubes and cross-platform portability.
+                  </div>
+                </section>
+              )}
             </div>
             ) : (
               <section
@@ -3003,6 +3038,78 @@ export default function SmartWalletDrawer({
                   No rewards yet. Complete tasks to earn rewards!
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ── iQube tab ── */}
+          {activeTab === "iqube" && (
+            <div className="space-y-4">
+              <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
+                <div className="text-[10px] uppercase tracking-wider text-white/60 mb-3 flex items-center gap-2">
+                  <Layers className="w-3.5 h-3.5 text-violet-400" />
+                  PersonaQube — On-Chain Identity
+                </div>
+                {/* Active persona identity summary */}
+                {walletNode?.personaContext?.activePersona && (
+                  <div className="space-y-1.5 mb-4">
+                    {[
+                      {
+                        label: "FIO Handle",
+                        value: walletNode.personaContext.activePersona.fioHandle || "—",
+                        color: "text-cyan-300",
+                      },
+                      {
+                        label: "Root DiD",
+                        value: walletNode.personaContext.activePersona.fioHandle
+                          ? `did:fio:${walletNode.personaContext.activePersona.fioHandle}`
+                          : "—",
+                        color: "text-violet-300",
+                      },
+                    ].map(({ label, value, color }) => (
+                      <div key={label} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
+                        <span className="text-xs text-white/50">{label}</span>
+                        <span className={`text-xs font-mono truncate max-w-[180px] ${color}`}>{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Mint action */}
+                {mintStatus === "staged" ? (
+                  <div className="rounded-lg border border-violet-500/30 bg-violet-500/10 p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Check className="w-4 h-4 text-violet-400" />
+                      <span className="text-sm font-medium text-violet-300">PersonaQube staged</span>
+                    </div>
+                    <p className="text-xs text-white/50 leading-relaxed">
+                      Your persona data is encrypted and queued for the Autonomys write pipeline. The chain write completes asynchronously.
+                    </p>
+                    {mintStubId && (
+                      <code className="text-[10px] text-white/30 font-mono block">stub: {mintStubId}</code>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-xs text-white/50 leading-relaxed">
+                      Mint your persona as a <strong className="text-white/70">PersonaQube</strong> — content-addressed on Autonomys with your FIO key.
+                      Enables cryptographic binding to SkillQubes and AigentQubes, and cross-platform portability without trusting this database.
+                    </p>
+                    <p className="text-[10px] text-white/30 leading-relaxed">
+                      Your DVN receipts are already anchored to your Root DiD through the ordinal inscription pipeline — minting adds content-addressable persona data on Autonomys.
+                    </p>
+                    {mintStatus === "error" && (
+                      <p className="text-xs text-red-400">{mintError}</p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleStageMint}
+                      disabled={mintStatus === "staging"}
+                      className="w-full rounded-lg border border-violet-500/40 bg-violet-600/20 py-2 text-sm font-semibold text-violet-200 hover:bg-violet-600/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {mintStatus === "staging" ? "Staging…" : "Stage PersonaQube"}
+                    </button>
+                  </div>
+                )}
+              </section>
             </div>
           )}
 

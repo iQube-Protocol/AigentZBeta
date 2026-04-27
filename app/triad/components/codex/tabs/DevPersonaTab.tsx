@@ -273,7 +273,7 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
           {
             label: "Persona minted as iQube",
             done: false,
-            detail: "Optional — adds portability, sovereignty, and DVN receipt anchoring",
+            detail: "Optional — adds content-addressed portability and cryptographic composability",
           },
         ] as const).map((step) => (
           <div key={step.label} className="flex items-start gap-3">
@@ -316,22 +316,22 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="h-3.5 w-3.5 text-violet-400 flex-shrink-0 mt-0.5" />
-                <span><strong className="text-slate-300">Sovereignty</strong> — data is controlled by your FIO key, not stored only in a database you don&apos;t own</span>
+                <span><strong className="text-slate-300">Sovereignty</strong> — persona data is content-addressed by your FIO key on Autonomys, not stored only in a database you don&apos;t own</span>
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="h-3.5 w-3.5 text-violet-400 flex-shrink-0 mt-0.5" />
-                <span><strong className="text-slate-300">DVN receipt anchoring</strong> — mission completions, trust progressions, and delegation events are stamped on-chain, making reputation tamper-evident</span>
+                <span><strong className="text-slate-300">Cryptographic composability</strong> — SkillQubes and AigentQubes bind to your PersonaQube via CID rather than a mutable database FK</span>
               </li>
             </ul>
             <p className="text-[11px] text-slate-500">
-              Mint via your SmartWallet. Once minted, SkillQubes and AigentQubes can bind to your PersonaQube cryptographically — not just as a database record.
+              Note: your DVN receipts (mission completions, delegation events, trust progressions) are already anchored to your Root DiD through the ordinal inscription pipeline — you don&apos;t need to mint for those. Minting adds content-addressable persona <em>data</em> on Autonomys.
             </p>
             <a
-              href="/shell/wallet"
+              href="/shell/wallet?tab=iqube"
               className="inline-flex items-center gap-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-300 hover:bg-violet-500/20 transition-colors"
             >
               <ExternalLink className="h-3.5 w-3.5" />
-              Open SmartWallet to mint
+              Mint in SmartWallet → iQube tab
             </a>
           </div>
         )}

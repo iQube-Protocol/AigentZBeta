@@ -28,6 +28,12 @@ function SmartWalletViewerContent() {
   const [sidebarOffset, setSidebarOffset] = useState(64);
   const searchParams = useSearchParams();
   const personaId = searchParams?.get('personaId') || undefined;
+  const tabParam = searchParams?.get('tab');
+  const validTabs = ["wallet", "library", "tasks", "reputation", "rewards", "payments", "connections", "iqube"] as const;
+  type DrawerTabParam = typeof validTabs[number];
+  const initialTab: DrawerTabParam = validTabs.includes(tabParam as DrawerTabParam)
+    ? (tabParam as DrawerTabParam)
+    : "wallet";
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -358,6 +364,7 @@ function SmartWalletViewerContent() {
               allowWideLayout={allowWide}
               agent={agent}
               personaId={personaId}
+              initialTab={initialTab}
               codexMode={true}
               onCopilotStateChange={(open) => {
                 setWalletCopilotOpen(open);
