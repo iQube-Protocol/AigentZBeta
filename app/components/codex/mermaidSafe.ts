@@ -67,7 +67,7 @@ async function createMermaidInstance(): Promise<MermaidInstance> {
   const mermaid = module.default;
   mermaid.initialize({
     startOnLoad: false,
-    securityLevel: "strict",
+    securityLevel: "antiscript", // "strict" sandboxes in an iframe which %-encodes parens → parse errors
     theme: "dark",
   });
   return mermaid;
@@ -104,7 +104,28 @@ export function normalizeMermaidSource(source: string): string {
   return source
     .replace(/\r\n?/g, "\n")
     .split("\n")
-    .map((line) => line.replace(/[ \t]+$/g, ""))
+    .map((line) => {
+      // Strip trailing whitespace
+      line = line.replace(/[ \t]+$/g, "");
+      // Remove %% comment lines — these are valid Mermaid syntax but LLMs
+      // sometimes emit them mid-diagram where they break the parser
+      if (/^\s*%%/.test(line)) return "";
+      // In node labels [text], replace double quotes with single quotes
+      // to avoid Mermaid's quote-escaping ambiguity
+      line = line.replace(/\[([^\]]*)\]/g, (_, inner: string) =>
+        `[${inner.replace(/"/g, "'")}]`
+      );
+      // In edge labels |text|, same treatment
+      line = line.replace(/\|([^|]*)\|/g, (_, inner: string) =>
+        `|${inner.replace(/"/g, "'")}|`
+      );
+      return line;
+    })
+    .filter((line, i, arr) => {
+      // Collapse consecutive blank lines introduced by comment stripping
+      if (line === "" && i > 0 && arr[i - 1] === "") return false;
+      return true;
+    })
     .join("\n")
     .trim();
 }
