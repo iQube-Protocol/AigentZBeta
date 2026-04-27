@@ -14,6 +14,7 @@ import SmartWalletDrawer from "@/app/components/content/SmartWalletDrawer";
 import { PersonaIQubeDrawer } from "@/components/iqube/PersonaIQubeDrawer";
 import { IdentityIQubeDrawer } from "@/components/iqube/IdentityIQubeDrawer";
 import { MemoryIQubeDrawer } from "@/components/iqube/MemoryIQubeDrawer";
+import { ConnectionsIQubeDrawer } from "@/components/iqube/ConnectionsIQubeDrawer";
 import { PreviewFrame } from "@/components/preview/PreviewFrame";
 import { DevicePreviewSwitcher, type DeviceType } from "@/components/preview/DevicePreviewSwitcher";
 import { useToast } from "@/components/ui/toaster";
@@ -1890,6 +1891,7 @@ export default function MetaMeRuntimeClient() {
   const [personaPickerOpen, setPersonaPickerOpen] = useState(false);
   const [identityIQubeOpen, setIdentityIQubeOpen] = useState(false);
   const [memoryDrawerOpen, setMemoryDrawerOpen] = useState(false);
+  const [connectionsDrawerOpen, setConnectionsDrawerOpen] = useState(false);
   const [beMenuOpen, setBeMenuOpen] = useState(false);
   const [earnMenuOpen, setEarnMenuOpen] = useState(false);
   const [walletInitialTab, setWalletInitialTab] = useState<"wallet" | "tasks" | "rewards" | "payments">("wallet");
@@ -4102,6 +4104,13 @@ export default function MetaMeRuntimeClient() {
         return;
       }
 
+      if (raw.type === "OPEN_CONNECTIONS_IQUBE") {
+        console.warn("[drawer] OPEN_CONNECTIONS_IQUBE received → opening");
+        maybeAdvanceWelcome("Show me my connections, identity links and network");
+        setConnectionsDrawerOpen(true);
+        return;
+      }
+
       if (raw.type === "LAUNCH_CARTRIDGE") {
         const cartridgeId = typeof rawPayload.cartridge_id === "string" ? rawPayload.cartridge_id : null;
         console.warn("[drawer] LAUNCH_CARTRIDGE received (stable handler)", { cartridgeId });
@@ -4633,7 +4642,7 @@ export default function MetaMeRuntimeClient() {
                     { icon: <Fingerprint className="h-4 w-4" />, label: "Identity", action: () => { setIdentityIQubeOpen(true); setBeMenuOpen(false); } },
                     { icon: <SlidersHorizontal className="h-4 w-4" />, label: "Settings", action: () => { setSettingsDrawerOpen(true); setBeMenuOpen(false); } },
                     { icon: <Sparkles className="h-4 w-4" />, label: "Memory", action: () => { setMemoryDrawerOpen(true); setBeMenuOpen(false); } },
-                    { icon: <Network className="h-4 w-4" />, label: "Connections", action: () => setBeMenuOpen(false) },
+                    { icon: <Network className="h-4 w-4" />, label: "Connections", action: () => { setConnectionsDrawerOpen(true); setBeMenuOpen(false); } },
                   ].map(({ icon, label, action }) => (
                     <button key={label} type="button" onClick={action}
                       className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
@@ -4729,7 +4738,7 @@ export default function MetaMeRuntimeClient() {
                     { icon: <Fingerprint className="h-4 w-4" />, label: "Identity", action: () => { setIdentityIQubeOpen(true); setBeMenuOpen(false); } },
                     { icon: <SlidersHorizontal className="h-4 w-4" />, label: "Settings", action: () => { setSettingsDrawerOpen(true); setBeMenuOpen(false); } },
                     { icon: <Sparkles className="h-4 w-4" />, label: "Memory", action: () => { setMemoryDrawerOpen(true); setBeMenuOpen(false); } },
-                    { icon: <Network className="h-4 w-4" />, label: "Connections", action: () => setBeMenuOpen(false) },
+                    { icon: <Network className="h-4 w-4" />, label: "Connections", action: () => { setConnectionsDrawerOpen(true); setBeMenuOpen(false); } },
                   ].map(({ icon, label, action }) => (
                     <button key={label} type="button" onClick={action}
                       className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-white/10 hover:text-white transition w-full text-left">
@@ -5288,6 +5297,8 @@ export default function MetaMeRuntimeClient() {
       </div>
       {/* Memory iQube drawer */}
       <MemoryIQubeDrawer open={memoryDrawerOpen} onClose={() => setMemoryDrawerOpen(false)} />
+      {/* Connections iQube drawer */}
+      <ConnectionsIQubeDrawer open={connectionsDrawerOpen} onClose={() => setConnectionsDrawerOpen(false)} />
       {/* Persona picker — bottom sheet when no iqube_type specified */}
       {personaPickerOpen && (
         <>
