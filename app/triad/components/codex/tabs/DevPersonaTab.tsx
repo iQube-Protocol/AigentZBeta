@@ -32,6 +32,21 @@ async function emitPersonaCreatedReceipt(personaId: string): Promise<void> {
   }
 }
 
+async function enrollDevCohort(personaId: string): Promise<void> {
+  try {
+    await fetch('/api/codex/agentiq-os/ecosystem-signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        persona_id: personaId,
+        bridge_stage: 'open_onboarding',
+      }),
+    });
+  } catch {
+    // non-fatal
+  }
+}
+
 interface DevPersonaTabProps {
   personaId?: string;
 }
@@ -282,6 +297,7 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
               setShowForm(false);
               void emitPersonaCreatedReceipt(id);
               void refreshPersonas();
+              void enrollDevCohort(id);
             }}
             onCancel={() => setShowForm(false)}
           />

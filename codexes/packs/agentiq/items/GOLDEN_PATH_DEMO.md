@@ -44,7 +44,7 @@ A developer discovers AgentiQ OS through the public contribution layer. They rea
 They package their skill — in this demo, an image generation capability targeting the `openai` provider — using the AgentiQ SDK:
 
 ```typescript
-import { AgentIQClient } from "@agentiq/sdk";
+import { AgentIQClient } from "@agentiqos/agentiq-sdk";
 
 const client = new AgentIQClient({ persona: "aigent-c" });
 await client.factory.submitIntake({

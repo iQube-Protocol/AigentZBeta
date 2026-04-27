@@ -1,5 +1,5 @@
 /**
- * @agentiq/agentiq-sdk - Main Client
+ * @agentiqos/agentiq-sdk - Main Client
  * AA-API client for interacting with AgentiQ Platform
  */
 

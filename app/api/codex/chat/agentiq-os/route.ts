@@ -255,7 +255,7 @@ async function callVenice(messages: ChatMessage[]): Promise<string> {
 function fallbackResponse(message: string): string {
   const q = message.toLowerCase();
   if (/(sdk|install|quickstart|npm)/.test(q)) {
-    return 'See the SDK Quickstart doc: `npm install @agentiq/sdk`, then `npx agentiq init my-cartridge`. Full guide in items/sdk-quickstart.md.';
+    return 'See the SDK Quickstart doc: `npm install @agentiqos/agentiq-sdk`, then `npx agentiq init my-cartridge`. Full guide in items/sdk-quickstart.md.';
   }
   if (/(protocol|iqube|qripto|aigent)/.test(q)) {
     return 'AgentiQ OS is built on three protocols: iQube (data sovereignty), Qripto (trust + payments), and Aigent (identity + delegation). See items/protocols.md for the full reference.';

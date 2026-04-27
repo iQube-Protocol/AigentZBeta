@@ -1,10 +1,10 @@
 /**
- * @agentiq/agentiq-sdk
+ * @agentiqos/agentiq-sdk
  * AA-API and A2A client SDK for AgentiQ Platform
  * 
  * @example
  * ```typescript
- * import { AgentIQClient, createUserMessage, defaultPersonas } from '@agentiq/agentiq-sdk';
+ * import { AgentIQClient, createUserMessage, defaultPersonas } from '@agentiqos/agentiq-sdk';
  * 
  * // Create client
  * const client = new AgentIQClient({
@@ -34,6 +34,13 @@
 
 export { AgentIQClient } from './AgentIQClient';
 export { A2AClient } from './A2AClient';
+export { AigentQubeRegistry } from './registry';
+export { PersonaCreation } from './persona';
+export { DelegationService } from './delegation';
+
+export type { QubeType, AigentQubeRegistration, PolicyBinding, RegistryDraftResult } from './registry';
+export type { PersonaCreateOptions, CreatedPersona } from './persona';
+export type { DelegationGrantOptions, PolicyEnvelope, HandoffResult, DelegationStateResult } from './delegation';
 export {
   defaultPersonas,
   getAgentSystemPrompt,
@@ -57,4 +64,5 @@ export type {
   AAAPIRequest,
   A2AMessage,
   A2AResponse,
+  SDKConfig,
 } from './types';

@@ -1,33 +1,52 @@
 {
-  "name": "@agentiq/agentiq-sdk",
+  "name": "@agentiqos/agentiq-sdk",
   "version": "0.1.0",
-  "description": "AA-API and A2A client SDK for AgentiQ platform",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "description": "AgentiQ OS developer SDK — AA-API client, A2A protocol, registry, persona, delegation, and CLI",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "import": "./src/index.ts",
-      "types": "./src/index.ts"
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
     }
   },
+  "bin": {
+    "agentiq": "./bin/agentiq.js"
+  },
   "files": [
+    "bin",
     "dist",
     "src"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "dev": "tsc --watch",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build",
+    "cli": "node bin/agentiq.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "keywords": [
     "agentiq",
+    "agentiq-os",
     "aa-api",
     "a2a",
-    "sdk"
+    "sdk",
+    "iqube",
+    "aigent",
+    "delegation",
+    "cartridge"
   ],
   "devDependencies": {
+    "@types/node": "^20.0.0",
     "typescript": "^5.0.0"
   },
   "author": "iQube Protocol",
-  "license": "PROPRIETARY"
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/iQube-Protocol/AgentiQ-OS"
+  }
 }
