@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
   X, Lock, Save, Shield, ChevronDown, ChevronUp,
   Wallet, Globe, User, Database, Settings, Eye, EyeOff,
-  AlertCircle, CheckCircle2, Loader2,
+  AlertCircle, CheckCircle2, Loader2, ExternalLink, RefreshCw, Sparkles,
 } from "lucide-react";
 
 function getAccessTokenFromStorage(): string | null {
@@ -391,6 +391,34 @@ function Section({
   );
 }
 
+// ─── TokenQube minting types & constants ──────────────────────────────────────
+
+const MINT_NETWORKS = [
+  { label: "Base Sepolia (testnet)", value: "base-sepolia" },
+  { label: "Base Mainnet", value: "base" },
+  { label: "Ethereum", value: "ethereum" },
+];
+
+interface OnChainMintResult {
+  tokenId: number;
+  chainId: number;
+  contractAddress: string;
+  tx: string;
+  explorerUrl: string;
+  mintedAt: string;
+  owner: string;
+  minter: string;
+  proofOfState?: { receiptId: string; status: string } | null;
+}
+
+interface ChainTokenEntry {
+  tokenId: number;
+  uri: string;
+  minter: string;
+  owner: string;
+  explorerUrl: string;
+}
+
 // ─── Main drawer ──────────────────────────────────────────────────────────────
 
 export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
@@ -402,6 +430,14 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [editValues, setEditValues] = useState<Record<string, string>>({});
+
+  // TokenQube minting state
+  const [mintNetwork, setMintNetwork] = useState("base-sepolia");
+  const [mintRecipient, setMintRecipient] = useState("");
+  const [mintResult, setMintResult] = useState<OnChainMintResult | null>(null);
+  const [chainTokens, setChainTokens] = useState<ChainTokenEntry[]>([]);
+  const [tokensLoading, setTokensLoading] = useState(false);
+  const [resolvedRecipient, setResolvedRecipient] = useState<string | null>(null);
 
   const displayName = type === "knyt" ? "KNYT Persona" : "Qripto Persona";
   const sections = type === "knyt" ? KNYT_SECTIONS : QRIPTO_SECTIONS;
@@ -456,17 +492,68 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
     }
   };
 
-  const handleMint = async () => {
+  const loadTokens = useCallback(async () => {
+    setTokensLoading(true);
+    try {
+      const res = await fetch("/api/core/mint-tokenqube");
+      const data = await res.json() as { tokens?: ChainTokenEntry[] };
+      if (data.tokens) setChainTokens(data.tokens);
+    } catch { /* non-fatal */ } finally {
+      setTokensLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "tokenQube") void loadTokens();
+  }, [activeTab, loadTokens]);
+
+  const handleOnChainMint = async () => {
     setMinting(true);
     setError(null);
+    setResolvedRecipient(null);
     try {
-      const res = await fetch(`/api/iqube/persona/${type}/mint`, {
+      // Step 1: resolve recipient (EVM passthrough, persona lookup, or FIO handle)
+      let recipientAddr = "";
+      const recipientInput = mintRecipient.trim();
+      if (recipientInput) {
+        if (/^0x[0-9a-fA-F]{40}$/.test(recipientInput)) {
+          recipientAddr = recipientInput;
+        } else {
+          const res = await fetch(
+            `/api/identity/resolve-recipient?q=${encodeURIComponent(recipientInput)}`,
+            { headers: authHeaders() },
+          );
+          const data = await res.json() as { resolvedAddress?: string; error?: string };
+          if (!res.ok || !data.resolvedAddress) throw new Error(data.error ?? "Could not resolve recipient");
+          recipientAddr = data.resolvedAddress;
+          setResolvedRecipient(recipientAddr);
+        }
+      }
+
+      // Step 2: stage + encrypt persona blakQube
+      const stageRes = await fetch(`/api/iqube/persona/${type}/mint`, {
         method: "POST",
         headers: authHeaders(),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Mint failed");
-      alert(`iQube staged for minting (stub ID: ${json.stub_id}). Production minting wired to FIO PPK.`);
+      const stageData = await stageRes.json() as { stub_id?: string; error?: string };
+      if (!stageRes.ok) throw new Error(stageData.error ?? "Staging failed");
+      const stubId = stageData.stub_id ?? "unknown";
+
+      // Step 3: mint on-chain — stubId becomes the on-chain URI
+      const mintRes = await fetch("/api/core/mint-tokenqube", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          metaIdentifier: `iq:persona/${type}/${stubId}`,
+          recipientAddress: recipientAddr || undefined,
+          network: mintNetwork,
+        }),
+      });
+      const mintData = await mintRes.json() as OnChainMintResult & { error?: string };
+      if (!mintRes.ok) throw new Error(mintData.error ?? "Mint failed");
+
+      setMintResult(mintData);
+      void loadTokens();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Mint failed");
     } finally {
@@ -585,40 +672,160 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
 
               {/* tokenQube tab */}
               {activeTab === "tokenQube" && (
-                <div className="space-y-3">
-                  <p className="text-[11px] text-slate-500">
-                    Ownership, wallet binding, and on-chain mint status.
-                  </p>
-                  {[
-                    ["Settlement Network", String(tokenQube.settlementNetwork ?? "Ethereum Mainnet (chainId 0x1)")],
-                    ["EVM Address", String(tokenQube.evmAddress ?? "—")],
-                    ["FIO Handle", String(tokenQube.fioHandle ?? "—")],
-                    ["KNYT Handle", String(tokenQube.knytHandle ?? "—")],
-                    ["Mint Status", String(tokenQube.mintStatus ?? "unminted")],
-                  ].map(([label, val]) => (
-                    <div key={label} className="grid grid-cols-[140px_1fr] gap-2 py-1 border-b border-slate-800/40">
-                      <span className="text-[11px] text-slate-500">{label}</span>
-                      <span className="text-[11px] text-slate-300 break-all">{val}</span>
-                    </div>
-                  ))}
-                  {tokenQube.walletRequired && (
-                    <div className="mt-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20 p-3 text-[12px] text-cyan-300">
-                      Connect a wallet to enable on-chain balance reading and minting.
-                    </div>
+                <div className="space-y-4">
+
+                  {/* Wallet binding summary */}
+                  <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-white/40 mb-2">Wallet Binding</p>
+                    {([
+                      { label: "EVM Address", val: String(tokenQube.evmAddress || blakQube["EVM-Public-Key"] || "—") },
+                      { label: "FIO Handle", val: String(tokenQube.fioHandle || blakQube["fio_handle"] || "—") },
+                      { label: type === "knyt" ? "KNYT Handle" : "Qripto Handle", val: String(tokenQube.knytHandle || blakQube["knyt_handle"] || "—") },
+                      { label: "Mint Status", val: String(tokenQube.mintStatus ?? "unminted"), accent: true },
+                    ] as { label: string; val: string; accent?: boolean }[]).map(({ label, val, accent }) => (
+                      <div key={label} className="flex items-start justify-between gap-2 py-1 border-b border-slate-800/40 last:border-0">
+                        <span className="text-[11px] text-slate-500 shrink-0">{label}</span>
+                        <span className={`text-[11px] font-mono text-right break-all ${accent && val !== "unminted" ? "text-emerald-400" : "text-slate-300"}`}>{val}</span>
+                      </div>
+                    ))}
+                  </section>
+
+                  {/* Post-mint result card */}
+                  {mintResult && (
+                    <section className="rounded-xl bg-emerald-950/30 ring-1 ring-emerald-700/30 p-3 space-y-1">
+                      <p className="text-[10px] uppercase tracking-wider text-emerald-400 mb-2">Minted ✓ — Token #{mintResult.tokenId}</p>
+                      {([
+                        ["Chain ID", String(mintResult.chainId)],
+                        ["Minted At", new Date(mintResult.mintedAt).toLocaleString()],
+                        ["Owner", mintResult.owner],
+                        ["Minter", mintResult.minter],
+                        ["Tx Hash", mintResult.tx],
+                      ] as [string, string][]).map(([label, val]) => (
+                        <div key={label} className="flex items-start justify-between gap-2 py-0.5">
+                          <span className="text-[10px] text-slate-500 shrink-0">{label}</span>
+                          <span className="text-[10px] font-mono text-slate-300 break-all text-right">{val}</span>
+                        </div>
+                      ))}
+                      {mintResult.proofOfState?.receiptId && (
+                        <div className="flex items-start justify-between gap-2 py-0.5">
+                          <span className="text-[10px] text-slate-500 shrink-0">ICP Receipt</span>
+                          <span className="text-[10px] font-mono text-slate-300 break-all text-right">{mintResult.proofOfState.receiptId}</span>
+                        </div>
+                      )}
+                      <a
+                        href={mintResult.explorerUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-[11px] text-indigo-400 hover:text-indigo-300 mt-2"
+                      >
+                        <ExternalLink className="h-3 w-3" /> View on Basescan
+                      </a>
+                    </section>
                   )}
-                  <button
-                    type="button"
-                    onClick={handleMint}
-                    disabled={minting || !iqubeData}
-                    className="mt-4 w-full rounded-lg bg-amber-500/20 border border-amber-500/30 px-4 py-2 text-[12px] font-medium text-amber-300 hover:bg-amber-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition"
-                  >
-                    {minting ? (
-                      <span className="flex items-center justify-center gap-2"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Staging…</span>
-                    ) : "Stage for Minting"}
-                  </button>
-                  <p className="text-[10px] text-slate-600 text-center">
-                    Autonomys Drive + chain write wired to FIO PPK in production.
-                  </p>
+
+                  {/* On-chain token list */}
+                  <section className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] uppercase tracking-wider text-white/40">Minted TokenQubes</p>
+                      <button type="button" onClick={() => void loadTokens()} className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-300">
+                        <RefreshCw className="h-3 w-3" /> Refresh
+                      </button>
+                    </div>
+                    {tokensLoading ? (
+                      <div className="flex items-center gap-2 py-2 text-slate-500">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <span className="text-[11px]">Loading from contract…</span>
+                      </div>
+                    ) : chainTokens.length === 0 ? (
+                      <p className="text-[11px] text-slate-600 py-1">No TokenQubes minted yet.</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {chainTokens.map((t) => (
+                          <div key={t.tokenId} className="rounded-lg bg-slate-900/60 border border-slate-800/60 p-2.5 flex items-start justify-between gap-2">
+                            <div className="min-w-0 space-y-0.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[11px] font-mono font-semibold text-white">#{t.tokenId}</span>
+                                <span className="text-[10px] text-slate-500 truncate max-w-[140px]">{t.uri}</span>
+                              </div>
+                              <p className="text-[10px] text-slate-400">
+                                Owner: <span className="font-mono">{t.owner.length > 16 ? `${t.owner.slice(0, 8)}…${t.owner.slice(-6)}` : t.owner}</span>
+                              </p>
+                              <p className="text-[10px] text-slate-500">
+                                Minter: <span className="font-mono">{t.minter.length > 16 ? `${t.minter.slice(0, 8)}…${t.minter.slice(-6)}` : t.minter}</span>
+                              </p>
+                            </div>
+                            <a href={t.explorerUrl} target="_blank" rel="noopener noreferrer"
+                              className="flex-shrink-0 flex items-center gap-0.5 text-[10px] text-indigo-400 hover:text-indigo-300">
+                              <ExternalLink className="h-2.5 w-2.5" /> Basescan
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+
+                  {/* Mint form */}
+                  <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3 space-y-3">
+                    <p className="text-[10px] uppercase tracking-wider text-white/40">Mint iQube On-Chain</p>
+
+                    {/* Network */}
+                    <div className="space-y-1">
+                      <label className="block text-[11px] text-slate-400">Network</label>
+                      <select
+                        value={mintNetwork}
+                        onChange={(e) => setMintNetwork(e.target.value)}
+                        className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-[11px] text-slate-200 focus:outline-none focus:border-cyan-500/50"
+                      >
+                        {MINT_NETWORKS.map((n) => (
+                          <option key={n.value} value={n.value}>{n.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Recipient */}
+                    <div className="space-y-1">
+                      <label className="block text-[11px] text-slate-400">
+                        Recipient <span className="text-slate-600">(optional — defaults to your wallet)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={mintRecipient}
+                        onChange={(e) => { setMintRecipient(e.target.value); setResolvedRecipient(null); }}
+                        placeholder="0x… or @knyt or name@domain"
+                        className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-[11px] text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50"
+                      />
+                      {resolvedRecipient && (
+                        <p className="text-[10px] text-emerald-400 font-mono">→ {resolvedRecipient}</p>
+                      )}
+                      <p className="text-[10px] text-slate-600">
+                        EVM address, FIO handle (name@domain), or persona (@knyt, @qripto)
+                      </p>
+                    </div>
+
+                    {/* Mint button */}
+                    <button
+                      type="button"
+                      onClick={() => void handleOnChainMint()}
+                      disabled={minting || !iqubeData}
+                      className="w-full rounded-lg bg-amber-500/20 border border-amber-500/30 px-4 py-2 text-[12px] font-medium text-amber-300 hover:bg-amber-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    >
+                      {minting ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Minting on-chain…
+                        </span>
+                      ) : (
+                        <span className="flex items-center justify-center gap-2">
+                          <Sparkles className="h-3.5 w-3.5" /> Mint iQube On-Chain
+                        </span>
+                      )}
+                    </button>
+                    {!iqubeData && (
+                      <p className="text-[10px] text-slate-600 text-center">
+                        Load persona data in the blakQube tab first.
+                      </p>
+                    )}
+                  </section>
+
                 </div>
               )}
 
