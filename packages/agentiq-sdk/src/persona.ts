@@ -1,5 +1,5 @@
 /**
- * @agentiq/agentiq-sdk — Persona Creation Client
+ * @agentiqos/agentiq-sdk — Persona Creation Client
  *
  * Creates bounded developer personas anchored to a Root DiD.
  * Wraps POST /api/iqube/persona on your AgentiQ OS instance.

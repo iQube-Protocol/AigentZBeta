@@ -1,10 +1,10 @@
 /**
- * @agentiq/agentiq-sdk
+ * @agentiqos/agentiq-sdk
  * AA-API and A2A client SDK for AgentiQ Platform
  * 
  * @example
  * ```typescript
- * import { AgentIQClient, createUserMessage, defaultPersonas } from '@agentiq/agentiq-sdk';
+ * import { AgentIQClient, createUserMessage, defaultPersonas } from '@agentiqos/agentiq-sdk';
  * 
  * // Create client
  * const client = new AgentIQClient({

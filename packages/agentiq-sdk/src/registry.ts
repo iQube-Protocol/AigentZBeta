@@ -1,5 +1,5 @@
 /**
- * @agentiq/agentiq-sdk — AigentQube Registry Client
+ * @agentiqos/agentiq-sdk — AigentQube Registry Client
  *
  * Wraps POST /api/codex/agentiq-os/registry-draft to generate structured
  * Registry submission drafts (AigentQube, SkillQube, WorkflowQube, ConnectorQube).

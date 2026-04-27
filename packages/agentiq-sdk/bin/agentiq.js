@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// @agentiq/agentiq-sdk — CLI
+// @agentiqos/agentiq-sdk — CLI
 // Requires Node.js 18+ (native fetch)
 'use strict';
 
@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 
 const VERSION = '0.1.0';
-const PKG = '@agentiq/agentiq-sdk';
+const PKG = '@agentiqos/agentiq-sdk';
 
 // ── output helpers ────────────────────────────────────────────────────────────
 
@@ -111,7 +111,7 @@ module.exports = {
       description: `${name} AgentiQ OS cartridge`,
       private: true,
       devDependencies: {
-        '@agentiq/agentiq-sdk': `^${VERSION}`,
+        '@agentiqos/agentiq-sdk': `^${VERSION}`,
       },
     }, null, 2),
   );
@@ -136,7 +136,7 @@ AGENTIQ_API_URL=http://localhost:3000
   dim('  npm install');
   dim(`  # Edit codexes/packs/${slug}/meta.json and items/start-here.md`);
   dim('  # Set AGENTIQ_API_URL in .env or agentiq.config.js');
-  dim('  npx @agentiq/agentiq-sdk publish\n');
+  dim('  npx @agentiqos/agentiq-sdk publish\n');
 }
 
 // ── agentiq publish ───────────────────────────────────────────────────────────

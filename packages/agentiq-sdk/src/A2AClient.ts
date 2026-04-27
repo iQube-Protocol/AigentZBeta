@@ -1,5 +1,5 @@
 /**
- * @agentiq/agentiq-sdk - A2A Protocol Client
+ * @agentiqos/agentiq-sdk - A2A Protocol Client
  * Agent-to-Agent communication protocol implementation
  */
 

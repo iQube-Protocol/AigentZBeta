@@ -39,7 +39,7 @@ The on-chain and off-chain asset ledger:
 
 ### SDK
 The developer surface for building on AgentiQ OS:
-- `@agentiq/sdk` — cartridge scaffolding, persona creation, delegation flows
+- `@agentiqos/agentiq-sdk` — cartridge scaffolding, persona creation, delegation flows
 - `@agentiq/smartwallet` — wallet binding and token balances
 - `@agentiq/smarttriad` — copilot layer integration
 

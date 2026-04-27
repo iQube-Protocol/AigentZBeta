@@ -18,7 +18,7 @@ Get your first contribution into the AgentiQ ecosystem in 5 steps.
 ## Step 2 — Install the SDK
 
 ```bash
-npm install @agentiq/agentiq-sdk
+npm install @agentiqos/agentiq-sdk
 ```
 
 ## Step 3 — Package with manifest.json

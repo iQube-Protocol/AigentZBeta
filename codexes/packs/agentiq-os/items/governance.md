@@ -9,7 +9,7 @@ AgentiQ OS operates an explicit open/proprietary boundary. This is not a moral p
 | Asset | License | Location |
 |-------|---------|---------|
 | Protocol specs (iQube, Qripto, Aigent) | iQube Protocol License | This cartridge + public repo |
-| AgentiQ OS SDK (`@agentiq/sdk`) | iQube Protocol License | `packages/agentiq-sdk` → public mirror |
+| AgentiQ OS SDK (`@agentiqos/agentiq-sdk`) | iQube Protocol License | `packages/agentiq-sdk` → public mirror |
 | Pack content (docs, KB) | iQube Protocol License | `codexes/packs/agentiq-os/` → public mirror |
 | Developer reference docs | iQube Protocol License | This cartridge |
 | Registry trust band definitions | iQube Protocol License | Publicly documented |

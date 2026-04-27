@@ -1,5 +1,5 @@
 /**
- * @agentiq/agentiq-sdk - Utility Functions
+ * @agentiqos/agentiq-sdk - Utility Functions
  */
 
 import type { ChatMessage, AgentPersona } from './types';
