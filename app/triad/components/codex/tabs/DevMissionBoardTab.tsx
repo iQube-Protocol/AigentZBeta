@@ -241,7 +241,7 @@ export function DevMissionBoardTab({ personaId }: DevMissionBoardTabProps) {
     loadJourneyState();
   }, [loadJourneyState]);
 
-  async function persistCompletion(next: Set<string>) {
+  async function persistCompletion(next: Set<string>, justCompleted?: string) {
     if (!personaId) return;
     setSyncing(true);
     try {
@@ -254,6 +254,29 @@ export function DevMissionBoardTab({ personaId }: DevMissionBoardTabProps) {
           completed_experience_ids: completedIds,
         }),
       });
+      // Emit DVN receipt-eligible event for newly completed missions
+      if (justCompleted) {
+        void fetch("/api/runtime/orchestration", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            event_type: "z_delegated",
+            persona_id: personaId,
+            journey_stage: "acolyte",
+            active_cartridge: "agentiq-os-cartridge",
+            from_role: "aigent-z",
+            to_role: "aigent-c",
+            reason: `Mission completed: ${justCompleted}`,
+            receipt_eligible: true,
+            metadata: {
+              mission_completed: true,
+              mission_id: justCompleted,
+              total_completed: next.size,
+              agent_root_did: "did:iqube:aigent-c-os-root",
+            },
+          }),
+        });
+      }
     } catch {
       // non-fatal
     } finally {
