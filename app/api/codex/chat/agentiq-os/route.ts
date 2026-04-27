@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as fs from 'fs';
 import * as path from 'path';
 import { personas } from '@/app/data/personas';
+import { emitOrchestrationEvent } from '@/services/orchestration/orchestrationEvents';
 
 // ============================================================================
 // Config — STRICTLY isolated to agentiq-os pack
@@ -285,11 +286,24 @@ export async function POST(request: NextRequest) {
     // DelegationGuard — primary policy enforcement, runs before LLM
     const guardResult = runDelegationGuard(message);
     if (!guardResult.pass) {
-      // Emit policy_blocked event (in Phase 2 this will write to orchestration_events)
-      console.warn('[AgentiQ-OS Chat] DelegationGuard blocked request:', {
-        reason: guardResult.reason,
-        injectionDetected: guardResult.injectionDetected,
-        persona_id: persona_id ?? 'anonymous',
+      const pid = persona_id ?? 'anonymous';
+      void emitOrchestrationEvent({
+        event_id: `guard_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        timestamp: new Date().toISOString(),
+        event_type: 'policy_blocked',
+        from_role: 'aigent-z',
+        to_role: 'aigent-c',
+        reason: guardResult.reason ?? 'DelegationGuard blocked request',
+        journey_stage: 'acolyte',
+        active_cartridge: 'agentiq-os-cartridge',
+        active_codex: 'agentiq-os-cartridge',
+        receipt_eligible: true,
+        metadata: {
+          persona_id: pid,
+          agent_root_did: 'did:iqube:aigent-c-os-root',
+          injection_detected: guardResult.injectionDetected ?? false,
+          message_preview: message.slice(0, 120),
+        },
       });
       return NextResponse.json(
         {

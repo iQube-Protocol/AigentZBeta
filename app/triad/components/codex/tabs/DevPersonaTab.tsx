@@ -1,19 +1,38 @@
 "use client";
 
 import React, { useState } from "react";
-import { User, Wallet, ChevronDown, ChevronUp, Info } from "lucide-react";
+import { User, Wallet, ChevronDown, ChevronUp, Info, Star, Globe } from "lucide-react";
 import { PersonaCreationForm } from "@/components/identity/PersonaCreationForm";
+import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 
 interface DevPersonaTabProps {
   personaId?: string;
 }
 
+const BUCKET_LABELS: Record<number, string> = {
+  0: "L1 Experimental",
+  1: "L2 Verified Community",
+  2: "L3 Production Candidate",
+  3: "L4 Production Approved",
+  4: "L5 Core Sovereign",
+};
+
+const WORLD_ID_LABELS: Record<string, string> = {
+  unverified: "Unverified",
+  verified_human: "Verified Human",
+  agent_declared: "Agent Declared",
+};
+
 export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
+  const { sessionPersonas, isLoading } = useSupabaseSessionPersonas();
   const [showForm, setShowForm] = useState(false);
   const [createdId, setCreatedId] = useState<string | null>(null);
   const [showIdentityInfo, setShowIdentityInfo] = useState(false);
 
   const activePersonaId = createdId ?? personaId ?? null;
+  const livePersona =
+    sessionPersonas.find((p) => p.id === activePersonaId) ??
+    (sessionPersonas.length > 0 ? sessionPersonas[0] : null);
 
   return (
     <div className="p-6 space-y-6 max-w-2xl">
@@ -54,7 +73,7 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
             </div>
             <ul className="text-xs text-slate-400 space-y-1 list-disc list-inside">
               <li>Your <strong className="text-slate-300">Root DiD</strong> is your durable identity — trust, receipts, and reputation always trace back here</li>
-              <li>A <strong className="text-slate-300">bounded persona</strong> is your context-specific presentation layer — it can vary by cartridge, client, or mission</li>
+              <li>A <strong className="text-slate-300">bounded persona</strong> is your context-specific presentation — it can vary by cartridge, client, or mission</li>
               <li>Personas may be anonymous, pseudonymous, or identified depending on your disclosure policy</li>
               <li><em>Personas may vary. Accountability does not.</em></li>
             </ul>
@@ -62,15 +81,23 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
         )}
       </div>
 
-      {/* Active persona */}
-      {activePersonaId ? (
+      {/* Active persona — live from Supabase session */}
+      {isLoading ? (
+        <div className="rounded-xl border border-slate-700/40 bg-slate-900/20 p-4">
+          <p className="text-sm text-slate-400">Loading persona state…</p>
+        </div>
+      ) : livePersona ? (
         <div className="rounded-xl border border-green-500/20 bg-green-500/5 p-4 space-y-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Active Persona</p>
           <div className="grid grid-cols-1 gap-2 text-sm">
             <div className="flex items-center justify-between">
+              <span className="text-slate-400">Display name</span>
+              <span className="text-slate-200 font-medium">{livePersona.displayName}</span>
+            </div>
+            <div className="flex items-center justify-between">
               <span className="text-slate-400">Persona ID</span>
-              <code className="text-xs text-green-300 bg-green-500/10 px-2 py-0.5 rounded break-all max-w-[240px]">
-                {activePersonaId}
+              <code className="text-xs text-green-300 bg-green-500/10 px-2 py-0.5 rounded">
+                {livePersona.id}
               </code>
             </div>
             <div className="flex items-center justify-between">
@@ -79,11 +106,61 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
                 agentiq-os-cartridge
               </code>
             </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-400">Identifiability</span>
+              <span className="text-xs text-slate-300 capitalize">{livePersona.identifiability}</span>
+            </div>
           </div>
-          <p className="text-xs text-slate-500">
-            This persona is your presentation layer in the AgentiQ OS Cartridge context.
-            Your Root DiD anchors trust and receipts across all contexts.
-          </p>
+
+          {/* Reputation */}
+          <div className="border-t border-slate-700/40 pt-3 space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Reputation</p>
+            <div className="flex items-center gap-3">
+              <div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-blue-500 to-violet-500"
+                  style={{ width: `${livePersona.reputationScore}%` }}
+                />
+              </div>
+              <span className="text-xs text-slate-300 tabular-nums w-12 text-right">
+                {livePersona.reputationScore} / 100
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Star className="h-3.5 w-3.5 text-violet-400" />
+              <span className="text-xs text-violet-300">
+                {BUCKET_LABELS[livePersona.reputationBucket] ?? `Bucket ${livePersona.reputationBucket}`}
+              </span>
+            </div>
+          </div>
+
+          {/* World ID + badges */}
+          <div className="border-t border-slate-700/40 pt-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <Globe className="h-3.5 w-3.5 text-slate-400" />
+              <span className="text-xs text-slate-400">World ID: </span>
+              <span className="text-xs text-slate-300">
+                {WORLD_ID_LABELS[livePersona.worldIdStatus] ?? livePersona.worldIdStatus}
+              </span>
+            </div>
+            {livePersona.badges && livePersona.badges.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {livePersona.badges.map((b) => (
+                  <span
+                    key={b}
+                    className="rounded-full bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 text-[11px] text-blue-300"
+                  >
+                    {b}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : activePersonaId ? (
+        <div className="rounded-xl border border-slate-700/40 bg-slate-900/20 p-4">
+          <p className="text-sm text-slate-400">Persona ID: <code className="text-xs bg-slate-800 px-1 rounded">{activePersonaId}</code></p>
+          <p className="text-xs text-slate-500 mt-1">Sign in to see full persona state.</p>
         </div>
       ) : (
         <div className="rounded-xl border border-slate-700/40 bg-slate-900/20 p-4">
@@ -94,18 +171,31 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
         </div>
       )}
 
-      {/* Wallet state placeholder */}
+      {/* Wallet state */}
       <div className="rounded-xl border border-slate-700/60 bg-slate-900/30 p-4 space-y-3">
         <div className="flex items-center gap-2">
           <Wallet className="h-4 w-4 text-slate-400" />
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">SmartWallet</p>
         </div>
-        {activePersonaId ? (
-          <p className="text-sm text-slate-400">
-            Wallet balances load from your active SmartWalletQube in Phase 2 (live wallet integration).
-          </p>
+        {livePersona?.evmAddress ? (
+          <div className="space-y-1.5 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-400">EVM address</span>
+              <code className="text-xs text-slate-300 bg-slate-800 px-2 py-0.5 rounded font-mono">
+                {livePersona.evmAddress.slice(0, 6)}…{livePersona.evmAddress.slice(-4)}
+              </code>
+            </div>
+            {livePersona.fioHandle && (
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Handle</span>
+                <span className="text-xs text-slate-300">{livePersona.fioHandle}</span>
+              </div>
+            )}
+          </div>
         ) : (
-          <p className="text-sm text-slate-400 italic">Create a persona to see wallet state.</p>
+          <p className="text-sm text-slate-400">
+            {livePersona ? "No EVM address linked to this persona." : "Create a persona to see wallet state."}
+          </p>
         )}
       </div>
 
