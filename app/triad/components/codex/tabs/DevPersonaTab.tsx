@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { User, Wallet, ChevronDown, ChevronUp, Info, Star, Globe } from "lucide-react";
 import { PersonaCreationForm } from "@/components/identity/PersonaCreationForm";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
@@ -51,13 +51,35 @@ const WORLD_ID_LABELS: Record<string, string> = {
 };
 
 export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
-  const { sessionPersonas, isLoading } = useSupabaseSessionPersonas();
+  const { sessionPersonas, isLoading, refreshPersonas } = useSupabaseSessionPersonas();
   const [showForm, setShowForm] = useState(false);
   const [createdId, setCreatedId] = useState<string | null>(null);
   const [createdDID, setCreatedDID] = useState<string | null>(null);
   const [showIdentityInfo, setShowIdentityInfo] = useState(false);
+  const [walletPersonaId, setWalletPersonaId] = useState<string | null>(null);
 
-  const activePersonaId = createdId ?? personaId ?? null;
+  // Sync with wallet persona selector: read initial value from localStorage and
+  // update whenever the wallet switches personas (same-page event or cross-tab storage event)
+  useEffect(() => {
+    const stored = window.localStorage.getItem("currentPersonaId");
+    if (stored) setWalletPersonaId(stored);
+
+    const handleSwitch = (e: Event) => {
+      const detail = (e as CustomEvent<{ personaId: string }>).detail;
+      if (detail?.personaId) setWalletPersonaId(detail.personaId);
+    };
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "currentPersonaId" && e.newValue) setWalletPersonaId(e.newValue);
+    };
+    window.addEventListener("persona-switched", handleSwitch);
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener("persona-switched", handleSwitch);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
+
+  const activePersonaId = createdId ?? walletPersonaId ?? personaId ?? null;
   const livePersona =
     sessionPersonas.find((p) => p.id === activePersonaId) ??
     (sessionPersonas.length > 0 ? sessionPersonas[0] : null);
@@ -253,6 +275,7 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
               setCreatedDID(`did:iqube:${id}`);
               setShowForm(false);
               void emitPersonaCreatedReceipt(id);
+              void refreshPersonas();
             }}
             onCancel={() => setShowForm(false)}
           />

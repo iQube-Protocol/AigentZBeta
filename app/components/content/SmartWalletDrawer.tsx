@@ -1502,6 +1502,8 @@ export default function SmartWalletDrawer({
                           setLocalPersonaId(persona.id);
                           onPersonaChange?.(persona.id);
                           setPersonaMenuOpen(false);
+                          window.localStorage.setItem("currentPersonaId", persona.id);
+                          window.dispatchEvent(new CustomEvent("persona-switched", { detail: { personaId: persona.id } }));
                         }}
                         className={`w-full px-3 py-2 flex items-center gap-2 hover:bg-white/5 transition-colors ${
                           effectivePersonaId === persona.id ? "bg-white/5" : ""

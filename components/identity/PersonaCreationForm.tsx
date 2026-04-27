@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { User, Loader2, CheckCircle, Copy, Check, ExternalLink } from 'lucide-react';
+import { User, Loader2, CheckCircle, Copy, Check } from 'lucide-react';
 import { FIOHandleInput } from './FIOHandleInput';
 import { FIORegistrationModal } from './FIORegistrationModal';
 
@@ -25,6 +25,7 @@ export function PersonaCreationForm({ onSuccess, onCancel }: PersonaCreationForm
   const [copiedPrivateKey, setCopiedPrivateKey] = useState(false);
   const [generatingKeys, setGeneratingKeys] = useState(false);
   const [step, setStep] = useState<'info' | 'generate-keys' | 'show-keys' | 'review' | 'creating'>('info');
+  const [fioRegistrationPending, setFioRegistrationPending] = useState(false);
 
   const handleCopyPrivateKey = async () => {
     try {
@@ -99,7 +100,9 @@ export function PersonaCreationForm({ onSuccess, onCancel }: PersonaCreationForm
 
       if (data.ok && data.data) {
         setCreatedPersonaId(data.data.persona.id);
-        // Success! Persona created and FIO registered
+        if (data.data.fio?.status === 'pending') {
+          setFioRegistrationPending(true);
+        }
         onSuccess?.(data.data.persona.id);
       } else {
         setError(data.error || 'Failed to create persona');
@@ -189,9 +192,16 @@ export function PersonaCreationForm({ onSuccess, onCancel }: PersonaCreationForm
 
         {/* Success Message */}
         {createdPersonaId && !showFIORegistration && (
-          <div className="p-3 bg-green-900/20 border border-green-700 rounded-md flex items-center gap-2">
-            <CheckCircle size={16} className="text-green-400" />
-            <p className="text-sm text-green-400">Persona created successfully!</p>
+          <div className="space-y-2">
+            <div className="p-3 bg-green-900/20 border border-green-700 rounded-md flex items-center gap-2">
+              <CheckCircle size={16} className="text-green-400" />
+              <p className="text-sm text-green-400">Persona created successfully!</p>
+            </div>
+            {fioRegistrationPending && (
+              <div className="p-3 bg-amber-900/20 border border-amber-700 rounded-md">
+                <p className="text-sm text-amber-400">FIO handle registration is pending — the system account may need configuring. Your persona is created and will activate once the handle is registered.</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -315,29 +325,6 @@ export function PersonaCreationForm({ onSuccess, onCancel }: PersonaCreationForm
               </p>
             </div>
 
-            {/* Testnet Faucet Link */}
-            {process.env.NEXT_PUBLIC_FIO_NETWORK === 'testnet' || !process.env.NEXT_PUBLIC_FIO_NETWORK ? (
-              <div className="p-4 bg-blue-900/20 border border-blue-700 rounded-md">
-                <p className="text-sm text-blue-400 mb-2">
-                  💡 <strong>Testnet Tokens Required</strong>
-                </p>
-                <p className="text-xs text-slate-400 mb-3">
-                  To register on FIO testnet, your account needs tokens. Get free testnet tokens from the faucet:
-                </p>
-                <a
-                  href={`https://faucet.fioprotocol.io/?publickey=${publicKey}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700 transition-colors"
-                >
-                  <ExternalLink size={14} />
-                  Get Testnet Tokens
-                </a>
-                <p className="text-xs text-slate-500 mt-3">
-                  ⏱️ Wait 1-2 minutes after requesting tokens, then proceed to create your persona.
-                </p>
-              </div>
-            ) : null}
 
             <div className="flex gap-3 justify-end">
               <button
