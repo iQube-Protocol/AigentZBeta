@@ -102,6 +102,32 @@ export default function CodexViewerPage() {
   }, [sessionPersonas]);
 
   const isAigentiqCodex = codexId === "agentiq-codex";
+  const isAgentiqOSCartridge = codexId === "agentiq-os-cartridge";
+
+  const [copilotOSOpen, setCopilotOSOpen] = useState(false);
+
+  // Listen for AigentCOSTab button clicks (dispatched via custom DOM event)
+  useEffect(() => {
+    const handler = () => setCopilotOSOpen(true);
+    window.addEventListener('aigent-c-os:open-copilot', handler);
+    return () => window.removeEventListener('aigent-c-os:open-copilot', handler);
+  }, []);
+
+  const handleAigentCOSPrompt = useCallback(async (prompt: string): Promise<string> => {
+    try {
+      const res = await fetch("/api/codex/chat/agentiq-os", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: prompt, persona_id: activePersonaId }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      return data.response || "I could not generate a response.";
+    } catch (err) {
+      console.error("[CodexViewer] Aigent C-OS chat error:", err);
+      return "I encountered an error. Please try again.";
+    }
+  }, [activePersonaId]);
 
   const handleAigentZPrompt = useCallback(async (prompt: string): Promise<string> => {
     try {
@@ -376,6 +402,21 @@ export default function CodexViewerPage() {
                 Aigent Z
               </button>
             )}
+            {isAgentiqOSCartridge && (
+              <button
+                type="button"
+                onClick={() => setCopilotOSOpen((prev) => !prev)}
+                className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1 text-xs font-semibold transition-colors ${
+                  copilotOSOpen
+                    ? "border-green-500/60 bg-green-500/20 text-green-200"
+                    : "border-slate-600/60 bg-slate-800/70 text-slate-300 hover:border-green-500/40 hover:text-green-300"
+                }`}
+                title="Toggle Aigent C-OS copilot"
+              >
+                <Bot className="h-3.5 w-3.5" />
+                Aigent C-OS
+              </button>
+            )}
             <Settings className="w-5 h-5 text-slate-400" />
             <div className="inline-flex items-center rounded-lg border border-slate-700/60 bg-slate-900/70 p-1">
               {(
@@ -526,6 +567,29 @@ export default function CodexViewerPage() {
                 "How does the iQube identity hierarchy work?",
               ]}
               promptPlaceholder="Ask about the platform, commits, architecture..."
+            />
+          )}
+          {isAgentiqOSCartridge && (
+            <CodexCopilotLayer
+              isOpen={copilotOSOpen}
+              onClose={() => setCopilotOSOpen(false)}
+              onOpen={() => setCopilotOSOpen(true)}
+              variant="floating"
+              onUserPrompt={handleAigentCOSPrompt}
+              density={density}
+              agent={{ id: "aigent-c-os", name: "Aigent C-OS" }}
+              personaId={activePersonaId ?? "aigent-c-os"}
+              enableInferenceRendering
+              initialMessage="I'm Aigent C-OS — your grounded guide to the AgentiQ OS open layer. Ask me about protocols, SDK usage, bounded delegation, cartridge building, Registry submissions, or the nanOS bridge path."
+              quickPrompts={[
+                "What is the PolicyEnvelope?",
+                "How do I install the SDK?",
+                "Explain the three protocols",
+                "What is bounded delegation?",
+                "How do I submit to the Registry?",
+                "What is my path to nanOS?",
+              ]}
+              promptPlaceholder="Ask about AgentiQ OS, protocols, SDK, delegation..."
             />
           )}
         </div>

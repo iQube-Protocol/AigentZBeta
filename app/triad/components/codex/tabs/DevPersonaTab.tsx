@@ -5,6 +5,33 @@ import { User, Wallet, ChevronDown, ChevronUp, Info, Star, Globe } from "lucide-
 import { PersonaCreationForm } from "@/components/identity/PersonaCreationForm";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 
+async function emitPersonaCreatedReceipt(personaId: string): Promise<void> {
+  try {
+    await fetch('/api/runtime/orchestration', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event_type: 'z_delegated',
+        persona_id: personaId,
+        journey_stage: 'acolyte',
+        active_cartridge: 'agentiq-os-cartridge',
+        from_role: 'aigent-z',
+        to_role: 'aigent-c',
+        reason: `Developer persona created: ${personaId}`,
+        receipt_eligible: true,
+        metadata: {
+          persona_created: true,
+          root_did_stub: `did:iqube:${personaId}`,
+          agent_root_did: 'did:iqube:aigent-c-os-root',
+          cartridge: 'agentiq-os-cartridge',
+        },
+      }),
+    });
+  } catch {
+    // non-fatal
+  }
+}
+
 interface DevPersonaTabProps {
   personaId?: string;
 }
@@ -27,6 +54,7 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
   const { sessionPersonas, isLoading } = useSupabaseSessionPersonas();
   const [showForm, setShowForm] = useState(false);
   const [createdId, setCreatedId] = useState<string | null>(null);
+  const [createdDID, setCreatedDID] = useState<string | null>(null);
   const [showIdentityInfo, setShowIdentityInfo] = useState(false);
 
   const activePersonaId = createdId ?? personaId ?? null;
@@ -98,6 +126,12 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
               <span className="text-slate-400">Persona ID</span>
               <code className="text-xs text-green-300 bg-green-500/10 px-2 py-0.5 rounded">
                 {livePersona.id}
+              </code>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-400">Root DiD</span>
+              <code className="text-xs text-violet-300 bg-violet-500/10 px-2 py-0.5 rounded break-all max-w-[220px]">
+                {createdDID ?? `did:iqube:${livePersona.id}`}
               </code>
             </div>
             <div className="flex items-center justify-between">
@@ -216,7 +250,9 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
           <PersonaCreationForm
             onSuccess={(id) => {
               setCreatedId(id);
+              setCreatedDID(`did:iqube:${id}`);
               setShowForm(false);
+              void emitPersonaCreatedReceipt(id);
             }}
             onCancel={() => setShowForm(false)}
           />

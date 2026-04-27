@@ -1,129 +1,214 @@
 "use client";
 
-import React from "react";
-import { GitBranch, Lock, Unlock, ExternalLink } from "lucide-react";
+import React, { useState } from "react";
+import { ArrowRight, Globe, Lock, CheckCircle2, Circle, ChevronDown, ChevronUp } from "lucide-react";
 
-interface ComparisonRow {
-  concern: string;
-  nanos: string | null;
-  agentiqos: string | null;
+interface NanOSBridgeTabProps {
+  theme?: "light" | "dark";
 }
 
-const COMPARISON: ComparisonRow[] = [
-  { concern: "Agent spawning and lifecycle",          nanos: "✓ Handles",        agentiqos: "— Uses nanOS" },
-  { concern: "Sandboxed execution",                   nanos: "✓ Handles",        agentiqos: "— Uses nanOS" },
-  { concern: "Raw tool invocation",                   nanos: "✓ Handles",        agentiqos: "— Uses nanOS" },
-  { concern: "Inter-agent messaging primitives",      nanos: "✓ Handles",        agentiqos: "— Uses nanOS" },
-  { concern: "Identity (Root DiD, PersonaQube)",      nanos: "— Not in scope",   agentiqos: "✓ Provides" },
-  { concern: "Policy enforcement (PolicyEnvelope)",   nanos: "— Not in scope",   agentiqos: "✓ Provides" },
-  { concern: "Trust bands and reputation",            nanos: "— Not in scope",   agentiqos: "✓ Provides" },
-  { concern: "Bounded delegation",                    nanos: "— Not in scope",   agentiqos: "✓ Provides" },
-  { concern: "Registry (asset discovery)",            nanos: "— Not in scope",   agentiqos: "✓ Provides" },
-  { concern: "DVN receipts and audit trail",          nanos: "— Not in scope",   agentiqos: "✓ Provides" },
-  { concern: "Experience design (NBE, cartridges)",   nanos: "— Not in scope",   agentiqos: "✓ Provides" },
-  { concern: "Payment and x402 settlement",           nanos: "— Not in scope",   agentiqos: "✓ Provides" },
-  { concern: "Open source",                           nanos: "Proprietary",      agentiqos: "Open (iQube Protocol License)" },
-  { concern: "Developer-facing docs",                 nanos: "Not published",    agentiqos: "This cartridge" },
+const BRIDGE_STAGES = [
+  {
+    id: "open_onboarding",
+    label: "Open Onboarding",
+    color: "green",
+    description: "Developer discovers AgentiQ OS, reads KB, installs SDK.",
+    requirement: "Start Here + Docs / KB tabs complete",
+  },
+  {
+    id: "developer_active",
+    label: "Developer Active",
+    color: "blue",
+    description: "Developer persona created, SmartWallet connected.",
+    requirement: "Persona tab — create developer persona",
+  },
+  {
+    id: "contributor_candidate",
+    label: "Contributor Candidate",
+    color: "blue",
+    description: "Developer has completed Beginner and Builder missions.",
+    requirement: "Missions tab — Beginner + Builder tracks complete",
+  },
+  {
+    id: "registry_candidate",
+    label: "Registry Candidate",
+    color: "violet",
+    description: "Developer has submitted at least one asset to the Registry at L1+.",
+    requirement: "Missions tab — Register an AigentQube complete",
+  },
+  {
+    id: "studio_candidate",
+    label: "Studio Candidate",
+    color: "violet",
+    description: "Developer has built a complete cartridge or ExperienceQube.",
+    requirement: "Missions tab — Advanced track complete",
+  },
+  {
+    id: "partner_candidate",
+    label: "Partner Candidate",
+    color: "orange",
+    description: "Developer has contributed to public docs or proposed a protocol improvement.",
+    requirement: "Missions tab — Ecosystem track complete",
+  },
+  {
+    id: "nanos_onboarded",
+    label: "nanOS Onboarded",
+    color: "rose",
+    description: "metaMe team or Aigent reviews candidate state and routes into nanOS.",
+    requirement: "Authorized by metaMe via nanOS AgentiQ OS Bridge",
+  },
 ];
 
-const OPEN_ITEMS = [
-  { label: "Protocol specs (iQube, Qripto, Aigent)", open: true },
-  { label: "AgentiQ OS SDK (@agentiq/sdk)", open: true },
-  { label: "Pack content (developer KB docs)", open: true },
-  { label: "Registry trust band definitions", open: true },
-  { label: "nanOS internals", open: false },
-  { label: "AgentiQ Platform (cartridge renderer)", open: false },
-  { label: "Engineering KB (architecture, PRs, decisions)", open: false },
-  { label: "Supabase schema and RLS policies", open: false },
+const OPEN_PROPRIETARY_TABLE = [
+  { area: "Access", open: "Public / developer-facing", proprietary: "Private / authorized / operator-facing" },
+  { area: "Purpose", open: "Learn, build, submit, onboard", proprietary: "Govern, activate, route, commercialize" },
+  { area: "Audience", open: "Developers, builders, contributors", proprietary: "Operators, Aigents, authorized partners" },
+  { area: "Aigent", open: "Aigent C-OS (developer copilot)", proprietary: "Aigent Z, Aigent C, Marketa, Kn0w1" },
+  { area: "Registry", open: "Submission standards and SDK", proprietary: "Approval, ranking, monetization, governance" },
+  { area: "Missions", open: "Developer onboarding missions", proprietary: "Population, campaign, partner, operator missions" },
+  { area: "Persona", open: "Developer persona creation", proprietary: "Full population identity management" },
+  { area: "Intelligence", open: "Reference patterns and docs", proprietary: "NBE/NBA, Experience Matrix, CRM intelligence" },
 ];
 
-export function NanOSBridgeTab() {
+const COLOR_MAP: Record<string, { badge: string }> = {
+  green:  { badge: "bg-green-500/20 text-green-200 border-green-500/30" },
+  blue:   { badge: "bg-blue-500/20 text-blue-200 border-blue-500/30" },
+  violet: { badge: "bg-violet-500/20 text-violet-200 border-violet-500/30" },
+  orange: { badge: "bg-orange-500/20 text-orange-200 border-orange-500/30" },
+  rose:   { badge: "bg-rose-500/20 text-rose-200 border-rose-500/30" },
+};
+
+export function NanOSBridgeTab({ theme: _theme }: NanOSBridgeTabProps) {
+  const [showTable, setShowTable] = useState(false);
+  const [completedStages, setCompletedStages] = useState<Set<string>>(new Set());
+
+  function toggleStage(id: string) {
+    setCompletedStages((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); } else { next.add(id); }
+      return next;
+    });
+  }
+
   return (
     <div className="p-6 space-y-6 max-w-2xl">
       <div className="flex items-start gap-4">
-        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-amber-500/20 border border-amber-500/30">
-          <GitBranch className="h-6 w-6 text-amber-400" />
+        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-rose-500/20 border border-rose-500/30">
+          <ArrowRight className="h-6 w-6 text-rose-400" />
         </div>
         <div>
           <h2 className="text-lg font-semibold text-slate-100">nanOS Bridge</h2>
           <p className="text-sm text-slate-400 mt-0.5">
-            How AgentiQ OS sits above nanOS — what each layer owns.
+            Your path from open-source developer to metaMe production ecosystem participant.
           </p>
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-700/40 bg-slate-900/30 p-4">
-        <p className="text-sm text-slate-300 mb-3">The hourglass architecture:</p>
-        <div className="rounded-lg bg-slate-800/60 px-4 py-3 font-mono text-xs text-slate-300 space-y-1">
-          <p>┌─────────────────────────────────────────┐</p>
-          <p>│  AgentiQ Platform (cartridges, UX)      │  ← Open participation</p>
-          <p>├─────────────────────────────────────────┤</p>
-          <p>│  AgentiQ OS  ← you are here             │  ← Governed waist</p>
-          <p>│  (protocols, SDK, runtime, registry)    │</p>
-          <p>├─────────────────────────────────────────┤</p>
-          <p>│  nanOS (agent execution substrate)      │  ← Proprietary</p>
-          <p>└─────────────────────────────────────────┘</p>
+      {/* Positioning statement */}
+      <div className="rounded-xl border border-slate-700/40 bg-slate-900/30 p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Globe className="h-4 w-4 text-green-400" />
+          <span className="text-sm font-semibold text-slate-200">AgentiQ OS</span>
+          <span className="text-xs text-slate-500">open-source</span>
         </div>
-        <p className="text-xs text-slate-500 mt-2">
-          AgentiQ OS provides the semantics. nanOS provides the execution mechanics. Developers work with AgentiQ OS — nanOS is an implementation detail.
+        <p className="text-sm text-slate-300">
+          AgentiQ OS is the open developer and agent onboarding layer. This is where you build, experiment, and publish.
         </p>
+        <div className="flex items-center gap-2">
+          <Lock className="h-4 w-4 text-rose-400" />
+          <span className="text-sm font-semibold text-slate-200">nanOS</span>
+          <span className="text-xs text-slate-500">proprietary · metaMe</span>
+        </div>
+        <p className="text-sm text-slate-300">
+          nanOS is metaMe&apos;s proprietary production distribution of AgentiQ OS. It adds population intelligence,
+          production Aigent coordination, Experience Matrix, CRM, commercial rails, Registry governance, and bounded
+          delegation management for the live ecosystem.
+        </p>
+        <div className="rounded-lg bg-slate-800/60 px-3 py-2 text-xs text-slate-300 italic border-l-2 border-rose-500/40">
+          AgentiQ OS lets the world build. nanOS lets metaMe operate, govern, and grow.
+        </div>
       </div>
 
+      {/* Bridge pathway */}
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Capability Comparison</p>
-        <div className="overflow-x-auto rounded-xl border border-slate-700/40">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-700/40 bg-slate-900/60">
-                <th className="text-left px-4 py-2 text-xs text-slate-400 font-medium">Concern</th>
-                <th className="text-left px-4 py-2 text-xs text-slate-400 font-medium">nanOS</th>
-                <th className="text-left px-4 py-2 text-xs text-slate-400 font-medium">AgentiQ OS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {COMPARISON.map((row, i) => (
-                <tr key={i} className={`border-b border-slate-800/60 ${i % 2 === 0 ? "bg-slate-900/20" : ""}`}>
-                  <td className="px-4 py-2 text-xs text-slate-300">{row.concern}</td>
-                  <td className={`px-4 py-2 text-xs ${row.nanos?.startsWith("✓") ? "text-amber-300" : "text-slate-500"}`}>
-                    {row.nanos}
-                  </td>
-                  <td className={`px-4 py-2 text-xs ${row.agentiqos?.startsWith("✓") ? "text-green-300" : "text-slate-500"}`}>
-                    {row.agentiqos}
-                  </td>
+        <h3 className="text-sm font-semibold text-slate-200 mb-3">Your Bridge Path</h3>
+        <p className="text-xs text-slate-400 mb-4">
+          Track your progress toward becoming a nanOS candidate. When the metaMe team reviews your state, they use this
+          bridge to route you into the production ecosystem.
+        </p>
+        <div className="space-y-0">
+          {BRIDGE_STAGES.map((stage, idx) => {
+            const done = completedStages.has(stage.id);
+            const colors = COLOR_MAP[stage.color];
+            const isLast = idx === BRIDGE_STAGES.length - 1;
+            return (
+              <div key={stage.id} className="flex gap-3">
+                <div className="flex flex-col items-center">
+                  <button type="button" onClick={() => toggleStage(stage.id)} className="flex-shrink-0 mt-0.5">
+                    {done
+                      ? <CheckCircle2 className="h-5 w-5 text-green-400" />
+                      : <Circle className="h-5 w-5 text-slate-600" />}
+                  </button>
+                  {!isLast && <div className="w-px flex-1 mt-1 mb-1 border-l border-dashed border-slate-700/60" />}
+                </div>
+                <div className={`flex-1 rounded-lg border p-3 mb-2 ${done ? "border-green-500/20 bg-green-500/5" : "border-slate-700/40 bg-slate-900/20"}`}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`text-sm font-medium ${done ? "text-green-300" : "text-slate-200"}`}>
+                      {stage.label}
+                    </span>
+                    <span className={`rounded-full border px-1.5 py-0.5 text-[10px] ${colors.badge}`}>
+                      {isLast ? "nanOS" : `Stage ${idx + 1}`}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400">{stage.description}</p>
+                  <p className="text-[11px] text-slate-500 mt-1">Requirement: {stage.requirement}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Open vs Proprietary table */}
+      <div className="rounded-xl border border-slate-700/40 bg-slate-900/20">
+        <button
+          type="button"
+          onClick={() => setShowTable((v) => !v)}
+          className="flex w-full items-center justify-between px-4 py-3 text-sm text-slate-300"
+        >
+          <span className="font-medium">AgentiQ OS vs nanOS — What Each Does</span>
+          {showTable ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </button>
+        {showTable && (
+          <div className="overflow-x-auto border-t border-slate-700/40">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-slate-700/40">
+                  <th className="px-4 py-2 text-left text-slate-500 font-medium">Area</th>
+                  <th className="px-4 py-2 text-left text-green-400 font-medium">AgentiQ OS (open)</th>
+                  <th className="px-4 py-2 text-left text-rose-400 font-medium">nanOS (proprietary)</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {OPEN_PROPRIETARY_TABLE.map((row, i) => (
+                  <tr key={row.area} className={i % 2 === 0 ? "bg-slate-900/20" : ""}>
+                    <td className="px-4 py-2 text-slate-400 font-medium">{row.area}</td>
+                    <td className="px-4 py-2 text-slate-300">{row.open}</td>
+                    <td className="px-4 py-2 text-slate-300">{row.proprietary}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-3">Open / Proprietary Boundary</p>
-        <div className="space-y-2">
-          {OPEN_ITEMS.map(({ label, open }) => (
-            <div key={label} className={`flex items-center gap-3 rounded-lg border px-3 py-2 text-sm ${open ? "border-green-500/20 bg-green-500/5" : "border-slate-700/30 bg-slate-900/20"}`}>
-              {open
-                ? <Unlock className="h-4 w-4 flex-shrink-0 text-green-400" />
-                : <Lock className="h-4 w-4 flex-shrink-0 text-slate-500" />
-              }
-              <span className={open ? "text-slate-200" : "text-slate-500"}>{label}</span>
-              <span className={`ml-auto text-[11px] font-medium ${open ? "text-green-400" : "text-slate-600"}`}>
-                {open ? "Open" : "Proprietary"}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-amber-500/10 bg-amber-500/5 p-4">
-        <p className="text-sm font-medium text-amber-300 mb-1">nanOS documentation</p>
-        <p className="text-xs text-slate-400">
-          nanOS internals are not documented in this cartridge. Aigent C-OS will not speculate about nanOS implementation details. When nanOS docs are published, they will appear here as a linked resource.
+      <div className="text-xs text-slate-500 border-t border-slate-800 pt-3 space-y-1">
+        <p>
+          nanOS is private. Its Population Console, Aigent Z copilot, Runtime Ops, Studio Ops, CRM, Experience Matrix,
+          and commercial rails are proprietary to metaMe.
         </p>
-        <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
-          <ExternalLink className="h-3.5 w-3.5" />
-          <span>nanOS documentation — coming when published</span>
-        </div>
+        <p>For authorized access, contact the metaMe team.</p>
       </div>
     </div>
   );

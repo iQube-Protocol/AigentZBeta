@@ -12,7 +12,7 @@ The full AgentiQ OS stack follows an **hourglass architecture**: open participat
 | **AgentiQ OS Runtime** | NBE routing, OrchestrationEvents, experience depth ladder | Open spec, private runtime |
 | **iQube Protocol** | Data sovereignty, ownership, disclosure classes | Open spec |
 | **Qripto Protocol** | Trust, payments, DVN receipts, reputation | Open spec |
-| **nanOS** | Agent execution substrate | Proprietary |
+| **nanOS** | metaMe's proprietary production distribution of AgentiQ OS — Population Console, Aigent coordination, CRM, commercial rails, Registry governance, Experience Matrix | Proprietary |
 | **Storage / Chain** | Supabase, ICP canisters, EVM, Autonomys Auto-Drive | Mixed — public chains, private DB |
 
 ## The Governed Waist
@@ -23,7 +23,7 @@ The governed waist is the AgentiQ OS Runtime + Policy layer. This is where:
 - Trust band checks gate capability access
 - DVN receipts are generated
 
-Neither the cartridge layer above nor nanOS below can bypass the waist.
+nanOS operates on top of this governed waist — adding proprietary intelligence and production operations without bypassing the open policy layer.
 
 ## Current Technology Stack
 

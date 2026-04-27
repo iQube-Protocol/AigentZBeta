@@ -92,7 +92,13 @@ export function AigentCOSTab({ onOpenCopilot }: AigentCOSTabProps) {
 
       <button
         type="button"
-        onClick={onOpenCopilot}
+        onClick={() => {
+          if (onOpenCopilot) {
+            onOpenCopilot();
+          } else {
+            window.dispatchEvent(new CustomEvent('aigent-c-os:open-copilot'));
+          }
+        }}
         className="inline-flex items-center gap-2 rounded-xl border border-green-500/40 bg-green-500/10 px-5 py-2.5 text-sm font-semibold text-green-200 hover:bg-green-500/20 transition-colors"
       >
         <Sparkles className="h-4 w-4" />

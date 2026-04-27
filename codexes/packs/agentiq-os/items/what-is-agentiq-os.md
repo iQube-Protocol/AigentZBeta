@@ -4,17 +4,17 @@ AgentiQ OS is the open protocol layer that connects the Qripto trust infrastruct
 
 It is not a blockchain. It is not a wallet. It is the **governed coordination layer** that makes agents, experiences, and assets interoperable across the ecosystem.
 
-## The Three Layers
+## The Two Layers
 
 ```
 ┌─────────────────────────────────────────┐
-│         AgentiQ Platform                │  ← Cartridges, experiences, UX
+│  AgentiQ Platform + nanOS (proprietary) │  ← Cartridges, experiences, UX; production ops
 ├─────────────────────────────────────────┤
-│         AgentiQ OS  ← you are here      │  ← Protocols, SDK, Runtime, Registry
-├─────────────────────────────────────────┤
-│         nanOS                           │  ← Low-level agent execution substrate
+│         AgentiQ OS  ← you are here      │  ← Protocols, SDK, Runtime, Registry (open)
 └─────────────────────────────────────────┘
 ```
+
+**nanOS** is metaMe's proprietary production distribution of AgentiQ OS — a private operating cartridge for governing the live ecosystem (users, personas, Aigents, partners, commercial flows). It sits alongside the AgentiQ Platform, not beneath AgentiQ OS as a substrate.
 
 ## What AgentiQ OS Provides
 
