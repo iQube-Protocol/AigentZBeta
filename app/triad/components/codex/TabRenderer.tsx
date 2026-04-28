@@ -77,6 +77,7 @@ import { NanOSBridgeTab } from "./tabs/NanOSBridgeTab";
 import { DevRegistryTab } from "./tabs/DevRegistryTab";
 import { RefRuntimeTab } from "./tabs/RefRuntimeTab";
 import { RefStudioTab } from "./tabs/RefStudioTab";
+import { RefAigentTab } from "./tabs/RefAigentTab";
 
 interface TabRendererProps {
   tab: CodexTab;
@@ -155,6 +156,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   DevRegistryTab,
   RefRuntimeTab,
   RefStudioTab,
+  RefAigentTab,
   RewardsTab: PlaceholderTab,
   DocsTab: PlaceholderTab,
   APITab: PlaceholderTab,

@@ -37,7 +37,7 @@ The AgentiQ OS Cartridge is structured as follows:
 | Docs / KB | Protocol, stack, and standards reference |
 | Aigent C | AI guide — grounded in this KB |
 | Persona | Create and manage your developer persona |
-| Delegation | Grant bounded authority to Aigent C-OS; audit log |
+| Aigent Delegates | Grant bounded authority to Aigents with audit logs |
 | Build | Live AgentiQ OS dashboard — registry, factory pipeline |
 | Registry | Browse published Qube assets by trust band |
 | Reference Runtime | Runtime pattern reference |

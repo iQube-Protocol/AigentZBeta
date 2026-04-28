@@ -527,15 +527,20 @@ export function DevMissionBoardTab({ personaId, panel }: DevMissionBoardTabProps
 
   return (
     <div className="p-6 space-y-6 max-w-2xl">
-      {/* Header */}
+      {/* Header — title + subtitle track the active panel so the cartridge sub-header
+          and this in-tab heading stay aligned when caller pins a panel via the prop. */}
       <div className="flex items-start gap-4">
         <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-slate-700/60 border border-slate-600/40">
           <Target className="h-6 w-6 text-slate-300" />
         </div>
         <div>
-          <h2 className="text-lg font-semibold text-slate-100">Developer Mission Board</h2>
+          <h2 className="text-lg font-semibold text-slate-100">
+            {activePanel === "your-missions" ? "Developer Mission Board" : "KNYT Mission Board"}
+          </h2>
           <p className="text-sm text-slate-400 mt-0.5">
-            Your AgentiQ OS learning tracks — plus a live reference cartridge with real rewards.
+            {activePanel === "your-missions"
+              ? "Your AgentiQ OS learning tracks — bounded missions across beginner, builder, registry, advanced, and ecosystem."
+              : "Live KNYT Wheel cartridge — real missions, real KNYT credit rewards, agent-claimable today."}
           </p>
         </div>
       </div>

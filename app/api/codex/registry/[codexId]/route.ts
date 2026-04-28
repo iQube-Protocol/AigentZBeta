@@ -22,8 +22,21 @@ function createServerClient() {
 }
 
 import { CodexConfig, UpdateCodexRequest, CodexRegistryResponse } from '@/types/codex';
-import { getCodexById } from '@/data/codex-configs';
+import { getCodexById, getCodexBySlug } from '@/data/codex-configs';
 import { getPackCodexById } from '../_lib/packRegistry';
+
+/**
+ * Resolve a codex by id, then by slug, then by pack-derived id.
+ * Lets callers pass either id (e.g. "agentiq-os-cartridge") or slug
+ * (e.g. "agentiq-os") and still find the canonical config.
+ */
+async function resolveCodex(codexId: string): Promise<CodexConfig | undefined> {
+  return (
+    getCodexById(codexId) ??
+    getCodexBySlug(codexId) ??
+    (await getPackCodexById(codexId))
+  );
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -115,7 +128,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
         if (config) {
           // CODEX_DEFINITIONS takes priority over auto-generated pack configs — hand-written
           // configs are canonical and include static component tabs that packs can't express.
-          const fallbackCodex = getCodexById(codexId) ?? await getPackCodexById(codexId);
+          const fallbackCodex = await resolveCodex(codexId);
           const { data: tabs, error: tabsError } = await supabase
             .from('codex_tabs')
             .select('*')
@@ -167,7 +180,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
         // Ignore DB errors in defaults mode and continue to static fallback
       }
 
-      const codex = getCodexById(codexId) ?? await getPackCodexById(codexId);
+      const codex = await resolveCodex(codexId);
       if (!codex) {
         return NextResponse.json<CodexRegistryResponse>({
           success: false,
@@ -190,7 +203,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       .single();
 
     if (configError || !config) {
-      const fallbackCodex = getCodexById(codexId) ?? await getPackCodexById(codexId);
+      const fallbackCodex = await resolveCodex(codexId);
       if (fallbackCodex) {
         return NextResponse.json<CodexRegistryResponse<CodexConfig>>({
           success: true,
@@ -303,7 +316,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
       data = updateResult.data;
       error = updateResult.error;
     } else {
-      const fallbackCodex = getCodexById(codexId) ?? await getPackCodexById(codexId);
+      const fallbackCodex = await resolveCodex(codexId);
 
       if (!fallbackCodex) {
         return NextResponse.json<CodexRegistryResponse>({

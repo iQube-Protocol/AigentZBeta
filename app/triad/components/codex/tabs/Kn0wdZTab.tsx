@@ -25,6 +25,10 @@ import { CodexActionRow } from '../CodexActionRow';
 import { isLockedContent, isPremiumContent } from '@/app/triad/components/codex/utils/contentFlags';
 import { CodexBadge } from '../CodexBadge';
 import { CacheManager } from '@/app/utils/cache';
+import { buildCodexUrl } from '@/utils/codex-nav';
+
+// AgentiQ OS public mirror — verified from .github/workflows/sync-agentiq-os-to-public.yml.
+const AGENTIQ_OS_GITHUB_URL = 'https://github.com/iQube-Protocol/AgentiQ-OS';
 
 interface Kn0wdZTabProps {
   theme?: 'light' | 'dark';
@@ -57,25 +61,33 @@ const panels = {
     accentClass: 'text-cyan-400',
     ringClass: 'ring-cyan-400/40',
     tabClass: 'border-cyan-400/60 text-cyan-200 bg-cyan-500/20',
-    content: `// Initialize QIRI SDK
-import { QIRI } from '@qriptopian/sdk';
+    content: `# 1. Install the AgentiQ OS SDK
+npm install @agentiqos/agentiq-sdk
 
-const qiri = new QIRI({
-  network: 'mainnet',
-  apiKey: process.env.QIRI_KEY
+# 2. Scaffold a new cartridge
+npx @agentiqos/agentiq-sdk init my-cartridge
+cd my-cartridge && npm install
+
+# 3. Use the SDK in code
+import { AgentiQClient } from '@agentiqos/agentiq-sdk';
+
+const client = new AgentiQClient({
+  apiUrl: process.env.AGENTIQ_API_URL,
+  personaId: process.env.AGENTIQ_PERSONA_ID,
 });
 
-// Create a transaction
-const tx = await qiri.send({
-  to: 'did:qiri:recipient',
-  amount: 100, // Q¢
-  memo: 'Payment for services'
+// Register an AigentQube
+await client.registry.publish({
+  type: 'AigentQube',
+  capabilities: ['knowledge_retrieval'],
+  policyBindings: { disclosure_class: 'tenant' },
+  trust_band: 'L1_EXPERIMENTAL',
 });`,
     resources: [
-      { label: 'Documentation', desc: 'Full API reference', icon: BookOpen },
-      { label: 'GitHub Repos', desc: 'Open source examples', icon: Github },
-      { label: 'Discord', desc: 'Developer community', icon: MessageCircle },
-      { label: 'Video Tutorials', desc: 'Step-by-step guides', icon: Video },
+      { label: 'Documentation', desc: 'AgentiQ OS Docs / KB', icon: BookOpen, kind: 'docs' as const },
+      { label: 'GitHub Repos', desc: 'iQube-Protocol/AgentiQ-OS', icon: Github, kind: 'github' as const },
+      { label: 'Discord', desc: 'Developer community', icon: MessageCircle, kind: 'noop' as const },
+      { label: 'Video Tutorials', desc: 'Step-by-step guides', icon: Video, kind: 'noop' as const },
     ],
   },
   creative: {
@@ -417,18 +429,46 @@ export function Kn0wdZTab({ theme = 'dark', personaId, issueSlug }: Kn0wdZTabPro
             <p className={`text-sm font-semibold ${textClass}`}>Resources</p>
           </div>
           <div className="space-y-2">
-            {activePanel.resources.map((resource) => (
-              <div
-                key={resource.label}
-                className="flex items-center gap-3 rounded-lg p-2 transition-colors hover:bg-white/5"
-              >
-                <resource.icon className="h-4 w-4 text-slate-400" />
-                <div>
-                  <p className="text-sm text-white">{resource.label}</p>
-                  <p className="text-xs text-slate-400">{resource.desc}</p>
+            {activePanel.resources.map((resource) => {
+              const kind = (resource as { kind?: string }).kind;
+              const isDocs = kind === 'docs';
+              const isGithub = kind === 'github';
+              const href = isDocs
+                ? buildCodexUrl('agentiq-os-cartridge', { tab: 'docs-kb', personaId, from: 'qripto', fromTab: 'kn0wdz' })
+                : isGithub
+                  ? AGENTIQ_OS_GITHUB_URL
+                  : undefined;
+              const className = `flex items-center gap-3 rounded-lg p-2 transition-colors ${
+                href ? 'hover:bg-white/10 cursor-pointer' : 'hover:bg-white/5'
+              }`;
+              const inner = (
+                <>
+                  <resource.icon className="h-4 w-4 text-slate-400" />
+                  <div>
+                    <p className="text-sm text-white">{resource.label}</p>
+                    <p className="text-xs text-slate-400">{resource.desc}</p>
+                  </div>
+                </>
+              );
+              if (href) {
+                return (
+                  <a
+                    key={resource.label}
+                    href={href}
+                    target={isGithub ? '_blank' : '_self'}
+                    rel={isGithub ? 'noopener noreferrer' : undefined}
+                    className={className}
+                  >
+                    {inner}
+                  </a>
+                );
+              }
+              return (
+                <div key={resource.label} className={className}>
+                  {inner}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

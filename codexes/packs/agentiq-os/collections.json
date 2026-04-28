@@ -15,7 +15,8 @@
         "items/stack-overview.md",
         "items/dev-standards.md",
         "items/governance.md",
-        "items/identity-sovereignty.md"
+        "items/identity-sovereignty.md",
+        "items/bounded-delegation.md"
       ]
     },
     {
