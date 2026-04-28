@@ -1,6 +1,6 @@
 # Bounded Delegation
 
-Bounded delegation is the mechanism by which a user grants an Aigent explicit, time-limited, audited authority to act on their behalf — within a sealed policy boundary.
+Bounded delegation is the mechanism by which a user grants any Aigent — a platform agent like Aigent C, or a custom agent you build — explicit, time-limited, audited authority to act on their behalf, within a sealed policy boundary.
 
 ## Why Bounded Delegation Matters
 
@@ -16,12 +16,13 @@ Bounded delegation closes all three attack surfaces using iQube protocol primiti
 
 ## The PolicyEnvelope
 
-When you grant Aigent C-OS authority, the system creates a `HandoffPayload` containing a sealed `PolicyEnvelope`. This envelope defines exactly what the agent can and cannot do.
+When you grant an agent authority, the system creates a `HandoffPayload` containing a sealed `PolicyEnvelope`. This envelope defines exactly what the agent can and cannot do — regardless of whether it is a platform agent (Aigent C) or a custom agent you built.
 
 ```typescript
 PolicyEnvelope = {
   persona_id: "<your-persona-id>",
-  allowed_surfaces: ['agentiq-os-cartridge'],   // Cartridge-scoped only
+  agent_did: "did:iqube:<agent-root>",         // The agent being delegated to
+  allowed_surfaces: ['agentiq-os-cartridge'],   // Which cartridges the agent may access
   forbidden_actions: [
     'write_to_aigency_pack',           // Engineering KB is off-limits
     'access_supabase_service_role',    // No privileged DB access
@@ -32,10 +33,42 @@ PolicyEnvelope = {
   ],
   disclosure_class: 'tenant',          // Response content capped at tenant scope
   cartridge_scope: 'agentiq-os-cartridge',
+  max_actions: 20,                     // Action limit before re-confirmation required
 }
 ```
 
 The envelope is **immutable after creation**. No conversation, system prompt, or agent instruction can expand it. If you need to extend scope, you revoke and re-grant with the new permissions.
+
+---
+
+## Bounding Custom Agents You Build
+
+The same protocol works for agents you build using the AgentiQ SDK. When you register a new agent in the registry:
+
+1. **The agent receives a Root DiD** — `did:iqube:<your-agent-id>` — which is its persistent identity across all sessions.
+2. **You become the delegating authority** — your persona signs the initial `HandoffPayload`, binding your disclosure ceiling to the agent's behaviour.
+3. **The agent operates within your PolicyEnvelope** — `allowed_surfaces` constrains which cartridges it can touch; `forbidden_actions` blocks dangerous API calls at the gateway.
+
+```typescript
+// Register a custom agent
+const agent = await AgentiQClient.agents.register({
+  name: 'my-research-agent',
+  root_did: 'did:iqube:my-research-agent-root',
+  cartridge_scope: 'agentiq-os-cartridge',
+});
+
+// Grant delegation — same flow as any platform agent
+await AgentiQClient.delegation.grant({
+  persona_id: myPersonaId,
+  agent_did: agent.root_did,
+  trust_band: 'L2_VERIFIED_COMMUNITY',
+  allowed_surfaces: ['agentiq-os-cartridge'],
+  ttl_hours: 4,
+  max_actions: 20,
+});
+```
+
+The platform treats your custom agent identically to Aigent C: every action it takes emits a DVN receipt anchored to both your Root DiD (authoriser) and the agent's Root DiD (actor).
 
 ---
 
@@ -54,14 +87,16 @@ Root DiD: did:iqube:<your-root>           ← The user's enduring identity
 
 A human chooses **which persona is active** when they grant delegation. The agent inherits that persona's disclosure class — not the user's full identity. This is how you keep your sovereign data sealed while still enabling agentic action.
 
-### Agent (Aigent C, your custom agents)
+### Agent (Aigent C, or any custom agent you register)
 
 ```
 Root DiD: did:iqube:<agent-root>          ← The agent's enduring identity
   └── Bounded persona: <agent>@<surface>  ← How the agent appears inside one cartridge
 ```
 
-An agent has its own Root DiD. When it acts under your delegation, every action emits a DVN receipt that anchors to **both** identities — yours (which authorised it) and the agent's (which performed it). This dual-anchor receipt is what lets reputation flow correctly to both parties.
+Any agent — platform or custom — has its own Root DiD. When it acts under your delegation, every action emits a DVN receipt that anchors to **both** identities — yours (which authorised it) and the agent's (which performed it). This dual-anchor receipt is what lets reputation flow correctly to both parties.
+
+For custom agents you register via the SDK, the Root DiD is generated at registration time and is immutable. This means you can identify exactly which version of your agent performed a delegated action, even after you've deployed a new version.
 
 ### How identity states bind across the delegation
 
@@ -169,7 +204,7 @@ Every delegation event emits a receipt-eligible `OrchestrationEvent`:
 | `guardian_intervened` | ✓ | metaMe veto |
 | `control_returned_to_metame` | ✓ | Delegation revoked or expired |
 
-DVN receipts anchor these events to Aigent C-OS's Root DiD — providing a tamper-evident audit chain that persists across sessions.
+DVN receipts anchor these events to the agent's Root DiD — providing a tamper-evident audit chain that persists across sessions. For custom agents, this means you can audit the full action history of any agent you deployed, by Root DiD.
 
 The **Delegation tab** shows your current delegation state and the last 10 audit events.
 
@@ -177,8 +212,10 @@ The **Delegation tab** shows your current delegation state and the last 10 audit
 
 ## Granting and Revoking
 
-**To grant:** Use the Delegation tab. Select the actions you want to enable, choose a TTL (1h / 4h / 8h), confirm via your SmartWallet.
+**To grant:** Use the Aigent Delegates tab. Select the agent, the surfaces it may access, the actions you want to enable, and choose a TTL (1h / 4h / 8h). Confirm via your SmartWallet.
 
-**To revoke:** Click "Revoke" in the Delegation tab at any time. Revocation is immediate — the agent returns to read-only mode within the current request cycle.
+**To revoke:** Click "Revoke" in the Aigent Delegates tab at any time. Revocation is immediate — the agent returns to read-only mode within the current request cycle.
 
 **Re-granting after expiry:** Follow the same grant flow. Each grant creates a fresh `HandoffPayload` with a new sealed envelope.
+
+**For custom agents:** Use the same tab or the SDK's `AgentiQClient.delegation.grant()` method programmatically. The grant API is agent-agnostic — any registered Root DiD can receive delegation.
