@@ -5515,7 +5515,7 @@ export default function MetaMeRuntimeClient() {
               <>
                 <button
                   type="button"
-                  onClick={() => setActiveCartridgeOverlay({ slug: 'knyt-codex', title: 'KNYT World' })}
+                  onClick={() => void handlePrompt("I'd like to explore my KNYT journey.", { source: "quick_link", skipInference: true, explicitIntent: "play" })}
                   className="flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-200/80 hover:border-amber-500/40 hover:text-amber-100 transition-colors backdrop-blur-sm"
                 >
                   <Compass className="h-3 w-3 shrink-0" />
@@ -5542,7 +5542,7 @@ export default function MetaMeRuntimeClient() {
               <>
                 <button
                   type="button"
-                  onClick={() => setActiveCartridgeOverlay({ slug: 'metame-codex', title: 'metaMe' })}
+                  onClick={() => void handlePrompt("help me find experiences.", { source: "quick_link", skipInference: true, explicitIntent: "find" })}
                   className="flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[11px] text-emerald-200/80 hover:border-emerald-500/40 hover:text-emerald-100 transition-colors backdrop-blur-sm"
                 >
                   <Sparkles className="h-3 w-3 shrink-0" />
