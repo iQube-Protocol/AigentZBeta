@@ -1,8 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
-import CodexPanelDynamic from "../../../triad/components/CodexPanelDynamic";
+const CodexPanelDynamic = dynamic(
+  () => import("../../../triad/components/CodexPanelDynamic"),
+  { ssr: false }
+);
 import { useCodexConfig, useCodexList } from "@/app/hooks/useCodexConfig";
 import type { CodexListItem } from "@/types/codex";
 import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
