@@ -7,7 +7,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { AlertCircle, ArrowDownUp, CheckCircle2, FileText, Loader2, Pencil, X } from "lucide-react";
+import { AlertCircle, ArrowDownUp, CheckCircle2, ChevronLeft, ChevronRight, FileText, Loader2, Pencil, X } from "lucide-react";
 import { getCachedOrFetch } from "../cache";
 import { CopilotInferenceBodyRenderer } from "@/app/components/codex/CopilotInferenceBodyRenderer";
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
@@ -55,6 +55,7 @@ export function AgentiqCartridgeTab({ packId, collectionId, defaultPath, editabl
   const [saving, setSaving] = useState(false);
   const [saveResult, setSaveResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [sortDesc, setSortDesc] = useState(true); // true = newest first (default)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const items = useMemo(() => {
     const raw = collection?.items ?? [];
@@ -201,38 +202,74 @@ export function AgentiqCartridgeTab({ packId, collectionId, defaultPath, editabl
 
   return (
     <div className="flex h-full overflow-hidden">
-      <div className="w-56 flex-shrink-0 border-r border-slate-800 bg-slate-900/40 p-3 overflow-y-auto">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-            {collection.title}
-          </h3>
-          {items.length > 1 && (
+      {/* Sidebar */}
+      <div className={`flex-shrink-0 border-r border-slate-800 bg-slate-900/40 overflow-y-auto transition-all duration-200 ${sidebarCollapsed ? "w-8" : "w-56"}`}>
+        {sidebarCollapsed ? (
+          <div className="flex flex-col items-center pt-2 gap-2">
             <button
-              onClick={() => setSortDesc((d) => !d)}
-              title={sortDesc ? "Showing newest first — click for oldest first" : "Showing oldest first — click for newest first"}
-              className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800/60 px-2 py-0.5 text-[10px] text-slate-400 hover:border-slate-500 hover:text-slate-200 transition-colors"
+              onClick={() => setSidebarCollapsed(false)}
+              title="Expand sidebar"
+              className="flex h-6 w-6 items-center justify-center rounded-md text-slate-500 hover:bg-slate-700 hover:text-slate-200 transition-colors"
             >
-              <ArrowDownUp className="h-3 w-3" />
-              {sortDesc ? "Newest" : "Oldest"}
+              <ChevronRight className="h-3.5 w-3.5" />
             </button>
-          )}
-        </div>
-        <div className="space-y-2">
-          {items.map((item) => (
-            <button
-              key={item}
-              onClick={() => setActivePath(item)}
-              className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition ${
-                item === activePath
-                  ? "bg-blue-500/20 text-blue-200"
-                  : "bg-white/5 text-slate-300 hover:bg-white/10"
-              }`}
-            >
-              <FileText className="h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
-              <span className="truncate">{formatLabel(item)}</span>
-            </button>
-          ))}
-        </div>
+            {items.map((item) => (
+              <button
+                key={item}
+                onClick={() => { setActivePath(item); setSidebarCollapsed(false); }}
+                title={formatLabel(item)}
+                className={`flex h-6 w-6 items-center justify-center rounded-md transition ${
+                  item === activePath ? "bg-blue-500/20 text-blue-400" : "text-slate-600 hover:text-slate-300"
+                }`}
+              >
+                <FileText className="h-3 w-3" />
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="p-3">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                {collection.title}
+              </h3>
+              <div className="flex items-center gap-1">
+                {items.length > 1 && (
+                  <button
+                    onClick={() => setSortDesc((d) => !d)}
+                    title={sortDesc ? "Showing newest first — click for oldest first" : "Showing oldest first — click for newest first"}
+                    className="flex items-center gap-1 rounded-md border border-slate-700 bg-slate-800/60 px-2 py-0.5 text-[10px] text-slate-400 hover:border-slate-500 hover:text-slate-200 transition-colors"
+                  >
+                    <ArrowDownUp className="h-3 w-3" />
+                    {sortDesc ? "Newest" : "Oldest"}
+                  </button>
+                )}
+                <button
+                  onClick={() => setSidebarCollapsed(true)}
+                  title="Collapse sidebar"
+                  className="flex h-5 w-5 items-center justify-center rounded-md text-slate-500 hover:bg-slate-700 hover:text-slate-200 transition-colors"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {items.map((item) => (
+                <button
+                  key={item}
+                  onClick={() => setActivePath(item)}
+                  className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition ${
+                    item === activePath
+                      ? "bg-blue-500/20 text-blue-200"
+                      : "bg-white/5 text-slate-300 hover:bg-white/10"
+                  }`}
+                >
+                  <FileText className="h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
+                  <span className="truncate">{formatLabel(item)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">

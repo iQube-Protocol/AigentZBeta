@@ -49,6 +49,27 @@ const TTL_OPTIONS = [
   { label: "8 hours", value: 8 },
 ];
 
+const SURFACE_OPTIONS = [
+  { id: "agentiq-os-cartridge", label: "AgentiQ OS Cartridge" },
+  { id: "knyt-codex", label: "KNYT Codex" },
+  { id: "qripto-codex", label: "Qriptopian Codex" },
+  { id: "agentiq-codex", label: "AgentiQ Codex" },
+];
+
+const DISCLOSURE_CLASS_OPTIONS = [
+  { value: "public", label: "Public", desc: "No restrictions on response content" },
+  { value: "community", label: "Community", desc: "Community-scoped responses only" },
+  { value: "peer", label: "Peer", desc: "Peer-verified content only" },
+  { value: "tenant", label: "Tenant", desc: "Your tenant scope (recommended)" },
+];
+
+const MAX_ACTIONS_OPTIONS = [
+  { label: "10", value: 10 },
+  { label: "20", value: 20 },
+  { label: "50", value: 50 },
+  { label: "100", value: 100 },
+];
+
 // Reputation bucket (0–4) → max grantable trust band
 const BUCKET_TO_BAND: Record<number, string> = {
   0: "L1_EXPERIMENTAL",
@@ -111,6 +132,9 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
   const [selectedTrustBand, setSelectedTrustBand] = useState("L2_VERIFIED_COMMUNITY");
   const [selectedTtl, setSelectedTtl] = useState(4);
   const [selectedActions, setSelectedActions] = useState<string[]>(["knowledge_retrieval", "draft_document"]);
+  const [selectedSurfaces, setSelectedSurfaces] = useState<string[]>(["agentiq-os-cartridge"]);
+  const [selectedDisclosureClass, setSelectedDisclosureClass] = useState("tenant");
+  const [selectedMaxActions, setSelectedMaxActions] = useState(20);
 
   const pid = personaId ?? "anonymous";
   const maxGrantableBand = BUCKET_TO_BAND[activePersona?.reputationBucket ?? 0] ?? "L1_EXPERIMENTAL";
@@ -166,6 +190,9 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
           selected_actions: selectedActions,
           ttl_hours: selectedTtl,
           reputation_score: activePersona?.reputationScore ?? 0,
+          allowed_surfaces: selectedSurfaces,
+          disclosure_class: selectedDisclosureClass,
+          max_actions: selectedMaxActions,
         }),
       });
       const data = await res.json();
@@ -355,9 +382,9 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
         </button>
         {showConcept && (
           <div className="px-4 pb-4 text-xs text-slate-400 space-y-2 border-t border-slate-700/40 pt-3">
-            <p>Bounded delegation grants Aigent C-OS explicit, time-limited authority via a sealed <strong className="text-slate-300">PolicyEnvelope</strong>.</p>
+            <p>Bounded delegation grants any Aigent — platform or custom — explicit, time-limited authority via a sealed <strong className="text-slate-300">PolicyEnvelope</strong>. The envelope binds the agent&apos;s Root DiD to your persona&apos;s disclosure class.</p>
             <p>The envelope is immutable after creation — no conversation can expand it. Injection attempts and forbidden actions are blocked at the API boundary before reaching the LLM.</p>
-            <p>Every delegation event emits a receipt-eligible <strong className="text-slate-300">OrchestrationEvent</strong> anchored to the agent&apos;s Root DiD. See the <code className="bg-slate-800 px-1 rounded">bounded-delegation.md</code> KB doc for the full model.</p>
+            <p>Every delegation event emits a receipt-eligible <strong className="text-slate-300">OrchestrationEvent</strong> anchored to both Root DiDs (yours and the agent&apos;s). See <strong className="text-slate-300">Build → Aigent Ref</strong> for the full model including custom agent registration.</p>
           </div>
         )}
       </div>
@@ -527,6 +554,70 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
                 </label>
               ))}
             </div>
+          </div>
+
+          {/* Agent Constraints */}
+          <div className="space-y-1.5">
+            <label className="text-xs text-slate-400">Allowed Surfaces</label>
+            <div className="grid grid-cols-2 gap-1.5">
+              {SURFACE_OPTIONS.map(({ id, label }) => (
+                <label key={id} className="inline-flex items-center gap-1.5 cursor-pointer rounded-lg border border-slate-700/40 bg-slate-800/30 px-2.5 py-1.5">
+                  <input
+                    type="checkbox"
+                    checked={selectedSurfaces.includes(id)}
+                    onChange={(e) =>
+                      setSelectedSurfaces((prev) =>
+                        e.target.checked ? [...prev, id] : prev.filter((s) => s !== id),
+                      )
+                    }
+                    className="h-3 w-3 rounded accent-violet-500"
+                  />
+                  <span className="text-xs text-slate-300">{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs text-slate-400">Disclosure Class</label>
+            <div className="grid grid-cols-2 gap-1.5">
+              {DISCLOSURE_CLASS_OPTIONS.map(({ value, label, desc }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setSelectedDisclosureClass(value)}
+                  className={`rounded-lg border px-3 py-1.5 text-left transition ${
+                    selectedDisclosureClass === value
+                      ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
+                      : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600"
+                  }`}
+                >
+                  <p className="text-xs font-medium">{label}</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">{desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs text-slate-400">Action Limit</label>
+            <div className="flex gap-2">
+              {MAX_ACTIONS_OPTIONS.map(({ label, value }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setSelectedMaxActions(value)}
+                  className={`rounded-lg border px-3 py-1.5 text-xs transition ${
+                    selectedMaxActions === value
+                      ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
+                      : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-slate-500">After this many delegated actions, delegation suspends pending your re-confirmation.</p>
           </div>
 
           <div className="rounded-lg border border-slate-700/40 bg-slate-800/30 px-3 py-2 text-xs text-slate-400 space-y-1">

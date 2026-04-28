@@ -446,12 +446,15 @@ function ContentEditor({
   const [activeModal,  setActiveModal]  = useState<ModalityKey>('Read');
 
   // modality fields
-  const [readText,     setReadText]     = useState('');
-  const [videoUrl,     setVideoUrl]     = useState('');
-  const [loopVideo,    setLoopVideo]    = useState(false);
-  const [audioUrl,     setAudioUrl]     = useState('');
-  const [linkUrl,      setLinkUrl]      = useState('');
-  const [allowEmbed,   setAllowEmbed]   = useState(true);
+  const [readText,       setReadText]       = useState('');
+  const [readDuration,   setReadDuration]   = useState('');
+  const [videoUrl,       setVideoUrl]       = useState('');
+  const [videoDuration,  setVideoDuration]  = useState('');
+  const [loopVideo,      setLoopVideo]      = useState(false);
+  const [audioUrl,       setAudioUrl]       = useState('');
+  const [audioDuration,  setAudioDuration]  = useState('');
+  const [linkUrl,        setLinkUrl]        = useState('');
+  const [allowEmbed,     setAllowEmbed]     = useState(true);
 
   // enabled modalities
   const [readEnabled,   setReadEnabled]   = useState(false);
@@ -477,9 +480,9 @@ function ContentEditor({
         setImageScale(d.placement?.imageScale ?? 100);
         setImageX(d.placement?.imageX ?? 50);
         setImageY(d.placement?.imageY ?? 50);
-        if (d.modalities?.read?.available)   { setReadEnabled(true);   setReadText(d.modalities.read.text ?? ''); }
-        if (d.modalities?.watch?.available)  { setWatchEnabled(true);  setVideoUrl(d.modalities.watch.video_url ?? ''); setLoopVideo((d.modalities.watch as any).loop ?? false); }
-        if (d.modalities?.listen?.available) { setListenEnabled(true); setAudioUrl(d.modalities.listen.audio_url ?? ''); }
+        if (d.modalities?.read?.available)   { setReadEnabled(true);   setReadText(d.modalities.read.text ?? ''); setReadDuration(d.modalities.read.duration ?? ''); }
+        if (d.modalities?.watch?.available)  { setWatchEnabled(true);  setVideoUrl(d.modalities.watch.video_url ?? ''); setVideoDuration(d.modalities.watch.duration ?? ''); setLoopVideo((d.modalities.watch as any).loop ?? false); }
+        if (d.modalities?.listen?.available) { setListenEnabled(true); setAudioUrl(d.modalities.listen.audio_url ?? ''); setAudioDuration(d.modalities.listen.duration ?? ''); }
         if (d.modalities?.link?.available)   { setLinkEnabled(true);   setLinkUrl(d.modalities.link.url ?? ''); setAllowEmbed((d.modalities.link as any).allow_embed ?? true); }
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Failed to load'))
@@ -494,9 +497,9 @@ function ContentEditor({
     status,
     placement: { section, position, imageScale, imageX, imageY },
     modalities: {
-      read:   { available: readEnabled,   text: readText, duration: '' },
-      watch:  { available: watchEnabled,  video_url: videoUrl, loop: loopVideo, duration: '' },
-      listen: { available: listenEnabled, audio_url: audioUrl, duration: '' },
+      read:   { available: readEnabled,   text: readText,   duration: readDuration },
+      watch:  { available: watchEnabled,  video_url: videoUrl, loop: loopVideo, duration: videoDuration },
+      listen: { available: listenEnabled, audio_url: audioUrl, duration: audioDuration },
       link:   { available: linkEnabled,   url: linkUrl, allow_embed: allowEmbed },
     },
     market_data: { pricing_model: { tiers: [{ amount: qPrice }] } },
@@ -669,13 +672,28 @@ function ContentEditor({
                   Enable Read modality
                 </label>
                 {readEnabled && (
-                  <textarea
-                    value={readText}
-                    onChange={(e) => setReadText(e.target.value)}
-                    rows={6}
-                    placeholder="Article content (Markdown supported)..."
-                    className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-teal-500 focus:outline-none resize-none font-mono"
-                  />
+                  <>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">Reading Duration</label>
+                      <input
+                        type="text"
+                        value={readDuration}
+                        onChange={(e) => setReadDuration(e.target.value)}
+                        placeholder="e.g. 5 min read"
+                        className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-teal-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">Content (Markdown)</label>
+                      <textarea
+                        value={readText}
+                        onChange={(e) => setReadText(e.target.value)}
+                        rows={6}
+                        placeholder="Article content (Markdown supported)..."
+                        className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-teal-500 focus:outline-none resize-none font-mono"
+                      />
+                    </div>
+                  </>
                 )}
               </div>
             )}
@@ -691,6 +709,10 @@ function ContentEditor({
                     <div>
                       <label className="block text-xs font-medium text-slate-300 mb-1">Video URL</label>
                       <input type="text" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="https://..." className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-teal-500 focus:outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">Video Duration</label>
+                      <input type="text" value={videoDuration} onChange={(e) => setVideoDuration(e.target.value)} placeholder="e.g. 12:34" className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-teal-500 focus:outline-none" />
                     </div>
                     <label className="flex items-center gap-2 text-xs text-slate-300">
                       <input type="checkbox" checked={loopVideo} onChange={(e) => setLoopVideo(e.target.checked)} className="accent-teal-500" />
@@ -708,10 +730,16 @@ function ContentEditor({
                   Enable Listen modality
                 </label>
                 {listenEnabled && (
-                  <div>
-                    <label className="block text-xs font-medium text-slate-300 mb-1">Audio URL</label>
-                    <input type="text" value={audioUrl} onChange={(e) => setAudioUrl(e.target.value)} placeholder="Direct audio file URL or podcast link" className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-teal-500 focus:outline-none" />
-                  </div>
+                  <>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">Audio URL</label>
+                      <input type="text" value={audioUrl} onChange={(e) => setAudioUrl(e.target.value)} placeholder="Direct audio file URL or podcast link" className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-teal-500 focus:outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">Episode Duration</label>
+                      <input type="text" value={audioDuration} onChange={(e) => setAudioDuration(e.target.value)} placeholder="e.g. 28:45" className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-teal-500 focus:outline-none" />
+                    </div>
+                  </>
                 )}
               </div>
             )}
@@ -740,7 +768,7 @@ function ContentEditor({
         </div>
 
         {/* Right sidebar */}
-        <div className="w-48 shrink-0 space-y-4">
+        <div className="w-64 shrink-0 space-y-4">
           {/* Pricing */}
           <div className="rounded-xl border border-white/5 bg-slate-900/50 p-3">
             <p className="text-xs font-semibold text-slate-300 mb-2">Q¢ Price</p>
@@ -787,20 +815,29 @@ function ContentEditor({
           {/* Live preview */}
           <div className="rounded-xl border border-white/5 bg-slate-900/50 p-3">
             <p className="text-xs font-semibold text-slate-300 mb-2">Live Preview</p>
-            <div className="rounded-lg overflow-hidden bg-slate-800 aspect-video mb-2">
+            <div className="rounded-lg overflow-hidden bg-slate-800 mb-2" style={{ aspectRatio: '4/3' }}>
               {thumbnail ? (
                 <img
                   src={thumbnail}
                   alt={title}
                   className="h-full w-full object-cover"
-                  style={{ objectPosition: `${imageX}% ${imageY}%`, transform: `scale(${imageScale / 100})` }}
+                  style={{ objectPosition: `${imageX}% ${imageY}%`, transform: `scale(${imageScale / 100})`, transformOrigin: `${imageX}% ${imageY}%` }}
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-slate-600 text-xs">No image</div>
               )}
             </div>
+            {issueRef && <p className="text-[10px] text-slate-500 mb-0.5">#{issueRef}</p>}
             {title && <p className="text-xs font-semibold text-white leading-tight line-clamp-2">{title}</p>}
-            {excerpt && <p className="text-[10px] text-slate-400 mt-0.5 line-clamp-2">{excerpt}</p>}
+            {excerpt && <p className="text-[10px] text-slate-400 mt-0.5 line-clamp-3">{excerpt}</p>}
+            {(readEnabled || watchEnabled || listenEnabled || linkEnabled) && (
+              <div className="flex flex-wrap gap-1 mt-1.5">
+                {readEnabled && <span className="rounded-full bg-blue-500/20 border border-blue-500/30 px-1.5 py-0.5 text-[9px] text-blue-300">Read</span>}
+                {watchEnabled && <span className="rounded-full bg-purple-500/20 border border-purple-500/30 px-1.5 py-0.5 text-[9px] text-purple-300">Watch</span>}
+                {listenEnabled && <span className="rounded-full bg-green-500/20 border border-green-500/30 px-1.5 py-0.5 text-[9px] text-green-300">Listen</span>}
+                {linkEnabled && <span className="rounded-full bg-amber-500/20 border border-amber-500/30 px-1.5 py-0.5 text-[9px] text-amber-300">Link</span>}
+              </div>
+            )}
           </div>
         </div>
       </div>
