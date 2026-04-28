@@ -1,0 +1,25 @@
+{
+  "from_agent": {
+    "id": "claude-code",
+    "label": "Claude Code"
+  },
+  "thread": "ui-shell",
+  "title": "Runtime context badge colours \u2014 metaMe changed to emerald",
+  "body": "RuntimeTakeoverBanner now uses two context-driven colour overrides instead of LLM-theme colours:\n\nKNYT context   \u2192 amber glass   (border-amber-500/30, bg-amber-950/30, text-amber-300)\nmetaMe context \u2192 emerald glass (border-emerald-500/30, bg-emerald-950/30, text-emerald-300)\nBoth use backdrop-blur-sm for the glass effect.\n\nProp: cartridgeContext ('knyt' | 'metame') on RuntimeTakeoverBanner, driven by runtimeContext state in MetaMeRuntimeClient. Priority chain: cartridgeContext \u2192 manifest.theme \u2192 DEFAULT_STYLE.\n\nThin-client shell compliance: any badge, pill, or indicator surfacing the active runtime lead must use the same colour tokens \u2014 amber for KNYT, emerald for metaMe. Do NOT use rose/coral for metaMe. Canonical source: components/metame/RuntimeTakeoverBanner.tsx CONTEXT_STYLES.",
+  "severity": "info",
+  "metadata": {
+    "type": "status",
+    "story": "UI-SHELL-001",
+    "status": "done",
+    "deploy_ready": false,
+    "branch": "claude/verify-repo-environment-9t2cX",
+    "commit_sha": "d9f763c7",
+    "created_at": "2026-04-28T16:06:09Z",
+    "tests_run": null,
+    "tags": [
+      "UI-SHELL-001",
+      "ui-shell"
+    ]
+  },
+  "files": []
+}

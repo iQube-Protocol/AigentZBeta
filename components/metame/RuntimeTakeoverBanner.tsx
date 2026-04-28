@@ -17,7 +17,7 @@ const THEME_STYLES: Record<string, { border: string; bg: string; accent: string;
 // KNYT → amber glass; metaMe → coral/rose glass.
 const CONTEXT_STYLES: Record<string, { border: string; bg: string; accent: string; badge: string }> = {
   knyt:   { border: "border-amber-500/30",  bg: "bg-amber-950/30 backdrop-blur-sm",  accent: "text-amber-300",  badge: "bg-amber-500/15 text-amber-300 border-amber-500/30 backdrop-blur-sm" },
-  metame: { border: "border-rose-500/30",   bg: "bg-rose-950/30 backdrop-blur-sm",   accent: "text-rose-300",   badge: "bg-rose-500/15 text-rose-300 border-rose-500/30 backdrop-blur-sm" },
+  metame: { border: "border-emerald-500/30", bg: "bg-emerald-950/30 backdrop-blur-sm", accent: "text-emerald-300", badge: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30 backdrop-blur-sm" },
 };
 
 const DEFAULT_STYLE = THEME_STYLES.discovery;
