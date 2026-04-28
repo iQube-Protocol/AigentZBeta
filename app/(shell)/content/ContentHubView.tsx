@@ -1,7 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { SmartContentCard, SmartWalletDrawer, ContentCopilotPanel, useSmartTriad } from "@/app/components/content";
+import dynamic from "next/dynamic";
+import SmartContentCard from "@/app/components/content/SmartContentCard";
+import ContentCopilotPanel from "@/app/components/content/ContentCopilotPanel";
+import { useSmartTriad } from "@/app/components/content/SmartTriadProvider";
+const SmartWalletDrawer = dynamic(
+  () => import("@/app/components/content/SmartWalletDrawer"),
+  { ssr: false }
+);
 import { PersonaSetupWizard } from "@/app/components/wallet";
 import { agentConfigs } from "@/app/data/agentConfig";
 import type { SmartContentQube } from "@/types/smartContent";

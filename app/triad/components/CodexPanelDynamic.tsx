@@ -13,7 +13,11 @@ import { useCodexConfig, getEnabledTabs } from "@/app/hooks/useCodexConfig";
 import { CodexTab, TabGroup } from "@/types/codex";
 import type { DeviceType } from "@/app/types/knytLiquidUI";
 import { Loader2, AlertCircle, X, Coins, Zap, Sun, Moon } from "lucide-react";
-import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
+import dynamic from "next/dynamic";
+const CodexCopilotLayer = dynamic(
+  () => import("@/app/components/codex/CodexCopilotLayer").then(m => ({ default: m.CodexCopilotLayer })),
+  { ssr: false }
+);
 import { SmartTriadProvider } from "@/app/components/content/SmartTriadProvider";
 import { SmartTriadSurfaces } from "@/app/components/content/SmartTriadSurfaces";
 import { TabRenderer } from "./codex/TabRenderer";
