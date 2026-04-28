@@ -22,6 +22,7 @@ import {
   PersonaSetupWizard,
   TransactionModal,
   UnlockModal,
+  ExternalWalletConnect,
 } from "../wallet";
 import type { TransactionTab, ChainId, TransactionResult, PaymentRequest } from "../wallet/TransactionModal";
 import { useSmartTriad } from "./SmartTriadProvider";
@@ -3147,12 +3148,15 @@ export default function SmartWalletDrawer({
               </section>
               <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
                 <div className="text-[10px] uppercase tracking-wider text-white/60 mb-3 flex items-center gap-2">
-                  <Users className="w-3.5 h-3.5 text-emerald-400" />
-                  Network
+                  <Wallet className="w-3.5 h-3.5 text-violet-400" />
+                  External Wallet
                 </div>
-                <p className="text-xs text-white/40 text-center py-4">
-                  Social graph and partner connections coming soon.
-                </p>
+                <ExternalWalletConnect
+                  onTxComplete={(txHash, amountKnyt) => {
+                    // Backend polling handled server-side; surface the tx to the user
+                    console.info('[SmartWallet] EVM KNYT tx sent', { txHash, amountKnyt });
+                  }}
+                />
               </section>
             </div>
           )}

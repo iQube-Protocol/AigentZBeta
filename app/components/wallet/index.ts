@@ -14,6 +14,7 @@ export { TransactionModal } from './TransactionModal';
 export { PaymentRequestsPanel } from './PaymentRequestsPanel';
 export { BuyKnytModal } from './BuyKnytModal';
 export { PersonaEditModal } from './PersonaEditModal';
+export { ExternalWalletConnect } from './ExternalWalletConnect';
 
 // Also export default imports as named exports for compatibility
 import PersonaSelectorDefault from './PersonaSelector';
