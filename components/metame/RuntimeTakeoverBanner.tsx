@@ -13,11 +13,20 @@ const THEME_STYLES: Record<string, { border: string; bg: string; accent: string;
   sovereign:    { border: "border-slate-400/30",   bg: "bg-slate-800/40",   accent: "text-slate-200",  badge: "bg-slate-700/50 text-slate-300 border-slate-600/30" },
 };
 
+// Cartridge-context overrides — take precedence over theme-based styling.
+// KNYT → amber glass; metaMe → coral/rose glass.
+const CONTEXT_STYLES: Record<string, { border: string; bg: string; accent: string; badge: string }> = {
+  knyt:   { border: "border-amber-500/30",  bg: "bg-amber-950/30 backdrop-blur-sm",  accent: "text-amber-300",  badge: "bg-amber-500/15 text-amber-300 border-amber-500/30 backdrop-blur-sm" },
+  metame: { border: "border-rose-500/30",   bg: "bg-rose-950/30 backdrop-blur-sm",   accent: "text-rose-300",   badge: "bg-rose-500/15 text-rose-300 border-rose-500/30 backdrop-blur-sm" },
+};
+
 const DEFAULT_STYLE = THEME_STYLES.discovery;
 
 interface RuntimeTakeoverBannerProps {
   manifest: RuntimeTakeoverManifest;
   cartridgeDisplayName?: string;
+  /** When set, overrides theme-based colour with the cartridge brand colour (amber=KNYT, rose=metaMe). */
+  cartridgeContext?: 'knyt' | 'metame';
   onDismiss?: () => void;
   onNextBestAction?: (target: string, targetType: string) => void;
   className?: string;
@@ -26,11 +35,12 @@ interface RuntimeTakeoverBannerProps {
 export function RuntimeTakeoverBanner({
   manifest,
   cartridgeDisplayName,
+  cartridgeContext,
   onDismiss,
   onNextBestAction,
   className = "",
 }: RuntimeTakeoverBannerProps) {
-  const style = THEME_STYLES[manifest.theme ?? ""] ?? DEFAULT_STYLE;
+  const style = (cartridgeContext ? CONTEXT_STYLES[cartridgeContext] : null) ?? THEME_STYLES[manifest.theme ?? ""] ?? DEFAULT_STYLE;
 
   return (
     <div
