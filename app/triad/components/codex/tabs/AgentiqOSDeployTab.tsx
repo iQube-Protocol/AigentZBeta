@@ -1,10 +1,20 @@
 "use client";
 
 import React, { useState } from "react";
-import { AgentiQOSTab } from "./AgentiQOSTab";
-import { DevRegistryTab } from "./DevRegistryTab";
-import { AgentiqCartridgeTab } from "./AgentiqCartridgeTab";
-import { NanOSBridgeTab } from "./NanOSBridgeTab";
+import dynamic from "next/dynamic";
+
+const AgentiQOSTab = dynamic(
+  () => import("./AgentiQOSTab").then(m => ({ default: m.AgentiQOSTab }))
+);
+const DevRegistryTab = dynamic(
+  () => import("./DevRegistryTab").then(m => ({ default: m.DevRegistryTab }))
+);
+const AgentiqCartridgeTab = dynamic(
+  () => import("./AgentiqCartridgeTab").then(m => ({ default: m.AgentiqCartridgeTab }))
+);
+const NanOSBridgeTab = dynamic(
+  () => import("./NanOSBridgeTab").then(m => ({ default: m.NanOSBridgeTab }))
+);
 
 type SubTab = "build-dashboard" | "ingestion-factory" | "codex" | "nanos-bridge";
 
