@@ -58,7 +58,8 @@ const LAYER_SHORT: Record<string, string> = {
   qripto: 'Qripto', 'digital-common': 'Digital', print: 'Print', physical: 'Physical',
 };
 
-const INVESTOR_SEAL = '/images/metaknyt-logo.png';
+// Knight Round All logo — place image at public/images/metaknyt-knight-round.png
+const INVESTOR_SEAL = '/images/metaknyt-knight-round.png';
 
 const CARD_EPISODE_NUMBERS = Array.from({ length: 13 }, (_, i) => i);
 
@@ -141,10 +142,21 @@ function BundleGridCard({
               Season
             </div>
           )}
+          {bundle.isConditional && (
+            <div className="absolute bottom-1 left-1 right-1 flex items-center justify-center gap-1 rounded border border-slate-600/40 bg-slate-900/80 py-0.5">
+              <Lock className="h-2.5 w-2.5 text-slate-400" />
+              <span className="text-[8px] text-slate-400">≥{bundle.conditionalMinOrders} orders to unlock</span>
+            </div>
+          )}
         </div>
         <div className="px-1.5 pt-1 pb-0.5">
           <p className="text-xs font-semibold text-white leading-tight">{bundle.label}</p>
-          <p className="text-[13px] font-bold text-white">${bundle.digitalPrice}</p>
+          <div className="flex items-baseline gap-1 flex-wrap">
+            <p className="text-[13px] font-bold text-white">${bundle.digitalPrice}</p>
+            {bundle.retailPrice && bundle.retailPrice !== bundle.digitalPrice && (
+              <p className="text-[10px] text-slate-500 line-through">${bundle.retailPrice}</p>
+            )}
+          </div>
         </div>
       </button>
       {/* Cart row — only cart button, no outer-button interference */}
@@ -259,10 +271,16 @@ function BundleDetail({
           </div>
 
           <div className="rounded-xl border border-white/5 bg-slate-900/60 p-3 space-y-1.5">
-            <div className="flex items-baseline gap-1.5">
+            <div className="flex items-baseline gap-2 flex-wrap">
               <span className="text-2xl font-bold text-white">${bundle.digitalPrice}</span>
+              {bundle.retailPrice && bundle.retailPrice !== bundle.digitalPrice && (
+                <span className="text-sm text-slate-500 line-through">${bundle.retailPrice} retail</span>
+              )}
               <span className="text-[11px] text-slate-400">USD</span>
             </div>
+            {bundle.isInvestorOnly && (
+              <p className="text-[10px] font-semibold text-yellow-400">Investor pricing</p>
+            )}
             {bundle.memberPrice && (
               <p className="text-[10px] text-teal-400">
                 ${bundle.memberPrice} for {bundle.memberCohort} members
@@ -277,6 +295,15 @@ function BundleDetail({
             <CartButton label="Add to Cart" onClick={() => onBuy()} className="w-full justify-center mt-1" />
           </div>
 
+          {bundle.isConditional && (
+            <div className="rounded-xl border border-slate-600/40 bg-slate-800/60 p-2.5 flex items-start gap-1.5">
+              <Lock className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-[10px] font-semibold text-slate-300">Conditionally Available</p>
+                <p className="text-[9px] text-slate-400 mt-0.5">{bundle.conditionalNote}</p>
+              </div>
+            </div>
+          )}
           {bundle.accessGrant && (
             <div className="rounded-xl border border-yellow-700/30 bg-yellow-900/10 p-2.5 flex items-start gap-1.5">
               <Crown className="h-3.5 w-3.5 text-yellow-400 shrink-0 mt-0.5" />
@@ -480,7 +507,7 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
                   <BundleGridCard
                     key={bundle.id}
                     bundle={bundle}
-                    thumbUrl={getCoverThumb(bundle.episodes[0])}
+                    thumbUrl={getCoverThumb(bundle.episodes[bundle.episodes.length - 1])}
                     onClick={() => setView({ kind: 'bundle-detail', bundle })}
                     onBuy={(e) => { e.stopPropagation(); openBundlePurchase(bundle); }}
                   />
