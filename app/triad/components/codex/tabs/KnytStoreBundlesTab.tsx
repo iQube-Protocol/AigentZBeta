@@ -498,7 +498,7 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
       modality:  'bundle',
       layer:     'digital',
       priceUsd:  bundle.memberPrice ?? bundle.digitalPrice,
-      thumbUrl:  bundle.isInvestorOnly ? INVESTOR_SEAL : getCoverThumb(bundle.episodes[0]),
+      thumbUrl:  bundle.isInvestorOnly ? INVESTOR_SEAL : getCoverThumb(bundle.id === 'bundle-8-12' ? bundle.episodes[0] : bundle.episodes[bundle.episodes.length - 1]),
     };
     cart.addToCart(item);
     setCartOpen(true);
@@ -509,7 +509,7 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
       contentType:      getBundleContentType(bundle),
       contentId:        bundle.id,
       contentTitle:     bundle.label,
-      contentImage:     bundle.isInvestorOnly ? INVESTOR_SEAL : getCoverThumb(bundle.episodes[0]),
+      contentImage:     bundle.isInvestorOnly ? INVESTOR_SEAL : getCoverThumb(bundle.id === 'bundle-8-12' ? bundle.episodes[0] : bundle.episodes[bundle.episodes.length - 1]),
       priceUsdOverride: bundle.memberPrice ?? bundle.digitalPrice,
     });
   }
@@ -601,7 +601,7 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
                   <BundleGridCard
                     key={bundle.id}
                     bundle={bundle}
-                    thumbUrl={getCoverThumb(bundle.episodes[0])}
+                    thumbUrl={getCoverThumb(bundle.id === 'bundle-8-12' ? bundle.episodes[0] : bundle.episodes[bundle.episodes.length - 1])}
                     onClick={() => setView({ kind: 'bundle-detail', bundle })}
                     onBuy={(e) => { e.stopPropagation(); addBundleToCart(bundle); }}
                   />

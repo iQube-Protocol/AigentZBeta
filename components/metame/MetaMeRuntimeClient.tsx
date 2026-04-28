@@ -5476,6 +5476,12 @@ export default function MetaMeRuntimeClient() {
       ) : null}
 
       <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6">
+        {takeoverLoading && !takeoverManifest && (
+          <div className="w-full max-w-[760px] flex items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-4">
+            <Loader2 className="h-5 w-5 animate-spin text-teal-400 shrink-0" />
+            <p className="text-sm text-slate-300">Loading lead runtime agent…</p>
+          </div>
+        )}
         {takeoverManifest && (
           <div className="w-full max-w-[760px]">
             <RuntimeTakeoverBanner
