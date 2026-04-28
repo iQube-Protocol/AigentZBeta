@@ -313,7 +313,7 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
                 : "text-slate-400 hover:text-slate-200"
             }`}
           >
-            {tab === "delegation" ? "Delegation" : "Ref Demo"}
+            {tab === "delegation" ? "Delegate" : "Run Delegation Test"}
           </button>
         ))}
       </div>
