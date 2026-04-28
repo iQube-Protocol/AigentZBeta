@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Loader2, Sparkles, Target, Timer, Layers } from "lucide-react";
 import type { SmartContentQube } from "@/types/smartContent";
 import type { WalletUIComponent } from "@/app/types/knytLiquidUI";
-import { SmartContentCard, useSmartTriad } from "@/app/components/content";
+import SmartContentCard from "@/app/components/content/SmartContentCard";
+import { useSmartTriad } from "@/app/components/content/SmartTriadProvider";
 
 type ExperienceQube = {
   id: string;
