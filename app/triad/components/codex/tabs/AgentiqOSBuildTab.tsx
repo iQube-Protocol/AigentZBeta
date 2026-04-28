@@ -1,9 +1,17 @@
 "use client";
 
 import React, { useState } from "react";
-import { AgentiqCartridgeTab } from "./AgentiqCartridgeTab";
-import { RefRuntimeTab } from "./RefRuntimeTab";
-import { RefStudioTab } from "./RefStudioTab";
+import dynamic from "next/dynamic";
+
+const AgentiqCartridgeTab = dynamic(
+  () => import("./AgentiqCartridgeTab").then(m => ({ default: m.AgentiqCartridgeTab }))
+);
+const RefRuntimeTab = dynamic(
+  () => import("./RefRuntimeTab").then(m => ({ default: m.RefRuntimeTab }))
+);
+const RefStudioTab = dynamic(
+  () => import("./RefStudioTab").then(m => ({ default: m.RefStudioTab }))
+);
 
 type SubTab = "sdk-api" | "smarttriad" | "liquid-ui" | "runtime-ref" | "studio-ref";
 

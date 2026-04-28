@@ -1,8 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import { DevPersonaTab } from "./DevPersonaTab";
-import { BoundedDelegationTab } from "./BoundedDelegationTab";
+import dynamic from "next/dynamic";
+
+const DevPersonaTab = dynamic(
+  () => import("./DevPersonaTab").then(m => ({ default: m.DevPersonaTab }))
+);
+const BoundedDelegationTab = dynamic(
+  () => import("./BoundedDelegationTab").then(m => ({ default: m.BoundedDelegationTab }))
+);
 
 type SubTab = "persona" | "delegation";
 
