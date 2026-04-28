@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
+import dynamic from "next/dynamic";
 import ContentViewer from "./ContentViewer";
-import SmartWalletDrawer from "./SmartWalletDrawer";
 import { CopilotWalletDrawer } from "@/app/triad/components/codex/wallet/CopilotWalletDrawer";
 import { useSmartTriad } from "./SmartTriadProvider";
 import { useAGUIActionBridge } from "./useAGUIActionBridge";
@@ -15,9 +15,15 @@ import { X402Dashboard } from "@/app/(shell)/moneypenny/components/X402Dashboard
 import { FIOManager } from "@/app/(shell)/moneypenny/components/FIOManager";
 import { CRMIntegration } from "@/app/(shell)/moneypenny/components/CRMIntegration";
 import { HFTConsole } from "@/app/(shell)/moneypenny/components/HFTConsole";
-import { KnytTab } from "@/app/triad/components/codex/tabs/KnytTab";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { X } from "lucide-react";
+
+// Dynamic imports break the SmartWalletDrawer ↔ SmartTriadProvider circular dependency
+const SmartWalletDrawer = dynamic(() => import("./SmartWalletDrawer"), { ssr: false });
+const KnytTab = dynamic(
+  () => import("@/app/triad/components/codex/tabs/KnytTab").then(m => ({ default: m.KnytTab })),
+  { ssr: false }
+);
 
 interface SmartTriadSurfacesProps {
   personaId?: string;

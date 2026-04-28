@@ -9,6 +9,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import dynamic from "next/dynamic";
 import { Loader2, BookOpen, Play, Lock, Check, Sparkles, Coins, ShoppingCart, AlertTriangle, RefreshCw, LogIn, FileText, Cpu, Globe, Shield, Scroll, ArrowLeft, User, Zap } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -219,7 +220,7 @@ import { LoreTextReader } from "@/app/triad/components/content/LoreTextReader";
 import { ContentPurchaseModal, type ContentType } from "@/app/triad/components/content/ContentPurchaseModal";
 import { KnytCardsGrid } from "@/app/triad/components/content/KnytCardsGrid";
 import { CoverImage } from "@/app/triad/components/content/CoverImage";
-import SmartWalletDrawer from "@/app/components/content/SmartWalletDrawer";
+const SmartWalletDrawer = dynamic(() => import("@/app/components/content/SmartWalletDrawer"), { ssr: false });
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 import { getImageLoaderStats } from "@/app/utils/image-loader";
 import type { SmartContentQube } from "@/types/smartContent";
