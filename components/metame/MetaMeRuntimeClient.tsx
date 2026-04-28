@@ -3407,7 +3407,9 @@ export default function MetaMeRuntimeClient() {
             cartridgeContext={runtimeContext}
             onDismiss={dismissTakeover}
             onNextBestAction={(target, targetType) => {
-              if (targetType === "codex") {
+              if (runtimeContext === 'knyt') {
+                setActiveCartridgeOverlay({ slug: 'knyt-codex', title: 'KNYT World', initialTab: 'store-episodes' });
+              } else if (targetType === 'codex') {
                 const slug = normalizeCodexId(target) ?? target;
                 setActiveCartridgeOverlay({ slug, title: slug });
               }
@@ -3617,7 +3619,7 @@ export default function MetaMeRuntimeClient() {
         </div>
       </div>
     ),
-    [activeCapsuleId, activeDevice, buildSharePanel, capsuleContents, dismissTakeover, embedMode, launchCapsule, takeoverDisplayName, takeoverManifest]
+    [activeCapsuleId, activeDevice, buildSharePanel, capsuleContents, dismissTakeover, embedMode, launchCapsule, runtimeContext, takeoverDisplayName, takeoverManifest]
   );
 
   // Gate capsule-panel message updates by capsule ID list + active capsule + device.
@@ -5472,7 +5474,12 @@ export default function MetaMeRuntimeClient() {
               cartridgeContext={runtimeContext}
               onDismiss={dismissTakeover}
               onNextBestAction={(target, targetType) => {
-                if (targetType === "codex") {
+                if (runtimeContext === 'knyt') {
+                  setActiveCartridgeOverlay({ slug: 'knyt-codex', title: 'KNYT World', initialTab: 'store-episodes' });
+                } else if (runtimeContext === 'metame') {
+                  postRuntimeEvent("PROCESSING_START", { intent: "find", source: "banner_action" });
+                  void handlePrompt("help me find experiences.", { source: "quick_link", skipInference: true, explicitIntent: "find" });
+                } else if (targetType === 'codex') {
                   const slug = normalizeCodexId(target) ?? target;
                   setActiveCartridgeOverlay({ slug, title: slug });
                 }
