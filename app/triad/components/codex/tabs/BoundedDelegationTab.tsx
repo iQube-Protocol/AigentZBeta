@@ -135,6 +135,10 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
   const [selectedSurfaces, setSelectedSurfaces] = useState<string[]>(["agentiq-os-cartridge"]);
   const [selectedDisclosureClass, setSelectedDisclosureClass] = useState("tenant");
   const [selectedMaxActions, setSelectedMaxActions] = useState(20);
+  const [spendAutonomy, setSpendAutonomy] = useState<"low" | "medium" | "high">("low");
+  const [showReceipts, setShowReceipts] = useState(true);
+  const [curatedSkillsOnly, setCuratedSkillsOnly] = useState(true);
+  const [explainBeforeActing, setExplainBeforeActing] = useState(false);
 
   const pid = personaId ?? "anonymous";
   const maxGrantableBand = BUCKET_TO_BAND[activePersona?.reputationBucket ?? 0] ?? "L1_EXPERIMENTAL";
@@ -193,6 +197,10 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
           allowed_surfaces: selectedSurfaces,
           disclosure_class: selectedDisclosureClass,
           max_actions: selectedMaxActions,
+          spend_autonomy: spendAutonomy,
+          show_receipts: showReceipts,
+          curated_skills_only: curatedSkillsOnly,
+          explain_before_acting: explainBeforeActing,
         }),
       });
       const data = await res.json();
@@ -288,9 +296,6 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
           <h2 className="text-lg font-semibold text-slate-100">Aigent Delegates</h2>
           <p className="text-sm text-slate-400 mt-0.5">
             Grant bounded authority to Aigents with audit logs — sealed, time-limited, DVN-signed.
-          </p>
-          <p className="text-xs text-slate-500 mt-1">
-            See <span className="text-violet-300">Build → Aigent Ref</span> for the protocol details and how to grant authority to agents you build.
           </p>
         </div>
       </div>
@@ -618,6 +623,64 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
               ))}
             </div>
             <p className="text-[10px] text-slate-500">After this many delegated actions, delegation suspends pending your re-confirmation.</p>
+          </div>
+
+          {/* Behaviour flags */}
+          <div className="space-y-1.5">
+            <label className="text-xs text-slate-400">Behaviour</label>
+            <div className="space-y-2">
+
+              {/* Spend autonomy */}
+              <div className="rounded-lg border border-slate-700/40 bg-slate-800/30 px-3 py-2.5 space-y-2">
+                <div>
+                  <p className="text-xs font-medium text-slate-300">Spend Autonomy</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">How much the agent can spend without asking first.</p>
+                </div>
+                <div className="flex gap-1.5">
+                  {(["low", "medium", "high"] as const).map((level) => (
+                    <button
+                      key={level}
+                      type="button"
+                      onClick={() => setSpendAutonomy(level)}
+                      className={`flex-1 rounded-lg border px-2 py-1 text-xs capitalize transition ${
+                        spendAutonomy === level
+                          ? level === "high"
+                            ? "border-amber-500/60 bg-amber-500/20 text-amber-200"
+                            : level === "medium"
+                              ? "border-violet-500/60 bg-violet-500/20 text-violet-200"
+                              : "border-green-500/60 bg-green-500/20 text-green-200"
+                          : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-600"
+                      }`}
+                    >
+                      {level}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Toggle flags */}
+              {[
+                { label: "Show Receipts", desc: "Display transaction receipts after agent actions.", value: showReceipts, set: setShowReceipts },
+                { label: "Curated Skills Only", desc: "Restrict agent to pre-approved skill sets.", value: curatedSkillsOnly, set: setCuratedSkillsOnly },
+                { label: "Explain Before Acting", desc: "Agent explains its plan before executing.", value: explainBeforeActing, set: setExplainBeforeActing },
+              ].map(({ label, desc, value, set }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => set((v) => !v)}
+                  className="flex w-full items-center justify-between rounded-lg border border-slate-700/40 bg-slate-800/30 px-3 py-2.5 text-left transition hover:border-slate-600"
+                >
+                  <div>
+                    <p className="text-xs font-medium text-slate-300">{label}</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5">{desc}</p>
+                  </div>
+                  <div className={`relative h-5 w-9 flex-shrink-0 rounded-full transition-colors ${value ? "bg-violet-500" : "bg-slate-700"}`}>
+                    <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${value ? "translate-x-4" : "translate-x-0.5"}`} />
+                  </div>
+                </button>
+              ))}
+
+            </div>
           </div>
 
           <div className="rounded-lg border border-slate-700/40 bg-slate-800/30 px-3 py-2 text-xs text-slate-400 space-y-1">
