@@ -3408,7 +3408,8 @@ export default function MetaMeRuntimeClient() {
             onDismiss={dismissTakeover}
             onNextBestAction={(target, targetType) => {
               if (targetType === "codex") {
-                setActiveCartridgeOverlay({ slug: target, title: target });
+                const slug = normalizeCodexId(target) ?? target;
+                setActiveCartridgeOverlay({ slug, title: slug });
               }
             }}
           />
@@ -5284,16 +5285,6 @@ export default function MetaMeRuntimeClient() {
         personaId={activePersonaId || undefined}
         initialTab={walletInitialTab}
       />
-      {/* Cartridge overlay — z-axis layer, no internal header (shell header carries the close button) */}
-      {activeCartridgeOverlay != null && (
-        <div className="absolute inset-0 z-[60]">
-          <iframe
-            src={`/triad/embed/codex/${activeCartridgeOverlay.slug}?theme=dark&closable=0${activeCartridgeOverlay.initialTab ? `&tab=${encodeURIComponent(activeCartridgeOverlay.initialTab)}` : ''}`}
-            title={`${activeCartridgeOverlay.title} Cartridge`}
-            className="h-full w-full border-0"
-          />
-        </div>
-      )}
       {/* metaMe Settings — left-entering drawer (Be tab sub-item) */}
       {settingsDrawerOpen ? (
         <div
@@ -5482,7 +5473,8 @@ export default function MetaMeRuntimeClient() {
               onDismiss={dismissTakeover}
               onNextBestAction={(target, targetType) => {
                 if (targetType === "codex") {
-                  setActiveCartridgeOverlay({ slug: target, title: target });
+                  const slug = normalizeCodexId(target) ?? target;
+                  setActiveCartridgeOverlay({ slug, title: slug });
                 }
               }}
             />
@@ -5522,7 +5514,10 @@ export default function MetaMeRuntimeClient() {
               <>
                 <button
                   type="button"
-                  onClick={() => void handlePrompt("I'd like to explore my KNYT journey.", { source: "quick_link", skipInference: true, explicitIntent: "play" })}
+                  onClick={() => {
+                    postRuntimeEvent("PROCESSING_START", { intent: "play", source: "quick_link" });
+                    void handlePrompt("I'd like to explore my KNYT journey.", { source: "quick_link", skipInference: true, explicitIntent: "play" });
+                  }}
                   className="flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-200/80 hover:border-amber-500/40 hover:text-amber-100 transition-colors backdrop-blur-sm"
                 >
                   <Compass className="h-3 w-3 shrink-0" />
@@ -5549,7 +5544,10 @@ export default function MetaMeRuntimeClient() {
               <>
                 <button
                   type="button"
-                  onClick={() => void handlePrompt("help me find experiences.", { source: "quick_link", skipInference: true, explicitIntent: "find" })}
+                  onClick={() => {
+                    postRuntimeEvent("PROCESSING_START", { intent: "find", source: "quick_link" });
+                    void handlePrompt("help me find experiences.", { source: "quick_link", skipInference: true, explicitIntent: "find" });
+                  }}
                   className="flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[11px] text-emerald-200/80 hover:border-emerald-500/40 hover:text-emerald-100 transition-colors backdrop-blur-sm"
                 >
                   <Sparkles className="h-3 w-3 shrink-0" />
@@ -5629,6 +5627,17 @@ export default function MetaMeRuntimeClient() {
   // positioning scopes to the nearest positioned ancestor (relative outer containers below).
   const iQubeDrawerLayer = (
     <>
+      {/* Cartridge overlay — lives here (not in runtimeSurface) so it renders over both
+          the welcome screen and the runtime surface without depending on showWelcome state */}
+      {activeCartridgeOverlay != null && (
+        <div className="absolute inset-0 z-[60]">
+          <iframe
+            src={`/triad/embed/codex/${activeCartridgeOverlay.slug}?theme=dark&closable=0${activeCartridgeOverlay.initialTab ? `&tab=${encodeURIComponent(activeCartridgeOverlay.initialTab)}` : ''}`}
+            title={`${activeCartridgeOverlay.title} Cartridge`}
+            className="h-full w-full border-0"
+          />
+        </div>
+      )}
       {/* Persona iQube — left-entering drawer */}
       {personaIQubeDrawer && (
         <div className="absolute inset-0 z-[55] bg-black/50" onClick={() => setPersonaIQubeDrawer(null)} />
