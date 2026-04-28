@@ -52,7 +52,11 @@ function DynamicCodexContent() {
   const routeSlug = (params?.codexSlug || "knyt").trim();
   const codexOverride = readFirst(searchParams, ["codex", "codexId"]);
   const rawCodex = codexOverride || routeSlug;
-  const codexId = rawCodex.endsWith("-codex") ? rawCodex : `${rawCodex}-codex`;
+  // Most cartridges are stored with a `-codex` suffix on their id (e.g. "knyt-codex"),
+  // but newer ones use `-cartridge` (e.g. "agentiq-os-cartridge"). If the caller
+  // already supplied a value with a recognised suffix, pass it through unchanged.
+  const hasKnownSuffix = rawCodex.endsWith("-codex") || rawCodex.endsWith("-cartridge");
+  const codexId = hasKnownSuffix ? rawCodex : `${rawCodex}-codex`;
 
   const tab = readFirst(searchParams, ["tab", "initialTab", "tabSlug", "section"]);
   const theme = normalizeTheme(readFirst(searchParams, ["theme", "mode", "colorMode", "appearance"]));
