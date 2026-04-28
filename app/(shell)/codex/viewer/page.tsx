@@ -9,7 +9,10 @@ const CodexPanelDynamic = dynamic(
 );
 import { useCodexConfig, useCodexList } from "@/app/hooks/useCodexConfig";
 import type { CodexListItem } from "@/types/codex";
-import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
+const CodexCopilotLayer = dynamic(
+  () => import("@/app/components/codex/CodexCopilotLayer").then(m => ({ default: m.CodexCopilotLayer })),
+  { ssr: false }
+);
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 import {
   BookOpen,

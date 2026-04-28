@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { SmartTriadProvider } from "@/app/components/content";
+import { SmartTriadProvider } from "@/app/components/content/SmartTriadProvider";
 import ContentHubView from "./ContentHubView";
 
 export default function ContentPage() {
