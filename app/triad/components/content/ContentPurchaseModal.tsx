@@ -126,6 +126,8 @@ interface ContentPurchaseModalProps {
   stillPriceKnytOverride?: number;
   /** When provided, override the KNYT price shown for "Motion" in the version selector */
   motionPriceKnytOverride?: number;
+  /** When true, hides the Still/Motion version selector (e.g. for print purchases) */
+  hideVersionSelector?: boolean;
   onPurchaseComplete?: (entitlementId: string) => void;
   onBalanceRefresh?: () => void;
 }
@@ -145,6 +147,7 @@ export function ContentPurchaseModal({
   spendableKnyt,
   stillPriceKnytOverride,
   motionPriceKnytOverride,
+  hideVersionSelector,
   onPurchaseComplete,
   onBalanceRefresh,
 }: ContentPurchaseModalProps) {
@@ -188,12 +191,10 @@ export function ContentPurchaseModal({
   const isPreorder = contentId?.startsWith(PREORDER_ID_PREFIX);
   const shippingUsd = isPreorder ? PREORDER_SHIPPING_USD : 0;
 
-  const baseUsd = priceUsdOverride ? priceUsdOverride : baseKnyt * KNYT_USD_RATE;
+  const baseUsd = baseKnyt * KNYT_USD_RATE;
   const totalUsd = baseUsd + shippingUsd;
 
-  const pricing = priceUsdOverride
-    ? calculatePricing(priceUsdOverride / KNYT_USD_RATE, shippingUsd)
-    : calculatePricing(baseKnyt, shippingUsd);
+  const pricing = calculatePricing(baseKnyt, shippingUsd);
 
   const canAffordKnyt = effectiveSpendable >= pricing.rails.knyt.amount;
 
@@ -485,7 +486,7 @@ export function ContentPurchaseModal({
             </div>
           ) : (
             <>
-              {(contentType === 'scroll_still' ||
+              {!hideVersionSelector && (contentType === 'scroll_still' ||
                 contentType === 'scroll_motion' ||
                 contentType === 'character_card' ||
                 contentType === 'character_card_motion') && (

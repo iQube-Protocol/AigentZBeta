@@ -105,30 +105,62 @@ function EpisodesAdmin() {
 function BundlesAdmin() {
   const [bundles, setBundles] = useState<BundlePricing[]>(BUNDLE_PRICING);
 
-  const update = (id: string, val: number) => {
+  const updateDigital = (id: string, val: number) => {
     setBundles((prev) => prev.map((b) => b.id === id ? { ...b, digitalPrice: val } : b));
   };
+  const updateRetail = (id: string, val: number) => {
+    setBundles((prev) => prev.map((b) => b.id === id ? { ...b, retailPrice: val } : b));
+  };
+
+  const retailBundles   = bundles.filter((b) => !b.isInvestorOnly);
+  const investorBundles = bundles.filter((b) => b.isInvestorOnly);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="rounded-xl border border-amber-800/30 bg-amber-900/10 px-3 py-2 flex items-start gap-2">
         <AlertCircle className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
         <p className="text-[10px] text-amber-300">Changes are local to this session. Backend price sync is not yet wired.</p>
       </div>
-      {bundles.map((b) => (
-        <div key={b.id} className="rounded-xl border border-white/5 bg-slate-900/60 p-3">
-          <div className="flex items-center gap-2 mb-2">
-            <p className="text-xs font-semibold text-slate-200 flex-1">{b.label}</p>
-            {b.isInvestorOnly && (
-              <span className="text-[9px] font-medium text-yellow-500 border border-yellow-700/30 rounded px-1.5">Investor</span>
-            )}
-            {b.isLimited && b.limitedSupply && (
-              <span className="text-[9px] font-medium text-red-400 border border-red-700/30 rounded px-1.5">Lim. {b.limitedSupply}</span>
-            )}
-          </div>
-          <PriceRow label="Digital price" value={b.digitalPrice} onSave={(v) => update(b.id, v)} />
+
+      {/* Retail / Public bundles */}
+      <div>
+        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Retail Bundles</p>
+        <div className="space-y-2">
+          {retailBundles.map((b) => (
+            <div key={b.id} className="rounded-xl border border-white/5 bg-slate-900/60 p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <p className="text-xs font-semibold text-slate-200 flex-1">{b.label}</p>
+                <span className="text-[9px] text-slate-500">{b.episodes.length} eps</span>
+              </div>
+              <PriceRow label="Retail price (USD)" value={b.digitalPrice} onSave={(v) => updateDigital(b.id, v)} />
+            </div>
+          ))}
         </div>
-      ))}
+      </div>
+
+      {/* Investor bundles */}
+      {investorBundles.length > 0 && (
+        <div>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Investor Bundles</p>
+          <div className="space-y-2">
+            {investorBundles.map((b) => (
+              <div key={b.id} className="rounded-xl border border-yellow-800/30 bg-yellow-900/10 p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="text-xs font-semibold text-slate-200 flex-1">{b.label}</p>
+                  <span className="text-[9px] font-medium text-yellow-500 border border-yellow-700/30 rounded px-1.5">Investor</span>
+                  {b.isLimited && b.limitedSupply && (
+                    <span className="text-[9px] font-medium text-red-400 border border-red-700/30 rounded px-1.5">Lim. {b.limitedSupply}</span>
+                  )}
+                </div>
+                <PriceRow label="Investor price (USD)" value={b.digitalPrice} onSave={(v) => updateDigital(b.id, v)} />
+                {b.retailPrice !== undefined && (
+                  <PriceRow label="Retail price (slashed, USD)" value={b.retailPrice} onSave={(v) => updateRetail(b.id, v)} />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
