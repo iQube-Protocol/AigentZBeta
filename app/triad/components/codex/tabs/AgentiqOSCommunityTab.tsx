@@ -1,9 +1,17 @@
 "use client";
 
 import React, { useState } from "react";
-import { Kn0wdZTab } from "./Kn0wdZTab";
-import { AgentiqCartridgeTab } from "./AgentiqCartridgeTab";
-import { FeaturesTab } from "./FeaturesTab";
+import dynamic from "next/dynamic";
+
+const Kn0wdZTab = dynamic(
+  () => import("./Kn0wdZTab").then(m => ({ default: m.Kn0wdZTab }))
+);
+const AgentiqCartridgeTab = dynamic(
+  () => import("./AgentiqCartridgeTab").then(m => ({ default: m.AgentiqCartridgeTab }))
+);
+const FeaturesTab = dynamic(
+  () => import("./FeaturesTab").then(m => ({ default: m.FeaturesTab }))
+);
 
 type SubTab = "dev-resources" | "updates" | "qriptopian";
 

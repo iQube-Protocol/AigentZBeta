@@ -1,8 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import { AgentiqCartridgeTab } from "./AgentiqCartridgeTab";
-import { AigentCOSTab } from "./AigentCOSTab";
+import dynamic from "next/dynamic";
+
+const AgentiqCartridgeTab = dynamic(
+  () => import("./AgentiqCartridgeTab").then(m => ({ default: m.AgentiqCartridgeTab }))
+);
+const AigentCOSTab = dynamic(
+  () => import("./AigentCOSTab").then(m => ({ default: m.AigentCOSTab }))
+);
 
 type SubTab = "start-here" | "aigent-c";
 
