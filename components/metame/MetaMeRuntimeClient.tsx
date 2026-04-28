@@ -63,8 +63,10 @@ import {
   RotateCcw,
   Send,
   Share2,
+  ShoppingBag,
   SlidersHorizontal,
   Sparkles,
+  Wallet,
   Square,
   SquareArrowOutUpRight,
   Sun,
@@ -3406,7 +3408,8 @@ export default function MetaMeRuntimeClient() {
             onDismiss={dismissTakeover}
             onNextBestAction={(target, targetType) => {
               if (targetType === "codex") {
-                setActiveCartridgeOverlay({ slug: target, title: target });
+                const slug = normalizeCodexId(target) ?? target;
+                setActiveCartridgeOverlay({ slug, title: slug });
               }
             }}
           />
@@ -4656,6 +4659,13 @@ export default function MetaMeRuntimeClient() {
     previousWelcomeRef.current = showWelcome;
   }, [activeDevice, embedMode, isRuntimeFullscreen, lastIntent, postRuntimeEvent, runtimeContext, runtimeProcessing, showWelcome, thinShellMode]);
 
+  // Notify the shell whenever the runtime lead changes so it can update its
+  // colour tokens (amber=KNYT, emerald=metaMe) independently of STATE_SYNC.
+  useEffect(() => {
+    if (!embedMode) return;
+    postRuntimeEvent("RUNTIME_LEAD_CHANGE", { runtime_context: runtimeContext });
+  }, [embedMode, postRuntimeEvent, runtimeContext]);
+
   useEffect(() => {
     if (!embedMode) return;
     postRuntimeEvent("STATE_SYNC", {
@@ -5275,16 +5285,6 @@ export default function MetaMeRuntimeClient() {
         personaId={activePersonaId || undefined}
         initialTab={walletInitialTab}
       />
-      {/* Cartridge overlay — z-axis layer, no internal header (shell header carries the close button) */}
-      {activeCartridgeOverlay != null && (
-        <div className="absolute inset-0 z-[60]">
-          <iframe
-            src={`/triad/embed/codex/${activeCartridgeOverlay.slug}?theme=dark&closable=0${activeCartridgeOverlay.initialTab ? `&tab=${encodeURIComponent(activeCartridgeOverlay.initialTab)}` : ''}`}
-            title={`${activeCartridgeOverlay.title} Cartridge`}
-            className="h-full w-full border-0"
-          />
-        </div>
-      )}
       {/* metaMe Settings — left-entering drawer (Be tab sub-item) */}
       {settingsDrawerOpen ? (
         <div
@@ -5473,7 +5473,8 @@ export default function MetaMeRuntimeClient() {
               onDismiss={dismissTakeover}
               onNextBestAction={(target, targetType) => {
                 if (targetType === "codex") {
-                  setActiveCartridgeOverlay({ slug: target, title: target });
+                  const slug = normalizeCodexId(target) ?? target;
+                  setActiveCartridgeOverlay({ slug, title: slug });
                 }
               }}
             />
@@ -5505,6 +5506,66 @@ export default function MetaMeRuntimeClient() {
             </div>
           </div>
         </form>
+
+        {/* Takeover quick links — 3 context-specific action chips */}
+        {takeoverManifest && (
+          <div className="w-full max-w-[760px] flex flex-wrap gap-2">
+            {runtimeContext === 'knyt' ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    postRuntimeEvent("PROCESSING_START", { intent: "play", source: "quick_link" });
+                    void handlePrompt("I'd like to explore my KNYT journey.", { source: "quick_link", skipInference: true, explicitIntent: "play" });
+                  }}
+                  className="flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-200/80 hover:border-amber-500/40 hover:text-amber-100 transition-colors backdrop-blur-sm"
+                >
+                  <Compass className="h-3 w-3 shrink-0" />
+                  Explore the KNYT World
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveCartridgeOverlay({ slug: 'knyt-codex', title: 'KNYT Store', initialTab: 'store-episodes' })}
+                  className="flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-200/80 hover:border-amber-500/40 hover:text-amber-100 transition-colors backdrop-blur-sm"
+                >
+                  <ShoppingBag className="h-3 w-3 shrink-0" />
+                  Go to the KNYT Store
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWalletDrawerOpen(true)}
+                  className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] text-white/60 hover:border-white/25 hover:text-white/90 transition-colors backdrop-blur-sm"
+                >
+                  <Wallet className="h-3 w-3 shrink-0" />
+                  Sign in
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    postRuntimeEvent("PROCESSING_START", { intent: "find", source: "quick_link" });
+                    void handlePrompt("help me find experiences.", { source: "quick_link", skipInference: true, explicitIntent: "find" });
+                  }}
+                  className="flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[11px] text-emerald-200/80 hover:border-emerald-500/40 hover:text-emerald-100 transition-colors backdrop-blur-sm"
+                >
+                  <Sparkles className="h-3 w-3 shrink-0" />
+                  Explore metaMe
+                </button>
+                {/* View metaMe cartridge: stub — hidden until runtime tab is built */}
+                <button
+                  type="button"
+                  onClick={() => setWalletDrawerOpen(true)}
+                  className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] text-white/60 hover:border-white/25 hover:text-white/90 transition-colors backdrop-blur-sm"
+                >
+                  <Wallet className="h-3 w-3 shrink-0" />
+                  Sign in
+                </button>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {!thinShellMode ? (
@@ -5566,6 +5627,17 @@ export default function MetaMeRuntimeClient() {
   // positioning scopes to the nearest positioned ancestor (relative outer containers below).
   const iQubeDrawerLayer = (
     <>
+      {/* Cartridge overlay — lives here (not in runtimeSurface) so it renders over both
+          the welcome screen and the runtime surface without depending on showWelcome state */}
+      {activeCartridgeOverlay != null && (
+        <div className="absolute inset-0 z-[60]">
+          <iframe
+            src={`/triad/embed/codex/${activeCartridgeOverlay.slug}?theme=dark&closable=0${activeCartridgeOverlay.initialTab ? `&tab=${encodeURIComponent(activeCartridgeOverlay.initialTab)}` : ''}`}
+            title={`${activeCartridgeOverlay.title} Cartridge`}
+            className="h-full w-full border-0"
+          />
+        </div>
+      )}
       {/* Persona iQube — left-entering drawer */}
       {personaIQubeDrawer && (
         <div className="absolute inset-0 z-[55] bg-black/50" onClick={() => setPersonaIQubeDrawer(null)} />
