@@ -7,7 +7,8 @@ import {
   CodexCopilotLayer,
   type CopilotMessage,
 } from "@/app/components/codex/CodexCopilotLayer";
-import { SmartContentCard, useOptionalSmartTriad } from "@/app/components/content";
+import SmartContentCard from "@/app/components/content/SmartContentCard";
+import { useOptionalSmartTriad } from "@/app/components/content/SmartTriadProvider";
 import type { SmartContentQube } from "@/types/smartContent";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

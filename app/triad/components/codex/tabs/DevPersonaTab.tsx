@@ -1,10 +1,15 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { User, Wallet, ChevronDown, ChevronUp, Info, Star, Globe, CheckCircle2, Circle, Zap, ExternalLink, Link, Loader2, Layers } from "lucide-react";
 import { PersonaCreationForm } from "@/components/identity/PersonaCreationForm";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
-import SmartWalletDrawer from "@/app/components/content/SmartWalletDrawer";
+
+const SmartWalletDrawer = dynamic(
+  () => import("@/app/components/content/SmartWalletDrawer"),
+  { ssr: false }
+);
 
 async function emitPersonaCreatedReceipt(personaId: string): Promise<void> {
   try {

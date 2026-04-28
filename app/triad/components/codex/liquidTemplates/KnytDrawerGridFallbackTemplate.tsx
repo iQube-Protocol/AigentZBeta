@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { LayoutGrid, Loader2 } from "lucide-react";
 import type { SmartContentQube } from "@/types/smartContent";
-import { SmartContentCard, useSmartTriad } from "@/app/components/content";
+import SmartContentCard from "@/app/components/content/SmartContentCard";
+import { useSmartTriad } from "@/app/components/content/SmartTriadProvider";
 import { ExperienceContextSidebar } from "@/components/composer/ExperienceContextSidebar";
 
 type ExperienceQube = {

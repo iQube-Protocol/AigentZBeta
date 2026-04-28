@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
-import { SmartContentCard, useOptionalSmartTriad } from "@/app/components/content";
+import SmartContentCard from "@/app/components/content/SmartContentCard";
+import { useOptionalSmartTriad } from "@/app/components/content/SmartTriadProvider";
 import type { SmartContentQube } from "@/types/smartContent";
 import {
   ArrowRight, Brain, Compass, Wifi, WifiOff,

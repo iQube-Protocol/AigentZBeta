@@ -10,7 +10,7 @@
 "use client";
 
 import React from "react";
-import { CodexTab } from "@/types/codex";
+import type { CodexTab } from "@/types/codex";
 import type { DeviceType } from "@/app/types/knytLiquidUI";
 import { AlertCircle } from "lucide-react";
 import { liquidTemplateRegistry } from "./liquidTemplates/registry";

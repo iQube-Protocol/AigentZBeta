@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Compass, Film, ShieldCheck, Swords, Loader2, Map } from "lucide-react";
-import { SmartContentCard, useSmartTriad } from "@/app/components/content";
+import SmartContentCard from "@/app/components/content/SmartContentCard";
+import { useSmartTriad } from "@/app/components/content/SmartTriadProvider";
 import type { SmartContentQube } from "@/types/smartContent";
 
 type ExperienceQube = {

@@ -17,7 +17,11 @@
 
 import { Suspense } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import CodexPanelDynamic from "@/app/triad/components/CodexPanelDynamic";
+import dynamic from "next/dynamic";
+const CodexPanelDynamic = dynamic(
+  () => import("@/app/triad/components/CodexPanelDynamic"),
+  { ssr: false }
+);
 import { useCodexEmbedAuthBridge } from "../_lib/useCodexEmbedAuthBridge";
 
 const readFirst = (searchParams: URLSearchParams | null, keys: string[]) => {
