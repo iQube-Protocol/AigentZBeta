@@ -3402,6 +3402,7 @@ export default function MetaMeRuntimeClient() {
           <RuntimeTakeoverBanner
             manifest={takeoverManifest}
             cartridgeDisplayName={takeoverDisplayName}
+            cartridgeContext={runtimeContext}
             onDismiss={dismissTakeover}
             onNextBestAction={(target, targetType) => {
               if (targetType === "codex") {
@@ -5462,7 +5463,22 @@ export default function MetaMeRuntimeClient() {
         </div>
       ) : null}
 
-      <div className="flex-1 flex items-center justify-center px-6">
+      <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6">
+        {takeoverManifest && (
+          <div className="w-full max-w-[760px]">
+            <RuntimeTakeoverBanner
+              manifest={takeoverManifest}
+              cartridgeDisplayName={takeoverDisplayName}
+              cartridgeContext={runtimeContext}
+              onDismiss={dismissTakeover}
+              onNextBestAction={(target, targetType) => {
+                if (targetType === "codex") {
+                  setActiveCartridgeOverlay({ slug: target, title: target });
+                }
+              }}
+            />
+          </div>
+        )}
         <form
           className="w-full max-w-[760px]"
           onSubmit={(event) => {
