@@ -1,6 +1,8 @@
+import type { RuntimeTakeoverConfig } from './runtimeTakeover';
+
 /**
  * Multi-Codex System Types
- * 
+ *
  * Defines the data model for dynamic, configurable codexes that can be
  * created, edited, and managed via API and UI.
  */
@@ -65,8 +67,6 @@ export interface CodexTab {
   /** If set, this tab is a sub-tab of the named TabGroup (references TabGroup.id). */
   group?: string;
 }
-
-import type { RuntimeTakeoverConfig } from './runtimeTakeover';
 
 export interface CodexConfig {
   id: string;                    // Unique identifier (e.g., 'knyt-codex')

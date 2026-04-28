@@ -33,7 +33,7 @@
  *   'Macro' / outer layer = cartridge framework
  */
 
-import { CodexConfig } from '@/types/codex';
+import type { CodexConfig } from '@/types/codex';
 import type { RuntimeTakeoverConfig } from '@/types/runtimeTakeover';
 
 // =============================================================================
