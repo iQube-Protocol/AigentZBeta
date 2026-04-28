@@ -22,6 +22,10 @@ interface MissionTrack {
 
 interface DevMissionBoardTabProps {
   personaId?: string;
+  /** When provided, locks the view to this panel and hides the internal toggle.
+   *  Used when the cartridge surfaces "Dev Missions" and "KNYT Missions" as
+   *  separate sub-tabs instead of an in-tab toggle. */
+  panel?: "your-missions" | "knyt-reference";
 }
 
 const QUBE_TYPE_DESCRIPTIONS: Record<string, string> = {
@@ -364,8 +368,8 @@ const KNYT_MISSIONS: KnytMission[] = [
   },
 ];
 
-export function DevMissionBoardTab({ personaId }: DevMissionBoardTabProps) {
-  const [activePanel, setActivePanel] = useState<"your-missions" | "knyt-reference">("your-missions");
+export function DevMissionBoardTab({ personaId, panel }: DevMissionBoardTabProps) {
+  const [activePanel, setActivePanel] = useState<"your-missions" | "knyt-reference">(panel ?? "your-missions");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [knytExpanded, setKnytExpanded] = useState<string | null>(null);
   const [completed, setCompleted] = useState<Set<string>>(new Set());
@@ -536,23 +540,25 @@ export function DevMissionBoardTab({ personaId }: DevMissionBoardTabProps) {
         </div>
       </div>
 
-      {/* Panel toggle */}
-      <div className="flex gap-1 rounded-lg border border-slate-700/60 bg-slate-900/40 p-1 w-fit">
-        {(["your-missions", "knyt-reference"] as const).map((panel) => (
-          <button
-            key={panel}
-            type="button"
-            onClick={() => setActivePanel(panel)}
-            className={`rounded-md px-4 py-1.5 text-xs font-semibold transition-colors ${
-              activePanel === panel
-                ? "bg-slate-700 text-slate-100"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            {panel === "your-missions" ? "Your Missions" : "KNYT Reference"}
-          </button>
-        ))}
-      </div>
+      {/* Panel toggle — hidden when caller pins the panel via the `panel` prop. */}
+      {!panel && (
+        <div className="flex gap-1 rounded-lg border border-slate-700/60 bg-slate-900/40 p-1 w-fit">
+          {(["your-missions", "knyt-reference"] as const).map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setActivePanel(p)}
+              className={`rounded-md px-4 py-1.5 text-xs font-semibold transition-colors ${
+                activePanel === p
+                  ? "bg-slate-700 text-slate-100"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              {p === "your-missions" ? "Your Missions" : "KNYT Reference"}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* ── Your Missions panel ── */}
       {activePanel === "your-missions" && (<>
