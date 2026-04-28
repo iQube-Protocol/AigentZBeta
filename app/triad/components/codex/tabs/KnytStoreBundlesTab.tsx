@@ -15,8 +15,11 @@ import {
   type CardsPricing,
 } from '@/types/knyt-store';
 import { useKnytThumbnails } from './useKnytThumbnails';
+import { useKnytCart } from './useKnytCart';
+import { KnytCartDrawer } from './KnytCartDrawer';
 import { ContentPurchaseModal } from '../../content/ContentPurchaseModal';
 import type { ContentType } from '../../content/ContentPurchaseModal';
+import type { CartItem } from '@/types/knyt-store';
 
 interface Props {
   personaId?: string;
@@ -219,10 +222,12 @@ function CardPackCard({
 function BundleDetail({
   bundle,
   getCoverThumb,
+  getCharacterThumb,
   onBuy,
 }: {
   bundle: BundlePricing;
   getCoverThumb: (epNum: number) => string | undefined;
+  getCharacterThumb: (epNum: number) => string | undefined;
   onBuy: () => void;
 }) {
   const includedEpisodes = EPISODE_PRICING.filter((ep) => bundle.episodes.includes(ep.episodeNumber));
@@ -362,6 +367,31 @@ function BundleDetail({
           })}
         </div>
       </div>
+
+      {/* Character cards — shown for bundles that include all episodes (0-12) */}
+      {bundle.includes?.some((s) => s.toLowerCase().includes('character card')) && (() => {
+        const cardEpisodes = bundle.episodes.filter((n) => n >= 0);
+        const cardThumbs = cardEpisodes.map((n) => ({ n, thumb: getCharacterThumb(n) })).filter((x) => x.thumb);
+        if (cardThumbs.length === 0) return null;
+        return (
+          <div>
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+              <User className="h-3 w-3" />
+              KNYT Character Cards ({cardEpisodes.length})
+            </p>
+            <div className="grid grid-cols-7 gap-1">
+              {cardThumbs.map(({ n, thumb }) => (
+                <div key={n} className="flex flex-col rounded overflow-hidden border border-white/5 bg-slate-900/60">
+                  <div className="aspect-[3/4] bg-slate-950 overflow-hidden">
+                    <img src={thumb!} alt={`Card ${n}`} className="w-full h-full object-contain" loading="lazy" />
+                  </div>
+                  <p className="text-[7px] text-slate-400 text-center py-0.5 leading-none">#{n}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -452,21 +482,48 @@ const investorBundles = BUNDLE_PRICING.filter((b) => b.isInvestorOnly);
 export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
   const [view, setView]         = useState<BundleView>({ kind: 'landing' });
   const [purchase, setPurchase] = useState<PendingPurchase | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
   const { getCoverThumb, getCharacterThumb } = useKnytThumbnails();
+  const cart = useKnytCart();
 
   const headerLabel =
     view.kind === 'landing'       ? 'Bundles & Cards'
     : view.kind === 'bundle-detail' ? view.bundle.label
     : `${LAYER_SHORT[view.option.layer] ?? view.option.layer} — 13 Cards`;
 
+  function addBundleToCart(bundle: BundlePricing) {
+    const item: CartItem = {
+      id:        bundle.id,
+      label:     bundle.label,
+      modality:  'bundle',
+      layer:     'digital',
+      priceUsd:  bundle.memberPrice ?? bundle.digitalPrice,
+      thumbUrl:  bundle.isInvestorOnly ? INVESTOR_SEAL : getCoverThumb(bundle.id === 'bundle-8-12' ? bundle.episodes[0] : bundle.episodes[bundle.episodes.length - 1]),
+    };
+    cart.addToCart(item);
+    setCartOpen(true);
+  }
+
   function openBundlePurchase(bundle: BundlePricing) {
     setPurchase({
       contentType:      getBundleContentType(bundle),
       contentId:        bundle.id,
       contentTitle:     bundle.label,
-      contentImage:     bundle.isInvestorOnly ? INVESTOR_SEAL : getCoverThumb(bundle.episodes[0]),
+      contentImage:     bundle.isInvestorOnly ? INVESTOR_SEAL : getCoverThumb(bundle.id === 'bundle-8-12' ? bundle.episodes[0] : bundle.episodes[bundle.episodes.length - 1]),
       priceUsdOverride: bundle.memberPrice ?? bundle.digitalPrice,
     });
+  }
+
+  function addPackToCart(option: CardsPricing) {
+    const item: CartItem = {
+      id:       `cards-pack-${option.layer}`,
+      label:    `13 Card Pack — ${LAYER_SHORT[option.layer] ?? option.layer}`,
+      modality: 'still',
+      layer:    option.layer === 'physical' ? 'print' : option.layer === 'qripto' ? 'qripto' : 'digital',
+      priceUsd: option.price,
+    };
+    cart.addToCart(item);
+    setCartOpen(true);
   }
 
   function openPackPurchase(option: CardsPricing) {
@@ -479,7 +536,7 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
       <div className="flex-shrink-0 border-b border-slate-800/60 bg-slate-900/40 px-4 py-2 flex items-center gap-2">
         {view.kind !== 'landing' && (
           <button
@@ -491,12 +548,49 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
           </button>
         )}
         <Package className="h-4 w-4 text-cyan-400 shrink-0" />
-        <span className="text-sm font-semibold text-slate-200">{headerLabel}</span>
+        <span className="text-sm font-semibold text-slate-200 flex-1">{headerLabel}</span>
+        {/* Cart badge */}
+        <button
+          type="button"
+          onClick={() => setCartOpen(true)}
+          className="relative p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+        >
+          <ShoppingCart className="h-4 w-4" />
+          {cart.items.length > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-teal-500 text-[8px] font-bold text-white flex items-center justify-center">
+              {cart.items.length}
+            </span>
+          )}
+        </button>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto">
         {view.kind === 'landing' && (
           <div className="p-2.5 space-y-4">
+            {/* Graphic Novel, Episode & Character Bundles — investor bundles at top with retail prices */}
+            {investorBundles.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide px-0.5 mb-2">
+                  Graphic Novel, Episode &amp; Character Bundles
+                </p>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {investorBundles.map((bundle) => {
+                    // Show retail price for the public-facing retail tab
+                    const retailBundle = { ...bundle, digitalPrice: bundle.retailPrice ?? bundle.digitalPrice, retailPrice: undefined };
+                    return (
+                      <BundleGridCard
+                        key={bundle.id}
+                        bundle={retailBundle}
+                        thumbUrl={INVESTOR_SEAL}
+                        onClick={() => setView({ kind: 'bundle-detail', bundle: retailBundle })}
+                        onBuy={(e) => { e.stopPropagation(); addBundleToCart(retailBundle); }}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Episode Bundles — 4-col */}
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide px-0.5 mb-2">
@@ -507,9 +601,9 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
                   <BundleGridCard
                     key={bundle.id}
                     bundle={bundle}
-                    thumbUrl={getCoverThumb(bundle.episodes[bundle.episodes.length - 1])}
+                    thumbUrl={getCoverThumb(bundle.id === 'bundle-8-12' ? bundle.episodes[0] : bundle.episodes[bundle.episodes.length - 1])}
                     onClick={() => setView({ kind: 'bundle-detail', bundle })}
-                    onBuy={(e) => { e.stopPropagation(); openBundlePurchase(bundle); }}
+                    onBuy={(e) => { e.stopPropagation(); addBundleToCart(bundle); }}
                   />
                 ))}
               </div>
@@ -527,39 +621,11 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
                     option={option}
                     getCharacterThumb={getCharacterThumb}
                     onClick={() => setView({ kind: 'pack-detail', option })}
-                    onBuy={(e) => { e.stopPropagation(); openPackPurchase(option); }}
+                    onBuy={(e) => { e.stopPropagation(); addPackToCart(option); }}
                   />
                 ))}
               </div>
             </div>
-
-            {/* Investor Bundles — 4-col with seal */}
-            {investorBundles.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 px-0.5 mb-2">
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
-                    Investor Bundles
-                  </p>
-                  <Lock className="h-3 w-3 text-yellow-500" />
-                </div>
-                <div className="rounded-xl border border-yellow-800/30 bg-yellow-900/10 px-3 py-2 mb-2 flex items-start gap-2">
-                  <Sparkles className="h-3.5 w-3.5 text-yellow-400 shrink-0 mt-0.5" />
-                  <p className="text-xs text-yellow-300">Token-gated. Requires investor access.</p>
-                </div>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {investorBundles.map((bundle) => (
-                    <BundleGridCard
-                      key={bundle.id}
-                      bundle={bundle}
-                      thumbUrl={INVESTOR_SEAL}
-                      isInvestor
-                      onClick={() => setView({ kind: 'bundle-detail', bundle })}
-                      onBuy={(e) => { e.stopPropagation(); openBundlePurchase(bundle); }}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -567,6 +633,7 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
           <BundleDetail
             bundle={view.bundle}
             getCoverThumb={getCoverThumb}
+            getCharacterThumb={getCharacterThumb}
             onBuy={() => openBundlePurchase(view.bundle)}
           />
         )}
@@ -593,6 +660,18 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
           baseKnytOverride={usdToKnyt(purchase.priceUsdOverride)}
         />
       )}
+
+      {/* Cart drawer — slides in from right */}
+      <KnytCartDrawer
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        items={cart.items}
+        onRemove={cart.removeFromCart}
+        onClearCart={cart.clearCart}
+        personaId={personaId}
+        total={cart.total}
+        totalWithKnyt={cart.totalWithKnyt}
+      />
     </div>
   );
 }

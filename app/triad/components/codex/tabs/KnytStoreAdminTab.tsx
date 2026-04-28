@@ -9,6 +9,8 @@ import {
   KNYT_COYN_DISCOUNT,
   PRINT_PROVENANCE_PRICE_USD,
   PRINT_PROVENANCE_PRICE_KNYT,
+  GN_PROVENANCE_PRICE_USD,
+  GN_PROVENANCE_PRICE_KNYT,
   type EpisodePricing,
   type BundlePricing,
 } from '@/types/knyt-store';
@@ -103,46 +105,95 @@ function EpisodesAdmin() {
 function BundlesAdmin() {
   const [bundles, setBundles] = useState<BundlePricing[]>(BUNDLE_PRICING);
 
-  const update = (id: string, val: number) => {
+  const updateDigital = (id: string, val: number) => {
     setBundles((prev) => prev.map((b) => b.id === id ? { ...b, digitalPrice: val } : b));
   };
+  const updateRetail = (id: string, val: number) => {
+    setBundles((prev) => prev.map((b) => b.id === id ? { ...b, retailPrice: val } : b));
+  };
+
+  const retailBundles   = bundles.filter((b) => !b.isInvestorOnly);
+  const investorBundles = bundles.filter((b) => b.isInvestorOnly);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="rounded-xl border border-amber-800/30 bg-amber-900/10 px-3 py-2 flex items-start gap-2">
         <AlertCircle className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
         <p className="text-[10px] text-amber-300">Changes are local to this session. Backend price sync is not yet wired.</p>
       </div>
-      {bundles.map((b) => (
-        <div key={b.id} className="rounded-xl border border-white/5 bg-slate-900/60 p-3">
-          <div className="flex items-center gap-2 mb-2">
-            <p className="text-xs font-semibold text-slate-200 flex-1">{b.label}</p>
-            {b.isInvestorOnly && (
-              <span className="text-[9px] font-medium text-yellow-500 border border-yellow-700/30 rounded px-1.5">Investor</span>
-            )}
-            {b.isLimited && b.limitedSupply && (
-              <span className="text-[9px] font-medium text-red-400 border border-red-700/30 rounded px-1.5">Lim. {b.limitedSupply}</span>
-            )}
-          </div>
-          <PriceRow label="Digital price" value={b.digitalPrice} onSave={(v) => update(b.id, v)} />
+
+      {/* Retail / Public bundles */}
+      <div>
+        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Retail Bundles</p>
+        <div className="space-y-2">
+          {retailBundles.map((b) => (
+            <div key={b.id} className="rounded-xl border border-white/5 bg-slate-900/60 p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <p className="text-xs font-semibold text-slate-200 flex-1">{b.label}</p>
+                <span className="text-[9px] text-slate-500">{b.episodes.length} eps</span>
+              </div>
+              <PriceRow label="Retail price (USD)" value={b.digitalPrice} onSave={(v) => updateDigital(b.id, v)} />
+            </div>
+          ))}
         </div>
-      ))}
+      </div>
+
+      {/* Investor bundles */}
+      {investorBundles.length > 0 && (
+        <div>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Investor Bundles</p>
+          <div className="space-y-2">
+            {investorBundles.map((b) => (
+              <div key={b.id} className="rounded-xl border border-yellow-800/30 bg-yellow-900/10 p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="text-xs font-semibold text-slate-200 flex-1">{b.label}</p>
+                  <span className="text-[9px] font-medium text-yellow-500 border border-yellow-700/30 rounded px-1.5">Investor</span>
+                  {b.isLimited && b.limitedSupply && (
+                    <span className="text-[9px] font-medium text-red-400 border border-red-700/30 rounded px-1.5">Lim. {b.limitedSupply}</span>
+                  )}
+                </div>
+                <PriceRow label="Investor price (USD)" value={b.digitalPrice} onSave={(v) => updateDigital(b.id, v)} />
+                {b.retailPrice !== undefined && (
+                  <PriceRow label="Retail price (slashed, USD)" value={b.retailPrice} onSave={(v) => updateRetail(b.id, v)} />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function ProvenanceAdmin() {
   return (
-    <div className="rounded-xl border border-white/5 bg-slate-900/60 p-4 space-y-3">
-      <p className="text-xs font-semibold text-slate-200">Print Provenance Pricing</p>
-      <div className="space-y-1">
-        <div className="flex items-center justify-between py-2 border-b border-white/5">
-          <span className="text-xs text-slate-300">USD price</span>
-          <span className="text-xs font-semibold text-white">${PRINT_PROVENANCE_PRICE_USD}</span>
+    <div className="space-y-4">
+      {/* Episode provenance */}
+      <div className="rounded-xl border border-white/5 bg-slate-900/60 p-4 space-y-3">
+        <p className="text-xs font-semibold text-slate-200">Episode Print Provenance</p>
+        <div className="space-y-1">
+          <div className="flex items-center justify-between py-2 border-b border-white/5">
+            <span className="text-xs text-slate-300">USD price (per episode)</span>
+            <span className="text-xs font-semibold text-white">${PRINT_PROVENANCE_PRICE_USD}</span>
+          </div>
+          <div className="flex items-center justify-between py-2">
+            <span className="text-xs text-slate-300">KNYT COYN price</span>
+            <span className="text-xs font-semibold text-white">{PRINT_PROVENANCE_PRICE_KNYT} KNYT</span>
+          </div>
         </div>
-        <div className="flex items-center justify-between py-2">
-          <span className="text-xs text-slate-300">KNYT COYN price</span>
-          <span className="text-xs font-semibold text-white">{PRINT_PROVENANCE_PRICE_KNYT} KNYT</span>
+      </div>
+      {/* GN provenance */}
+      <div className="rounded-xl border border-amber-800/30 bg-amber-900/10 p-4 space-y-3">
+        <p className="text-xs font-semibold text-slate-200">Graphic Novel Print Provenance</p>
+        <div className="space-y-1">
+          <div className="flex items-center justify-between py-2 border-b border-white/5">
+            <span className="text-xs text-slate-300">USD price (GN)</span>
+            <span className="text-xs font-semibold text-amber-300">${GN_PROVENANCE_PRICE_USD}</span>
+          </div>
+          <div className="flex items-center justify-between py-2">
+            <span className="text-xs text-slate-300">KNYT COYN price</span>
+            <span className="text-xs font-semibold text-amber-300">{GN_PROVENANCE_PRICE_KNYT} KNYT</span>
+          </div>
         </div>
       </div>
       <p className="text-[10px] text-slate-500">Edit provenance prices in <code className="bg-slate-800 px-1 rounded">types/knyt-store.ts</code> constants.</p>
@@ -225,7 +276,20 @@ function MintingAdmin({ personaId }: { personaId?: string }) {
       {loadError && (
         <div className="rounded-xl border border-red-800/30 bg-red-900/10 px-3 py-2 flex items-start gap-2">
           <AlertCircle className="h-3.5 w-3.5 text-red-400 shrink-0 mt-0.5" />
-          <p className="text-[10px] text-red-300">{loadError}</p>
+          <div className="space-y-1.5">
+            <p className="text-[10px] text-red-300">{loadError}</p>
+            {loadError.toLowerCase().includes('relation') || loadError.toLowerCase().includes('exist') || loadError.toLowerCase().includes('knyt_sku') ? (
+              <div className="mt-2">
+                <p className="text-[9px] text-slate-400 mb-1">Run this SQL in Supabase to create the missing table:</p>
+                <pre className="text-[8px] text-slate-300 bg-slate-900 rounded p-1.5 overflow-x-auto whitespace-pre-wrap select-all">{`CREATE TABLE IF NOT EXISTS public.knyt_sku_config (
+  sku_id      text        PRIMARY KEY,
+  minting_mode text       NOT NULL DEFAULT 'immediate',
+  updated_at  timestamptz,
+  updated_by  text
+);`}</pre>
+              </div>
+            ) : null}
+          </div>
         </div>
       )}
       <div className="rounded-xl border border-blue-800/30 bg-blue-900/10 px-3 py-2 flex items-start gap-2">

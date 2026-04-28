@@ -66,6 +66,7 @@ import { QriptopianAdminTab } from "./tabs/QriptopianAdminTab";
 import { KnytStoreEpisodesTab } from "./tabs/KnytStoreEpisodesTab";
 import { KnytStoreCardsTab } from "./tabs/KnytStoreCardsTab";
 import { KnytStoreBundlesTab } from "./tabs/KnytStoreBundlesTab";
+import { KnytStoreInvestorTab } from "./tabs/KnytStoreInvestorTab";
 import { KnytStoreAdminTab } from "./tabs/KnytStoreAdminTab";
 import { KnytShelfTab } from "./tabs/KnytShelfTab";
 import { AigentMissionsBoardTab } from "./tabs/AigentMissionsBoardTab";
@@ -145,6 +146,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   KnytStoreEpisodesTab,
   KnytStoreCardsTab,
   KnytStoreBundlesTab,
+  KnytStoreInvestorTab,
   KnytStoreAdminTab,
   KnytShelfTab,
   AigentMissionsBoardTab,

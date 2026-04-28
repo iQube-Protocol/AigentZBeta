@@ -32,6 +32,9 @@ interface PendingPurchase {
   contentTitle: string;
   contentImage?: string;
   priceUsdOverride: number;
+  stillPriceKnytOverride?: number;
+  motionPriceKnytOverride?: number;
+  hideVersionSelector?: boolean;
 }
 
 // ── GN SKUs — 4 fixed formats (no motion comic for GN) ────────────────────────
@@ -290,11 +293,13 @@ function EpisodeDetail({
           <CartButton
             label={`Buy Qripto ${modalLabel}`}
             onClick={() => onBuy({
-              contentType: 'scroll_still',
+              contentType: modality === 'bundle' ? 'bundle_3_still' : 'scroll_still',
               contentId: `episode-${ep.episodeNumber}-qripto-${modality}`,
               contentTitle: `${label} — Qripto ${modalLabel}`,
               contentImage: thumbUrl,
               priceUsdOverride: activeQriptoPrice,
+              stillPriceKnytOverride: usdToKnyt(ep.qriptoPrice),
+              motionPriceKnytOverride: usdToKnyt(ep.qriptoPrice),
             })}
             className="w-full justify-center"
           />
@@ -316,11 +321,13 @@ function EpisodeDetail({
           <CartButton
             label={`Buy Digital ${modalLabel}`}
             onClick={() => onBuy({
-              contentType: 'scroll_still',
+              contentType: modality === 'bundle' ? 'bundle_3_still' : 'scroll_still',
               contentId: `episode-${ep.episodeNumber}-digital-${modality}`,
               contentTitle: `${label} — Digital ${modalLabel}`,
               contentImage: thumbUrl,
               priceUsdOverride: activeDigitalPrice,
+              stillPriceKnytOverride: usdToKnyt(ep.digitalPrice),
+              motionPriceKnytOverride: usdToKnyt(ep.digitalPrice),
             })}
             className="w-full justify-center"
           />
@@ -354,6 +361,7 @@ function EpisodeDetail({
               contentTitle: `${label} — Print`,
               contentImage: thumbUrl,
               priceUsdOverride: ep.printPrice,
+              hideVersionSelector: true,
             })}
             className="w-full justify-center"
           />
@@ -597,6 +605,8 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
                         contentTitle: `Episode ${ep.episodeNumber}`,
                         contentImage: thumb,
                         priceUsdOverride: ep.digitalPrice,
+                        stillPriceKnytOverride: usdToKnyt(ep.digitalPrice),
+                        motionPriceKnytOverride: usdToKnyt(ep.digitalPrice),
                       })}
                     />
                   );
@@ -636,6 +646,9 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
           contentImage={purchase.contentImage}
           priceUsdOverride={purchase.priceUsdOverride}
           baseKnytOverride={usdToKnyt(purchase.priceUsdOverride)}
+          stillPriceKnytOverride={purchase.stillPriceKnytOverride}
+          motionPriceKnytOverride={purchase.motionPriceKnytOverride}
+          hideVersionSelector={purchase.hideVersionSelector}
         />
       )}
     </div>

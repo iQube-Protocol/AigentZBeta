@@ -3407,10 +3407,12 @@ export default function MetaMeRuntimeClient() {
             cartridgeContext={runtimeContext}
             onDismiss={dismissTakeover}
             onNextBestAction={(target, targetType) => {
-              if (runtimeContext === 'knyt') {
-                setActiveCartridgeOverlay({ slug: 'knyt-codex', title: 'KNYT World', initialTab: 'store-episodes' });
-              } else if (targetType === 'codex') {
-                const slug = normalizeCodexId(target) ?? target;
+              if (targetType === 'codex') {
+                const normalized = normalizeCodexId(target) ?? target;
+                // Guard against LLM generating a tab name (e.g. "store") instead of
+                // a codex slug — fall back to the active takeover cartridge.
+                const KNOWN_SLUGS = ['knyt-codex','metame-codex','qripto-codex','agentiq-os','alpha-knyt-codex'];
+                const slug = KNOWN_SLUGS.includes(normalized) ? normalized : takeoverCartridgeSlug;
                 setActiveCartridgeOverlay({ slug, title: slug });
               }
             }}
@@ -4408,6 +4410,7 @@ export default function MetaMeRuntimeClient() {
             state: showWelcome ? "welcome" : "post_welcome",
             device: activeDevice,
             thin_shell: thinShellMode,
+            takeover_pending: takeoverLoading,
           });
         }
         return;
@@ -4604,7 +4607,7 @@ export default function MetaMeRuntimeClient() {
     // but this early emission handles the case where SHELL_READY arrived before us.
     try {
       window.parent.postMessage(
-        { type: "RUNTIME_READY", source: "runtime", state: showWelcome ? "welcome" : "post_welcome" },
+        { type: "RUNTIME_READY", source: "runtime", state: showWelcome ? "welcome" : "post_welcome", takeover_pending: takeoverLoading },
         "*"
       );
     } catch { /* not in an iframe — safe to ignore */ }
@@ -4660,6 +4663,13 @@ export default function MetaMeRuntimeClient() {
 
     previousWelcomeRef.current = showWelcome;
   }, [activeDevice, embedMode, isRuntimeFullscreen, lastIntent, postRuntimeEvent, runtimeContext, runtimeProcessing, showWelcome, thinShellMode]);
+
+  // When takeoverLoading clears (manifest fetched or failed), notify the shell so
+  // it can dismiss the spinner it held open via takeover_pending in RUNTIME_READY.
+  useEffect(() => {
+    if (!embedMode) return;
+    postRuntimeEvent("STATE_SYNC", { takeover_pending: takeoverLoading });
+  }, [embedMode, postRuntimeEvent, takeoverLoading]);
 
   // Notify the shell whenever the runtime lead changes so it can update its
   // colour tokens (amber=KNYT, emerald=metaMe) independently of STATE_SYNC.
@@ -5466,6 +5476,12 @@ export default function MetaMeRuntimeClient() {
       ) : null}
 
       <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6">
+        {takeoverLoading && !takeoverManifest && (
+          <div className="w-full max-w-[760px] flex items-center justify-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-4">
+            <Loader2 className="h-5 w-5 animate-spin text-teal-400 shrink-0" />
+            <p className="text-sm text-slate-300">Loading lead runtime agent…</p>
+          </div>
+        )}
         {takeoverManifest && (
           <div className="w-full max-w-[760px]">
             <RuntimeTakeoverBanner
@@ -5474,13 +5490,10 @@ export default function MetaMeRuntimeClient() {
               cartridgeContext={runtimeContext}
               onDismiss={dismissTakeover}
               onNextBestAction={(target, targetType) => {
-                if (runtimeContext === 'knyt') {
-                  setActiveCartridgeOverlay({ slug: 'knyt-codex', title: 'KNYT World', initialTab: 'store-episodes' });
-                } else if (runtimeContext === 'metame') {
-                  postRuntimeEvent("PROCESSING_START", { intent: "find", source: "banner_action" });
-                  void handlePrompt("help me find experiences.", { source: "quick_link", skipInference: true, explicitIntent: "find" });
-                } else if (targetType === 'codex') {
-                  const slug = normalizeCodexId(target) ?? target;
+                if (targetType === 'codex') {
+                  const normalized = normalizeCodexId(target) ?? target;
+                  const KNOWN_SLUGS = ['knyt-codex','metame-codex','qripto-codex','agentiq-os','alpha-knyt-codex'];
+                  const slug = KNOWN_SLUGS.includes(normalized) ? normalized : takeoverCartridgeSlug;
                   setActiveCartridgeOverlay({ slug, title: slug });
                 }
               }}
