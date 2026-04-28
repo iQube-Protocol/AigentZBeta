@@ -1,127 +1,204 @@
-/**
- * ScrollsTab Component
- * 
- * Displays digital scrolls/comics with rarity and ownership status
- */
-
 "use client";
 
-import React from "react";
-import { BookOpen, Lock, Unlock, Play, Eye } from "lucide-react";
+import React, { useState } from "react";
+import { BookOpen, Lock, Unlock, Play, Film } from "lucide-react";
+import { useKnytThumbnails } from "./useKnytThumbnails";
+import { EPISODE_PRICING, QRIPTO_RARITY_ORDER, type QriptoRarity } from "@/types/knyt-store";
 
 interface ScrollsTabProps {
   theme?: 'light' | 'dark';
   density?: 'narrow' | 'wide';
+  personaId?: string;
 }
 
-const MOCK_SCROLLS = [
-  {
-    id: '1',
-    title: 'The Qriptopian Chronicles: Issue #0',
-    coverType: 'RARE',
-    status: 'owned',
-    thumbnail: '/api/placeholder/200/300',
-  },
-  {
-    id: '2',
-    title: 'The Qriptopian Chronicles: Issue #1',
-    coverType: 'EPIC',
-    status: 'locked',
-    thumbnail: '/api/placeholder/200/300',
-  },
-  {
-    id: '3',
-    title: 'The Qriptopian Chronicles: Issue #2',
-    coverType: 'LEGENDARY',
-    status: 'locked',
-    thumbnail: '/api/placeholder/200/300',
-  },
-  {
-    id: '4',
-    title: 'The Qriptopian Chronicles: Issue #3',
-    coverType: 'RARE',
-    status: 'locked',
-    thumbnail: '/api/placeholder/200/300',
-  },
-];
-
-const getRarityColor = (rarity: string) => {
-  switch (rarity.toUpperCase()) {
-    case 'RARE': return 'border-amber-600 bg-amber-900/20';
-    case 'EPIC': return 'border-purple-600 bg-purple-900/20';
-    case 'LEGENDARY': return 'border-yellow-500 bg-yellow-900/20';
-    default: return 'border-slate-600 bg-slate-800/20';
-  }
+const RARITY_STYLE: Record<QriptoRarity, { border: string; bg: string; badge: string; label: string }> = {
+  legendary: { border: 'border-yellow-500',  bg: 'bg-yellow-900/20', badge: 'bg-black/60 text-yellow-400 border-yellow-600/60', label: 'Legendary' },
+  epic:      { border: 'border-purple-500',  bg: 'bg-purple-900/20', badge: 'bg-black/60 text-purple-400 border-purple-600/60', label: 'Epic'      },
+  rare:      { border: 'border-sky-500',     bg: 'bg-sky-900/20',    badge: 'bg-black/60 text-sky-400 border-sky-600/60',       label: 'Rare'      },
+  black:     { border: 'border-slate-600',   bg: 'bg-slate-900/40',  badge: 'bg-black/80 text-slate-300 border-slate-500/60',   label: 'Black'     },
 };
 
-export function ScrollsTab({ theme = 'dark', density = 'wide' }: ScrollsTabProps) {
+// Rare and Black share the same cover image; Legendary and Epic have distinct covers.
+// Since we have one cover URL per episode from the API, we use the same image for all
+// variants and differentiate only via rarity badge overlay.
+// Legendary gets a gold tint overlay, Epic a purple tint — Rare/Black use the plain cover.
+const RARITY_OVERLAY: Partial<Record<QriptoRarity, string>> = {
+  legendary: 'after:absolute after:inset-0 after:bg-yellow-500/10 after:pointer-events-none',
+  epic:      'after:absolute after:inset-0 after:bg-purple-500/10 after:pointer-events-none',
+};
+
+// Episodes 0–12 only (no GN in scrolls)
+const SCROLL_EPISODES = EPISODE_PRICING.filter((e) => e.episodeNumber >= 0)
+  .sort((a, b) => a.episodeNumber - b.episodeNumber);
+
+// 4 variants shown per episode: Legendary, Epic, Rare, Black
+const VARIANTS: QriptoRarity[] = ['legendary', 'epic', 'rare', 'black'];
+
+type ViewMode = 'grid' | 'by-episode';
+
+export function ScrollsTab({ theme = 'dark', density = 'wide', personaId: _personaId }: ScrollsTabProps) {
+  const [viewMode, setViewMode] = useState<ViewMode>('by-episode');
+  const { covers, getCoverThumb, loading } = useKnytThumbnails();
+  const isDark = theme === 'dark';
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-32 text-slate-500 text-sm">
+        Loading scrolls…
+      </div>
+    );
+  }
+
   return (
-    <div className="p-4 space-y-6">
+    <div className={`p-4 space-y-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Digital Scrolls</h3>
-        <div className="text-sm text-slate-400">
-          {MOCK_SCROLLS.filter(s => s.status === 'owned').length} / {MOCK_SCROLLS.length} owned
+        <div>
+          <h3 className="text-sm font-semibold">Digital Scrolls — Qripto Editions</h3>
+          <p className="text-[10px] text-slate-400 mt-0.5">
+            1,860 total · 18 Legendary · 186 Epic · 1,656 Rare · 2 Black (mystery)
+          </p>
+        </div>
+        <div className="flex gap-1">
+          {(['by-episode', 'grid'] as ViewMode[]).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setViewMode(m)}
+              className={`px-2 py-1 rounded text-[10px] font-medium transition-colors ${
+                viewMode === m
+                  ? 'bg-indigo-500/20 border border-indigo-500/30 text-indigo-300'
+                  : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              {m === 'by-episode' ? 'By Episode' : 'Grid'}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        {MOCK_SCROLLS.map((scroll) => (
-          <div
-            key={scroll.id}
-            className={`relative rounded-lg border-2 overflow-hidden transition-all hover:scale-105 ${getRarityColor(scroll.coverType)}`}
+      {/* Rarity key */}
+      <div className="flex flex-wrap gap-1.5">
+        {VARIANTS.map((r) => (
+          <span
+            key={r}
+            className={`rounded border px-2 py-0.5 text-[9px] font-semibold ${RARITY_STYLE[r].badge}`}
           >
-            {/* Cover Image */}
-            <div className="aspect-[2/3] bg-slate-800 flex items-center justify-center relative">
-              <BookOpen className="w-12 h-12 text-slate-600" />
-              
-              {/* Status Badge */}
-              <div className="absolute top-2 right-2">
-                {scroll.status === 'owned' ? (
-                  <div className="bg-green-500/20 border border-green-500 rounded-full p-1">
-                    <Unlock className="w-4 h-4 text-green-400" />
-                  </div>
-                ) : (
-                  <div className="bg-red-500/20 border border-red-500 rounded-full p-1">
-                    <Lock className="w-4 h-4 text-red-400" />
-                  </div>
-                )}
-              </div>
+            {RARITY_STYLE[r].label}
+          </span>
+        ))}
+        <span className="text-[9px] text-slate-500 self-center ml-1">
+          Rare & Black share cover · rarity assigned randomly on reveal
+        </span>
+      </div>
 
-              {/* Rarity Badge */}
-              <div className="absolute top-2 left-2">
-                <div className="px-2 py-1 bg-black/50 rounded text-xs font-bold">
-                  {scroll.coverType}
+      {viewMode === 'by-episode' ? (
+        /* ── By-episode view: one row per episode, 4 variant columns ── */
+        <div className="space-y-3">
+          {SCROLL_EPISODES.map((ep) => {
+            const coverUrl = getCoverThumb(ep.episodeNumber);
+            const hasEpisodeCover = Boolean(coverUrl);
+            return (
+              <div key={ep.episodeNumber} className={`rounded-xl border ${isDark ? 'border-white/5 bg-slate-900/40' : 'border-slate-200 bg-slate-50'} p-2.5`}>
+                <p className="text-[10px] font-semibold text-slate-400 mb-2">
+                  Episode {ep.episodeNumber}
+                  {ep.episodeNumber === 0 && !hasEpisodeCover && (
+                    <span className="ml-2 text-amber-500">(cover pending)</span>
+                  )}
+                </p>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {VARIANTS.map((rarity) => {
+                    const style = RARITY_STYLE[rarity];
+                    const overlay = RARITY_OVERLAY[rarity] ?? '';
+                    return (
+                      <div
+                        key={rarity}
+                        className={`relative rounded-lg border-2 overflow-hidden ${style.border} ${style.bg} ${overlay}`}
+                      >
+                        <div className="aspect-[2/3] bg-slate-800 flex items-center justify-center relative overflow-hidden">
+                          {coverUrl ? (
+                            <img
+                              src={coverUrl}
+                              alt={`Ep ${ep.episodeNumber} ${style.label}`}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <Film className="w-6 h-6 text-slate-600" />
+                          )}
+                          {/* Rarity badge */}
+                          <div className="absolute top-1 left-1">
+                            <span className={`rounded border px-1 py-0.5 text-[7px] font-bold leading-none ${style.badge}`}>
+                              {rarity === 'black' ? '⬛' : style.label.slice(0, 3).toUpperCase()}
+                            </span>
+                          </div>
+                          {/* Lock/unlock stub */}
+                          <div className="absolute top-1 right-1">
+                            <div className="bg-red-500/20 border border-red-500/40 rounded-full p-0.5">
+                              <Lock className="w-2.5 h-2.5 text-red-400" />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="px-1 py-1 text-center">
+                          <p className="text-[8px] font-medium text-slate-300 truncate">{style.label}</p>
+                          <p className="text-[8px] text-slate-500">${ep.qriptoPrice}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-            </div>
-
-            {/* Info */}
-            <div className="p-3 bg-slate-800/50">
-              <h4 className="text-sm font-medium line-clamp-2">{scroll.title}</h4>
-              
-              {/* Actions */}
-              <div className="mt-2 flex gap-2">
-                {scroll.status === 'owned' ? (
-                  <>
-                    <button className="flex-1 flex items-center justify-center gap-1 px-2 py-1 bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/50 rounded text-xs transition-colors">
-                      <Play className="w-3 h-3" />
-                      Read
-                    </button>
-                    <button className="flex items-center justify-center px-2 py-1 bg-slate-700/50 hover:bg-slate-700 border border-slate-600 rounded text-xs transition-colors">
-                      <Eye className="w-3 h-3" />
-                    </button>
-                  </>
-                ) : (
-                  <button className="flex-1 flex items-center justify-center gap-1 px-2 py-1 bg-slate-700/30 border border-slate-600/50 rounded text-xs text-slate-500 cursor-not-allowed">
-                    <Lock className="w-3 h-3" />
-                    Locked
-                  </button>
-                )}
+            );
+          })}
+        </div>
+      ) : (
+        /* ── Grid view: all episodes flat, grouped by rarity ── */
+        <div className="space-y-4">
+          {QRIPTO_RARITY_ORDER.map((rarity) => {
+            const style = RARITY_STYLE[rarity];
+            return (
+              <div key={rarity}>
+                <p className={`text-[10px] font-semibold uppercase tracking-wide mb-2 ${style.badge.split(' ').find(c => c.startsWith('text-')) ?? 'text-slate-400'}`}>
+                  {style.label}
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {SCROLL_EPISODES.map((ep) => {
+                    const coverUrl = getCoverThumb(ep.episodeNumber);
+                    return (
+                      <div
+                        key={ep.episodeNumber}
+                        className={`relative rounded-lg border-2 overflow-hidden ${style.border} ${style.bg}`}
+                      >
+                        <div className="aspect-[2/3] bg-slate-800 flex items-center justify-center">
+                          {coverUrl ? (
+                            <img src={coverUrl} alt={`Ep ${ep.episodeNumber}`} className="w-full h-full object-cover" loading="lazy" />
+                          ) : (
+                            <BookOpen className="w-8 h-8 text-slate-600" />
+                          )}
+                          <div className="absolute top-2 right-2">
+                            <div className="bg-red-500/20 border border-red-500 rounded-full p-1">
+                              <Lock className="w-3 h-3 text-red-400" />
+                            </div>
+                          </div>
+                          <div className="absolute top-2 left-2">
+                            <div className={`px-1.5 py-0.5 rounded border text-[9px] font-bold ${style.badge}`}>
+                              {style.label}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-2 bg-slate-800/50">
+                          <p className="text-[10px] font-medium">Ep. {ep.episodeNumber}</p>
+                          <p className="text-[9px] text-slate-400">${ep.qriptoPrice}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          </div>
-        ))}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

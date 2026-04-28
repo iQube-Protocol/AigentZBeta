@@ -15,6 +15,8 @@ import {
   usdToKnyt,
   type EpisodePricing,
 } from '@/types/knyt-store';
+
+type Modality = 'still' | 'motion' | 'bundle';
 import { useKnytThumbnails } from './useKnytThumbnails';
 import { ContentPurchaseModal } from '../../content/ContentPurchaseModal';
 import type { ContentType } from '../../content/ContentPurchaseModal';
@@ -46,10 +48,10 @@ interface GNSku {
 }
 
 const GN_SKUS: GNSku[] = [
-  { id: 'gn-qripto',    label: 'GN Qripto',   sublabel: 'Collectible · Still', price: GN_EP?.qriptoPrice ?? 78,                  layer: 'qripto'  },
-  { id: 'gn-digital',   label: 'GN Digital',  sublabel: 'Digital · Still',     price: GN_EP?.digitalPrice ?? 78,                 layer: 'digital' },
-  { id: 'gn-paperback', label: 'Paperback',   sublabel: '−1α · Print',        price: GN_EP?.printVariants?.[0]?.price ?? 186,   layer: 'print',  printVariant: 'paperback' },
-  { id: 'gn-hardcover', label: 'Hardcover',   sublabel: '−1β · Print',        price: GN_EP?.printVariants?.[1]?.price ?? 210,   layer: 'print',  printVariant: 'hardcover' },
+  { id: 'gn-qripto',    label: 'GN Qripto',   sublabel: 'Collectible · 1,860 supply', price: GN_EP?.qriptoPrice ?? 78,                layer: 'qripto'  },
+  { id: 'gn-digital',   label: 'GN Digital',  sublabel: 'Digital · Unlimited',        price: GN_EP?.digitalPrice ?? 52,               layer: 'digital' },
+  { id: 'gn-paperback', label: 'Paperback',   sublabel: '−1α · Print',               price: GN_EP?.printVariants?.[0]?.price ?? 186, layer: 'print',  printVariant: 'paperback' },
+  { id: 'gn-hardcover', label: 'Hardcover',   sublabel: '−1β · Print',               price: GN_EP?.printVariants?.[1]?.price ?? 210, layer: 'print',  printVariant: 'hardcover' },
 ];
 
 // ── View state ────────────────────────────────────────────────────────────────
@@ -243,15 +245,23 @@ function PortraitColumn({
 function EpisodeDetail({
   ep,
   thumbUrl,
+  modality,
   onBuy,
 }: {
   ep: EpisodePricing;
   thumbUrl?: string;
+  modality: Modality;
   onBuy: (p: PendingPurchase) => void;
 }) {
-  const pairPrice = getEpisodePairPrice(ep);
+  const qriptoPairPrice  = getEpisodePairPrice(ep, 'qripto');
+  const digitalPairPrice = getEpisodePairPrice(ep, 'digital');
+  const pairPrice = getEpisodePairPrice(ep, 'digital'); // legacy — kept for print section
   const amazonUrl = ep.printVariants?.[0]?.amazonUrl;
   const label = `Episode ${ep.episodeNumber}`;
+
+  const activeQriptoPrice  = modality === 'bundle' ? qriptoPairPrice  : ep.qriptoPrice;
+  const activeDigitalPrice = modality === 'bundle' ? digitalPairPrice : ep.digitalPrice;
+  const modalLabel = modality === 'bundle' ? 'Still + Motion' : modality === 'motion' ? 'Motion' : 'Still';
 
   return (
     <div className="p-3 grid grid-cols-2 gap-3 items-start">
@@ -269,34 +279,22 @@ function EpisodeDetail({
             <span className="rounded border border-purple-700/40 bg-purple-900/70 px-1.5 py-0.5 text-[9px] font-bold text-purple-300">
               Qripto
             </span>
-            <span className="text-[8px] text-purple-400/60 italic">Special Introductory Price</span>
+            <span className="text-[8px] text-purple-400/60 italic">{QRIPTO_SUPPLY.toLocaleString()} total</span>
           </div>
           <div className="flex items-baseline gap-1">
-            <span className="text-lg font-bold text-white">${ep.qriptoPrice}</span>
-            <span className="text-[10px] text-slate-400">/ modal</span>
+            <span className="text-lg font-bold text-white">${activeQriptoPrice}</span>
+            <span className="text-[10px] text-slate-400">/ {modalLabel}</span>
           </div>
-          <KnytPricePill basePrice={ep.qriptoPrice} />
-          <p className="text-[9px] text-slate-400">
-            {QRIPTO_SUPPLY.toLocaleString()} total · 18 Legendary · 186 Epic · 1,656 Rare
-          </p>
-          <div className="flex gap-1">
-            <div className="flex-1 rounded bg-slate-800/60 px-1 py-1 text-center">
-              <p className="text-[9px] text-slate-500">Still</p>
-              <p className="text-[10px] font-bold text-white">${ep.qriptoPrice}</p>
-            </div>
-            <div className="flex-1 rounded bg-slate-800/60 px-1 py-1 text-center">
-              <p className="text-[9px] text-slate-500">Motion</p>
-              <p className="text-[10px] font-bold text-white">${ep.qriptoPrice}</p>
-            </div>
-          </div>
+          <KnytPricePill basePrice={activeQriptoPrice} />
+          <p className="text-[9px] text-slate-400">18 Legendary · 186 Epic · 1,656 Rare · 2 Black</p>
           <CartButton
-            label="Buy Qripto"
+            label={`Buy Qripto ${modalLabel}`}
             onClick={() => onBuy({
               contentType: 'scroll_still',
-              contentId: `episode-${ep.episodeNumber}-qripto`,
-              contentTitle: `${label} — Qripto`,
+              contentId: `episode-${ep.episodeNumber}-qripto-${modality}`,
+              contentTitle: `${label} — Qripto ${modalLabel}`,
               contentImage: thumbUrl,
-              priceUsdOverride: ep.qriptoPrice,
+              priceUsdOverride: activeQriptoPrice,
             })}
             className="w-full justify-center"
           />
@@ -304,33 +302,25 @@ function EpisodeDetail({
 
         {/* Digital */}
         <div className="rounded-xl border border-sky-800/30 bg-sky-900/10 p-2.5 space-y-1.5">
-          <span className="rounded border border-sky-700/40 bg-sky-900/70 px-1.5 py-0.5 text-[9px] font-bold text-sky-300">
-            Digital
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="rounded border border-sky-700/40 bg-sky-900/70 px-1.5 py-0.5 text-[9px] font-bold text-sky-300">
+              Digital
+            </span>
+            <span className="text-[8px] text-sky-400/60 italic">Unlimited</span>
+          </div>
           <div className="flex items-baseline gap-1">
-            <span className="text-lg font-bold text-white">${ep.digitalPrice}</span>
-            <span className="text-[10px] text-slate-400">/ modal</span>
+            <span className="text-lg font-bold text-white">${activeDigitalPrice}</span>
+            <span className="text-[10px] text-slate-400">/ {modalLabel}</span>
           </div>
-          <KnytPricePill basePrice={ep.digitalPrice} />
-          <p className="text-[9px] text-slate-400">Unlimited non-Qripto Digital editions</p>
-          <div className="flex gap-1">
-            <div className="flex-1 rounded bg-slate-800/60 px-1 py-1 text-center">
-              <p className="text-[9px] text-slate-500">Still</p>
-              <p className="text-[10px] font-bold text-white">${ep.digitalPrice}</p>
-            </div>
-            <div className="flex-1 rounded bg-slate-800/60 px-1 py-1 text-center">
-              <p className="text-[9px] text-slate-500">Motion</p>
-              <p className="text-[10px] font-bold text-white">${ep.digitalPrice}</p>
-            </div>
-          </div>
+          <KnytPricePill basePrice={activeDigitalPrice} />
           <CartButton
-            label="Buy Digital"
+            label={`Buy Digital ${modalLabel}`}
             onClick={() => onBuy({
               contentType: 'scroll_still',
-              contentId: `episode-${ep.episodeNumber}-digital`,
-              contentTitle: `${label} — Digital`,
+              contentId: `episode-${ep.episodeNumber}-digital-${modality}`,
+              contentTitle: `${label} — Digital ${modalLabel}`,
               contentImage: thumbUrl,
-              priceUsdOverride: ep.digitalPrice,
+              priceUsdOverride: activeDigitalPrice,
             })}
             className="w-full justify-center"
           />
@@ -369,26 +359,15 @@ function EpisodeDetail({
           />
         </div>
 
-        {/* Still + Motion Bundle */}
-        <div className="rounded-xl border border-teal-800/30 bg-teal-900/10 p-2.5 space-y-1.5">
-          <p className="text-[10px] font-semibold text-teal-300">Still + Motion Bundle</p>
-          <div className="flex items-baseline gap-1">
-            <span className="text-lg font-bold text-teal-400">${pairPrice}</span>
-            <span className="text-[10px] text-slate-400">USD</span>
+        {/* Still + Motion bundle savings note */}
+        {modality !== 'bundle' && (
+          <div className="rounded-lg border border-teal-800/20 bg-teal-900/10 px-2.5 py-1.5">
+            <p className="text-[9px] text-teal-400">
+              Switch to "Still + Motion" above to save 20% on both modalities together
+              — Qripto ${qriptoPairPrice} · Digital ${digitalPairPrice}
+            </p>
           </div>
-          <p className="text-[9px] text-slate-500">Both modalities together · save 20%</p>
-          <CartButton
-            label="Buy Bundle"
-            onClick={() => onBuy({
-              contentType: 'scroll_still',
-              contentId: `episode-${ep.episodeNumber}-bundle`,
-              contentTitle: `${label} — Still + Motion`,
-              contentImage: thumbUrl,
-              priceUsdOverride: pairPrice,
-            })}
-            className="w-full justify-center"
-          />
-        </div>
+        )}
 
         {/* Print Provenance */}
         <div className="rounded-lg border border-white/10 bg-slate-800/40 p-2.5 space-y-1">
@@ -518,7 +497,8 @@ function GNSkuDetail({
 // ── Root component ────────────────────────────────────────────────────────────
 
 export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
-  const [view, setView] = useState<EpisodesView>({ kind: 'list' });
+  const [view, setView]         = useState<EpisodesView>({ kind: 'list' });
+  const [modality, setModality] = useState<Modality>('still');
   const [purchase, setPurchase] = useState<PendingPurchase | null>(null);
   const { getCoverThumb } = useKnytThumbnails();
 
@@ -546,6 +526,25 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
         )}
         <Film className="h-4 w-4 text-teal-400 shrink-0" />
         <span className="text-sm font-semibold text-slate-200">{headerLabel}</span>
+      </div>
+
+      {/* Modality selector — affects digital/Qripto price shown in list + detail */}
+      <div className="flex-shrink-0 border-b border-slate-800/40 bg-slate-900/20 px-3 py-1.5 flex items-center gap-1">
+        <span className="text-[10px] text-slate-500 mr-1">Format:</span>
+        {(['still', 'motion', 'bundle'] as Modality[]).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setModality(m)}
+            className={`px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors capitalize ${
+              modality === m
+                ? 'bg-teal-500/20 border border-teal-500/30 text-teal-300'
+                : 'text-slate-400 hover:text-slate-300 border border-transparent'
+            }`}
+          >
+            {m === 'bundle' ? 'Still + Motion' : m.charAt(0).toUpperCase() + m.slice(1)}
+          </button>
+        ))}
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto">
@@ -611,6 +610,7 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
           <EpisodeDetail
             ep={view.ep}
             thumbUrl={getCoverThumb(view.ep.episodeNumber)}
+            modality={modality}
             onBuy={setPurchase}
           />
         )}
