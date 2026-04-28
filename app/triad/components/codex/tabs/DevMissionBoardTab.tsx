@@ -24,6 +24,40 @@ interface DevMissionBoardTabProps {
   personaId?: string;
 }
 
+const QUBE_TYPE_DESCRIPTIONS: Record<string, string> = {
+  AigentQube:    "Define and register your first agent with capabilities and policy bindings.",
+  SkillQube:     "Package a discrete capability as a SkillQube — input/output schema, entrypoint, and runtime declaration.",
+  WorkflowQube:  "Compose a multi-step workflow as a WorkflowQube with ordered steps, triggers, and dependency edges.",
+  ConnectorQube: "Wrap an external API as a ConnectorQube — protocol, base URL, auth model, and endpoint definitions.",
+};
+
+const QUBE_TYPE_STEPS: Record<string, string[]> = {
+  AigentQube: [
+    "Define AigentQubeRegistration (see SDK Quickstart)",
+    "Declare capabilities array",
+    "Declare policyBindings (allowed_surfaces, forbidden_actions, disclosure_class)",
+    "Submit to Registry at L1_EXPERIMENTAL",
+  ],
+  SkillQube: [
+    "Define SkillQubeRegistration with input_schema and output_schema",
+    "Declare the runtime entrypoint (agentiq-os runtime field)",
+    "Add tags describing the skill domain",
+    "Submit to Registry at L1_EXPERIMENTAL",
+  ],
+  WorkflowQube: [
+    "Define WorkflowQubeRegistration with steps array",
+    "Set depends_on edges between steps to form the DAG",
+    "Declare the trigger (manual, scheduled, or event)",
+    "Submit to Registry at L1_EXPERIMENTAL",
+  ],
+  ConnectorQube: [
+    "Define ConnectorQubeRegistration with protocol and base_url",
+    "Declare auth model (bearer, api_key, or oauth2)",
+    "List endpoints with method, path, and description",
+    "Submit to Registry at L1_EXPERIMENTAL",
+  ],
+};
+
 const TRACKS: MissionTrack[] = [
   {
     id: "beginner",
@@ -228,40 +262,6 @@ const TRACK_BRIDGE_STAGE: Record<string, string> = {
   registry:  'registry_candidate',
   advanced:  'studio_candidate',
   ecosystem: 'partner_candidate',
-};
-
-const QUBE_TYPE_DESCRIPTIONS: Record<string, string> = {
-  AigentQube:    "Define and register your first agent with capabilities and policy bindings.",
-  SkillQube:     "Package a discrete capability as a SkillQube — input/output schema, entrypoint, and runtime declaration.",
-  WorkflowQube:  "Compose a multi-step workflow as a WorkflowQube with ordered steps, triggers, and dependency edges.",
-  ConnectorQube: "Wrap an external API as a ConnectorQube — protocol, base URL, auth model, and endpoint definitions.",
-};
-
-const QUBE_TYPE_STEPS: Record<string, string[]> = {
-  AigentQube: [
-    "Define AigentQubeRegistration (see SDK Quickstart)",
-    "Declare capabilities array",
-    "Declare policyBindings (allowed_surfaces, forbidden_actions, disclosure_class)",
-    "Submit to Registry at L1_EXPERIMENTAL",
-  ],
-  SkillQube: [
-    "Define SkillQubeRegistration with input_schema and output_schema",
-    "Declare the runtime entrypoint (agentiq-os runtime field)",
-    "Add tags describing the skill domain",
-    "Submit to Registry at L1_EXPERIMENTAL",
-  ],
-  WorkflowQube: [
-    "Define WorkflowQubeRegistration with steps array",
-    "Set depends_on edges between steps to form the DAG",
-    "Declare the trigger (manual, scheduled, or event)",
-    "Submit to Registry at L1_EXPERIMENTAL",
-  ],
-  ConnectorQube: [
-    "Define ConnectorQubeRegistration with protocol and base_url",
-    "Declare auth model (bearer, api_key, or oauth2)",
-    "List endpoints with method, path, and description",
-    "Submit to Registry at L1_EXPERIMENTAL",
-  ],
 };
 
 // ─── KNYT Wheel reference missions (live cartridge preview) ───────────────────
