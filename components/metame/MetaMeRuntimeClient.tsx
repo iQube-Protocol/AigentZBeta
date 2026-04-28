@@ -4658,6 +4658,13 @@ export default function MetaMeRuntimeClient() {
     previousWelcomeRef.current = showWelcome;
   }, [activeDevice, embedMode, isRuntimeFullscreen, lastIntent, postRuntimeEvent, runtimeContext, runtimeProcessing, showWelcome, thinShellMode]);
 
+  // Notify the shell whenever the runtime lead changes so it can update its
+  // colour tokens (amber=KNYT, emerald=metaMe) independently of STATE_SYNC.
+  useEffect(() => {
+    if (!embedMode) return;
+    postRuntimeEvent("RUNTIME_LEAD_CHANGE", { runtime_context: runtimeContext });
+  }, [embedMode, postRuntimeEvent, runtimeContext]);
+
   useEffect(() => {
     if (!embedMode) return;
     postRuntimeEvent("STATE_SYNC", {
