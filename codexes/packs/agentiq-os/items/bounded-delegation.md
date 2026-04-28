@@ -39,18 +39,75 @@ The envelope is **immutable after creation**. No conversation, system prompt, or
 
 ---
 
-## Agent Identity and Root DiD
+## Human Persona vs Agent Persona — Two Identity Models, One Contract
 
-Aigent C-OS operates under the Aigent DiDQube identity model:
+Bounded delegation is the contract that binds these two identity models together. See [Identity Sovereignty](./identity-sovereignty.md) for the full four-layer model; the relevant contrast for delegation is:
+
+### Human (you)
 
 ```
-Root DiD: did:iqube:aigent-c-os-root   ← Enduring accountability anchor
-  └── Bounded persona: aigent-c-os     ← Presentation in this cartridge
+Root DiD: did:iqube:<your-root>           ← The user's enduring identity
+  ├── PersonaQube (anonymous)             ← Browse / read-only context
+  ├── PersonaQube (semi-anonymous)        ← Build / publish context
+  └── PersonaQube (verified)              ← Reputation-bearing context
 ```
 
-The Root DiD is the accountability anchor — trust updates, DVN receipts, and reputation effects all trace back to it. The bounded persona (`aigent-c-os`) is the context-specific presentation layer for the AgentiQ OS cartridge.
+A human chooses **which persona is active** when they grant delegation. The agent inherits that persona's disclosure class — not the user's full identity. This is how you keep your sovereign data sealed while still enabling agentic action.
+
+### Agent (Aigent C, your custom agents)
+
+```
+Root DiD: did:iqube:<agent-root>          ← The agent's enduring identity
+  └── Bounded persona: <agent>@<surface>  ← How the agent appears inside one cartridge
+```
+
+An agent has its own Root DiD. When it acts under your delegation, every action emits a DVN receipt that anchors to **both** identities — yours (which authorised it) and the agent's (which performed it). This dual-anchor receipt is what lets reputation flow correctly to both parties.
+
+### How identity states bind across the delegation
+
+When you grant delegation:
+
+1. The system reads your active persona's disclosure class (e.g. `tenant`, `peer`, `community`, `public`)
+2. Writes that class into the agent's `PolicyEnvelope.disclosure_class`
+3. The agent's responses can never exceed that class — even if a downstream tool would otherwise return more data
+
+This is how your identity state is **preserved across delegation** rather than collapsed into the agent's identity. The agent acts within your disclosure ceiling, not its own.
 
 **"Personas may vary. Accountability does not."**
+
+---
+
+## Scope Binding and Enforcement
+
+Agent scope is bound at two layers:
+
+| Layer | Bound by | Enforced by |
+|---|---|---|
+| Cartridge surface | `allowed_surfaces` in PolicyEnvelope | API gateway — rejects requests from outside scope |
+| Action class | `forbidden_actions` in PolicyEnvelope | DelegationGuard — rejects forbidden actions before LLM |
+| Disclosure ceiling | `disclosure_class` from your persona | Response filter — caps payload sensitivity |
+| Time | TTL (1h / 4h / 8h) | Session manager — auto-revokes on expiry |
+| Volume | Action counter (default 20) | DelegationGuard — pauses for re-confirmation |
+
+### Reputation as a feedback signal
+
+Every delegated action's outcome updates the agent's Root DiD reputation:
+
+- `policy_blocked` → reputation flag against the agent
+- `c_took_control` followed by `task_complete` → reputation credit
+- `guardian_intervened` → reputation hit + escalation record
+
+Trust band is a function of reputation score. **Higher reputation unlocks broader delegation scopes** (see Trust Band Gating below). This creates a built-in incentive: well-behaved agents earn the right to do more.
+
+### DVN receipts as the tamper-evident chain
+
+Every lifecycle event in delegation emits a receipt that is:
+
+- Anchored to both Root DiDs (yours and the agent's)
+- Signed cryptographically before persistence
+- Replayable for audit — you can reconstruct any session's full action chain
+
+The audit trail in the Aigent Delegates tab is just the queryable view of these receipts.
 
 ---
 

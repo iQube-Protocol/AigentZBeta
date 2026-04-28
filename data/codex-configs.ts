@@ -1325,6 +1325,17 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
       config: { component: 'RefStudioTab', props: {} },
       metadata: { icon: 'Wrench', description: 'Reference studio composer patterns' },
     },
+    {
+      id: 'agentiq-os-aigent-ref',
+      label: 'Aigent Ref',
+      slug: 'aigent-ref',
+      enabled: true,
+      group: 'build',
+      order: 5,
+      type: 'static',
+      config: { component: 'RefAigentTab', props: {} },
+      metadata: { icon: 'Shield', description: 'Bounded delegation reference and demo' },
+    },
 
     // ── Bind group ─────────────────────────────────────────────
     {

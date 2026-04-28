@@ -258,9 +258,12 @@ export function BoundedDelegationTab({ personaId }: BoundedDelegationTabProps) {
           <Shield className="h-6 w-6 text-violet-400" />
         </div>
         <div>
-          <h2 className="text-lg font-semibold text-slate-100">Bounded Delegation</h2>
+          <h2 className="text-lg font-semibold text-slate-100">Aigent Delegates</h2>
           <p className="text-sm text-slate-400 mt-0.5">
-            Grant Aigent C-OS sealed, time-limited authority — audited via DVN receipts.
+            Grant bounded authority to Aigents with audit logs — sealed, time-limited, DVN-signed.
+          </p>
+          <p className="text-xs text-slate-500 mt-1">
+            See <span className="text-violet-300">Build → Aigent Ref</span> for the protocol details and how to grant authority to agents you build.
           </p>
         </div>
       </div>
