@@ -32,6 +32,8 @@ interface PendingPurchase {
   contentTitle: string;
   contentImage?: string;
   priceUsdOverride: number;
+  stillPriceKnytOverride?: number;
+  motionPriceKnytOverride?: number;
 }
 
 // ── GN SKUs — 4 fixed formats (no motion comic for GN) ────────────────────────
@@ -597,6 +599,8 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
                         contentTitle: `Episode ${ep.episodeNumber}`,
                         contentImage: thumb,
                         priceUsdOverride: ep.digitalPrice,
+                        stillPriceKnytOverride: usdToKnyt(ep.digitalPrice),
+                        motionPriceKnytOverride: usdToKnyt(ep.digitalPrice),
                       })}
                     />
                   );
@@ -636,6 +640,8 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
           contentImage={purchase.contentImage}
           priceUsdOverride={purchase.priceUsdOverride}
           baseKnytOverride={usdToKnyt(purchase.priceUsdOverride)}
+          stillPriceKnytOverride={purchase.stillPriceKnytOverride}
+          motionPriceKnytOverride={purchase.motionPriceKnytOverride}
         />
       )}
     </div>

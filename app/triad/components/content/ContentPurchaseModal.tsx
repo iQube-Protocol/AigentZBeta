@@ -122,6 +122,10 @@ interface ContentPurchaseModalProps {
   priceUsdOverride?: number;
   knytBalance?: number;
   spendableKnyt?: number;
+  /** When provided, override the KNYT price shown for "Still" in the version selector */
+  stillPriceKnytOverride?: number;
+  /** When provided, override the KNYT price shown for "Motion" in the version selector */
+  motionPriceKnytOverride?: number;
   onPurchaseComplete?: (entitlementId: string) => void;
   onBalanceRefresh?: () => void;
 }
@@ -139,6 +143,8 @@ export function ContentPurchaseModal({
   priceUsdOverride,
   knytBalance = 0,
   spendableKnyt,
+  stillPriceKnytOverride,
+  motionPriceKnytOverride,
   onPurchaseComplete,
   onBalanceRefresh,
 }: ContentPurchaseModalProps) {
@@ -174,7 +180,10 @@ export function ContentPurchaseModal({
   };
 
   const effectiveContentType = getEffectiveContentType();
-  const baseKnyt = baseKnytOverride ?? CONTENT_PRICES[effectiveContentType];
+  // Resolve base KNYT: version-specific overrides take priority over the single baseKnytOverride
+  const baseKnyt = selectedVersion === 'motion'
+    ? (motionPriceKnytOverride ?? baseKnytOverride ?? CONTENT_PRICES[effectiveContentType])
+    : (stillPriceKnytOverride ?? baseKnytOverride ?? CONTENT_PRICES[effectiveContentType]);
 
   const isPreorder = contentId?.startsWith(PREORDER_ID_PREFIX);
   const shippingUsd = isPreorder ? PREORDER_SHIPPING_USD : 0;
@@ -493,7 +502,7 @@ export function ContentPurchaseModal({
                     >
                       <div className="text-white font-medium text-sm">Still</div>
                       <div className="text-xs text-white/50">
-                        {CONTENT_PRICES[contentType.includes('character') ? 'character_card' : 'scroll_still']} KNYT
+                        {stillPriceKnytOverride ?? CONTENT_PRICES[contentType.includes('character') ? 'character_card' : 'scroll_still']} KNYT
                       </div>
                     </button>
                     <button
@@ -506,11 +515,24 @@ export function ContentPurchaseModal({
                     >
                       <div className="text-white font-medium text-sm">Motion</div>
                       <div className="text-xs text-white/50">
-                        {CONTENT_PRICES[contentType.includes('character') ? 'character_card_motion' : 'scroll_motion']} KNYT
+                        {motionPriceKnytOverride ?? CONTENT_PRICES[contentType.includes('character') ? 'character_card_motion' : 'scroll_motion']} KNYT
                       </div>
                       <div className="text-[10px] text-cyan-400 mt-0.5">All clips included</div>
                     </button>
                   </div>
+                </div>
+              )}
+
+              {/* Bundle: show Still+Motion included note instead of selector */}
+              {(contentType === 'bundle_3_still' ||
+                contentType === 'bundle_5_still' ||
+                contentType === 'bundle_3_motion' ||
+                contentType === 'bundle_5_motion' ||
+                contentType === 'season_codex_still' ||
+                contentType === 'season_codex_motion') && (
+                <div className="mb-4 flex items-center gap-2 rounded-xl border border-teal-600/30 bg-teal-900/20 px-3 py-2">
+                  <Sparkles className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                  <p className="text-xs text-teal-300">Bundle includes both Still &amp; Motion formats</p>
                 </div>
               )}
 

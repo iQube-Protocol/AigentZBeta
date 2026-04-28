@@ -10,6 +10,7 @@ import {
 } from '@/types/knyt-store';
 import { useKnytThumbnails } from './useKnytThumbnails';
 import { ContentPurchaseModal } from '../../content/ContentPurchaseModal';
+import type { ContentType } from '../../content/ContentPurchaseModal';
 
 interface Props {
   personaId?: string;
@@ -17,16 +18,39 @@ interface Props {
 }
 
 interface PendingPurchase {
+  contentType: ContentType;
   contentId: string;
   contentTitle: string;
   contentImage?: string;
   priceUsdOverride: number;
+  stillPriceKnytOverride?: number;
+  motionPriceKnytOverride?: number;
 }
 
+type CardVariant = 'still' | 'motion' | 'bundle';
 type CardsView = { kind: 'landing' } | { kind: 'detail'; epNum: number };
 
 const CARD_EPISODE_NUMBERS = Array.from({ length: 13 }, (_, i) => i);
-const CARD_PRICE_USD = 2;
+
+// Card pricing per variant
+const CARD_PRICES: Record<CardVariant, number> = {
+  still:  2,   // USD
+  motion: 4,   // USD (4 KNYT base = ~$5.60)
+  bundle: 7,   // USD (5 KNYT base = $7.00 — both still+motion)
+};
+
+// KNYT prices for each variant (used in selector display)
+const CARD_KNYT_PRICES: Record<CardVariant, number> = {
+  still:  2,  // 2 KNYT
+  motion: 4,  // 4 KNYT
+  bundle: 5,  // 5 KNYT (discounted bundle)
+};
+
+const VARIANT_LABELS: Record<CardVariant, { short: string; desc: string }> = {
+  still:  { short: 'Still',         desc: 'Static character art' },
+  motion: { short: 'Motion',        desc: 'Animated card' },
+  bundle: { short: 'Still + Motion', desc: 'Both formats · 5 KNYT' },
+};
 
 function KnytPricePill({ basePrice }: { basePrice: number }) {
   return (
@@ -67,15 +91,18 @@ function CharacterCardItem({
   epNum,
   thumbUrl,
   title,
+  variant,
   onClick,
   onBuy,
 }: {
   epNum: number;
   thumbUrl?: string;
   title?: string;
+  variant: CardVariant;
   onClick: () => void;
   onBuy: (e: React.MouseEvent) => void;
 }) {
+  const price = CARD_PRICES[variant];
   return (
     <button
       type="button"
@@ -93,12 +120,22 @@ function CharacterCardItem({
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-1 py-1">
           <p className="text-[8px] text-slate-300 text-center">#{epNum}</p>
         </div>
+        {variant === 'bundle' && (
+          <div className="absolute top-1 left-1 rounded border border-teal-700/40 bg-teal-900/70 px-1 py-0.5 text-[8px] font-bold text-teal-300">
+            S+M
+          </div>
+        )}
+        {variant === 'motion' && (
+          <div className="absolute top-1 left-1 rounded border border-cyan-700/40 bg-cyan-900/70 px-1 py-0.5 text-[8px] font-bold text-cyan-300">
+            MO
+          </div>
+        )}
       </div>
       <div className="px-1.5 pt-1 pb-1.5 space-y-0.5">
         <p className="text-[10px] font-semibold text-white leading-tight truncate">
           {title || `Character ${epNum}`}
         </p>
-        <p className="text-xs font-bold text-white">${CARD_PRICE_USD}</p>
+        <p className="text-xs font-bold text-white">${price}</p>
         <div className="flex justify-end pt-0.5">
           <CartButton onClick={onBuy} />
         </div>
@@ -107,18 +144,20 @@ function CharacterCardItem({
   );
 }
 
-// ── Character card detail (2-col) ─────────────────────────────────────────────
+// ── Character card detail (2-col) — shows all 3 variants ─────────────────────
 
 function CharacterCardDetail({
   epNum,
   thumbUrl,
   title,
+  variant,
   onBuy,
 }: {
   epNum: number;
   thumbUrl?: string;
   title?: string;
-  onBuy: () => void;
+  variant: CardVariant;
+  onBuy: (v: CardVariant) => void;
 }) {
   const cardTitle = title || `Character #${epNum}`;
 
@@ -140,36 +179,44 @@ function CharacterCardDetail({
         </div>
       </div>
 
-      {/* Right: metadata + pricing */}
+      {/* Right: metadata + pricing per variant */}
       <div className="space-y-2.5 min-w-0">
         <div>
           <p className="text-[10px] text-slate-500 uppercase tracking-wide">Episode #{epNum}</p>
           <p className="text-sm font-bold text-white">{cardTitle}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">
-            Digital character card — Qripto rarity assigned on reveal
+            Qripto rarity assigned on reveal · {QRIPTO_SUPPLY.toLocaleString()}-unit pool
           </p>
         </div>
 
-        <div className="rounded-xl border border-white/5 bg-slate-900/60 p-3 space-y-1.5">
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-2xl font-bold text-white">${CARD_PRICE_USD}</span>
-            <span className="text-[11px] text-slate-400">USD</span>
+        {/* Still */}
+        <div className={`rounded-xl border p-2.5 space-y-1.5 transition-colors ${variant === 'still' ? 'border-purple-500/40 bg-purple-900/10' : 'border-white/5 bg-slate-900/60'}`}>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold text-slate-300">Still</span>
+            <span className="text-sm font-bold text-white">{CARD_KNYT_PRICES.still} KNYT <span className="text-[10px] text-slate-500">(${CARD_PRICES.still})</span></span>
           </div>
-          <KnytPricePill basePrice={CARD_PRICE_USD} />
-          <CartButton
-            label="Add to Cart"
-            onClick={() => onBuy()}
-            className="w-full justify-center mt-1"
-          />
+          <CartButton label="Buy Still" onClick={() => onBuy('still')} className="w-full justify-center" />
         </div>
 
-        <div className="rounded-xl border border-white/5 bg-slate-800/40 p-2.5">
-          <p className="text-[10px] font-semibold text-slate-300">
-            Part of the 13-card set
-          </p>
-          <p className="text-[9px] text-slate-500 mt-0.5">
-            Each card independently drawn from its own {QRIPTO_SUPPLY.toLocaleString()}-unit Qripto pool.
-          </p>
+        {/* Motion */}
+        <div className={`rounded-xl border p-2.5 space-y-1.5 transition-colors ${variant === 'motion' ? 'border-cyan-500/40 bg-cyan-900/10' : 'border-white/5 bg-slate-900/60'}`}>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold text-slate-300">Motion</span>
+            <span className="text-sm font-bold text-white">{CARD_KNYT_PRICES.motion} KNYT <span className="text-[10px] text-slate-500">(${CARD_PRICES.motion})</span></span>
+          </div>
+          <p className="text-[9px] text-cyan-400">Animated card — all clips</p>
+          <CartButton label="Buy Motion" onClick={() => onBuy('motion')} className="w-full justify-center" />
+        </div>
+
+        {/* Bundle */}
+        <div className={`rounded-xl border p-2.5 space-y-1.5 transition-colors ${variant === 'bundle' ? 'border-teal-500/40 bg-teal-900/10' : 'border-white/5 bg-slate-900/60'}`}>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold text-slate-300">Still + Motion</span>
+            <span className="text-sm font-bold text-white">{CARD_KNYT_PRICES.bundle} KNYT <span className="text-[10px] text-slate-500">(${CARD_PRICES.bundle})</span></span>
+          </div>
+          <p className="text-[9px] text-teal-400">Both formats · save vs separate</p>
+          <KnytPricePill basePrice={CARD_PRICES.bundle} />
+          <CartButton label="Buy Bundle" onClick={() => onBuy('bundle')} className="w-full justify-center" />
         </div>
       </div>
     </div>
@@ -180,6 +227,7 @@ function CharacterCardDetail({
 
 export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
   const [view, setView]         = useState<CardsView>({ kind: 'landing' });
+  const [variant, setVariant]   = useState<CardVariant>('still');
   const [purchase, setPurchase] = useState<PendingPurchase | null>(null);
   const { characters, getCharacterThumb } = useKnytThumbnails();
 
@@ -187,12 +235,17 @@ export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
     return characters.find((c) => c.episodeNumber === epNum)?.title;
   }
 
-  function openPurchase(epNum: number) {
+  function openPurchase(epNum: number, v: CardVariant) {
+    const isMotion = v === 'motion';
+    const isBundle = v === 'bundle';
     setPurchase({
-      contentId:        `character-card-${epNum}`,
-      contentTitle:     getTitle(epNum) ?? `Character #${epNum}`,
-      contentImage:     getCharacterThumb(epNum),
-      priceUsdOverride: CARD_PRICE_USD,
+      contentType:            isBundle ? 'character_card' : isMotion ? 'character_card_motion' : 'character_card',
+      contentId:              `character-card-${epNum}-${v}`,
+      contentTitle:           `${getTitle(epNum) ?? `Character #${epNum}`} — ${VARIANT_LABELS[v].short}`,
+      contentImage:           getCharacterThumb(epNum),
+      priceUsdOverride:       CARD_PRICES[v],
+      stillPriceKnytOverride: CARD_KNYT_PRICES.still,
+      motionPriceKnytOverride: CARD_KNYT_PRICES.motion,
     });
   }
 
@@ -216,12 +269,31 @@ export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
         </span>
       </div>
 
+      {/* Variant selector */}
+      <div className="flex-shrink-0 border-b border-slate-800/40 bg-slate-900/20 px-3 py-1.5 flex items-center gap-1">
+        <span className="text-[10px] text-slate-500 mr-1">Format:</span>
+        {(['still', 'motion', 'bundle'] as CardVariant[]).map((v) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => setVariant(v)}
+            className={`px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors ${
+              variant === v
+                ? 'bg-teal-500/20 border border-teal-500/30 text-teal-300'
+                : 'text-slate-400 hover:text-slate-300 border border-transparent'
+            }`}
+          >
+            {VARIANT_LABELS[v].short}
+          </button>
+        ))}
+        <span className="ml-auto text-[10px] text-slate-500">{CARD_KNYT_PRICES[variant]} KNYT / card</span>
+      </div>
+
       <div className="flex-1 min-h-0 overflow-y-auto">
         {view.kind === 'landing' && (
           <div className="p-2.5 space-y-3">
             <p className="text-[11px] text-slate-400 px-0.5">
-              13 KNYT character cards — one per episode. Each has independently assigned Qripto
-              rarity from a {QRIPTO_SUPPLY.toLocaleString()}-unit pool.
+              13 KNYT character cards — one per episode. Each card drawn from its own {QRIPTO_SUPPLY.toLocaleString()}-unit Qripto pool.
             </p>
             <div className="grid grid-cols-4 gap-1.5">
               {CARD_EPISODE_NUMBERS.map((epNum) => (
@@ -230,8 +302,9 @@ export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
                   epNum={epNum}
                   thumbUrl={getCharacterThumb(epNum)}
                   title={getTitle(epNum)}
+                  variant={variant}
                   onClick={() => setView({ kind: 'detail', epNum })}
-                  onBuy={(e) => { e.stopPropagation(); openPurchase(epNum); }}
+                  onBuy={(e) => { e.stopPropagation(); openPurchase(epNum, variant); }}
                 />
               ))}
             </div>
@@ -243,7 +316,8 @@ export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
             epNum={view.epNum}
             thumbUrl={getCharacterThumb(view.epNum)}
             title={getTitle(view.epNum)}
-            onBuy={() => openPurchase(view.epNum)}
+            variant={variant}
+            onBuy={(v) => openPurchase(view.epNum, v)}
           />
         )}
       </div>
@@ -253,12 +327,14 @@ export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
           open={true}
           onClose={() => setPurchase(null)}
           personaId={personaId}
-          contentType="character_card"
+          contentType={purchase.contentType}
           contentId={purchase.contentId}
           contentTitle={purchase.contentTitle}
           contentImage={purchase.contentImage}
           priceUsdOverride={purchase.priceUsdOverride}
           baseKnytOverride={usdToKnyt(purchase.priceUsdOverride)}
+          stillPriceKnytOverride={purchase.stillPriceKnytOverride}
+          motionPriceKnytOverride={purchase.motionPriceKnytOverride}
         />
       )}
     </div>

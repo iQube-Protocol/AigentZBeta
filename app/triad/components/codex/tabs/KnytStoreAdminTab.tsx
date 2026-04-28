@@ -9,6 +9,8 @@ import {
   KNYT_COYN_DISCOUNT,
   PRINT_PROVENANCE_PRICE_USD,
   PRINT_PROVENANCE_PRICE_KNYT,
+  GN_PROVENANCE_PRICE_USD,
+  GN_PROVENANCE_PRICE_KNYT,
   type EpisodePricing,
   type BundlePricing,
 } from '@/types/knyt-store';
@@ -133,16 +135,33 @@ function BundlesAdmin() {
 
 function ProvenanceAdmin() {
   return (
-    <div className="rounded-xl border border-white/5 bg-slate-900/60 p-4 space-y-3">
-      <p className="text-xs font-semibold text-slate-200">Print Provenance Pricing</p>
-      <div className="space-y-1">
-        <div className="flex items-center justify-between py-2 border-b border-white/5">
-          <span className="text-xs text-slate-300">USD price</span>
-          <span className="text-xs font-semibold text-white">${PRINT_PROVENANCE_PRICE_USD}</span>
+    <div className="space-y-4">
+      {/* Episode provenance */}
+      <div className="rounded-xl border border-white/5 bg-slate-900/60 p-4 space-y-3">
+        <p className="text-xs font-semibold text-slate-200">Episode Print Provenance</p>
+        <div className="space-y-1">
+          <div className="flex items-center justify-between py-2 border-b border-white/5">
+            <span className="text-xs text-slate-300">USD price (per episode)</span>
+            <span className="text-xs font-semibold text-white">${PRINT_PROVENANCE_PRICE_USD}</span>
+          </div>
+          <div className="flex items-center justify-between py-2">
+            <span className="text-xs text-slate-300">KNYT COYN price</span>
+            <span className="text-xs font-semibold text-white">{PRINT_PROVENANCE_PRICE_KNYT} KNYT</span>
+          </div>
         </div>
-        <div className="flex items-center justify-between py-2">
-          <span className="text-xs text-slate-300">KNYT COYN price</span>
-          <span className="text-xs font-semibold text-white">{PRINT_PROVENANCE_PRICE_KNYT} KNYT</span>
+      </div>
+      {/* GN provenance */}
+      <div className="rounded-xl border border-amber-800/30 bg-amber-900/10 p-4 space-y-3">
+        <p className="text-xs font-semibold text-slate-200">Graphic Novel Print Provenance</p>
+        <div className="space-y-1">
+          <div className="flex items-center justify-between py-2 border-b border-white/5">
+            <span className="text-xs text-slate-300">USD price (GN)</span>
+            <span className="text-xs font-semibold text-amber-300">${GN_PROVENANCE_PRICE_USD}</span>
+          </div>
+          <div className="flex items-center justify-between py-2">
+            <span className="text-xs text-slate-300">KNYT COYN price</span>
+            <span className="text-xs font-semibold text-amber-300">{GN_PROVENANCE_PRICE_KNYT} KNYT</span>
+          </div>
         </div>
       </div>
       <p className="text-[10px] text-slate-500">Edit provenance prices in <code className="bg-slate-800 px-1 rounded">types/knyt-store.ts</code> constants.</p>
@@ -225,7 +244,20 @@ function MintingAdmin({ personaId }: { personaId?: string }) {
       {loadError && (
         <div className="rounded-xl border border-red-800/30 bg-red-900/10 px-3 py-2 flex items-start gap-2">
           <AlertCircle className="h-3.5 w-3.5 text-red-400 shrink-0 mt-0.5" />
-          <p className="text-[10px] text-red-300">{loadError}</p>
+          <div className="space-y-1.5">
+            <p className="text-[10px] text-red-300">{loadError}</p>
+            {loadError.toLowerCase().includes('relation') || loadError.toLowerCase().includes('exist') || loadError.toLowerCase().includes('knyt_sku') ? (
+              <div className="mt-2">
+                <p className="text-[9px] text-slate-400 mb-1">Run this SQL in Supabase to create the missing table:</p>
+                <pre className="text-[8px] text-slate-300 bg-slate-900 rounded p-1.5 overflow-x-auto whitespace-pre-wrap select-all">{`CREATE TABLE IF NOT EXISTS public.knyt_sku_config (
+  sku_id      text        PRIMARY KEY,
+  minting_mode text       NOT NULL DEFAULT 'immediate',
+  updated_at  timestamptz,
+  updated_by  text
+);`}</pre>
+              </div>
+            ) : null}
+          </div>
         </div>
       )}
       <div className="rounded-xl border border-blue-800/30 bg-blue-900/10 px-3 py-2 flex items-start gap-2">
