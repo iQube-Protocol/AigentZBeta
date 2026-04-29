@@ -59,21 +59,28 @@ declare global {
 
 // ── Provider helpers ──────────────────────────────────────────────────────────
 
-function discoverProviders(): EthereumProvider[] {
-  if (typeof window === 'undefined' || !window.ethereum) return [];
-  const eth = window.ethereum;
-  // EIP-5749: multiple wallets expose themselves via window.ethereum.providers
-  if (eth.providers && eth.providers.length > 0) return eth.providers;
-  return [eth];
-}
+// EIP-6963 types — the standard all modern wallets implement for multi-wallet coexistence
+interface EIP6963Info { name: string; icon: string; rdns: string; uuid: string; }
+interface EIP6963Detail { info: EIP6963Info; provider: EthereumProvider; }
 
-function walletLabel(p: EthereumProvider): string {
+// Wallet entry shown in the picker (works for both EIP-6963 and legacy window.ethereum)
+interface WalletEntry { name: string; icon?: string; provider: EthereumProvider; id: string; }
+
+function legacyWalletName(p: EthereumProvider): string {
   if (p.isPhantom) return 'Phantom';
   if (p.isCoinbaseWallet) return 'Coinbase Wallet';
   if (p.isBraveWallet) return 'Brave Wallet';
   if (p.isRabby) return 'Rabby';
   if (p.isMetaMask) return 'MetaMask';
   return 'Browser Wallet';
+}
+
+// Fallback when EIP-6963 returns nothing: read window.ethereum.providers (EIP-5749)
+function legacyProviders(): WalletEntry[] {
+  if (typeof window === 'undefined' || !window.ethereum) return [];
+  const eth = window.ethereum;
+  const list = eth.providers?.length ? eth.providers : [eth];
+  return list.map((p, i) => ({ name: legacyWalletName(p), provider: p, id: `legacy-${i}` }));
 }
 
 // ── EVM encode helpers ─────────────────────────────────────────────────────────
@@ -127,9 +134,9 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
   const [walletName, setWalletName] = useState<string>('');
   const [knytBalance, setKnytBalance] = useState<string | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
-  const [connectingIdx, setConnectingIdx] = useState<number | null>(null);
+  const [connectingId, setConnectingId] = useState<string | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
-  const [providers, setProviders] = useState<EthereumProvider[]>([]);
+  const [wallets, setWallets] = useState<WalletEntry[]>([]);
   const [sendAmount, setSendAmount] = useState('');
   const [sendState, setSendState] = useState<SendState>({ status: 'idle' });
   const [copied, setCopied] = useState(false);
@@ -139,24 +146,36 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const connectAbortRef = useRef<{ cancelled: boolean }>({ cancelled: false });
 
-  // ── Provider discovery on mount ──────────────────────────────────────────────
+  // ── Wallet discovery on mount (EIP-6963 + EIP-5749 fallback) ─────────────────
 
   useEffect(() => {
-    const discovered = discoverProviders();
-    setProviders(discovered);
+    const found = new Map<string, WalletEntry>();
 
-    // Auto-connect if exactly one provider already has accounts (e.g. MetaMask from prior session)
-    // This runs silently and only when there's no ambiguity about which wallet to use.
-    if (discovered.length === 1) {
-      discovered[0].request({ method: 'eth_accounts' })
-        .then((accounts) => {
-          const accs = accounts as string[];
-          if (accs.length) {
-            setupProvider(discovered[0], accs[0]);
-          }
-        })
-        .catch(() => {});
-    }
+    const handler = (event: Event) => {
+      const e = event as CustomEvent<EIP6963Detail>;
+      const { info, provider } = e.detail;
+      if (!found.has(info.uuid)) {
+        found.set(info.uuid, { name: info.name, icon: info.icon, provider, id: info.uuid });
+        setWallets(Array.from(found.values()));
+      }
+    };
+
+    window.addEventListener('eip6963:announceProvider', handler);
+    window.dispatchEvent(new Event('eip6963:requestProvider'));
+
+    // After 300ms fall back to legacy window.ethereum if no EIP-6963 wallets announced
+    const fallback = setTimeout(() => {
+      if (found.size === 0) {
+        const legacy = legacyProviders();
+        legacy.forEach(w => found.set(w.id, w));
+        if (legacy.length) setWallets(legacy);
+      }
+    }, 300);
+
+    return () => {
+      window.removeEventListener('eip6963:announceProvider', handler);
+      clearTimeout(fallback);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -178,7 +197,7 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
 
     activeProviderRef.current = p;
     setAddress(connectedAddress);
-    setWalletName(walletLabel(p));
+    setWalletName(legacyWalletName(p));
 
     p.on('accountsChanged', handleAccountsChanged);
     p.on('chainChanged', handleChainChanged);
@@ -229,8 +248,8 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
 
   // ── Connect to a specific wallet ─────────────────────────────────────────────
 
-  async function connectTo(p: EthereumProvider, idx: number) {
-    setConnectingIdx(idx);
+  async function connectTo(p: EthereumProvider, id: string) {
+    setConnectingId(id);
     setConnectError(null);
     const abort = { cancelled: false };
     connectAbortRef.current = abort;
@@ -259,13 +278,13 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
         setConnectError(msg);
       }
     } finally {
-      if (!abort.cancelled) setConnectingIdx(null);
+      if (!abort.cancelled) setConnectingId(null);
     }
   }
 
   function cancelConnect() {
     connectAbortRef.current.cancelled = true;
-    setConnectingIdx(null);
+    setConnectingId(null);
     setConnectError(null);
   }
 
@@ -345,35 +364,37 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
   // ── Not connected ─────────────────────────────────────────────────────────────
 
   if (!address) {
-    const isConnecting = connectingIdx !== null;
+    const isConnecting = connectingId !== null;
     return (
       <div className="space-y-3">
         <p className="text-xs text-white/50 pb-1">
           Connect an external EVM wallet to view your consolidated on-chain $KNYT balance and make payments from it directly.
         </p>
 
-        {providers.length === 0 ? (
+        {wallets.length === 0 ? (
           <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
             <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
             No wallet detected. Install MetaMask or another browser extension wallet to continue.
           </div>
         ) : (
           <div className="space-y-2">
-            {providers.map((p, idx) => {
-              const spinning = connectingIdx === idx;
+            {wallets.map((w) => {
+              const spinning = connectingId === w.id;
               return (
                 <button
-                  key={idx}
+                  key={w.id}
                   type="button"
                   disabled={isConnecting}
-                  onClick={() => connectTo(p, idx)}
+                  onClick={() => connectTo(w.provider, w.id)}
                   className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/10 disabled:opacity-50"
                 >
-                  <Wallet className="h-5 w-5 text-amber-400 shrink-0" />
+                  {w.icon
+                    ? <img src={w.icon} alt={w.name} className="h-5 w-5 rounded shrink-0" />
+                    : <Wallet className="h-5 w-5 text-amber-400 shrink-0" />}
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-white">{walletLabel(p)}</p>
+                    <p className="text-sm font-semibold text-white">{w.name}</p>
                     <p className="text-[10px] text-white/40">
-                      {spinning ? 'Check your wallet extension for a connection request…' : 'Click to connect'}
+                      {spinning ? 'Check your wallet for a connection request…' : 'Click to connect'}
                     </p>
                   </div>
                   {spinning
