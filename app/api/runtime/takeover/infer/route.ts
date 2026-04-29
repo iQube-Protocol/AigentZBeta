@@ -307,6 +307,16 @@ NEXT-BEST-ACTION RULES (strict — invalid actions are dropped):
 - Use targetType="route" only when there is a precise, short same-origin path the user clearly wants. Path must start with "/" and be under 1500 chars. Never pack JSON, article drafts, or experience context into the query string — if you would need to, use targetType="action" instead.
 - Use targetType="codex" ONLY when the most useful next step is to open the cartridge UI. Target MUST be a cartridge slug from this allowlist: knyt-codex, metame-codex, qripto-codex, agentiq-os, alpha-knyt-codex. Do NOT use tab names, capsule ids, or display labels in target.
 - For codex targets you MAY add an optional "tab" field with the slug of a specific tab inside that cartridge (e.g. target="knyt-codex", tab="scrolls" to land on the scrolls tab). Use this when the user clearly wants a specific tab rather than the cartridge home.
+${(() => {
+  const mix = config.inference.nbaTargetMix;
+  if (!mix) return '';
+  return `
+NBA TARGET MIX (soft bias, NOT a per-call rule — averaged across users for this cartridge):
+- ~${mix.experiencesAndArticles}% should surface a specific experience or article from the catalog (use targetType="action" with a short natural-language instruction that opens that capsule).
+- ~${mix.storeTab}% should propose opening the store tab (use targetType="codex", target="${config.cartridgeSlug}", tab="store" or the cartridge's actual store tab slug).
+- ~${mix.otherTabs}% should propose another tab inside KNYT or Qriptopian cartridges (use targetType="codex", target=<cartridge slug>, tab=<tab slug>).
+Pick whichever bucket fits best for THIS user given their state — but lean toward whichever bucket the cartridge is currently underrepresented in across recent decisions. Don't force a bucket if none of its options serve the user.`;
+})()}
 - Do NOT default to targetType="codex" when an action would be more useful. Opening the whole cartridge is a heavy navigation; an action that surfaces a specific capsule is almost always better.
 
 Select capsule IDs ONLY from the catalog below. Do not invent IDs.`;
