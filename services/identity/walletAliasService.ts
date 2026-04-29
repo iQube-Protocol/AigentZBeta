@@ -223,6 +223,9 @@ async function registerOnEscrow(
 interface DidPersonaRecord {
   id: string;
   root_id: string | null;
+  // Optionally pre-fetched from embedded join — avoids a separate assertOwnership query.
+  // undefined = not fetched (separate query needed), null = no row found (RLS or no FK row)
+  root_identity?: { auth_user_id: string | null } | null;
 }
 
 async function resolveDidPersona(
@@ -234,34 +237,36 @@ async function resolveDidPersona(
   if (personaId.includes('@')) {
     const { data } = await supabase
       .from('did_persona')
-      .select('id, root_id')
+      .select('id, root_id, root_identity(auth_user_id)')
       .ilike('fio_handle', personaId.toLowerCase())
       .maybeSingle();
     if (data) return await assertOwnership(supabase, data as DidPersonaRecord, callerAuthUserId);
   }
 
-  // Single parallel round — embedded FK joins pull did_persona inline so we
-  // never need a second round trip for KNYT / Qripto personas.
-  type EmbeddedDidPersona = { id: string; root_id: string | null } | null;
+  // Single parallel round. Embedded FK joins pull did_persona + root_identity
+  // inline — eliminates Round 2 and the assertOwnership separate query.
+  type EmbeddedRootIdentity = { auth_user_id: string | null } | null;
+  type EmbeddedDidPersona = { id: string; root_id: string | null; root_identity?: EmbeddedRootIdentity } | null;
+
   const [directRes, knytRes, qriptoRes, legacyRes] = await Promise.all([
-    supabase.from('did_persona').select('id, root_id').eq('id', personaId).maybeSingle(),
-    supabase.from('nakamoto_knyt_personas').select('did_persona_id, did_persona(id, root_id)').eq('id', personaId).maybeSingle(),
-    supabase.from('nakamoto_qripto_personas').select('did_persona_id, did_persona(id, root_id)').eq('id', personaId).maybeSingle(),
+    supabase.from('did_persona').select('id, root_id, root_identity(auth_user_id)').eq('id', personaId).maybeSingle(),
+    supabase.from('nakamoto_knyt_personas').select('did_persona_id, did_persona(id, root_id, root_identity(auth_user_id))').eq('id', personaId).maybeSingle(),
+    supabase.from('nakamoto_qripto_personas').select('did_persona_id, did_persona(id, root_id, root_identity(auth_user_id))').eq('id', personaId).maybeSingle(),
     supabase.from('personas').select('fio_handle').eq('id', personaId).maybeSingle(),
   ]);
 
-  // Direct did_persona hit
+  // Direct did_persona hit (with embedded root_identity)
   if (!directRes.error && directRes.data) {
     return await assertOwnership(supabase, directRes.data as DidPersonaRecord, callerAuthUserId);
   }
 
-  // KNYT persona → embedded did_persona
+  // KNYT persona → embedded did_persona (with embedded root_identity)
   const knytRow = knytRes.data as { did_persona_id?: string; did_persona?: EmbeddedDidPersona } | null;
   if (knytRow?.did_persona) {
     return await assertOwnership(supabase, knytRow.did_persona, callerAuthUserId);
   }
 
-  // Qripto persona → embedded did_persona
+  // Qripto persona → embedded did_persona (with embedded root_identity)
   const qriptoRow = qriptoRes.data as { did_persona_id?: string; did_persona?: EmbeddedDidPersona } | null;
   if (qriptoRow?.did_persona) {
     return await assertOwnership(supabase, qriptoRow.did_persona, callerAuthUserId);
@@ -272,7 +277,7 @@ async function resolveDidPersona(
   if (fioHandle) {
     const { data: fioPersona } = await supabase
       .from('did_persona')
-      .select('id, root_id')
+      .select('id, root_id, root_identity(auth_user_id)')
       .ilike('fio_handle', fioHandle.toLowerCase())
       .maybeSingle();
     if (fioPersona) return await assertOwnership(supabase, fioPersona as DidPersonaRecord, callerAuthUserId);
@@ -288,15 +293,24 @@ async function assertOwnership(
   persona: DidPersonaRecord,
   callerAuthUserId: string | null
 ): Promise<DidPersonaRecord> {
-  if (callerAuthUserId && persona.root_id) {
+  if (!callerAuthUserId || !persona.root_id) return persona;
+
+  // Use auth_user_id pre-fetched by the embedded root_identity join when available.
+  // Fall back to a separate query only when the join wasn't included in the select.
+  let rootAuthUserId: string | null;
+  if (persona.root_identity !== undefined) {
+    rootAuthUserId = persona.root_identity?.auth_user_id ?? null;
+  } else {
     const { data: root } = await supabase
       .from('root_identity')
       .select('auth_user_id')
       .eq('id', persona.root_id)
       .maybeSingle();
-    if (root && root.auth_user_id && root.auth_user_id !== callerAuthUserId) {
-      throw new Error('Persona ownership mismatch');
-    }
+    rootAuthUserId = (root as { auth_user_id?: string } | null)?.auth_user_id ?? null;
+  }
+
+  if (rootAuthUserId && rootAuthUserId !== callerAuthUserId) {
+    throw new Error('Persona ownership mismatch');
   }
   return persona;
 }
@@ -330,27 +344,9 @@ export async function registerWalletAlias(
     throw new Error('did_persona has no bound root_identity — bind a Root DID first');
   }
 
-  // One wallet ↔ one persona — uniqueness is enforced by the alias_commitment
-  // UNIQUE constraint at the table level. Active record check below gives a
-  // clean error message instead of a 23505.
+  // One wallet ↔ one persona — enforced by the UNIQUE constraint on alias_commitment.
+  // A 23505 violation is caught below and returned as a clean "already linked" error.
   const aliasCommitment = buildAliasCommitment(didPersonaId, chain, normalised);
-  const { data: existing } = await supabase
-    .from('wallet_alias_commitments')
-    .select('id, status')
-    .eq('alias_commitment', aliasCommitment)
-    .maybeSingle();
-  if (existing && existing.status === 'active') {
-    throw new Error('This wallet is already linked to this persona');
-  }
-
-  // The commitment for THIS persona+address is unique to this persona; if the
-  // same wallet was registered to a *different* persona, that registration
-  // would produce a *different* commitment (because didPersonaId is mixed in).
-  // The one-wallet-one-persona invariant therefore lives in the application:
-  // before insert, check whether any other persona under the same root_id has
-  // already bound the same plaintext address.
-  // (v0 cannot enforce across different roots without leaking — accept this
-  //  weaker guarantee for now and re-evaluate when blakQube comes online.)
   const expiresAtISO = new Date(Date.now() + ttlDays * 86_400_000).toISOString();
   const mailboxId = generateMailboxId();
 
