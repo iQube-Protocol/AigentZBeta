@@ -25,8 +25,9 @@
 import crypto from 'node:crypto';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { verifyMessage } from 'ethers';
-import { getActor } from '@/services/ops/icAgent';
-import { escrowIDL } from '@/services/ops/idl/escrow';
+
+// ICP agent is loaded lazily inside registerOnEscrow — avoids module-init errors
+// in routes that only use the pure helper functions (challenge, normalise, etc.).
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -192,6 +193,8 @@ async function registerOnEscrow(
   const canisterId = escrowCanisterId();
   if (!canisterId) return { ok: false, skipped: true, error: 'Escrow canister not configured' };
   try {
+    const { getActor } = await import('@/services/ops/icAgent');
+    const { escrowIDL } = await import('@/services/ops/idl/escrow');
     const actor: any = await getActor(canisterId, escrowIDL);
     const commitment = Buffer.from(aliasCommitmentHex, 'hex');
     const mailbox = Buffer.from(mailboxIdHex, 'hex');
