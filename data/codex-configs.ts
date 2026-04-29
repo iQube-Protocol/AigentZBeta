@@ -432,6 +432,18 @@ export const KNYT_CODEX: CodexConfig = {
       metadata: { icon: 'Vault', description: 'EVM treasury balances, on-chain deposit log, and $KNYT airdrop', color: 'amber' }
     },
     {
+      id: 'community-content-admin',
+      label: 'Community Admin',
+      slug: 'community-content-admin',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 7,
+      type: 'static',
+      config: { component: 'KnytCommunityContentAdminTab' },
+      metadata: { icon: 'Sparkles', description: 'Promotion queue and Q¢ pricing for community-generated content', color: 'violet' }
+    },
+    {
       id: 'terra',
       label: 'Terra',
       slug: 'terra',
