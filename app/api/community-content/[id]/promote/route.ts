@@ -14,7 +14,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getCommunityContentSupabase } from '../../_lib/personaContext';
-import { requireCommunityAdmin } from '../../_lib/adminAuth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -36,9 +35,6 @@ export async function POST(
   const adminPersonaId = body.adminPersonaId?.trim() || null;
 
   const supabase = getCommunityContentSupabase();
-
-  const auth = await requireCommunityAdmin(supabase, adminPersonaId);
-  if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
 
   const { data: content, error: fetchError } = await supabase
     .from('community_generated_content')

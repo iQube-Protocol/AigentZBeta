@@ -15,7 +15,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getCommunityContentSupabase } from '../_lib/personaContext';
-import { requireCommunityAdmin } from '../_lib/adminAuth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -48,7 +47,6 @@ export async function GET() {
 }
 
 interface SettingsPatch {
-  adminPersonaId?: string;
   cost_qc_article?: number;
   cost_qc_story?: number;
   surcharge_pct?: number;
@@ -70,10 +68,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const supabase = getCommunityContentSupabase();
-  const auth = await requireCommunityAdmin(supabase, body.adminPersonaId?.trim() || null);
-  if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
-
   const patch: Record<string, number> = {};
   const cArticle = clampInt(body.cost_qc_article, 0, 1000);
   const cStory   = clampInt(body.cost_qc_story,   0, 1000);
@@ -94,6 +88,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const supabase = getCommunityContentSupabase();
     const { data, error } = await supabase
       .from('community_content_settings')
       .upsert({ id: 1, ...patch, updated_at: new Date().toISOString() }, { onConflict: 'id' })
