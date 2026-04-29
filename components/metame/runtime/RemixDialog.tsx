@@ -1,0 +1,476 @@
+"use client";
+
+/**
+ * RemixDialog — consumer-facing remix flow for runtime experience capsules.
+ *
+ * Two states:
+ *   1. Compose — skill toggle (article ↔ story), title, prompt. Q¢ cost +
+ *      free-remaining displayed at the bottom. Submit calls the
+ *      /api/community-content/generate endpoint.
+ *   2. Preview — shows the generated title, image, and body with
+ *      Discard / Share / Publish actions. Discard refunds inside the 30s
+ *      window (1/day). Share writes to localStorage so social-share
+ *      pickers can pick it up. Publish flips the row to 'shared' and
+ *      surfaces it in the Community Content tab.
+ *
+ * No financial controls — this is the consumer remix UI; the admin
+ * customize panel (RuntimeCapsuleAdminEditor) is separate and unchanged.
+ */
+
+import React, { useCallback, useEffect, useState } from "react";
+import { Coins, FileText, Image as ImageIcon, Loader2, RotateCw, Send, Share2, Sparkles, Trash2, X } from "lucide-react";
+
+type Skill = "article" | "story";
+
+interface QuotaCosts {
+  article: { baseQc: number; surchargedQc: number; currentQc: number };
+  story:   { baseQc: number; surchargedQc: number; currentQc: number };
+}
+
+interface QuotaState {
+  freeRemaining: number;
+  refundRemaining: number;
+  costs: QuotaCosts;
+  limits: {
+    dailyFreeQuota: number;
+    dailyDiscardRefund: number;
+    discardWindowSeconds: number;
+    surchargePct: number;
+  };
+}
+
+interface GeneratedContent {
+  id: string;
+  title: string;
+  articleBody: string;
+  imageUrl: string | null;
+  qcCost: number;
+  refundableUntil: string;
+}
+
+interface Props {
+  open: boolean;
+  personaId: string | null;
+  sourceExperienceId?: string | null;
+  initialTitle?: string;
+  initialPrompt?: string;
+  onClose: () => void;
+  onPublished?: (content: GeneratedContent) => void;
+}
+
+export function RemixDialog({
+  open,
+  personaId,
+  sourceExperienceId,
+  initialTitle,
+  initialPrompt,
+  onClose,
+  onPublished,
+}: Props) {
+  const [skill, setSkill] = useState<Skill>("article");
+  const [title, setTitle] = useState(initialTitle ?? "");
+  const [prompt, setPrompt] = useState(initialPrompt ?? "");
+  const [quota, setQuota] = useState<QuotaState | null>(null);
+  const [generating, setGenerating] = useState(false);
+  const [generated, setGenerated] = useState<GeneratedContent | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [actionPending, setActionPending] = useState<"discard" | "publish" | null>(null);
+  const [discardCountdown, setDiscardCountdown] = useState<number | null>(null);
+
+  // Hydrate state from props on open
+  useEffect(() => {
+    if (!open) return;
+    setSkill("article");
+    setTitle(initialTitle ?? "");
+    setPrompt(initialPrompt ?? "");
+    setGenerated(null);
+    setError(null);
+    setActionPending(null);
+    setDiscardCountdown(null);
+  }, [open, initialTitle, initialPrompt]);
+
+  // Fetch quota when dialog opens
+  useEffect(() => {
+    if (!open || !personaId) return;
+    let cancelled = false;
+    fetch(`/api/community-content/quota?personaId=${encodeURIComponent(personaId)}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return;
+        if (j.ok) setQuota(j as QuotaState);
+      })
+      .catch(() => { /* fall back to no quota — costs hidden */ });
+    return () => { cancelled = true; };
+  }, [open, personaId]);
+
+  // Discard countdown
+  useEffect(() => {
+    if (!generated) { setDiscardCountdown(null); return; }
+    const expiry = new Date(generated.refundableUntil).getTime();
+    function tick() {
+      const remaining = Math.max(0, Math.floor((expiry - Date.now()) / 1000));
+      setDiscardCountdown(remaining);
+    }
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [generated]);
+
+  const submit = useCallback(async () => {
+    if (!personaId) { setError("No persona — sign in first"); return; }
+    if (!prompt.trim()) { setError("Prompt is required"); return; }
+    setGenerating(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/community-content/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          personaId,
+          skill,
+          prompt: prompt.trim(),
+          title: title.trim() || null,
+          sourceExperienceId: sourceExperienceId || null,
+        }),
+      });
+      const j = await res.json();
+      if (!res.ok || !j.ok) {
+        setError(j.error || `Generation failed (${res.status})`);
+        return;
+      }
+      setGenerated({
+        id: j.id,
+        title: j.title,
+        articleBody: j.articleBody,
+        imageUrl: j.imageUrl ?? null,
+        qcCost: j.qcCost,
+        refundableUntil: j.refundableUntil,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Generation failed");
+    } finally {
+      setGenerating(false);
+    }
+  }, [personaId, skill, prompt, title, sourceExperienceId]);
+
+  const discard = useCallback(async () => {
+    if (!generated || !personaId) return;
+    setActionPending("discard");
+    setError(null);
+    try {
+      const res = await fetch(`/api/community-content/${generated.id}/discard`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ personaId }),
+      });
+      const j = await res.json();
+      if (!res.ok || !j.ok) {
+        setError(j.error || `Discard failed (${res.status})`);
+        return;
+      }
+      setGenerated(null);
+      setDiscardCountdown(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Discard failed");
+    } finally {
+      setActionPending(null);
+    }
+  }, [generated, personaId]);
+
+  const publish = useCallback(async () => {
+    if (!generated || !personaId) return;
+    setActionPending("publish");
+    setError(null);
+    try {
+      const res = await fetch(`/api/community-content/${generated.id}/publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ personaId }),
+      });
+      const j = await res.json();
+      if (!res.ok || !j.ok) {
+        setError(j.error || `Publish failed (${res.status})`);
+        return;
+      }
+      onPublished?.(generated);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Publish failed");
+    } finally {
+      setActionPending(null);
+    }
+  }, [generated, personaId, onPublished, onClose]);
+
+  if (!open) return null;
+
+  const skillCost = quota?.costs[skill];
+  const showCostBadge = quota && skillCost;
+  const isFree = (quota?.freeRemaining ?? 0) > 0;
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4"
+      onClick={(e) => { if (e.target === e.currentTarget && !generating && !actionPending) onClose(); }}
+    >
+      <div className="relative w-full max-w-xl max-h-[90vh] overflow-hidden rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-2 border-b border-white/[0.08] px-4 py-2.5">
+          <div className="flex items-center gap-2 min-w-0">
+            <Sparkles className="h-4 w-4 text-amber-400 shrink-0" />
+            <span className="text-sm font-semibold text-slate-100 truncate">
+              {generated ? "Preview your remix" : "Remix this experience"}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={generating || actionPending !== null}
+            className="rounded p-1 text-slate-400 hover:bg-white/5 hover:text-white disabled:opacity-30"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-4 py-3">
+          {!generated ? (
+            <ComposeView
+              skill={skill}
+              setSkill={setSkill}
+              title={title}
+              setTitle={setTitle}
+              prompt={prompt}
+              setPrompt={setPrompt}
+              quota={quota}
+              skillCost={skillCost ?? null}
+              isFree={isFree}
+              showCostBadge={!!showCostBadge}
+            />
+          ) : (
+            <PreviewView generated={generated} />
+          )}
+
+          {error && (
+            <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+              {error}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="border-t border-white/[0.08] px-4 py-3 flex items-center justify-between gap-2">
+          {!generated ? (
+            <>
+              <div className="text-[10px] text-slate-400">
+                {quota
+                  ? `${quota.freeRemaining}/${quota.limits.dailyFreeQuota} free today`
+                  : "—"}
+              </div>
+              <button
+                type="button"
+                onClick={submit}
+                disabled={generating || !prompt.trim() || !personaId}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-500/25 disabled:opacity-40"
+              >
+                {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                {generating ? "Generating…" : skillCost && skillCost.currentQc === 0 ? "Generate (free)" : skillCost ? `Generate · ${skillCost.currentQc} Q¢` : "Generate"}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={discard}
+                disabled={
+                  actionPending !== null ||
+                  (discardCountdown !== null && discardCountdown <= 0) ||
+                  (quota?.refundRemaining ?? 0) <= 0
+                }
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10 disabled:opacity-30"
+                title={
+                  discardCountdown === 0
+                    ? "Discard window expired"
+                    : (quota?.refundRemaining ?? 0) <= 0
+                    ? "Daily discard refund used"
+                    : `Refund within ${discardCountdown}s`
+                }
+              >
+                {actionPending === "discard" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                Discard{discardCountdown !== null && discardCountdown > 0 ? ` (${discardCountdown}s)` : ""}
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGenerated(null);
+                    setError(null);
+                  }}
+                  disabled={actionPending !== null}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10 disabled:opacity-30"
+                >
+                  <RotateCw className="h-3.5 w-3.5" />
+                  Redo
+                </button>
+                <button
+                  type="button"
+                  onClick={publish}
+                  disabled={actionPending !== null}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-500/25 disabled:opacity-40"
+                >
+                  {actionPending === "publish" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Share2 className="h-3.5 w-3.5" />}
+                  Publish
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Compose view ────────────────────────────────────────────────────────────
+
+function ComposeView({
+  skill, setSkill,
+  title, setTitle,
+  prompt, setPrompt,
+  quota, skillCost, isFree, showCostBadge,
+}: {
+  skill: Skill;
+  setSkill: (s: Skill) => void;
+  title: string;
+  setTitle: (s: string) => void;
+  prompt: string;
+  setPrompt: (s: string) => void;
+  quota: QuotaState | null;
+  skillCost: QuotaCosts["article"] | null;
+  isFree: boolean;
+  showCostBadge: boolean;
+}) {
+  return (
+    <div className="space-y-3">
+      {/* Skill toggle */}
+      <div className="flex gap-1.5">
+        <button
+          type="button"
+          onClick={() => setSkill("article")}
+          className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+            skill === "article"
+              ? "border-amber-400/40 bg-amber-500/15 text-amber-200"
+              : "border-white/10 bg-white/5 text-slate-400 hover:text-white"
+          }`}
+        >
+          <FileText className="h-3.5 w-3.5" />
+          Article
+        </button>
+        <button
+          type="button"
+          onClick={() => setSkill("story")}
+          className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+            skill === "story"
+              ? "border-amber-400/40 bg-amber-500/15 text-amber-200"
+              : "border-white/10 bg-white/5 text-slate-400 hover:text-white"
+          }`}
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          Story
+        </button>
+      </div>
+
+      <div className="text-[10px] text-slate-500 leading-relaxed">
+        {skill === "story"
+          ? "Short KNYT-canon fiction (~250–500 words) plus a generated image. Your @knyt persona context is woven into the narrative."
+          : "Editorial article (~600–900 words) plus a generated image. Connect to your KNYT context where it fits."}
+      </div>
+
+      {/* Title (optional) */}
+      <div>
+        <label className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">
+          Title <span className="text-slate-600">(optional)</span>
+        </label>
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          maxLength={120}
+          placeholder="Auto-generated if blank"
+          className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:border-amber-400/40 focus:outline-none"
+        />
+      </div>
+
+      {/* Prompt */}
+      <div>
+        <label className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">
+          Prompt
+        </label>
+        <textarea
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          maxLength={2000}
+          rows={5}
+          placeholder={
+            skill === "story"
+              ? 'e.g. "Kn0w1 confronts a rogue protocol guardian on the chrome plains."'
+              : 'e.g. "Why the 21 Sats Stewards matter for the protocol\'s future."'
+          }
+          className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:border-amber-400/40 focus:outline-none resize-none"
+        />
+        <div className="text-right text-[10px] text-slate-600 mt-0.5">{prompt.length}/2000</div>
+      </div>
+
+      {/* Cost summary */}
+      {showCostBadge && skillCost ? (
+        <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Coins className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+            <div className="min-w-0">
+              <div className="text-xs text-slate-200">
+                {isFree
+                  ? <>Free this generation <span className="text-slate-500">· next is {skillCost.surchargedQc} Q¢</span></>
+                  : <>{skillCost.currentQc} Q¢ <span className="text-slate-500">(base {skillCost.baseQc} + {quota?.limits.surchargePct}% after free quota)</span></>
+                }
+              </div>
+              <div className="text-[10px] text-slate-500">
+                Includes {skill === "story" ? "story" : "article"} text + 1 generated image
+              </div>
+            </div>
+          </div>
+          <ImageIcon className="h-3.5 w-3.5 text-slate-500 shrink-0" aria-hidden />
+        </div>
+      ) : (
+        <div className="text-[10px] text-slate-600">Loading cost…</div>
+      )}
+    </div>
+  );
+}
+
+// ─── Preview view ────────────────────────────────────────────────────────────
+
+function PreviewView({ generated }: { generated: GeneratedContent }) {
+  return (
+    <div className="space-y-3">
+      <h2 className="text-base font-semibold text-slate-100 leading-tight">{generated.title}</h2>
+      {generated.imageUrl ? (
+        <img
+          src={generated.imageUrl}
+          alt={generated.title}
+          className="w-full rounded-xl border border-white/10 object-cover max-h-64"
+          loading="lazy"
+        />
+      ) : (
+        <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-200">
+          Image generation unavailable — text-only preview.
+        </div>
+      )}
+      <article className="prose prose-invert prose-sm max-w-none text-slate-200 whitespace-pre-wrap">
+        {generated.articleBody}
+      </article>
+      <div className="text-[10px] text-slate-500">
+        Charged: {generated.qcCost} Q¢
+      </div>
+    </div>
+  );
+}
+
+export default RemixDialog;
