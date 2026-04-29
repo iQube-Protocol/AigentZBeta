@@ -18,7 +18,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Coins, FileText, Image as ImageIcon, Loader2, RotateCw, Send, Share2, Sparkles, Trash2, X } from "lucide-react";
+import { Coins, FileText, Image as ImageIcon, Loader2, LogIn, RotateCw, Send, Share2, Sparkles, Trash2, X } from "lucide-react";
 
 type Skill = "article" | "story";
 
@@ -56,7 +56,11 @@ interface Props {
   initialPrompt?: string;
   onClose: () => void;
   onPublished?: (content: GeneratedContent) => void;
+  /** Called when an unauthenticated user clicks the sign-in CTA. */
+  onSignInRequest?: () => void;
 }
+
+type GenerationStep = "idle" | "charging" | "writing" | "rendering" | "saving";
 
 export function RemixDialog({
   open,
@@ -66,12 +70,15 @@ export function RemixDialog({
   initialPrompt,
   onClose,
   onPublished,
+  onSignInRequest,
 }: Props) {
   const [skill, setSkill] = useState<Skill>("article");
   const [title, setTitle] = useState(initialTitle ?? "");
   const [prompt, setPrompt] = useState(initialPrompt ?? "");
   const [quota, setQuota] = useState<QuotaState | null>(null);
+  const [quotaError, setQuotaError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [generationStep, setGenerationStep] = useState<GenerationStep>("idle");
   const [generated, setGenerated] = useState<GeneratedContent | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionPending, setActionPending] = useState<"discard" | "publish" | null>(null);
@@ -87,19 +94,32 @@ export function RemixDialog({
     setError(null);
     setActionPending(null);
     setDiscardCountdown(null);
+    setGenerationStep("idle");
+    setQuotaError(null);
   }, [open, initialTitle, initialPrompt]);
 
   // Fetch quota when dialog opens
   useEffect(() => {
-    if (!open || !personaId) return;
+    if (!open || !personaId) {
+      setQuota(null);
+      return;
+    }
     let cancelled = false;
     fetch(`/api/community-content/quota?personaId=${encodeURIComponent(personaId)}`)
       .then((r) => r.json())
       .then((j) => {
         if (cancelled) return;
-        if (j.ok) setQuota(j as QuotaState);
+        if (j.ok) {
+          setQuota(j as QuotaState);
+          setQuotaError(null);
+        } else {
+          setQuotaError(j.error || "Couldn't load quota");
+        }
       })
-      .catch(() => { /* fall back to no quota — costs hidden */ });
+      .catch((err) => {
+        if (cancelled) return;
+        setQuotaError(err instanceof Error ? err.message : "Couldn't load quota");
+      });
     return () => { cancelled = true; };
   }, [open, personaId]);
 
@@ -117,10 +137,18 @@ export function RemixDialog({
   }, [generated]);
 
   const submit = useCallback(async () => {
-    if (!personaId) { setError("No persona — sign in first"); return; }
+    if (!personaId) { setError("Sign in to remix"); return; }
     if (!prompt.trim()) { setError("Prompt is required"); return; }
     setGenerating(true);
     setError(null);
+    setGenerationStep("charging");
+
+    // Optimistic step progression — server doesn't stream, so we cycle the
+    // step labels on a timer so users can see what's happening.
+    const stepTimer1 = setTimeout(() => setGenerationStep("writing"),  1500);
+    const stepTimer2 = setTimeout(() => setGenerationStep("rendering"), 6000);
+    const stepTimer3 = setTimeout(() => setGenerationStep("saving"),    18000);
+
     try {
       const res = await fetch("/api/community-content/generate", {
         method: "POST",
@@ -146,10 +174,19 @@ export function RemixDialog({
         qcCost: j.qcCost,
         refundableUntil: j.refundableUntil,
       });
+      // Refresh quota so the next attempt's cost label is accurate.
+      void fetch(`/api/community-content/quota?personaId=${encodeURIComponent(personaId)}`)
+        .then((r) => r.json())
+        .then((q) => { if (q.ok) setQuota(q as QuotaState); })
+        .catch(() => { /* ignore */ });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Generation failed");
     } finally {
+      clearTimeout(stepTimer1);
+      clearTimeout(stepTimer2);
+      clearTimeout(stepTimer3);
       setGenerating(false);
+      setGenerationStep("idle");
     }
   }, [personaId, skill, prompt, title, sourceExperienceId]);
 
@@ -233,6 +270,16 @@ export function RemixDialog({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-4 py-3">
+          {/* Sign-in banner — front and centre when no persona is active */}
+          {!personaId && !generated && (
+            <SignInBanner onSignIn={onSignInRequest} />
+          )}
+
+          {/* Generation progress strip — shows above the form while charging/generating */}
+          {generating && (
+            <GenerationProgress step={generationStep} skill={skill} />
+          )}
+
           {!generated ? (
             <ComposeView
               skill={skill}
@@ -242,9 +289,12 @@ export function RemixDialog({
               prompt={prompt}
               setPrompt={setPrompt}
               quota={quota}
+              quotaError={quotaError}
+              hasPersona={!!personaId}
               skillCost={skillCost ?? null}
               isFree={isFree}
               showCostBadge={!!showCostBadge}
+              disabled={generating || !personaId}
             />
           ) : (
             <PreviewView generated={generated} />
@@ -261,20 +311,44 @@ export function RemixDialog({
         <div className="border-t border-white/[0.08] px-4 py-3 flex items-center justify-between gap-2">
           {!generated ? (
             <>
-              <div className="text-[10px] text-slate-400">
-                {quota
-                  ? `${quota.freeRemaining}/${quota.limits.dailyFreeQuota} free today`
-                  : "—"}
+              <div className="text-[10px] text-slate-400 min-w-0 truncate">
+                {!personaId
+                  ? <span className="text-amber-300/80">Sign in required</span>
+                  : !quota && !quotaError
+                  ? <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Loading quota…</span>
+                  : quotaError
+                  ? <span className="text-red-300/80">{quotaError}</span>
+                  : quota
+                  ? <>
+                      <span className={quota.freeRemaining > 0 ? "text-emerald-300" : "text-slate-500"}>
+                        {quota.freeRemaining}/{quota.limits.dailyFreeQuota} free
+                      </span>
+                      <span className="text-slate-600"> · resets daily</span>
+                    </>
+                  : "—"
+                }
               </div>
-              <button
-                type="button"
-                onClick={submit}
-                disabled={generating || !prompt.trim() || !personaId}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-500/25 disabled:opacity-40"
-              >
-                {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                {generating ? "Generating…" : skillCost && skillCost.currentQc === 0 ? "Generate (free)" : skillCost ? `Generate · ${skillCost.currentQc} Q¢` : "Generate"}
-              </button>
+              {!personaId ? (
+                <button
+                  type="button"
+                  onClick={() => onSignInRequest?.()}
+                  disabled={!onSignInRequest}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-500/25 disabled:opacity-40"
+                >
+                  <LogIn className="h-3.5 w-3.5" />
+                  Sign in to remix
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={submit}
+                  disabled={generating || !prompt.trim()}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-500/25 disabled:opacity-40"
+                >
+                  {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                  {generating ? generationStepLabel(generationStep) : skillCost && skillCost.currentQc === 0 ? "Generate (free)" : skillCost ? `Generate · ${skillCost.currentQc} Q¢` : "Generate"}
+                </button>
+              )}
             </>
           ) : (
             <>
@@ -335,7 +409,9 @@ function ComposeView({
   skill, setSkill,
   title, setTitle,
   prompt, setPrompt,
-  quota, skillCost, isFree, showCostBadge,
+  quota, quotaError, hasPersona,
+  skillCost, isFree, showCostBadge,
+  disabled,
 }: {
   skill: Skill;
   setSkill: (s: Skill) => void;
@@ -344,9 +420,12 @@ function ComposeView({
   prompt: string;
   setPrompt: (s: string) => void;
   quota: QuotaState | null;
+  quotaError: string | null;
+  hasPersona: boolean;
   skillCost: QuotaCosts["article"] | null;
   isFree: boolean;
   showCostBadge: boolean;
+  disabled: boolean;
 }) {
   return (
     <div className="space-y-3">
@@ -355,7 +434,8 @@ function ComposeView({
         <button
           type="button"
           onClick={() => setSkill("article")}
-          className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+          disabled={disabled}
+          className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition disabled:opacity-50 ${
             skill === "article"
               ? "border-amber-400/40 bg-amber-500/15 text-amber-200"
               : "border-white/10 bg-white/5 text-slate-400 hover:text-white"
@@ -367,7 +447,8 @@ function ComposeView({
         <button
           type="button"
           onClick={() => setSkill("story")}
-          className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+          disabled={disabled}
+          className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition disabled:opacity-50 ${
             skill === "story"
               ? "border-amber-400/40 bg-amber-500/15 text-amber-200"
               : "border-white/10 bg-white/5 text-slate-400 hover:text-white"
@@ -394,8 +475,9 @@ function ComposeView({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           maxLength={120}
+          disabled={disabled}
           placeholder="Auto-generated if blank"
-          className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:border-amber-400/40 focus:outline-none"
+          className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:border-amber-400/40 focus:outline-none disabled:opacity-60"
         />
       </div>
 
@@ -409,18 +491,23 @@ function ComposeView({
           onChange={(e) => setPrompt(e.target.value)}
           maxLength={2000}
           rows={5}
+          disabled={disabled}
           placeholder={
             skill === "story"
               ? 'e.g. "Kn0w1 confronts a rogue protocol guardian on the chrome plains."'
               : 'e.g. "Why the 21 Sats Stewards matter for the protocol\'s future."'
           }
-          className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:border-amber-400/40 focus:outline-none resize-none"
+          className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:border-amber-400/40 focus:outline-none resize-none disabled:opacity-60"
         />
         <div className="text-right text-[10px] text-slate-600 mt-0.5">{prompt.length}/2000</div>
       </div>
 
-      {/* Cost summary */}
-      {showCostBadge && skillCost ? (
+      {/* Cost summary — three states: signed-out, loading, loaded */}
+      {!hasPersona ? (
+        <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[11px] text-slate-400">
+          Sign in to see your daily free quota and Q¢ pricing.
+        </div>
+      ) : showCostBadge && skillCost ? (
         <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <Coins className="h-3.5 w-3.5 text-amber-400 shrink-0" />
@@ -438,9 +525,89 @@ function ComposeView({
           </div>
           <ImageIcon className="h-3.5 w-3.5 text-slate-500 shrink-0" aria-hidden />
         </div>
+      ) : quotaError ? (
+        <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-[11px] text-red-300">
+          Couldn't load pricing: {quotaError}
+        </div>
       ) : (
-        <div className="text-[10px] text-slate-600">Loading cost…</div>
+        <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[11px] text-slate-500 inline-flex items-center gap-1.5">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          Loading pricing…
+        </div>
       )}
+    </div>
+  );
+}
+
+// ─── Sign-in banner ──────────────────────────────────────────────────────────
+
+function SignInBanner({ onSignIn }: { onSignIn?: () => void }) {
+  return (
+    <div className="mb-3 rounded-xl border border-amber-500/30 bg-amber-950/30 px-3 py-3 flex items-start gap-2.5">
+      <LogIn className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-amber-200 leading-snug">Sign in to remix</p>
+        <p className="text-[11px] text-amber-200/70 leading-snug mt-0.5">
+          Each KNYT persona gets <span className="font-semibold text-amber-200">3 free generations per day</span> plus a daily discard refund. Sign in to start remixing.
+        </p>
+        {onSignIn && (
+          <button
+            type="button"
+            onClick={onSignIn}
+            className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-amber-400/50 bg-amber-500/20 px-2.5 py-1 text-[11px] font-semibold text-amber-100 hover:bg-amber-500/30"
+          >
+            <LogIn className="h-3 w-3" />
+            Sign in
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Generation progress strip ───────────────────────────────────────────────
+
+const STEP_LABELS: Record<GenerationStep, string> = {
+  idle:      "",
+  charging:  "Reserving Q¢…",
+  writing:   "Writing the piece…",
+  rendering: "Rendering image…",
+  saving:    "Saving your remix…",
+};
+
+function generationStepLabel(step: GenerationStep): string {
+  return STEP_LABELS[step] || "Generating…";
+}
+
+function GenerationProgress({ step, skill }: { step: GenerationStep; skill: Skill }) {
+  const order: GenerationStep[] = ["charging", "writing", "rendering", "saving"];
+  const currentIdx = order.indexOf(step);
+  return (
+    <div className="mb-3 rounded-xl border border-amber-500/30 bg-amber-950/20 px-3 py-2.5">
+      <div className="flex items-center gap-2 mb-2">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-400" />
+        <p className="text-[11px] font-semibold text-amber-200">
+          {generationStepLabel(step)}
+        </p>
+      </div>
+      <div className="flex gap-1">
+        {order.map((s, i) => (
+          <div
+            key={s}
+            className={`h-1 flex-1 rounded-full transition ${
+              i < currentIdx
+                ? "bg-amber-400"
+                : i === currentIdx
+                ? "bg-amber-400/60 animate-pulse"
+                : "bg-white/[0.06]"
+            }`}
+          />
+        ))}
+      </div>
+      <p className="text-[10px] text-amber-200/60 mt-2 leading-snug">
+        {skill === "story" ? "Stories" : "Articles"} typically take 15–30 seconds.
+        Keep this dialog open until generation completes.
+      </p>
     </div>
   );
 }

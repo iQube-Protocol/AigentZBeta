@@ -5874,6 +5874,10 @@ export default function MetaMeRuntimeClient() {
           initialTitle={remixDialogState.initialTitle}
           initialPrompt={remixDialogState.initialPrompt}
           onClose={() => setRemixDialogState((prev) => ({ ...prev, open: false }))}
+          onSignInRequest={() => {
+            setRemixDialogState((prev) => ({ ...prev, open: false }));
+            setWalletDrawerOpen(true);
+          }}
         />
       </div>
     );
@@ -5891,6 +5895,10 @@ export default function MetaMeRuntimeClient() {
           initialTitle={remixDialogState.initialTitle}
           initialPrompt={remixDialogState.initialPrompt}
           onClose={() => setRemixDialogState((prev) => ({ ...prev, open: false }))}
+          onSignInRequest={() => {
+            setRemixDialogState((prev) => ({ ...prev, open: false }));
+            setWalletDrawerOpen(true);
+          }}
         />
       </div>
     );
