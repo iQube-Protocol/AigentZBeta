@@ -61,5 +61,23 @@ export async function POST(
 
   if (updateError) return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 });
 
+  // Insert a matching knyt_publication_states row so KnytReactionBar
+  // (the 21 Sats reaction infrastructure) accepts this content as a
+  // valid publication. We use the same UUID for both rows so the front
+  // end can pass community_content.id straight through as publicationId.
+  // Best-effort — non-fatal if the table or schema rejects.
+  await supabase.from('knyt_publication_states').upsert(
+    {
+      id,
+      subject_type: 'community_content',
+      subject_id:   id,
+      branch:       'community',
+      state:        'submitted',
+      created_at:   new Date().toISOString(),
+      updated_at:   new Date().toISOString(),
+    },
+    { onConflict: 'id' },
+  );
+
   return NextResponse.json({ ok: true, status: 'shared' });
 }
