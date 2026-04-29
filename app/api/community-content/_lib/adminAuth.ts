@@ -2,7 +2,7 @@
  * Server-side admin gate for community-content admin routes.
  *
  * Resolves an `adminPersonaId` to its `crm_auth_profiles.id` via
- * `personas.auth_profile_id` (canonicalized by the existing
+ * `personas.auth_profile_id` (canonicalized by the
  * `personas_canonicalize_auth_profile_id` trigger) and checks
  * `crm_admin_roles` for an active, unexpired role — same lookup the
  * `/api/codex/admin-check` route uses for embed-bridge auth.

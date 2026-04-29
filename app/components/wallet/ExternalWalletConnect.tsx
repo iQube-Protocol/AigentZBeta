@@ -244,7 +244,13 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
         `/api/identity/wallet-alias/challenge?didPersonaId=${encodeURIComponent(personaId)}` +
         `&chain=evm&address=${encodeURIComponent(addr)}`;
       const cRes = await fetch(challengeUrl, { headers: auth });
-      const cJson = await cRes.json() as { ok?: boolean; message?: string; nonce?: string; error?: string };
+      const cText = await cRes.text();
+      let cJson: { ok?: boolean; message?: string; nonce?: string; error?: string };
+      try {
+        cJson = JSON.parse(cText) as typeof cJson;
+      } catch {
+        throw new Error(`Challenge (${cRes.status}): ${cText.slice(0, 200) || 'empty response'}`);
+      }
       if (!cRes.ok || !cJson.message) {
         throw new Error(cJson.error || `Challenge ${cRes.status}`);
       }
@@ -265,15 +271,25 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
           signature,
         }),
       });
-      const rJson = await rRes.json() as { ok?: boolean; id?: string; aliasCommitment?: string; error?: string };
+      const rText = await rRes.text();
+      let rJson: { ok?: boolean; id?: string; aliasCommitment?: string; error?: string };
+      try {
+        rJson = JSON.parse(rText) as typeof rJson;
+      } catch {
+        throw new Error(`Register (${rRes.status}): ${rText.slice(0, 200) || 'empty response'}`);
+      }
       if (rRes.status === 409) {
         // Already linked → treat as success
         setAliasState({ status: 'registered' });
         return;
       }
-      if (rRes.status === 404 || (rJson.error || '').includes('Bind a Root DID')) {
+      if (rRes.status === 404 || (rJson.error || '').includes('Bind a Root DID') || (rJson.error || '').includes('no bound root')) {
         setAliasState({ status: 'precondition', error: 'Bind your Root DID to this persona before linking a wallet.' });
         return;
+      }
+      if (rRes.status === 503) {
+        // Timeout from the server — safe to retry
+        throw new Error(rJson.error || 'Server timed out — please retry');
       }
       if (!rRes.ok || !rJson.ok) throw new Error(rJson.error || `Register ${rRes.status}`);
       setAliasState({ status: 'registered', aliasId: rJson.id, commitment: rJson.aliasCommitment });
@@ -613,7 +629,19 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
           )}
           <div className="min-w-0 flex-1">
             {aliasState.status === 'pending' && (
-              <p>Sign the message in your wallet to register a privacy-preserving alias…</p>
+              <>
+                <p className="font-medium">Action needed in MetaMask</p>
+                <p className="opacity-70 mt-0.5">
+                  Check your MetaMask extension for a <strong>Sign Message</strong> popup — this is a separate step from connecting. Click Sign to link your wallet privately.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setAliasState({ status: 'idle' })}
+                  className="mt-1.5 underline opacity-60 hover:opacity-100 text-[10px]"
+                >
+                  Dismiss
+                </button>
+              </>
             )}
             {aliasState.status === 'registered' && (
               <>

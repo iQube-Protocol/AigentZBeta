@@ -9,6 +9,7 @@ import { revokeWalletAlias } from '@/services/identity/walletAliasService';
 import { getCallerAuthUserId } from '../_lib/auth';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function DELETE(
   req: NextRequest,

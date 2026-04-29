@@ -25,8 +25,9 @@
 import crypto from 'node:crypto';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { verifyMessage } from 'ethers';
-import { getActor } from '@/services/ops/icAgent';
-import { escrowIDL } from '@/services/ops/idl/escrow';
+
+// ICP agent is loaded lazily inside registerOnEscrow — avoids module-init errors
+// in routes that only use the pure helper functions (challenge, normalise, etc.).
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -183,6 +184,10 @@ export function buildOwnershipChallenge(
  * Register the alias commitment on the Escrow ICP canister. No-op when
  * ESCROW_CANISTER_ID is unset (returns { ok:false, skipped:true }) so the
  * service can run in environments where the canister isn't yet wired.
+ *
+ * Hard 4s timeout — ICP gateway latency can be unpredictable on a cold Lambda.
+ * The DB insert happens before this call, so a slow/hanging canister never
+ * blocks the success response.
  */
 async function registerOnEscrow(
   aliasCommitmentHex: string,
@@ -191,15 +196,26 @@ async function registerOnEscrow(
 ): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
   const canisterId = escrowCanisterId();
   if (!canisterId) return { ok: false, skipped: true, error: 'Escrow canister not configured' };
-  try {
-    const actor: any = await getActor(canisterId, escrowIDL);
-    const commitment = Buffer.from(aliasCommitmentHex, 'hex');
-    const mailbox = Buffer.from(mailboxIdHex, 'hex');
-    await actor.register_alias(commitment, mailbox, ttlSeconds);
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'Escrow register failed' };
-  }
+
+  const escrowCall = (async () => {
+    try {
+      const { getActor } = await import('@/services/ops/icAgent');
+      const { escrowIDL } = await import('@/services/ops/idl/escrow');
+      const actor: any = await getActor(canisterId, escrowIDL);
+      const commitment = Buffer.from(aliasCommitmentHex, 'hex');
+      const mailbox = Buffer.from(mailboxIdHex, 'hex');
+      await actor.register_alias(commitment, mailbox, ttlSeconds);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : 'Escrow register failed' };
+    }
+  })();
+
+  const escrowTimeout = new Promise<{ ok: boolean; skipped: boolean; error: string }>((resolve) =>
+    setTimeout(() => resolve({ ok: false, skipped: true, error: 'Escrow registration timed out' }), 4_000)
+  );
+
+  return Promise.race([escrowCall, escrowTimeout]);
 }
 
 // ─── Persona resolution ─────────────────────────────────────────────────────
@@ -207,6 +223,9 @@ async function registerOnEscrow(
 interface DidPersonaRecord {
   id: string;
   root_id: string | null;
+  // Optionally pre-fetched from embedded join — avoids a separate assertOwnership query.
+  // undefined = not fetched (separate query needed), null = no row found (RLS or no FK row)
+  root_identity?: { auth_user_id: string | null } | null;
 }
 
 async function resolveDidPersona(
@@ -214,84 +233,84 @@ async function resolveDidPersona(
   personaId: string,
   callerAuthUserId: string | null
 ): Promise<DidPersonaRecord> {
-  let persona: DidPersonaRecord | null = null;
-
-  // 0. If the caller passed a FIO handle directly (contains '@'), match did_persona by handle
+  // FIO handle fast-path (personaId contains '@')
   if (personaId.includes('@')) {
     const { data } = await supabase
       .from('did_persona')
-      .select('id, root_id')
+      .select('id, root_id, root_identity(auth_user_id)')
       .ilike('fio_handle', personaId.toLowerCase())
       .maybeSingle();
-    if (data) persona = data as DidPersonaRecord;
+    if (data) return await assertOwnership(supabase, data as DidPersonaRecord, callerAuthUserId);
   }
 
-  // 1. Try did_persona directly
-  if (!persona) {
-    const direct = await supabase
+  // Single parallel round. Embedded FK joins pull did_persona + root_identity
+  // inline — eliminates Round 2 and the assertOwnership separate query.
+  type EmbeddedRootIdentity = { auth_user_id: string | null } | null;
+  type EmbeddedDidPersona = { id: string; root_id: string | null; root_identity?: EmbeddedRootIdentity } | null;
+
+  const [directRes, knytRes, qriptoRes, legacyRes] = await Promise.all([
+    supabase.from('did_persona').select('id, root_id, root_identity(auth_user_id)').eq('id', personaId).maybeSingle(),
+    supabase.from('nakamoto_knyt_personas').select('did_persona_id, did_persona(id, root_id, root_identity(auth_user_id))').eq('id', personaId).maybeSingle(),
+    supabase.from('nakamoto_qripto_personas').select('did_persona_id, did_persona(id, root_id, root_identity(auth_user_id))').eq('id', personaId).maybeSingle(),
+    supabase.from('personas').select('fio_handle').eq('id', personaId).maybeSingle(),
+  ]);
+
+  // Direct did_persona hit (with embedded root_identity)
+  if (!directRes.error && directRes.data) {
+    return await assertOwnership(supabase, directRes.data as DidPersonaRecord, callerAuthUserId);
+  }
+
+  // KNYT persona → embedded did_persona (with embedded root_identity)
+  const knytRow = knytRes.data as { did_persona_id?: string; did_persona?: EmbeddedDidPersona } | null;
+  if (knytRow?.did_persona) {
+    return await assertOwnership(supabase, knytRow.did_persona, callerAuthUserId);
+  }
+
+  // Qripto persona → embedded did_persona (with embedded root_identity)
+  const qriptoRow = qriptoRes.data as { did_persona_id?: string; did_persona?: EmbeddedDidPersona } | null;
+  if (qriptoRow?.did_persona) {
+    return await assertOwnership(supabase, qriptoRow.did_persona, callerAuthUserId);
+  }
+
+  // Legacy persona via fio_handle (1 extra round trip — rare path)
+  const fioHandle = (legacyRes.data as { fio_handle?: string } | null)?.fio_handle;
+  if (fioHandle) {
+    const { data: fioPersona } = await supabase
       .from('did_persona')
-      .select('id, root_id')
-      .eq('id', personaId)
+      .select('id, root_id, root_identity(auth_user_id)')
+      .ilike('fio_handle', fioHandle.toLowerCase())
       .maybeSingle();
-    if (!direct.error && direct.data) persona = direct.data as DidPersonaRecord;
+    if (fioPersona) return await assertOwnership(supabase, fioPersona as DidPersonaRecord, callerAuthUserId);
   }
 
-  // 2. Fall back to legacy payload tables — both KNYT and Qripto carry did_persona_id
-  if (!persona) {
-    for (const table of ['nakamoto_knyt_personas', 'nakamoto_qripto_personas'] as const) {
-      const { data, error } = await supabase
-        .from(table)
-        .select('did_persona_id')
-        .eq('id', personaId)
-        .maybeSingle();
-      if (error) continue;
-      const didPersonaId = (data as { did_persona_id?: string } | null)?.did_persona_id;
-      if (!didPersonaId) continue;
-      const { data: didRow } = await supabase
-        .from('did_persona')
-        .select('id, root_id')
-        .eq('id', didPersonaId)
-        .maybeSingle();
-      if (didRow) {
-        persona = didRow as DidPersonaRecord;
-        break;
-      }
-    }
-  }
+  throw new Error(
+    'No did_persona found for this persona id. Bind a Root DID to this persona first.'
+  );
+}
 
-  // 3. Fall back to legacy `personas` table — bridge by fio_handle to did_persona
-  if (!persona) {
-    const { data: legacyRow } = await supabase
-      .from('personas')
-      .select('id, fio_handle')
-      .eq('id', personaId)
-      .maybeSingle();
-    const fioHandle = (legacyRow as { fio_handle?: string } | null)?.fio_handle;
-    if (fioHandle) {
-      const { data: didRow } = await supabase
-        .from('did_persona')
-        .select('id, root_id')
-        .ilike('fio_handle', fioHandle.toLowerCase())
-        .maybeSingle();
-      if (didRow) persona = didRow as DidPersonaRecord;
-    }
-  }
+async function assertOwnership(
+  supabase: SupabaseClient,
+  persona: DidPersonaRecord,
+  callerAuthUserId: string | null
+): Promise<DidPersonaRecord> {
+  if (!callerAuthUserId || !persona.root_id) return persona;
 
-  if (!persona) {
-    throw new Error(
-      'No did_persona found for this persona id. Bind a Root DID to this persona first.'
-    );
-  }
-
-  if (callerAuthUserId && persona.root_id) {
+  // Use auth_user_id pre-fetched by the embedded root_identity join when available.
+  // Fall back to a separate query only when the join wasn't included in the select.
+  let rootAuthUserId: string | null;
+  if (persona.root_identity !== undefined) {
+    rootAuthUserId = persona.root_identity?.auth_user_id ?? null;
+  } else {
     const { data: root } = await supabase
       .from('root_identity')
-      .select('id, auth_user_id')
+      .select('auth_user_id')
       .eq('id', persona.root_id)
       .maybeSingle();
-    if (root && root.auth_user_id && root.auth_user_id !== callerAuthUserId) {
-      throw new Error('Persona ownership mismatch');
-    }
+    rootAuthUserId = (root as { auth_user_id?: string } | null)?.auth_user_id ?? null;
+  }
+
+  if (rootAuthUserId && rootAuthUserId !== callerAuthUserId) {
+    throw new Error('Persona ownership mismatch');
   }
   return persona;
 }
@@ -325,34 +344,14 @@ export async function registerWalletAlias(
     throw new Error('did_persona has no bound root_identity — bind a Root DID first');
   }
 
-  // One wallet ↔ one persona — uniqueness is enforced by the alias_commitment
-  // UNIQUE constraint at the table level. Active record check below gives a
-  // clean error message instead of a 23505.
+  // One wallet ↔ one persona — enforced by the UNIQUE constraint on alias_commitment.
+  // A 23505 violation is caught below and returned as a clean "already linked" error.
   const aliasCommitment = buildAliasCommitment(didPersonaId, chain, normalised);
-  const { data: existing } = await supabase
-    .from('wallet_alias_commitments')
-    .select('id, status')
-    .eq('alias_commitment', aliasCommitment)
-    .maybeSingle();
-  if (existing && existing.status === 'active') {
-    throw new Error('This wallet is already linked to this persona');
-  }
-
-  // The commitment for THIS persona+address is unique to this persona; if the
-  // same wallet was registered to a *different* persona, that registration
-  // would produce a *different* commitment (because didPersonaId is mixed in).
-  // The one-wallet-one-persona invariant therefore lives in the application:
-  // before insert, check whether any other persona under the same root_id has
-  // already bound the same plaintext address.
-  // (v0 cannot enforce across different roots without leaking — accept this
-  //  weaker guarantee for now and re-evaluate when blakQube comes online.)
   const expiresAtISO = new Date(Date.now() + ttlDays * 86_400_000).toISOString();
   const mailboxId = generateMailboxId();
 
-  // Best-effort Escrow registration — failures don't roll back the DB row;
-  // status remains 'active' and a sweep can re-attempt. Surfaced in response.
-  await registerOnEscrow(aliasCommitment, mailboxId, ttlDays * 86_400);
-
+  // DB insert first — success is determined by the row landing in the DB.
+  // Escrow registration is best-effort and runs after we have the row id.
   const { data, error } = await supabase
     .from('wallet_alias_commitments')
     .insert({
@@ -374,6 +373,10 @@ export async function registerWalletAlias(
     }
     throw new Error(error.message);
   }
+
+  // Best-effort ICP registration — 4s hard timeout. Failures don't affect the
+  // DB row; a sweep can re-attempt. Canister ID not set → silently skipped.
+  await registerOnEscrow(aliasCommitment, mailboxId, ttlDays * 86_400);
 
   return {
     ok: true,

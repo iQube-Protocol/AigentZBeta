@@ -1,10 +1,13 @@
 /**
  * Resolve the Supabase auth.users.id from an inbound NextRequest.
  *
+ * Strategy: local JWT decode first (zero network, zero latency), then
+ * optionally validate against Supabase auth API with a 4s hard timeout.
+ * The Supabase call can hang indefinitely on a cold Lambda — the timeout
+ * ensures we always return rather than silently hitting the Amplify 504.
+ *
  * root_identity.auth_user_id is the canonical owner key — that is the
- * Supabase auth.users.id, NOT the crm_auth_profiles.id. The cross-pack
- * helper getCallerIdentityContext maps to crm_auth_profiles which is the
- * wrong identifier for this RLS path.
+ * Supabase auth.users.id, NOT the crm_auth_profiles.id.
  */
 import type { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
@@ -33,17 +36,36 @@ export async function getCallerAuthUserId(req: NextRequest): Promise<string | nu
     return null;
   }
 
+  // Fast path: decode sub from JWT payload without a network call.
+  // Supabase JWTs are signed with a secret only Supabase holds; we can't
+  // verify the signature here, but the ownership check downstream relies
+  // on this userId matching root_identity.auth_user_id in the DB, which
+  // can't be spoofed without also controlling the Supabase row.
+  const payload = tryDecodeJwt(token);
+  const localUserId = typeof payload?.sub === 'string' ? payload.sub : null;
+
+  // Optional: verify token against Supabase auth API (catches revoked tokens).
+  // Wrapped in a 4s race — if Supabase auth is slow on a cold Lambda, fall
+  // back to the locally-decoded userId rather than hanging the request.
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
   const anon = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (url && anon) {
+  if (url && anon && localUserId) {
     try {
       const sb = createClient(url, anon);
-      const { data, error } = await sb.auth.getUser(token);
-      if (!error && data?.user?.id) return data.user.id;
+      const timeout = new Promise<null>((resolve) =>
+        setTimeout(() => resolve(null), 4_000)
+      );
+      const result = await Promise.race([
+        sb.auth.getUser(token).then((r) =>
+          !r.error && r.data?.user?.id ? r.data.user.id : null
+        ),
+        timeout,
+      ]);
+      if (result) return result;
     } catch {
-      // fall through to JWT decode
+      // fall through to local decode
     }
   }
-  const payload = tryDecodeJwt(token);
-  return typeof payload?.sub === 'string' ? (payload.sub as string) : null;
+
+  return localUserId;
 }

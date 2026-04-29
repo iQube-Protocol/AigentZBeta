@@ -11,6 +11,7 @@ import { registerWalletAlias, type WalletChain } from '@/services/identity/walle
 import { getCallerAuthUserId } from '../_lib/auth';
 
 export const runtime = 'nodejs';
+export const maxDuration = 60; // seconds — allows cold-start + slow Supabase queries to complete
 
 interface Body {
   didPersonaId?: string;
@@ -35,21 +36,44 @@ export async function POST(req: NextRequest) {
 
   const authUserId = await getCallerAuthUserId(req);
 
-  try {
-    const result = await registerWalletAlias(
-      {
-        didPersonaId: body.didPersonaId,
-        chain: body.chain,
-        walletAddress: body.walletAddress,
-        signature: body.signature,
-        message: body.message,
-        ttlDays: body.ttlDays,
-      },
-      authUserId
+  // Hard 50s timeout — returns a clean JSON 503 before the Lambda's 60s hard kill.
+  // With embedded joins + escrow cap + removed pre-check, operations should complete
+  // in well under 15s even on a cold Lambda with slow Supabase. The 50s sentinel
+  // is a safety net for extreme cold-start scenarios.
+  let timeoutHandle: ReturnType<typeof setTimeout>;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutHandle = setTimeout(
+      () => reject(new Error('REGISTER_TIMEOUT')),
+      50_000
     );
+  });
+
+  try {
+    const result = await Promise.race([
+      registerWalletAlias(
+        {
+          didPersonaId: body.didPersonaId,
+          chain: body.chain,
+          walletAddress: body.walletAddress,
+          signature: body.signature,
+          message: body.message,
+          ttlDays: body.ttlDays,
+        },
+        authUserId
+      ),
+      timeoutPromise,
+    ]);
+    clearTimeout(timeoutHandle!);
     return NextResponse.json(result);
   } catch (e) {
+    clearTimeout(timeoutHandle!);
     const msg = e instanceof Error ? e.message : 'Failed to register wallet alias';
+    if (msg === 'REGISTER_TIMEOUT') {
+      return NextResponse.json(
+        { ok: false, error: 'Registration timed out — Supabase or ICP gateway slow. Please retry.' },
+        { status: 503 }
+      );
+    }
     const status =
       msg.includes('Forbidden') || msg.includes('ownership') ? 403
       : msg.includes('not found') ? 404
