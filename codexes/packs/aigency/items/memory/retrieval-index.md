@@ -504,3 +504,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-7d6dbfa.md](../build_/COMMITS/COMMIT-7d6dbfa.md)
 - Message: fix React #130 SSR error in connections tab; switch $KNYT chain to Ethereum mainnet (chainId 1)
+
+## Commit `aa70e7d` — 2026-04-29T01:02:15Z
+- Type: `fix`
+- Brief: [COMMIT-aa70e7d.md](../build_/COMMITS/COMMIT-aa70e7d.md)
+- Message: stub porto/internal webpack alias to fix wagmi connector barrel build error
