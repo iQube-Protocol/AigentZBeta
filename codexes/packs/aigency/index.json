@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-04-28T23:27:58.245Z",
+  "last_updated": "2026-04-29T00:47:05.010Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "8422f70bda7f2d0620a644f18da3745e393860d7",
-  "latest_commit_short": "8422f70",
-  "latest_commit_title": "add WalletConnect external wallet to SmartWallet Connections tab with EVM $KNYT balance and treasury send flow",
+  "latest_commit": "7d6dbfa7bc11bfc4be31a8928ca5f5be710c6297",
+  "latest_commit_short": "7d6dbfa",
+  "latest_commit_title": "fix React #130 SSR error in connections tab; switch $KNYT chain to Ethereum mainnet (chainId 1)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "7d6dbfa",
+      "full_sha": "7d6dbfa7bc11bfc4be31a8928ca5f5be710c6297",
+      "title": "fix React #130 SSR error in connections tab; switch $KNYT chain to Ethereum mainnet (chainId 1)",
+      "author": "Claude",
+      "timestamp": "2026-04-29T00:45:11Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-7d6dbfa.md"
+    },
     {
       "sha": "8422f70",
       "full_sha": "8422f70bda7f2d0620a644f18da3745e393860d7",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-22T18:15:54Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-93b134d.md"
-    },
-    {
-      "sha": "a792c7c",
-      "full_sha": "a792c7c699b605526da877e8c94d0a2d1b4bcff7",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-22T17:41:28Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-a792c7c.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

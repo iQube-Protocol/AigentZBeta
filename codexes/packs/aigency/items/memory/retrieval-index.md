@@ -499,3 +499,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-8422f70.md](../build_/COMMITS/COMMIT-8422f70.md)
 - Message: add WalletConnect external wallet to SmartWallet Connections tab with EVM $KNYT balance and treasury send flow
+
+## Commit `7d6dbfa` — 2026-04-29T00:45:11Z
+- Type: `fix`
+- Brief: [COMMIT-7d6dbfa.md](../build_/COMMITS/COMMIT-7d6dbfa.md)
+- Message: fix React #130 SSR error in connections tab; switch $KNYT chain to Ethereum mainnet (chainId 1)
