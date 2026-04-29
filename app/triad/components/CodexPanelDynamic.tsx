@@ -261,6 +261,10 @@ export default function CodexPanelDynamic({
     }
   }, [issueOptions, issueSlug, isQriptopian, pathname, router]);
 
+  // SubHeaderSlot ref state — declared above conditional returns so hook order
+  // stays stable across loading / error / no-tabs / ready renders.
+  const [subHeaderSlotEl, setSubHeaderSlotEl] = useState<HTMLDivElement | null>(null);
+
   const activeTab = useMemo(
     () => enabledTabs.find(tab => tab.slug === activeTabSlug) || enabledTabs[0],
     [enabledTabs, activeTabSlug]
@@ -320,7 +324,6 @@ export default function CodexPanelDynamic({
       codex.metadata.description ||
       ''
     : '';
-  const [subHeaderSlotEl, setSubHeaderSlotEl] = useState<HTMLDivElement | null>(null);
   const tabBadgeText = (tab: CodexTab) => {
     const rawBadge = typeof tab.metadata?.badge === 'string' ? tab.metadata.badge : '';
     if (codexId === 'knyt-codex' && tab.slug === 'scrolls') {
