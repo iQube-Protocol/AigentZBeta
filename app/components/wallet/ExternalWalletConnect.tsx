@@ -625,7 +625,19 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
           )}
           <div className="min-w-0 flex-1">
             {aliasState.status === 'pending' && (
-              <p>Sign the message in your wallet to register a privacy-preserving alias…</p>
+              <>
+                <p className="font-medium">Action needed in MetaMask</p>
+                <p className="opacity-70 mt-0.5">
+                  Check your MetaMask extension for a <strong>Sign Message</strong> popup — this is a separate step from connecting. Click Sign to link your wallet privately.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setAliasState({ status: 'idle' })}
+                  className="mt-1.5 underline opacity-60 hover:opacity-100 text-[10px]"
+                >
+                  Dismiss
+                </button>
+              </>
             )}
             {aliasState.status === 'registered' && (
               <>

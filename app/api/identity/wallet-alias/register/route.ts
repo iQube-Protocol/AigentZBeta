@@ -11,6 +11,7 @@ import { registerWalletAlias, type WalletChain } from '@/services/identity/walle
 import { getCallerAuthUserId } from '../_lib/auth';
 
 export const runtime = 'nodejs';
+export const maxDuration = 30; // seconds — prevents Amplify 504 on cold-start + parallel Supabase queries
 
 interface Body {
   didPersonaId?: string;
