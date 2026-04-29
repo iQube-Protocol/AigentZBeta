@@ -231,7 +231,11 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
   // signed ownership proof and POST it to /api/identity/wallet-alias/register.
   // The API stores only an HMAC-keyed commitment hash — never the address.
   const registerAlias = useCallback(async (p: EthereumProvider, addr: string) => {
-    if (!personaId) return; // no persona context — skip silently
+    if (!personaId) {
+      // Surface the missing context instead of failing silently — easier to diagnose
+      setAliasState({ status: 'error', error: 'No persona context. Open a persona before linking a wallet.' });
+      return;
+    }
     setAliasState({ status: 'pending' });
     try {
       const auth = await getAuthHeader();

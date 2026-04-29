@@ -214,14 +214,27 @@ async function resolveDidPersona(
   personaId: string,
   callerAuthUserId: string | null
 ): Promise<DidPersonaRecord> {
+  let persona: DidPersonaRecord | null = null;
+
+  // 0. If the caller passed a FIO handle directly (contains '@'), match did_persona by handle
+  if (personaId.includes('@')) {
+    const { data } = await supabase
+      .from('did_persona')
+      .select('id, root_id')
+      .ilike('fio_handle', personaId.toLowerCase())
+      .maybeSingle();
+    if (data) persona = data as DidPersonaRecord;
+  }
+
   // 1. Try did_persona directly
-  const direct = await supabase
-    .from('did_persona')
-    .select('id, root_id')
-    .eq('id', personaId)
-    .maybeSingle();
-  let persona: DidPersonaRecord | null =
-    !direct.error && direct.data ? (direct.data as DidPersonaRecord) : null;
+  if (!persona) {
+    const direct = await supabase
+      .from('did_persona')
+      .select('id, root_id')
+      .eq('id', personaId)
+      .maybeSingle();
+    if (!direct.error && direct.data) persona = direct.data as DidPersonaRecord;
+  }
 
   // 2. Fall back to legacy payload tables — both KNYT and Qripto carry did_persona_id
   if (!persona) {
@@ -243,6 +256,24 @@ async function resolveDidPersona(
         persona = didRow as DidPersonaRecord;
         break;
       }
+    }
+  }
+
+  // 3. Fall back to legacy `personas` table — bridge by fio_handle to did_persona
+  if (!persona) {
+    const { data: legacyRow } = await supabase
+      .from('personas')
+      .select('id, fio_handle')
+      .eq('id', personaId)
+      .maybeSingle();
+    const fioHandle = (legacyRow as { fio_handle?: string } | null)?.fio_handle;
+    if (fioHandle) {
+      const { data: didRow } = await supabase
+        .from('did_persona')
+        .select('id, root_id')
+        .ilike('fio_handle', fioHandle.toLowerCase())
+        .maybeSingle();
+      if (didRow) persona = didRow as DidPersonaRecord;
     }
   }
 
