@@ -168,6 +168,12 @@ export interface TakeoverNextBestAction {
   /** Destination: a cartridge slug, an app route, or an action name. */
   target: string;
   targetType: 'codex' | 'route' | 'action';
+  /**
+   * Optional tab slug for codex-type targets. Lets the LLM open a specific
+   * tab inside the cartridge (e.g. target='knyt-codex', tab='scrolls').
+   * Ignored for route / action targets.
+   */
+  tab?: string;
 }
 
 /**
