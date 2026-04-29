@@ -21,6 +21,7 @@ const CodexCopilotLayer = dynamic(
 import { SmartTriadProvider } from "@/app/components/content/SmartTriadProvider";
 import { SmartTriadSurfaces } from "@/app/components/content/SmartTriadSurfaces";
 import { TabRenderer } from "./codex/TabRenderer";
+import { SubHeaderSlotContext } from "./codex/SubHeaderSlot";
 import { getIconComponent } from "./codex/iconMap";
 import { getCachedOrFetch } from "./codex/cache";
 
@@ -319,6 +320,7 @@ export default function CodexPanelDynamic({
       codex.metadata.description ||
       ''
     : '';
+  const [subHeaderSlotEl, setSubHeaderSlotEl] = useState<HTMLDivElement | null>(null);
   const tabBadgeText = (tab: CodexTab) => {
     const rawBadge = typeof tab.metadata?.badge === 'string' ? tab.metadata.badge : '';
     if (codexId === 'knyt-codex' && tab.slug === 'scrolls') {
@@ -552,7 +554,7 @@ export default function CodexPanelDynamic({
 
               {/* Single combined sub-header: sub-tabs on left, context badges + colored icon + title + description on right */}
               <div className={`flex-shrink-0 border-b px-4 py-1.5 flex items-center gap-3 min-w-0 ${isDark ? 'border-white/[0.06] bg-white/[0.02] backdrop-blur-sm' : 'border-slate-200 bg-slate-50'}`}>
-                {activeGroup && activeGroupSubTabs.length > 1 && (
+                {activeGroup && activeGroupSubTabs.length > 1 ? (
                   <div className="flex gap-1 overflow-x-auto flex-shrink-0">
                     {activeGroupSubTabs.map((tab) => {
                       const isActive = tab.slug === activeTabSlug;
@@ -573,6 +575,8 @@ export default function CodexPanelDynamic({
                       );
                     })}
                   </div>
+                ) : (
+                  <div ref={setSubHeaderSlotEl} className="flex gap-1 overflow-x-auto flex-shrink-0 items-center" />
                 )}
                 {/* Right cluster: context badges + colored icon + title + description, all justified right */}
                 <div className="ml-auto flex items-center gap-2 min-w-0 flex-shrink-0">
@@ -610,19 +614,21 @@ export default function CodexPanelDynamic({
 
         <div className="flex-1 min-h-0 overflow-y-auto">
           {activeTab && (
-            <TabRenderer
-              tab={activeTab}
-              codexId={codexId}
-              theme={resolvedTheme}
-              density={density}
-              personaId={personaId}
-              isAdmin={isAdmin}
-              isPartner={effectiveIsPartner}
-              partnerId={effectivePartnerId}
-              issueSlug={isQriptopian ? issueSlug : undefined}
-              previewDevice={previewDevice}
-              shell={shell}
-            />
+            <SubHeaderSlotContext.Provider value={subHeaderSlotEl}>
+              <TabRenderer
+                tab={activeTab}
+                codexId={codexId}
+                theme={resolvedTheme}
+                density={density}
+                personaId={personaId}
+                isAdmin={isAdmin}
+                isPartner={effectiveIsPartner}
+                partnerId={effectivePartnerId}
+                issueSlug={isQriptopian ? issueSlug : undefined}
+                previewDevice={previewDevice}
+                shell={shell}
+              />
+            </SubHeaderSlotContext.Provider>
           )}
         </div>
       </div>

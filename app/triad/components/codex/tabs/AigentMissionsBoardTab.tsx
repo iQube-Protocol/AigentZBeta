@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useContext, useState } from "react";
+import { createPortal } from "react-dom";
 import { BookOpen, Brain, ChevronDown, ChevronUp, ClipboardList, Scale, Shield, Users, Cpu, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { SubHeaderSlotContext } from "../SubHeaderSlot";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -495,22 +497,28 @@ const TABS: { id: SubTab; label: string; Icon: React.FC<{ className?: string }> 
 
 export function AigentMissionsBoardTab() {
   const [active, setActive] = useState<SubTab>("ethos");
+  const subHeaderSlotEl = useContext(SubHeaderSlotContext);
+
+  const sidePills = (
+    <div className="flex gap-1 items-center">
+      {TABS.map(({ id, label, Icon }) => (
+        <button key={id} onClick={() => setActive(id)}
+          className={`flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] transition ${active === id ? "border-emerald-400/40 bg-emerald-500/15 text-emerald-200" : "border-white/10 bg-white/5 text-slate-400 hover:text-white"}`}>
+          <Icon className="h-3 w-3" />
+          {label}
+        </button>
+      ))}
+      <Badge variant="outline" className="ml-1 text-[10px] border-emerald-700/50 text-emerald-400 shrink-0">Constitutional Pilot α</Badge>
+    </div>
+  );
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-shrink-0 border-b border-slate-800/60 bg-slate-900/40 px-4 py-2 flex items-center gap-2">
-        <div className="flex gap-1">
-          {TABS.map(({ id, label, Icon }) => (
-            <button key={id} onClick={() => setActive(id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${active === id ? "bg-emerald-600/25 border border-emerald-600/40 text-emerald-300" : "text-slate-400 hover:text-slate-300 border border-transparent"}`}>
-              <Icon className="h-3.5 w-3.5" />
-              {label}
-            </button>
-          ))}
+      {subHeaderSlotEl ? createPortal(sidePills, subHeaderSlotEl) : (
+        <div className="flex-shrink-0 border-b border-slate-800/60 bg-slate-900/40 px-4 py-2">
+          {sidePills}
         </div>
-        <Badge variant="outline" className="ml-auto text-[10px] border-emerald-700/50 text-emerald-400 shrink-0">Constitutional Pilot α</Badge>
-        <img src="/images/metaknyt-logo.png" alt="" className="h-5 w-5 object-contain shrink-0" />
-      </div>
+      )}
       <div className="flex-1 min-h-0 overflow-y-auto p-4">
         {active === "mythos" && <StubPanel side="mythos" />}
         {active === "ethos"  && <EthosMissionBoard />}

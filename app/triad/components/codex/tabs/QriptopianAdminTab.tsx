@@ -1303,9 +1303,9 @@ export function QriptopianAdminTab({ isAdmin, theme, personaId }: Props) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header bar */}
-      <div className="flex-shrink-0 border-b border-slate-800/60 bg-slate-900/40 px-4 py-2 flex items-center gap-2">
-        {view.kind !== 'dashboard' && (
+      {/* Mini-toolbar (only when not on dashboard — dashboard duplicates cartridge sub-header) */}
+      {view.kind !== 'dashboard' && (
+        <div className="flex-shrink-0 border-b border-slate-800/60 bg-slate-900/40 px-4 py-2 flex items-center gap-2">
           <button
             type="button"
             onClick={handleBack}
@@ -1313,19 +1313,13 @@ export function QriptopianAdminTab({ isAdmin, theme, personaId }: Props) {
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-        )}
-        <span className="text-sm font-semibold text-slate-200">
-          {view.kind === 'dashboard' ? 'Admin' : breadcrumb}
-        </span>
-        {view.kind !== 'dashboard' && (
-          <>
-            <span className="text-slate-600">/</span>
-            <span className="text-xs text-slate-500">
-              {view.kind === 'editor' && view.id === null ? 'New' : view.kind === 'editor' ? 'Edit' : ''}
-            </span>
-          </>
-        )}
-      </div>
+          <span className="text-sm font-semibold text-slate-200">{breadcrumb}</span>
+          <span className="text-slate-600">/</span>
+          <span className="text-xs text-slate-500">
+            {view.kind === 'editor' && view.id === null ? 'New' : view.kind === 'editor' ? 'Edit' : ''}
+          </span>
+        </div>
+      )}
 
       {/* Scrollable content */}
       <div className="flex-1 min-h-0 overflow-y-auto">
