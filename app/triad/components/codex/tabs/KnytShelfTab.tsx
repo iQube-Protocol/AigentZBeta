@@ -213,9 +213,9 @@ export function KnytShelfTab({ personaId, theme }: Props) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex-shrink-0 border-b border-slate-800/60 bg-slate-900/40 px-4 py-2 flex items-center gap-2">
-        {view.kind === 'collection' && (
+      {/* Mini-toolbar (back button + collection title in collection view) */}
+      {view.kind === 'collection' && (
+        <div className="flex-shrink-0 border-b border-slate-800/60 bg-slate-900/40 px-4 py-2 flex items-center gap-2">
           <button
             type="button"
             onClick={() => setView({ kind: 'overview' })}
@@ -223,12 +223,11 @@ export function KnytShelfTab({ personaId, theme }: Props) {
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-        )}
-        <Library className="h-4 w-4 text-teal-400 shrink-0" />
-        <span className="text-sm font-semibold text-slate-200">
-          {view.kind === 'overview' ? 'KNYT Shelf' : GROUP_LABELS[view.group] ?? view.group}
-        </span>
-      </div>
+          <span className="text-sm font-semibold text-slate-200">
+            {GROUP_LABELS[view.group] ?? view.group}
+          </span>
+        </div>
+      )}
 
       <div className="flex-1 min-h-0 overflow-y-auto">
         {loading ? (

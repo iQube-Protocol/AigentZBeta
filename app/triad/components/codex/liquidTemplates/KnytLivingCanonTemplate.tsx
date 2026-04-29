@@ -14,8 +14,10 @@
  * Data source: /api/codex/knyt/living-canon?branch=<branch>
  */
 
-import React, { useCallback, useEffect, useState } from "react";
-import { Layers, Loader2, BookOpen, Users, Radio, RefreshCw } from "lucide-react";
+import React, { useCallback, useContext, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { Loader2, BookOpen, Users, Radio, RefreshCw } from "lucide-react";
+import { SubHeaderSlotContext } from "../SubHeaderSlot";
 import { BranchLabel, PublicationStateBadge } from "@/components/ui/BranchLabel";
 import { KnytReactionBar } from "@/components/metame/KnytReactionBar";
 import { KnytRemixButton } from "@/components/metame/KnytRemixButton";
@@ -197,49 +199,52 @@ export function KnytLivingCanonTemplate({
 
   const isDark = theme === "dark";
 
+  const subHeaderSlotEl = useContext(SubHeaderSlotContext);
+  const branchPills = (
+    <div className="flex gap-1 flex-wrap items-center">
+      {(Object.keys(BRANCH_CONFIG) as CanonBranch[]).map((branch) => {
+        const cfg = BRANCH_CONFIG[branch];
+        const isActive = activeBranch === branch;
+        return (
+          <button
+            key={branch}
+            type="button"
+            onClick={() => handleBranchChange(branch)}
+            className={[
+              "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] transition",
+              isActive
+                ? branch === "canon"
+                  ? "border-violet-400/40 bg-violet-500/15 text-violet-200"
+                  : branch === "community"
+                  ? "border-cyan-400/40 bg-cyan-500/15 text-cyan-200"
+                  : "border-amber-400/40 bg-amber-500/15 text-amber-200"
+                : "border-white/10 bg-white/5 text-slate-400 hover:text-white",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
+            {cfg.icon}
+            {cfg.label}
+          </button>
+        );
+      })}
+      <button
+        type="button"
+        onClick={() => void loadBranch(activeBranch)}
+        className="ml-1 text-slate-400 hover:text-white transition"
+        title="Refresh"
+      >
+        <RefreshCw className="h-3 w-3" />
+      </button>
+    </div>
+  );
+
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="px-1 pb-1 flex items-center gap-2">
-        <div className="flex gap-1.5 flex-wrap flex-1">
-          {(Object.keys(BRANCH_CONFIG) as CanonBranch[]).map((branch) => {
-            const cfg = BRANCH_CONFIG[branch];
-            const isActive = activeBranch === branch;
-            return (
-              <button
-                key={branch}
-                type="button"
-                onClick={() => handleBranchChange(branch)}
-                className={[
-                  "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition",
-                  isActive
-                    ? branch === "canon"
-                      ? "border-violet-400/40 bg-violet-500/15 text-violet-200"
-                      : branch === "community"
-                      ? "border-cyan-400/40 bg-cyan-500/15 text-cyan-200"
-                      : "border-amber-400/40 bg-amber-500/15 text-amber-200"
-                    : "border-white/10 bg-white/5 text-slate-400 hover:text-white",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-              >
-                {cfg.icon}
-                {cfg.label}
-              </button>
-            );
-          })}
-        </div>
-        <p className="text-[10px] text-slate-400 text-right shrink-0 max-w-[140px] truncate">{BRANCH_CONFIG[activeBranch].description}</p>
-        <button
-          type="button"
-          onClick={() => void loadBranch(activeBranch)}
-          className="shrink-0 text-slate-400 hover:text-white transition"
-          title="Refresh"
-        >
-          <RefreshCw className="h-3 w-3" />
-        </button>
-        <Layers className="h-4 w-4 text-amber-400 shrink-0" />
-      </div>
+      {/* Branch pills portal into cartridge sub-header slot when available */}
+      {subHeaderSlotEl ? createPortal(branchPills, subHeaderSlotEl) : (
+        <div className="px-1 pb-1 flex items-center gap-2">{branchPills}</div>
+      )}
 
       {/* Main grid */}
       <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">

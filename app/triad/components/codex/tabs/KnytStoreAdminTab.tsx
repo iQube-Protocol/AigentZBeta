@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useContext, useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertCircle, BookOpen, Package, Save, Settings, Zap } from 'lucide-react';
+import { SubHeaderSlotContext } from '../SubHeaderSlot';
 import {
   EPISODE_PRICING,
   BUNDLE_PRICING,
@@ -348,6 +350,7 @@ function MintingAdmin({ personaId }: { personaId?: string }) {
 
 export function KnytStoreAdminTab({ isAdmin, personaId, theme: _theme }: Props) {
   const [section, setSection] = useState<AdminSection>('overview');
+  const subHeaderSlotEl = useContext(SubHeaderSlotContext);
 
   if (!isAdmin) {
     return (
@@ -366,31 +369,33 @@ export function KnytStoreAdminTab({ isAdmin, personaId, theme: _theme }: Props) 
     { id: 'minting',    label: 'Minting',    icon: Zap       },
   ];
 
+  const sectionPills = (
+    <div className="flex gap-1 flex-wrap items-center">
+      {sections.map(({ id, label, icon: Icon }) => (
+        <button
+          key={id}
+          type="button"
+          onClick={() => setSection(id)}
+          className={`flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] transition ${
+            section === id
+              ? 'border-indigo-400/40 bg-indigo-500/15 text-indigo-200'
+              : 'border-white/10 bg-white/5 text-slate-400 hover:text-white'
+          }`}
+        >
+          <Icon className="h-3 w-3" />
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="flex-shrink-0 border-b border-slate-800/60 bg-slate-900/40 px-4 py-2 flex items-center gap-2">
-        <Settings className="h-4 w-4 text-indigo-400 shrink-0" />
-        <span className="text-sm font-semibold text-slate-200">Store Admin</span>
-      </div>
-
-      {/* Section tabs */}
-      <div className="flex-shrink-0 flex border-b border-slate-800/60 overflow-x-auto">
-        {sections.map(({ id, label }) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setSection(id)}
-            className={`px-4 py-2 text-xs font-medium whitespace-nowrap transition-colors ${
-              section === id
-                ? 'border-b-2 border-indigo-400 text-indigo-300'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {subHeaderSlotEl ? createPortal(sectionPills, subHeaderSlotEl) : (
+        <div className="flex-shrink-0 border-b border-slate-800/60 bg-slate-900/40 px-4 py-2">
+          {sectionPills}
+        </div>
+      )}
 
       <div className="flex-1 min-h-0 overflow-y-auto p-4">
         {section === 'overview' && (
