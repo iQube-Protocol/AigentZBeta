@@ -1971,6 +1971,84 @@ export default function MetaMeRuntimeClient() {
     typeof crypto !== "undefined" ? crypto.randomUUID() : `conv-${Date.now()}`
   );
   const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
+
+  // Standalone-mode persona resolver. When the runtime loads outside an
+  // iframe shell (e.g. runtime.metame.com loaded directly), no parent
+  // posts SHELL_READY with a persona_id, so activePersonaId stays null
+  // even after the user signs in. Resolve from the browser auth session
+  // → nakamoto_knyt_personas (KNYT cartridge persona) → fall back to
+  // any localStorage currentPersonaId. Re-runs on auth state changes.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let cancelled = false;
+
+    async function resolvePersona() {
+      // If a parent shell already supplied a persona, leave it alone.
+      if (shellContextRef.current.persona_id) return;
+
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (!url || !anonKey) return;
+
+      try {
+        const { createClient } = await import("@supabase/supabase-js");
+        const supabase = createClient(url, anonKey);
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (cancelled) return;
+
+        if (user) {
+          const { data: persona } = await supabase
+            .from("nakamoto_knyt_personas")
+            .select("id")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          if (cancelled) return;
+          if (persona && typeof (persona as { id?: string }).id === "string") {
+            const pid = (persona as { id: string }).id;
+            setActivePersonaId(pid);
+            try { localStorage.setItem("currentPersonaId", pid); } catch { /* noop */ }
+            return;
+          }
+        }
+
+        // Fallback to any persona ID stashed in localStorage by another surface.
+        try {
+          const stored = localStorage.getItem("currentPersonaId");
+          if (stored && !cancelled) setActivePersonaId(stored);
+        } catch { /* noop */ }
+      } catch {
+        // Non-fatal — resolver runs again on next mount or auth change.
+      }
+    }
+
+    void resolvePersona();
+
+    // Watch for auth state changes (sign in / sign out) and re-resolve.
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    let unsub: { data: { subscription: { unsubscribe: () => void } } } | null = null;
+    if (url && anonKey) {
+      void import("@supabase/supabase-js").then(({ createClient }) => {
+        if (cancelled) return;
+        const supabase = createClient(url, anonKey);
+        unsub = supabase.auth.onAuthStateChange((event) => {
+          if (event === "SIGNED_OUT") {
+            setActivePersonaId(null);
+            try { localStorage.removeItem("currentPersonaId"); } catch { /* noop */ }
+          } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
+            void resolvePersona();
+          }
+        });
+      });
+    }
+
+    return () => {
+      cancelled = true;
+      unsub?.data.subscription.unsubscribe();
+    };
+  }, []);
+
   const [walletDrawerOpen, setWalletDrawerOpen] = useState(false);
   const [personaIQubeDrawer, setPersonaIQubeDrawer] = useState<"knyt" | "qripto" | null>(null);
   const [personaPickerOpen, setPersonaPickerOpen] = useState(false);
