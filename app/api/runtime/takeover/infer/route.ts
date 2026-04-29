@@ -303,9 +303,10 @@ The JSON must match this exact schema:
 
 NEXT-BEST-ACTION RULES (strict — invalid actions are dropped):
 - Only emit "nextBestAction" if you are confident it is the most useful next step. Omit otherwise.
-- targetType="codex" — target MUST be a cartridge slug from this allowlist: knyt-codex, metame-codex, qripto-codex, agentiq-os, alpha-knyt-codex. Do NOT use tab names (e.g. "store"), capsule ids, or display labels here.
-- targetType="route" — target MUST be a short same-origin path starting with "/" (under 1500 chars). Do NOT pack JSON, article drafts, or experience context into the query string. If you would need to, use targetType="action" instead.
-- targetType="action" — target is a short natural-language instruction the chat agent will execute (e.g. "show me my unread scrolls"). Use this for anything that doesn't cleanly map to a known cartridge or route.
+- PREFER targetType="action" for most cases. Actions are short natural-language instructions the chat agent executes (e.g. "Show me episode one", "Tell me about the Order of Metaiye", "What's in the KNYT Cartridge for me?"). Actions surface specific content and feel conversational — they are the right answer for most NBA suggestions.
+- Use targetType="route" only when there is a precise, short same-origin path the user clearly wants. Path must start with "/" and be under 1500 chars. Never pack JSON, article drafts, or experience context into the query string — if you would need to, use targetType="action" instead.
+- Use targetType="codex" ONLY when the most useful next step is to open the entire cartridge UI (rare — usually a deeper-than-content navigation, e.g. "browse the full registry"). Target MUST be a cartridge slug from this allowlist: knyt-codex, metame-codex, qripto-codex, agentiq-os, alpha-knyt-codex. Do NOT use tab names (e.g. "store"), capsule ids, or display labels here.
+- Do NOT default to targetType="codex" when an action would be more useful. Opening the whole cartridge is a heavy navigation; an action that surfaces a specific capsule is almost always better.
 
 Select capsule IDs ONLY from the catalog below. Do not invent IDs.`;
 
