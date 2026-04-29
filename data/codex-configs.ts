@@ -420,6 +420,18 @@ export const KNYT_CODEX: CodexConfig = {
       metadata: { icon: 'Settings', description: 'Admin controls for store pricing and bundles', color: 'indigo' }
     },
     {
+      id: 'treasury-admin',
+      label: 'Treasury Admin',
+      slug: 'treasury-admin',
+      enabled: true,
+      adminOnly: true,
+      group: 'store',
+      order: 100,
+      type: 'static',
+      config: { component: 'KnytTreasuryAdminTab' },
+      metadata: { icon: 'Vault', description: 'EVM treasury balances, on-chain deposit log, and $KNYT airdrop', color: 'amber' }
+    },
+    {
       id: 'terra',
       label: 'Terra',
       slug: 'terra',

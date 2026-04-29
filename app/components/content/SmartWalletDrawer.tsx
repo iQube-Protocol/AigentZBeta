@@ -3157,8 +3157,8 @@ export default function SmartWalletDrawer({
                   External Wallet
                 </div>
                 <ExternalWalletConnect
+                  personaId={effectivePersonaId}
                   onTxComplete={(txHash, amountKnyt) => {
-                    // Backend polling handled server-side; surface the tx to the user
                     console.info('[SmartWallet] EVM KNYT tx sent', { txHash, amountKnyt });
                   }}
                 />
