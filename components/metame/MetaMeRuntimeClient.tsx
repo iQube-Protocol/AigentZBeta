@@ -1138,6 +1138,12 @@ function buildPreviewExperienceCapsule(input: {
   const imageUri = (input.imageUri || "").trim();
   const intent = input.intent || "read";
   const quickLink = input.quickLink || intent;
+  // CloudFront rejects requests with very large URLs (414) or oversized
+  // request headers (494). Cap the launch URL well below 8KB by skipping
+  // params that would push over the threshold. Order matters: small/required
+  // params first; bulky JSON last so they're the first to be dropped.
+  const URL_BYTE_BUDGET = 5500; // bytes — leaves headroom for cookies + path
+
   const launchParams = new URLSearchParams({
     capsule: capsuleId,
     experienceId: input.experienceId,
@@ -1147,20 +1153,29 @@ function buildPreviewExperienceCapsule(input: {
     runtimeQuickLink: quickLink,
     contentKind: input.contentKind || "episode",
   });
-  if (contextImageUri) launchParams.set("experienceContextImage", contextImageUri);
-  if (imageUri) launchParams.set("experienceImage", imageUri);
-  if (input.imagePortraitUri) launchParams.set("experienceImagePortrait", input.imagePortraitUri);
-  if (input.imageLandscapeUri) launchParams.set("experienceImageLandscape", input.imageLandscapeUri);
-  if (input.videoUri) launchParams.set("experienceVideo", input.videoUri);
-  if (input.activeCodexId) launchParams.set("activeCodexId", input.activeCodexId);
-  if (input.activeCodexName) launchParams.set("activeCodexName", input.activeCodexName);
-  if (input.activeCodexTab) launchParams.set("runtimeCodexTab", input.activeCodexTab);
-  if (input.runtimeCartridge) launchParams.set("runtimeCartridge", input.runtimeCartridge);
-  if (input.personaAssignment) launchParams.set("personaAssignment", input.personaAssignment);
-  if (input.crmCohortAssignment) launchParams.set("crmCohortAssignment", input.crmCohortAssignment);
-  if (input.policyAssignment) launchParams.set("policyAssignment", input.policyAssignment);
-  if (input.articleDraft) launchParams.set("experienceArticleDraft", JSON.stringify(input.articleDraft));
-  if (input.experienceContext) launchParams.set("experienceContext", JSON.stringify(input.experienceContext));
+
+  function tryAdd(key: string, value: string | null | undefined) {
+    if (!value) return;
+    const projected = launchParams.toString().length + key.length + value.length + 2;
+    if (projected > URL_BYTE_BUDGET) return; // silently drop oversize params
+    launchParams.set(key, value);
+  }
+
+  tryAdd("experienceContextImage", contextImageUri);
+  tryAdd("experienceImage", imageUri);
+  tryAdd("experienceImagePortrait", input.imagePortraitUri);
+  tryAdd("experienceImageLandscape", input.imageLandscapeUri);
+  tryAdd("experienceVideo", input.videoUri);
+  tryAdd("activeCodexId", input.activeCodexId);
+  tryAdd("activeCodexName", input.activeCodexName);
+  tryAdd("runtimeCodexTab", input.activeCodexTab);
+  tryAdd("runtimeCartridge", input.runtimeCartridge);
+  tryAdd("personaAssignment", input.personaAssignment);
+  tryAdd("crmCohortAssignment", input.crmCohortAssignment);
+  tryAdd("policyAssignment", input.policyAssignment);
+  // Big JSON blobs go last — they're the first to be dropped if budget is tight.
+  if (input.articleDraft) tryAdd("experienceArticleDraft", JSON.stringify(input.articleDraft));
+  if (input.experienceContext) tryAdd("experienceContext", JSON.stringify(input.experienceContext));
   if (input.runtimeAdminMode) launchParams.set("runtimeAdmin", "1");
   return {
     id: capsuleId,
