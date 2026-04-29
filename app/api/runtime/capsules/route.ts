@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listPublishedRuntimeCapsuleRecords } from "@/services/composer/runtimeProjectionService";
+import { listPromotedCommunityCapsuleRecords } from "@/services/community-content/promotedCapsules";
 import { getSmartContentService } from "@/services/content";
 import type { SmartContentQube } from "@/types/smartContent";
 import type { RuntimeCapsuleAssetRef, RuntimeCapsuleRecord, RuntimeCapsulesResponse } from "@/types/runtimeCapsules";
@@ -542,15 +543,17 @@ export async function GET(request: NextRequest) {
       fetchInternalJson<KnytCardsResponse>(request, "/api/codex/knyt-cards?series=metaKnyts"),
     ]);
 
-    const publishedExperienceCapsules = await listPublishedRuntimeCapsuleRecords({
-      codexId,
-      codexTab,
-      cartridge,
-      limit: 200,
-    }).catch(() => []);
+    // Use allSettled so a community-content DB failure never breaks the main response.
+    const [experienceResult, communityResult] = await Promise.allSettled([
+      listPublishedRuntimeCapsuleRecords({ codexId, codexTab, cartridge, limit: 200 }),
+      listPromotedCommunityCapsuleRecords({ limit: 30 }),
+    ]);
+    const publishedExperienceCapsules = experienceResult.status === 'fulfilled' ? experienceResult.value : [];
+    const promotedCommunityCapsules   = communityResult.status  === 'fulfilled' ? communityResult.value  : [];
 
     const primaryCapsules = [
       ...publishedExperienceCapsules,
+      ...promotedCommunityCapsules,
       ...mapQriptoSectionCapsules(qriptoHome),
       ...mapQriptoSectionCapsules({
         sections: {

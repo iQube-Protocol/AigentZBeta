@@ -19,6 +19,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { listPublishedRuntimeCapsuleRecords } from '@/services/composer/runtimeProjectionService';
+import { listPromotedCommunityCatalogEntries } from '@/services/community-content/promotedCapsules';
 import { CODEX_DEFINITIONS } from '@/data/codex-configs';
 import { personas } from '@/app/data/personas';
 import type {
@@ -198,6 +199,27 @@ async function fetchContentCatalog(config: RuntimeTakeoverConfig): Promise<Catal
           title:       r.title,
           description: r.description,
           cartridge:   r.metadata.runtimeCartridge ?? undefined,
+        });
+      }
+    } catch { /* non-fatal */ }
+  }
+
+  // Promoted community-generated content — surfaced as smart-content so any
+  // cartridge that accepts smart-content (KNYT) gets these items in its catalog.
+  // listPromotedCommunityCatalogEntries never throws (returns [] on error).
+  if (
+    config.contentScope.types.includes('smart-content') &&
+    config.contentScope.cartridgeSlugs.includes('knyt-codex')
+  ) {
+    try {
+      const promoted = await listPromotedCommunityCatalogEntries({ limit: 12 });
+      for (const entry of promoted) {
+        catalog.push({
+          id:          entry.id,
+          type:        'smart-content',
+          title:       entry.title,
+          description: entry.description,
+          cartridge:   entry.cartridgeSlug,
         });
       }
     } catch { /* non-fatal */ }
