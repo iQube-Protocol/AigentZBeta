@@ -414,7 +414,7 @@ export const KNYT_CODEX: CodexConfig = {
       enabled: true,
       adminOnly: true,
       group: 'admin',
-      order: 4,
+      order: 5,
       type: 'static',
       config: { component: 'KnytStoreAdminTab' },
       metadata: { icon: 'Settings', description: 'Admin controls for store pricing and bundles', color: 'indigo' }
@@ -426,7 +426,7 @@ export const KNYT_CODEX: CodexConfig = {
       enabled: true,
       adminOnly: true,
       group: 'admin',
-      order: 5,
+      order: 6,
       type: 'static',
       config: { component: 'KnytTreasuryAdminTab' },
       metadata: { icon: 'Vault', description: 'EVM treasury balances, on-chain deposit log, and $KNYT airdrop', color: 'amber' }
@@ -541,23 +541,6 @@ export const KNYT_CODEX: CodexConfig = {
       }
     },
 
-    // ── KNYT Wheel (top-level standalone) ────────────────────────
-    {
-      id: 'knyt-wheel',
-      label: 'KNYT Wheel',
-      slug: 'knyt-wheel',
-      enabled: true,
-      order: 5,
-      type: 'static',
-      config: { component: 'AigentMissionsBoardTab' },
-      metadata: {
-        icon: 'Target',
-        description: 'KNYT Wheel constitutional pilot — Mythos, Ethos, and Logos participation surfaces',
-        color: 'emerald',
-        badge: 'Pilot'
-      }
-    },
-
     // ── Admin group (admin-gated) ──────────────────────────────
     {
       id: 'knyt-alpha',
@@ -579,13 +562,30 @@ export const KNYT_CODEX: CodexConfig = {
       }
     },
     {
+      id: 'knyt-wheel',
+      label: 'KNYT Wheel',
+      slug: 'knyt-wheel',
+      enabled: true,
+      group: 'admin',
+      adminOnly: true,
+      order: 1,
+      type: 'static',
+      config: { component: 'AigentMissionsBoardTab' },
+      metadata: {
+        icon: 'Target',
+        description: 'KNYT Wheel constitutional pilot — Mythos, Ethos, and Logos participation surfaces',
+        color: 'emerald',
+        badge: 'Pilot'
+      }
+    },
+    {
       id: 'experience-dashboard',
       label: 'Experience',
       slug: 'experience-dashboard',
       enabled: true,
       group: 'admin',
       adminOnly: true,
-      order: 1,
+      order: 2,
       type: 'static',
       config: {
         component: 'ExperienceDashboardTab',
@@ -604,7 +604,7 @@ export const KNYT_CODEX: CodexConfig = {
       enabled: true,
       group: 'admin',
       adminOnly: true,
-      order: 2,
+      order: 3,
       type: 'static',
       config: {
         component: 'InvestorDirectoryTab',
@@ -622,7 +622,7 @@ export const KNYT_CODEX: CodexConfig = {
       enabled: true,
       group: 'admin',
       adminOnly: true,
-      order: 3,
+      order: 4,
       type: 'static',
       config: {
         component: 'RelationshipBuilderTab',
@@ -635,15 +635,15 @@ export const KNYT_CODEX: CodexConfig = {
       }
     },
 
-    // ── Docs group (admin-gated) ───────────────────────────────
+    // ── Docs tabs merged into admin ────────────────────────────
     {
       id: 'experience-pack',
       label: 'Experience Pack',
       slug: 'experience-pack',
       enabled: true,
-      group: 'docs',
+      group: 'admin',
       adminOnly: true,
-      order: 0,
+      order: 7,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -664,9 +664,9 @@ export const KNYT_CODEX: CodexConfig = {
       label: 'KNYT Wheel',
       slug: 'wheel',
       enabled: true,
-      group: 'docs',
+      group: 'admin',
       adminOnly: true,
-      order: 1,
+      order: 8,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',

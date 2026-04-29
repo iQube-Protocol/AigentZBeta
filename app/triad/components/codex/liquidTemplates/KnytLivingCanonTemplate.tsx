@@ -200,29 +200,9 @@ export function KnytLivingCanonTemplate({
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="px-1 pb-1">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-amber-300/80">
-              <Layers className="h-4 w-4 text-amber-400" />
-              Living Canon — 21 Sats
-            </div>
-            <p className="mt-1 text-xs text-slate-400">
-              {BRANCH_CONFIG[activeBranch].description}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => void loadBranch(activeBranch)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-1.5 text-xs text-slate-400 hover:text-white transition"
-          >
-            <RefreshCw className="h-3 w-3" />
-            Refresh
-          </button>
-        </div>
-
-        {/* Branch tabs */}
-        <div className="mt-3 flex gap-1.5 flex-wrap">
+      <div className="px-1 pb-1 flex items-center gap-2">
+        <Layers className="h-4 w-4 text-amber-400 shrink-0" />
+        <div className="flex gap-1.5 flex-wrap flex-1">
           {(Object.keys(BRANCH_CONFIG) as CanonBranch[]).map((branch) => {
             const cfg = BRANCH_CONFIG[branch];
             const isActive = activeBranch === branch;
@@ -250,6 +230,15 @@ export function KnytLivingCanonTemplate({
             );
           })}
         </div>
+        <p className="ml-auto text-[10px] text-slate-400 text-right shrink-0">{BRANCH_CONFIG[activeBranch].description}</p>
+        <button
+          type="button"
+          onClick={() => void loadBranch(activeBranch)}
+          className="shrink-0 text-slate-400 hover:text-white transition"
+          title="Refresh"
+        >
+          <RefreshCw className="h-3 w-3" />
+        </button>
       </div>
 
       {/* Main grid */}

@@ -564,7 +564,7 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
               </p>
               <div className="grid grid-cols-4 gap-1.5">
                 {GN_SKUS.map((sku) => {
-                  const thumb = sku.printVariant === 'hardcover' ? getCoverThumb(-4) : getCoverThumb(-1);
+                  const thumb = getCoverThumb(-1);
                   return (
                     <GNGridCard
                       key={sku.id}
@@ -628,7 +628,7 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
         {view.kind === 'gn-sku' && (
           <GNSkuDetail
             sku={view.sku}
-            thumbUrl={view.sku.printVariant === 'hardcover' ? getCoverThumb(-4) : getCoverThumb(-1)}
+            thumbUrl={getCoverThumb(-1)}
             onBuy={setPurchase}
           />
         )}

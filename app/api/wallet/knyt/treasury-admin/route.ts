@@ -1,5 +1,5 @@
 /**
- * GET  /api/wallet/knyt/treasury-admin  — recent EVM deposits + summary
+ * GET  /api/wallet/knyt/treasury-admin  — recent deposits ($KNYT EVM, USDC, Base Q¢) + summary
  * POST /api/wallet/knyt/treasury-admin  — admin airdrop (mintKnyt)
  */
 
@@ -14,25 +14,42 @@ function getSupabase() {
   return createClient(url, key);
 }
 
+async function queryDeposits(supabase: ReturnType<typeof createClient>, source: string) {
+  const { data, error } = await supabase
+    .from('wallet_transactions')
+    .select('id, persona_id, amount, created_at, metadata')
+    .eq('source', source)
+    .eq('direction', 'credit')
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
 export async function GET() {
   try {
     const supabase = getSupabase();
-    const { data: deposits, error } = await supabase
-      .from('wallet_transactions')
-      .select('id, persona_id, amount, created_at, metadata')
-      .eq('source', 'evm_deposit')
-      .eq('direction', 'credit')
-      .order('created_at', { ascending: false })
-      .limit(50);
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    const [deposits, usdcDeposits, qcDeposits] = await Promise.all([
+      queryDeposits(supabase, 'evm_deposit'),
+      queryDeposits(supabase, 'usdc_deposit'),
+      queryDeposits(supabase, 'qc_deposit'),
+    ]);
 
-    const total = (deposits ?? []).reduce((sum, d) => sum + parseFloat(d.amount), 0);
+    const total = deposits.reduce((sum, d) => sum + parseFloat(d.amount), 0);
+    const totalUsdc = usdcDeposits.reduce((sum, d) => sum + parseFloat(d.amount), 0);
+    const totalQc = qcDeposits.reduce((sum, d) => sum + parseFloat(d.amount), 0);
 
     return NextResponse.json({
-      deposits: deposits ?? [],
+      deposits,
       totalDeposited: total.toFixed(4),
-      count: deposits?.length ?? 0,
+      count: deposits.length,
+      usdcDeposits,
+      totalUsdcDeposited: totalUsdc.toFixed(4),
+      usdcCount: usdcDeposits.length,
+      qcDeposits,
+      totalQcDeposited: totalQc.toFixed(4),
+      qcCount: qcDeposits.length,
     });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
@@ -57,7 +74,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: result.error }, { status: 500 });
   }
 
-  // If a personaId is provided, also credit the DVN ledger
   if (personaId) {
     const { creditKnyt } = await import('@/services/wallet/knyt/knytLedgerService');
     await creditKnyt(personaId, amountKnyt, 'airdrop', {
