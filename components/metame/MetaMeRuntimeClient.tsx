@@ -3592,7 +3592,12 @@ export default function MetaMeRuntimeClient() {
               if (targetType === 'codex') {
                 const normalized = normalizeCodexId(target);
                 if (normalized && KNOWN_SLUGS.includes(normalized)) {
-                  setActiveCartridgeOverlay({ slug: normalized, title: normalized });
+                  const nbaTab = takeoverManifest?.nextBestAction?.tab;
+                  setActiveCartridgeOverlay({
+                    slug: normalized,
+                    title: normalized,
+                    ...(nbaTab ? { initialTab: nbaTab } : {}),
+                  });
                   return;
                 }
                 // Codex slug we don't recognise — degrade to a prompt so the
@@ -5703,7 +5708,12 @@ export default function MetaMeRuntimeClient() {
                 if (targetType === 'codex') {
                   const normalized = normalizeCodexId(target);
                   if (normalized && KNOWN_SLUGS.includes(normalized)) {
-                    setActiveCartridgeOverlay({ slug: normalized, title: normalized });
+                    const nbaTab = takeoverManifest?.nextBestAction?.tab;
+                    setActiveCartridgeOverlay({
+                      slug: normalized,
+                      title: normalized,
+                      ...(nbaTab ? { initialTab: nbaTab } : {}),
+                    });
                     return;
                   }
                   void handlePrompt(`Tell me more about "${target}".`, { source: "quick_link", skipInference: true });
