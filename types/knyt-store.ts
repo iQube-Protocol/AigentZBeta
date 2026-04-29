@@ -247,8 +247,8 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     id: 'digital-knyt-cartridge',
     label: 'KNYT Cartridge',
     episodes: [-1,0,1,2,3,4,5,6,7,8,9,10,11,12],
-    digitalPrice: 168,
-    retailPrice:  186,
+    digitalPrice: 112,   // 1/3 cheaper than Qripto ($168)
+    retailPrice:  124,   // 1/3 cheaper than Qripto retail ($186)
     badgeTier: 'digital',
     isFullSeason: false,
     isInvestorOnly: true,
@@ -256,15 +256,15 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     includes: [
       '1 Digital AGN (AgentiQ Graphic Novel)',
       '13 Digital Editions (all episodes)',
-      '13 KNYT Characters',
+      '13 KNYT Character Cards',
     ],
   },
   {
     id: 'digital-knyt-shelf',
     label: 'Digital KNYT Shelf',
     episodes: [-1,0,1,2,3,4,5,6,7,8,9,10,11,12],
-    digitalPrice: 288,
-    retailPrice:  388,
+    digitalPrice: 192,   // 1/3 cheaper than Qripto ($288)
+    retailPrice:  259,   // 1/3 cheaper than Qripto retail ($388)
     badgeTier: 'digital',
     isFullSeason: false,
     isInvestorOnly: true,
@@ -272,7 +272,7 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     includes: [
       '1 Digital AGN (AgentiQ Graphic Novel)',
       '13 Digital Editions (all episodes)',
-      '13 KNYT Characters',
+      '13 KNYT Character Cards',
       'Paperback AgentiQ Graphic Novel (AGN)',
     ],
   },
@@ -280,8 +280,8 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     id: 'digital-first-knyt',
     label: 'Digital First KNYT',
     episodes: [-1,0,1,2,3,4,5,6,7,8,9,10,11,12],
-    digitalPrice: 640,
-    retailPrice:  798,
+    digitalPrice: 427,   // 1/3 cheaper than Qripto ($640)
+    retailPrice:  532,   // 1/3 cheaper than Qripto retail ($798)
     badgeTier: 'digital',
     isFullSeason: false,
     isInvestorOnly: true,
@@ -289,7 +289,7 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     includes: [
       '1 Digital AGN (AgentiQ Graphic Novel)',
       '13 Digital Editions (all episodes)',
-      '13 KNYT Characters',
+      '13 KNYT Character Cards',
       'Collector Card',
       '1 Hardcover AgentiQ Graphic Novel (AGN)',
       '13 Print Episodes',

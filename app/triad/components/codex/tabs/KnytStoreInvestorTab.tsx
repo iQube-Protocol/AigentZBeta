@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowLeft, Crown, Film, Lock, Package, Sparkles, Zap } from 'lucide-react';
+import { ArrowLeft, Crown, Film, Lock, Package, Sparkles, User, Zap } from 'lucide-react';
 import {
   BUNDLE_PRICING,
   EPISODE_PRICING,
@@ -111,12 +111,25 @@ function InvestorBundleCard({
 function InvestorBundleDetail({
   bundle,
   onBuy,
+  getCoverThumb,
+  getCharacterThumb,
 }: {
   bundle: BundlePricing;
   onBuy: () => void;
+  getCoverThumb: (n: number) => string | undefined;
+  getCharacterThumb: (n: number) => string | undefined;
 }) {
   const includedEpisodes = EPISODE_PRICING.filter((ep) => bundle.episodes.includes(ep.episodeNumber));
   const individualTotal = includedEpisodes.reduce((s, ep) => s + ep.digitalPrice, 0);
+
+  const hasCharacters = bundle.includes?.some((s) => {
+    const l = s.toLowerCase();
+    return l.includes('character card') || l.includes('knyt character');
+  });
+  const cardEpisodes = bundle.episodes.filter((n) => n >= 0);
+  const cardThumbs = hasCharacters
+    ? cardEpisodes.map((n) => ({ n, thumb: getCharacterThumb(n) })).filter((x) => x.thumb)
+    : [];
 
   return (
     <div className="p-3 space-y-3">
@@ -216,20 +229,69 @@ function InvestorBundleDetail({
           )}
         </div>
       </div>
+
+      {/* Full-width episode thumbnail grid */}
+      <div>
+        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
+          Episodes included ({includedEpisodes.length})
+        </p>
+        <div className="grid grid-cols-5 gap-1">
+          {includedEpisodes.map((ep) => {
+            const thumb = getCoverThumb(ep.episodeNumber);
+            return (
+              <div key={ep.episodeNumber} className="flex flex-col rounded overflow-hidden border border-white/5 bg-slate-900/60">
+                <div className="aspect-[2/3] bg-slate-950 overflow-hidden">
+                  {thumb ? (
+                    <img src={thumb} alt={`Ep ${ep.episodeNumber}`} className="w-full h-full object-contain" loading="lazy" />
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <Film className="h-3 w-3 text-slate-700" />
+                    </div>
+                  )}
+                </div>
+                <p className="text-[7px] text-slate-400 text-center py-0.5 leading-none">
+                  {ep.episodeNumber === -1 ? 'GN' : `Ep ${ep.episodeNumber}`}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Character card thumbnail grid */}
+      {cardThumbs.length > 0 && (
+        <div>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+            <User className="h-3 w-3" />
+            KNYT Character Cards ({cardEpisodes.length})
+          </p>
+          <div className="grid grid-cols-7 gap-1">
+            {cardThumbs.map(({ n, thumb }) => (
+              <div key={n} className="flex flex-col rounded overflow-hidden border border-white/5 bg-slate-900/60">
+                <div className="aspect-[3/4] bg-slate-950 overflow-hidden">
+                  <img src={thumb!} alt={`Card ${n}`} className="w-full h-full object-contain" loading="lazy" />
+                </div>
+                <p className="text-[7px] text-slate-400 text-center py-0.5 leading-none">#{n}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 const investorBundles = BUNDLE_PRICING.filter((b) => b.isInvestorOnly);
+const qriptoBundles   = investorBundles.filter((b) => !b.badgeTier || b.badgeTier === 'qripto');
+const digitalBundles  = investorBundles.filter((b) => b.badgeTier === 'digital');
 
 export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
   const [view, setView]         = useState<InvestorView>({ kind: 'landing' });
   const [purchase, setPurchase] = useState<PendingPurchase | null>(null);
-  const { getCoverThumb: _getCoverThumb } = useKnytThumbnails();
+  const { getCoverThumb, getCharacterThumb } = useKnytThumbnails();
 
   const headerLabel =
-    view.kind === 'landing'       ? 'Investor Bundles'
-    : view.bundle.label;
+    view.kind === 'landing' ? 'Investor Bundles' : view.bundle.label;
 
   function openBundlePurchase(bundle: BundlePricing) {
     setPurchase({
@@ -265,20 +327,45 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
               <div>
                 <p className="text-[11px] font-semibold text-yellow-300 mb-0.5">Investor-priced bundles</p>
                 <p className="text-[10px] text-slate-400">
-                  Includes Qripto editions, character cards, print variants, and Order of Metaiye access at exclusive investor prices.
+                  Qripto and digital editions, character cards, print variants, and Order of Metaiye access at exclusive investor prices.
                 </p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              {investorBundles.map((bundle) => (
-                <InvestorBundleCard
-                  key={bundle.id}
-                  bundle={bundle}
-                  onClick={() => setView({ kind: 'bundle-detail', bundle })}
-                  onBuy={(e) => { e.stopPropagation(); openBundlePurchase(bundle); }}
-                />
-              ))}
-            </div>
+
+            {/* Qripto section */}
+            {qriptoBundles.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-semibold text-purple-400 uppercase tracking-wide px-0.5">Qripto Editions</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {qriptoBundles.map((bundle) => (
+                    <InvestorBundleCard
+                      key={bundle.id}
+                      bundle={bundle}
+                      onClick={() => setView({ kind: 'bundle-detail', bundle })}
+                      onBuy={(e) => { e.stopPropagation(); openBundlePurchase(bundle); }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Digital section */}
+            {digitalBundles.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-semibold text-sky-400 uppercase tracking-wide px-0.5">Digital Editions</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {digitalBundles.map((bundle) => (
+                    <InvestorBundleCard
+                      key={bundle.id}
+                      bundle={bundle}
+                      onClick={() => setView({ kind: 'bundle-detail', bundle })}
+                      onBuy={(e) => { e.stopPropagation(); openBundlePurchase(bundle); }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="rounded-lg border border-slate-700/40 bg-slate-800/40 px-3 py-2.5 flex items-start gap-2">
               <Package className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
               <div>
@@ -294,6 +381,8 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
           <InvestorBundleDetail
             bundle={view.bundle}
             onBuy={() => openBundlePurchase(view.bundle)}
+            getCoverThumb={getCoverThumb}
+            getCharacterThumb={getCharacterThumb}
           />
         )}
       </div>

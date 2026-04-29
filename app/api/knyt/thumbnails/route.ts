@@ -25,7 +25,6 @@ export async function GET(req: NextRequest) {
     .from('codex_media_assets')
     .select('episode_number, asset_kind, cover_thumb_url, auto_drive_cid, rarity_tier, title')
     .eq('series', series)
-    .not('status', 'in', '("deleted","archived","rejected")')
     .in('asset_kind', ['cover_image', 'cover_pdf', 'character_poster'])
     .order('episode_number', { ascending: true })
     .order('asset_kind', { ascending: true })    // cover_image before cover_pdf

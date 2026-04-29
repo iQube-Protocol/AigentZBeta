@@ -389,7 +389,7 @@ function BundleDetail({
       </div>
 
       {/* Character cards — shown for bundles that include all episodes (0-12) */}
-      {bundle.includes?.some((s) => s.toLowerCase().includes('character card')) && (() => {
+      {bundle.includes?.some((s) => { const l = s.toLowerCase(); return l.includes('character card') || l.includes('knyt character'); }) && (() => {
         const cardEpisodes = bundle.episodes.filter((n) => n >= 0);
         const cardThumbs = cardEpisodes.map((n) => ({ n, thumb: getCharacterThumb(n) })).filter((x) => x.thumb);
         if (cardThumbs.length === 0) return null;
