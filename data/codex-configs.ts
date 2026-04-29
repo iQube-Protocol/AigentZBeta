@@ -425,8 +425,8 @@ export const KNYT_CODEX: CodexConfig = {
       slug: 'treasury-admin',
       enabled: true,
       adminOnly: true,
-      group: 'store',
-      order: 100,
+      group: 'admin',
+      order: 5,
       type: 'static',
       config: { component: 'KnytTreasuryAdminTab' },
       metadata: { icon: 'Vault', description: 'EVM treasury balances, on-chain deposit log, and $KNYT airdrop', color: 'amber' }
@@ -474,9 +474,8 @@ export const KNYT_CODEX: CodexConfig = {
       label: 'Treasury',
       slug: 'treasury',
       enabled: true,
-      adminOnly: true,
-      group: 'admin',
-      order: 5,
+      group: 'order-group',
+      order: 1,
       type: 'static',
       config: {
         component: 'KnytTreasuryTab',
