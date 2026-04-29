@@ -635,15 +635,15 @@ export const KNYT_CODEX: CodexConfig = {
       }
     },
 
-    // ── Docs tabs merged into admin ────────────────────────────
+    // ── Docs tabs ──────────────────────────────────────────────
     {
       id: 'experience-pack',
       label: 'Experience Pack',
       slug: 'experience-pack',
       enabled: true,
-      group: 'admin',
+      group: 'docs',
       adminOnly: true,
-      order: 7,
+      order: 0,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -664,9 +664,9 @@ export const KNYT_CODEX: CodexConfig = {
       label: 'KNYT Wheel',
       slug: 'wheel',
       enabled: true,
-      group: 'admin',
+      group: 'docs',
       adminOnly: true,
-      order: 8,
+      order: 1,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',

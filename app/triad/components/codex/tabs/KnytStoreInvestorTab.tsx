@@ -49,16 +49,20 @@ function InvestorBundleCard({
   bundle,
   onClick,
   onBuy,
+  getCoverThumb,
 }: {
   bundle: BundlePricing;
   onClick: () => void;
   onBuy: (e: React.MouseEvent) => void;
+  getCoverThumb: (n: number) => string | undefined;
 }) {
+  const isGnOnly = bundle.episodes.length === 1 && bundle.episodes[0] === -1;
+  const cardImage = isGnOnly ? getCoverThumb(-1) ?? INVESTOR_SEAL : INVESTOR_SEAL;
   return (
     <div className="flex flex-col rounded-xl border border-yellow-800/40 bg-slate-900/60 overflow-hidden hover:border-yellow-600/40 hover:bg-slate-800/60 transition-colors w-full">
       <button type="button" onClick={onClick} className="w-full text-left">
         <div className="relative w-full aspect-[2/3] bg-slate-950 overflow-hidden">
-          <img src={INVESTOR_SEAL} alt={bundle.label} className="w-full h-full object-contain" loading="lazy" />
+          <img src={cardImage} alt={bundle.label} className="w-full h-full object-contain" loading="lazy" />
           {bundle.badgeTier === 'qripto' ? (
             <div className="absolute top-1 left-1 rounded border border-purple-700/40 bg-purple-900/70 px-1 py-0.5 text-[9px] font-bold text-purple-300">
               Qripto
@@ -349,6 +353,7 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
                       bundle={bundle}
                       onClick={() => setView({ kind: 'bundle-detail', bundle })}
                       onBuy={(e) => { e.stopPropagation(); openBundlePurchase(bundle); }}
+                      getCoverThumb={getCoverThumb}
                     />
                   ))}
                 </div>
@@ -366,6 +371,7 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
                       bundle={bundle}
                       onClick={() => setView({ kind: 'bundle-detail', bundle })}
                       onBuy={(e) => { e.stopPropagation(); openBundlePurchase(bundle); }}
+                      getCoverThumb={getCoverThumb}
                     />
                   ))}
                 </div>

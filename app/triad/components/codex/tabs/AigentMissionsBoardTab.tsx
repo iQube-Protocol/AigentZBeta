@@ -499,7 +499,6 @@ export function AigentMissionsBoardTab() {
   return (
     <div className="flex flex-col h-full">
       <div className="flex-shrink-0 border-b border-slate-800/60 bg-slate-900/40 px-4 py-2 flex items-center gap-2">
-        <img src="/images/metaknyt-logo.png" alt="" className="h-5 w-5 object-contain shrink-0" />
         <div className="flex gap-1">
           {TABS.map(({ id, label, Icon }) => (
             <button key={id} onClick={() => setActive(id)}
@@ -510,6 +509,7 @@ export function AigentMissionsBoardTab() {
           ))}
         </div>
         <Badge variant="outline" className="ml-auto text-[10px] border-emerald-700/50 text-emerald-400 shrink-0">Constitutional Pilot α</Badge>
+        <img src="/images/metaknyt-logo.png" alt="" className="h-5 w-5 object-contain shrink-0" />
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto p-4">
         {active === "mythos" && <StubPanel side="mythos" />}
