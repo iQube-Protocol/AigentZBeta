@@ -283,9 +283,13 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
         setAliasState({ status: 'registered' });
         return;
       }
-      if (rRes.status === 404 || (rJson.error || '').includes('Bind a Root DID')) {
+      if (rRes.status === 404 || (rJson.error || '').includes('Bind a Root DID') || (rJson.error || '').includes('no bound root')) {
         setAliasState({ status: 'precondition', error: 'Bind your Root DID to this persona before linking a wallet.' });
         return;
+      }
+      if (rRes.status === 503) {
+        // Timeout from the server — safe to retry
+        throw new Error(rJson.error || 'Server timed out — please retry');
       }
       if (!rRes.ok || !rJson.ok) throw new Error(rJson.error || `Register ${rRes.status}`);
       setAliasState({ status: 'registered', aliasId: rJson.id, commitment: rJson.aliasCommitment });
