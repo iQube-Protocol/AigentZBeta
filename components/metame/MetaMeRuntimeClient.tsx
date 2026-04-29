@@ -1932,7 +1932,12 @@ export default function MetaMeRuntimeClient() {
   const [walletInitialTab, setWalletInitialTab] = useState<"wallet" | "tasks" | "rewards" | "payments">("wallet");
   const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
 
-  const [selectedAgent, setSelectedAgent] = useState<RuntimeAgent>(RUNTIME_AGENTS[0]);
+  // LAUNCH OVERRIDE (KNYT activation campaign): default lead agent on arrival
+  // is Kn0w1 (KNYT-aligned), not Aigent Z. Reverts to RUNTIME_AGENTS[0]
+  // (Aigent Z / metaMe) post-launch.
+  const [selectedAgent, setSelectedAgent] = useState<RuntimeAgent>(
+    RUNTIME_AGENTS.find((a) => a.id === "aigent-kn0w1") ?? RUNTIME_AGENTS[0]
+  );
   const [showAgentSelector, setShowAgentSelector] = useState(false);
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);

@@ -60,9 +60,12 @@ interface MetaAvatarProviderProps {
   defaultAgent?: string;
 }
 
-export function MetaAvatarProvider({ 
-  children, 
-  defaultAgent = 'aigent-z' 
+export function MetaAvatarProvider({
+  children,
+  // LAUNCH OVERRIDE (KNYT activation campaign): default avatar/agent on
+  // arrival is Kn0w1 (KNYT lead). Reverts to 'aigent-z' (Aigent Z / metaMe)
+  // post-launch.
+  defaultAgent = 'aigent-kn0w1'
 }: MetaAvatarProviderProps) {
   const [avatarInitialized, setAvatarInitialized] = useState(false);
   const [activeContainer, setActiveContainer] = useState<MetaAvatarContainer>(null);

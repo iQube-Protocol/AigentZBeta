@@ -334,7 +334,11 @@ function trustStateFromScore(score: number): TrustState {
 }
 
 function defaultRuntimeState(): RuntimeState {
-  const defaultAgent = AGENT_OPTIONS[0];
+  // LAUNCH OVERRIDE (KNYT activation campaign): default lead agent on arrival
+  // is Kn0w1 (KNYT-aligned). Reverts to AGENT_OPTIONS[0] (Aigent Z / metaMe)
+  // post-launch.
+  const defaultAgent =
+    AGENT_OPTIONS.find((a) => a.id === "aigent-kn0w1") ?? AGENT_OPTIONS[0];
   const defaultModel = getLlmOptionsForAgent(defaultAgent.id)[0];
   return {
     selected_aigent_id: defaultAgent.id,
