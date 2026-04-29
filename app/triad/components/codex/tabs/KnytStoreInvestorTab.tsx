@@ -123,10 +123,7 @@ function InvestorBundleDetail({
   const individualTotal = includedEpisodes.reduce((s, ep) => s + ep.digitalPrice, 0);
 
   const isGnOnly = bundle.episodes.length === 1 && bundle.episodes[0] === -1;
-  const isHardcover = bundle.id === 'gn-investor-hardcover';
-  const heroImage = isGnOnly
-    ? (isHardcover ? getCoverThumb(-4) : getCoverThumb(-1)) ?? INVESTOR_SEAL
-    : INVESTOR_SEAL;
+  const heroImage = isGnOnly ? getCoverThumb(-1) ?? INVESTOR_SEAL : INVESTOR_SEAL;
 
   const hasCharacters = bundle.includes?.some((s) => {
     const l = s.toLowerCase();
@@ -301,11 +298,8 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
     view.kind === 'landing' ? 'Investor Bundles' : view.bundle.label;
 
   function openBundlePurchase(bundle: BundlePricing) {
-    const isGnOnly    = bundle.episodes.length === 1 && bundle.episodes[0] === -1;
-    const isHardcover = bundle.id === 'gn-investor-hardcover';
-    const image = isGnOnly
-      ? (isHardcover ? getCoverThumb(-4) : getCoverThumb(-1)) ?? INVESTOR_SEAL
-      : INVESTOR_SEAL;
+    const isGnOnly = bundle.episodes.length === 1 && bundle.episodes[0] === -1;
+    const image = isGnOnly ? getCoverThumb(-1) ?? INVESTOR_SEAL : INVESTOR_SEAL;
     setPurchase({
       contentType:      'season_codex_still',
       contentId:        bundle.id,

@@ -17,32 +17,12 @@ import {
 
 const TREASURY = process.env.NEXT_PUBLIC_KNYT_TREASURY_ADDRESS ?? '';
 const KNYT_CONTRACT = '0xe53dad36cd0A8EdC656448CE7912bba72beBECb4';
+const USDC_CONTRACT = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
 const ETH_RPC = 'https://eth.llamarpc.com';
 
 // ── RPC helpers ────────────────────────────────────────────────────────────────
 
-async function fetchEthBalance(address: string): Promise<string> {
-  try {
-    const res = await fetch(ETH_RPC, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0', id: 1,
-        method: 'eth_getBalance',
-        params: [address, 'latest'],
-      }),
-    });
-    const json = await res.json() as { result?: string };
-    const hex = json.result ?? '0x0';
-    const n = BigInt(hex);
-    const eth = Number(n) / 1e18;
-    return eth.toFixed(4);
-  } catch {
-    return '—';
-  }
-}
-
-async function fetchKnytBalance(address: string): Promise<string> {
+async function fetchErc20Balance(contract: string, address: string, decimals: number): Promise<string> {
   try {
     const data = '0x70a08231' + address.toLowerCase().replace(/^0x/, '').padStart(64, '0');
     const res = await fetch(ETH_RPC, {
@@ -51,18 +31,18 @@ async function fetchKnytBalance(address: string): Promise<string> {
       body: JSON.stringify({
         jsonrpc: '2.0', id: 1,
         method: 'eth_call',
-        params: [{ to: KNYT_CONTRACT, data }, 'latest'],
+        params: [{ to: contract, data }, 'latest'],
       }),
     });
     const json = await res.json() as { result?: string };
     const hex = (json.result ?? '0x0').replace(/^0x/, '') || '0';
     const n = BigInt('0x' + hex);
     if (n === 0n) return '0';
-    const divisor = 10n ** 18n;
+    const divisor = 10n ** BigInt(decimals);
     const whole = n / divisor;
     const frac = n % divisor;
     if (frac === 0n) return whole.toString();
-    return `${whole}.${frac.toString().padStart(18, '0').replace(/0+$/, '').slice(0, 4)}`;
+    return `${whole}.${frac.toString().padStart(decimals, '0').replace(/0+$/, '').slice(0, 4)}`;
   } catch {
     return '—';
   }
@@ -78,20 +58,92 @@ interface Deposit {
   metadata?: { tx_hash?: string };
 }
 
+interface AdminData {
+  deposits?: Deposit[];
+  totalDeposited?: string;
+  usdcDeposits?: Deposit[];
+  totalUsdcDeposited?: string;
+  qcDeposits?: Deposit[];
+  totalQcDeposited?: string;
+}
+
 interface Props {
   isAdmin?: boolean;
   personaId?: string;
 }
 
+// ── Deposit table ──────────────────────────────────────────────────────────────
+
+function DepositTable({ deposits, loading, unit, explorerBase }: {
+  deposits: Deposit[];
+  loading: boolean;
+  unit: string;
+  explorerBase: string;
+}) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-6">
+        <Loader2 className="h-5 w-5 animate-spin text-white/30" />
+      </div>
+    );
+  }
+  if (deposits.length === 0) {
+    return <p className="py-5 text-center text-xs text-white/30">No deposits yet.</p>;
+  }
+  return (
+    <table className="w-full text-xs">
+      <thead>
+        <tr className="border-b border-white/10 text-[10px] text-white/40 uppercase">
+          <th className="px-3 py-2 text-left">Persona</th>
+          <th className="px-3 py-2 text-right">Amount</th>
+          <th className="px-3 py-2 text-right">Date</th>
+          <th className="px-3 py-2 text-right">Tx</th>
+        </tr>
+      </thead>
+      <tbody>
+        {deposits.map((d) => (
+          <tr key={d.id} className="border-b border-white/5 last:border-0 hover:bg-white/5">
+            <td className="px-3 py-2 font-mono text-indigo-300 truncate max-w-[120px]">
+              {d.persona_id.slice(0, 8)}…
+            </td>
+            <td className="px-3 py-2 text-right font-semibold text-amber-300">
+              {parseFloat(d.amount).toFixed(2)} {unit}
+            </td>
+            <td className="px-3 py-2 text-right text-white/40">
+              {new Date(d.created_at).toLocaleDateString()}
+            </td>
+            <td className="px-3 py-2 text-right">
+              {d.metadata?.tx_hash ? (
+                <a
+                  href={`${explorerBase}${d.metadata.tx_hash}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-blue-400/60 hover:text-blue-300 transition"
+                >
+                  <ExternalLink className="h-3 w-3 inline" />
+                </a>
+              ) : '—'}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export function KnytTreasuryAdminTab({ isAdmin }: Props) {
-  const [ethBalance, setEthBalance] = useState<string>('—');
   const [knytBalance, setKnytBalance] = useState<string>('—');
+  const [usdcBalance, setUsdcBalance] = useState<string>('—');
   const [balanceLoading, setBalanceLoading] = useState(false);
 
   const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [totalDeposited, setTotalDeposited] = useState<string>('0');
+  const [usdcDeposits, setUsdcDeposits] = useState<Deposit[]>([]);
+  const [totalUsdcDeposited, setTotalUsdcDeposited] = useState<string>('0');
+  const [qcDeposits, setQcDeposits] = useState<Deposit[]>([]);
+  const [totalQcDeposited, setTotalQcDeposited] = useState<string>('0');
   const [historyLoading, setHistoryLoading] = useState(false);
 
   const [airdropAddress, setAirdropAddress] = useState('');
@@ -103,12 +155,12 @@ export function KnytTreasuryAdminTab({ isAdmin }: Props) {
   const loadBalances = useCallback(async () => {
     if (!TREASURY) return;
     setBalanceLoading(true);
-    const [eth, knyt] = await Promise.all([
-      fetchEthBalance(TREASURY),
-      fetchKnytBalance(TREASURY),
+    const [knyt, usdc] = await Promise.all([
+      fetchErc20Balance(KNYT_CONTRACT, TREASURY, 18),
+      fetchErc20Balance(USDC_CONTRACT, TREASURY, 6),
     ]);
-    setEthBalance(eth);
     setKnytBalance(knyt);
+    setUsdcBalance(usdc);
     setBalanceLoading(false);
   }, []);
 
@@ -116,9 +168,13 @@ export function KnytTreasuryAdminTab({ isAdmin }: Props) {
     setHistoryLoading(true);
     try {
       const res = await fetch('/api/wallet/knyt/treasury-admin');
-      const json = await res.json() as { deposits?: Deposit[]; totalDeposited?: string };
+      const json = await res.json() as AdminData;
       setDeposits(json.deposits ?? []);
       setTotalDeposited(json.totalDeposited ?? '0');
+      setUsdcDeposits(json.usdcDeposits ?? []);
+      setTotalUsdcDeposited(json.totalUsdcDeposited ?? '0');
+      setQcDeposits(json.qcDeposits ?? []);
+      setTotalQcDeposited(json.totalQcDeposited ?? '0');
     } catch {
       // ignore
     } finally {
@@ -196,8 +252,8 @@ export function KnytTreasuryAdminTab({ isAdmin }: Props) {
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {[
-              { label: 'ETH Balance', value: ethBalance, unit: 'ETH', color: 'text-blue-300' },
               { label: '$KNYT Balance', value: knytBalance, unit: '$KNYT', color: 'text-amber-300' },
+              { label: 'USDC Balance', value: usdcBalance, unit: 'USDC', color: 'text-emerald-300' },
             ].map(({ label, value, unit, color }) => (
               <div key={label} className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
                 <p className="text-[10px] text-white/40 mb-1">{label}</p>
@@ -224,12 +280,12 @@ export function KnytTreasuryAdminTab({ isAdmin }: Props) {
         )}
       </section>
 
-      {/* ── EVM Deposit History ── */}
+      {/* ── EVM ($KNYT) Deposit History ── */}
       <section>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-white/50">
             <ArrowDownToLine className="h-3.5 w-3.5 text-emerald-400" />
-            EVM Deposits  <span className="text-emerald-400 font-semibold">{totalDeposited} $KNYT total</span>
+            $KNYT EVM Deposits  <span className="text-emerald-400 font-semibold">{totalDeposited} $KNYT total</span>
           </div>
           <button
             type="button"
@@ -241,53 +297,49 @@ export function KnytTreasuryAdminTab({ isAdmin }: Props) {
             Refresh
           </button>
         </div>
-
         <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
-          {historyLoading ? (
-            <div className="flex items-center justify-center py-6">
-              <Loader2 className="h-5 w-5 animate-spin text-white/30" />
-            </div>
-          ) : deposits.length === 0 ? (
-            <p className="py-5 text-center text-xs text-white/30">No EVM deposits yet.</p>
-          ) : (
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-white/10 text-[10px] text-white/40 uppercase">
-                  <th className="px-3 py-2 text-left">Persona</th>
-                  <th className="px-3 py-2 text-right">Amount</th>
-                  <th className="px-3 py-2 text-right">Date</th>
-                  <th className="px-3 py-2 text-right">Tx</th>
-                </tr>
-              </thead>
-              <tbody>
-                {deposits.map((d) => (
-                  <tr key={d.id} className="border-b border-white/5 last:border-0 hover:bg-white/5">
-                    <td className="px-3 py-2 font-mono text-indigo-300 truncate max-w-[120px]">
-                      {d.persona_id.slice(0, 8)}…
-                    </td>
-                    <td className="px-3 py-2 text-right font-semibold text-amber-300">
-                      {parseFloat(d.amount).toFixed(2)} $KNYT
-                    </td>
-                    <td className="px-3 py-2 text-right text-white/40">
-                      {new Date(d.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      {d.metadata?.tx_hash ? (
-                        <a
-                          href={`https://etherscan.io/tx/${d.metadata.tx_hash}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-blue-400/60 hover:text-blue-300 transition"
-                        >
-                          <ExternalLink className="h-3 w-3 inline" />
-                        </a>
-                      ) : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          <DepositTable
+            deposits={deposits}
+            loading={historyLoading}
+            unit="$KNYT"
+            explorerBase="https://etherscan.io/tx/"
+          />
+        </div>
+      </section>
+
+      {/* ── USDC Deposit History ── */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-white/50">
+            <ArrowDownToLine className="h-3.5 w-3.5 text-blue-400" />
+            USDC Deposits  <span className="text-blue-400 font-semibold">{totalUsdcDeposited} USDC total</span>
+          </div>
+        </div>
+        <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
+          <DepositTable
+            deposits={usdcDeposits}
+            loading={historyLoading}
+            unit="USDC"
+            explorerBase="https://etherscan.io/tx/"
+          />
+        </div>
+      </section>
+
+      {/* ── Base Q¢ Deposit History ── */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-white/50">
+            <ArrowDownToLine className="h-3.5 w-3.5 text-violet-400" />
+            Base Q¢ Deposits  <span className="text-violet-400 font-semibold">{totalQcDeposited} Q¢ total</span>
+          </div>
+        </div>
+        <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
+          <DepositTable
+            deposits={qcDeposits}
+            loading={historyLoading}
+            unit="Q¢"
+            explorerBase="https://basescan.org/tx/"
+          />
         </div>
       </section>
 

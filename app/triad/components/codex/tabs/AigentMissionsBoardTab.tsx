@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BookOpen, Brain, ChevronDown, ChevronUp, ClipboardList, Scale, Shield, Target, Users, Cpu, CheckCircle2 } from "lucide-react";
+import { BookOpen, Brain, ChevronDown, ChevronUp, ClipboardList, Scale, Shield, Users, Cpu, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -498,12 +498,8 @@ export function AigentMissionsBoardTab() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-shrink-0 border-b border-slate-800/60 bg-slate-900/40 px-4 py-3">
-        <div className="flex items-center gap-2 mb-3">
-          <Target className="h-4 w-4 text-emerald-400" />
-          <h1 className="text-sm font-semibold text-slate-100">KNYT Wheel</h1>
-          <Badge variant="outline" className="ml-auto text-[10px] border-emerald-700/50 text-emerald-400">Constitutional Pilot α</Badge>
-        </div>
+      <div className="flex-shrink-0 border-b border-slate-800/60 bg-slate-900/40 px-4 py-2 flex items-center gap-2">
+        <img src="/images/metaknyt-logo.png" alt="" className="h-5 w-5 object-contain shrink-0" />
         <div className="flex gap-1">
           {TABS.map(({ id, label, Icon }) => (
             <button key={id} onClick={() => setActive(id)}
@@ -513,6 +509,7 @@ export function AigentMissionsBoardTab() {
             </button>
           ))}
         </div>
+        <Badge variant="outline" className="ml-auto text-[10px] border-emerald-700/50 text-emerald-400 shrink-0">Constitutional Pilot α</Badge>
       </div>
       <div className="flex-1 min-h-0 overflow-y-auto p-4">
         {active === "mythos" && <StubPanel side="mythos" />}
