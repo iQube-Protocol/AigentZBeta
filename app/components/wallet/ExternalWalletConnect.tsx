@@ -131,9 +131,11 @@ interface SendState {
 export interface ExternalWalletConnectProps {
   personaId?: string;
   onTxComplete?: (txHash: string, amountKnyt: number) => void;
+  /** Called whenever the connected EVM address changes (or undefined on disconnect). */
+  onConnected?: (address: string | undefined) => void;
 }
 
-export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalletConnectProps) {
+export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: ExternalWalletConnectProps) {
   const [address, setAddress] = useState<string | null>(null);
   const [chainId, setChainId] = useState<number | null>(null);
   const [walletName, setWalletName] = useState<string>('');
@@ -211,6 +213,7 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
     activeProviderRef.current = p;
     setAddress(connectedAddress);
     setWalletName(legacyWalletName(p));
+    onConnected?.(connectedAddress);
 
     p.on('accountsChanged', handleAccountsChanged);
     p.on('chainChanged', handleChainChanged);
@@ -221,7 +224,7 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
 
     fetchBalance(connectedAddress);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchBalance]);
+  }, [fetchBalance, onConnected]);
 
   // Keep stable refs for event handlers so we can removeListener correctly
   function handleAccountsChanged(accounts: unknown) {
@@ -230,6 +233,7 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
       teardown();
     } else {
       setAddress(accs[0]);
+      onConnected?.(accs[0]);
       fetchBalance(accs[0]);
     }
   }
@@ -251,6 +255,7 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
     setWalletName('');
     setSendState({ status: 'idle' });
     setSendAmount('');
+    onConnected?.(undefined);
   }
 
   useEffect(() => () => {
@@ -528,6 +533,9 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
               </button>
             </div>
           </div>
+          <p className="text-[9px] text-white/20 font-mono truncate" title={address ?? ''}>
+            querying: {address}
+          </p>
           {balanceError && (
             <p className="text-[10px] text-red-400/70">{balanceError}</p>
           )}

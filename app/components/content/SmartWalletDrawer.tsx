@@ -225,6 +225,8 @@ export default function SmartWalletDrawer({
   // then upgrades to the session-resolved persona's registered address via useEffect below.
   const walletNodePersonaEvmAddress = walletNode?.personaContext?.activePersona?.evmAddress as `0x${string}` | undefined;
   const [personaEvmOverride, setPersonaEvmOverride] = useState<`0x${string}` | undefined>(walletNodePersonaEvmAddress);
+  // External wallet address connected via ExternalWalletConnect (MetaMask etc.)
+  const [externalEvmAddress, setExternalEvmAddress] = useState<string | undefined>(undefined);
   const sanitizedEvmSepolia = personaEvmOverride || (isValidEvmAddress(agent.evmSepolia) ? agent.evmSepolia : undefined);
   const sanitizedEvmArb = personaEvmOverride || (isValidEvmAddress(agent.evmArb) ? agent.evmArb : undefined);
 
@@ -3141,7 +3143,16 @@ export default function SmartWalletDrawer({
                 <div className="space-y-2">
                   {[
                     { label: "DID / FIO Handle", value: walletNode?.personaContext?.activePersona?.fioHandle || "—", color: "text-cyan-300" },
-                    { label: "EVM Address", value: walletNode?.personaContext?.activePersona?.evmAddress ? `${String(walletNode.personaContext.activePersona.evmAddress).slice(0, 6)}…${String(walletNode.personaContext.activePersona.evmAddress).slice(-4)}` : "—", color: "text-indigo-300" },
+                    {
+                      label: "EVM Address",
+                      value: (() => {
+                        const addr = externalEvmAddress || walletNode?.personaContext?.activePersona?.evmAddress;
+                        if (!addr) return "—";
+                        const s = String(addr);
+                        return `${s.slice(0, 6)}…${s.slice(-4)}`;
+                      })(),
+                      color: externalEvmAddress ? "text-emerald-300" : "text-indigo-300",
+                    },
                     { label: "BTC Address", value: walletNode?.personaContext?.activePersona?.btcAddress ? `${String(walletNode.personaContext.activePersona.btcAddress).slice(0, 8)}…` : "—", color: "text-amber-300" },
                   ].map(({ label, value, color }) => (
                     <div key={label} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2">
@@ -3158,6 +3169,7 @@ export default function SmartWalletDrawer({
                 </div>
                 <ExternalWalletConnect
                   personaId={effectivePersonaId}
+                  onConnected={(addr) => setExternalEvmAddress(addr)}
                   onTxComplete={(txHash, amountKnyt) => {
                     console.info('[SmartWallet] EVM KNYT tx sent', { txHash, amountKnyt });
                   }}
