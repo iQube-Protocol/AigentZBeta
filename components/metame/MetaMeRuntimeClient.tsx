@@ -3416,13 +3416,41 @@ export default function MetaMeRuntimeClient() {
             cartridgeContext={runtimeContext}
             onDismiss={dismissTakeover}
             onNextBestAction={(target, targetType) => {
+              // NBA dispatch — restored. Cartridges only open if the target is
+              // verifiably a real cartridge slug. Unknown / non-cartridge
+              // proposals fall through to the chat flow rather than silently
+              // opening the takeover overlay.
+              const KNOWN_SLUGS = ['knyt-codex','metame-codex','qripto-codex','agentiq-os','alpha-knyt-codex'];
+
               if (targetType === 'codex') {
-                const normalized = normalizeCodexId(target) ?? target;
-                // Guard against LLM generating a tab name (e.g. "store") instead of
-                // a codex slug — fall back to the active takeover cartridge.
-                const KNOWN_SLUGS = ['knyt-codex','metame-codex','qripto-codex','agentiq-os','alpha-knyt-codex'];
-                const slug = KNOWN_SLUGS.includes(normalized) ? normalized : takeoverCartridgeSlug;
-                setActiveCartridgeOverlay({ slug, title: slug });
+                const normalized = normalizeCodexId(target);
+                if (normalized && KNOWN_SLUGS.includes(normalized)) {
+                  setActiveCartridgeOverlay({ slug: normalized, title: normalized });
+                  return;
+                }
+                // Codex slug we don't recognise — degrade to a prompt so the
+                // user still gets a response instead of the wrong cartridge.
+                void handlePrompt(`Tell me more about "${target}".`, { source: "quick_link", skipInference: true });
+                return;
+              }
+
+              if (targetType === 'route') {
+                // Same-origin path only; reject preview-style URLs that pack
+                // serialized JSON in the query string (those 414 at CloudFront).
+                const isSamePath = typeof target === 'string' && target.startsWith('/') && !target.startsWith('//');
+                const isSafeLength = target.length <= 1500;
+                const looksLikePreviewBlob = /experienceArticleDraft=|experienceContext=/.test(target);
+                if (isSamePath && isSafeLength && !looksLikePreviewBlob) {
+                  window.location.assign(target);
+                } else {
+                  void handlePrompt(`Open ${target}`, { source: "quick_link", skipInference: true });
+                }
+                return;
+              }
+
+              if (targetType === 'action') {
+                void handlePrompt(target, { source: "quick_link" });
+                return;
               }
             }}
           />
@@ -5499,11 +5527,37 @@ export default function MetaMeRuntimeClient() {
               cartridgeContext={runtimeContext}
               onDismiss={dismissTakeover}
               onNextBestAction={(target, targetType) => {
+                // NBA dispatch — restored. Cartridges only open if the target is
+                // verifiably a real cartridge slug. Unknown / non-cartridge
+                // proposals fall through to the chat flow rather than silently
+                // opening the takeover overlay.
+                const KNOWN_SLUGS = ['knyt-codex','metame-codex','qripto-codex','agentiq-os','alpha-knyt-codex'];
+
                 if (targetType === 'codex') {
-                  const normalized = normalizeCodexId(target) ?? target;
-                  const KNOWN_SLUGS = ['knyt-codex','metame-codex','qripto-codex','agentiq-os','alpha-knyt-codex'];
-                  const slug = KNOWN_SLUGS.includes(normalized) ? normalized : takeoverCartridgeSlug;
-                  setActiveCartridgeOverlay({ slug, title: slug });
+                  const normalized = normalizeCodexId(target);
+                  if (normalized && KNOWN_SLUGS.includes(normalized)) {
+                    setActiveCartridgeOverlay({ slug: normalized, title: normalized });
+                    return;
+                  }
+                  void handlePrompt(`Tell me more about "${target}".`, { source: "quick_link", skipInference: true });
+                  return;
+                }
+
+                if (targetType === 'route') {
+                  const isSamePath = typeof target === 'string' && target.startsWith('/') && !target.startsWith('//');
+                  const isSafeLength = target.length <= 1500;
+                  const looksLikePreviewBlob = /experienceArticleDraft=|experienceContext=/.test(target);
+                  if (isSamePath && isSafeLength && !looksLikePreviewBlob) {
+                    window.location.assign(target);
+                  } else {
+                    void handlePrompt(`Open ${target}`, { source: "quick_link", skipInference: true });
+                  }
+                  return;
+                }
+
+                if (targetType === 'action') {
+                  void handlePrompt(target, { source: "quick_link" });
+                  return;
                 }
               }}
             />
