@@ -509,3 +509,18 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-aa70e7d.md](../build_/COMMITS/COMMIT-aa70e7d.md)
 - Message: stub porto/internal webpack alias to fix wagmi connector barrel build error
+
+## Commit `fc82cb7` — 2026-04-29T20:48:53Z
+- Type: `push`
+- Brief: [COMMIT-fc82cb7.md](../build_/COMMITS/COMMIT-fc82cb7.md)
+- Message: remix expands inline like Customize banner — no popout dialog
+
+## Commit `c25d66a` — 2026-04-29T20:44:01Z
+- Type: `feat`
+- Brief: [COMMIT-c25d66a.md](../build_/COMMITS/COMMIT-c25d66a.md)
+- Message: add public viewer page for community-generated content
+
+## Commit `516b95d` — 2026-04-29T20:43:04Z
+- Type: `push`
+- Brief: [COMMIT-516b95d.md](../build_/COMMITS/COMMIT-516b95d.md)
+- Message: gate community-content admin endpoints with server-side role check

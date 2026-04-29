@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-04-29T01:04:09.498Z",
+  "last_updated": "2026-04-29T21:45:15.991Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "aa70e7ddc4e4b93e7cf464c64250c71671c36ae6",
-  "latest_commit_short": "aa70e7d",
-  "latest_commit_title": "stub porto/internal webpack alias to fix wagmi connector barrel build error",
+  "latest_commit": "516b95d7ff38b8cf573161d5483b558834150dd0",
+  "latest_commit_short": "516b95d",
+  "latest_commit_title": "gate community-content admin endpoints with server-side role check",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,33 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "516b95d",
+      "full_sha": "516b95d7ff38b8cf573161d5483b558834150dd0",
+      "title": "gate community-content admin endpoints with server-side role check",
+      "author": "Claude",
+      "timestamp": "2026-04-29T20:43:04Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-516b95d.md"
+    },
+    {
+      "sha": "c25d66a",
+      "full_sha": "c25d66abc658e13b580f9dff525e1498a8fdb6c1",
+      "title": "add public viewer page for community-generated content",
+      "author": "Claude",
+      "timestamp": "2026-04-29T20:44:01Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-c25d66a.md"
+    },
+    {
+      "sha": "fc82cb7",
+      "full_sha": "fc82cb789744c104d38217c0af9b284099a60611",
+      "title": "remix expands inline like Customize banner — no popout dialog",
+      "author": "Claude",
+      "timestamp": "2026-04-29T20:48:53Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-fc82cb7.md"
+    },
     {
       "sha": "aa70e7d",
       "full_sha": "aa70e7ddc4e4b93e7cf464c64250c71671c36ae6",
@@ -1225,33 +1252,6 @@
       "timestamp": "2026-03-22T20:26:50Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-c55c196.md"
-    },
-    {
-      "sha": "d344a5c",
-      "full_sha": "d344a5c35e0485fd5c0eadd10e2418aca2567a58",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-22T19:54:07Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-d344a5c.md"
-    },
-    {
-      "sha": "0bbd97a",
-      "full_sha": "0bbd97a80e274e3688736662f3e05c7674f10ae0",
-      "title": "fix video preview: save thumbnail from polling, pass proxy URL when complete, fix badge",
-      "author": "Claude",
-      "timestamp": "2026-03-22T19:54:02Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-0bbd97a.md"
-    },
-    {
-      "sha": "323e7e6",
-      "full_sha": "323e7e65c6137991fec159f1db8d2bf71a8d4e4b",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-22T18:15:59Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-323e7e6.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
