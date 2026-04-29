@@ -217,79 +217,73 @@ async function resolveDidPersona(
   personaId: string,
   callerAuthUserId: string | null
 ): Promise<DidPersonaRecord> {
-  let persona: DidPersonaRecord | null = null;
-
-  // 0. If the caller passed a FIO handle directly (contains '@'), match did_persona by handle
+  // FIO handle fast-path (personaId contains '@')
   if (personaId.includes('@')) {
     const { data } = await supabase
       .from('did_persona')
       .select('id, root_id')
       .ilike('fio_handle', personaId.toLowerCase())
       .maybeSingle();
-    if (data) persona = data as DidPersonaRecord;
+    if (data) return await assertOwnership(supabase, data as DidPersonaRecord, callerAuthUserId);
   }
 
-  // 1. Try did_persona directly
-  if (!persona) {
-    const direct = await supabase
-      .from('did_persona')
-      .select('id, root_id')
-      .eq('id', personaId)
-      .maybeSingle();
-    if (!direct.error && direct.data) persona = direct.data as DidPersonaRecord;
+  // Round 1: fire all first-level lookups in parallel
+  const [directRes, knytRes, qriptoRes, legacyRes] = await Promise.all([
+    supabase.from('did_persona').select('id, root_id').eq('id', personaId).maybeSingle(),
+    supabase.from('nakamoto_knyt_personas').select('did_persona_id').eq('id', personaId).maybeSingle(),
+    supabase.from('nakamoto_qripto_personas').select('did_persona_id').eq('id', personaId).maybeSingle(),
+    supabase.from('personas').select('id, fio_handle').eq('id', personaId).maybeSingle(),
+  ]);
+
+  // Direct did_persona hit
+  if (!directRes.error && directRes.data) {
+    return await assertOwnership(supabase, directRes.data as DidPersonaRecord, callerAuthUserId);
   }
 
-  // 2. Fall back to legacy payload tables — both KNYT and Qripto carry did_persona_id
-  if (!persona) {
-    for (const table of ['nakamoto_knyt_personas', 'nakamoto_qripto_personas'] as const) {
-      const { data, error } = await supabase
-        .from(table)
-        .select('did_persona_id')
-        .eq('id', personaId)
-        .maybeSingle();
-      if (error) continue;
-      const didPersonaId = (data as { did_persona_id?: string } | null)?.did_persona_id;
-      if (!didPersonaId) continue;
-      const { data: didRow } = await supabase
-        .from('did_persona')
-        .select('id, root_id')
-        .eq('id', didPersonaId)
-        .maybeSingle();
-      if (didRow) {
-        persona = didRow as DidPersonaRecord;
-        break;
+  // Round 2: resolve any did_persona_id references in parallel
+  const secondaryIds: string[] = [];
+  const knytDidId = (knytRes.data as { did_persona_id?: string } | null)?.did_persona_id;
+  const qriptoDidId = (qriptoRes.data as { did_persona_id?: string } | null)?.did_persona_id;
+  const fioHandle = (legacyRes.data as { fio_handle?: string } | null)?.fio_handle;
+
+  if (knytDidId) secondaryIds.push(knytDidId);
+  if (qriptoDidId) secondaryIds.push(qriptoDidId);
+
+  const secondaryQueries: Promise<{ data: DidPersonaRecord | null; error: unknown }>[] = [];
+  for (const did of secondaryIds) {
+    secondaryQueries.push(
+      supabase.from('did_persona').select('id, root_id').eq('id', did).maybeSingle() as Promise<{ data: DidPersonaRecord | null; error: unknown }>
+    );
+  }
+  if (fioHandle) {
+    secondaryQueries.push(
+      supabase.from('did_persona').select('id, root_id').ilike('fio_handle', fioHandle.toLowerCase()).maybeSingle() as Promise<{ data: DidPersonaRecord | null; error: unknown }>
+    );
+  }
+
+  if (secondaryQueries.length > 0) {
+    const secondaryResults = await Promise.all(secondaryQueries);
+    for (const res of secondaryResults) {
+      if (!res.error && res.data) {
+        return await assertOwnership(supabase, res.data, callerAuthUserId);
       }
     }
   }
 
-  // 3. Fall back to legacy `personas` table — bridge by fio_handle to did_persona
-  if (!persona) {
-    const { data: legacyRow } = await supabase
-      .from('personas')
-      .select('id, fio_handle')
-      .eq('id', personaId)
-      .maybeSingle();
-    const fioHandle = (legacyRow as { fio_handle?: string } | null)?.fio_handle;
-    if (fioHandle) {
-      const { data: didRow } = await supabase
-        .from('did_persona')
-        .select('id, root_id')
-        .ilike('fio_handle', fioHandle.toLowerCase())
-        .maybeSingle();
-      if (didRow) persona = didRow as DidPersonaRecord;
-    }
-  }
+  throw new Error(
+    'No did_persona found for this persona id. Bind a Root DID to this persona first.'
+  );
+}
 
-  if (!persona) {
-    throw new Error(
-      'No did_persona found for this persona id. Bind a Root DID to this persona first.'
-    );
-  }
-
+async function assertOwnership(
+  supabase: SupabaseClient,
+  persona: DidPersonaRecord,
+  callerAuthUserId: string | null
+): Promise<DidPersonaRecord> {
   if (callerAuthUserId && persona.root_id) {
     const { data: root } = await supabase
       .from('root_identity')
-      .select('id, auth_user_id')
+      .select('auth_user_id')
       .eq('id', persona.root_id)
       .maybeSingle();
     if (root && root.auth_user_id && root.auth_user_id !== callerAuthUserId) {
