@@ -489,11 +489,12 @@ function GNSkuDetail({
         <CartButton
           label={`Buy ${sku.label}`}
           onClick={(e) => { e.stopPropagation(); onBuy({
-            contentType: isPrint ? 'scroll_still' : 'scroll_still',
+            contentType: 'scroll_still',
             contentId: `gn-${sku.id}`,
             contentTitle: `metaKnyt GN — ${sku.label}`,
             contentImage: thumbUrl,
             priceUsdOverride: sku.price,
+            hideVersionSelector: true,
           }); }}
           className="w-full justify-center"
         />
@@ -521,7 +522,7 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
+      {/* Header with inline format selector */}
       <div className="flex-shrink-0 border-b border-slate-800/60 bg-slate-900/40 px-4 py-2 flex items-center gap-2">
         {view.kind !== 'list' && (
           <button
@@ -533,26 +534,24 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
           </button>
         )}
         <Film className="h-4 w-4 text-teal-400 shrink-0" />
-        <span className="text-sm font-semibold text-slate-200">{headerLabel}</span>
-      </div>
-
-      {/* Modality selector — affects digital/Qripto price shown in list + detail */}
-      <div className="flex-shrink-0 border-b border-slate-800/40 bg-slate-900/20 px-3 py-1.5 flex items-center gap-1">
-        <span className="text-[10px] text-slate-500 mr-1">Format:</span>
-        {(['still', 'motion', 'bundle'] as Modality[]).map((m) => (
-          <button
-            key={m}
-            type="button"
-            onClick={() => setModality(m)}
-            className={`px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors capitalize ${
-              modality === m
-                ? 'bg-teal-500/20 border border-teal-500/30 text-teal-300'
-                : 'text-slate-400 hover:text-slate-300 border border-transparent'
-            }`}
-          >
-            {m === 'bundle' ? 'Still + Motion' : m.charAt(0).toUpperCase() + m.slice(1)}
-          </button>
-        ))}
+        <span className="text-sm font-semibold text-slate-200 flex-1 min-w-0 truncate">{headerLabel}</span>
+        <div className="flex items-center gap-0.5 flex-shrink-0">
+          <span className="text-[9px] text-slate-500 mr-0.5">Format:</span>
+          {(['still', 'motion', 'bundle'] as Modality[]).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setModality(m)}
+              className={`px-1.5 py-0.5 rounded text-[9px] font-medium transition-colors ${
+                modality === m
+                  ? 'bg-teal-500/20 border border-teal-500/30 text-teal-300'
+                  : 'text-slate-400 hover:text-slate-300 border border-transparent'
+              }`}
+            >
+              {m === 'bundle' ? 'S+M' : m === 'still' ? 'Still' : 'Motion'}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto">
@@ -578,6 +577,7 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
                         contentTitle: `metaKnyt GN — ${sku.label}`,
                         contentImage: thumb,
                         priceUsdOverride: sku.price,
+                        hideVersionSelector: true,
                       })}
                     />
                   );

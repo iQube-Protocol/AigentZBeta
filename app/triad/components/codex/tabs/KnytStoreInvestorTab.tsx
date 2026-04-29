@@ -59,9 +59,19 @@ function InvestorBundleCard({
       <button type="button" onClick={onClick} className="w-full text-left">
         <div className="relative w-full aspect-[2/3] bg-slate-950 overflow-hidden">
           <img src={INVESTOR_SEAL} alt={bundle.label} className="w-full h-full object-contain" loading="lazy" />
-          <div className="absolute top-1 left-1 rounded border border-yellow-700/40 bg-yellow-900/70 px-1 py-0.5 text-[9px] font-bold text-yellow-300">
-            INV
-          </div>
+          {bundle.badgeTier === 'qripto' ? (
+            <div className="absolute top-1 left-1 rounded border border-purple-700/40 bg-purple-900/70 px-1 py-0.5 text-[9px] font-bold text-purple-300">
+              Qripto
+            </div>
+          ) : bundle.badgeTier === 'digital' ? (
+            <div className="absolute top-1 left-1 rounded border border-sky-700/40 bg-sky-900/70 px-1 py-0.5 text-[9px] font-bold text-sky-300">
+              Digital
+            </div>
+          ) : (
+            <div className="absolute top-1 left-1 rounded border border-yellow-700/40 bg-yellow-900/70 px-1 py-0.5 text-[9px] font-bold text-yellow-300">
+              INV
+            </div>
+          )}
           {bundle.isLimited && bundle.limitedSupply && (
             <div className="absolute top-1 right-1 rounded border border-red-700/40 bg-red-900/70 px-1 py-0.5 text-[9px] font-bold text-red-300">
               {bundle.limitedSupply} left
@@ -123,6 +133,16 @@ function InvestorBundleDetail({
             </div>
             <p className="text-sm font-bold text-white">{bundle.label}</p>
             <div className="flex flex-wrap gap-1 mt-1">
+              {bundle.badgeTier === 'qripto' && (
+                <span className="rounded-full bg-purple-900/40 border border-purple-700/40 px-1.5 py-0.5 text-[9px] font-semibold text-purple-400">
+                  Qripto Edition
+                </span>
+              )}
+              {bundle.badgeTier === 'digital' && (
+                <span className="rounded-full bg-sky-900/40 border border-sky-700/40 px-1.5 py-0.5 text-[9px] font-semibold text-sky-400">
+                  Digital Edition
+                </span>
+              )}
               {bundle.isLimited && bundle.limitedSupply && (
                 <span className="rounded-full bg-red-900/40 border border-red-700/40 px-1.5 py-0.5 text-[9px] font-semibold text-red-400">
                   Limited {bundle.limitedSupply}

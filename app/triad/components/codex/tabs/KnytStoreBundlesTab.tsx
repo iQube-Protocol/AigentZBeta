@@ -135,7 +135,17 @@ function BundleGridCard({
           <div className="absolute top-1 right-1 rounded border border-teal-700/40 bg-teal-900/70 px-1 py-0.5 text-[9px] font-bold text-teal-300">
             {bundle.episodes.length} eps
           </div>
-          {isInvestor && (
+          {bundle.badgeTier === 'qripto' && (
+            <div className="absolute top-1 left-1 rounded border border-purple-700/40 bg-purple-900/70 px-1 py-0.5 text-[9px] font-bold text-purple-300">
+              Qripto
+            </div>
+          )}
+          {bundle.badgeTier === 'digital' && (
+            <div className="absolute top-1 left-1 rounded border border-sky-700/40 bg-sky-900/70 px-1 py-0.5 text-[9px] font-bold text-sky-300">
+              Digital
+            </div>
+          )}
+          {!bundle.badgeTier && isInvestor && (
             <div className="absolute top-1 left-1 rounded border border-yellow-700/40 bg-yellow-900/70 px-1 py-0.5 text-[9px] font-bold text-yellow-300">
               INV
             </div>
@@ -257,6 +267,16 @@ function BundleDetail({
             </p>
             <p className="text-sm font-bold text-white">{bundle.label}</p>
             <div className="flex flex-wrap gap-1 mt-1">
+              {bundle.badgeTier === 'qripto' && (
+                <span className="rounded-full bg-purple-900/40 border border-purple-700/40 px-1.5 py-0.5 text-[9px] font-semibold text-purple-400">
+                  Qripto Edition
+                </span>
+              )}
+              {bundle.badgeTier === 'digital' && (
+                <span className="rounded-full bg-sky-900/40 border border-sky-700/40 px-1.5 py-0.5 text-[9px] font-semibold text-sky-400">
+                  Digital Edition
+                </span>
+              )}
               {bundle.isFullSeason && (
                 <span className="rounded-full bg-teal-900/40 border border-teal-700/40 px-1.5 py-0.5 text-[9px] font-semibold text-teal-400">
                   Full Season

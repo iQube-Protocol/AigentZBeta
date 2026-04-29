@@ -236,17 +236,28 @@ export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
   }
 
   function openPurchase(epNum: number, v: CardVariant) {
-    const isMotion = v === 'motion';
-    const isBundle = v === 'bundle';
-    setPurchase({
-      contentType:            isBundle ? 'character_card' : isMotion ? 'character_card_motion' : 'character_card',
-      contentId:              `character-card-${epNum}-${v}`,
-      contentTitle:           `${getTitle(epNum) ?? `Character #${epNum}`} — ${VARIANT_LABELS[v].short}`,
-      contentImage:           getCharacterThumb(epNum),
-      priceUsdOverride:       CARD_PRICES[v],
-      stillPriceKnytOverride: CARD_KNYT_PRICES.still,
-      motionPriceKnytOverride: CARD_KNYT_PRICES.motion,
-    });
+    const title = getTitle(epNum) ?? `Character #${epNum}`;
+    const image = getCharacterThumb(epNum);
+    if (v === 'bundle') {
+      setPurchase({
+        contentType:            'bundle_3_still',  // triggers "Bundle includes both Still & Motion" badge
+        contentId:              `character-card-${epNum}-bundle`,
+        contentTitle:           `${title} — Still + Motion`,
+        contentImage:           image,
+        priceUsdOverride:       CARD_PRICES.bundle,
+        stillPriceKnytOverride: CARD_KNYT_PRICES.bundle, // 5 KNYT combined
+      });
+    } else {
+      setPurchase({
+        contentType:             v === 'motion' ? 'character_card_motion' : 'character_card',
+        contentId:               `character-card-${epNum}-${v}`,
+        contentTitle:            `${title} — ${VARIANT_LABELS[v].short}`,
+        contentImage:            image,
+        priceUsdOverride:        CARD_PRICES[v],
+        stillPriceKnytOverride:  CARD_KNYT_PRICES.still,
+        motionPriceKnytOverride: CARD_KNYT_PRICES.motion,
+      });
+    }
   }
 
   return (
@@ -262,31 +273,29 @@ export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
           </button>
         )}
         <User className="h-4 w-4 text-cyan-400 shrink-0" />
-        <span className="text-sm font-semibold text-slate-200">
+        <span className="text-sm font-semibold text-slate-200 flex-1 min-w-0 truncate">
           {view.kind === 'landing'
             ? 'KNYT Character Cards'
             : (getTitle(view.epNum) ?? `Character #${view.epNum}`)}
         </span>
-      </div>
-
-      {/* Variant selector */}
-      <div className="flex-shrink-0 border-b border-slate-800/40 bg-slate-900/20 px-3 py-1.5 flex items-center gap-1">
-        <span className="text-[10px] text-slate-500 mr-1">Format:</span>
-        {(['still', 'motion', 'bundle'] as CardVariant[]).map((v) => (
-          <button
-            key={v}
-            type="button"
-            onClick={() => setVariant(v)}
-            className={`px-2.5 py-1 rounded-lg text-[10px] font-medium transition-colors ${
-              variant === v
-                ? 'bg-teal-500/20 border border-teal-500/30 text-teal-300'
-                : 'text-slate-400 hover:text-slate-300 border border-transparent'
-            }`}
-          >
-            {VARIANT_LABELS[v].short}
-          </button>
-        ))}
-        <span className="ml-auto text-[10px] text-slate-500">{CARD_KNYT_PRICES[variant]} KNYT / card</span>
+        <div className="flex items-center gap-0.5 flex-shrink-0">
+          <span className="text-[9px] text-slate-500 mr-0.5">Format:</span>
+          {(['still', 'motion', 'bundle'] as CardVariant[]).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setVariant(v)}
+              className={`px-1.5 py-0.5 rounded text-[9px] font-medium transition-colors ${
+                variant === v
+                  ? 'bg-teal-500/20 border border-teal-500/30 text-teal-300'
+                  : 'text-slate-400 hover:text-slate-300 border border-transparent'
+              }`}
+            >
+              {v === 'bundle' ? 'S+M' : v === 'still' ? 'Still' : 'Motion'}
+            </button>
+          ))}
+          <span className="text-[9px] text-slate-500 ml-1">{CARD_KNYT_PRICES[variant]} KNYT</span>
+        </div>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto">
