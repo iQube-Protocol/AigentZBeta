@@ -71,6 +71,7 @@ import { KnytStoreAdminTab } from "./tabs/KnytStoreAdminTab";
 import { KnytTreasuryAdminTab } from "./tabs/KnytTreasuryAdminTab";
 import { KnytShelfTab } from "./tabs/KnytShelfTab";
 import { KnytCommunityContentTab } from "./tabs/KnytCommunityContentTab";
+import { KnytCommunityContentAdminTab } from "./tabs/KnytCommunityContentAdminTab";
 import { AigentMissionsBoardTab } from "./tabs/AigentMissionsBoardTab";
 import { AigentCOSTab } from "./tabs/AigentCOSTab";
 import { DevPersonaTab } from "./tabs/DevPersonaTab";
@@ -152,6 +153,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   KnytStoreAdminTab,
   KnytTreasuryAdminTab,
   KnytCommunityContentTab,
+  KnytCommunityContentAdminTab,
   KnytShelfTab,
   AigentMissionsBoardTab,
   AigentCOSTab,
