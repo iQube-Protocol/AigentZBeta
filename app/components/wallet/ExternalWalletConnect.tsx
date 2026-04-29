@@ -23,6 +23,7 @@ import {
   ExternalLink,
   Loader2,
   LogOut,
+  RefreshCw,
   Send,
   Wallet,
   Zap,
@@ -99,18 +100,22 @@ function parseUnits18(amount: string): bigint {
 
 // Reads consolidated $KNYT balance (both contracts) via server-side proxy.
 // Direct browser RPC calls to eth.llamarpc.com are blocked by CORS.
-async function readKnytBalance(address: string): Promise<string | null> {
-  try {
-    const res = await fetch(`/api/wallet/knyt/evm-balance?address=${encodeURIComponent(address)}`);
-    if (!res.ok) return null;
-    const json = await res.json() as { balance?: string; balances?: Array<{ balanceFormatted?: string }> };
-    // Route returns either { balance } (new) or { balances: [...] } (legacy format)
-    if (json.balance != null) return json.balance;
-    if (json.balances?.length) return json.balances[0]?.balanceFormatted ?? '0';
-    return '0';
-  } catch {
-    return null;
-  }
+// Returns the formatted balance string, or throws so the caller can surface an error.
+async function readKnytBalance(address: string): Promise<string> {
+  const res = await fetch(`/api/wallet/knyt/evm-balance?address=${encodeURIComponent(address)}`);
+  if (!res.ok) throw new Error(`Balance API ${res.status}`);
+  // Response: { address, balances: [{ balanceFormatted: "1.2345", ... }] }
+  const json = await res.json() as {
+    balances?: Array<{ balanceFormatted?: string }>;
+    balance?: { balanceFormatted?: string }; // chainId variant
+    error?: string;
+  };
+  if (json.error) throw new Error(json.error);
+  const formatted =
+    json.balances?.[0]?.balanceFormatted ??
+    json.balance?.balanceFormatted ??
+    '0';
+  return formatted;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -134,6 +139,7 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
   const [walletName, setWalletName] = useState<string>('');
   const [knytBalance, setKnytBalance] = useState<string | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
+  const [balanceError, setBalanceError] = useState<string | null>(null);
   const [connectingId, setConnectingId] = useState<string | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
   const [wallets, setWallets] = useState<WalletEntry[]>([]);
@@ -181,9 +187,16 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
 
   const fetchBalance = useCallback(async (addr: string) => {
     setBalanceLoading(true);
-    const bal = await readKnytBalance(addr);
-    setKnytBalance(bal);
-    setBalanceLoading(false);
+    setBalanceError(null);
+    try {
+      const bal = await readKnytBalance(addr);
+      setKnytBalance(bal);
+    } catch (err) {
+      setBalanceError(err instanceof Error ? err.message : 'Balance unavailable');
+      setKnytBalance(null);
+    } finally {
+      setBalanceLoading(false);
+    }
   }, []);
 
   // Attach event listeners to the selected provider and initialise state
@@ -491,17 +504,33 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
 
       {/* KNYT balance — consolidated from both contracts */}
       {!wrongChain && (
-        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Coins className="h-4 w-4 text-amber-400" />
-            <div>
-              <span className="text-xs text-white/60">EVM $KNYT (Ethereum)</span>
-              <p className="text-[9px] text-white/30">Consolidated — 2 contracts</p>
+        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 space-y-1">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Coins className="h-4 w-4 text-amber-400" />
+              <div>
+                <span className="text-xs text-white/60">EVM $KNYT (Ethereum)</span>
+                <p className="text-[9px] text-white/30">Consolidated — 2 contracts</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {balanceLoading
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin text-white/40" />
+                : <span className="text-sm font-semibold text-amber-300">{knytBalance ?? '—'} $KNYT</span>}
+              <button
+                type="button"
+                onClick={() => address && fetchBalance(address)}
+                disabled={balanceLoading}
+                title="Refresh balance"
+                className="rounded p-1 text-white/30 hover:text-white/60 hover:bg-white/10 transition disabled:opacity-30"
+              >
+                <RefreshCw className="h-3 w-3" />
+              </button>
             </div>
           </div>
-          {balanceLoading
-            ? <Loader2 className="h-3.5 w-3.5 animate-spin text-white/40" />
-            : <span className="text-sm font-semibold text-amber-300">{knytBalance ?? '—'} $KNYT</span>}
+          {balanceError && (
+            <p className="text-[10px] text-red-400/70">{balanceError}</p>
+          )}
         </div>
       )}
 
