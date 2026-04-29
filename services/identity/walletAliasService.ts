@@ -184,6 +184,10 @@ export function buildOwnershipChallenge(
  * Register the alias commitment on the Escrow ICP canister. No-op when
  * ESCROW_CANISTER_ID is unset (returns { ok:false, skipped:true }) so the
  * service can run in environments where the canister isn't yet wired.
+ *
+ * Hard 4s timeout — ICP gateway latency can be unpredictable on a cold Lambda.
+ * The DB insert happens before this call, so a slow/hanging canister never
+ * blocks the success response.
  */
 async function registerOnEscrow(
   aliasCommitmentHex: string,
@@ -192,17 +196,26 @@ async function registerOnEscrow(
 ): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
   const canisterId = escrowCanisterId();
   if (!canisterId) return { ok: false, skipped: true, error: 'Escrow canister not configured' };
-  try {
-    const { getActor } = await import('@/services/ops/icAgent');
-    const { escrowIDL } = await import('@/services/ops/idl/escrow');
-    const actor: any = await getActor(canisterId, escrowIDL);
-    const commitment = Buffer.from(aliasCommitmentHex, 'hex');
-    const mailbox = Buffer.from(mailboxIdHex, 'hex');
-    await actor.register_alias(commitment, mailbox, ttlSeconds);
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'Escrow register failed' };
-  }
+
+  const escrowCall = (async () => {
+    try {
+      const { getActor } = await import('@/services/ops/icAgent');
+      const { escrowIDL } = await import('@/services/ops/idl/escrow');
+      const actor: any = await getActor(canisterId, escrowIDL);
+      const commitment = Buffer.from(aliasCommitmentHex, 'hex');
+      const mailbox = Buffer.from(mailboxIdHex, 'hex');
+      await actor.register_alias(commitment, mailbox, ttlSeconds);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : 'Escrow register failed' };
+    }
+  })();
+
+  const escrowTimeout = new Promise<{ ok: boolean; skipped: boolean; error: string }>((resolve) =>
+    setTimeout(() => resolve({ ok: false, skipped: true, error: 'Escrow registration timed out' }), 4_000)
+  );
+
+  return Promise.race([escrowCall, escrowTimeout]);
 }
 
 // ─── Persona resolution ─────────────────────────────────────────────────────
@@ -227,12 +240,14 @@ async function resolveDidPersona(
     if (data) return await assertOwnership(supabase, data as DidPersonaRecord, callerAuthUserId);
   }
 
-  // Round 1: fire all first-level lookups in parallel
+  // Single parallel round — embedded FK joins pull did_persona inline so we
+  // never need a second round trip for KNYT / Qripto personas.
+  type EmbeddedDidPersona = { id: string; root_id: string | null } | null;
   const [directRes, knytRes, qriptoRes, legacyRes] = await Promise.all([
     supabase.from('did_persona').select('id, root_id').eq('id', personaId).maybeSingle(),
-    supabase.from('nakamoto_knyt_personas').select('did_persona_id').eq('id', personaId).maybeSingle(),
-    supabase.from('nakamoto_qripto_personas').select('did_persona_id').eq('id', personaId).maybeSingle(),
-    supabase.from('personas').select('id, fio_handle').eq('id', personaId).maybeSingle(),
+    supabase.from('nakamoto_knyt_personas').select('did_persona_id, did_persona(id, root_id)').eq('id', personaId).maybeSingle(),
+    supabase.from('nakamoto_qripto_personas').select('did_persona_id, did_persona(id, root_id)').eq('id', personaId).maybeSingle(),
+    supabase.from('personas').select('fio_handle').eq('id', personaId).maybeSingle(),
   ]);
 
   // Direct did_persona hit
@@ -240,34 +255,27 @@ async function resolveDidPersona(
     return await assertOwnership(supabase, directRes.data as DidPersonaRecord, callerAuthUserId);
   }
 
-  // Round 2: resolve any did_persona_id references in parallel
-  const secondaryIds: string[] = [];
-  const knytDidId = (knytRes.data as { did_persona_id?: string } | null)?.did_persona_id;
-  const qriptoDidId = (qriptoRes.data as { did_persona_id?: string } | null)?.did_persona_id;
+  // KNYT persona → embedded did_persona
+  const knytRow = knytRes.data as { did_persona_id?: string; did_persona?: EmbeddedDidPersona } | null;
+  if (knytRow?.did_persona) {
+    return await assertOwnership(supabase, knytRow.did_persona, callerAuthUserId);
+  }
+
+  // Qripto persona → embedded did_persona
+  const qriptoRow = qriptoRes.data as { did_persona_id?: string; did_persona?: EmbeddedDidPersona } | null;
+  if (qriptoRow?.did_persona) {
+    return await assertOwnership(supabase, qriptoRow.did_persona, callerAuthUserId);
+  }
+
+  // Legacy persona via fio_handle (1 extra round trip — rare path)
   const fioHandle = (legacyRes.data as { fio_handle?: string } | null)?.fio_handle;
-
-  if (knytDidId) secondaryIds.push(knytDidId);
-  if (qriptoDidId) secondaryIds.push(qriptoDidId);
-
-  const secondaryQueries: Promise<{ data: DidPersonaRecord | null; error: unknown }>[] = [];
-  for (const did of secondaryIds) {
-    secondaryQueries.push(
-      supabase.from('did_persona').select('id, root_id').eq('id', did).maybeSingle() as Promise<{ data: DidPersonaRecord | null; error: unknown }>
-    );
-  }
   if (fioHandle) {
-    secondaryQueries.push(
-      supabase.from('did_persona').select('id, root_id').ilike('fio_handle', fioHandle.toLowerCase()).maybeSingle() as Promise<{ data: DidPersonaRecord | null; error: unknown }>
-    );
-  }
-
-  if (secondaryQueries.length > 0) {
-    const secondaryResults = await Promise.all(secondaryQueries);
-    for (const res of secondaryResults) {
-      if (!res.error && res.data) {
-        return await assertOwnership(supabase, res.data, callerAuthUserId);
-      }
-    }
+    const { data: fioPersona } = await supabase
+      .from('did_persona')
+      .select('id, root_id')
+      .ilike('fio_handle', fioHandle.toLowerCase())
+      .maybeSingle();
+    if (fioPersona) return await assertOwnership(supabase, fioPersona as DidPersonaRecord, callerAuthUserId);
   }
 
   throw new Error(
@@ -346,10 +354,8 @@ export async function registerWalletAlias(
   const expiresAtISO = new Date(Date.now() + ttlDays * 86_400_000).toISOString();
   const mailboxId = generateMailboxId();
 
-  // Best-effort Escrow registration — failures don't roll back the DB row;
-  // status remains 'active' and a sweep can re-attempt. Surfaced in response.
-  await registerOnEscrow(aliasCommitment, mailboxId, ttlDays * 86_400);
-
+  // DB insert first — success is determined by the row landing in the DB.
+  // Escrow registration is best-effort and runs after we have the row id.
   const { data, error } = await supabase
     .from('wallet_alias_commitments')
     .insert({
@@ -371,6 +377,10 @@ export async function registerWalletAlias(
     }
     throw new Error(error.message);
   }
+
+  // Best-effort ICP registration — 4s hard timeout. Failures don't affect the
+  // DB row; a sweep can re-attempt. Canister ID not set → silently skipped.
+  await registerOnEscrow(aliasCommitment, mailboxId, ttlDays * 86_400);
 
   return {
     ok: true,
