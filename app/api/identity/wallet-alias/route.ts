@@ -9,6 +9,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { listWalletAliases } from '@/services/identity/walletAliasService';
 import { getCallerAuthUserId } from './_lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
