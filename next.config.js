@@ -58,10 +58,13 @@ const nextConfig = {
       "packages/metame-contracts/src/index.ts"
     );
 
-    // Stub wagmi's porto connector — we don't use it and 'porto' package isn't installed.
-    // @wagmi/connectors barrel-imports it, causing a build error when porto/internal is missing.
+    // Stub wagmi connector peer deps that aren't installed — the connectors barrel
+    // imports all connectors unconditionally; stubs prevent build failure for ones we don't use.
     config.resolve.alias["porto/internal"] = false;
     config.resolve.alias["porto"] = false;
+    config.resolve.alias["@metamask/connect-evm"] = false;
+    config.resolve.alias["@walletconnect/ethereum-provider"] = false;
+    config.resolve.alias["accounts"] = false;
 
     // Make pdf-parse and canvas external on server to prevent native binary bundling
     if (isServer) {

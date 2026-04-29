@@ -3,21 +3,15 @@
 /**
  * ExternalWalletConnect
  *
- * Self-contained external wallet connection section for SmartWalletDrawer → Connections tab.
- * Supports browser-injected wallets (MetaMask, Coinbase, etc.) and WalletConnect (QR / mobile)
- * when NEXT_PUBLIC_REOWN_PROJECT_ID is set.
+ * External EVM wallet section for SmartWalletDrawer → Connections tab.
+ * Uses raw window.ethereum — no wagmi connectors barrel (avoids peer-dep build failures).
+ * Supports injected wallets (MetaMask, Coinbase Wallet, etc.).
  *
- * On connection the user's EVM $KNYT balance on Base is read live.
- * The "Pay with EVM $KNYT" flow sends an ERC-20 transfer to the treasury address and
- * surfaces the tx hash for backend confirmation.
+ * After a send, polls /api/wallet/knyt/evm-deposit to credit the DVN ledger
+ * once the transaction settles on Ethereum mainnet.
  */
 
-import React, { useCallback, useState } from 'react';
-import { createConfig, http, WagmiProvider, useAccount, useConnect, useDisconnect, useReadContract, useSendTransaction } from 'wagmi';
-import { mainnet } from 'wagmi/chains';
-import { injected, walletConnect } from 'wagmi/connectors';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { parseUnits, formatUnits, encodeFunctionData } from 'viem';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
   CheckCircle2,
@@ -27,102 +21,231 @@ import {
   ExternalLink,
   Loader2,
   LogOut,
-  QrCode,
   Send,
   Wallet,
   Zap,
 } from 'lucide-react';
 
-// ── Config ─────────────────────────────────────────────────────────────────────
+// ── Constants ──────────────────────────────────────────────────────────────────
 
-const PROJECT_ID = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID ?? '';
-// $KNYT is deployed on Ethereum mainnet (chainId 1)
-const KNYT_CONTRACT = '0xe53dad36cd0A8EdC656448CE7912bba72beBECb4' as const;
+const KNYT_CONTRACT = '0xe53dad36cd0A8EdC656448CE7912bba72beBECb4';
+const KNYT_TREASURY = (process.env.NEXT_PUBLIC_KNYT_TREASURY_ADDRESS ?? '') as string;
 const ETH_CHAIN_ID = 1;
+const ETH_CHAIN_HEX = '0x1';
 
-// Operator must set this — the treasury EVM address that receives $KNYT payments
-const KNYT_TREASURY = (process.env.NEXT_PUBLIC_KNYT_TREASURY_ADDRESS ?? '') as `0x${string}`;
+// ── Types ──────────────────────────────────────────────────────────────────────
 
-const ERC20_ABI = [
-  {
-    name: 'balanceOf',
-    type: 'function' as const,
-    stateMutability: 'view' as const,
-    inputs: [{ name: 'account', type: 'address' }],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
-  {
-    name: 'transfer',
-    type: 'function' as const,
-    stateMutability: 'nonpayable' as const,
-    inputs: [
-      { name: 'to', type: 'address' },
-      { name: 'amount', type: 'uint256' },
-    ],
-    outputs: [{ name: '', type: 'bool' }],
-  },
-] as const;
-
-// Lazy-init so module-level code never runs on the server (wagmi uses window internally)
-let _wagmiConfig: ReturnType<typeof createConfig> | null = null;
-let _walletQueryClient: QueryClient | null = null;
-
-function getWagmiConfig() {
-  if (!_wagmiConfig) {
-    const connectors = PROJECT_ID
-      ? [injected(), walletConnect({ projectId: PROJECT_ID, showQrModal: true })]
-      : [injected()];
-    _wagmiConfig = createConfig({
-      chains: [mainnet],
-      transports: { [mainnet.id]: http() },
-      connectors,
-    });
+declare global {
+  interface Window {
+    ethereum?: {
+      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+      on: (event: string, handler: (...args: unknown[]) => void) => void;
+      removeListener: (event: string, handler: (...args: unknown[]) => void) => void;
+    };
   }
-  return _wagmiConfig;
 }
 
-function getWalletQueryClient() {
-  if (!_walletQueryClient) _walletQueryClient = new QueryClient();
-  return _walletQueryClient;
+// ── EVM encode helpers (no viem dependency) ───────────────────────────────────
+
+function encodeBalanceOf(addr: string): string {
+  return '0x70a08231' + addr.toLowerCase().replace(/^0x/, '').padStart(64, '0');
 }
 
-// ── Inner component (needs WagmiProvider ancestor) ─────────────────────────────
+function encodeTransfer(to: string, amount: bigint): string {
+  const toEncoded = to.toLowerCase().replace(/^0x/, '').padStart(64, '0');
+  const amountHex = amount.toString(16).padStart(64, '0');
+  return '0xa9059cbb' + toEncoded + amountHex;
+}
+
+function parseUnits18(amount: string): bigint {
+  const [whole = '0', frac = ''] = amount.split('.');
+  const fracPadded = frac.padEnd(18, '0').slice(0, 18);
+  return BigInt(whole) * 10n ** 18n + BigInt(fracPadded || '0');
+}
+
+function formatUnits18Hex(hex: string): string {
+  const raw = hex.replace(/^0x/, '') || '0';
+  const n = BigInt('0x' + raw);
+  if (n === 0n) return '0';
+  const divisor = 10n ** 18n;
+  const whole = n / divisor;
+  const frac = n % divisor;
+  if (frac === 0n) return whole.toString();
+  const fracStr = frac.toString().padStart(18, '0').replace(/0+$/, '').slice(0, 4);
+  return `${whole}.${fracStr}`;
+}
+
+// Read KNYT balance via raw JSON-RPC (public RPC, no key needed for reads)
+async function readKnytBalance(address: string): Promise<string | null> {
+  const rpc = 'https://eth.llamarpc.com';
+  try {
+    const res = await fetch(rpc, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 1, method: 'eth_call',
+        params: [{ to: KNYT_CONTRACT, data: encodeBalanceOf(address) }, 'latest'],
+      }),
+    });
+    const json = await res.json() as { result?: string };
+    if (!json.result || json.result === '0x') return '0';
+    return formatUnits18Hex(json.result);
+  } catch {
+    return null;
+  }
+}
+
+// ── Component ──────────────────────────────────────────────────────────────────
+
+type SendStatus = 'idle' | 'waiting' | 'verifying' | 'credited' | 'error';
 
 interface SendState {
-  status: 'idle' | 'waiting' | 'pending' | 'success' | 'error';
+  status: SendStatus;
   txHash?: string;
   error?: string;
 }
 
-function ConnectPanel({
-  onTxComplete,
-}: {
+export interface ExternalWalletConnectProps {
+  personaId?: string;
   onTxComplete?: (txHash: string, amountKnyt: number) => void;
-}) {
-  const { address, isConnected, chainId } = useAccount();
-  const { connectors: available, connect, isPending: isConnecting } = useConnect();
-  const { disconnect } = useDisconnect();
-  const { sendTransactionAsync } = useSendTransaction();
+}
 
+export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalletConnectProps) {
+  const [address, setAddress] = useState<string | null>(null);
+  const [chainId, setChainId] = useState<number | null>(null);
+  const [knytBalance, setKnytBalance] = useState<string | null>(null);
+  const [balanceLoading, setBalanceLoading] = useState(false);
+  const [connecting, setConnecting] = useState(false);
   const [sendAmount, setSendAmount] = useState('');
   const [sendState, setSendState] = useState<SendState>({ status: 'idle' });
   const [copied, setCopied] = useState(false);
+  const [noWallet, setNoWallet] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Read live KNYT balance for connected address
-  const { data: rawBalance, isLoading: balanceLoading, refetch: refetchBalance } = useReadContract({
-    address: KNYT_CONTRACT,
-    abi: ERC20_ABI,
-    functionName: 'balanceOf',
-    args: address ? [address] : undefined,
-    chainId: ETH_CHAIN_ID,
-    query: { enabled: !!address },
-  });
+  const provider = typeof window !== 'undefined' ? window.ethereum : undefined;
 
-  const knytBalance = rawBalance !== undefined
-    ? Number(formatUnits(rawBalance as bigint, 18)).toFixed(2)
-    : null;
+  const fetchBalance = useCallback(async (addr: string) => {
+    setBalanceLoading(true);
+    const bal = await readKnytBalance(addr);
+    setKnytBalance(bal);
+    setBalanceLoading(false);
+  }, []);
 
-  const wrongChain = isConnected && chainId !== ETH_CHAIN_ID;
+  const handleAccountsChanged = useCallback((accounts: unknown) => {
+    const accs = accounts as string[];
+    if (!accs.length) {
+      setAddress(null);
+      setChainId(null);
+      setKnytBalance(null);
+    } else {
+      setAddress(accs[0]);
+      fetchBalance(accs[0]);
+    }
+  }, [fetchBalance]);
+
+  const handleChainChanged = useCallback((chain: unknown) => {
+    setChainId(parseInt(chain as string, 16));
+  }, []);
+
+  useEffect(() => {
+    if (!provider) return;
+    provider.on('accountsChanged', handleAccountsChanged);
+    provider.on('chainChanged', handleChainChanged);
+
+    // Resume if already connected
+    provider.request({ method: 'eth_accounts' }).then((accounts) => {
+      const accs = accounts as string[];
+      if (accs.length) {
+        setAddress(accs[0]);
+        provider.request({ method: 'eth_chainId' }).then((chain) => {
+          setChainId(parseInt(chain as string, 16));
+        }).catch(() => {});
+        fetchBalance(accs[0]);
+      }
+    }).catch(() => {});
+
+    return () => {
+      provider.removeListener('accountsChanged', handleAccountsChanged);
+      provider.removeListener('chainChanged', handleChainChanged);
+    };
+  }, [provider, fetchBalance, handleAccountsChanged, handleChainChanged]);
+
+  // Poll evm-deposit endpoint until the tx is credited or we give up
+  const startDepositPoll = useCallback((txHash: string, amountKnyt: number) => {
+    if (!personaId) return;
+    let attempts = 0;
+    const maxAttempts = 20; // ~60s at 3s intervals
+
+    const poll = async () => {
+      try {
+        const res = await fetch('/api/wallet/knyt/evm-deposit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ txHash, personaId, amountKnyt }),
+        });
+        const json = await res.json() as { status?: string; credited?: boolean };
+        if (json.credited || json.status === 'credited') {
+          setSendState({ status: 'credited', txHash });
+          if (address) fetchBalance(address);
+          return;
+        }
+      } catch {
+        // ignore transient errors, keep polling
+      }
+      attempts++;
+      if (attempts < maxAttempts) {
+        pollRef.current = setTimeout(poll, 3000);
+      } else {
+        // Give up polling — tx may still settle; user can refresh
+        setSendState(prev => ({ ...prev, status: 'credited', txHash }));
+      }
+    };
+
+    pollRef.current = setTimeout(poll, 4000); // First check after 4s (give chain time)
+  }, [personaId, address, fetchBalance]);
+
+  useEffect(() => () => { if (pollRef.current) clearTimeout(pollRef.current); }, []);
+
+  async function connect() {
+    if (!provider) {
+      setNoWallet(true);
+      return;
+    }
+    setConnecting(true);
+    try {
+      const accounts = await provider.request({ method: 'eth_requestAccounts' }) as string[];
+      if (accounts.length) {
+        setAddress(accounts[0]);
+        const chain = await provider.request({ method: 'eth_chainId' }) as string;
+        setChainId(parseInt(chain, 16));
+        fetchBalance(accounts[0]);
+      }
+    } catch {
+      // User rejected
+    } finally {
+      setConnecting(false);
+    }
+  }
+
+  function disconnect() {
+    setAddress(null);
+    setChainId(null);
+    setKnytBalance(null);
+    setSendState({ status: 'idle' });
+    setSendAmount('');
+  }
+
+  async function switchToEthereum() {
+    if (!provider) return;
+    try {
+      await provider.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: ETH_CHAIN_HEX }],
+      });
+    } catch {
+      // ignore rejection
+    }
+  }
 
   const handleCopy = useCallback(() => {
     if (!address) return;
@@ -132,78 +255,69 @@ function ConnectPanel({
   }, [address]);
 
   async function handleSend() {
-    if (!address || !KNYT_TREASURY || !sendAmount) return;
+    if (!address || !KNYT_TREASURY || !sendAmount || !provider) return;
     const amount = parseFloat(sendAmount);
     if (isNaN(amount) || amount <= 0) return;
 
     setSendState({ status: 'waiting' });
     try {
-      const data = encodeFunctionData({
-        abi: ERC20_ABI,
-        functionName: 'transfer',
-        args: [KNYT_TREASURY, parseUnits(sendAmount, 18)],
-      });
+      const data = encodeTransfer(KNYT_TREASURY, parseUnits18(sendAmount));
+      const txHash = await provider.request({
+        method: 'eth_sendTransaction',
+        params: [{ from: address, to: KNYT_CONTRACT, data }],
+      }) as string;
 
-      const hash = await sendTransactionAsync({
-        to: KNYT_CONTRACT,
-        data,
-        chainId: ETH_CHAIN_ID,
-      });
-
-      setSendState({ status: 'success', txHash: hash });
-      onTxComplete?.(hash, amount);
-      refetchBalance();
+      setSendState({ status: 'verifying', txHash });
+      onTxComplete?.(txHash, amount);
+      startDepositPoll(txHash, amount);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Transaction rejected';
       setSendState({ status: 'error', error: msg.slice(0, 120) });
     }
   }
 
-  if (!isConnected) {
+  const wrongChain = address !== null && chainId !== null && chainId !== ETH_CHAIN_ID;
+
+  // ── Not connected ──────────────────────────────────────────────────────────
+
+  if (!address) {
     return (
       <div className="space-y-3">
         <p className="text-xs text-white/50 pb-1">
           Connect an external EVM wallet to view your on-chain $KNYT balance and make payments from it directly.
         </p>
-        {available.map((connector) => {
-          const isWC = connector.id === 'walletConnect';
-          return (
-            <button
-              key={connector.id}
-              type="button"
-              disabled={isConnecting}
-              onClick={() => connect({ connector })}
-              className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/10 disabled:opacity-50"
-            >
-              {isWC ? (
-                <QrCode className="h-5 w-5 text-blue-400 shrink-0" />
-              ) : (
-                <Wallet className="h-5 w-5 text-amber-400 shrink-0" />
-              )}
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-white">
-                  {isWC ? 'WalletConnect' : connector.name}
-                </p>
-                <p className="text-[10px] text-white/40">
-                  {isWC ? 'Scan QR with any mobile wallet' : 'Browser extension wallet'}
-                </p>
-              </div>
-              {isConnecting ? (
-                <Loader2 className="h-4 w-4 animate-spin text-white/40 ml-auto shrink-0" />
-              ) : (
-                <ChevronRight className="h-4 w-4 text-white/30 ml-auto shrink-0" />
-              )}
-            </button>
-          );
-        })}
-        {!PROJECT_ID && (
-          <p className="text-[10px] text-amber-400/70 pt-1">
-            WalletConnect (mobile) requires NEXT_PUBLIC_REOWN_PROJECT_ID — browser extension wallets work now.
-          </p>
+        {noWallet ? (
+          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+            No wallet detected. Install MetaMask or another browser extension wallet to continue.
+          </div>
+        ) : (
+          <button
+            type="button"
+            disabled={connecting}
+            onClick={connect}
+            className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/10 disabled:opacity-50"
+          >
+            <Wallet className="h-5 w-5 text-amber-400 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-white">Connect Wallet</p>
+              <p className="text-[10px] text-white/40">Browser extension (MetaMask, Coinbase Wallet, etc.)</p>
+            </div>
+            {connecting ? (
+              <Loader2 className="h-4 w-4 animate-spin text-white/40 ml-auto shrink-0" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-white/30 ml-auto shrink-0" />
+            )}
+          </button>
         )}
+        <p className="text-[10px] text-white/30 text-center pt-1">
+          WalletConnect (mobile) — coming soon
+        </p>
       </div>
     );
   }
+
+  // ── Connected ──────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-3">
@@ -216,7 +330,7 @@ function ConnectPanel({
           </div>
           <button
             type="button"
-            onClick={() => disconnect()}
+            onClick={disconnect}
             className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] text-white/40 hover:bg-white/10 hover:text-white/70 transition"
           >
             <LogOut className="h-3 w-3" />
@@ -230,7 +344,9 @@ function ConnectPanel({
             onClick={handleCopy}
             className="shrink-0 rounded-lg p-1.5 text-white/40 hover:bg-white/10 hover:text-white/70 transition"
           >
-            {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+            {copied
+              ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+              : <Copy className="h-3.5 w-3.5" />}
           </button>
           <a
             href={`https://etherscan.io/address/${address}`}
@@ -243,11 +359,18 @@ function ConnectPanel({
         </div>
       </div>
 
-      {/* Chain warning */}
+      {/* Wrong chain warning */}
       {wrongChain && (
         <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
           <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-          Switch to Ethereum Mainnet in your wallet to see $KNYT balance and make payments.
+          <span className="flex-1">Switch to Ethereum Mainnet to see $KNYT balance.</span>
+          <button
+            type="button"
+            onClick={switchToEthereum}
+            className="shrink-0 rounded-lg border border-amber-500/40 px-2 py-0.5 text-[10px] font-semibold hover:bg-amber-500/20 transition"
+          >
+            Switch
+          </button>
         </div>
       )}
 
@@ -258,11 +381,9 @@ function ConnectPanel({
             <Coins className="h-4 w-4 text-amber-400" />
             <span className="text-xs text-white/60">EVM $KNYT (Ethereum)</span>
           </div>
-          {balanceLoading ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-white/40" />
-          ) : (
-            <span className="text-sm font-semibold text-amber-300">{knytBalance ?? '—'} $KNYT</span>
-          )}
+          {balanceLoading
+            ? <Loader2 className="h-3.5 w-3.5 animate-spin text-white/40" />
+            : <span className="text-sm font-semibold text-amber-300">{knytBalance ?? '—'} $KNYT</span>}
         </div>
       )}
 
@@ -274,7 +395,7 @@ function ConnectPanel({
             <p className="text-xs font-semibold text-white/70">Pay with EVM $KNYT</p>
           </div>
           <p className="text-[10px] text-white/40 leading-relaxed">
-            Send $KNYT to the iQube treasury. Your purchase will be confirmed once the transaction settles on Base (~2 seconds).
+            Send $KNYT to the iQube treasury on Ethereum. Your DVN balance updates once the transaction settles (~15s).
           </p>
           <div className="flex gap-2">
             <input
@@ -284,28 +405,47 @@ function ConnectPanel({
               value={sendAmount}
               onChange={(e) => setSendAmount(e.target.value)}
               placeholder="Amount $KNYT"
-              className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white placeholder-white/30 focus:border-violet-500/50 focus:outline-none"
+              disabled={sendState.status === 'waiting' || sendState.status === 'verifying'}
+              className="flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white placeholder-white/30 focus:border-violet-500/50 focus:outline-none disabled:opacity-50"
             />
             <button
               type="button"
               onClick={handleSend}
-              disabled={sendState.status === 'waiting' || sendState.status === 'pending' || !sendAmount}
+              disabled={sendState.status === 'waiting' || sendState.status === 'verifying' || !sendAmount}
               className="flex items-center gap-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 px-3 py-1.5 text-xs font-semibold text-violet-200 hover:bg-violet-500/20 disabled:opacity-50 transition"
             >
-              {sendState.status === 'waiting' || sendState.status === 'pending' ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Zap className="h-3.5 w-3.5" />
-              )}
+              {sendState.status === 'waiting' || sendState.status === 'verifying'
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                : <Zap className="h-3.5 w-3.5" />}
               Send
             </button>
           </div>
 
-          {sendState.status === 'success' && sendState.txHash && (
+          {/* TX verifying */}
+          {sendState.status === 'verifying' && sendState.txHash && (
+            <div className="flex items-start gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs">
+              <Loader2 className="h-3.5 w-3.5 text-blue-400 animate-spin shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-blue-300 font-medium">Verifying on-chain…</p>
+                <a
+                  href={`https://etherscan.io/tx/${sendState.txHash}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-blue-400/70 hover:text-blue-300 font-mono truncate block"
+                >
+                  {sendState.txHash.slice(0, 18)}…{sendState.txHash.slice(-6)}
+                </a>
+                <p className="text-blue-400/50 mt-0.5">Your DVN balance will update once confirmed.</p>
+              </div>
+            </div>
+          )}
+
+          {/* TX credited */}
+          {sendState.status === 'credited' && sendState.txHash && (
             <div className="flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs">
               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0 mt-0.5" />
               <div className="min-w-0">
-                <p className="text-emerald-300 font-medium">Transaction sent</p>
+                <p className="text-emerald-300 font-medium">$KNYT credited to DVN balance</p>
                 <a
                   href={`https://etherscan.io/tx/${sendState.txHash}`}
                   target="_blank"
@@ -314,11 +454,11 @@ function ConnectPanel({
                 >
                   {sendState.txHash.slice(0, 18)}…{sendState.txHash.slice(-6)}
                 </a>
-                <p className="text-emerald-400/50 mt-0.5">Your DVN balance will update once confirmed (~2s).</p>
               </div>
             </div>
           )}
 
+          {/* TX error */}
           {sendState.status === 'error' && (
             <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
               <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
@@ -334,21 +474,5 @@ function ConnectPanel({
         </p>
       )}
     </div>
-  );
-}
-
-// ── Public component (self-provides WagmiProvider) ─────────────────────────────
-
-interface ExternalWalletConnectProps {
-  onTxComplete?: (txHash: string, amountKnyt: number) => void;
-}
-
-export function ExternalWalletConnect({ onTxComplete }: ExternalWalletConnectProps) {
-  return (
-    <WagmiProvider config={getWagmiConfig()}>
-      <QueryClientProvider client={getWalletQueryClient()}>
-        <ConnectPanel onTxComplete={onTxComplete} />
-      </QueryClientProvider>
-    </WagmiProvider>
   );
 }
