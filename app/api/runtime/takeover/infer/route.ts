@@ -301,6 +301,12 @@ The JSON must match this exact schema:
   "refreshAfterActions": ["like", "spark", "curate", "vote", "contribute"]
 }
 
+NEXT-BEST-ACTION RULES (strict — invalid actions are dropped):
+- Only emit "nextBestAction" if you are confident it is the most useful next step. Omit otherwise.
+- targetType="codex" — target MUST be a cartridge slug from this allowlist: knyt-codex, metame-codex, qripto-codex, agentiq-os, alpha-knyt-codex. Do NOT use tab names (e.g. "store"), capsule ids, or display labels here.
+- targetType="route" — target MUST be a short same-origin path starting with "/" (under 1500 chars). Do NOT pack JSON, article drafts, or experience context into the query string. If you would need to, use targetType="action" instead.
+- targetType="action" — target is a short natural-language instruction the chat agent will execute (e.g. "show me my unread scrolls"). Use this for anything that doesn't cleanly map to a known cartridge or route.
+
 Select capsule IDs ONLY from the catalog below. Do not invent IDs.`;
 
   const user = `${welcomePrefix ? welcomePrefix + '\n\n' : ''}AVAILABLE CONTENT CATALOG:
@@ -436,19 +442,27 @@ function parseManifest(
       ? (parsed.nextBestAction as Record<string, unknown>)
       : null;
 
+    // NBA validation: only emit a NBA if label + target are non-empty strings.
+    // Unknown targetType defaults to 'action' (not 'codex'), so the runtime
+    // doesn't open a cartridge overlay for poorly-typed LLM output.
+    const nbaLabel  = String(nbaRaw?.label  ?? '').trim();
+    const nbaTarget = String(nbaRaw?.target ?? '').trim();
+    const nbaTypeRaw = String(nbaRaw?.targetType ?? '').trim();
+    const nextBestAction = nbaRaw && nbaLabel && nbaTarget
+      ? {
+          label:      nbaLabel,
+          target:     nbaTarget,
+          targetType: (['codex','route','action'].includes(nbaTypeRaw)
+            ? nbaTypeRaw : 'action') as 'codex' | 'route' | 'action',
+        }
+      : undefined;
+
     return {
       cartridgeSlug:       config.cartridgeSlug,
       welcomeNarrative,
       capsules,
       theme:               typeof parsed.theme === 'string' ? parsed.theme : undefined,
-      nextBestAction:      nbaRaw
-        ? {
-            label:      String(nbaRaw.label ?? ''),
-            target:     String(nbaRaw.target ?? ''),
-            targetType: (['codex','route','action'].includes(String(nbaRaw.targetType))
-              ? String(nbaRaw.targetType) : 'codex') as 'codex' | 'route' | 'action',
-          }
-        : undefined,
+      nextBestAction,
       refreshAfterActions: Array.isArray(parsed.refreshAfterActions)
         ? (parsed.refreshAfterActions as unknown[]).map(String)
         : [],
