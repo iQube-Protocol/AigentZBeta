@@ -36,21 +36,42 @@ export async function POST(req: NextRequest) {
 
   const authUserId = await getCallerAuthUserId(req);
 
-  try {
-    const result = await registerWalletAlias(
-      {
-        didPersonaId: body.didPersonaId,
-        chain: body.chain,
-        walletAddress: body.walletAddress,
-        signature: body.signature,
-        message: body.message,
-        ttlDays: body.ttlDays,
-      },
-      authUserId
+  // Hard 20s timeout — returns proper JSON 503 before Amplify's silent 504 fires.
+  // Amplify Lambda default timeout is ~10s, so the race also protects that path.
+  let timeoutHandle: ReturnType<typeof setTimeout>;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutHandle = setTimeout(
+      () => reject(new Error('REGISTER_TIMEOUT')),
+      20_000
     );
+  });
+
+  try {
+    const result = await Promise.race([
+      registerWalletAlias(
+        {
+          didPersonaId: body.didPersonaId,
+          chain: body.chain,
+          walletAddress: body.walletAddress,
+          signature: body.signature,
+          message: body.message,
+          ttlDays: body.ttlDays,
+        },
+        authUserId
+      ),
+      timeoutPromise,
+    ]);
+    clearTimeout(timeoutHandle!);
     return NextResponse.json(result);
   } catch (e) {
+    clearTimeout(timeoutHandle!);
     const msg = e instanceof Error ? e.message : 'Failed to register wallet alias';
+    if (msg === 'REGISTER_TIMEOUT') {
+      return NextResponse.json(
+        { ok: false, error: 'Registration timed out — Supabase or ICP gateway slow. Please retry.' },
+        { status: 503 }
+      );
+    }
     const status =
       msg.includes('Forbidden') || msg.includes('ownership') ? 403
       : msg.includes('not found') ? 404
