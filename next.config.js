@@ -58,6 +58,11 @@ const nextConfig = {
       "packages/metame-contracts/src/index.ts"
     );
 
+    // Stub wagmi's porto connector — we don't use it and 'porto' package isn't installed.
+    // @wagmi/connectors barrel-imports it, causing a build error when porto/internal is missing.
+    config.resolve.alias["porto/internal"] = false;
+    config.resolve.alias["porto"] = false;
+
     // Make pdf-parse and canvas external on server to prevent native binary bundling
     if (isServer) {
       config.externals = config.externals || [];
