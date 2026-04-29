@@ -19,6 +19,7 @@ export type KnytTxSource =
   | 'admin_debit'          // Manual admin debit
   | 'deferred_claim'       // Redemption of a deferred claim
   | 'canonical_mint'       // Canonical EVM KNYT minting (Phase 3b)
+  | 'evm_deposit'          // On-chain ERC-20 transfer to treasury, verified then credited to DVN
   | 'transfer_in'          // Transfer from another persona (future)
   | 'transfer_out';        // Transfer to another persona (future)
 
