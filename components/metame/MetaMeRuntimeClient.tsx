@@ -77,6 +77,7 @@ import {
 } from "lucide-react";
 import { MetaMeSettingsPanel, loadMetaMeSettings, type LeadAgent } from "@/components/metame/MetaMeSettingsPanel";
 import { RuntimeTakeoverBanner } from "@/components/metame/RuntimeTakeoverBanner";
+import { RemixDialog } from "@/components/metame/runtime/RemixDialog";
 import { useRuntimeTakeover } from "@/app/hooks/useRuntimeTakeover";
 import { CODEX_DEFINITIONS } from "@/data/codex-configs";
 import type { ScreenFraction, SmartContentQube } from "@/types/smartContent";
@@ -2309,6 +2310,12 @@ export default function MetaMeRuntimeClient() {
   const [runtimeExperienceOverrides, setRuntimeExperienceOverrides] = useState<
     Record<string, { articleDraft?: RuntimeArticleDraft | null; articlePrompt?: string; articleTitle?: string }>
   >({});
+  const [remixDialogState, setRemixDialogState] = useState<{
+    open: boolean;
+    sourceExperienceId: string | null;
+    initialTitle: string;
+    initialPrompt: string;
+  }>({ open: false, sourceExperienceId: null, initialTitle: "", initialPrompt: "" });
 
   const [allContents, setAllContents] = useState<RuntimeCapsule[]>([]);
   const [capsuleContents, setCapsuleContents] = useState<RuntimeCapsule[]>([]);
@@ -2883,7 +2890,22 @@ export default function MetaMeRuntimeClient() {
                   }))
                 }
               />
-            ) : null}
+            ) : (
+              <button
+                type="button"
+                onClick={() => setRemixDialogState({
+                  open: true,
+                  sourceExperienceId: resolveRuntimeExperienceId(content) ?? content.id,
+                  initialTitle: content.title || "",
+                  initialPrompt: articleDraft?.prompt || content.description || "",
+                })}
+                className="inline-flex items-center gap-1.5 self-start rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 hover:bg-amber-500/20 transition-colors"
+                title="Remix this experience as your own article or story"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Remix
+              </button>
+            )}
 
             <div id={mediaAnchorId} className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
               <ExperienceBlockHeader
@@ -5845,6 +5867,14 @@ export default function MetaMeRuntimeClient() {
       <div className={`relative h-full w-full bg-slate-950 p-0 ${embedWidthClass}`}>
         {showWelcome ? welcomeSurface : runtimeSurface}
         {iQubeDrawerLayer}
+        <RemixDialog
+          open={remixDialogState.open}
+          personaId={activePersonaId}
+          sourceExperienceId={remixDialogState.sourceExperienceId}
+          initialTitle={remixDialogState.initialTitle}
+          initialPrompt={remixDialogState.initialPrompt}
+          onClose={() => setRemixDialogState((prev) => ({ ...prev, open: false }))}
+        />
       </div>
     );
   }
@@ -5854,6 +5884,14 @@ export default function MetaMeRuntimeClient() {
       <div className="fixed inset-0 z-[120] bg-slate-950 p-0 relative">
         <div className={`h-full ${runtimeDeviceWidthClass}`}>{showWelcome ? welcomeSurface : runtimeSurface}</div>
         {iQubeDrawerLayer}
+        <RemixDialog
+          open={remixDialogState.open}
+          personaId={activePersonaId}
+          sourceExperienceId={remixDialogState.sourceExperienceId}
+          initialTitle={remixDialogState.initialTitle}
+          initialPrompt={remixDialogState.initialPrompt}
+          onClose={() => setRemixDialogState((prev) => ({ ...prev, open: false }))}
+        />
       </div>
     );
   }
@@ -5888,6 +5926,14 @@ export default function MetaMeRuntimeClient() {
         </PreviewFrame>
         {iQubeDrawerLayer}
       </div>
+      <RemixDialog
+        open={remixDialogState.open}
+        personaId={activePersonaId}
+        sourceExperienceId={remixDialogState.sourceExperienceId}
+        initialTitle={remixDialogState.initialTitle}
+        initialPrompt={remixDialogState.initialPrompt}
+        onClose={() => setRemixDialogState((prev) => ({ ...prev, open: false }))}
+      />
     </div>
   );
 }
