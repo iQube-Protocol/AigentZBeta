@@ -124,15 +124,16 @@ export function PersonaEditModal({ isOpen, onClose, persona, onSave }: Props) {
         form.referralLockedAt = new Date().toISOString();
       }
       // Use the correct API endpoint: PATCH /api/identity/persona/[id]
+      // Note: evm_address / btc_address / sol_address are deprecated as plaintext
+      // persona fields and intentionally NOT sent. Wallet linkage moves to the
+      // Escrow alias commitment scheme — see
+      // codexes/packs/agentiq/updates/2026-04-29_plaintext-wallet-address-deprecation.md
       const response = await fetch(`/api/identity/persona/${form.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           display_name: form.displayName,
           avatar_uri: form.avatarUri,
-          evm_address: form.evmAddress,
-          btc_address: form.btcAddress,
-          sol_address: form.solAddress,
           bio: form.bio,
         }),
       });
@@ -157,10 +158,6 @@ export function PersonaEditModal({ isOpen, onClose, persona, onSave }: Props) {
       setIsLoading(false);
     }
   };
-
-  const isValidEvmAddress = (addr: string) => !addr || /^0x[a-fA-F0-9]{40}$/.test(addr);
-  const isValidBtcAddress = (addr: string) => !addr || /^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,62}$/.test(addr);
-  const isValidSolAddress = (addr: string) => !addr || /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(addr);
 
   if (!isOpen) return null;
 
@@ -286,9 +283,9 @@ export function PersonaEditModal({ isOpen, onClose, persona, onSave }: Props) {
             </div>
           )}
 
-          {/* Wallet Addresses Section */}
+          {/* Wallet Addresses Section — read-only; plaintext writes deprecated */}
           <div className="pt-4 border-t border-white/10">
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-2">
               <Wallet className="w-4 h-4 text-fuchsia-400" />
               <span className="text-sm font-medium text-slate-300">Linked Wallet Addresses</span>
               {isFetchingData && (
@@ -296,66 +293,40 @@ export function PersonaEditModal({ isOpen, onClose, persona, onSave }: Props) {
               )}
             </div>
 
-            {/* EVM Address */}
-            <div className="mb-3">
-              <label className="block text-xs text-slate-400 mb-1">EVM Address (Ethereum, Base, Polygon, etc.)</label>
-              <input
-                type="text"
-                value={form.evmAddress || ''}
-                onChange={e => setForm(f => ({ ...f, evmAddress: e.target.value }))}
-                placeholder="0x..."
-                className={`w-full px-3 py-2 bg-black/30 border rounded-lg text-white font-mono text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 ${
-                  form.evmAddress && !isValidEvmAddress(form.evmAddress) ? 'border-red-500/50' : 'border-white/10'
-                }`}
-              />
-              {form.evmAddress && !isValidEvmAddress(form.evmAddress) && (
-                <p className="mt-1 text-xs text-red-400">Invalid EVM address format</p>
-              )}
+            <div className="mb-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+              <p className="text-xs text-amber-300">
+                Editing wallet addresses on a persona is being replaced by a privacy-preserving alias scheme.
+                Existing addresses are shown read-only. To link a new wallet, use the External Wallet
+                section in the Smart Wallet drawer.
+              </p>
             </div>
 
-            {/* BTC Address */}
+            {/* EVM Address — read-only */}
+            <div className="mb-3">
+              <label className="block text-xs text-slate-400 mb-1">EVM Address (Ethereum, Base, Polygon, etc.)</label>
+              <div className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-white/70 font-mono text-sm break-all">
+                {form.evmAddress || <span className="text-slate-500">Not set</span>}
+              </div>
+            </div>
+
+            {/* BTC Address — read-only */}
             <div className="mb-3">
               <label className="block text-xs text-slate-400 mb-1 flex items-center gap-1">
                 <Bitcoin className="w-3 h-3 text-orange-400" />
                 Bitcoin Address
               </label>
-              <input
-                type="text"
-                value={form.btcAddress || ''}
-                onChange={e => setForm(f => ({ ...f, btcAddress: e.target.value }))}
-                placeholder="bc1... or 3..."
-                className={`w-full px-3 py-2 bg-black/30 border rounded-lg text-white font-mono text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 ${
-                  form.btcAddress && !isValidBtcAddress(form.btcAddress) ? 'border-red-500/50' : 'border-white/10'
-                }`}
-              />
-              {form.btcAddress && !isValidBtcAddress(form.btcAddress) && (
-                <p className="mt-1 text-xs text-red-400">Invalid Bitcoin address format</p>
-              )}
+              <div className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-white/70 font-mono text-sm break-all">
+                {form.btcAddress || <span className="text-slate-500">Not set</span>}
+              </div>
             </div>
 
-            {/* Solana Address */}
+            {/* Solana Address — read-only */}
             <div className="mb-3">
               <label className="block text-xs text-slate-400 mb-1">Solana Address</label>
-              <input
-                type="text"
-                value={form.solAddress || ''}
-                onChange={e => setForm(f => ({ ...f, solAddress: e.target.value }))}
-                placeholder="..."
-                className={`w-full px-3 py-2 bg-black/30 border rounded-lg text-white font-mono text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 ${
-                  form.solAddress && !isValidSolAddress(form.solAddress) ? 'border-red-500/50' : 'border-white/10'
-                }`}
-              />
-              {form.solAddress && !isValidSolAddress(form.solAddress) && (
-                <p className="mt-1 text-xs text-red-400">Invalid Solana address format</p>
-              )}
+              <div className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-white/70 font-mono text-sm break-all">
+                {form.solAddress || <span className="text-slate-500">Not set</span>}
+              </div>
             </div>
-          </div>
-
-          {/* Info */}
-          <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-            <p className="text-xs text-blue-300">
-              💡 Linking external wallet addresses allows you to receive payments and verify ownership across multiple chains.
-            </p>
           </div>
         </div>
 

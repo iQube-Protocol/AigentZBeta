@@ -1,3 +1,11 @@
+-- DEPRECATED 2026-04-29 — DO NOT WRITE TO THESE COLUMNS.
+-- Plaintext wallet addresses on personas violate the iQube identity sovereignty
+-- model (linkage attack surface across personas owned by the same root identity).
+-- Replacement: Escrow alias commitment scheme — see
+--   codexes/packs/agentiq/updates/2026-04-29_plaintext-wallet-address-deprecation.md
+-- The PATCH /api/identity/persona/[id] route blocks writes by default. The
+-- columns remain for read compatibility until a follow-up migration drops them.
+--
 -- Add external wallet address columns to personas table
 -- These allow users to link external wallets (EVM, BTC, SOL) to their persona
 

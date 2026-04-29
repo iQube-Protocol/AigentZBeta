@@ -1,3 +1,8 @@
+-- DEPRECATED 2026-04-29 — DO NOT WRITE TO THESE COLUMNS.
+-- See codexes/packs/agentiq/updates/2026-04-29_plaintext-wallet-address-deprecation.md
+-- Plaintext wallet addresses on personas violate the iQube identity sovereignty
+-- model. Replacement: Escrow alias commitment scheme.
+--
 -- Add wallet address columns to persona table (singular)
 -- This mirrors the migration for personas (plural) table
 -- Both human and agent personas can have linked external wallet addresses
