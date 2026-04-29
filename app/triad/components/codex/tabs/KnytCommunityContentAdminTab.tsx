@@ -156,7 +156,7 @@ function AdminContent({ personaId }: { personaId?: string }) {
       const res = await fetch("/api/community-content/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...draft, adminPersonaId: personaId }),
+        body: JSON.stringify(draft),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) {
