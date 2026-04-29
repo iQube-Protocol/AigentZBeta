@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowLeft, BookOpen, Crown, Film, Lock, Package, ShoppingCart, Sparkles, User, Zap } from 'lucide-react';
+import { ArrowLeft, BookOpen, Crown, Film, Lock, ShoppingCart, Sparkles, User, Zap } from 'lucide-react';
 import {
   BUNDLE_PRICING,
   EPISODE_PRICING,
@@ -506,10 +506,12 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
   const { getCoverThumb, getCharacterThumb } = useKnytThumbnails();
   const cart = useKnytCart();
 
-  const headerLabel =
-    view.kind === 'landing'       ? 'Bundles & Cards'
-    : view.kind === 'bundle-detail' ? view.bundle.label
-    : `${LAYER_SHORT[view.option.layer] ?? view.option.layer} — 13 Cards`;
+  const detailLabel =
+    view.kind === 'bundle-detail'
+      ? view.bundle.label
+      : view.kind === 'pack-detail'
+      ? `${LAYER_SHORT[view.option.layer] ?? view.option.layer} — 13 Cards`
+      : null;
 
   function addBundleToCart(bundle: BundlePricing) {
     const item: CartItem = {
@@ -567,13 +569,14 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
             <ArrowLeft className="h-4 w-4" />
           </button>
         )}
-        <Package className="h-4 w-4 text-cyan-400 shrink-0" />
-        <span className="text-sm font-semibold text-slate-200 flex-1">{headerLabel}</span>
+        {detailLabel && (
+          <span className="text-sm font-semibold text-slate-200 min-w-0 truncate">{detailLabel}</span>
+        )}
         {/* Cart badge */}
         <button
           type="button"
           onClick={() => setCartOpen(true)}
-          className="relative p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+          className="ml-auto relative p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
         >
           <ShoppingCart className="h-4 w-4" />
           {cart.items.length > 0 && (

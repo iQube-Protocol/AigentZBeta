@@ -76,6 +76,9 @@ const TAB_DESCRIPTION_OVERRIDES: Record<string, Record<string, string>> = {
 const TAB_TITLE_OVERRIDES: Record<string, Record<string, string>> = {
   'knyt-codex': {
     characters: 'KNYT Cards',
+    'store-episodes': 'Episodes & Graphic Novel',
+    'store-characters': 'KNYT Character Cards',
+    'store-investor': 'Investor Bundles',
   },
 };
 
@@ -547,26 +550,8 @@ export default function CodexPanelDynamic({
                 </div>
               </div>
 
-              {/* Single combined sub-header: context badges + sub-tabs on left, title + colored icon on right */}
+              {/* Single combined sub-header: sub-tabs on left, context badges + colored icon + title + description on right */}
               <div className={`flex-shrink-0 border-b px-4 py-1.5 flex items-center gap-3 min-w-0 ${isDark ? 'border-white/[0.06] bg-white/[0.02] backdrop-blur-sm' : 'border-slate-200 bg-slate-50'}`}>
-                {/* Context badges pinned left (before sub-tabs) */}
-                {codexId === 'knyt-codex' && (activeTabSlug === 'order' || activeTabSlug === 'treasury') && (
-                  <>
-                    <div className="flex items-center gap-1 rounded-md border border-indigo-500/25 bg-indigo-500/8 px-2 py-0.5 flex-shrink-0">
-                      <Zap className="h-3 w-3 flex-shrink-0 text-indigo-400" />
-                      <span className="text-[10px] font-semibold text-indigo-400">Q¢</span>
-                    </div>
-                    <div className="flex items-center gap-1 rounded-md border border-amber-500/25 bg-amber-500/8 px-2 py-0.5 flex-shrink-0">
-                      <Coins className="h-3 w-3 flex-shrink-0 text-amber-400" />
-                      <span className="text-[10px] font-semibold text-amber-400">$KNYT</span>
-                    </div>
-                  </>
-                )}
-                {codexId === 'knyt-codex' && activeTabSlug === 'terra' && (
-                  <div className="flex items-center gap-1 rounded-md border border-green-500/25 bg-green-500/8 px-2 py-0.5 flex-shrink-0">
-                    <span className="text-[10px] font-semibold text-green-400">metaKNYT · Qriptopian Signal</span>
-                  </div>
-                )}
                 {activeGroup && activeGroupSubTabs.length > 1 && (
                   <div className="flex gap-1 overflow-x-auto flex-shrink-0">
                     {activeGroupSubTabs.map((tab) => {
@@ -589,15 +574,32 @@ export default function CodexPanelDynamic({
                     })}
                   </div>
                 )}
-                {/* Title + description + colored icon pinned right */}
+                {/* Right cluster: context badges + colored icon + title + description, all justified right */}
                 <div className="ml-auto flex items-center gap-2 min-w-0 flex-shrink-0">
+                  {codexId === 'knyt-codex' && (activeTabSlug === 'order' || activeTabSlug === 'treasury') && (
+                    <>
+                      <div className="flex items-center gap-1 rounded-md border border-indigo-500/25 bg-indigo-500/8 px-2 py-0.5 flex-shrink-0">
+                        <Zap className="h-3 w-3 flex-shrink-0 text-indigo-400" />
+                        <span className="text-[10px] font-semibold text-indigo-400">Q¢</span>
+                      </div>
+                      <div className="flex items-center gap-1 rounded-md border border-amber-500/25 bg-amber-500/8 px-2 py-0.5 flex-shrink-0">
+                        <Coins className="h-3 w-3 flex-shrink-0 text-amber-400" />
+                        <span className="text-[10px] font-semibold text-amber-400">$KNYT</span>
+                      </div>
+                    </>
+                  )}
+                  {codexId === 'knyt-codex' && activeTabSlug === 'terra' && (
+                    <div className="flex items-center gap-1 rounded-md border border-green-500/25 bg-green-500/8 px-2 py-0.5 flex-shrink-0">
+                      <span className="text-[10px] font-semibold text-green-400">metaKNYT · Qriptopian Signal</span>
+                    </div>
+                  )}
+                  <ActiveTabIcon className={`h-3.5 w-3.5 flex-shrink-0 text-${activeTab?.metadata?.color || accentColor}-400`} />
                   <span className="text-xs font-semibold text-white whitespace-nowrap">{activeTabTitle}</span>
                   {activeTabDescription && (
                     <span className="hidden sm:block truncate text-xs text-slate-500 max-w-52" title={activeTabDescription}>
                       {activeTabDescription}
                     </span>
                   )}
-                  <ActiveTabIcon className={`h-3.5 w-3.5 flex-shrink-0 text-${activeTab?.metadata?.color || accentColor}-400`} />
                 </div>
               </div>
             </>

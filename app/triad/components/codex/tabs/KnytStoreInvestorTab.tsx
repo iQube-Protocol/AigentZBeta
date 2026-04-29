@@ -298,8 +298,7 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
   const [purchase, setPurchase] = useState<PendingPurchase | null>(null);
   const { getCoverThumb, getCharacterThumb } = useKnytThumbnails();
 
-  const headerLabel =
-    view.kind === 'landing' ? 'Investor Bundles' : view.bundle.label;
+  const detailLabel = view.kind === 'bundle-detail' ? view.bundle.label : null;
 
   function openBundlePurchase(bundle: BundlePricing) {
     const isGnOnly = bundle.episodes.length === 1 && bundle.episodes[0] === -1;
@@ -315,8 +314,8 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-shrink-0 border-b border-slate-800/60 bg-slate-900/40 px-4 py-2 flex items-center gap-2">
-        {view.kind !== 'landing' && (
+      {view.kind !== 'landing' && (
+        <div className="flex-shrink-0 border-b border-slate-800/60 bg-slate-900/40 px-4 py-2 flex items-center gap-2">
           <button
             type="button"
             onClick={() => setView({ kind: 'landing' })}
@@ -324,10 +323,11 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-        )}
-        <Crown className="h-4 w-4 text-yellow-400 shrink-0" />
-        <span className="text-sm font-semibold text-slate-200">{headerLabel}</span>
-      </div>
+          {detailLabel && (
+            <span className="text-sm font-semibold text-slate-200 min-w-0 truncate">{detailLabel}</span>
+          )}
+        </div>
+      )}
 
       <div className="flex-1 min-h-0 overflow-y-auto">
         {view.kind === 'landing' && (

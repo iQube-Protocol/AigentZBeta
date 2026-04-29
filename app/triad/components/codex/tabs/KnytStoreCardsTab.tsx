@@ -272,13 +272,12 @@ export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
             <ArrowLeft className="h-4 w-4" />
           </button>
         )}
-        <User className="h-4 w-4 text-cyan-400 shrink-0" />
-        <span className="text-sm font-semibold text-slate-200 flex-1 min-w-0 truncate">
-          {view.kind === 'landing'
-            ? 'KNYT Character Cards'
-            : (getTitle(view.epNum) ?? `Character #${view.epNum}`)}
-        </span>
-        <div className="flex items-center gap-0.5 flex-shrink-0">
+        {view.kind === 'detail' && (
+          <span className="text-sm font-semibold text-slate-200 min-w-0 truncate">
+            {getTitle(view.epNum) ?? `Character #${view.epNum}`}
+          </span>
+        )}
+        <div className="ml-auto flex items-center gap-0.5 flex-shrink-0">
           <span className="text-[9px] text-slate-500 mr-0.5">Format:</span>
           {(['still', 'motion', 'bundle'] as CardVariant[]).map((v) => (
             <button
