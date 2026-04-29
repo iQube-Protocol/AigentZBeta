@@ -201,7 +201,6 @@ export function KnytLivingCanonTemplate({
     <div className="space-y-4">
       {/* Header */}
       <div className="px-1 pb-1 flex items-center gap-2">
-        <Layers className="h-4 w-4 text-amber-400 shrink-0" />
         <div className="flex gap-1.5 flex-wrap flex-1">
           {(Object.keys(BRANCH_CONFIG) as CanonBranch[]).map((branch) => {
             const cfg = BRANCH_CONFIG[branch];
@@ -230,7 +229,7 @@ export function KnytLivingCanonTemplate({
             );
           })}
         </div>
-        <p className="ml-auto text-[10px] text-slate-400 text-right shrink-0">{BRANCH_CONFIG[activeBranch].description}</p>
+        <p className="text-[10px] text-slate-400 text-right shrink-0 max-w-[140px] truncate">{BRANCH_CONFIG[activeBranch].description}</p>
         <button
           type="button"
           onClick={() => void loadBranch(activeBranch)}
@@ -239,6 +238,7 @@ export function KnytLivingCanonTemplate({
         >
           <RefreshCw className="h-3 w-3" />
         </button>
+        <Layers className="h-4 w-4 text-amber-400 shrink-0" />
       </div>
 
       {/* Main grid */}

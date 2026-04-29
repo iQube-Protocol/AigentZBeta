@@ -30,15 +30,19 @@ export async function GET() {
   try {
     const supabase = getSupabase();
 
-    const [deposits, usdcDeposits, qcDeposits] = await Promise.all([
+    const [deposits, usdcDeposits, qcDeposits, qcBalResult] = await Promise.all([
       queryDeposits(supabase, 'evm_deposit'),
       queryDeposits(supabase, 'usdc_deposit'),
       queryDeposits(supabase, 'qc_deposit'),
+      supabase.from('qc_balances').select('balance').eq('currency', 'base_qc'),
     ]);
 
     const total = deposits.reduce((sum, d) => sum + parseFloat(d.amount), 0);
     const totalUsdc = usdcDeposits.reduce((sum, d) => sum + parseFloat(d.amount), 0);
     const totalQc = qcDeposits.reduce((sum, d) => sum + parseFloat(d.amount), 0);
+    const qcDvnTotal = (qcBalResult.data ?? []).reduce(
+      (sum, r) => sum + parseFloat((r as { balance?: string }).balance ?? '0'), 0
+    );
 
     return NextResponse.json({
       deposits,
@@ -50,6 +54,7 @@ export async function GET() {
       qcDeposits,
       totalQcDeposited: totalQc.toFixed(4),
       qcCount: qcDeposits.length,
+      qcDvnTotal: qcDvnTotal.toFixed(2),
     });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

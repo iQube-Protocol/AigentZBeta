@@ -65,6 +65,7 @@ interface AdminData {
   totalUsdcDeposited?: string;
   qcDeposits?: Deposit[];
   totalQcDeposited?: string;
+  qcDvnTotal?: string;
 }
 
 interface Props {
@@ -144,6 +145,7 @@ export function KnytTreasuryAdminTab({ isAdmin }: Props) {
   const [totalUsdcDeposited, setTotalUsdcDeposited] = useState<string>('0');
   const [qcDeposits, setQcDeposits] = useState<Deposit[]>([]);
   const [totalQcDeposited, setTotalQcDeposited] = useState<string>('0');
+  const [qcDvnTotal, setQcDvnTotal] = useState<string>('0');
   const [historyLoading, setHistoryLoading] = useState(false);
 
   const [airdropAddress, setAirdropAddress] = useState('');
@@ -175,6 +177,7 @@ export function KnytTreasuryAdminTab({ isAdmin }: Props) {
       setTotalUsdcDeposited(json.totalUsdcDeposited ?? '0');
       setQcDeposits(json.qcDeposits ?? []);
       setTotalQcDeposited(json.totalQcDeposited ?? '0');
+      setQcDvnTotal(json.qcDvnTotal ?? '0');
     } catch {
       // ignore
     } finally {
@@ -249,21 +252,49 @@ export function KnytTreasuryAdminTab({ isAdmin }: Props) {
             <AlertCircle className="h-3.5 w-3.5 inline mr-1.5" />
             Set NEXT_PUBLIC_KNYT_TREASURY_ADDRESS to enable treasury monitoring.
           </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: '$KNYT Balance', value: knytBalance, unit: '$KNYT', color: 'text-amber-300' },
-              { label: 'USDC Balance', value: usdcBalance, unit: 'USDC', color: 'text-emerald-300' },
-            ].map(({ label, value, unit, color }) => (
-              <div key={label} className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
-                <p className="text-[10px] text-white/40 mb-1">{label}</p>
-                {balanceLoading
-                  ? <Loader2 className="h-4 w-4 animate-spin text-white/30" />
-                  : <p className={`text-lg font-semibold ${color}`}>{value} <span className="text-xs font-normal text-white/40">{unit}</span></p>}
-              </div>
-            ))}
+        ) : null}
+
+        {/* 3 rows × 2 cols: balances + deposit summaries */}
+        <div className="grid grid-cols-2 gap-2">
+          {/* Row 1: live on-chain token balances */}
+          {([
+            { label: '$KNYT Balance', value: knytBalance, unit: '$KNYT', color: 'text-amber-300', isLive: true },
+            { label: 'Q¢ (DVN Total)', value: qcDvnTotal, unit: 'Q¢', color: 'text-indigo-300', isLive: false },
+          ] as const).map(({ label, value, unit, color, isLive }) => (
+            <div key={label} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+              <p className="text-[9px] text-white/40 mb-1 uppercase tracking-wider">{label}</p>
+              {(isLive && balanceLoading) || (!isLive && historyLoading)
+                ? <Loader2 className="h-4 w-4 animate-spin text-white/30" />
+                : <p className={`text-base font-semibold ${color}`}>{value} <span className="text-[10px] font-normal text-white/40">{unit}</span></p>}
+            </div>
+          ))}
+          {/* Row 2: USDC balance + USDC deposits total */}
+          <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+            <p className="text-[9px] text-white/40 mb-1 uppercase tracking-wider">USDC Balance</p>
+            {balanceLoading
+              ? <Loader2 className="h-4 w-4 animate-spin text-white/30" />
+              : <p className="text-base font-semibold text-emerald-300">{usdcBalance} <span className="text-[10px] font-normal text-white/40">USDC</span></p>}
           </div>
-        )}
+          <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+            <p className="text-[9px] text-white/40 mb-1 uppercase tracking-wider">USDC Deposits</p>
+            {historyLoading
+              ? <Loader2 className="h-4 w-4 animate-spin text-white/30" />
+              : <p className="text-base font-semibold text-blue-300">{totalUsdcDeposited} <span className="text-[10px] font-normal text-white/40">USDC · {usdcDeposits.length} txns</span></p>}
+          </div>
+          {/* Row 3: KNYT + Q¢ deposit totals */}
+          <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+            <p className="text-[9px] text-white/40 mb-1 uppercase tracking-wider">$KNYT Deposits</p>
+            {historyLoading
+              ? <Loader2 className="h-4 w-4 animate-spin text-white/30" />
+              : <p className="text-base font-semibold text-amber-300">{totalDeposited} <span className="text-[10px] font-normal text-white/40">$KNYT · {deposits.length} txns</span></p>}
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+            <p className="text-[9px] text-white/40 mb-1 uppercase tracking-wider">Base Q¢ Deposits</p>
+            {historyLoading
+              ? <Loader2 className="h-4 w-4 animate-spin text-white/30" />
+              : <p className="text-base font-semibold text-violet-300">{totalQcDeposited} <span className="text-[10px] font-normal text-white/40">Q¢ · {qcDeposits.length} txns</span></p>}
+          </div>
+        </div>
 
         {TREASURY && (
           <div className="mt-2 flex items-center gap-2">
