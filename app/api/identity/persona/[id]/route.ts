@@ -118,11 +118,20 @@ export async function GET(
 
 /**
  * PATCH /api/identity/persona/[id]
- * Update a persona by ID or FIO handle
- * 
- * Supports updating wallet addresses (evm_address, btc_address, sol_address)
- * which are stored in Supabase and should also be synced to FIO network.
+ * Update a persona by ID or FIO handle.
+ *
+ * NOTE — plaintext wallet address writes are deprecated. The columns
+ * `evm_address`, `btc_address`, `sol_address` violate the iQube identity
+ * sovereignty model (linkage attack surface across personas). Writes to
+ * these fields are blocked by default. To replace them, see:
+ *   codexes/packs/agentiq/updates/2026-04-29_plaintext-wallet-address-deprecation.md
+ * Escape hatch (legacy admin sync only): set
+ *   ALLOW_LEGACY_PLAINTEXT_WALLET_WRITE=true
  */
+const PLAINTEXT_WALLET_FIELDS = ['evm_address', 'btc_address', 'sol_address'] as const;
+const allowLegacyPlaintextWalletWrite = () =>
+  (process.env.ALLOW_LEGACY_PLAINTEXT_WALLET_WRITE || '').toLowerCase() === 'true';
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -138,6 +147,23 @@ export async function PATCH(
       );
     }
 
+    // Guard: plaintext wallet address writes are deprecated and blocked
+    const attemptedPlaintextFields = PLAINTEXT_WALLET_FIELDS.filter(
+      (f) => body[f] !== undefined && body[f] !== null && body[f] !== ''
+    );
+    if (attemptedPlaintextFields.length > 0 && !allowLegacyPlaintextWalletWrite()) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'plaintext_wallet_write_disabled',
+          message:
+            'Direct plaintext writes to evm_address, btc_address, sol_address are deprecated. Wallet linkages must go through the Escrow alias commitment scheme (pending). See 2026-04-29_plaintext-wallet-address-deprecation.md.',
+          attempted: attemptedPlaintextFields,
+        },
+        { status: 410 }
+      );
+    }
+
     const supabase = createClient(supabaseUrl, supabaseKey);
     const callerAuthProfileId = await getCallerAuthProfileId(req);
 
@@ -146,9 +172,11 @@ export async function PATCH(
     const isFioHandle = id.includes('@');
 
     const personaTableUpdates: Record<string, any> = {};
-    if (body.evm_address !== undefined) personaTableUpdates.evm_address = body.evm_address;
-    if (body.btc_address !== undefined) personaTableUpdates.btc_address = body.btc_address;
-    if (body.sol_address !== undefined) personaTableUpdates.sol_address = body.sol_address;
+    if (allowLegacyPlaintextWalletWrite()) {
+      if (body.evm_address !== undefined) personaTableUpdates.evm_address = body.evm_address;
+      if (body.btc_address !== undefined) personaTableUpdates.btc_address = body.btc_address;
+      if (body.sol_address !== undefined) personaTableUpdates.sol_address = body.sol_address;
+    }
     if (body.bio !== undefined) personaTableUpdates.bio = body.bio;
     if (body.fio_handle !== undefined) personaTableUpdates.fio_handle = body.fio_handle;
     if (body.display_name !== undefined) personaTableUpdates.display_name = body.display_name;
