@@ -413,8 +413,8 @@ export const KNYT_CODEX: CodexConfig = {
       slug: 'store-admin',
       enabled: true,
       adminOnly: true,
-      group: 'store',
-      order: 99,
+      group: 'admin',
+      order: 4,
       type: 'static',
       config: { component: 'KnytStoreAdminTab' },
       metadata: { icon: 'Settings', description: 'Admin controls for store pricing and bundles', color: 'indigo' }
@@ -474,8 +474,9 @@ export const KNYT_CODEX: CodexConfig = {
       label: 'Treasury',
       slug: 'treasury',
       enabled: true,
-      group: 'order-group',
-      order: 1,
+      adminOnly: true,
+      group: 'admin',
+      order: 5,
       type: 'static',
       config: {
         component: 'KnytTreasuryTab',

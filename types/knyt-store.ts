@@ -242,6 +242,54 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     ],
   },
 
+  // ── GN investor bundles — 20% off retail, KNYT COYN gives further 20% ───────
+  {
+    id: 'gn-investor-qripto',
+    label: 'GN Qripto — Investor',
+    episodes: [-1],
+    digitalPrice: 62,   // 20% off retail ($78)
+    retailPrice:  78,
+    badgeTier: 'qripto',
+    isFullSeason: false,
+    isInvestorOnly: true,
+    printFulfillment: 'publisher',
+    includes: ['1 QAGN (Qripto AgentiQ Graphic Novel)'],
+  },
+  {
+    id: 'gn-investor-digital',
+    label: 'GN Digital — Investor',
+    episodes: [-1],
+    digitalPrice: 42,   // 20% off retail ($52)
+    retailPrice:  52,
+    badgeTier: 'digital',
+    isFullSeason: false,
+    isInvestorOnly: true,
+    printFulfillment: 'publisher',
+    includes: ['1 Digital AGN (AgentiQ Graphic Novel)'],
+  },
+  {
+    id: 'gn-investor-paperback',
+    label: 'GN Paperback — Investor',
+    episodes: [-1],
+    digitalPrice: 149,  // 20% off retail ($186)
+    retailPrice:  186,
+    isFullSeason: false,
+    isInvestorOnly: true,
+    printFulfillment: 'publisher',
+    includes: ['Paperback AgentiQ Graphic Novel (AGN)'],
+  },
+  {
+    id: 'gn-investor-hardcover',
+    label: 'GN Hardcover — Investor',
+    episodes: [-1],
+    digitalPrice: 168,  // 20% off retail ($210)
+    retailPrice:  210,
+    isFullSeason: false,
+    isInvestorOnly: true,
+    printFulfillment: 'publisher',
+    includes: ['Hardcover AgentiQ Graphic Novel (AGN)'],
+  },
+
   // ── Digital investor bundles ───────────────────────────────────────────────
   {
     id: 'digital-knyt-cartridge',
