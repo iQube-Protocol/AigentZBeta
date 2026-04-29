@@ -3130,8 +3130,8 @@ export default function SmartWalletDrawer({
             </div>
           )}
 
-          {/* ── Connections tab ── */}
-          {activeTab === "connections" && (
+          {/* ── Connections tab ── always mounted so wallet state survives tab switches */}
+          <div className={activeTab === "connections" ? undefined : "hidden"}>
             <div className="space-y-4">
               <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-4">
                 <div className="text-[10px] uppercase tracking-wider text-white/60 mb-3 flex items-center gap-2">
@@ -3164,7 +3164,7 @@ export default function SmartWalletDrawer({
                 />
               </section>
             </div>
-          )}
+          </div>
         </div>
       </div>
 
