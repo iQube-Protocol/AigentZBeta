@@ -4,11 +4,13 @@
  * ExternalWalletConnect
  *
  * External EVM wallet section for SmartWalletDrawer → Connections tab.
- * Uses raw window.ethereum — no wagmi connectors barrel (avoids peer-dep build failures).
- * Supports injected wallets (MetaMask, Coinbase Wallet, etc.).
+ * Uses raw window.ethereum — no wagmi connectors (avoids peer-dep build failures).
  *
- * After a send, polls /api/wallet/knyt/evm-deposit to credit the DVN ledger
- * once the transaction settles on Ethereum mainnet.
+ * Multiple wallet support: detects all installed providers (MetaMask, Phantom, etc.)
+ * via window.ethereum.providers and lets the user pick explicitly — prevents Phantom
+ * from hijacking window.ethereum and auto-reconnecting.
+ *
+ * Balance: reads from both KNYT contracts and shows aggregated total.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -28,24 +30,60 @@ import {
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-const KNYT_CONTRACT = '0xe53dad36cd0A8EdC656448CE7912bba72beBECb4';
+// Both deployed KNYT contracts — balances are summed for consolidated display
+const KNYT_CONTRACTS = [
+  '0xe53dad36cd0A8EdC656448CE7912bba72beBECb4', // primary
+  '0xCf890B7acBB5ffe0540a01860A75D3d765bF0756', // minter
+] as const;
+
+// Transfer uses the primary contract (canonical ERC-20 token)
+const KNYT_TRANSFER_CONTRACT = KNYT_CONTRACTS[0];
+
 const KNYT_TREASURY = (process.env.NEXT_PUBLIC_KNYT_TREASURY_ADDRESS ?? '') as string;
 const ETH_CHAIN_ID = 1;
 const ETH_CHAIN_HEX = '0x1';
+const ETH_RPC = 'https://eth.llamarpc.com';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
+interface EthereumProvider {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+  on: (event: string, handler: (...args: unknown[]) => void) => void;
+  removeListener: (event: string, handler: (...args: unknown[]) => void) => void;
+  isMetaMask?: boolean;
+  isPhantom?: boolean;
+  isCoinbaseWallet?: boolean;
+  isBraveWallet?: boolean;
+  isRabby?: boolean;
+  providers?: EthereumProvider[];
+}
+
 declare global {
   interface Window {
-    ethereum?: {
-      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-      on: (event: string, handler: (...args: unknown[]) => void) => void;
-      removeListener: (event: string, handler: (...args: unknown[]) => void) => void;
-    };
+    ethereum?: EthereumProvider;
   }
 }
 
-// ── EVM encode helpers (no viem dependency) ───────────────────────────────────
+// ── Provider helpers ──────────────────────────────────────────────────────────
+
+function discoverProviders(): EthereumProvider[] {
+  if (typeof window === 'undefined' || !window.ethereum) return [];
+  const eth = window.ethereum;
+  // EIP-5749: multiple wallets expose themselves via window.ethereum.providers
+  if (eth.providers && eth.providers.length > 0) return eth.providers;
+  return [eth];
+}
+
+function walletLabel(p: EthereumProvider): string {
+  if (p.isPhantom) return 'Phantom';
+  if (p.isCoinbaseWallet) return 'Coinbase Wallet';
+  if (p.isBraveWallet) return 'Brave Wallet';
+  if (p.isRabby) return 'Rabby';
+  if (p.isMetaMask) return 'MetaMask';
+  return 'Browser Wallet';
+}
+
+// ── EVM helpers ────────────────────────────────────────────────────────────────
 
 function encodeBalanceOf(addr: string): string {
   return '0x70a08231' + addr.toLowerCase().replace(/^0x/, '').padStart(64, '0');
@@ -63,33 +101,37 @@ function parseUnits18(amount: string): bigint {
   return BigInt(whole) * 10n ** 18n + BigInt(fracPadded || '0');
 }
 
-function formatUnits18Hex(hex: string): string {
-  const raw = hex.replace(/^0x/, '') || '0';
-  const n = BigInt('0x' + raw);
+function formatUnits18(n: bigint): string {
   if (n === 0n) return '0';
   const divisor = 10n ** 18n;
   const whole = n / divisor;
   const frac = n % divisor;
   if (frac === 0n) return whole.toString();
-  const fracStr = frac.toString().padStart(18, '0').replace(/0+$/, '').slice(0, 4);
-  return `${whole}.${fracStr}`;
+  return `${whole}.${frac.toString().padStart(18, '0').replace(/0+$/, '').slice(0, 4)}`;
 }
 
-// Read KNYT balance via raw JSON-RPC (public RPC, no key needed for reads)
+// Aggregate $KNYT across both deployed contracts for a single address
 async function readKnytBalance(address: string): Promise<string | null> {
-  const rpc = 'https://eth.llamarpc.com';
   try {
-    const res = await fetch(rpc, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        jsonrpc: '2.0', id: 1, method: 'eth_call',
-        params: [{ to: KNYT_CONTRACT, data: encodeBalanceOf(address) }, 'latest'],
-      }),
-    });
-    const json = await res.json() as { result?: string };
-    if (!json.result || json.result === '0x') return '0';
-    return formatUnits18Hex(json.result);
+    const data = encodeBalanceOf(address);
+    const calls = KNYT_CONTRACTS.map((contract) =>
+      fetch(ETH_RPC, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0', id: 1, method: 'eth_call',
+          params: [{ to: contract, data }, 'latest'],
+        }),
+      }).then((r) => r.json() as Promise<{ result?: string }>)
+        .then((json) => {
+          const hex = (json.result ?? '0x').replace(/^0x/, '') || '0';
+          return BigInt('0x' + hex);
+        })
+        .catch(() => 0n)
+    );
+    const totals = await Promise.all(calls);
+    const total = totals.reduce((sum, n) => sum + n, 0n);
+    return formatUnits18(total);
   } catch {
     return null;
   }
@@ -113,18 +155,41 @@ export interface ExternalWalletConnectProps {
 export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalletConnectProps) {
   const [address, setAddress] = useState<string | null>(null);
   const [chainId, setChainId] = useState<number | null>(null);
+  const [walletName, setWalletName] = useState<string>('');
   const [knytBalance, setKnytBalance] = useState<string | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
-  const [connecting, setConnecting] = useState(false);
+  const [connectingIdx, setConnectingIdx] = useState<number | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [providers, setProviders] = useState<EthereumProvider[]>([]);
   const [sendAmount, setSendAmount] = useState('');
   const [sendState, setSendState] = useState<SendState>({ status: 'idle' });
   const [copied, setCopied] = useState(false);
-  const [noWallet, setNoWallet] = useState(false);
+
+  // The provider the user explicitly chose — all wallet ops go through this ref
+  const activeProviderRef = useRef<EthereumProvider | null>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const connectAbortRef = useRef<{ cancelled: boolean }>({ cancelled: false });
 
-  const provider = typeof window !== 'undefined' ? window.ethereum : undefined;
+  // ── Provider discovery on mount ──────────────────────────────────────────────
+
+  useEffect(() => {
+    const discovered = discoverProviders();
+    setProviders(discovered);
+
+    // Auto-connect if exactly one provider already has accounts (e.g. MetaMask from prior session)
+    // This runs silently and only when there's no ambiguity about which wallet to use.
+    if (discovered.length === 1) {
+      discovered[0].request({ method: 'eth_accounts' })
+        .then((accounts) => {
+          const accs = accounts as string[];
+          if (accs.length) {
+            setupProvider(discovered[0], accs[0]);
+          }
+        })
+        .catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchBalance = useCallback(async (addr: string) => {
     setBalanceLoading(true);
@@ -133,50 +198,113 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
     setBalanceLoading(false);
   }, []);
 
-  const handleAccountsChanged = useCallback((accounts: unknown) => {
+  // Attach event listeners to the selected provider and initialise state
+  const setupProvider = useCallback((p: EthereumProvider, connectedAddress: string) => {
+    // Tear down any previous provider's listeners
+    const prev = activeProviderRef.current;
+    if (prev) {
+      prev.removeListener('accountsChanged', handleAccountsChanged);
+      prev.removeListener('chainChanged', handleChainChanged);
+    }
+
+    activeProviderRef.current = p;
+    setAddress(connectedAddress);
+    setWalletName(walletLabel(p));
+
+    p.on('accountsChanged', handleAccountsChanged);
+    p.on('chainChanged', handleChainChanged);
+
+    p.request({ method: 'eth_chainId' })
+      .then((chain) => setChainId(parseInt(chain as string, 16)))
+      .catch(() => {});
+
+    fetchBalance(connectedAddress);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchBalance]);
+
+  // Keep stable refs for event handlers so we can removeListener correctly
+  function handleAccountsChanged(accounts: unknown) {
     const accs = accounts as string[];
     if (!accs.length) {
-      setAddress(null);
-      setChainId(null);
-      setKnytBalance(null);
+      teardown();
     } else {
       setAddress(accs[0]);
       fetchBalance(accs[0]);
     }
-  }, [fetchBalance]);
+  }
 
-  const handleChainChanged = useCallback((chain: unknown) => {
+  function handleChainChanged(chain: unknown) {
     setChainId(parseInt(chain as string, 16));
+  }
+
+  function teardown() {
+    const p = activeProviderRef.current;
+    if (p) {
+      p.removeListener('accountsChanged', handleAccountsChanged);
+      p.removeListener('chainChanged', handleChainChanged);
+      activeProviderRef.current = null;
+    }
+    setAddress(null);
+    setChainId(null);
+    setKnytBalance(null);
+    setWalletName('');
+    setSendState({ status: 'idle' });
+    setSendAmount('');
+  }
+
+  useEffect(() => () => {
+    if (pollRef.current) clearTimeout(pollRef.current);
+    teardown();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (!provider) return;
-    provider.on('accountsChanged', handleAccountsChanged);
-    provider.on('chainChanged', handleChainChanged);
+  // ── Connect to a specific wallet ─────────────────────────────────────────────
 
-    // Resume if already connected
-    provider.request({ method: 'eth_accounts' }).then((accounts) => {
-      const accs = accounts as string[];
-      if (accs.length) {
-        setAddress(accs[0]);
-        provider.request({ method: 'eth_chainId' }).then((chain) => {
-          setChainId(parseInt(chain as string, 16));
-        }).catch(() => {});
-        fetchBalance(accs[0]);
+  async function connectTo(p: EthereumProvider, idx: number) {
+    setConnectingIdx(idx);
+    setConnectError(null);
+    const abort = { cancelled: false };
+    connectAbortRef.current = abort;
+
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(
+        () => reject(new Error('Wallet not responding — open the extension and approve the connection request.')),
+        30_000,
+      );
+    });
+
+    try {
+      const accounts = await Promise.race([
+        p.request({ method: 'eth_requestAccounts' }) as Promise<string[]>,
+        timeout,
+      ]);
+      clearTimeout(timeoutId!);
+      if (abort.cancelled) return;
+      if (accounts.length) setupProvider(p, accounts[0]);
+    } catch (err: unknown) {
+      clearTimeout(timeoutId!);
+      if (abort.cancelled) return;
+      const msg = err instanceof Error ? err.message : '';
+      if (msg && !msg.toLowerCase().includes('user rejected') && !msg.toLowerCase().includes('user denied')) {
+        setConnectError(msg);
       }
-    }).catch(() => {});
+    } finally {
+      if (!abort.cancelled) setConnectingIdx(null);
+    }
+  }
 
-    return () => {
-      provider.removeListener('accountsChanged', handleAccountsChanged);
-      provider.removeListener('chainChanged', handleChainChanged);
-    };
-  }, [provider, fetchBalance, handleAccountsChanged, handleChainChanged]);
+  function cancelConnect() {
+    connectAbortRef.current.cancelled = true;
+    setConnectingIdx(null);
+    setConnectError(null);
+  }
 
-  // Poll evm-deposit endpoint until the tx is credited or we give up
+  // ── Deposit poll ──────────────────────────────────────────────────────────────
+
   const startDepositPoll = useCallback((txHash: string, amountKnyt: number) => {
     if (!personaId) return;
     let attempts = 0;
-    const maxAttempts = 20; // ~60s at 3s intervals
 
     const poll = async () => {
       try {
@@ -191,93 +319,26 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
           if (address) fetchBalance(address);
           return;
         }
-      } catch {
-        // ignore transient errors, keep polling
-      }
+      } catch { /* ignore */ }
       attempts++;
-      if (attempts < maxAttempts) {
+      if (attempts < 20) {
         pollRef.current = setTimeout(poll, 3000);
       } else {
-        // Give up polling — tx may still settle; user can refresh
         setSendState(prev => ({ ...prev, status: 'credited', txHash }));
       }
     };
 
-    pollRef.current = setTimeout(poll, 4000); // First check after 4s (give chain time)
+    pollRef.current = setTimeout(poll, 4000);
   }, [personaId, address, fetchBalance]);
 
-  useEffect(() => () => { if (pollRef.current) clearTimeout(pollRef.current); }, []);
-
-  async function connect() {
-    if (!provider) {
-      setNoWallet(true);
-      return;
-    }
-    setConnecting(true);
-    setConnectError(null);
-    const abort = { cancelled: false };
-    connectAbortRef.current = abort;
-
-    // Race the wallet request against a 30s timeout so the spinner can't stall forever
-    const timeoutMs = 30_000;
-    let timeoutId: ReturnType<typeof setTimeout>;
-    const timeout = new Promise<never>((_, reject) => {
-      timeoutId = setTimeout(
-        () => reject(new Error('Wallet not responding — open your wallet extension and approve the request, then try again.')),
-        timeoutMs,
-      );
-    });
-
-    try {
-      const accounts = await Promise.race([
-        provider.request({ method: 'eth_requestAccounts' }) as Promise<string[]>,
-        timeout,
-      ]);
-      clearTimeout(timeoutId!);
-      if (abort.cancelled) return;
-      if (accounts.length) {
-        setAddress(accounts[0]);
-        const chain = await provider.request({ method: 'eth_chainId' }) as string;
-        setChainId(parseInt(chain, 16));
-        fetchBalance(accounts[0]);
-      }
-    } catch (err: unknown) {
-      clearTimeout(timeoutId!);
-      if (abort.cancelled) return;
-      const msg = err instanceof Error ? err.message : '';
-      // Only surface non-rejection errors (code 4001 = user rejected — silent)
-      if (msg && !(msg.toLowerCase().includes('user rejected') || msg.toLowerCase().includes('user denied'))) {
-        setConnectError(msg);
-      }
-    } finally {
-      if (!abort.cancelled) setConnecting(false);
-    }
-  }
-
-  function cancelConnect() {
-    connectAbortRef.current.cancelled = true;
-    setConnecting(false);
-    setConnectError(null);
-  }
-
-  function disconnect() {
-    setAddress(null);
-    setChainId(null);
-    setKnytBalance(null);
-    setSendState({ status: 'idle' });
-    setSendAmount('');
-  }
+  // ── Wallet ops ────────────────────────────────────────────────────────────────
 
   async function switchToEthereum() {
-    if (!provider) return;
+    const p = activeProviderRef.current;
+    if (!p) return;
     try {
-      await provider.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: ETH_CHAIN_HEX }],
-      });
-    } catch {
-      // ignore rejection
-    }
+      await p.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: ETH_CHAIN_HEX }] });
+    } catch { /* ignore */ }
   }
 
   const handleCopy = useCallback(() => {
@@ -288,16 +349,17 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
   }, [address]);
 
   async function handleSend() {
-    if (!address || !KNYT_TREASURY || !sendAmount || !provider) return;
+    const p = activeProviderRef.current;
+    if (!address || !KNYT_TREASURY || !sendAmount || !p) return;
     const amount = parseFloat(sendAmount);
     if (isNaN(amount) || amount <= 0) return;
 
     setSendState({ status: 'waiting' });
     try {
       const data = encodeTransfer(KNYT_TREASURY, parseUnits18(sendAmount));
-      const txHash = await provider.request({
+      const txHash = await p.request({
         method: 'eth_sendTransaction',
-        params: [{ from: address, to: KNYT_CONTRACT, data }],
+        params: [{ from: address, to: KNYT_TRANSFER_CONTRACT, data }],
       }) as string;
 
       setSendState({ status: 'verifying', txHash });
@@ -311,43 +373,48 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
 
   const wrongChain = address !== null && chainId !== null && chainId !== ETH_CHAIN_ID;
 
-  // ── Not connected ──────────────────────────────────────────────────────────
+  // ── Not connected ─────────────────────────────────────────────────────────────
 
   if (!address) {
+    const isConnecting = connectingIdx !== null;
     return (
       <div className="space-y-3">
         <p className="text-xs text-white/50 pb-1">
-          Connect an external EVM wallet to view your on-chain $KNYT balance and make payments from it directly.
+          Connect an external EVM wallet to view your consolidated on-chain $KNYT balance and make payments from it directly.
         </p>
-        {noWallet ? (
+
+        {providers.length === 0 ? (
           <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
             <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
             No wallet detected. Install MetaMask or another browser extension wallet to continue.
           </div>
         ) : (
           <div className="space-y-2">
-            <button
-              type="button"
-              disabled={connecting}
-              onClick={connect}
-              className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/10 disabled:opacity-50"
-            >
-              <Wallet className="h-5 w-5 text-amber-400 shrink-0" />
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-white">Connect Wallet</p>
-                <p className="text-[10px] text-white/40">
-                  {connecting ? 'Check your wallet extension for a connection request…' : 'Browser extension (MetaMask, Coinbase Wallet, etc.)'}
-                </p>
-              </div>
-              {connecting ? (
-                <Loader2 className="h-4 w-4 animate-spin text-white/40 ml-auto shrink-0" />
-              ) : (
-                <ChevronRight className="h-4 w-4 text-white/30 ml-auto shrink-0" />
-              )}
-            </button>
+            {providers.map((p, idx) => {
+              const spinning = connectingIdx === idx;
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  disabled={isConnecting}
+                  onClick={() => connectTo(p, idx)}
+                  className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/10 disabled:opacity-50"
+                >
+                  <Wallet className="h-5 w-5 text-amber-400 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white">{walletLabel(p)}</p>
+                    <p className="text-[10px] text-white/40">
+                      {spinning ? 'Check your wallet extension for a connection request…' : 'Click to connect'}
+                    </p>
+                  </div>
+                  {spinning
+                    ? <Loader2 className="h-4 w-4 animate-spin text-white/40 ml-auto shrink-0" />
+                    : <ChevronRight className="h-4 w-4 text-white/30 ml-auto shrink-0" />}
+                </button>
+              );
+            })}
 
-            {/* Cancel button — visible while waiting so the user isn't stuck */}
-            {connecting && (
+            {isConnecting && (
               <button
                 type="button"
                 onClick={cancelConnect}
@@ -357,7 +424,6 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
               </button>
             )}
 
-            {/* Connection error (e.g. timeout) */}
             {connectError && (
               <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
                 <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
@@ -366,6 +432,7 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
             )}
           </div>
         )}
+
         <p className="text-[10px] text-white/30 text-center pt-1">
           WalletConnect (mobile) — coming soon
         </p>
@@ -373,7 +440,7 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
     );
   }
 
-  // ── Connected ──────────────────────────────────────────────────────────────
+  // ── Connected ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-3">
@@ -382,11 +449,13 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 rounded-full bg-emerald-400" />
-            <span className="text-[10px] uppercase tracking-wider text-white/50">Connected</span>
+            <span className="text-[10px] uppercase tracking-wider text-white/50">
+              Connected · {walletName}
+            </span>
           </div>
           <button
             type="button"
-            onClick={disconnect}
+            onClick={teardown}
             className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] text-white/40 hover:bg-white/10 hover:text-white/70 transition"
           >
             <LogOut className="h-3 w-3" />
@@ -430,12 +499,15 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
         </div>
       )}
 
-      {/* KNYT balance */}
+      {/* KNYT balance — consolidated from both contracts */}
       {!wrongChain && (
         <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Coins className="h-4 w-4 text-amber-400" />
-            <span className="text-xs text-white/60">EVM $KNYT (Ethereum)</span>
+            <div>
+              <span className="text-xs text-white/60">EVM $KNYT (Ethereum)</span>
+              <p className="text-[9px] text-white/30">Consolidated — 2 contracts</p>
+            </div>
           </div>
           {balanceLoading
             ? <Loader2 className="h-3.5 w-3.5 animate-spin text-white/40" />
@@ -477,18 +549,13 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
             </button>
           </div>
 
-          {/* TX verifying */}
           {sendState.status === 'verifying' && sendState.txHash && (
             <div className="flex items-start gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs">
               <Loader2 className="h-3.5 w-3.5 text-blue-400 animate-spin shrink-0 mt-0.5" />
               <div className="min-w-0">
                 <p className="text-blue-300 font-medium">Verifying on-chain…</p>
-                <a
-                  href={`https://etherscan.io/tx/${sendState.txHash}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-blue-400/70 hover:text-blue-300 font-mono truncate block"
-                >
+                <a href={`https://etherscan.io/tx/${sendState.txHash}`} target="_blank" rel="noreferrer"
+                  className="text-blue-400/70 hover:text-blue-300 font-mono truncate block">
                   {sendState.txHash.slice(0, 18)}…{sendState.txHash.slice(-6)}
                 </a>
                 <p className="text-blue-400/50 mt-0.5">Your DVN balance will update once confirmed.</p>
@@ -496,25 +563,19 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
             </div>
           )}
 
-          {/* TX credited */}
           {sendState.status === 'credited' && sendState.txHash && (
             <div className="flex items-start gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs">
               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0 mt-0.5" />
               <div className="min-w-0">
                 <p className="text-emerald-300 font-medium">$KNYT credited to DVN balance</p>
-                <a
-                  href={`https://etherscan.io/tx/${sendState.txHash}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-emerald-400/70 hover:text-emerald-300 font-mono truncate block"
-                >
+                <a href={`https://etherscan.io/tx/${sendState.txHash}`} target="_blank" rel="noreferrer"
+                  className="text-emerald-400/70 hover:text-emerald-300 font-mono truncate block">
                   {sendState.txHash.slice(0, 18)}…{sendState.txHash.slice(-6)}
                 </a>
               </div>
             </div>
           )}
 
-          {/* TX error */}
           {sendState.status === 'error' && (
             <div className="flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
               <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
