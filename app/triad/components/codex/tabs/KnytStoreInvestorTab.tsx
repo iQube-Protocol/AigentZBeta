@@ -122,6 +122,12 @@ function InvestorBundleDetail({
   const includedEpisodes = EPISODE_PRICING.filter((ep) => bundle.episodes.includes(ep.episodeNumber));
   const individualTotal = includedEpisodes.reduce((s, ep) => s + ep.digitalPrice, 0);
 
+  const isGnOnly = bundle.episodes.length === 1 && bundle.episodes[0] === -1;
+  const isHardcover = bundle.id === 'gn-investor-hardcover';
+  const heroImage = isGnOnly
+    ? (isHardcover ? getCoverThumb(-4) : getCoverThumb(-1)) ?? INVESTOR_SEAL
+    : INVESTOR_SEAL;
+
   const hasCharacters = bundle.includes?.some((s) => {
     const l = s.toLowerCase();
     return l.includes('character card') || l.includes('knyt character');
@@ -135,7 +141,7 @@ function InvestorBundleDetail({
     <div className="p-3 space-y-3">
       <div className="grid grid-cols-2 gap-3 items-start">
         <div className="aspect-[2/3] rounded-xl overflow-hidden bg-slate-950 border border-yellow-800/30">
-          <img src={INVESTOR_SEAL} alt={bundle.label} className="w-full h-full object-contain" loading="lazy" />
+          <img src={heroImage} alt={bundle.label} className="w-full h-full object-contain" loading="lazy" />
         </div>
 
         <div className="space-y-2.5 min-w-0">
@@ -230,33 +236,35 @@ function InvestorBundleDetail({
         </div>
       </div>
 
-      {/* Full-width episode thumbnail grid */}
-      <div>
-        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
-          Episodes included ({includedEpisodes.length})
-        </p>
-        <div className="grid grid-cols-5 gap-1">
-          {includedEpisodes.map((ep) => {
-            const thumb = getCoverThumb(ep.episodeNumber);
-            return (
-              <div key={ep.episodeNumber} className="flex flex-col rounded overflow-hidden border border-white/5 bg-slate-900/60">
-                <div className="aspect-[2/3] bg-slate-950 overflow-hidden">
-                  {thumb ? (
-                    <img src={thumb} alt={`Ep ${ep.episodeNumber}`} className="w-full h-full object-contain" loading="lazy" />
-                  ) : (
-                    <div className="flex items-center justify-center h-full">
-                      <Film className="h-3 w-3 text-slate-700" />
-                    </div>
-                  )}
+      {/* Full-width episode thumbnail grid — skip for single-GN bundles (hero image already shows it) */}
+      {!isGnOnly && (
+        <div>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">
+            Episodes included ({includedEpisodes.length})
+          </p>
+          <div className="grid grid-cols-5 gap-1">
+            {includedEpisodes.map((ep) => {
+              const thumb = getCoverThumb(ep.episodeNumber);
+              return (
+                <div key={ep.episodeNumber} className="flex flex-col rounded overflow-hidden border border-white/5 bg-slate-900/60">
+                  <div className="aspect-[2/3] bg-slate-950 overflow-hidden">
+                    {thumb ? (
+                      <img src={thumb} alt={`Ep ${ep.episodeNumber}`} className="w-full h-full object-contain" loading="lazy" />
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <Film className="h-3 w-3 text-slate-700" />
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[7px] text-slate-400 text-center py-0.5 leading-none">
+                    {ep.episodeNumber === -1 ? 'GN' : `Ep ${ep.episodeNumber}`}
+                  </p>
                 </div>
-                <p className="text-[7px] text-slate-400 text-center py-0.5 leading-none">
-                  {ep.episodeNumber === -1 ? 'GN' : `Ep ${ep.episodeNumber}`}
-                </p>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Character card thumbnail grid */}
       {cardThumbs.length > 0 && (
@@ -281,9 +289,8 @@ function InvestorBundleDetail({
   );
 }
 
-const investorBundles = BUNDLE_PRICING.filter((b) => b.isInvestorOnly);
-const qriptoBundles   = investorBundles.filter((b) => !b.badgeTier || b.badgeTier === 'qripto');
-const digitalBundles  = investorBundles.filter((b) => b.badgeTier === 'digital');
+const gnInvestorBundles         = BUNDLE_PRICING.filter((b) => b.isInvestorOnly && b.episodes.length === 1 && b.episodes[0] === -1);
+const collectionInvestorBundles = BUNDLE_PRICING.filter((b) => b.isInvestorOnly && !(b.episodes.length === 1 && b.episodes[0] === -1));
 
 export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
   const [view, setView]         = useState<InvestorView>({ kind: 'landing' });
@@ -294,11 +301,16 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
     view.kind === 'landing' ? 'Investor Bundles' : view.bundle.label;
 
   function openBundlePurchase(bundle: BundlePricing) {
+    const isGnOnly    = bundle.episodes.length === 1 && bundle.episodes[0] === -1;
+    const isHardcover = bundle.id === 'gn-investor-hardcover';
+    const image = isGnOnly
+      ? (isHardcover ? getCoverThumb(-4) : getCoverThumb(-1)) ?? INVESTOR_SEAL
+      : INVESTOR_SEAL;
     setPurchase({
       contentType:      'season_codex_still',
       contentId:        bundle.id,
       contentTitle:     bundle.label,
-      contentImage:     INVESTOR_SEAL,
+      contentImage:     image,
       priceUsdOverride: bundle.memberPrice ?? bundle.digitalPrice,
     });
   }
@@ -332,12 +344,12 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
               </div>
             </div>
 
-            {/* Qripto section */}
-            {qriptoBundles.length > 0 && (
+            {/* Graphic Novel investor editions */}
+            {gnInvestorBundles.length > 0 && (
               <div className="space-y-2">
-                <p className="text-[10px] font-semibold text-purple-400 uppercase tracking-wide px-0.5">Qripto Editions</p>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide px-0.5">Graphic Novel — 20% off retail</p>
                 <div className="grid grid-cols-4 gap-2">
-                  {qriptoBundles.map((bundle) => (
+                  {gnInvestorBundles.map((bundle) => (
                     <InvestorBundleCard
                       key={bundle.id}
                       bundle={bundle}
@@ -349,12 +361,12 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
               </div>
             )}
 
-            {/* Digital section */}
-            {digitalBundles.length > 0 && (
+            {/* Collection bundles — Qripto and Digital mixed */}
+            {collectionInvestorBundles.length > 0 && (
               <div className="space-y-2">
-                <p className="text-[10px] font-semibold text-sky-400 uppercase tracking-wide px-0.5">Digital Editions</p>
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide px-0.5">Collection Bundles</p>
                 <div className="grid grid-cols-4 gap-2">
-                  {digitalBundles.map((bundle) => (
+                  {collectionInvestorBundles.map((bundle) => (
                     <InvestorBundleCard
                       key={bundle.id}
                       bundle={bundle}
