@@ -110,6 +110,8 @@ export interface BundlePricing {
   digitalPrice: number;
   /** Retail (public) price shown slashed-through on investor bundles */
   retailPrice?: number;
+  /** Visual badge on bundle cards: 'qripto' = purple Qripto badge, 'digital' = sky Digital badge */
+  badgeTier?: 'qripto' | 'digital';
   memberPrice?: number;    // persona-gated cohort price (e.g. ZeroKNYT members)
   memberCohort?: string;   // cohort slug required to unlock memberPrice
   isFullSeason: boolean;
@@ -133,19 +135,21 @@ export const BUNDLE_PRICING: BundlePricing[] = [
   { id: 'bundle-full', label: 'Full Season 0–12', episodes: [0,1,2,3,4,5,6,7,8,9,10,11,12],  digitalPrice: 90,  isFullSeason: true,  printFulfillment: 'post-kickstarter' },
 
   // ── Investor bundles ───────────────────────────────────────────────────────
+  // ── Qripto investor bundles ────────────────────────────────────────────────
   {
     id: 'knyt-codex-investor',
     label: 'Qripto KNYT Codex',
     episodes: [-1,0,1,2,3,4,5,6,7,8,9,10,11,12],
     digitalPrice: 168,   // investor price
     retailPrice:  186,   // retail (slashed through)
+    badgeTier: 'qripto',
     isFullSeason: false,
     isInvestorOnly: true,
     printFulfillment: 'post-kickstarter',
     includes: [
       '1 QAGN (Qripto AgentiQ Graphic Novel)',
       '13 Qripto Editions (all episodes)',
-      '13 KNYT Character Cards',
+      '13 KNYT Characters',
     ],
   },
   {
@@ -154,13 +158,14 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     episodes: [-1,0,1,2,3,4,5,6,7,8,9,10,11,12],
     digitalPrice: 288,   // investor price
     retailPrice:  388,   // retail
+    badgeTier: 'qripto',
     isFullSeason: false,
     isInvestorOnly: true,
     printFulfillment: 'post-kickstarter',
     includes: [
       '1 QAGN (Qripto AgentiQ Graphic Novel)',
       '13 Qripto Editions (all episodes)',
-      '13 KNYT Character Cards',
+      '13 KNYT Characters',
       'Paperback AgentiQ Graphic Novel (AGN)',
     ],
   },
@@ -170,13 +175,14 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     episodes: [-1,0,1,2,3,4,5,6,7,8,9,10,11,12],
     digitalPrice: 640,   // investor price
     retailPrice:  798,   // retail
+    badgeTier: 'qripto',
     isFullSeason: false,
     isInvestorOnly: true,
     printFulfillment: 'signed-author',
     includes: [
       '1 QAGN (Qripto AgentiQ Graphic Novel)',
       '13 Qripto Editions (all episodes)',
-      '13 KNYT Character Cards',
+      '13 KNYT Characters',
       'Collector Card',
       '1 Hardcover AgentiQ Graphic Novel (AGN)',
       '13 Print Episodes',
@@ -191,6 +197,7 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     retailPrice:  1000,  // retail
     memberPrice:  600,   // existing Zero KNYTs
     memberCohort: 'zero-knyt',
+    badgeTier: 'qripto',
     isFullSeason: false,
     isInvestorOnly: true,
     isLimited: true,
@@ -200,7 +207,7 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     includes: [
       '1 QAGN (Qripto AgentiQ Graphic Novel)',
       '13 Qripto Editions (all episodes)',
-      '13 KNYT Character Cards',
+      '13 KNYT Characters',
       'Collector Card',
       '1 Author-signed Hardcover AGN',
       '1 QAGN Proof of Print Certificate',
@@ -213,6 +220,7 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     episodes: [-1,0,1,2,3,4,5,6,7,8,9,10,11,12],
     digitalPrice: 2100,  // same for retail and investor
     retailPrice:  2100,
+    badgeTier: 'qripto',
     isFullSeason: false,
     isInvestorOnly: true,
     isLimited: true,
@@ -228,9 +236,64 @@ export const BUNDLE_PRICING: BundlePricing[] = [
       '1 QAGN Proof of Print Certificate',
       '2 QAGNs (Qripto AgentiQ Graphic Novels)',
       '2× 13 author-signed Print Editions',
-      '2× 13 KNYT Character Card Packs',
+      '2× 13 KNYT Character Packs',
       '2× Collector Cards',
       'Zero KNYT Access — Order of Metaiye',
+    ],
+  },
+
+  // ── Digital investor bundles ───────────────────────────────────────────────
+  {
+    id: 'digital-knyt-cartridge',
+    label: 'KNYT Cartridge',
+    episodes: [-1,0,1,2,3,4,5,6,7,8,9,10,11,12],
+    digitalPrice: 168,
+    retailPrice:  186,
+    badgeTier: 'digital',
+    isFullSeason: false,
+    isInvestorOnly: true,
+    printFulfillment: 'post-kickstarter',
+    includes: [
+      '1 Digital AGN (AgentiQ Graphic Novel)',
+      '13 Digital Editions (all episodes)',
+      '13 KNYT Characters',
+    ],
+  },
+  {
+    id: 'digital-knyt-shelf',
+    label: 'Digital KNYT Shelf',
+    episodes: [-1,0,1,2,3,4,5,6,7,8,9,10,11,12],
+    digitalPrice: 288,
+    retailPrice:  388,
+    badgeTier: 'digital',
+    isFullSeason: false,
+    isInvestorOnly: true,
+    printFulfillment: 'post-kickstarter',
+    includes: [
+      '1 Digital AGN (AgentiQ Graphic Novel)',
+      '13 Digital Editions (all episodes)',
+      '13 KNYT Characters',
+      'Paperback AgentiQ Graphic Novel (AGN)',
+    ],
+  },
+  {
+    id: 'digital-first-knyt',
+    label: 'Digital First KNYT',
+    episodes: [-1,0,1,2,3,4,5,6,7,8,9,10,11,12],
+    digitalPrice: 640,
+    retailPrice:  798,
+    badgeTier: 'digital',
+    isFullSeason: false,
+    isInvestorOnly: true,
+    printFulfillment: 'signed-author',
+    includes: [
+      '1 Digital AGN (AgentiQ Graphic Novel)',
+      '13 Digital Editions (all episodes)',
+      '13 KNYT Characters',
+      'Collector Card',
+      '1 Hardcover AgentiQ Graphic Novel (AGN)',
+      '13 Print Episodes',
+      'Proof of Print Certificate',
     ],
   },
 ];
