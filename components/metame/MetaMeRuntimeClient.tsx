@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useTTSPlayer } from "@/app/hooks/useTTSPlayer";
 import { useSearchParams } from "next/navigation";
 import {
@@ -10,7 +11,15 @@ import {
   type ShellInboundMessage,
 } from "@metame/iframe-bridge";
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
-import SmartWalletDrawer from "@/app/components/content/SmartWalletDrawer";
+// Dynamic import — keeps SmartWalletDrawer (large component pulling LibraryShelf,
+// PurchaseFlow, SmartTriadProvider, etc.) out of the runtime's main chunk. Static
+// imports of this component into the deep runtime chain have triggered chunk-load
+// timeouts ("Loading chunk NNNN failed") on Amplify before; matches the pattern
+// from commit eb527f9 (chunk 52117 TDZ fix) applied elsewhere in the codebase.
+const SmartWalletDrawer = dynamic(
+  () => import("@/app/components/content/SmartWalletDrawer"),
+  { ssr: false, loading: () => null },
+);
 import { PersonaIQubeDrawer } from "@/components/iqube/PersonaIQubeDrawer";
 import { IdentityIQubeDrawer } from "@/components/iqube/IdentityIQubeDrawer";
 import { MemoryIQubeDrawer } from "@/components/iqube/MemoryIQubeDrawer";
@@ -2982,20 +2991,28 @@ export default function MetaMeRuntimeClient() {
                 }
               />
             ) : (
-              <button
-                type="button"
-                onClick={() => setRemixDialogState({
-                  open: true,
-                  sourceExperienceId: resolveRuntimeExperienceId(content) ?? content.id,
-                  initialTitle: content.title || "",
-                  initialPrompt: articleDraft?.prompt || content.description || "",
-                })}
-                className="inline-flex items-center gap-1.5 self-start rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 hover:bg-amber-500/20 transition-colors"
-                title="Remix this experience as your own article or story"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                Remix
-              </button>
+              <div className="rounded-xl border border-amber-400/25 bg-slate-900/70 p-3 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-[0.18em] text-amber-300/80">Community</div>
+                    <div className="text-sm font-medium text-white">Remix as article or story</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setRemixDialogState({
+                      open: true,
+                      sourceExperienceId: resolveRuntimeExperienceId(content) ?? content.id,
+                      initialTitle: content.title || "",
+                      initialPrompt: articleDraft?.prompt || content.description || "",
+                    })}
+                    className="inline-flex items-center gap-2 rounded-full border border-amber-300/25 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-100 transition hover:bg-amber-500/20"
+                    title="Remix this experience as your own article or story"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Remix
+                  </button>
+                </div>
+              </div>
             )}
 
             <div id={mediaAnchorId} className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
