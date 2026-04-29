@@ -30,19 +30,12 @@ import {
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
-// Both deployed KNYT contracts — balances are summed for consolidated display
-const KNYT_CONTRACTS = [
-  '0xe53dad36cd0A8EdC656448CE7912bba72beBECb4', // primary
-  '0xCf890B7acBB5ffe0540a01860A75D3d765bF0756', // minter
-] as const;
-
-// Transfer uses the primary contract (canonical ERC-20 token)
-const KNYT_TRANSFER_CONTRACT = KNYT_CONTRACTS[0];
+// Transfer uses the primary KNYT ERC-20 contract
+const KNYT_TRANSFER_CONTRACT = '0xe53dad36cd0A8EdC656448CE7912bba72beBECb4';
 
 const KNYT_TREASURY = (process.env.NEXT_PUBLIC_KNYT_TREASURY_ADDRESS ?? '') as string;
 const ETH_CHAIN_ID = 1;
 const ETH_CHAIN_HEX = '0x1';
-const ETH_RPC = 'https://eth.llamarpc.com';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -83,11 +76,7 @@ function walletLabel(p: EthereumProvider): string {
   return 'Browser Wallet';
 }
 
-// ── EVM helpers ────────────────────────────────────────────────────────────────
-
-function encodeBalanceOf(addr: string): string {
-  return '0x70a08231' + addr.toLowerCase().replace(/^0x/, '').padStart(64, '0');
-}
+// ── EVM encode helpers ─────────────────────────────────────────────────────────
 
 function encodeTransfer(to: string, amount: bigint): string {
   const toEncoded = to.toLowerCase().replace(/^0x/, '').padStart(64, '0');
@@ -101,37 +90,17 @@ function parseUnits18(amount: string): bigint {
   return BigInt(whole) * 10n ** 18n + BigInt(fracPadded || '0');
 }
 
-function formatUnits18(n: bigint): string {
-  if (n === 0n) return '0';
-  const divisor = 10n ** 18n;
-  const whole = n / divisor;
-  const frac = n % divisor;
-  if (frac === 0n) return whole.toString();
-  return `${whole}.${frac.toString().padStart(18, '0').replace(/0+$/, '').slice(0, 4)}`;
-}
-
-// Aggregate $KNYT across both deployed contracts for a single address
+// Reads consolidated $KNYT balance (both contracts) via server-side proxy.
+// Direct browser RPC calls to eth.llamarpc.com are blocked by CORS.
 async function readKnytBalance(address: string): Promise<string | null> {
   try {
-    const data = encodeBalanceOf(address);
-    const calls = KNYT_CONTRACTS.map((contract) =>
-      fetch(ETH_RPC, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0', id: 1, method: 'eth_call',
-          params: [{ to: contract, data }, 'latest'],
-        }),
-      }).then((r) => r.json() as Promise<{ result?: string }>)
-        .then((json) => {
-          const hex = (json.result ?? '0x').replace(/^0x/, '') || '0';
-          return BigInt('0x' + hex);
-        })
-        .catch(() => 0n)
-    );
-    const totals = await Promise.all(calls);
-    const total = totals.reduce((sum, n) => sum + n, 0n);
-    return formatUnits18(total);
+    const res = await fetch(`/api/wallet/knyt/evm-balance?address=${encodeURIComponent(address)}`);
+    if (!res.ok) return null;
+    const json = await res.json() as { balance?: string; balances?: Array<{ balanceFormatted?: string }> };
+    // Route returns either { balance } (new) or { balances: [...] } (legacy format)
+    if (json.balance != null) return json.balance;
+    if (json.balances?.length) return json.balances[0]?.balanceFormatted ?? '0';
+    return '0';
   } catch {
     return null;
   }
