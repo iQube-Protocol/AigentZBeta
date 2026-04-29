@@ -541,6 +541,22 @@ export const KNYT_CODEX: CodexConfig = {
       }
     },
 
+    // ── Community Generated Content (standalone) ───────────────
+    {
+      id: 'community-content',
+      label: 'Community',
+      slug: 'community-content',
+      enabled: true,
+      order: 5,
+      type: 'static',
+      config: { component: 'KnytCommunityContentTab' },
+      metadata: {
+        icon: 'Sparkles',
+        description: 'Community-remixed articles and KNYT stories',
+        color: 'violet'
+      }
+    },
+
     // ── Admin group (admin-gated) ──────────────────────────────
     {
       id: 'knyt-alpha',
