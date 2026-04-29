@@ -494,3 +494,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-42e053b.md](../build_/COMMITS/COMMIT-42e053b.md)
 - Message: add marketa charter and phased CED implementation plan
+
+## Commit `8422f70` — 2026-04-28T23:26:03Z
+- Type: `feat`
+- Brief: [COMMIT-8422f70.md](../build_/COMMITS/COMMIT-8422f70.md)
+- Message: add WalletConnect external wallet to SmartWallet Connections tab with EVM $KNYT balance and treasury send flow

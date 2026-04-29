@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`8422f70`](https://github.com/iQube-Protocol/AigentZBeta/commit/8422f70bda7f2d0620a644f18da3745e393860d7) [feat] add WalletConnect external wallet to SmartWallet Connections tab with EVM $KNYT balance and treasury send flow (Claude, 2026-04-28T23:26:03Z)
 - [`9ac5492`](https://github.com/iQube-Protocol/AigentZBeta/commit/9ac54922de7da3097cfc07ca70e6fe383ddb259a) [fix] fix: RQH Card button 404 error - navigate to /identity instead of non-existent persona route (Know1, 2025-10-21T14:23:00Z)
 - [`1e41429`](https://github.com/iQube-Protocol/AigentZBeta/commit/1e41429ace49e79fa60998ace4efe9d6b472aab0) [fix] fix: Reputation card now refreshes after evidence submission (Know1, 2025-10-21T14:56:34Z)
 - [`bb77060`](https://github.com/iQube-Protocol/AigentZBeta/commit/bb77060f4f98d39b0663d8f5078a52cc5f1956e9) [fix] fix: PersonaSelector now properly triggers reputation display (Know1, 2025-10-21T15:11:48Z)

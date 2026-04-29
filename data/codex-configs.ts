@@ -396,6 +396,18 @@ export const KNYT_CODEX: CodexConfig = {
       metadata: { icon: 'Package', description: 'Episode bundles and Graphic Novel editions', color: 'cyan' }
     },
     {
+      id: 'store-investor',
+      label: 'Investor KNYT',
+      slug: 'store-investor',
+      enabled: true,
+      adminOnly: true,
+      group: 'store',
+      order: 3,
+      type: 'static',
+      config: { component: 'KnytStoreInvestorTab' },
+      metadata: { icon: 'Crown', description: 'Investor bundle pricing and exclusive tiers', color: 'yellow' }
+    },
+    {
       id: 'store-admin',
       label: 'Store Admin',
       slug: 'store-admin',
@@ -407,8 +419,6 @@ export const KNYT_CODEX: CodexConfig = {
       config: { component: 'KnytStoreAdminTab' },
       metadata: { icon: 'Settings', description: 'Admin controls for store pricing and bundles', color: 'indigo' }
     },
-
-    // ── Terra (standalone) ─────────────────────────────────────
     {
       id: 'terra',
       label: 'Terra',
