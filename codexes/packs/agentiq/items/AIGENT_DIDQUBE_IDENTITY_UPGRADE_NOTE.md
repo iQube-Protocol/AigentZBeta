@@ -310,9 +310,23 @@ Root DiDQube                ← Layer 1  (deepest layer for Aigents — identity
 
 ### 15.8 Implementation status
 
-- **Not implemented.** No tables, services, or canisters exist for kybe_DiDs in the current codebase
-- This addendum is forward-looking architecture documentation only
-- When implementation is undertaken, kybe_DiDs should be issued through a high-trust, identity-verified onboarding channel (in-person, biometric, or trusted attestation) — not self-asserted
+The kybe_DiD layer is **partially scaffolded at the schema layer** but not yet wired into application logic.
+
+**Already in place:**
+- `public.kybe_identity` table — referenced in `supabase/migrations/20251129030000_crm_persona_linking.sql` (joined into the persona view) and inserted into by `supabase/migrations/20260427000000_root_did_persona_binding.sql` with a dev stub row `did:kybe:dev:stub:v1` (state `active`)
+- `root_identity.kybe_id` column — already used in cross-table joins
+- The schema therefore allows a Root DiD to be bound to a kybe_DiD; the application has just not yet enforced or surfaced this binding
+
+**Still missing (pending implementation):**
+- High-trust onboarding channel for issuing real kybe_DiDs (in-person, biometric, or trusted attestation — not self-asserted)
+- Application services that read/write `kybe_identity` beyond the dev stub
+- UI surface for kybe_DiD presence (intentionally minimal — addresses are not for routine display)
+- Cryptographic wrapping (zero-knowledge accumulator or equivalent) above the row-level encryption blakQubes use
+- Death attestation flow (Section 15.5)
+- World ID / proof-of-personhood adapter that anchors at this layer rather than the Root DiD layer
+- Migration policy for Root DiD reissuance under life events while preserving kybe_DiD continuity (Section 15.3)
+
+**Status summary:** the kybe_DiD layer is **schema-ready, application-stub**. It is not purely forward-looking — there is real groundwork to build on. The full implementation (high-trust issuance, cryptographic wrapping, application enforcement) is the open work.
 
 ### 15.9 Canonical line
 
