@@ -86,7 +86,7 @@ import {
 } from "lucide-react";
 import { MetaMeSettingsPanel, loadMetaMeSettings, type LeadAgent } from "@/components/metame/MetaMeSettingsPanel";
 import { RuntimeTakeoverBanner } from "@/components/metame/RuntimeTakeoverBanner";
-import { RemixDialog } from "@/components/metame/runtime/RemixDialog";
+import { RuntimeCapsuleRemixEditor } from "@/components/metame/runtime/RuntimeCapsuleRemixEditor";
 import { useRuntimeTakeover } from "@/app/hooks/useRuntimeTakeover";
 import { CODEX_DEFINITIONS } from "@/data/codex-configs";
 import type { ScreenFraction, SmartContentQube } from "@/types/smartContent";
@@ -2410,12 +2410,9 @@ export default function MetaMeRuntimeClient() {
   const [runtimeExperienceOverrides, setRuntimeExperienceOverrides] = useState<
     Record<string, { articleDraft?: RuntimeArticleDraft | null; articlePrompt?: string; articleTitle?: string }>
   >({});
-  const [remixDialogState, setRemixDialogState] = useState<{
-    open: boolean;
-    sourceExperienceId: string | null;
-    initialTitle: string;
-    initialPrompt: string;
-  }>({ open: false, sourceExperienceId: null, initialTitle: "", initialPrompt: "" });
+  // Remix state is now per-capsule, owned inside RuntimeCapsuleRemixEditor.
+  // No global remixDialogState — the wrapper expands inline like the admin
+  // Customize banner, and there are no popout dialog mounts to manage here.
 
   const [allContents, setAllContents] = useState<RuntimeCapsule[]>([]);
   const [capsuleContents, setCapsuleContents] = useState<RuntimeCapsule[]>([]);
@@ -2991,28 +2988,13 @@ export default function MetaMeRuntimeClient() {
                 }
               />
             ) : (
-              <div className="rounded-xl border border-amber-400/25 bg-slate-900/70 p-3 space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-[10px] uppercase tracking-[0.18em] text-amber-300/80">Community</div>
-                    <div className="text-sm font-medium text-white">Remix as article or story</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setRemixDialogState({
-                      open: true,
-                      sourceExperienceId: resolveRuntimeExperienceId(content) ?? content.id,
-                      initialTitle: content.title || "",
-                      initialPrompt: articleDraft?.prompt || content.description || "",
-                    })}
-                    className="inline-flex items-center gap-2 rounded-full border border-amber-300/25 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-100 transition hover:bg-amber-500/20"
-                    title="Remix this experience as your own article or story"
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    Remix
-                  </button>
-                </div>
-              </div>
+              <RuntimeCapsuleRemixEditor
+                personaId={activePersonaId}
+                sourceExperienceId={resolveRuntimeExperienceId(content) ?? content.id}
+                initialTitle={content.title || ""}
+                initialPrompt={articleDraft?.prompt || content.description || ""}
+                onSignInRequest={() => setWalletDrawerOpen(true)}
+              />
             )}
 
             <div id={mediaAnchorId} className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
@@ -5985,18 +5967,6 @@ export default function MetaMeRuntimeClient() {
       <div className={`relative h-full w-full bg-slate-950 p-0 ${embedWidthClass}`}>
         {showWelcome ? welcomeSurface : runtimeSurface}
         {iQubeDrawerLayer}
-        <RemixDialog
-          open={remixDialogState.open}
-          personaId={activePersonaId}
-          sourceExperienceId={remixDialogState.sourceExperienceId}
-          initialTitle={remixDialogState.initialTitle}
-          initialPrompt={remixDialogState.initialPrompt}
-          onClose={() => setRemixDialogState((prev) => ({ ...prev, open: false }))}
-          onSignInRequest={() => {
-            setRemixDialogState((prev) => ({ ...prev, open: false }));
-            setWalletDrawerOpen(true);
-          }}
-        />
       </div>
     );
   }
@@ -6006,18 +5976,6 @@ export default function MetaMeRuntimeClient() {
       <div className="fixed inset-0 z-[120] bg-slate-950 p-0 relative">
         <div className={`h-full ${runtimeDeviceWidthClass}`}>{showWelcome ? welcomeSurface : runtimeSurface}</div>
         {iQubeDrawerLayer}
-        <RemixDialog
-          open={remixDialogState.open}
-          personaId={activePersonaId}
-          sourceExperienceId={remixDialogState.sourceExperienceId}
-          initialTitle={remixDialogState.initialTitle}
-          initialPrompt={remixDialogState.initialPrompt}
-          onClose={() => setRemixDialogState((prev) => ({ ...prev, open: false }))}
-          onSignInRequest={() => {
-            setRemixDialogState((prev) => ({ ...prev, open: false }));
-            setWalletDrawerOpen(true);
-          }}
-        />
       </div>
     );
   }
@@ -6052,14 +6010,6 @@ export default function MetaMeRuntimeClient() {
         </PreviewFrame>
         {iQubeDrawerLayer}
       </div>
-      <RemixDialog
-        open={remixDialogState.open}
-        personaId={activePersonaId}
-        sourceExperienceId={remixDialogState.sourceExperienceId}
-        initialTitle={remixDialogState.initialTitle}
-        initialPrompt={remixDialogState.initialPrompt}
-        onClose={() => setRemixDialogState((prev) => ({ ...prev, open: false }))}
-      />
     </div>
   );
 }
