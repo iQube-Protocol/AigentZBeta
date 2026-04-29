@@ -12,9 +12,9 @@
  * surfaces the tx hash for backend confirmation.
  */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { createConfig, http, WagmiProvider, useAccount, useConnect, useDisconnect, useReadContract, useSendTransaction } from 'wagmi';
-import { base } from 'wagmi/chains';
+import { mainnet } from 'wagmi/chains';
 import { injected, walletConnect } from 'wagmi/connectors';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { parseUnits, formatUnits, encodeFunctionData } from 'viem';
@@ -36,8 +36,9 @@ import {
 // ── Config ─────────────────────────────────────────────────────────────────────
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID ?? '';
+// $KNYT is deployed on Ethereum mainnet (chainId 1)
 const KNYT_CONTRACT = '0xe53dad36cd0A8EdC656448CE7912bba72beBECb4' as const;
-const BASE_CHAIN_ID = 8453;
+const ETH_CHAIN_ID = 1;
 
 // Operator must set this — the treasury EVM address that receives $KNYT payments
 const KNYT_TREASURY = (process.env.NEXT_PUBLIC_KNYT_TREASURY_ADDRESS ?? '') as `0x${string}`;
@@ -62,19 +63,28 @@ const ERC20_ABI = [
   },
 ] as const;
 
-// Build connectors — WalletConnect only if project ID configured
-const connectors = PROJECT_ID
-  ? [injected(), walletConnect({ projectId: PROJECT_ID, showQrModal: true })]
-  : [injected()];
+// Lazy-init so module-level code never runs on the server (wagmi uses window internally)
+let _wagmiConfig: ReturnType<typeof createConfig> | null = null;
+let _walletQueryClient: QueryClient | null = null;
 
-const wagmiConfig = createConfig({
-  chains: [base],
-  transports: { [base.id]: http() },
-  connectors,
-});
+function getWagmiConfig() {
+  if (!_wagmiConfig) {
+    const connectors = PROJECT_ID
+      ? [injected(), walletConnect({ projectId: PROJECT_ID, showQrModal: true })]
+      : [injected()];
+    _wagmiConfig = createConfig({
+      chains: [mainnet],
+      transports: { [mainnet.id]: http() },
+      connectors,
+    });
+  }
+  return _wagmiConfig;
+}
 
-// Isolated QueryClient so wagmi hooks don't pollute the app's own react-query cache
-const walletQueryClient = new QueryClient();
+function getWalletQueryClient() {
+  if (!_walletQueryClient) _walletQueryClient = new QueryClient();
+  return _walletQueryClient;
+}
 
 // ── Inner component (needs WagmiProvider ancestor) ─────────────────────────────
 
@@ -104,7 +114,7 @@ function ConnectPanel({
     abi: ERC20_ABI,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
-    chainId: BASE_CHAIN_ID,
+    chainId: ETH_CHAIN_ID,
     query: { enabled: !!address },
   });
 
@@ -112,7 +122,7 @@ function ConnectPanel({
     ? Number(formatUnits(rawBalance as bigint, 18)).toFixed(2)
     : null;
 
-  const wrongChain = isConnected && chainId !== BASE_CHAIN_ID;
+  const wrongChain = isConnected && chainId !== ETH_CHAIN_ID;
 
   const handleCopy = useCallback(() => {
     if (!address) return;
@@ -137,7 +147,7 @@ function ConnectPanel({
       const hash = await sendTransactionAsync({
         to: KNYT_CONTRACT,
         data,
-        chainId: BASE_CHAIN_ID,
+        chainId: ETH_CHAIN_ID,
       });
 
       setSendState({ status: 'success', txHash: hash });
@@ -223,7 +233,7 @@ function ConnectPanel({
             {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
           </button>
           <a
-            href={`https://basescan.org/address/${address}`}
+            href={`https://etherscan.io/address/${address}`}
             target="_blank"
             rel="noreferrer"
             className="shrink-0 rounded-lg p-1.5 text-white/40 hover:bg-white/10 hover:text-white/70 transition"
@@ -237,7 +247,7 @@ function ConnectPanel({
       {wrongChain && (
         <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
           <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-          Switch to Base network in your wallet to see $KNYT balance and make payments.
+          Switch to Ethereum Mainnet in your wallet to see $KNYT balance and make payments.
         </div>
       )}
 
@@ -246,7 +256,7 @@ function ConnectPanel({
         <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Coins className="h-4 w-4 text-amber-400" />
-            <span className="text-xs text-white/60">EVM $KNYT (Base)</span>
+            <span className="text-xs text-white/60">EVM $KNYT (Ethereum)</span>
           </div>
           {balanceLoading ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin text-white/40" />
@@ -297,7 +307,7 @@ function ConnectPanel({
               <div className="min-w-0">
                 <p className="text-emerald-300 font-medium">Transaction sent</p>
                 <a
-                  href={`https://basescan.org/tx/${sendState.txHash}`}
+                  href={`https://etherscan.io/tx/${sendState.txHash}`}
                   target="_blank"
                   rel="noreferrer"
                   className="text-emerald-400/70 hover:text-emerald-300 font-mono truncate block"
@@ -335,8 +345,8 @@ interface ExternalWalletConnectProps {
 
 export function ExternalWalletConnect({ onTxComplete }: ExternalWalletConnectProps) {
   return (
-    <WagmiProvider config={wagmiConfig}>
-      <QueryClientProvider client={walletQueryClient}>
+    <WagmiProvider config={getWagmiConfig()}>
+      <QueryClientProvider client={getWalletQueryClient()}>
         <ConnectPanel onTxComplete={onTxComplete} />
       </QueryClientProvider>
     </WagmiProvider>

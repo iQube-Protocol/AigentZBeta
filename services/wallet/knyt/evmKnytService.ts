@@ -1,5 +1,5 @@
 /**
- * EVM KNYT Service - On-chain KNYT balance lookup and canonical minting on Base (chainId 8453)
+ * EVM KNYT Service - On-chain KNYT balance lookup and canonical minting on Ethereum mainnet (chainId 1)
  */
 
 const KNYT_CONTRACTS = [
@@ -14,7 +14,8 @@ const ERC20_BALANCE_OF = '0x70a08231'; // balanceOf(address) selector
 
 const MINT_ABI = ['function mint(address to, uint256 amount)'];
 
-const BASE_RPC = process.env.BASE_RPC_URL || 'https://mainnet.base.org';
+// $KNYT is on Ethereum mainnet (chainId 1), not Base
+const ETH_RPC = process.env.ETH_RPC_URL || 'https://eth.llamarpc.com';
 
 export interface EvmKnytBalance {
   chainId: number;
@@ -32,7 +33,7 @@ export interface KnytMintResult {
 // ─── Read helpers (raw JSON-RPC, no external chain library required) ──────────
 
 async function ethCall(to: string, data: string): Promise<string> {
-  const res = await fetch(BASE_RPC, {
+  const res = await fetch(ETH_RPC, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -75,8 +76,8 @@ export async function getEvmKnytBalance(evmAddress: string): Promise<EvmKnytBala
       return sum + BigInt('0x' + raw);
     }, BigInt(0));
     return {
-      chainId: 8453,
-      chainName: 'Base',
+      chainId: 1,
+      chainName: 'Ethereum',
       balance: total.toString(),
       balanceFormatted: formatUnits18('0x' + total.toString(16)),
     };
@@ -108,7 +109,7 @@ export async function mintKnyt(toAddress: string, amountKnyt: number): Promise<K
 
   try {
     const { ethers } = await import('ethers');
-    const provider = new ethers.JsonRpcProvider(BASE_RPC);
+    const provider = new ethers.JsonRpcProvider(ETH_RPC);
     const wallet = new ethers.Wallet(minterKey, provider);
     const contract = new ethers.Contract(KNYT_MINTER_CONTRACT, MINT_ABI, wallet);
     const amountWei = ethers.parseUnits(amountKnyt.toString(), 18);

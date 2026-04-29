@@ -1,6 +1,12 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import dynamic from "next/dynamic";
+
+const ExternalWalletConnect = dynamic(
+  () => import("../wallet/ExternalWalletConnect").then((m) => ({ default: m.ExternalWalletConnect })),
+  { ssr: false, loading: () => <div className="py-4 text-center text-xs text-white/30">Loading wallet…</div> }
+);
 import { useBalances } from "@/app/hooks/useBalances";
 import { useDVNEvents } from "@/app/hooks/useDVNEvents";
 import { useKnytBalance } from "@/app/hooks/useKnytBalance";
@@ -22,7 +28,6 @@ import {
   PersonaSetupWizard,
   TransactionModal,
   UnlockModal,
-  ExternalWalletConnect,
 } from "../wallet";
 import type { TransactionTab, ChainId, TransactionResult, PaymentRequest } from "../wallet/TransactionModal";
 import { useSmartTriad } from "./SmartTriadProvider";
