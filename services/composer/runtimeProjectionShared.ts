@@ -227,6 +227,12 @@ export function runtimeProjectionToCapsuleRecord(input: {
   if (input.projection.video_asset && !modalityHints.includes("watch")) {
     modalityHints.push("watch");
   }
+  // CloudFront rejects requests with very large URLs (414) or oversized
+  // request headers (494). Cap the launch URL well below 8KB by skipping
+  // params that would push past the threshold. Required params first;
+  // bulky JSON last so they're the first to be dropped.
+  const URL_BYTE_BUDGET = 5500;
+
   const launchParams = new URLSearchParams({
     capsule: input.experience.id,
     experienceId: input.experience.id,
@@ -241,29 +247,32 @@ export function runtimeProjectionToCapsuleRecord(input: {
     preferredImageOrientationTablet: "landscape",
     preferredImageOrientationDesktop: "landscape",
   });
-  if (input.experience.name) launchParams.set("experienceName", input.experience.name);
-  if (input.experience.description) launchParams.set("experienceDescription", input.experience.description);
+
+  function tryAdd(key: string, value: string | null | undefined) {
+    if (!value) return;
+    const projected = launchParams.toString().length + key.length + value.length + 2;
+    if (projected > URL_BYTE_BUDGET) return; // silently drop oversize params
+    launchParams.set(key, value);
+  }
+
+  tryAdd("experienceName", input.experience.name);
+  tryAdd("experienceDescription", input.experience.description);
+  if (input.projection.preferred_asset && input.projection.content_kind !== "video") {
+    tryAdd("experienceImage", input.projection.preferred_asset);
+  }
+  tryAdd("experienceImagePortrait", input.projection.portrait_asset);
+  tryAdd("experienceImageLandscape", input.projection.landscape_asset);
+  tryAdd("experienceVideo", input.projection.video_asset);
+  tryAdd("personaAssignment", input.projection.stub_assignments.persona_assignment);
+  tryAdd("crmCohortAssignment", input.projection.stub_assignments.crm_cohort_assignment);
+  tryAdd("policyAssignment", input.projection.stub_assignments.policy_assignment);
+  // Big JSON blobs go last — they're the first to be dropped if budget is tight.
   if (input.projection.experience_context) {
-    launchParams.set("experienceContext", JSON.stringify(input.projection.experience_context));
+    tryAdd("experienceContext", JSON.stringify(input.projection.experience_context));
   }
   const serializedArticleDraft = serializeArticleDraftFromContext(input.projection.experience_context);
   if (serializedArticleDraft) {
-    launchParams.set("experienceArticleDraft", serializedArticleDraft);
-  }
-  if (input.projection.preferred_asset && input.projection.content_kind !== "video") {
-    launchParams.set("experienceImage", input.projection.preferred_asset);
-  }
-  if (input.projection.portrait_asset) launchParams.set("experienceImagePortrait", input.projection.portrait_asset);
-  if (input.projection.landscape_asset) launchParams.set("experienceImageLandscape", input.projection.landscape_asset);
-  if (input.projection.video_asset) launchParams.set("experienceVideo", input.projection.video_asset);
-  if (input.projection.stub_assignments.persona_assignment) {
-    launchParams.set("personaAssignment", input.projection.stub_assignments.persona_assignment);
-  }
-  if (input.projection.stub_assignments.crm_cohort_assignment) {
-    launchParams.set("crmCohortAssignment", input.projection.stub_assignments.crm_cohort_assignment);
-  }
-  if (input.projection.stub_assignments.policy_assignment) {
-    launchParams.set("policyAssignment", input.projection.stub_assignments.policy_assignment);
+    tryAdd("experienceArticleDraft", serializedArticleDraft);
   }
   if (input.projection.delivery_variant === "runtime_thin_client") {
     launchParams.set("shell", "thin");

@@ -777,6 +777,43 @@ function withQueryParam(href: string, key: string, value: string): string {
   return hashPart ? `${nextPath}#${hashPart}` : nextPath;
 }
 
+/**
+ * Defensive client-side guard against CloudFront 414 / 494 errors.
+ * Some launch hrefs were minted by older builders (or upstream APIs we don't
+ * control) with serialized JSON in the query string. If the URL is over the
+ * CloudFront-safe budget, drop the bulky JSON params (experienceArticleDraft,
+ * experienceContext) and oversized image URIs. The runtime page null-handles
+ * missing draft/context, so the receiver renders a degraded preview instead
+ * of getting a CloudFront error.
+ */
+function safeLaunchHref(href: string | null | undefined): string | null {
+  if (!href) return null;
+  const URL_BYTE_BUDGET = 5500;
+  if (href.length <= URL_BYTE_BUDGET) return href;
+  try {
+    const url = new URL(href, "http://x");
+    const HEAVY_KEYS = [
+      "experienceArticleDraft",
+      "experienceContext",
+      "experienceImage",
+      "experienceImagePortrait",
+      "experienceImageLandscape",
+      "experienceVideo",
+      "experienceContextImage",
+    ];
+    for (const key of HEAVY_KEYS) {
+      if (url.toString().length <= URL_BYTE_BUDGET) break;
+      url.searchParams.delete(key);
+    }
+    // Reconstruct as a path-only href if the original was relative.
+    return href.startsWith("http")
+      ? url.toString()
+      : `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return href; // malformed URL; let the browser deal with it
+  }
+}
+
 function inferRuntimeExperienceStyle(content: RuntimeCapsule): string {
   if (content.runtimeContentKind === "video") return "cinematic";
   if (content.runtimeContentKind === "article") return "editorial";
@@ -2731,9 +2768,11 @@ export default function MetaMeRuntimeClient() {
                   </button>
                 );
               }
+              const safeHref = safeLaunchHref(content.runtimeLaunchHref);
+              if (!safeHref) return null;
               return (
                 <a
-                  href={content.runtimeLaunchHref}
+                  href={safeHref}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex rounded-lg border border-emerald-300/30 bg-emerald-500/15 px-3 py-1.5 text-[11px] text-emerald-100 hover:bg-emerald-500/25"
@@ -2751,7 +2790,7 @@ export default function MetaMeRuntimeClient() {
         const codexSlug = content.runtimeCodexSlug || "knyt";
         const initialTab = content.runtimeCodexInitialTab || "codex";
         const rawFrameSrc =
-          content.runtimeLaunchHref ||
+          safeLaunchHref(content.runtimeLaunchHref) ||
           `/triad/embed/codex/${codexSlug}?tab=${initialTab}&theme=dark&density=${moduleConfig.runtimeDensity}`;
         const frameSrc = withQueryParam(rawFrameSrc, "closable", "0");
         return renderRuntimeFramePanel(content, intent, {
@@ -2779,7 +2818,7 @@ export default function MetaMeRuntimeClient() {
           ? withQueryParam(withQueryParam(content.runtimeAuthoringHref, "device", activeDevice), "from", "runtime")
           : null;
         const consumerExperienceHref = content.runtimeLaunchHref
-          ? withQueryParam(content.runtimeLaunchHref, "device", activeDevice)
+          ? safeLaunchHref(withQueryParam(content.runtimeLaunchHref, "device", activeDevice))
           : null;
         const receiptHref = sourceExperienceHref ? withQueryParam(sourceExperienceHref, "focus", "receipt") : null;
         const regenerateHref = sourceExperienceHref ? withQueryParam(sourceExperienceHref, "action", "regenerate") : null;
