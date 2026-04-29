@@ -244,7 +244,13 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
         `/api/identity/wallet-alias/challenge?didPersonaId=${encodeURIComponent(personaId)}` +
         `&chain=evm&address=${encodeURIComponent(addr)}`;
       const cRes = await fetch(challengeUrl, { headers: auth });
-      const cJson = await cRes.json() as { ok?: boolean; message?: string; nonce?: string; error?: string };
+      const cText = await cRes.text();
+      let cJson: { ok?: boolean; message?: string; nonce?: string; error?: string };
+      try {
+        cJson = JSON.parse(cText) as typeof cJson;
+      } catch {
+        throw new Error(`Challenge (${cRes.status}): ${cText.slice(0, 200) || 'empty response'}`);
+      }
       if (!cRes.ok || !cJson.message) {
         throw new Error(cJson.error || `Challenge ${cRes.status}`);
       }
@@ -265,7 +271,13 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
           signature,
         }),
       });
-      const rJson = await rRes.json() as { ok?: boolean; id?: string; aliasCommitment?: string; error?: string };
+      const rText = await rRes.text();
+      let rJson: { ok?: boolean; id?: string; aliasCommitment?: string; error?: string };
+      try {
+        rJson = JSON.parse(rText) as typeof rJson;
+      } catch {
+        throw new Error(`Register (${rRes.status}): ${rText.slice(0, 200) || 'empty response'}`);
+      }
       if (rRes.status === 409) {
         // Already linked → treat as success
         setAliasState({ status: 'registered' });
