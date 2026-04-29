@@ -14,6 +14,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import {
   AlertCircle,
   CheckCircle2,
@@ -25,6 +26,7 @@ import {
   LogOut,
   RefreshCw,
   Send,
+  Shield,
   Wallet,
   Zap,
 } from 'lucide-react';
@@ -52,11 +54,9 @@ interface EthereumProvider {
   providers?: EthereumProvider[];
 }
 
-declare global {
-  interface Window {
-    ethereum?: EthereumProvider;
-  }
-}
+// Avoid redeclaring Window.ethereum globally — packages/smartwallet declares it
+// as `any` and TS rejects the modifier-narrowing merge. Use a local cast at the
+// call site instead (see legacyProviders below).
 
 // ── Provider helpers ──────────────────────────────────────────────────────────
 
@@ -78,8 +78,9 @@ function legacyWalletName(p: EthereumProvider): string {
 
 // Fallback when EIP-6963 returns nothing: read window.ethereum.providers (EIP-5749)
 function legacyProviders(): WalletEntry[] {
-  if (typeof window === 'undefined' || !window.ethereum) return [];
-  const eth = window.ethereum;
+  if (typeof window === 'undefined') return [];
+  const eth = (window as unknown as { ethereum?: EthereumProvider }).ethereum;
+  if (!eth) return [];
   const list = eth.providers?.length ? eth.providers : [eth];
   return list.map((p, i) => ({ name: legacyWalletName(p), provider: p, id: `legacy-${i}` }));
 }
@@ -128,6 +129,30 @@ interface SendState {
   error?: string;
 }
 
+type AliasStatus = 'idle' | 'pending' | 'registered' | 'error' | 'precondition';
+
+interface AliasState {
+  status: AliasStatus;
+  aliasId?: string;
+  commitment?: string;
+  error?: string;
+}
+
+async function getAuthHeader(): Promise<Record<string, string>> {
+  const headers: Record<string, string> = {};
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
+    );
+    const { data } = await supabase.auth.getSession();
+    if (data.session?.access_token) {
+      headers['Authorization'] = `Bearer ${data.session.access_token}`;
+    }
+  } catch { /* ignore */ }
+  return headers;
+}
+
 export interface ExternalWalletConnectProps {
   personaId?: string;
   onTxComplete?: (txHash: string, amountKnyt: number) => void;
@@ -148,6 +173,7 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
   const [sendAmount, setSendAmount] = useState('');
   const [sendState, setSendState] = useState<SendState>({ status: 'idle' });
   const [copied, setCopied] = useState(false);
+  const [aliasState, setAliasState] = useState<AliasState>({ status: 'idle' });
 
   // The provider the user explicitly chose — all wallet ops go through this ref
   const activeProviderRef = useRef<EthereumProvider | null>(null);
@@ -201,6 +227,63 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
     }
   }, []);
 
+  // Privacy-preserving alias registration. After a wallet connects, request a
+  // signed ownership proof and POST it to /api/identity/wallet-alias/register.
+  // The API stores only an HMAC-keyed commitment hash — never the address.
+  const registerAlias = useCallback(async (p: EthereumProvider, addr: string) => {
+    if (!personaId) return; // no persona context — skip silently
+    setAliasState({ status: 'pending' });
+    try {
+      const auth = await getAuthHeader();
+      // 1. Request server-issued challenge
+      const challengeUrl =
+        `/api/identity/wallet-alias/challenge?didPersonaId=${encodeURIComponent(personaId)}` +
+        `&chain=evm&address=${encodeURIComponent(addr)}`;
+      const cRes = await fetch(challengeUrl, { headers: auth });
+      const cJson = await cRes.json() as { ok?: boolean; message?: string; nonce?: string; error?: string };
+      if (!cRes.ok || !cJson.message) {
+        throw new Error(cJson.error || `Challenge ${cRes.status}`);
+      }
+      // 2. Sign with the connected wallet (personal_sign expects [message, address])
+      const signature = await p.request({
+        method: 'personal_sign',
+        params: [cJson.message, addr],
+      }) as string;
+      // 3. POST proof to register
+      const rRes = await fetch('/api/identity/wallet-alias/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...auth },
+        body: JSON.stringify({
+          didPersonaId: personaId,
+          chain: 'evm',
+          walletAddress: addr,
+          message: cJson.message,
+          signature,
+        }),
+      });
+      const rJson = await rRes.json() as { ok?: boolean; id?: string; aliasCommitment?: string; error?: string };
+      if (rRes.status === 409) {
+        // Already linked → treat as success
+        setAliasState({ status: 'registered' });
+        return;
+      }
+      if (rRes.status === 404 || (rJson.error || '').includes('Bind a Root DID')) {
+        setAliasState({ status: 'precondition', error: 'Bind your Root DID to this persona before linking a wallet.' });
+        return;
+      }
+      if (!rRes.ok || !rJson.ok) throw new Error(rJson.error || `Register ${rRes.status}`);
+      setAliasState({ status: 'registered', aliasId: rJson.id, commitment: rJson.aliasCommitment });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Alias registration failed';
+      // User rejected the signature is expected — don't show as error
+      if (msg.toLowerCase().includes('user rejected') || msg.toLowerCase().includes('user denied')) {
+        setAliasState({ status: 'idle' });
+        return;
+      }
+      setAliasState({ status: 'error', error: msg.slice(0, 160) });
+    }
+  }, [personaId]);
+
   // Attach event listeners to the selected provider and initialise state
   const setupProvider = useCallback((p: EthereumProvider, connectedAddress: string) => {
     // Tear down any previous provider's listeners
@@ -223,8 +306,9 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
       .catch(() => {});
 
     fetchBalance(connectedAddress);
+    void registerAlias(p, connectedAddress);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchBalance, onConnected]);
+  }, [fetchBalance, onConnected, registerAlias]);
 
   // Keep stable refs for event handlers so we can removeListener correctly
   function handleAccountsChanged(accounts: unknown) {
@@ -255,6 +339,7 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
     setWalletName('');
     setSendState({ status: 'idle' });
     setSendAmount('');
+    setAliasState({ status: 'idle' });
     onConnected?.(undefined);
   }
 
@@ -504,6 +589,57 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
           >
             Switch
           </button>
+        </div>
+      )}
+
+      {/* Privacy alias status — visible whenever a personaId is in scope */}
+      {personaId && aliasState.status !== 'idle' && (
+        <div className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-xs ${
+          aliasState.status === 'registered' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+          : aliasState.status === 'pending' ? 'border-blue-500/30 bg-blue-500/10 text-blue-300'
+          : aliasState.status === 'precondition' ? 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+          : 'border-red-500/30 bg-red-500/10 text-red-300'
+        }`}>
+          {aliasState.status === 'pending' ? (
+            <Loader2 className="h-3.5 w-3.5 shrink-0 mt-0.5 animate-spin" />
+          ) : aliasState.status === 'registered' ? (
+            <Shield className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+          ) : (
+            <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+          )}
+          <div className="min-w-0 flex-1">
+            {aliasState.status === 'pending' && (
+              <p>Sign the message in your wallet to register a privacy-preserving alias…</p>
+            )}
+            {aliasState.status === 'registered' && (
+              <>
+                <p className="font-medium">Wallet linked privately</p>
+                <p className="opacity-70 mt-0.5">Only a one-way commitment hash is stored — your address never enters our database.</p>
+              </>
+            )}
+            {aliasState.status === 'precondition' && (
+              <>
+                <p className="font-medium">Root DID not yet bound</p>
+                <p className="opacity-80 mt-0.5">{aliasState.error}</p>
+              </>
+            )}
+            {aliasState.status === 'error' && (
+              <>
+                <p className="font-medium">Privacy alias registration failed</p>
+                <p className="opacity-80 mt-0.5">{aliasState.error}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const p = activeProviderRef.current;
+                    if (p && address) registerAlias(p, address);
+                  }}
+                  className="mt-1 underline opacity-80 hover:opacity-100"
+                >
+                  Retry
+                </button>
+              </>
+            )}
+          </div>
         </div>
       )}
 

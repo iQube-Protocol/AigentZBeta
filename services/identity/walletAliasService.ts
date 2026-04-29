@@ -211,16 +211,46 @@ interface DidPersonaRecord {
 
 async function resolveDidPersona(
   supabase: SupabaseClient,
-  didPersonaId: string,
+  personaId: string,
   callerAuthUserId: string | null
 ): Promise<DidPersonaRecord> {
-  const { data: persona, error } = await supabase
+  // 1. Try did_persona directly
+  const direct = await supabase
     .from('did_persona')
     .select('id, root_id')
-    .eq('id', didPersonaId)
+    .eq('id', personaId)
     .maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!persona) throw new Error('did_persona not found');
+  let persona: DidPersonaRecord | null =
+    !direct.error && direct.data ? (direct.data as DidPersonaRecord) : null;
+
+  // 2. Fall back to legacy payload tables — both KNYT and Qripto carry did_persona_id
+  if (!persona) {
+    for (const table of ['nakamoto_knyt_personas', 'nakamoto_qripto_personas'] as const) {
+      const { data, error } = await supabase
+        .from(table)
+        .select('did_persona_id')
+        .eq('id', personaId)
+        .maybeSingle();
+      if (error) continue;
+      const didPersonaId = (data as { did_persona_id?: string } | null)?.did_persona_id;
+      if (!didPersonaId) continue;
+      const { data: didRow } = await supabase
+        .from('did_persona')
+        .select('id, root_id')
+        .eq('id', didPersonaId)
+        .maybeSingle();
+      if (didRow) {
+        persona = didRow as DidPersonaRecord;
+        break;
+      }
+    }
+  }
+
+  if (!persona) {
+    throw new Error(
+      'No did_persona found for this persona id. Bind a Root DID to this persona first.'
+    );
+  }
 
   if (callerAuthUserId && persona.root_id) {
     const { data: root } = await supabase
@@ -232,7 +262,7 @@ async function resolveDidPersona(
       throw new Error('Persona ownership mismatch');
     }
   }
-  return persona as DidPersonaRecord;
+  return persona;
 }
 
 // ─── Public API ─────────────────────────────────────────────────────────────
