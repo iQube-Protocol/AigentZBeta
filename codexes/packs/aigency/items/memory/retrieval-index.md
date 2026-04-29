@@ -494,3 +494,18 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-42e053b.md](../build_/COMMITS/COMMIT-42e053b.md)
 - Message: add marketa charter and phased CED implementation plan
+
+## Commit `8422f70` — 2026-04-28T23:26:03Z
+- Type: `feat`
+- Brief: [COMMIT-8422f70.md](../build_/COMMITS/COMMIT-8422f70.md)
+- Message: add WalletConnect external wallet to SmartWallet Connections tab with EVM $KNYT balance and treasury send flow
+
+## Commit `7d6dbfa` — 2026-04-29T00:45:11Z
+- Type: `fix`
+- Brief: [COMMIT-7d6dbfa.md](../build_/COMMITS/COMMIT-7d6dbfa.md)
+- Message: fix React #130 SSR error in connections tab; switch $KNYT chain to Ethereum mainnet (chainId 1)
+
+## Commit `aa70e7d` — 2026-04-29T01:02:15Z
+- Type: `fix`
+- Brief: [COMMIT-aa70e7d.md](../build_/COMMITS/COMMIT-aa70e7d.md)
+- Message: stub porto/internal webpack alias to fix wagmi connector barrel build error

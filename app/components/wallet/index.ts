@@ -14,6 +14,8 @@ export { TransactionModal } from './TransactionModal';
 export { PaymentRequestsPanel } from './PaymentRequestsPanel';
 export { BuyKnytModal } from './BuyKnytModal';
 export { PersonaEditModal } from './PersonaEditModal';
+// ExternalWalletConnect is SSR-unsafe (wagmi/walletconnect use window at module level).
+// Import it only via next/dynamic({ ssr: false }) — see SmartWalletDrawer.tsx.
 
 // Also export default imports as named exports for compatibility
 import PersonaSelectorDefault from './PersonaSelector';
