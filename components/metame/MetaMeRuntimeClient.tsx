@@ -1957,7 +1957,11 @@ export default function MetaMeRuntimeClient() {
   });
 
   const staticProviderMap = useMemo<Record<string, AgentProviderOption[]>>(() => getStaticAgentLlmProviders(), []);
-  const [runtimeContext, setRuntimeContext] = useState<'metame' | 'knyt'>('metame');
+  // LAUNCH OVERRIDE (KNYT activation campaign): runtime takeover defaults to
+  // 'knyt' on arrival, so the welcome banner shows the KNYT WORLD takeover
+  // (amber badge, KNYT-specific CTAs) instead of the bare metaMe state.
+  // Reverts to 'metame' post-launch.
+  const [runtimeContext, setRuntimeContext] = useState<'metame' | 'knyt'>('knyt');
 
   // ─── Runtime Takeover ────────────────────────────────────────────────────────
   // Derive the active takeover cartridge slug from runtimeContext.
