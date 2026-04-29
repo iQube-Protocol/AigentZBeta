@@ -104,6 +104,11 @@ export const KNYT_RUNTIME_TAKEOVER: RuntimeTakeoverConfig = {
       onReturn:  'Welcome back — here\'s where you left off.',
     },
     maxTokens: 500,
+    nbaTargetMix: {
+      experiencesAndArticles: 40,
+      storeTab:               30,
+      otherTabs:              30,
+    },
   },
   manifestTtlMinutes: 30,
 };
@@ -140,6 +145,11 @@ export const QRIPTO_RUNTIME_TAKEOVER: RuntimeTakeoverConfig = {
       'Surface at least one KNYT cross-world capsule. ' +
       'Keep the welcome narrative under 40 words.',
     maxTokens: 500,
+    nbaTargetMix: {
+      experiencesAndArticles: 40,
+      storeTab:               30,
+      otherTabs:              30,
+    },
   },
   manifestTtlMinutes: 30,
 };
