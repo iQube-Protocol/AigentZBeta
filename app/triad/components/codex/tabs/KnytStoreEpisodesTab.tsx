@@ -515,14 +515,9 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
     .filter((e) => e.episodeNumber >= 0)
     .sort((a, b) => a.episodeNumber - b.episodeNumber);
 
-  const headerLabel =
-    view.kind === 'list'     ? 'Episodes & Graphic Novel'
-    : view.kind === 'gn-sku' ? `GN — ${view.sku.label}`
-    : `Episode ${(view as { kind: 'episode'; ep: EpisodePricing }).ep.episodeNumber}`;
-
   return (
     <div className="flex flex-col h-full">
-      {/* Header with inline format selector */}
+      {/* Mini-toolbar: back button (sub-views) + format selector */}
       <div className="flex-shrink-0 border-b border-slate-800/60 bg-slate-900/40 px-4 py-2 flex items-center gap-2">
         {view.kind !== 'list' && (
           <button
@@ -533,9 +528,7 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
             <ArrowLeft className="h-4 w-4" />
           </button>
         )}
-        <Film className="h-4 w-4 text-teal-400 shrink-0" />
-        <span className="text-sm font-semibold text-slate-200 flex-1 min-w-0 truncate">{headerLabel}</span>
-        <div className="flex items-center gap-0.5 flex-shrink-0">
+        <div className="ml-auto flex items-center gap-0.5 flex-shrink-0">
           <span className="text-[9px] text-slate-500 mr-0.5">Format:</span>
           {(['still', 'motion', 'bundle'] as Modality[]).map((m) => (
             <button

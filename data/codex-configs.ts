@@ -371,7 +371,7 @@ export const KNYT_CODEX: CodexConfig = {
       order: 0,
       type: 'static',
       config: { component: 'KnytStoreEpisodesTab' },
-      metadata: { icon: 'Film', description: 'Episode drops and collectibles', color: 'cyan' }
+      metadata: { icon: 'Film', description: 'Episode drops and collectibles', color: 'teal' }
     },
     {
       id: 'store-characters',
