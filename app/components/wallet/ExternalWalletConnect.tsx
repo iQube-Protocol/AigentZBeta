@@ -116,11 +116,13 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
   const [knytBalance, setKnytBalance] = useState<string | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
   const [sendAmount, setSendAmount] = useState('');
   const [sendState, setSendState] = useState<SendState>({ status: 'idle' });
   const [copied, setCopied] = useState(false);
   const [noWallet, setNoWallet] = useState(false);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const connectAbortRef = useRef<{ cancelled: boolean }>({ cancelled: false });
 
   const provider = typeof window !== 'undefined' ? window.ethereum : undefined;
 
@@ -212,19 +214,50 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
       return;
     }
     setConnecting(true);
+    setConnectError(null);
+    const abort = { cancelled: false };
+    connectAbortRef.current = abort;
+
+    // Race the wallet request against a 30s timeout so the spinner can't stall forever
+    const timeoutMs = 30_000;
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(
+        () => reject(new Error('Wallet not responding — open your wallet extension and approve the request, then try again.')),
+        timeoutMs,
+      );
+    });
+
     try {
-      const accounts = await provider.request({ method: 'eth_requestAccounts' }) as string[];
+      const accounts = await Promise.race([
+        provider.request({ method: 'eth_requestAccounts' }) as Promise<string[]>,
+        timeout,
+      ]);
+      clearTimeout(timeoutId!);
+      if (abort.cancelled) return;
       if (accounts.length) {
         setAddress(accounts[0]);
         const chain = await provider.request({ method: 'eth_chainId' }) as string;
         setChainId(parseInt(chain, 16));
         fetchBalance(accounts[0]);
       }
-    } catch {
-      // User rejected
+    } catch (err: unknown) {
+      clearTimeout(timeoutId!);
+      if (abort.cancelled) return;
+      const msg = err instanceof Error ? err.message : '';
+      // Only surface non-rejection errors (code 4001 = user rejected — silent)
+      if (msg && !(msg.toLowerCase().includes('user rejected') || msg.toLowerCase().includes('user denied'))) {
+        setConnectError(msg);
+      }
     } finally {
-      setConnecting(false);
+      if (!abort.cancelled) setConnecting(false);
     }
+  }
+
+  function cancelConnect() {
+    connectAbortRef.current.cancelled = true;
+    setConnecting(false);
+    setConnectError(null);
   }
 
   function disconnect() {
@@ -292,23 +325,46 @@ export function ExternalWalletConnect({ personaId, onTxComplete }: ExternalWalle
             No wallet detected. Install MetaMask or another browser extension wallet to continue.
           </div>
         ) : (
-          <button
-            type="button"
-            disabled={connecting}
-            onClick={connect}
-            className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/10 disabled:opacity-50"
-          >
-            <Wallet className="h-5 w-5 text-amber-400 shrink-0" />
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-white">Connect Wallet</p>
-              <p className="text-[10px] text-white/40">Browser extension (MetaMask, Coinbase Wallet, etc.)</p>
-            </div>
-            {connecting ? (
-              <Loader2 className="h-4 w-4 animate-spin text-white/40 ml-auto shrink-0" />
-            ) : (
-              <ChevronRight className="h-4 w-4 text-white/30 ml-auto shrink-0" />
+          <div className="space-y-2">
+            <button
+              type="button"
+              disabled={connecting}
+              onClick={connect}
+              className="flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/10 disabled:opacity-50"
+            >
+              <Wallet className="h-5 w-5 text-amber-400 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-white">Connect Wallet</p>
+                <p className="text-[10px] text-white/40">
+                  {connecting ? 'Check your wallet extension for a connection request…' : 'Browser extension (MetaMask, Coinbase Wallet, etc.)'}
+                </p>
+              </div>
+              {connecting ? (
+                <Loader2 className="h-4 w-4 animate-spin text-white/40 ml-auto shrink-0" />
+              ) : (
+                <ChevronRight className="h-4 w-4 text-white/30 ml-auto shrink-0" />
+              )}
+            </button>
+
+            {/* Cancel button — visible while waiting so the user isn't stuck */}
+            {connecting && (
+              <button
+                type="button"
+                onClick={cancelConnect}
+                className="w-full text-center text-[10px] text-white/30 hover:text-white/50 transition py-1"
+              >
+                Cancel
+              </button>
             )}
-          </button>
+
+            {/* Connection error (e.g. timeout) */}
+            {connectError && (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <span>{connectError}</span>
+              </div>
+            )}
+          </div>
         )}
         <p className="text-[10px] text-white/30 text-center pt-1">
           WalletConnect (mobile) — coming soon
