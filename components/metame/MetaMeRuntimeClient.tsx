@@ -2132,6 +2132,19 @@ export default function MetaMeRuntimeClient() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePersonaId]);
 
+  // Notify the parent thin-client whenever the takeover infer call starts /
+  // completes so it can render its own loading affordance (e.g. dot animation).
+  // The existing RUNTIME_READY message includes takeover_pending only at mount;
+  // this fires a dedicated event on every flip of takeoverLoading.
+  useEffect(() => {
+    try {
+      window.parent.postMessage(
+        { type: "TAKEOVER_INFER_PENDING", source: "runtime", pending: takeoverLoading },
+        "*",
+      );
+    } catch { /* not in an iframe — safe to ignore */ }
+  }, [takeoverLoading]);
+
   // Resolve display name for the banner from the codex config
   const takeoverDisplayName =
     CODEX_DEFINITIONS.find((c) => c.slug === takeoverCartridgeSlug || c.id === takeoverCartridgeSlug)
