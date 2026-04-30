@@ -37,12 +37,25 @@ export function KnytCartDrawer({
   const [checkoutItem, setCheckoutItem] = useState<CartItem | null>(null);
   const [useKnytDiscount, setUseKnytDiscount] = useState(false);
 
-  if (!open) return null;
+  // Track the index of the line currently in checkout so we can pass cart
+  // context (item N of T, running total) to the modal — keeps the user oriented
+  // while the iteration walks each line through the existing single-item
+  // ContentPurchaseModal.
+  const checkoutIndex = checkoutItem ? items.findIndex((i) => i.id === checkoutItem.id) : -1;
+  const totalItemCount = cartItemCount(items);
+  const remainingItems = checkoutIndex >= 0 ? items.slice(checkoutIndex) : [];
+  const remainingTotal = useKnytDiscount
+    ? remainingItems.reduce((s, i) => s + (i.excludeKnytDiscount ? i.priceUsd : getKnytDiscountedPrice(i.priceUsd)) * lineQty(i), 0)
+    : remainingItems.reduce((s, i) => s + i.priceUsd * lineQty(i), 0);
 
   const displayTotal = useKnytDiscount ? totalWithKnyt : total;
 
   return (
     <>
+      {/* Drawer (only when open) — modal lives outside this gate so it stays
+          mounted when the drawer closes on Checkout. */}
+      {open && (
+        <>
       {/* Backdrop */}
       <div
         className="absolute inset-0 z-[55] bg-black/50 backdrop-blur-sm"
@@ -206,7 +219,15 @@ export function KnytCartDrawer({
             {/* Checkout each item sequentially */}
             <button
               type="button"
-              onClick={() => setCheckoutItem(items[0])}
+              onClick={() => {
+                // Close the drawer first so the payment modal isn't hidden
+                // behind the drawer's z-index. The modal lives outside the
+                // `{open && ...}` block below so it survives the close.
+                if (items.length > 0) {
+                  setCheckoutItem(items[0]);
+                  onClose();
+                }
+              }}
               className="w-full py-2.5 rounded-xl bg-gradient-to-r from-teal-600 to-cyan-600 text-white font-semibold text-sm flex items-center justify-center gap-2 hover:from-teal-500 hover:to-cyan-500 transition-all"
             >
               <CreditCard className="h-4 w-4" />
@@ -216,8 +237,11 @@ export function KnytCartDrawer({
           </div>
         )}
       </div>
+        </>
+      )}
 
-      {/* Checkout modal for individual item */}
+      {/* Checkout modal for individual item — kept OUTSIDE the `{open && ...}`
+          guard so it remains mounted after the drawer closes on Checkout. */}
       {checkoutItem && (
         <ContentPurchaseModal
           open={true}
@@ -229,6 +253,14 @@ export function KnytCartDrawer({
           contentImage={checkoutItem.thumbUrl}
           priceUsdOverride={checkoutItem.priceUsd}
           baseKnytOverride={usdToKnyt(checkoutItem.priceUsd)}
+          cartContext={{
+            // 1-based index for human-readable "Item N of T".
+            itemIndex: checkoutIndex + 1,
+            totalItems: totalItemCount,
+            cartTotalUsd: displayTotal,
+            remainingUsd: remainingTotal,
+            useKnytDiscount,
+          }}
           onPurchaseComplete={() => {
             onRemove(checkoutItem.id);
             const remaining = items.filter((i) => i.id !== checkoutItem.id);
