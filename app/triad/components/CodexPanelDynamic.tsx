@@ -12,7 +12,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCodexConfig, getEnabledTabs } from "@/app/hooks/useCodexConfig";
 import { CodexTab, TabGroup } from "@/types/codex";
 import type { DeviceType } from "@/app/types/knytLiquidUI";
-import { Loader2, AlertCircle, X, Coins, Zap, Sun, Moon } from "lucide-react";
+import { Loader2, AlertCircle, X, Coins, Zap, Sun, Moon, UserCircle2, ArrowRightLeft } from "lucide-react";
 import dynamic from "next/dynamic";
 const CodexCopilotLayer = dynamic(
   () => import("@/app/components/codex/CodexCopilotLayer").then(m => ({ default: m.CodexCopilotLayer })),
@@ -25,6 +25,7 @@ import { SubHeaderSlotContext } from "./codex/SubHeaderSlot";
 import { getIconComponent } from "./codex/iconMap";
 import { getCachedOrFetch } from "./codex/cache";
 import { usePersonaSafe } from "@/app/contexts/PersonaContext";
+import { useCartridgePersonaGuard } from "@/app/hooks/useCartridgePersonaGuard";
 
 
 interface CodexPanelDynamicProps {
@@ -115,6 +116,15 @@ export default function CodexPanelDynamic({
     },
     [setActivePersonaId]
   );
+
+  // Cross-persona guard: show a prompt when active persona ≠ cartridge default
+  const {
+    mismatch: personaMismatch,
+    suggestedLabel: suggestedPersonaLabel,
+    activeLabel: activePersonaLabel,
+    acceptSwitch: acceptPersonaSwitch,
+    dismiss: dismissPersonaGuard,
+  } = useCartridgePersonaGuard(codexId);
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(theme === 'light' ? 'light' : 'dark');
   const [marketaCopilotOpen, setMarketaCopilotOpen] = useState(false);
   const normalizedInitialTab = (initialTab || '').trim().toLowerCase();
@@ -628,6 +638,33 @@ export default function CodexPanelDynamic({
 
 
 
+        {/* Cross-persona guard banner */}
+        {personaMismatch && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 border-b border-amber-500/25 text-amber-300 text-xs">
+            <UserCircle2 className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+            <span className="flex-1 min-w-0">
+              Active persona <span className="font-semibold">{activePersonaLabel}</span> differs from your preferred persona for this cartridge
+              {suggestedPersonaLabel && (
+                <> (<span className="font-semibold">{suggestedPersonaLabel}</span>)</>
+              )}.
+            </span>
+            <button
+              onClick={acceptPersonaSwitch}
+              className="flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/35 text-amber-200 font-medium transition-colors shrink-0"
+            >
+              <ArrowRightLeft className="w-3 h-3" />
+              Switch
+            </button>
+            <button
+              onClick={dismissPersonaGuard}
+              className="p-0.5 rounded hover:bg-white/10 text-amber-400/60 hover:text-amber-300 transition-colors shrink-0"
+              aria-label="Dismiss"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         <div className="flex-1 min-h-0 overflow-y-auto">
           {activeTab && (
             <SubHeaderSlotContext.Provider value={subHeaderSlotEl}>
@@ -649,7 +686,7 @@ export default function CodexPanelDynamic({
         </div>
       </div>
 
-      <SmartTriadSurfaces personaId={resolvedPersonaId} onPersonaChange={handlePersonaChange} />
+      <SmartTriadSurfaces personaId={resolvedPersonaId} onPersonaChange={handlePersonaChange} cartridgeSlug={codexId} />
 
       {codexId === 'marketa-codex' && (
         <CodexCopilotLayer

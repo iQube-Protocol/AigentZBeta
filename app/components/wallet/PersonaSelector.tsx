@@ -19,12 +19,13 @@ import {
 } from 'lucide-react';
 import { PersonaQube } from '@/types/persona';
 import { PersonaState } from '@/types/smartWallet';
-import { 
-  getActivePersonaId, 
+import {
+  getActivePersonaId,
   setActivePersona,
   getPersonasByAuthProfile,
 } from '@/services/wallet/personaService';
 import { isWalletUnlocked } from '@/services/wallet/sessionService';
+import { usePersonaSafe } from '@/app/contexts/PersonaContext';
 
 // =============================================================================
 // TYPES
@@ -56,6 +57,11 @@ interface PersonaSelectorProps {
   isLoading?: boolean;
   /** Show archive/delete action buttons per persona */
   allowManage?: boolean;
+  /**
+   * When provided, the selector shows a "Set as default for this cartridge"
+   * option in the footer.  cartridgeSlug matches the codexId (e.g. 'knyt-codex').
+   */
+  cartridgeSlug?: string;
 }
 
 // =============================================================================
@@ -83,6 +89,7 @@ export function PersonaSelector({
   compact = false,
   isLoading: externalLoading,
   allowManage = false,
+  cartridgeSlug,
 }: PersonaSelectorProps) {
   const [personas, setPersonas] = useState<PersonaData[]>(preloadedPersonas || []);
   const [activePersona, setActivePersonaState] = useState<PersonaData | null>(null);
@@ -92,6 +99,8 @@ export function PersonaSelector({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [actionPending, setActionPending] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const { getCartridgeDefault, setCartridgeDefault, registerPersonaNames } = usePersonaSafe();
 
   // Use preloaded personas if provided
   useEffect(() => {
@@ -122,6 +131,14 @@ export function PersonaSelector({
       const json = await res.json() as { personas?: PersonaData[]; ok?: boolean };
       const loaded: PersonaData[] = json.personas ?? [];
       setPersonas(loaded);
+      // Populate the global persona name registry so banners can display names
+      registerPersonaNames(
+        loaded.map((p) => ({
+          id: p.id,
+          displayName: (p as Record<string, unknown>).displayName as string | undefined,
+          fioHandle: (p as Record<string, unknown>).fioHandle as string | undefined,
+        }))
+      );
       const activeId = preloadedActiveId || getActivePersonaId();
       if (activeId) {
         const active = loaded.find(p => p.id === activeId);
@@ -442,6 +459,32 @@ export function PersonaSelector({
               {showArchived ? 'Hide archived personas' : 'Show archived personas'}
             </button>
           )}
+
+          {/* Set as default for cartridge — shown when inside a cartridge context */}
+          {cartridgeSlug && activePersona && (() => {
+            const isCurrentDefault = getCartridgeDefault(cartridgeSlug) === activePersona.id;
+            return (
+              <button
+                onClick={async () => {
+                  if (!isCurrentDefault) {
+                    await setCartridgeDefault(cartridgeSlug, activePersona.id);
+                  }
+                  setIsOpen(false);
+                }}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-[11px] transition-colors border-t border-white/5 ${
+                  isCurrentDefault
+                    ? 'text-indigo-300/50 cursor-default'
+                    : 'text-indigo-300 hover:text-indigo-200 hover:bg-white/5'
+                }`}
+                disabled={isCurrentDefault}
+              >
+                <Star className="w-3.5 h-3.5 shrink-0" />
+                {isCurrentDefault
+                  ? 'Default persona for this cartridge'
+                  : 'Set as default for this cartridge'}
+              </button>
+            );
+          })()}
 
           {/* Divider */}
           <div className="border-t border-white/10" />

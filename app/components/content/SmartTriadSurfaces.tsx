@@ -28,9 +28,10 @@ const KnytTab = dynamic(
 interface SmartTriadSurfacesProps {
   personaId?: string;
   onPersonaChange?: (personaId: string) => void;
+  cartridgeSlug?: string;
 }
 
-export function SmartTriadSurfaces({ personaId, onPersonaChange }: SmartTriadSurfacesProps) {
+export function SmartTriadSurfaces({ personaId, onPersonaChange, cartridgeSlug }: SmartTriadSurfacesProps) {
   const { state, actions } = useSmartTriad();
 
   // Bridge: thin-client AG-UI actions → platform SmartTriad state
@@ -228,6 +229,7 @@ export function SmartTriadSurfaces({ personaId, onPersonaChange }: SmartTriadSur
         }}
         personaId={personaId}
         onPersonaChange={onPersonaChange}
+        cartridgeSlug={cartridgeSlug}
       />
     </>
   );
