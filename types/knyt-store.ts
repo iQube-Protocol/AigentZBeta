@@ -396,10 +396,17 @@ export function getPrintFulfillmentMessage(isSingleEpisode: boolean): string {
 // `@/types/knyt-store`, and adds KNYT-specific extensions (the COYN-discount
 // total, the productType mapper).
 
-export type { CartItem, CartItemModality, CartItemLayer } from '@/services/cart';
-export { cartTotal, cartItemCount, lineQty } from '@/services/cart';
+import {
+  type CartItem,
+  type CartItemModality,
+  type CartItemLayer,
+  cartTotal,
+  cartItemCount,
+  lineQty,
+} from '@/services/cart';
 
-import { type CartItem, lineQty } from '@/services/cart';
+export type { CartItem, CartItemModality, CartItemLayer };
+export { cartTotal, cartItemCount, lineQty };
 
 /**
  * Maps a cart line's contentType to the productType expected by
