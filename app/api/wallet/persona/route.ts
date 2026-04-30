@@ -132,14 +132,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const tenantId = searchParams.get('tenantId');
-    
+    // includeArchived=true → show active + inactive; default → active only.
+    // Deleted and suspended personas are never returned to the owner here.
+    const includeArchived = searchParams.get('includeArchived') === 'true';
+
     let query = supabase
       .from('personas')
       .select(
         'id,tenant_id,auth_profile_id,display_name,avatar_uri,fio_handle,fio_domain,discoverable_within_tenant,reputation_score,reputation_bucket,badges,default_identity_state,world_id_status,app_origin,status,created_at,updated_at'
       )
-      .eq('auth_profile_id', callerAuthProfileId);
-    
+      .eq('auth_profile_id', callerAuthProfileId)
+      .in('status', includeArchived ? ['active', 'inactive'] : ['active']);
+
     if (tenantId) {
       query = query.eq('tenant_id', tenantId);
     }
