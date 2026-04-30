@@ -3620,7 +3620,13 @@ export default function MetaMeRuntimeClient() {
               }
 
               if (targetType === 'action') {
-                void handlePrompt(target, { source: "quick_link" });
+                // NBA actions are natural-language instructions the chat agent
+                // should execute (e.g. "Show me episode one"). Use source
+                // "text_input" so handlePrompt's shouldRequestInference gate
+                // fires INFERENCE_START to the thin-client (loading indicator)
+                // AND runs the actual chat inference. "quick_link" would cause
+                // an early return that skips both — UX would feel unresponsive.
+                void handlePrompt(target, { source: "text_input" });
                 return;
               }
             }}
