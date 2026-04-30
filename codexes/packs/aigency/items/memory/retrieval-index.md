@@ -564,3 +564,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-10bf19a.md](../build_/COMMITS/COMMIT-10bf19a.md)
 - Message: KNYT cart Phase 1 — qty stepper, count badge, drawer mounted across all 4 store tabs
+
+## Commit `1df879d` — 2026-04-30T21:43:10Z
+- Type: `push`
+- Brief: [COMMIT-1df879d.md](../build_/COMMITS/COMMIT-1df879d.md)
+- Message: KNYT cart Phase 1.1 — split Buy/+Cart buttons across all 4 store tabs

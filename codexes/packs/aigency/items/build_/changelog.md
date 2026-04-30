@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`1df879d`](https://github.com/iQube-Protocol/AigentZBeta/commit/1df879d82d14367f421511c5051f8a99a05cb356) [push] KNYT cart Phase 1.1 — split Buy/+Cart buttons across all 4 store tabs (Claude, 2026-04-30T21:43:10Z)
 - [`10bf19a`](https://github.com/iQube-Protocol/AigentZBeta/commit/10bf19ab4be31721f1d937ebf20e2f373725de19) [push] KNYT cart Phase 1 — qty stepper, count badge, drawer mounted across all 4 store tabs (Claude, 2026-04-30T19:21:40Z)
 - [`e62ebcc`](https://github.com/iQube-Protocol/AigentZBeta/commit/e62ebcc87ab46318443aab0394e5556165c493dc) [push] consolidate X-Frame-Options into middleware as single source of truth (Claude, 2026-04-30T18:08:16Z)
 - [`c4329b0`](https://github.com/iQube-Protocol/AigentZBeta/commit/c4329b06a94b51f88f6c521f24d28eb39d253897) [push] allow metame.live + metame.dev to embed; mandate descriptive merge messages (Claude, 2026-04-30T17:36:56Z)
