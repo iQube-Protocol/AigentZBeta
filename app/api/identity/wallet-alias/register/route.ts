@@ -11,7 +11,7 @@ import { registerWalletAlias, type WalletChain } from '@/services/identity/walle
 import { getCallerAuthUserId } from '../_lib/auth';
 
 export const runtime = 'nodejs';
-export const maxDuration = 30; // Lambda needs 30s so our 25s sentinel can fire cleanly
+export const maxDuration = 30;
 
 interface Body {
   didPersonaId?: string;
@@ -34,35 +34,37 @@ export async function POST(req: NextRequest) {
   if (!body.chain) return NextResponse.json({ ok: false, error: 'chain required' }, { status: 400 });
   if (!body.walletAddress) return NextResponse.json({ ok: false, error: 'walletAddress required' }, { status: 400 });
 
-  const authUserId = await getCallerAuthUserId(req);
-
-  // 25s sentinel — fires before Amplify's API Gateway/CloudFront hard 29s timeout.
-  // If the Lambda hasn't responded by 25s we return a clean JSON 503 so the client
-  // sees a retryable error rather than a silent empty-body 504.
-  // With embedded joins + escrow 4s cap the critical path is typically 6–15s.
+  // 20s sentinel covers the *entire* operation from here — including the auth
+  // user resolution — so it reliably fires at t≈20s from request start.
+  // CloudFront/API Gateway hard-kills at ~29s; our 20s sentinel ensures we
+  // always return a clean JSON 503 before the silent empty-body 504 fires.
   let timeoutHandle: ReturnType<typeof setTimeout>;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutHandle = setTimeout(
       () => reject(new Error('REGISTER_TIMEOUT')),
-      25_000
+      20_000
     );
   });
 
+  // getCallerAuthUserId is inside the race: its own 4s Supabase-auth timeout
+  // counts against the 20s window rather than adding to it.
+  const operationPromise = (async () => {
+    const authUserId = await getCallerAuthUserId(req);
+    return registerWalletAlias(
+      {
+        didPersonaId: body.didPersonaId,
+        chain: body.chain,
+        walletAddress: body.walletAddress,
+        signature: body.signature,
+        message: body.message,
+        ttlDays: body.ttlDays,
+      },
+      authUserId
+    );
+  })();
+
   try {
-    const result = await Promise.race([
-      registerWalletAlias(
-        {
-          didPersonaId: body.didPersonaId,
-          chain: body.chain,
-          walletAddress: body.walletAddress,
-          signature: body.signature,
-          message: body.message,
-          ttlDays: body.ttlDays,
-        },
-        authUserId
-      ),
-      timeoutPromise,
-    ]);
+    const result = await Promise.race([operationPromise, timeoutPromise]);
     clearTimeout(timeoutHandle!);
     return NextResponse.json(result);
   } catch (e) {

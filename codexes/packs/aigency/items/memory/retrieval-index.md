@@ -524,3 +524,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-516b95d.md](../build_/COMMITS/COMMIT-516b95d.md)
 - Message: gate community-content admin endpoints with server-side role check
+
+## Commit `87f3b18` — 2026-04-30T00:56:57Z
+- Type: `fix`
+- Brief: [COMMIT-87f3b18.md](../build_/COMMITS/COMMIT-87f3b18.md)
+- Message: fix NBA action: use source=text_input so inference + thin-client message fire
