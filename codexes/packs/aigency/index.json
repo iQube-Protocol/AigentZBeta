@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-04-30T02:44:58.783Z",
+  "last_updated": "2026-04-30T03:44:11.837Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d8e603e7241cf991fc9020b237e8407f1dbd2ebc",
-  "latest_commit_short": "d8e603e",
-  "latest_commit_title": "fire thinking-dots signal on navigation actions; remix banner UX bump",
+  "latest_commit": "d76dbd11a8eab89163b0deee496ac6dae0428f5d",
+  "latest_commit_short": "d76dbd1",
+  "latest_commit_title": "nest STATE_SYNC processing flags per Lovable spec; bump KB search timeout",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d76dbd1",
+      "full_sha": "d76dbd11a8eab89163b0deee496ac6dae0428f5d",
+      "title": "nest STATE_SYNC processing flags per Lovable spec; bump KB search timeout",
+      "author": "Claude",
+      "timestamp": "2026-04-30T03:42:32Z",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-d76dbd1.md"
+    },
     {
       "sha": "d8e603e",
       "full_sha": "d8e603e7241cf991fc9020b237e8407f1dbd2ebc",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-23T01:55:19Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-5fc59f8.md"
-    },
-    {
-      "sha": "e34c969",
-      "full_sha": "e34c96964aff5f13f3310ae4b8ea590f1ad7c5da",
-      "title": "Fix video badge, thumbnail, and preview scroll for non-selected experiences",
-      "author": "Claude",
-      "timestamp": "2026-03-23T01:31:10Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-e34c969.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
