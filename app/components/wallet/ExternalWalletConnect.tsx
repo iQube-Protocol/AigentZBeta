@@ -110,8 +110,10 @@ async function readKnytBalance(address: string): Promise<string> {
     balances?: Array<{ balanceFormatted?: string }>;
     balance?: { balanceFormatted?: string }; // chainId variant
     error?: string;
+    rpcError?: string;
   };
   if (json.error) throw new Error(json.error);
+  if (json.rpcError) throw new Error(`RPC lookup failed — ${json.rpcError}`);
   const formatted =
     json.balances?.[0]?.balanceFormatted ??
     json.balance?.balanceFormatted ??
@@ -699,8 +701,24 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
             )}
             {aliasState.status === 'precondition' && (
               <>
-                <p className="font-medium">Root DID not yet bound</p>
-                <p className="opacity-80 mt-0.5">{aliasState.error}</p>
+                <p className="font-medium">Persona DID link needed</p>
+                <p className="opacity-80 mt-0.5">
+                  Your Root DID is bound, but this persona hasn&apos;t been linked to it yet.
+                  Click Retry to link it automatically.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const p = activeProviderRef.current;
+                    if (p && address) {
+                      setAliasState({ status: 'idle' });
+                      registerAlias(p, address);
+                    }
+                  }}
+                  className="mt-1.5 underline opacity-80 hover:opacity-100"
+                >
+                  Retry
+                </button>
               </>
             )}
             {aliasState.status === 'error' && (

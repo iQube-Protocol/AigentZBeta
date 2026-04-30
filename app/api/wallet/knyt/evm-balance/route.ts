@@ -25,12 +25,15 @@ export async function GET(request: NextRequest) {
     
     if (chainId) {
       const balance = await getEvmKnytBalance(address);
-      return NextResponse.json({ address, balance });
+      const rpcError = (balance as { rpcError?: string } | null)?.rpcError;
+      return NextResponse.json({ address, balance, ...(rpcError ? { rpcError } : {}) });
     }
-    
+
     // Return all chain balances
     const balances = await getAllEvmKnytBalances(address);
-    return NextResponse.json({ address, balances });
+    // Surface RPC error so clients can distinguish genuine 0 from lookup failure
+    const rpcError = (balances[0] as { rpcError?: string } | undefined)?.rpcError;
+    return NextResponse.json({ address, balances, ...(rpcError ? { rpcError } : {}) });
   } catch (error) {
     console.error('[EVM KNYT API] Error:', error);
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });

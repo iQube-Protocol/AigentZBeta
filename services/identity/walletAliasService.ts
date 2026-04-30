@@ -321,13 +321,55 @@ async function provisionDidPersona(
         .single();
       rootId = newRoot?.id ? String(newRoot.id) : null;
     }
-    if (!rootId) return null;
+    if (!rootId) {
+      console.warn('[walletAlias] provisionDidPersona: could not find/create root_identity');
+      return null;
+    }
 
-    const { data: newPersona } = await supabase
+    // If we have a fio_handle, check whether a did_persona already exists for it
+    // (handles the case where the insert would fail with a unique constraint violation)
+    if (fioHandle) {
+      const { data: existing } = await supabase
+        .from('did_persona')
+        .select('id, root_id')
+        .ilike('fio_handle', fioHandle.toLowerCase())
+        .maybeSingle();
+      if (existing?.id) {
+        console.log(`[walletAlias] found existing did_persona ${existing.id} for fio_handle ${fioHandle}`);
+        return {
+          id: String(existing.id),
+          root_id: String(existing.root_id),
+          root_identity: { auth_user_id: callerAuthUserId },
+        };
+      }
+    }
+
+    const { data: newPersona, error: insertErr } = await supabase
       .from('did_persona')
       .insert({ root_id: rootId, fio_handle: fioHandle })
       .select('id, root_id')
       .single();
+
+    if (insertErr) {
+      // Unique constraint on fio_handle — race condition, retry read
+      if (insertErr.code === '23505' && fioHandle) {
+        const { data: conflict } = await supabase
+          .from('did_persona')
+          .select('id, root_id')
+          .ilike('fio_handle', fioHandle.toLowerCase())
+          .maybeSingle();
+        if (conflict?.id) {
+          return {
+            id: String(conflict.id),
+            root_id: String(conflict.root_id),
+            root_identity: { auth_user_id: callerAuthUserId },
+          };
+        }
+      }
+      console.warn('[walletAlias] did_persona insert failed:', insertErr.message, insertErr.code);
+      return null;
+    }
+
     if (!newPersona?.id) return null;
 
     console.log(`[walletAlias] auto-provisioned did_persona ${newPersona.id} for persona ${personaId}`);

@@ -41,7 +41,9 @@ async function ethCall(to: string, data: string): Promise<string> {
       params: [{ to, data }, 'latest'],
     }),
   });
-  const json = await res.json() as { result?: string; error?: unknown };
+  if (!res.ok) throw new Error(`RPC HTTP ${res.status}`);
+  const json = await res.json() as { result?: string; error?: { code?: number; message?: string } };
+  if (json.error) throw new Error(`RPC error ${json.error.code ?? ''}: ${json.error.message ?? 'unknown'}`);
   if (!json.result || json.result === '0x') return '0x' + '0'.repeat(64);
   return json.result;
 }
@@ -65,16 +67,30 @@ function formatUnits18(hex: string): string {
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-export async function getEvmKnytBalance(evmAddress: string): Promise<EvmKnytBalance | null> {
+export async function getEvmKnytBalance(evmAddress: string): Promise<EvmKnytBalance & { rpcError?: string } | null> {
   try {
     const callData = encodeBalanceOf(evmAddress);
-    const results = await Promise.all(
+    const results = await Promise.allSettled(
       KNYT_CONTRACTS.map(addr => ethCall(addr, callData))
     );
-    const total = results.reduce((sum, hex) => {
+
+    // If ALL contract calls failed, surface the error rather than returning 0
+    const errors = results.filter(r => r.status === 'rejected').map(r => (r as PromiseRejectedResult).reason?.message ?? 'RPC error');
+    const values = results
+      .filter((r): r is PromiseFulfilledResult<string> => r.status === 'fulfilled')
+      .map(r => r.value);
+
+    if (values.length === 0) {
+      const rpcError = errors[0] ?? 'All RPC calls failed';
+      console.error('[EVM KNYT] All balance calls failed:', errors);
+      return { chainId: 1, chainName: 'Ethereum', balance: '0', balanceFormatted: '0', rpcError };
+    }
+
+    const total = values.reduce((sum, hex) => {
       const raw = hex.replace(/^0x/, '') || '0';
       return sum + BigInt('0x' + raw);
     }, BigInt(0));
+
     return {
       chainId: 1,
       chainName: 'Ethereum',
@@ -82,7 +98,7 @@ export async function getEvmKnytBalance(evmAddress: string): Promise<EvmKnytBala
       balanceFormatted: formatUnits18('0x' + total.toString(16)),
     };
   } catch (error) {
-    console.error('[EVM KNYT] Error reading Base balance:', error);
+    console.error('[EVM KNYT] Error reading balance:', error);
     return null;
   }
 }
