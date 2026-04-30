@@ -132,12 +132,16 @@ export async function GET(request: NextRequest) {
       new Set([callerAuthProfileId, ...linkedAuthProfileIds, ...(supabaseUserId ? [supabaseUserId] : [])])
     );
 
+    const includeArchived = searchParams.get('includeArchived') === 'true';
+    const statusFilter = includeArchived ? ['active', 'inactive'] : ['active'];
+
     let ownerQuery = supabase.from('personas').select(personaSelect);
     if (visibleAuthProfileIds.length === 1) {
       ownerQuery = ownerQuery.eq('auth_profile_id', visibleAuthProfileIds[0]);
     } else {
       ownerQuery = ownerQuery.in('auth_profile_id', visibleAuthProfileIds);
     }
+    ownerQuery = ownerQuery.in('status', statusFilter);
     if (tenantId) ownerQuery = ownerQuery.eq('tenant_id', tenantId);
 
     const { data: ownerRows, error: ownerError } = await ownerQuery;

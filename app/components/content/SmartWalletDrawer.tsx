@@ -92,6 +92,7 @@ import {
   LogIn,
   Mail,
   Layers,
+  Eye,
   EyeOff,
   RotateCcw,
   Trash2,
@@ -259,9 +260,14 @@ export default function SmartWalletDrawer({
   const allAvailablePersonas = useMemo((): PersonaState[] => {
     const fromWallet = walletNode?.personaContext?.availablePersonas ?? [];
     const merged = [...sessionPersonas, ...fromWallet];
+    if (showArchivedPersonas) {
+      for (const ap of archivedPersonas) {
+        if (!merged.some((p) => p.id === ap.id)) merged.push(ap as typeof sessionPersonas[0]);
+      }
+    }
     const seen = new Set<string>();
     return merged.filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)));
-  }, [sessionPersonas, walletNode?.personaContext?.availablePersonas]);
+  }, [sessionPersonas, walletNode?.personaContext?.availablePersonas, showArchivedPersonas, archivedPersonas]);
 
   const activePersona =
     allAvailablePersonas.find(
@@ -297,6 +303,8 @@ export default function SmartWalletDrawer({
   const [sidebarOffset, setSidebarOffset] = useState(64);
   const [copilotQuickPromptsVisible, setCopilotQuickPromptsVisible] = useState(true);
   const [personaMenuOpen, setPersonaMenuOpen] = useState(false);
+  const [showArchivedPersonas, setShowArchivedPersonas] = useState(false);
+  const [archivedPersonas, setArchivedPersonas] = useState<typeof sessionPersonas>([]);
   const [signingIn, setSigningIn] = useState(false);
   const [confirmDeletePersonaId, setConfirmDeletePersonaId] = useState<string | null>(null);
   const [personaActionPending, setPersonaActionPending] = useState<string | null>(null);
@@ -685,6 +693,38 @@ export default function SmartWalletDrawer({
     } catch { /* non-fatal */ }
     finally { setPersonaActionPending(null); }
   }, [refreshPersonas]);
+
+  const handleToggleArchivedPersonas = useCallback(async () => {
+    const next = !showArchivedPersonas;
+    setShowArchivedPersonas(next);
+    if (!next) { setArchivedPersonas([]); return; }
+    try {
+      const { data: sessionData } = await getSupabaseBrowserClient().auth.getSession();
+      const token = sessionData.session?.access_token;
+      const res = await fetch('/api/wallet/persona?includeArchived=true', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) return;
+      const json = await res.json();
+      const all: Array<Record<string, unknown>> = json.personas ?? [];
+      const archived = all
+        .filter((p) => p.status === 'inactive')
+        .map((p) => ({
+          id: String(p.id),
+          displayName: typeof p.displayName === 'string' ? p.displayName : 'Persona',
+          fioHandle: typeof p.fioHandle === 'string' ? p.fioHandle : undefined,
+          identifiability: 'pseudo' as const,
+          reputationBucket: typeof p.reputationBucket === 'number' ? p.reputationBucket : 0,
+          reputationScore: typeof p.reputationScore === 'number' ? p.reputationScore : 0,
+          worldIdStatus: 'unverified' as const,
+          isAgent: false,
+          appOrigin: '',
+          badges: [],
+          status: 'inactive',
+        }));
+      setArchivedPersonas(archived);
+    } catch { /* non-fatal */ }
+  }, [showArchivedPersonas]);
 
   const handleOpenPersonaEdit = () => {
     if (!activePersona) return;
@@ -1616,12 +1656,13 @@ export default function SmartWalletDrawer({
                     {allAvailablePersonas.map((persona) => {
                       const isConfirming = confirmDeletePersonaId === persona.id;
                       const isPending = personaActionPending === persona.id;
+                      const isArchived = (persona as Record<string, unknown>).status === 'inactive';
                       return (
                         <div
                           key={persona.id}
                           className={`group flex items-center gap-2 px-3 py-2 transition-colors ${
                             effectivePersonaId === persona.id ? "bg-white/5" : "hover:bg-white/5"
-                          }`}
+                          } ${isArchived ? 'opacity-50' : ''}`}
                         >
                           <button
                             onClick={() => {
@@ -1663,11 +1704,13 @@ export default function SmartWalletDrawer({
                                 );
                               })()}
                               <button
-                                title="Archive persona"
-                                onClick={() => handleArchivePersona(persona.id, true)}
+                                title={isArchived ? 'Restore persona' : 'Archive persona'}
+                                onClick={() => handleArchivePersona(persona.id, !isArchived)}
                                 className="p-1 rounded hover:bg-white/10 text-white/30 hover:text-amber-400 transition-colors"
                               >
-                                <EyeOff className="w-3.5 h-3.5" />
+                                {isArchived
+                                  ? <RotateCcw className="w-3.5 h-3.5" />
+                                  : <EyeOff className="w-3.5 h-3.5" />}
                               </button>
                               <button
                                 title="Delete persona"
@@ -1716,6 +1759,21 @@ export default function SmartWalletDrawer({
                     </button>
                   </div>
                 )}
+
+                {/* Show/hide archived personas toggle */}
+                <div className="border-t border-white/10">
+                  <button
+                    onClick={handleToggleArchivedPersonas}
+                    className="w-full px-3 py-2 flex items-center gap-2 text-white/40 hover:text-white/70 hover:bg-white/5 transition-colors"
+                  >
+                    {showArchivedPersonas
+                      ? <Eye className="w-3.5 h-3.5" />
+                      : <EyeOff className="w-3.5 h-3.5" />}
+                    <span className="text-xs">
+                      {showArchivedPersonas ? 'Hide archived personas' : 'Show archived personas'}
+                    </span>
+                  </button>
+                </div>
 
                 {activePersona && (
                   <div className="border-t border-white/10">
