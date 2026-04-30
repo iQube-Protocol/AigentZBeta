@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-04-30T22:47:36.154Z",
+  "last_updated": "2026-04-30T22:50:18.067Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "dcb38e631287046eaa3fa7fe5b00b03d04366412",
-  "latest_commit_short": "dcb38e6",
-  "latest_commit_title": "KNYT cart Phase 2a — carry contentType + productType-mapper on cart lines",
+  "latest_commit": "feea8234cd7c2690a3ede44c295d11456f456179",
+  "latest_commit_short": "feea823",
+  "latest_commit_title": "KNYT cart Phase 2b — server-side /api/cart/{quote,complete} endpoints",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "feea823",
+      "full_sha": "feea8234cd7c2690a3ede44c295d11456f456179",
+      "title": "KNYT cart Phase 2b — server-side /api/cart/{quote,complete} endpoints",
+      "author": "Claude",
+      "timestamp": "2026-04-30T22:48:41Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-feea823.md"
+    },
     {
       "sha": "dcb38e6",
       "full_sha": "dcb38e631287046eaa3fa7fe5b00b03d04366412",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T09:13:15Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-e34c7fa.md"
-    },
-    {
-      "sha": "42e053b",
-      "full_sha": "42e053bbb62c2dd58ce530c73a7c42ed170b8bc7",
-      "title": "add marketa charter and phased CED implementation plan",
-      "author": "Claude",
-      "timestamp": "2026-03-24T08:40:41Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-42e053b.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
