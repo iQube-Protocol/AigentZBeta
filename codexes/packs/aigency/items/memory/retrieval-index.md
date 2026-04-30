@@ -529,3 +529,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-87f3b18.md](../build_/COMMITS/COMMIT-87f3b18.md)
 - Message: fix NBA action: use source=text_input so inference + thin-client message fire
+
+## Commit `d8e603e` — 2026-04-30T02:43:08Z
+- Type: `chore`
+- Brief: [COMMIT-d8e603e.md](../build_/COMMITS/COMMIT-d8e603e.md)
+- Message: fire thinking-dots signal on navigation actions; remix banner UX bump

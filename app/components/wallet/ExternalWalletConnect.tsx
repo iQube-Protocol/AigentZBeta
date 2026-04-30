@@ -14,7 +14,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseBrowserClient } from '@/utils/supabaseBrowser';
 import {
   AlertCircle,
   CheckCircle2,
@@ -138,29 +138,19 @@ interface AliasState {
   error?: string;
 }
 
-// Single shared client — avoids "Multiple GoTrueClient instances" warnings and
-// AbortError races caused by creating a new instance on every getAuthHeader call.
-let _authClient: ReturnType<typeof createClient> | null = null;
-function getAuthClient() {
-  if (!_authClient) {
-    _authClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
-    );
-  }
-  return _authClient;
-}
-
 async function getAuthHeader(): Promise<Record<string, string>> {
   const headers: Record<string, string> = {};
   try {
-    const { data } = await getAuthClient().auth.getSession();
+    const { data } = await getSupabaseBrowserClient().auth.getSession();
     if (data.session?.access_token) {
       headers['Authorization'] = `Bearer ${data.session.access_token}`;
     }
   } catch { /* ignore */ }
   return headers;
 }
+
+const STORAGE_KEY_ADDR = 'ext_wallet_address';
+const STORAGE_KEY_ID   = 'ext_wallet_id';
 
 export interface ExternalWalletConnectProps {
   personaId?: string;
@@ -221,6 +211,35 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Restore previous MetaMask connection after navigation (non-prompting eth_accounts check)
+  useEffect(() => {
+    if (address || wallets.length === 0) return;
+    let savedAddr: string | null = null;
+    let savedId: string | null = null;
+    try {
+      savedAddr = sessionStorage.getItem(STORAGE_KEY_ADDR);
+      savedId   = sessionStorage.getItem(STORAGE_KEY_ID);
+    } catch { return; }
+    if (!savedAddr) return;
+
+    const wallet = savedId ? wallets.find(w => w.id === savedId) : wallets[0];
+    if (!wallet) return;
+
+    wallet.provider.request({ method: 'eth_accounts' })
+      .then((accounts: unknown) => {
+        const accs = accounts as string[];
+        if (accs.length && accs[0].toLowerCase() === savedAddr!.toLowerCase()) {
+          setupProvider(wallet.provider, accs[0], wallet.id);
+        } else {
+          try { sessionStorage.removeItem(STORAGE_KEY_ADDR); sessionStorage.removeItem(STORAGE_KEY_ID); } catch { /**/ }
+        }
+      })
+      .catch(() => {
+        try { sessionStorage.removeItem(STORAGE_KEY_ADDR); sessionStorage.removeItem(STORAGE_KEY_ID); } catch { /**/ }
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wallets]);
 
   const fetchBalance = useCallback(async (addr: string) => {
     setBalanceLoading(true);
@@ -314,7 +333,7 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
   }, [personaId]);
 
   // Attach event listeners to the selected provider and initialise state
-  const setupProvider = useCallback((p: EthereumProvider, connectedAddress: string) => {
+  const setupProvider = useCallback((p: EthereumProvider, connectedAddress: string, walletId?: string) => {
     // Tear down any previous provider's listeners
     const prev = activeProviderRef.current;
     if (prev) {
@@ -326,6 +345,12 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
     setAddress(connectedAddress);
     setWalletName(legacyWalletName(p));
     onConnected?.(connectedAddress);
+
+    // Persist connection so it survives navigation (restored on mount)
+    try {
+      sessionStorage.setItem(STORAGE_KEY_ADDR, connectedAddress.toLowerCase());
+      if (walletId) sessionStorage.setItem(STORAGE_KEY_ID, walletId);
+    } catch { /* ignore quota/security errors */ }
 
     p.on('accountsChanged', handleAccountsChanged);
     p.on('chainChanged', handleChainChanged);
@@ -362,6 +387,10 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
       p.removeListener('chainChanged', handleChainChanged);
       activeProviderRef.current = null;
     }
+    try {
+      sessionStorage.removeItem(STORAGE_KEY_ADDR);
+      sessionStorage.removeItem(STORAGE_KEY_ID);
+    } catch { /* ignore */ }
     setAddress(null);
     setChainId(null);
     setKnytBalance(null);
@@ -401,7 +430,7 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
       ]);
       clearTimeout(timeoutId!);
       if (abort.cancelled) return;
-      if (accounts.length) setupProvider(p, accounts[0]);
+      if (accounts.length) setupProvider(p, accounts[0], id);
     } catch (err: unknown) {
       clearTimeout(timeoutId!);
       if (abort.cancelled) return;

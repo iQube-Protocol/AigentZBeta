@@ -12,14 +12,8 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseBrowserClient } from "@/utils/supabaseBrowser";
 import type { PersonaState } from "@/types/smartWallet";
-
-function getSupabaseBrowserClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-  return createClient(url, key);
-}
 
 const AUTH_PROFILE_STORAGE_KEYS = ["authProfileId", "agentiq_auth_profile_id"] as const;
 
@@ -144,8 +138,10 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
     const skipConsolidate = !force && (now - lastConsolidatedAtRef.current) < 10_000;
     if (!skipConsolidate) {
       lastConsolidatedAtRef.current = now;
+      // consolidate only merges email-confirmed duplicate profiles + JWT user UUID.
+      // linkDeviceProfile is NOT called here — device UUID linking is 'device_session'
+      // mode only and must be an explicit user action to preserve identity sovereignty.
       await consolidateIdentity(accessToken);
-      await linkDeviceProfile(accessToken);
     }
     try {
       const res = await fetch("/api/wallet/personas", {
