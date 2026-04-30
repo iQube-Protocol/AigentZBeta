@@ -144,6 +144,13 @@ interface ContentPurchaseModalProps {
     remainingUsd?: number;   // sum of the lines not yet settled
     useKnytDiscount?: boolean;
   };
+  /**
+   * When provided, the modal renders an "Add to Cart" button alongside the
+   * Review Purchase CTA. Lets the user defer settlement and aggregate items
+   * across the same KNYT cart used by the Store tabs / KnytCardsGrid.
+   * Caller is responsible for closing the modal after the cart-add.
+   */
+  onAddToCart?: () => void;
   onPurchaseComplete?: (entitlementId: string) => void;
   onBalanceRefresh?: () => void;
 }
@@ -165,6 +172,7 @@ export function ContentPurchaseModal({
   motionPriceKnytOverride,
   hideVersionSelector,
   cartContext,
+  onAddToCart,
   onPurchaseComplete,
   onBalanceRefresh,
 }: ContentPurchaseModalProps) {
@@ -716,13 +724,25 @@ export function ContentPurchaseModal({
               )}
 
               {!showConfirmation ? (
-                <button
-                  onClick={() => setShowConfirmation(true)}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold flex items-center justify-center gap-2 hover:from-amber-400 hover:to-orange-400 transition-all"
-                >
-                  <ShoppingCart className="w-4 h-4" />
-                  Review Purchase
-                </button>
+                <div className={onAddToCart ? 'flex gap-2' : ''}>
+                  <button
+                    onClick={() => setShowConfirmation(true)}
+                    className="flex-1 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold flex items-center justify-center gap-2 hover:from-amber-400 hover:to-orange-400 transition-all"
+                  >
+                    <ShoppingCart className="w-4 h-4" />
+                    Review Purchase
+                  </button>
+                  {onAddToCart && (
+                    <button
+                      onClick={onAddToCart}
+                      className="px-4 py-3 rounded-xl border border-cyan-400/40 bg-cyan-500/10 text-cyan-200 font-semibold flex items-center justify-center gap-2 hover:bg-cyan-500/20 transition-all whitespace-nowrap"
+                      title="Add to cart and keep shopping"
+                    >
+                      <ShoppingCart className="w-4 h-4" />
+                      Add to Cart
+                    </button>
+                  )}
+                </div>
               ) : (
                 <div className="space-y-3">
                   <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">

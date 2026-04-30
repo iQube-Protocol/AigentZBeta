@@ -219,6 +219,9 @@ import { VideoErrorBoundary } from "@/app/triad/components/content/VideoErrorBou
 import { LoreTextReader } from "@/app/triad/components/content/LoreTextReader";
 import { ContentPurchaseModal, type ContentType } from "@/app/triad/components/content/ContentPurchaseModal";
 import { KnytCardsGrid } from "@/app/triad/components/content/KnytCardsGrid";
+import { useKnytCart } from "@/app/triad/components/codex/tabs/useKnytCart";
+import { KnytCartDrawer } from "@/app/triad/components/codex/tabs/KnytCartDrawer";
+import type { CartItem } from "@/services/cart";
 import { CoverImage } from "@/app/triad/components/content/CoverImage";
 const SmartWalletDrawer = dynamic(() => import("@/app/components/content/SmartWalletDrawer"), { ssr: false });
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
@@ -551,6 +554,47 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     baseKnyt?: number;
     priceUsd?: number;
   } | null>(null);
+
+  const cart = useKnytCart();
+  const [cartOpen, setCartOpen] = useState(false);
+
+  const cartContentTypeFromContentType = (type: ContentType): CartItem['contentType'] => {
+    switch (type) {
+      case 'scroll_still':
+      case 'scroll_motion':
+      case 'character_card':
+      case 'character_card_motion':
+        return type;
+      default:
+        return 'scroll_still';
+    }
+  };
+
+  const addPurchaseContentToCart = useCallback(() => {
+    if (!purchaseContent) return;
+    const priceUsd =
+      purchaseContent.priceUsd ??
+      (typeof purchaseContent.baseKnyt === 'number'
+        ? Number((purchaseContent.baseKnyt * 1.4).toFixed(2))
+        : 0);
+    const modality: CartItem['modality'] =
+      purchaseContent.type === 'scroll_motion' || purchaseContent.type === 'character_card_motion'
+        ? 'motion'
+        : 'still';
+    const item: CartItem = {
+      id: purchaseContent.id,
+      label: purchaseContent.title,
+      modality,
+      layer: 'digital',
+      priceUsd,
+      thumbUrl: purchaseContent.image,
+      contentType: cartContentTypeFromContentType(purchaseContent.type),
+    };
+    cart.addToCart(item);
+    setPurchaseModalOpen(false);
+    setPurchaseContent(null);
+    setCartOpen(true);
+  }, [cart, purchaseContent]);
   
   // Debug purchase modal state
   useEffect(() => {
@@ -2873,8 +2917,33 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                 setPurchaseContent(null);
                 fetchOwnedEpisodes();
               }}
+              onAddToCart={addPurchaseContentToCart}
               onBalanceRefresh={refreshBalance}
             />
+          )}
+
+          <KnytCartDrawer
+            open={cartOpen}
+            onClose={() => setCartOpen(false)}
+            items={cart.items}
+            onRemove={cart.removeFromCart}
+            onSetQty={cart.setQty}
+            onClearCart={cart.clearCart}
+            personaId={effectivePersonaId}
+            total={cart.total}
+            totalWithKnyt={cart.totalWithKnyt}
+          />
+
+          {cart.count > 0 && !cartOpen && (
+            <button
+              type="button"
+              onClick={() => setCartOpen(true)}
+              className="fixed bottom-6 right-6 z-40 inline-flex items-center gap-2 px-4 py-2.5 rounded-full border border-cyan-400/40 bg-cyan-500/15 text-cyan-100 hover:bg-cyan-500/25 backdrop-blur-md shadow-lg shadow-cyan-500/20 transition-all text-sm font-semibold"
+              title="View cart"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              Cart · {cart.count}
+            </button>
           )}
 
         </>
