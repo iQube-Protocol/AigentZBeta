@@ -1,0 +1,117 @@
+/**
+ * GET /api/wallet/identity/profile
+ *
+ * Returns a unified identity profile for the signed-in user:
+ *  - canonicalId: their crm_auth_profiles UUID
+ *  - email: primary email from the JWT
+ *  - emailAliases: all email aliases in crm_auth_profile_emails
+ *  - linkedProfiles: active merged links in crm_auth_profile_links
+ *  - rootDid: did_uri from root_identity (null if not yet bound)
+ *  - rootId: root_identity UUID
+ *  - kycStatus: kyc_status from root_identity
+ *  - didPersonas: did_persona rows bound to this root identity
+ *
+ * Requires: Authorization: Bearer <supabase_access_token>
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { getCallerIdentityContext } from '@/services/wallet/personaRepo';
+
+export const dynamic = 'force-dynamic';
+
+const admin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+);
+
+export async function GET(request: NextRequest) {
+  try {
+    const context = await getCallerIdentityContext(request);
+    if (!context?.authProfileId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const canonicalId = context.authProfileId;
+    const email = context.email;
+
+    // Email aliases
+    const { data: aliasRows } = await admin
+      .from('crm_auth_profile_emails')
+      .select('email, email_normalized, is_primary, is_verified, status')
+      .eq('auth_profile_id', canonicalId)
+      .order('is_primary', { ascending: false });
+
+    // Linked profiles (merged only — these are provably same person)
+    const { data: linkRows } = await admin
+      .from('crm_auth_profile_links')
+      .select('linked_auth_profile_id, relationship_mode, active')
+      .eq('owner_auth_profile_id', canonicalId)
+      .eq('active', true);
+
+    // Root DID — resolve via Supabase auth user ID from the JWT
+    let rootDid: string | null = null;
+    let rootId: string | null = null;
+    let kycStatus: string = 'unverified';
+    let didPersonas: Array<{ id: string; personaType: string; fioHandle: string | null }> = [];
+
+    const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (token) {
+      const anonClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+      );
+      const { data: userData } = await anonClient.auth.getUser(token);
+      const authUserId = userData?.user?.id;
+      if (authUserId) {
+        const { data: rootRow } = await admin
+          .from('root_identity')
+          .select('id, did_uri, kyc_status')
+          .eq('auth_user_id', authUserId)
+          .maybeSingle();
+
+        if (rootRow) {
+          const r = rootRow as Record<string, unknown>;
+          rootDid = r.did_uri as string | null;
+          rootId = r.id as string | null;
+          kycStatus = (r.kyc_status as string | null) ?? 'unverified';
+
+          if (rootId) {
+            const { data: personaRows } = await admin
+              .from('did_persona')
+              .select('id, persona_type, fio_handle')
+              .eq('root_id', rootId);
+            didPersonas = (personaRows ?? []).map((p) => {
+              const pr = p as Record<string, unknown>;
+              return {
+                id: pr.id as string,
+                personaType: pr.persona_type as string,
+                fioHandle: (pr.fio_handle as string | null) ?? null,
+              };
+            });
+          }
+        }
+      }
+    }
+
+    return NextResponse.json({
+      canonicalId,
+      email,
+      emailAliases: aliasRows ?? [],
+      linkedProfiles: (linkRows ?? []).filter((l) => {
+        const lr = l as Record<string, unknown>;
+        return lr.relationship_mode === 'merged';
+      }),
+      rootDid,
+      rootId,
+      kycStatus,
+      didPersonas,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
+  }
+}
