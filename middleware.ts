@@ -133,11 +133,18 @@ export function middleware(request: NextRequest) {
     
     // Track performance metrics
     trackPerformance(urlPath, responseTime, 200);
-    
+
     return response;
   }
-  
-  return NextResponse.next();
+
+  // Default fallback for all non-embed, non-runtime, non-API routes:
+  // protect with X-Frame-Options=SAMEORIGIN so we don't regress the
+  // security posture that the previous next.config negative-lookahead
+  // was supposed to provide. Embed/runtime routes hit the earlier
+  // branches and never reach here.
+  const defaultResponse = NextResponse.next();
+  defaultResponse.headers.set('X-Frame-Options', 'SAMEORIGIN');
+  return defaultResponse;
 }
 
 function trackPerformance(endpoint: string, duration: number, status: number) {
@@ -180,5 +187,14 @@ export function getPerformanceMetrics() {
 }
 
 export const config = {
-  matcher: ['/triad/embed/:path*', '/metame/runtime', '/metame/runtime/:path*'],
+  // Match ALL routes so this middleware can be the single source of truth for
+  // X-Frame-Options. Previously the matcher was scoped to embed/runtime paths,
+  // and X-Frame-Options=SAMEORIGIN was set on everything else via next.config
+  // headers() with a negative-lookahead regex. Next.js's path-to-regexp
+  // doesn't reliably support negative lookaheads in source patterns — the
+  // rule was matching /triad/embed/* paths it shouldn't have, applying
+  // SAMEORIGIN to embed routes that Firefox then blocked.
+  //
+  // Excludes: _next static assets, favicon, well-known paths.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|\\.well-known).*)'],
 };
