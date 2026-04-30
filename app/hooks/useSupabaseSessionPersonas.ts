@@ -12,14 +12,8 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabaseBrowserClient } from "@/utils/supabaseBrowser";
 import type { PersonaState } from "@/types/smartWallet";
-
-function getSupabaseBrowserClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-  return createClient(url, key);
-}
 
 const AUTH_PROFILE_STORAGE_KEYS = ["authProfileId", "agentiq_auth_profile_id"] as const;
 

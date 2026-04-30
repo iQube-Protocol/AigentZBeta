@@ -13,6 +13,7 @@ import { useKnytBalance } from "@/app/hooks/useKnytBalance";
 import { useBaseQcBalance } from "@/app/hooks/useBaseQcBalance";
 import { useEthPrice } from "@/app/hooks/useEthPrice";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
+import { getSupabaseBrowserClient } from "@/utils/supabaseBrowser";
 import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import AliasConsentToggle from "../identity/AliasConsentToggle";
 import SettlementRetryButton from "../x402/SettlementRetryButton";
@@ -655,11 +656,7 @@ export default function SmartWalletDrawer({
     setMintStatus("staging");
     setMintError(null);
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
-      );
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
       const headers: Record<string, string> = {};
       if (session?.access_token) {
         headers["Authorization"] = `Bearer ${session.access_token}`;
