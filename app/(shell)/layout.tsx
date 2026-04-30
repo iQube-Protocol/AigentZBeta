@@ -13,6 +13,7 @@ import AgentiQBootstrap from "../providers/AgentiQBootstrap";
 import { usePathname, useSearchParams } from "next/navigation";
 // Global SmartContent provider
 import { SmartContentActionProvider } from "../contexts/SmartContentActionContext";
+import { PersonaProvider } from "../contexts/PersonaContext";
 
 function ShellLayoutContent({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
@@ -149,8 +150,10 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
 
 export default function ShellLayout({ children }: { children: React.ReactNode }) {
   return (
-    <MetaAvatarProvider>
-      <ShellLayoutContent>{children}</ShellLayoutContent>
-    </MetaAvatarProvider>
+    <PersonaProvider>
+      <MetaAvatarProvider>
+        <ShellLayoutContent>{children}</ShellLayoutContent>
+      </MetaAvatarProvider>
+    </PersonaProvider>
   );
 }

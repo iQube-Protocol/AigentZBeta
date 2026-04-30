@@ -193,6 +193,24 @@ export function useCodexEmbedAuthBridge(
     if (!personaId && storedPersonaId) setPersonaId(storedPersonaId);
   }, [personaId]);
 
+  // Cross-surface persona sync: PersonaContext writes currentPersonaId and
+  // dispatches a StorageEvent so embeds (and same-document hooks) react without
+  // a page reload.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== "currentPersonaId" || !e.newValue) return;
+      const incoming = sanitizeValue(e.newValue);
+      if (!incoming || incoming === personaId) return;
+      persistValue(PERSONA_STORAGE_KEYS, incoming);
+      setPersonaId(incoming);
+    };
+
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [personaId]);
+
   useEffect(() => {
     if (personaId || !authProfileId) return;
 

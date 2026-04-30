@@ -24,6 +24,7 @@ import { TabRenderer } from "./codex/TabRenderer";
 import { SubHeaderSlotContext } from "./codex/SubHeaderSlot";
 import { getIconComponent } from "./codex/iconMap";
 import { getCachedOrFetch } from "./codex/cache";
+import { usePersonaSafe } from "@/app/contexts/PersonaContext";
 
 
 interface CodexPanelDynamicProps {
@@ -102,6 +103,18 @@ export default function CodexPanelDynamic({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { data: codex, isLoading, error } = useCodexConfig({ codexId, useDefaults });
+
+  // Resolve personaId: explicit prop wins; fall back to global PersonaContext
+  const { activePersonaId: ctxPersonaId, setActivePersonaId } = usePersonaSafe();
+  const resolvedPersonaId = personaId || ctxPersonaId || undefined;
+
+  // When SmartWalletDrawer reports a persona switch, update the global context
+  const handlePersonaChange = React.useCallback(
+    (newPersonaId: string) => {
+      setActivePersonaId(newPersonaId);
+    },
+    [setActivePersonaId]
+  );
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(theme === 'light' ? 'light' : 'dark');
   const [marketaCopilotOpen, setMarketaCopilotOpen] = useState(false);
   const normalizedInitialTab = (initialTab || '').trim().toLowerCase();
@@ -408,7 +421,7 @@ export default function CodexPanelDynamic({
   const singleTabMode = enabledTabs.length <= 1;
 
   return (
-    <SmartTriadProvider personaId={personaId}>
+    <SmartTriadProvider personaId={resolvedPersonaId}>
       <div className={`flex flex-col h-full w-full ${resolvedTheme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
         {!singleTabMode && (() => {
           const accentColor = codex.metadata.color || 'indigo';
@@ -623,7 +636,7 @@ export default function CodexPanelDynamic({
                 codexId={codexId}
                 theme={resolvedTheme}
                 density={density}
-                personaId={personaId}
+                personaId={resolvedPersonaId}
                 isAdmin={isAdmin}
                 isPartner={effectiveIsPartner}
                 partnerId={effectivePartnerId}
@@ -636,7 +649,7 @@ export default function CodexPanelDynamic({
         </div>
       </div>
 
-      <SmartTriadSurfaces personaId={personaId} />
+      <SmartTriadSurfaces personaId={resolvedPersonaId} onPersonaChange={handlePersonaChange} />
 
       {codexId === 'marketa-codex' && (
         <CodexCopilotLayer
@@ -646,7 +659,7 @@ export default function CodexPanelDynamic({
           variant="floating"
           accentColor="rose"
           agent={{ id: 'aigent-marketa', name: 'Marketa' }}
-          personaId={personaId ?? 'aigent-marketa'}
+          personaId={resolvedPersonaId ?? 'aigent-marketa'}
           enableInferenceRendering
           promptPlaceholder="Ask Marketa about campaigns, partners, or content..."
           initialMessage="I'm Marketa — your venture studio copilot. Ask me about the active campaigns, partner activation, content packs, or what to do next."
