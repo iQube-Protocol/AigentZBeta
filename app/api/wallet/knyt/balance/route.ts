@@ -18,6 +18,8 @@ import { getEvmKnytBalance } from '@/services/wallet/knyt/evmKnytService';
 import { getPersonaFioService } from '@/services/wallet/personaFioService';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
 
 // CORS headers for cross-origin requests from thin client
 export async function OPTIONS() {
@@ -25,14 +27,34 @@ export async function OPTIONS() {
 }
 
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const personaId = searchParams.get('personaId');
+  if (!personaId) {
+    return NextResponse.json({ error: 'personaId is required' }, { status: 400 });
+  }
+
+  // 20s sentinel — returns clean JSON before CloudFront's 29s silent-504 gateway kill.
+  let _timeoutHandle: ReturnType<typeof setTimeout>;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    _timeoutHandle = setTimeout(() => reject(new Error('BALANCE_TIMEOUT')), 20_000);
+  });
+
   try {
-    const { searchParams } = new URL(request.url);
-    const personaId = searchParams.get('personaId');
-    
-    if (!personaId) {
-      return NextResponse.json({ error: 'personaId is required' }, { status: 400,  });
+    const response = await Promise.race([_getBalance(personaId), timeoutPromise]);
+    clearTimeout(_timeoutHandle!);
+    return response;
+  } catch (e) {
+    clearTimeout(_timeoutHandle!);
+    const msg = e instanceof Error ? e.message : 'Unknown error';
+    if (msg === 'BALANCE_TIMEOUT') {
+      return NextResponse.json({ error: 'Balance lookup timed out — please retry' }, { status: 503 });
     }
-    
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+async function _getBalance(personaId: string): Promise<NextResponse> {
+  try {
     // Get DVN ledger balance
     const result = await getKnytBalance(personaId);
     
