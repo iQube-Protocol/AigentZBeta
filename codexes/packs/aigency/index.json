@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-04-30T21:45:00.744Z",
+  "last_updated": "2026-04-30T22:27:27.590Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1df879d82d14367f421511c5051f8a99a05cb356",
-  "latest_commit_short": "1df879d",
-  "latest_commit_title": "KNYT cart Phase 1.1 — split Buy/+Cart buttons across all 4 store tabs",
+  "latest_commit": "473ad62a92c619967a12c7db4001cdf6513993f1",
+  "latest_commit_short": "473ad62",
+  "latest_commit_title": "KNYT cart Phase 1.2 — close drawer on checkout + cart context in payment modal",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "473ad62",
+      "full_sha": "473ad62a92c619967a12c7db4001cdf6513993f1",
+      "title": "KNYT cart Phase 1.2 — close drawer on checkout + cart context in payment modal",
+      "author": "Claude",
+      "timestamp": "2026-04-30T22:25:33Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-473ad62.md"
+    },
     {
       "sha": "1df879d",
       "full_sha": "1df879d82d14367f421511c5051f8a99a05cb356",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T08:25:08Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-82a1d88.md"
-    },
-    {
-      "sha": "83a70a7",
-      "full_sha": "83a70a74ba2fd7ea360ce345fa543158c12e1ba6",
-      "title": "wire runtimeProcessing into CodexCopilotLayer trust indicator animation",
-      "author": "Claude",
-      "timestamp": "2026-03-24T08:18:50Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-83a70a7.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

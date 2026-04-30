@@ -569,3 +569,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-1df879d.md](../build_/COMMITS/COMMIT-1df879d.md)
 - Message: KNYT cart Phase 1.1 — split Buy/+Cart buttons across all 4 store tabs
+
+## Commit `473ad62` — 2026-04-30T22:25:33Z
+- Type: `push`
+- Brief: [COMMIT-473ad62.md](../build_/COMMITS/COMMIT-473ad62.md)
+- Message: KNYT cart Phase 1.2 — close drawer on checkout + cart context in payment modal
