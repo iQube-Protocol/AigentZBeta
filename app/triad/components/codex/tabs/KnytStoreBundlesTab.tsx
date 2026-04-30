@@ -579,9 +579,9 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
           className="ml-auto relative p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
         >
           <ShoppingCart className="h-4 w-4" />
-          {cart.items.length > 0 && (
+          {cart.count > 0 && (
             <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-teal-500 text-[8px] font-bold text-white flex items-center justify-center">
-              {cart.items.length}
+              {cart.count}
             </span>
           )}
         </button>
@@ -690,6 +690,7 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
         onClose={() => setCartOpen(false)}
         items={cart.items}
         onRemove={cart.removeFromCart}
+        onSetQty={cart.setQty}
         onClearCart={cart.clearCart}
         personaId={personaId}
         total={cart.total}

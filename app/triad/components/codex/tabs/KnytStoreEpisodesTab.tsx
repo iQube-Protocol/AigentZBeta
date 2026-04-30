@@ -13,11 +13,14 @@ import {
   getKnytDiscountedPrice,
   KNYT_COYN_DISCOUNT,
   usdToKnyt,
+  type CartItem,
   type EpisodePricing,
 } from '@/types/knyt-store';
 
 type Modality = 'still' | 'motion' | 'bundle';
 import { useKnytThumbnails } from './useKnytThumbnails';
+import { useKnytCart } from './useKnytCart';
+import { KnytCartDrawer } from './KnytCartDrawer';
 import { ContentPurchaseModal } from '../../content/ContentPurchaseModal';
 import type { ContentType } from '../../content/ContentPurchaseModal';
 
@@ -509,11 +512,39 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
   const [view, setView]         = useState<EpisodesView>({ kind: 'list' });
   const [modality, setModality] = useState<Modality>('still');
   const [purchase, setPurchase] = useState<PendingPurchase | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
   const { getCoverThumb } = useKnytThumbnails();
+  const cart = useKnytCart();
 
   const episodes = EPISODE_PRICING
     .filter((e) => e.episodeNumber >= 0)
     .sort((a, b) => a.episodeNumber - b.episodeNumber);
+
+  /**
+   * Adds the pending-purchase shape (the same `setPurchase(...)` argument)
+   * to the cart instead of opening the single-item modal. We project it
+   * into a CartItem keyed by contentId so repeated clicks increment qty.
+   */
+  function addPendingToCart(p: PendingPurchase) {
+    const layer: CartItem['layer'] = p.contentType === 'character_card' || p.contentType === 'character_card_motion'
+      ? 'digital'
+      : p.contentType.includes('motion') ? 'digital' : 'digital';
+    const modalityVal: CartItem['modality'] = p.contentType.includes('motion')
+      ? 'motion'
+      : p.contentType.startsWith('bundle')
+      ? 'bundle'
+      : 'still';
+    const item: CartItem = {
+      id:       p.contentId ?? `${p.contentType}-${p.contentTitle}`,
+      label:    p.contentTitle,
+      modality: modalityVal,
+      layer,
+      priceUsd: p.priceUsdOverride ?? 0,
+      thumbUrl: p.contentImage,
+    };
+    cart.addToCart(item);
+    setCartOpen(true);
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -545,6 +576,20 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
             </button>
           ))}
         </div>
+        {/* Cart badge */}
+        <button
+          type="button"
+          onClick={() => setCartOpen(true)}
+          className="relative p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+          title="Open cart"
+        >
+          <ShoppingCart className="h-4 w-4" />
+          {cart.count > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-teal-500 text-[8px] font-bold text-white flex items-center justify-center">
+              {cart.count}
+            </span>
+          )}
+        </button>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto">
@@ -627,7 +672,7 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
         )}
       </div>
 
-      {/* Purchase modal */}
+      {/* Purchase modal — express buy path */}
       {purchase && (
         <ContentPurchaseModal
           open={true}
@@ -644,6 +689,19 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
           hideVersionSelector={purchase.hideVersionSelector}
         />
       )}
+
+      {/* Cart drawer */}
+      <KnytCartDrawer
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        items={cart.items}
+        onRemove={cart.removeFromCart}
+        onSetQty={cart.setQty}
+        onClearCart={cart.clearCart}
+        personaId={personaId}
+        total={cart.total}
+        totalWithKnyt={cart.totalWithKnyt}
+      />
     </div>
   );
 }

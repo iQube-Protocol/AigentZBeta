@@ -403,17 +403,29 @@ export interface CartItem {
   thumbUrl?: string;
   /** True for print bundles that are not investor specials — no KNYT COYN discount */
   excludeKnytDiscount?: boolean;
+  /** Quantity of this line. Defaults to 1 if absent (back-compat for older
+      persisted cart entries). Multi-purchase support — users can stack copies
+      of the same SKU; the drawer shows a +/- stepper. */
+  qty?: number;
+}
+
+function lineQty(item: CartItem): number {
+  return item.qty && item.qty > 0 ? item.qty : 1;
 }
 
 export function cartTotal(items: CartItem[]): number {
-  return items.reduce((s, i) => s + i.priceUsd, 0);
+  return items.reduce((s, i) => s + i.priceUsd * lineQty(i), 0);
 }
 
 export function cartTotalWithKnyt(items: CartItem[]): number {
   return items.reduce((s, i) => {
-    if (i.excludeKnytDiscount) return s + i.priceUsd;
-    return s + getKnytDiscountedPrice(i.priceUsd);
+    const linePrice = i.excludeKnytDiscount ? i.priceUsd : getKnytDiscountedPrice(i.priceUsd);
+    return s + linePrice * lineQty(i);
   }, 0);
+}
+
+export function cartItemCount(items: CartItem[]): number {
+  return items.reduce((s, i) => s + lineQty(i), 0);
 }
 
 // ── Entity types ───────────────────────────────────────────────────────────

@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, ShoppingCart, Trash2, Zap, CreditCard } from 'lucide-react';
-import { type CartItem, getKnytDiscountedPrice, KNYT_COYN_DISCOUNT, usdToKnyt } from '@/types/knyt-store';
+import { X, ShoppingCart, Trash2, Zap, CreditCard, Plus, Minus } from 'lucide-react';
+import { type CartItem, getKnytDiscountedPrice, KNYT_COYN_DISCOUNT, usdToKnyt, cartItemCount } from '@/types/knyt-store';
 import { ContentPurchaseModal } from '../../content/ContentPurchaseModal';
 import type { ContentType } from '../../content/ContentPurchaseModal';
 
@@ -12,9 +12,15 @@ interface Props {
   items: CartItem[];
   onRemove: (id: string) => void;
   onClearCart: () => void;
+  /** Sets the qty of a line. qty <= 0 removes the line. */
+  onSetQty?: (id: string, qty: number) => void;
   personaId?: string;
   total: number;
   totalWithKnyt: number;
+}
+
+function lineQty(item: CartItem): number {
+  return item.qty && item.qty > 0 ? item.qty : 1;
 }
 
 export function KnytCartDrawer({
@@ -23,6 +29,7 @@ export function KnytCartDrawer({
   items,
   onRemove,
   onClearCart,
+  onSetQty,
   personaId,
   total,
   totalWithKnyt,
@@ -48,7 +55,7 @@ export function KnytCartDrawer({
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800/60">
           <div className="flex items-center gap-2">
             <ShoppingCart className="h-4 w-4 text-teal-400" />
-            <span className="text-sm font-semibold text-slate-200">Cart ({items.length})</span>
+            <span className="text-sm font-semibold text-slate-200">Cart ({cartItemCount(items)})</span>
           </div>
           <div className="flex items-center gap-1">
             {items.length > 0 && (
@@ -81,9 +88,11 @@ export function KnytCartDrawer({
           ) : (
             <div className="p-3 space-y-2">
               {items.map((item) => {
-                const effectivePrice = useKnytDiscount && !item.excludeKnytDiscount
+                const unitPrice = useKnytDiscount && !item.excludeKnytDiscount
                   ? getKnytDiscountedPrice(item.priceUsd)
                   : item.priceUsd;
+                const qty = lineQty(item);
+                const lineTotal = unitPrice * qty;
                 return (
                   <div
                     key={item.id}
@@ -99,12 +108,49 @@ export function KnytCartDrawer({
                     <div className="flex-1 min-w-0">
                       <p className="text-[11px] font-medium text-white leading-snug truncate">{item.label}</p>
                       <p className="text-[10px] text-slate-500 capitalize">{item.modality} · {item.layer}</p>
-                      <p className="text-[11px] font-semibold text-teal-300 mt-0.5">${effectivePrice.toFixed(2)}</p>
+                      <div className="mt-1 flex items-center gap-2">
+                        {/* Qty stepper — only shown when host wires onSetQty.
+                            Falls back to read-only "qty: N" tag otherwise. */}
+                        {onSetQty ? (
+                          <div className="flex items-center gap-0.5 rounded border border-white/10 bg-slate-900/60">
+                            <button
+                              type="button"
+                              onClick={() => onSetQty(item.id, qty - 1)}
+                              className="px-1.5 py-0.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-l transition-colors"
+                              title={qty <= 1 ? 'Remove from cart' : 'Decrease quantity'}
+                            >
+                              <Minus className="h-2.5 w-2.5" />
+                            </button>
+                            <span className="px-1.5 text-[10px] font-semibold text-slate-200 tabular-nums min-w-[1.5ch] text-center">
+                              {qty}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => onSetQty(item.id, qty + 1)}
+                              className="px-1.5 py-0.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-r transition-colors"
+                              title="Increase quantity"
+                            >
+                              <Plus className="h-2.5 w-2.5" />
+                            </button>
+                          </div>
+                        ) : qty > 1 ? (
+                          <span className="text-[9px] text-slate-500 tabular-nums">qty: {qty}</span>
+                        ) : null}
+                        <p className="text-[11px] font-semibold text-teal-300">
+                          ${lineTotal.toFixed(2)}
+                          {qty > 1 && (
+                            <span className="text-[9px] font-normal text-slate-500 ml-1">
+                              ({qty} × ${unitPrice.toFixed(2)})
+                            </span>
+                          )}
+                        </p>
+                      </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => onRemove(item.id)}
                       className="p-0.5 rounded text-slate-600 hover:text-red-400 transition-colors flex-shrink-0"
+                      title="Remove line"
                     >
                       <X className="h-3.5 w-3.5" />
                     </button>

@@ -7,8 +7,11 @@ import {
   getKnytDiscountedPrice,
   KNYT_COYN_DISCOUNT,
   usdToKnyt,
+  type CartItem,
 } from '@/types/knyt-store';
 import { useKnytThumbnails } from './useKnytThumbnails';
+import { useKnytCart } from './useKnytCart';
+import { KnytCartDrawer } from './KnytCartDrawer';
 import { ContentPurchaseModal } from '../../content/ContentPurchaseModal';
 import type { ContentType } from '../../content/ContentPurchaseModal';
 
@@ -229,7 +232,27 @@ export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
   const [view, setView]         = useState<CardsView>({ kind: 'landing' });
   const [variant, setVariant]   = useState<CardVariant>('still');
   const [purchase, setPurchase] = useState<PendingPurchase | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
   const { characters, getCharacterThumb } = useKnytThumbnails();
+  const cart = useKnytCart();
+
+  function addPendingToCart(p: PendingPurchase) {
+    const modalityVal: CartItem['modality'] = p.contentType.includes('motion')
+      ? 'motion'
+      : p.contentType.startsWith('bundle')
+      ? 'bundle'
+      : 'still';
+    const item: CartItem = {
+      id:       p.contentId ?? `${p.contentType}-${p.contentTitle}`,
+      label:    p.contentTitle,
+      modality: modalityVal,
+      layer:    'digital',
+      priceUsd: p.priceUsdOverride ?? 0,
+      thumbUrl: p.contentImage,
+    };
+    cart.addToCart(item);
+    setCartOpen(true);
+  }
 
   function getTitle(epNum: number): string | undefined {
     return characters.find((c) => c.episodeNumber === epNum)?.title;
@@ -295,6 +318,20 @@ export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
           ))}
           <span className="text-[9px] text-slate-500 ml-1">{CARD_KNYT_PRICES[variant]} KNYT</span>
         </div>
+        {/* Cart badge */}
+        <button
+          type="button"
+          onClick={() => setCartOpen(true)}
+          className="relative p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+          title="Open cart"
+        >
+          <ShoppingCart className="h-4 w-4" />
+          {cart.count > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-teal-500 text-[8px] font-bold text-white flex items-center justify-center">
+              {cart.count}
+            </span>
+          )}
+        </button>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto">
@@ -345,6 +382,19 @@ export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
           motionPriceKnytOverride={purchase.motionPriceKnytOverride}
         />
       )}
+
+      {/* Cart drawer */}
+      <KnytCartDrawer
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        items={cart.items}
+        onRemove={cart.removeFromCart}
+        onSetQty={cart.setQty}
+        onClearCart={cart.clearCart}
+        personaId={personaId}
+        total={cart.total}
+        totalWithKnyt={cart.totalWithKnyt}
+      />
     </div>
   );
 }
