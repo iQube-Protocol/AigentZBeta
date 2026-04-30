@@ -53,20 +53,6 @@ export function KnytCardsGrid({
   const [cartOpen, setCartOpen] = useState(false);
   const cart = useKnytCart();
 
-  function addCardToCart(card: KnytCardAsset) {
-    const item: CartItem = {
-      id: `character-card-${card.id}-still`,
-      label: card.digiterraName || card.title,
-      modality: 'still',
-      layer: 'digital',
-      priceUsd: CARD_PRICE_USD,
-      thumbUrl: coverUrl(card.autoDriveCid),
-      contentType: 'character_card',
-    };
-    cart.addToCart(item);
-    setCartOpen(true);
-  }
-
   const normalizeLabel = (value?: string): string =>
     (value || '')
       .toLowerCase()
@@ -138,6 +124,20 @@ export function KnytCardsGrid({
   };
 
   const coverUrl = (cid?: string) => (cid ? `/api/content/cover/${cid}?variant=thumb` : '');
+
+  function addCardToCart(card: KnytCardAsset) {
+    const item: CartItem = {
+      id: `character-card-${card.id}-still`,
+      label: card.digiterraName || card.title,
+      modality: 'still',
+      layer: 'digital',
+      priceUsd: CARD_PRICE_USD,
+      thumbUrl: coverUrl(card.autoDriveCid),
+      contentType: 'character_card',
+    };
+    cart.addToCart(item);
+    setCartOpen(true);
+  }
 
   if (loading && !groups.length) {
     return (
