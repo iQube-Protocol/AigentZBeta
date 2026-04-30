@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-04-30T00:59:06.299Z",
+  "last_updated": "2026-04-30T02:44:58.783Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "87f3b188cf6643dfff114c0df0caff6afe939485",
-  "latest_commit_short": "87f3b18",
-  "latest_commit_title": "fix NBA action: use source=text_input so inference + thin-client message fire",
+  "latest_commit": "d8e603e7241cf991fc9020b237e8407f1dbd2ebc",
+  "latest_commit_short": "d8e603e",
+  "latest_commit_title": "fire thinking-dots signal on navigation actions; remix banner UX bump",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d8e603e",
+      "full_sha": "d8e603e7241cf991fc9020b237e8407f1dbd2ebc",
+      "title": "fire thinking-dots signal on navigation actions; remix banner UX bump",
+      "author": "Claude",
+      "timestamp": "2026-04-30T02:43:08Z",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-d8e603e.md"
+    },
     {
       "sha": "87f3b18",
       "full_sha": "87f3b188cf6643dfff114c0df0caff6afe939485",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-23T01:31:10Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-e34c969.md"
-    },
-    {
-      "sha": "741fa0b",
-      "full_sha": "741fa0b5774ffb8d66c1df6f42aeba831b9aed28",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-22T20:26:59Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-741fa0b.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
