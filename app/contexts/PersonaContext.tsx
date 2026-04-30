@@ -75,11 +75,29 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(LS_KEY, id);
     sessionStorage.setItem(LS_KEY, id);
     setLocalState(id);
+
     // Dispatch a synthetic storage event so same-document hooks
     // (useCodexEmbedAuthBridge) also react without page reload.
     window.dispatchEvent(
       new StorageEvent("storage", { key: LS_KEY, newValue: id })
     );
+
+    // Broadcast to all child iframes (codex embeds, runtime thin client).
+    // Each iframe's message handler listens for aa-persona-change-v1 and
+    // updates its local persona state without requiring a reload.
+    const msg = { type: "aa-persona-change-v1", personaId: id };
+    try {
+      const frames = document.querySelectorAll<HTMLIFrameElement>("iframe");
+      frames.forEach((frame) => {
+        try {
+          frame.contentWindow?.postMessage(msg, "*");
+        } catch {
+          // cross-origin frames may throw — safe to ignore
+        }
+      });
+    } catch {
+      // document not available (SSR guard)
+    }
   }, []);
 
   return (
