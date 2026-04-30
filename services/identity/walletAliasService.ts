@@ -273,7 +273,8 @@ async function resolveDidPersona(
   }
 
   // Legacy persona via fio_handle (1 extra round trip — rare path)
-  const fioHandle = (legacyRes.data as { fio_handle?: string } | null)?.fio_handle;
+  const legacyRow = legacyRes.data as { fio_handle?: string } | null;
+  const fioHandle = legacyRow?.fio_handle;
   if (fioHandle) {
     const { data: fioPersona } = await supabase
       .from('did_persona')
@@ -283,9 +284,62 @@ async function resolveDidPersona(
     if (fioPersona) return await assertOwnership(supabase, fioPersona as DidPersonaRecord, callerAuthUserId);
   }
 
+  // Auto-provision: create root_identity + did_persona for authenticated users
+  // whose persona exists in the personas table but hasn't been claimed yet.
+  // Eliminates the "Root DID not yet bound" blocker for signed-in users.
+  if (callerAuthUserId) {
+    const provisioned = await provisionDidPersona(supabase, personaId, fioHandle ?? null, callerAuthUserId);
+    if (provisioned) return provisioned;
+  }
+
   throw new Error(
     'No did_persona found for this persona id. Bind a Root DID to this persona first.'
   );
+}
+
+async function provisionDidPersona(
+  supabase: SupabaseClient,
+  personaId: string,
+  fioHandle: string | null,
+  callerAuthUserId: string
+): Promise<DidPersonaRecord | null> {
+  try {
+    // Idempotent: reuse existing root_identity for this auth user
+    let rootId: string | null = null;
+    const { data: existingRoot } = await supabase
+      .from('root_identity')
+      .select('id')
+      .eq('auth_user_id', callerAuthUserId)
+      .maybeSingle();
+    if (existingRoot?.id) {
+      rootId = String(existingRoot.id);
+    } else {
+      const { data: newRoot } = await supabase
+        .from('root_identity')
+        .insert({ auth_user_id: callerAuthUserId })
+        .select('id')
+        .single();
+      rootId = newRoot?.id ? String(newRoot.id) : null;
+    }
+    if (!rootId) return null;
+
+    const { data: newPersona } = await supabase
+      .from('did_persona')
+      .insert({ root_id: rootId, fio_handle: fioHandle })
+      .select('id, root_id')
+      .single();
+    if (!newPersona?.id) return null;
+
+    console.log(`[walletAlias] auto-provisioned did_persona ${newPersona.id} for persona ${personaId}`);
+    return {
+      id: String(newPersona.id),
+      root_id: String(newPersona.root_id),
+      root_identity: { auth_user_id: callerAuthUserId },
+    };
+  } catch (e) {
+    console.warn('[walletAlias] auto-provision failed:', e instanceof Error ? e.message : e);
+    return null;
+  }
 }
 
 async function assertOwnership(

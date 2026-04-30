@@ -134,6 +134,26 @@ export async function POST(request: NextRequest) {
       await ensureProfileExists(otherId, `${otherId}@linked.agentiq.local`);
       // Link it to canonical
       await linkToCanonical(canonicalId, otherId);
+
+      // Guard: only re-assign personas if the otherId does NOT have its own
+      // verified real email. If it does, the UUID belongs to a distinct user and
+      // re-assigning their personas would cross-contaminate identities.
+      const { data: otherEmailRows } = await admin
+        .from('crm_auth_profile_emails')
+        .select('email_normalized')
+        .eq('auth_profile_id', otherId)
+        .eq('status', 'active')
+        .not('email_normalized', 'ilike', '%@linked.agentiq.local')
+        .not('email_normalized', 'ilike', '%@device.agentiq.local')
+        .not('email_normalized', 'ilike', '%@guest.agentiq.local')
+        .limit(1);
+      const otherHasRealEmail = (otherEmailRows?.length ?? 0) > 0 &&
+        otherEmailRows![0].email_normalized !== email;
+      if (otherHasRealEmail) {
+        console.warn(`[consolidate] skipping persona re-assign for ${otherId} — it has its own verified email`);
+        continue;
+      }
+
       // Re-assign personas from otherId → canonicalId
       const { count } = await admin
         .from('personas')
