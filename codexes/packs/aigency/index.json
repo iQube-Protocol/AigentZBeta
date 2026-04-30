@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-04-30T22:53:39.871Z",
+  "last_updated": "2026-04-30T23:03:45.555Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "0008bf684abd7b1416590185a3586f9fb45ec4bf",
-  "latest_commit_short": "0008bf6",
-  "latest_commit_title": "KNYT cart Phase 2c — multi-item KnytCartCheckoutModal replaces per-item iteration",
+  "latest_commit": "73f458158c5a80667aa1ec7593eb51edf622c07e",
+  "latest_commit_short": "73f4581",
+  "latest_commit_title": "KNYT cart Phase 3b — buy-more-KNYT panel when KNYT rail is short",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "73f4581",
+      "full_sha": "73f458158c5a80667aa1ec7593eb51edf622c07e",
+      "title": "KNYT cart Phase 3b — buy-more-KNYT panel when KNYT rail is short",
+      "author": "Claude",
+      "timestamp": "2026-04-30T23:01:48Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-73f4581.md"
+    },
     {
       "sha": "0008bf6",
       "full_sha": "0008bf684abd7b1416590185a3586f9fb45ec4bf",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T10:42:22Z",
       "type": "deploy",
       "brief": "items/build_/COMMITS/COMMIT-d61ac02.md"
-    },
-    {
-      "sha": "6c80af9",
-      "full_sha": "6c80af9d2eea1af93e94024bb7dd652f943812b3",
-      "title": "enrich persona cards with full Nakamoto investment and historical data",
-      "author": "Claude",
-      "timestamp": "2026-03-24T10:36:37Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-6c80af9.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
