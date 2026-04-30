@@ -579,3 +579,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-dcb38e6.md](../build_/COMMITS/COMMIT-dcb38e6.md)
 - Message: KNYT cart Phase 2a — carry contentType + productType-mapper on cart lines
+
+## Commit `feea823` — 2026-04-30T22:48:41Z
+- Type: `push`
+- Brief: [COMMIT-feea823.md](../build_/COMMITS/COMMIT-feea823.md)
+- Message: KNYT cart Phase 2b — server-side /api/cart/{quote,complete} endpoints
