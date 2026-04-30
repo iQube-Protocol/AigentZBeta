@@ -340,9 +340,11 @@ function validateCreatePersonaInput(input: CreatePersonaInput): string | null {
  */
 export async function setActivePersona(personaId: string): Promise<boolean> {
   try {
-    // Store active persona ID in localStorage
     if (typeof window !== 'undefined') {
+      // Write to both legacy key and the canonical key so all surfaces stay in sync
       localStorage.setItem('active_persona_id', personaId);
+      localStorage.setItem('currentPersonaId', personaId);
+      sessionStorage.setItem('currentPersonaId', personaId);
     }
     return true;
   } catch (error) {
