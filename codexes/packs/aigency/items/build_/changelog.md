@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`1ab55f2`](https://github.com/iQube-Protocol/AigentZBeta/commit/1ab55f21f05074c1480263f35e63e7d039365c13) [push] revert overbroad middleware fallback that broke runtime page embedding (Claude, 2026-04-30T16:58:22Z)
 - [`f71efd8`](https://github.com/iQube-Protocol/AigentZBeta/commit/f71efd8e08c161144a6a17d4af359b5cfc66e3da) [fix] fix Firefox X-Frame-Options on cartridge embed; consolidate header logic (Claude, 2026-04-30T16:37:15Z)
 - [`d76dbd1`](https://github.com/iQube-Protocol/AigentZBeta/commit/d76dbd11a8eab89163b0deee496ac6dae0428f5d) [chore] nest STATE_SYNC processing flags per Lovable spec; bump KB search timeout (Claude, 2026-04-30T03:42:32Z)
 - [`d8e603e`](https://github.com/iQube-Protocol/AigentZBeta/commit/d8e603e7241cf991fc9020b237e8407f1dbd2ebc) [chore] fire thinking-dots signal on navigation actions; remix banner UX bump (Claude, 2026-04-30T02:43:08Z)

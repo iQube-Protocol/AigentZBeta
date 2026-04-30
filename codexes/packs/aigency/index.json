@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-04-30T16:39:07.996Z",
+  "last_updated": "2026-04-30T17:00:15.098Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "f71efd8e08c161144a6a17d4af359b5cfc66e3da",
-  "latest_commit_short": "f71efd8",
-  "latest_commit_title": "fix Firefox X-Frame-Options on cartridge embed; consolidate header logic",
+  "latest_commit": "1ab55f21f05074c1480263f35e63e7d039365c13",
+  "latest_commit_short": "1ab55f2",
+  "latest_commit_title": "revert overbroad middleware fallback that broke runtime page embedding",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "1ab55f2",
+      "full_sha": "1ab55f21f05074c1480263f35e63e7d039365c13",
+      "title": "revert overbroad middleware fallback that broke runtime page embedding",
+      "author": "Claude",
+      "timestamp": "2026-04-30T16:58:22Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1ab55f2.md"
+    },
     {
       "sha": "f71efd8",
       "full_sha": "f71efd8e08c161144a6a17d4af359b5cfc66e3da",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T01:54:27Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-614d0e1.md"
-    },
-    {
-      "sha": "4021791",
-      "full_sha": "4021791494d4ae68bde04388e0285fca37d06cee",
-      "title": "Remove broken batch effect, fix scroll-to-top for embed preview",
-      "author": "Claude",
-      "timestamp": "2026-03-23T02:25:02Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-4021791.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
