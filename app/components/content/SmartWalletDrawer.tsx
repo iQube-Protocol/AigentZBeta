@@ -577,7 +577,21 @@ export default function SmartWalletDrawer({
   const [custodyCount, setCustodyCount] = useState(0);
   const [claimCount, setClaimCount] = useState(0);
   const [fioDid, setFioDid] = useState<string | null>(null);
-  
+
+  // Root DID identity profile sub-section
+  interface IdentityProfile {
+    canonicalId: string;
+    email: string | null;
+    rootDid: string | null;
+    rootId: string | null;
+    kycStatus: string;
+    emailAliases: Array<{ email: string; is_primary: boolean; is_verified: boolean; status: string }>;
+    linkedProfiles: Array<{ linked_auth_profile_id: string; relationship_mode: string }>;
+    didPersonas: Array<{ id: string; personaType: string; fioHandle: string | null }>;
+  }
+  const [identityProfile, setIdentityProfile] = useState<IdentityProfile | null>(null);
+  const [rootDidExpanded, setRootDidExpanded] = useState(false);
+
   // Purchase flow state
   const [purchaseStep, setPurchaseStep] = useState<PurchaseStep>("idle");
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
@@ -779,6 +793,26 @@ export default function SmartWalletDrawer({
       } catch {}
     })();
   }, [agent?.id]);
+
+  // Fetch identity profile when wallet tab is active and user is signed in
+  useEffect(() => {
+    if (activeTab !== 'wallet' || !sessionEmail) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
+        if (!session?.access_token || cancelled) return;
+        const res = await fetch('/api/wallet/identity/profile', {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          cache: 'no-store',
+        });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (!cancelled) setIdentityProfile(data);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [activeTab, sessionEmail]);
 
   const formatToken = (raw?: string, decimals?: number, fractionDigits: number = 0) => {
     try {
@@ -2495,6 +2529,156 @@ export default function SmartWalletDrawer({
                 <div className="mt-3">
                   <AliasConsentToggle consented={aliasConsent} onChange={setAliasConsent} />
                 </div>
+
+                {/* Root DID sub-record */}
+                {sessionEmail && (
+                  <div className="mt-3 rounded-xl bg-white/[0.03] ring-1 ring-white/10">
+                    <button
+                      onClick={() => setRootDidExpanded((v) => !v)}
+                      className="w-full flex items-center justify-between px-3 py-2 text-[11px] text-white/60 hover:text-white/80"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <BadgeCheck className="w-3.5 h-3.5 text-fuchsia-400" />
+                        <span className="uppercase tracking-wider">Root DID</span>
+                        {identityProfile?.rootDid && (
+                          <span className="px-1 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20">bound</span>
+                        )}
+                        {identityProfile && !identityProfile.rootDid && (
+                          <span className="px-1 py-0.5 rounded text-[10px] bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/20">unbound</span>
+                        )}
+                      </span>
+                      {rootDidExpanded
+                        ? <ChevronDown className="w-3.5 h-3.5" />
+                        : <ChevronRight className="w-3.5 h-3.5" />}
+                    </button>
+
+                    {rootDidExpanded && (
+                      <div className="px-3 pb-3 space-y-2.5 text-[11px]">
+                        {/* Canonical auth profile ID */}
+                        <div>
+                          <div className="text-white/40 mb-0.5">Auth Profile ID</div>
+                          <div className="flex items-center gap-1">
+                            <span className="font-mono text-white/70 truncate">
+                              {identityProfile?.canonicalId
+                                ? `${identityProfile.canonicalId.slice(0, 8)}…${identityProfile.canonicalId.slice(-6)}`
+                                : '—'}
+                            </span>
+                            {identityProfile?.canonicalId && (
+                              <button
+                                onClick={() => navigator.clipboard.writeText(identityProfile.canonicalId)}
+                                className="p-1 hover:bg-white/10 rounded shrink-0"
+                                aria-label="Copy auth profile ID"
+                              >
+                                <Copy className="w-3 h-3 text-white/40 hover:text-white" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Root DID URI */}
+                        <div>
+                          <div className="text-white/40 mb-0.5">Root DID</div>
+                          <div className="flex items-center gap-1">
+                            <span className="font-mono text-fuchsia-300/80 truncate">
+                              {identityProfile?.rootDid
+                                ? identityProfile.rootDid.length > 28
+                                  ? `${identityProfile.rootDid.slice(0, 20)}…${identityProfile.rootDid.slice(-8)}`
+                                  : identityProfile.rootDid
+                                : '—'}
+                            </span>
+                            {identityProfile?.rootDid && (
+                              <button
+                                onClick={() => navigator.clipboard.writeText(identityProfile.rootDid!)}
+                                className="p-1 hover:bg-white/10 rounded shrink-0"
+                                aria-label="Copy Root DID"
+                              >
+                                <Copy className="w-3 h-3 text-white/40 hover:text-white" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* KYC status */}
+                        {identityProfile?.rootDid && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-white/40">KYC</span>
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] ring-1 ${
+                              identityProfile.kycStatus === 'verified'
+                                ? 'bg-emerald-500/10 text-emerald-300 ring-emerald-500/20'
+                                : 'bg-white/5 text-white/50 ring-white/10'
+                            }`}>
+                              {identityProfile.kycStatus}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Email aliases */}
+                        {identityProfile && identityProfile.emailAliases.length > 0 && (
+                          <div>
+                            <div className="text-white/40 mb-1">Email Aliases</div>
+                            <div className="space-y-0.5">
+                              {identityProfile.emailAliases.map((a, i) => (
+                                <div key={i} className="flex items-center gap-1.5">
+                                  <Mail className="w-3 h-3 text-white/30 shrink-0" />
+                                  <span className="text-white/70 truncate">{a.email}</span>
+                                  {a.is_primary && (
+                                    <span className="text-[10px] text-cyan-400 shrink-0">primary</span>
+                                  )}
+                                  {a.is_verified && (
+                                    <BadgeCheck className="w-3 h-3 text-emerald-400 shrink-0" />
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Merged linked profiles */}
+                        {identityProfile && identityProfile.linkedProfiles.length > 0 && (
+                          <div>
+                            <div className="text-white/40 mb-1">
+                              Merged Profiles ({identityProfile.linkedProfiles.length})
+                            </div>
+                            <div className="space-y-0.5">
+                              {identityProfile.linkedProfiles.map((l, i) => (
+                                <div key={i} className="flex items-center gap-1.5">
+                                  <Link className="w-3 h-3 text-white/30 shrink-0" />
+                                  <span className="font-mono text-white/50 truncate">
+                                    {l.linked_auth_profile_id.slice(0, 8)}…{l.linked_auth_profile_id.slice(-6)}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Bound DID personas */}
+                        {identityProfile && identityProfile.didPersonas.length > 0 && (
+                          <div>
+                            <div className="text-white/40 mb-1">
+                              Bound Personas ({identityProfile.didPersonas.length})
+                            </div>
+                            <div className="space-y-0.5">
+                              {identityProfile.didPersonas.map((p, i) => (
+                                <div key={i} className="flex items-center gap-1.5">
+                                  <IdCard className="w-3 h-3 text-white/30 shrink-0" />
+                                  <span className="text-white/60 capitalize">{p.personaType}</span>
+                                  {p.fioHandle && (
+                                    <span className="text-cyan-300/70 truncate">{p.fioHandle}</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {!identityProfile && (
+                          <div className="text-white/30 italic">Loading…</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </section>
 
               {/* x402 Settlement */}
