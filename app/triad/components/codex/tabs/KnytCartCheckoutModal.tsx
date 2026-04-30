@@ -77,8 +77,10 @@ const RAIL_NOTE: Record<Rail, string> = {
   knyt:   '20% discount applied',
   qcents: 'Base rail',
   usdc:   'Includes processor fee',
-  paypal: 'Single-cart PayPal coming in Phase 3 — for now use Buy now from any card for PayPal.',
+  paypal: 'Multi-line PayPal — one authorisation for the whole cart',
 };
+
+const PAYPAL_MAX_UNITS = 10;
 
 export function KnytCartCheckoutModal({
   open,
@@ -143,13 +145,148 @@ export function KnytCartCheckoutModal({
     if (open) void fetchQuote();
   }, [open, fetchQuote]);
 
+  /**
+   * Reduce a per-unit results array into per-line settled/failed sets so the
+   * drawer can remove only fully-settled lines. A line that had any qty unit
+   * fail stays in the cart for retry.
+   */
+  const partitionResults = useCallback((rs: CompleteLineResult[]): { settledIds: string[]; failedIds: string[] } => {
+    const successById = new Map<string, boolean>();
+    for (const r of rs) {
+      const prev = successById.get(r.id);
+      if (prev === false) continue;
+      successById.set(r.id, r.success && (prev === undefined || prev === true));
+    }
+    const settledIds: string[] = [];
+    const failedIds: string[] = [];
+    for (const [id, ok] of successById.entries()) {
+      if (ok) settledIds.push(id);
+      else failedIds.push(id);
+    }
+    return { settledIds, failedIds };
+  }, []);
+
+  /**
+   * PayPal flow: opens a popup window pointed at /api/cart/paypal/create-order,
+   * listens for the postMessage from /api/cart/paypal/return, then surfaces
+   * the per-line settlement results in the same UI as the KNYT/Q¢/USDC path.
+   */
+  const payViaPayPal = useCallback(async () => {
+    if (!personaId || items.length === 0) return;
+    if (items.length > PAYPAL_MAX_UNITS) {
+      setSettleError(
+        `PayPal supports at most ${PAYPAL_MAX_UNITS} cart lines per order. This cart has ${items.length}. Pick a different rail or split the cart.`,
+      );
+      return;
+    }
+    setPaying(true);
+    setSettleError(null);
+    try {
+      const orderRes = await fetch('/api/cart/paypal/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          personaId,
+          lines: items.map((line) => ({
+            id: line.id,
+            contentType: line.contentType,
+            label: line.label,
+            priceUsd: line.priceUsd,
+            qty: lineQty(line),
+            thumbUrl: line.thumbUrl,
+          })),
+        }),
+      });
+      const orderJson = await orderRes.json();
+      if (!orderRes.ok || !orderJson.approvalUrl) {
+        setSettleError(orderJson.error || 'Failed to create PayPal order');
+        setPaying(false);
+        return;
+      }
+
+      const popup = window.open(orderJson.approvalUrl, 'paypal_cart_checkout', 'width=600,height=700');
+      if (!popup) {
+        setSettleError('Popup blocked — allow popups for this site and retry.');
+        setPaying(false);
+        return;
+      }
+
+      // Listen for the return-handler postMessage. The popup at
+      // /api/cart/paypal/return calls window.opener.postMessage with the
+      // per-line result, then closes itself.
+      const messageHandler = (event: MessageEvent) => {
+        const data = event.data as { type?: string; [k: string]: unknown };
+        if (!data || typeof data.type !== 'string') return;
+        if (!data.type.startsWith('cart-paypal-')) return;
+
+        window.removeEventListener('message', messageHandler);
+
+        if (data.type === 'cart-paypal-error') {
+          setSettleError(typeof data.error === 'string' ? data.error : 'PayPal error');
+          setPaying(false);
+          return;
+        }
+
+        const lineResults: CompleteLineResult[] = Array.isArray(data.results)
+          ? (data.results as Array<{ id: string; success: boolean; purchaseId?: string; error?: string }>).map(
+              (r, idx) => ({
+                lineIndex: idx,
+                id: r.id,
+                success: !!r.success,
+                purchaseId: r.purchaseId,
+                error: r.error,
+              }),
+            )
+          : [];
+
+        setResults(lineResults);
+        setCartPurchaseId((data.cartPurchaseId as string) || '');
+        const { settledIds, failedIds } = partitionResults(lineResults);
+        onSettled?.({
+          settledIds,
+          failedIds,
+          cartPurchaseId: (data.cartPurchaseId as string) || '',
+        });
+        setPaying(false);
+      };
+      window.addEventListener('message', messageHandler);
+
+      // Watchdog: if the popup is closed by the user without sending a message,
+      // unwind so the modal isn't stuck on "paying" forever.
+      const popupWatchdog = window.setInterval(() => {
+        if (popup.closed) {
+          window.clearInterval(popupWatchdog);
+          // Give postMessage a brief grace window (chrome can fire close before message).
+          window.setTimeout(() => {
+            // If pay state is still true, the popup closed without a result.
+            // Use the functional setter to read latest state.
+            setPaying((stillPaying) => {
+              if (stillPaying) {
+                window.removeEventListener('message', messageHandler);
+                setSettleError('PayPal window closed before completing.');
+                return false;
+              }
+              return stillPaying;
+            });
+          }, 800);
+        }
+      }, 500);
+    } catch (err) {
+      setSettleError(err instanceof Error ? err.message : 'PayPal failed');
+      setPaying(false);
+    }
+  }, [items, personaId, onSettled, partitionResults]);
+
   const pay = useCallback(async () => {
-    if (selectedRail === 'paypal') return; // Disabled — Phase 3
     if (!personaId) {
       onSignInRequest?.();
       return;
     }
     if (items.length === 0) return;
+    if (selectedRail === 'paypal') {
+      void payViaPayPal();
+      return;
+    }
     setPaying(true);
     setSettleError(null);
     try {
@@ -180,29 +317,14 @@ export function KnytCartCheckoutModal({
 
       setResults(json.results as CompleteLineResult[]);
       setCartPurchaseId(json.cartPurchaseId as string);
-
-      // Group by line id — a line is fully settled only if every qty unit
-      // for that line returned success.
-      const successById = new Map<string, boolean>();
-      for (const r of json.results as CompleteLineResult[]) {
-        const prev = successById.get(r.id);
-        if (prev === false) continue;
-        successById.set(r.id, r.success && (prev === undefined || prev === true));
-      }
-      const settledIds: string[] = [];
-      const failedIds: string[] = [];
-      for (const [id, ok] of successById.entries()) {
-        if (ok) settledIds.push(id);
-        else failedIds.push(id);
-      }
-
+      const { settledIds, failedIds } = partitionResults(json.results as CompleteLineResult[]);
       onSettled?.({ settledIds, failedIds, cartPurchaseId: json.cartPurchaseId as string });
     } catch (err) {
       setSettleError(err instanceof Error ? err.message : 'Settlement failed');
     } finally {
       setPaying(false);
     }
-  }, [items, personaId, selectedRail, onSettled, onSignInRequest]);
+  }, [items, personaId, selectedRail, onSettled, onSignInRequest, payViaPayPal, partitionResults]);
 
   if (!open) return null;
 
@@ -298,7 +420,9 @@ export function KnytCartCheckoutModal({
                   <p className="text-[10px] uppercase tracking-wide text-slate-500">Payment rail</p>
                   <div className="grid grid-cols-2 gap-1.5">
                     {(['knyt', 'qcents', 'usdc', 'paypal'] as Rail[]).map((r) => {
-                      const disabled = r === 'paypal';
+                      // PayPal supports up to 10 cart lines per order. Beyond
+                      // that, disable PayPal and steer users to KNYT/Q¢/USDC.
+                      const disabled = r === 'paypal' && items.length > PAYPAL_MAX_UNITS;
                       const isSelected = selectedRail === r;
                       const railQuote =
                         r === 'knyt'
@@ -420,7 +544,7 @@ export function KnytCartCheckoutModal({
                 <button
                   type="button"
                   onClick={pay}
-                  disabled={paying || !quote || selectedRail === 'paypal'}
+                  disabled={paying || !quote || (selectedRail === 'paypal' && items.length > PAYPAL_MAX_UNITS)}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-teal-500/40 bg-teal-500/15 px-3 py-1.5 text-xs font-semibold text-teal-200 hover:bg-teal-500/25 disabled:opacity-40"
                 >
                   {paying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CreditCard className="h-3.5 w-3.5" />}
