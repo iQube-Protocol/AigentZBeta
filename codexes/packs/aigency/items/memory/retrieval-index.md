@@ -584,3 +584,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-feea823.md](../build_/COMMITS/COMMIT-feea823.md)
 - Message: KNYT cart Phase 2b — server-side /api/cart/{quote,complete} endpoints
+
+## Commit `0008bf6` — 2026-04-30T22:51:53Z
+- Type: `push`
+- Brief: [COMMIT-0008bf6.md](../build_/COMMITS/COMMIT-0008bf6.md)
+- Message: KNYT cart Phase 2c — multi-item KnytCartCheckoutModal replaces per-item iteration
