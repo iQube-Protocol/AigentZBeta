@@ -2121,12 +2121,17 @@ export default function MetaMeRuntimeClient() {
     enabled: true,
   });
 
-  // When runtimeContext switches to 'knyt' mid-session, refresh as a toggle entry
+  // When runtimeContext switches to 'knyt' mid-session, refresh as a toggle entry.
+  // Also flips runtimeProcessing on briefly so the parent thin-client's STATE_SYNC
+  // listener fires its thinking-dots animation while the takeover infer + capsule
+  // refetch happen behind the scenes.
   const prevRuntimeContextRef = useRef(runtimeContext);
   useEffect(() => {
     if (prevRuntimeContextRef.current !== runtimeContext) {
       prevRuntimeContextRef.current = runtimeContext;
       refreshTakeover("toggle");
+      setRuntimeProcessing(true);
+      window.setTimeout(() => setRuntimeProcessing(false), 3000);
     }
   }, [runtimeContext, refreshTakeover]);
 
@@ -3592,6 +3597,7 @@ export default function MetaMeRuntimeClient() {
                 const normalized = normalizeCodexId(target);
                 if (normalized && KNOWN_SLUGS.includes(normalized)) {
                   const nbaTab = takeoverManifest?.nextBestAction?.tab;
+                  signalRuntimeBusy(`nba_open_codex:${normalized}${nbaTab ? `#${nbaTab}` : ""}`);
                   setActiveCartridgeOverlay({
                     slug: normalized,
                     title: normalized,
@@ -3612,6 +3618,7 @@ export default function MetaMeRuntimeClient() {
                 const isSafeLength = target.length <= 1500;
                 const looksLikePreviewBlob = /experienceArticleDraft=|experienceContext=/.test(target);
                 if (isSamePath && isSafeLength && !looksLikePreviewBlob) {
+                  signalRuntimeBusy(`nba_route:${target}`);
                   window.location.assign(target);
                 } else {
                   void handlePrompt(`Open ${target}`, { source: "quick_link", skipInference: true });
@@ -3898,6 +3905,45 @@ export default function MetaMeRuntimeClient() {
       window.parent.postMessage(message, origin);
     },
     []
+  );
+
+  // Fires the canonical "I'm working on something" signal to the parent
+  // thin-client. Used for navigation-style actions that don't run chat
+  // inference (cartridge open, route navigation, takeover toggle, quick
+  // links) but should still light up the shell's thinking-dots animation.
+  //
+  // Emits multiple message types so the thin-client can listen for whichever
+  // it cares about: INFERENCE_START + PROCESSING_START (semantic), and
+  // setRuntimeProcessing(true) so the STATE_SYNC effect broadcasts
+  // processing:true / inferring:true. Clears after a short timeout for
+  // navigation events that don't have an explicit completion handshake.
+  const signalRuntimeBusy = useCallback(
+    (reason: string, options?: { autoClearMs?: number }) => {
+      const autoClearMs = options?.autoClearMs ?? 3000;
+      setRuntimeProcessing(true);
+      postRuntimeEvent("INFERENCE_START", {
+        state: "navigation",
+        reason,
+        device: activeDevice,
+        thin_shell: thinShellMode,
+      });
+      postRuntimeEvent("PROCESSING_START", {
+        reason,
+        device: activeDevice,
+        thin_shell: thinShellMode,
+      });
+      if (autoClearMs > 0) {
+        window.setTimeout(() => {
+          setRuntimeProcessing(false);
+          postRuntimeEvent("RENDER_COMPLETE", {
+            reason,
+            device: activeDevice,
+            thin_shell: thinShellMode,
+          });
+        }, autoClearMs);
+      }
+    },
+    [activeDevice, postRuntimeEvent, thinShellMode],
   );
 
   const { handleShellBridgeMessage: handleBrowserShellBridgeMessage } = useBrowserCapabilityController({
@@ -5780,8 +5826,8 @@ export default function MetaMeRuntimeClient() {
                 <button
                   type="button"
                   onClick={() => {
-                    postRuntimeEvent("PROCESSING_START", { intent: "play", source: "quick_link" });
-                    void handlePrompt("I'd like to explore my KNYT journey.", { source: "quick_link", skipInference: true, explicitIntent: "play" });
+                    signalRuntimeBusy("quick_link:explore_knyt", { autoClearMs: 0 });
+                    void handlePrompt("I'd like to explore my KNYT journey.", { source: "text_input", explicitIntent: "play" });
                   }}
                   className="flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-200/80 hover:border-amber-500/40 hover:text-amber-100 transition-colors backdrop-blur-sm"
                 >
@@ -5790,7 +5836,10 @@ export default function MetaMeRuntimeClient() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setActiveCartridgeOverlay({ slug: 'knyt-codex', title: 'KNYT Store', initialTab: 'store-episodes' })}
+                  onClick={() => {
+                    signalRuntimeBusy("quick_link:knyt_store");
+                    setActiveCartridgeOverlay({ slug: 'knyt-codex', title: 'KNYT Store', initialTab: 'store-episodes' });
+                  }}
                   className="flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-200/80 hover:border-amber-500/40 hover:text-amber-100 transition-colors backdrop-blur-sm"
                 >
                   <ShoppingBag className="h-3 w-3 shrink-0" />
@@ -5798,7 +5847,10 @@ export default function MetaMeRuntimeClient() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setWalletDrawerOpen(true)}
+                  onClick={() => {
+                    signalRuntimeBusy("quick_link:sign_in");
+                    setWalletDrawerOpen(true);
+                  }}
                   className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] text-white/60 hover:border-white/25 hover:text-white/90 transition-colors backdrop-blur-sm"
                 >
                   <Wallet className="h-3 w-3 shrink-0" />
@@ -5810,8 +5862,8 @@ export default function MetaMeRuntimeClient() {
                 <button
                   type="button"
                   onClick={() => {
-                    postRuntimeEvent("PROCESSING_START", { intent: "find", source: "quick_link" });
-                    void handlePrompt("help me find experiences.", { source: "quick_link", skipInference: true, explicitIntent: "find" });
+                    signalRuntimeBusy("quick_link:explore_metame", { autoClearMs: 0 });
+                    void handlePrompt("help me find experiences.", { source: "text_input", explicitIntent: "find" });
                   }}
                   className="flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[11px] text-emerald-200/80 hover:border-emerald-500/40 hover:text-emerald-100 transition-colors backdrop-blur-sm"
                 >
@@ -5821,7 +5873,10 @@ export default function MetaMeRuntimeClient() {
                 {/* View metaMe cartridge: stub — hidden until runtime tab is built */}
                 <button
                   type="button"
-                  onClick={() => setWalletDrawerOpen(true)}
+                  onClick={() => {
+                    signalRuntimeBusy("quick_link:sign_in");
+                    setWalletDrawerOpen(true);
+                  }}
                   className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] text-white/60 hover:border-white/25 hover:text-white/90 transition-colors backdrop-blur-sm"
                 >
                   <Wallet className="h-3 w-3 shrink-0" />
