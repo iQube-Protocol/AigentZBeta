@@ -549,3 +549,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-1ab55f2.md](../build_/COMMITS/COMMIT-1ab55f2.md)
 - Message: revert overbroad middleware fallback that broke runtime page embedding
+
+## Commit `c4329b0` — 2026-04-30T17:36:56Z
+- Type: `push`
+- Brief: [COMMIT-c4329b0.md](../build_/COMMITS/COMMIT-c4329b0.md)
+- Message: allow metame.live + metame.dev to embed; mandate descriptive merge messages
