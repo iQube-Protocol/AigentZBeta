@@ -582,6 +582,8 @@ export default function SmartWalletDrawer({
   interface IdentityProfile {
     canonicalId: string;
     email: string | null;
+    personaCount: number;
+    personaClusters: Array<{ clusterId: string; personaCount: number; isCanonical: boolean }>;
     rootDid: string | null;
     rootId: string | null;
     kycStatus: string;
@@ -2554,26 +2556,6 @@ export default function SmartWalletDrawer({
 
                     {rootDidExpanded && (
                       <div className="px-3 pb-3 space-y-2.5 text-[11px]">
-                        {/* Canonical auth profile ID */}
-                        <div>
-                          <div className="text-white/40 mb-0.5">Auth Profile ID</div>
-                          <div className="flex items-center gap-1">
-                            <span className="font-mono text-white/70 truncate">
-                              {identityProfile?.canonicalId
-                                ? `${identityProfile.canonicalId.slice(0, 8)}…${identityProfile.canonicalId.slice(-6)}`
-                                : '—'}
-                            </span>
-                            {identityProfile?.canonicalId && (
-                              <button
-                                onClick={() => navigator.clipboard.writeText(identityProfile.canonicalId)}
-                                className="p-1 hover:bg-white/10 rounded shrink-0"
-                                aria-label="Copy auth profile ID"
-                              >
-                                <Copy className="w-3 h-3 text-white/40 hover:text-white" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
 
                         {/* Root DID URI */}
                         <div>
@@ -2612,6 +2594,54 @@ export default function SmartWalletDrawer({
                           </div>
                         )}
 
+                        {/* Persona clusters — canonical + any legacy linked clusters still holding personas */}
+                        {identityProfile && (
+                          <div>
+                            <div className="text-white/40 mb-1">
+                              Persona Cluster{identityProfile.personaClusters.length > 1 ? 's' : ''}
+                              {' '}({identityProfile.personaCount} persona{identityProfile.personaCount !== 1 ? 's' : ''})
+                            </div>
+                            <div className="space-y-1">
+                              {identityProfile.personaClusters.map((c, i) => (
+                                <div key={i} className="flex items-center gap-1.5 rounded bg-white/[0.03] px-2 py-1">
+                                  <Users className="w-3 h-3 text-white/30 shrink-0" />
+                                  <span className="font-mono text-white/70 truncate flex-1">
+                                    {c.clusterId.slice(0, 8)}…{c.clusterId.slice(-6)}
+                                  </span>
+                                  <span className="text-white/40 shrink-0">{c.personaCount}p</span>
+                                  {c.isCanonical && (
+                                    <span className="text-[10px] text-cyan-400 shrink-0">canonical</span>
+                                  )}
+                                  <button
+                                    onClick={() => navigator.clipboard.writeText(c.clusterId)}
+                                    className="p-0.5 hover:bg-white/10 rounded shrink-0"
+                                    aria-label="Copy cluster ID"
+                                  >
+                                    <Copy className="w-3 h-3 text-white/40 hover:text-white" />
+                                  </button>
+                                </div>
+                              ))}
+                              {identityProfile.personaClusters.length === 0 && (
+                                <div className="flex items-center gap-1.5 rounded bg-white/[0.03] px-2 py-1">
+                                  <Users className="w-3 h-3 text-white/30 shrink-0" />
+                                  <span className="font-mono text-white/70 truncate flex-1">
+                                    {identityProfile.canonicalId.slice(0, 8)}…{identityProfile.canonicalId.slice(-6)}
+                                  </span>
+                                  <span className="text-white/40 shrink-0">{identityProfile.personaCount}p</span>
+                                  <span className="text-[10px] text-cyan-400 shrink-0">canonical</span>
+                                  <button
+                                    onClick={() => navigator.clipboard.writeText(identityProfile.canonicalId)}
+                                    className="p-0.5 hover:bg-white/10 rounded shrink-0"
+                                    aria-label="Copy cluster ID"
+                                  >
+                                    <Copy className="w-3 h-3 text-white/40 hover:text-white" />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
                         {/* Email aliases */}
                         {identityProfile && identityProfile.emailAliases.length > 0 && (
                           <div>
@@ -2633,19 +2663,24 @@ export default function SmartWalletDrawer({
                           </div>
                         )}
 
-                        {/* Merged linked profiles */}
+                        {/* All linked profiles with relationship mode */}
                         {identityProfile && identityProfile.linkedProfiles.length > 0 && (
                           <div>
                             <div className="text-white/40 mb-1">
-                              Merged Profiles ({identityProfile.linkedProfiles.length})
+                              Linked Profiles ({identityProfile.linkedProfiles.length})
                             </div>
                             <div className="space-y-0.5">
                               {identityProfile.linkedProfiles.map((l, i) => (
                                 <div key={i} className="flex items-center gap-1.5">
                                   <Link className="w-3 h-3 text-white/30 shrink-0" />
-                                  <span className="font-mono text-white/50 truncate">
+                                  <span className="font-mono text-white/50 truncate flex-1">
                                     {l.linked_auth_profile_id.slice(0, 8)}…{l.linked_auth_profile_id.slice(-6)}
                                   </span>
+                                  <span className={`text-[10px] shrink-0 ${
+                                    l.relationship_mode === 'merged' ? 'text-emerald-400' :
+                                    l.relationship_mode === 'device_session' ? 'text-amber-400' :
+                                    'text-white/40'
+                                  }`}>{l.relationship_mode}</span>
                                 </div>
                               ))}
                             </div>
@@ -2656,7 +2691,7 @@ export default function SmartWalletDrawer({
                         {identityProfile && identityProfile.didPersonas.length > 0 && (
                           <div>
                             <div className="text-white/40 mb-1">
-                              Bound Personas ({identityProfile.didPersonas.length})
+                              DID-Bound Personas ({identityProfile.didPersonas.length})
                             </div>
                             <div className="space-y-0.5">
                               {identityProfile.didPersonas.map((p, i) => (
