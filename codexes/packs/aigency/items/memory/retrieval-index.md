@@ -539,3 +539,8 @@ Top-level retrieval anchors for this pack.
 - Type: `chore`
 - Brief: [COMMIT-d76dbd1.md](../build_/COMMITS/COMMIT-d76dbd1.md)
 - Message: nest STATE_SYNC processing flags per Lovable spec; bump KB search timeout
+
+## Commit `f71efd8` — 2026-04-30T16:37:15Z
+- Type: `fix`
+- Brief: [COMMIT-f71efd8.md](../build_/COMMITS/COMMIT-f71efd8.md)
+- Message: fix Firefox X-Frame-Options on cartridge embed; consolidate header logic
