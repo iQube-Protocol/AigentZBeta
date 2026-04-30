@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-04-30T19:23:32.333Z",
+  "last_updated": "2026-04-30T21:45:00.744Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "10bf19ab4be31721f1d937ebf20e2f373725de19",
-  "latest_commit_short": "10bf19a",
-  "latest_commit_title": "KNYT cart Phase 1 — qty stepper, count badge, drawer mounted across all 4 store tabs",
+  "latest_commit": "1df879d82d14367f421511c5051f8a99a05cb356",
+  "latest_commit_short": "1df879d",
+  "latest_commit_title": "KNYT cart Phase 1.1 — split Buy/+Cart buttons across all 4 store tabs",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "1df879d",
+      "full_sha": "1df879d82d14367f421511c5051f8a99a05cb356",
+      "title": "KNYT cart Phase 1.1 — split Buy/+Cart buttons across all 4 store tabs",
+      "author": "Claude",
+      "timestamp": "2026-04-30T21:43:10Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1df879d.md"
+    },
     {
       "sha": "10bf19a",
       "full_sha": "10bf19ab4be31721f1d937ebf20e2f373725de19",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T08:18:50Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-83a70a7.md"
-    },
-    {
-      "sha": "f9e5928",
-      "full_sha": "f9e5928dea2b1fe3dc74da7bb1cc1d175f2cd205",
-      "title": "fix agent identity and restore trust indicator pulse animation",
-      "author": "Claude",
-      "timestamp": "2026-03-24T07:52:37Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-f9e5928.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
