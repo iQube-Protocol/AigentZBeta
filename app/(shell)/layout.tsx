@@ -67,7 +67,7 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
         zIndex: 140,
         left: "var(--metaavatar-copilot-x, 16px)",
         top: "var(--metaavatar-copilot-y, 96px)",
-        width: "var(--metaavatar-copilot-w, 400px)",
+        width: "var(--metaavatar-copilot-w, 415px)",
         height: "var(--metaavatar-copilot-h, 320px)",
       };
     }

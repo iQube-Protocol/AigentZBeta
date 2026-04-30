@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-04-30T18:10:14.794Z",
+  "last_updated": "2026-04-30T19:23:32.333Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "e62ebcc87ab46318443aab0394e5556165c493dc",
-  "latest_commit_short": "e62ebcc",
-  "latest_commit_title": "consolidate X-Frame-Options into middleware as single source of truth",
+  "latest_commit": "10bf19ab4be31721f1d937ebf20e2f373725de19",
+  "latest_commit_short": "10bf19a",
+  "latest_commit_title": "KNYT cart Phase 1 — qty stepper, count badge, drawer mounted across all 4 store tabs",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "10bf19a",
+      "full_sha": "10bf19ab4be31721f1d937ebf20e2f373725de19",
+      "title": "KNYT cart Phase 1 — qty stepper, count badge, drawer mounted across all 4 store tabs",
+      "author": "Claude",
+      "timestamp": "2026-04-30T19:21:40Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-10bf19a.md"
+    },
     {
       "sha": "e62ebcc",
       "full_sha": "e62ebcc87ab46318443aab0394e5556165c493dc",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T07:52:37Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-f9e5928.md"
-    },
-    {
-      "sha": "35720c7",
-      "full_sha": "35720c732796cdfb86a511872789d8f85f8b2ba6",
-      "title": "fix inference not triggering from live text input and marketa persona lookup",
-      "author": "Claude",
-      "timestamp": "2026-03-24T07:21:55Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-35720c7.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
