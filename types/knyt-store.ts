@@ -407,6 +407,46 @@ export interface CartItem {
       persisted cart entries). Multi-purchase support — users can stack copies
       of the same SKU; the drawer shows a +/- stepper. */
   qty?: number;
+  /**
+   * ContentType union from ContentPurchaseModal — kept as a string here to
+   * avoid circular imports between the data-only types module and the modal
+   * component. Required for server-side cart settlement (the cart-quote and
+   * cart-complete endpoints map this to a productType for processPurchase).
+   * Optional for back-compat with cart entries persisted before Phase 2a.
+   */
+  contentType?:
+    | 'scroll_still'
+    | 'scroll_motion'
+    | 'character_card'
+    | 'character_card_motion'
+    | 'bundle_3_still'
+    | 'bundle_5_still'
+    | 'bundle_3_motion'
+    | 'bundle_5_motion'
+    | 'season_codex_still'
+    | 'season_codex_motion';
+}
+
+/**
+ * Maps a cart line's contentType to the productType expected by
+ * services/rewards/purchaseHandler. Mirror of the productTypeMap inside
+ * ContentPurchaseModal.tsx — duplicated here so server-side cart endpoints
+ * can resolve productType without importing client React code.
+ */
+export function cartContentTypeToProductType(contentType: NonNullable<CartItem['contentType']>): string {
+  const map: Record<NonNullable<CartItem['contentType']>, string> = {
+    scroll_still:           'knyt_scroll_still',
+    scroll_motion:          'knyt_scroll_motion',
+    character_card:         'knyt_character_card_still',
+    character_card_motion:  'knyt_character_card_motion',
+    bundle_3_still:         'knyt_scroll_bundle_still_3',
+    bundle_5_still:         'knyt_scroll_bundle_still_5',
+    bundle_3_motion:        'knyt_scroll_bundle_motion_3',
+    bundle_5_motion:        'knyt_scroll_bundle_motion_5',
+    season_codex_still:     'knyt_season_codex_stills',
+    season_codex_motion:    'knyt_season_codex_motion',
+  };
+  return map[contentType];
 }
 
 function lineQty(item: CartItem): number {

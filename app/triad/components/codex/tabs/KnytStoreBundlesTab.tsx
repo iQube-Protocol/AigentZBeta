@@ -548,12 +548,13 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
 
   function addBundleToCart(bundle: BundlePricing) {
     const item: CartItem = {
-      id:        bundle.id,
-      label:     bundle.label,
-      modality:  'bundle',
-      layer:     'digital',
-      priceUsd:  bundle.memberPrice ?? bundle.digitalPrice,
-      thumbUrl:  bundle.isInvestorOnly ? INVESTOR_SEAL : getCoverThumb(bundle.id === 'bundle-8-12' ? bundle.episodes[0] : bundle.episodes[bundle.episodes.length - 1]),
+      id:          bundle.id,
+      label:       bundle.label,
+      modality:    'bundle',
+      layer:       'digital',
+      priceUsd:    bundle.memberPrice ?? bundle.digitalPrice,
+      thumbUrl:    bundle.isInvestorOnly ? INVESTOR_SEAL : getCoverThumb(bundle.id === 'bundle-8-12' ? bundle.episodes[0] : bundle.episodes[bundle.episodes.length - 1]),
+      contentType: getBundleContentType(bundle) as CartItem['contentType'],
     };
     cart.addToCart(item);
     setCartOpen(true);
@@ -571,11 +572,12 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
 
   function addPackToCart(option: CardsPricing) {
     const item: CartItem = {
-      id:       `cards-pack-${option.layer}`,
-      label:    `13 Card Pack — ${LAYER_SHORT[option.layer] ?? option.layer}`,
-      modality: 'still',
-      layer:    option.layer === 'physical' ? 'print' : option.layer === 'qripto' ? 'qripto' : 'digital',
-      priceUsd: option.price,
+      id:          `cards-pack-${option.layer}`,
+      label:       `13 Card Pack — ${LAYER_SHORT[option.layer] ?? option.layer}`,
+      modality:    'still',
+      layer:       option.layer === 'physical' ? 'print' : option.layer === 'qripto' ? 'qripto' : 'digital',
+      priceUsd:    option.price,
+      contentType: 'character_card',  // mirrors openPackPurchase below
     };
     cart.addToCart(item);
     setCartOpen(true);

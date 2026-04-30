@@ -272,12 +272,13 @@ export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
       ? 'bundle'
       : 'still';
     const item: CartItem = {
-      id:       p.contentId ?? `${p.contentType}-${p.contentTitle}`,
-      label:    p.contentTitle,
-      modality: modalityVal,
-      layer:    'digital',
-      priceUsd: p.priceUsdOverride ?? 0,
-      thumbUrl: p.contentImage,
+      id:          p.contentId ?? `${p.contentType}-${p.contentTitle}`,
+      label:       p.contentTitle,
+      modality:    modalityVal,
+      layer:       'digital',
+      priceUsd:    p.priceUsdOverride ?? 0,
+      thumbUrl:    p.contentImage,
+      contentType: p.contentType as CartItem['contentType'],
     };
     cart.addToCart(item);
     setCartOpen(true);

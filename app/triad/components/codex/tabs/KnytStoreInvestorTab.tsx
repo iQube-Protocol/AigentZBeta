@@ -355,12 +355,13 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
     const isGnOnly = bundle.episodes.length === 1 && bundle.episodes[0] === -1;
     const image = isGnOnly ? getCoverThumb(-1) ?? INVESTOR_SEAL : INVESTOR_SEAL;
     const item: CartItem = {
-      id:       bundle.id,
-      label:    bundle.label,
-      modality: 'bundle',
-      layer:    'digital',
-      priceUsd: bundle.memberPrice ?? bundle.digitalPrice,
-      thumbUrl: image,
+      id:          bundle.id,
+      label:       bundle.label,
+      modality:    'bundle',
+      layer:       'digital',
+      priceUsd:    bundle.memberPrice ?? bundle.digitalPrice,
+      thumbUrl:    image,
+      contentType: 'season_codex_still',  // mirrors openBundlePurchase below
     };
     cart.addToCart(item);
     setCartOpen(true);
