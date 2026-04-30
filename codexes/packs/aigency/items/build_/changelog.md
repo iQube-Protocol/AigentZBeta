@@ -1,4 +1,7 @@
 # Build — Changelog
+- [`516b95d`](https://github.com/iQube-Protocol/AigentZBeta/commit/516b95d7ff38b8cf573161d5483b558834150dd0) [push] gate community-content admin endpoints with server-side role check (Claude, 2026-04-29T20:43:04Z)
+- [`c25d66a`](https://github.com/iQube-Protocol/AigentZBeta/commit/c25d66abc658e13b580f9dff525e1498a8fdb6c1) [feat] add public viewer page for community-generated content (Claude, 2026-04-29T20:44:01Z)
+- [`fc82cb7`](https://github.com/iQube-Protocol/AigentZBeta/commit/fc82cb789744c104d38217c0af9b284099a60611) [push] remix expands inline like Customize banner — no popout dialog (Claude, 2026-04-29T20:48:53Z)
 - [`aa70e7d`](https://github.com/iQube-Protocol/AigentZBeta/commit/aa70e7ddc4e4b93e7cf464c64250c71671c36ae6) [fix] stub porto/internal webpack alias to fix wagmi connector barrel build error (Claude, 2026-04-29T01:02:15Z)
 - [`7d6dbfa`](https://github.com/iQube-Protocol/AigentZBeta/commit/7d6dbfa7bc11bfc4be31a8928ca5f5be710c6297) [fix] fix React #130 SSR error in connections tab; switch $KNYT chain to Ethereum mainnet (chainId 1) (Claude, 2026-04-29T00:45:11Z)
 - [`8422f70`](https://github.com/iQube-Protocol/AigentZBeta/commit/8422f70bda7f2d0620a644f18da3745e393860d7) [feat] add WalletConnect external wallet to SmartWallet Connections tab with EVM $KNYT balance and treasury send flow (Claude, 2026-04-28T23:26:03Z)

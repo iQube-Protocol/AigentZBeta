@@ -138,14 +138,23 @@ interface AliasState {
   error?: string;
 }
 
-async function getAuthHeader(): Promise<Record<string, string>> {
-  const headers: Record<string, string> = {};
-  try {
-    const supabase = createClient(
+// Single shared client — avoids "Multiple GoTrueClient instances" warnings and
+// AbortError races caused by creating a new instance on every getAuthHeader call.
+let _authClient: ReturnType<typeof createClient> | null = null;
+function getAuthClient() {
+  if (!_authClient) {
+    _authClient = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
     );
-    const { data } = await supabase.auth.getSession();
+  }
+  return _authClient;
+}
+
+async function getAuthHeader(): Promise<Record<string, string>> {
+  const headers: Record<string, string> = {};
+  try {
+    const { data } = await getAuthClient().auth.getSession();
     if (data.session?.access_token) {
       headers['Authorization'] = `Bearer ${data.session.access_token}`;
     }

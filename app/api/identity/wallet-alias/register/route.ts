@@ -11,7 +11,7 @@ import { registerWalletAlias, type WalletChain } from '@/services/identity/walle
 import { getCallerAuthUserId } from '../_lib/auth';
 
 export const runtime = 'nodejs';
-export const maxDuration = 60; // seconds — allows cold-start + slow Supabase queries to complete
+export const maxDuration = 30; // Lambda needs 30s so our 25s sentinel can fire cleanly
 
 interface Body {
   didPersonaId?: string;
@@ -36,15 +36,15 @@ export async function POST(req: NextRequest) {
 
   const authUserId = await getCallerAuthUserId(req);
 
-  // Hard 50s timeout — returns a clean JSON 503 before the Lambda's 60s hard kill.
-  // With embedded joins + escrow cap + removed pre-check, operations should complete
-  // in well under 15s even on a cold Lambda with slow Supabase. The 50s sentinel
-  // is a safety net for extreme cold-start scenarios.
+  // 25s sentinel — fires before Amplify's API Gateway/CloudFront hard 29s timeout.
+  // If the Lambda hasn't responded by 25s we return a clean JSON 503 so the client
+  // sees a retryable error rather than a silent empty-body 504.
+  // With embedded joins + escrow 4s cap the critical path is typically 6–15s.
   let timeoutHandle: ReturnType<typeof setTimeout>;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutHandle = setTimeout(
       () => reject(new Error('REGISTER_TIMEOUT')),
-      50_000
+      25_000
     );
   });
 
