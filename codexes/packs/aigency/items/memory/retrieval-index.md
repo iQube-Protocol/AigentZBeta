@@ -559,3 +559,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-e62ebcc.md](../build_/COMMITS/COMMIT-e62ebcc.md)
 - Message: consolidate X-Frame-Options into middleware as single source of truth
+
+## Commit `10bf19a` — 2026-04-30T19:21:40Z
+- Type: `push`
+- Brief: [COMMIT-10bf19a.md](../build_/COMMITS/COMMIT-10bf19a.md)
+- Message: KNYT cart Phase 1 — qty stepper, count badge, drawer mounted across all 4 store tabs
