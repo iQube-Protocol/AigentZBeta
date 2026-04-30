@@ -554,3 +554,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-c4329b0.md](../build_/COMMITS/COMMIT-c4329b0.md)
 - Message: allow metame.live + metame.dev to embed; mandate descriptive merge messages
+
+## Commit `e62ebcc` — 2026-04-30T18:08:16Z
+- Type: `push`
+- Brief: [COMMIT-e62ebcc.md](../build_/COMMITS/COMMIT-e62ebcc.md)
+- Message: consolidate X-Frame-Options into middleware as single source of truth

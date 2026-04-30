@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`e62ebcc`](https://github.com/iQube-Protocol/AigentZBeta/commit/e62ebcc87ab46318443aab0394e5556165c493dc) [push] consolidate X-Frame-Options into middleware as single source of truth (Claude, 2026-04-30T18:08:16Z)
 - [`c4329b0`](https://github.com/iQube-Protocol/AigentZBeta/commit/c4329b06a94b51f88f6c521f24d28eb39d253897) [push] allow metame.live + metame.dev to embed; mandate descriptive merge messages (Claude, 2026-04-30T17:36:56Z)
 - [`1ab55f2`](https://github.com/iQube-Protocol/AigentZBeta/commit/1ab55f21f05074c1480263f35e63e7d039365c13) [push] revert overbroad middleware fallback that broke runtime page embedding (Claude, 2026-04-30T16:58:22Z)
 - [`f71efd8`](https://github.com/iQube-Protocol/AigentZBeta/commit/f71efd8e08c161144a6a17d4af359b5cfc66e3da) [fix] fix Firefox X-Frame-Options on cartridge embed; consolidate header logic (Claude, 2026-04-30T16:37:15Z)

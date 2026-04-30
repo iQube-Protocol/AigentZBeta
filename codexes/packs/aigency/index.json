@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-04-30T17:38:53.741Z",
+  "last_updated": "2026-04-30T18:10:14.794Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c4329b06a94b51f88f6c521f24d28eb39d253897",
-  "latest_commit_short": "c4329b0",
-  "latest_commit_title": "allow metame.live + metame.dev to embed; mandate descriptive merge messages",
+  "latest_commit": "e62ebcc87ab46318443aab0394e5556165c493dc",
+  "latest_commit_short": "e62ebcc",
+  "latest_commit_title": "consolidate X-Frame-Options into middleware as single source of truth",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "e62ebcc",
+      "full_sha": "e62ebcc87ab46318443aab0394e5556165c493dc",
+      "title": "consolidate X-Frame-Options into middleware as single source of truth",
+      "author": "Claude",
+      "timestamp": "2026-04-30T18:08:16Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-e62ebcc.md"
+    },
     {
       "sha": "c4329b0",
       "full_sha": "c4329b06a94b51f88f6c521f24d28eb39d253897",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T07:21:55Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-35720c7.md"
-    },
-    {
-      "sha": "902213c",
-      "full_sha": "902213c7cc3a7c464b0e04643abc7561347f9f63",
-      "title": "fix agent selector pipeline so selected aigent drives inference",
-      "author": "Claude",
-      "timestamp": "2026-03-24T02:17:19Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-902213c.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
