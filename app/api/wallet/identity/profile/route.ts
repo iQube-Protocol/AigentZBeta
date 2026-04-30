@@ -2,8 +2,11 @@
  * GET /api/wallet/identity/profile
  *
  * Returns a unified identity profile for the signed-in user:
- *  - canonicalId: their crm_auth_profiles UUID
+ *  - canonicalId: their crm_auth_profiles UUID (= persona cluster ID)
  *  - email: primary email from the JWT
+ *  - personaCount: total personas owned by canonicalId
+ *  - personaClusters: all auth_profile_ids that own personas for this user
+ *    (canonicalId + any linked merged profile IDs that still have personas)
  *  - emailAliases: all email aliases in crm_auth_profile_emails
  *  - linkedProfiles: active merged links in crm_auth_profile_links
  *  - rootDid: did_uri from root_identity (null if not yet bound)
@@ -42,12 +45,37 @@ export async function GET(request: NextRequest) {
       .eq('auth_profile_id', canonicalId)
       .order('is_primary', { ascending: false });
 
-    // Linked profiles (merged only — these are provably same person)
+    // Persona count under the canonical cluster
+    const { count: personaCount } = await admin
+      .from('personas')
+      .select('id', { count: 'exact', head: true })
+      .eq('auth_profile_id', canonicalId);
+
+    // Linked profiles (all modes — we show merged separately in the UI)
     const { data: linkRows } = await admin
       .from('crm_auth_profile_links')
       .select('linked_auth_profile_id, relationship_mode, active')
       .eq('owner_auth_profile_id', canonicalId)
       .eq('active', true);
+
+    // For each merged linked profile, check if it still owns personas
+    // (legacy clusters that weren't fully migrated to canonicalId)
+    const mergedIds = (linkRows ?? [])
+      .filter((l) => (l as Record<string, unknown>).relationship_mode === 'merged')
+      .map((l) => (l as Record<string, unknown>).linked_auth_profile_id as string);
+
+    const personaClusters: Array<{ clusterId: string; personaCount: number; isCanonical: boolean }> = [
+      { clusterId: canonicalId, personaCount: personaCount ?? 0, isCanonical: true },
+    ];
+    for (const linkedId of mergedIds) {
+      const { count: linkedCount } = await admin
+        .from('personas')
+        .select('id', { count: 'exact', head: true })
+        .eq('auth_profile_id', linkedId);
+      if ((linkedCount ?? 0) > 0) {
+        personaClusters.push({ clusterId: linkedId, personaCount: linkedCount ?? 0, isCanonical: false });
+      }
+    }
 
     // Root DID — resolve via Supabase auth user ID from the JWT
     let rootDid: string | null = null;
@@ -98,10 +126,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       canonicalId,
       email,
+      personaCount: personaCount ?? 0,
+      personaClusters,
       emailAliases: aliasRows ?? [],
-      linkedProfiles: (linkRows ?? []).filter((l) => {
+      linkedProfiles: (linkRows ?? []).map((l) => {
         const lr = l as Record<string, unknown>;
-        return lr.relationship_mode === 'merged';
+        return {
+          linked_auth_profile_id: lr.linked_auth_profile_id as string,
+          relationship_mode: lr.relationship_mode as string,
+        };
       }),
       rootDid,
       rootId,
