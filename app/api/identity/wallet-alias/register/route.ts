@@ -2,9 +2,9 @@
  * POST /api/identity/wallet-alias/register
  * Register an external wallet against a persona via the Escrow alias scheme.
  *
- * Replaces direct writes to personas.evm_address (deprecated 2026-04-29).
- * Body: { didPersonaId, chain: 'evm'|'btc'|'sol', walletAddress, signature?, message?, ttlDays? }
- * Auth: Bearer Supabase access token (auth.users.id is matched against root_identity.auth_user_id).
+ * Body: { didPersonaId, chain, walletAddress, signature?, message?, ttlDays?, force? }
+ * force=true bypasses the cross-persona warning (user has acknowledged the privacy impact).
+ * Auth: Bearer Supabase access token.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { registerWalletAlias, type WalletChain } from '@/services/identity/walletAliasService';
@@ -20,6 +20,7 @@ interface Body {
   signature?: string;
   message?: string;
   ttlDays?: number;
+  force?: boolean;
 }
 
 export async function POST(req: NextRequest) {
@@ -58,6 +59,7 @@ export async function POST(req: NextRequest) {
         signature: body.signature,
         message: body.message,
         ttlDays: body.ttlDays,
+        force: body.force,
       },
       authUserId
     );
@@ -74,6 +76,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { ok: false, error: 'Registration timed out — Supabase or ICP gateway slow. Please retry.' },
         { status: 503 }
+      );
+    }
+    // Cross-persona warning — wallet is already linked to a different persona.
+    // Returns 409 with crossPersonaWarning: true so the client can show a
+    // confirmation dialog before re-submitting with force=true.
+    if (msg.startsWith('CROSS_PERSONA:')) {
+      const linkedPersonaCount = parseInt(msg.slice(14)) || 1;
+      return NextResponse.json(
+        { ok: false, error: 'This wallet is already linked to another persona', crossPersonaWarning: true, linkedPersonaCount },
+        { status: 409 }
       );
     }
     const status =

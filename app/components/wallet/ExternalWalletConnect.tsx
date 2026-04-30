@@ -131,13 +131,18 @@ interface SendState {
   error?: string;
 }
 
-type AliasStatus = 'idle' | 'pending' | 'registered' | 'error' | 'precondition';
+type AliasStatus = 'idle' | 'pending' | 'registered' | 'error' | 'precondition' | 'cross-persona';
 
 interface AliasState {
   status: AliasStatus;
   aliasId?: string;
   commitment?: string;
   error?: string;
+  crossPersonaCount?: number;
+  // Cached signature context for force-confirm without re-prompting wallet
+  pendingAddress?: string;
+  pendingSignature?: string;
+  pendingMessage?: string;
 }
 
 async function getAuthHeader(): Promise<Record<string, string>> {
@@ -232,7 +237,8 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
       .then((accounts: unknown) => {
         const accs = accounts as string[];
         if (accs.length && accs[0].toLowerCase() === savedAddr!.toLowerCase()) {
-          setupProvider(wallet.provider, accs[0], wallet.id);
+          // isRestore=true — skip re-prompting for alias signature
+          setupProvider(wallet.provider, accs[0], wallet.id, true);
         } else {
           try { sessionStorage.removeItem(STORAGE_KEY_ADDR); sessionStorage.removeItem(STORAGE_KEY_ID); } catch { /**/ }
         }
@@ -308,8 +314,19 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
       } catch {
         throw new Error(`Register (${rRes.status}): ${rText.slice(0, 200) || 'empty response'}`);
       }
+      if (rRes.status === 409 && rJson.crossPersonaWarning) {
+        // Wallet already linked to a different persona — require explicit confirmation
+        setAliasState({
+          status: 'cross-persona',
+          crossPersonaCount: rJson.linkedPersonaCount ?? 1,
+          pendingAddress: addr,
+          pendingSignature: signature as string,
+          pendingMessage: cJson.message,
+        });
+        return;
+      }
       if (rRes.status === 409) {
-        // Already linked → treat as success
+        // Already linked to THIS persona → treat as success
         setAliasState({ status: 'registered' });
         return;
       }
@@ -344,8 +361,15 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
     }
   }, [personaId]);
 
-  // Attach event listeners to the selected provider and initialise state
-  const setupProvider = useCallback((p: EthereumProvider, connectedAddress: string, walletId?: string) => {
+  // Attach event listeners to the selected provider and initialise state.
+  // isRestore=true when reconnecting from sessionStorage — skips registerAlias
+  // so the wallet isn't prompted to sign again on every navigation.
+  const setupProvider = useCallback((
+    p: EthereumProvider,
+    connectedAddress: string,
+    walletId?: string,
+    isRestore = false,
+  ) => {
     // Tear down any previous provider's listeners
     const prev = activeProviderRef.current;
     if (prev) {
@@ -372,7 +396,8 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
       .catch(() => {});
 
     fetchBalance(connectedAddress);
-    void registerAlias(p, connectedAddress);
+    // Only prompt for alias signature on a fresh connect, not on navigation restore
+    if (!isRestore) void registerAlias(p, connectedAddress);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchBalance, onConnected, registerAlias]);
 
@@ -380,7 +405,7 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
   function handleAccountsChanged(accounts: unknown) {
     const accs = accounts as string[];
     if (!accs.length) {
-      teardown();
+      disconnect();
     } else {
       setAddress(accs[0]);
       onConnected?.(accs[0]);
@@ -392,6 +417,8 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
     setChainId(parseInt(chain as string, 16));
   }
 
+  // Internal cleanup: removes listeners + resets UI state.
+  // Does NOT clear sessionStorage — navigation restores correctly after this.
   function teardown() {
     const p = activeProviderRef.current;
     if (p) {
@@ -399,10 +426,6 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
       p.removeListener('chainChanged', handleChainChanged);
       activeProviderRef.current = null;
     }
-    try {
-      sessionStorage.removeItem(STORAGE_KEY_ADDR);
-      sessionStorage.removeItem(STORAGE_KEY_ID);
-    } catch { /* ignore */ }
     setAddress(null);
     setChainId(null);
     setKnytBalance(null);
@@ -413,8 +436,18 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
     onConnected?.(undefined);
   }
 
+  // Explicit user-initiated disconnect: clears persisted state then tears down.
+  function disconnect() {
+    try {
+      sessionStorage.removeItem(STORAGE_KEY_ADDR);
+      sessionStorage.removeItem(STORAGE_KEY_ID);
+    } catch { /* ignore */ }
+    teardown();
+  }
+
   useEffect(() => () => {
     if (pollRef.current) clearTimeout(pollRef.current);
+    // teardown (not disconnect) — preserves sessionStorage so navigation restores
     teardown();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -607,18 +640,25 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
 
   return (
     <div className="space-y-3">
-      {/* Connected address card */}
+      {/* Connected address card — persona-scoped EVM wallet */}
       <div className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="h-2 w-2 rounded-full bg-emerald-400" />
-            <span className="text-[10px] uppercase tracking-wider text-white/50">
-              Connected · {walletName}
-            </span>
+            <div>
+              <span className="text-[10px] uppercase tracking-wider text-white/50">
+                Persona EVM Wallet · {walletName}
+              </span>
+              {personaId && (
+                <p className="text-[9px] text-white/25 leading-none mt-0.5">
+                  linked to persona {personaId.slice(0, 8)}…
+                </p>
+              )}
+            </div>
           </div>
           <button
             type="button"
-            onClick={teardown}
+            onClick={disconnect}
             className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] text-white/40 hover:bg-white/10 hover:text-white/70 transition"
           >
             <LogOut className="h-3 w-3" />
@@ -668,12 +708,15 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
           aliasState.status === 'registered' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
           : aliasState.status === 'pending' ? 'border-blue-500/30 bg-blue-500/10 text-blue-300'
           : aliasState.status === 'precondition' ? 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+          : aliasState.status === 'cross-persona' ? 'border-orange-500/30 bg-orange-500/10 text-orange-300'
           : 'border-red-500/30 bg-red-500/10 text-red-300'
         }`}>
           {aliasState.status === 'pending' ? (
             <Loader2 className="h-3.5 w-3.5 shrink-0 mt-0.5 animate-spin" />
           ) : aliasState.status === 'registered' ? (
             <Shield className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+          ) : aliasState.status === 'cross-persona' ? (
+            <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-orange-400" />
           ) : (
             <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
           )}
@@ -721,6 +764,55 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
                 </button>
               </>
             )}
+            {aliasState.status === 'cross-persona' && (
+              <>
+                <p className="font-medium">Wallet already linked to another persona</p>
+                <p className="opacity-80 mt-0.5">
+                  This wallet is linked to {aliasState.crossPersonaCount ?? 'another'} other persona{(aliasState.crossPersonaCount ?? 1) > 1 ? 's' : ''}.
+                  Linking it here means those personas could be associated with the same person,
+                  reducing your privacy. Do you want to link anyway?
+                </p>
+                <div className="flex gap-3 mt-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!aliasState.pendingAddress || !aliasState.pendingSignature || !aliasState.pendingMessage || !personaId) return;
+                      setAliasState({ status: 'pending' });
+                      try {
+                        const auth = await getAuthHeader();
+                        const rRes = await fetch('/api/identity/wallet-alias/register', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', ...auth },
+                          body: JSON.stringify({
+                            didPersonaId: personaId,
+                            chain: 'evm',
+                            walletAddress: aliasState.pendingAddress,
+                            message: aliasState.pendingMessage,
+                            signature: aliasState.pendingSignature,
+                            force: true,
+                          }),
+                        });
+                        const rJson = await rRes.json() as { ok?: boolean; id?: string; aliasCommitment?: string; error?: string };
+                        if (!rRes.ok || !rJson.ok) throw new Error(rJson.error || `Register ${rRes.status}`);
+                        setAliasState({ status: 'registered', aliasId: rJson.id, commitment: rJson.aliasCommitment });
+                      } catch (err) {
+                        setAliasState({ status: 'error', error: err instanceof Error ? err.message.slice(0, 160) : 'Link failed' });
+                      }
+                    }}
+                    className="underline opacity-90 hover:opacity-100 font-semibold"
+                  >
+                    Link anyway
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAliasState({ status: 'idle' })}
+                    className="underline opacity-60 hover:opacity-100"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            )}
             {aliasState.status === 'error' && (
               <>
                 <p className="font-medium">Privacy alias registration failed</p>
@@ -748,7 +840,7 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
             <div className="flex items-center gap-2">
               <Coins className="h-4 w-4 text-amber-400" />
               <div>
-                <span className="text-xs text-white/60">EVM $KNYT (Ethereum)</span>
+                <span className="text-xs text-white/60">$KNYT Balance · Ethereum</span>
                 <p className="text-[9px] text-white/30">Consolidated — 2 contracts</p>
               </div>
             </div>
