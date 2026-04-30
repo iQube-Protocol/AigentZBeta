@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`dcb38e6`](https://github.com/iQube-Protocol/AigentZBeta/commit/dcb38e631287046eaa3fa7fe5b00b03d04366412) [push] KNYT cart Phase 2a — carry contentType + productType-mapper on cart lines (Claude, 2026-04-30T22:45:54Z)
 - [`473ad62`](https://github.com/iQube-Protocol/AigentZBeta/commit/473ad62a92c619967a12c7db4001cdf6513993f1) [push] KNYT cart Phase 1.2 — close drawer on checkout + cart context in payment modal (Claude, 2026-04-30T22:25:33Z)
 - [`1df879d`](https://github.com/iQube-Protocol/AigentZBeta/commit/1df879d82d14367f421511c5051f8a99a05cb356) [push] KNYT cart Phase 1.1 — split Buy/+Cart buttons across all 4 store tabs (Claude, 2026-04-30T21:43:10Z)
 - [`10bf19a`](https://github.com/iQube-Protocol/AigentZBeta/commit/10bf19ab4be31721f1d937ebf20e2f373725de19) [push] KNYT cart Phase 1 — qty stepper, count badge, drawer mounted across all 4 store tabs (Claude, 2026-04-30T19:21:40Z)

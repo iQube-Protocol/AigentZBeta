@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-04-30T22:27:27.590Z",
+  "last_updated": "2026-04-30T22:47:36.154Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "473ad62a92c619967a12c7db4001cdf6513993f1",
-  "latest_commit_short": "473ad62",
-  "latest_commit_title": "KNYT cart Phase 1.2 — close drawer on checkout + cart context in payment modal",
+  "latest_commit": "dcb38e631287046eaa3fa7fe5b00b03d04366412",
+  "latest_commit_short": "dcb38e6",
+  "latest_commit_title": "KNYT cart Phase 2a — carry contentType + productType-mapper on cart lines",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "dcb38e6",
+      "full_sha": "dcb38e631287046eaa3fa7fe5b00b03d04366412",
+      "title": "KNYT cart Phase 2a — carry contentType + productType-mapper on cart lines",
+      "author": "Claude",
+      "timestamp": "2026-04-30T22:45:54Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-dcb38e6.md"
+    },
     {
       "sha": "473ad62",
       "full_sha": "473ad62a92c619967a12c7db4001cdf6513993f1",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T08:40:41Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-42e053b.md"
-    },
-    {
-      "sha": "82a1d88",
-      "full_sha": "82a1d883587e5518c2706c49f13c3be7a4dca826",
-      "title": "Gate collapsed sidebar items by openSections to fix links and state sync",
-      "author": "Claude",
-      "timestamp": "2026-03-24T08:25:08Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-82a1d88.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

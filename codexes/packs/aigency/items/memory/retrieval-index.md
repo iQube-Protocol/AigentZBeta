@@ -574,3 +574,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-473ad62.md](../build_/COMMITS/COMMIT-473ad62.md)
 - Message: KNYT cart Phase 1.2 — close drawer on checkout + cart context in payment modal
+
+## Commit `dcb38e6` — 2026-04-30T22:45:54Z
+- Type: `push`
+- Brief: [COMMIT-dcb38e6.md](../build_/COMMITS/COMMIT-dcb38e6.md)
+- Message: KNYT cart Phase 2a — carry contentType + productType-mapper on cart lines
