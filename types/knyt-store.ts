@@ -390,48 +390,21 @@ export function getPrintFulfillmentMessage(isSingleEpisode: boolean): string {
 }
 
 // ── Cart types ─────────────────────────────────────────────────────────────
+//
+// Cart primitives are now generic and live in `services/cart/`. This module
+// re-exports them for back-compat with consumers that import from
+// `@/types/knyt-store`, and adds KNYT-specific extensions (the COYN-discount
+// total, the productType mapper).
 
-export type CartItemModality = 'still' | 'motion' | 'bundle';
-export type CartItemLayer = 'digital' | 'qripto' | 'print';
+export type { CartItem, CartItemModality, CartItemLayer } from '@/services/cart';
+export { cartTotal, cartItemCount, lineQty } from '@/services/cart';
 
-export interface CartItem {
-  id: string;
-  label: string;
-  modality: CartItemModality;
-  layer: CartItemLayer;
-  priceUsd: number;
-  thumbUrl?: string;
-  /** True for print bundles that are not investor specials — no KNYT COYN discount */
-  excludeKnytDiscount?: boolean;
-  /** Quantity of this line. Defaults to 1 if absent (back-compat for older
-      persisted cart entries). Multi-purchase support — users can stack copies
-      of the same SKU; the drawer shows a +/- stepper. */
-  qty?: number;
-  /**
-   * ContentType union from ContentPurchaseModal — kept as a string here to
-   * avoid circular imports between the data-only types module and the modal
-   * component. Required for server-side cart settlement (the cart-quote and
-   * cart-complete endpoints map this to a productType for processPurchase).
-   * Optional for back-compat with cart entries persisted before Phase 2a.
-   */
-  contentType?:
-    | 'scroll_still'
-    | 'scroll_motion'
-    | 'character_card'
-    | 'character_card_motion'
-    | 'bundle_3_still'
-    | 'bundle_5_still'
-    | 'bundle_3_motion'
-    | 'bundle_5_motion'
-    | 'season_codex_still'
-    | 'season_codex_motion';
-}
+import { type CartItem, lineQty } from '@/services/cart';
 
 /**
  * Maps a cart line's contentType to the productType expected by
- * services/rewards/purchaseHandler. Mirror of the productTypeMap inside
- * ContentPurchaseModal.tsx — duplicated here so server-side cart endpoints
- * can resolve productType without importing client React code.
+ * services/rewards/purchaseHandler. KNYT-specific — lives here rather than
+ * in services/cart so the generic primitive stays cartridge-agnostic.
  */
 export function cartContentTypeToProductType(contentType: NonNullable<CartItem['contentType']>): string {
   const map: Record<NonNullable<CartItem['contentType']>, string> = {
@@ -449,23 +422,13 @@ export function cartContentTypeToProductType(contentType: NonNullable<CartItem['
   return map[contentType];
 }
 
-function lineQty(item: CartItem): number {
-  return item.qty && item.qty > 0 ? item.qty : 1;
-}
-
-export function cartTotal(items: CartItem[]): number {
-  return items.reduce((s, i) => s + i.priceUsd * lineQty(i), 0);
-}
-
+/** KNYT-specific cart total with the 20% native-token discount applied
+    per-line, except for lines flagged excludeKnytDiscount. */
 export function cartTotalWithKnyt(items: CartItem[]): number {
   return items.reduce((s, i) => {
     const linePrice = i.excludeKnytDiscount ? i.priceUsd : getKnytDiscountedPrice(i.priceUsd);
     return s + linePrice * lineQty(i);
   }, 0);
-}
-
-export function cartItemCount(items: CartItem[]): number {
-  return items.reduce((s, i) => s + lineQty(i), 0);
 }
 
 // ── Entity types ───────────────────────────────────────────────────────────
