@@ -3921,8 +3921,9 @@ export default function MetaMeRuntimeClient() {
     (reason: string, options?: { autoClearMs?: number }) => {
       const autoClearMs = options?.autoClearMs ?? 3000;
       setRuntimeProcessing(true);
+      // INFERENCE_START is one of the explicit triggers per Lovable spec.
+      // Plus PROCESSING_START as a redundant trigger for any shell variant.
       postRuntimeEvent("INFERENCE_START", {
-        state: "navigation",
         reason,
         device: activeDevice,
         thin_shell: thinShellMode,
@@ -3932,6 +3933,13 @@ export default function MetaMeRuntimeClient() {
         device: activeDevice,
         thin_shell: thinShellMode,
       });
+      // Also push the canonical STATE_SYNC shape (state.processing=true) so
+      // shells listening for that variant trigger immediately, not only on
+      // the next dependency-driven STATE_SYNC effect re-fire.
+      postRuntimeEvent("STATE_SYNC", {
+        state: { processing: true, busy: true, inferring: true },
+        reason,
+      });
       if (autoClearMs > 0) {
         window.setTimeout(() => {
           setRuntimeProcessing(false);
@@ -3939,6 +3947,10 @@ export default function MetaMeRuntimeClient() {
             reason,
             device: activeDevice,
             thin_shell: thinShellMode,
+          });
+          postRuntimeEvent("STATE_SYNC", {
+            state: { processing: false, busy: false, inferring: false },
+            reason,
           });
         }, autoClearMs);
       }
@@ -4901,8 +4913,23 @@ export default function MetaMeRuntimeClient() {
 
   useEffect(() => {
     if (!embedMode) return;
+    // STATE_SYNC payload shape per Lovable spec (src/lib/shell-messages.ts):
+    // payload.state is an OBJECT — the shell triggers thinking-dots when
+    // state.processing|busy|inferring === true. Previously this code sent
+    // `state: "welcome"|"post_welcome"` as a STRING with flat processing
+    // siblings — the shell's nested check never qualified, so dots never
+    // fired from STATE_SYNC. Nest them all inside `state`; move the screen
+    // string out to its own top-level `screen` field. Keep the flat
+    // siblings around as belt-and-suspenders for any legacy consumer.
     postRuntimeEvent("STATE_SYNC", {
-      state: showWelcome ? "welcome" : "post_welcome",
+      screen: showWelcome ? "welcome" : "post_welcome",
+      state: {
+        screen: showWelcome ? "welcome" : "post_welcome",
+        processing: runtimeProcessing,
+        busy: runtimeProcessing,
+        inferring: runtimeProcessing,
+        fullscreen: isRuntimeFullscreen,
+      },
       intent: lastIntent,
       device: activeDevice,
       thin_shell: thinShellMode,

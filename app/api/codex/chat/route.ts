@@ -1261,17 +1261,21 @@ async function searchKnowledgeBase(
   limit: number = 3
 ): Promise<KBSearchResult[]> {
   try {
-    // Add 5 second timeout to prevent hanging
-    const timeoutPromise = new Promise<never>((_, reject) => 
-      setTimeout(() => reject(new Error('KB search timeout')), 5000)
+    // Bumped from 5s → 15s. The original 5s budget routinely blew through on
+    // cold-Lambda starts where the embedding provider needed extra time to
+    // warm up — the agent then answered without KB context ("I don't have
+    // specific information about iQubes…"). 15s is still well within the
+    // route's overall timeout.
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('KB search timeout')), 15000)
     );
-    
+
     const searchPromise = embeddingService.hybridSearch(query, domain, limit);
-    
+
     const results = await Promise.race([searchPromise, timeoutPromise]);
-    
-    console.log(`[CodexChat] KB search found ${results.length} results`);
-    
+
+    console.log(`[CodexChat] KB search domain=${domain} found ${results.length} results`);
+
     return results.map(r => ({
       content: r.content,
       title: r.metadata.title || 'Unknown',
@@ -1279,7 +1283,7 @@ async function searchKnowledgeBase(
       similarity: r.similarity,
     }));
   } catch (error) {
-    console.error('[CodexChat] KB search error:', error);
+    console.error(`[CodexChat] KB search error (domain=${domain}):`, error);
     return [];
   }
 }
