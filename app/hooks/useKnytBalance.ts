@@ -23,7 +23,7 @@ export interface UseKnytBalanceReturn {
   refreshBalance: () => Promise<void>;
 }
 
-export function useKnytBalance(personaId?: string): UseKnytBalanceReturn {
+export function useKnytBalance(personaId?: string, evmAddress?: string): UseKnytBalanceReturn {
   const [balance, setBalance] = useState<KnytBalance | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,20 +31,24 @@ export function useKnytBalance(personaId?: string): UseKnytBalanceReturn {
   const refreshBalance = useCallback(async () => {
     setLoading(true);
     setError(null);
-    
+
     if (!personaId) {
       setError('Persona ID is required');
       setLoading(false);
       return;
     }
-    
+
     try {
-      const response = await fetch(`/api/wallet/knyt/balance?personaId=${encodeURIComponent(personaId)}`);
-      
+      let url = `/api/wallet/knyt/balance?personaId=${encodeURIComponent(personaId)}`;
+      if (evmAddress && /^0x[a-fA-F0-9]{40}$/.test(evmAddress)) {
+        url += `&evmAddress=${encodeURIComponent(evmAddress)}`;
+      }
+      const response = await fetch(url);
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       const data = await response.json();
       const dvn = data.dvnKnyt || 0;
       const evm = data.evmKnyt || 0;
@@ -62,7 +66,7 @@ export function useKnytBalance(personaId?: string): UseKnytBalanceReturn {
     } finally {
       setLoading(false);
     }
-  }, [personaId]);
+  }, [personaId, evmAddress]);
 
   useEffect(() => {
     refreshBalance();

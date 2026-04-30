@@ -262,7 +262,7 @@ export default function SmartWalletDrawer({
   const effectivePersonaId =
     personaId || localPersonaId || walletNode?.personaContext?.activePersonaId || activePersona?.id;
   const { balance: knytBalance, loading: knytLoading, refreshBalance: refreshKnyt } =
-    useKnytBalance(effectivePersonaId);
+    useKnytBalance(effectivePersonaId, externalEvmAddress);
   const { balance: baseQcBalance } = useBaseQcBalance(effectivePersonaId);
   const { knytPriceUsd } = useEthPrice();
   const evs = useDVNEvents(agent.id);
@@ -584,6 +584,7 @@ export default function SmartWalletDrawer({
     email: string | null;
     personaCount: number;
     personaClusters: Array<{ clusterId: string; personaCount: number; isCanonical: boolean }>;
+    storedEvmAddress: string | null;
     rootDid: string | null;
     rootId: string | null;
     kycStatus: string;
@@ -2591,6 +2592,31 @@ export default function SmartWalletDrawer({
                             }`}>
                               {identityProfile.kycStatus}
                             </span>
+                          </div>
+                        )}
+
+                        {/* EVM wallet address — live connected or stored on persona */}
+                        {(externalEvmAddress || identityProfile?.storedEvmAddress) && (
+                          <div>
+                            <div className="text-white/40 mb-0.5 flex items-center gap-1">
+                              EVM Wallet
+                              {externalEvmAddress
+                                ? <span className="text-[10px] text-emerald-400">● live</span>
+                                : <span className="text-[10px] text-white/30">stored</span>}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="font-mono text-indigo-300/80 truncate text-[10px]">
+                                {(externalEvmAddress || identityProfile?.storedEvmAddress!).slice(0, 10)}…
+                                {(externalEvmAddress || identityProfile?.storedEvmAddress!).slice(-8)}
+                              </span>
+                              <button
+                                onClick={() => navigator.clipboard.writeText(externalEvmAddress || identityProfile?.storedEvmAddress!)}
+                                className="p-0.5 hover:bg-white/10 rounded shrink-0"
+                                aria-label="Copy EVM address"
+                              >
+                                <Copy className="w-3 h-3 text-white/40 hover:text-white" />
+                              </button>
+                            </div>
                           </div>
                         )}
 
