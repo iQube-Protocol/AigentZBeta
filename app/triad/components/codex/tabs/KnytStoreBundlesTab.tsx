@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowLeft, BookOpen, Crown, Film, Lock, ShoppingCart, Sparkles, User, Zap } from 'lucide-react';
+import { ArrowLeft, BookOpen, Crown, Film, Lock, Plus, ShoppingCart, Sparkles, User, Zap } from 'lucide-react';
 import {
   BUNDLE_PRICING,
   EPISODE_PRICING,
@@ -81,21 +81,46 @@ function KnytPricePill({ basePrice }: { basePrice: number }) {
 function CartButton({
   label,
   onClick,
+  onAddToCart,
   className,
 }: {
   label?: string;
   onClick: (e: React.MouseEvent) => void;
+  onAddToCart?: (e: React.MouseEvent) => void;
   className?: string;
 }) {
+  if (!onAddToCart) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onClick(e); }}
+        className={`flex items-center gap-1 rounded-lg bg-teal-700/80 hover:bg-teal-600 px-2 py-1 text-[10px] font-semibold text-white transition-colors ${className ?? ''}`}
+      >
+        <ShoppingCart className="h-3 w-3 shrink-0" />
+        {label && <span>{label}</span>}
+      </button>
+    );
+  }
   return (
-    <button
-      type="button"
-      onClick={(e) => { e.stopPropagation(); onClick(e); }}
-      className={`flex items-center gap-1 rounded-lg bg-teal-700/80 hover:bg-teal-600 px-2 py-1 text-[10px] font-semibold text-white transition-colors ${className ?? ''}`}
-    >
-      <ShoppingCart className="h-3 w-3 shrink-0" />
-      {label && <span>{label}</span>}
-    </button>
+    <div className={`flex rounded-lg overflow-hidden ${className ?? ''}`}>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onClick(e); }}
+        className="flex-1 flex items-center justify-center gap-1 bg-teal-700/80 hover:bg-teal-600 px-2 py-1 text-[10px] font-semibold text-white transition-colors"
+        title={label ? `${label} — buy now` : 'Buy now'}
+      >
+        <ShoppingCart className="h-3 w-3 shrink-0" />
+        {label && <span>{label}</span>}
+      </button>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onAddToCart(e); }}
+        className="flex items-center justify-center bg-teal-800/80 hover:bg-teal-700 px-2 py-1 text-white transition-colors border-l border-teal-900/50"
+        title="Add to cart"
+      >
+        <Plus className="h-3 w-3 shrink-0" />
+      </button>
+    </div>
   );
 }
 
@@ -107,12 +132,14 @@ function BundleGridCard({
   isInvestor,
   onClick,
   onBuy,
+  onAddToCart,
 }: {
   bundle: BundlePricing;
   thumbUrl?: string;
   isInvestor?: boolean;
   onClick: () => void;
   onBuy: (e: React.MouseEvent) => void;
+  onAddToCart?: (e: React.MouseEvent) => void;
 }) {
   return (
     <div
@@ -174,7 +201,7 @@ function BundleGridCard({
       </button>
       {/* Cart row — only cart button, no outer-button interference */}
       <div className="flex justify-end px-1.5 pb-1.5 pt-0.5">
-        <CartButton onClick={onBuy} />
+        <CartButton onClick={onBuy} onAddToCart={onAddToCart} />
       </div>
     </div>
   );
@@ -187,11 +214,13 @@ function CardPackCard({
   getCharacterThumb,
   onClick,
   onBuy,
+  onAddToCart,
 }: {
   option: CardsPricing;
   getCharacterThumb: (ep: number) => string | undefined;
   onClick: () => void;
   onBuy: (e: React.MouseEvent) => void;
+  onAddToCart?: (e: React.MouseEvent) => void;
 }) {
   const badgeClass = LAYER_BADGE[option.layer] ?? LAYER_BADGE['digital-common'];
   const layerLabel = LAYER_SHORT[option.layer] ?? option.layer;
@@ -221,7 +250,7 @@ function CardPackCard({
       </button>
       {/* Cart row */}
       <div className="flex justify-end px-1.5 pb-1.5 pt-0.5">
-        <CartButton onClick={onBuy} />
+        <CartButton onClick={onBuy} onAddToCart={onAddToCart} />
       </div>
     </div>
   );
@@ -234,11 +263,13 @@ function BundleDetail({
   getCoverThumb,
   getCharacterThumb,
   onBuy,
+  onAddToCart,
 }: {
   bundle: BundlePricing;
   getCoverThumb: (epNum: number) => string | undefined;
   getCharacterThumb: (epNum: number) => string | undefined;
   onBuy: () => void;
+  onAddToCart?: () => void;
 }) {
   const includedEpisodes = EPISODE_PRICING.filter((ep) => bundle.episodes.includes(ep.episodeNumber));
   const previewThumb = bundle.isInvestorOnly ? INVESTOR_SEAL : getCoverThumb(bundle.episodes[0]);
@@ -317,7 +348,7 @@ function BundleDetail({
                 Save ${(individualTotal - bundle.digitalPrice).toFixed(0)} vs individually
               </p>
             )}
-            <CartButton label="Add to Cart" onClick={() => onBuy()} className="w-full justify-center mt-1" />
+            <CartButton label="Buy Bundle" onClick={() => onBuy()} onAddToCart={onAddToCart} className="w-full justify-center mt-1" />
           </div>
 
           {bundle.isConditional && (
@@ -422,10 +453,12 @@ function PackDetail({
   option,
   getCharacterThumb,
   onBuy,
+  onAddToCart,
 }: {
   option: CardsPricing;
   getCharacterThumb: (ep: number) => string | undefined;
   onBuy: () => void;
+  onAddToCart?: () => void;
 }) {
   const layerLabel = LAYER_SHORT[option.layer] ?? option.layer;
   const badgeClass = LAYER_BADGE[option.layer] ?? LAYER_BADGE['digital-common'];
@@ -478,7 +511,7 @@ function PackDetail({
           {isPhysical && (
             <p className="text-[9px] text-slate-500">Ships to your address. No $KNYT COYN discount.</p>
           )}
-          <CartButton label="Add to Cart" onClick={() => onBuy()} className="w-full justify-center mt-1" />
+          <CartButton label="Buy Pack" onClick={() => onBuy()} onAddToCart={onAddToCart} className="w-full justify-center mt-1" />
         </div>
 
         {isQripto && (
@@ -606,7 +639,8 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
                         bundle={retailBundle}
                         thumbUrl={INVESTOR_SEAL}
                         onClick={() => setView({ kind: 'bundle-detail', bundle: retailBundle })}
-                        onBuy={(e) => { e.stopPropagation(); addBundleToCart(retailBundle); }}
+                        onBuy={(e) => { e.stopPropagation(); openBundlePurchase(retailBundle); }}
+                        onAddToCart={(e) => { e.stopPropagation(); addBundleToCart(retailBundle); }}
                       />
                     );
                   })}
@@ -626,7 +660,8 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
                     bundle={bundle}
                     thumbUrl={getCoverThumb(bundle.id === 'bundle-8-12' ? bundle.episodes[0] : bundle.episodes[bundle.episodes.length - 1])}
                     onClick={() => setView({ kind: 'bundle-detail', bundle })}
-                    onBuy={(e) => { e.stopPropagation(); addBundleToCart(bundle); }}
+                    onBuy={(e) => { e.stopPropagation(); openBundlePurchase(bundle); }}
+                    onAddToCart={(e) => { e.stopPropagation(); addBundleToCart(bundle); }}
                   />
                 ))}
               </div>
@@ -644,7 +679,8 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
                     option={option}
                     getCharacterThumb={getCharacterThumb}
                     onClick={() => setView({ kind: 'pack-detail', option })}
-                    onBuy={(e) => { e.stopPropagation(); addPackToCart(option); }}
+                    onBuy={(e) => { e.stopPropagation(); openPackPurchase(option); }}
+                    onAddToCart={(e) => { e.stopPropagation(); addPackToCart(option); }}
                   />
                 ))}
               </div>
@@ -658,6 +694,7 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
             getCoverThumb={getCoverThumb}
             getCharacterThumb={getCharacterThumb}
             onBuy={() => openBundlePurchase(view.bundle)}
+            onAddToCart={() => addBundleToCart(view.bundle)}
           />
         )}
 
@@ -666,6 +703,7 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
             option={view.option}
             getCharacterThumb={getCharacterThumb}
             onBuy={() => openPackPurchase(view.option)}
+            onAddToCart={() => addPackToCart(view.option)}
           />
         )}
       </div>
