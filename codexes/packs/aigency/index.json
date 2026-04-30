@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-04-30T22:50:18.067Z",
+  "last_updated": "2026-04-30T22:53:39.871Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "feea8234cd7c2690a3ede44c295d11456f456179",
-  "latest_commit_short": "feea823",
-  "latest_commit_title": "KNYT cart Phase 2b — server-side /api/cart/{quote,complete} endpoints",
+  "latest_commit": "0008bf684abd7b1416590185a3586f9fb45ec4bf",
+  "latest_commit_short": "0008bf6",
+  "latest_commit_title": "KNYT cart Phase 2c — multi-item KnytCartCheckoutModal replaces per-item iteration",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "0008bf6",
+      "full_sha": "0008bf684abd7b1416590185a3586f9fb45ec4bf",
+      "title": "KNYT cart Phase 2c — multi-item KnytCartCheckoutModal replaces per-item iteration",
+      "author": "Claude",
+      "timestamp": "2026-04-30T22:51:53Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0008bf6.md"
+    },
     {
       "sha": "feea823",
       "full_sha": "feea8234cd7c2690a3ede44c295d11456f456179",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T10:36:37Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-6c80af9.md"
-    },
-    {
-      "sha": "e34c7fa",
-      "full_sha": "e34c7fa9e02e08c75b568920aa789bf7f8cd6dd0",
-      "title": "wire marketa full system prompt: tone, KNYT universe, investor posture, kickstarter campaign, operational workflow",
-      "author": "Claude",
-      "timestamp": "2026-03-24T09:13:15Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-e34c7fa.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
