@@ -32,6 +32,7 @@ import {
 } from "../wallet";
 import type { TransactionTab, ChainId, TransactionResult, PaymentRequest } from "../wallet/TransactionModal";
 import { useSmartTriad } from "./SmartTriadProvider";
+import { usePersonaSafe } from "@/app/contexts/PersonaContext";
 import {
   addSmartWalletEventListener,
   SMART_WALLET_EVENTS,
@@ -174,6 +175,8 @@ interface SmartWalletDrawerProps {
   codexMode?: boolean;
   onTabChange?: (tab: DrawerTab) => void;
   onCopilotStateChange?: (open: boolean) => void;
+  /** When provided, the persona menu shows a "Set as default for this cartridge" option. */
+  cartridgeSlug?: string;
 }
 
 const TAB_CONFIG: Array<{ key: DrawerTab; label: string; icon: React.ReactNode }> = [
@@ -222,6 +225,7 @@ export default function SmartWalletDrawer({
   allowWideLayout = true,
   codexMode = false,
   onCopilotStateChange,
+  cartridgeSlug,
 }: SmartWalletDrawerProps) {
   const isValidEvmAddress = (value?: string): value is `0x${string}` =>
     typeof value === "string" && /^0x[a-fA-F0-9]{40}$/.test(value);
@@ -249,6 +253,7 @@ export default function SmartWalletDrawer({
     { refreshKey: balanceRefreshKey }
   );
   const { sessionEmail, sessionPersonas, signOut: signOutSession, signIn: signInWithEmail, refreshPersonas } = useSupabaseSessionPersonas();
+  const { getCartridgeDefault, setCartridgeDefault } = usePersonaSafe();
 
   // Merge session-derived personas with any walletNode personas (session takes precedence, deduped by id)
   const allAvailablePersonas = useMemo((): PersonaState[] => {
@@ -1645,6 +1650,18 @@ export default function SmartWalletDrawer({
                           {/* Manage actions — revealed on hover */}
                           {!isConfirming && !isPending && (
                             <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                              {cartridgeSlug && (() => {
+                                const isDefault = getCartridgeDefault(cartridgeSlug) === persona.id;
+                                return (
+                                  <button
+                                    title={isDefault ? "Default for this cartridge" : "Set as default for this cartridge"}
+                                    onClick={() => !isDefault && setCartridgeDefault(cartridgeSlug, persona.id)}
+                                    className={`p-1 rounded transition-colors ${isDefault ? "text-indigo-400 cursor-default" : "hover:bg-white/10 text-white/30 hover:text-indigo-400"}`}
+                                  >
+                                    <Star className="w-3.5 h-3.5" />
+                                  </button>
+                                );
+                              })()}
                               <button
                                 title="Archive persona"
                                 onClick={() => handleArchivePersona(persona.id, true)}
