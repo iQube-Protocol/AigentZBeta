@@ -4785,6 +4785,20 @@ export default function MetaMeRuntimeClient() {
       if (message.type === "RESET_WELCOME") {
         void resetRuntime();
       }
+
+      // PersonaContext broadcast: persona switched in the wallet drawer or any
+      // platform surface. Update local state so the runtime renders the new persona.
+      if (message.type === "aa-persona-change-v1") {
+        const incomingPersonaId = typeof raw.personaId === "string" && raw.personaId.trim()
+          ? raw.personaId.trim()
+          : null;
+        if (incomingPersonaId && incomingPersonaId !== shellContextRef.current.persona_id) {
+          shellContextRef.current.persona_id = incomingPersonaId;
+          setActivePersonaId(incomingPersonaId);
+          try { localStorage.setItem("currentPersonaId", incomingPersonaId); } catch { /* noop */ }
+        }
+        return;
+      }
     }
 
     window.addEventListener("message", onShellMessage);

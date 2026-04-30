@@ -275,6 +275,17 @@ export function useCodexEmbedAuthBridge(
         return;
       }
 
+      // Shell broadcast: persona switched in the wallet drawer or PersonaContext.
+      // Update local state so the active codex tab re-renders with the new persona.
+      if (message.type === "aa-persona-change-v1") {
+        const incoming = sanitizeValue(message.personaId);
+        if (incoming && incoming !== personaId) {
+          persistValue(PERSONA_STORAGE_KEYS, incoming);
+          setPersonaId(incoming);
+        }
+        return;
+      }
+
       if (message.type === "aa-auth-context-request-v1") {
         window.parent.postMessage(
           {
