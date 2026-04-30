@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`87f3b18`](https://github.com/iQube-Protocol/AigentZBeta/commit/87f3b188cf6643dfff114c0df0caff6afe939485) [fix] fix NBA action: use source=text_input so inference + thin-client message fire (Claude, 2026-04-30T00:56:57Z)
 - [`516b95d`](https://github.com/iQube-Protocol/AigentZBeta/commit/516b95d7ff38b8cf573161d5483b558834150dd0) [push] gate community-content admin endpoints with server-side role check (Claude, 2026-04-29T20:43:04Z)
 - [`c25d66a`](https://github.com/iQube-Protocol/AigentZBeta/commit/c25d66abc658e13b580f9dff525e1498a8fdb6c1) [feat] add public viewer page for community-generated content (Claude, 2026-04-29T20:44:01Z)
 - [`fc82cb7`](https://github.com/iQube-Protocol/AigentZBeta/commit/fc82cb789744c104d38217c0af9b284099a60611) [push] remix expands inline like Customize banner — no popout dialog (Claude, 2026-04-29T20:48:53Z)
