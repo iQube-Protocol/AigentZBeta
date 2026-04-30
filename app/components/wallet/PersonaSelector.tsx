@@ -1,16 +1,21 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  ChevronDown, 
-  Plus, 
-  User, 
-  Star, 
+import {
+  ChevronDown,
+  Plus,
+  User,
+  Star,
   Check,
   Lock,
   Unlock,
   Bot,
   Settings,
+  EyeOff,
+  Eye,
+  Trash2,
+  Loader2,
+  RotateCcw,
 } from 'lucide-react';
 import { PersonaQube } from '@/types/persona';
 import { PersonaState } from '@/types/smartWallet';
@@ -49,11 +54,22 @@ interface PersonaSelectorProps {
   compact?: boolean;
   /** Loading state override */
   isLoading?: boolean;
+  /** Show archive/delete action buttons per persona */
+  allowManage?: boolean;
 }
 
 // =============================================================================
 // COMPONENT
 // =============================================================================
+
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  try {
+    const { getSupabaseBrowserClient } = await import('@/utils/supabaseBrowser');
+    const { data } = await getSupabaseBrowserClient().auth.getSession();
+    if (data.session?.access_token) return { Authorization: `Bearer ${data.session.access_token}` };
+  } catch { /* ignore */ }
+  return {};
+}
 
 export function PersonaSelector({
   authProfileId,
@@ -66,11 +82,15 @@ export function PersonaSelector({
   onEditActive,
   compact = false,
   isLoading: externalLoading,
+  allowManage = false,
 }: PersonaSelectorProps) {
   const [personas, setPersonas] = useState<PersonaData[]>(preloadedPersonas || []);
   const [activePersona, setActivePersonaState] = useState<PersonaData | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(externalLoading ?? !preloadedPersonas);
+  const [showArchived, setShowArchived] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [actionPending, setActionPending] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Use preloaded personas if provided
@@ -92,39 +112,82 @@ export function PersonaSelector({
   }, [preloadedPersonas, preloadedActiveId]);
 
   // Load personas from API if authProfileId provided and no preloaded personas
-  useEffect(() => {
+  const fetchPersonas = React.useCallback(async (includeArchived = false) => {
     if (!authProfileId || preloadedPersonas) return;
-    
-    async function loadPersonas() {
-      setIsLoading(true);
-      try {
-        const loaded = await getPersonasByAuthProfile(authProfileId!);
-        setPersonas(loaded);
-        
-        // Set active persona
-        const activeId = preloadedActiveId || getActivePersonaId();
-        if (activeId) {
-          const active = loaded.find(p => p.id === activeId);
-          if (active) {
-            setActivePersonaState(active);
-          } else if (loaded.length > 0) {
-            // Default to first persona
-            setActivePersonaState(loaded[0]);
-            setActivePersona(loaded[0].id);
-          }
+    setIsLoading(true);
+    try {
+      const headers = await getAuthHeaders();
+      const url = `/api/wallet/persona${includeArchived ? '?includeArchived=true' : ''}`;
+      const res = await fetch(url, { headers });
+      const json = await res.json() as { personas?: PersonaData[]; ok?: boolean };
+      const loaded: PersonaData[] = json.personas ?? [];
+      setPersonas(loaded);
+      const activeId = preloadedActiveId || getActivePersonaId();
+      if (activeId) {
+        const active = loaded.find(p => p.id === activeId);
+        if (active) {
+          setActivePersonaState(active);
         } else if (loaded.length > 0) {
           setActivePersonaState(loaded[0]);
           setActivePersona(loaded[0].id);
         }
-      } catch (error) {
-        console.error('Failed to load personas:', error);
-      } finally {
-        setIsLoading(false);
+      } else if (loaded.length > 0) {
+        setActivePersonaState(loaded[0]);
+        setActivePersona(loaded[0].id);
       }
+    } catch (error) {
+      console.error('Failed to load personas:', error);
+    } finally {
+      setIsLoading(false);
     }
-    
-    loadPersonas();
   }, [authProfileId, preloadedPersonas, preloadedActiveId]);
+
+  useEffect(() => {
+    fetchPersonas(showArchived);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authProfileId, preloadedPersonas, preloadedActiveId]);
+
+  // Archive (inactive) or restore (active) a persona
+  const handleArchive = React.useCallback(async (personaId: string, archive: boolean) => {
+    setActionPending(personaId);
+    try {
+      const headers = await getAuthHeaders();
+      await fetch(`/api/wallet/persona/${personaId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ status: archive ? 'inactive' : 'active' }),
+      });
+      // Update local state immediately; refetch for server truth
+      setPersonas(prev => {
+        const updated = prev.map(p =>
+          p.id === personaId ? { ...p, status: archive ? 'inactive' : 'active' } as PersonaData : p
+        );
+        // If not showing archived, filter out newly archived ones
+        return showArchived ? updated : updated.filter(p => (p as Record<string,unknown>).status !== 'inactive');
+      });
+    } catch { /* non-fatal */ }
+    finally { setActionPending(null); }
+  }, [showArchived]);
+
+  // Soft-delete a persona
+  const handleDelete = React.useCallback(async (personaId: string) => {
+    setActionPending(personaId);
+    try {
+      const headers = await getAuthHeaders();
+      await fetch(`/api/wallet/persona/${personaId}`, { method: 'DELETE', headers });
+      setPersonas(prev => prev.filter(p => p.id !== personaId));
+      if (activePersona?.id === personaId) setActivePersonaState(null);
+      setConfirmDeleteId(null);
+    } catch { /* non-fatal */ }
+    finally { setActionPending(null); }
+  }, [activePersona]);
+
+  // Toggle archived visibility
+  const handleToggleArchived = React.useCallback(() => {
+    const next = !showArchived;
+    setShowArchived(next);
+    fetchPersonas(next);
+  }, [showArchived, fetchPersonas]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -281,36 +344,105 @@ export function PersonaSelector({
         <div className="absolute top-full left-0 mt-2 w-56 bg-slate-900/95 border border-white/10 rounded-lg shadow-xl overflow-hidden z-50">
           {/* Persona list */}
           <div className="max-h-64 overflow-y-auto">
-            {personas.map((persona) => (
-              <button
-                key={persona.id}
-                onClick={() => handleSelect(persona)}
-                className={`w-full flex items-center gap-3 px-3 py-3 hover:bg-white/5 transition-colors ${
-                  persona.id === activePersona?.id ? 'bg-purple-500/10' : ''
-                }`}
-              >
-                {/* Avatar */}
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500/20 to-cyan-500/20 ring-1 ring-white/20 flex items-center justify-center text-white text-sm">
-                  {getDomainIcon(persona)}
+            {personas.map((persona) => {
+              const isArchived = (persona as Record<string,unknown>).status === 'inactive';
+              const isConfirming = confirmDeleteId === persona.id;
+              const isPending = actionPending === persona.id;
+              return (
+                <div
+                  key={persona.id}
+                  className={`group flex items-center gap-2 px-3 py-2.5 transition-colors ${
+                    persona.id === activePersona?.id ? 'bg-purple-500/10' : 'hover:bg-white/5'
+                  } ${isArchived ? 'opacity-50' : ''}`}
+                >
+                  {/* Selectable area */}
+                  <button
+                    onClick={() => !isArchived && handleSelect(persona)}
+                    disabled={isArchived}
+                    className="flex items-center gap-3 flex-1 min-w-0 text-left disabled:cursor-default"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500/20 to-cyan-500/20 ring-1 ring-white/20 flex items-center justify-center text-white text-sm shrink-0">
+                      {getDomainIcon(persona)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-white truncate text-sm">
+                        {getDisplayName(persona)}
+                        {isArchived && <span className="ml-1.5 text-[10px] text-white/40">(archived)</span>}
+                      </div>
+                      <div className="flex items-center gap-1 text-xs text-white/60">
+                        {getReputationStars(persona.reputationBucket)}
+                        <span>({persona.reputationScore})</span>
+                      </div>
+                    </div>
+                  </button>
+
+                  {/* Active check or manage buttons */}
+                  {!allowManage && persona.id === activePersona?.id && (
+                    <Check className="w-4 h-4 text-purple-400 shrink-0" />
+                  )}
+                  {allowManage && !isConfirming && (
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                      {isPending
+                        ? <Loader2 className="w-3.5 h-3.5 animate-spin text-white/40" />
+                        : (
+                          <>
+                            <button
+                              title={isArchived ? 'Restore' : 'Archive'}
+                              onClick={() => handleArchive(persona.id, !isArchived)}
+                              className="p-1 rounded hover:bg-white/10 text-white/40 hover:text-amber-400 transition-colors"
+                            >
+                              {isArchived
+                                ? <RotateCcw className="w-3.5 h-3.5" />
+                                : <EyeOff className="w-3.5 h-3.5" />}
+                            </button>
+                            <button
+                              title="Delete"
+                              onClick={() => setConfirmDeleteId(persona.id)}
+                              className="p-1 rounded hover:bg-white/10 text-white/40 hover:text-red-400 transition-colors"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )
+                      }
+                    </div>
+                  )}
+                  {allowManage && isConfirming && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <span className="text-[10px] text-red-400">Delete?</span>
+                      <button
+                        onClick={() => handleDelete(persona.id)}
+                        disabled={isPending}
+                        className="px-1.5 py-0.5 rounded text-[10px] bg-red-500/20 text-red-300 hover:bg-red-500/40 transition-colors disabled:opacity-50"
+                      >
+                        Yes
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteId(null)}
+                        className="px-1.5 py-0.5 rounded text-[10px] text-white/40 hover:text-white/70 transition-colors"
+                      >
+                        No
+                      </button>
+                    </div>
+                  )}
                 </div>
-                
-                {/* Info */}
-                <div className="flex-1 text-left min-w-0">
-                  <div className="font-medium text-white truncate">{getDisplayName(persona)}</div>
-                  <div className="flex items-center gap-1 text-xs text-white/60">
-                    {getReputationStars(persona.reputationBucket)}
-                    <span>({persona.reputationScore})</span>
-                  </div>
-                </div>
-                
-                {/* Check mark */}
-                {persona.id === activePersona?.id && (
-                  <Check className="w-5 h-5 text-purple-400" />
-                )}
-              </button>
-            ))}
+              );
+            })}
           </div>
           
+          {/* Archived toggle — only shown when manage mode is on */}
+          {allowManage && (
+            <button
+              onClick={handleToggleArchived}
+              className="w-full flex items-center gap-2 px-3 py-2 text-[11px] text-white/40 hover:text-white/70 hover:bg-white/5 transition-colors border-t border-white/5"
+            >
+              {showArchived
+                ? <Eye className="w-3.5 h-3.5" />
+                : <EyeOff className="w-3.5 h-3.5" />}
+              {showArchived ? 'Hide archived personas' : 'Show archived personas'}
+            </button>
+          )}
+
           {/* Divider */}
           <div className="border-t border-white/10" />
 

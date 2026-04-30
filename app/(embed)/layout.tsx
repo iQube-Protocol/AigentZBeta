@@ -39,7 +39,7 @@ function EmbedLayoutContent({ children }: { children: React.ReactNode }) {
         zIndex: 180,
         left: 'var(--metaavatar-copilot-x, 16px)',
         top: 'var(--metaavatar-copilot-y, 96px)',
-        width: 'var(--metaavatar-copilot-w, 360px)',
+        width: 'var(--metaavatar-copilot-w, 375px)',
         height: 'var(--metaavatar-copilot-h, 320px)',
       };
     }
