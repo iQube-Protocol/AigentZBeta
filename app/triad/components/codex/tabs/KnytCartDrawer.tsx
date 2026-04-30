@@ -3,8 +3,7 @@
 import React, { useState } from 'react';
 import { X, ShoppingCart, Trash2, Zap, CreditCard, Plus, Minus } from 'lucide-react';
 import { type CartItem, getKnytDiscountedPrice, KNYT_COYN_DISCOUNT, usdToKnyt, cartItemCount } from '@/types/knyt-store';
-import { ContentPurchaseModal } from '../../content/ContentPurchaseModal';
-import type { ContentType } from '../../content/ContentPurchaseModal';
+import { KnytCartCheckoutModal } from './KnytCartCheckoutModal';
 
 interface Props {
   open: boolean;
@@ -34,19 +33,8 @@ export function KnytCartDrawer({
   total,
   totalWithKnyt,
 }: Props) {
-  const [checkoutItem, setCheckoutItem] = useState<CartItem | null>(null);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [useKnytDiscount, setUseKnytDiscount] = useState(false);
-
-  // Track the index of the line currently in checkout so we can pass cart
-  // context (item N of T, running total) to the modal — keeps the user oriented
-  // while the iteration walks each line through the existing single-item
-  // ContentPurchaseModal.
-  const checkoutIndex = checkoutItem ? items.findIndex((i) => i.id === checkoutItem.id) : -1;
-  const totalItemCount = cartItemCount(items);
-  const remainingItems = checkoutIndex >= 0 ? items.slice(checkoutIndex) : [];
-  const remainingTotal = useKnytDiscount
-    ? remainingItems.reduce((s, i) => s + (i.excludeKnytDiscount ? i.priceUsd : getKnytDiscountedPrice(i.priceUsd)) * lineQty(i), 0)
-    : remainingItems.reduce((s, i) => s + i.priceUsd * lineQty(i), 0);
 
   const displayTotal = useKnytDiscount ? totalWithKnyt : total;
 
@@ -220,11 +208,11 @@ export function KnytCartDrawer({
             <button
               type="button"
               onClick={() => {
-                // Close the drawer first so the payment modal isn't hidden
+                // Close the drawer first so the checkout modal isn't hidden
                 // behind the drawer's z-index. The modal lives outside the
                 // `{open && ...}` block below so it survives the close.
                 if (items.length > 0) {
-                  setCheckoutItem(items[0]);
+                  setCheckoutOpen(true);
                   onClose();
                 }
               }}
@@ -233,41 +221,32 @@ export function KnytCartDrawer({
               <CreditCard className="h-4 w-4" />
               Checkout
             </button>
-            <p className="text-[9px] text-slate-600 text-center">Each item checked out individually</p>
+            <p className="text-[9px] text-slate-600 text-center">All items settled in a single transaction</p>
           </div>
         )}
       </div>
         </>
       )}
 
-      {/* Checkout modal for individual item — kept OUTSIDE the `{open && ...}`
+      {/* Multi-item cart checkout modal — kept OUTSIDE the `{open && ...}`
           guard so it remains mounted after the drawer closes on Checkout. */}
-      {checkoutItem && (
-        <ContentPurchaseModal
-          open={true}
-          onClose={() => setCheckoutItem(null)}
-          personaId={personaId}
-          contentType={'scroll_still' as ContentType}
-          contentId={checkoutItem.id}
-          contentTitle={checkoutItem.label}
-          contentImage={checkoutItem.thumbUrl}
-          priceUsdOverride={checkoutItem.priceUsd}
-          baseKnytOverride={usdToKnyt(checkoutItem.priceUsd)}
-          cartContext={{
-            // 1-based index for human-readable "Item N of T".
-            itemIndex: checkoutIndex + 1,
-            totalItems: totalItemCount,
-            cartTotalUsd: displayTotal,
-            remainingUsd: remainingTotal,
-            useKnytDiscount,
-          }}
-          onPurchaseComplete={() => {
-            onRemove(checkoutItem.id);
-            const remaining = items.filter((i) => i.id !== checkoutItem.id);
-            setCheckoutItem(remaining[0] ?? null);
-          }}
-        />
-      )}
+      <KnytCartCheckoutModal
+        open={checkoutOpen}
+        onClose={() => setCheckoutOpen(false)}
+        items={items}
+        personaId={personaId}
+        onSettled={({ settledIds, failedIds }) => {
+          // Remove every settled line from the cart. Failed lines stay so
+          // the user can retry — they'll see them when they re-open the cart.
+          for (const id of settledIds) onRemove(id);
+          // If everything settled, close the modal so the user lands back
+          // on the store. If there are failures, leave the modal open so
+          // they can read the error messages.
+          if (failedIds.length === 0) {
+            setCheckoutOpen(false);
+          }
+        }}
+      />
     </>
   );
 }
