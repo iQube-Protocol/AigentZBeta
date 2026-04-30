@@ -175,6 +175,9 @@ export async function PATCH(
     if (updates.discoverableWithinTenant !== undefined) {
       dbUpdates.discoverable_within_tenant = !!updates.discoverableWithinTenant;
     }
+    if (typeof updates.evmAddress === 'string' && /^0x[a-fA-F0-9]{40}$/.test(updates.evmAddress)) {
+      dbUpdates.evm_address = updates.evmAddress.toLowerCase();
+    }
     
     // Always update the updated_at timestamp
     dbUpdates.updated_at = new Date().toISOString();

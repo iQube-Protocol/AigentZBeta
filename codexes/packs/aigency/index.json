@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-04-30T17:00:15.098Z",
+  "last_updated": "2026-04-30T17:38:53.741Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1ab55f21f05074c1480263f35e63e7d039365c13",
-  "latest_commit_short": "1ab55f2",
-  "latest_commit_title": "revert overbroad middleware fallback that broke runtime page embedding",
+  "latest_commit": "c4329b06a94b51f88f6c521f24d28eb39d253897",
+  "latest_commit_short": "c4329b0",
+  "latest_commit_title": "allow metame.live + metame.dev to embed; mandate descriptive merge messages",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c4329b0",
+      "full_sha": "c4329b06a94b51f88f6c521f24d28eb39d253897",
+      "title": "allow metame.live + metame.dev to embed; mandate descriptive merge messages",
+      "author": "Claude",
+      "timestamp": "2026-04-30T17:36:56Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c4329b0.md"
+    },
     {
       "sha": "1ab55f2",
       "full_sha": "1ab55f21f05074c1480263f35e63e7d039365c13",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T02:17:19Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-902213c.md"
-    },
-    {
-      "sha": "614d0e1",
-      "full_sha": "614d0e11190f1460631ad4d17a1d59fb3d3f4a46",
-      "title": "register aigent-marketa as a full aigent",
-      "author": "Claude",
-      "timestamp": "2026-03-24T01:54:27Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-614d0e1.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
