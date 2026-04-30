@@ -94,6 +94,12 @@ export function KnytCartCheckoutModal({
   const [quote, setQuote] = useState<QuoteResponse | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
+  const [knytBalance, setKnytBalance] = useState<number | null>(null);
+  const [knytBalanceLoading, setKnytBalanceLoading] = useState(false);
+  const [topupPackages, setTopupPackages] = useState<Array<{ packageId: string; knytAmount: number; usdPrice: number; bonusKnyt: number; label: string }> | null>(null);
+  const [selectedTopupId, setSelectedTopupId] = useState<string | null>(null);
+  const [topupStatus, setTopupStatus] = useState<'idle' | 'opening' | 'waiting' | 'success' | 'error'>('idle');
+  const [topupError, setTopupError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
   const [results, setResults] = useState<CompleteLineResult[] | null>(null);
   const [cartPurchaseId, setCartPurchaseId] = useState<string | null>(null);
@@ -144,6 +150,138 @@ export function KnytCartCheckoutModal({
   useEffect(() => {
     if (open) void fetchQuote();
   }, [open, fetchQuote]);
+
+  // ─── KNYT balance + topup ──────────────────────────────────────────────────
+  // Fetch the user's spendable KNYT balance whenever the modal opens (or
+  // persona/rail changes). Used to detect shortfall when the KNYT rail is
+  // selected and surface the BuyMoreKnyt panel.
+  const fetchKnytBalance = useCallback(async () => {
+    if (!personaId) {
+      setKnytBalance(null);
+      return;
+    }
+    setKnytBalanceLoading(true);
+    try {
+      const res = await fetch(`/api/wallet/knyt/balance?personaId=${encodeURIComponent(personaId)}`, {
+        cache: 'no-store',
+      });
+      if (!res.ok) {
+        setKnytBalance(null);
+        return;
+      }
+      const json = await res.json();
+      // Tier 0 spends from the off-chain DVN ledger only.
+      const spendable = typeof json.spendableKnyt === 'number' ? json.spendableKnyt : 0;
+      setKnytBalance(spendable);
+    } catch {
+      setKnytBalance(null);
+    } finally {
+      setKnytBalanceLoading(false);
+    }
+  }, [personaId]);
+
+  useEffect(() => {
+    if (open && selectedRail === 'knyt') void fetchKnytBalance();
+  }, [open, selectedRail, fetchKnytBalance]);
+
+  // Lazy-load the KNYT topup tiers the first time the user is short on KNYT.
+  const fetchTopupPackages = useCallback(async () => {
+    if (topupPackages !== null) return;
+    try {
+      const res = await fetch('/api/wallet/knyt/purchase', { cache: 'no-store' });
+      if (!res.ok) return;
+      const json = await res.json();
+      const packages = Array.isArray(json.packages) ? json.packages : [];
+      setTopupPackages(packages);
+      // Pre-select the smallest package that covers the shortfall (computed
+      // when the panel actually renders — for now just default to index 1
+      // which mirrors BuyKnytModal's default).
+      if (packages.length > 0 && !selectedTopupId) {
+        setSelectedTopupId(packages[1]?.packageId ?? packages[0].packageId);
+      }
+    } catch { /* non-fatal */ }
+  }, [topupPackages, selectedTopupId]);
+
+  const knytShortfall = useMemo(() => {
+    if (selectedRail !== 'knyt') return 0;
+    if (!quote || knytBalance === null) return 0;
+    const need = quote.rails.knyt.total;
+    return need > knytBalance ? Math.ceil((need - knytBalance) * 100) / 100 : 0;
+  }, [selectedRail, quote, knytBalance]);
+
+  useEffect(() => {
+    if (knytShortfall > 0) void fetchTopupPackages();
+  }, [knytShortfall, fetchTopupPackages]);
+
+  // Auto-pick the smallest topup package that covers the shortfall.
+  useEffect(() => {
+    if (!topupPackages || topupPackages.length === 0 || knytShortfall <= 0) return;
+    const best = [...topupPackages]
+      .sort((a, b) => a.knytAmount - b.knytAmount)
+      .find((p) => p.knytAmount + p.bonusKnyt >= knytShortfall) ?? topupPackages[topupPackages.length - 1];
+    setSelectedTopupId(best.packageId);
+  }, [topupPackages, knytShortfall]);
+
+  /**
+   * Opens /api/wallet/knyt/paypal/create-order in a popup, polls
+   * /api/wallet/knyt/paypal/capture until the order completes, then refreshes
+   * the user's KNYT balance. The caller's pay button becomes valid once
+   * balance ≥ knytTotal.
+   */
+  const buyMoreKnyt = useCallback(async () => {
+    if (!personaId || !selectedTopupId) return;
+    setTopupStatus('opening');
+    setTopupError(null);
+    try {
+      const orderRes = await fetch('/api/wallet/knyt/paypal/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ personaId, packageId: selectedTopupId }),
+      });
+      if (!orderRes.ok) {
+        const txt = await orderRes.text();
+        throw new Error(`HTTP ${orderRes.status}: ${txt}`);
+      }
+      const { orderId, approvalUrl } = await orderRes.json();
+      if (!approvalUrl) {
+        throw new Error('No approval URL from PayPal');
+      }
+      const popup = window.open(approvalUrl, 'knyt_topup', 'width=500,height=600');
+      if (!popup) {
+        throw new Error('Popup blocked — allow popups for this site');
+      }
+      setTopupStatus('waiting');
+
+      // Poll capture every 3s for 2 minutes — same pattern as BuyKnytModal.
+      const captureInterval = window.setInterval(async () => {
+        try {
+          const captureRes = await fetch('/api/wallet/knyt/paypal/capture', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId }),
+          });
+          if (!captureRes.ok) return;
+          const result = await captureRes.json();
+          if (result.success) {
+            window.clearInterval(captureInterval);
+            setTopupStatus('success');
+            // Refresh balance + re-quote so the modal reflects the new
+            // spendable KNYT and the Pay button becomes valid.
+            await fetchKnytBalance();
+            await fetchQuote();
+            setTimeout(() => setTopupStatus('idle'), 2000);
+          }
+        } catch { /* keep polling */ }
+      }, 3000);
+      window.setTimeout(() => {
+        window.clearInterval(captureInterval);
+        setTopupStatus((s) => (s === 'waiting' ? 'idle' : s));
+      }, 120_000);
+    } catch (err) {
+      setTopupError(err instanceof Error ? err.message : 'Topup failed');
+      setTopupStatus('error');
+    }
+  }, [personaId, selectedTopupId, fetchKnytBalance, fetchQuote]);
 
   /**
    * Reduce a per-unit results array into per-line settled/failed sets so the
@@ -458,6 +596,91 @@ export function KnytCartCheckoutModal({
                   </div>
                 </div>
               )}
+
+              {/* Buy-more-KNYT panel — only when KNYT rail selected and the
+                  user's spendable KNYT is below the cart's KNYT total.
+                  Reuses the existing /api/wallet/knyt/paypal/{create-order,
+                  capture} flow for topup; on success refreshes balance + the
+                  cart quote so the Pay button becomes valid. */}
+              {selectedRail === 'knyt' && knytShortfall > 0 && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 space-y-2.5">
+                  <div className="flex items-start gap-2">
+                    <Zap className="h-4 w-4 text-amber-300 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-[12px] font-semibold text-amber-100">
+                        You need {knytShortfall.toFixed(2)} more KNYT
+                      </p>
+                      <p className="text-[10px] text-amber-200/70 mt-0.5">
+                        Spendable: {(knytBalance ?? 0).toFixed(2)} KNYT · Cart: {quote?.rails.knyt.total.toFixed(2)} KNYT.
+                        Top up via PayPal and we'll reload your balance so you can pay with KNYT (20% off).
+                      </p>
+                    </div>
+                  </div>
+
+                  {topupPackages && topupPackages.length > 0 && (
+                    <div className="space-y-1">
+                      {topupPackages.map((p) => {
+                        const isSelected = selectedTopupId === p.packageId;
+                        const covers = p.knytAmount + p.bonusKnyt >= knytShortfall;
+                        return (
+                          <button
+                            key={p.packageId}
+                            type="button"
+                            onClick={() => setSelectedTopupId(p.packageId)}
+                            disabled={topupStatus === 'opening' || topupStatus === 'waiting'}
+                            className={`w-full flex items-center justify-between rounded-lg border px-3 py-1.5 transition-colors text-left disabled:opacity-50 ${
+                              isSelected
+                                ? 'border-amber-400/60 bg-amber-500/15'
+                                : 'border-white/10 bg-white/5 hover:bg-white/10'
+                            }`}
+                          >
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-[12px] font-semibold text-white tabular-nums">
+                                {p.knytAmount} KNYT
+                              </span>
+                              {p.bonusKnyt > 0 && (
+                                <span className="text-[10px] text-emerald-300">+{p.bonusKnyt} bonus</span>
+                              )}
+                              {covers && !isSelected && (
+                                <span className="text-[9px] text-amber-300/70 uppercase tracking-wide">covers shortfall</span>
+                              )}
+                            </div>
+                            <span className="text-[12px] font-bold text-amber-200 tabular-nums">${p.usdPrice.toFixed(2)}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {topupError && (
+                    <div className="flex items-start gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1.5 text-[10px] text-rose-200">
+                      <AlertCircle className="h-3 w-3 shrink-0 mt-0.5" />
+                      <span>{topupError}</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={buyMoreKnyt}
+                    disabled={!selectedTopupId || topupStatus === 'opening' || topupStatus === 'waiting'}
+                    className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-amber-400/50 bg-amber-500/20 px-3 py-1.5 text-xs font-semibold text-amber-100 hover:bg-amber-500/30 disabled:opacity-40"
+                  >
+                    {topupStatus === 'opening' || topupStatus === 'waiting' ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        {topupStatus === 'waiting' ? 'Waiting for PayPal…' : 'Opening PayPal…'}
+                      </>
+                    ) : topupStatus === 'success' ? (
+                      <>
+                        <Check className="h-3.5 w-3.5" />
+                        KNYT topped up — recheck cart
+                      </>
+                    ) : (
+                      <>Buy more KNYT via PayPal</>
+                    )}
+                  </button>
+                </div>
+              )}
             </>
           )}
 
@@ -544,7 +767,12 @@ export function KnytCartCheckoutModal({
                 <button
                   type="button"
                   onClick={pay}
-                  disabled={paying || !quote || (selectedRail === 'paypal' && items.length > PAYPAL_MAX_UNITS)}
+                  disabled={
+                    paying ||
+                    !quote ||
+                    (selectedRail === 'paypal' && items.length > PAYPAL_MAX_UNITS) ||
+                    (selectedRail === 'knyt' && knytShortfall > 0)
+                  }
                   className="inline-flex items-center gap-1.5 rounded-lg border border-teal-500/40 bg-teal-500/15 px-3 py-1.5 text-xs font-semibold text-teal-200 hover:bg-teal-500/25 disabled:opacity-40"
                 >
                   {paying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CreditCard className="h-3.5 w-3.5" />}
