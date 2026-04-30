@@ -81,14 +81,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Link canonical → device in crm_auth_profile_links
+    // Link canonical → device as a session hint only.
+    // relationship_mode = 'device_session' intentionally — getMergedLinkedAuthProfileIds
+    // only follows 'merged' links, so device UUIDs never expand persona visibility.
+    // Personas created anonymously must be claimed explicitly by the user, not
+    // silently re-assigned based on device co-location.
     const { error: linkErr } = await admin
       .from('crm_auth_profile_links')
       .upsert(
         {
           owner_auth_profile_id: canonicalId,
           linked_auth_profile_id: normalizedDeviceId,
-          relationship_mode: 'merged',
+          relationship_mode: 'device_session',
           active: true,
         },
         { onConflict: 'owner_auth_profile_id,linked_auth_profile_id' }

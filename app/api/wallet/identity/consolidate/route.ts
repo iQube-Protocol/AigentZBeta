@@ -1,18 +1,21 @@
 /**
  * POST /api/wallet/identity/consolidate
  *
- * Consolidates ALL identity assets (auth profile UUIDs, personas) associated
- * with the caller's email into a single canonical crm_auth_profiles entry.
+ * Consolidates the caller's canonical crm_auth_profiles entry and re-assigns
+ * any personas that are provably theirs.
  *
  * What it does:
- *  1. Resolves caller email from Bearer token
- *  2. Finds every crm_auth_profiles UUID linked to that email (direct + aliases)
- *  3. Finds the Supabase auth.users.id for the email
- *  4. Links all found UUIDs to the canonical CRM profile via crm_auth_profile_links
- *  5. Re-assigns personas that carry a non-canonical UUID to the canonical one
- *  6. Detects "activated investors": if email matches a nakamoto_knyt_personas row,
- *     stamps platform_activated_at and platform_auth_profile_id on that investor record
- *  7. Returns a summary: canonicalId, linkedIds[], personaCount, activatedInvestorId
+ *  1. Resolves caller email + Supabase auth.users.id from Bearer token
+ *  2. Ensures a crm_auth_profiles row exists for this email
+ *  3. Finds every OTHER crm_auth_profiles UUID for the same email (duplicate rows)
+ *  4. Links those duplicates under 'merged' mode (same person, different UUID)
+ *  5. Re-assigns personas ONLY from:
+ *       a. Duplicate email-matched profile UUIDs (provably same person)
+ *       b. The Supabase auth.users.id (JWT proves identity)
+ *     Device UUIDs from localStorage are NOT used for persona re-assignment —
+ *     they travel via link-device as 'device_session' links only and never
+ *     expand persona visibility. This enforces identity sovereignty.
+ *  6. Activated-investor detection (idempotent)
  *
  * Requires: Authorization: Bearer <supabase_access_token>
  */
@@ -80,33 +83,33 @@ export async function POST(request: NextRequest) {
     );
 
     // -------------------------------------------------------------------------
-    // Step 2 — Find every other crm_auth_profiles UUID for this email
+    // Step 2 — Find duplicate crm_auth_profiles rows for the same email.
+    // These represent the same person with a different UUID (e.g. created via
+    // two different code paths). Safe to merge — email is the shared proof.
     // -------------------------------------------------------------------------
-    const linkedIds = new Set<string>();
+    const mergeableIds = new Set<string>();
 
-    // Direct email match on crm_auth_profiles
     const { data: directProfiles } = await admin
       .from('crm_auth_profiles')
       .select('id')
       .ilike('email', email);
     for (const row of directProfiles ?? []) {
-      if (row.id && row.id !== canonicalId) linkedIds.add(row.id);
+      if (row.id && row.id !== canonicalId) mergeableIds.add(row.id);
     }
 
-    // Via email aliases
     const { data: aliasRows } = await admin
       .from('crm_auth_profile_emails')
       .select('auth_profile_id')
       .eq('email_normalized', email);
     for (const row of aliasRows ?? []) {
-      if (row.auth_profile_id && row.auth_profile_id !== canonicalId) linkedIds.add(row.auth_profile_id);
+      if (row.auth_profile_id && row.auth_profile_id !== canonicalId) mergeableIds.add(row.auth_profile_id);
     }
 
     // -------------------------------------------------------------------------
-    // Step 3 — Find the Supabase auth.users.id for this email
+    // Step 3 — Supabase auth.users.id from the JWT.
+    // The JWT is cryptographically signed by Supabase — it definitively proves
+    // the caller IS this auth user. Safe to merge + re-assign.
     // -------------------------------------------------------------------------
-    // We can't query auth.users directly from the service-role JS client's
-    // admin.auth.listUsers — instead we get it from the incoming JWT.
     const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
     let supabaseUserId: string | null = null;
@@ -119,42 +122,25 @@ export async function POST(request: NextRequest) {
       if (userData?.user?.id) supabaseUserId = userData.user.id;
     }
     if (supabaseUserId && supabaseUserId !== canonicalId) {
-      linkedIds.add(supabaseUserId);
+      mergeableIds.add(supabaseUserId);
     }
 
     // -------------------------------------------------------------------------
-    // Step 4 — For every discovered UUID: ensure CRM profile exists, link,
-    //          and re-assign any personas carrying the non-canonical UUID.
+    // Step 4 — Link + re-assign personas for provably-same-person UUIDs only.
+    //
+    // IDENTITY SOVEREIGNTY RULE: only email-matched duplicates and the JWT
+    // Supabase user UUID are eligible for persona re-assignment. Device UUIDs
+    // from localStorage are NOT included here — they arrive via link-device as
+    // 'device_session' links and never trigger persona re-assignment. This
+    // prevents shared-device cross-contamination of identities.
     // -------------------------------------------------------------------------
     let personasReassigned = 0;
 
-    for (const otherId of linkedIds) {
+    for (const otherId of mergeableIds) {
       if (!isUuid(otherId)) continue;
-      // Ensure a crm_auth_profiles row exists for this UUID
       await ensureProfileExists(otherId, `${otherId}@linked.agentiq.local`);
-      // Link it to canonical
       await linkToCanonical(canonicalId, otherId);
 
-      // Guard: only re-assign personas if the otherId does NOT have its own
-      // verified real email. If it does, the UUID belongs to a distinct user and
-      // re-assigning their personas would cross-contaminate identities.
-      const { data: otherEmailRows } = await admin
-        .from('crm_auth_profile_emails')
-        .select('email_normalized')
-        .eq('auth_profile_id', otherId)
-        .eq('status', 'active')
-        .not('email_normalized', 'ilike', '%@linked.agentiq.local')
-        .not('email_normalized', 'ilike', '%@device.agentiq.local')
-        .not('email_normalized', 'ilike', '%@guest.agentiq.local')
-        .limit(1);
-      const otherHasRealEmail = (otherEmailRows?.length ?? 0) > 0 &&
-        otherEmailRows![0].email_normalized !== email;
-      if (otherHasRealEmail) {
-        console.warn(`[consolidate] skipping persona re-assign for ${otherId} — it has its own verified email`);
-        continue;
-      }
-
-      // Re-assign personas from otherId → canonicalId
       const { count } = await admin
         .from('personas')
         .update({ auth_profile_id: canonicalId })
@@ -166,7 +152,7 @@ export async function POST(request: NextRequest) {
     // -------------------------------------------------------------------------
     // Step 5 — Count total personas now visible under canonical
     // -------------------------------------------------------------------------
-    const allLinkedIds = [canonicalId, ...Array.from(linkedIds)];
+    const allLinkedIds = [canonicalId, ...Array.from(mergeableIds)];
     const { count: personaCount } = await admin
       .from('personas')
       .select('id', { count: 'exact', head: true })
@@ -209,7 +195,7 @@ export async function POST(request: NextRequest) {
       canonicalId,
       email,
       supabaseUserId,
-      linkedProfileIds: Array.from(linkedIds),
+      mergedProfileIds: Array.from(mergeableIds),
       personasReassigned,
       totalPersonas: personaCount ?? 0,
       activatedInvestorId,

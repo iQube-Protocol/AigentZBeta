@@ -138,8 +138,10 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
     const skipConsolidate = !force && (now - lastConsolidatedAtRef.current) < 10_000;
     if (!skipConsolidate) {
       lastConsolidatedAtRef.current = now;
+      // consolidate only merges email-confirmed duplicate profiles + JWT user UUID.
+      // linkDeviceProfile is NOT called here — device UUID linking is 'device_session'
+      // mode only and must be an explicit user action to preserve identity sovereignty.
       await consolidateIdentity(accessToken);
-      await linkDeviceProfile(accessToken);
     }
     try {
       const res = await fetch("/api/wallet/personas", {
