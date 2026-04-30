@@ -14,8 +14,16 @@ const ERC20_BALANCE_OF = '0x70a08231'; // balanceOf(address) selector
 
 const MINT_ABI = ['function mint(address to, uint256 amount)'];
 
-// $KNYT is on Ethereum mainnet (chainId 1), not Base
-const ETH_RPC = process.env.ETH_RPC_URL || 'https://eth.llamarpc.com';
+// $KNYT is on Ethereum mainnet (chainId 1), not Base.
+// Tried in order until one succeeds — 403/5xx on the primary falls through
+// to the Cloudflare and PublicNode public endpoints automatically.
+// Set ETH_RPC_URL (primary) and ETH_RPC_FALLBACK_URL (secondary) in .env.local.
+const ETH_RPC_LIST: string[] = [
+  process.env.ETH_RPC_URL,
+  process.env.ETH_RPC_FALLBACK_URL,
+  'https://cloudflare-eth.com',
+  'https://ethereum.publicnode.com',
+].filter(Boolean) as string[];
 
 export interface EvmKnytBalance {
   chainId: number;
@@ -33,19 +41,28 @@ export interface KnytMintResult {
 // ─── Read helpers (raw JSON-RPC, no external chain library required) ──────────
 
 async function ethCall(to: string, data: string): Promise<string> {
-  const res = await fetch(ETH_RPC, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0', id: 1, method: 'eth_call',
-      params: [{ to, data }, 'latest'],
-    }),
-  });
-  if (!res.ok) throw new Error(`RPC HTTP ${res.status}`);
-  const json = await res.json() as { result?: string; error?: { code?: number; message?: string } };
-  if (json.error) throw new Error(`RPC error ${json.error.code ?? ''}: ${json.error.message ?? 'unknown'}`);
-  if (!json.result || json.result === '0x') return '0x' + '0'.repeat(64);
-  return json.result;
+  let lastErr: Error = new Error('No Ethereum RPC endpoints configured');
+  for (const rpc of ETH_RPC_LIST) {
+    try {
+      const res = await fetch(rpc, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0', id: 1, method: 'eth_call',
+          params: [{ to, data }, 'latest'],
+        }),
+      });
+      if (!res.ok) throw new Error(`RPC HTTP ${res.status}`);
+      const json = await res.json() as { result?: string; error?: { code?: number; message?: string } };
+      if (json.error) throw new Error(`RPC error ${json.error.code ?? ''}: ${json.error.message ?? 'unknown'}`);
+      if (!json.result || json.result === '0x') return '0x' + '0'.repeat(64);
+      return json.result;
+    } catch (err) {
+      lastErr = err instanceof Error ? err : new Error('RPC call failed');
+      // try next endpoint
+    }
+  }
+  throw lastErr;
 }
 
 function encodeBalanceOf(address: string): string {
@@ -125,7 +142,7 @@ export async function mintKnyt(toAddress: string, amountKnyt: number): Promise<K
 
   try {
     const { ethers } = await import('ethers');
-    const provider = new ethers.JsonRpcProvider(ETH_RPC);
+    const provider = new ethers.JsonRpcProvider(ETH_RPC_LIST[0]);
     const wallet = new ethers.Wallet(minterKey, provider);
     const contract = new ethers.Contract(KNYT_MINTER_CONTRACT, MINT_ABI, wallet);
     const amountWei = ethers.parseUnits(amountKnyt.toString(), 18);

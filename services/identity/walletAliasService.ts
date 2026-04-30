@@ -58,6 +58,8 @@ export interface RegisterWalletAliasInput {
   /** Original message that was signed (must include nonce + persona ID). */
   message?: string;
   ttlDays?: number;
+  /** When true, proceed even if the wallet is already linked to other personas. */
+  force?: boolean;
 }
 
 export interface RegisterWalletAliasResult {
@@ -136,6 +138,18 @@ export function buildAliasCommitment(
 
 export function generateMailboxId(): string {
   return crypto.randomBytes(16).toString('hex');
+}
+
+/**
+ * Address fingerprint — a secondary HMAC used to detect cross-persona wallet reuse
+ * without revealing the address. Uses a different message prefix from buildAliasCommitment
+ * so the two hashes cannot be correlated by an attacker who knows one of them.
+ *
+ * Requires the `address_fingerprint` column on wallet_alias_commitments (see SQL migration).
+ */
+export function buildAddressFingerprint(chain: WalletChain, walletAddress: string): string {
+  const normalised = normaliseAddress(chain, walletAddress);
+  return crypto.createHmac('sha256', hmacKey()).update(`fp|${chain}|${normalised}`).digest('hex');
 }
 
 // ─── SIWE-style proof verification (EVM only for v0) ───────────────────────
@@ -443,8 +457,29 @@ export async function registerWalletAlias(
   // One wallet ↔ one persona — enforced by the UNIQUE constraint on alias_commitment.
   // A 23505 violation is caught below and returned as a clean "already linked" error.
   const aliasCommitment = buildAliasCommitment(didPersonaId, chain, normalised);
+  const fingerprint = buildAddressFingerprint(chain, normalised);
   const expiresAtISO = new Date(Date.now() + ttlDays * 86_400_000).toISOString();
   const mailboxId = generateMailboxId();
+
+  // Cross-persona check: if this wallet fingerprint is active under a different persona,
+  // return a warning unless the caller explicitly acknowledged it with force=true.
+  if (!input.force) {
+    try {
+      const { data: fpRows } = await supabase
+        .from('wallet_alias_commitments')
+        .select('did_persona_id')
+        .eq('address_fingerprint', fingerprint)
+        .eq('status', 'active')
+        .neq('did_persona_id', persona.id);
+      const linkedCount = fpRows?.length ?? 0;
+      if (linkedCount > 0) {
+        throw new Error(`CROSS_PERSONA:${linkedCount}`);
+      }
+    } catch (err) {
+      // Re-throw CROSS_PERSONA signals; swallow column-missing errors (pre-migration envs)
+      if (err instanceof Error && err.message.startsWith('CROSS_PERSONA:')) throw err;
+    }
+  }
 
   // DB insert first — success is determined by the row landing in the DB.
   // Escrow registration is best-effort and runs after we have the row id.
@@ -455,6 +490,7 @@ export async function registerWalletAlias(
       did_persona_id: persona.id,
       chain,
       alias_commitment: aliasCommitment,
+      address_fingerprint: fingerprint,
       mailbox_id: mailboxId,
       alias_ttl_days: ttlDays,
       expires_at: expiresAtISO,
