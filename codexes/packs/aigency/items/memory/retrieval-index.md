@@ -544,3 +544,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-f71efd8.md](../build_/COMMITS/COMMIT-f71efd8.md)
 - Message: fix Firefox X-Frame-Options on cartridge embed; consolidate header logic
+
+## Commit `1ab55f2` — 2026-04-30T16:58:22Z
+- Type: `push`
+- Brief: [COMMIT-1ab55f2.md](../build_/COMMITS/COMMIT-1ab55f2.md)
+- Message: revert overbroad middleware fallback that broke runtime page embedding
