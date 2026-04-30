@@ -36,11 +36,13 @@ function isUuid(v: string): boolean {
 }
 
 async function ensureProfileExists(id: string, email: string): Promise<void> {
+  // ignoreDuplicates: true — never overwrite an existing row's email with a
+  // synthetic placeholder. If the row already exists (real or synthetic), leave it.
   await admin
     .from('crm_auth_profiles')
     .upsert(
       { id, email, email_verified: false, is_active: true, oauth_providers: {} },
-      { onConflict: 'id' }
+      { onConflict: 'id', ignoreDuplicates: true }
     );
 }
 
