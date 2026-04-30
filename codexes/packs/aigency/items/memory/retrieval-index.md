@@ -534,3 +534,8 @@ Top-level retrieval anchors for this pack.
 - Type: `chore`
 - Brief: [COMMIT-d8e603e.md](../build_/COMMITS/COMMIT-d8e603e.md)
 - Message: fire thinking-dots signal on navigation actions; remix banner UX bump
+
+## Commit `d76dbd1` — 2026-04-30T03:42:32Z
+- Type: `chore`
+- Brief: [COMMIT-d76dbd1.md](../build_/COMMITS/COMMIT-d76dbd1.md)
+- Message: nest STATE_SYNC processing flags per Lovable spec; bump KB search timeout

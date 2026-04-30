@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`d76dbd1`](https://github.com/iQube-Protocol/AigentZBeta/commit/d76dbd11a8eab89163b0deee496ac6dae0428f5d) [chore] nest STATE_SYNC processing flags per Lovable spec; bump KB search timeout (Claude, 2026-04-30T03:42:32Z)
 - [`d8e603e`](https://github.com/iQube-Protocol/AigentZBeta/commit/d8e603e7241cf991fc9020b237e8407f1dbd2ebc) [chore] fire thinking-dots signal on navigation actions; remix banner UX bump (Claude, 2026-04-30T02:43:08Z)
 - [`87f3b18`](https://github.com/iQube-Protocol/AigentZBeta/commit/87f3b188cf6643dfff114c0df0caff6afe939485) [fix] fix NBA action: use source=text_input so inference + thin-client message fire (Claude, 2026-04-30T00:56:57Z)
 - [`516b95d`](https://github.com/iQube-Protocol/AigentZBeta/commit/516b95d7ff38b8cf573161d5483b558834150dd0) [push] gate community-content admin endpoints with server-side role check (Claude, 2026-04-29T20:43:04Z)

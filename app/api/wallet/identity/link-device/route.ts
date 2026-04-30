@@ -81,28 +81,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Link canonical → device as a session hint only.
-    // relationship_mode = 'device_session' intentionally — getMergedLinkedAuthProfileIds
-    // only follows 'merged' links, so device UUIDs never expand persona visibility.
-    // Personas created anonymously must be claimed explicitly by the user, not
-    // silently re-assigned based on device co-location.
-    const { error: linkErr } = await admin
-      .from('crm_auth_profile_links')
-      .upsert(
-        {
-          owner_auth_profile_id: canonicalId,
-          linked_auth_profile_id: normalizedDeviceId,
-          relationship_mode: 'device_session',
-          active: true,
-        },
-        { onConflict: 'owner_auth_profile_id,linked_auth_profile_id' }
-      );
-
-    if (linkErr) {
-      return NextResponse.json({ error: 'Failed to link profiles' }, { status: 500 });
-    }
-
-    return NextResponse.json({ linked: true, canonicalId, deviceProfileId: normalizedDeviceId });
+    // Device UUID linking is intentionally a no-op for now.
+    // The old code stored 'merged' links which caused cross-user persona leakage.
+    // 'device_session' mode is the right design but requires a schema migration
+    // to add it to the relationship_mode CHECK constraint before it can be used.
+    // Until then, device UUIDs are recorded here but not stored in the DB —
+    // anonymous personas must be claimed explicitly via a dedicated claim flow.
+    return NextResponse.json({ linked: false, canonicalId, deviceProfileId: normalizedDeviceId, reason: 'pending_schema_migration' });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unknown error' },
