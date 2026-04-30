@@ -589,3 +589,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-0008bf6.md](../build_/COMMITS/COMMIT-0008bf6.md)
 - Message: KNYT cart Phase 2c — multi-item KnytCartCheckoutModal replaces per-item iteration
+
+## Commit `73f4581` — 2026-04-30T23:01:48Z
+- Type: `push`
+- Brief: [COMMIT-73f4581.md](../build_/COMMITS/COMMIT-73f4581.md)
+- Message: KNYT cart Phase 3b — buy-more-KNYT panel when KNYT rail is short

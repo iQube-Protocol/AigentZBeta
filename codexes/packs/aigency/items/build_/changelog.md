@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`73f4581`](https://github.com/iQube-Protocol/AigentZBeta/commit/73f458158c5a80667aa1ec7593eb51edf622c07e) [push] KNYT cart Phase 3b — buy-more-KNYT panel when KNYT rail is short (Claude, 2026-04-30T23:01:48Z)
 - [`0008bf6`](https://github.com/iQube-Protocol/AigentZBeta/commit/0008bf684abd7b1416590185a3586f9fb45ec4bf) [push] KNYT cart Phase 2c — multi-item KnytCartCheckoutModal replaces per-item iteration (Claude, 2026-04-30T22:51:53Z)
 - [`feea823`](https://github.com/iQube-Protocol/AigentZBeta/commit/feea8234cd7c2690a3ede44c295d11456f456179) [push] KNYT cart Phase 2b — server-side /api/cart/{quote,complete} endpoints (Claude, 2026-04-30T22:48:41Z)
 - [`dcb38e6`](https://github.com/iQube-Protocol/AigentZBeta/commit/dcb38e631287046eaa3fa7fe5b00b03d04366412) [push] KNYT cart Phase 2a — carry contentType + productType-mapper on cart lines (Claude, 2026-04-30T22:45:54Z)
