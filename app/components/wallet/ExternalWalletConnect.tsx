@@ -321,6 +321,16 @@ export function ExternalWalletConnect({ personaId, onTxComplete, onConnected }: 
       }
       if (!rRes.ok || !rJson.ok) throw new Error(rJson.error || `Register ${rRes.status}`);
       setAliasState({ status: 'registered', aliasId: rJson.id, commitment: rJson.aliasCommitment });
+
+      // Persist the EVM address on the persona so future balance lookups work
+      // without requiring the wallet to be actively connected.
+      try {
+        await fetch(`/api/wallet/persona/${encodeURIComponent(personaId)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', ...auth },
+          body: JSON.stringify({ evmAddress: addr }),
+        });
+      } catch { /* non-fatal */ }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Alias registration failed';
       // User rejected the signature is expected — don't show as error

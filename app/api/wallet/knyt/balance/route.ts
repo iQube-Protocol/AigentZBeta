@@ -32,6 +32,8 @@ export async function GET(request: NextRequest) {
   if (!personaId) {
     return NextResponse.json({ error: 'personaId is required' }, { status: 400 });
   }
+  // Optional: caller can supply the connected EVM address directly (avoids persona table lookup)
+  const callerEvmAddress = searchParams.get('evmAddress') || undefined;
 
   // 20s sentinel — returns clean JSON before CloudFront's 29s silent-504 gateway kill.
   let _timeoutHandle: ReturnType<typeof setTimeout>;
@@ -40,7 +42,7 @@ export async function GET(request: NextRequest) {
   });
 
   try {
-    const response = await Promise.race([_getBalance(personaId), timeoutPromise]);
+    const response = await Promise.race([_getBalance(personaId, callerEvmAddress), timeoutPromise]);
     clearTimeout(_timeoutHandle!);
     return response;
   } catch (e) {
@@ -53,7 +55,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-async function _getBalance(personaId: string): Promise<NextResponse> {
+async function _getBalance(personaId: string, callerEvmAddress?: string): Promise<NextResponse> {
   try {
     // Get DVN ledger balance
     const result = await getKnytBalance(personaId);
@@ -65,8 +67,18 @@ async function _getBalance(personaId: string): Promise<NextResponse> {
     // Try to get on-chain EVM KNYT balance
     let evmKnyt: number | undefined;
     let evmAddress: string | undefined;
-    
-    try {
+
+    // If the caller already knows the connected EVM address, use it directly —
+    // skips the persona table lookup and FIO resolution entirely.
+    if (callerEvmAddress && /^0x[a-fA-F0-9]{40}$/.test(callerEvmAddress)) {
+      evmAddress = callerEvmAddress;
+      try {
+        const evmBalance = await getEvmKnytBalance(evmAddress);
+        if (evmBalance) evmKnyt = parseFloat(evmBalance.balanceFormatted);
+      } catch { /* non-fatal */ }
+    }
+
+    if (!evmAddress) try {
       const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
       const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
       
@@ -165,7 +177,7 @@ async function _getBalance(personaId: string): Promise<NextResponse> {
     } catch (evmError) {
       console.warn('[KNYT Balance API] EVM balance fetch failed:', evmError);
       // Continue without EVM balance - DVN balance is still valid
-    }
+    } // end if (!evmAddress) try block
     
     const dvnBalance = result.balance?.dvnKnyt || 0;
     const evmBalance = evmKnyt || 0;

@@ -51,6 +51,17 @@ export async function GET(request: NextRequest) {
       .select('id', { count: 'exact', head: true })
       .eq('auth_profile_id', canonicalId);
 
+    // First persona with a stored EVM address (for identity display)
+    const { data: evmPersonaRows } = await admin
+      .from('personas')
+      .select('evm_address')
+      .eq('auth_profile_id', canonicalId)
+      .not('evm_address', 'is', null)
+      .limit(1);
+
+    const storedEvmAddress: string | null =
+      (evmPersonaRows?.[0] as Record<string, unknown> | undefined)?.evm_address as string | null ?? null;
+
     // Linked profiles (all modes — we show merged separately in the UI)
     const { data: linkRows } = await admin
       .from('crm_auth_profile_links')
@@ -128,6 +139,7 @@ export async function GET(request: NextRequest) {
       email,
       personaCount: personaCount ?? 0,
       personaClusters,
+      storedEvmAddress,
       emailAliases: aliasRows ?? [],
       linkedProfiles: (linkRows ?? []).map((l) => {
         const lr = l as Record<string, unknown>;
