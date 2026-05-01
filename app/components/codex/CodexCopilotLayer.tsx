@@ -105,7 +105,7 @@ interface CodexCopilotLayerProps {
     walletAddress?: string;
   };
   personaId?: string;
-  accentColor?: 'cyan' | 'fuchsia' | 'rose' | 'amber' | 'emerald';
+  accentColor?: 'cyan' | 'fuchsia' | 'rose' | 'amber' | 'emerald' | 'green' | 'indigo' | string;
 }
 
 type CopilotMode = "chat" | "avatar";
@@ -174,13 +174,17 @@ export function CodexCopilotLayer({
   personaId,
   accentColor = 'cyan',
 }: CodexCopilotLayerProps) {
-  const ACCENT = {
+  const ACCENT = ({
     cyan:    { hex: 'text-cyan-400/90',    bot: 'text-cyan-300',    bubble: 'bg-cyan-500/20 text-cyan-100 ring-cyan-500/30' },
     fuchsia: { hex: 'text-fuchsia-400/90', bot: 'text-fuchsia-300', bubble: 'bg-fuchsia-500/20 text-fuchsia-100 ring-fuchsia-500/30' },
     rose:    { hex: 'text-rose-400/90',    bot: 'text-rose-300',    bubble: 'bg-rose-500/20 text-rose-100 ring-rose-500/30' },
     amber:   { hex: 'text-amber-400/90',   bot: 'text-amber-300',   bubble: 'bg-amber-500/20 text-amber-100 ring-amber-500/30' },
     emerald: { hex: 'text-emerald-400/90', bot: 'text-emerald-300', bubble: 'bg-emerald-500/20 text-emerald-100 ring-emerald-500/30' },
-  }[accentColor];
+    green:   { hex: 'text-green-400/90',   bot: 'text-green-300',   bubble: 'bg-green-500/20 text-green-100 ring-green-500/30' },
+    indigo:  { hex: 'text-indigo-400/90',  bot: 'text-indigo-300',  bubble: 'bg-indigo-500/20 text-indigo-100 ring-indigo-500/30' },
+  } as Record<string, { hex: string; bot: string; bubble: string }>)[accentColor] ?? {
+    hex: 'text-cyan-400/90', bot: 'text-cyan-300', bubble: 'bg-cyan-500/20 text-cyan-100 ring-cyan-500/30',
+  };
   const isMobile = useIsMobile();
   const { requestAvatar, releaseAvatar } = useMetaAvatar();
 
