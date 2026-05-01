@@ -7,7 +7,6 @@
  */
 
 export { PersonaSetupWizard } from './PersonaSetupWizard';
-export { PersonaSelector } from './PersonaSelector';
 export { PersonaQuickAddModal } from './PersonaQuickAddModal';
 export { UnlockModal } from './UnlockModal';
 export { TransactionModal } from './TransactionModal';
@@ -17,19 +16,3 @@ export { PersonaEditModal } from './PersonaEditModal';
 // ExternalWalletConnect is SSR-unsafe (wagmi/walletconnect use window at module level).
 // Import it only via next/dynamic({ ssr: false }) — see SmartWalletDrawer.tsx.
 
-// Also export default imports as named exports for compatibility
-import PersonaSelectorDefault from './PersonaSelector';
-import PersonaQuickAddModalDefault from './PersonaQuickAddModal';
-import PersonaEditModalDefault from './PersonaEditModal';
-import PersonaSetupWizardDefault from './PersonaSetupWizard';
-import TransactionModalDefault from './TransactionModal';
-import UnlockModalDefault from './UnlockModal';
-
-export { 
-  PersonaSelectorDefault, 
-  PersonaQuickAddModalDefault, 
-  PersonaEditModalDefault, 
-  PersonaSetupWizardDefault, 
-  TransactionModalDefault, 
-  UnlockModalDefault 
-};
