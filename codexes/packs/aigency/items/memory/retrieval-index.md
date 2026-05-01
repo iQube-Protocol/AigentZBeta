@@ -594,3 +594,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-73f4581.md](../build_/COMMITS/COMMIT-73f4581.md)
 - Message: KNYT cart Phase 3b — buy-more-KNYT panel when KNYT rail is short
+
+## Commit `59216d8` — 2026-05-01T02:56:02Z
+- Type: `chore`
+- Brief: [COMMIT-59216d8.md](../build_/COMMITS/COMMIT-59216d8.md)
+- Message: chore: update next-env.d.ts — remove stale navigation compat reference
