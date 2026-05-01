@@ -629,3 +629,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-37757fa.md](../build_/COMMITS/COMMIT-37757fa.md)
 - Message: fix episode-0 GN upload: allow episodeNumber 0 in validation + handle non-JSON error responses
+
+## Commit `738b6cc` — 2026-05-01T14:30:15Z
+- Type: `fix`
+- Brief: [COMMIT-738b6cc.md](../build_/COMMITS/COMMIT-738b6cc.md)
+- Message: fix: migrate remaining persona ID reads to usePersonaSafe() context
