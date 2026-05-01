@@ -88,7 +88,7 @@ export const RAIL_CONFIG = {
 };
 
 /** Payment rail types */
-export type PaymentRail = 'qc' | 'knyt' | 'usdc' | 'paypal';
+export type PaymentRail = 'qc' | 'knyt' | 'knyt_evm' | 'usdc' | 'paypal';
 
 // Base prices in KNYT for different content types (Phase 1 SKUs)
 const BASE_PRICES: Record<ContentType, number> = {

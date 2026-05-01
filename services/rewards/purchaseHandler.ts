@@ -14,6 +14,7 @@ import { getRewardService, RewardTaskType } from './rewardService';
 import { emitCampaignEvent } from '@/services/campaign/campaignService';
 import { getEntitlementService } from './entitlementService';
 import { getMultiRailPricing, PaymentRail, ContentType } from '../wallet/knyt/knytPricingService';
+import { verifyEvmKnytTransfer } from '../wallet/knyt/evmKnytService';
 
 // =============================================================================
 // TYPES
@@ -93,9 +94,22 @@ export class PurchaseHandler {
       
       // Get pricing for the payment rail
       const pricing = getMultiRailPricing('purchase', productType as ContentType);
-      const railPricing = pricing.rails[paymentRail];
-      
-      // 2. Guard: require sufficient KNYT balance for KNYT rail
+      // knyt_evm uses the same KNYT pricing as the DVN knyt rail
+      const effectiveRailKey = paymentRail === 'knyt_evm' ? 'knyt' : paymentRail;
+      const railPricing = pricing.rails[effectiveRailKey as keyof typeof pricing.rails];
+
+      // 2a. Guard: verify on-chain EVM KNYT transfer for knyt_evm rail
+      if (paymentRail === 'knyt_evm') {
+        if (!paymentReference || !/^0x[0-9a-fA-F]{64}$/.test(paymentReference)) {
+          return { success: false, error: 'Valid EVM transaction hash required' };
+        }
+        const verification = await verifyEvmKnytTransfer(paymentReference, railPricing.price);
+        if (!verification.verified) {
+          return { success: false, error: verification.error || 'EVM KNYT transaction verification failed' };
+        }
+      }
+
+      // 2b. Guard: require sufficient DVN KNYT balance for knyt rail
       if (paymentRail === 'knyt') {
         const { data: balanceRow, error: balanceError } = await this.supabase
           .from('wallet_balances')
@@ -139,6 +153,7 @@ export class PurchaseHandler {
       }
       
       // 3. Record wallet transaction (for KNYT/Q¢ payments)
+      // knyt_evm: KNYT went directly to treasury on-chain — no DVN balance to deduct
       if (paymentRail === 'knyt' || paymentRail === 'qc') {
         await this.recordWalletTransaction(personaId, purchase.id, railPricing.price, railPricing.currency, productType);
       }
