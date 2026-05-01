@@ -614,3 +614,18 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-e44f7f6.md](../build_/COMMITS/COMMIT-e44f7f6.md)
 - Message: fix Brave compatibility — storage guards, fetch timeouts, static fallbacks
+
+## Commit `f0315bc` — 2026-05-01T14:00:19Z
+- Type: `fix`
+- Brief: [COMMIT-f0315bc.md](../build_/COMMITS/COMMIT-f0315bc.md)
+- Message: fix: KNYT store sign-in gate, balance flicker, and EVM KNYT display
+
+## Commit `a3536fd` — 2026-05-01T14:06:19Z
+- Type: `feat`
+- Brief: [COMMIT-a3536fd.md](../build_/COMMITS/COMMIT-a3536fd.md)
+- Message: add asset detail drilldown to Codex Manager dashboard
+
+## Commit `37757fa` — 2026-05-01T14:17:25Z
+- Type: `fix`
+- Brief: [COMMIT-37757fa.md](../build_/COMMITS/COMMIT-37757fa.md)
+- Message: fix episode-0 GN upload: allow episodeNumber 0 in validation + handle non-JSON error responses

@@ -885,15 +885,75 @@ function StatCard({ label, value, badge }: { label: string; value: number; badge
   );
 }
 
-function AssetCard({ icon: Icon, label, count, iconColor }: { icon: React.ComponentType<{ className?: string }>; label: string; count: number; iconColor: string }) {
+function AssetCard({
+  icon: Icon,
+  label,
+  count,
+  iconColor,
+  onClick,
+  active,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  count: number;
+  iconColor: string;
+  onClick?: () => void;
+  active?: boolean;
+}) {
+  const baseClasses = `flex flex-col items-center gap-2 rounded-xl border p-4 transition-colors ${
+    active
+      ? 'border-teal-400/60 bg-slate-800'
+      : 'border-white/5 bg-slate-800/50'
+  }`;
+  if (!onClick) {
+    return (
+      <div className={baseClasses}>
+        <Icon className={`h-6 w-6 ${iconColor}`} />
+        <p className="text-xs text-slate-400">{label}</p>
+        <p className="text-xl font-bold text-white">{count}</p>
+      </div>
+    );
+  }
   return (
-    <div className="flex flex-col items-center gap-2 rounded-xl border border-white/5 bg-slate-800/50 p-4">
+    <button
+      type="button"
+      onClick={onClick}
+      className={`${baseClasses} text-left hover:border-teal-400/40 hover:bg-slate-800`}
+      aria-pressed={active}
+    >
       <Icon className={`h-6 w-6 ${iconColor}`} />
       <p className="text-xs text-slate-400">{label}</p>
       <p className="text-xl font-bold text-white">{count}</p>
-    </div>
+    </button>
   );
 }
+
+type AssetCategory = 'episode-masters' | 'covers' | 'characters' | 'lore' | 'game' | 'social';
+
+interface CategoryAssetRow {
+  id: string;
+  title: string | null;
+  episodeNumber: number | null;
+  assetKind: string;
+  contentType?: string;
+  editionTier?: string | null;
+  rarityTier?: string | null;
+  cid: string | null;
+  thumbUrl?: string | null;
+  mimeType?: string | null;
+  variantName?: string | null;
+  pdfLiteUrl?: string | null;
+  createdAt?: string | null;
+}
+
+const CATEGORY_LABELS: Record<AssetCategory, string> = {
+  'episode-masters': 'Episode Masters',
+  covers:            'Covers',
+  characters:        'Characters',
+  lore:              'Lore Docs',
+  game:              'Game Assets',
+  social:            'Social Media',
+};
 
 function CodexManager() {
   const [activeTab,    setActiveTab]    = useState<CodexSeries>('knyt');
@@ -904,6 +964,13 @@ function CodexManager() {
   const [uploadOpen,   setUploadOpen]   = useState(false);
   const [importing,    setImporting]    = useState(false);
   const importRef      = useRef<HTMLInputElement>(null);
+
+  // Asset-detail drilldown state
+  const [detailCategory, setDetailCategory] = useState<AssetCategory | null>(null);
+  const [detailRows,     setDetailRows]     = useState<CategoryAssetRow[]>([]);
+  const [detailLoading,  setDetailLoading]  = useState(false);
+  const [detailError,    setDetailError]    = useState<string | null>(null);
+  const [copiedCid,      setCopiedCid]      = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -923,6 +990,40 @@ function CodexManager() {
   }, [activeTab]);
 
   useEffect(() => { void load(); }, [load]);
+
+  // Reset detail panel when switching series
+  useEffect(() => { setDetailCategory(null); setDetailRows([]); }, [activeTab]);
+
+  const handleCardClick = useCallback(async (category: AssetCategory) => {
+    if (detailCategory === category) {
+      setDetailCategory(null);
+      setDetailRows([]);
+      return;
+    }
+    setDetailCategory(category);
+    setDetailLoading(true);
+    setDetailError(null);
+    try {
+      const series = activeTab === 'knyt' ? 'metaKnyts' : 'qriptopian';
+      const res = await fetch(`/api/admin/codex/assets-by-category?series=${series}&category=${category}`);
+      const json = await res.json() as { assets?: CategoryAssetRow[]; error?: string };
+      if (!res.ok) throw new Error(json.error ?? 'Failed to load assets');
+      setDetailRows(json.assets ?? []);
+    } catch (e) {
+      setDetailError(e instanceof Error ? e.message : 'Failed to load assets');
+      setDetailRows([]);
+    } finally {
+      setDetailLoading(false);
+    }
+  }, [activeTab, detailCategory]);
+
+  const handleCopyCid = useCallback((cid: string) => {
+    if (typeof navigator === 'undefined' || !navigator.clipboard) return;
+    void navigator.clipboard.writeText(cid).then(() => {
+      setCopiedCid(cid);
+      setTimeout(() => setCopiedCid((prev) => (prev === cid ? null : prev)), 1500);
+    });
+  }, []);
 
   const g               = stats;
   const withPrint       = episodes.filter((e) => e.hasPrintRare).length;
@@ -1033,15 +1134,28 @@ function CodexManager() {
             <StatCard label="With Motion Comics"  value={withMotion}      badge={`${g?.totalMotionMasters ?? 0} files`} />
             <StatCard label="With Covers"         value={withCovers}      badge={`${g?.totalCovers ?? 0} variants`} />
           </div>
-          <p className="mb-2 text-xs font-semibold text-slate-300">Asset Categories</p>
+          <p className="mb-2 text-xs font-semibold text-slate-300">Asset Categories <span className="ml-1 text-slate-500 font-normal">(click a card for asset detail)</span></p>
           <div className="mb-4 grid grid-cols-6 gap-2">
-            <AssetCard icon={Video}    label="Episode Masters" count={episodeMasters}           iconColor="text-teal-400" />
-            <AssetCard icon={Image}    label="Covers"          count={g?.totalCovers ?? 0}      iconColor="text-purple-400" />
-            <AssetCard icon={Users}    label="Characters"      count={g?.totalCharacters ?? 0}  iconColor="text-blue-400" />
-            <AssetCard icon={FileText} label="Lore Docs"       count={g?.totalLoreDocs ?? 0}    iconColor="text-amber-400" />
-            <AssetCard icon={Gamepad2} label="Game Assets"     count={g?.totalGameAssets ?? 0}  iconColor="text-green-400" />
-            <AssetCard icon={Share2}   label="Social Media"    count={g?.totalSocialAssets ?? 0} iconColor="text-pink-400" />
+            <AssetCard icon={Video}    label="Episode Masters" count={episodeMasters}            iconColor="text-teal-400"    onClick={() => handleCardClick('episode-masters')} active={detailCategory === 'episode-masters'} />
+            <AssetCard icon={Image}    label="Covers"          count={g?.totalCovers ?? 0}       iconColor="text-purple-400"  onClick={() => handleCardClick('covers')}          active={detailCategory === 'covers'} />
+            <AssetCard icon={Users}    label="Characters"      count={g?.totalCharacters ?? 0}   iconColor="text-blue-400"    onClick={() => handleCardClick('characters')}      active={detailCategory === 'characters'} />
+            <AssetCard icon={FileText} label="Lore Docs"       count={g?.totalLoreDocs ?? 0}     iconColor="text-amber-400"   onClick={() => handleCardClick('lore')}            active={detailCategory === 'lore'} />
+            <AssetCard icon={Gamepad2} label="Game Assets"     count={g?.totalGameAssets ?? 0}   iconColor="text-green-400"   onClick={() => handleCardClick('game')}            active={detailCategory === 'game'} />
+            <AssetCard icon={Share2}   label="Social Media"    count={g?.totalSocialAssets ?? 0} iconColor="text-pink-400"    onClick={() => handleCardClick('social')}          active={detailCategory === 'social'} />
           </div>
+
+          {detailCategory && (
+            <CategoryDetailPanel
+              category={detailCategory}
+              rows={detailRows}
+              loading={detailLoading}
+              error={detailError}
+              copiedCid={copiedCid}
+              onCopyCid={handleCopyCid}
+              onClose={() => { setDetailCategory(null); setDetailRows([]); }}
+            />
+          )}
+
           <div className="flex items-center justify-between rounded-xl border border-white/5 bg-slate-900/60 p-4">
             <div>
               <p className="text-sm font-semibold text-white">Total Assets on Autonomys</p>
@@ -1050,6 +1164,126 @@ function CodexManager() {
             <p className="text-3xl font-bold text-teal-400">{g?.totalAllAssets ?? 0}</p>
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+// ── Category Detail Panel ─────────────────────────────────────────────────────
+
+function CategoryDetailPanel({
+  category,
+  rows,
+  loading,
+  error,
+  copiedCid,
+  onCopyCid,
+  onClose,
+}: {
+  category: AssetCategory;
+  rows: CategoryAssetRow[];
+  loading: boolean;
+  error: string | null;
+  copiedCid: string | null;
+  onCopyCid: (cid: string) => void;
+  onClose: () => void;
+}) {
+  const renderEpisodeLabel = (ep: number | null): string => {
+    if (ep === null || ep === undefined) return '—';
+    // DB convention: 0 = GN, 1 = Episode #0, 2 = Episode #1 … negative = preorder variants
+    if (ep === 0) return 'GN';
+    if (ep < 0)  return `Preorder ${ep}`;
+    return `Ep #${ep - 1}`;
+  };
+
+  const formatCid = (cid: string | null): string => {
+    if (!cid) return '—';
+    if (cid.length <= 18) return cid;
+    return `${cid.slice(0, 10)}…${cid.slice(-6)}`;
+  };
+
+  return (
+    <div className="mb-4 rounded-xl border border-teal-500/20 bg-slate-900/60 p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold text-white">{CATEGORY_LABELS[category]} <span className="ml-2 text-xs font-normal text-slate-400">{rows.length} asset{rows.length === 1 ? '' : 's'}</span></p>
+          <p className="text-xs text-slate-500">Click any CID to copy. Use this to identify each asset and direct what needs to go where.</p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded border border-white/10 bg-slate-800 px-2 py-1 text-xs text-slate-300 hover:bg-slate-700"
+        >
+          Close
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-5 w-5 animate-spin text-teal-400" />
+        </div>
+      ) : error ? (
+        <div className="rounded border border-red-800/40 bg-red-950/20 p-3 text-xs text-red-400">{error}</div>
+      ) : rows.length === 0 ? (
+        <div className="rounded border border-white/5 bg-slate-800/40 p-4 text-center text-xs text-slate-400">
+          No assets in this category yet.
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="text-[10px] uppercase tracking-wider text-slate-500">
+              <tr className="border-b border-white/5">
+                <th className="pb-2 pr-3">Thumb</th>
+                <th className="pb-2 pr-3">Title</th>
+                <th className="pb-2 pr-3">Episode</th>
+                <th className="pb-2 pr-3">Kind</th>
+                <th className="pb-2 pr-3">Tier</th>
+                <th className="pb-2 pr-3">Variant</th>
+                <th className="pb-2 pr-3">CID</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => {
+                const tier = row.editionTier ?? row.rarityTier ?? null;
+                return (
+                  <tr key={row.id} className="border-b border-white/5 align-middle">
+                    <td className="py-2 pr-3">
+                      {row.thumbUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={row.thumbUrl} alt={row.title ?? 'thumbnail'} className="h-10 w-10 rounded object-cover border border-white/10" />
+                      ) : (
+                        <div className="flex h-10 w-10 items-center justify-center rounded border border-white/5 bg-slate-800 text-[9px] text-slate-600">none</div>
+                      )}
+                    </td>
+                    <td className="py-2 pr-3 text-slate-200">{row.title ?? <span className="text-slate-500">(untitled)</span>}</td>
+                    <td className="py-2 pr-3 text-slate-300">{renderEpisodeLabel(row.episodeNumber)}</td>
+                    <td className="py-2 pr-3 text-slate-400">{row.assetKind}</td>
+                    <td className="py-2 pr-3 text-slate-400">{tier ?? '—'}</td>
+                    <td className="py-2 pr-3 text-slate-500">{row.variantName ?? '—'}</td>
+                    <td className="py-2 pr-3">
+                      {row.cid ? (
+                        <button
+                          type="button"
+                          onClick={() => onCopyCid(row.cid!)}
+                          title={row.cid}
+                          className={`rounded border px-1.5 py-0.5 font-mono text-[10px] transition-colors ${
+                            copiedCid === row.cid
+                              ? 'border-teal-400/60 bg-teal-500/10 text-teal-300'
+                              : 'border-white/10 bg-slate-800 text-slate-300 hover:bg-slate-700'
+                          }`}
+                        >
+                          {copiedCid === row.cid ? 'copied' : formatCid(row.cid)}
+                        </button>
+                      ) : (
+                        <span className="text-slate-600">—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
