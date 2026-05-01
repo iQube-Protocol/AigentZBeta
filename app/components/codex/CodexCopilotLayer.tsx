@@ -105,7 +105,7 @@ interface CodexCopilotLayerProps {
     walletAddress?: string;
   };
   personaId?: string;
-  accentColor?: 'cyan' | 'fuchsia' | 'rose';
+  accentColor?: 'cyan' | 'fuchsia' | 'rose' | 'amber' | 'emerald';
 }
 
 type CopilotMode = "chat" | "avatar";
@@ -178,6 +178,8 @@ export function CodexCopilotLayer({
     cyan:    { hex: 'text-cyan-400/90',    bot: 'text-cyan-300',    bubble: 'bg-cyan-500/20 text-cyan-100 ring-cyan-500/30' },
     fuchsia: { hex: 'text-fuchsia-400/90', bot: 'text-fuchsia-300', bubble: 'bg-fuchsia-500/20 text-fuchsia-100 ring-fuchsia-500/30' },
     rose:    { hex: 'text-rose-400/90',    bot: 'text-rose-300',    bubble: 'bg-rose-500/20 text-rose-100 ring-rose-500/30' },
+    amber:   { hex: 'text-amber-400/90',   bot: 'text-amber-300',   bubble: 'bg-amber-500/20 text-amber-100 ring-amber-500/30' },
+    emerald: { hex: 'text-emerald-400/90', bot: 'text-emerald-300', bubble: 'bg-emerald-500/20 text-emerald-100 ring-emerald-500/30' },
   }[accentColor];
   const isMobile = useIsMobile();
   const { requestAvatar, releaseAvatar } = useMetaAvatar();
