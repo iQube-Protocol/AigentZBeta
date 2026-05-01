@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-04-30T23:03:45.555Z",
+  "last_updated": "2026-05-01T02:57:43.908Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "73f458158c5a80667aa1ec7593eb51edf622c07e",
-  "latest_commit_short": "73f4581",
-  "latest_commit_title": "KNYT cart Phase 3b — buy-more-KNYT panel when KNYT rail is short",
+  "latest_commit": "59216d8665642b76d5df47f402d19fea18c6a4f6",
+  "latest_commit_short": "59216d8",
+  "latest_commit_title": "chore: update next-env.d.ts — remove stale navigation compat reference",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "59216d8",
+      "full_sha": "59216d8665642b76d5df47f402d19fea18c6a4f6",
+      "title": "chore: update next-env.d.ts — remove stale navigation compat reference",
+      "author": "Claude",
+      "timestamp": "2026-05-01T02:56:02Z",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-59216d8.md"
+    },
     {
       "sha": "73f4581",
       "full_sha": "73f458158c5a80667aa1ec7593eb51edf622c07e",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T11:20:40Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-c87dfd5.md"
-    },
-    {
-      "sha": "d61ac02",
-      "full_sha": "d61ac0224bb641949adc407a4b74f61ea4d1de31",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-24T10:42:22Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-d61ac02.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
