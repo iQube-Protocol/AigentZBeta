@@ -609,3 +609,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-e7b0bda.md](../build_/COMMITS/COMMIT-e7b0bda.md)
 - Message: fix: SmartWalletDrawer hook-order TDZ — declare archived-persona useState before allAvailablePersonas useMemo
+
+## Commit `e44f7f6` — 2026-05-01T06:44:19Z
+- Type: `fix`
+- Brief: [COMMIT-e44f7f6.md](../build_/COMMITS/COMMIT-e44f7f6.md)
+- Message: fix Brave compatibility — storage guards, fetch timeouts, static fallbacks
