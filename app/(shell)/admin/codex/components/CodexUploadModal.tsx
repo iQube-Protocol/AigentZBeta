@@ -9,6 +9,7 @@ import {
   Gamepad2,
   Image,
   Loader2,
+  Package,
   Share2,
   Sparkles,
   Upload,
@@ -20,9 +21,9 @@ import {
 // ── Types ────────────────────────────────────────────────────────────────────
 
 type CodexTab = 'knyt' | 'qriptopian';
-type UploadCategory = 'master' | 'print' | 'cover' | 'motion-covers' | 'character' | 'lore' | 'game' | 'social';
+type UploadCategory = 'master' | 'print' | 'cover' | 'motion-covers' | 'character' | 'lore' | 'game' | 'social' | 'bundle';
 type MasterContentType = 'episode_still' | 'episode_motion' | 'episode_print';
-type EditionTier = 'rare' | 'epic' | 'legendary';
+type EditionTier = 'rare' | 'epic' | 'legendary' | 'common';
 type DisplayMode = 'pdf' | 'image' | 'video' | 'text_extract';
 type CodexAssetKind =
   | 'character_poster'
@@ -36,7 +37,8 @@ type CodexAssetKind =
   | 'social_campaign_image'
   | 'cover_pdf'
   | 'cover_image'
-  | 'cover_motion';
+  | 'cover_motion'
+  | 'bundle_pack';
 
 interface UploadItem {
   id: string;
@@ -153,6 +155,13 @@ const ASSET_CATEGORIES: {
       { value: 'social_campaign_video', label: 'Campaign Video', accept: '.mp4,.webm' },
     ],
   },
+  {
+    id: 'bundle',
+    label: 'Bundles',
+    icon: Package,
+    description: 'Bundle packs combining multiple assets (cover or hero artwork)',
+    assetKinds: [{ value: 'bundle_pack', label: 'Bundle Pack', accept: '.png,.jpg,.jpeg,.webp,.pdf' }],
+  },
 ];
 
 const RARITY_TIERS = [
@@ -163,6 +172,7 @@ const RARITY_TIERS = [
 ];
 
 const EDITION_TIERS = [
+  { value: 'common' as EditionTier, label: 'Common', color: 'text-gray-400' },
   { value: 'rare' as EditionTier, label: 'Rare', color: 'text-blue-400' },
   { value: 'epic' as EditionTier, label: 'Epic', color: 'text-purple-400' },
   { value: 'legendary' as EditionTier, label: 'Legendary', color: 'text-amber-400' },
@@ -214,6 +224,10 @@ function UploadQueueItem({ item, category, onUpdate, onRemove }: QueueItemProps)
   const isMaster = item.category === 'master';
   const isPrint = item.category === 'print';
   const isLore = item.category === 'lore';
+  const isCharacter = item.category === 'character';
+  // Motion Comics (master), Print and Characters all expose the same Common/Rare/Epic/Legendary
+  // tier dropdown so the operator can flag the upload's edition tier alongside the asset.
+  const showEditionTier = isPrint || isMaster || isCharacter;
 
   const borderColor =
     item.status === 'success' ? 'border-green-500/30 bg-green-500/10' :
@@ -264,11 +278,12 @@ function UploadQueueItem({ item, category, onUpdate, onRemove }: QueueItemProps)
               </select>
             )}
 
-            {item.status === 'pending' && isPrint && (
+            {item.status === 'pending' && showEditionTier && (
               <select
-                value={item.editionTier ?? 'rare'}
+                value={item.editionTier ?? (isPrint ? 'rare' : 'common')}
                 onChange={(e) => onUpdate({ editionTier: e.target.value as EditionTier })}
                 className="rounded border border-gray-600 bg-gray-700 px-1.5 py-0.5 text-gray-300"
+                title="Edition tier"
               >
                 {EDITION_TIERS.map((t) => (
                   <option key={t.value} value={t.value}>{t.label}</option>
@@ -413,6 +428,7 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
       const isPrint = selectedCategory === 'print';
       const isCover = selectedCategory === 'cover';
       const isLore = selectedCategory === 'lore';
+      const isCharacter = selectedCategory === 'character';
       const defaultKind = currentCategory.assetKinds[0];
 
       const newItems: UploadItem[] = files.map((file, idx) => ({
@@ -423,10 +439,11 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
         masterType: isMaster || isPrint ? (defaultKind.value as MasterContentType) : undefined,
         episodeNumber: selectedEpisode,
         title: file.name.replace(/\.[^/.]+$/, ''),
-        status: 'pending',
+        status: 'pending' as const,
         progress: 0,
         ...(isCover && { variantName: '', rarityTier: 'common' as const, editionMax: 100 }),
         ...(isPrint && { editionTier: 'rare' as EditionTier }),
+        ...((isMaster || isCharacter) && { editionTier: 'common' as EditionTier }),
         ...(isLore && { displayMode: 'text_extract' as DisplayMode }),
       }));
 
@@ -462,7 +479,7 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
       if (item.category === 'master' || item.category === 'print') {
         endpoint = '/api/admin/codex/upload-master';
         formData.append('contentType', item.masterType ?? 'episode_motion');
-        if (item.category === 'print' && item.editionTier) {
+        if (item.editionTier) {
           formData.append('editionTier', item.editionTier);
         }
       } else {
@@ -472,6 +489,11 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
           if (item.variantName) formData.append('variantName', item.variantName);
           if (item.rarityTier) formData.append('rarityTier', item.rarityTier);
           if (item.editionMax) formData.append('editionMax', String(item.editionMax));
+        }
+        // Characters expose an edition-tier dropdown; pass it through as
+        // rarityTier so the asset row carries a Common/Rare/Epic/Legendary flag.
+        if (item.category === 'character' && item.editionTier) {
+          formData.append('rarityTier', item.editionTier);
         }
         if (item.category === 'lore' && item.displayMode) {
           formData.append('displayMode', item.displayMode);
