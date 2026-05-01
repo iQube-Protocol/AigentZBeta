@@ -7,10 +7,17 @@
  */
 
 import { useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { X, Coins, ShoppingCart, Check, Users, Loader2, AlertTriangle, RefreshCw, Plus } from 'lucide-react';
 import { ContentPurchaseModal } from '@/app/triad/components/content/ContentPurchaseModal';
 import { useKnytCart } from '@/app/triad/components/codex/tabs/useKnytCart';
-import { KnytCartDrawer } from '@/app/triad/components/codex/tabs/KnytCartDrawer';
+// Dynamic — keeps KnytCartDrawer (+ KnytCartCheckoutModal, cart APIs) out of the
+// static shared chunk that has historically triggered webpack TDZ
+// (cf. commit eb527f9 — same pattern applied to SmartWalletDrawer / CodexCopilotLayer).
+const KnytCartDrawer = dynamic(
+  () => import('@/app/triad/components/codex/tabs/KnytCartDrawer').then(m => ({ default: m.KnytCartDrawer })),
+  { ssr: false, loading: () => null },
+);
 import type { CartItem } from '@/services/cart';
 import type { EpisodeGroup, KnytCardAsset } from '@/app/hooks/useKnytCards';
 

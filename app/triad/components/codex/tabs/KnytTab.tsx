@@ -220,7 +220,13 @@ import { LoreTextReader } from "@/app/triad/components/content/LoreTextReader";
 import { ContentPurchaseModal, type ContentType } from "@/app/triad/components/content/ContentPurchaseModal";
 import { KnytCardsGrid } from "@/app/triad/components/content/KnytCardsGrid";
 import { useKnytCart } from "@/app/triad/components/codex/tabs/useKnytCart";
-import { KnytCartDrawer } from "@/app/triad/components/codex/tabs/KnytCartDrawer";
+// Dynamic — keeps KnytCartDrawer (+ KnytCartCheckoutModal, cart APIs) out of the
+// static shared chunk that has historically triggered webpack TDZ
+// (cf. commit eb527f9 — same pattern applied to SmartWalletDrawer / CodexCopilotLayer).
+const KnytCartDrawer = dynamic(
+  () => import("@/app/triad/components/codex/tabs/KnytCartDrawer").then(m => ({ default: m.KnytCartDrawer })),
+  { ssr: false, loading: () => null },
+);
 import type { CartItem } from "@/services/cart";
 import { CoverImage } from "@/app/triad/components/content/CoverImage";
 const SmartWalletDrawer = dynamic(() => import("@/app/components/content/SmartWalletDrawer"), { ssr: false });
