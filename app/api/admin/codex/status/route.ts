@@ -67,6 +67,7 @@ interface GlobalStats {
   totalLoreDocs: number;
   totalGameAssets: number;
   totalSocialAssets: number;
+  totalRaBadges: number;
   totalAllAssets: number;
 }
 
@@ -518,6 +519,7 @@ if (series === 'metaKnyts') {
       totalLoreDocs: dbStats.total_lore_docs || 0,
       totalGameAssets: dbStats.total_game_assets || 0,
       totalSocialAssets: dbStats.total_social_assets || 0,
+      totalRaBadges: dbStats.total_ra_badges || 0,
       totalAllAssets: dbStats.total_all_assets || 0,
     } : {
       // Fallback if DB function not available
@@ -539,6 +541,7 @@ if (series === 'metaKnyts') {
       totalSocialAssets: (assetCountRows?.filter(a =>
         ['social_campaign_video', 'social_campaign_image'].includes(a.asset_kind)
       ) ?? []).length,
+      totalRaBadges: (assetCountRows?.filter(a => a.asset_kind === 'ra_badge') ?? []).length,
       totalAllAssets: assetCountRows?.length || 0,
     };
 

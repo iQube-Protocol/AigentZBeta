@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from 'react';
 import {
   AlertCircle,
+  Award,
   BookOpen,
   CheckCircle,
   FileText,
@@ -21,7 +22,7 @@ import {
 // ── Types ────────────────────────────────────────────────────────────────────
 
 type CodexTab = 'knyt' | 'qriptopian';
-type UploadCategory = 'master' | 'print' | 'cover' | 'motion-covers' | 'character' | 'lore' | 'game' | 'social' | 'bundle';
+type UploadCategory = 'master' | 'print' | 'cover' | 'motion-covers' | 'character' | 'lore' | 'game' | 'social' | 'bundle' | 'rabadges';
 type MasterContentType = 'episode_still' | 'episode_motion' | 'episode_print';
 type EditionTier = 'rare' | 'epic' | 'legendary' | 'common';
 type DisplayMode = 'pdf' | 'image' | 'video' | 'text_extract';
@@ -38,7 +39,8 @@ type CodexAssetKind =
   | 'cover_pdf'
   | 'cover_image'
   | 'cover_motion'
-  | 'bundle_pack';
+  | 'bundle_pack'
+  | 'ra_badge';
 
 interface UploadItem {
   id: string;
@@ -162,6 +164,13 @@ const ASSET_CATEGORIES: {
     description: 'Bundle packs combining multiple assets (cover or hero artwork)',
     assetKinds: [{ value: 'bundle_pack', label: 'Bundle Pack', accept: '.png,.jpg,.jpeg,.webp,.pdf' }],
   },
+  {
+    id: 'rabadges',
+    label: 'RaBadges',
+    icon: Award,
+    description: 'Rarity badges (Common / Rare / Epic / Legendary)',
+    assetKinds: [{ value: 'ra_badge', label: 'RaBadge', accept: '.png,.jpg,.jpeg,.webp,.svg' }],
+  },
 ];
 
 const RARITY_TIERS = [
@@ -225,9 +234,11 @@ function UploadQueueItem({ item, category, onUpdate, onRemove }: QueueItemProps)
   const isPrint = item.category === 'print';
   const isLore = item.category === 'lore';
   const isCharacter = item.category === 'character';
-  // Motion Comics (master), Print and Characters all expose the same Common/Rare/Epic/Legendary
-  // tier dropdown so the operator can flag the upload's edition tier alongside the asset.
-  const showEditionTier = isPrint || isMaster || isCharacter;
+  const isRaBadge = item.category === 'rabadges';
+  // Motion Comics (master), Print, Characters and RaBadges all expose the same
+  // Common/Rare/Epic/Legendary tier dropdown so the operator can flag the
+  // upload's edition/rarity tier alongside the asset.
+  const showEditionTier = isPrint || isMaster || isCharacter || isRaBadge;
 
   const borderColor =
     item.status === 'success' ? 'border-green-500/30 bg-green-500/10' :
@@ -429,6 +440,7 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
       const isCover = selectedCategory === 'cover';
       const isLore = selectedCategory === 'lore';
       const isCharacter = selectedCategory === 'character';
+      const isRaBadge = selectedCategory === 'rabadges';
       const defaultKind = currentCategory.assetKinds[0];
 
       const newItems: UploadItem[] = files.map((file, idx) => ({
@@ -443,7 +455,7 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
         progress: 0,
         ...(isCover && { variantName: '', rarityTier: 'common' as const, editionMax: 100 }),
         ...(isPrint && { editionTier: 'rare' as EditionTier }),
-        ...((isMaster || isCharacter) && { editionTier: 'common' as EditionTier }),
+        ...((isMaster || isCharacter || isRaBadge) && { editionTier: 'common' as EditionTier }),
         ...(isLore && { displayMode: 'text_extract' as DisplayMode }),
       }));
 
@@ -490,9 +502,10 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
           if (item.rarityTier) formData.append('rarityTier', item.rarityTier);
           if (item.editionMax) formData.append('editionMax', String(item.editionMax));
         }
-        // Characters expose an edition-tier dropdown; pass it through as
-        // rarityTier so the asset row carries a Common/Rare/Epic/Legendary flag.
-        if (item.category === 'character' && item.editionTier) {
+        // Characters and RaBadges expose an edition-tier dropdown; pass it
+        // through as rarityTier so the asset row carries a Common/Rare/Epic/
+        // Legendary flag.
+        if ((item.category === 'character' || item.category === 'rabadges') && item.editionTier) {
           formData.append('rarityTier', item.editionTier);
         }
         if (item.category === 'lore' && item.displayMode) {
@@ -691,21 +704,39 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
           <div className="flex items-center justify-between border-t border-gray-700 bg-gray-800/50 px-6 py-4">
             <div className="flex items-center gap-4 text-sm">
               {pendingCount > 0 && <span className="text-gray-400">{pendingCount} pending</span>}
-              {successCount > 0 && <span className="text-green-400">{successCount} uploaded</span>}
-              {errorCount > 0 && <span className="text-red-400">{errorCount} failed</span>}
-            </div>
-            <button
-              type="button"
-              onClick={uploadAll}
-              disabled={isUploading || pendingCount === 0}
-              className="flex items-center gap-2 rounded-lg bg-cyan-500 px-6 py-2 font-medium text-white transition-colors hover:bg-cyan-600 disabled:cursor-not-allowed disabled:bg-gray-600"
-            >
-              {isUploading ? (
-                <><Loader2 className="h-4 w-4 animate-spin" /> Uploading...</>
-              ) : (
-                <><Upload className="h-4 w-4" /> Upload All ({pendingCount})</>
+              {successCount > 0 && (
+                <span className="flex items-center gap-1 text-green-400">
+                  <CheckCircle className="h-4 w-4" /> {successCount} uploaded
+                </span>
               )}
-            </button>
+              {errorCount > 0 && (
+                <span className="flex items-center gap-1 text-red-400">
+                  <AlertCircle className="h-4 w-4" /> {errorCount} failed
+                </span>
+              )}
+            </div>
+            {pendingCount > 0 || isUploading ? (
+              <button
+                type="button"
+                onClick={uploadAll}
+                disabled={isUploading || pendingCount === 0}
+                className="flex items-center gap-2 rounded-lg bg-cyan-500 px-6 py-2 font-medium text-white transition-colors hover:bg-cyan-600 disabled:cursor-not-allowed disabled:bg-gray-600"
+              >
+                {isUploading ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> Uploading...</>
+                ) : (
+                  <><Upload className="h-4 w-4" /> Upload All ({pendingCount})</>
+                )}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex items-center gap-2 rounded-lg bg-cyan-500 px-6 py-2 font-medium text-white transition-colors hover:bg-cyan-600"
+              >
+                <CheckCircle className="h-4 w-4" /> Done
+              </button>
+            )}
           </div>
         )}
       </div>

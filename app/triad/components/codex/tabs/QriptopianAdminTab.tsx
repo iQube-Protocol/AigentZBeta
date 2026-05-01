@@ -6,7 +6,9 @@ import {
   Activity,
   AlertCircle,
   ArrowLeft,
+  Award,
   BookOpen,
+  Check,
   ChevronRight,
   DollarSign,
   Eye,
@@ -28,6 +30,7 @@ import {
   Upload,
   Users,
   Video,
+  X,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -868,6 +871,7 @@ interface GlobalStats {
   totalLoreDocs: number;
   totalGameAssets: number;
   totalSocialAssets: number;
+  totalRaBadges: number;
   totalAllAssets: number;
 }
 
@@ -928,7 +932,7 @@ function AssetCard({
   );
 }
 
-type AssetCategory = 'episode-masters' | 'covers' | 'characters' | 'lore' | 'game' | 'social';
+type AssetCategory = 'episode-masters' | 'covers' | 'characters' | 'lore' | 'game' | 'social' | 'rabadges';
 
 interface CategoryAssetRow {
   id: string;
@@ -953,7 +957,11 @@ const CATEGORY_LABELS: Record<AssetCategory, string> = {
   lore:              'Lore Docs',
   game:              'Game Assets',
   social:            'Social Media',
+  rabadges:          'RaBadges',
 };
+
+const ALLOWED_TIERS = ['common', 'rare', 'epic', 'legendary'] as const;
+type AllowedTier = typeof ALLOWED_TIERS[number];
 
 function CodexManager() {
   const [activeTab,    setActiveTab]    = useState<CodexSeries>('knyt');
@@ -994,13 +1002,7 @@ function CodexManager() {
   // Reset detail panel when switching series
   useEffect(() => { setDetailCategory(null); setDetailRows([]); }, [activeTab]);
 
-  const handleCardClick = useCallback(async (category: AssetCategory) => {
-    if (detailCategory === category) {
-      setDetailCategory(null);
-      setDetailRows([]);
-      return;
-    }
-    setDetailCategory(category);
+  const refreshDetail = useCallback(async (category: AssetCategory) => {
     setDetailLoading(true);
     setDetailError(null);
     try {
@@ -1015,7 +1017,21 @@ function CodexManager() {
     } finally {
       setDetailLoading(false);
     }
-  }, [activeTab, detailCategory]);
+  }, [activeTab]);
+
+  const handleCardClick = useCallback(async (category: AssetCategory) => {
+    if (detailCategory === category) {
+      setDetailCategory(null);
+      setDetailRows([]);
+      return;
+    }
+    setDetailCategory(category);
+    await refreshDetail(category);
+  }, [detailCategory, refreshDetail]);
+
+  const handleRowSaved = useCallback((updated: CategoryAssetRow) => {
+    setDetailRows((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+  }, []);
 
   const handleCopyCid = useCallback((cid: string) => {
     if (typeof navigator === 'undefined' || !navigator.clipboard) return;
@@ -1095,8 +1111,15 @@ function CodexManager() {
 
       <CodexUploadModal
         isOpen={uploadOpen}
-        onClose={() => setUploadOpen(false)}
-        onUploadComplete={() => { setUploadOpen(false); void load(); }}
+        onClose={() => {
+          setUploadOpen(false);
+          void load();
+          if (detailCategory) void refreshDetail(detailCategory);
+        }}
+        onUploadComplete={() => {
+          void load();
+          if (detailCategory) void refreshDetail(detailCategory);
+        }}
       />
 
       {/* Series tabs */}
@@ -1135,13 +1158,14 @@ function CodexManager() {
             <StatCard label="With Covers"         value={withCovers}      badge={`${g?.totalCovers ?? 0} variants`} />
           </div>
           <p className="mb-2 text-xs font-semibold text-slate-300">Asset Categories <span className="ml-1 text-slate-500 font-normal">(click a card for asset detail)</span></p>
-          <div className="mb-4 grid grid-cols-6 gap-2">
+          <div className="mb-4 grid grid-cols-7 gap-2">
             <AssetCard icon={Video}    label="Episode Masters" count={episodeMasters}            iconColor="text-teal-400"    onClick={() => handleCardClick('episode-masters')} active={detailCategory === 'episode-masters'} />
             <AssetCard icon={Image}    label="Covers"          count={g?.totalCovers ?? 0}       iconColor="text-purple-400"  onClick={() => handleCardClick('covers')}          active={detailCategory === 'covers'} />
             <AssetCard icon={Users}    label="Characters"      count={g?.totalCharacters ?? 0}   iconColor="text-blue-400"    onClick={() => handleCardClick('characters')}      active={detailCategory === 'characters'} />
             <AssetCard icon={FileText} label="Lore Docs"       count={g?.totalLoreDocs ?? 0}     iconColor="text-amber-400"   onClick={() => handleCardClick('lore')}            active={detailCategory === 'lore'} />
             <AssetCard icon={Gamepad2} label="Game Assets"     count={g?.totalGameAssets ?? 0}   iconColor="text-green-400"   onClick={() => handleCardClick('game')}            active={detailCategory === 'game'} />
             <AssetCard icon={Share2}   label="Social Media"    count={g?.totalSocialAssets ?? 0} iconColor="text-pink-400"    onClick={() => handleCardClick('social')}          active={detailCategory === 'social'} />
+            <AssetCard icon={Award}    label="RaBadges"        count={g?.totalRaBadges ?? 0}     iconColor="text-rose-400"    onClick={() => handleCardClick('rabadges')}        active={detailCategory === 'rabadges'} />
           </div>
 
           {detailCategory && (
@@ -1152,6 +1176,7 @@ function CodexManager() {
               error={detailError}
               copiedCid={copiedCid}
               onCopyCid={handleCopyCid}
+              onSaved={handleRowSaved}
               onClose={() => { setDetailCategory(null); setDetailRows([]); }}
             />
           )}
@@ -1171,6 +1196,20 @@ function CodexManager() {
 
 // ── Category Detail Panel ─────────────────────────────────────────────────────
 
+function renderEpisodeLabel(ep: number | null | undefined): string {
+  if (ep === null || ep === undefined) return '—';
+  // DB convention: 0 = GN, 1 = Episode #0, 2 = Episode #1 … negative = preorder variants
+  if (ep === 0) return 'GN';
+  if (ep < 0)  return `Preorder ${ep}`;
+  return `Ep #${ep - 1}`;
+}
+
+function formatCid(cid: string | null): string {
+  if (!cid) return '—';
+  if (cid.length <= 18) return cid;
+  return `${cid.slice(0, 10)}…${cid.slice(-6)}`;
+}
+
 function CategoryDetailPanel({
   category,
   rows,
@@ -1178,6 +1217,7 @@ function CategoryDetailPanel({
   error,
   copiedCid,
   onCopyCid,
+  onSaved,
   onClose,
 }: {
   category: AssetCategory;
@@ -1186,28 +1226,16 @@ function CategoryDetailPanel({
   error: string | null;
   copiedCid: string | null;
   onCopyCid: (cid: string) => void;
+  onSaved: (updated: CategoryAssetRow) => void;
   onClose: () => void;
 }) {
-  const renderEpisodeLabel = (ep: number | null): string => {
-    if (ep === null || ep === undefined) return '—';
-    // DB convention: 0 = GN, 1 = Episode #0, 2 = Episode #1 … negative = preorder variants
-    if (ep === 0) return 'GN';
-    if (ep < 0)  return `Preorder ${ep}`;
-    return `Ep #${ep - 1}`;
-  };
-
-  const formatCid = (cid: string | null): string => {
-    if (!cid) return '—';
-    if (cid.length <= 18) return cid;
-    return `${cid.slice(0, 10)}…${cid.slice(-6)}`;
-  };
-
+  const isMasterTable = category === 'episode-masters';
   return (
     <div className="mb-4 rounded-xl border border-teal-500/20 bg-slate-900/60 p-4">
       <div className="mb-3 flex items-center justify-between">
         <div>
           <p className="text-sm font-semibold text-white">{CATEGORY_LABELS[category]} <span className="ml-2 text-xs font-normal text-slate-400">{rows.length} asset{rows.length === 1 ? '' : 's'}</span></p>
-          <p className="text-xs text-slate-500">Click any CID to copy. Use this to identify each asset and direct what needs to go where.</p>
+          <p className="text-xs text-slate-500">Click any CID to copy. Click <Pencil className="inline h-3 w-3" /> to edit tier{isMasterTable ? '' : ' or variant'} (saved to Supabase — Auto-Drive CID is immutable).</p>
         </div>
         <button
           type="button"
@@ -1240,52 +1268,197 @@ function CategoryDetailPanel({
                 <th className="pb-2 pr-3">Tier</th>
                 <th className="pb-2 pr-3">Variant</th>
                 <th className="pb-2 pr-3">CID</th>
+                <th className="pb-2 pr-3 w-16"></th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => {
-                const tier = row.editionTier ?? row.rarityTier ?? null;
-                return (
-                  <tr key={row.id} className="border-b border-white/5 align-middle">
-                    <td className="py-2 pr-3">
-                      {row.thumbUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={row.thumbUrl} alt={row.title ?? 'thumbnail'} className="h-10 w-10 rounded object-cover border border-white/10" />
-                      ) : (
-                        <div className="flex h-10 w-10 items-center justify-center rounded border border-white/5 bg-slate-800 text-[9px] text-slate-600">none</div>
-                      )}
-                    </td>
-                    <td className="py-2 pr-3 text-slate-200">{row.title ?? <span className="text-slate-500">(untitled)</span>}</td>
-                    <td className="py-2 pr-3 text-slate-300">{renderEpisodeLabel(row.episodeNumber)}</td>
-                    <td className="py-2 pr-3 text-slate-400">{row.assetKind}</td>
-                    <td className="py-2 pr-3 text-slate-400">{tier ?? '—'}</td>
-                    <td className="py-2 pr-3 text-slate-500">{row.variantName ?? '—'}</td>
-                    <td className="py-2 pr-3">
-                      {row.cid ? (
-                        <button
-                          type="button"
-                          onClick={() => onCopyCid(row.cid!)}
-                          title={row.cid}
-                          className={`rounded border px-1.5 py-0.5 font-mono text-[10px] transition-colors ${
-                            copiedCid === row.cid
-                              ? 'border-teal-400/60 bg-teal-500/10 text-teal-300'
-                              : 'border-white/10 bg-slate-800 text-slate-300 hover:bg-slate-700'
-                          }`}
-                        >
-                          {copiedCid === row.cid ? 'copied' : formatCid(row.cid)}
-                        </button>
-                      ) : (
-                        <span className="text-slate-600">—</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+              {rows.map((row) => (
+                <EditableAssetRow
+                  key={row.id}
+                  row={row}
+                  isMasterTable={isMasterTable}
+                  copiedCid={copiedCid}
+                  onCopyCid={onCopyCid}
+                  onSaved={onSaved}
+                />
+              ))}
             </tbody>
           </table>
         </div>
       )}
     </div>
+  );
+}
+
+function EditableAssetRow({
+  row,
+  isMasterTable,
+  copiedCid,
+  onCopyCid,
+  onSaved,
+}: {
+  row: CategoryAssetRow;
+  isMasterTable: boolean;
+  copiedCid: string | null;
+  onCopyCid: (cid: string) => void;
+  onSaved: (updated: CategoryAssetRow) => void;
+}) {
+  const initialTier = (row.editionTier ?? row.rarityTier ?? '') as AllowedTier | '';
+  const [editing, setEditing] = useState(false);
+  const [tier, setTier] = useState<AllowedTier | ''>(initialTier);
+  const [variant, setVariant] = useState<string>(row.variantName ?? '');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const tierLabel = row.editionTier ?? row.rarityTier ?? null;
+
+  const beginEdit = () => {
+    setTier((row.editionTier ?? row.rarityTier ?? '') as AllowedTier | '');
+    setVariant(row.variantName ?? '');
+    setSaveError(null);
+    setEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setEditing(false);
+    setSaveError(null);
+  };
+
+  const saveEdit = async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const body: Record<string, unknown> = {
+        id: row.id,
+        table: isMasterTable ? 'master_content_qubes' : 'codex_media_assets',
+      };
+      if (isMasterTable) {
+        body.editionTier = tier === '' ? null : tier;
+      } else {
+        body.rarityTier = tier === '' ? null : tier;
+        body.variantName = variant.trim() === '' ? null : variant.trim();
+      }
+      const res = await fetch('/api/admin/codex/asset-metadata', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error ?? `Save failed (${res.status})`);
+      const updated: CategoryAssetRow = {
+        ...row,
+        editionTier: isMasterTable ? (tier === '' ? null : tier) : row.editionTier,
+        rarityTier:  !isMasterTable ? (tier === '' ? null : tier) : row.rarityTier,
+        variantName: !isMasterTable ? (variant.trim() === '' ? null : variant.trim()) : row.variantName,
+      };
+      onSaved(updated);
+      setEditing(false);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <tr className="border-b border-white/5 align-middle">
+      <td className="py-2 pr-3">
+        {row.thumbUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={row.thumbUrl} alt={row.title ?? 'thumbnail'} className="h-10 w-10 rounded object-cover border border-white/10" />
+        ) : (
+          <div className="flex h-10 w-10 items-center justify-center rounded border border-white/5 bg-slate-800 text-[9px] text-slate-600">none</div>
+        )}
+      </td>
+      <td className="py-2 pr-3 text-slate-200">{row.title ?? <span className="text-slate-500">(untitled)</span>}</td>
+      <td className="py-2 pr-3 text-slate-300">{renderEpisodeLabel(row.episodeNumber)}</td>
+      <td className="py-2 pr-3 text-slate-400">{row.assetKind}</td>
+      <td className="py-2 pr-3">
+        {editing ? (
+          <select
+            value={tier}
+            onChange={(e) => setTier(e.target.value as AllowedTier | '')}
+            disabled={saving}
+            className="rounded border border-slate-600 bg-slate-800 px-1.5 py-0.5 text-xs text-slate-200 focus:border-teal-400 focus:outline-none"
+          >
+            <option value="">—</option>
+            {ALLOWED_TIERS.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+        ) : (
+          <span className="text-slate-400">{tierLabel ?? '—'}</span>
+        )}
+      </td>
+      <td className="py-2 pr-3">
+        {editing && !isMasterTable ? (
+          <input
+            type="text"
+            value={variant}
+            onChange={(e) => setVariant(e.target.value)}
+            disabled={saving}
+            placeholder="(none)"
+            className="w-32 rounded border border-slate-600 bg-slate-800 px-1.5 py-0.5 text-xs text-slate-200 focus:border-teal-400 focus:outline-none"
+          />
+        ) : (
+          <span className="text-slate-500">{row.variantName ?? '—'}</span>
+        )}
+      </td>
+      <td className="py-2 pr-3">
+        {row.cid ? (
+          <button
+            type="button"
+            onClick={() => onCopyCid(row.cid!)}
+            title={row.cid}
+            className={`rounded border px-1.5 py-0.5 font-mono text-[10px] transition-colors ${
+              copiedCid === row.cid
+                ? 'border-teal-400/60 bg-teal-500/10 text-teal-300'
+                : 'border-white/10 bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
+            {copiedCid === row.cid ? 'copied' : formatCid(row.cid)}
+          </button>
+        ) : (
+          <span className="text-slate-600">—</span>
+        )}
+      </td>
+      <td className="py-2 pr-3">
+        {editing ? (
+          <div className="flex flex-col items-end gap-0.5">
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => void saveEdit()}
+                disabled={saving}
+                title="Save"
+                className="rounded border border-teal-500/40 bg-teal-500/10 p-1 text-teal-300 hover:bg-teal-500/20 disabled:opacity-50"
+              >
+                {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+              </button>
+              <button
+                type="button"
+                onClick={cancelEdit}
+                disabled={saving}
+                title="Cancel"
+                className="rounded border border-white/10 bg-slate-800 p-1 text-slate-400 hover:bg-slate-700 disabled:opacity-50"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+            {saveError && <p className="text-[10px] text-red-400">{saveError}</p>}
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={beginEdit}
+            title="Edit tier/variant"
+            className="rounded border border-white/10 bg-slate-800 p-1 text-slate-400 hover:bg-slate-700 hover:text-white"
+          >
+            <Pencil className="h-3 w-3" />
+          </button>
+        )}
+      </td>
+    </tr>
   );
 }
 

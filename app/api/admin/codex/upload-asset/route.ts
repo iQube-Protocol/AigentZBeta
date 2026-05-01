@@ -139,6 +139,7 @@ export async function POST(req: NextRequest) {
       'cover_pdf',
       'cover_image',
       'cover_motion',
+      'ra_badge',
     ];
 
     if (!validAssetKinds.includes(metadata.assetKind)) {
