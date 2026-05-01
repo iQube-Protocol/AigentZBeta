@@ -29,10 +29,10 @@ import { SmartContentActionProvider } from "@/app/contexts/SmartContentActionCon
 import { useSmartContentHandler } from "@/app/hooks/useSmartContentAction";
 import { SmartContentActions, hasPlayableContent, hasReadableContent, getPrimaryAction } from "@/app/components/content/SmartContentActions";
 import type { SmartContentItem, ContentModalities, ActionType } from "@/packages/smarttriad/src/types";
-import { 
-  getActivePersonaId, 
+import {
   getPersonasByAuthProfile,
 } from "@/services/wallet/personaService";
+import { usePersonaSafe } from "@/app/contexts/PersonaContext";
 import type { KnytCardAsset, EpisodeGroup } from "@/app/hooks/useKnytCards";
 import type { PersonaQube } from "@/types/persona";
 // Inline Character Detail Page Component to avoid import issues
@@ -514,8 +514,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   // Real-time ETH pricing (exact from Netlify app)
   const { ethPriceUsd, knytPriceUsd, knytEthRate } = useEthPrice();
   
-  // DID Qube persona integration
-  const [activePersonaId, setActivePersonaIdState] = useState<string | null>(null);
+  // DID Qube persona integration — read from context so sign-in via SmartWalletDrawer
+  // propagates immediately (context writes 'currentPersonaId'; the old getActivePersonaId()
+  // read 'active_persona_id' — a different key that never updated reactively).
+  const { activePersonaId } = usePersonaSafe();
   const [personas, setPersonas] = useState<PersonaQube[]>([]);
   const [loadingPersonas, setLoadingPersonas] = useState(true);
   
@@ -636,15 +638,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   useEffect(() => {
     tokenPricingService.initialize();
     
-    // Load active persona and personas list
+    // Load the personas list (activePersonaId now comes from PersonaContext, not localStorage)
     const loadPersonas = async () => {
       try {
         setLoadingPersonas(true);
-        const activeId = getActivePersonaId();
-        if (activeId) {
-          setActivePersonaIdState(activeId);
-        }
-        
         const authProfileId = getAuthProfileIdFromStorage();
         if (authProfileId) {
           const personasList = await getPersonasByAuthProfile(authProfileId);
@@ -2918,6 +2915,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
               priceUsdOverride={purchaseContent.priceUsd}
               knytBalance={balance?.dvnKnyt || 0}
               spendableKnyt={spendableBalance || 0}
+              evmKnyt={balance?.evmKnyt || 0}
               onPurchaseComplete={() => {
                 setPurchaseModalOpen(false);
                 setPurchaseContent(null);
