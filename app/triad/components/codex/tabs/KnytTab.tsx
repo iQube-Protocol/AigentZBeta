@@ -922,7 +922,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       const hasCover = !!(ep.coverThumbUrl || ep.coverImageCid);
       const coverThumb =
         ep.coverThumbUrl ||
-        (ep.coverImageCid ? `${API_BASE_URL}/api/content/cover/${ep.coverImageCid}?variant=thumb` : undefined);
+        (ep.coverImageCid ? `${API_BASE_URL}/api/content/cover/${encodeURIComponent(ep.coverImageCid)}?variant=thumb` : undefined);
       if (hasCover && coverThumb) preorderThumbCandidates.push(coverThumb);
       const motionSource = normalizeVideoSource(
         ep.motionMasterCid ||
@@ -1045,7 +1045,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       type: 'character_portrait' as KnytContentType,
       title: char.name,
       subtitle: 'Character Card',
-      thumbnail: char.front_cid ? `${API_BASE_URL}/api/content/cover/${char.front_cid}?variant=thumb` : undefined,
+      thumbnail: char.front_cid ? `${API_BASE_URL}/api/content/cover/${encodeURIComponent(char.front_cid)}?variant=thumb` : undefined,
       media: { image_cid: char.front_cid },
       metadata: { 
         characterName: char.name, 
@@ -1871,7 +1871,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       type: contentType,
       id: episode.purchaseId || `mk_ep${String(episode.episodeNumber).padStart(2, '0')}`,
       title: episode.title || `Episode ${episode.displayNumber}`,
-      image: episode.coverThumbUrl || (episode.coverImageCid ? `/api/content/cover/${episode.coverImageCid}?variant=thumb` : undefined),
+      image: episode.coverThumbUrl || (episode.coverImageCid ? `/api/content/cover/${encodeURIComponent(episode.coverImageCid)}?variant=thumb` : undefined),
       baseKnyt: explicitPriceKnyt,
       priceUsd: episode.priceUsd ?? (explicitPriceKnyt * 1.4),
     });
@@ -2602,7 +2602,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                                     type: episode.hasMotionMaster ? 'scroll_motion' : 'scroll_still',
                                     id: episode.purchaseId || `mk_ep${String(episode.episodeNumber).padStart(2, '0')}`,
                                     title: episode.title || `Episode ${episode.displayNumber}`,
-                                    image: episode.coverThumbUrl || (episode.coverImageCid ? `/api/content/cover/${episode.coverImageCid}?variant=thumb` : undefined),
+                                    image: episode.coverThumbUrl || (episode.coverImageCid ? `/api/content/cover/${encodeURIComponent(episode.coverImageCid)}?variant=thumb` : undefined),
                                     baseKnyt: priceKnyt ?? 0,
                                     priceUsd,
                                   });

@@ -32,6 +32,11 @@ export async function GET(req: NextRequest, { params }: { params: { cid: string 
     const cid = params.cid;
     if (!cid) return NextResponse.json({ error: 'CID required' }, { status: 400,  });
 
+    // Supabase-hosted asset: cid is the public URL — redirect directly, no decryption
+    if (cid.startsWith('http://') || cid.startsWith('https://')) {
+      return NextResponse.redirect(cid, 302);
+    }
+
     // Find asset in database - check multiple sources
     let asset = (await supabase.from('master_content_qubes')
       .select('id, auto_drive_cid, mime_type, encryption_iv, encryption_auth_tag, token_qube_id, blak_qube_id')

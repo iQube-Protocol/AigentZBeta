@@ -117,6 +117,11 @@ export async function GET(
       return NextResponse.json({ error: 'CID required' }, { status: 400 });
     }
 
+    // Supabase-hosted asset: cid is the public URL — redirect directly, no decryption
+    if (cid.startsWith('http://') || cid.startsWith('https://')) {
+      return NextResponse.redirect(cid, 302);
+    }
+
     // Try master_content_qubes first (where PDFs are stored)
     const { data: master, error: masterError } = await supabase
       .from('master_content_qubes')
