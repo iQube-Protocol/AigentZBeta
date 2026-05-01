@@ -250,7 +250,8 @@ export async function uploadMasterContent(
     .from('master_content_qubes')
     .upsert({
       id,
-      title,
+      title,                  // Auto-Drive label (locked at upload)
+      supabase_title: title,  // editable display title (defaults to upload-time title)
       episode_number: episodeNumber,
       content_type: contentType,
       series,
@@ -380,7 +381,8 @@ export async function uploadCodexMediaAsset(
   const { data, error } = await supabase
     .from('codex_media_assets')
     .insert({
-      title,
+      title,                  // Auto-Drive label (locked at upload)
+      supabase_title: title,  // editable display title (defaults to upload-time title)
       episode_number: episodeNumber,
       asset_kind: assetKind,
       series,

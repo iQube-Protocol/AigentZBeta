@@ -78,7 +78,8 @@ export async function POST(req: NextRequest) {
         .from('master_content_qubes')
         .upsert({
           id,
-          title,
+          title,                  // Auto-Drive label (locked)
+          supabase_title: title,  // editable, defaults to upload-time title
           episode_number: ep,
           content_type: ct,
           series,
@@ -100,7 +101,8 @@ export async function POST(req: NextRequest) {
 
     // codex_media_assets
     const insertRow: Record<string, unknown> = {
-      title,
+      title,                  // Auto-Drive label (locked)
+      supabase_title: title,  // editable, defaults to upload-time title
       episode_number: episodeNumber ?? null,
       asset_kind: assetKind,
       series,
