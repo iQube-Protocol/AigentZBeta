@@ -127,6 +127,7 @@ export default function CodexPanelDynamic({
   } = useCartridgePersonaGuard(codexId);
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(theme === 'light' ? 'light' : 'dark');
   const [marketaCopilotOpen, setMarketaCopilotOpen] = useState(false);
+  const [knytCopilotOpen, setKnytCopilotOpen] = useState(false);
   const normalizedInitialTab = (initialTab || '').trim().toLowerCase();
   const lastAppliedInitialTabRef = useRef<string>("");
 
@@ -701,6 +702,21 @@ export default function CodexPanelDynamic({
           promptPlaceholder="Ask Marketa about campaigns, partners, or content..."
           initialMessage="I'm Marketa — your venture studio copilot. Ask me about the active campaigns, partner activation, content packs, or what to do next."
           quickPrompts={['Campaign status', 'Next email to fire', 'Partner pipeline', 'Write a social post', 'Propose a content pack']}
+        />
+      )}
+      {codexId === 'knyt-codex' && activeTabSlug.startsWith('store-') && (
+        <CodexCopilotLayer
+          isOpen={knytCopilotOpen}
+          onClose={() => setKnytCopilotOpen(false)}
+          onOpen={() => setKnytCopilotOpen(true)}
+          variant="floating"
+          accentColor="amber"
+          agent={{ id: 'aigent-kn0w1', name: 'KNYT Copilot' }}
+          personaId={resolvedPersonaId ?? undefined}
+          enableInferenceRendering
+          contextId={`knyt-${activeTabSlug}`}
+          promptPlaceholder="Ask about episodes, characters, bundles..."
+          quickPrompts={['What episodes are available?', 'Show me bundle deals', 'KNYT Cards explained', 'Investor pricing']}
         />
       )}
     </SmartTriadProvider>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Crown, Film, Lock, Package, Plus, ShoppingCart, Sparkles, User, Zap } from 'lucide-react';
 import {
   BUNDLE_PRICING,
@@ -51,14 +51,27 @@ function KnytPricePill({ basePrice }: { basePrice: number }) {
 /**
  * Adds a small "+ cart" button next to the buy button. When `onAddToCart` is
  * provided, the row renders both. Otherwise it renders just the buy button.
+ * When `isVerified` is false, both buttons are replaced with a locked indicator.
  */
 function InvestorBuyRow({
   onBuy,
   onAddToCart,
+  isVerified,
 }: {
   onBuy: (e: React.MouseEvent) => void;
   onAddToCart?: (e: React.MouseEvent) => void;
+  isVerified: boolean;
 }) {
+  if (!isVerified) {
+    return (
+      <div className="flex items-center gap-1 justify-end">
+        <span className="flex items-center gap-1 rounded-lg border border-yellow-900/40 bg-yellow-950/30 px-2 py-1 text-[10px] text-yellow-700">
+          <Lock className="h-2.5 w-2.5 shrink-0" />
+          Investors only
+        </span>
+      </div>
+    );
+  }
   return (
     <div className="flex items-center gap-1 justify-end">
       <button
@@ -90,12 +103,14 @@ function InvestorBundleCard({
   onBuy,
   onAddToCart,
   getCoverThumb,
+  isVerified,
 }: {
   bundle: BundlePricing;
   onClick: () => void;
   onBuy: (e: React.MouseEvent) => void;
   onAddToCart?: (e: React.MouseEvent) => void;
   getCoverThumb: (n: number) => string | undefined;
+  isVerified: boolean;
 }) {
   const isGnOnly = bundle.episodes.length === 1 && bundle.episodes[0] === -1;
   const cardImage = isGnOnly ? getCoverThumb(-1) ?? INVESTOR_SEAL : INVESTOR_SEAL;
@@ -140,7 +155,7 @@ function InvestorBundleCard({
         </div>
       </button>
       <div className="px-1.5 pb-1.5 pt-0.5">
-        <InvestorBuyRow onBuy={onBuy} onAddToCart={onAddToCart} />
+        <InvestorBuyRow onBuy={onBuy} onAddToCart={onAddToCart} isVerified={isVerified} />
       </div>
     </div>
   );
@@ -152,12 +167,14 @@ function InvestorBundleDetail({
   onAddToCart,
   getCoverThumb,
   getCharacterThumb,
+  isVerified,
 }: {
   bundle: BundlePricing;
   onBuy: () => void;
   onAddToCart?: () => void;
   getCoverThumb: (n: number) => string | undefined;
   getCharacterThumb: (n: number) => string | undefined;
+  isVerified: boolean;
 }) {
   const includedEpisodes = EPISODE_PRICING.filter((ep) => bundle.episodes.includes(ep.episodeNumber));
   const individualTotal = includedEpisodes.reduce((s, ep) => s + ep.digitalPrice, 0);
@@ -227,27 +244,34 @@ function InvestorBundleDetail({
                 Save ${(individualTotal - bundle.digitalPrice).toFixed(0)} vs individually
               </p>
             )}
-            <div className="flex items-center gap-1 mt-1">
-              <button
-                type="button"
-                onClick={onBuy}
-                className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-yellow-700/80 hover:bg-yellow-600 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors"
-                title="Buy now"
-              >
-                <Crown className="h-3.5 w-3.5 shrink-0" />
-                Buy Investor Bundle
-              </button>
-              {onAddToCart && (
+            {isVerified ? (
+              <div className="flex items-center gap-1 mt-1">
                 <button
                   type="button"
-                  onClick={onAddToCart}
-                  className="flex items-center justify-center rounded-lg bg-yellow-800/80 hover:bg-yellow-700 px-2 py-1.5 text-white transition-colors border border-yellow-900/50"
-                  title="Add to cart"
+                  onClick={onBuy}
+                  className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-yellow-700/80 hover:bg-yellow-600 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors"
+                  title="Buy now"
                 >
-                  <Plus className="h-3.5 w-3.5 shrink-0" />
+                  <Crown className="h-3.5 w-3.5 shrink-0" />
+                  Buy Investor Bundle
                 </button>
-              )}
-            </div>
+                {onAddToCart && (
+                  <button
+                    type="button"
+                    onClick={onAddToCart}
+                    className="flex items-center justify-center rounded-lg bg-yellow-800/80 hover:bg-yellow-700 px-2 py-1.5 text-white transition-colors border border-yellow-900/50"
+                    title="Add to cart"
+                  >
+                    <Plus className="h-3.5 w-3.5 shrink-0" />
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 mt-1 rounded-lg border border-yellow-900/40 bg-yellow-950/30 px-3 py-1.5">
+                <Lock className="h-3.5 w-3.5 text-yellow-700 shrink-0" />
+                <span className="text-[11px] text-yellow-700">CRM-verified investors only</span>
+              </div>
+            )}
           </div>
 
           {bundle.isConditional && (
@@ -346,8 +370,17 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
   const [view, setView]         = useState<InvestorView>({ kind: 'landing' });
   const [purchase, setPurchase] = useState<PendingPurchase | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
+  const [isVerified, setIsVerified] = useState<boolean>(false);
   const { getCoverThumb, getCharacterThumb } = useKnytThumbnails();
   const cart = useKnytCart();
+
+  useEffect(() => {
+    if (!personaId) return;
+    fetch(`/api/crm/campaign/investor-status?personaId=${encodeURIComponent(personaId)}`)
+      .then((r) => r.ok ? r.json() : { isInvestor: false })
+      .then((d) => { if (d.isInvestor) setIsVerified(true); })
+      .catch(() => { /* non-fatal — purchase buttons stay locked */ });
+  }, [personaId]);
 
   const detailLabel = view.kind === 'bundle-detail' ? view.bundle.label : null;
 
@@ -425,6 +458,18 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
               </div>
             </div>
 
+            {!isVerified && (
+              <div className="rounded-xl border border-slate-700/40 bg-slate-800/30 px-3 py-2.5 flex items-start gap-2">
+                <Lock className="h-3.5 w-3.5 text-slate-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[11px] font-semibold text-slate-300 mb-0.5">CRM-verified investors</p>
+                  <p className="text-[10px] text-slate-500">
+                    Purchase access is reserved for verified KNYT investors. If you are an investor, sign in with your registered email to unlock pricing.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Graphic Novel investor editions */}
             {gnInvestorBundles.length > 0 && (
               <div className="space-y-2">
@@ -438,6 +483,7 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
                       onBuy={(e) => { e.stopPropagation(); openBundlePurchase(bundle); }}
                       onAddToCart={(e) => { e.stopPropagation(); addBundleToCart(bundle); }}
                       getCoverThumb={getCoverThumb}
+                      isVerified={isVerified}
                     />
                   ))}
                 </div>
@@ -457,6 +503,7 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
                       onBuy={(e) => { e.stopPropagation(); openBundlePurchase(bundle); }}
                       onAddToCart={(e) => { e.stopPropagation(); addBundleToCart(bundle); }}
                       getCoverThumb={getCoverThumb}
+                      isVerified={isVerified}
                     />
                   ))}
                 </div>
@@ -481,6 +528,7 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
             onAddToCart={() => addBundleToCart(view.bundle)}
             getCoverThumb={getCoverThumb}
             getCharacterThumb={getCharacterThumb}
+            isVerified={isVerified}
           />
         )}
       </div>

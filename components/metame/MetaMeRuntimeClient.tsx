@@ -5999,24 +5999,24 @@ export default function MetaMeRuntimeClient() {
           />
         </div>
       )}
-      {/* Persona iQube — left-entering drawer */}
+      {/* Persona iQube — left-entering drawer (z above cartridge overlay at z-[60]) */}
       {personaIQubeDrawer && (
-        <div className="absolute inset-0 z-[55] bg-black/50" onClick={() => setPersonaIQubeDrawer(null)} />
+        <div className="absolute inset-0 z-[65] bg-black/50" onClick={() => setPersonaIQubeDrawer(null)} />
       )}
       <div
-        className={`absolute left-0 top-0 bottom-0 z-[56] w-96 overflow-y-auto transform transition-transform duration-300 ease-in-out ${personaIQubeDrawer ? "translate-x-0" : "-translate-x-full"}`}
+        className={`absolute left-0 top-0 bottom-0 z-[66] w-96 overflow-y-auto transform transition-transform duration-300 ease-in-out ${personaIQubeDrawer ? "translate-x-0" : "-translate-x-full"}`}
         aria-hidden={!personaIQubeDrawer}
       >
         {personaIQubeDrawer && (
           <PersonaIQubeDrawer type={personaIQubeDrawer} onClose={() => setPersonaIQubeDrawer(null)} />
         )}
       </div>
-      {/* Identity iQube — left-entering drawer, z-[57] above persona */}
+      {/* Identity iQube — left-entering drawer, z-[67] above persona */}
       {identityIQubeOpen && (
-        <div className="absolute inset-0 z-[57] bg-black/50" onClick={() => setIdentityIQubeOpen(false)} />
+        <div className="absolute inset-0 z-[67] bg-black/50" onClick={() => setIdentityIQubeOpen(false)} />
       )}
       <div
-        className={`absolute left-0 top-0 bottom-0 z-[58] w-96 overflow-y-auto transform transition-transform duration-300 ease-in-out ${identityIQubeOpen ? "translate-x-0" : "-translate-x-full"}`}
+        className={`absolute left-0 top-0 bottom-0 z-[68] w-96 overflow-y-auto transform transition-transform duration-300 ease-in-out ${identityIQubeOpen ? "translate-x-0" : "-translate-x-full"}`}
         aria-hidden={!identityIQubeOpen}
       >
         {identityIQubeOpen && <IdentityIQubeDrawer onClose={() => setIdentityIQubeOpen(false)} />}

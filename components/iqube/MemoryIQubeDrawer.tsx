@@ -235,10 +235,10 @@ export function MemoryIQubeDrawer({ open, onClose }: Props) {
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 z-[59] bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 z-[69] bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
       {/* Drawer */}
-      <div className="fixed inset-y-0 left-0 z-[60] flex w-full max-w-sm flex-col bg-slate-950/95 border-r border-white/10 shadow-2xl backdrop-blur-xl">
+      <div className="fixed inset-y-0 left-0 z-[70] flex w-full max-w-sm flex-col bg-slate-950/95 border-r border-white/10 shadow-2xl backdrop-blur-xl">
         {/* Header */}
         <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-white/10">
           <div className="flex items-center gap-2">
