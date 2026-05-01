@@ -472,7 +472,10 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
   const uploadItem = async (item: UploadItem) => {
     updateItem(item.id, { status: 'uploading', progress: 10 });
     try {
-      const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
+      const supabase = getSupabaseBrowserClient();
+      // getUser() validates with the server and silently refreshes an expired token
+      await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token ?? null;
       const formData = new FormData();
       formData.append('file', item.file);
