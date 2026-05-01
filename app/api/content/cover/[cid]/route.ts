@@ -49,6 +49,11 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       return withCors(NextResponse.json({ error: 'CID required' }, { status: 400 }));
     }
 
+    // Supabase-hosted asset: cid is the public URL — redirect directly, no decryption
+    if (cid.startsWith('http://') || cid.startsWith('https://')) {
+      return withCors(NextResponse.redirect(cid, 302));
+    }
+
     // Get variant (default to thumb to avoid CloudFront 1MB limit)
     const variant = req.nextUrl.searchParams.get('variant') ?? 'thumb';
     const cacheKey = `${cid}:${variant}`;

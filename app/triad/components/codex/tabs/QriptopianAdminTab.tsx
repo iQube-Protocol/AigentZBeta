@@ -5,6 +5,7 @@ import { CodexUploadModal } from '@/app/(shell)/admin/codex/components/CodexUplo
 import {
   Activity,
   AlertCircle,
+  Archive,
   ArrowLeft,
   Award,
   BookOpen,
@@ -23,6 +24,7 @@ import {
   Pencil,
   Plus,
   RefreshCw,
+  RotateCcw,
   Share2,
   Sparkles,
   Trash2,
@@ -936,7 +938,8 @@ type AssetCategory = 'episode-masters' | 'still-masters' | 'covers' | 'character
 
 interface CategoryAssetRow {
   id: string;
-  title: string | null;
+  title: string | null;          // Auto-Drive title (locked at upload)
+  supabaseTitle?: string | null; // Editable display title used by app
   episodeNumber: number | null;
   assetKind: string;
   contentType?: string;
@@ -948,6 +951,7 @@ interface CategoryAssetRow {
   variantName?: string | null;
   pdfLiteUrl?: string | null;
   createdAt?: string | null;
+  status?: string | null;
 }
 
 const CATEGORY_LABELS: Record<AssetCategory, string> = {
@@ -1000,6 +1004,8 @@ function CodexManager() {
 
   useEffect(() => { void load(); }, [load]);
 
+  const [showArchived, setShowArchived] = useState(false);
+
   // Reset detail panel when switching series
   useEffect(() => { setDetailCategory(null); setDetailRows([]); }, [activeTab]);
 
@@ -1008,7 +1014,8 @@ function CodexManager() {
     setDetailError(null);
     try {
       const series = activeTab === 'knyt' ? 'metaKnyts' : 'qriptopian';
-      const res = await fetch(`/api/admin/codex/assets-by-category?series=${series}&category=${category}`);
+      const archivedParam = showArchived ? '&includeArchived=true' : '';
+      const res = await fetch(`/api/admin/codex/assets-by-category?series=${series}&category=${category}${archivedParam}`);
       const json = await res.json() as { assets?: CategoryAssetRow[]; error?: string };
       if (!res.ok) throw new Error(json.error ?? 'Failed to load assets');
       setDetailRows(json.assets ?? []);
@@ -1018,7 +1025,13 @@ function CodexManager() {
     } finally {
       setDetailLoading(false);
     }
-  }, [activeTab]);
+  }, [activeTab, showArchived]);
+
+  // Re-fetch the open detail panel when the archive toggle flips
+  useEffect(() => {
+    if (detailCategory) void refreshDetail(detailCategory);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showArchived]);
 
   const handleCardClick = useCallback(async (category: AssetCategory) => {
     if (detailCategory === category) {
@@ -1049,7 +1062,8 @@ function CodexManager() {
   const withCovers      = episodes.filter((e) => e.coverCount > 0).length;
   const printFiles      = g ? (g.totalPrintRare + g.totalPrintEpic + g.totalPrintLegendary) : 0;
   const motionMasters   = g?.totalMotionMasters ?? 0;
-  const stillMasters    = g?.totalStillMasters ?? 0;
+  // "Still Episodes" = all non-motion episode masters: episode_still + episode_print
+  const stillMasters    = (g?.totalStillMasters ?? 0) + printFiles;
 
   return (
     <div className="p-4">
@@ -1183,6 +1197,8 @@ function CodexManager() {
               onCopyCid={handleCopyCid}
               onSaved={handleRowSaved}
               onClose={() => { setDetailCategory(null); setDetailRows([]); }}
+              showArchived={showArchived}
+              onToggleArchived={() => setShowArchived((v) => !v)}
             />
           )}
 
@@ -1224,6 +1240,8 @@ function CategoryDetailPanel({
   onCopyCid,
   onSaved,
   onClose,
+  showArchived,
+  onToggleArchived,
 }: {
   category: AssetCategory;
   rows: CategoryAssetRow[];
@@ -1233,22 +1251,35 @@ function CategoryDetailPanel({
   onCopyCid: (cid: string) => void;
   onSaved: (updated: CategoryAssetRow) => void;
   onClose: () => void;
+  showArchived: boolean;
+  onToggleArchived: () => void;
 }) {
   const isMasterTable = category === 'episode-masters' || category === 'still-masters';
   return (
     <div className="mb-4 rounded-xl border border-teal-500/20 bg-slate-900/60 p-4">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-white">{CATEGORY_LABELS[category]} <span className="ml-2 text-xs font-normal text-slate-400">{rows.length} asset{rows.length === 1 ? '' : 's'}</span></p>
-          <p className="text-xs text-slate-500">Click any CID to copy. Click <Pencil className="inline h-3 w-3" /> to edit tier{isMasterTable ? '' : ' or variant'} (saved to Supabase — Auto-Drive CID is immutable).</p>
+          <p className="text-xs text-slate-500">Edit the <span className="text-slate-300">Supabase</span> title (used by app). The <span className="text-slate-300">Auto-Drive</span> title is locked once uploaded. Click any CID to copy. Click <Pencil className="inline h-3 w-3" /> to edit, archive icon to hide.</p>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded border border-white/10 bg-slate-800 px-2 py-1 text-xs text-slate-300 hover:bg-slate-700"
-        >
-          Close
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showArchived}
+              onChange={onToggleArchived}
+              className="h-3 w-3 rounded border-slate-600 bg-slate-800 text-teal-400"
+            />
+            Show archived
+          </label>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded border border-white/10 bg-slate-800 px-2 py-1 text-xs text-slate-300 hover:bg-slate-700"
+          >
+            Close
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -1267,13 +1298,14 @@ function CategoryDetailPanel({
             <thead className="text-[10px] uppercase tracking-wider text-slate-500">
               <tr className="border-b border-white/5">
                 <th className="pb-2 pr-3">Thumb</th>
-                <th className="pb-2 pr-3">Title</th>
+                <th className="pb-2 pr-3">Supabase Title</th>
+                <th className="pb-2 pr-3">Auto-Drive Title</th>
                 <th className="pb-2 pr-3">Episode</th>
                 <th className="pb-2 pr-3">Kind</th>
                 <th className="pb-2 pr-3">Tier</th>
                 <th className="pb-2 pr-3">Variant</th>
                 <th className="pb-2 pr-3">CID</th>
-                <th className="pb-2 pr-3 w-16"></th>
+                <th className="pb-2 pr-3 w-20"></th>
               </tr>
             </thead>
             <tbody>
@@ -1312,14 +1344,18 @@ function EditableAssetRow({
   const [editing, setEditing] = useState(false);
   const [tier, setTier] = useState<AllowedTier | ''>(initialTier);
   const [variant, setVariant] = useState<string>(row.variantName ?? '');
+  const [supabaseTitle, setSupabaseTitle] = useState<string>(row.supabaseTitle ?? row.title ?? '');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [archiving, setArchiving] = useState(false);
 
   const tierLabel = row.editionTier ?? row.rarityTier ?? null;
+  const isArchived = row.status === 'archived';
 
   const beginEdit = () => {
     setTier((row.editionTier ?? row.rarityTier ?? '') as AllowedTier | '');
     setVariant(row.variantName ?? '');
+    setSupabaseTitle(row.supabaseTitle ?? row.title ?? '');
     setSaveError(null);
     setEditing(true);
   };
@@ -1336,6 +1372,7 @@ function EditableAssetRow({
       const body: Record<string, unknown> = {
         id: row.id,
         table: isMasterTable ? 'master_content_qubes' : 'codex_media_assets',
+        supabaseTitle: supabaseTitle.trim() === '' ? null : supabaseTitle.trim(),
       };
       if (isMasterTable) {
         body.editionTier = tier === '' ? null : tier;
@@ -1352,6 +1389,7 @@ function EditableAssetRow({
       if (!res.ok) throw new Error(json?.error ?? `Save failed (${res.status})`);
       const updated: CategoryAssetRow = {
         ...row,
+        supabaseTitle: supabaseTitle.trim() === '' ? null : supabaseTitle.trim(),
         editionTier: isMasterTable ? (tier === '' ? null : tier) : row.editionTier,
         rarityTier:  !isMasterTable ? (tier === '' ? null : tier) : row.rarityTier,
         variantName: !isMasterTable ? (variant.trim() === '' ? null : variant.trim()) : row.variantName,
@@ -1365,17 +1403,57 @@ function EditableAssetRow({
     }
   };
 
+  const toggleArchive = async () => {
+    setArchiving(true);
+    setSaveError(null);
+    try {
+      const next = isArchived ? 'active' : 'archived';
+      const res = await fetch('/api/admin/codex/asset-metadata', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: row.id,
+          table: isMasterTable ? 'master_content_qubes' : 'codex_media_assets',
+          status: next,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error ?? `Archive failed (${res.status})`);
+      onSaved({ ...row, status: next });
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Archive failed');
+    } finally {
+      setArchiving(false);
+    }
+  };
+
   return (
-    <tr className="border-b border-white/5 align-middle">
+    <tr className={`border-b border-white/5 align-middle ${isArchived ? 'opacity-50' : ''}`}>
       <td className="py-2 pr-3">
         {row.thumbUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={row.thumbUrl} alt={row.title ?? 'thumbnail'} className="h-10 w-10 rounded object-cover border border-white/10" />
+          <img src={row.thumbUrl} alt={row.supabaseTitle ?? row.title ?? 'thumbnail'} className="h-10 w-10 rounded object-cover border border-white/10" />
         ) : (
           <div className="flex h-10 w-10 items-center justify-center rounded border border-white/5 bg-slate-800 text-[9px] text-slate-600">none</div>
         )}
       </td>
-      <td className="py-2 pr-3 text-slate-200">{row.title ?? <span className="text-slate-500">(untitled)</span>}</td>
+      <td className="py-2 pr-3 text-slate-200">
+        {editing ? (
+          <input
+            type="text"
+            value={supabaseTitle}
+            onChange={(e) => setSupabaseTitle(e.target.value)}
+            disabled={saving}
+            placeholder="(editable display title)"
+            className="w-48 rounded border border-slate-600 bg-slate-800 px-1.5 py-0.5 text-xs text-slate-200 focus:border-teal-400 focus:outline-none"
+          />
+        ) : (
+          <span className={isArchived ? 'line-through' : ''}>{row.supabaseTitle ?? row.title ?? <span className="text-slate-500">(untitled)</span>}</span>
+        )}
+      </td>
+      <td className="py-2 pr-3 text-slate-500" title="Auto-Drive title is locked at upload time">
+        <span className="text-slate-500">{row.title ?? '—'}</span>
+      </td>
       <td className="py-2 pr-3 text-slate-300">{renderEpisodeLabel(row.episodeNumber)}</td>
       <td className="py-2 pr-3 text-slate-400">{row.assetKind}</td>
       <td className="py-2 pr-3">
@@ -1453,14 +1531,29 @@ function EditableAssetRow({
             {saveError && <p className="text-[10px] text-red-400">{saveError}</p>}
           </div>
         ) : (
-          <button
-            type="button"
-            onClick={beginEdit}
-            title="Edit tier/variant"
-            className="rounded border border-white/10 bg-slate-800 p-1 text-slate-400 hover:bg-slate-700 hover:text-white"
-          >
-            <Pencil className="h-3 w-3" />
-          </button>
+          <div className="flex items-center justify-end gap-1">
+            <button
+              type="button"
+              onClick={beginEdit}
+              title="Edit Supabase title / tier / variant"
+              className="rounded border border-white/10 bg-slate-800 p-1 text-slate-400 hover:bg-slate-700 hover:text-white"
+            >
+              <Pencil className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
+              onClick={() => void toggleArchive()}
+              disabled={archiving}
+              title={isArchived ? 'Unarchive (restore)' : 'Archive (hide from app)'}
+              className={`rounded border p-1 disabled:opacity-50 ${isArchived
+                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'
+                : 'border-white/10 bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-amber-300'
+              }`}
+            >
+              {archiving ? <Loader2 className="h-3 w-3 animate-spin" /> : isArchived ? <RotateCcw className="h-3 w-3" /> : <Archive className="h-3 w-3" />}
+            </button>
+            {saveError && <span className="text-[10px] text-red-400">{saveError}</span>}
+          </div>
         )}
       </td>
     </tr>

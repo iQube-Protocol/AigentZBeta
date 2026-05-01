@@ -37,7 +37,8 @@ const ASSET_KIND_BY_CATEGORY: Record<Exclude<Category, 'episode-masters' | 'stil
 
 interface CategoryAsset {
   id: string;
-  title: string | null;
+  title: string | null;          // Auto-Drive title (locked at upload time)
+  supabaseTitle: string | null;  // Editable display title used by app
   episodeNumber: number | null;
   assetKind: string;
   contentType?: string;     // for episode-masters
@@ -49,12 +50,14 @@ interface CategoryAsset {
   variantName?: string | null;
   pdfLiteUrl?: string | null;
   createdAt?: string | null;
+  status?: string | null;
 }
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const series = searchParams.get('series') || 'metaKnyts';
   const category = (searchParams.get('category') || '') as Category;
+  const includeArchived = searchParams.get('includeArchived') === 'true';
 
   if (!category) {
     return NextResponse.json({ error: 'Missing category' }, { status: 400 });
@@ -65,14 +68,19 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Supabase unavailable' }, { status: 503 });
   }
 
+  const statusFilter = includeArchived ? ['active', 'archived'] : ['active'];
+
   try {
     if (category === 'episode-masters' || category === 'still-masters') {
-      const contentTypeFilter = category === 'episode-masters' ? ['episode_motion'] : ['episode_still'];
+      // Motion = episode_motion only. Still = everything non-motion (still + print).
+      const contentTypeFilter = category === 'episode-masters'
+        ? ['episode_motion']
+        : ['episode_still', 'episode_print'];
       const { data, error } = await supabase
         .from('master_content_qubes')
-        .select('id, episode_number, content_type, edition_tier, title, auto_drive_cid, pdf_lite_url, created_at')
+        .select('id, episode_number, content_type, edition_tier, title, supabase_title, auto_drive_cid, pdf_lite_url, mime_type, status, created_at')
         .eq('series', series)
-        .eq('status', 'active')
+        .in('status', statusFilter)
         .in('content_type', contentTypeFilter)
         .order('episode_number', { ascending: true })
         .order('content_type', { ascending: true });
@@ -82,12 +90,15 @@ export async function GET(req: NextRequest) {
       const assets: CategoryAsset[] = (data ?? []).map((row) => ({
         id: row.id,
         title: row.title,
+        supabaseTitle: row.supabase_title ?? row.title,
         episodeNumber: row.episode_number,
         assetKind: row.content_type,
         contentType: row.content_type,
         editionTier: row.edition_tier,
         cid: row.auto_drive_cid,
         pdfLiteUrl: row.pdf_lite_url,
+        mimeType: row.mime_type,
+        status: row.status,
         createdAt: row.created_at,
       }));
 
@@ -101,9 +112,9 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabase
       .from('codex_media_assets')
-      .select('id, episode_number, asset_kind, title, auto_drive_cid, cover_thumb_url, mime_type, rarity_tier, variant_name, created_at')
+      .select('id, episode_number, asset_kind, title, supabase_title, auto_drive_cid, cover_thumb_url, mime_type, rarity_tier, variant_name, status, created_at')
       .eq('series', series)
-      .eq('status', 'active')
+      .in('status', statusFilter)
       .in('asset_kind', kinds)
       .order('episode_number', { ascending: true, nullsFirst: false })
       .order('asset_kind', { ascending: true })
@@ -115,6 +126,7 @@ export async function GET(req: NextRequest) {
     const assets: CategoryAsset[] = (data ?? []).map((row) => ({
       id: row.id,
       title: row.title,
+      supabaseTitle: row.supabase_title ?? row.title,
       episodeNumber: row.episode_number,
       assetKind: row.asset_kind,
       rarityTier: row.rarity_tier,
@@ -122,6 +134,7 @@ export async function GET(req: NextRequest) {
       thumbUrl: row.cover_thumb_url,
       mimeType: row.mime_type,
       variantName: row.variant_name,
+      status: row.status,
       createdAt: row.created_at,
     }));
 

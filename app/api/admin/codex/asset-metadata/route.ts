@@ -33,11 +33,15 @@ type Tier = typeof ALLOWED_TIERS[number];
 interface PatchBody {
   id?: unknown;
   table?: unknown;
-  title?: unknown;
+  title?: unknown;          // deprecated — kept for backwards compat (now writes supabase_title)
+  supabaseTitle?: unknown;  // editable display title used by app
   rarityTier?: unknown;
   variantName?: unknown;
   editionTier?: unknown;
+  status?: unknown;         // 'active' | 'archived'
 }
+
+const ALLOWED_STATUSES = ['active', 'archived'] as const;
 
 function isTier(v: unknown): v is Tier {
   return typeof v === 'string' && (ALLOWED_TIERS as readonly string[]).includes(v);
@@ -61,11 +65,22 @@ export async function PATCH(req: NextRequest) {
 
   const updates: Record<string, unknown> = {};
 
-  if (body.title !== undefined) {
-    if (body.title !== null && typeof body.title !== 'string') {
+  // Editable display title — writes to supabase_title (auto-drive title is locked).
+  // Accept legacy 'title' field too for backwards compat — but route it to supabase_title.
+  const titleInput = body.supabaseTitle !== undefined ? body.supabaseTitle : body.title;
+  if (titleInput !== undefined) {
+    if (titleInput !== null && typeof titleInput !== 'string') {
       return NextResponse.json({ error: 'title must be a string or null' }, { status: 400 });
     }
-    updates.title = body.title;
+    updates.supabase_title = titleInput;
+  }
+
+  // Archive / unarchive
+  if (body.status !== undefined) {
+    if (typeof body.status !== 'string' || !(ALLOWED_STATUSES as readonly string[]).includes(body.status)) {
+      return NextResponse.json({ error: `status must be one of: ${ALLOWED_STATUSES.join(', ')}` }, { status: 400 });
+    }
+    updates.status = body.status;
   }
 
   if (table === 'codex_media_assets') {
