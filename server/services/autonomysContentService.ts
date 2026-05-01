@@ -55,7 +55,8 @@ export type CodexAssetKind =
   | 'cover_pdf'
   | 'cover_image'
   | 'cover_motion'
-  | 'ra_badge';
+  | 'ra_badge'
+  | 'bundle_pack';
 
 export interface MasterUploadParams {
   file: Buffer;
@@ -547,6 +548,13 @@ export function validateFileType(
     cover_image: ['image/png', 'image/jpeg', 'image/webp'],
     cover_motion: ['video/mp4', 'video/webm', 'video/quicktime'],
     ra_badge: ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'],
+    bundle_pack: [
+      'application/pdf',
+      'application/zip',
+      'application/x-cbz',
+      'image/png', 'image/jpeg', 'image/webp', 'image/svg+xml',
+      'video/mp4', 'video/webm',
+    ],
   };
 
   const allowed = allowedTypes[assetKind];
