@@ -254,6 +254,14 @@ export default function SmartWalletDrawer({
   const { sessionEmail, sessionPersonas, signOut: signOutSession, signIn: signInWithEmail, refreshPersonas } = useSupabaseSessionPersonas();
   const { getCartridgeDefault, setCartridgeDefault } = usePersonaSafe();
 
+  // NOTE: these two useState calls MUST be declared before the allAvailablePersonas
+  // useMemo below, because that hook's dependency array references them.  Moving
+  // them later puts the deps array in TDZ and triggers a production-only
+  // ReferenceError ("Cannot access 'sH' before initialization") in the minified
+  // build.  Do not relocate them without also relocating the useMemo.
+  const [showArchivedPersonas, setShowArchivedPersonas] = useState(false);
+  const [archivedPersonas, setArchivedPersonas] = useState<typeof sessionPersonas>([]);
+
   // Merge session-derived personas with any walletNode personas (session takes precedence, deduped by id)
   const allAvailablePersonas = useMemo((): PersonaState[] => {
     const fromWallet = walletNode?.personaContext?.availablePersonas ?? [];
@@ -301,8 +309,8 @@ export default function SmartWalletDrawer({
   const [sidebarOffset, setSidebarOffset] = useState(64);
   const [copilotQuickPromptsVisible, setCopilotQuickPromptsVisible] = useState(true);
   const [personaMenuOpen, setPersonaMenuOpen] = useState(false);
-  const [showArchivedPersonas, setShowArchivedPersonas] = useState(false);
-  const [archivedPersonas, setArchivedPersonas] = useState<typeof sessionPersonas>([]);
+  // showArchivedPersonas + archivedPersonas are declared earlier (above the
+  // allAvailablePersonas useMemo) so the deps array doesn't hit TDZ in prod.
   const [signingIn, setSigningIn] = useState(false);
   const [confirmDeletePersonaId, setConfirmDeletePersonaId] = useState<string | null>(null);
   const [personaActionPending, setPersonaActionPending] = useState<string | null>(null);
