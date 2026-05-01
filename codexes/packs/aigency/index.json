@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-01T14:08:03.976Z",
+  "last_updated": "2026-05-01T14:19:01.692Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "a3536fd94e1a1ad8508b9539317d46b2808222d6",
-  "latest_commit_short": "a3536fd",
-  "latest_commit_title": "add asset detail drilldown to Codex Manager dashboard",
+  "latest_commit": "37757fa4cdb9694cf9d036c834b5864e4d5e4300",
+  "latest_commit_short": "37757fa",
+  "latest_commit_title": "fix episode-0 GN upload: allow episodeNumber 0 in validation + handle non-JSON error responses",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "37757fa",
+      "full_sha": "37757fa4cdb9694cf9d036c834b5864e4d5e4300",
+      "title": "fix episode-0 GN upload: allow episodeNumber 0 in validation + handle non-JSON error responses",
+      "author": "Claude",
+      "timestamp": "2026-05-01T14:17:25Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-37757fa.md"
+    },
     {
       "sha": "a3536fd",
       "full_sha": "a3536fd94e1a1ad8508b9539317d46b2808222d6",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T16:35:03Z",
       "type": "deploy",
       "brief": "items/build_/COMMITS/COMMIT-25baa2a.md"
-    },
-    {
-      "sha": "86189d2",
-      "full_sha": "86189d24c4f21b39c5bcc186c4ab3c79b53752c3",
-      "title": "fix inspector deployment state reads from mcpExperience not activeExperienceForEditing",
-      "author": "Claude",
-      "timestamp": "2026-03-24T16:31:33Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-86189d2.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
