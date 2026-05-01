@@ -30,7 +30,7 @@ interface UploadAssetRequest {
   paymentSurface?: 'overlay' | 'embedded' | 'liquid';
   // Cover-specific
   variantName?: string;
-  rarityTier?: 'legendary' | 'rare' | 'common';
+  rarityTier?: 'legendary' | 'epic' | 'rare' | 'common';
   editionMax?: number;
   randomWeight?: number;
   // Social-specific

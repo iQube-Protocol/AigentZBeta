@@ -242,10 +242,10 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     ],
   },
 
-  // ── GN investor bundles — 20% off retail, KNYT COYN gives further 20% ───────
+  // ── Agentic Graphic Novel bundles — 20% off retail, KNYT COYN gives further 20% ───────
   {
     id: 'gn-investor-qripto',
-    label: 'GN Qripto — Investor',
+    label: 'Agentic Graphic Novel Qripto',
     episodes: [-1],
     digitalPrice: 62,   // 20% off retail ($78)
     retailPrice:  78,
@@ -257,7 +257,7 @@ export const BUNDLE_PRICING: BundlePricing[] = [
   },
   {
     id: 'gn-investor-digital',
-    label: 'GN Digital — Investor',
+    label: 'Agentic Graphic Novel Digital',
     episodes: [-1],
     digitalPrice: 42,   // 20% off retail ($52)
     retailPrice:  52,
@@ -269,7 +269,7 @@ export const BUNDLE_PRICING: BundlePricing[] = [
   },
   {
     id: 'gn-investor-paperback',
-    label: 'GN Paperback — Investor',
+    label: 'Agentic Graphic Novel Paperback',
     episodes: [-1],
     digitalPrice: 149,  // 20% off retail ($186)
     retailPrice:  186,
@@ -280,7 +280,7 @@ export const BUNDLE_PRICING: BundlePricing[] = [
   },
   {
     id: 'gn-investor-hardcover',
-    label: 'GN Hardcover — Investor',
+    label: 'Agentic Graphic Novel Hardcover',
     episodes: [-1],
     digitalPrice: 168,  // 20% off retail ($210)
     retailPrice:  210,

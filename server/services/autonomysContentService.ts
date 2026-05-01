@@ -40,7 +40,7 @@ function getSupabase() {
 // Types
 export type MasterContentType = 'episode_still' | 'episode_motion' | 'episode_print';
 
-export type EditionTier = 'rare' | 'epic' | 'legendary';
+export type EditionTier = 'rare' | 'epic' | 'legendary' | 'common';
 
 export type CodexAssetKind =
   | 'character_poster'
@@ -84,7 +84,7 @@ export interface CodexAssetUploadParams {
   paymentSurface?: 'overlay' | 'embedded' | 'liquid';
   // Cover-specific
   variantName?: string;
-  rarityTier?: 'legendary' | 'rare' | 'common';
+  rarityTier?: 'legendary' | 'epic' | 'rare' | 'common';
   editionMax?: number;
   randomWeight?: number;
   // Social-specific

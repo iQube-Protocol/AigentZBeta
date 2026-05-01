@@ -40,7 +40,7 @@ interface PendingPurchase {
   hideVersionSelector?: boolean;
 }
 
-// ── GN SKUs — 4 fixed formats (no motion comic for GN) ────────────────────────
+// ── Agentic Graphic Novel SKUs — 4 fixed formats (no motion comic for AGN) ────────
 
 const GN_EP = EPISODE_PRICING.find((e) => e.episodeNumber === -1)!;
 
@@ -54,8 +54,8 @@ interface GNSku {
 }
 
 const GN_SKUS: GNSku[] = [
-  { id: 'gn-qripto',    label: 'GN Qripto',   sublabel: 'Collectible · 1,860 supply', price: GN_EP?.qriptoPrice ?? 78,                layer: 'qripto'  },
-  { id: 'gn-digital',   label: 'GN Digital',  sublabel: 'Digital · Unlimited',        price: GN_EP?.digitalPrice ?? 52,               layer: 'digital' },
+  { id: 'gn-qripto',    label: 'Agentic Graphic Novel Qripto',  sublabel: 'Collectible · 1,860 supply', price: GN_EP?.qriptoPrice ?? 78,                layer: 'qripto'  },
+  { id: 'gn-digital',   label: 'Agentic Graphic Novel Digital', sublabel: 'Digital · Unlimited',        price: GN_EP?.digitalPrice ?? 52,               layer: 'digital' },
   { id: 'gn-paperback', label: 'Paperback',   sublabel: '−1α · Print',               price: GN_EP?.printVariants?.[0]?.price ?? 186, layer: 'print',  printVariant: 'paperback' },
   { id: 'gn-hardcover', label: 'Hardcover',   sublabel: '−1β · Print',               price: GN_EP?.printVariants?.[1]?.price ?? 210, layer: 'print',  printVariant: 'hardcover' },
 ];
@@ -557,7 +557,7 @@ function GNSkuDetail({
           onClick={(e) => { e.stopPropagation(); onBuy({
             contentType: 'scroll_still',
             contentId: `gn-${sku.id}`,
-            contentTitle: `metaKnyt GN — ${sku.label}`,
+            contentTitle: `metaKnyt Agentic Graphic Novel — ${sku.label}`,
             contentImage: thumbUrl,
             priceUsdOverride: sku.price,
             hideVersionSelector: true,
@@ -565,7 +565,7 @@ function GNSkuDetail({
           onAddToCart={onAddToCart && ((e) => { e.stopPropagation(); onAddToCart({
             contentType: 'scroll_still',
             contentId: `gn-${sku.id}`,
-            contentTitle: `metaKnyt GN — ${sku.label}`,
+            contentTitle: `metaKnyt Agentic Graphic Novel — ${sku.label}`,
             contentImage: thumbUrl,
             priceUsdOverride: sku.price,
             hideVersionSelector: true,
@@ -670,7 +670,7 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
             {/* Graphic Novel — 4 SKUs, no motion */}
             <div>
               <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide px-0.5 mb-2">
-                Graphic Novel
+                Agentic Graphic Novel
               </p>
               <div className="grid grid-cols-4 gap-1.5">
                 {GN_SKUS.map((sku) => {
@@ -684,7 +684,7 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
                       onBuy={() => setPurchase({
                         contentType: 'scroll_still',
                         contentId: `gn-${sku.id}`,
-                        contentTitle: `metaKnyt GN — ${sku.label}`,
+                        contentTitle: `metaKnyt Agentic Graphic Novel — ${sku.label}`,
                         contentImage: thumb,
                         priceUsdOverride: sku.price,
                         hideVersionSelector: true,
@@ -692,7 +692,7 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
                       onAddToCart={() => addPendingToCart({
                         contentType: 'scroll_still',
                         contentId: `gn-${sku.id}`,
-                        contentTitle: `metaKnyt GN — ${sku.label}`,
+                        contentTitle: `metaKnyt Agentic Graphic Novel — ${sku.label}`,
                         contentImage: thumb,
                         priceUsdOverride: sku.price,
                         hideVersionSelector: true,

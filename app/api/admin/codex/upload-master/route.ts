@@ -123,9 +123,18 @@ export async function POST(req: NextRequest) {
           error: 'editionTier is required for episode_print content type',
         }, { status: 400 });
       }
-      if (!['rare', 'epic', 'legendary'].includes(metadata.editionTier)) {
+      if (!['rare', 'epic', 'legendary', 'common'].includes(metadata.editionTier)) {
         return NextResponse.json({
-          error: 'Invalid editionTier. Must be rare, epic, or legendary',
+          error: 'Invalid editionTier. Must be common, rare, epic, or legendary',
+        }, { status: 400 });
+      }
+    }
+    // Motion Comics may carry a tier flag as well (Common/Rare/Epic/Legendary).
+    // Validate when provided but don't require it.
+    if (metadata.contentType === 'episode_motion' && metadata.editionTier) {
+      if (!['rare', 'epic', 'legendary', 'common'].includes(metadata.editionTier)) {
+        return NextResponse.json({
+          error: 'Invalid editionTier. Must be common, rare, epic, or legendary',
         }, { status: 400 });
       }
     }
