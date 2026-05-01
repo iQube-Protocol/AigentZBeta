@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-01T14:02:15.204Z",
+  "last_updated": "2026-05-01T14:08:03.976Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "f0315bc42f43174e729bbd4e2fb574229badbe5b",
-  "latest_commit_short": "f0315bc",
-  "latest_commit_title": "fix: KNYT store sign-in gate, balance flicker, and EVM KNYT display",
+  "latest_commit": "a3536fd94e1a1ad8508b9539317d46b2808222d6",
+  "latest_commit_short": "a3536fd",
+  "latest_commit_title": "add asset detail drilldown to Codex Manager dashboard",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a3536fd",
+      "full_sha": "a3536fd94e1a1ad8508b9539317d46b2808222d6",
+      "title": "add asset detail drilldown to Codex Manager dashboard",
+      "author": "Claude",
+      "timestamp": "2026-05-01T14:06:19Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-a3536fd.md"
+    },
     {
       "sha": "f0315bc",
       "full_sha": "f0315bc42f43174e729bbd4e2fb574229badbe5b",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T16:31:33Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-86189d2.md"
-    },
-    {
-      "sha": "51db6d8",
-      "full_sha": "51db6d8b93db2848ee99575017f644e089caa293",
-      "title": "fix inspector showing wrong experience thumbnail on runtime_thin_client switch",
-      "author": "Claude",
-      "timestamp": "2026-03-24T16:21:49Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-51db6d8.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
