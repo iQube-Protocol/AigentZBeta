@@ -120,8 +120,12 @@ interface ContentPurchaseModalProps {
   contentImage?: string;
   baseKnytOverride?: number;
   priceUsdOverride?: number;
+  /** DVN ledger balance (immediately spendable in-app) */
   knytBalance?: number;
+  /** Same as knytBalance — preferred alias passed by KnytTab */
   spendableKnyt?: number;
+  /** On-chain EVM KNYT balance — shown to user but requires a bridge to spend in-app */
+  evmKnyt?: number;
   /** When provided, override the KNYT price shown for "Still" in the version selector */
   stillPriceKnytOverride?: number;
   /** When provided, override the KNYT price shown for "Motion" in the version selector */
@@ -168,6 +172,7 @@ export function ContentPurchaseModal({
   priceUsdOverride,
   knytBalance = 0,
   spendableKnyt,
+  evmKnyt = 0,
   stillPriceKnytOverride,
   motionPriceKnytOverride,
   hideVersionSelector,
@@ -638,17 +643,17 @@ export function ContentPurchaseModal({
                           20% OFF
                         </span>
                       </div>
-                      {(effectiveSpendable > 0 || knytBalance > 0) && (
-                        <div className="text-xs text-white/50">
-                          {effectiveSpendable > 0 ? (
-                            <>Spendable: {effectiveSpendable.toFixed(2)} KNYT</>
-                          ) : knytBalance > 0 ? (
-                            <span className="text-amber-400/70">
-                              {knytBalance.toFixed(2)} KNYT on-chain (bridge to spend)
-                            </span>
-                          ) : null}
-                        </div>
-                      )}
+                      <div className="text-xs text-white/50">
+                        {effectiveSpendable > 0 ? (
+                          <>Available: {effectiveSpendable.toFixed(2)} KNYT</>
+                        ) : evmKnyt > 0 ? (
+                          <span className="text-amber-400/70">
+                            {evmKnyt.toFixed(2)} KNYT on-chain — not yet available in-app
+                          </span>
+                        ) : (
+                          <span className="text-white/30">No KNYT balance</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="text-right">

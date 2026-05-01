@@ -29,14 +29,15 @@ export function useKnytBalance(personaId?: string, evmAddress?: string): UseKnyt
   const [error, setError] = useState<string | null>(null);
 
   const refreshBalance = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
     if (!personaId) {
       setError('Persona ID is required');
-      setLoading(false);
       return;
     }
+
+    // Set loading=true but keep the previous balance value so the UI shows stale
+    // data rather than flashing to 0 during refetch.
+    setLoading(true);
+    setError(null);
 
     try {
       let url = `/api/wallet/knyt/balance?personaId=${encodeURIComponent(personaId)}`;
@@ -62,6 +63,7 @@ export function useKnytBalance(personaId?: string, evmAddress?: string): UseKnyt
       });
     } catch (error) {
       console.error('Error fetching KNYT balance:', error);
+      // Don't clear balance on error — keep showing last known value
       setError(error instanceof Error ? error.message : 'Failed to fetch balance');
     } finally {
       setLoading(false);
