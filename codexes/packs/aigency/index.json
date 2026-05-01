@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-01T14:32:02.649Z",
+  "last_updated": "2026-05-01T15:36:37.146Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "738b6cc2f8af0fc183971d7a35b53d4fe902bf6c",
-  "latest_commit_short": "738b6cc",
-  "latest_commit_title": "fix: migrate remaining persona ID reads to usePersonaSafe() context",
+  "latest_commit": "5d9c6d737b221d198d43ba0526fe17a76901eb27",
+  "latest_commit_short": "5d9c6d7",
+  "latest_commit_title": "add RaBadges asset type + editable tier/variant + upload completion feedback",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5d9c6d7",
+      "full_sha": "5d9c6d737b221d198d43ba0526fe17a76901eb27",
+      "title": "add RaBadges asset type + editable tier/variant + upload completion feedback",
+      "author": "Claude",
+      "timestamp": "2026-05-01T15:34:43Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-5d9c6d7.md"
+    },
     {
       "sha": "738b6cc",
       "full_sha": "738b6cc2f8af0fc183971d7a35b53d4fe902bf6c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T17:01:12Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-1a957be.md"
-    },
-    {
-      "sha": "9ccfb35",
-      "full_sha": "9ccfb35fcc48a13180d1a2901042860a09beec7d",
-      "title": "document fallback deploy path when auto-merge workflow is broken",
-      "author": "Claude",
-      "timestamp": "2026-03-24T16:35:32Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-9ccfb35.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
