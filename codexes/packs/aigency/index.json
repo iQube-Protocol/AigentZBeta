@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-01T02:57:43.908Z",
+  "last_updated": "2026-05-01T03:18:58.381Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "59216d8665642b76d5df47f402d19fea18c6a4f6",
-  "latest_commit_short": "59216d8",
-  "latest_commit_title": "chore: update next-env.d.ts — remove stale navigation compat reference",
+  "latest_commit": "4aade85e3775e7d77bab1c7d0c43f8818798b8ba",
+  "latest_commit_short": "4aade85",
+  "latest_commit_title": "fix: remove dead default imports from wallet barrel to break TDZ chain",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "4aade85",
+      "full_sha": "4aade85e3775e7d77bab1c7d0c43f8818798b8ba",
+      "title": "fix: remove dead default imports from wallet barrel to break TDZ chain",
+      "author": "Claude",
+      "timestamp": "2026-05-01T03:17:09Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-4aade85.md"
+    },
     {
       "sha": "59216d8",
       "full_sha": "59216d8665642b76d5df47f402d19fea18c6a4f6",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T12:10:25Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-0e099fc.md"
-    },
-    {
-      "sha": "c87dfd5",
-      "full_sha": "c87dfd504ecaa92aeddc2add7ccd31719e0900d2",
-      "title": "fix nakamoto join: use crm_personas.email via identity_persona_id",
-      "author": "Claude",
-      "timestamp": "2026-03-24T11:20:40Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-c87dfd5.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

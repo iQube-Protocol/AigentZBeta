@@ -599,3 +599,8 @@ Top-level retrieval anchors for this pack.
 - Type: `chore`
 - Brief: [COMMIT-59216d8.md](../build_/COMMITS/COMMIT-59216d8.md)
 - Message: chore: update next-env.d.ts — remove stale navigation compat reference
+
+## Commit `4aade85` — 2026-05-01T03:17:09Z
+- Type: `fix`
+- Brief: [COMMIT-4aade85.md](../build_/COMMITS/COMMIT-4aade85.md)
+- Message: fix: remove dead default imports from wallet barrel to break TDZ chain
