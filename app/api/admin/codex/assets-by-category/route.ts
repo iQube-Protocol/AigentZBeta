@@ -15,6 +15,7 @@
  *   lore            → codex_media_assets (background_lore_doc, powers_sheet, twenty_one_sats_concept)
  *   game            → codex_media_assets (game_concept_doc, game_still, game_video)
  *   social          → codex_media_assets (social_campaign_video, social_campaign_image)
+ *   rabadges        → codex_media_assets (ra_badge)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -23,7 +24,7 @@ import { getSupabaseServer } from '../../../_lib/supabaseServer';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-type Category = 'episode-masters' | 'covers' | 'characters' | 'lore' | 'game' | 'social';
+type Category = 'episode-masters' | 'covers' | 'characters' | 'lore' | 'game' | 'social' | 'rabadges';
 
 const ASSET_KIND_BY_CATEGORY: Record<Exclude<Category, 'episode-masters'>, string[]> = {
   covers:     ['cover_image', 'cover_pdf'],
@@ -31,6 +32,7 @@ const ASSET_KIND_BY_CATEGORY: Record<Exclude<Category, 'episode-masters'>, strin
   lore:       ['background_lore_doc', 'powers_sheet', 'twenty_one_sats_concept'],
   game:       ['game_concept_doc', 'game_still', 'game_video'],
   social:     ['social_campaign_video', 'social_campaign_image'],
+  rabadges:   ['ra_badge'],
 };
 
 interface CategoryAsset {

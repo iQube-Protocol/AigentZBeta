@@ -335,7 +335,7 @@ ${(() => {
   return `
 NBA TARGET MIX (soft bias, NOT a per-call rule — averaged across users for this cartridge):
 - ~${mix.experiencesAndArticles}% should surface a specific experience or article from the catalog (use targetType="action" with a short natural-language instruction that opens that capsule).
-- ~${mix.storeTab}% should propose opening the store tab (use targetType="codex", target="${config.cartridgeSlug}", tab="store" or the cartridge's actual store tab slug).
+- ~${mix.storeTab}% should propose opening the store tab (use targetType="codex", target="${config.cartridgeSlug}", tab="store-episodes" for the KNYT episodes store tab; use the cartridge's actual store tab slug for other cartridges).
 - ~${mix.otherTabs}% should propose another tab inside KNYT or Qriptopian cartridges (use targetType="codex", target=<cartridge slug>, tab=<tab slug>).
 Pick whichever bucket fits best for THIS user given their state — but lean toward whichever bucket the cartridge is currently underrepresented in across recent decisions. Don't force a bucket if none of its options serve the user.`;
 })()}

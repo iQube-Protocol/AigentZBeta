@@ -410,7 +410,6 @@ export const KNYT_CODEX: CodexConfig = {
       label: 'Investor KNYT',
       slug: 'store-investor',
       enabled: true,
-      adminOnly: true,
       group: 'store',
       order: 3,
       type: 'static',

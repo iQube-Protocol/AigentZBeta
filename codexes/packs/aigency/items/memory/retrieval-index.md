@@ -634,3 +634,13 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-738b6cc.md](../build_/COMMITS/COMMIT-738b6cc.md)
 - Message: fix: migrate remaining persona ID reads to usePersonaSafe() context
+
+## Commit `5d9c6d7` — 2026-05-01T15:34:43Z
+- Type: `feat`
+- Brief: [COMMIT-5d9c6d7.md](../build_/COMMITS/COMMIT-5d9c6d7.md)
+- Message: add RaBadges asset type + editable tier/variant + upload completion feedback
+
+## Commit `9bf2293` — 2026-05-01T17:21:01Z
+- Type: `fix`
+- Brief: [COMMIT-9bf2293.md](../build_/COMMITS/COMMIT-9bf2293.md)
+- Message: fix drawer z-index, KNYT store link, copilot on store tabs, investor tab visibility

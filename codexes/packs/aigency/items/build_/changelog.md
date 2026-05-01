@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`9bf2293`](https://github.com/iQube-Protocol/AigentZBeta/commit/9bf229332d417c0e3b4e319a4b2fc88e737e8c48) [fix] fix drawer z-index, KNYT store link, copilot on store tabs, investor tab visibility (Claude, 2026-05-01T17:21:01Z)
+- [`5d9c6d7`](https://github.com/iQube-Protocol/AigentZBeta/commit/5d9c6d737b221d198d43ba0526fe17a76901eb27) [feat] add RaBadges asset type + editable tier/variant + upload completion feedback (Claude, 2026-05-01T15:34:43Z)
 - [`738b6cc`](https://github.com/iQube-Protocol/AigentZBeta/commit/738b6cc2f8af0fc183971d7a35b53d4fe902bf6c) [fix] fix: migrate remaining persona ID reads to usePersonaSafe() context (Claude, 2026-05-01T14:30:15Z)
 - [`37757fa`](https://github.com/iQube-Protocol/AigentZBeta/commit/37757fa4cdb9694cf9d036c834b5864e4d5e4300) [fix] fix episode-0 GN upload: allow episodeNumber 0 in validation + handle non-JSON error responses (Claude, 2026-05-01T14:17:25Z)
 - [`a3536fd`](https://github.com/iQube-Protocol/AigentZBeta/commit/a3536fd94e1a1ad8508b9539317d46b2808222d6) [feat] add asset detail drilldown to Codex Manager dashboard (Claude, 2026-05-01T14:06:19Z)
