@@ -317,6 +317,16 @@ export function KnytCartCheckoutModal({
       );
       return;
     }
+
+    // Open the popup synchronously inside the click handler before any await so
+    // the browser's user-gesture requirement is satisfied. Navigate it to the
+    // real PayPal URL once the order creation API responds.
+    const popup = window.open('', 'paypal_cart_checkout', 'width=600,height=700');
+    if (!popup) {
+      setSettleError('Popup blocked — allow popups for this site and retry.');
+      return;
+    }
+
     setPaying(true);
     setSettleError(null);
     try {
@@ -337,17 +347,14 @@ export function KnytCartCheckoutModal({
       });
       const orderJson = await orderRes.json();
       if (!orderRes.ok || !orderJson.approvalUrl) {
+        popup.close();
         setSettleError(orderJson.error || 'Failed to create PayPal order');
         setPaying(false);
         return;
       }
 
-      const popup = window.open(orderJson.approvalUrl, 'paypal_cart_checkout', 'width=600,height=700');
-      if (!popup) {
-        setSettleError('Popup blocked — allow popups for this site and retry.');
-        setPaying(false);
-        return;
-      }
+      // Navigate the already-open popup window to the PayPal approval URL.
+      popup.location.href = orderJson.approvalUrl;
 
       // Listen for the return-handler postMessage. The popup at
       // /api/cart/paypal/return calls window.opener.postMessage with the
