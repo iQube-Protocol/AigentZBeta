@@ -932,7 +932,7 @@ function AssetCard({
   );
 }
 
-type AssetCategory = 'episode-masters' | 'covers' | 'characters' | 'lore' | 'game' | 'social' | 'rabadges';
+type AssetCategory = 'episode-masters' | 'still-masters' | 'covers' | 'characters' | 'lore' | 'game' | 'social' | 'rabadges';
 
 interface CategoryAssetRow {
   id: string;
@@ -951,7 +951,8 @@ interface CategoryAssetRow {
 }
 
 const CATEGORY_LABELS: Record<AssetCategory, string> = {
-  'episode-masters': 'Episode Masters',
+  'episode-masters': 'Motion Episode Masters',
+  'still-masters':   'Still Episodes',
   covers:            'Covers',
   characters:        'Characters',
   lore:              'Lore Docs',
@@ -1044,9 +1045,11 @@ function CodexManager() {
   const g               = stats;
   const withPrint       = episodes.filter((e) => e.hasPrintRare).length;
   const withMotion      = episodes.filter((e) => e.hasMotionMaster).length;
+  const withStill       = episodes.filter((e) => e.hasStillMaster).length;
   const withCovers      = episodes.filter((e) => e.coverCount > 0).length;
   const printFiles      = g ? (g.totalPrintRare + g.totalPrintEpic + g.totalPrintLegendary) : 0;
-  const episodeMasters  = (g?.totalStillMasters ?? 0) + (g?.totalMotionMasters ?? 0);
+  const motionMasters   = g?.totalMotionMasters ?? 0;
+  const stillMasters    = g?.totalStillMasters ?? 0;
 
   return (
     <div className="p-4">
@@ -1154,18 +1157,20 @@ function CodexManager() {
           <div className="mb-4 grid grid-cols-4 gap-3">
             <StatCard label="Total Episodes"      value={episodes.length} />
             <StatCard label="With Print Editions" value={withPrint}       badge={`${printFiles} files`} />
-            <StatCard label="With Motion Comics"  value={withMotion}      badge={`${g?.totalMotionMasters ?? 0} files`} />
+            <StatCard label="With Motion Comics"  value={withMotion}      badge={`${motionMasters} files`} />
+            <StatCard label="With Still Episodes" value={withStill}       badge={`${stillMasters} files`} />
             <StatCard label="With Covers"         value={withCovers}      badge={`${g?.totalCovers ?? 0} variants`} />
           </div>
           <p className="mb-2 text-xs font-semibold text-slate-300">Asset Categories <span className="ml-1 text-slate-500 font-normal">(click a card for asset detail)</span></p>
-          <div className="mb-4 grid grid-cols-7 gap-2">
-            <AssetCard icon={Video}    label="Episode Masters" count={episodeMasters}            iconColor="text-teal-400"    onClick={() => handleCardClick('episode-masters')} active={detailCategory === 'episode-masters'} />
-            <AssetCard icon={Image}    label="Covers"          count={g?.totalCovers ?? 0}       iconColor="text-purple-400"  onClick={() => handleCardClick('covers')}          active={detailCategory === 'covers'} />
-            <AssetCard icon={Users}    label="Characters"      count={g?.totalCharacters ?? 0}   iconColor="text-blue-400"    onClick={() => handleCardClick('characters')}      active={detailCategory === 'characters'} />
-            <AssetCard icon={FileText} label="Lore Docs"       count={g?.totalLoreDocs ?? 0}     iconColor="text-amber-400"   onClick={() => handleCardClick('lore')}            active={detailCategory === 'lore'} />
-            <AssetCard icon={Gamepad2} label="Game Assets"     count={g?.totalGameAssets ?? 0}   iconColor="text-green-400"   onClick={() => handleCardClick('game')}            active={detailCategory === 'game'} />
-            <AssetCard icon={Share2}   label="Social Media"    count={g?.totalSocialAssets ?? 0} iconColor="text-pink-400"    onClick={() => handleCardClick('social')}          active={detailCategory === 'social'} />
-            <AssetCard icon={Award}    label="RaBadges"        count={g?.totalRaBadges ?? 0}     iconColor="text-rose-400"    onClick={() => handleCardClick('rabadges')}        active={detailCategory === 'rabadges'} />
+          <div className="mb-4 grid grid-cols-8 gap-2">
+            <AssetCard icon={Video}    label="Motion Episodes" count={motionMasters}              iconColor="text-teal-400"    onClick={() => handleCardClick('episode-masters')} active={detailCategory === 'episode-masters'} />
+            <AssetCard icon={FileText} label="Still Episodes"  count={stillMasters}               iconColor="text-sky-400"     onClick={() => handleCardClick('still-masters')}   active={detailCategory === 'still-masters'} />
+            <AssetCard icon={Image}    label="Covers"          count={g?.totalCovers ?? 0}        iconColor="text-purple-400"  onClick={() => handleCardClick('covers')}          active={detailCategory === 'covers'} />
+            <AssetCard icon={Users}    label="Characters"      count={g?.totalCharacters ?? 0}    iconColor="text-blue-400"    onClick={() => handleCardClick('characters')}      active={detailCategory === 'characters'} />
+            <AssetCard icon={BookOpen} label="Lore Docs"       count={g?.totalLoreDocs ?? 0}      iconColor="text-amber-400"   onClick={() => handleCardClick('lore')}            active={detailCategory === 'lore'} />
+            <AssetCard icon={Gamepad2} label="Game Assets"     count={g?.totalGameAssets ?? 0}    iconColor="text-green-400"   onClick={() => handleCardClick('game')}            active={detailCategory === 'game'} />
+            <AssetCard icon={Share2}   label="Social Media"    count={g?.totalSocialAssets ?? 0}  iconColor="text-pink-400"    onClick={() => handleCardClick('social')}          active={detailCategory === 'social'} />
+            <AssetCard icon={Award}    label="RaBadges"        count={g?.totalRaBadges ?? 0}      iconColor="text-rose-400"    onClick={() => handleCardClick('rabadges')}        active={detailCategory === 'rabadges'} />
           </div>
 
           {detailCategory && (
@@ -1229,7 +1234,7 @@ function CategoryDetailPanel({
   onSaved: (updated: CategoryAssetRow) => void;
   onClose: () => void;
 }) {
-  const isMasterTable = category === 'episode-masters';
+  const isMasterTable = category === 'episode-masters' || category === 'still-masters';
   return (
     <div className="mb-4 rounded-xl border border-teal-500/20 bg-slate-900/60 p-4">
       <div className="mb-3 flex items-center justify-between">

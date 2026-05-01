@@ -23,7 +23,7 @@ import {
 // ── Types ────────────────────────────────────────────────────────────────────
 
 type CodexTab = 'knyt' | 'qriptopian';
-type UploadCategory = 'master' | 'print' | 'cover' | 'motion-covers' | 'character' | 'lore' | 'game' | 'social' | 'bundle' | 'rabadges';
+type UploadCategory = 'master' | 'still' | 'print' | 'cover' | 'motion-covers' | 'character' | 'lore' | 'game' | 'social' | 'bundle' | 'rabadges';
 type MasterContentType = 'episode_still' | 'episode_motion' | 'episode_print';
 type EditionTier = 'rare' | 'epic' | 'legendary' | 'common';
 type DisplayMode = 'pdf' | 'image' | 'video' | 'text_extract';
@@ -95,10 +95,17 @@ const ASSET_CATEGORIES: {
   },
   {
     id: 'master',
-    label: 'Motion Comics',
+    label: 'Motion Episodes',
     icon: Video,
     description: 'Motion comic videos',
     assetKinds: [{ value: 'episode_motion', label: 'Motion Comic (Video)', accept: '.mp4,.webm,.mov' }],
+  },
+  {
+    id: 'still',
+    label: 'Still Episodes',
+    icon: FileText,
+    description: 'Still episode comics / pages (PDF or image)',
+    assetKinds: [{ value: 'episode_still', label: 'Still Episode (PDF / Image)', accept: '.pdf,.png,.jpg,.jpeg,.webp' }],
   },
   {
     id: 'cover',
@@ -215,7 +222,7 @@ interface QueueItemProps {
 
 function UploadQueueItem({ item, category, onUpdate, onRemove }: QueueItemProps) {
   const isCover = item.category === 'cover';
-  const isMaster = item.category === 'master';
+  const isMaster = item.category === 'master' || item.category === 'still';
   const isPrint = item.category === 'print';
   const isLore = item.category === 'lore';
   const isCharacter = item.category === 'character';
@@ -420,7 +427,7 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
       const files = Array.from(e.target.files ?? []);
       if (files.length === 0) return;
 
-      const isMaster = selectedCategory === 'master';
+      const isMaster = selectedCategory === 'master' || selectedCategory === 'still';
       const isPrint = selectedCategory === 'print';
       const isCover = selectedCategory === 'cover';
       const isLore = selectedCategory === 'lore';
@@ -474,9 +481,9 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
       formData.append('series', 'metaKnyts');
 
       let endpoint: string;
-      if (item.category === 'master' || item.category === 'print') {
+      if (item.category === 'master' || item.category === 'still' || item.category === 'print') {
         endpoint = '/api/admin/codex/upload-master';
-        formData.append('contentType', item.masterType ?? 'episode_motion');
+        formData.append('contentType', item.masterType ?? (item.category === 'still' ? 'episode_still' : 'episode_motion'));
         if (item.editionTier) {
           formData.append('editionTier', item.editionTier);
         }

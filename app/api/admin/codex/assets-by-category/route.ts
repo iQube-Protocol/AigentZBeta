@@ -24,9 +24,9 @@ import { getSupabaseServer } from '../../../_lib/supabaseServer';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-type Category = 'episode-masters' | 'covers' | 'characters' | 'lore' | 'game' | 'social' | 'rabadges';
+type Category = 'episode-masters' | 'still-masters' | 'covers' | 'characters' | 'lore' | 'game' | 'social' | 'rabadges';
 
-const ASSET_KIND_BY_CATEGORY: Record<Exclude<Category, 'episode-masters'>, string[]> = {
+const ASSET_KIND_BY_CATEGORY: Record<Exclude<Category, 'episode-masters' | 'still-masters'>, string[]> = {
   covers:     ['cover_image', 'cover_pdf'],
   characters: ['character_poster'],
   lore:       ['background_lore_doc', 'powers_sheet', 'twenty_one_sats_concept'],
@@ -66,13 +66,14 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    if (category === 'episode-masters') {
+    if (category === 'episode-masters' || category === 'still-masters') {
+      const contentTypeFilter = category === 'episode-masters' ? ['episode_motion'] : ['episode_still'];
       const { data, error } = await supabase
         .from('master_content_qubes')
         .select('id, episode_number, content_type, edition_tier, title, auto_drive_cid, pdf_lite_url, created_at')
         .eq('series', series)
         .eq('status', 'active')
-        .in('content_type', ['episode_still', 'episode_motion'])
+        .in('content_type', contentTypeFilter)
         .order('episode_number', { ascending: true })
         .order('content_type', { ascending: true });
 
@@ -93,7 +94,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ category, series, assets, count: assets.length });
     }
 
-    const kinds = ASSET_KIND_BY_CATEGORY[category as Exclude<Category, 'episode-masters'>];
+    const kinds = ASSET_KIND_BY_CATEGORY[category as Exclude<Category, 'episode-masters' | 'still-masters'>];
     if (!kinds) {
       return NextResponse.json({ error: `Unknown category: ${category}` }, { status: 400 });
     }
