@@ -308,8 +308,10 @@ export default function CodexPanelDynamic({
     );
   }
 
-  // Error state
-  if (error || !codex) {
+  // Error state — only render if we truly have no codex data. With static
+  // initialData fallback in useCodexConfig, a transient fetch abort/timeout
+  // still leaves `codex` populated; in that case we render normally.
+  if (!codex) {
     return (
       <div className={`flex flex-col h-full w-full ${resolvedTheme === 'dark' ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
         <div className="flex-1 flex items-center justify-center">
