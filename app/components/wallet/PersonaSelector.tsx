@@ -20,7 +20,6 @@ import {
 import { PersonaQube } from '@/types/persona';
 import { PersonaState } from '@/types/smartWallet';
 import {
-  getActivePersonaId,
   setActivePersona,
   getPersonasByAuthProfile,
 } from '@/services/wallet/personaService';
@@ -100,7 +99,7 @@ export function PersonaSelector({
   const [actionPending, setActionPending] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const { getCartridgeDefault, setCartridgeDefault, registerPersonaNames } = usePersonaSafe();
+  const { getCartridgeDefault, setCartridgeDefault, registerPersonaNames, activePersonaId: contextPersonaId } = usePersonaSafe();
 
   // Use preloaded personas if provided
   useEffect(() => {
@@ -139,7 +138,7 @@ export function PersonaSelector({
           fioHandle: (p as Record<string, unknown>).fioHandle as string | undefined,
         }))
       );
-      const activeId = preloadedActiveId || getActivePersonaId();
+      const activeId = preloadedActiveId || contextPersonaId;
       if (activeId) {
         const active = loaded.find(p => p.id === activeId);
         if (active) {

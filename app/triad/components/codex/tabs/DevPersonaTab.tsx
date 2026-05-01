@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { User, Wallet, ChevronDown, ChevronUp, Info, Star, Globe, CheckCircle2, Circle, Zap, ExternalLink, Link, Loader2, Layers } from "lucide-react";
 import { PersonaCreationForm } from "@/components/identity/PersonaCreationForm";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
+import { usePersonaSafe } from "@/app/contexts/PersonaContext";
 
 const SmartWalletDrawer = dynamic(
   () => import("@/app/components/content/SmartWalletDrawer"),
@@ -91,39 +92,18 @@ const WORLD_ID_LABELS: Record<string, string> = {
 
 export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
   const { sessionPersonas, isLoading, refreshPersonas } = useSupabaseSessionPersonas();
+  const { activePersonaId: walletPersonaId } = usePersonaSafe();
   const [showForm, setShowForm] = useState(false);
   const [createdId, setCreatedId] = useState<string | null>(null);
   const [showIdentityInfo, setShowIdentityInfo] = useState(false);
   const [showMintInfo, setShowMintInfo] = useState(false);
   const [walletDrawerOpen, setWalletDrawerOpen] = useState(false);
-  const [walletPersonaId, setWalletPersonaId] = useState<string | null>(null);
   const [showClaimForm, setShowClaimForm] = useState(false);
   const [claimHandle, setClaimHandle] = useState('');
   const [claimKey, setClaimKey] = useState('');
   const [claiming, setClaiming] = useState(false);
   const [claimError, setClaimError] = useState<string | null>(null);
   const [claimSuccess, setClaimSuccess] = useState(false);
-
-  // Sync with wallet persona selector: read initial value from localStorage and
-  // update whenever the wallet switches personas (same-page event or cross-tab storage event)
-  useEffect(() => {
-    const stored = window.localStorage.getItem("currentPersonaId");
-    if (stored) setWalletPersonaId(stored);
-
-    const handleSwitch = (e: Event) => {
-      const detail = (e as CustomEvent<{ personaId: string }>).detail;
-      if (detail?.personaId) setWalletPersonaId(detail.personaId);
-    };
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === "currentPersonaId" && e.newValue) setWalletPersonaId(e.newValue);
-    };
-    window.addEventListener("persona-switched", handleSwitch);
-    window.addEventListener("storage", handleStorage);
-    return () => {
-      window.removeEventListener("persona-switched", handleSwitch);
-      window.removeEventListener("storage", handleStorage);
-    };
-  }, []);
 
   const activePersonaId = createdId ?? walletPersonaId ?? personaId ?? null;
   const livePersona =

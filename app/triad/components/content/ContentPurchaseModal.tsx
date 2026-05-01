@@ -20,7 +20,9 @@ import {
   ShoppingCart,
   LogIn,
   UserPlus,
+  ExternalLink,
 } from 'lucide-react';
+import { useEvmKnytPayment } from '@/app/hooks/useEvmKnytPayment';
 
 // Phase 1 Pricing Constants
 const KNYT_USD_RATE = 1.40;
@@ -193,6 +195,8 @@ export function ContentPurchaseModal({
 
   const [selectedVersion, setSelectedVersion] = useState<'still' | 'motion'>('still');
 
+  const evmPay = useEvmKnytPayment();
+
   useEffect(() => {
     if (!open) return;
     if (contentType.includes('motion')) {
@@ -227,24 +231,29 @@ export function ContentPurchaseModal({
   const pricing = calculatePricing(baseKnyt, shippingUsd);
 
   const canAffordKnyt = effectiveSpendable >= pricing.rails.knyt.amount;
+  const canAffordEvmKnyt = evmKnyt >= pricing.rails.knyt.amount;
+  // True when user has no DVN KNYT but has sufficient EVM KNYT — triggers MetaMask signing path
+  const useEvmPath = selectedRail === 'knyt' && !canAffordKnyt && canAffordEvmKnyt;
 
   const apiBase = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || '';
 
   useEffect(() => {
     if (open) {
-      setSelectedRail(canAffordKnyt ? 'knyt' : 'paypal');
+      setSelectedRail(canAffordKnyt || canAffordEvmKnyt ? 'knyt' : 'paypal');
       setError(null);
       setSuccess(null);
       setShowConfirmation(false);
+      evmPay.reset();
     }
-  }, [open, canAffordKnyt]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, canAffordKnyt, canAffordEvmKnyt]);
 
-  const handlePurchase = async () => {
+  const handlePurchase = async (evmTxHash?: string) => {
     setPurchasing(true);
     setError(null);
 
     try {
-      if (selectedRail === 'knyt' && !canAffordKnyt) {
+      if (selectedRail === 'knyt' && !canAffordKnyt && !evmTxHash) {
         setError('Insufficient KNYT balance');
         setPurchasing(false);
         return;
@@ -334,7 +343,7 @@ export function ContentPurchaseModal({
       }
 
       const railMap: Record<PaymentRail, string> = {
-        knyt: 'knyt',
+        knyt: evmTxHash ? 'knyt_evm' : 'knyt',
         qcents: 'qc',
         usdc: 'usdc',
         paypal: 'paypal',
@@ -361,6 +370,7 @@ export function ContentPurchaseModal({
           productType: productTypeMap[effectiveContentType],
           assetIds: contentId ? [contentId] : [],
           paymentRail: railMap[selectedRail],
+          ...(evmTxHash ? { paymentReference: evmTxHash } : {}),
           metadata: {
             amount:
               selectedRail === 'knyt'
@@ -625,12 +635,12 @@ export function ContentPurchaseModal({
 
                 <button
                   onClick={() => setSelectedRail('knyt')}
-                  disabled={!canAffordKnyt}
+                  disabled={!canAffordKnyt && !canAffordEvmKnyt}
                   className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${
                     selectedRail === 'knyt'
                       ? 'border-amber-500/50 bg-amber-500/10'
                       : 'border-white/10 bg-white/5 hover:bg-white/10'
-                  } ${!canAffordKnyt ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  } ${!canAffordKnyt && !canAffordEvmKnyt ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-amber-500/20 flex items-center justify-center">
@@ -642,13 +652,22 @@ export function ContentPurchaseModal({
                         <span className="px-1.5 py-0.5 text-[10px] bg-emerald-500/20 text-emerald-400 rounded font-bold">
                           20% OFF
                         </span>
+                        {canAffordEvmKnyt && !canAffordKnyt && (
+                          <span className="px-1.5 py-0.5 text-[10px] bg-blue-500/20 text-blue-300 rounded font-medium flex items-center gap-1">
+                            <ExternalLink className="w-2.5 h-2.5" />MetaMask
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-white/50">
                         {effectiveSpendable > 0 ? (
                           <>Available: {effectiveSpendable.toFixed(2)} KNYT</>
+                        ) : canAffordEvmKnyt ? (
+                          <span className="text-amber-300/80">
+                            {evmKnyt.toFixed(2)} KNYT on-chain · sign with MetaMask
+                          </span>
                         ) : evmKnyt > 0 ? (
-                          <span className="text-amber-400/70">
-                            {evmKnyt.toFixed(2)} KNYT on-chain — not yet available in-app
+                          <span className="text-amber-400/50">
+                            {evmKnyt.toFixed(2)} on-chain (need {pricing.rails.knyt.amount.toFixed(2)})
                           </span>
                         ) : (
                           <span className="text-white/30">No KNYT balance</span>
@@ -758,7 +777,12 @@ export function ContentPurchaseModal({
                         • {pricing.rails[selectedRail].amount.toFixed(2)}{' '}
                         {selectedRail === 'knyt' ? 'KNYT' : 'USD'} via {selectedRail.toUpperCase()}
                       </p>
-                      {selectedRail === 'knyt' && <p>• Will be deducted from your wallet</p>}
+                      {selectedRail === 'knyt' && !useEvmPath && <p>• Will be deducted from your wallet</p>}
+                      {useEvmPath && (
+                        <p className="text-blue-300">
+                          • MetaMask will request a signature to transfer {pricing.rails.knyt.amount.toFixed(2)} KNYT on-chain
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -770,14 +794,36 @@ export function ContentPurchaseModal({
                       Cancel
                     </button>
                     <button
-                      onClick={handlePurchase}
+                      onClick={async () => {
+                        if (useEvmPath) {
+                          setPurchasing(true);
+                          setError(null);
+                          try {
+                            const hash = await evmPay.sendKnyt(pricing.rails.knyt.amount);
+                            await handlePurchase(hash);
+                          } catch (err) {
+                            const msg = err instanceof Error ? err.message : 'MetaMask signing failed';
+                            if (!msg.toLowerCase().includes('rejected') && !msg.toLowerCase().includes('denied') && !msg.toLowerCase().includes('user denied')) {
+                              setError(msg);
+                            }
+                            setPurchasing(false);
+                          }
+                        } else {
+                          handlePurchase();
+                        }
+                      }}
                       disabled={purchasing}
                       className="py-2.5 rounded-lg bg-gradient-to-r from-emerald-500 to-green-500 text-white font-semibold disabled:opacity-50 flex items-center justify-center gap-2 hover:from-emerald-400 hover:to-green-400 transition-all"
                     >
                       {purchasing ? (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin" />
-                          Processing...
+                          {useEvmPath && evmPay.status === 'waiting' ? 'Awaiting MetaMask...' : 'Processing...'}
+                        </>
+                      ) : useEvmPath ? (
+                        <>
+                          <ExternalLink className="w-4 h-4" />
+                          Sign with MetaMask
                         </>
                       ) : (
                         <>

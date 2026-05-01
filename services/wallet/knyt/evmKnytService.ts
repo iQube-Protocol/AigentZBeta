@@ -2,6 +2,62 @@
  * EVM KNYT Service - On-chain KNYT balance lookup and canonical minting on Ethereum mainnet (chainId 1)
  */
 
+// Transfer(address,address,uint256) topic
+const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+// Primary transfer contract (used for purchase payments)
+const KNYT_TRANSFER_CONTRACT = '0xe53dad36cd0A8EdC656448CE7912bba72beBECb4';
+
+export interface EvmTransferVerification {
+  verified: boolean;
+  amountKnyt: number;
+  error?: string;
+}
+
+/**
+ * Verify that a given tx hash transferred >= minAmountKnyt KNYT to the treasury address.
+ * Does NOT credit the DVN ledger — used for purchase payment verification only.
+ */
+export async function verifyEvmKnytTransfer(
+  txHash: string,
+  minAmountKnyt = 0,
+): Promise<EvmTransferVerification> {
+  const treasury = (process.env.NEXT_PUBLIC_KNYT_TREASURY_ADDRESS ?? '').toLowerCase();
+  if (!treasury) return { verified: false, amountKnyt: 0, error: 'Treasury not configured' };
+
+  const rpc = process.env.ETH_RPC_URL || process.env.ETH_RPC_FALLBACK_URL || 'https://eth.llamarpc.com';
+  try {
+    const res = await fetch(rpc, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getTransactionReceipt', params: [txHash] }),
+    });
+    const json = await res.json() as { result?: { status?: string; logs?: Array<{ address?: string; topics?: string[]; data?: string }> } };
+    const receipt = json.result;
+    if (!receipt) return { verified: false, amountKnyt: 0, error: 'Transaction not found' };
+    if (receipt.status !== '0x1') return { verified: false, amountKnyt: 0, error: 'Transaction reverted' };
+
+    for (const log of receipt.logs ?? []) {
+      if (log.address?.toLowerCase() !== KNYT_TRANSFER_CONTRACT.toLowerCase()) continue;
+      if (log.topics?.[0]?.toLowerCase() !== TRANSFER_TOPIC) continue;
+      const to = log.topics?.[2];
+      if (!to) continue;
+      const toAddr = '0x' + to.slice(-40);
+      if (toAddr.toLowerCase() !== treasury) continue;
+      const raw = (log.data ?? '').replace(/^0x/, '') || '0';
+      const raw18 = BigInt('0x' + raw);
+      const divisor = 10n ** 18n;
+      const amountKnyt = Number(raw18 / divisor) + Number(raw18 % divisor) / Number(divisor);
+      if (amountKnyt < minAmountKnyt) {
+        return { verified: false, amountKnyt, error: `Transfer amount ${amountKnyt} KNYT < required ${minAmountKnyt}` };
+      }
+      return { verified: true, amountKnyt };
+    }
+    return { verified: false, amountKnyt: 0, error: 'No matching KNYT transfer to treasury found' };
+  } catch (err) {
+    return { verified: false, amountKnyt: 0, error: err instanceof Error ? err.message : 'RPC error' };
+  }
+}
+
 const KNYT_CONTRACTS = [
   '0xe53dad36cd0A8EdC656448CE7912bba72beBECb4',
   '0xCf890B7acBB5ffe0540a01860A75D3d765bF0756',

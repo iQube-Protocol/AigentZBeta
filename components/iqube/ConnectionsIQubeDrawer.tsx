@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { Link, Loader2, Network, Users, X } from "lucide-react";
+import { usePersonaSafe } from "@/app/contexts/PersonaContext";
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
 
@@ -86,6 +87,7 @@ interface Props {
 }
 
 export function ConnectionsIQubeDrawer({ open, onClose }: Props) {
+  const { activePersonaId: ctxPersonaId } = usePersonaSafe();
   const [identity, setIdentity] = useState<PersonaIdentity | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -97,8 +99,7 @@ export function ConnectionsIQubeDrawer({ open, onClose }: Props) {
       const data = await res.json() as { persona?: PersonaIdentity; data?: PersonaIdentity };
       setIdentity(data.persona ?? data.data ?? null);
     } catch {
-      const raw = typeof window !== "undefined" ? localStorage.getItem("activePersonaId") : null;
-      setIdentity(raw ? { displayName: raw } : null);
+      setIdentity(ctxPersonaId ? { displayName: ctxPersonaId } : null);
     } finally {
       setLoading(false);
     }
