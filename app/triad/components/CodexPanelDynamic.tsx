@@ -710,7 +710,7 @@ export default function CodexPanelDynamic({
           onClose={() => setKnytCopilotOpen(false)}
           onOpen={() => setKnytCopilotOpen(true)}
           variant="floating"
-          accentColor="amber"
+          accentColor="fuchsia"
           agent={{ id: 'aigent-kn0w1', name: 'KNYT Copilot' }}
           personaId={resolvedPersonaId ?? undefined}
           enableInferenceRendering
