@@ -10,6 +10,7 @@ const ExternalWalletConnect = dynamic(
 import { useBalances } from "@/app/hooks/useBalances";
 import { useDVNEvents } from "@/app/hooks/useDVNEvents";
 import { useKnytBalance } from "@/app/hooks/useKnytBalance";
+import { useOwnedEntitlements } from "@/app/hooks/useOwnedEntitlements";
 import { useBaseQcBalance } from "@/app/hooks/useBaseQcBalance";
 import { useEthPrice } from "@/app/hooks/useEthPrice";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
@@ -282,6 +283,11 @@ export default function SmartWalletDrawer({
   const hasAnyPersona = allAvailablePersonas.length > 0 || !!walletNode?.personaContext?.activePersonaId;
   const effectivePersonaId =
     personaId || localPersonaId || walletNode?.personaContext?.activePersonaId || activePersona?.id;
+  const isNonUuidPersona = !!effectivePersonaId &&
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(effectivePersonaId);
+  const { entitlements: ownedEntitlements } = useOwnedEntitlements(
+    isNonUuidPersona ? effectivePersonaId : undefined
+  );
   const { balance: knytBalance, loading: knytLoading, refreshBalance: refreshKnyt } =
     useKnytBalance(effectivePersonaId, externalEvmAddress);
   const { balance: baseQcBalance } = useBaseQcBalance(effectivePersonaId);
@@ -3066,6 +3072,53 @@ export default function SmartWalletDrawer({
               ) : effectivePersonaId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(effectivePersonaId) ? (
                 // Only use LibraryShelf for valid UUID personaIds
                 <LibraryShelf personaId={effectivePersonaId} onContentSelect={onContentSelect} variant="drawer" />
+              ) : ownedEntitlements.length > 0 ? (
+                <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
+                  <div className="text-[11px] uppercase tracking-wider text-white/60 mb-2">
+                    Your Library ({ownedEntitlements.length})
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {ownedEntitlements.map((ent) => {
+                      const meta = ent.assetMeta;
+                      const label = meta.characterName
+                        ? meta.characterName
+                        : meta.episodeNumber != null
+                        ? `Ep. ${meta.episodeNumber}`
+                        : ent.assetId;
+                      return (
+                        <div key={ent.id} className="group">
+                          <div className="aspect-[3/4] rounded-lg overflow-hidden bg-purple-500/10 ring-1 ring-white/10 relative">
+                            {meta.coverCid ? (
+                              <img
+                                src={`/api/content/cover/${meta.coverCid}?variant=thumb`}
+                                alt={label}
+                                className="w-full h-full object-cover absolute inset-0"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = "none";
+                                }}
+                              />
+                            ) : null}
+                            <div className={`w-full h-full items-center justify-center ${meta.coverCid ? "hidden" : "flex"}`}>
+                              {meta.isMotion ? (
+                                <Film className="w-8 h-8 text-purple-400/50" />
+                              ) : (
+                                <Book className="w-8 h-8 text-purple-400/50" />
+                              )}
+                            </div>
+                            <div className="absolute top-0.5 right-0.5 p-0.5 rounded bg-black/50">
+                              {meta.isMotion ? (
+                                <Film className="w-2.5 h-2.5 text-cyan-400" />
+                              ) : (
+                                <Book className="w-2.5 h-2.5 text-amber-400" />
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-[10px] text-white/70 truncate mt-1">{label}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
               ) : (
                 <div className="text-center py-6 text-white/50 text-sm">
                   <BookOpen className="w-8 h-8 mx-auto mb-2 text-purple-400/50" />

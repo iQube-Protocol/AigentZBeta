@@ -1552,6 +1552,7 @@ export function CodexCopilotLayer({
                   name: "Demo Agent",
                 }}
                 codexMode={true}
+                personaId={personaId}
               />
             </div>
           )}
