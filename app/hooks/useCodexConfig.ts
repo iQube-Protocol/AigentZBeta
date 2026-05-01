@@ -7,6 +7,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { CodexConfig, CodexRegistryResponse } from '@/types/codex';
+import { getCodexById, getCodexBySlug } from '@/data/codex-configs';
 
 interface UseCodexConfigOptions {
   codexId: string;
@@ -27,24 +28,40 @@ export function useCodexConfig({ codexId, useDefaults = true, allowOverrides = f
         params.set('allowOverrides', 'true');
       }
 
-      const response = await fetch(`/api/codex/registry/${codexId}?${params.toString()}`);
-      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10_000);
+
+      let response: Response;
+      try {
+        response = await fetch(`/api/codex/registry/${codexId}?${params.toString()}`, {
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Failed to fetch codex configuration');
       }
 
       const data: CodexRegistryResponse<CodexConfig> = await response.json();
-      
+
       if (!data.success || !data.data) {
         throw new Error(data.error || 'Invalid response from codex registry');
       }
 
       return data.data;
     },
+    // Static config as immediate fallback — lets the codex render at once even if
+    // the registry fetch is slow or blocked (e.g. Brave Shields in strict mode).
+    // React Query will still fetch in the background and update when it resolves.
+    initialData: () => getCodexById(codexId) ?? getCodexBySlug(codexId) ?? undefined,
+    initialDataUpdatedAt: 0, // treat as stale so the background fetch always runs
     enabled,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    retry: false,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 }
 

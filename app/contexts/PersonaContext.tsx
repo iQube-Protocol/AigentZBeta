@@ -91,14 +91,18 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 
 function readFromStorage(): string | null {
   if (typeof window === "undefined") return null;
-  return (
-    localStorage.getItem(LS_KEY) ||
-    sessionStorage.getItem(LS_KEY) ||
-    // legacy fallbacks — remove once all write paths are migrated
-    localStorage.getItem("active_persona_id") ||
-    localStorage.getItem("activePersonaId") ||
-    null
-  );
+  try {
+    return (
+      localStorage.getItem(LS_KEY) ||
+      sessionStorage.getItem(LS_KEY) ||
+      // legacy fallbacks — remove once all write paths are migrated
+      localStorage.getItem("active_persona_id") ||
+      localStorage.getItem("activePersonaId") ||
+      null
+    );
+  } catch {
+    return null;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -145,8 +149,8 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
 
   // ── Persona switch ────────────────────────────────────────────────────────
   const setActivePersonaId = useCallback((id: string) => {
-    localStorage.setItem(LS_KEY, id);
-    sessionStorage.setItem(LS_KEY, id);
+    try { localStorage.setItem(LS_KEY, id); } catch { /* ignore */ }
+    try { sessionStorage.setItem(LS_KEY, id); } catch { /* ignore */ }
     setLocalState(id);
 
     // Same-document hooks react without page reload

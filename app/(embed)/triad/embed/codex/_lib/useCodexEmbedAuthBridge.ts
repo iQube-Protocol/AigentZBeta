@@ -41,11 +41,14 @@ function parseAllowedOrigins(): string[] {
 function firstStoredValue(keys: readonly string[]): string | undefined {
   if (typeof window === "undefined") return undefined;
   for (const key of keys) {
-    const localValue = window.localStorage.getItem(key);
-    if (localValue && localValue.trim().length > 0) return localValue.trim();
-
-    const sessionValue = window.sessionStorage.getItem(key);
-    if (sessionValue && sessionValue.trim().length > 0) return sessionValue.trim();
+    try {
+      const localValue = window.localStorage.getItem(key);
+      if (localValue && localValue.trim().length > 0) return localValue.trim();
+    } catch { /* storage blocked (e.g. Brave strict mode) */ }
+    try {
+      const sessionValue = window.sessionStorage.getItem(key);
+      if (sessionValue && sessionValue.trim().length > 0) return sessionValue.trim();
+    } catch { /* storage blocked */ }
   }
   return undefined;
 }
@@ -53,8 +56,8 @@ function firstStoredValue(keys: readonly string[]): string | undefined {
 function persistValue(keys: readonly string[], value?: string) {
   if (typeof window === "undefined" || !value) return;
   for (const key of keys) {
-    window.localStorage.setItem(key, value);
-    window.sessionStorage.setItem(key, value);
+    try { window.localStorage.setItem(key, value); } catch { /* ignore */ }
+    try { window.sessionStorage.setItem(key, value); } catch { /* ignore */ }
   }
 }
 

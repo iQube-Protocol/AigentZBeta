@@ -103,6 +103,33 @@ export function useRuntimeTakeover({
 
   const ttlMinutes = takeoverConfig?.manifestTtlMinutes ?? 30;
 
+  // Static welcome manifest used when the inference API is unavailable (e.g. blocked
+  // by Brave Shields or a strict ad-blocker). Keeps the banner + quick links visible.
+  const staticFallbackManifest = useCallback(
+    (ep: TakeoverEntryPoint): RuntimeTakeoverManifest => {
+      const variants = takeoverConfig?.inference?.welcomeVariants;
+      const welcomeNarrative =
+        ep === "return"   ? (variants?.onReturn   ?? "Welcome back — here's where you left off.")  :
+        ep === "toggle"   ? (variants?.onToggle   ?? "Switching your view.")                        :
+                            (variants?.onArrival  ?? `Welcome to ${takeoverConfig?.displayName ?? cartridgeSlug}.`);
+      const nbaConfig = takeoverConfig?.inference?.nbaTargetMix;
+      const nbaTarget: RuntimeTakeoverManifest["nextBestAction"] =
+        nbaConfig && nbaConfig.storeTab > 0
+          ? { label: "Explore episodes", target: "knyt-codex", targetType: "codex", tab: "store-episodes" }
+          : undefined;
+      return {
+        cartridgeSlug,
+        welcomeNarrative,
+        capsules: [],
+        theme: cartridgeSlug.includes("knyt") ? "patronage" : "discovery",
+        nextBestAction: nbaTarget,
+        generatedAt: new Date().toISOString(),
+        isPersonalised: false,
+      };
+    },
+    [cartridgeSlug, takeoverConfig]
+  );
+
   const infer = useCallback(
     async (ep: TakeoverEntryPoint = entryPoint) => {
       if (!enabled || !cartridgeSlug) return;
@@ -113,20 +140,33 @@ export function useRuntimeTakeover({
       const key = storageKey(cartridgeSlug, personaId);
       currentKeyRef.current = key;
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8_000);
+
       try {
         const res = await fetch("/api/runtime/takeover/infer", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ cartridgeSlug, personaId, entryPoint: ep }),
+          signal: controller.signal,
         });
-        if (!res.ok) return;
+        clearTimeout(timeoutId);
+        if (!res.ok) {
+          setManifest(staticFallbackManifest(ep));
+          return;
+        }
         const data = await res.json() as { ok: boolean; manifest?: RuntimeTakeoverManifest };
         if (data.ok && data.manifest) {
           setManifest(data.manifest);
           saveToStorage(key, data.manifest, ttlMinutes);
+        } else {
+          setManifest(staticFallbackManifest(ep));
         }
-      } catch { /* network error — non-fatal, manifest stays null */ }
-      finally {
+      } catch {
+        // Network error or timeout (Brave Shields, strict ad-blocker) — show static banner
+        clearTimeout(timeoutId);
+        setManifest(staticFallbackManifest(ep));
+      } finally {
         setIsLoading(false);
         inferringRef.current = false;
       }
