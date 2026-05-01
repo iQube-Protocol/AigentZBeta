@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-01T03:18:58.381Z",
+  "last_updated": "2026-05-01T04:18:58.104Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "4aade85e3775e7d77bab1c7d0c43f8818798b8ba",
-  "latest_commit_short": "4aade85",
-  "latest_commit_title": "fix: remove dead default imports from wallet barrel to break TDZ chain",
+  "latest_commit": "e7b0bda4895da2d6229ef830387e38367d35c9ea",
+  "latest_commit_short": "e7b0bda",
+  "latest_commit_title": "fix: SmartWalletDrawer hook-order TDZ — declare archived-persona useState before allAvailablePersonas useMemo",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "e7b0bda",
+      "full_sha": "e7b0bda4895da2d6229ef830387e38367d35c9ea",
+      "title": "fix: SmartWalletDrawer hook-order TDZ — declare archived-persona useState before allAvailablePersonas useMemo",
+      "author": "Claude",
+      "timestamp": "2026-05-01T04:17:07Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-e7b0bda.md"
+    },
     {
       "sha": "4aade85",
       "full_sha": "4aade85e3775e7d77bab1c7d0c43f8818798b8ba",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T12:42:15Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-ca17690.md"
-    },
-    {
-      "sha": "0e099fc",
-      "full_sha": "0e099fcc6c1a24fb6b72bf4c40ae726442d77448",
-      "title": "fix nakamoto multi-strategy identity resolve and segment member click-through",
-      "author": "Claude",
-      "timestamp": "2026-03-24T12:10:25Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-0e099fc.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

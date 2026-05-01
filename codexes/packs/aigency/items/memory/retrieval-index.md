@@ -604,3 +604,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-4aade85.md](../build_/COMMITS/COMMIT-4aade85.md)
 - Message: fix: remove dead default imports from wallet barrel to break TDZ chain
+
+## Commit `e7b0bda` — 2026-05-01T04:17:07Z
+- Type: `fix`
+- Brief: [COMMIT-e7b0bda.md](../build_/COMMITS/COMMIT-e7b0bda.md)
+- Message: fix: SmartWalletDrawer hook-order TDZ — declare archived-persona useState before allAvailablePersonas useMemo
