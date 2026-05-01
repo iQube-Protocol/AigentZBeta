@@ -220,49 +220,6 @@ export function KnytCartCheckoutModal({
     return evmKnytBalance >= quote.rails.knyt.total;
   }, [quote, selectedRail, knytShortfall, evmKnytBalance]);
 
-  const payWithEvm = useCallback(async () => {
-    if (!personaId || !quote) return;
-    setPaying(true);
-    setSettleError(null);
-    try {
-      const hash = await evmPay.sendKnyt(quote.rails.knyt.total);
-      const res = await fetch('/api/cart/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          personaId,
-          paymentRail: 'knyt_evm',
-          paymentReference: hash,
-          lines: items.map((line) => ({
-            id: line.id,
-            contentType: line.contentType,
-            priceUsd: line.priceUsd,
-            qty: lineQty(line),
-            label: line.label,
-            thumbUrl: line.thumbUrl,
-          })),
-          metadata: { source: 'KnytCartCheckoutModal', evmTxHash: hash },
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok && !json.results) {
-        setSettleError(json.error || `Settlement failed (${res.status})`);
-        return;
-      }
-      setResults(json.results as CompleteLineResult[]);
-      setCartPurchaseId(json.cartPurchaseId as string);
-      const { settledIds, failedIds } = partitionResults(json.results as CompleteLineResult[]);
-      onSettled?.({ settledIds, failedIds, cartPurchaseId: json.cartPurchaseId as string });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Payment failed';
-      if (!msg.toLowerCase().includes('rejected') && !msg.toLowerCase().includes('denied') && !msg.toLowerCase().includes('user denied')) {
-        setSettleError(msg);
-      }
-    } finally {
-      setPaying(false);
-    }
-  }, [personaId, quote, items, evmPay, partitionResults, onSettled]);
-
   useEffect(() => {
     if (knytShortfall > 0) void fetchTopupPackages();
   }, [knytShortfall, fetchTopupPackages]);
@@ -357,6 +314,52 @@ export function KnytCartCheckoutModal({
     }
     return { settledIds, failedIds };
   }, []);
+
+  // Must be after partitionResults — deps array references it, and const declarations
+  // within a function body have TDZ; referencing before declaration causes a
+  // production-only TypeError when webpack minifies the variable name.
+  const payWithEvm = useCallback(async () => {
+    if (!personaId || !quote) return;
+    setPaying(true);
+    setSettleError(null);
+    try {
+      const hash = await evmPay.sendKnyt(quote.rails.knyt.total);
+      const res = await fetch('/api/cart/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          personaId,
+          paymentRail: 'knyt_evm',
+          paymentReference: hash,
+          lines: items.map((line) => ({
+            id: line.id,
+            contentType: line.contentType,
+            priceUsd: line.priceUsd,
+            qty: lineQty(line),
+            label: line.label,
+            thumbUrl: line.thumbUrl,
+          })),
+          metadata: { source: 'KnytCartCheckoutModal', evmTxHash: hash },
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok && !json.results) {
+        setSettleError(json.error || `Settlement failed (${res.status})`);
+        return;
+      }
+      setResults(json.results as CompleteLineResult[]);
+      setCartPurchaseId(json.cartPurchaseId as string);
+      const { settledIds, failedIds } = partitionResults(json.results as CompleteLineResult[]);
+      onSettled?.({ settledIds, failedIds, cartPurchaseId: json.cartPurchaseId as string });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Payment failed';
+      if (!msg.toLowerCase().includes('rejected') && !msg.toLowerCase().includes('denied') && !msg.toLowerCase().includes('user denied')) {
+        setSettleError(msg);
+      }
+    } finally {
+      setPaying(false);
+    }
+  }, [personaId, quote, items, evmPay, partitionResults, onSettled]);
 
   /**
    * PayPal flow: opens a popup window pointed at /api/cart/paypal/create-order,
@@ -675,7 +678,7 @@ export function KnytCartCheckoutModal({
                         Spendable: {(knytBalance ?? 0).toFixed(2)} KNYT · Cart: {quote?.rails.knyt.total.toFixed(2)} KNYT.{' '}
                         {canPayWithEvm
                           ? `You have ${evmKnytBalance.toFixed(2)} KNYT on-chain — pay directly with MetaMask.`
-                          : 'Top up via PayPal and we'll reload your balance so you can pay with KNYT (20% off).'}
+                          : "Top up via PayPal and we'll reload your balance so you can pay with KNYT (20% off)."}
                       </p>
                     </div>
                   </div>
