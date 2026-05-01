@@ -102,8 +102,8 @@ export async function POST(req: NextRequest) {
       };
     }
 
-    // Validate required fields
-    if (!metadata.episodeNumber || !metadata.title || !metadata.contentType) {
+    // Validate required fields — use == null to allow episodeNumber 0 (GN)
+    if (metadata.episodeNumber == null || !metadata.title || !metadata.contentType) {
       return NextResponse.json({
         error: 'Missing required fields: episodeNumber, title, contentType',
       }, { status: 400 });

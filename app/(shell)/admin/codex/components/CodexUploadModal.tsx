@@ -509,8 +509,18 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
       });
 
       updateItem(item.id, { progress: 80 });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? 'Upload failed');
+      let data: Record<string, unknown> = {};
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error(
+          res.status === 413 ? 'File too large — please compress the PDF and try again' :
+          res.status === 401 ? 'Unauthorized — please sign in and try again' :
+          !res.ok ? `Server error (${res.status}) — check the file size and try again` :
+          'Server returned an unexpected response'
+        );
+      }
+      if (!res.ok) throw new Error((data?.error as string) ?? 'Upload failed');
 
       updateItem(item.id, { status: 'success', progress: 100, result: { id: data.id, cid: data.cid } });
     } catch (err) {
