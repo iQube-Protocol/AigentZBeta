@@ -390,29 +390,51 @@ export function getPrintFulfillmentMessage(isSingleEpisode: boolean): string {
 }
 
 // ── Cart types ─────────────────────────────────────────────────────────────
+//
+// Cart primitives are now generic and live in `services/cart/`. This module
+// re-exports them for back-compat with consumers that import from
+// `@/types/knyt-store`, and adds KNYT-specific extensions (the COYN-discount
+// total, the productType mapper).
 
-export type CartItemModality = 'still' | 'motion' | 'bundle';
-export type CartItemLayer = 'digital' | 'qripto' | 'print';
+import {
+  type CartItem,
+  type CartItemModality,
+  type CartItemLayer,
+  cartTotal,
+  cartItemCount,
+  lineQty,
+} from '@/services/cart';
 
-export interface CartItem {
-  id: string;
-  label: string;
-  modality: CartItemModality;
-  layer: CartItemLayer;
-  priceUsd: number;
-  thumbUrl?: string;
-  /** True for print bundles that are not investor specials — no KNYT COYN discount */
-  excludeKnytDiscount?: boolean;
+export type { CartItem, CartItemModality, CartItemLayer };
+export { cartTotal, cartItemCount, lineQty };
+
+/**
+ * Maps a cart line's contentType to the productType expected by
+ * services/rewards/purchaseHandler. KNYT-specific — lives here rather than
+ * in services/cart so the generic primitive stays cartridge-agnostic.
+ */
+export function cartContentTypeToProductType(contentType: NonNullable<CartItem['contentType']>): string {
+  const map: Record<NonNullable<CartItem['contentType']>, string> = {
+    scroll_still:           'knyt_scroll_still',
+    scroll_motion:          'knyt_scroll_motion',
+    character_card:         'knyt_character_card_still',
+    character_card_motion:  'knyt_character_card_motion',
+    bundle_3_still:         'knyt_scroll_bundle_still_3',
+    bundle_5_still:         'knyt_scroll_bundle_still_5',
+    bundle_3_motion:        'knyt_scroll_bundle_motion_3',
+    bundle_5_motion:        'knyt_scroll_bundle_motion_5',
+    season_codex_still:     'knyt_season_codex_stills',
+    season_codex_motion:    'knyt_season_codex_motion',
+  };
+  return map[contentType];
 }
 
-export function cartTotal(items: CartItem[]): number {
-  return items.reduce((s, i) => s + i.priceUsd, 0);
-}
-
+/** KNYT-specific cart total with the 20% native-token discount applied
+    per-line, except for lines flagged excludeKnytDiscount. */
 export function cartTotalWithKnyt(items: CartItem[]): number {
   return items.reduce((s, i) => {
-    if (i.excludeKnytDiscount) return s + i.priceUsd;
-    return s + getKnytDiscountedPrice(i.priceUsd);
+    const linePrice = i.excludeKnytDiscount ? i.priceUsd : getKnytDiscountedPrice(i.priceUsd);
+    return s + linePrice * lineQty(i);
   }, 0);
 }
 

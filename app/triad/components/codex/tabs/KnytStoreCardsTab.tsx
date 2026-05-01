@@ -1,14 +1,17 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowLeft, ShoppingCart, User, Zap } from 'lucide-react';
+import { ArrowLeft, Plus, ShoppingCart, User, Zap } from 'lucide-react';
 import {
   QRIPTO_SUPPLY,
   getKnytDiscountedPrice,
   KNYT_COYN_DISCOUNT,
   usdToKnyt,
+  type CartItem,
 } from '@/types/knyt-store';
 import { useKnytThumbnails } from './useKnytThumbnails';
+import { useKnytCart } from './useKnytCart';
+import { KnytCartDrawer } from './KnytCartDrawer';
 import { ContentPurchaseModal } from '../../content/ContentPurchaseModal';
 import type { ContentType } from '../../content/ContentPurchaseModal';
 
@@ -67,21 +70,46 @@ function KnytPricePill({ basePrice }: { basePrice: number }) {
 function CartButton({
   label,
   onClick,
+  onAddToCart,
   className,
 }: {
   label?: string;
   onClick: (e: React.MouseEvent) => void;
+  onAddToCart?: (e: React.MouseEvent) => void;
   className?: string;
 }) {
+  if (!onAddToCart) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onClick(e); }}
+        className={`flex items-center gap-1 rounded-lg bg-teal-700/80 hover:bg-teal-600 px-2 py-1 text-[10px] font-semibold text-white transition-colors ${className ?? ''}`}
+      >
+        <ShoppingCart className="h-3 w-3 shrink-0" />
+        {label && <span>{label}</span>}
+      </button>
+    );
+  }
   return (
-    <button
-      type="button"
-      onClick={(e) => { e.stopPropagation(); onClick(e); }}
-      className={`flex items-center gap-1 rounded-lg bg-teal-700/80 hover:bg-teal-600 px-2 py-1 text-[10px] font-semibold text-white transition-colors ${className ?? ''}`}
-    >
-      <ShoppingCart className="h-3 w-3 shrink-0" />
-      {label && <span>{label}</span>}
-    </button>
+    <div className={`flex rounded-lg overflow-hidden ${className ?? ''}`}>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onClick(e); }}
+        className="flex-1 flex items-center justify-center gap-1 bg-teal-700/80 hover:bg-teal-600 px-2 py-1 text-[10px] font-semibold text-white transition-colors"
+        title={label ? `${label} — buy now` : 'Buy now'}
+      >
+        <ShoppingCart className="h-3 w-3 shrink-0" />
+        {label && <span>{label}</span>}
+      </button>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onAddToCart(e); }}
+        className="flex items-center justify-center bg-teal-800/80 hover:bg-teal-700 px-2 py-1 text-white transition-colors border-l border-teal-900/50"
+        title="Add to cart"
+      >
+        <Plus className="h-3 w-3 shrink-0" />
+      </button>
+    </div>
   );
 }
 
@@ -94,6 +122,7 @@ function CharacterCardItem({
   variant,
   onClick,
   onBuy,
+  onAddToCart,
 }: {
   epNum: number;
   thumbUrl?: string;
@@ -101,6 +130,7 @@ function CharacterCardItem({
   variant: CardVariant;
   onClick: () => void;
   onBuy: (e: React.MouseEvent) => void;
+  onAddToCart?: (e: React.MouseEvent) => void;
 }) {
   const price = CARD_PRICES[variant];
   return (
@@ -137,7 +167,7 @@ function CharacterCardItem({
         </p>
         <p className="text-xs font-bold text-white">${price}</p>
         <div className="flex justify-end pt-0.5">
-          <CartButton onClick={onBuy} />
+          <CartButton onClick={onBuy} onAddToCart={onAddToCart} />
         </div>
       </div>
     </button>
@@ -152,12 +182,14 @@ function CharacterCardDetail({
   title,
   variant,
   onBuy,
+  onAddToCart,
 }: {
   epNum: number;
   thumbUrl?: string;
   title?: string;
   variant: CardVariant;
   onBuy: (v: CardVariant) => void;
+  onAddToCart?: (v: CardVariant) => void;
 }) {
   const cardTitle = title || `Character #${epNum}`;
 
@@ -195,7 +227,7 @@ function CharacterCardDetail({
             <span className="text-[10px] font-semibold text-slate-300">Still</span>
             <span className="text-sm font-bold text-white">{CARD_KNYT_PRICES.still} KNYT <span className="text-[10px] text-slate-500">(${CARD_PRICES.still})</span></span>
           </div>
-          <CartButton label="Buy Still" onClick={() => onBuy('still')} className="w-full justify-center" />
+          <CartButton label="Buy Still" onClick={() => onBuy('still')} onAddToCart={onAddToCart && (() => onAddToCart('still'))} className="w-full justify-center" />
         </div>
 
         {/* Motion */}
@@ -205,7 +237,7 @@ function CharacterCardDetail({
             <span className="text-sm font-bold text-white">{CARD_KNYT_PRICES.motion} KNYT <span className="text-[10px] text-slate-500">(${CARD_PRICES.motion})</span></span>
           </div>
           <p className="text-[9px] text-cyan-400">Animated card — all clips</p>
-          <CartButton label="Buy Motion" onClick={() => onBuy('motion')} className="w-full justify-center" />
+          <CartButton label="Buy Motion" onClick={() => onBuy('motion')} onAddToCart={onAddToCart && (() => onAddToCart('motion'))} className="w-full justify-center" />
         </div>
 
         {/* Bundle */}
@@ -216,7 +248,7 @@ function CharacterCardDetail({
           </div>
           <p className="text-[9px] text-teal-400">Both formats · save vs separate</p>
           <KnytPricePill basePrice={CARD_PRICES.bundle} />
-          <CartButton label="Buy Bundle" onClick={() => onBuy('bundle')} className="w-full justify-center" />
+          <CartButton label="Buy Bundle" onClick={() => onBuy('bundle')} onAddToCart={onAddToCart && (() => onAddToCart('bundle'))} className="w-full justify-center" />
         </div>
       </div>
     </div>
@@ -229,35 +261,66 @@ export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
   const [view, setView]         = useState<CardsView>({ kind: 'landing' });
   const [variant, setVariant]   = useState<CardVariant>('still');
   const [purchase, setPurchase] = useState<PendingPurchase | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
   const { characters, getCharacterThumb } = useKnytThumbnails();
+  const cart = useKnytCart();
+
+  function addPendingToCart(p: PendingPurchase) {
+    const modalityVal: CartItem['modality'] = p.contentType.includes('motion')
+      ? 'motion'
+      : p.contentType.startsWith('bundle')
+      ? 'bundle'
+      : 'still';
+    const item: CartItem = {
+      id:          p.contentId ?? `${p.contentType}-${p.contentTitle}`,
+      label:       p.contentTitle,
+      modality:    modalityVal,
+      layer:       'digital',
+      priceUsd:    p.priceUsdOverride ?? 0,
+      thumbUrl:    p.contentImage,
+      contentType: p.contentType as CartItem['contentType'],
+    };
+    cart.addToCart(item);
+    setCartOpen(true);
+  }
 
   function getTitle(epNum: number): string | undefined {
     return characters.find((c) => c.episodeNumber === epNum)?.title;
   }
 
-  function openPurchase(epNum: number, v: CardVariant) {
+  /** Builds the PendingPurchase payload for a given (epNum, variant). Used by both
+      the express-buy path and the add-to-cart path so the same SKU shape is
+      authoritative for both flows. */
+  function buildPendingPurchase(epNum: number, v: CardVariant): PendingPurchase {
     const title = getTitle(epNum) ?? `Character #${epNum}`;
     const image = getCharacterThumb(epNum);
     if (v === 'bundle') {
-      setPurchase({
+      return {
         contentType:            'bundle_3_still',  // triggers "Bundle includes both Still & Motion" badge
         contentId:              `character-card-${epNum}-bundle`,
         contentTitle:           `${title} — Still + Motion`,
         contentImage:           image,
         priceUsdOverride:       CARD_PRICES.bundle,
         stillPriceKnytOverride: CARD_KNYT_PRICES.bundle, // 5 KNYT combined
-      });
-    } else {
-      setPurchase({
-        contentType:             v === 'motion' ? 'character_card_motion' : 'character_card',
-        contentId:               `character-card-${epNum}-${v}`,
-        contentTitle:            `${title} — ${VARIANT_LABELS[v].short}`,
-        contentImage:            image,
-        priceUsdOverride:        CARD_PRICES[v],
-        stillPriceKnytOverride:  CARD_KNYT_PRICES.still,
-        motionPriceKnytOverride: CARD_KNYT_PRICES.motion,
-      });
+      };
     }
+    return {
+      contentType:             v === 'motion' ? 'character_card_motion' : 'character_card',
+      contentId:               `character-card-${epNum}-${v}`,
+      contentTitle:            `${title} — ${VARIANT_LABELS[v].short}`,
+      contentImage:            image,
+      priceUsdOverride:        CARD_PRICES[v],
+      stillPriceKnytOverride:  CARD_KNYT_PRICES.still,
+      motionPriceKnytOverride: CARD_KNYT_PRICES.motion,
+    };
+  }
+
+  function openPurchase(epNum: number, v: CardVariant) {
+    setPurchase(buildPendingPurchase(epNum, v));
+  }
+
+  function addCardToCart(epNum: number, v: CardVariant) {
+    addPendingToCart(buildPendingPurchase(epNum, v));
   }
 
   return (
@@ -295,6 +358,20 @@ export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
           ))}
           <span className="text-[9px] text-slate-500 ml-1">{CARD_KNYT_PRICES[variant]} KNYT</span>
         </div>
+        {/* Cart badge */}
+        <button
+          type="button"
+          onClick={() => setCartOpen(true)}
+          className="relative p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+          title="Open cart"
+        >
+          <ShoppingCart className="h-4 w-4" />
+          {cart.count > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-teal-500 text-[8px] font-bold text-white flex items-center justify-center">
+              {cart.count}
+            </span>
+          )}
+        </button>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto">
@@ -313,6 +390,7 @@ export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
                   variant={variant}
                   onClick={() => setView({ kind: 'detail', epNum })}
                   onBuy={(e) => { e.stopPropagation(); openPurchase(epNum, variant); }}
+                  onAddToCart={(e) => { e.stopPropagation(); addCardToCart(epNum, variant); }}
                 />
               ))}
             </div>
@@ -326,6 +404,7 @@ export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
             title={getTitle(view.epNum)}
             variant={variant}
             onBuy={(v) => openPurchase(view.epNum, v)}
+            onAddToCart={(v) => addCardToCart(view.epNum, v)}
           />
         )}
       </div>
@@ -345,6 +424,19 @@ export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
           motionPriceKnytOverride={purchase.motionPriceKnytOverride}
         />
       )}
+
+      {/* Cart drawer */}
+      <KnytCartDrawer
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        items={cart.items}
+        onRemove={cart.removeFromCart}
+        onSetQty={cart.setQty}
+        onClearCart={cart.clearCart}
+        personaId={personaId}
+        total={cart.total}
+        totalWithKnyt={cart.totalWithKnyt}
+      />
     </div>
   );
 }

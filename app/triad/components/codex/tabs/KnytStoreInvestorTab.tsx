@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowLeft, Crown, Film, Lock, Package, Sparkles, User, Zap } from 'lucide-react';
+import { ArrowLeft, Crown, Film, Lock, Package, Plus, ShoppingCart, Sparkles, User, Zap } from 'lucide-react';
 import {
   BUNDLE_PRICING,
   EPISODE_PRICING,
@@ -9,8 +9,11 @@ import {
   KNYT_COYN_DISCOUNT,
   usdToKnyt,
   type BundlePricing,
+  type CartItem,
 } from '@/types/knyt-store';
 import { useKnytThumbnails } from './useKnytThumbnails';
+import { useKnytCart } from './useKnytCart';
+import { KnytCartDrawer } from './KnytCartDrawer';
 import { ContentPurchaseModal } from '../../content/ContentPurchaseModal';
 import type { ContentType } from '../../content/ContentPurchaseModal';
 
@@ -45,15 +48,53 @@ function KnytPricePill({ basePrice }: { basePrice: number }) {
   );
 }
 
+/**
+ * Adds a small "+ cart" button next to the buy button. When `onAddToCart` is
+ * provided, the row renders both. Otherwise it renders just the buy button.
+ */
+function InvestorBuyRow({
+  onBuy,
+  onAddToCart,
+}: {
+  onBuy: (e: React.MouseEvent) => void;
+  onAddToCart?: (e: React.MouseEvent) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1 justify-end">
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onBuy(e); }}
+        className="flex items-center gap-1 rounded-lg bg-yellow-700/80 hover:bg-yellow-600 px-2 py-1 text-[10px] font-semibold text-white transition-colors"
+        title="Buy now"
+      >
+        <Crown className="h-3 w-3 shrink-0" />
+        <span>Buy</span>
+      </button>
+      {onAddToCart && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onAddToCart(e); }}
+          className="flex items-center justify-center rounded-lg bg-yellow-800/80 hover:bg-yellow-700 px-1.5 py-1 text-white transition-colors border border-yellow-900/50"
+          title="Add to cart"
+        >
+          <Plus className="h-3 w-3 shrink-0" />
+        </button>
+      )}
+    </div>
+  );
+}
+
 function InvestorBundleCard({
   bundle,
   onClick,
   onBuy,
+  onAddToCart,
   getCoverThumb,
 }: {
   bundle: BundlePricing;
   onClick: () => void;
   onBuy: (e: React.MouseEvent) => void;
+  onAddToCart?: (e: React.MouseEvent) => void;
   getCoverThumb: (n: number) => string | undefined;
 }) {
   const isGnOnly = bundle.episodes.length === 1 && bundle.episodes[0] === -1;
@@ -98,15 +139,8 @@ function InvestorBundleCard({
           </div>
         </div>
       </button>
-      <div className="flex justify-end px-1.5 pb-1.5 pt-0.5">
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onBuy(e); }}
-          className="flex items-center gap-1 rounded-lg bg-yellow-700/80 hover:bg-yellow-600 px-2 py-1 text-[10px] font-semibold text-white transition-colors"
-        >
-          <Crown className="h-3 w-3 shrink-0" />
-          <span>Buy</span>
-        </button>
+      <div className="px-1.5 pb-1.5 pt-0.5">
+        <InvestorBuyRow onBuy={onBuy} onAddToCart={onAddToCart} />
       </div>
     </div>
   );
@@ -115,11 +149,13 @@ function InvestorBundleCard({
 function InvestorBundleDetail({
   bundle,
   onBuy,
+  onAddToCart,
   getCoverThumb,
   getCharacterThumb,
 }: {
   bundle: BundlePricing;
   onBuy: () => void;
+  onAddToCart?: () => void;
   getCoverThumb: (n: number) => string | undefined;
   getCharacterThumb: (n: number) => string | undefined;
 }) {
@@ -191,14 +227,27 @@ function InvestorBundleDetail({
                 Save ${(individualTotal - bundle.digitalPrice).toFixed(0)} vs individually
               </p>
             )}
-            <button
-              type="button"
-              onClick={onBuy}
-              className="w-full flex items-center justify-center gap-1.5 rounded-lg bg-yellow-700/80 hover:bg-yellow-600 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors mt-1"
-            >
-              <Crown className="h-3.5 w-3.5 shrink-0" />
-              Buy Investor Bundle
-            </button>
+            <div className="flex items-center gap-1 mt-1">
+              <button
+                type="button"
+                onClick={onBuy}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-yellow-700/80 hover:bg-yellow-600 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors"
+                title="Buy now"
+              >
+                <Crown className="h-3.5 w-3.5 shrink-0" />
+                Buy Investor Bundle
+              </button>
+              {onAddToCart && (
+                <button
+                  type="button"
+                  onClick={onAddToCart}
+                  className="flex items-center justify-center rounded-lg bg-yellow-800/80 hover:bg-yellow-700 px-2 py-1.5 text-white transition-colors border border-yellow-900/50"
+                  title="Add to cart"
+                >
+                  <Plus className="h-3.5 w-3.5 shrink-0" />
+                </button>
+              )}
+            </div>
           </div>
 
           {bundle.isConditional && (
@@ -296,9 +345,27 @@ const collectionInvestorBundles = BUNDLE_PRICING.filter((b) => b.isInvestorOnly 
 export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
   const [view, setView]         = useState<InvestorView>({ kind: 'landing' });
   const [purchase, setPurchase] = useState<PendingPurchase | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
   const { getCoverThumb, getCharacterThumb } = useKnytThumbnails();
+  const cart = useKnytCart();
 
   const detailLabel = view.kind === 'bundle-detail' ? view.bundle.label : null;
+
+  function addBundleToCart(bundle: BundlePricing) {
+    const isGnOnly = bundle.episodes.length === 1 && bundle.episodes[0] === -1;
+    const image = isGnOnly ? getCoverThumb(-1) ?? INVESTOR_SEAL : INVESTOR_SEAL;
+    const item: CartItem = {
+      id:          bundle.id,
+      label:       bundle.label,
+      modality:    'bundle',
+      layer:       'digital',
+      priceUsd:    bundle.memberPrice ?? bundle.digitalPrice,
+      thumbUrl:    image,
+      contentType: 'season_codex_still',  // mirrors openBundlePurchase below
+    };
+    cart.addToCart(item);
+    setCartOpen(true);
+  }
 
   function openBundlePurchase(bundle: BundlePricing) {
     const isGnOnly = bundle.episodes.length === 1 && bundle.episodes[0] === -1;
@@ -314,8 +381,10 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
 
   return (
     <div className="flex flex-col h-full">
-      {view.kind !== 'landing' && (
-        <div className="flex-shrink-0 border-b border-slate-800/60 bg-slate-900/40 px-4 py-2 flex items-center gap-2">
+      {/* Toolbar — always visible so the cart badge persists.
+          Back button is conditional on a sub-view being open. */}
+      <div className="flex-shrink-0 border-b border-slate-800/60 bg-slate-900/40 px-4 py-2 flex items-center gap-2">
+        {view.kind !== 'landing' && (
           <button
             type="button"
             onClick={() => setView({ kind: 'landing' })}
@@ -323,11 +392,25 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-          {detailLabel && (
-            <span className="text-sm font-semibold text-slate-200 min-w-0 truncate">{detailLabel}</span>
+        )}
+        {detailLabel && (
+          <span className="text-sm font-semibold text-slate-200 min-w-0 truncate">{detailLabel}</span>
+        )}
+        {/* Cart badge — right-aligned */}
+        <button
+          type="button"
+          onClick={() => setCartOpen(true)}
+          className="ml-auto relative p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+          title="Open cart"
+        >
+          <ShoppingCart className="h-4 w-4" />
+          {cart.count > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-teal-500 text-[8px] font-bold text-white flex items-center justify-center">
+              {cart.count}
+            </span>
           )}
-        </div>
-      )}
+        </button>
+      </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto">
         {view.kind === 'landing' && (
@@ -353,6 +436,7 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
                       bundle={bundle}
                       onClick={() => setView({ kind: 'bundle-detail', bundle })}
                       onBuy={(e) => { e.stopPropagation(); openBundlePurchase(bundle); }}
+                      onAddToCart={(e) => { e.stopPropagation(); addBundleToCart(bundle); }}
                       getCoverThumb={getCoverThumb}
                     />
                   ))}
@@ -371,6 +455,7 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
                       bundle={bundle}
                       onClick={() => setView({ kind: 'bundle-detail', bundle })}
                       onBuy={(e) => { e.stopPropagation(); openBundlePurchase(bundle); }}
+                      onAddToCart={(e) => { e.stopPropagation(); addBundleToCart(bundle); }}
                       getCoverThumb={getCoverThumb}
                     />
                   ))}
@@ -393,6 +478,7 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
           <InvestorBundleDetail
             bundle={view.bundle}
             onBuy={() => openBundlePurchase(view.bundle)}
+            onAddToCart={() => addBundleToCart(view.bundle)}
             getCoverThumb={getCoverThumb}
             getCharacterThumb={getCharacterThumb}
           />
@@ -412,6 +498,19 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
           baseKnytOverride={usdToKnyt(purchase.priceUsdOverride)}
         />
       )}
+
+      {/* Cart drawer */}
+      <KnytCartDrawer
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        items={cart.items}
+        onRemove={cart.removeFromCart}
+        onSetQty={cart.setQty}
+        onClearCart={cart.clearCart}
+        personaId={personaId}
+        total={cart.total}
+        totalWithKnyt={cart.totalWithKnyt}
+      />
     </div>
   );
 }

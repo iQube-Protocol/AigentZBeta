@@ -128,6 +128,29 @@ interface ContentPurchaseModalProps {
   motionPriceKnytOverride?: number;
   /** When true, hides the Still/Motion version selector (e.g. for print purchases) */
   hideVersionSelector?: boolean;
+  /**
+   * When the modal is opened from a cart-checkout iteration, pass cart
+   * progress / running totals so the user sees they're inside a multi-item
+   * flow rather than a one-off purchase. The modal renders a thin amber
+   * banner above the body summarising:
+   *   "Cart checkout · Item 2 of 3 · Cart total $42.00 (remaining $28.00)"
+   * Per-item settlement still happens through the existing single-item
+   * flow — Phase 2 will replace this with /api/cart/{quote,complete}.
+   */
+  cartContext?: {
+    itemIndex: number;       // 1-based
+    totalItems: number;      // sum of qty across cart
+    cartTotalUsd: number;    // total cart value the user is committed to
+    remainingUsd?: number;   // sum of the lines not yet settled
+    useKnytDiscount?: boolean;
+  };
+  /**
+   * When provided, the modal renders an "Add to Cart" button alongside the
+   * Review Purchase CTA. Lets the user defer settlement and aggregate items
+   * across the same KNYT cart used by the Store tabs / KnytCardsGrid.
+   * Caller is responsible for closing the modal after the cart-add.
+   */
+  onAddToCart?: () => void;
   onPurchaseComplete?: (entitlementId: string) => void;
   onBalanceRefresh?: () => void;
 }
@@ -148,6 +171,8 @@ export function ContentPurchaseModal({
   stillPriceKnytOverride,
   motionPriceKnytOverride,
   hideVersionSelector,
+  cartContext,
+  onAddToCart,
   onPurchaseComplete,
   onBalanceRefresh,
 }: ContentPurchaseModalProps) {
@@ -424,6 +449,27 @@ export function ContentPurchaseModal({
           </div>
         </div>
 
+        {/* Cart-checkout context banner — only present when this modal was
+            opened from a cart-iteration. Tells the user where they are in
+            the multi-item flow and what's left to settle. */}
+        {cartContext && (
+          <div className="border-y border-amber-500/30 bg-amber-500/[0.07] px-4 py-2 flex items-center gap-2">
+            <ShoppingCart className="h-3.5 w-3.5 shrink-0 text-amber-300" />
+            <div className="flex-1 min-w-0 text-[11px] leading-snug">
+              <div className="text-amber-100 font-medium">
+                Cart checkout · Item {cartContext.itemIndex} of {cartContext.totalItems}
+              </div>
+              <div className="text-amber-200/70 mt-0.5 truncate">
+                Cart total ${cartContext.cartTotalUsd.toFixed(2)}
+                {typeof cartContext.remainingUsd === 'number' && cartContext.remainingUsd !== cartContext.cartTotalUsd && (
+                  <> · ${cartContext.remainingUsd.toFixed(2)} remaining</>
+                )}
+                {cartContext.useKnytDiscount && <> · KNYT 20% applied</>}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="p-5 overflow-y-auto">
           {success ? (
             <div className="text-center py-6">
@@ -678,13 +724,25 @@ export function ContentPurchaseModal({
               )}
 
               {!showConfirmation ? (
-                <button
-                  onClick={() => setShowConfirmation(true)}
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold flex items-center justify-center gap-2 hover:from-amber-400 hover:to-orange-400 transition-all"
-                >
-                  <ShoppingCart className="w-4 h-4" />
-                  Review Purchase
-                </button>
+                <div className={onAddToCart ? 'flex gap-2' : ''}>
+                  <button
+                    onClick={() => setShowConfirmation(true)}
+                    className="flex-1 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold flex items-center justify-center gap-2 hover:from-amber-400 hover:to-orange-400 transition-all"
+                  >
+                    <ShoppingCart className="w-4 h-4" />
+                    Review Purchase
+                  </button>
+                  {onAddToCart && (
+                    <button
+                      onClick={onAddToCart}
+                      className="px-4 py-3 rounded-xl border border-cyan-400/40 bg-cyan-500/10 text-cyan-200 font-semibold flex items-center justify-center gap-2 hover:bg-cyan-500/20 transition-all whitespace-nowrap"
+                      title="Add to cart and keep shopping"
+                    >
+                      <ShoppingCart className="w-4 h-4" />
+                      Add to Cart
+                    </button>
+                  )}
+                </div>
               ) : (
                 <div className="space-y-3">
                   <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">

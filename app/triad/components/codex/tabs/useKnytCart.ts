@@ -1,72 +1,32 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
-import { type CartItem, cartTotal, cartTotalWithKnyt } from '@/types/knyt-store';
-import type { ContentType } from '../../content/ContentPurchaseModal';
+/**
+ * KNYT-specific wrapper around the generic SmartTriad cart primitive.
+ *
+ * The generic cart hook + types live at `services/cart/` (designed for
+ * promotion to `packages/smarttriad/src/cart/` later). This module just
+ * binds it to the KNYT cartridge's localStorage key and adds the
+ * KNYT-specific KNYT-discount total.
+ *
+ * Other cartridges (Qriptopian, codex Read tab, future) use the same
+ * pattern: import `useCart` from `@/services/cart`, pass their own
+ * `storageKey`, layer cartridge-specific helpers on top.
+ */
+
+import { useCart } from '@/services/cart';
+import { cartTotalWithKnyt } from '@/types/knyt-store';
 
 const STORAGE_KEY = 'knyt_cart_v1';
 
-function readCart(): CartItem[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as CartItem[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeCart(items: CartItem[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-  } catch { /* storage full — ignore */ }
-}
-
-export interface CartLineItem {
-  id: string;
-  label: string;
-  contentType: ContentType;
-  contentId: string;
-  priceUsd: number;
-  thumbUrl?: string;
-  modality: CartItem['modality'];
-  layer: CartItem['layer'];
-  excludeKnytDiscount?: boolean;
-}
-
 export function useKnytCart() {
-  const [items, setItems] = useState<CartItem[]>([]);
-
-  useEffect(() => {
-    setItems(readCart());
-  }, []);
-
-  const syncItems = useCallback((next: CartItem[]) => {
-    setItems(next);
-    writeCart(next);
-  }, []);
-
-  const addToCart = useCallback((item: CartItem) => {
-    setItems((prev) => {
-      const exists = prev.find((p) => p.id === item.id);
-      const next = exists ? prev : [...prev, item];
-      writeCart(next);
-      return next;
-    });
-  }, []);
-
-  const removeFromCart = useCallback((id: string) => {
-    setItems((prev) => {
-      const next = prev.filter((p) => p.id !== id);
-      writeCart(next);
-      return next;
-    });
-  }, []);
-
-  const clearCart = useCallback(() => syncItems([]), [syncItems]);
-
-  const total = cartTotal(items);
-  const totalWithKnyt = cartTotalWithKnyt(items);
-
-  return { items, addToCart, removeFromCart, clearCart, total, totalWithKnyt };
+  const cart = useCart({ storageKey: STORAGE_KEY });
+  // KNYT-specific: layer the "with KNYT 20% discount" running total on top of
+  // the generic total. Other cartridges may layer their own native-token
+  // discount totals on top of useCart in the same way.
+  const totalWithKnyt = cartTotalWithKnyt(cart.items);
+  return { ...cart, totalWithKnyt };
 }
+
+// Re-export the cart-line shape used by consumers that want a typed
+// "construct a line" helper. Generic shape lives in services/cart.
+export type { CartItem } from '@/services/cart';

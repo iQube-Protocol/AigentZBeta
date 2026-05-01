@@ -5,6 +5,46 @@ Update it as new patterns and rules are established.
 
 ---
 
+## Push Commit Messages — MANDATORY (top priority, do not override)
+
+**Every push to GitHub / dev / any deploy-triggering branch MUST carry a commit message that names the actual content being pushed. Generic merge messages are forbidden.**
+
+This rule is **non-negotiable** and must not be reduced, removed, or worked around by any agent. The operator should be able to read the commit history and immediately know which push corresponds to which change without opening GitHub.
+
+### Forbidden — never produce these:
+
+- `Merge remote-tracking branch 'origin/claude/<session>' into dev` (the default git-generated message)
+- `Merge branch X` with no further detail
+- `merge dev` with no follow-up describing what's being pushed
+- `--no-edit` on any merge that hits dev / main / a deployable branch
+
+### Required — every merge / push to dev must include:
+
+1. The session branch being merged (so the operator can correlate)
+2. A short summary of WHAT changed in this push (one phrase, like the imperative commit subject style elsewhere in this repo)
+
+### Correct examples
+
+```
+merge dev: sync before pushing inline-remix refactor (fc82cb7)
+merge dev: sync before pushing X-Frame-Options fix (f71efd8) + KB timeout bump
+merge origin/dev -m "merge dev: sync before pushing thinking-dots Lovable spec (d76dbd1)"
+```
+
+### How to enforce this when pushing
+
+When using `git merge origin/dev` before pushing to dev, **ALWAYS** pass `-m` with a descriptive message naming the commits being pushed:
+
+```bash
+git merge origin/dev -m "merge dev: sync before pushing <feature/fix> (<commit>)"
+```
+
+When using auto-merge via the `claude/**` branch flow, the auto-merge generates the generic message — to override, push the session branch with a final commit message that names the change, then direct-push to dev with a descriptive merge message.
+
+This rule **applies to every agent** working on this repo (Claude Code, Codex, Lovable, any future agent). It applies regardless of the kind of change (code, doc, config). It applies to every push. There are no exceptions.
+
+---
+
 ## No Guessing or Hallucinating — Zero Tolerance
 
 **Never guess, invent, or assume any value that cannot be verified from the codebase or a source provided by the operator.**

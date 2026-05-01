@@ -58,6 +58,13 @@ interface Props {
   onPublished?: (content: GeneratedContent) => void;
   /** Called when an unauthenticated user clicks the sign-in CTA. */
   onSignInRequest?: () => void;
+  /**
+   * 'modal' (default): renders as a fixed-position overlay dialog.
+   * 'inline': renders just the body in-flow — host provides the surrounding
+   *   container (e.g. RuntimeCapsuleRemixEditor banner). No close X; host
+   *   controls open/close via its own toggle.
+   */
+  variant?: 'modal' | 'inline';
 }
 
 type GenerationStep = "idle" | "charging" | "writing" | "rendering" | "saving";
@@ -71,6 +78,7 @@ export function RemixDialog({
   onClose,
   onPublished,
   onSignInRequest,
+  variant = 'modal',
 }: Props) {
   const [skill, setSkill] = useState<Skill>("article");
   const [title, setTitle] = useState(initialTitle ?? "");
@@ -243,6 +251,134 @@ export function RemixDialog({
   const skillCost = quota?.costs[skill];
   const showCostBadge = quota && skillCost;
   const isFree = (quota?.freeRemaining ?? 0) > 0;
+
+  if (variant === 'inline') {
+    // Inline variant: skip the overlay + card chrome and the close X.
+    // Host banner provides label+toggle. Body and footer use the same flow
+    // as the modal variant — just no fixed positioning and no scroll cap.
+    return (
+      <div className="space-y-3 px-1 pb-1">
+        {/* Sign-in banner — front and centre when no persona is active */}
+        {!personaId && !generated && (
+          <SignInBanner onSignIn={onSignInRequest} />
+        )}
+
+        {/* Generation progress strip */}
+        {generating && (
+          <GenerationProgress step={generationStep} skill={skill} />
+        )}
+
+        {!generated ? (
+          <ComposeView
+            skill={skill} setSkill={setSkill}
+            title={title} setTitle={setTitle}
+            prompt={prompt} setPrompt={setPrompt}
+            quota={quota} quotaError={quotaError} hasPersona={!!personaId}
+            skillCost={skillCost ?? null} isFree={isFree} showCostBadge={!!showCostBadge}
+            disabled={generating || !personaId}
+          />
+        ) : (
+          <PreviewView generated={generated} />
+        )}
+
+        {error && (
+          <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+            {error}
+          </div>
+        )}
+
+        {/* Footer — same buttons as modal variant. Discard/Redo/Publish in preview;
+            quota line + Generate (or Sign in) in compose. */}
+        <div className="flex items-center justify-between gap-2 pt-1">
+          {!generated ? (
+            <>
+              <div className="text-[10px] text-slate-400 min-w-0 truncate">
+                {!personaId
+                  ? <span className="text-amber-300/80">Sign in required</span>
+                  : !quota && !quotaError
+                  ? <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Loading quota…</span>
+                  : quotaError
+                  ? <span className="text-red-300/80">{quotaError}</span>
+                  : quota
+                  ? <>
+                      <span className={quota.freeRemaining > 0 ? "text-emerald-300" : "text-slate-500"}>
+                        {quota.freeRemaining}/{quota.limits.dailyFreeQuota} free
+                      </span>
+                      <span className="text-slate-600"> · resets daily</span>
+                    </>
+                  : "—"
+                }
+              </div>
+              {!personaId ? (
+                <button
+                  type="button"
+                  onClick={() => onSignInRequest?.()}
+                  disabled={!onSignInRequest}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-500/25 disabled:opacity-40"
+                >
+                  <LogIn className="h-3.5 w-3.5" />
+                  Sign in to remix
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={submit}
+                  disabled={generating || !prompt.trim()}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-500/25 disabled:opacity-40"
+                >
+                  {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                  {generating ? generationStepLabel(generationStep) : skillCost && skillCost.currentQc === 0 ? "Generate (free)" : skillCost ? `Generate · ${skillCost.currentQc} Q¢` : "Generate"}
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={discard}
+                disabled={
+                  actionPending !== null ||
+                  (discardCountdown !== null && discardCountdown <= 0) ||
+                  (quota?.refundRemaining ?? 0) <= 0
+                }
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10 disabled:opacity-30"
+                title={
+                  discardCountdown === 0
+                    ? "Discard window expired"
+                    : (quota?.refundRemaining ?? 0) <= 0
+                    ? "Daily discard refund used"
+                    : `Refund within ${discardCountdown}s`
+                }
+              >
+                {actionPending === "discard" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                Discard{discardCountdown !== null && discardCountdown > 0 ? ` (${discardCountdown}s)` : ""}
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setGenerated(null); setError(null); }}
+                  disabled={actionPending !== null}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10 disabled:opacity-30"
+                >
+                  <RotateCw className="h-3.5 w-3.5" />
+                  Redo
+                </button>
+                <button
+                  type="button"
+                  onClick={publish}
+                  disabled={actionPending !== null}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-500/25 disabled:opacity-40"
+                >
+                  {actionPending === "publish" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Share2 className="h-3.5 w-3.5" />}
+                  Publish
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

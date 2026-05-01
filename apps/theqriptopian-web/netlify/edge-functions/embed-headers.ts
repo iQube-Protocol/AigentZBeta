@@ -22,8 +22,10 @@ export default async function handler(req: Request, context: Context) {
     .filter(d => !d.trim().toLowerCase().startsWith("frame-ancestors"))
     .join(";");
 
+  // Keep in sync with configs/embed/policy.v1.json. metame.live + metame.dev
+  // added 2026-04-30 (new thin-client production domains).
   const frameAncestors =
-    "frame-ancestors 'self' https://preview--qriptopian.lovable.app https://qriptopian.lovable.app https://*.lovable.app https://*.lovable.dev https://*.lovableproject.com https://*.aigentz.me http://localhost:3000";
+    "frame-ancestors 'self' https://preview--qriptopian.lovable.app https://qriptopian.lovable.app https://*.lovable.app https://*.lovable.dev https://*.lovableproject.com https://*.aigentz.me https://*.metame.com https://runtime.metame.com https://metame.live https://*.metame.live https://metame.dev https://*.metame.dev http://localhost:3000";
 
   const newCsp = [withoutFrameAncestors, frameAncestors]
     .filter(Boolean)

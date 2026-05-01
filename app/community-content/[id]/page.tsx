@@ -1,14 +1,13 @@
 /**
  * Public viewer for shared community-generated content.
  *
- * Pulls the row server-side via the same service-role API the cartridge
+ * Pulls the row server-side via the same service-role client the cartridge
  * tab uses, so this page works for unauthenticated visitors who land
  * here from a share link (X / mailto / clipboard). Drafts and rejected
  * rows resolve to a 404.
  */
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { headers } from 'next/headers';
 import { getCommunityContentSupabase } from '@/app/api/community-content/_lib/personaContext';
 
 export const runtime = 'nodejs';
@@ -114,7 +113,6 @@ export default async function CommunityContentPage({ params }: { params: Promise
     day: 'numeric',
   });
   const skillLabel = item.skill === 'story' ? 'Story' : 'Article';
-  await headers();
 
   return (
     <main className="min-h-full bg-zinc-950 text-zinc-100">

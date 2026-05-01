@@ -106,6 +106,23 @@ export interface TakeoverInferenceConfig {
   };
   /** Token budget for the manifest response (default 500). */
   maxTokens?: number;
+  /**
+   * Soft distribution targets for the LLM-emitted nextBestAction. Sums to 100.
+   * Used to nudge the prompt so NBAs balance across surfacing specific
+   * experiences/articles, the store, and other cartridge tabs. Drift of
+   * ±10–20% per single decision is expected — the goal is averages over
+   * many users, not deterministic per-call output.
+   *
+   * Defaults (set per-cartridge):
+   *   experiencesAndArticles: 40   — targetType='action' opening a capsule
+   *   storeTab:               30   — targetType='codex' + tab='store' (or store-episodes)
+   *   otherTabs:              30   — targetType='codex' + tab=<other tab slug>
+   */
+  nbaTargetMix?: {
+    experiencesAndArticles: number;
+    storeTab: number;
+    otherTabs: number;
+  };
 }
 
 // ─── Anonymous Seed ───────────────────────────────────────────────────────────
@@ -168,6 +185,12 @@ export interface TakeoverNextBestAction {
   /** Destination: a cartridge slug, an app route, or an action name. */
   target: string;
   targetType: 'codex' | 'route' | 'action';
+  /**
+   * Optional tab slug for codex-type targets. Lets the LLM open a specific
+   * tab inside the cartridge (e.g. target='knyt-codex', tab='scrolls').
+   * Ignored for route / action targets.
+   */
+  tab?: string;
 }
 
 /**

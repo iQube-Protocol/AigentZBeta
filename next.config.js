@@ -93,20 +93,20 @@ const nextConfig = {
       ],
     };
   },
-  // Security headers: protect all routes EXCEPT SmartTriad embeds
+  // Security headers
+  // X-Frame-Options handling moved to middleware.ts as the single source of
+  // truth — Next.js's path-to-regexp negative lookahead in source patterns
+  // is unreliable and was matching paths it shouldn't, applying SAMEORIGIN
+  // to /triad/embed/* routes which Firefox then enforced (blocking the
+  // cartridge iframe with "dev-beta.aigentz.me will not allow Firefox to
+  // display the page if another site has embedded it").
+  //
+  // Only the explicit Content-Security-Policy frame-ancestors entries
+  // remain here for the embed/runtime routes — those use exact-match
+  // patterns that path-to-regexp handles correctly.
   async headers() {
     return [
-      // Default: protect everything with X-Frame-Options EXCEPT embed/runtime iframe targets.
-      {
-        source: "/((?!(?:triad/embed(?:/|$)|metame/runtime(?:/|$))).*)",
-        headers: [
-          {
-            key: "X-Frame-Options",
-            value: "SAMEORIGIN",
-          },
-        ],
-      },
-      // SmartTriad embed routes: NO X-Frame-Options, explicit CSP frame-ancestors.
+      // SmartTriad embed routes: explicit CSP frame-ancestors.
       {
         source: "/triad/embed/:path*",
         headers: [
@@ -116,7 +116,7 @@ const nextConfig = {
           },
         ],
       },
-      // metaMe runtime iframe route: NO X-Frame-Options, explicit CSP frame-ancestors.
+      // metaMe runtime iframe route: explicit CSP frame-ancestors.
       {
         source: "/metame/runtime",
         headers: [

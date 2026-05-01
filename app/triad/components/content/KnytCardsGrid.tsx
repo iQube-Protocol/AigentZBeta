@@ -7,12 +7,23 @@
  */
 
 import { useMemo, useState } from 'react';
-import { X, Coins, ShoppingCart, Check, Users, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { X, Coins, ShoppingCart, Check, Users, Loader2, AlertTriangle, RefreshCw, Plus } from 'lucide-react';
 import { ContentPurchaseModal } from '@/app/triad/components/content/ContentPurchaseModal';
+import { useKnytCart } from '@/app/triad/components/codex/tabs/useKnytCart';
+// Dynamic — keeps KnytCartDrawer (+ KnytCartCheckoutModal, cart APIs) out of the
+// static shared chunk that has historically triggered webpack TDZ
+// (cf. commit eb527f9 — same pattern applied to SmartWalletDrawer / CodexCopilotLayer).
+const KnytCartDrawer = dynamic(
+  () => import('@/app/triad/components/codex/tabs/KnytCartDrawer').then(m => ({ default: m.KnytCartDrawer })),
+  { ssr: false, loading: () => null },
+);
+import type { CartItem } from '@/services/cart';
 import type { EpisodeGroup, KnytCardAsset } from '@/app/hooks/useKnytCards';
 
 const KNYT_USD_RATE = 1.40;
 const CARD_PRICE_STILL = 2;
+const CARD_PRICE_USD = CARD_PRICE_STILL * KNYT_USD_RATE;
 
 interface KnytCardsGridProps {
   groups: EpisodeGroup[];
@@ -46,6 +57,8 @@ export function KnytCardsGrid({
   const [selected, setSelected] = useState<{ poster: KnytCardAsset; sheet?: KnytCardAsset } | null>(null);
   const [purchaseModalOpen, setPurchaseModalOpen] = useState(false);
   const [purchaseCard, setPurchaseCard] = useState<KnytCardAsset | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
+  const cart = useKnytCart();
 
   const normalizeLabel = (value?: string): string =>
     (value || '')
@@ -119,6 +132,20 @@ export function KnytCardsGrid({
 
   const coverUrl = (cid?: string) => (cid ? `/api/content/cover/${cid}?variant=thumb` : '');
 
+  function addCardToCart(card: KnytCardAsset) {
+    const item: CartItem = {
+      id: `character-card-${card.id}-still`,
+      label: card.digiterraName || card.title,
+      modality: 'still',
+      layer: 'digital',
+      priceUsd: CARD_PRICE_USD,
+      thumbUrl: coverUrl(card.autoDriveCid),
+      contentType: 'character_card',
+    };
+    cart.addToCart(item);
+    setCartOpen(true);
+  }
+
   if (loading && !groups.length) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -171,6 +198,17 @@ export function KnytCardsGrid({
             >
               Meet the heroes and villains of the metaKnyts universe ({cardsCount} cards)
             </p>
+            {cart.count > 0 && (
+              <button
+                type="button"
+                onClick={() => setCartOpen(true)}
+                className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-400/40 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/20 transition-colors text-xs font-semibold"
+                title="View cart"
+              >
+                <ShoppingCart className="w-3.5 h-3.5" />
+                Cart · {cart.count}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -216,14 +254,24 @@ export function KnytCardsGrid({
                 <div className="absolute bottom-12 right-2 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     className="w-6 h-6 rounded-md bg-amber-500/80 backdrop-blur-sm flex items-center justify-center ring-1 ring-amber-400/40 text-white hover:bg-amber-400 transition-all"
-                    title={`Buy for ${CARD_PRICE_STILL} KNYT`}
+                    title={`Buy now for ${CARD_PRICE_STILL} KNYT`}
                     onClick={(e) => {
                       e.stopPropagation();
                       setPurchaseCard(poster);
                       setPurchaseModalOpen(true);
                     }}
                   >
-                    <ShoppingCart className="w-3 h-3" />
+                    <Coins className="w-3 h-3" />
+                  </button>
+                  <button
+                    className="w-6 h-6 rounded-md bg-cyan-500/80 backdrop-blur-sm flex items-center justify-center ring-1 ring-cyan-400/40 text-white hover:bg-cyan-400 transition-all"
+                    title="Add to cart"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      addCardToCart(poster);
+                    }}
+                  >
+                    <Plus className="w-3 h-3" />
                   </button>
                 </div>
               )}
@@ -339,17 +387,30 @@ export function KnytCardsGrid({
                         Pay with KNYT: {(CARD_PRICE_STILL * (1 - 0.20)).toFixed(1)} KNYT (20% off)
                       </div>
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setPurchaseCard(selected.poster);
-                        setPurchaseModalOpen(true);
-                      }}
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold transition-colors"
-                    >
-                      <Coins className="w-4 h-4" />
-                      Buy Now
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addCardToCart(selected.poster);
+                        }}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-cyan-400/40 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/20 transition-colors text-sm font-semibold"
+                        title="Add to cart"
+                      >
+                        <ShoppingCart className="w-4 h-4" />
+                        Add to Cart
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPurchaseCard(selected.poster);
+                          setPurchaseModalOpen(true);
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold transition-colors"
+                      >
+                        <Coins className="w-4 h-4" />
+                        Buy Now
+                      </button>
+                    </div>
                   </>
                 )}
               </div>
@@ -382,6 +443,18 @@ export function KnytCardsGrid({
           onBalanceRefresh={onBalanceRefresh}
         />
       )}
+
+      <KnytCartDrawer
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        items={cart.items}
+        onRemove={cart.removeFromCart}
+        onSetQty={cart.setQty}
+        onClearCart={cart.clearCart}
+        personaId={personaId}
+        total={cart.total}
+        totalWithKnyt={cart.totalWithKnyt}
+      />
     </div>
   );
 }

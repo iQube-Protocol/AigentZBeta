@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useTTSPlayer } from "@/app/hooks/useTTSPlayer";
 import { useSearchParams } from "next/navigation";
 import {
@@ -10,7 +11,15 @@ import {
   type ShellInboundMessage,
 } from "@metame/iframe-bridge";
 import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
-import SmartWalletDrawer from "@/app/components/content/SmartWalletDrawer";
+// Dynamic import — keeps SmartWalletDrawer (large component pulling LibraryShelf,
+// PurchaseFlow, SmartTriadProvider, etc.) out of the runtime's main chunk. Static
+// imports of this component into the deep runtime chain have triggered chunk-load
+// timeouts ("Loading chunk NNNN failed") on Amplify before; matches the pattern
+// from commit eb527f9 (chunk 52117 TDZ fix) applied elsewhere in the codebase.
+const SmartWalletDrawer = dynamic(
+  () => import("@/app/components/content/SmartWalletDrawer"),
+  { ssr: false, loading: () => null },
+);
 import { PersonaIQubeDrawer } from "@/components/iqube/PersonaIQubeDrawer";
 import { IdentityIQubeDrawer } from "@/components/iqube/IdentityIQubeDrawer";
 import { MemoryIQubeDrawer } from "@/components/iqube/MemoryIQubeDrawer";
@@ -77,7 +86,7 @@ import {
 } from "lucide-react";
 import { MetaMeSettingsPanel, loadMetaMeSettings, type LeadAgent } from "@/components/metame/MetaMeSettingsPanel";
 import { RuntimeTakeoverBanner } from "@/components/metame/RuntimeTakeoverBanner";
-import { RemixDialog } from "@/components/metame/runtime/RemixDialog";
+import { RuntimeCapsuleRemixEditor } from "@/components/metame/runtime/RuntimeCapsuleRemixEditor";
 import { useRuntimeTakeover } from "@/app/hooks/useRuntimeTakeover";
 import { CODEX_DEFINITIONS } from "@/data/codex-configs";
 import type { ScreenFraction, SmartContentQube } from "@/types/smartContent";
@@ -2112,12 +2121,17 @@ export default function MetaMeRuntimeClient() {
     enabled: true,
   });
 
-  // When runtimeContext switches to 'knyt' mid-session, refresh as a toggle entry
+  // When runtimeContext switches to 'knyt' mid-session, refresh as a toggle entry.
+  // Also flips runtimeProcessing on briefly so the parent thin-client's STATE_SYNC
+  // listener fires its thinking-dots animation while the takeover infer + capsule
+  // refetch happen behind the scenes.
   const prevRuntimeContextRef = useRef(runtimeContext);
   useEffect(() => {
     if (prevRuntimeContextRef.current !== runtimeContext) {
       prevRuntimeContextRef.current = runtimeContext;
       refreshTakeover("toggle");
+      setRuntimeProcessing(true);
+      window.setTimeout(() => setRuntimeProcessing(false), 3000);
     }
   }, [runtimeContext, refreshTakeover]);
 
@@ -2131,6 +2145,19 @@ export default function MetaMeRuntimeClient() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePersonaId]);
+
+  // Notify the parent thin-client whenever the takeover infer call starts /
+  // completes so it can render its own loading affordance (e.g. dot animation).
+  // The existing RUNTIME_READY message includes takeover_pending only at mount;
+  // this fires a dedicated event on every flip of takeoverLoading.
+  useEffect(() => {
+    try {
+      window.parent.postMessage(
+        { type: "TAKEOVER_INFER_PENDING", source: "runtime", pending: takeoverLoading },
+        "*",
+      );
+    } catch { /* not in an iframe — safe to ignore */ }
+  }, [takeoverLoading]);
 
   // Resolve display name for the banner from the codex config
   const takeoverDisplayName =
@@ -2388,12 +2415,9 @@ export default function MetaMeRuntimeClient() {
   const [runtimeExperienceOverrides, setRuntimeExperienceOverrides] = useState<
     Record<string, { articleDraft?: RuntimeArticleDraft | null; articlePrompt?: string; articleTitle?: string }>
   >({});
-  const [remixDialogState, setRemixDialogState] = useState<{
-    open: boolean;
-    sourceExperienceId: string | null;
-    initialTitle: string;
-    initialPrompt: string;
-  }>({ open: false, sourceExperienceId: null, initialTitle: "", initialPrompt: "" });
+  // Remix state is now per-capsule, owned inside RuntimeCapsuleRemixEditor.
+  // No global remixDialogState — the wrapper expands inline like the admin
+  // Customize banner, and there are no popout dialog mounts to manage here.
 
   const [allContents, setAllContents] = useState<RuntimeCapsule[]>([]);
   const [capsuleContents, setCapsuleContents] = useState<RuntimeCapsule[]>([]);
@@ -2969,20 +2993,13 @@ export default function MetaMeRuntimeClient() {
                 }
               />
             ) : (
-              <button
-                type="button"
-                onClick={() => setRemixDialogState({
-                  open: true,
-                  sourceExperienceId: resolveRuntimeExperienceId(content) ?? content.id,
-                  initialTitle: content.title || "",
-                  initialPrompt: articleDraft?.prompt || content.description || "",
-                })}
-                className="inline-flex items-center gap-1.5 self-start rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-[11px] font-semibold text-amber-200 hover:bg-amber-500/20 transition-colors"
-                title="Remix this experience as your own article or story"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                Remix
-              </button>
+              <RuntimeCapsuleRemixEditor
+                personaId={activePersonaId}
+                sourceExperienceId={resolveRuntimeExperienceId(content) ?? content.id}
+                initialTitle={content.title || ""}
+                initialPrompt={articleDraft?.prompt || content.description || ""}
+                onSignInRequest={() => setWalletDrawerOpen(true)}
+              />
             )}
 
             <div id={mediaAnchorId} className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
@@ -3579,7 +3596,13 @@ export default function MetaMeRuntimeClient() {
               if (targetType === 'codex') {
                 const normalized = normalizeCodexId(target);
                 if (normalized && KNOWN_SLUGS.includes(normalized)) {
-                  setActiveCartridgeOverlay({ slug: normalized, title: normalized });
+                  const nbaTab = takeoverManifest?.nextBestAction?.tab;
+                  signalRuntimeBusy(`nba_open_codex:${normalized}${nbaTab ? `#${nbaTab}` : ""}`);
+                  setActiveCartridgeOverlay({
+                    slug: normalized,
+                    title: normalized,
+                    ...(nbaTab ? { initialTab: nbaTab } : {}),
+                  });
                   return;
                 }
                 // Codex slug we don't recognise — degrade to a prompt so the
@@ -3595,6 +3618,7 @@ export default function MetaMeRuntimeClient() {
                 const isSafeLength = target.length <= 1500;
                 const looksLikePreviewBlob = /experienceArticleDraft=|experienceContext=/.test(target);
                 if (isSamePath && isSafeLength && !looksLikePreviewBlob) {
+                  signalRuntimeBusy(`nba_route:${target}`);
                   window.location.assign(target);
                 } else {
                   void handlePrompt(`Open ${target}`, { source: "quick_link", skipInference: true });
@@ -3603,7 +3627,13 @@ export default function MetaMeRuntimeClient() {
               }
 
               if (targetType === 'action') {
-                void handlePrompt(target, { source: "quick_link" });
+                // NBA actions are natural-language instructions the chat agent
+                // should execute (e.g. "Show me episode one"). Use source
+                // "text_input" so handlePrompt's shouldRequestInference gate
+                // fires INFERENCE_START to the thin-client (loading indicator)
+                // AND runs the actual chat inference. "quick_link" would cause
+                // an early return that skips both — UX would feel unresponsive.
+                void handlePrompt(target, { source: "text_input" });
                 return;
               }
             }}
@@ -3875,6 +3905,57 @@ export default function MetaMeRuntimeClient() {
       window.parent.postMessage(message, origin);
     },
     []
+  );
+
+  // Fires the canonical "I'm working on something" signal to the parent
+  // thin-client. Used for navigation-style actions that don't run chat
+  // inference (cartridge open, route navigation, takeover toggle, quick
+  // links) but should still light up the shell's thinking-dots animation.
+  //
+  // Emits multiple message types so the thin-client can listen for whichever
+  // it cares about: INFERENCE_START + PROCESSING_START (semantic), and
+  // setRuntimeProcessing(true) so the STATE_SYNC effect broadcasts
+  // processing:true / inferring:true. Clears after a short timeout for
+  // navigation events that don't have an explicit completion handshake.
+  const signalRuntimeBusy = useCallback(
+    (reason: string, options?: { autoClearMs?: number }) => {
+      const autoClearMs = options?.autoClearMs ?? 3000;
+      setRuntimeProcessing(true);
+      // INFERENCE_START is one of the explicit triggers per Lovable spec.
+      // Plus PROCESSING_START as a redundant trigger for any shell variant.
+      postRuntimeEvent("INFERENCE_START", {
+        reason,
+        device: activeDevice,
+        thin_shell: thinShellMode,
+      });
+      postRuntimeEvent("PROCESSING_START", {
+        reason,
+        device: activeDevice,
+        thin_shell: thinShellMode,
+      });
+      // Also push the canonical STATE_SYNC shape (state.processing=true) so
+      // shells listening for that variant trigger immediately, not only on
+      // the next dependency-driven STATE_SYNC effect re-fire.
+      postRuntimeEvent("STATE_SYNC", {
+        state: { processing: true, busy: true, inferring: true },
+        reason,
+      });
+      if (autoClearMs > 0) {
+        window.setTimeout(() => {
+          setRuntimeProcessing(false);
+          postRuntimeEvent("RENDER_COMPLETE", {
+            reason,
+            device: activeDevice,
+            thin_shell: thinShellMode,
+          });
+          postRuntimeEvent("STATE_SYNC", {
+            state: { processing: false, busy: false, inferring: false },
+            reason,
+          });
+        }, autoClearMs);
+      }
+    },
+    [activeDevice, postRuntimeEvent, thinShellMode],
   );
 
   const { handleShellBridgeMessage: handleBrowserShellBridgeMessage } = useBrowserCapabilityController({
@@ -4846,8 +4927,23 @@ export default function MetaMeRuntimeClient() {
 
   useEffect(() => {
     if (!embedMode) return;
+    // STATE_SYNC payload shape per Lovable spec (src/lib/shell-messages.ts):
+    // payload.state is an OBJECT — the shell triggers thinking-dots when
+    // state.processing|busy|inferring === true. Previously this code sent
+    // `state: "welcome"|"post_welcome"` as a STRING with flat processing
+    // siblings — the shell's nested check never qualified, so dots never
+    // fired from STATE_SYNC. Nest them all inside `state`; move the screen
+    // string out to its own top-level `screen` field. Keep the flat
+    // siblings around as belt-and-suspenders for any legacy consumer.
     postRuntimeEvent("STATE_SYNC", {
-      state: showWelcome ? "welcome" : "post_welcome",
+      screen: showWelcome ? "welcome" : "post_welcome",
+      state: {
+        screen: showWelcome ? "welcome" : "post_welcome",
+        processing: runtimeProcessing,
+        busy: runtimeProcessing,
+        inferring: runtimeProcessing,
+        fullscreen: isRuntimeFullscreen,
+      },
       intent: lastIntent,
       device: activeDevice,
       thin_shell: thinShellMode,
@@ -5704,7 +5800,12 @@ export default function MetaMeRuntimeClient() {
                 if (targetType === 'codex') {
                   const normalized = normalizeCodexId(target);
                   if (normalized && KNOWN_SLUGS.includes(normalized)) {
-                    setActiveCartridgeOverlay({ slug: normalized, title: normalized });
+                    const nbaTab = takeoverManifest?.nextBestAction?.tab;
+                    setActiveCartridgeOverlay({
+                      slug: normalized,
+                      title: normalized,
+                      ...(nbaTab ? { initialTab: nbaTab } : {}),
+                    });
                     return;
                   }
                   void handlePrompt(`Tell me more about "${target}".`, { source: "quick_link", skipInference: true });
@@ -5766,8 +5867,8 @@ export default function MetaMeRuntimeClient() {
                 <button
                   type="button"
                   onClick={() => {
-                    postRuntimeEvent("PROCESSING_START", { intent: "play", source: "quick_link" });
-                    void handlePrompt("I'd like to explore my KNYT journey.", { source: "quick_link", skipInference: true, explicitIntent: "play" });
+                    signalRuntimeBusy("quick_link:explore_knyt", { autoClearMs: 0 });
+                    void handlePrompt("I'd like to explore my KNYT journey.", { source: "text_input", explicitIntent: "play" });
                   }}
                   className="flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-200/80 hover:border-amber-500/40 hover:text-amber-100 transition-colors backdrop-blur-sm"
                 >
@@ -5776,7 +5877,10 @@ export default function MetaMeRuntimeClient() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setActiveCartridgeOverlay({ slug: 'knyt-codex', title: 'KNYT Store', initialTab: 'store-episodes' })}
+                  onClick={() => {
+                    signalRuntimeBusy("quick_link:knyt_store");
+                    setActiveCartridgeOverlay({ slug: 'knyt-codex', title: 'KNYT Store', initialTab: 'store-episodes' });
+                  }}
                   className="flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-200/80 hover:border-amber-500/40 hover:text-amber-100 transition-colors backdrop-blur-sm"
                 >
                   <ShoppingBag className="h-3 w-3 shrink-0" />
@@ -5784,7 +5888,10 @@ export default function MetaMeRuntimeClient() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setWalletDrawerOpen(true)}
+                  onClick={() => {
+                    signalRuntimeBusy("quick_link:sign_in");
+                    setWalletDrawerOpen(true);
+                  }}
                   className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] text-white/60 hover:border-white/25 hover:text-white/90 transition-colors backdrop-blur-sm"
                 >
                   <Wallet className="h-3 w-3 shrink-0" />
@@ -5796,8 +5903,8 @@ export default function MetaMeRuntimeClient() {
                 <button
                   type="button"
                   onClick={() => {
-                    postRuntimeEvent("PROCESSING_START", { intent: "find", source: "quick_link" });
-                    void handlePrompt("help me find experiences.", { source: "quick_link", skipInference: true, explicitIntent: "find" });
+                    signalRuntimeBusy("quick_link:explore_metame", { autoClearMs: 0 });
+                    void handlePrompt("help me find experiences.", { source: "text_input", explicitIntent: "find" });
                   }}
                   className="flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[11px] text-emerald-200/80 hover:border-emerald-500/40 hover:text-emerald-100 transition-colors backdrop-blur-sm"
                 >
@@ -5807,7 +5914,10 @@ export default function MetaMeRuntimeClient() {
                 {/* View metaMe cartridge: stub — hidden until runtime tab is built */}
                 <button
                   type="button"
-                  onClick={() => setWalletDrawerOpen(true)}
+                  onClick={() => {
+                    signalRuntimeBusy("quick_link:sign_in");
+                    setWalletDrawerOpen(true);
+                  }}
                   className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] text-white/60 hover:border-white/25 hover:text-white/90 transition-colors backdrop-blur-sm"
                 >
                   <Wallet className="h-3 w-3 shrink-0" />
@@ -5959,18 +6069,6 @@ export default function MetaMeRuntimeClient() {
       <div className={`relative h-full w-full bg-slate-950 p-0 ${embedWidthClass}`}>
         {showWelcome ? welcomeSurface : runtimeSurface}
         {iQubeDrawerLayer}
-        <RemixDialog
-          open={remixDialogState.open}
-          personaId={activePersonaId}
-          sourceExperienceId={remixDialogState.sourceExperienceId}
-          initialTitle={remixDialogState.initialTitle}
-          initialPrompt={remixDialogState.initialPrompt}
-          onClose={() => setRemixDialogState((prev) => ({ ...prev, open: false }))}
-          onSignInRequest={() => {
-            setRemixDialogState((prev) => ({ ...prev, open: false }));
-            setWalletDrawerOpen(true);
-          }}
-        />
       </div>
     );
   }
@@ -5980,18 +6078,6 @@ export default function MetaMeRuntimeClient() {
       <div className="fixed inset-0 z-[120] bg-slate-950 p-0 relative">
         <div className={`h-full ${runtimeDeviceWidthClass}`}>{showWelcome ? welcomeSurface : runtimeSurface}</div>
         {iQubeDrawerLayer}
-        <RemixDialog
-          open={remixDialogState.open}
-          personaId={activePersonaId}
-          sourceExperienceId={remixDialogState.sourceExperienceId}
-          initialTitle={remixDialogState.initialTitle}
-          initialPrompt={remixDialogState.initialPrompt}
-          onClose={() => setRemixDialogState((prev) => ({ ...prev, open: false }))}
-          onSignInRequest={() => {
-            setRemixDialogState((prev) => ({ ...prev, open: false }));
-            setWalletDrawerOpen(true);
-          }}
-        />
       </div>
     );
   }
@@ -6026,14 +6112,6 @@ export default function MetaMeRuntimeClient() {
         </PreviewFrame>
         {iQubeDrawerLayer}
       </div>
-      <RemixDialog
-        open={remixDialogState.open}
-        personaId={activePersonaId}
-        sourceExperienceId={remixDialogState.sourceExperienceId}
-        initialTitle={remixDialogState.initialTitle}
-        initialPrompt={remixDialogState.initialPrompt}
-        onClose={() => setRemixDialogState((prev) => ({ ...prev, open: false }))}
-      />
     </div>
   );
 }

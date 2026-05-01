@@ -509,3 +509,88 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-aa70e7d.md](../build_/COMMITS/COMMIT-aa70e7d.md)
 - Message: stub porto/internal webpack alias to fix wagmi connector barrel build error
+
+## Commit `fc82cb7` — 2026-04-29T20:48:53Z
+- Type: `push`
+- Brief: [COMMIT-fc82cb7.md](../build_/COMMITS/COMMIT-fc82cb7.md)
+- Message: remix expands inline like Customize banner — no popout dialog
+
+## Commit `c25d66a` — 2026-04-29T20:44:01Z
+- Type: `feat`
+- Brief: [COMMIT-c25d66a.md](../build_/COMMITS/COMMIT-c25d66a.md)
+- Message: add public viewer page for community-generated content
+
+## Commit `516b95d` — 2026-04-29T20:43:04Z
+- Type: `push`
+- Brief: [COMMIT-516b95d.md](../build_/COMMITS/COMMIT-516b95d.md)
+- Message: gate community-content admin endpoints with server-side role check
+
+## Commit `87f3b18` — 2026-04-30T00:56:57Z
+- Type: `fix`
+- Brief: [COMMIT-87f3b18.md](../build_/COMMITS/COMMIT-87f3b18.md)
+- Message: fix NBA action: use source=text_input so inference + thin-client message fire
+
+## Commit `d8e603e` — 2026-04-30T02:43:08Z
+- Type: `chore`
+- Brief: [COMMIT-d8e603e.md](../build_/COMMITS/COMMIT-d8e603e.md)
+- Message: fire thinking-dots signal on navigation actions; remix banner UX bump
+
+## Commit `d76dbd1` — 2026-04-30T03:42:32Z
+- Type: `chore`
+- Brief: [COMMIT-d76dbd1.md](../build_/COMMITS/COMMIT-d76dbd1.md)
+- Message: nest STATE_SYNC processing flags per Lovable spec; bump KB search timeout
+
+## Commit `f71efd8` — 2026-04-30T16:37:15Z
+- Type: `fix`
+- Brief: [COMMIT-f71efd8.md](../build_/COMMITS/COMMIT-f71efd8.md)
+- Message: fix Firefox X-Frame-Options on cartridge embed; consolidate header logic
+
+## Commit `1ab55f2` — 2026-04-30T16:58:22Z
+- Type: `push`
+- Brief: [COMMIT-1ab55f2.md](../build_/COMMITS/COMMIT-1ab55f2.md)
+- Message: revert overbroad middleware fallback that broke runtime page embedding
+
+## Commit `c4329b0` — 2026-04-30T17:36:56Z
+- Type: `push`
+- Brief: [COMMIT-c4329b0.md](../build_/COMMITS/COMMIT-c4329b0.md)
+- Message: allow metame.live + metame.dev to embed; mandate descriptive merge messages
+
+## Commit `e62ebcc` — 2026-04-30T18:08:16Z
+- Type: `push`
+- Brief: [COMMIT-e62ebcc.md](../build_/COMMITS/COMMIT-e62ebcc.md)
+- Message: consolidate X-Frame-Options into middleware as single source of truth
+
+## Commit `10bf19a` — 2026-04-30T19:21:40Z
+- Type: `push`
+- Brief: [COMMIT-10bf19a.md](../build_/COMMITS/COMMIT-10bf19a.md)
+- Message: KNYT cart Phase 1 — qty stepper, count badge, drawer mounted across all 4 store tabs
+
+## Commit `1df879d` — 2026-04-30T21:43:10Z
+- Type: `push`
+- Brief: [COMMIT-1df879d.md](../build_/COMMITS/COMMIT-1df879d.md)
+- Message: KNYT cart Phase 1.1 — split Buy/+Cart buttons across all 4 store tabs
+
+## Commit `473ad62` — 2026-04-30T22:25:33Z
+- Type: `push`
+- Brief: [COMMIT-473ad62.md](../build_/COMMITS/COMMIT-473ad62.md)
+- Message: KNYT cart Phase 1.2 — close drawer on checkout + cart context in payment modal
+
+## Commit `dcb38e6` — 2026-04-30T22:45:54Z
+- Type: `push`
+- Brief: [COMMIT-dcb38e6.md](../build_/COMMITS/COMMIT-dcb38e6.md)
+- Message: KNYT cart Phase 2a — carry contentType + productType-mapper on cart lines
+
+## Commit `feea823` — 2026-04-30T22:48:41Z
+- Type: `push`
+- Brief: [COMMIT-feea823.md](../build_/COMMITS/COMMIT-feea823.md)
+- Message: KNYT cart Phase 2b — server-side /api/cart/{quote,complete} endpoints
+
+## Commit `0008bf6` — 2026-04-30T22:51:53Z
+- Type: `push`
+- Brief: [COMMIT-0008bf6.md](../build_/COMMITS/COMMIT-0008bf6.md)
+- Message: KNYT cart Phase 2c — multi-item KnytCartCheckoutModal replaces per-item iteration
+
+## Commit `73f4581` — 2026-04-30T23:01:48Z
+- Type: `push`
+- Brief: [COMMIT-73f4581.md](../build_/COMMITS/COMMIT-73f4581.md)
+- Message: KNYT cart Phase 3b — buy-more-KNYT panel when KNYT rail is short

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowLeft, BookOpen, Film, ShoppingCart, Zap } from 'lucide-react';
+import { ArrowLeft, BookOpen, Film, Plus, ShoppingCart, Zap } from 'lucide-react';
 import {
   EPISODE_PRICING,
   QRIPTO_SUPPLY,
@@ -13,11 +13,14 @@ import {
   getKnytDiscountedPrice,
   KNYT_COYN_DISCOUNT,
   usdToKnyt,
+  type CartItem,
   type EpisodePricing,
 } from '@/types/knyt-store';
 
 type Modality = 'still' | 'motion' | 'bundle';
 import { useKnytThumbnails } from './useKnytThumbnails';
+import { useKnytCart } from './useKnytCart';
+import { KnytCartDrawer } from './KnytCartDrawer';
 import { ContentPurchaseModal } from '../../content/ContentPurchaseModal';
 import type { ContentType } from '../../content/ContentPurchaseModal';
 
@@ -89,21 +92,50 @@ function KnytPricePill({ basePrice }: { basePrice: number }) {
 function CartButton({
   label,
   onClick,
+  onAddToCart,
   className,
 }: {
   label?: string;
+  /** Express buy — opens the single-item ContentPurchaseModal directly. */
   onClick: (e: React.MouseEvent) => void;
+  /** Optional add-to-cart action. When provided, renders as a split button
+      with a main pill (express buy) on the left and a small "+" pill
+      (add-to-cart) on the right. */
+  onAddToCart?: (e: React.MouseEvent) => void;
   className?: string;
 }) {
+  if (!onAddToCart) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onClick(e); }}
+        className={`flex items-center gap-1 rounded-lg bg-teal-700/80 hover:bg-teal-600 px-2 py-1 text-[9px] font-semibold text-white transition-colors ${className ?? ''}`}
+      >
+        <ShoppingCart className="h-3 w-3 shrink-0" />
+        {label && <span>{label}</span>}
+      </button>
+    );
+  }
   return (
-    <button
-      type="button"
-      onClick={(e) => { e.stopPropagation(); onClick(e); }}
-      className={`flex items-center gap-1 rounded-lg bg-teal-700/80 hover:bg-teal-600 px-2 py-1 text-[9px] font-semibold text-white transition-colors ${className ?? ''}`}
-    >
-      <ShoppingCart className="h-3 w-3 shrink-0" />
-      {label && <span>{label}</span>}
-    </button>
+    <div className={`flex rounded-lg overflow-hidden ${className ?? ''}`}>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onClick(e); }}
+        className="flex-1 flex items-center justify-center gap-1 bg-teal-700/80 hover:bg-teal-600 px-2 py-1 text-[9px] font-semibold text-white transition-colors"
+        title={label ? `${label} — buy now` : 'Buy now'}
+      >
+        <ShoppingCart className="h-3 w-3 shrink-0" />
+        {label && <span>{label}</span>}
+      </button>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onAddToCart(e); }}
+        className="flex items-center justify-center bg-teal-800/80 hover:bg-teal-700 px-2 py-1 text-white transition-colors border-l border-teal-900/50"
+        title="Add to cart"
+      >
+        <Plus className="h-3 w-3 shrink-0" />
+      </button>
+    </div>
   );
 }
 
@@ -114,11 +146,13 @@ function GNGridCard({
   thumbUrl,
   onClick,
   onBuy,
+  onAddToCart,
 }: {
   sku: GNSku;
   thumbUrl?: string;
   onClick: () => void;
   onBuy: (e: React.MouseEvent) => void;
+  onAddToCart?: (e: React.MouseEvent) => void;
 }) {
   const badgeClass = LAYER_BADGE[sku.layer];
   return (
@@ -144,7 +178,7 @@ function GNGridCard({
         <p className="text-[9px] text-slate-500 leading-tight">{sku.sublabel}</p>
         <div className="flex items-center justify-between">
           <p className="text-[11px] font-bold text-white">${sku.price}</p>
-          <CartButton onClick={onBuy} />
+          <CartButton onClick={onBuy} onAddToCart={onAddToCart} />
         </div>
       </div>
     </button>
@@ -160,11 +194,13 @@ function EpisodeGridCard({
   thumbUrl,
   onClick,
   onBuy,
+  onAddToCart,
 }: {
   ep: EpisodePricing;
   thumbUrl?: string;
   onClick: () => void;
   onBuy: (e: React.MouseEvent) => void;
+  onAddToCart?: (e: React.MouseEvent) => void;
 }) {
   return (
     <button
@@ -194,7 +230,7 @@ function EpisodeGridCard({
         </div>
         {/* Cart button */}
         <div className="flex justify-end pt-0.5">
-          <CartButton onClick={onBuy} />
+          <CartButton onClick={onBuy} onAddToCart={onAddToCart} />
         </div>
       </div>
     </button>
@@ -250,11 +286,13 @@ function EpisodeDetail({
   thumbUrl,
   modality,
   onBuy,
+  onAddToCart,
 }: {
   ep: EpisodePricing;
   thumbUrl?: string;
   modality: Modality;
   onBuy: (p: PendingPurchase) => void;
+  onAddToCart?: (p: PendingPurchase) => void;
 }) {
   const qriptoPairPrice  = getEpisodePairPrice(ep, 'qripto');
   const digitalPairPrice = getEpisodePairPrice(ep, 'digital');
@@ -301,6 +339,15 @@ function EpisodeDetail({
               stillPriceKnytOverride: usdToKnyt(ep.qriptoPrice),
               motionPriceKnytOverride: usdToKnyt(ep.qriptoPrice),
             })}
+            onAddToCart={onAddToCart && (() => onAddToCart({
+              contentType: modality === 'bundle' ? 'bundle_3_still' : 'scroll_still',
+              contentId: `episode-${ep.episodeNumber}-qripto-${modality}`,
+              contentTitle: `${label} — Qripto ${modalLabel}`,
+              contentImage: thumbUrl,
+              priceUsdOverride: activeQriptoPrice,
+              stillPriceKnytOverride: usdToKnyt(ep.qriptoPrice),
+              motionPriceKnytOverride: usdToKnyt(ep.qriptoPrice),
+            }))}
             className="w-full justify-center"
           />
         </div>
@@ -329,6 +376,15 @@ function EpisodeDetail({
               stillPriceKnytOverride: usdToKnyt(ep.digitalPrice),
               motionPriceKnytOverride: usdToKnyt(ep.digitalPrice),
             })}
+            onAddToCart={onAddToCart && (() => onAddToCart({
+              contentType: modality === 'bundle' ? 'bundle_3_still' : 'scroll_still',
+              contentId: `episode-${ep.episodeNumber}-digital-${modality}`,
+              contentTitle: `${label} — Digital ${modalLabel}`,
+              contentImage: thumbUrl,
+              priceUsdOverride: activeDigitalPrice,
+              stillPriceKnytOverride: usdToKnyt(ep.digitalPrice),
+              motionPriceKnytOverride: usdToKnyt(ep.digitalPrice),
+            }))}
             className="w-full justify-center"
           />
         </div>
@@ -363,6 +419,14 @@ function EpisodeDetail({
               priceUsdOverride: ep.printPrice,
               hideVersionSelector: true,
             })}
+            onAddToCart={onAddToCart && (() => onAddToCart({
+              contentType: 'scroll_still',
+              contentId: `episode-${ep.episodeNumber}-print`,
+              contentTitle: `${label} — Print`,
+              contentImage: thumbUrl,
+              priceUsdOverride: ep.printPrice,
+              hideVersionSelector: true,
+            }))}
             className="w-full justify-center"
           />
         </div>
@@ -399,10 +463,12 @@ function GNSkuDetail({
   sku,
   thumbUrl,
   onBuy,
+  onAddToCart,
 }: {
   sku: GNSku;
   thumbUrl?: string;
   onBuy: (p: PendingPurchase) => void;
+  onAddToCart?: (p: PendingPurchase) => void;
 }) {
   const isPrint  = sku.layer === 'print';
   const isQripto = sku.layer === 'qripto';
@@ -496,6 +562,14 @@ function GNSkuDetail({
             priceUsdOverride: sku.price,
             hideVersionSelector: true,
           }); }}
+          onAddToCart={onAddToCart && ((e) => { e.stopPropagation(); onAddToCart({
+            contentType: 'scroll_still',
+            contentId: `gn-${sku.id}`,
+            contentTitle: `metaKnyt GN — ${sku.label}`,
+            contentImage: thumbUrl,
+            priceUsdOverride: sku.price,
+            hideVersionSelector: true,
+          }); })}
           className="w-full justify-center"
         />
       </div>
@@ -509,11 +583,40 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
   const [view, setView]         = useState<EpisodesView>({ kind: 'list' });
   const [modality, setModality] = useState<Modality>('still');
   const [purchase, setPurchase] = useState<PendingPurchase | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
   const { getCoverThumb } = useKnytThumbnails();
+  const cart = useKnytCart();
 
   const episodes = EPISODE_PRICING
     .filter((e) => e.episodeNumber >= 0)
     .sort((a, b) => a.episodeNumber - b.episodeNumber);
+
+  /**
+   * Adds the pending-purchase shape (the same `setPurchase(...)` argument)
+   * to the cart instead of opening the single-item modal. We project it
+   * into a CartItem keyed by contentId so repeated clicks increment qty.
+   */
+  function addPendingToCart(p: PendingPurchase) {
+    const layer: CartItem['layer'] = p.contentType === 'character_card' || p.contentType === 'character_card_motion'
+      ? 'digital'
+      : p.contentType.includes('motion') ? 'digital' : 'digital';
+    const modalityVal: CartItem['modality'] = p.contentType.includes('motion')
+      ? 'motion'
+      : p.contentType.startsWith('bundle')
+      ? 'bundle'
+      : 'still';
+    const item: CartItem = {
+      id:          p.contentId ?? `${p.contentType}-${p.contentTitle}`,
+      label:       p.contentTitle,
+      modality:    modalityVal,
+      layer,
+      priceUsd:    p.priceUsdOverride ?? 0,
+      thumbUrl:    p.contentImage,
+      contentType: p.contentType as CartItem['contentType'],
+    };
+    cart.addToCart(item);
+    setCartOpen(true);
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -545,6 +648,20 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
             </button>
           ))}
         </div>
+        {/* Cart badge */}
+        <button
+          type="button"
+          onClick={() => setCartOpen(true)}
+          className="relative p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+          title="Open cart"
+        >
+          <ShoppingCart className="h-4 w-4" />
+          {cart.count > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-teal-500 text-[8px] font-bold text-white flex items-center justify-center">
+              {cart.count}
+            </span>
+          )}
+        </button>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto">
@@ -565,6 +682,14 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
                       thumbUrl={thumb}
                       onClick={() => setView({ kind: 'gn-sku', sku })}
                       onBuy={() => setPurchase({
+                        contentType: 'scroll_still',
+                        contentId: `gn-${sku.id}`,
+                        contentTitle: `metaKnyt GN — ${sku.label}`,
+                        contentImage: thumb,
+                        priceUsdOverride: sku.price,
+                        hideVersionSelector: true,
+                      })}
+                      onAddToCart={() => addPendingToCart({
                         contentType: 'scroll_still',
                         contentId: `gn-${sku.id}`,
                         contentTitle: `metaKnyt GN — ${sku.label}`,
@@ -601,6 +726,15 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
                         stillPriceKnytOverride: usdToKnyt(ep.digitalPrice),
                         motionPriceKnytOverride: usdToKnyt(ep.digitalPrice),
                       })}
+                      onAddToCart={() => addPendingToCart({
+                        contentType: 'scroll_still',
+                        contentId: `episode-${ep.episodeNumber}`,
+                        contentTitle: `Episode ${ep.episodeNumber}`,
+                        contentImage: thumb,
+                        priceUsdOverride: ep.digitalPrice,
+                        stillPriceKnytOverride: usdToKnyt(ep.digitalPrice),
+                        motionPriceKnytOverride: usdToKnyt(ep.digitalPrice),
+                      })}
                     />
                   );
                 })}
@@ -615,6 +749,7 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
             thumbUrl={getCoverThumb(view.ep.episodeNumber)}
             modality={modality}
             onBuy={setPurchase}
+            onAddToCart={addPendingToCart}
           />
         )}
 
@@ -623,11 +758,12 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
             sku={view.sku}
             thumbUrl={getCoverThumb(-1)}
             onBuy={setPurchase}
+            onAddToCart={addPendingToCart}
           />
         )}
       </div>
 
-      {/* Purchase modal */}
+      {/* Purchase modal — express buy path */}
       {purchase && (
         <ContentPurchaseModal
           open={true}
@@ -644,6 +780,19 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
           hideVersionSelector={purchase.hideVersionSelector}
         />
       )}
+
+      {/* Cart drawer */}
+      <KnytCartDrawer
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        items={cart.items}
+        onRemove={cart.removeFromCart}
+        onSetQty={cart.setQty}
+        onClearCart={cart.clearCart}
+        personaId={personaId}
+        total={cart.total}
+        totalWithKnyt={cart.totalWithKnyt}
+      />
     </div>
   );
 }

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-04-29T01:04:09.498Z",
+  "last_updated": "2026-04-30T23:03:45.555Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "aa70e7ddc4e4b93e7cf464c64250c71671c36ae6",
-  "latest_commit_short": "aa70e7d",
-  "latest_commit_title": "stub porto/internal webpack alias to fix wagmi connector barrel build error",
+  "latest_commit": "73f458158c5a80667aa1ec7593eb51edf622c07e",
+  "latest_commit_short": "73f4581",
+  "latest_commit_title": "KNYT cart Phase 3b — buy-more-KNYT panel when KNYT rail is short",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,159 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "73f4581",
+      "full_sha": "73f458158c5a80667aa1ec7593eb51edf622c07e",
+      "title": "KNYT cart Phase 3b — buy-more-KNYT panel when KNYT rail is short",
+      "author": "Claude",
+      "timestamp": "2026-04-30T23:01:48Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-73f4581.md"
+    },
+    {
+      "sha": "0008bf6",
+      "full_sha": "0008bf684abd7b1416590185a3586f9fb45ec4bf",
+      "title": "KNYT cart Phase 2c — multi-item KnytCartCheckoutModal replaces per-item iteration",
+      "author": "Claude",
+      "timestamp": "2026-04-30T22:51:53Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0008bf6.md"
+    },
+    {
+      "sha": "feea823",
+      "full_sha": "feea8234cd7c2690a3ede44c295d11456f456179",
+      "title": "KNYT cart Phase 2b — server-side /api/cart/{quote,complete} endpoints",
+      "author": "Claude",
+      "timestamp": "2026-04-30T22:48:41Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-feea823.md"
+    },
+    {
+      "sha": "dcb38e6",
+      "full_sha": "dcb38e631287046eaa3fa7fe5b00b03d04366412",
+      "title": "KNYT cart Phase 2a — carry contentType + productType-mapper on cart lines",
+      "author": "Claude",
+      "timestamp": "2026-04-30T22:45:54Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-dcb38e6.md"
+    },
+    {
+      "sha": "473ad62",
+      "full_sha": "473ad62a92c619967a12c7db4001cdf6513993f1",
+      "title": "KNYT cart Phase 1.2 — close drawer on checkout + cart context in payment modal",
+      "author": "Claude",
+      "timestamp": "2026-04-30T22:25:33Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-473ad62.md"
+    },
+    {
+      "sha": "1df879d",
+      "full_sha": "1df879d82d14367f421511c5051f8a99a05cb356",
+      "title": "KNYT cart Phase 1.1 — split Buy/+Cart buttons across all 4 store tabs",
+      "author": "Claude",
+      "timestamp": "2026-04-30T21:43:10Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1df879d.md"
+    },
+    {
+      "sha": "10bf19a",
+      "full_sha": "10bf19ab4be31721f1d937ebf20e2f373725de19",
+      "title": "KNYT cart Phase 1 — qty stepper, count badge, drawer mounted across all 4 store tabs",
+      "author": "Claude",
+      "timestamp": "2026-04-30T19:21:40Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-10bf19a.md"
+    },
+    {
+      "sha": "e62ebcc",
+      "full_sha": "e62ebcc87ab46318443aab0394e5556165c493dc",
+      "title": "consolidate X-Frame-Options into middleware as single source of truth",
+      "author": "Claude",
+      "timestamp": "2026-04-30T18:08:16Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-e62ebcc.md"
+    },
+    {
+      "sha": "c4329b0",
+      "full_sha": "c4329b06a94b51f88f6c521f24d28eb39d253897",
+      "title": "allow metame.live + metame.dev to embed; mandate descriptive merge messages",
+      "author": "Claude",
+      "timestamp": "2026-04-30T17:36:56Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c4329b0.md"
+    },
+    {
+      "sha": "1ab55f2",
+      "full_sha": "1ab55f21f05074c1480263f35e63e7d039365c13",
+      "title": "revert overbroad middleware fallback that broke runtime page embedding",
+      "author": "Claude",
+      "timestamp": "2026-04-30T16:58:22Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1ab55f2.md"
+    },
+    {
+      "sha": "f71efd8",
+      "full_sha": "f71efd8e08c161144a6a17d4af359b5cfc66e3da",
+      "title": "fix Firefox X-Frame-Options on cartridge embed; consolidate header logic",
+      "author": "Claude",
+      "timestamp": "2026-04-30T16:37:15Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-f71efd8.md"
+    },
+    {
+      "sha": "d76dbd1",
+      "full_sha": "d76dbd11a8eab89163b0deee496ac6dae0428f5d",
+      "title": "nest STATE_SYNC processing flags per Lovable spec; bump KB search timeout",
+      "author": "Claude",
+      "timestamp": "2026-04-30T03:42:32Z",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-d76dbd1.md"
+    },
+    {
+      "sha": "d8e603e",
+      "full_sha": "d8e603e7241cf991fc9020b237e8407f1dbd2ebc",
+      "title": "fire thinking-dots signal on navigation actions; remix banner UX bump",
+      "author": "Claude",
+      "timestamp": "2026-04-30T02:43:08Z",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-d8e603e.md"
+    },
+    {
+      "sha": "87f3b18",
+      "full_sha": "87f3b188cf6643dfff114c0df0caff6afe939485",
+      "title": "fix NBA action: use source=text_input so inference + thin-client message fire",
+      "author": "Claude",
+      "timestamp": "2026-04-30T00:56:57Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-87f3b18.md"
+    },
+    {
+      "sha": "516b95d",
+      "full_sha": "516b95d7ff38b8cf573161d5483b558834150dd0",
+      "title": "gate community-content admin endpoints with server-side role check",
+      "author": "Claude",
+      "timestamp": "2026-04-29T20:43:04Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-516b95d.md"
+    },
+    {
+      "sha": "c25d66a",
+      "full_sha": "c25d66abc658e13b580f9dff525e1498a8fdb6c1",
+      "title": "add public viewer page for community-generated content",
+      "author": "Claude",
+      "timestamp": "2026-04-29T20:44:01Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-c25d66a.md"
+    },
+    {
+      "sha": "fc82cb7",
+      "full_sha": "fc82cb789744c104d38217c0af9b284099a60611",
+      "title": "remix expands inline like Customize banner — no popout dialog",
+      "author": "Claude",
+      "timestamp": "2026-04-29T20:48:53Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-fc82cb7.md"
+    },
     {
       "sha": "aa70e7d",
       "full_sha": "aa70e7ddc4e4b93e7cf464c64250c71671c36ae6",
@@ -1099,159 +1252,6 @@
       "timestamp": "2026-03-24T10:42:22Z",
       "type": "deploy",
       "brief": "items/build_/COMMITS/COMMIT-d61ac02.md"
-    },
-    {
-      "sha": "6c80af9",
-      "full_sha": "6c80af9d2eea1af93e94024bb7dd652f943812b3",
-      "title": "enrich persona cards with full Nakamoto investment and historical data",
-      "author": "Claude",
-      "timestamp": "2026-03-24T10:36:37Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-6c80af9.md"
-    },
-    {
-      "sha": "e34c7fa",
-      "full_sha": "e34c7fa9e02e08c75b568920aa789bf7f8cd6dd0",
-      "title": "wire marketa full system prompt: tone, KNYT universe, investor posture, kickstarter campaign, operational workflow",
-      "author": "Claude",
-      "timestamp": "2026-03-24T09:13:15Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-e34c7fa.md"
-    },
-    {
-      "sha": "42e053b",
-      "full_sha": "42e053bbb62c2dd58ce530c73a7c42ed170b8bc7",
-      "title": "add marketa charter and phased CED implementation plan",
-      "author": "Claude",
-      "timestamp": "2026-03-24T08:40:41Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-42e053b.md"
-    },
-    {
-      "sha": "82a1d88",
-      "full_sha": "82a1d883587e5518c2706c49f13c3be7a4dca826",
-      "title": "Gate collapsed sidebar items by openSections to fix links and state sync",
-      "author": "Claude",
-      "timestamp": "2026-03-24T08:25:08Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-82a1d88.md"
-    },
-    {
-      "sha": "83a70a7",
-      "full_sha": "83a70a74ba2fd7ea360ce345fa543158c12e1ba6",
-      "title": "wire runtimeProcessing into CodexCopilotLayer trust indicator animation",
-      "author": "Claude",
-      "timestamp": "2026-03-24T08:18:50Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-83a70a7.md"
-    },
-    {
-      "sha": "f9e5928",
-      "full_sha": "f9e5928dea2b1fe3dc74da7bb1cc1d175f2cd205",
-      "title": "fix agent identity and restore trust indicator pulse animation",
-      "author": "Claude",
-      "timestamp": "2026-03-24T07:52:37Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-f9e5928.md"
-    },
-    {
-      "sha": "35720c7",
-      "full_sha": "35720c732796cdfb86a511872789d8f85f8b2ba6",
-      "title": "fix inference not triggering from live text input and marketa persona lookup",
-      "author": "Claude",
-      "timestamp": "2026-03-24T07:21:55Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-35720c7.md"
-    },
-    {
-      "sha": "902213c",
-      "full_sha": "902213c7cc3a7c464b0e04643abc7561347f9f63",
-      "title": "fix agent selector pipeline so selected aigent drives inference",
-      "author": "Claude",
-      "timestamp": "2026-03-24T02:17:19Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-902213c.md"
-    },
-    {
-      "sha": "614d0e1",
-      "full_sha": "614d0e11190f1460631ad4d17a1d59fb3d3f4a46",
-      "title": "register aigent-marketa as a full aigent",
-      "author": "Claude",
-      "timestamp": "2026-03-24T01:54:27Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-614d0e1.md"
-    },
-    {
-      "sha": "4021791",
-      "full_sha": "4021791494d4ae68bde04388e0285fca37d06cee",
-      "title": "Remove broken batch effect, fix scroll-to-top for embed preview",
-      "author": "Claude",
-      "timestamp": "2026-03-23T02:25:02Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-4021791.md"
-    },
-    {
-      "sha": "5fc59f8",
-      "full_sha": "5fc59f8ae1ac6cc22d7743032139a36f0a3e79f1",
-      "title": "Fix banner regression, remove video badges, revert carousel order",
-      "author": "Claude",
-      "timestamp": "2026-03-23T01:55:19Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-5fc59f8.md"
-    },
-    {
-      "sha": "e34c969",
-      "full_sha": "e34c96964aff5f13f3310ae4b8ea590f1ad7c5da",
-      "title": "Fix video badge, thumbnail, and preview scroll for non-selected experiences",
-      "author": "Claude",
-      "timestamp": "2026-03-23T01:31:10Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-e34c969.md"
-    },
-    {
-      "sha": "741fa0b",
-      "full_sha": "741fa0b5774ffb8d66c1df6f42aeba831b9aed28",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-22T20:26:59Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-741fa0b.md"
-    },
-    {
-      "sha": "c55c196",
-      "full_sha": "c55c19624377423813319a67f0a32047b0dad45f",
-      "title": "fix video status: check supabase cache first, handle expired videos, clear banner",
-      "author": "Claude",
-      "timestamp": "2026-03-22T20:26:50Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-c55c196.md"
-    },
-    {
-      "sha": "d344a5c",
-      "full_sha": "d344a5c35e0485fd5c0eadd10e2418aca2567a58",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-22T19:54:07Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-d344a5c.md"
-    },
-    {
-      "sha": "0bbd97a",
-      "full_sha": "0bbd97a80e274e3688736662f3e05c7674f10ae0",
-      "title": "fix video preview: save thumbnail from polling, pass proxy URL when complete, fix badge",
-      "author": "Claude",
-      "timestamp": "2026-03-22T19:54:02Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-0bbd97a.md"
-    },
-    {
-      "sha": "323e7e6",
-      "full_sha": "323e7e65c6137991fec159f1db8d2bf71a8d4e4b",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-22T18:15:59Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-323e7e6.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
