@@ -594,3 +594,18 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-73f4581.md](../build_/COMMITS/COMMIT-73f4581.md)
 - Message: KNYT cart Phase 3b — buy-more-KNYT panel when KNYT rail is short
+
+## Commit `59216d8` — 2026-05-01T02:56:02Z
+- Type: `chore`
+- Brief: [COMMIT-59216d8.md](../build_/COMMITS/COMMIT-59216d8.md)
+- Message: chore: update next-env.d.ts — remove stale navigation compat reference
+
+## Commit `4aade85` — 2026-05-01T03:17:09Z
+- Type: `fix`
+- Brief: [COMMIT-4aade85.md](../build_/COMMITS/COMMIT-4aade85.md)
+- Message: fix: remove dead default imports from wallet barrel to break TDZ chain
+
+## Commit `e7b0bda` — 2026-05-01T04:17:07Z
+- Type: `fix`
+- Brief: [COMMIT-e7b0bda.md](../build_/COMMITS/COMMIT-e7b0bda.md)
+- Message: fix: SmartWalletDrawer hook-order TDZ — declare archived-persona useState before allAvailablePersonas useMemo

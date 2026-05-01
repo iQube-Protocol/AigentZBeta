@@ -1,4 +1,7 @@
 # Build — Changelog
+- [`e7b0bda`](https://github.com/iQube-Protocol/AigentZBeta/commit/e7b0bda4895da2d6229ef830387e38367d35c9ea) [fix] fix: SmartWalletDrawer hook-order TDZ — declare archived-persona useState before allAvailablePersonas useMemo (Claude, 2026-05-01T04:17:07Z)
+- [`4aade85`](https://github.com/iQube-Protocol/AigentZBeta/commit/4aade85e3775e7d77bab1c7d0c43f8818798b8ba) [fix] fix: remove dead default imports from wallet barrel to break TDZ chain (Claude, 2026-05-01T03:17:09Z)
+- [`59216d8`](https://github.com/iQube-Protocol/AigentZBeta/commit/59216d8665642b76d5df47f402d19fea18c6a4f6) [chore] chore: update next-env.d.ts — remove stale navigation compat reference (Claude, 2026-05-01T02:56:02Z)
 - [`73f4581`](https://github.com/iQube-Protocol/AigentZBeta/commit/73f458158c5a80667aa1ec7593eb51edf622c07e) [push] KNYT cart Phase 3b — buy-more-KNYT panel when KNYT rail is short (Claude, 2026-04-30T23:01:48Z)
 - [`0008bf6`](https://github.com/iQube-Protocol/AigentZBeta/commit/0008bf684abd7b1416590185a3586f9fb45ec4bf) [push] KNYT cart Phase 2c — multi-item KnytCartCheckoutModal replaces per-item iteration (Claude, 2026-04-30T22:51:53Z)
 - [`feea823`](https://github.com/iQube-Protocol/AigentZBeta/commit/feea8234cd7c2690a3ede44c295d11456f456179) [push] KNYT cart Phase 2b — server-side /api/cart/{quote,complete} endpoints (Claude, 2026-04-30T22:48:41Z)
