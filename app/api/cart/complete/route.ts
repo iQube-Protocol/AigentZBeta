@@ -60,7 +60,7 @@ interface CompleteLineInput {
 
 interface CompleteRequest {
   personaId: string;
-  paymentRail: 'knyt' | 'qcents' | 'usdc';
+  paymentRail: 'knyt' | 'knyt_evm' | 'qcents' | 'usdc';
   lines: CompleteLineInput[];
   paymentReference?: string;
   metadata?: Record<string, unknown>;
@@ -90,11 +90,14 @@ export async function POST(req: NextRequest) {
   if (!body.personaId) {
     return NextResponse.json({ ok: false, error: 'personaId required' }, { status: 400 });
   }
-  if (!body.paymentRail || !['knyt', 'qcents', 'usdc'].includes(body.paymentRail)) {
+  if (!body.paymentRail || !['knyt', 'knyt_evm', 'qcents', 'usdc'].includes(body.paymentRail)) {
     return NextResponse.json(
-      { ok: false, error: 'paymentRail must be knyt, qcents, or usdc (paypal is handled by /api/cart/paypal/*)' },
+      { ok: false, error: 'paymentRail must be knyt, knyt_evm, qcents, or usdc (paypal is handled by /api/cart/paypal/*)' },
       { status: 400 },
     );
+  }
+  if (body.paymentRail === 'knyt_evm' && (!body.paymentReference || !/^0x[0-9a-fA-F]{64}$/.test(body.paymentReference))) {
+    return NextResponse.json({ ok: false, error: 'knyt_evm rail requires a valid EVM transaction hash as paymentReference' }, { status: 400 });
   }
   const lines = Array.isArray(body.lines) ? body.lines : [];
   if (lines.length === 0) {
@@ -103,10 +106,11 @@ export async function POST(req: NextRequest) {
 
   // Map cart's rail names to processPurchase's rail names. processPurchase
   // uses 'qc' where the cart UI uses 'qcents'.
-  const railMap: Record<CompleteRequest['paymentRail'], 'knyt' | 'qc' | 'usdc'> = {
-    knyt:   'knyt',
-    qcents: 'qc',
-    usdc:   'usdc',
+  const railMap: Record<CompleteRequest['paymentRail'], 'knyt' | 'knyt_evm' | 'qc' | 'usdc'> = {
+    knyt:     'knyt',
+    knyt_evm: 'knyt_evm',
+    qcents:   'qc',
+    usdc:     'usdc',
   };
   const rail = railMap[body.paymentRail];
 

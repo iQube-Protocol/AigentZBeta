@@ -14,8 +14,9 @@
  * shown but disabled with a hint to use express buy from any card.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { CreditCard, Loader2, ShoppingCart, X, Zap, Check, AlertCircle } from 'lucide-react';
+import { CreditCard, ExternalLink, Loader2, ShoppingCart, X, Zap, Check, AlertCircle } from 'lucide-react';
 import { type CartItem, getKnytDiscountedPrice, KNYT_COYN_DISCOUNT, usdToKnyt, cartItemCount } from '@/types/knyt-store';
+import { useEvmKnytPayment } from '@/app/hooks/useEvmKnytPayment';
 
 type Rail = 'knyt' | 'qcents' | 'usdc' | 'paypal';
 
@@ -95,7 +96,9 @@ export function KnytCartCheckoutModal({
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [knytBalance, setKnytBalance] = useState<number | null>(null);
+  const [evmKnytBalance, setEvmKnytBalance] = useState<number>(0);
   const [knytBalanceLoading, setKnytBalanceLoading] = useState(false);
+  const evmPay = useEvmKnytPayment();
   const [topupPackages, setTopupPackages] = useState<Array<{ packageId: string; knytAmount: number; usdPrice: number; bonusKnyt: number; label: string }> | null>(null);
   const [selectedTopupId, setSelectedTopupId] = useState<string | null>(null);
   const [topupStatus, setTopupStatus] = useState<'idle' | 'opening' | 'waiting' | 'success' | 'error'>('idle');
@@ -172,7 +175,9 @@ export function KnytCartCheckoutModal({
       const json = await res.json();
       // Tier 0 spends from the off-chain DVN ledger only.
       const spendable = typeof json.spendableKnyt === 'number' ? json.spendableKnyt : 0;
+      const evm = typeof json.evmKnyt === 'number' ? json.evmKnyt : 0;
       setKnytBalance(spendable);
+      setEvmKnytBalance(evm);
     } catch {
       setKnytBalance(null);
     } finally {
@@ -208,6 +213,55 @@ export function KnytCartCheckoutModal({
     const need = quote.rails.knyt.total;
     return need > knytBalance ? Math.ceil((need - knytBalance) * 100) / 100 : 0;
   }, [selectedRail, quote, knytBalance]);
+
+  // True when user has no/insufficient DVN KNYT but has enough EVM KNYT on-chain
+  const canPayWithEvm = useMemo(() => {
+    if (!quote || selectedRail !== 'knyt' || knytShortfall <= 0) return false;
+    return evmKnytBalance >= quote.rails.knyt.total;
+  }, [quote, selectedRail, knytShortfall, evmKnytBalance]);
+
+  const payWithEvm = useCallback(async () => {
+    if (!personaId || !quote) return;
+    setPaying(true);
+    setSettleError(null);
+    try {
+      const hash = await evmPay.sendKnyt(quote.rails.knyt.total);
+      const res = await fetch('/api/cart/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          personaId,
+          paymentRail: 'knyt_evm',
+          paymentReference: hash,
+          lines: items.map((line) => ({
+            id: line.id,
+            contentType: line.contentType,
+            priceUsd: line.priceUsd,
+            qty: lineQty(line),
+            label: line.label,
+            thumbUrl: line.thumbUrl,
+          })),
+          metadata: { source: 'KnytCartCheckoutModal', evmTxHash: hash },
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok && !json.results) {
+        setSettleError(json.error || `Settlement failed (${res.status})`);
+        return;
+      }
+      setResults(json.results as CompleteLineResult[]);
+      setCartPurchaseId(json.cartPurchaseId as string);
+      const { settledIds, failedIds } = partitionResults(json.results as CompleteLineResult[]);
+      onSettled?.({ settledIds, failedIds, cartPurchaseId: json.cartPurchaseId as string });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Payment failed';
+      if (!msg.toLowerCase().includes('rejected') && !msg.toLowerCase().includes('denied') && !msg.toLowerCase().includes('user denied')) {
+        setSettleError(msg);
+      }
+    } finally {
+      setPaying(false);
+    }
+  }, [personaId, quote, items, evmPay, partitionResults, onSettled]);
 
   useEffect(() => {
     if (knytShortfall > 0) void fetchTopupPackages();
@@ -618,13 +672,33 @@ export function KnytCartCheckoutModal({
                         You need {knytShortfall.toFixed(2)} more KNYT
                       </p>
                       <p className="text-[10px] text-amber-200/70 mt-0.5">
-                        Spendable: {(knytBalance ?? 0).toFixed(2)} KNYT · Cart: {quote?.rails.knyt.total.toFixed(2)} KNYT.
-                        Top up via PayPal and we'll reload your balance so you can pay with KNYT (20% off).
+                        Spendable: {(knytBalance ?? 0).toFixed(2)} KNYT · Cart: {quote?.rails.knyt.total.toFixed(2)} KNYT.{' '}
+                        {canPayWithEvm
+                          ? `You have ${evmKnytBalance.toFixed(2)} KNYT on-chain — pay directly with MetaMask.`
+                          : 'Top up via PayPal and we'll reload your balance so you can pay with KNYT (20% off).'}
                       </p>
                     </div>
                   </div>
 
-                  {topupPackages && topupPackages.length > 0 && (
+                  {/* EVM KNYT path — pay directly from MetaMask when on-chain balance covers cart */}
+                  {canPayWithEvm && (
+                    <button
+                      type="button"
+                      onClick={payWithEvm}
+                      disabled={paying}
+                      className="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-blue-400/50 bg-blue-500/15 px-3 py-2 text-xs font-semibold text-blue-100 hover:bg-blue-500/25 disabled:opacity-40"
+                    >
+                      {paying && evmPay.status === 'waiting' ? (
+                        <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Awaiting MetaMask…</>
+                      ) : paying ? (
+                        <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Processing…</>
+                      ) : (
+                        <><ExternalLink className="h-3.5 w-3.5" /> Pay {quote?.rails.knyt.total.toFixed(2)} KNYT with MetaMask</>
+                      )}
+                    </button>
+                  )}
+
+                  {!canPayWithEvm && topupPackages && topupPackages.length > 0 && (
                     <div className="space-y-1">
                       {topupPackages.map((p) => {
                         const isSelected = selectedTopupId === p.packageId;
@@ -659,14 +733,14 @@ export function KnytCartCheckoutModal({
                     </div>
                   )}
 
-                  {topupError && (
+                  {!canPayWithEvm && topupError && (
                     <div className="flex items-start gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1.5 text-[10px] text-rose-200">
                       <AlertCircle className="h-3 w-3 shrink-0 mt-0.5" />
                       <span>{topupError}</span>
                     </div>
                   )}
 
-                  <button
+                  {!canPayWithEvm && <button
                     type="button"
                     onClick={buyMoreKnyt}
                     disabled={!selectedTopupId || topupStatus === 'opening' || topupStatus === 'waiting'}
@@ -685,7 +759,7 @@ export function KnytCartCheckoutModal({
                     ) : (
                       <>Buy more KNYT via PayPal</>
                     )}
-                  </button>
+                  </button>}
                 </div>
               )}
             </>
@@ -773,17 +847,23 @@ export function KnytCartCheckoutModal({
               ) : (
                 <button
                   type="button"
-                  onClick={pay}
+                  onClick={canPayWithEvm ? payWithEvm : pay}
                   disabled={
                     paying ||
                     !quote ||
                     (selectedRail === 'paypal' && items.length > PAYPAL_MAX_UNITS) ||
-                    (selectedRail === 'knyt' && knytShortfall > 0)
+                    (selectedRail === 'knyt' && knytShortfall > 0 && !canPayWithEvm)
                   }
                   className="inline-flex items-center gap-1.5 rounded-lg border border-teal-500/40 bg-teal-500/15 px-3 py-1.5 text-xs font-semibold text-teal-200 hover:bg-teal-500/25 disabled:opacity-40"
                 >
-                  {paying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CreditCard className="h-3.5 w-3.5" />}
-                  Pay
+                  {paying ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : canPayWithEvm ? (
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  ) : (
+                    <CreditCard className="h-3.5 w-3.5" />
+                  )}
+                  {canPayWithEvm ? 'Sign & Pay' : 'Pay'}
                 </button>
               )}
             </>
