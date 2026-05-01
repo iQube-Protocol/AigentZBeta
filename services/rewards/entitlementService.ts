@@ -270,14 +270,21 @@ export class EntitlementService {
    * Get product by type
    */
   async getProduct(productType: string): Promise<Product | null> {
-    const { data, error } = await this.supabase
-      .from('products')
-      .select('*')
-      .eq('product_type', productType)
-      .eq('is_active', true)
-      .single();
-    
-    if (error || !data) {
+    let data: Record<string, unknown> | null = null;
+    try {
+      const result = await this.supabase
+        .from('products')
+        .select('*')
+        .eq('product_type', productType)
+        .eq('is_active', true)
+        .single();
+      if (result.error || !result.data) return null;
+      data = result.data as Record<string, unknown>;
+    } catch {
+      // Supabase can throw SyntaxError if PostgREST returns non-JSON (HTML error page)
+      return null;
+    }
+    if (!data) {
       return null;
     }
     

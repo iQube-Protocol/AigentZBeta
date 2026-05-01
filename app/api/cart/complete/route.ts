@@ -119,7 +119,14 @@ export async function POST(req: NextRequest) {
   const cartPurchaseId = (globalThis.crypto?.randomUUID?.() ??
     `cart_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`);
 
-  const handler = new PurchaseHandler();
+  let handler: InstanceType<typeof PurchaseHandler>;
+  try {
+    handler = new PurchaseHandler();
+  } catch (initErr) {
+    const msg = initErr instanceof Error ? initErr.message : 'Service initialization failed';
+    console.error('[cart/complete] PurchaseHandler init failed:', msg);
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+  }
   const results: LineResult[] = [];
 
   for (let i = 0; i < lines.length; i += 1) {
