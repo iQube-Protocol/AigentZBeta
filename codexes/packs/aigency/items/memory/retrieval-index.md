@@ -634,3 +634,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-738b6cc.md](../build_/COMMITS/COMMIT-738b6cc.md)
 - Message: fix: migrate remaining persona ID reads to usePersonaSafe() context
+
+## Commit `5d9c6d7` — 2026-05-01T15:34:43Z
+- Type: `feat`
+- Brief: [COMMIT-5d9c6d7.md](../build_/COMMITS/COMMIT-5d9c6d7.md)
+- Message: add RaBadges asset type + editable tier/variant + upload completion feedback
