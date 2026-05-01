@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { PreviewFrame } from "@/components/preview/PreviewFrame";
 import { useDesignQubeTheme } from "@/components/metame/useDesignQubeTheme";
 import { ValueChip } from "@/components/metame/ValueChip";
 import AliasConsentToggle from "@/app/components/identity/AliasConsentToggle";
-import { getActivePersonaId } from "@/services/wallet/personaService";
+import { usePersonaSafe } from "@/app/contexts/PersonaContext";
 import type { SmartContentQube } from "@/types/smartContent";
 import { Copy, CheckCircle2, Share2, Wallet, UserCircle2, Sparkles } from "lucide-react";
 import type { DesignQube, DesignQubeThemeMode } from "@/types/designQube";
@@ -62,7 +62,8 @@ export default function MetaMeSmartOfferPage() {
   const [designQube, setDesignQube] = useState<DesignQube | null>(null);
   const [lastAction, setLastAction] = useState<string | null>(null);
 
-  const personaId = useMemo(() => getActivePersonaId() || "guest", []);
+  const { activePersonaId: ctxPersonaId } = usePersonaSafe();
+  const personaId = ctxPersonaId || "guest";
 
   const inviteToken = searchParams?.get("invite");
 
