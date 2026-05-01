@@ -135,6 +135,7 @@ export async function POST(req: NextRequest) {
       'cover_image',
       'cover_motion',
       'ra_badge',
+      'bundle_pack',
     ];
 
     if (!validAssetKinds.includes(metadata.assetKind)) {
