@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useBalances } from "@/app/hooks/useBalances";
 import { useDVNEvents } from "@/app/hooks/useDVNEvents";
+import { useOwnedEntitlements } from "@/app/hooks/useOwnedEntitlements";
 import {
   Wallet,
   RefreshCw,
@@ -13,12 +14,16 @@ import {
   Award,
   BookOpen,
   CheckSquare,
+  CheckCircle,
   Trophy,
   Gift,
   Loader2,
+  Film,
+  User,
 } from "lucide-react";
 
 interface SmartWalletPanelProps {
+  personaId?: string;
   theme?: 'light' | 'dark';
   density?: 'narrow' | 'wide';
 }
@@ -33,9 +38,10 @@ const TAB_CONFIG: Array<{ key: TabType; label: string; icon: React.ComponentType
   { key: "rewards", label: "Rewards", icon: Gift },
 ];
 
-export default function SmartWalletPanel({ theme = 'dark', density = 'wide' }: SmartWalletPanelProps) {
+export default function SmartWalletPanel({ personaId, theme = 'dark', density = 'wide' }: SmartWalletPanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>("wallet");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const { entitlements, loading: entitlementsLoading, refresh: refreshEntitlements } = useOwnedEntitlements(personaId);
 
   // Mock agent addresses - in production, these would come from auth/persona context
   const mockAddresses = {
@@ -193,10 +199,107 @@ export default function SmartWalletPanel({ theme = 'dark', density = 'wide' }: S
         )}
 
         {activeTab === "library" && (
-          <div className="text-center py-12 text-slate-500">
-            <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p className="text-lg font-medium mb-2">Content Library</p>
-            <p className="text-sm">Your purchased content and entitlements will appear here</p>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider">
+                Owned Content
+                {entitlements.length > 0 && (
+                  <span className="ml-2 text-xs font-medium text-slate-500 normal-case tracking-normal">
+                    ({entitlements.length})
+                  </span>
+                )}
+              </h3>
+              {personaId && (
+                <button
+                  onClick={refreshEntitlements}
+                  disabled={entitlementsLoading}
+                  className="p-1.5 hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-50"
+                  title="Refresh library"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-slate-400 ${entitlementsLoading ? 'animate-spin' : ''}`} />
+                </button>
+              )}
+            </div>
+
+            {!personaId && (
+              <div className="text-center py-10 text-slate-500">
+                <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                <p className="text-sm font-medium">Sign in to view your library</p>
+              </div>
+            )}
+
+            {personaId && entitlementsLoading && !entitlements.length && (
+              <div className="flex items-center justify-center py-10">
+                <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+              </div>
+            )}
+
+            {personaId && !entitlementsLoading && entitlements.length === 0 && (
+              <div className="text-center py-10 text-slate-500">
+                <BookOpen className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                <p className="text-sm font-medium mb-1">No content yet</p>
+                <p className="text-xs">Purchase episodes or character cards to build your library</p>
+              </div>
+            )}
+
+            {entitlements.length > 0 && (
+              <div className="grid grid-cols-3 gap-2">
+                {entitlements.map((ent) => {
+                  const meta = ent.assetMeta;
+                  const thumbUrl = meta.coverCid
+                    ? `/api/content/cover/${meta.coverCid}?variant=thumb`
+                    : undefined;
+                  const isEpisode = typeof meta.episodeNumber === 'number' && !meta.characterName;
+                  const label = meta.characterName
+                    ? meta.characterName
+                    : meta.episodeNumber != null
+                    ? `Ep. ${meta.episodeNumber}`
+                    : ent.assetId;
+                  const typeLabel = meta.isMotion
+                    ? 'Motion'
+                    : meta.coverType === 'CHARACTER'
+                    ? 'Card'
+                    : meta.coverType
+                    ? meta.coverType
+                    : isEpisode
+                    ? 'Digital'
+                    : 'Asset';
+
+                  return (
+                    <div
+                      key={ent.id}
+                      className="flex flex-col rounded-xl border border-emerald-700/30 bg-emerald-900/10 overflow-hidden"
+                    >
+                      <div className="relative aspect-[3/4] bg-slate-950 overflow-hidden">
+                        {thumbUrl ? (
+                          <img
+                            src={thumbUrl}
+                            alt={label}
+                            className="w-full h-full object-contain"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="flex items-center justify-center h-full text-slate-700">
+                            {isEpisode ? <Film className="h-5 w-5" /> : <User className="h-5 w-5" />}
+                          </div>
+                        )}
+                        <div className="absolute top-1 right-1 flex items-center gap-0.5 rounded border border-emerald-600/50 bg-emerald-900/80 px-1 py-0.5">
+                          <CheckCircle className="h-2.5 w-2.5 text-emerald-400" />
+                        </div>
+                      </div>
+                      <div className="px-1.5 pt-1 pb-1.5 space-y-0.5">
+                        <p className="text-[10px] font-semibold text-white leading-tight truncate" title={label}>
+                          {label}
+                        </p>
+                        <span className="inline-block rounded border border-sky-700/40 bg-sky-900/60 px-1 py-0.5 text-[8px] font-bold text-sky-300">
+                          {typeLabel}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowLeft, BookOpen, Film, Plus, ShoppingCart, Zap } from 'lucide-react';
+import { ArrowLeft, BookOpen, CheckCircle, Film, Plus, ShoppingCart, Zap } from 'lucide-react';
 import {
   EPISODE_PRICING,
   QRIPTO_SUPPLY,
@@ -23,6 +23,7 @@ import { useKnytCart } from './useKnytCart';
 import { KnytCartDrawer } from './KnytCartDrawer';
 import { ContentPurchaseModal } from '../../content/ContentPurchaseModal';
 import type { ContentType } from '../../content/ContentPurchaseModal';
+import { useOwnedEntitlements } from '@/app/hooks/useOwnedEntitlements';
 
 interface Props {
   personaId?: string;
@@ -192,11 +193,13 @@ function GNGridCard({
 function EpisodeGridCard({
   ep,
   thumbUrl,
+  isOwned,
   onClick,
   onBuy,
   onAddToCart,
 }: {
   ep: EpisodePricing;
+  isOwned?: boolean;
   thumbUrl?: string;
   onClick: () => void;
   onBuy: (e: React.MouseEvent) => void;
@@ -206,7 +209,11 @@ function EpisodeGridCard({
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col rounded-xl border border-white/5 bg-slate-900/60 overflow-hidden text-left transition-colors hover:border-teal-500/20 hover:bg-slate-800/60 w-full"
+      className={`flex flex-col rounded-xl border overflow-hidden text-left transition-colors w-full ${
+        isOwned
+          ? 'border-emerald-700/40 bg-emerald-900/10 hover:border-emerald-600/50 hover:bg-emerald-900/20'
+          : 'border-white/5 bg-slate-900/60 hover:border-teal-500/20 hover:bg-slate-800/60'
+      }`}
     >
       <div className="relative w-full aspect-[2/3] bg-slate-950 overflow-hidden">
         {thumbUrl ? (
@@ -216,22 +223,35 @@ function EpisodeGridCard({
             <Film className="h-5 w-5" />
           </div>
         )}
+        {isOwned && (
+          <div className="absolute top-1 right-1 flex items-center gap-0.5 rounded border border-emerald-600/50 bg-emerald-900/80 px-1 py-0.5">
+            <CheckCircle className="h-2.5 w-2.5 text-emerald-400" />
+            <span className="text-[8px] font-bold text-emerald-300">Owned</span>
+          </div>
+        )}
       </div>
       <div className="px-1.5 pt-1 pb-1.5 space-y-0.5">
-        {/* Row 1: episode number + print price */}
+        {/* Row 1: episode number + owned or print price */}
         <div className="flex items-baseline justify-between">
           <span className="text-[10px] font-semibold text-white">Ep. {ep.episodeNumber}</span>
-          <span className="text-[10px] font-semibold text-amber-400">Print ${ep.printPrice}</span>
+          {isOwned
+            ? <span className="text-[10px] font-semibold text-emerald-400">In Library</span>
+            : <span className="text-[10px] font-semibold text-amber-400">Print ${ep.printPrice}</span>
+          }
         </div>
-        {/* Row 2: Qripto + Digital */}
-        <div className="flex items-baseline justify-between">
-          <span className="text-[10px] text-purple-400">Qripto ${ep.qriptoPrice}</span>
-          <span className="text-[10px] text-sky-400">Digital ${ep.digitalPrice}</span>
-        </div>
-        {/* Cart button */}
-        <div className="flex justify-end pt-0.5">
-          <CartButton onClick={onBuy} onAddToCart={onAddToCart} />
-        </div>
+        {!isOwned && (
+          <>
+            {/* Row 2: Qripto + Digital */}
+            <div className="flex items-baseline justify-between">
+              <span className="text-[10px] text-purple-400">Qripto ${ep.qriptoPrice}</span>
+              <span className="text-[10px] text-sky-400">Digital ${ep.digitalPrice}</span>
+            </div>
+            {/* Cart button */}
+            <div className="flex justify-end pt-0.5">
+              <CartButton onClick={onBuy} onAddToCart={onAddToCart} />
+            </div>
+          </>
+        )}
       </div>
     </button>
   );
@@ -586,6 +606,21 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
   const [cartOpen, setCartOpen] = useState(false);
   const { getCoverThumb } = useKnytThumbnails();
   const cart = useKnytCart();
+  const { ownedAssetIds } = useOwnedEntitlements(personaId);
+
+  function isEpisodeOwned(epNum: number): boolean {
+    // Check for any modality purchase of this episode
+    return (
+      ownedAssetIds.has(`episode-${epNum}`) ||
+      ownedAssetIds.has(`episode-${epNum}-qripto-still`) ||
+      ownedAssetIds.has(`episode-${epNum}-qripto-motion`) ||
+      ownedAssetIds.has(`episode-${epNum}-qripto-bundle`) ||
+      ownedAssetIds.has(`episode-${epNum}-digital-still`) ||
+      ownedAssetIds.has(`episode-${epNum}-digital-motion`) ||
+      ownedAssetIds.has(`episode-${epNum}-digital-bundle`) ||
+      ownedAssetIds.has(`episode-${epNum}-print`)
+    );
+  }
 
   const episodes = EPISODE_PRICING
     .filter((e) => e.episodeNumber >= 0)
@@ -716,6 +751,7 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
                       key={ep.episodeNumber}
                       ep={ep}
                       thumbUrl={thumb}
+                      isOwned={isEpisodeOwned(ep.episodeNumber)}
                       onClick={() => setView({ kind: 'episode', ep })}
                       onBuy={() => setPurchase({
                         contentType: 'scroll_still',
