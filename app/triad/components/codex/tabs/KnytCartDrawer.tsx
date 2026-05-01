@@ -239,12 +239,12 @@ export function KnytCartDrawer({
           // Remove every settled line from the cart. Failed lines stay so
           // the user can retry — they'll see them when they re-open the cart.
           for (const id of settledIds) onRemove(id);
-          // If everything settled, close the modal so the user lands back
-          // on the store. If there are failures, leave the modal open so
-          // they can read the error messages.
-          if (failedIds.length === 0) {
-            setCheckoutOpen(false);
+          // On full success, keep the modal open for 2 s so the user sees
+          // the green confirmation, then close automatically.
+          if (failedIds.length === 0 && settledIds.length > 0) {
+            setTimeout(() => setCheckoutOpen(false), 2000);
           }
+          // Partial or full failure: leave modal open — user reads the errors.
         }}
       />
     </>
