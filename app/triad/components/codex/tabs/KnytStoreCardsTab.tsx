@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowLeft, Plus, ShoppingCart, User, Zap } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Plus, ShoppingCart, User, Zap } from 'lucide-react';
 import {
   QRIPTO_SUPPLY,
   getKnytDiscountedPrice,
@@ -11,6 +11,7 @@ import {
 } from '@/types/knyt-store';
 import { useKnytThumbnails } from './useKnytThumbnails';
 import { useKnytCart } from './useKnytCart';
+import { useOwnedEntitlements } from '@/app/hooks/useOwnedEntitlements';
 import { KnytCartDrawer } from './KnytCartDrawer';
 import { ContentPurchaseModal } from '../../content/ContentPurchaseModal';
 import type { ContentType } from '../../content/ContentPurchaseModal';
@@ -120,6 +121,7 @@ function CharacterCardItem({
   thumbUrl,
   title,
   variant,
+  isOwned,
   onClick,
   onBuy,
   onAddToCart,
@@ -128,6 +130,7 @@ function CharacterCardItem({
   thumbUrl?: string;
   title?: string;
   variant: CardVariant;
+  isOwned?: boolean;
   onClick: () => void;
   onBuy: (e: React.MouseEvent) => void;
   onAddToCart?: (e: React.MouseEvent) => void;
@@ -137,7 +140,11 @@ function CharacterCardItem({
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col rounded-xl border border-white/5 bg-slate-900/60 overflow-hidden text-left transition-colors hover:border-teal-500/20 hover:bg-slate-800/60 w-full"
+      className={`flex flex-col rounded-xl border overflow-hidden text-left transition-colors w-full ${
+        isOwned
+          ? 'border-emerald-700/40 bg-emerald-900/10 hover:border-emerald-600/50 hover:bg-emerald-900/20'
+          : 'border-white/5 bg-slate-900/60 hover:border-teal-500/20 hover:bg-slate-800/60'
+      }`}
     >
       <div className="relative w-full aspect-[3/4] bg-slate-950 overflow-hidden">
         {thumbUrl ? (
@@ -150,12 +157,18 @@ function CharacterCardItem({
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-1 py-1">
           <p className="text-[8px] text-slate-300 text-center">#{epNum}</p>
         </div>
-        {variant === 'bundle' && (
+        {isOwned && (
+          <div className="absolute top-1 right-1 flex items-center gap-0.5 rounded border border-emerald-600/50 bg-emerald-900/80 px-1 py-0.5">
+            <CheckCircle className="h-2.5 w-2.5 text-emerald-400" />
+            <span className="text-[8px] font-bold text-emerald-300">Owned</span>
+          </div>
+        )}
+        {!isOwned && variant === 'bundle' && (
           <div className="absolute top-1 left-1 rounded border border-teal-700/40 bg-teal-900/70 px-1 py-0.5 text-[8px] font-bold text-teal-300">
             S+M
           </div>
         )}
-        {variant === 'motion' && (
+        {!isOwned && variant === 'motion' && (
           <div className="absolute top-1 left-1 rounded border border-cyan-700/40 bg-cyan-900/70 px-1 py-0.5 text-[8px] font-bold text-cyan-300">
             MO
           </div>
@@ -165,10 +178,16 @@ function CharacterCardItem({
         <p className="text-[10px] font-semibold text-white leading-tight truncate">
           {title || `Character ${epNum}`}
         </p>
-        <p className="text-xs font-bold text-white">${price}</p>
-        <div className="flex justify-end pt-0.5">
-          <CartButton onClick={onBuy} onAddToCart={onAddToCart} />
-        </div>
+        {isOwned ? (
+          <p className="text-[10px] font-semibold text-emerald-400">In Library</p>
+        ) : (
+          <p className="text-xs font-bold text-white">${price}</p>
+        )}
+        {!isOwned && (
+          <div className="flex justify-end pt-0.5">
+            <CartButton onClick={onBuy} onAddToCart={onAddToCart} />
+          </div>
+        )}
       </div>
     </button>
   );
@@ -264,6 +283,15 @@ export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
   const [cartOpen, setCartOpen] = useState(false);
   const { characters, getCharacterThumb } = useKnytThumbnails();
   const cart = useKnytCart();
+  const { ownedAssetIds } = useOwnedEntitlements(personaId);
+
+  function isCardOwned(epNum: number): boolean {
+    return (
+      ownedAssetIds.has(`character-card-${epNum}-still`) ||
+      ownedAssetIds.has(`character-card-${epNum}-motion`) ||
+      ownedAssetIds.has(`character-card-${epNum}-bundle`)
+    );
+  }
 
   function addPendingToCart(p: PendingPurchase) {
     const modalityVal: CartItem['modality'] = p.contentType.includes('motion')
@@ -388,6 +416,7 @@ export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
                   thumbUrl={getCharacterThumb(epNum)}
                   title={getTitle(epNum)}
                   variant={variant}
+                  isOwned={isCardOwned(epNum)}
                   onClick={() => setView({ kind: 'detail', epNum })}
                   onBuy={(e) => { e.stopPropagation(); openPurchase(epNum, variant); }}
                   onAddToCart={(e) => { e.stopPropagation(); addCardToCart(epNum, variant); }}

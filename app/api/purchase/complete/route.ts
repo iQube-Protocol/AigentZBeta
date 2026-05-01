@@ -35,9 +35,9 @@ export async function POST(request: NextRequest) {
       }, { status: 400,  });
     }
     
-    if (!['qc', 'knyt', 'usdc', 'paypal'].includes(paymentRail)) {
-      return NextResponse.json({ 
-        error: 'paymentRail must be qc, knyt, usdc, or paypal' 
+    if (!['qc', 'knyt', 'knyt_evm', 'usdc', 'paypal'].includes(paymentRail)) {
+      return NextResponse.json({
+        error: 'paymentRail must be qc, knyt, knyt_evm, usdc, or paypal'
       }, { status: 400,  });
     }
     
