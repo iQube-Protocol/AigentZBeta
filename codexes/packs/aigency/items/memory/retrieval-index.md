@@ -619,3 +619,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-f0315bc.md](../build_/COMMITS/COMMIT-f0315bc.md)
 - Message: fix: KNYT store sign-in gate, balance flicker, and EVM KNYT display
+
+## Commit `a3536fd` — 2026-05-01T14:06:19Z
+- Type: `feat`
+- Brief: [COMMIT-a3536fd.md](../build_/COMMITS/COMMIT-a3536fd.md)
+- Message: add asset detail drilldown to Codex Manager dashboard
