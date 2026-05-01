@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
+import { getSupabaseBrowserClient } from '@/utils/supabaseBrowser';
 import {
   AlertCircle,
   Award,
@@ -194,22 +195,6 @@ const DISPLAY_MODES = [
   { value: 'video' as DisplayMode, label: 'Video', description: 'Display as video' },
 ];
 
-function getAccessTokenFromStorage(): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    for (let i = 0; i < window.localStorage.length; i += 1) {
-      const key = window.localStorage.key(i);
-      if (!key || !key.includes('auth-token')) continue;
-      const raw = window.localStorage.getItem(key);
-      if (!raw) continue;
-      const parsed = JSON.parse(raw);
-      if (parsed?.access_token) return parsed.access_token as string;
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
 
 // ── FileIcon ─────────────────────────────────────────────────────────────────
 
@@ -480,7 +465,8 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
   const uploadItem = async (item: UploadItem) => {
     updateItem(item.id, { status: 'uploading', progress: 10 });
     try {
-      const token = getAccessTokenFromStorage();
+      const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
+      const token = session?.access_token ?? null;
       const formData = new FormData();
       formData.append('file', item.file);
       formData.append('title', item.title);
