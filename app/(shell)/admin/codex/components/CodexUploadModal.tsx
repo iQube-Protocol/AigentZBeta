@@ -527,9 +527,9 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
         data = await res.json();
       } catch {
         throw new Error(
-          res.status === 413 ? 'File too large — please compress the PDF and try again' :
+          res.status === 413 ? 'Upload rejected by server (413) — this may be a temporary limit. Try again; if it persists, contact support.' :
           res.status === 401 ? 'Unauthorized — please sign in and try again' :
-          !res.ok ? `Server error (${res.status}) — check the file size and try again` :
+          !res.ok ? `Server error (${res.status}) — upload failed, please try again` :
           'Server returned an unexpected response'
         );
       }
