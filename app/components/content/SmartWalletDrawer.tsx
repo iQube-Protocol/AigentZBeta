@@ -21,15 +21,13 @@ import LibraryShelf from "./LibraryShelf";
 import PurchaseFlow, { type PurchaseStep, type PaymentMethod } from "./PurchaseFlow";
 import type { SmartWalletNode, WalletTask, QuestProgress, RecentReward, PersonaState } from "@/types/smartWallet";
 import type { SmartContentQube } from "@/types/smartContent";
-import {
-  BuyKnytModal,
-  PaymentRequestsPanel,
-  PersonaEditModal,
-  PersonaQuickAddModal,
-  PersonaSetupWizard,
-  TransactionModal,
-  UnlockModal,
-} from "../wallet";
+import { BuyKnytModal } from "../wallet/BuyKnytModal";
+import { PaymentRequestsPanel } from "../wallet/PaymentRequestsPanel";
+import { PersonaEditModal } from "../wallet/PersonaEditModal";
+import { PersonaQuickAddModal } from "../wallet/PersonaQuickAddModal";
+import { PersonaSetupWizard } from "../wallet/PersonaSetupWizard";
+import { TransactionModal } from "../wallet/TransactionModal";
+import { UnlockModal } from "../wallet/UnlockModal";
 import type { TransactionTab, ChainId, TransactionResult, PaymentRequest } from "../wallet/TransactionModal";
 import { useSmartTriad } from "./SmartTriadProvider";
 import { usePersonaSafe } from "@/app/contexts/PersonaContext";
