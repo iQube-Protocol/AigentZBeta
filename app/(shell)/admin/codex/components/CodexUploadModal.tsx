@@ -23,7 +23,7 @@ import {
 // ── Types ────────────────────────────────────────────────────────────────────
 
 type CodexTab = 'knyt' | 'qriptopian';
-type UploadCategory = 'master' | 'print' | 'cover' | 'motion-covers' | 'character' | 'lore' | 'game' | 'social' | 'bundle' | 'rabadges';
+type UploadCategory = 'master' | 'still' | 'print' | 'cover' | 'motion-covers' | 'character' | 'lore' | 'game' | 'social' | 'bundle' | 'rabadges';
 type MasterContentType = 'episode_still' | 'episode_motion' | 'episode_print';
 type EditionTier = 'rare' | 'epic' | 'legendary' | 'common';
 type DisplayMode = 'pdf' | 'image' | 'video' | 'text_extract';
@@ -95,10 +95,17 @@ const ASSET_CATEGORIES: {
   },
   {
     id: 'master',
-    label: 'Motion Comics',
+    label: 'Motion Episodes',
     icon: Video,
     description: 'Motion comic videos',
     assetKinds: [{ value: 'episode_motion', label: 'Motion Comic (Video)', accept: '.mp4,.webm,.mov' }],
+  },
+  {
+    id: 'still',
+    label: 'Still Episodes',
+    icon: FileText,
+    description: 'Still episode comics / pages (PDF or image)',
+    assetKinds: [{ value: 'episode_still', label: 'Still Episode (PDF / Image)', accept: '.pdf,.png,.jpg,.jpeg,.webp' }],
   },
   {
     id: 'cover',
@@ -215,7 +222,7 @@ interface QueueItemProps {
 
 function UploadQueueItem({ item, category, onUpdate, onRemove }: QueueItemProps) {
   const isCover = item.category === 'cover';
-  const isMaster = item.category === 'master';
+  const isMaster = item.category === 'master' || item.category === 'still';
   const isPrint = item.category === 'print';
   const isLore = item.category === 'lore';
   const isCharacter = item.category === 'character';
@@ -411,6 +418,7 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
   const [selectedEpisode, setSelectedEpisode] = useState<number | null>(1);
   const [uploadQueue, setUploadQueue] = useState<UploadItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [storageProvider, setStorageProvider] = useState<'auto-drive' | 'supabase'>('auto-drive');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const currentCategory = ASSET_CATEGORIES.find((c) => c.id === selectedCategory)!;
@@ -420,7 +428,7 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
       const files = Array.from(e.target.files ?? []);
       if (files.length === 0) return;
 
-      const isMaster = selectedCategory === 'master';
+      const isMaster = selectedCategory === 'master' || selectedCategory === 'still';
       const isPrint = selectedCategory === 'print';
       const isCover = selectedCategory === 'cover';
       const isLore = selectedCategory === 'lore';
@@ -465,8 +473,84 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
   const uploadItem = async (item: UploadItem) => {
     updateItem(item.id, { status: 'uploading', progress: 10 });
     try {
-      const { data: { session } } = await getSupabaseBrowserClient().auth.getSession();
+      const supabase = getSupabaseBrowserClient();
+      await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token ?? null;
+      const authHeaders = token ? { Authorization: `Bearer ${token}` } : {} as Record<string, string>;
+
+      // ── Supabase Storage path (browser → Supabase direct, no Lambda size limit) ──
+      if (storageProvider === 'supabase') {
+        const isMaster = item.category === 'master' || item.category === 'still' || item.category === 'print';
+        const contentType = item.masterType ?? (item.category === 'still' ? 'episode_still' : item.category === 'print' ? 'episode_print' : 'episode_motion');
+
+        // Step 1: get signed upload URL
+        const signRes = await fetch('/api/admin/codex/storage/sign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
+          body: JSON.stringify({
+            category: item.category,
+            series: 'metaKnyts',
+            episodeNumber: item.episodeNumber ?? 0,
+            assetKind: item.assetKind,
+            contentType: isMaster ? contentType : undefined,
+            fileName: item.file.name,
+            mimeType: item.file.type || undefined,
+          }),
+        });
+        if (!signRes.ok) {
+          const e = await signRes.json().catch(() => ({})) as Record<string, unknown>;
+          throw new Error((e.error as string) || `Sign failed (${signRes.status})`);
+        }
+        const { signedUrl, path, bucket } = await signRes.json() as { signedUrl: string; path: string; bucket: string };
+        updateItem(item.id, { progress: 20 });
+
+        // Step 2: upload directly to Supabase Storage (no Lambda body limit)
+        const putRes = await fetch(signedUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': item.file.type || 'application/octet-stream' },
+          body: item.file,
+        });
+        if (!putRes.ok) {
+          throw new Error(`Storage upload failed (${putRes.status})`);
+        }
+        updateItem(item.id, { progress: 80 });
+
+        // Step 3: register metadata in DB
+        const registerBody: Record<string, unknown> = {
+          path, bucket,
+          category: item.category,
+          title: item.title,
+          series: 'metaKnyts',
+          episodeNumber: item.episodeNumber ?? 0,
+          mimeType: item.file.type || undefined,
+          fileSize: item.file.size,
+        };
+        if (isMaster) {
+          registerBody.contentType = contentType;
+          if (item.editionTier) registerBody.editionTier = item.editionTier;
+        } else {
+          registerBody.assetKind = item.assetKind;
+          if (item.variantName) registerBody.variantName = item.variantName;
+          if (item.rarityTier) registerBody.rarityTier = item.rarityTier;
+          if (item.editionMax) registerBody.editionMax = item.editionMax;
+          if ((item.category === 'character' || item.category === 'rabadges') && item.editionTier) registerBody.rarityTier = item.editionTier;
+          if (item.category === 'lore' && item.displayMode) registerBody.displayMode = item.displayMode;
+        }
+
+        const regRes = await fetch('/api/admin/codex/storage/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
+          body: JSON.stringify(registerBody),
+        });
+        const regData = await regRes.json().catch(() => ({})) as Record<string, unknown>;
+        if (!regRes.ok) throw new Error((regData.error as string) || 'Register failed');
+
+        updateItem(item.id, { status: 'success', progress: 100, result: { id: regData.id as string, cid: regData.storageUrl as string } });
+        return;
+      }
+
+      // ── Auto-Drive path (existing flow) ──────────────────────────────────────
       const formData = new FormData();
       formData.append('file', item.file);
       formData.append('title', item.title);
@@ -474,9 +558,9 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
       formData.append('series', 'metaKnyts');
 
       let endpoint: string;
-      if (item.category === 'master' || item.category === 'print') {
+      if (item.category === 'master' || item.category === 'still' || item.category === 'print') {
         endpoint = '/api/admin/codex/upload-master';
-        formData.append('contentType', item.masterType ?? 'episode_motion');
+        formData.append('contentType', item.masterType ?? (item.category === 'still' ? 'episode_still' : 'episode_motion'));
         if (item.editionTier) {
           formData.append('editionTier', item.editionTier);
         }
@@ -488,9 +572,6 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
           if (item.rarityTier) formData.append('rarityTier', item.rarityTier);
           if (item.editionMax) formData.append('editionMax', String(item.editionMax));
         }
-        // Characters and RaBadges expose an edition-tier dropdown; pass it
-        // through as rarityTier so the asset row carries a Common/Rare/Epic/
-        // Legendary flag.
         if ((item.category === 'character' || item.category === 'rabadges') && item.editionTier) {
           formData.append('rarityTier', item.editionTier);
         }
@@ -521,7 +602,7 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
       }
       if (!res.ok) throw new Error((data?.error as string) ?? 'Upload failed');
 
-      updateItem(item.id, { status: 'success', progress: 100, result: { id: data.id, cid: data.cid } });
+      updateItem(item.id, { status: 'success', progress: 100, result: { id: data.id as string, cid: data.cid as string } });
     } catch (err) {
       updateItem(item.id, { status: 'error', progress: 0, error: err instanceof Error ? err.message : 'Upload failed' });
     }
@@ -552,6 +633,23 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
           <div className="flex items-center gap-3">
             <Sparkles className="h-6 w-6 text-cyan-400" />
             <h2 className="text-xl font-bold text-white">Codex Upload</h2>
+          </div>
+          {/* Storage destination toggle */}
+          <div className="flex items-center gap-1 rounded-lg border border-gray-700 bg-gray-800 p-1">
+            <button
+              type="button"
+              onClick={() => setStorageProvider('auto-drive')}
+              className={`rounded px-3 py-1 text-xs font-medium transition-colors ${storageProvider === 'auto-drive' ? 'bg-cyan-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
+            >
+              Auto-Drive
+            </button>
+            <button
+              type="button"
+              onClick={() => setStorageProvider('supabase')}
+              className={`rounded px-3 py-1 text-xs font-medium transition-colors ${storageProvider === 'supabase' ? 'bg-emerald-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
+            >
+              Supabase
+            </button>
           </div>
           <button
             type="button"

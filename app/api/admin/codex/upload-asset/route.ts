@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getSupabaseServer } from '../../../_lib/supabaseServer';
 import {
   uploadCodexMediaAsset,
   CodexAssetKind,
@@ -42,12 +43,20 @@ interface UploadAssetRequest {
 
 export async function POST(req: NextRequest) {
   try {
-    // Skip auth check in development mode
+    // Validate auth — skip in development
     const isDev = process.env.NODE_ENV === 'development';
     if (!isDev) {
       const authHeader = req.headers.get('authorization');
-      if (!authHeader?.startsWith('Bearer ')) {
+      const jwt = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+      if (!jwt) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      const supabase = getSupabaseServer();
+      if (supabase) {
+        const { error: authError } = await supabase.auth.getUser(jwt);
+        if (authError) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
       }
     }
 

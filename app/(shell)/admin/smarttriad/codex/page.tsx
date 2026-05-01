@@ -222,7 +222,7 @@ export default function SmartTriadCodexPage() {
             <div className="mb-6">
               <h3 className="mb-3 text-sm font-semibold text-gray-300">Asset Categories</h3>
               <div className="grid grid-cols-6 gap-3">
-                <AssetCard icon={Video}    label="Episode Masters" count={episodeMasters}        iconColor="text-teal-400" />
+                <AssetCard icon={Video}    label="Motion Episode Masters" count={episodeMasters}   iconColor="text-teal-400" />
                 <AssetCard icon={Image}    label="Covers"          count={totalCoverVariants}    iconColor="text-purple-400" />
                 <AssetCard icon={Users}    label="Characters"      count={g?.totalCharacters ?? 0} iconColor="text-blue-400" />
                 <AssetCard icon={FileText} label="Lore Docs"       count={g?.totalLoreDocs ?? 0}   iconColor="text-amber-400" />
