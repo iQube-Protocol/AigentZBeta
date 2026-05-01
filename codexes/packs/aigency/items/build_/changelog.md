@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`f0315bc`](https://github.com/iQube-Protocol/AigentZBeta/commit/f0315bc42f43174e729bbd4e2fb574229badbe5b) [fix] fix: KNYT store sign-in gate, balance flicker, and EVM KNYT display (Claude, 2026-05-01T14:00:19Z)
 - [`e44f7f6`](https://github.com/iQube-Protocol/AigentZBeta/commit/e44f7f6608623af235c0d69e912f078fb6f0a71f) [fix] fix Brave compatibility — storage guards, fetch timeouts, static fallbacks (Claude, 2026-05-01T06:44:19Z)
 - [`e7b0bda`](https://github.com/iQube-Protocol/AigentZBeta/commit/e7b0bda4895da2d6229ef830387e38367d35c9ea) [fix] fix: SmartWalletDrawer hook-order TDZ — declare archived-persona useState before allAvailablePersonas useMemo (Claude, 2026-05-01T04:17:07Z)
 - [`4aade85`](https://github.com/iQube-Protocol/AigentZBeta/commit/4aade85e3775e7d77bab1c7d0c43f8818798b8ba) [fix] fix: remove dead default imports from wallet barrel to break TDZ chain (Claude, 2026-05-01T03:17:09Z)

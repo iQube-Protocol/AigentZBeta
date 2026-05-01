@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-01T06:46:03.883Z",
+  "last_updated": "2026-05-01T14:02:15.204Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "e44f7f6608623af235c0d69e912f078fb6f0a71f",
-  "latest_commit_short": "e44f7f6",
-  "latest_commit_title": "fix Brave compatibility — storage guards, fetch timeouts, static fallbacks",
+  "latest_commit": "f0315bc42f43174e729bbd4e2fb574229badbe5b",
+  "latest_commit_short": "f0315bc",
+  "latest_commit_title": "fix: KNYT store sign-in gate, balance flicker, and EVM KNYT display",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "f0315bc",
+      "full_sha": "f0315bc42f43174e729bbd4e2fb574229badbe5b",
+      "title": "fix: KNYT store sign-in gate, balance flicker, and EVM KNYT display",
+      "author": "Claude",
+      "timestamp": "2026-05-01T14:00:19Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-f0315bc.md"
+    },
     {
       "sha": "e44f7f6",
       "full_sha": "e44f7f6608623af235c0d69e912f078fb6f0a71f",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T16:21:49Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-51db6d8.md"
-    },
-    {
-      "sha": "9d354af",
-      "full_sha": "9d354afeb6e9834e3f215bdc77c364db279ff59a",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-24T15:50:10Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-9d354af.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
