@@ -45,15 +45,35 @@ export async function GET(request: NextRequest) {
         
         // Try to find asset in codex_media_assets
         if (assetId) {
-          // Check if it's a UUID (character card) or episode asset
           const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(assetId);
-          
-          if (isUuid) {
-            // Look up character card by ID
+
+          // character-card-[UUID]-still or character-card-[UUID]-motion (cart purchase format)
+          const charCardMatch = assetId.match(
+            /^character-card-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:-(still|motion))?$/i
+          );
+
+          // episode-N, episode-N-qripto-still, episode-N-digital-motion, mk_ep01, ep1, etc.
+          const epMatch = assetId.match(/(?:episode[_-]?|ep)(\d+)/i);
+
+          // bundle-* public bundles and investor bundle SKUs
+          const BUNDLE_REP_EPISODE: Record<string, number> = {
+            'bundle-0-2': 0, 'bundle-3-7': 3, 'bundle-8-12': 8, 'bundle-full': 0,
+          };
+          const isBundleId = assetId.startsWith('bundle-') || assetId.endsWith('-investor') ||
+            assetId.startsWith('knyt-') || assetId.startsWith('top-knyt') ||
+            assetId.startsWith('first-knyt') || assetId.startsWith('zero-knyt') ||
+            assetId.startsWith('satoshi-knyt') || assetId.startsWith('digital-knyt') ||
+            assetId.startsWith('digital-first-knyt');
+
+          if (isUuid || charCardMatch) {
+            // Direct UUID lookup — bare UUID or extracted from character-card-[UUID]-still/motion
+            const lookupId = charCardMatch ? charCardMatch[1] : assetId;
+            const isMotion = charCardMatch ? charCardMatch[2]?.toLowerCase() === 'motion' : false;
+
             const { data: asset } = await supabase
               .from('codex_media_assets')
               .select('id, title, asset_kind, episode_number, auto_drive_cid, cover_thumb_url')
-              .eq('id', assetId)
+              .eq('id', lookupId)
               .single();
 
             if (asset) {
@@ -67,50 +87,62 @@ export async function GET(request: NextRequest) {
                 assetKind: asset.asset_kind,
                 episodeNumber: asset.episode_number,
                 autoDriveCid: asset.auto_drive_cid,
-                // Prefer Supabase Storage public URL (fast, no decryption)
                 coverUrl: asset.cover_thumb_url || undefined,
                 coverCid: !asset.cover_thumb_url ? (asset.auto_drive_cid || undefined) : undefined,
-                characterName: characterName,
+                characterName,
                 coverType: 'CHARACTER',
-              };
-            }
-          } else {
-            // Episode asset (mk_ep01, mk_ep01_motion, etc.)
-            const epMatch = assetId.match(/ep(\d+)/i);
-            if (epMatch) {
-              const epNum = parseInt(epMatch[1], 10);
-              const isMotion = assetId.toLowerCase().includes('motion');
-
-              const { data: epAssets } = await supabase
-                .from('codex_media_assets')
-                .select('id, title, asset_kind, rarity, auto_drive_cid, cover_thumb_url')
-                .eq('episode_number', epNum)
-                .in('asset_kind', ['motion_master', 'print_rare', 'print_epic', 'print_legendary', 'cover_image'])
-                .limit(5);
-
-              const printAsset = (epAssets || []).find(a => a.asset_kind?.startsWith('print_'));
-              const coverType = printAsset
-                ? printAsset.asset_kind?.replace('print_', '').toUpperCase()
-                : (isMotion ? 'MOTION' : 'RARE');
-
-              const motionAsset = (epAssets || []).find(a => a.asset_kind === 'motion_master');
-              const coverAsset = (epAssets || []).find(a => a.asset_kind === 'cover_image');
-              const bestAsset = coverAsset || printAsset;
-
-              // Prefer Supabase Storage public URL (fast, no decryption required)
-              const coverUrl = bestAsset?.cover_thumb_url || undefined;
-              const coverCid = !coverUrl ? (bestAsset?.auto_drive_cid || undefined) : undefined;
-              console.log(`[Entitlements] Episode ${epNum} - coverUrl: ${coverUrl}, coverCid: ${coverCid}`);
-
-              assetMeta = {
-                episodeNumber: epNum,
-                coverType: isMotion ? 'MOTION' : coverType,
-                autoDriveCid: motionAsset?.auto_drive_cid,
-                coverUrl,
-                coverCid,
                 isMotion,
               };
             }
+          } else if (epMatch) {
+            // Episode asset: episode-1, episode-1-qripto-still, mk_ep01, ep01_motion, etc.
+            const epNum = parseInt(epMatch[1], 10);
+            const isMotion = assetId.toLowerCase().includes('motion');
+
+            const { data: epAssets } = await supabase
+              .from('codex_media_assets')
+              .select('id, title, asset_kind, rarity, auto_drive_cid, cover_thumb_url')
+              .eq('episode_number', epNum)
+              .in('asset_kind', ['motion_master', 'print_rare', 'print_epic', 'print_legendary', 'cover_image'])
+              .limit(5);
+
+            const printAsset = (epAssets || []).find(a => a.asset_kind?.startsWith('print_'));
+            const coverType = printAsset
+              ? printAsset.asset_kind?.replace('print_', '').toUpperCase()
+              : (isMotion ? 'MOTION' : 'RARE');
+            const motionAsset = (epAssets || []).find(a => a.asset_kind === 'motion_master');
+            const coverAsset = (epAssets || []).find(a => a.asset_kind === 'cover_image');
+            const bestAsset = coverAsset || printAsset;
+            const coverUrl = bestAsset?.cover_thumb_url || undefined;
+            const coverCid = !coverUrl ? (bestAsset?.auto_drive_cid || undefined) : undefined;
+
+            assetMeta = {
+              title: `Episode ${epNum}`,
+              episodeNumber: epNum,
+              coverType: isMotion ? 'MOTION' : coverType,
+              autoDriveCid: motionAsset?.auto_drive_cid,
+              coverUrl,
+              coverCid,
+              isMotion,
+            };
+          } else if (isBundleId) {
+            // Bundle — use cover of the representative episode
+            const repEp = BUNDLE_REP_EPISODE[assetId] ?? 1;
+            const { data: epAssets } = await supabase
+              .from('codex_media_assets')
+              .select('id, asset_kind, auto_drive_cid, cover_thumb_url')
+              .eq('episode_number', repEp)
+              .in('asset_kind', ['cover_image', 'print_rare', 'print_epic', 'print_legendary'])
+              .limit(3);
+
+            const coverAsset = (epAssets || []).find(a => a.asset_kind === 'cover_image')
+              || (epAssets || [])[0];
+            assetMeta = {
+              title: assetId.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+              coverUrl: coverAsset?.cover_thumb_url || undefined,
+              coverCid: !coverAsset?.cover_thumb_url ? (coverAsset?.auto_drive_cid || undefined) : undefined,
+              coverType: 'BUNDLE',
+            };
           }
         }
         

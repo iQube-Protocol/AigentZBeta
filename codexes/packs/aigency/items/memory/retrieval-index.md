@@ -649,3 +649,18 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-960838f.md](../build_/COMMITS/COMMIT-960838f.md)
 - Message: fix persona identity persistence and library thumbnails
+
+## Commit `9507817` — 2026-05-02T15:18:39Z
+- Type: `fix`
+- Brief: [COMMIT-9507817.md](../build_/COMMITS/COMMIT-9507817.md)
+- Message: fix purchase modal showing sign-in screen to authenticated users
+
+## Commit `91addc8` — 2026-05-02T15:21:49Z
+- Type: `feat`
+- Brief: [COMMIT-91addc8.md](../build_/COMMITS/COMMIT-91addc8.md)
+- Message: fix build timeout: add force-dynamic to agent-llm-options route
+
+## Commit `1ec0495` — 2026-05-02T17:02:07Z
+- Type: `fix`
+- Brief: [COMMIT-1ec0495.md](../build_/COMMITS/COMMIT-1ec0495.md)
+- Message: fix entitlements enrichment for all asset id formats

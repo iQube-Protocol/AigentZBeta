@@ -1,4 +1,7 @@
 # Build — Changelog
+- [`1ec0495`](https://github.com/iQube-Protocol/AigentZBeta/commit/1ec04957d2f5e7596c4fe4f46cad5a9d4a8f338e) [fix] fix entitlements enrichment for all asset id formats (Claude, 2026-05-02T17:02:07Z)
+- [`91addc8`](https://github.com/iQube-Protocol/AigentZBeta/commit/91addc84e3e431d2124fe6edc0eb044a2b3cb213) [feat] fix build timeout: add force-dynamic to agent-llm-options route (Claude, 2026-05-02T15:21:49Z)
+- [`9507817`](https://github.com/iQube-Protocol/AigentZBeta/commit/9507817b30fbfed0b012a62876c4a5495e4f76d0) [fix] fix purchase modal showing sign-in screen to authenticated users (Claude, 2026-05-02T15:18:39Z)
 - [`960838f`](https://github.com/iQube-Protocol/AigentZBeta/commit/960838f3f7538b7dabeaceb8d8f24d6ba01ae209) [fix] fix persona identity persistence and library thumbnails (Claude, 2026-05-02T14:59:59Z)
 - [`9bf2293`](https://github.com/iQube-Protocol/AigentZBeta/commit/9bf229332d417c0e3b4e319a4b2fc88e737e8c48) [fix] fix drawer z-index, KNYT store link, copilot on store tabs, investor tab visibility (Claude, 2026-05-01T17:21:01Z)
 - [`5d9c6d7`](https://github.com/iQube-Protocol/AigentZBeta/commit/5d9c6d737b221d198d43ba0526fe17a76901eb27) [feat] add RaBadges asset type + editable tier/variant + upload completion feedback (Claude, 2026-05-01T15:34:43Z)

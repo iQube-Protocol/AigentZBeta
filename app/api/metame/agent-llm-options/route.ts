@@ -6,6 +6,7 @@ import {
 } from "@/services/metame/agentLlmOrchestra";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 function countModelsByAgent(
   map: Record<string, Array<{ id: string; models: Array<{ id: string }> }>>
