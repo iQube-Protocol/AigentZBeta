@@ -23,6 +23,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { useEvmKnytPayment } from '@/app/hooks/useEvmKnytPayment';
+import { useSupabaseSessionPersonas } from '@/app/hooks/useSupabaseSessionPersonas';
 
 // Phase 1 Pricing Constants
 const KNYT_USD_RATE = 1.40;
@@ -185,7 +186,15 @@ export function ContentPurchaseModal({
 }: ContentPurchaseModalProps) {
   const router = useRouter();
   const effectiveSpendable = spendableKnyt ?? knytBalance;
-  const isSignedIn = !!personaId && personaId !== 'default' && personaId !== 'guest';
+
+  // Detect live Supabase session so we don't show "Sign In Required" to a user
+  // who is already authenticated but whose personaId hasn't resolved yet (e.g. on first load).
+  const { sessionEmail, sessionPersonas } = useSupabaseSessionPersonas();
+  const hasSession = !!sessionEmail;
+  const resolvedPersonaId = personaId || sessionPersonas[0]?.id;
+  const isSignedIn =
+    (!!resolvedPersonaId && resolvedPersonaId !== 'default' && resolvedPersonaId !== 'guest') ||
+    hasSession;
 
   const [selectedRail, setSelectedRail] = useState<PaymentRail>('knyt');
   const [purchasing, setPurchasing] = useState(false);
@@ -265,7 +274,7 @@ export function ContentPurchaseModal({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            personaId,
+            personaId: resolvedPersonaId,
             contentType: effectiveContentType,
             contentId,
             contentTitle,
@@ -366,7 +375,7 @@ export function ContentPurchaseModal({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          personaId,
+          personaId: resolvedPersonaId,
           productType: productTypeMap[effectiveContentType],
           assetIds: contentId ? [contentId] : [],
           paymentRail: railMap[selectedRail],
@@ -544,6 +553,26 @@ export function ContentPurchaseModal({
                   Create Account
                 </button>
               </div>
+            </div>
+          ) : isSignedIn && !resolvedPersonaId ? (
+            /* Authenticated via Supabase but persona hasn't resolved yet */
+            <div className="text-center py-6">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                <Check className="w-8 h-8 text-emerald-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Signed In</h3>
+              {sessionEmail && (
+                <p className="text-white/60 text-sm mb-2">{sessionEmail}</p>
+              )}
+              <p className="text-white/50 text-sm mb-6">
+                Open Smart Wallet to set up your persona before purchasing.
+              </p>
+              <button
+                onClick={() => handlePersonaAction('signin')}
+                className="px-5 py-2.5 rounded-lg bg-purple-500/20 text-purple-300 font-medium hover:bg-purple-500/30 transition-all"
+              >
+                Open Wallet
+              </button>
             </div>
           ) : (
             <>
