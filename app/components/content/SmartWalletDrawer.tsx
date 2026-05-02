@@ -276,10 +276,24 @@ export default function SmartWalletDrawer({
     return merged.filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)));
   }, [sessionPersonas, walletNode?.personaContext?.availablePersonas, showArchivedPersonas, archivedPersonas]);
 
-  const activePersona =
-    allAvailablePersonas.find(
-      (persona) => persona.id === (walletNode?.personaContext?.activePersonaId ?? localPersonaId)
-    ) || walletNode?.personaContext?.activePersona || allAvailablePersonas[0] || null;
+  // When personaId prop is explicit (cartridge context), lock localPersonaId to it
+  // so the full resolution chain (activePersona, useKnytBalance, etc.) stays aligned.
+  useEffect(() => {
+    if (personaId && personaId !== localPersonaId) {
+      setLocalPersonaId(personaId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personaId]);
+
+  const activePersona = personaId
+    // Explicit prop: prefer match by id or fioHandle; never fall back to first session persona
+    ? (allAvailablePersonas.find(
+        (p) => p.id === personaId || (p as any).fioHandle === personaId
+      ) || walletNode?.personaContext?.activePersona || null)
+    // No explicit prop: normal resolution
+    : (allAvailablePersonas.find(
+        (persona) => persona.id === (walletNode?.personaContext?.activePersonaId ?? localPersonaId)
+      ) || walletNode?.personaContext?.activePersona || allAvailablePersonas[0] || null);
   const hasAnyPersona = allAvailablePersonas.length > 0 || !!walletNode?.personaContext?.activePersonaId;
   const effectivePersonaId =
     personaId || localPersonaId || walletNode?.personaContext?.activePersonaId || activePersona?.id;
@@ -339,12 +353,13 @@ export default function SmartWalletDrawer({
       "default"
   );
 
-  // Auto-select the first session persona when no active persona has been chosen yet
+  // Auto-select the first session persona when no active persona has been chosen yet.
+  // Suppressed when personaId prop is explicit — the sync effect above handles that case.
   useEffect(() => {
-    if (!localPersonaId && !walletNode?.personaContext?.activePersonaId && sessionPersonas.length > 0) {
+    if (!personaId && !localPersonaId && !walletNode?.personaContext?.activePersonaId && sessionPersonas.length > 0) {
       setLocalPersonaId(sessionPersonas[0].id);
     }
-  }, [sessionPersonas, localPersonaId, walletNode?.personaContext?.activePersonaId]);
+  }, [personaId, sessionPersonas, localPersonaId, walletNode?.personaContext?.activePersonaId]);
 
   // When the session-resolved active persona has a registered EVM address, upgrade the
   // balance query address so on-chain Q¢ resolves to the persona's FIO-canonical wallet.
@@ -1571,9 +1586,9 @@ export default function SmartWalletDrawer({
                   <User className="w-4 h-4 text-cyan-400" />
                 )}
               </div>
-              {(activePersona?.fioHandle || agent.fioHandle) && (
+              {(activePersona?.fioHandle || agent.fioHandle || effectivePersonaId) && (
                 <span className={`text-xs font-medium truncate max-w-[110px] ${activePersona?.isAgent ? "text-amber-300" : "text-cyan-300"}`}>
-                  {activePersona?.fioHandle || agent.fioHandle}
+                  {activePersona?.fioHandle || agent.fioHandle || effectivePersonaId}
                 </span>
               )}
               <ChevronDown className={`w-3 h-3 text-white/50 transition-transform ${personaMenuOpen ? "rotate-180" : ""}`} />
