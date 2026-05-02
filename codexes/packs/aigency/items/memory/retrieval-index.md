@@ -654,3 +654,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-9507817.md](../build_/COMMITS/COMMIT-9507817.md)
 - Message: fix purchase modal showing sign-in screen to authenticated users
+
+## Commit `91addc8` — 2026-05-02T15:21:49Z
+- Type: `feat`
+- Brief: [COMMIT-91addc8.md](../build_/COMMITS/COMMIT-91addc8.md)
+- Message: fix build timeout: add force-dynamic to agent-llm-options route
