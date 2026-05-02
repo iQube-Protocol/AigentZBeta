@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-02T15:20:24.483Z",
+  "last_updated": "2026-05-02T15:23:27.098Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "9507817b30fbfed0b012a62876c4a5495e4f76d0",
-  "latest_commit_short": "9507817",
-  "latest_commit_title": "fix purchase modal showing sign-in screen to authenticated users",
+  "latest_commit": "91addc84e3e431d2124fe6edc0eb044a2b3cb213",
+  "latest_commit_short": "91addc8",
+  "latest_commit_title": "fix build timeout: add force-dynamic to agent-llm-options route",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "91addc8",
+      "full_sha": "91addc84e3e431d2124fe6edc0eb044a2b3cb213",
+      "title": "fix build timeout: add force-dynamic to agent-llm-options route",
+      "author": "Claude",
+      "timestamp": "2026-05-02T15:21:49Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-91addc8.md"
+    },
     {
       "sha": "9507817",
       "full_sha": "9507817b30fbfed0b012a62876c4a5495e4f76d0",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T21:02:30Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-b575dad.md"
-    },
-    {
-      "sha": "3be8c08",
-      "full_sha": "3be8c0813079e50e520f9063a96709fbeca7a9ef",
-      "title": "fix inspector thumbnail, asset_link video dispatch, and experiences tab legacy fetch",
-      "author": "Claude",
-      "timestamp": "2026-03-24T20:20:27Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-3be8c08.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
