@@ -2,8 +2,9 @@
 
 import React, { useContext, useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertCircle, BookOpen, Package, Save, Settings, Zap } from 'lucide-react';
+import { AlertCircle, BookOpen, Package, Save, Settings, Tag, Zap } from 'lucide-react';
 import { SubHeaderSlotContext } from '../SubHeaderSlot';
+import { StoreSkusPanel } from '@/app/triad/components/codex/admin/StoreSkusPanel';
 import {
   EPISODE_PRICING,
   BUNDLE_PRICING,
@@ -23,7 +24,7 @@ interface Props {
   theme?: 'light' | 'dark';
 }
 
-type AdminSection = 'overview' | 'episodes' | 'bundles' | 'cards' | 'provenance' | 'minting';
+type AdminSection = 'overview' | 'episodes' | 'bundles' | 'cards' | 'provenance' | 'minting' | 'skus';
 type MintingMode = 'immediate' | 'deferred' | 'canonical';
 
 // ── Simple editable row ───────────────────────────────────────────────────────
@@ -365,6 +366,7 @@ export function KnytStoreAdminTab({ isAdmin, personaId, theme: _theme }: Props) 
     { id: 'overview',   label: 'Overview',   icon: Settings  },
     { id: 'episodes',   label: 'Episodes',   icon: BookOpen  },
     { id: 'bundles',    label: 'Bundles',    icon: Package   },
+    { id: 'skus',       label: 'SKUs',       icon: Tag       },
     { id: 'provenance', label: 'Provenance', icon: BookOpen  },
     { id: 'minting',    label: 'Minting',    icon: Zap       },
   ];
@@ -421,6 +423,7 @@ export function KnytStoreAdminTab({ isAdmin, personaId, theme: _theme }: Props) 
         )}
         {section === 'episodes'   && <EpisodesAdmin />}
         {section === 'bundles'    && <BundlesAdmin />}
+        {section === 'skus'       && <StoreSkusPanel />}
         {section === 'provenance' && <ProvenanceAdmin />}
         {section === 'minting'    && <MintingAdmin personaId={personaId} />}
       </div>

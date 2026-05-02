@@ -659,3 +659,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-91addc8.md](../build_/COMMITS/COMMIT-91addc8.md)
 - Message: fix build timeout: add force-dynamic to agent-llm-options route
+
+## Commit `1ec0495` — 2026-05-02T17:02:07Z
+- Type: `fix`
+- Brief: [COMMIT-1ec0495.md](../build_/COMMITS/COMMIT-1ec0495.md)
+- Message: fix entitlements enrichment for all asset id formats

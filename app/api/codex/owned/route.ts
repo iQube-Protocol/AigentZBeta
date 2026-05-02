@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getEntitlementService } from '@/services/rewards/entitlementService';
+import { getOwnedAssetIds } from '@/services/rewards/assetOwnership';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -30,16 +31,39 @@ export async function GET(request: NextRequest) {
     
     // Extract episode numbers from entitlements
     const ownedEpisodes = new Set<number>();
-    
+
     // Get actual character asset IDs from codex_media_assets
     const characterAssetIds = new Set<string>();
-    
+
+    // SKU-EXPANSION: pull every asset_id the persona owns (direct + bundle-grant
+    // unpacked via store_skus). For master_content_qubes ids of the form
+    // mk_epNN_<type>_<tier> the DB episode_number is NN; the KNYT pricing
+    // convention used by the cartridge UI is `pricingEp = dbEp - 1`.
+    try {
+      const expanded = await getOwnedAssetIds(personaId, 'metaKnyts');
+      const allOwned = new Set<string>([...expanded.direct, ...expanded.expanded]);
+      for (const id of allOwned) {
+        const masterMatch = id.match(/^mk_ep(\d+)_/);
+        if (masterMatch) {
+          const dbEp = parseInt(masterMatch[1], 10);
+          ownedEpisodes.add(dbEp - 1); // GN (db 0) → pricing -1, ep#0 (db 1) → 0, …
+        }
+        // Character assets land directly as UUIDs in codex_media_assets
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+          characterAssetIds.add(id);
+        }
+      }
+    } catch (e) {
+      console.error('[codex/owned] SKU expansion failed', e);
+    }
+
     for (const ent of entitlements) {
       const assetId = ent.assetId;
       if (!assetId) continue;
-      
-      // Extract episode number from asset ID
-      const epMatch = assetId.match(/ep(\d+)/i);
+
+      // Legacy direct-entitlement formats (e.g. `episode-3-still`) — keep
+      // working alongside the SKU expansion above. PricingEp convention.
+      const epMatch = assetId.match(/episode-(-?\d+)/i) || assetId.match(/^ep(\d+)/i);
       if (epMatch) {
         ownedEpisodes.add(parseInt(epMatch[1], 10));
       }

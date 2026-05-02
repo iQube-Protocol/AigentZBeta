@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CodexUploadModal } from '@/app/(shell)/admin/codex/components/CodexUploadModal';
+import { StoreSkusPanel } from '@/app/triad/components/codex/admin/StoreSkusPanel';
 import {
   Activity,
   AlertCircle,
@@ -1206,6 +1207,8 @@ function CodexManager() {
             />
           )}
 
+          <StoreSkusPanel />
+
           <div className="flex items-center justify-between rounded-xl border border-white/5 bg-slate-900/60 p-4">
             <div>
               <p className="text-sm font-semibold text-white">Total Assets on Autonomys</p>
@@ -1563,6 +1566,7 @@ function EditableAssetRow({
     </tr>
   );
 }
+
 
 // ── Bulk Importer ─────────────────────────────────────────────────────────────
 
