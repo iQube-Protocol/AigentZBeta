@@ -23,6 +23,7 @@ import { MarketaPartnersAdminTab }     from '@/app/(shell)/marketa/components/Ma
 import { MarketaApprovalQueueTab }     from '@/app/(shell)/marketa/components/MarketaApprovalQueueTab';
 import { MarketaMyCampaignTab }        from '@/app/(shell)/marketa/components/MarketaMyCampaignTab';
 import { MarketaProposeTab }           from '@/app/(shell)/marketa/components/MarketaProposeTab';
+import { MarketaOperatorProposeTab }   from '@/app/(shell)/marketa/components/MarketaOperatorProposeTab';
 import { MarketaMyPacksTab }           from '@/app/(shell)/marketa/components/MarketaMyPacksTab';
 import { MarketaMyReportsTab }         from '@/app/(shell)/marketa/components/MarketaMyReportsTab';
 import MarketaQubeTalk                 from '@/app/(shell)/marketa/components/MarketaQubeTalk';
@@ -53,6 +54,7 @@ interface SubTab {
 const ADMIN_TABS: SubTab[] = [
   { id: 'dashboard',  label: 'Dashboard',     Icon: LayoutDashboard, Component: MarketaCampaignDashboardTab },
   { id: 'campaigns',  label: 'Campaign Ops',  Icon: Target,          Component: MarketaCampaignOpsTab },
+  { id: 'op-propose', label: 'Propose',       Icon: Sparkles,        Component: MarketaOperatorProposeTab },
   { id: 'partners',   label: 'Partners',      Icon: Users,           Component: MarketaPartnersAdminTab },
   { id: 'approvals',  label: 'Queue',         Icon: ClipboardList,   Component: MarketaApprovalQueueTab },
   { id: 'publish',    label: 'Publish',       Icon: FileEdit,        Component: MarketaPublishTab },
@@ -101,7 +103,7 @@ function th(d: boolean) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function MarketaTab({ theme: themeProp = 'dark', isAdmin = false, isPartner = false, partnerId, density }: Props) {
+export function MarketaTab({ theme: themeProp = 'dark', isAdmin = false, isPartner = false, partnerId, personaId, density }: Props) {
 
   // Persist theme to localStorage
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
@@ -164,6 +166,7 @@ export function MarketaTab({ theme: themeProp = 'dark', isAdmin = false, isPartn
     isAdmin,
     isPartner,
     partnerId,
+    personaId,
     density,
   };
 
