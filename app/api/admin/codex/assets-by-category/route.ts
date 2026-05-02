@@ -24,7 +24,7 @@ import { getSupabaseServer } from '../../../_lib/supabaseServer';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-type Category = 'episode-masters' | 'still-masters' | 'covers' | 'characters' | 'lore' | 'game' | 'social' | 'rabadges';
+type Category = 'episode-masters' | 'still-masters' | 'covers' | 'characters' | 'lore' | 'game' | 'social' | 'rabadges' | 'bundles';
 
 const ASSET_KIND_BY_CATEGORY: Record<Exclude<Category, 'episode-masters' | 'still-masters'>, string[]> = {
   covers:     ['cover_image', 'cover_pdf'],
@@ -33,6 +33,7 @@ const ASSET_KIND_BY_CATEGORY: Record<Exclude<Category, 'episode-masters' | 'stil
   game:       ['game_concept_doc', 'game_still', 'game_video'],
   social:     ['social_campaign_video', 'social_campaign_image'],
   rabadges:   ['ra_badge'],
+  bundles:    ['bundle_pack'],
 };
 
 interface CategoryAsset {

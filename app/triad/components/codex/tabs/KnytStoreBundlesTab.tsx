@@ -15,6 +15,7 @@ import {
   type CardsPricing,
 } from '@/types/knyt-store';
 import { useKnytThumbnails } from './useKnytThumbnails';
+import { useBundleImages } from './useBundleImages';
 import { useKnytCart } from './useKnytCart';
 import { KnytCartDrawer } from './KnytCartDrawer';
 import { ContentPurchaseModal } from '../../content/ContentPurchaseModal';
@@ -262,17 +263,19 @@ function BundleDetail({
   bundle,
   getCoverThumb,
   getCharacterThumb,
+  heroImageOverride,
   onBuy,
   onAddToCart,
 }: {
   bundle: BundlePricing;
   getCoverThumb: (epNum: number) => string | undefined;
   getCharacterThumb: (epNum: number) => string | undefined;
+  heroImageOverride?: string | null;
   onBuy: () => void;
   onAddToCart?: () => void;
 }) {
   const includedEpisodes = EPISODE_PRICING.filter((ep) => bundle.episodes.includes(ep.episodeNumber));
-  const previewThumb = bundle.isInvestorOnly ? INVESTOR_SEAL : getCoverThumb(bundle.episodes[0]);
+  const previewThumb = heroImageOverride ?? (bundle.isInvestorOnly ? INVESTOR_SEAL : getCoverThumb(bundle.episodes[0]));
   const individualTotal = includedEpisodes.reduce((s, ep) => s + ep.digitalPrice, 0);
 
   return (
@@ -537,6 +540,7 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
   const [purchase, setPurchase] = useState<PendingPurchase | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const { getCoverThumb, getCharacterThumb } = useKnytThumbnails();
+  const { getBundleImage } = useBundleImages();
   const cart = useKnytCart();
 
   const detailLabel =
@@ -635,11 +639,12 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
                   {investorBundles.map((bundle) => {
                     // Show retail price for the public-facing retail tab
                     const retailBundle = { ...bundle, digitalPrice: bundle.retailPrice ?? bundle.digitalPrice, retailPrice: undefined };
+                    const tierImage = getBundleImage(bundle.id);
                     return (
                       <BundleGridCard
                         key={bundle.id}
                         bundle={retailBundle}
-                        thumbUrl={INVESTOR_SEAL}
+                        thumbUrl={tierImage ?? INVESTOR_SEAL}
                         onClick={() => setView({ kind: 'bundle-detail', bundle: retailBundle })}
                         onBuy={(e) => { e.stopPropagation(); openBundlePurchase(retailBundle); }}
                         onAddToCart={(e) => { e.stopPropagation(); addBundleToCart(retailBundle); }}
@@ -695,6 +700,7 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
             bundle={view.bundle}
             getCoverThumb={getCoverThumb}
             getCharacterThumb={getCharacterThumb}
+            heroImageOverride={getBundleImage(view.bundle.id)}
             onBuy={() => openBundlePurchase(view.bundle)}
             onAddToCart={() => addBundleToCart(view.bundle)}
           />

@@ -21,6 +21,7 @@ import {
   Loader2,
   Monitor,
   Newspaper,
+  Package,
   Pencil,
   Plus,
   RefreshCw,
@@ -874,6 +875,7 @@ interface GlobalStats {
   totalGameAssets: number;
   totalSocialAssets: number;
   totalRaBadges: number;
+  totalBundles: number;
   totalAllAssets: number;
 }
 
@@ -934,7 +936,7 @@ function AssetCard({
   );
 }
 
-type AssetCategory = 'episode-masters' | 'still-masters' | 'covers' | 'characters' | 'lore' | 'game' | 'social' | 'rabadges';
+type AssetCategory = 'episode-masters' | 'still-masters' | 'covers' | 'characters' | 'lore' | 'game' | 'social' | 'rabadges' | 'bundles';
 
 interface CategoryAssetRow {
   id: string;
@@ -963,6 +965,7 @@ const CATEGORY_LABELS: Record<AssetCategory, string> = {
   game:              'Game Assets',
   social:            'Social Media',
   rabadges:          'RaBadges',
+  bundles:           'Bundles',
 };
 
 const ALLOWED_TIERS = ['common', 'rare', 'epic', 'legendary'] as const;
@@ -1176,7 +1179,7 @@ function CodexManager() {
             <StatCard label="With Covers"         value={withCovers}      badge={`${g?.totalCovers ?? 0} variants`} />
           </div>
           <p className="mb-2 text-xs font-semibold text-slate-300">Asset Categories <span className="ml-1 text-slate-500 font-normal">(click a card for asset detail)</span></p>
-          <div className="mb-4 grid grid-cols-8 gap-2">
+          <div className="mb-4 grid grid-cols-9 gap-2">
             <AssetCard icon={Video}    label="Motion Episodes" count={motionMasters}              iconColor="text-teal-400"    onClick={() => handleCardClick('episode-masters')} active={detailCategory === 'episode-masters'} />
             <AssetCard icon={FileText} label="Still Episodes"  count={stillMasters}               iconColor="text-sky-400"     onClick={() => handleCardClick('still-masters')}   active={detailCategory === 'still-masters'} />
             <AssetCard icon={Image}    label="Covers"          count={g?.totalCovers ?? 0}        iconColor="text-purple-400"  onClick={() => handleCardClick('covers')}          active={detailCategory === 'covers'} />
@@ -1185,6 +1188,7 @@ function CodexManager() {
             <AssetCard icon={Gamepad2} label="Game Assets"     count={g?.totalGameAssets ?? 0}    iconColor="text-green-400"   onClick={() => handleCardClick('game')}            active={detailCategory === 'game'} />
             <AssetCard icon={Share2}   label="Social Media"    count={g?.totalSocialAssets ?? 0}  iconColor="text-pink-400"    onClick={() => handleCardClick('social')}          active={detailCategory === 'social'} />
             <AssetCard icon={Award}    label="RaBadges"        count={g?.totalRaBadges ?? 0}      iconColor="text-rose-400"    onClick={() => handleCardClick('rabadges')}        active={detailCategory === 'rabadges'} />
+            <AssetCard icon={Package}  label="Bundles"         count={g?.totalBundles ?? 0}       iconColor="text-yellow-400"  onClick={() => handleCardClick('bundles')}         active={detailCategory === 'bundles'} />
           </div>
 
           {detailCategory && (
