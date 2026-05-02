@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`960838f`](https://github.com/iQube-Protocol/AigentZBeta/commit/960838f3f7538b7dabeaceb8d8f24d6ba01ae209) [fix] fix persona identity persistence and library thumbnails (Claude, 2026-05-02T14:59:59Z)
 - [`9bf2293`](https://github.com/iQube-Protocol/AigentZBeta/commit/9bf229332d417c0e3b4e319a4b2fc88e737e8c48) [fix] fix drawer z-index, KNYT store link, copilot on store tabs, investor tab visibility (Claude, 2026-05-01T17:21:01Z)
 - [`5d9c6d7`](https://github.com/iQube-Protocol/AigentZBeta/commit/5d9c6d737b221d198d43ba0526fe17a76901eb27) [feat] add RaBadges asset type + editable tier/variant + upload completion feedback (Claude, 2026-05-01T15:34:43Z)
 - [`738b6cc`](https://github.com/iQube-Protocol/AigentZBeta/commit/738b6cc2f8af0fc183971d7a35b53d4fe902bf6c) [fix] fix: migrate remaining persona ID reads to usePersonaSafe() context (Claude, 2026-05-01T14:30:15Z)

@@ -644,3 +644,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-9bf2293.md](../build_/COMMITS/COMMIT-9bf2293.md)
 - Message: fix drawer z-index, KNYT store link, copilot on store tabs, investor tab visibility
+
+## Commit `960838f` — 2026-05-02T14:59:59Z
+- Type: `fix`
+- Brief: [COMMIT-960838f.md](../build_/COMMITS/COMMIT-960838f.md)
+- Message: fix persona identity persistence and library thumbnails
