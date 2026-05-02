@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getOwnedAssetIds } from '@/services/rewards/assetOwnership';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,12 +40,35 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    // Extract owned character names
-    const ownedCharacters = new Set(
+    // Extract owned character names from direct purchases
+    const ownedCharacters = new Set<string>(
       purchases
         .filter(p => p.character_name)
-        .map(p => p.character_name)
+        .map(p => p.character_name as string)
     );
+
+    // SKU-EXPANSION: any bundle SKU with grants_character_cards=true grants
+    // virtual ownership of every character poster in the catalog. The grid
+    // matches by character UUID OR character name (whichever the row uses),
+    // so add both.
+    try {
+      const expanded = await getOwnedAssetIds(personaId, 'metaKnyts');
+      const expandedIds = new Set([...expanded.direct, ...expanded.expanded]);
+      if (expandedIds.size > 0) {
+        const { data: charRows } = await supabase
+          .from('codex_media_assets')
+          .select('id, title')
+          .in('id', Array.from(expandedIds))
+          .eq('asset_kind', 'character_poster')
+          .eq('status', 'active');
+        for (const row of charRows ?? []) {
+          if (row.id) ownedCharacters.add(row.id as string);
+          if (row.title) ownedCharacters.add(row.title as string);
+        }
+      }
+    } catch (e) {
+      console.error('[knyt-purchases] SKU expansion failed', e);
+    }
 
     return NextResponse.json({
       purchases: purchases || [],
