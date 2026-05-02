@@ -12,6 +12,7 @@ import {
   type CartItem,
 } from '@/types/knyt-store';
 import { useKnytThumbnails } from './useKnytThumbnails';
+import { useBundleImages } from './useBundleImages';
 import { useKnytCart } from './useKnytCart';
 import { KnytCartDrawer } from './KnytCartDrawer';
 import { ContentPurchaseModal } from '../../content/ContentPurchaseModal';
@@ -103,6 +104,7 @@ function InvestorBundleCard({
   onBuy,
   onAddToCart,
   getCoverThumb,
+  tierImage,
   isVerified,
 }: {
   bundle: BundlePricing;
@@ -110,10 +112,11 @@ function InvestorBundleCard({
   onBuy: (e: React.MouseEvent) => void;
   onAddToCart?: (e: React.MouseEvent) => void;
   getCoverThumb: (n: number) => string | undefined;
+  tierImage?: string | null;
   isVerified: boolean;
 }) {
   const isGnOnly = bundle.episodes.length === 1 && bundle.episodes[0] === -1;
-  const cardImage = isGnOnly ? getCoverThumb(-1) ?? INVESTOR_SEAL : INVESTOR_SEAL;
+  const cardImage = tierImage ?? (isGnOnly ? getCoverThumb(-1) ?? INVESTOR_SEAL : INVESTOR_SEAL);
   return (
     <div className="flex flex-col rounded-xl border border-yellow-800/40 bg-slate-900/60 overflow-hidden hover:border-yellow-600/40 hover:bg-slate-800/60 transition-colors w-full">
       <button type="button" onClick={onClick} className="w-full text-left">
@@ -167,6 +170,7 @@ function InvestorBundleDetail({
   onAddToCart,
   getCoverThumb,
   getCharacterThumb,
+  tierImage,
   isVerified,
 }: {
   bundle: BundlePricing;
@@ -174,13 +178,14 @@ function InvestorBundleDetail({
   onAddToCart?: () => void;
   getCoverThumb: (n: number) => string | undefined;
   getCharacterThumb: (n: number) => string | undefined;
+  tierImage?: string | null;
   isVerified: boolean;
 }) {
   const includedEpisodes = EPISODE_PRICING.filter((ep) => bundle.episodes.includes(ep.episodeNumber));
   const individualTotal = includedEpisodes.reduce((s, ep) => s + ep.digitalPrice, 0);
 
   const isGnOnly = bundle.episodes.length === 1 && bundle.episodes[0] === -1;
-  const heroImage = isGnOnly ? getCoverThumb(-1) ?? INVESTOR_SEAL : INVESTOR_SEAL;
+  const heroImage = tierImage ?? (isGnOnly ? getCoverThumb(-1) ?? INVESTOR_SEAL : INVESTOR_SEAL);
 
   const hasCharacters = bundle.includes?.some((s) => {
     const l = s.toLowerCase();
@@ -372,6 +377,7 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
   const [cartOpen, setCartOpen] = useState(false);
   const [isVerified, setIsVerified] = useState<boolean>(false);
   const { getCoverThumb, getCharacterThumb } = useKnytThumbnails();
+  const { getBundleImage } = useBundleImages();
   const cart = useKnytCart();
 
   useEffect(() => {
@@ -483,6 +489,7 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
                       onBuy={(e) => { e.stopPropagation(); openBundlePurchase(bundle); }}
                       onAddToCart={(e) => { e.stopPropagation(); addBundleToCart(bundle); }}
                       getCoverThumb={getCoverThumb}
+                      tierImage={getBundleImage(bundle.id)}
                       isVerified={isVerified}
                     />
                   ))}
@@ -503,6 +510,7 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
                       onBuy={(e) => { e.stopPropagation(); openBundlePurchase(bundle); }}
                       onAddToCart={(e) => { e.stopPropagation(); addBundleToCart(bundle); }}
                       getCoverThumb={getCoverThumb}
+                      tierImage={getBundleImage(bundle.id)}
                       isVerified={isVerified}
                     />
                   ))}
@@ -528,6 +536,7 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
             onAddToCart={() => addBundleToCart(view.bundle)}
             getCoverThumb={getCoverThumb}
             getCharacterThumb={getCharacterThumb}
+            tierImage={getBundleImage(view.bundle.id)}
             isVerified={isVerified}
           />
         )}
