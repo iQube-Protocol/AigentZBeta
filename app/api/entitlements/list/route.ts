@@ -18,13 +18,24 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const personaId = searchParams.get('personaId');
-    
+
     if (!personaId) {
       return NextResponse.json({ error: 'personaId is required' }, { status: 400,  });
     }
-    
+
+    // Resolve FIO handle (e.g. aigentz@aigent) to UUID — entitlements are stored by UUID
+    let resolvedPersonaId = personaId;
+    if (personaId.includes('@')) {
+      const { data: personaRow } = await supabase
+        .from('personas')
+        .select('id')
+        .eq('fio_handle', personaId)
+        .single();
+      if (personaRow?.id) resolvedPersonaId = personaRow.id;
+    }
+
     const entitlementService = getEntitlementService();
-    const entitlements = await entitlementService.getPersonaEntitlements(personaId);
+    const entitlements = await entitlementService.getPersonaEntitlements(resolvedPersonaId);
     
     // Enrich entitlements with asset metadata
     const enrichedEntitlements = await Promise.all(
@@ -41,27 +52,24 @@ export async function GET(request: NextRequest) {
             // Look up character card by ID
             const { data: asset } = await supabase
               .from('codex_media_assets')
-              .select('id, title, asset_kind, episode_number, auto_drive_cid')
+              .select('id, title, asset_kind, episode_number, auto_drive_cid, cover_thumb_url')
               .eq('id', assetId)
               .single();
-            
+
             if (asset) {
-              // Extract character name from asset title (e.g., "The Director (Analise Tokini) front" -> "The Director")
               let characterName = asset.title;
-              // Remove "front" or "back" suffix
               characterName = characterName?.replace(/\s+(front|back)$/i, '').trim();
-              // Extract name before parentheses if present
               const parenMatch = characterName?.match(/^([^(]+)/);
-              if (parenMatch) {
-                characterName = parenMatch[1].trim();
-              }
-              
+              if (parenMatch) characterName = parenMatch[1].trim();
+
               assetMeta = {
                 title: asset.title,
                 assetKind: asset.asset_kind,
                 episodeNumber: asset.episode_number,
                 autoDriveCid: asset.auto_drive_cid,
-                coverCid: asset.auto_drive_cid, // Use auto_drive_cid as cover for characters
+                // Prefer Supabase Storage public URL (fast, no decryption)
+                coverUrl: asset.cover_thumb_url || undefined,
+                coverCid: !asset.cover_thumb_url ? (asset.auto_drive_cid || undefined) : undefined,
                 characterName: characterName,
                 coverType: 'CHARACTER',
               };
@@ -72,32 +80,34 @@ export async function GET(request: NextRequest) {
             if (epMatch) {
               const epNum = parseInt(epMatch[1], 10);
               const isMotion = assetId.toLowerCase().includes('motion');
-              
-              // Get episode info from codex_media_assets
+
               const { data: epAssets } = await supabase
                 .from('codex_media_assets')
-                .select('id, title, asset_kind, rarity, auto_drive_cid')
+                .select('id, title, asset_kind, rarity, auto_drive_cid, cover_thumb_url')
                 .eq('episode_number', epNum)
                 .in('asset_kind', ['motion_master', 'print_rare', 'print_epic', 'print_legendary', 'cover_image'])
                 .limit(5);
-              
-              // Determine cover type from available assets
+
               const printAsset = (epAssets || []).find(a => a.asset_kind?.startsWith('print_'));
-              const coverType = printAsset 
+              const coverType = printAsset
                 ? printAsset.asset_kind?.replace('print_', '').toUpperCase()
                 : (isMotion ? 'MOTION' : 'RARE');
-              
+
               const motionAsset = (epAssets || []).find(a => a.asset_kind === 'motion_master');
               const coverAsset = (epAssets || []).find(a => a.asset_kind === 'cover_image');
-              
-              const finalCoverCid = coverAsset?.auto_drive_cid || printAsset?.auto_drive_cid;
-              console.log(`[Entitlements] Episode ${epNum} - coverCid: ${finalCoverCid}, coverAsset: ${coverAsset?.auto_drive_cid}, printAsset: ${printAsset?.auto_drive_cid}`);
-              
+              const bestAsset = coverAsset || printAsset;
+
+              // Prefer Supabase Storage public URL (fast, no decryption required)
+              const coverUrl = bestAsset?.cover_thumb_url || undefined;
+              const coverCid = !coverUrl ? (bestAsset?.auto_drive_cid || undefined) : undefined;
+              console.log(`[Entitlements] Episode ${epNum} - coverUrl: ${coverUrl}, coverCid: ${coverCid}`);
+
               assetMeta = {
                 episodeNumber: epNum,
                 coverType: isMotion ? 'MOTION' : coverType,
                 autoDriveCid: motionAsset?.auto_drive_cid,
-                coverCid: finalCoverCid,
+                coverUrl,
+                coverCid,
                 isMotion,
               };
             }

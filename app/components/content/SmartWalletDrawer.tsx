@@ -253,7 +253,7 @@ export default function SmartWalletDrawer({
     { refreshKey: balanceRefreshKey }
   );
   const { sessionEmail, sessionPersonas, signOut: signOutSession, signIn: signInWithEmail, refreshPersonas } = useSupabaseSessionPersonas();
-  const { getCartridgeDefault, setCartridgeDefault } = usePersonaSafe();
+  const { getCartridgeDefault, setCartridgeDefault, activePersonaId: ctxActivePersonaId, setActivePersonaId: ctxSetActivePersonaId } = usePersonaSafe();
 
   // NOTE: these two useState calls MUST be declared before the allAvailablePersonas
   // useMemo below, because that hook's dependency array references them.  Moving
@@ -285,6 +285,15 @@ export default function SmartWalletDrawer({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [personaId]);
 
+  // When PersonaContext changes (another surface switched persona), sync into localPersonaId —
+  // but only when no explicit prop is locking us to a specific persona.
+  useEffect(() => {
+    if (!personaId && ctxActivePersonaId && ctxActivePersonaId !== localPersonaId) {
+      setLocalPersonaId(ctxActivePersonaId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctxActivePersonaId, personaId]);
+
   const activePersona = personaId
     // Explicit prop: prefer match by id or fioHandle; never fall back to first session persona
     ? (allAvailablePersonas.find(
@@ -296,7 +305,7 @@ export default function SmartWalletDrawer({
       ) || walletNode?.personaContext?.activePersona || allAvailablePersonas[0] || null);
   const hasAnyPersona = allAvailablePersonas.length > 0 || !!walletNode?.personaContext?.activePersonaId;
   const effectivePersonaId =
-    personaId || localPersonaId || walletNode?.personaContext?.activePersonaId || activePersona?.id;
+    personaId || localPersonaId || ctxActivePersonaId || walletNode?.personaContext?.activePersonaId || activePersona?.id;
   const { entitlements: ownedEntitlements, loading: ownedEntitlementsLoading } = useOwnedEntitlements(effectivePersonaId);
   const { balance: knytBalance, loading: knytLoading, refreshBalance: refreshKnyt } =
     useKnytBalance(effectivePersonaId, externalEvmAddress);
@@ -757,6 +766,7 @@ export default function SmartWalletDrawer({
 
   const handlePersonaCreated = (newPersonaId: string) => {
     setLocalPersonaId(newPersonaId);
+    ctxSetActivePersonaId(newPersonaId);
     onPersonaChange?.(newPersonaId);
     setPersonaSetupOpen(false);
     // Re-fetch session personas so the newly created persona appears in the dropdown
@@ -1690,9 +1700,9 @@ export default function SmartWalletDrawer({
                           <button
                             onClick={() => {
                               setLocalPersonaId(persona.id);
+                              ctxSetActivePersonaId(persona.id);
                               onPersonaChange?.(persona.id);
                               setPersonaMenuOpen(false);
-                              window.localStorage.setItem("currentPersonaId", persona.id);
                               window.dispatchEvent(new CustomEvent("persona-switched", { detail: { personaId: persona.id } }));
                             }}
                             className="flex items-center gap-2 flex-1 min-w-0 text-left"
@@ -3093,20 +3103,25 @@ export default function SmartWalletDrawer({
                         : meta.episodeNumber != null
                         ? `Ep. ${meta.episodeNumber}`
                         : ent.assetId;
+                      const imgSrc = meta.coverUrl
+                        || (meta.coverCid ? `/api/content/cover/${encodeURIComponent(meta.coverCid)}?variant=thumb` : undefined);
                       return (
                         <div key={ent.id} className="group">
                           <div className="aspect-[3/4] rounded-lg overflow-hidden bg-purple-500/10 ring-1 ring-white/10 relative">
-                            {meta.coverCid ? (
+                            {imgSrc ? (
                               <img
-                                src={`/api/content/cover/${meta.coverCid}?variant=thumb`}
+                                src={imgSrc}
                                 alt={label}
                                 className="w-full h-full object-cover absolute inset-0"
                                 onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = "none";
+                                  const img = e.target as HTMLImageElement;
+                                  img.style.display = "none";
+                                  const icon = img.nextElementSibling as HTMLElement | null;
+                                  if (icon) { icon.style.display = "flex"; }
                                 }}
                               />
                             ) : null}
-                            <div className={`w-full h-full items-center justify-center ${meta.coverCid ? "hidden" : "flex"}`}>
+                            <div style={{ display: imgSrc ? "none" : "flex" }} className="w-full h-full items-center justify-center">
                               {meta.isMotion ? (
                                 <Film className="w-8 h-8 text-purple-400/50" />
                               ) : (
@@ -3725,9 +3740,9 @@ export default function SmartWalletDrawer({
           onClose={() => setQuickAddOpen(false)}
           onCreated={(newPersonaId) => {
             setLocalPersonaId(newPersonaId);
+            ctxSetActivePersonaId(newPersonaId);
             onPersonaChange?.(newPersonaId);
             setQuickAddOpen(false);
-            window.localStorage.setItem("currentPersonaId", newPersonaId);
             window.dispatchEvent(new CustomEvent("persona-switched", { detail: { personaId: newPersonaId } }));
             refreshPersonas();
           }}

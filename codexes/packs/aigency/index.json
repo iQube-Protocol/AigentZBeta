@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-01T17:22:48.279Z",
+  "last_updated": "2026-05-02T15:01:57.342Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "9bf229332d417c0e3b4e319a4b2fc88e737e8c48",
-  "latest_commit_short": "9bf2293",
-  "latest_commit_title": "fix drawer z-index, KNYT store link, copilot on store tabs, investor tab visibility",
+  "latest_commit": "960838f3f7538b7dabeaceb8d8f24d6ba01ae209",
+  "latest_commit_short": "960838f",
+  "latest_commit_title": "fix persona identity persistence and library thumbnails",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "960838f",
+      "full_sha": "960838f3f7538b7dabeaceb8d8f24d6ba01ae209",
+      "title": "fix persona identity persistence and library thumbnails",
+      "author": "Claude",
+      "timestamp": "2026-05-02T14:59:59Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-960838f.md"
+    },
     {
       "sha": "9bf2293",
       "full_sha": "9bf229332d417c0e3b4e319a4b2fc88e737e8c48",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T17:34:53Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-10671d0.md"
-    },
-    {
-      "sha": "d40ee3b",
-      "full_sha": "d40ee3b3c8b95208741d8a70ce555851ef7bda28",
-      "title": "fix qubetalk hooks: add explicit cd to repo root for hook cwd",
-      "author": "Claude",
-      "timestamp": "2026-03-24T17:01:44Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-d40ee3b.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

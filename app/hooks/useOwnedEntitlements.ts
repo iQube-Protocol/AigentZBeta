@@ -8,7 +8,8 @@ export interface OwnedEntitlement {
   assetMeta: {
     title?: string;
     episodeNumber?: number;
-    coverCid?: string;
+    coverUrl?: string;  // Supabase Storage public URL (preferred — fast, no decryption)
+    coverCid?: string;  // Autonomys CID (fallback — requires decryption route)
     coverType?: string;
     characterName?: string;
     isMotion?: boolean;
