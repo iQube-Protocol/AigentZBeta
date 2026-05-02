@@ -31,8 +31,28 @@ interface StoreSkuRow {
   grants_gn: boolean;
   grants_lore: boolean;
   is_active: boolean;
+  episode_numbers: number[] | null;
   extra_asset_ids: string[] | null;
   updated_at: string | null;
+}
+
+/** Render scope as "all" or a compact "1-3" / "1,2,5" string. DB convention. */
+function renderEpisodeScope(eps: number[] | null): string {
+  if (!eps || eps.length === 0) return 'all';
+  const sorted = [...eps].sort((a, b) => a - b);
+  // Compact contiguous ranges
+  const ranges: string[] = [];
+  let start = sorted[0];
+  let end = sorted[0];
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i] === end + 1) { end = sorted[i]; }
+    else {
+      ranges.push(start === end ? `${start}` : `${start}-${end}`);
+      start = sorted[i]; end = sorted[i];
+    }
+  }
+  ranges.push(start === end ? `${start}` : `${start}-${end}`);
+  return ranges.join(',');
 }
 
 const SKU_FLAG_COLUMNS: Array<{ key: keyof StoreSkuRow; label: string; short: string }> = [
@@ -124,6 +144,7 @@ export function StoreSkusPanel() {
                 {SKU_FLAG_COLUMNS.map(({ key, label, short }) => (
                   <th key={String(key)} className="pb-2 pr-3 text-center" title={label}>{short}</th>
                 ))}
+                <th className="pb-2 pr-3 text-center" title="DB-convention episode numbers granted (0=GN, 1=ep#0, …, 13=ep#12). 'all' = unscoped category grant.">Eps</th>
                 <th className="pb-2 pr-3 text-center">Active</th>
                 <th className="pb-2 pr-3 text-center">Extras</th>
               </tr>
@@ -154,6 +175,9 @@ export function StoreSkusPanel() {
                         </td>
                       );
                     })}
+                    <td className="py-2 pr-3 text-center font-mono text-[10px] text-slate-400" title={sku.episode_numbers ? `Episodes (DB convention): ${sku.episode_numbers.join(', ')}` : 'All episodes (unscoped)'}>
+                      {renderEpisodeScope(sku.episode_numbers)}
+                    </td>
                     <td className="py-2 pr-3 text-center">
                       <button
                         type="button"

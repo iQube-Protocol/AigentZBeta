@@ -32,6 +32,7 @@ const ALLOWED_FIELDS = new Set([
   'grants_character_cards',
   'grants_gn',
   'grants_lore',
+  'episode_numbers',
   'extra_asset_ids',
   'is_active',
 ]);

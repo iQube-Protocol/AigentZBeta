@@ -24,6 +24,12 @@ interface StoreSku {
   grants_character_cards: boolean;
   grants_gn: boolean;
   grants_lore: boolean;
+  /**
+   * DB-convention episode_number list this SKU grants. NULL = all episodes
+   * (full-catalog grants like investor bundles). When set, restricts category
+   * grants to these episodes only (e.g. bundle-0-2 → [1,2,3]).
+   */
+  episode_numbers: number[] | null;
   extra_asset_ids: string[] | null;
   series: string | null;
 }
@@ -131,6 +137,22 @@ function skuCoversCategory(sku: StoreSku, cat: AssetCategory): boolean {
 }
 
 /**
+ * Does the SKU cover this specific asset, accounting for episode_numbers
+ * scoping? GN and lore are not episode-scoped (single-item categories).
+ */
+function skuCoversAsset(sku: StoreSku, meta: AssetMeta): boolean {
+  if (!skuCoversCategory(sku, meta.category)) return false;
+  // GN, lore, character cards aren't episode-scoped
+  if (meta.category === 'gn' || meta.category === 'lore' || meta.category === 'character_card') return true;
+  // For episode categories, honor episode_numbers if set
+  if (sku.episode_numbers && sku.episode_numbers.length > 0) {
+    if (meta.episodeNumber === null) return false;
+    return sku.episode_numbers.includes(meta.episodeNumber);
+  }
+  return true;
+}
+
+/**
  * Does the persona own the asset, either directly or via an SKU grant?
  */
 export async function userOwnsAsset(personaId: string, assetId: string): Promise<{ owned: boolean; via: 'direct' | 'sku' | null }> {
@@ -152,11 +174,11 @@ export async function userOwnsAsset(personaId: string, assetId: string): Promise
     }
   }
 
-  // 2b. category match
+  // 2b. category + episode-scope match
   const meta = await getAssetMeta(assetId);
   if (!meta) return { owned: false, via: null };
   for (const sku of ownedSkus) {
-    if (skuCoversCategory(sku, meta.category)) {
+    if (skuCoversAsset(sku, meta)) {
       return { owned: true, via: 'sku' };
     }
   }
@@ -182,17 +204,33 @@ export async function getOwnedAssetIds(personaId: string, series: string = 'meta
     return { direct, expanded: [], ownedSkus: ownedSkuIds };
   }
 
-  // Compute expansion: for each granted category, query the matching assets in
-  // master_content_qubes / codex_media_assets and add their ids.
-  const grantedCats = new Set<AssetCategory>();
+  // Determine the union of episode_number filters across owned SKUs and the
+  // global category set. If ANY owned SKU has unscoped (episode_numbers=NULL)
+  // grants for a category, that category is considered global. Otherwise the
+  // union of per-SKU episode_numbers limits the expansion.
+  const globalCats = new Set<AssetCategory>();
+  const scopedEpsByCat = new Map<AssetCategory, Set<number>>();
   const extras = new Set<string>();
+
+  function addScoped(cat: AssetCategory, sku: StoreSku) {
+    if (!sku.episode_numbers || sku.episode_numbers.length === 0) {
+      globalCats.add(cat);
+      scopedEpsByCat.delete(cat);
+      return;
+    }
+    if (globalCats.has(cat)) return;
+    let s = scopedEpsByCat.get(cat);
+    if (!s) { s = new Set<number>(); scopedEpsByCat.set(cat, s); }
+    sku.episode_numbers.forEach((n) => s!.add(n));
+  }
+
   for (const sku of ownedSkus) {
-    if (sku.grants_episodes_still)  grantedCats.add('episode_still');
-    if (sku.grants_episodes_motion) grantedCats.add('episode_motion');
-    if (sku.grants_episodes_print)  grantedCats.add('episode_print');
-    if (sku.grants_character_cards) grantedCats.add('character_card');
-    if (sku.grants_gn)              grantedCats.add('gn');
-    if (sku.grants_lore)            grantedCats.add('lore');
+    if (sku.grants_episodes_still)  addScoped('episode_still', sku);
+    if (sku.grants_episodes_motion) addScoped('episode_motion', sku);
+    if (sku.grants_episodes_print)  addScoped('episode_print', sku);
+    if (sku.grants_character_cards) globalCats.add('character_card');
+    if (sku.grants_gn)              globalCats.add('gn');
+    if (sku.grants_lore)            globalCats.add('lore');
     (sku.extra_asset_ids ?? []).forEach((id) => extras.add(id));
   }
 
@@ -200,9 +238,9 @@ export async function getOwnedAssetIds(personaId: string, series: string = 'meta
 
   // Master content rows (gn / episodes still / motion / print)
   const masterContentTypes: string[] = [];
-  if (grantedCats.has('episode_still'))  masterContentTypes.push('episode_still');
-  if (grantedCats.has('episode_motion')) masterContentTypes.push('episode_motion');
-  if (grantedCats.has('episode_print') || grantedCats.has('gn')) masterContentTypes.push('episode_print');
+  if (globalCats.has('episode_still')  || scopedEpsByCat.has('episode_still'))  masterContentTypes.push('episode_still');
+  if (globalCats.has('episode_motion') || scopedEpsByCat.has('episode_motion')) masterContentTypes.push('episode_motion');
+  if (globalCats.has('episode_print')  || scopedEpsByCat.has('episode_print')   || globalCats.has('gn')) masterContentTypes.push('episode_print');
 
   if (masterContentTypes.length > 0) {
     const { data: masters } = await supa()
@@ -212,20 +250,32 @@ export async function getOwnedAssetIds(personaId: string, series: string = 'meta
       .eq('status', 'active')
       .in('content_type', masterContentTypes);
 
+    function categoryAllows(cat: AssetCategory, ep: number | null): boolean {
+      if (globalCats.has(cat)) return true;
+      const scope = scopedEpsByCat.get(cat);
+      if (!scope) return false;
+      if (ep === null) return false;
+      return scope.has(ep);
+    }
+
     for (const m of masters ?? []) {
-      const isGn = (m.episode_number as number) === 0;
+      const ep = m.episode_number as number | null;
+      const isGn = ep === 0;
       const ct = m.content_type as string;
-      if (isGn && grantedCats.has('gn'))                                                expanded.add(m.id);
-      if (!isGn && ct === 'episode_still'  && grantedCats.has('episode_still'))         expanded.add(m.id);
-      if (!isGn && ct === 'episode_motion' && grantedCats.has('episode_motion'))        expanded.add(m.id);
-      if (!isGn && ct === 'episode_print'  && grantedCats.has('episode_print'))         expanded.add(m.id);
+      if (isGn && globalCats.has('gn')) {
+        expanded.add(m.id);
+        continue;
+      }
+      if (!isGn && ct === 'episode_still'  && categoryAllows('episode_still',  ep)) expanded.add(m.id);
+      if (!isGn && ct === 'episode_motion' && categoryAllows('episode_motion', ep)) expanded.add(m.id);
+      if (!isGn && ct === 'episode_print'  && categoryAllows('episode_print',  ep)) expanded.add(m.id);
     }
   }
 
   // Codex media assets
   const mediaKinds: string[] = [];
-  if (grantedCats.has('character_card')) mediaKinds.push('character_poster');
-  if (grantedCats.has('lore'))           mediaKinds.push('background_lore_doc', 'powers_sheet', 'twenty_one_sats_concept');
+  if (globalCats.has('character_card')) mediaKinds.push('character_poster');
+  if (globalCats.has('lore'))           mediaKinds.push('background_lore_doc', 'powers_sheet', 'twenty_one_sats_concept');
 
   if (mediaKinds.length > 0) {
     const { data: media } = await supa()
