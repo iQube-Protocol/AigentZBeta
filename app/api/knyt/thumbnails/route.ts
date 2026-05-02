@@ -38,11 +38,15 @@ export async function GET(req: NextRequest) {
 
   const assets = data ?? [];
 
-  // Resolve thumb URL: prefer CDN thumb, fall back to decrypting cover proxy (relative so it always works)
+  // Resolve thumb URL: prefer CDN thumb, then a direct URL if auto_drive_cid is
+  // already an http(s) URL (Supabase-hosted), then fall back to the decrypting
+  // cover proxy for true Auto-Drive CIDs (encoded so slashes don't collapse).
   function resolveThumb(a: { cover_thumb_url: string | null; auto_drive_cid: string | null }): string | null {
     if (a.cover_thumb_url) return a.cover_thumb_url;
-    if (a.auto_drive_cid) return `/api/content/cover/${a.auto_drive_cid}`;
-    return null;
+    const cid = a.auto_drive_cid;
+    if (!cid) return null;
+    if (cid.startsWith('http://') || cid.startsWith('https://')) return cid;
+    return `/api/content/cover/${encodeURIComponent(cid)}`;
   }
 
   // DB episode_number convention: 0 = GN, 1 = Episode #0, 2 = Episode #1 ... 13 = Episode #12

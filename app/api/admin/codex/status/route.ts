@@ -40,15 +40,18 @@ interface EpisodeStatus {
   hasPrintRare: boolean;
   hasPrintEpic: boolean;
   hasPrintLegendary: boolean;
+  hasPrintCommon: boolean;
   stillMasterId?: string;
   motionMasterId?: string;
   motionMasterCid?: string; // CID for motion comic video streaming
   printRareCid?: string;
   printEpicCid?: string;
   printLegendaryCid?: string;
+  printCommonCid?: string;
   printRareLiteUrl?: string; // Supabase Storage PDF-lite URL
   printEpicLiteUrl?: string;
   printLegendaryLiteUrl?: string;
+  printCommonLiteUrl?: string;
   coverCount: number;
   coverImageCid?: string; // CID of primary cover for display
   coverThumbUrl?: string; // Supabase Storage cover thumbnail URL
@@ -364,6 +367,7 @@ if (series === 'metaKnyts') {
       hasPrintRare: true,
       hasPrintEpic: false,
       hasPrintLegendary: false,
+      hasPrintCommon: false,
       coverCount: 1,
       coverImageCid: coverMap.get(epNum)?.cid,
       coverThumbUrl: coverMap.get(epNum)?.thumbUrl,
@@ -391,6 +395,7 @@ if (series === 'metaKnyts') {
         hasPrintRare: false,
         hasPrintEpic: false,
         hasPrintLegendary: false,
+      hasPrintCommon: false,
         coverCount,
         coverImageCid: coverMap.get(fallbackEpisodeNumber)?.cid,
         coverThumbUrl: coverMap.get(fallbackEpisodeNumber)?.thumbUrl,
@@ -410,6 +415,7 @@ if (series === 'metaKnyts') {
         hasPrintRare: false,
         hasPrintEpic: false,
         hasPrintLegendary: false,
+      hasPrintCommon: false,
         coverCount: 1,
         coverImageCid: coverMap.get(0)?.cid,
         coverThumbUrl: coverMap.get(0)?.thumbUrl,
@@ -433,6 +439,7 @@ if (series === 'metaKnyts') {
             hasPrintRare: false,
             hasPrintEpic: false,
             hasPrintLegendary: false,
+      hasPrintCommon: false,
             coverCount: 0,
             coverImageCid: coverMap.get(ep)?.cid,
             coverThumbUrl: coverMap.get(ep)?.thumbUrl,
@@ -449,20 +456,30 @@ if (series === 'metaKnyts') {
           status.motionMasterId = master.id;
           status.motionMasterCid = master.auto_drive_cid;
         } else if (master.content_type === 'episode_print') {
-          // Handle print editions by tier - store CID and pdf_lite_url for PDF viewing
+          // Handle print editions by tier - store CID and pdf_lite_url for PDF viewing.
+          // For Supabase-hosted rows the auto_drive_cid is the public URL; lift it
+          // into pdf_lite_url so the PDF Lite reader (which expects a fetchable URL)
+          // is used instead of the Auto-Drive decryption proxy.
+          const cid = master.auto_drive_cid;
+          const isUrl = typeof cid === 'string' && (cid.startsWith('http://') || cid.startsWith('https://'));
+          const liteUrl = master.pdf_lite_url || (isUrl ? cid : undefined);
           const tier = master.edition_tier;
           if (tier === 'rare') {
             status.hasPrintRare = true;
-            status.printRareCid = master.auto_drive_cid;
-            status.printRareLiteUrl = master.pdf_lite_url;
+            status.printRareCid = cid;
+            status.printRareLiteUrl = liteUrl;
           } else if (tier === 'epic') {
             status.hasPrintEpic = true;
-            status.printEpicCid = master.auto_drive_cid;
-            status.printEpicLiteUrl = master.pdf_lite_url;
+            status.printEpicCid = cid;
+            status.printEpicLiteUrl = liteUrl;
           } else if (tier === 'legendary') {
             status.hasPrintLegendary = true;
-            status.printLegendaryCid = master.auto_drive_cid;
-            status.printLegendaryLiteUrl = master.pdf_lite_url;
+            status.printLegendaryCid = cid;
+            status.printLegendaryLiteUrl = liteUrl;
+          } else if (tier === 'common' || !tier) {
+            status.hasPrintCommon = true;
+            status.printCommonCid = cid;
+            status.printCommonLiteUrl = liteUrl;
           }
         }
       }
@@ -485,6 +502,7 @@ if (series === 'metaKnyts') {
             hasPrintRare: false,
             hasPrintEpic: false,
             hasPrintLegendary: false,
+      hasPrintCommon: false,
             coverCount: 0,
             coverImageCid: coverMap.get(ep)?.cid,
             coverThumbUrl: coverMap.get(ep)?.thumbUrl,

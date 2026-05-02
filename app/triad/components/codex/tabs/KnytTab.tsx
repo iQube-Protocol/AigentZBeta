@@ -275,12 +275,15 @@ interface EpisodeFromAPI {
   hasPrintRare: boolean;
   hasPrintEpic: boolean;
   hasPrintLegendary: boolean;
+  hasPrintCommon?: boolean;
   printRareCid?: string;
   printEpicCid?: string;
   printLegendaryCid?: string;
+  printCommonCid?: string;
   printRareLiteUrl?: string;
   printEpicLiteUrl?: string;
   printLegendaryLiteUrl?: string;
+  printCommonLiteUrl?: string;
   motionMasterCid?: string;
   motionMasterId?: string;
   availableCovers?: number;
@@ -919,9 +922,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       // Skip episode 0 (placeholder)
       if (!Number.isFinite(episodeNumber) || episodeNumber === 0) continue;
       
-      const printCid = ep.printRareCid || ep.printEpicCid || ep.printLegendaryCid;
-      const printLiteUrl = ep.printRareLiteUrl || ep.printEpicLiteUrl || ep.printLegendaryLiteUrl;
-      const hasReadable = !!printCid;
+      const printCid = ep.printRareCid || ep.printEpicCid || ep.printLegendaryCid || ep.printCommonCid;
+      const printLiteUrl = ep.printRareLiteUrl || ep.printEpicLiteUrl || ep.printLegendaryLiteUrl || ep.printCommonLiteUrl;
+      const hasReadable = !!(printCid || printLiteUrl);
       const hasCover = !!(ep.coverThumbUrl || ep.coverImageCid);
       const coverThumb =
         ep.coverThumbUrl ||
@@ -2545,14 +2548,14 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                             isOwned ? 'ring-2 ring-cyan-400/50' : 'hover:ring-2 hover:ring-white/30'
                           }`}
                           onClick={() => {
-                            const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid;
+                            const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid || episode.printCommonCid;
                             if (!isOwned && isAvailable && isPaymentGated) {
                               openPurchaseForEpisode(episode);
                               return;
                             }
                             if (printCid) {
                               setCurrentPdfLiteUrl(
-                                episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || null
+                                episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || episode.printCommonLiteUrl || null
                               );
                               setCurrentPdfCid(printCid);
                               setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
@@ -2621,14 +2624,14 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                                 title="Read"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid;
+                                  const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid || episode.printCommonCid;
                                   if (!isOwned && isAvailable && isPaymentGated) {
                                     openPurchaseForEpisode(episode, 'read');
                                     return;
                                   }
                                   if (printCid) {
                                     setCurrentPdfLiteUrl(
-                                      episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || null
+                                      episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || episode.printCommonLiteUrl || null
                                     );
                                     setCurrentPdfCid(printCid);
                                     setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
