@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-02T15:01:57.342Z",
+  "last_updated": "2026-05-02T15:20:24.483Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "960838f3f7538b7dabeaceb8d8f24d6ba01ae209",
-  "latest_commit_short": "960838f",
-  "latest_commit_title": "fix persona identity persistence and library thumbnails",
+  "latest_commit": "9507817b30fbfed0b012a62876c4a5495e4f76d0",
+  "latest_commit_short": "9507817",
+  "latest_commit_title": "fix purchase modal showing sign-in screen to authenticated users",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "9507817",
+      "full_sha": "9507817b30fbfed0b012a62876c4a5495e4f76d0",
+      "title": "fix purchase modal showing sign-in screen to authenticated users",
+      "author": "Claude",
+      "timestamp": "2026-05-02T15:18:39Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-9507817.md"
+    },
     {
       "sha": "960838f",
       "full_sha": "960838f3f7538b7dabeaceb8d8f24d6ba01ae209",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T20:20:27Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-3be8c08.md"
-    },
-    {
-      "sha": "10671d0",
-      "full_sha": "10671d0a7a0b5d00fba857c79922f539591600d7",
-      "title": "open wallet drawer on MENU_ACTION wallet from shell",
-      "author": "Claude",
-      "timestamp": "2026-03-24T17:34:53Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-10671d0.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
