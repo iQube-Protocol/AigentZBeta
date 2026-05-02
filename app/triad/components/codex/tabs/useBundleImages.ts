@@ -16,9 +16,16 @@ const CACHE_TTL = 5 * 60 * 1000;
 const EMPTY: BundleImages = { bronze: null, silver: null, gold: null };
 
 /**
+ * Default Qripto-flavored hero image used by every bundle without an explicit
+ * bronze/silver/gold mapping. Operator-specified: "1 Cover 1a" cover (the
+ * Graphic Novel α cover) used for the remaining Qripto bundle variants.
+ */
+const DEFAULT_QRIPTO_CID = 'bafkr6ifnltnq2xidhizv7lkvrevsipvl4l7qx6weca42q5iacffmybuxzm';
+const DEFAULT_QRIPTO_URL = `/api/content/cover/${encodeURIComponent(DEFAULT_QRIPTO_CID)}?variant=thumb`;
+
+/**
  * Maps a bundle SKU id (from BUNDLE_PRICING) to its tier hero image. Bundles
- * not listed here use no tier image (fall through to the existing thumbnail
- * resolver in the calling component).
+ * not listed here fall through to the Qripto default cover (DEFAULT_QRIPTO_URL).
  */
 export const BUNDLE_ID_TO_TIER: Record<string, BundleTier> = {
   // Bronze — single-shelf bundles (Qripto + Digital editions of Codex / Top Shelf)
@@ -59,11 +66,21 @@ export function useBundleImages() {
       .finally(() => setLoading(false));
   }, []);
 
-  function getBundleImage(bundleId: string): string | null {
+  /**
+   * Returns the hero image for a bundle SKU.
+   * - Mapped tiers (bronze/silver/gold): the uploaded bundle_pack image
+   *   matching that tier's title in Supabase.
+   * - Unmapped bundles: the Qripto default cover ("1 Cover 1a").
+   */
+  function getBundleImage(bundleId: string): string {
     const tier = getBundleTier(bundleId);
-    if (!tier) return null;
-    return data[tier] ?? null;
+    if (tier) {
+      const tierUrl = data[tier];
+      if (tierUrl) return tierUrl;
+    }
+    return DEFAULT_QRIPTO_URL;
   }
 
   return { data, loading, getBundleImage };
 }
+
