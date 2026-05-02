@@ -227,7 +227,7 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     isConditional: true,
     conditionalMinOrders: 7,
     conditionalNote: 'Unlocks when 7 Satoshi KNYT orders are confirmed',
-    limitedSupply: 7,
+    limitedSupply: 21,
     printFulfillment: 'signed-author',
     accessGrant: 'zero-knyt-order',
     includes: [
