@@ -64,53 +64,66 @@ interface Props {
   showExpand?: boolean;
   showShare?: boolean;
   item?: SmartContentItem; // Add item for price detection
+  /**
+   * Ownership flag. When `false` and the item has a price, the visual action
+   * set is reduced to `buy` + `share` only — Read/Watch/Listen buttons are
+   * hidden so the only path forward is the purchase modal. When `true` (or
+   * undefined for back-compat), the existing modality actions render.
+   */
+  isOwned?: boolean;
 }
 
 /**
- * Determines which actions should be available based on modalities, context, and pricing
- * PORTED FROM NETLIFY - Enhanced logic for intelligent action filtering with payment support
+ * Determines which actions should be available based on modalities, context, and pricing.
+ * Token-gating: when `isOwned === false` and a price exists, suppress all
+ * modality actions and surface only `buy` + `share`. The parent's onAction
+ * handler routes 'buy' to ContentPurchaseModal.
  */
 function getAvailableActions(
-  modalities: ContentModalities | null, 
+  modalities: ContentModalities | null,
   context: ContentContext,
   showExpand: boolean,
   showShare: boolean,
-  item?: SmartContentItem
+  item?: SmartContentItem,
+  isOwned?: boolean
 ): ActionType[] {
+  const hasPriceTag = !!(item?.price?.amount && item.price.amount > 0);
+  const isLocked = isOwned === false && hasPriceTag;
+
   const actions: ActionType[] = [];
-  
-  // Only add modality actions if they have actual content
-  if (modalities?.watch?.video_url || modalities?.watch?.available) actions.push('watch');
-  if (modalities?.read?.text || modalities?.read?.available) actions.push('read');
-  if (modalities?.listen?.audio_url) actions.push('listen');
-  if (modalities?.link?.url) actions.push('link');
-  
-  // Disabled: view and expand actions are redundant and not working
-  // if (modalities?.view?.image_url) actions.push('view');
-  // if (showExpand && context === 'thumbnail') actions.push('expand');
-  
+
+  // Modality actions — suppress when locked (token-gated) so Read/Watch/Listen
+  // don't dangle next to a broken click handler.
+  if (!isLocked) {
+    if (modalities?.watch?.video_url || modalities?.watch?.available) actions.push('watch');
+    if (modalities?.read?.text || modalities?.read?.available) actions.push('read');
+    if (modalities?.listen?.audio_url) actions.push('listen');
+    if (modalities?.link?.url) actions.push('link');
+  }
+
   // Share is always available — SmartTriad renders the modal at root level.
   actions.push('share');
 
   // Add buy action if item has a price
-  if (item?.price?.amount && item.price.amount > 0) {
+  if (hasPriceTag) {
     actions.push('buy');
   }
-  
+
   return actions;
 }
 
-export function SmartContentActions({ 
-  modalities, 
-  onAction, 
-  className, 
+export function SmartContentActions({
+  modalities,
+  onAction,
+  className,
   size = 'md',
   context = 'card',
   showExpand = true,
   showShare = true,
-  item
+  item,
+  isOwned,
 }: Props) {
-  const actions = getAvailableActions(modalities, context, showExpand, showShare, item);
+  const actions = getAvailableActions(modalities, context, showExpand, showShare, item, isOwned);
   
   // Don't render if no actions available
   if (actions.length === 0) return null;
