@@ -664,3 +664,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-1ec0495.md](../build_/COMMITS/COMMIT-1ec0495.md)
 - Message: fix entitlements enrichment for all asset id formats
+
+## Commit `2d2851e` — 2026-05-02T23:16:39Z
+- Type: `feat`
+- Brief: [COMMIT-2d2851e.md](../build_/COMMITS/COMMIT-2d2851e.md)
+- Message: add knyt token gating workstream handover notes
