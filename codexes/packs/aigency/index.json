@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-02T15:23:27.098Z",
+  "last_updated": "2026-05-02T17:03:59.258Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "91addc84e3e431d2124fe6edc0eb044a2b3cb213",
-  "latest_commit_short": "91addc8",
-  "latest_commit_title": "fix build timeout: add force-dynamic to agent-llm-options route",
+  "latest_commit": "1ec04957d2f5e7596c4fe4f46cad5a9d4a8f338e",
+  "latest_commit_short": "1ec0495",
+  "latest_commit_title": "fix entitlements enrichment for all asset id formats",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "1ec0495",
+      "full_sha": "1ec04957d2f5e7596c4fe4f46cad5a9d4a8f338e",
+      "title": "fix entitlements enrichment for all asset id formats",
+      "author": "Claude",
+      "timestamp": "2026-05-02T17:02:07Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-1ec0495.md"
+    },
     {
       "sha": "91addc8",
       "full_sha": "91addc84e3e431d2124fe6edc0eb044a2b3cb213",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T21:02:33Z",
       "type": "deploy",
       "brief": "items/build_/COMMITS/COMMIT-7a21755.md"
-    },
-    {
-      "sha": "b575dad",
-      "full_sha": "b575dad1435f9877b2ca48910ce1319d4d0e2495",
-      "title": "fix experiences broad fallback, discord video proxy resolution, and auto-gen logging",
-      "author": "Claude",
-      "timestamp": "2026-03-24T21:02:30Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-b575dad.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
