@@ -297,11 +297,7 @@ export default function SmartWalletDrawer({
   const hasAnyPersona = allAvailablePersonas.length > 0 || !!walletNode?.personaContext?.activePersonaId;
   const effectivePersonaId =
     personaId || localPersonaId || walletNode?.personaContext?.activePersonaId || activePersona?.id;
-  const isNonUuidPersona = !!effectivePersonaId &&
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(effectivePersonaId);
-  const { entitlements: ownedEntitlements } = useOwnedEntitlements(
-    isNonUuidPersona ? effectivePersonaId : undefined
-  );
+  const { entitlements: ownedEntitlements, loading: ownedEntitlementsLoading } = useOwnedEntitlements(effectivePersonaId);
   const { balance: knytBalance, loading: knytLoading, refreshBalance: refreshKnyt } =
     useKnytBalance(effectivePersonaId, externalEvmAddress);
   const { balance: baseQcBalance } = useBaseQcBalance(effectivePersonaId);
@@ -3084,9 +3080,6 @@ export default function SmartWalletDrawer({
                     ))}
                   </div>
                 </section>
-              ) : effectivePersonaId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(effectivePersonaId) ? (
-                // Only use LibraryShelf for valid UUID personaIds
-                <LibraryShelf personaId={effectivePersonaId} onContentSelect={onContentSelect} variant="drawer" />
               ) : ownedEntitlements.length > 0 ? (
                 <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
                   <div className="text-[11px] uppercase tracking-wider text-white/60 mb-2">
@@ -3134,6 +3127,10 @@ export default function SmartWalletDrawer({
                     })}
                   </div>
                 </section>
+              ) : ownedEntitlementsLoading ? (
+                <div className="text-center py-6 text-white/50 text-sm">
+                  <Loader2 className="w-6 h-6 mx-auto mb-2 animate-spin text-purple-400/50" />
+                </div>
               ) : (
                 <div className="text-center py-6 text-white/50 text-sm">
                   <BookOpen className="w-8 h-8 mx-auto mb-2 text-purple-400/50" />

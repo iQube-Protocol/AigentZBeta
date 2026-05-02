@@ -33,6 +33,7 @@ import {
   getPersonasByAuthProfile,
 } from "@/services/wallet/personaService";
 import { usePersonaSafe } from "@/app/contexts/PersonaContext";
+import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 import type { KnytCardAsset, EpisodeGroup } from "@/app/hooks/useKnytCards";
 import type { PersonaQube } from "@/types/persona";
 // Inline Character Detail Page Component to avoid import issues
@@ -518,6 +519,8 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   // propagates immediately (context writes 'currentPersonaId'; the old getActivePersonaId()
   // read 'active_persona_id' — a different key that never updated reactively).
   const { activePersonaId } = usePersonaSafe();
+  // Supabase session fallback — resolves persona on mobile where localStorage may be empty
+  const { sessionPersonas: supabaseSessionPersonas } = useSupabaseSessionPersonas();
   const [personas, setPersonas] = useState<PersonaQube[]>([]);
   const [loadingPersonas, setLoadingPersonas] = useState(true);
   
@@ -717,7 +720,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   
   const { toast } = useToast();
   const effectivePersonaId = useMemo(() => {
-    const candidates = [personaId, activePersonaId, personas[0]?.id];
+    const candidates = [personaId, activePersonaId, personas[0]?.id, supabaseSessionPersonas[0]?.id];
     for (const candidate of candidates) {
       if (typeof candidate !== 'string') continue;
       const trimmed = candidate.trim();
@@ -725,7 +728,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       return trimmed;
     }
     return undefined;
-  }, [personaId, activePersonaId, personas]);
+  }, [personaId, activePersonaId, personas, supabaseSessionPersonas]);
   
   // KNYT balance and cards data
   const { balance, spendableBalance, refreshBalance } = useKnytBalance(effectivePersonaId);
