@@ -78,7 +78,12 @@ function ContentCard({
 
   const openContent = useCallback(async (modality: "read" | "watch" | null) => {
     await actions.loadContent(item.id);
-    actions.setContentAccessGranted(true);
+    // Token-gate: only mark access as granted when the viewer truly owns the
+    // asset. Unowned content opens the drawer in locked-state which renders
+    // the purchase CTA instead of the body.
+    const owned = actions.checkOwnership(item.id);
+    if (owned) actions.setContentAccessGranted(true);
+    else       actions.setContentAccessGranted(false);
     actions.setViewerModality(modality);
     actions.setActiveDrawer("contentViewer");
   }, [actions, item.id]);
