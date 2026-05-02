@@ -485,36 +485,56 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
         const contentType = item.masterType ?? (item.category === 'still' ? 'episode_still' : item.category === 'print' ? 'episode_print' : 'episode_motion');
 
         // Step 1: get signed upload URL
-        const signRes = await fetch('/api/admin/codex/storage/sign', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...authHeaders },
-          body: JSON.stringify({
-            category: item.category,
-            series: 'metaKnyts',
-            episodeNumber: item.episodeNumber ?? 0,
-            assetKind: item.assetKind,
-            contentType: isMaster ? contentType : undefined,
-            fileName: item.file.name,
-            mimeType: item.file.type || undefined,
-          }),
-        });
+        let signRes: Response;
+        try {
+          signRes = await fetch('/api/admin/codex/storage/sign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders },
+            body: JSON.stringify({
+              category: item.category,
+              series: 'metaKnyts',
+              episodeNumber: item.episodeNumber ?? 0,
+              assetKind: item.assetKind,
+              contentType: isMaster ? contentType : undefined,
+              fileName: item.file.name,
+              mimeType: item.file.type || undefined,
+            }),
+          });
+        } catch (netErr) {
+          throw new Error(`Step 1/3 — sign request failed: ${(netErr as Error).message || 'network error'}`);
+        }
         if (!signRes.ok) {
           const e = await signRes.json().catch(() => ({})) as Record<string, unknown>;
-          throw new Error((e.error as string) || `Sign failed (${signRes.status})`);
+          throw new Error(`Step 1/3 — sign failed (${signRes.status}): ${(e.error as string) || signRes.statusText}`);
         }
         const { signedUrl, path, bucket } = await signRes.json() as { signedUrl: string; path: string; bucket: string };
-        updateItem(item.id, { progress: 20 });
+        updateItem(item.id, { progress: 5 });
 
-        // Step 2: upload directly to Supabase Storage (no Lambda body limit)
-        const putRes = await fetch(signedUrl, {
-          method: 'PUT',
-          headers: { 'Content-Type': item.file.type || 'application/octet-stream' },
-          body: item.file,
+        // Step 2: upload directly to Supabase Storage via XHR (gives upload
+        // progress events and clearer network-error reporting for large files)
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('PUT', signedUrl, true);
+          xhr.setRequestHeader('Content-Type', item.file.type || 'application/octet-stream');
+          xhr.upload.onprogress = (ev) => {
+            if (ev.lengthComputable) {
+              // Map 0-100% of the upload to 5-80% of the queue item's progress bar
+              const pct = 5 + Math.floor((ev.loaded / ev.total) * 75);
+              updateItem(item.id, { progress: pct });
+            }
+          };
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve();
+            } else {
+              reject(new Error(`Step 2/3 — storage upload rejected (${xhr.status}): ${xhr.responseText?.slice(0, 200) || xhr.statusText}`));
+            }
+          };
+          xhr.onerror = () => reject(new Error('Step 2/3 — network error during upload (connection dropped, VPN, or bucket size limit). Retry on a stable connection; if it persists, raise the bucket file_size_limit.'));
+          xhr.ontimeout = () => reject(new Error('Step 2/3 — upload timed out. File may be too large for the current connection; try again or split the upload.'));
+          xhr.send(item.file);
         });
-        if (!putRes.ok) {
-          throw new Error(`Storage upload failed (${putRes.status})`);
-        }
-        updateItem(item.id, { progress: 80 });
+        updateItem(item.id, { progress: 85 });
 
         // Step 3: register metadata in DB
         const registerBody: Record<string, unknown> = {
@@ -538,13 +558,18 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
           if (item.category === 'lore' && item.displayMode) registerBody.displayMode = item.displayMode;
         }
 
-        const regRes = await fetch('/api/admin/codex/storage/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...authHeaders },
-          body: JSON.stringify(registerBody),
-        });
+        let regRes: Response;
+        try {
+          regRes = await fetch('/api/admin/codex/storage/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders },
+            body: JSON.stringify(registerBody),
+          });
+        } catch (netErr) {
+          throw new Error(`Step 3/3 — register request failed: ${(netErr as Error).message || 'network error'} (the file uploaded successfully — DB insert failed, retrying the queue item will create a duplicate row)`);
+        }
         const regData = await regRes.json().catch(() => ({})) as Record<string, unknown>;
-        if (!regRes.ok) throw new Error((regData.error as string) || 'Register failed');
+        if (!regRes.ok) throw new Error(`Step 3/3 — register failed (${regRes.status}): ${(regData.error as string) || regRes.statusText}`);
 
         updateItem(item.id, { status: 'success', progress: 100, result: { id: regData.id as string, cid: regData.storageUrl as string } });
         return;
