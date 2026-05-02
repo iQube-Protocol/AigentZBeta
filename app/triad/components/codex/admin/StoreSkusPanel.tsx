@@ -33,7 +33,14 @@ interface StoreSkuRow {
   is_active: boolean;
   episode_numbers: number[] | null;
   extra_asset_ids: string[] | null;
+  bundle_image_asset_id: string | null;
   updated_at: string | null;
+}
+
+interface BundleImageOption {
+  id: string;
+  label: string;
+  thumbUrl: string | null;
 }
 
 /** Render scope as "all" or a compact "1-3" / "1,2,5" string. DB convention. */
@@ -66,6 +73,7 @@ const SKU_FLAG_COLUMNS: Array<{ key: keyof StoreSkuRow; label: string; short: st
 
 export function StoreSkusPanel() {
   const [skus, setSkus]       = useState<StoreSkuRow[]>([]);
+  const [imageOptions, setImageOptions] = useState<BundleImageOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
   const [savingSku, setSavingSku] = useState<string | null>(null);
@@ -74,10 +82,15 @@ export function StoreSkusPanel() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/admin/store-skus');
-      const json = await res.json() as { skus?: StoreSkuRow[]; error?: string };
-      if (!res.ok) throw new Error(json.error ?? 'Failed to load SKUs');
-      setSkus(json.skus ?? []);
+      const [skusRes, optsRes] = await Promise.all([
+        fetch('/api/admin/store-skus'),
+        fetch('/api/admin/store-skus/bundle-image-options'),
+      ]);
+      const skusJson = await skusRes.json() as { skus?: StoreSkuRow[]; error?: string };
+      if (!skusRes.ok) throw new Error(skusJson.error ?? 'Failed to load SKUs');
+      setSkus(skusJson.skus ?? []);
+      const optsJson = await optsRes.json() as { options?: BundleImageOption[] };
+      setImageOptions(optsJson.options ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load SKUs');
     } finally {
@@ -86,6 +99,26 @@ export function StoreSkusPanel() {
   }, []);
 
   useEffect(() => { void refresh(); }, [refresh]);
+
+  const updateImage = useCallback(async (skuId: string, newImageId: string | null) => {
+    setSavingSku(skuId);
+    setError(null);
+    setSkus((prev) => prev.map((s) => s.sku_id === skuId ? { ...s, bundle_image_asset_id: newImageId } : s));
+    try {
+      const res = await fetch('/api/admin/store-skus', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sku_id: skuId, bundle_image_asset_id: newImageId }),
+      });
+      const json = await res.json() as { ok?: boolean; error?: string };
+      if (!res.ok) throw new Error(json.error ?? `Save failed (${res.status})`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Save failed');
+      void refresh();
+    } finally {
+      setSavingSku(null);
+    }
+  }, [refresh]);
 
   const toggleFlag = useCallback(async (skuId: string, key: keyof StoreSkuRow, current: boolean) => {
     setSavingSku(skuId);
@@ -141,6 +174,7 @@ export function StoreSkusPanel() {
               <tr className="border-b border-white/5">
                 <th className="pb-2 pr-3">SKU</th>
                 <th className="pb-2 pr-3">Name</th>
+                <th className="pb-2 pr-3 text-center" title="Bundle hero image (operator-editable). Falls back to bronze/silver/gold tier when unset.">Image</th>
                 {SKU_FLAG_COLUMNS.map(({ key, label, short }) => (
                   <th key={String(key)} className="pb-2 pr-3 text-center" title={label}>{short}</th>
                 ))}
@@ -156,6 +190,20 @@ export function StoreSkusPanel() {
                   <tr key={sku.sku_id} className={`border-b border-white/5 align-middle ${!sku.is_active ? 'opacity-50' : ''}`}>
                     <td className="py-2 pr-3 font-mono text-[11px] text-slate-300">{sku.sku_id}</td>
                     <td className="py-2 pr-3 text-slate-200">{sku.name}</td>
+                    <td className="py-2 pr-3 text-center">
+                      <select
+                        value={sku.bundle_image_asset_id ?? ''}
+                        disabled={isSaving}
+                        onChange={(e) => void updateImage(sku.sku_id, e.target.value || null)}
+                        className="rounded border border-slate-600 bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-200 focus:border-amber-400 focus:outline-none max-w-[120px]"
+                        title={imageOptions.find((o) => o.id === sku.bundle_image_asset_id)?.label ?? '(tier fallback)'}
+                      >
+                        <option value="">(tier fallback)</option>
+                        {imageOptions.map((opt) => (
+                          <option key={opt.id} value={opt.id}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </td>
                     {SKU_FLAG_COLUMNS.map(({ key }) => {
                       const value = !!(sku as unknown as Record<string, boolean>)[key as string];
                       return (

@@ -8,12 +8,13 @@ export interface BundleImages {
   bronze: string | null;
   silver: string | null;
   gold: string | null;
+  perSku: Record<string, string>;
 }
 
 const cache: { data: BundleImages | null; fetchedAt: number } = { data: null, fetchedAt: 0 };
 const CACHE_TTL = 5 * 60 * 1000;
 
-const EMPTY: BundleImages = { bronze: null, silver: null, gold: null };
+const EMPTY: BundleImages = { bronze: null, silver: null, gold: null, perSku: {} };
 
 /**
  * Default Qripto-flavored hero image used by every bundle without an explicit
@@ -68,11 +69,14 @@ export function useBundleImages() {
 
   /**
    * Returns the hero image for a bundle SKU.
-   * - Mapped tiers (bronze/silver/gold): the uploaded bundle_pack image
-   *   matching that tier's title in Supabase.
-   * - Unmapped bundles: the Qripto default cover ("1 Cover 1a").
+   * Resolution order:
+   *   1. Operator override (store_skus.bundle_image_asset_id) — perSku map
+   *   2. Tier mapping (bronze/silver/gold) — legacy seed
+   *   3. Qripto default cover ("1 Cover 1a")
    */
   function getBundleImage(bundleId: string): string {
+    const override = data.perSku?.[bundleId];
+    if (override) return override;
     const tier = getBundleTier(bundleId);
     if (tier) {
       const tierUrl = data[tier];

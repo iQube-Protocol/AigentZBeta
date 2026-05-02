@@ -34,6 +34,7 @@ const ALLOWED_FIELDS = new Set([
   'grants_lore',
   'episode_numbers',
   'extra_asset_ids',
+  'bundle_image_asset_id',
   'is_active',
 ]);
 
