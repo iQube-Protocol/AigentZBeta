@@ -381,9 +381,9 @@ const PREORDER_VARIANT_EPISODE_NUMBER: Record<PreorderVariantId, number> = {
   common: -1,
 };
 
-const KNYT_CONTENT_CACHE_KEY = "codex:knyt:content:v4";
-const KNYT_EPISODES_CACHE_KEY = "codex:knyt:episodes:v2";
-const KNYT_SESSION_CACHE_KEY = "codex:knyt:session:v3";
+const KNYT_CONTENT_CACHE_KEY = "codex:knyt:content:v5";
+const KNYT_EPISODES_CACHE_KEY = "codex:knyt:episodes:v3";
+const KNYT_SESSION_CACHE_KEY = "codex:knyt:session:v4";
 const KNYT_SESSION_CACHE_TTL_MS = 30 * 60 * 1000;
 
 type KnytSessionSnapshot = {
@@ -994,8 +994,11 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     
     for (const ep of episodes) {
       const episodeNumber = Number(ep.episodeNumber);
-      // Skip episode 0 (placeholder)
+      // Skip episode 0 (placeholder) and the legacy preorder rarity drops
+      // (episode -1..-4) — those are replaced by the single AGN card injected
+      // below so the API rows must not double-render here.
       if (!Number.isFinite(episodeNumber) || episodeNumber === 0) continue;
+      if (episodeNumber < 0) continue;
       
       const printCid = ep.printRareCid || ep.printEpicCid || ep.printLegendaryCid || ep.printCommonCid;
       const printLiteUrl = ep.printRareLiteUrl || ep.printEpicLiteUrl || ep.printLegendaryLiteUrl || ep.printCommonLiteUrl;
@@ -1106,30 +1109,29 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
 
     // Add the single Graphic Novel card (replaces 4 prior preorder rarity
     // drops). Image and copy mirror the store's "Agentic Graphic Novel
-    // Qripto" bundle so the codex and store stay aligned.
-    for (const variant of PREORDER_CONTENT_VARIANTS) {
-      items.push({
-        id: `metaKnyts_preorder_${variant.id}`,
-        type: 'comic_cover_portrait',
-        title: variant.title,
-        subtitle: variant.subtitle,
-        description: variant.description,
-        thumbnail: variant.imageUrl,
-        media: {
-          image_cid: undefined,
-        },
-        metadata: {
-          episodeNumber: PREORDER_VARIANT_EPISODE_NUMBER[variant.id],
-          owned: false,
-          price: variant.priceKnyt,
-          priceUsd: variant.priceUsd,
-          realm: 'digiterra',
-        },
-        modalities: {},
-      });
-    }
-    
-    return items;
+    // Qripto" bundle so the codex and store stay aligned. Inserted at the
+    // FRONT so the AGN card renders before episode #0..#12 in the grid.
+    const agnCards: KnytContentItem[] = PREORDER_CONTENT_VARIANTS.map((variant) => ({
+      id: `metaKnyts_preorder_${variant.id}`,
+      type: 'comic_cover_portrait',
+      title: variant.title,
+      subtitle: variant.subtitle,
+      description: variant.description,
+      thumbnail: variant.imageUrl,
+      media: {
+        image_cid: undefined,
+      },
+      metadata: {
+        episodeNumber: PREORDER_VARIANT_EPISODE_NUMBER[variant.id],
+        owned: false,
+        price: variant.priceKnyt,
+        priceUsd: variant.priceUsd,
+        realm: 'digiterra',
+      },
+      modalities: {},
+    }));
+
+    return [...agnCards, ...items];
   }, [normalizeVideoSource, resolveAccessPrice]);
 
   const transformCharactersToContentItems = useCallback((characters: CharacterFromAPI[]): KnytContentItem[] => {
