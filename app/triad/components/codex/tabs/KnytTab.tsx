@@ -11,6 +11,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import { Loader2, BookOpen, Play, Lock, Check, Sparkles, Coins, ShoppingCart, AlertTriangle, RefreshCw, LogIn, FileText, Cpu, Globe, Shield, Scroll, ArrowLeft, User, Zap } from "lucide-react";
+import { useCardAccess } from "@/app/hooks/useCardAccess";
+import { OwnedBadge, AccessibleBadge, RestrictedBadge, CartButton } from "@/app/components/content/CardAccessBadges";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -740,6 +742,49 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   });
   const { ownedCharacters, refreshPurchases } = useKnytPurchases(effectivePersonaId);
   const isSignedIn = !!effectivePersonaId;
+
+  // ── Pending purchase intent (anon → sign-in → purchase preservation) ─────
+  // When an unauth user clicks the cart on a payment-gated card, we open the
+  // wallet drawer for sign-in and stash the intent. Once a persona becomes
+  // available (effect on effectivePersonaId), we automatically open the
+  // purchase modal with the same intent — option (A) one-click intent flow.
+  const [pendingPurchaseIntent, setPendingPurchaseIntent] = useState<{
+    contentId: string;
+    contentTitle?: string;
+    contentImage?: string;
+    priceUsd?: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (effectivePersonaId && pendingPurchaseIntent) {
+      const intent = pendingPurchaseIntent;
+      setPendingPurchaseIntent(null);
+      // Best-effort: re-open the purchase modal for the same content.
+      const ep = episodesCatalog.find((e) =>
+        (e.purchaseId || `mk_ep${String(e.episodeNumber).padStart(2, '0')}`) === intent.contentId,
+      );
+      if (ep) {
+        openPurchaseForEpisode(ep);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectivePersonaId]);
+
+  const cardAccess = useCardAccess({
+    personaId: effectivePersonaId,
+    series: 'metaKnyts',
+    onOpenPurchase: (intent) => {
+      const ep = episodesCatalog.find((e) =>
+        (e.purchaseId || `mk_ep${String(e.episodeNumber).padStart(2, '0')}`) === intent.contentId,
+      );
+      if (ep) openPurchaseForEpisode(ep);
+    },
+    onOpenSignIn: (intent) => {
+      setPendingPurchaseIntent(intent);
+      handleOpenWallet('signin');
+    },
+  });
+
   const showLayoutPreviewControls = useMemo(() => {
     const allowlist = parseAdminAllowlist(process.env.NEXT_PUBLIC_KNYT_LAYOUT_PREVIEW_ADMINS);
     const forceFromEnv = process.env.NEXT_PUBLIC_KNYT_LAYOUT_PREVIEW_ENABLED === 'true';
@@ -2549,6 +2594,13 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                     {episodesCatalog.map((episode) => {
                       const owned = getOwnedIssuesForEpisode(episode.episodeNumber);
                       const isOwned = owned.length > 0;
+                      // Unified gate: episode is codex-source content, gated
+                      // by payment, owned-flag overridden by ownedIssues check.
+                      const cardId = episode.purchaseId || `mk_ep${String(episode.episodeNumber).padStart(2, '0')}`;
+                      const cardAct = cardAccess.evaluate(
+                        { id: cardId, source: 'codex', episodeNumber: episode.episodeNumber },
+                        { manualOwned: isOwned },
+                      );
                       const episodeVideo = normalizeVideoSource(
                         episode.motionMasterCid ||
                         (episode as EpisodeFromAPI & { motionMasterUrl?: string; motionMasterPath?: string }).motionMasterUrl ||
@@ -2585,11 +2637,26 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                             isOwned ? 'ring-2 ring-cyan-400/50' : 'hover:ring-2 hover:ring-white/30'
                           }`}
                           onClick={() => {
-                            const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid || episode.printCommonCid;
-                            if (!isOwned && isAvailable && isPaymentGated) {
-                              openPurchaseForEpisode(episode);
+                            // Card body click — defers entirely to the unified
+                            // gate. If access isn't established, route to cart
+                            // (which itself routes to sign-in for anon users).
+                            // If access IS established, open the reader.
+                            if (cardAct.showShoppingCart) {
+                              cardAccess.handleCartClick(
+                                { id: cardId, source: 'codex', episodeNumber: episode.episodeNumber },
+                                cardAct,
+                                {
+                                  contentTitle: episode.title || `Episode ${episode.displayNumber}`,
+                                  contentImage: episode.coverThumbUrl || (episode.coverImageCid ? `/api/content/cover/${encodeURIComponent(episode.coverImageCid)}?variant=thumb` : undefined),
+                                  priceUsd,
+                                },
+                              );
                               return;
                             }
+                            if (!cardAct.showSmartActions) {
+                              return; // Restricted (credential gate, no credential) — silent no-op
+                            }
+                            const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid || episode.printCommonCid;
                             if (printCid) {
                               setCurrentPdfLiteUrl(
                                 episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || episode.printCommonLiteUrl || null
@@ -2615,18 +2682,16 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                           )}
                           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent pointer-events-none" />
 
-                          <div className="absolute top-2 right-2 flex flex-col gap-1">
-                            {isOwned && (
-                              <span className="px-2 py-1 bg-cyan-500/80 text-white text-xs font-bold rounded flex items-center gap-1">
-                                <Check className="w-3 h-3" /> OWNED
-                              </span>
-                            )}
-                            {!isAvailable && !isOwned && (
+                          <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+                            {cardAct.showOwnedBadge       && <OwnedBadge />}
+                            {cardAct.showAccessibleBadge  && <AccessibleBadge />}
+                            {cardAct.showRestrictedBadge  && cardAct.restrictedReason && <RestrictedBadge reason={cardAct.restrictedReason} />}
+                            {!isAvailable && cardAct.reason !== 'owned' && cardAct.reason !== 'credential-met' && (
                               <span className="px-2 py-1 bg-gray-500/80 text-white text-xs font-bold rounded flex items-center gap-1">
                                 <Lock className="w-3 h-3" /> SOON
                               </span>
                             )}
-                            {isAvailable && !isOwned && isPaymentGated && (
+                            {cardAct.showShoppingCart && priceKnyt && (
                               <span className="px-2 py-1 bg-amber-500/90 text-white text-xs font-bold rounded flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <Coins className="w-3 h-3" />
                                 {priceKnyt} KNYT
@@ -2635,37 +2700,35 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                           </div>
 
                           <div className="absolute bottom-12 right-2 flex gap-1 z-10">
-                            {isAvailable && !isOwned && isPaymentGated && (
+                            {/* Cart — render ONLY when payment-gated and not owned. Anonymous routes through sign-in. */}
+                            {cardAct.showShoppingCart && (
                               <button
                                 className="w-6 h-6 rounded-md bg-amber-500/80 backdrop-blur-sm flex items-center justify-center ring-1 ring-amber-400/40 text-white hover:bg-amber-400 transition-all"
-                                title={`Buy for ${priceKnyt} KNYT`}
+                                title={cardAct.cartCtaTarget === 'sign-in' ? 'Sign in to buy' : (priceKnyt ? `Buy for ${priceKnyt} KNYT` : 'Buy')}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setPurchaseContent({
-                                    type: episode.hasMotionMaster ? 'scroll_motion' : 'scroll_still',
-                                    id: episode.purchaseId || `mk_ep${String(episode.episodeNumber).padStart(2, '0')}`,
-                                    title: episode.title || `Episode ${episode.displayNumber}`,
-                                    image: episode.coverThumbUrl || (episode.coverImageCid ? `/api/content/cover/${encodeURIComponent(episode.coverImageCid)}?variant=thumb` : undefined),
-                                    baseKnyt: priceKnyt ?? 0,
-                                    priceUsd,
-                                  });
-                                  setPurchaseModalOpen(true);
+                                  cardAccess.handleCartClick(
+                                    { id: cardId, source: 'codex', episodeNumber: episode.episodeNumber },
+                                    cardAct,
+                                    {
+                                      contentTitle: episode.title || `Episode ${episode.displayNumber}`,
+                                      contentImage: episode.coverThumbUrl || (episode.coverImageCid ? `/api/content/cover/${encodeURIComponent(episode.coverImageCid)}?variant=thumb` : undefined),
+                                      priceUsd,
+                                    },
+                                  );
                                 }}
                               >
                                 <ShoppingCart className="w-3 h-3" />
                               </button>
                             )}
-                            {(episode.hasPrintRare || episode.hasPrintEpic || episode.hasPrintLegendary) && (
+                            {/* Read — render ONLY when smart actions are allowed (owned or credentialed). */}
+                            {cardAct.showSmartActions && (episode.hasPrintRare || episode.hasPrintEpic || episode.hasPrintLegendary || episode.hasPrintCommon) && (
                               <button
                                 className="w-6 h-6 rounded-md bg-black/60 backdrop-blur-sm flex items-center justify-center ring-1 ring-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-white transition-all"
                                 title="Read"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid || episode.printCommonCid;
-                                  if (!isOwned && isAvailable && isPaymentGated) {
-                                    openPurchaseForEpisode(episode, 'read');
-                                    return;
-                                  }
                                   if (printCid) {
                                     setCurrentPdfLiteUrl(
                                       episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || episode.printCommonLiteUrl || null
@@ -2679,17 +2742,14 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                                 <BookOpen className="w-3 h-3" />
                               </button>
                             )}
-                            {episode.hasMotionMaster && (episodeVideo.cid || episodeVideo.url) && (
+                            {/* Watch — same gate. */}
+                            {cardAct.showSmartActions && episode.hasMotionMaster && (episodeVideo.cid || episodeVideo.url) && (
                               <button
                                 className="w-6 h-6 rounded-md bg-black/60 backdrop-blur-sm flex items-center justify-center ring-1 ring-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-white transition-all"
                                 title="Watch"
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  if (!isOwned && isAvailable && isPaymentGated) {
-                                    openPurchaseForEpisode(episode, 'watch');
-                                    return;
-                                  }
                                   void openEpisodeVideo(episode, episodeVideo.cid || null, episodeVideo.url || null);
                                 }}
                               >
