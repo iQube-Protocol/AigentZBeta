@@ -104,6 +104,18 @@ export function KnytDrawerGridFallbackTemplate({
   }, [featureId, supportingIds, contentObjects]);
 
   const handleOpen = async (content: SmartContentQube) => {
+    // Defence-in-depth gate — codex-shaped content routes to purchase when not owned.
+    const id = content?.id;
+    const isCodexAsset = !!id && (
+      /^mk_ep\d{1,4}_/i.test(id) ||
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+    );
+    const isOwned = !!id && actions.checkOwnership(id);
+    if (isCodexAsset && !isOwned) {
+      await actions.loadContent(content.id);
+      actions.openWallet("full");
+      return;
+    }
     await actions.loadContent(content.id);
     actions.setViewerModality("read");
     actions.setActiveDrawer("contentViewer");

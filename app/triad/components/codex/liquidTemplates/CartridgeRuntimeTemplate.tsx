@@ -365,6 +365,18 @@ export function CartridgeRuntimeTemplate({
   const smartTriad = useOptionalSmartTriad();
   const openContent = useCallback(async (content: SmartContentQube) => {
     if (!smartTriad) return;
+    // Defence-in-depth gate — codex-shaped content routes to purchase when not owned.
+    const id = content?.id;
+    const isCodexAsset = !!id && (
+      /^mk_ep\d{1,4}_/i.test(id) ||
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+    );
+    const isOwned = !!id && smartTriad.actions.checkOwnership(id);
+    if (isCodexAsset && !isOwned) {
+      await smartTriad.actions.loadContent(content.id);
+      smartTriad.actions.openWallet("full");
+      return;
+    }
     await smartTriad.actions.loadContent(content.id);
     smartTriad.actions.setViewerModality("read");
     smartTriad.actions.setActiveDrawer("contentViewer");
