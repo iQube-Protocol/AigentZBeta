@@ -2535,8 +2535,16 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                         episode.hasMotionMaster ||
                         episode.hasPrintRare ||
                         episode.hasPrintEpic ||
-                        episode.hasPrintLegendary;
-                      const isAvailable = hasMaster;
+                        episode.hasPrintLegendary ||
+                        episode.hasPrintCommon;
+                      // Defence-in-depth: even if the master-status flags are
+                      // stale or undefined (API hadn't returned them yet),
+                      // any episode object we've decided to render is gated.
+                      // Without this guard, an unflagged episode card with
+                      // only a Supabase-hosted common-tier PDF (where
+                      // hasPrintCommon may be missing in older fixtures)
+                      // would slip through with isAvailable=false → no gate.
+                      const isAvailable = true;
                       const priceKnyt = resolveAccessPrice(episode.priceKnyt);
                       const priceUsd = episode.priceUsd ?? ((priceKnyt ?? 0) * 1.4);
                       // Episodes are inherently payment-gated content. The

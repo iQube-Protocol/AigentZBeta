@@ -62,8 +62,25 @@ export function SmartTriadSurfaces({ personaId, onPersonaChange, cartridgeSlug }
     type ContentWithGating = { gating?: { kind: string; credential?: string } };
     const c = state.currentContent as ContentWithGating | null;
     if (c?.gating?.kind) return c.gating;
+
+    // Defence-in-depth: when the loader hasn't stamped gating, infer from
+    // the id shape. Anything that looks like a KNYT codex asset row id
+    // (`mk_epNN_*` for master_content_qubes or a UUID for codex_media_assets)
+    // is payment-gated by default. Without this guard, loaders that haven't
+    // been migrated to stamp `gating` would let codex content slip through
+    // when pricingModel.tiers is empty.
+    const id = state.currentContent?.id;
+    if (id) {
+      const looksLikeMaster = /^mk_ep\d{1,4}_/i.test(id);
+      const looksLikeMediaUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      if (looksLikeMaster || looksLikeMediaUuid) {
+        return { kind: 'payment' as const };
+      }
+    }
+
     // Legacy fall-through: an item with no explicit gating but with priced
-    // tiers is treated as payment-gated. Items with no tiers are free.
+    // tiers is treated as payment-gated. Items with no tiers AND no codex-
+    // shaped id are free.
     const tiers = state.currentContent?.pricingModel?.tiers ?? [];
     if (tiers.length === 0) return { kind: 'free' as const };
     const allFree = tiers.every(t => !t.amount || Number(t.amount) === 0 || (t as { kind?: string }).kind === 'free');
