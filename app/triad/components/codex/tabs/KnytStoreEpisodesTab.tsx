@@ -606,21 +606,10 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
   const [cartOpen, setCartOpen] = useState(false);
   const { getCoverThumb } = useKnytThumbnails();
   const cart = useKnytCart();
-  const { ownedAssetIds } = useOwnedEntitlements(personaId);
-
-  function isEpisodeOwned(epNum: number): boolean {
-    // Check for any modality purchase of this episode
-    return (
-      ownedAssetIds.has(`episode-${epNum}`) ||
-      ownedAssetIds.has(`episode-${epNum}-qripto-still`) ||
-      ownedAssetIds.has(`episode-${epNum}-qripto-motion`) ||
-      ownedAssetIds.has(`episode-${epNum}-qripto-bundle`) ||
-      ownedAssetIds.has(`episode-${epNum}-digital-still`) ||
-      ownedAssetIds.has(`episode-${epNum}-digital-motion`) ||
-      ownedAssetIds.has(`episode-${epNum}-digital-bundle`) ||
-      ownedAssetIds.has(`episode-${epNum}-print`)
-    );
-  }
+  // Single ownership source (matches codex SoT) — covers SKU expansion +
+  // direct knyt_purchases via /api/codex/owned. epNum is the pricing-episode
+  // number used by the store/codex UI (DB ep N → pricing N-1).
+  const { isEpisodeOwned } = useOwnedEntitlements(personaId);
 
   const episodes = EPISODE_PRICING
     .filter((e) => e.episodeNumber >= 0)
