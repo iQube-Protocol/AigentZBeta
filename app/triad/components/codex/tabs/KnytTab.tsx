@@ -381,9 +381,9 @@ const PREORDER_VARIANT_EPISODE_NUMBER: Record<PreorderVariantId, number> = {
   common: -1,
 };
 
-const KNYT_CONTENT_CACHE_KEY = "codex:knyt:content:v5";
-const KNYT_EPISODES_CACHE_KEY = "codex:knyt:episodes:v3";
-const KNYT_SESSION_CACHE_KEY = "codex:knyt:session:v4";
+const KNYT_CONTENT_CACHE_KEY = "codex:knyt:content:v6";
+const KNYT_EPISODES_CACHE_KEY = "codex:knyt:episodes:v4";
+const KNYT_SESSION_CACHE_KEY = "codex:knyt:session:v5";
 const KNYT_SESSION_CACHE_TTL_MS = 30 * 60 * 1000;
 
 type KnytSessionSnapshot = {
@@ -585,6 +585,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     image?: string;
     baseKnyt?: number;
     priceUsd?: number;
+    stillPriceKnyt?: number;
+    motionPriceKnyt?: number;
+    hideVersionSelector?: boolean;
   } | null>(null);
 
   const cart = useKnytCart();
@@ -1919,58 +1922,81 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
 
   const openPurchaseForItem = useCallback((item: KnytContentItem, action: 'read' | 'watch' | 'default' = 'default') => {
     const episodeNumber = resolveEpisodeNumber(item);
-    console.log('openPurchaseForItem called:', { item: item.id, action, episodeNumber });
-    
     const preorderVariantId = resolvePreorderVariantId(item, episodeNumber);
     const itemPrice = resolveAccessPrice(item.metadata?.price);
     if (!preorderVariantId && itemPrice === null) {
-      console.log('No purchasable metadata, returning');
       return;
     }
-    
+
     const contentType: ContentType =
       action === 'watch' || item.type === 'motion_comic_landscape'
         ? 'scroll_motion'
         : 'scroll_still';
-    
-    // Handle preorder variants with specific pricing
+
+    // Resolve SoT pricing — use EPISODE_PRICING (admin pricing table) so the
+    // modal shows the same base/discount as the store. AGN preorder uses the
+    // gn-investor-qripto SKU id so the cart's processPurchase grants the
+    // real GN SKU (which the SKU expander unpacks to episode -1 ownership).
+    let priceUsd = Number((itemPrice ?? 0) * 1.4);
     let baseKnyt = itemPrice ?? 0;
-    let priceUsd = Number((baseKnyt * 1.4).toFixed(2));
-    
-    // Check if this is a preorder variant and apply specific pricing
+    let hideVersionSelector = false;
+    let purchaseId = item.id.replace(/_motion$/, '');
+
     if (preorderVariantId) {
-      const variant = PREORDER_CONTENT_VARIANTS.find(v => v.id === preorderVariantId);
-      if (variant) {
-        console.log('Found preorder variant:', preorderVariantId, 'price:', variant.priceKnyt);
-        baseKnyt = variant.priceKnyt;
-        priceUsd = Number((variant.priceKnyt * 1.4).toFixed(2));
-      } else {
-        console.log('Preorder variant not found:', preorderVariantId);
+      // AGN — single Qripto bundle, no Motion modality
+      priceUsd = 78;
+      baseKnyt = usdToKnyt(priceUsd);
+      hideVersionSelector = true;
+      purchaseId = 'gn-investor-qripto';
+    } else if (typeof episodeNumber === 'number') {
+      const pricingEpNum = episodeNumber - 1;
+      const sot = EPISODE_PRICING.find((p) => p.episodeNumber === pricingEpNum);
+      if (sot?.qriptoPrice && sot.qriptoPrice > 0) {
+        priceUsd = sot.qriptoPrice;
+        baseKnyt = usdToKnyt(priceUsd);
+      }
+      // Hide Motion when this episode has no motion master available.
+      const ep = episodesCatalog.find((e) => Number(e.episodeNumber) === episodeNumber);
+      if (ep && !ep.hasMotionMaster) {
+        hideVersionSelector = true;
       }
     }
-    
-    const purchaseData = {
+
+    setPurchaseContent({
       type: contentType,
-      id: preorderVariantId ? `metaKnyts_preorder_${preorderVariantId}` : item.id.replace(/_motion$/, ''),
+      id: purchaseId,
       title: item.title,
       image: item.thumbnail,
       baseKnyt,
-      priceUsd,
-    };
-    
-    console.log('Setting purchase content:', purchaseData);
-    setPurchaseContent(purchaseData);
-    console.log('Setting purchase modal open');
+      priceUsd: Number(priceUsd.toFixed(2)),
+      stillPriceKnyt: baseKnyt,
+      motionPriceKnyt: baseKnyt,
+      hideVersionSelector,
+    });
     setPurchaseModalOpen(true);
-  }, [resolveEpisodeNumber, resolvePreorderVariantId, resolveAccessPrice]);
+  }, [resolveEpisodeNumber, resolvePreorderVariantId, resolveAccessPrice, episodesCatalog]);
 
   const getOwnedIssuesForEpisode = useCallback((episodeNumber: number) => {
     return ownedIssues.filter((issue) => issue.episodeNumber === episodeNumber);
   }, [ownedIssues]);
 
   const openPurchaseForEpisode = useCallback((episode: EpisodeFromAPI, action: 'read' | 'watch' | 'default' = 'default') => {
-    const explicitPriceKnyt = resolveAccessPrice(episode.priceKnyt);
-    if (explicitPriceKnyt === null) {
+    const epNum = Number(episode.episodeNumber);
+    // Source of truth: EPISODE_PRICING (admin pricing table). Fall back to
+    // the API price field if the SoT lookup misses. DB ep N → pricing ep N-1.
+    const pricingEpNum = epNum - 1;
+    const sot = EPISODE_PRICING.find((p) => p.episodeNumber === pricingEpNum);
+    const apiPriceKnyt = resolveAccessPrice(episode.priceKnyt);
+    let priceUsd: number | null = null;
+    let baseKnyt: number | null = null;
+    if (sot?.qriptoPrice && sot.qriptoPrice > 0) {
+      priceUsd = sot.qriptoPrice;
+      baseKnyt = usdToKnyt(priceUsd);
+    } else if (apiPriceKnyt !== null) {
+      baseKnyt = apiPriceKnyt;
+      priceUsd = Number(episode.priceUsd ?? apiPriceKnyt * 1.4);
+    }
+    if (baseKnyt === null || priceUsd === null) {
       return;
     }
     const contentType: ContentType =
@@ -1983,11 +2009,14 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             : 'scroll_still';
     setPurchaseContent({
       type: contentType,
-      id: episode.purchaseId || `mk_ep${String(episode.episodeNumber).padStart(2, '0')}`,
+      id: episode.purchaseId || `mk_ep${String(epNum).padStart(2, '0')}`,
       title: episode.title || `Episode ${episode.displayNumber}`,
       image: episode.coverThumbUrl || (episode.coverImageCid ? `/api/content/cover/${encodeURIComponent(episode.coverImageCid)}?variant=thumb` : undefined),
-      baseKnyt: explicitPriceKnyt,
-      priceUsd: episode.priceUsd ?? (explicitPriceKnyt * 1.4),
+      baseKnyt,
+      priceUsd: Number(priceUsd.toFixed(2)),
+      stillPriceKnyt: baseKnyt,
+      motionPriceKnyt: baseKnyt,
+      hideVersionSelector: !episode.hasMotionMaster,
     });
     setPurchaseModalOpen(true);
   }, [resolveAccessPrice]);
@@ -2087,7 +2116,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         if (resolvedItemPrice === null) {
           return;
         }
-        console.log('Processing character portrait purchase');
+        // Character cards have a single still rendition (no motion variant)
+        // — hide the version selector and let still/motion mirror the same
+        // KNYT base so the modal stops showing the placeholder 2 / 4 KNYT.
         setPurchaseContent({
           type: 'character_card',
           id: item.id,
@@ -2095,6 +2126,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
           image: item.thumbnail,
           baseKnyt: resolvedItemPrice,
           priceUsd: Number((resolvedItemPrice * 1.4).toFixed(2)),
+          stillPriceKnyt: resolvedItemPrice,
+          motionPriceKnyt: resolvedItemPrice,
+          hideVersionSelector: true,
         });
         setPurchaseModalOpen(true);
         return;
@@ -3060,6 +3094,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
               contentImage={purchaseContent.image}
               baseKnytOverride={purchaseContent.baseKnyt}
               priceUsdOverride={purchaseContent.priceUsd}
+              stillPriceKnytOverride={purchaseContent.stillPriceKnyt}
+              motionPriceKnytOverride={purchaseContent.motionPriceKnyt}
+              hideVersionSelector={purchaseContent.hideVersionSelector}
               knytBalance={balance?.dvnKnyt || 0}
               spendableKnyt={spendableBalance || 0}
               evmKnyt={balance?.evmKnyt || 0}
