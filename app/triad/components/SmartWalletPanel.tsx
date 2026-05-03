@@ -254,6 +254,8 @@ export default function SmartWalletPanel({ personaId, theme = 'dark', density = 
                     ? meta.characterName
                     : meta.episodeNumber != null
                     ? `Ep. ${meta.episodeNumber}`
+                    : meta.title
+                    ? meta.title
                     : ent.assetId;
                   const typeLabel = meta.isMotion
                     ? 'Motion'
