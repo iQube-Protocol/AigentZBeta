@@ -1506,6 +1506,17 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   }, []);
 
   const openEpisodeVideo = useCallback(async (episode: EpisodeFromAPI, fallbackVideoCid?: string | null, fallbackVideoUrl?: string | null) => {
+    // Defence-in-depth gate: episodes are inherently locked. Even if a caller
+    // forgot to check, refuse to open the player for an unowned episode.
+    // Source of truth: ownedIssues (SKU-aware via /api/codex/owned).
+    const epNum = episode.episodeNumber;
+    if (typeof epNum === 'number' && epNum !== null) {
+      const owned = ownedIssues.some((issue) => issue.episodeNumber === epNum);
+      if (!owned) {
+        openPurchaseForEpisode(episode, 'watch');
+        return;
+      }
+    }
     const motionSource = normalizeVideoSource(
       fallbackVideoUrl ||
       fallbackVideoCid ||
@@ -1537,7 +1548,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       setCurrentVideoUseDirectStream(true);
       setVideoPlayerOpen(true);
     }
-  }, [fetchEpisodeSegments, getVideoPlaybackUrl, normalizeVideoSource]);
+  }, [fetchEpisodeSegments, getVideoPlaybackUrl, normalizeVideoSource, ownedIssues, openPurchaseForEpisode]);
 
   useEffect(() => {
     if (!contentItems.length && !episodesCatalog.length) return;
@@ -1904,6 +1915,12 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     setSelectedItemId(item.id);
 
     if (item.media?.text && !item.media?.pdf_cid && !item.media?.video_cid) {
+      // Defence-in-depth gate: text content for episode items is also gated.
+      // Only opens the text reader if the episode is owned.
+      if (isEpisodeLocked(item)) {
+        openPurchaseForItem(item, 'read');
+        return;
+      }
       setCurrentText({ title: item.title, content: item.media.text });
       setTextReaderOpen(true);
     }
@@ -1916,7 +1933,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     } else if (item.type === 'comic_cover_portrait' || item.type === 'comic_page_portrait') {
       setUserIntent('page_review');
     }
-  }, []);
+  }, [isEpisodeLocked, openPurchaseForItem]);
 
   const openCopilotWithContext = useCallback((item: KnytContentItem) => {
     const actionHints: string[] = [];
