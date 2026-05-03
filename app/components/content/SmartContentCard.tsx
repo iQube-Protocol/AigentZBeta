@@ -166,7 +166,17 @@ export default function SmartContentCard({
 
   // Get primary pricing tier (handle missing pricingModel)
   const primaryTier = content.pricingModel?.tiers?.[0];
-  const isFree = primaryTier?.kind === "free" || !primaryTier;
+  // Codex-shaped ids (master_content_qubes mk_ep* or codex_media_assets UUIDs)
+  // are NEVER free regardless of pricing tiers — they're inherently gated.
+  // Preorder cards (with explicit priceKnyt) are unaffected — they continue to
+  // compute isFree=false from primaryTier. This guard catches the case where
+  // a codex card arrives with no pricingModel (the leak path: empty tiers
+  // would otherwise default isFree=true → click opens viewer for anon users).
+  const looksLikeCodexAsset = !!content.id && (
+    /^mk_ep\d{1,4}_/i.test(content.id) ||
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(content.id)
+  );
+  const isFree = primaryTier?.kind === "free" || (!primaryTier && !looksLikeCodexAsset);
 
   // Get structure info
   const structureLabel = content.structure?.kind
