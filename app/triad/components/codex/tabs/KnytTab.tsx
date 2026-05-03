@@ -1798,16 +1798,21 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const isEpisodeLocked = useCallback((item: KnytContentItem) => {
     const episodeNumber = resolveEpisodeNumber(item);
     if (episodeNumber === null) return false;
-    const hasPaidGate = resolveAccessPrice(item.metadata?.price) !== null;
-    const hasRestrictionGate = hasAccessRestriction(item.metadata as GatingMetadata | undefined);
-    if (!hasPaidGate && !hasRestrictionGate) {
-      return false;
-    }
-    if (hasPaidGate) {
-      return !item.metadata?.owned;
-    }
+    // Episodes are INHERENTLY gated. We do not consult item.metadata?.price
+    // because the cartridge data shape does not always carry it; absence of
+    // a price MUST NOT imply free access.
+    //
+    // Source of truth for ownership: ownedIssues (populated from
+    // /api/codex/owned, which is SKU-aware). For anonymous viewers this is
+    // empty, so every episode reads as locked. For authenticated owners or
+    // bundle holders, the matching episode is unlocked.
+    const ownedForEp = ownedIssues.filter((issue) => issue.episodeNumber === episodeNumber);
+    if (ownedForEp.length > 0) return false;
+    // Optional credential gate (e.g. investor-only preorders). Only matters
+    // when the metadata explicitly declares one — not used as a free pass.
+    if (hasAccessRestriction(item.metadata as GatingMetadata | undefined)) return true;
     return true;
-  }, [resolveEpisodeNumber, resolveAccessPrice, hasAccessRestriction]);
+  }, [resolveEpisodeNumber, ownedIssues, hasAccessRestriction]);
 
   const openPurchaseForItem = useCallback((item: KnytContentItem, action: 'read' | 'watch' | 'default' = 'default') => {
     const episodeNumber = resolveEpisodeNumber(item);
