@@ -34,10 +34,20 @@ export function useKnytThumbnails() {
     }
     fetch('/api/knyt/thumbnails?series=metaKnyts')
       .then((r) => r.json())
-      .then((d: ThumbnailData) => {
-        cache.data = d;
+      .then((raw: unknown) => {
+        // System-boundary validation: the API normally returns
+        // { covers: [...], characters: [...] } but a Lambda timeout, a 5xx
+        // returning HTML, or a partial body can give us a non-conforming
+        // payload. Without this guard, downstream getCoverThumb crashes the
+        // surface with "undefined is not an object (evaluating 'e.covers.find')".
+        const obj = (raw && typeof raw === 'object' ? raw : {}) as Partial<ThumbnailData>;
+        const safe: ThumbnailData = {
+          covers: Array.isArray(obj.covers) ? obj.covers : [],
+          characters: Array.isArray(obj.characters) ? obj.characters : [],
+        };
+        cache.data = safe;
         cache.fetchedAt = Date.now();
-        setData(d);
+        setData(safe);
       })
       .catch(() => {})
       .finally(() => setLoading(false));

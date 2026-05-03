@@ -408,7 +408,7 @@ export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
             <p className="text-[11px] text-slate-400 px-0.5">
               13 KNYT character cards — one per episode. Each card drawn from its own {QRIPTO_SUPPLY.toLocaleString()}-unit Qripto pool.
             </p>
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
               {CARD_EPISODE_NUMBERS.map((epNum) => (
                 <CharacterCardItem
                   key={epNum}

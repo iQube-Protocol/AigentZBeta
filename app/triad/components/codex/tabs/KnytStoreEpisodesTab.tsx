@@ -696,7 +696,7 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
               <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide px-0.5 mb-2">
                 Agentic Graphic Novel
               </p>
-              <div className="grid grid-cols-4 gap-1.5">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
                 {GN_SKUS.map((sku) => {
                   const thumb = getCoverThumb(-1);
                   return (
@@ -732,7 +732,7 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
               <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide px-0.5 mb-2">
                 Episodes 0–12
               </p>
-              <div className="grid grid-cols-4 gap-1.5">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
                 {episodes.map((ep) => {
                   const thumb = getCoverThumb(ep.episodeNumber);
                   return (

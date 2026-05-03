@@ -480,7 +480,7 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
             {gnInvestorBundles.length > 0 && (
               <div className="space-y-2">
                 <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide px-0.5">Graphic Novel — 20% off retail</p>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                   {gnInvestorBundles.map((bundle) => (
                     <InvestorBundleCard
                       key={bundle.id}
@@ -501,7 +501,7 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
             {collectionInvestorBundles.length > 0 && (
               <div className="space-y-2">
                 <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide px-0.5">Collection Bundles</p>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                   {collectionInvestorBundles.map((bundle) => (
                     <InvestorBundleCard
                       key={bundle.id}

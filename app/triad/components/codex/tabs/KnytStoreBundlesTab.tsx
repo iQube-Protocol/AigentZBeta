@@ -635,7 +635,7 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide px-0.5 mb-2">
                   Graphic Novel, Episode &amp; Character Bundles
                 </p>
-                <div className="grid grid-cols-4 gap-1.5">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
                   {investorBundles.map((bundle) => {
                     // Show retail price for the public-facing retail tab
                     const retailBundle = { ...bundle, digitalPrice: bundle.retailPrice ?? bundle.digitalPrice, retailPrice: undefined };
