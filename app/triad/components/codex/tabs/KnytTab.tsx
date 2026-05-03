@@ -2539,7 +2539,11 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                       const isAvailable = hasMaster;
                       const priceKnyt = resolveAccessPrice(episode.priceKnyt);
                       const priceUsd = episode.priceUsd ?? ((priceKnyt ?? 0) * 1.4);
-                      const isPaymentGated = priceKnyt !== null;
+                      // Episodes are inherently payment-gated content. The
+                      // price field is for display; absence of a price MUST
+                      // NOT imply free access (default-free invariant applies
+                      // only at the loader level for non-codex content).
+                      const isPaymentGated = isAvailable;
 
                       return (
                         <div

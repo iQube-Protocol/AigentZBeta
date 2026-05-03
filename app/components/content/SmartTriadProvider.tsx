@@ -119,6 +119,10 @@ export interface TriadState {
   ownedContentIds: Set<string>;
   libraryLoading: boolean;
 
+  // Credentials — CRM / wallet / entitlement-derived; used by credential-gated content
+  credentials: Set<string>;
+  credentialsLoading: boolean;
+
   // SmartActions — share
   shareItem: ShareItem | null;
 
@@ -151,6 +155,8 @@ export interface TriadActions {
   // Library actions
   refreshLibrary: () => Promise<void>;
   checkOwnership: (contentId: string) => boolean;
+  refreshCredentials: () => Promise<void>;
+  hasCredential: (credential: string) => boolean;
 
   // SmartActions — share
   openShare: (item: ShareItem) => void;
@@ -215,6 +221,8 @@ export function SmartTriadProvider({
     lastPurchase: null,
     ownedContentIds: new Set(),
     libraryLoading: false,
+    credentials: new Set(),
+    credentialsLoading: false,
     shareItem: null,
     contentAccessGranted: false,
     devGatingOverride: false,
@@ -229,10 +237,11 @@ export function SmartTriadProvider({
     }
   }, []);
 
-  // Load library on mount
+  // Load library + credentials on mount / persona change
   useEffect(() => {
     if (personaId) {
       refreshLibrary();
+      refreshCredentials();
     }
   }, [personaId]);
 
@@ -527,6 +536,32 @@ export function SmartTriadProvider({
   }, [state.ownedContentIds, state.devGatingOverride]);
 
   // ==========================================================================
+  // CREDENTIALS — CRM / entitlement / wallet-derived flags used by credential-
+  // gated content. Loaded on persona change; reread after purchases that grant
+  // a credential (e.g. Zero KNYT bundle → 'zero-knyt').
+  // ==========================================================================
+  const refreshCredentials = useCallback(async () => {
+    if (!personaId) {
+      setState((prev) => ({ ...prev, credentials: new Set(), credentialsLoading: false }));
+      return;
+    }
+    setState((prev) => ({ ...prev, credentialsLoading: true }));
+    try {
+      const res = await fetch(`/api/persona/credentials?personaId=${encodeURIComponent(personaId)}`);
+      const json = await res.json().catch(() => ({ credentials: [] }));
+      const creds = new Set<string>(json.credentials ?? []);
+      setState((prev) => ({ ...prev, credentials: creds, credentialsLoading: false }));
+    } catch {
+      setState((prev) => ({ ...prev, credentialsLoading: false }));
+    }
+  }, [personaId]);
+
+  const hasCredential = useCallback((credential: string): boolean => {
+    if (state.devGatingOverride) return true;
+    return state.credentials.has(credential);
+  }, [state.credentials, state.devGatingOverride]);
+
+  // ==========================================================================
   // SMARTACTIONS — SHARE
   // ==========================================================================
 
@@ -682,6 +717,8 @@ export function SmartTriadProvider({
       purchaseContent,
       refreshLibrary,
       checkOwnership,
+      refreshCredentials,
+      hasCredential,
       openShare,
       closeShare,
       setContentAccessGranted,
