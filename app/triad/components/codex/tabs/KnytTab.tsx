@@ -11,6 +11,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import { Loader2, BookOpen, Play, Lock, Check, Sparkles, Coins, ShoppingCart, AlertTriangle, RefreshCw, LogIn, FileText, Cpu, Globe, Shield, Scroll, ArrowLeft, User, Zap } from "lucide-react";
+import { useCardAccess } from "@/app/hooks/useCardAccess";
+import { OwnedBadge, AccessibleBadge, RestrictedBadge, CartButton } from "@/app/components/content/CardAccessBadges";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +38,7 @@ import { usePersonaSafe } from "@/app/contexts/PersonaContext";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 import type { KnytCardAsset, EpisodeGroup } from "@/app/hooks/useKnytCards";
 import type { PersonaQube } from "@/types/persona";
+import { EPISODE_PRICING, KNYT_COYN_DISCOUNT, usdToKnyt } from "@/types/knyt-store";
 // Inline Character Detail Page Component to avoid import issues
 const InlineCharacterDetailPage = ({ characterId, onBack }: { characterId: string; onBack?: () => void }) => {
   const [character, setCharacter] = useState<KnytCardAsset | null>(null);
@@ -347,25 +350,40 @@ const PREORDER_VARIANTS = [
   { id: 'common', label: 'Common (#-1)', priceUsd: 68, tone: 'text-gray-400' },
 ];
 
+// Single Graphic Novel card (replacing prior preorder rarity drops). The codex
+// shows ONE AGN entry — same image and copy as the store's "Agentic Graphic
+// Novel Qripto" bundle, priced from the EPISODE_PRICING SoT (qriptoPrice 78
+// USD → 62.4 KNYT after the 20% KNYT_COYN_DISCOUNT applied at checkout).
+// Future rarity tiers (legendary/epic/rare/common) per episode will be added
+// later; today the codex shows ONE card per episode for parity.
+// Default cover image for the AGN — same "1 Cover 1a" CID used by the store's
+// gn-investor-qripto bundle hero (see useBundleImages.DEFAULT_QRIPTO_URL).
+// Both surfaces resolve to the same image; replacing here will be a one-line
+// swap when the operator-editable bundle_image_asset_id pipeline ships.
+const AGN_QRIPTO_IMAGE_URL = '/api/content/cover/bafkr6ifnltnq2xidhizv7lkvrevsipvl4l7qx6weca42q5iacffmybuxzm?variant=thumb';
+
 const PREORDER_CONTENT_VARIANTS = [
-  { id: 'legendary', subtitle: 'Episode #-4', title: 'Episode -1 Preorder Drop (Legendary)', priceKnyt: 1500 },
-  { id: 'epic', subtitle: 'Episode #-3', title: 'Episode -1 Preorder Drop (Epic)', priceKnyt: 133 },
-  { id: 'rare', subtitle: 'Episode #-2', title: 'Episode -1 Preorder Drop (Rare)', priceKnyt: 61 },
-  { id: 'common', subtitle: 'Episode #-1', title: 'Episode -1 Preorder Drop (Common)', priceKnyt: 49 },
+  {
+    id: 'common',
+    subtitle: 'Graphic Novel',
+    title: 'Agentic Graphic Novel Qripto',
+    description: 'The KNYT graphic novel — Qripto edition. Includes the QAGN (Qripto AgentiQ Graphic Novel) collectible.',
+    // Derived: EPISODE_PRICING[-1].qriptoPrice (78) × (1 - KNYT_COYN_DISCOUNT 0.20) = 62.4
+    priceKnyt: 62.4,
+    priceUsd: 78,
+    imageUrl: AGN_QRIPTO_IMAGE_URL,
+  },
 ] as const;
 
 type PreorderVariantId = (typeof PREORDER_CONTENT_VARIANTS)[number]['id'];
 
 const PREORDER_VARIANT_EPISODE_NUMBER: Record<PreorderVariantId, number> = {
-  legendary: -4,
-  epic: -3,
-  rare: -2,
   common: -1,
 };
 
-const KNYT_CONTENT_CACHE_KEY = "codex:knyt:content:v3";
-const KNYT_EPISODES_CACHE_KEY = "codex:knyt:episodes";
-const KNYT_SESSION_CACHE_KEY = "codex:knyt:session:v2";
+const KNYT_CONTENT_CACHE_KEY = "codex:knyt:content:v7";
+const KNYT_EPISODES_CACHE_KEY = "codex:knyt:episodes:v5";
+const KNYT_SESSION_CACHE_KEY = "codex:knyt:session:v6";
 const KNYT_SESSION_CACHE_TTL_MS = 30 * 60 * 1000;
 
 type KnytSessionSnapshot = {
@@ -567,6 +585,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     image?: string;
     baseKnyt?: number;
     priceUsd?: number;
+    stillPriceKnyt?: number;
+    motionPriceKnyt?: number;
+    hideVersionSelector?: boolean;
   } | null>(null);
 
   const cart = useKnytCart();
@@ -695,10 +716,18 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const [currentText, setCurrentText] = useState<{ title: string; content: string } | null>(null);
   // Wallet drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const handleOpenWallet = useCallback((_mode: 'signin' | 'signup') => {
-    setDrawerOpen(true);
-  }, []);
+  // Copilot state declared FIRST so handleOpenWallet's setters resolve at
+  // call time without TDZ noise.
   const [codexCopilotOpen, setCodexCopilotOpen] = useState(false);
+  // Sign-in surface: route through the embedded copilot wallet panel rather
+  // than the parallel SmartWalletDrawer. The drawer has z-index conflicts in
+  // the metaMe embed; the copilot's wallet tab is already integrated with the
+  // unified persona helper and renders correctly above codex layers.
+  const [copilotWalletSignal, setCopilotWalletSignal] = useState(0);
+  const handleOpenWallet = useCallback((_mode: 'signin' | 'signup') => {
+    setCodexCopilotOpen(true);
+    setCopilotWalletSignal((n) => n + 1);
+  }, []);
   const [codexCopilotMessages, setCodexCopilotMessages] = useState<CopilotMessage[]>(() => [
     createCodexCopilotWelcomeMessage(resolvedInitialTab),
   ]);
@@ -740,6 +769,49 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   });
   const { ownedCharacters, refreshPurchases } = useKnytPurchases(effectivePersonaId);
   const isSignedIn = !!effectivePersonaId;
+
+  // ── Pending purchase intent (anon → sign-in → purchase preservation) ─────
+  // When an unauth user clicks the cart on a payment-gated card, we open the
+  // wallet drawer for sign-in and stash the intent. Once a persona becomes
+  // available (effect on effectivePersonaId), we automatically open the
+  // purchase modal with the same intent — option (A) one-click intent flow.
+  const [pendingPurchaseIntent, setPendingPurchaseIntent] = useState<{
+    contentId: string;
+    contentTitle?: string;
+    contentImage?: string;
+    priceUsd?: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (effectivePersonaId && pendingPurchaseIntent) {
+      const intent = pendingPurchaseIntent;
+      setPendingPurchaseIntent(null);
+      // Best-effort: re-open the purchase modal for the same content.
+      const ep = episodesCatalog.find((e) =>
+        (e.purchaseId || `mk_ep${String(e.episodeNumber).padStart(2, '0')}`) === intent.contentId,
+      );
+      if (ep) {
+        openPurchaseForEpisode(ep);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectivePersonaId]);
+
+  const cardAccess = useCardAccess({
+    personaId: effectivePersonaId,
+    series: 'metaKnyts',
+    onOpenPurchase: (intent) => {
+      const ep = episodesCatalog.find((e) =>
+        (e.purchaseId || `mk_ep${String(e.episodeNumber).padStart(2, '0')}`) === intent.contentId,
+      );
+      if (ep) openPurchaseForEpisode(ep);
+    },
+    onOpenSignIn: (intent) => {
+      setPendingPurchaseIntent(intent);
+      handleOpenWallet('signin');
+    },
+  });
+
   const showLayoutPreviewControls = useMemo(() => {
     const allowlist = parseAdminAllowlist(process.env.NEXT_PUBLIC_KNYT_LAYOUT_PREVIEW_ADMINS);
     const forceFromEnv = process.env.NEXT_PUBLIC_KNYT_LAYOUT_PREVIEW_ENABLED === 'true';
@@ -860,6 +932,8 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       duration?: string;
       created_at?: string;
       updated_at?: string;
+      price?: number;
+      owned?: boolean;
     };
 
     const videoSource = normalizeVideoSource(
@@ -910,17 +984,29 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       type: knytItem.type,
       created_at: metadata.created_at,
       updated_at: metadata.updated_at,
+      // Carry pricing through so SmartContentActions / consumers see a price.
+      price: typeof metadata.price === 'number' && metadata.price > 0
+        ? { amount: metadata.price, currency: 'Q¢' as const, paymentType: 'one-time' as const }
+        : undefined,
     };
   }, [normalizeVideoSource]);
 
   const transformEpisodesToContentItems = useCallback((episodes: EpisodeFromAPI[]): KnytContentItem[] => {
     const items: KnytContentItem[] = [];
     const preorderThumbCandidates: string[] = [];
-    
+    // DB ep 0 = GN — capture before skipping so AGN card can wire the GN's
+    // print CID into media.pdf_cid + modalities.read.
+    let gnEp: EpisodeFromAPI | null = null;
+
     for (const ep of episodes) {
       const episodeNumber = Number(ep.episodeNumber);
-      // Skip episode 0 (placeholder)
-      if (!Number.isFinite(episodeNumber) || episodeNumber === 0) continue;
+      if (!Number.isFinite(episodeNumber)) continue;
+      // Capture GN (DB ep 0) data, but don't create a standalone episode card
+      // for it — the AGN card is injected below.
+      if (episodeNumber === 0) { gnEp = ep; continue; }
+      // Skip the legacy preorder rarity drops (DB ep -1..-4) — replaced by
+      // the single AGN card injected below.
+      if (episodeNumber < 0) continue;
       
       const printCid = ep.printRareCid || ep.printEpicCid || ep.printLegendaryCid || ep.printCommonCid;
       const printLiteUrl = ep.printRareLiteUrl || ep.printEpicLiteUrl || ep.printLegendaryLiteUrl || ep.printCommonLiteUrl;
@@ -937,7 +1023,23 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         null
       );
       const hasWatchable = ep.hasMotionMaster && Boolean(motionSource.cid || motionSource.url);
-      const resolvedPriceKnyt = resolveAccessPrice(ep.priceKnyt);
+      // Episode pricing — single source of truth: EPISODE_PRICING (admin
+      // pricing table). DB→pricing convention: DB ep 1 = pricing #0, … DB ep
+      // 13 = pricing #12. We derive BOTH the KNYT-paid USD-equivalent
+      // (qriptoPrice × 0.8 — matches "$KNYT 62.4 ($78)" pattern the user
+      // wants for the AGN) and the retail USD price for display alongside.
+      const apiPriceKnyt = resolveAccessPrice(ep.priceKnyt);
+      const pricingEpNum = episodeNumber - 1;
+      const sot = EPISODE_PRICING.find((p) => p.episodeNumber === pricingEpNum);
+      let resolvedPriceKnyt = apiPriceKnyt;
+      let resolvedPriceUsd: number | null = null;
+      if (sot?.qriptoPrice && sot.qriptoPrice > 0) {
+        resolvedPriceUsd = sot.qriptoPrice;
+        if (resolvedPriceKnyt === null) {
+          // 20% KNYT discount applied at checkout — show the KNYT-paid $ amount
+          resolvedPriceKnyt = Math.round(sot.qriptoPrice * (1 - KNYT_COYN_DISCOUNT) * 100) / 100;
+        }
+      }
       const episodeBaseId = ep.purchaseId || `mk_ep${String(episodeNumber).padStart(2, '0')}`;
       
       // Add as comic page (portrait) if has print
@@ -958,6 +1060,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             episodeNumber, 
             owned: false, // TODO: Check entitlements
             price: resolvedPriceKnyt ?? undefined,
+            priceUsd: resolvedPriceUsd ?? undefined,
             realm: 'digiterra' 
           },
           modalities: { 
@@ -980,6 +1083,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             episodeNumber, 
             owned: false, 
             price: resolvedPriceKnyt ?? undefined,
+            priceUsd: resolvedPriceUsd ?? undefined,
             realm: 'digiterra' 
           },
           modalities: { 
@@ -1003,6 +1107,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             episodeNumber,
             owned: false,
             price: resolvedPriceKnyt ?? undefined,
+            priceUsd: resolvedPriceUsd ?? undefined,
             realm: 'digiterra',
           },
           modalities: {},
@@ -1010,39 +1115,47 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       }
     }
 
-    // Backfill pre-order variants when API data is missing some (or all) tiers.
-    const existingVariants = new Set<string>();
-    for (const item of items) {
-      const title = item.title.toLowerCase();
-      if (title.includes('legendary')) existingVariants.add('legendary');
-      if (title.includes('epic')) existingVariants.add('epic');
-      if (title.includes('rare')) existingVariants.add('rare');
-      if (title.includes('common')) existingVariants.add('common');
-    }
+    // Add the single Graphic Novel card (replaces 4 prior preorder rarity
+    // drops). Image and copy mirror the store's "Agentic Graphic Novel
+    // Qripto" bundle so the codex and store stay aligned. Inserted at the
+    // FRONT so the AGN card renders before episode #0..#12 in the grid.
+    // Wire the GN's print CID/lite URL onto every AGN variant card so owned
+    // users can open the PDF reader. Read button is gated by
+    // modalities.read.available (not by card type), so we keep the type as
+    // comic_cover_portrait — same Liquid UI stage routing as before.
+    const gnPrintCid = gnEp
+      ? (gnEp.printRareCid || gnEp.printEpicCid || gnEp.printLegendaryCid || gnEp.printCommonCid)
+      : undefined;
+    const gnPrintLiteUrl = gnEp
+      ? (gnEp.printRareLiteUrl || gnEp.printEpicLiteUrl || gnEp.printLegendaryLiteUrl || gnEp.printCommonLiteUrl)
+      : undefined;
+    const gnHasReadable = !!(gnPrintCid || gnPrintLiteUrl);
 
-    const fallbackThumb = preorderThumbCandidates[0];
-    for (const variant of PREORDER_CONTENT_VARIANTS) {
-      if (existingVariants.has(variant.id)) continue;
-      items.push({
-        id: `metaKnyts_preorder_${variant.id}`,
-        type: 'comic_cover_portrait',
-        title: variant.title,
-        subtitle: variant.subtitle,
-        thumbnail: fallbackThumb,
-        media: {
-          image_cid: undefined,
-        },
-        metadata: {
-          episodeNumber: PREORDER_VARIANT_EPISODE_NUMBER[variant.id],
-          owned: false,
-          price: variant.priceKnyt,
-          realm: 'digiterra',
-        },
-        modalities: {},
-      });
-    }
-    
-    return items;
+    const agnCards: KnytContentItem[] = PREORDER_CONTENT_VARIANTS.map((variant) => ({
+      id: `metaKnyts_preorder_${variant.id}`,
+      type: 'comic_cover_portrait',
+      title: variant.title,
+      subtitle: variant.subtitle,
+      description: variant.description,
+      thumbnail: variant.imageUrl,
+      media: {
+        image_cid: undefined,
+        pdf_cid: gnPrintCid,
+        pdf_lite_url: gnPrintLiteUrl,
+      },
+      metadata: {
+        episodeNumber: PREORDER_VARIANT_EPISODE_NUMBER[variant.id],
+        owned: false,
+        price: variant.priceKnyt,
+        priceUsd: variant.priceUsd,
+        realm: 'digiterra',
+      },
+      modalities: gnHasReadable
+        ? { read: { available: true, cid: gnPrintCid } }
+        : {},
+    }));
+
+    return [...agnCards, ...items];
   }, [normalizeVideoSource, resolveAccessPrice]);
 
   const transformCharactersToContentItems = useCallback((characters: CharacterFromAPI[]): KnytContentItem[] => {
@@ -1506,6 +1619,17 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   }, []);
 
   const openEpisodeVideo = useCallback(async (episode: EpisodeFromAPI, fallbackVideoCid?: string | null, fallbackVideoUrl?: string | null) => {
+    // Defence-in-depth gate: episodes are inherently locked. Even if a caller
+    // forgot to check, refuse to open the player for an unowned episode.
+    // Source of truth: ownedIssues (SKU-aware via /api/codex/owned).
+    const epNum = episode.episodeNumber;
+    if (typeof epNum === 'number' && epNum !== null) {
+      const owned = ownedIssues.some((issue) => issue.episodeNumber === epNum);
+      if (!owned) {
+        openPurchaseForEpisode(episode, 'watch');
+        return;
+      }
+    }
     const motionSource = normalizeVideoSource(
       fallbackVideoUrl ||
       fallbackVideoCid ||
@@ -1537,7 +1661,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       setCurrentVideoUseDirectStream(true);
       setVideoPlayerOpen(true);
     }
-  }, [fetchEpisodeSegments, getVideoPlaybackUrl, normalizeVideoSource]);
+  }, [fetchEpisodeSegments, getVideoPlaybackUrl, normalizeVideoSource, ownedIssues]);
+  // openPurchaseForEpisode intentionally not in deps — it's declared after this
+  // useCallback in the file (TDZ would crash render). Closure resolves it at
+  // call time, which is always after both declarations have run.
 
   useEffect(() => {
     if (!contentItems.length && !episodesCatalog.length) return;
@@ -1798,71 +1925,99 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const isEpisodeLocked = useCallback((item: KnytContentItem) => {
     const episodeNumber = resolveEpisodeNumber(item);
     if (episodeNumber === null) return false;
-    const hasPaidGate = resolveAccessPrice(item.metadata?.price) !== null;
-    const hasRestrictionGate = hasAccessRestriction(item.metadata as GatingMetadata | undefined);
-    if (!hasPaidGate && !hasRestrictionGate) {
-      return false;
-    }
-    if (hasPaidGate) {
-      return !item.metadata?.owned;
-    }
+    // Episodes are INHERENTLY gated. We do not consult item.metadata?.price
+    // because the cartridge data shape does not always carry it; absence of
+    // a price MUST NOT imply free access.
+    //
+    // Source of truth for ownership: ownedIssues (populated from
+    // /api/codex/owned, which is SKU-aware). For anonymous viewers this is
+    // empty, so every episode reads as locked. For authenticated owners or
+    // bundle holders, the matching episode is unlocked.
+    const ownedForEp = ownedIssues.filter((issue) => issue.episodeNumber === episodeNumber);
+    if (ownedForEp.length > 0) return false;
+    // Optional credential gate (e.g. investor-only preorders). Only matters
+    // when the metadata explicitly declares one — not used as a free pass.
+    if (hasAccessRestriction(item.metadata as GatingMetadata | undefined)) return true;
     return true;
-  }, [resolveEpisodeNumber, resolveAccessPrice, hasAccessRestriction]);
+  }, [resolveEpisodeNumber, ownedIssues, hasAccessRestriction]);
 
   const openPurchaseForItem = useCallback((item: KnytContentItem, action: 'read' | 'watch' | 'default' = 'default') => {
     const episodeNumber = resolveEpisodeNumber(item);
-    console.log('openPurchaseForItem called:', { item: item.id, action, episodeNumber });
-    
     const preorderVariantId = resolvePreorderVariantId(item, episodeNumber);
     const itemPrice = resolveAccessPrice(item.metadata?.price);
     if (!preorderVariantId && itemPrice === null) {
-      console.log('No purchasable metadata, returning');
       return;
     }
-    
+
     const contentType: ContentType =
       action === 'watch' || item.type === 'motion_comic_landscape'
         ? 'scroll_motion'
         : 'scroll_still';
-    
-    // Handle preorder variants with specific pricing
+
+    // Resolve SoT pricing — use EPISODE_PRICING (admin pricing table) so the
+    // modal shows the same base/discount as the store. AGN preorder uses the
+    // gn-investor-qripto SKU id so the cart's processPurchase grants the
+    // real GN SKU (which the SKU expander unpacks to episode -1 ownership).
+    let priceUsd = Number((itemPrice ?? 0) * 1.4);
     let baseKnyt = itemPrice ?? 0;
-    let priceUsd = Number((baseKnyt * 1.4).toFixed(2));
-    
-    // Check if this is a preorder variant and apply specific pricing
+    let hideVersionSelector = false;
+    let purchaseId = item.id.replace(/_motion$/, '');
+
     if (preorderVariantId) {
-      const variant = PREORDER_CONTENT_VARIANTS.find(v => v.id === preorderVariantId);
-      if (variant) {
-        console.log('Found preorder variant:', preorderVariantId, 'price:', variant.priceKnyt);
-        baseKnyt = variant.priceKnyt;
-        priceUsd = Number((variant.priceKnyt * 1.4).toFixed(2));
-      } else {
-        console.log('Preorder variant not found:', preorderVariantId);
+      // AGN — single Qripto bundle, no Motion modality
+      priceUsd = 78;
+      baseKnyt = usdToKnyt(priceUsd);
+      hideVersionSelector = true;
+      purchaseId = 'gn-investor-qripto';
+    } else if (typeof episodeNumber === 'number') {
+      const pricingEpNum = episodeNumber - 1;
+      const sot = EPISODE_PRICING.find((p) => p.episodeNumber === pricingEpNum);
+      if (sot?.qriptoPrice && sot.qriptoPrice > 0) {
+        priceUsd = sot.qriptoPrice;
+        baseKnyt = usdToKnyt(priceUsd);
+      }
+      // Hide Motion when this episode has no motion master available.
+      const ep = episodesCatalog.find((e) => Number(e.episodeNumber) === episodeNumber);
+      if (ep && !ep.hasMotionMaster) {
+        hideVersionSelector = true;
       }
     }
-    
-    const purchaseData = {
+
+    setPurchaseContent({
       type: contentType,
-      id: preorderVariantId ? `metaKnyts_preorder_${preorderVariantId}` : item.id.replace(/_motion$/, ''),
+      id: purchaseId,
       title: item.title,
       image: item.thumbnail,
       baseKnyt,
-      priceUsd,
-    };
-    
-    console.log('Setting purchase content:', purchaseData);
-    setPurchaseContent(purchaseData);
-    console.log('Setting purchase modal open');
+      priceUsd: Number(priceUsd.toFixed(2)),
+      stillPriceKnyt: baseKnyt,
+      motionPriceKnyt: baseKnyt,
+      hideVersionSelector,
+    });
     setPurchaseModalOpen(true);
-  }, [resolveEpisodeNumber, resolvePreorderVariantId, resolveAccessPrice]);
+  }, [resolveEpisodeNumber, resolvePreorderVariantId, resolveAccessPrice, episodesCatalog]);
 
   const getOwnedIssuesForEpisode = useCallback((episodeNumber: number) => {
     return ownedIssues.filter((issue) => issue.episodeNumber === episodeNumber);
   }, [ownedIssues]);
 
   const openPurchaseForEpisode = useCallback((episode: EpisodeFromAPI, action: 'read' | 'watch' | 'default' = 'default') => {
-    const explicitPriceKnyt = resolveAccessPrice(episode.priceKnyt);
-    if (explicitPriceKnyt === null) {
+    const epNum = Number(episode.episodeNumber);
+    // Source of truth: EPISODE_PRICING (admin pricing table). Fall back to
+    // the API price field if the SoT lookup misses. DB ep N → pricing ep N-1.
+    const pricingEpNum = epNum - 1;
+    const sot = EPISODE_PRICING.find((p) => p.episodeNumber === pricingEpNum);
+    const apiPriceKnyt = resolveAccessPrice(episode.priceKnyt);
+    let priceUsd: number | null = null;
+    let baseKnyt: number | null = null;
+    if (sot?.qriptoPrice && sot.qriptoPrice > 0) {
+      priceUsd = sot.qriptoPrice;
+      baseKnyt = usdToKnyt(priceUsd);
+    } else if (apiPriceKnyt !== null) {
+      baseKnyt = apiPriceKnyt;
+      priceUsd = Number(episode.priceUsd ?? apiPriceKnyt * 1.4);
+    }
+    if (baseKnyt === null || priceUsd === null) {
       return;
     }
     const contentType: ContentType =
@@ -1875,11 +2030,14 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             : 'scroll_still';
     setPurchaseContent({
       type: contentType,
-      id: episode.purchaseId || `mk_ep${String(episode.episodeNumber).padStart(2, '0')}`,
+      id: episode.purchaseId || `mk_ep${String(epNum).padStart(2, '0')}`,
       title: episode.title || `Episode ${episode.displayNumber}`,
       image: episode.coverThumbUrl || (episode.coverImageCid ? `/api/content/cover/${encodeURIComponent(episode.coverImageCid)}?variant=thumb` : undefined),
-      baseKnyt: explicitPriceKnyt,
-      priceUsd: episode.priceUsd ?? (explicitPriceKnyt * 1.4),
+      baseKnyt,
+      priceUsd: Number(priceUsd.toFixed(2)),
+      stillPriceKnyt: baseKnyt,
+      motionPriceKnyt: baseKnyt,
+      hideVersionSelector: !episode.hasMotionMaster,
     });
     setPurchaseModalOpen(true);
   }, [resolveAccessPrice]);
@@ -1899,6 +2057,12 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     setSelectedItemId(item.id);
 
     if (item.media?.text && !item.media?.pdf_cid && !item.media?.video_cid) {
+      // Defence-in-depth gate: text content for episode items is also gated.
+      // Only opens the text reader if the episode is owned.
+      if (isEpisodeLocked(item)) {
+        openPurchaseForItem(item, 'read');
+        return;
+      }
       setCurrentText({ title: item.title, content: item.media.text });
       setTextReaderOpen(true);
     }
@@ -1911,7 +2075,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     } else if (item.type === 'comic_cover_portrait' || item.type === 'comic_page_portrait') {
       setUserIntent('page_review');
     }
-  }, []);
+  }, [isEpisodeLocked, openPurchaseForItem]);
 
   const openCopilotWithContext = useCallback((item: KnytContentItem) => {
     const actionHints: string[] = [];
@@ -1973,7 +2137,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         if (resolvedItemPrice === null) {
           return;
         }
-        console.log('Processing character portrait purchase');
+        // Character cards have a single still rendition (no motion variant)
+        // — hide the version selector and let still/motion mirror the same
+        // KNYT base so the modal stops showing the placeholder 2 / 4 KNYT.
         setPurchaseContent({
           type: 'character_card',
           id: item.id,
@@ -1981,6 +2147,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
           image: item.thumbnail,
           baseKnyt: resolvedItemPrice,
           priceUsd: Number((resolvedItemPrice * 1.4).toFixed(2)),
+          stillPriceKnyt: resolvedItemPrice,
+          motionPriceKnyt: resolvedItemPrice,
+          hideVersionSelector: true,
         });
         setPurchaseModalOpen(true);
         return;
@@ -2524,6 +2693,13 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                     {episodesCatalog.map((episode) => {
                       const owned = getOwnedIssuesForEpisode(episode.episodeNumber);
                       const isOwned = owned.length > 0;
+                      // Unified gate: episode is codex-source content, gated
+                      // by payment, owned-flag overridden by ownedIssues check.
+                      const cardId = episode.purchaseId || `mk_ep${String(episode.episodeNumber).padStart(2, '0')}`;
+                      const cardAct = cardAccess.evaluate(
+                        { id: cardId, source: 'codex', episodeNumber: episode.episodeNumber },
+                        { manualOwned: isOwned },
+                      );
                       const episodeVideo = normalizeVideoSource(
                         episode.motionMasterCid ||
                         (episode as EpisodeFromAPI & { motionMasterUrl?: string; motionMasterPath?: string }).motionMasterUrl ||
@@ -2535,11 +2711,23 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                         episode.hasMotionMaster ||
                         episode.hasPrintRare ||
                         episode.hasPrintEpic ||
-                        episode.hasPrintLegendary;
-                      const isAvailable = hasMaster;
+                        episode.hasPrintLegendary ||
+                        episode.hasPrintCommon;
+                      // Defence-in-depth: even if the master-status flags are
+                      // stale or undefined (API hadn't returned them yet),
+                      // any episode object we've decided to render is gated.
+                      // Without this guard, an unflagged episode card with
+                      // only a Supabase-hosted common-tier PDF (where
+                      // hasPrintCommon may be missing in older fixtures)
+                      // would slip through with isAvailable=false → no gate.
+                      const isAvailable = true;
                       const priceKnyt = resolveAccessPrice(episode.priceKnyt);
                       const priceUsd = episode.priceUsd ?? ((priceKnyt ?? 0) * 1.4);
-                      const isPaymentGated = priceKnyt !== null;
+                      // Episodes are inherently payment-gated content. The
+                      // price field is for display; absence of a price MUST
+                      // NOT imply free access (default-free invariant applies
+                      // only at the loader level for non-codex content).
+                      const isPaymentGated = isAvailable;
 
                       return (
                         <div
@@ -2548,11 +2736,26 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                             isOwned ? 'ring-2 ring-cyan-400/50' : 'hover:ring-2 hover:ring-white/30'
                           }`}
                           onClick={() => {
-                            const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid || episode.printCommonCid;
-                            if (!isOwned && isAvailable && isPaymentGated) {
-                              openPurchaseForEpisode(episode);
+                            // Card body click — defers entirely to the unified
+                            // gate. If access isn't established, route to cart
+                            // (which itself routes to sign-in for anon users).
+                            // If access IS established, open the reader.
+                            if (cardAct.showShoppingCart) {
+                              cardAccess.handleCartClick(
+                                { id: cardId, source: 'codex', episodeNumber: episode.episodeNumber },
+                                cardAct,
+                                {
+                                  contentTitle: episode.title || `Episode ${episode.displayNumber}`,
+                                  contentImage: episode.coverThumbUrl || (episode.coverImageCid ? `/api/content/cover/${encodeURIComponent(episode.coverImageCid)}?variant=thumb` : undefined),
+                                  priceUsd,
+                                },
+                              );
                               return;
                             }
+                            if (!cardAct.showSmartActions) {
+                              return; // Restricted (credential gate, no credential) — silent no-op
+                            }
+                            const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid || episode.printCommonCid;
                             if (printCid) {
                               setCurrentPdfLiteUrl(
                                 episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || episode.printCommonLiteUrl || null
@@ -2578,18 +2781,16 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                           )}
                           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent pointer-events-none" />
 
-                          <div className="absolute top-2 right-2 flex flex-col gap-1">
-                            {isOwned && (
-                              <span className="px-2 py-1 bg-cyan-500/80 text-white text-xs font-bold rounded flex items-center gap-1">
-                                <Check className="w-3 h-3" /> OWNED
-                              </span>
-                            )}
-                            {!isAvailable && !isOwned && (
+                          <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+                            {cardAct.showOwnedBadge       && <OwnedBadge />}
+                            {cardAct.showAccessibleBadge  && <AccessibleBadge />}
+                            {cardAct.showRestrictedBadge  && cardAct.restrictedReason && <RestrictedBadge reason={cardAct.restrictedReason} />}
+                            {!isAvailable && cardAct.reason !== 'owned' && cardAct.reason !== 'credential-met' && (
                               <span className="px-2 py-1 bg-gray-500/80 text-white text-xs font-bold rounded flex items-center gap-1">
                                 <Lock className="w-3 h-3" /> SOON
                               </span>
                             )}
-                            {isAvailable && !isOwned && isPaymentGated && (
+                            {cardAct.showShoppingCart && priceKnyt && (
                               <span className="px-2 py-1 bg-amber-500/90 text-white text-xs font-bold rounded flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <Coins className="w-3 h-3" />
                                 {priceKnyt} KNYT
@@ -2598,37 +2799,35 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                           </div>
 
                           <div className="absolute bottom-12 right-2 flex gap-1 z-10">
-                            {isAvailable && !isOwned && isPaymentGated && (
+                            {/* Cart — render ONLY when payment-gated and not owned. Anonymous routes through sign-in. */}
+                            {cardAct.showShoppingCart && (
                               <button
                                 className="w-6 h-6 rounded-md bg-amber-500/80 backdrop-blur-sm flex items-center justify-center ring-1 ring-amber-400/40 text-white hover:bg-amber-400 transition-all"
-                                title={`Buy for ${priceKnyt} KNYT`}
+                                title={cardAct.cartCtaTarget === 'sign-in' ? 'Sign in to buy' : (priceKnyt ? `Buy for ${priceKnyt} KNYT` : 'Buy')}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setPurchaseContent({
-                                    type: episode.hasMotionMaster ? 'scroll_motion' : 'scroll_still',
-                                    id: episode.purchaseId || `mk_ep${String(episode.episodeNumber).padStart(2, '0')}`,
-                                    title: episode.title || `Episode ${episode.displayNumber}`,
-                                    image: episode.coverThumbUrl || (episode.coverImageCid ? `/api/content/cover/${encodeURIComponent(episode.coverImageCid)}?variant=thumb` : undefined),
-                                    baseKnyt: priceKnyt ?? 0,
-                                    priceUsd,
-                                  });
-                                  setPurchaseModalOpen(true);
+                                  cardAccess.handleCartClick(
+                                    { id: cardId, source: 'codex', episodeNumber: episode.episodeNumber },
+                                    cardAct,
+                                    {
+                                      contentTitle: episode.title || `Episode ${episode.displayNumber}`,
+                                      contentImage: episode.coverThumbUrl || (episode.coverImageCid ? `/api/content/cover/${encodeURIComponent(episode.coverImageCid)}?variant=thumb` : undefined),
+                                      priceUsd,
+                                    },
+                                  );
                                 }}
                               >
                                 <ShoppingCart className="w-3 h-3" />
                               </button>
                             )}
-                            {(episode.hasPrintRare || episode.hasPrintEpic || episode.hasPrintLegendary) && (
+                            {/* Read — render ONLY when smart actions are allowed (owned or credentialed). */}
+                            {cardAct.showSmartActions && (episode.hasPrintRare || episode.hasPrintEpic || episode.hasPrintLegendary || episode.hasPrintCommon) && (
                               <button
                                 className="w-6 h-6 rounded-md bg-black/60 backdrop-blur-sm flex items-center justify-center ring-1 ring-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-white transition-all"
                                 title="Read"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid || episode.printCommonCid;
-                                  if (!isOwned && isAvailable && isPaymentGated) {
-                                    openPurchaseForEpisode(episode, 'read');
-                                    return;
-                                  }
                                   if (printCid) {
                                     setCurrentPdfLiteUrl(
                                       episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || episode.printCommonLiteUrl || null
@@ -2642,17 +2841,14 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                                 <BookOpen className="w-3 h-3" />
                               </button>
                             )}
-                            {episode.hasMotionMaster && (episodeVideo.cid || episodeVideo.url) && (
+                            {/* Watch — same gate. */}
+                            {cardAct.showSmartActions && episode.hasMotionMaster && (episodeVideo.cid || episodeVideo.url) && (
                               <button
                                 className="w-6 h-6 rounded-md bg-black/60 backdrop-blur-sm flex items-center justify-center ring-1 ring-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-white transition-all"
                                 title="Watch"
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  if (!isOwned && isAvailable && isPaymentGated) {
-                                    openPurchaseForEpisode(episode, 'watch');
-                                    return;
-                                  }
                                   void openEpisodeVideo(episode, episodeVideo.cid || null, episodeVideo.url || null);
                                 }}
                               >
@@ -2919,6 +3115,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
               contentImage={purchaseContent.image}
               baseKnytOverride={purchaseContent.baseKnyt}
               priceUsdOverride={purchaseContent.priceUsd}
+              stillPriceKnytOverride={purchaseContent.stillPriceKnyt}
+              motionPriceKnytOverride={purchaseContent.motionPriceKnyt}
+              hideVersionSelector={purchaseContent.hideVersionSelector}
               knytBalance={balance?.dvnKnyt || 0}
               spendableKnyt={spendableBalance || 0}
               evmKnyt={balance?.evmKnyt || 0}
@@ -2942,6 +3141,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             personaId={effectivePersonaId}
             total={cart.total}
             totalWithKnyt={cart.totalWithKnyt}
+            onSignInRequest={() => handleOpenWallet('signin')}
           />
 
           {cart.count > 0 && !cartOpen && (
@@ -2968,6 +3168,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         enableInferenceRendering
         personaId={effectivePersonaId}
         contextId={`knyt-${activeTab}`}
+        walletTabSignal={copilotWalletSignal}
         messages={codexCopilotMessages}
         onMessagesChange={setCodexCopilotMessages}
         promptPlaceholder="Ask KNYT Copilot about this content..."

@@ -337,6 +337,8 @@ export interface KnytContentItem {
     rarity?: string;
     owned?: boolean;
     price?: number;
+    /** USD retail price displayed alongside the KNYT price (matches store SoT). */
+    priceUsd?: number;
     realm?: Realm;
     featured?: boolean;
     drawerGridLayout?: 'featured_left' | 'featured_right';

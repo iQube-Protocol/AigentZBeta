@@ -162,10 +162,28 @@ function TemplateBody({
 }
 
 function useTemplateActions() {
-  const { actions } = useSmartTriad();
+  const { actions, state } = useSmartTriad();
 
   return {
     open: async (content: SmartContentQube) => {
+      // Defence-in-depth gate at the template-action level.
+      // The cartridge surfaces (Scrolls, Characters, Lore) all route clicks
+      // through here. Any codex-shaped content (mk_ep* master ids or
+      // codex_media_assets UUIDs) is treated as gated unless owned.
+      const id = content?.id;
+      const isCodexAsset = !!id && (
+        /^mk_ep\d{1,4}_/i.test(id) ||
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+      );
+      const isOwned = !!id && actions.checkOwnership(id);
+      if (isCodexAsset && !isOwned) {
+        // Route to purchase flow instead of opening the viewer. For anon users
+        // openWallet routes to the wallet drawer where they can sign in; the
+        // pending content stays loaded so the purchase modal can pick it up.
+        await actions.loadContent(content.id);
+        actions.openWallet("full");
+        return;
+      }
       await actions.loadContent(content.id);
       actions.setViewerModality("read");
       actions.setActiveDrawer("contentViewer");

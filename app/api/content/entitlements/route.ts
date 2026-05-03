@@ -13,9 +13,24 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 import { getSmartContentService } from '@/services/content';
 import { getEntitlementService } from '@/services/rewards/entitlementService';
 import { getOwnedAssetIds } from '@/services/rewards/assetOwnership';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+async function getKnytPurchaseAssetIds(personaId: string): Promise<string[]> {
+  const { data } = await supabase
+    .from('knyt_purchases')
+    .select('asset_id')
+    .eq('persona_id', personaId)
+    .eq('status', 'completed');
+  return (data ?? []).map((r) => r.asset_id as string).filter(Boolean);
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,11 +43,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Pull all three sources in parallel.
-    const [legacy, userDirect, expanded] = await Promise.all([
+    // Pull all four sources in parallel. knyt_purchases captures direct
+    // character/asset buys via the KNYT cartridge purchase modal — without
+    // this, codex character owned badges miss directly-purchased posters.
+    const [legacy, userDirect, expanded, knytDirect] = await Promise.all([
       getSmartContentService().getEntitlementsByPersona(personaId).catch(() => []),
       getEntitlementService().getPersonaEntitlements(personaId).catch(() => []),
       getOwnedAssetIds(personaId, 'metaKnyts').catch(() => ({ direct: [], expanded: [], ownedSkus: [] })),
+      getKnytPurchaseAssetIds(personaId).catch(() => [] as string[]),
     ]);
 
     // Union by content/asset id. Legacy rows pass through as-is; user_entitlements
@@ -62,6 +80,12 @@ export async function GET(request: NextRequest) {
       merged.push({ contentId: id, source: 'sku_expansion' });
     }
 
+    for (const id of knytDirect) {
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      merged.push({ contentId: id, source: 'knyt_purchases' });
+    }
+
     return NextResponse.json({
       success: true,
       data: merged,
@@ -69,6 +93,7 @@ export async function GET(request: NextRequest) {
         legacy: legacy.length,
         userDirect: userDirect.length,
         skuExpanded: expanded.expanded.length,
+        knytDirect: knytDirect.length,
         union: merged.length,
       },
     });

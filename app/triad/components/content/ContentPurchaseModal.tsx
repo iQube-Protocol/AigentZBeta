@@ -398,10 +398,22 @@ export function ContentPurchaseModal({
         }),
       });
 
-      const result = await response.json();
+      // Surface a useful message when the server returns an empty body
+      // (e.g. a 502 / proxy timeout) instead of a generic JSON parse error.
+      const rawBody = await response.text();
+      let result: { success?: boolean; error?: string; purchaseId?: string; entitlementId?: string } = {};
+      if (rawBody) {
+        try {
+          result = JSON.parse(rawBody) as typeof result;
+        } catch {
+          throw new Error(`Server returned non-JSON response (${response.status}): ${rawBody.slice(0, 120)}`);
+        }
+      } else {
+        throw new Error(`Server returned empty response (${response.status} ${response.statusText || 'no status'})`);
+      }
 
       if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Purchase failed');
+        throw new Error(result.error || `Purchase failed (${response.status})`);
       }
 
       const amountPaid =

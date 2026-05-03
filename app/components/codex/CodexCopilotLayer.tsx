@@ -106,6 +106,13 @@ interface CodexCopilotLayerProps {
   };
   personaId?: string;
   accentColor?: 'cyan' | 'fuchsia' | 'rose' | 'amber' | 'emerald' | 'green' | 'indigo' | string;
+  /**
+   * When this signal increments AND `isOpen` is true, open the embedded
+   * wallet panel pinned to the 'wallet' tab. Used by sign-in CTAs to land
+   * an anonymous user on the auth surface inside the cartridge instead of
+   * the parallel SmartWalletDrawer (which has z-index conflicts).
+   */
+  walletTabSignal?: number;
 }
 
 type CopilotMode = "chat" | "avatar";
@@ -173,6 +180,7 @@ export function CodexCopilotLayer({
   agent,
   personaId,
   accentColor = 'cyan',
+  walletTabSignal,
 }: CodexCopilotLayerProps) {
   const ACCENT = ({
     cyan:    { hex: 'text-cyan-400/90',    bot: 'text-cyan-300',    bubble: 'bg-cyan-500/20 text-cyan-100 ring-cyan-500/30' },
@@ -345,6 +353,17 @@ export function CodexCopilotLayer({
       setShowActivationButton(false);
     }
   }, [isOpen]);
+
+  // Honor sign-in CTA: when an external surface (e.g. KnytTab cart click) bumps
+  // walletTabSignal, open the embedded wallet panel pinned to the wallet tab.
+  // This is the unified persona entry point inside the cartridge — replaces
+  // direct SmartWalletDrawer triggers which have z-index conflicts in embeds.
+  useEffect(() => {
+    if (walletTabSignal === undefined) return;
+    setWalletPanelOpen(true);
+    setWalletPanelCollapsed(false);
+    setWalletPanelTab('wallet');
+  }, [walletTabSignal]);
 
   useEffect(() => {
     if (variant !== "floating" || disableActivationButton || isOpen) return;

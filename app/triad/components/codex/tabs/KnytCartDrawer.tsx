@@ -16,6 +16,8 @@ interface Props {
   personaId?: string;
   total: number;
   totalWithKnyt: number;
+  /** Triggered when an anonymous user clicks "Sign in to checkout" inside the modal. */
+  onSignInRequest?: () => void;
 }
 
 function lineQty(item: CartItem): number {
@@ -32,6 +34,7 @@ export function KnytCartDrawer({
   personaId,
   total,
   totalWithKnyt,
+  onSignInRequest,
 }: Props) {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [useKnytDiscount, setUseKnytDiscount] = useState(false);
@@ -235,6 +238,11 @@ export function KnytCartDrawer({
         onClose={() => setCheckoutOpen(false)}
         items={items}
         personaId={personaId}
+        onSignInRequest={() => {
+          // Close the cart-checkout modal so the wallet drawer is unobstructed.
+          setCheckoutOpen(false);
+          onSignInRequest?.();
+        }}
         onSettled={({ settledIds, failedIds }) => {
           // Remove every settled line from the cart. Failed lines stay so
           // the user can retry — they'll see them when they re-open the cart.
