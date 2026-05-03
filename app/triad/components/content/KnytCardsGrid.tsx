@@ -254,14 +254,21 @@ export function KnytCardsGrid({
                 <div className="absolute bottom-12 right-2 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     className="w-6 h-6 rounded-md bg-amber-500/80 backdrop-blur-sm flex items-center justify-center ring-1 ring-amber-400/40 text-white hover:bg-amber-400 transition-all"
-                    title={`Buy now for ${CARD_PRICE_STILL} KNYT`}
+                    title={personaId ? `Buy now for ${CARD_PRICE_STILL} KNYT` : 'Sign in to buy'}
                     onClick={(e) => {
                       e.stopPropagation();
+                      // Anonymous: route through sign-in; the purchase modal will
+                      // open automatically once the persona is created (handled
+                      // by ContentPurchaseModal.onRequestPersona below).
+                      if (!personaId) {
+                        onOpenWallet?.('signin');
+                        return;
+                      }
                       setPurchaseCard(poster);
                       setPurchaseModalOpen(true);
                     }}
                   >
-                    <Coins className="w-3 h-3" />
+                    <ShoppingCart className="w-3 h-3" />
                   </button>
                   <button
                     className="w-6 h-6 rounded-md bg-cyan-500/80 backdrop-blur-sm flex items-center justify-center ring-1 ring-cyan-400/40 text-white hover:bg-cyan-400 transition-all"
@@ -402,13 +409,17 @@ export function KnytCardsGrid({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
+                          if (!personaId) {
+                            onOpenWallet?.('signin');
+                            return;
+                          }
                           setPurchaseCard(selected.poster);
                           setPurchaseModalOpen(true);
                         }}
                         className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold transition-colors"
                       >
-                        <Coins className="w-4 h-4" />
-                        Buy Now
+                        <ShoppingCart className="w-4 h-4" />
+                        {personaId ? 'Buy Now' : 'Sign in to Buy'}
                       </button>
                     </div>
                   </>

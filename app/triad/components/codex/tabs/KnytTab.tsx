@@ -697,10 +697,18 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const [currentText, setCurrentText] = useState<{ title: string; content: string } | null>(null);
   // Wallet drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const handleOpenWallet = useCallback((_mode: 'signin' | 'signup') => {
-    setDrawerOpen(true);
-  }, []);
+  // Copilot state declared FIRST so handleOpenWallet's setters resolve at
+  // call time without TDZ noise.
   const [codexCopilotOpen, setCodexCopilotOpen] = useState(false);
+  // Sign-in surface: route through the embedded copilot wallet panel rather
+  // than the parallel SmartWalletDrawer. The drawer has z-index conflicts in
+  // the metaMe embed; the copilot's wallet tab is already integrated with the
+  // unified persona helper and renders correctly above codex layers.
+  const [copilotWalletSignal, setCopilotWalletSignal] = useState(0);
+  const handleOpenWallet = useCallback((_mode: 'signin' | 'signup') => {
+    setCodexCopilotOpen(true);
+    setCopilotWalletSignal((n) => n + 1);
+  }, []);
   const [codexCopilotMessages, setCodexCopilotMessages] = useState<CopilotMessage[]>(() => [
     createCodexCopilotWelcomeMessage(resolvedInitialTab),
   ]);
@@ -3039,6 +3047,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             personaId={effectivePersonaId}
             total={cart.total}
             totalWithKnyt={cart.totalWithKnyt}
+            onSignInRequest={() => handleOpenWallet('signin')}
           />
 
           {cart.count > 0 && !cartOpen && (
@@ -3065,6 +3074,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         enableInferenceRendering
         personaId={effectivePersonaId}
         contextId={`knyt-${activeTab}`}
+        walletTabSignal={copilotWalletSignal}
         messages={codexCopilotMessages}
         onMessagesChange={setCodexCopilotMessages}
         promptPlaceholder="Ask KNYT Copilot about this content..."
