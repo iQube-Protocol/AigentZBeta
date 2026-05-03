@@ -1548,7 +1548,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       setCurrentVideoUseDirectStream(true);
       setVideoPlayerOpen(true);
     }
-  }, [fetchEpisodeSegments, getVideoPlaybackUrl, normalizeVideoSource, ownedIssues, openPurchaseForEpisode]);
+  }, [fetchEpisodeSegments, getVideoPlaybackUrl, normalizeVideoSource, ownedIssues]);
+  // openPurchaseForEpisode intentionally not in deps — it's declared after this
+  // useCallback in the file (TDZ would crash render). Closure resolves it at
+  // call time, which is always after both declarations have run.
 
   useEffect(() => {
     if (!contentItems.length && !episodesCatalog.length) return;
