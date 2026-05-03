@@ -246,7 +246,12 @@ export default function SmartWalletPanel({ personaId, theme = 'dark', density = 
               <div className="grid grid-cols-3 gap-2">
                 {entitlements.map((ent) => {
                   const meta = ent.assetMeta;
-                  const thumbUrl = meta.coverCid
+                  // entitlements/list prefers coverUrl (direct CDN) when the
+                  // asset has cover_thumb_url, and falls back to coverCid via
+                  // the cover proxy. Render either.
+                  const thumbUrl = meta.coverUrl
+                    ? meta.coverUrl
+                    : meta.coverCid
                     ? `/api/content/cover/${meta.coverCid}?variant=thumb`
                     : undefined;
                   const isEpisode = typeof meta.episodeNumber === 'number' && !meta.characterName;
