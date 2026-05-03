@@ -381,9 +381,9 @@ const PREORDER_VARIANT_EPISODE_NUMBER: Record<PreorderVariantId, number> = {
   common: -1,
 };
 
-const KNYT_CONTENT_CACHE_KEY = "codex:knyt:content:v6";
-const KNYT_EPISODES_CACHE_KEY = "codex:knyt:episodes:v4";
-const KNYT_SESSION_CACHE_KEY = "codex:knyt:session:v5";
+const KNYT_CONTENT_CACHE_KEY = "codex:knyt:content:v7";
+const KNYT_EPISODES_CACHE_KEY = "codex:knyt:episodes:v5";
+const KNYT_SESSION_CACHE_KEY = "codex:knyt:session:v6";
 const KNYT_SESSION_CACHE_TTL_MS = 30 * 60 * 1000;
 
 type KnytSessionSnapshot = {
