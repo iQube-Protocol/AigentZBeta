@@ -38,6 +38,7 @@ import { usePersonaSafe } from "@/app/contexts/PersonaContext";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 import type { KnytCardAsset, EpisodeGroup } from "@/app/hooks/useKnytCards";
 import type { PersonaQube } from "@/types/persona";
+import { EPISODE_PRICING, usdToKnyt } from "@/types/knyt-store";
 // Inline Character Detail Page Component to avoid import issues
 const InlineCharacterDetailPage = ({ characterId, onBack }: { characterId: string; onBack?: () => void }) => {
   const [character, setCharacter] = useState<KnytCardAsset | null>(null);
@@ -913,6 +914,8 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       duration?: string;
       created_at?: string;
       updated_at?: string;
+      price?: number;
+      owned?: boolean;
     };
 
     const videoSource = normalizeVideoSource(
@@ -963,6 +966,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       type: knytItem.type,
       created_at: metadata.created_at,
       updated_at: metadata.updated_at,
+      // Carry pricing through so SmartContentActions / consumers see a price.
+      price: typeof metadata.price === 'number' && metadata.price > 0
+        ? { amount: metadata.price, currency: 'Q¢' as const, paymentType: 'one-time' as const }
+        : undefined,
     };
   }, [normalizeVideoSource]);
 
@@ -990,7 +997,20 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         null
       );
       const hasWatchable = ep.hasMotionMaster && Boolean(motionSource.cid || motionSource.url);
-      const resolvedPriceKnyt = resolveAccessPrice(ep.priceKnyt);
+      // Episode pricing — single source of truth: EPISODE_PRICING (admin
+      // pricing table). The status API may not stamp priceKnyt; derive from
+      // the SoT so every episode card renders a price (matching the preorder
+      // card pattern that uses explicit priceKnyt). DB→pricing convention:
+      //   DB ep 1 = pricing #0, DB ep 2 = pricing #1, … DB ep 13 = pricing #12.
+      const apiPriceKnyt = resolveAccessPrice(ep.priceKnyt);
+      let resolvedPriceKnyt = apiPriceKnyt;
+      if (resolvedPriceKnyt === null) {
+        const pricingEpNum = episodeNumber - 1;
+        const sot = EPISODE_PRICING.find((p) => p.episodeNumber === pricingEpNum);
+        if (sot?.qriptoPrice && sot.qriptoPrice > 0) {
+          resolvedPriceKnyt = usdToKnyt(sot.qriptoPrice);
+        }
+      }
       const episodeBaseId = ep.purchaseId || `mk_ep${String(episodeNumber).padStart(2, '0')}`;
       
       // Add as comic page (portrait) if has print
