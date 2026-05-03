@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useTTSPlayer } from "@/app/hooks/useTTSPlayer";
+import { usePersonaSafe } from "@/app/contexts/PersonaContext";
 import { useSearchParams } from "next/navigation";
 import {
   createRuntimeMessage,
@@ -1936,6 +1937,11 @@ export default function MetaMeRuntimeClient() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
 
+  // Read the active persona from PersonaContext when mounted inside the (shell) layout.
+  // This covers the standalone-page case (/shell/metame/runtime) where no SHELL_READY
+  // message arrives from a parent iframe — PersonaContext is the authoritative source.
+  const { activePersonaId: ctxPersonaId } = usePersonaSafe();
+
   const embedMode = searchParams?.get("embed") === "1";
   const thinShellQueryMode = searchParams?.get("shell") === "thin" || searchParams?.get("chrome") === "content-only";
   const selectedCapsuleId = searchParams?.get("capsule") ?? null;
@@ -1981,6 +1987,15 @@ export default function MetaMeRuntimeClient() {
   );
   const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
 
+  // Sync from PersonaContext whenever it changes — covers the standalone
+  // page case where no SHELL_READY arrives. Shell-supplied persona_id
+  // (from SHELL_READY or aa-persona-change-v1) takes precedence once set.
+  useEffect(() => {
+    if (ctxPersonaId && !shellContextRef.current.persona_id) {
+      setActivePersonaId(ctxPersonaId);
+    }
+  }, [ctxPersonaId]);
+
   // Standalone-mode persona resolver. When the runtime loads outside an
   // iframe shell (e.g. runtime.metame.com loaded directly), no parent
   // posts SHELL_READY with a persona_id, so activePersonaId stays null
@@ -1992,8 +2007,8 @@ export default function MetaMeRuntimeClient() {
     let cancelled = false;
 
     async function resolvePersona() {
-      // If a parent shell already supplied a persona, leave it alone.
-      if (shellContextRef.current.persona_id) return;
+      // If PersonaContext or a parent shell already supplied a persona, leave it alone.
+      if (ctxPersonaId || shellContextRef.current.persona_id) return;
 
       const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
