@@ -3639,7 +3639,7 @@ export default function MetaMeRuntimeClient() {
             }}
           />
         )}
-        {capsuleContents.length === 0 ? (
+        {capsuleContents.length === 0 && activeDevice !== "mobile" ? (
           <div className="rounded-xl border border-white/10 bg-slate-900/70 p-3 text-[12px] text-slate-300">
             No visual capsules available yet. Try `read`, `watch`, or `find`.
           </div>
@@ -4102,25 +4102,32 @@ export default function MetaMeRuntimeClient() {
       setWelcomePrompt("");
       const leadCapsule = ranked[0] || null;
       if (leadCapsule?.id) setSelectedCapsuleLocal(leadCapsule.id);
+      // Mobile: when inference returns no capsules, suppress the "No visual
+      // capsules were resolved" chat line — it duplicates the inline empty
+      // banner below the carousel and crowds the welcome panel on small
+      // screens. Desktop/tablet keep the prior behavior.
       const mappedIntentSummary =
         ranked.length > 0
           ? `Mapped intent to ${intent} capsules using SmartTriad runtime filters.`
-          : "No visual capsules were resolved for this intent yet. Try read/watch/find.";
-      const immediateMessages: CopilotMessage[] = [
-        {
+          : activeDevice === "mobile"
+            ? null
+            : "No visual capsules were resolved for this intent yet. Try read/watch/find.";
+      const immediateMessages: CopilotMessage[] = [];
+      if (mappedIntentSummary) {
+        immediateMessages.push({
           id: `intent-msg-${Date.now()}`,
           role: "assistant",
           content: mappedIntentSummary,
           timestamp: new Date(),
-        },
-        {
-          id: "capsule-panel",
-          role: "assistant",
-          content: capsulePanel,
-          timestamp: new Date(),
-          variant: "panel",
-        },
-      ];
+        });
+      }
+      immediateMessages.push({
+        id: "capsule-panel",
+        role: "assistant",
+        content: capsulePanel,
+        timestamp: new Date(),
+        variant: "panel",
+      });
       if (intent === "play" && leadCapsule && leadCapsule.runtimeSource === "experience") {
         immediateMessages.push({
           id: `runtime-launch-auto-${Date.now()}`,
