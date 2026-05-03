@@ -63,6 +63,11 @@ body {
   background: rgba(255, 255, 255, 0.2);
 }
 
+/* Hidden-but-scrollable utility — used by horizontal sub-tab carousels so
+   the touch swipe still works on mobile but no scrollbar is rendered. */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 /* Badge styling - less rounded corners */
 .badge {
   border-radius: 0.375rem; /* 6px - less rounded than full pills */
