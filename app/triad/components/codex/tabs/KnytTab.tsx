@@ -350,19 +350,33 @@ const PREORDER_VARIANTS = [
   { id: 'common', label: 'Common (#-1)', priceUsd: 68, tone: 'text-gray-400' },
 ];
 
+// Single Graphic Novel card (replacing prior preorder rarity drops). The codex
+// shows ONE AGN entry — same image and copy as the store's "Agentic Graphic
+// Novel Qripto" bundle, priced from the EPISODE_PRICING SoT (qriptoPrice 78
+// USD → 62.4 KNYT after the 20% KNYT_COYN_DISCOUNT applied at checkout).
+// Future rarity tiers (legendary/epic/rare/common) per episode will be added
+// later; today the codex shows ONE card per episode for parity.
+// Default cover image for the AGN — same "1 Cover 1a" CID used by the store's
+// gn-investor-qripto bundle hero (see useBundleImages.DEFAULT_QRIPTO_URL).
+// Both surfaces resolve to the same image; replacing here will be a one-line
+// swap when the operator-editable bundle_image_asset_id pipeline ships.
+const AGN_QRIPTO_IMAGE_URL = '/api/content/cover/bafkr6ifnltnq2xidhizv7lkvrevsipvl4l7qx6weca42q5iacffmybuxzm?variant=thumb';
+
 const PREORDER_CONTENT_VARIANTS = [
-  { id: 'legendary', subtitle: 'Episode #-4', title: 'Episode -1 Preorder Drop (Legendary)', priceKnyt: 1500 },
-  { id: 'epic', subtitle: 'Episode #-3', title: 'Episode -1 Preorder Drop (Epic)', priceKnyt: 133 },
-  { id: 'rare', subtitle: 'Episode #-2', title: 'Episode -1 Preorder Drop (Rare)', priceKnyt: 61 },
-  { id: 'common', subtitle: 'Episode #-1', title: 'Episode -1 Preorder Drop (Common)', priceKnyt: 49 },
+  {
+    id: 'common',
+    subtitle: 'Graphic Novel',
+    title: 'Agentic Graphic Novel Qripto',
+    description: 'The KNYT graphic novel — Qripto edition. Includes the QAGN (Qripto AgentiQ Graphic Novel) collectible.',
+    // Derived: EPISODE_PRICING[-1].qriptoPrice (78) × (1 - KNYT_COYN_DISCOUNT 0.20) = 62.4
+    priceKnyt: 62.4,
+    imageUrl: AGN_QRIPTO_IMAGE_URL,
+  },
 ] as const;
 
 type PreorderVariantId = (typeof PREORDER_CONTENT_VARIANTS)[number]['id'];
 
 const PREORDER_VARIANT_EPISODE_NUMBER: Record<PreorderVariantId, number> = {
-  legendary: -4,
-  epic: -3,
-  rare: -2,
   common: -1,
 };
 
@@ -1083,25 +1097,17 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       }
     }
 
-    // Backfill pre-order variants when API data is missing some (or all) tiers.
-    const existingVariants = new Set<string>();
-    for (const item of items) {
-      const title = item.title.toLowerCase();
-      if (title.includes('legendary')) existingVariants.add('legendary');
-      if (title.includes('epic')) existingVariants.add('epic');
-      if (title.includes('rare')) existingVariants.add('rare');
-      if (title.includes('common')) existingVariants.add('common');
-    }
-
-    const fallbackThumb = preorderThumbCandidates[0];
+    // Add the single Graphic Novel card (replaces 4 prior preorder rarity
+    // drops). Image and copy mirror the store's "Agentic Graphic Novel
+    // Qripto" bundle so the codex and store stay aligned.
     for (const variant of PREORDER_CONTENT_VARIANTS) {
-      if (existingVariants.has(variant.id)) continue;
       items.push({
         id: `metaKnyts_preorder_${variant.id}`,
         type: 'comic_cover_portrait',
         title: variant.title,
         subtitle: variant.subtitle,
-        thumbnail: fallbackThumb,
+        description: variant.description,
+        thumbnail: variant.imageUrl,
         media: {
           image_cid: undefined,
         },
