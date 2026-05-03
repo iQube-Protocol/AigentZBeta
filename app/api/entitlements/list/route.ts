@@ -65,7 +65,25 @@ export async function GET(request: NextRequest) {
             assetId.startsWith('satoshi-knyt') || assetId.startsWith('digital-knyt') ||
             assetId.startsWith('digital-first-knyt');
 
-          if (isUuid || charCardMatch) {
+          // gn-investor-* SKUs: Graphic Novel investor bundles. Match before
+          // the generic UUID/episode/bundle branches so AGN gets proper label
+          // + cover. CID matches the AGN hero image used by the store/codex.
+          const GN_INVESTOR_EDITIONS: Record<string, string> = {
+            'gn-investor-qripto':    'Qripto Edition',
+            'gn-investor-digital':   'Digital Edition',
+            'gn-investor-paperback': 'Paperback Edition',
+            'gn-investor-hardcover': 'Hardcover Edition',
+          };
+
+          if (GN_INVESTOR_EDITIONS[assetId]) {
+            // No episodeNumber — keeps label fallback chain on meta.title
+            // (otherwise wallet would render "Ep. -1" instead of the title).
+            assetMeta = {
+              title: `Agentic Graphic Novel — ${GN_INVESTOR_EDITIONS[assetId]}`,
+              coverType: 'GN',
+              coverCid: 'bafkr6ifnltnq2xidhizv7lkvrevsipvl4l7qx6weca42q5iacffmybuxzm',
+            };
+          } else if (isUuid || charCardMatch) {
             // Direct UUID lookup — bare UUID or extracted from character-card-[UUID]-still/motion
             const lookupId = charCardMatch ? charCardMatch[1] : assetId;
             const isMotion = charCardMatch ? charCardMatch[2]?.toLowerCase() === 'motion' : false;
