@@ -157,22 +157,6 @@ function ShelfStats({ items }: { items: ShelfItem[] }) {
   );
 }
 
-// ── Mock/placeholder shelf data ───────────────────────────────────────────────
-// Real data will come from getShelfOverview(personaId) service — wired once DB tables confirmed
-
-function buildPlaceholderShelf(personaId: string | undefined): ShelfItem[] {
-  if (!personaId) return [];
-  return [
-    { id: 'ep0-still',   personaId, source: 'codex',      family: 'still-comics',  label: 'Episode 0 — Still',          state: 'owned',     isQripto: false, episodeNumber: 0,  collectionGroup: 'episodes', progressionState: 'none' },
-    { id: 'ep1-motion',  personaId, source: 'codex',      family: 'motion-comics', label: 'Episode 1 — Motion',          state: 'owned',     isQripto: false, episodeNumber: 1,  collectionGroup: 'episodes', progressionState: 'none' },
-    { id: 'ep2-qripto',  personaId, source: 'codex',      family: 'motion-comics', label: 'Episode 2 — Qripto',          state: 'owned',     isQripto: true,  rarity: 'rare',    episodeNumber: 2,  collectionGroup: 'episodes' },
-    { id: 'ep3-missing', personaId, source: 'codex',      family: 'still-comics',  label: 'Episode 3 — Still',           state: 'missing',   isQripto: false, episodeNumber: 3,  collectionGroup: 'episodes' },
-    { id: 'cards-pack',  personaId, source: 'cartridge',  family: 'knyt-cards',    label: 'KNYT Cards Pack',             state: 'owned',     isQripto: false, collectionGroup: 'cards' },
-    { id: 'ep1-vintage', personaId, source: 'codex',      family: 'motion-comics', label: 'Episode 1 — Vintage Edition', state: 'claimable', isQripto: true,  isVintage: true,   episodeNumber: 1,  collectionGroup: 'vintage' },
-    { id: 'ep0-print',   personaId, source: 'provenance', family: 'still-comics',  label: 'Episode 0 — Print',           state: 'owned',     isQripto: false, hasProvenance: true, episodeNumber: 0, collectionGroup: 'provenance' },
-  ];
-}
-
 // ── Root component ────────────────────────────────────────────────────────────
 
 export function KnytShelfTab({ personaId, theme }: Props) {
@@ -181,12 +165,58 @@ export function KnytShelfTab({ personaId, theme }: Props) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
-    // Placeholder — replace with getShelfOverview(personaId) service call
-    setTimeout(() => {
-      setItems(buildPlaceholderShelf(personaId));
+    if (!personaId) {
+      setItems([]);
       setLoading(false);
-    }, 400);
+      return;
+    }
+    setLoading(true);
+    fetch(`/api/codex/owned?personaId=${encodeURIComponent(personaId)}`)
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json() as Promise<{
+          issues?: Array<{ episodeNumber: number; owned: boolean }>;
+          characters?: Array<{ characterId: string; owned: boolean }>;
+        }>;
+      })
+      .then((data) => {
+        const shelf: ShelfItem[] = [];
+        for (const issue of (data.issues ?? [])) {
+          const ep = issue.episodeNumber;
+          // pricing ep -1 = Agentic Graphic Novel (DB ep 0)
+          const isGn = ep === -1;
+          shelf.push({
+            id: `ep-${ep}`,
+            personaId,
+            source: 'codex',
+            family: isGn ? 'graphic-novel' : 'still-comics',
+            label: isGn ? 'Agentic Graphic Novel' : `Episode ${ep}`,
+            state: 'owned',
+            isQripto: isGn,
+            episodeNumber: ep,
+            collectionGroup: isGn ? 'graphic-novel' : 'episodes',
+            progressionState: 'none',
+          });
+        }
+        for (const char of (data.characters ?? [])) {
+          shelf.push({
+            id: `char-${char.characterId}`,
+            personaId,
+            source: 'cartridge',
+            family: 'knyt-cards',
+            label: 'KNYT Character Card',
+            state: 'owned',
+            isQripto: false,
+            collectionGroup: 'cards',
+          });
+        }
+        setItems(shelf);
+      })
+      .catch((err) => {
+        console.error('[KnytShelfTab] Failed to load owned shelf:', err);
+        setItems([]);
+      })
+      .finally(() => setLoading(false));
   }, [personaId]);
 
   // Group items by collectionGroup
@@ -204,11 +234,12 @@ export function KnytShelfTab({ personaId, theme }: Props) {
     : [];
 
   const GROUP_LABELS: Record<string, string> = {
-    episodes:   'Episodes',
-    cards:      'KNYT Cards',
-    vintage:    'Vintage',
-    provenance: 'Print Provenance',
-    other:      'Other',
+    'graphic-novel': 'Graphic Novel',
+    episodes:        'Episodes',
+    cards:           'KNYT Cards',
+    vintage:         'Vintage',
+    provenance:      'Print Provenance',
+    other:           'Other',
   };
 
   return (
