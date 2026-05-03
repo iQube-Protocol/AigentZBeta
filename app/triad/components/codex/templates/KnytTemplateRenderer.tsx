@@ -254,7 +254,7 @@ function ContentCard({ item, variant, onSelect, onWatch, onRead, isSelected, onA
       </div>
 
       {/* Content info */}
-      <div className="absolute bottom-0 left-0 right-0 p-3">
+      <div className="absolute bottom-0 left-0 right-0 p-3" data-deploy-tag="codex-v5-agn-usd">
         {item.subtitle && (
           <p className="text-xs text-cyan-400 font-medium">{item.subtitle}</p>
         )}
