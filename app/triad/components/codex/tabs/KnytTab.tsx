@@ -38,7 +38,7 @@ import { usePersonaSafe } from "@/app/contexts/PersonaContext";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 import type { KnytCardAsset, EpisodeGroup } from "@/app/hooks/useKnytCards";
 import type { PersonaQube } from "@/types/persona";
-import { EPISODE_PRICING, usdToKnyt } from "@/types/knyt-store";
+import { EPISODE_PRICING, KNYT_COYN_DISCOUNT, usdToKnyt } from "@/types/knyt-store";
 // Inline Character Detail Page Component to avoid import issues
 const InlineCharacterDetailPage = ({ characterId, onBack }: { characterId: string; onBack?: () => void }) => {
   const [character, setCharacter] = useState<KnytCardAsset | null>(null);
@@ -370,6 +370,7 @@ const PREORDER_CONTENT_VARIANTS = [
     description: 'The KNYT graphic novel — Qripto edition. Includes the QAGN (Qripto AgentiQ Graphic Novel) collectible.',
     // Derived: EPISODE_PRICING[-1].qriptoPrice (78) × (1 - KNYT_COYN_DISCOUNT 0.20) = 62.4
     priceKnyt: 62.4,
+    priceUsd: 78,
     imageUrl: AGN_QRIPTO_IMAGE_URL,
   },
 ] as const;
@@ -1012,17 +1013,20 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       );
       const hasWatchable = ep.hasMotionMaster && Boolean(motionSource.cid || motionSource.url);
       // Episode pricing — single source of truth: EPISODE_PRICING (admin
-      // pricing table). The status API may not stamp priceKnyt; derive from
-      // the SoT so every episode card renders a price (matching the preorder
-      // card pattern that uses explicit priceKnyt). DB→pricing convention:
-      //   DB ep 1 = pricing #0, DB ep 2 = pricing #1, … DB ep 13 = pricing #12.
+      // pricing table). DB→pricing convention: DB ep 1 = pricing #0, … DB ep
+      // 13 = pricing #12. We derive BOTH the KNYT-paid USD-equivalent
+      // (qriptoPrice × 0.8 — matches "$KNYT 62.4 ($78)" pattern the user
+      // wants for the AGN) and the retail USD price for display alongside.
       const apiPriceKnyt = resolveAccessPrice(ep.priceKnyt);
+      const pricingEpNum = episodeNumber - 1;
+      const sot = EPISODE_PRICING.find((p) => p.episodeNumber === pricingEpNum);
       let resolvedPriceKnyt = apiPriceKnyt;
-      if (resolvedPriceKnyt === null) {
-        const pricingEpNum = episodeNumber - 1;
-        const sot = EPISODE_PRICING.find((p) => p.episodeNumber === pricingEpNum);
-        if (sot?.qriptoPrice && sot.qriptoPrice > 0) {
-          resolvedPriceKnyt = usdToKnyt(sot.qriptoPrice);
+      let resolvedPriceUsd: number | null = null;
+      if (sot?.qriptoPrice && sot.qriptoPrice > 0) {
+        resolvedPriceUsd = sot.qriptoPrice;
+        if (resolvedPriceKnyt === null) {
+          // 20% KNYT discount applied at checkout — show the KNYT-paid $ amount
+          resolvedPriceKnyt = Math.round(sot.qriptoPrice * (1 - KNYT_COYN_DISCOUNT) * 100) / 100;
         }
       }
       const episodeBaseId = ep.purchaseId || `mk_ep${String(episodeNumber).padStart(2, '0')}`;
@@ -1045,6 +1049,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             episodeNumber, 
             owned: false, // TODO: Check entitlements
             price: resolvedPriceKnyt ?? undefined,
+            priceUsd: resolvedPriceUsd ?? undefined,
             realm: 'digiterra' 
           },
           modalities: { 
@@ -1067,6 +1072,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             episodeNumber, 
             owned: false, 
             price: resolvedPriceKnyt ?? undefined,
+            priceUsd: resolvedPriceUsd ?? undefined,
             realm: 'digiterra' 
           },
           modalities: { 
@@ -1090,6 +1096,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             episodeNumber,
             owned: false,
             price: resolvedPriceKnyt ?? undefined,
+            priceUsd: resolvedPriceUsd ?? undefined,
             realm: 'digiterra',
           },
           modalities: {},
@@ -1115,6 +1122,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
           episodeNumber: PREORDER_VARIANT_EPISODE_NUMBER[variant.id],
           owned: false,
           price: variant.priceKnyt,
+          priceUsd: variant.priceUsd,
           realm: 'digiterra',
         },
         modalities: {},

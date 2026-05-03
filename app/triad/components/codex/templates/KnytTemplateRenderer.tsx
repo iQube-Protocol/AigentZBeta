@@ -262,9 +262,12 @@ function ContentCard({ item, variant, onSelect, onWatch, onRead, isSelected, onA
           {item.title}
         </p>
         {item.metadata?.price && !item.metadata?.owned && (
-          <div className="flex items-center gap-1 mt-1">
+          <div className="flex items-center gap-1.5 mt-1">
             <Coins className="w-3 h-3 text-amber-400" />
             <span className="text-xs text-amber-300">{item.metadata.price} KNYT</span>
+            {typeof item.metadata?.priceUsd === 'number' && item.metadata.priceUsd > 0 && (
+              <span className="text-[10px] text-white/40">(${item.metadata.priceUsd})</span>
+            )}
           </div>
         )}
       </div>
