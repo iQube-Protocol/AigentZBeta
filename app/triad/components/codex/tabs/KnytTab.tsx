@@ -994,13 +994,17 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const transformEpisodesToContentItems = useCallback((episodes: EpisodeFromAPI[]): KnytContentItem[] => {
     const items: KnytContentItem[] = [];
     const preorderThumbCandidates: string[] = [];
-    
+    // DB ep 0 = GN — capture before skipping so AGN card can use its content CID.
+    let gnEp: EpisodeFromAPI | null = null;
+
     for (const ep of episodes) {
       const episodeNumber = Number(ep.episodeNumber);
-      // Skip episode 0 (placeholder) and the legacy preorder rarity drops
-      // (episode -1..-4) — those are replaced by the single AGN card injected
-      // below so the API rows must not double-render here.
-      if (!Number.isFinite(episodeNumber) || episodeNumber === 0) continue;
+      if (!Number.isFinite(episodeNumber)) continue;
+      // Capture GN (DB ep 0) data for the AGN card, but don't create a
+      // standalone episode card for it — the AGN card is injected below.
+      if (episodeNumber === 0) { gnEp = ep; continue; }
+      // Skip the legacy preorder rarity drops (DB ep -1..-4) — replaced by
+      // the single AGN card injected below.
       if (episodeNumber < 0) continue;
       
       const printCid = ep.printRareCid || ep.printEpicCid || ep.printLegendaryCid || ep.printCommonCid;
@@ -1114,15 +1118,27 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     // drops). Image and copy mirror the store's "Agentic Graphic Novel
     // Qripto" bundle so the codex and store stay aligned. Inserted at the
     // FRONT so the AGN card renders before episode #0..#12 in the grid.
+    // If the API returned DB ep 0 data (gnEp), wire its print CID into the
+    // card's media/modalities so owned users can open the PDF reader.
+    const gnPrintCid = gnEp
+      ? (gnEp.printRareCid || gnEp.printEpicCid || gnEp.printLegendaryCid || gnEp.printCommonCid)
+      : undefined;
+    const gnPrintLiteUrl = gnEp
+      ? (gnEp.printRareLiteUrl || gnEp.printEpicLiteUrl || gnEp.printLegendaryLiteUrl || gnEp.printCommonLiteUrl)
+      : undefined;
+    const gnHasReadable = !!(gnPrintCid || gnPrintLiteUrl);
+
     const agnCards: KnytContentItem[] = PREORDER_CONTENT_VARIANTS.map((variant) => ({
       id: `metaKnyts_preorder_${variant.id}`,
-      type: 'comic_cover_portrait',
+      type: gnHasReadable ? 'comic_page_portrait' : 'comic_cover_portrait',
       title: variant.title,
       subtitle: variant.subtitle,
       description: variant.description,
       thumbnail: variant.imageUrl,
       media: {
         image_cid: undefined,
+        pdf_cid: gnPrintCid,
+        pdf_lite_url: gnPrintLiteUrl,
       },
       metadata: {
         episodeNumber: PREORDER_VARIANT_EPISODE_NUMBER[variant.id],
@@ -1131,7 +1147,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         priceUsd: variant.priceUsd,
         realm: 'digiterra',
       },
-      modalities: {},
+      modalities: gnHasReadable ? {
+        read: { available: true, cid: gnPrintCid },
+      } : {},
     }));
 
     return [...agnCards, ...items];

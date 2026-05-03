@@ -250,8 +250,12 @@ export default function SmartWalletPanel({ personaId, theme = 'dark', density = 
                     ? `/api/content/cover/${meta.coverCid}?variant=thumb`
                     : undefined;
                   const isEpisode = typeof meta.episodeNumber === 'number' && !meta.characterName;
-                  const label = meta.characterName
+                  const label = meta.title
+                    ? meta.title
+                    : meta.characterName
                     ? meta.characterName
+                    : meta.episodeNumber === -1
+                    ? 'Agentic Graphic Novel'
                     : meta.episodeNumber != null
                     ? `Ep. ${meta.episodeNumber}`
                     : ent.assetId;
