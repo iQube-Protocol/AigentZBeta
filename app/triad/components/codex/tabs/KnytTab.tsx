@@ -1928,14 +1928,14 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const isEpisodeLocked = useCallback((item: KnytContentItem) => {
     const episodeNumber = resolveEpisodeNumber(item);
     if (episodeNumber === null) return false;
-    // Episodes are INHERENTLY gated. We do not consult item.metadata?.price
-    // because the cartridge data shape does not always carry it; absence of
-    // a price MUST NOT imply free access.
-    //
-    // Source of truth for ownership: ownedIssues (populated from
-    // /api/codex/owned, which is SKU-aware). For anonymous viewers this is
-    // empty, so every episode reads as locked. For authenticated owners or
-    // bundle holders, the matching episode is unlocked.
+    // Primary check: item.metadata?.owned is stamped by contentWithOwnership
+    // useMemo from the same ownedEpisodeNumbers Set that drives the badge.
+    // Checking it first ensures the lock decision ALWAYS agrees with the badge,
+    // even when ownedIssues is momentarily stale (e.g. mid-fetch or cache miss).
+    if (item.metadata?.owned) return false;
+    // Secondary check: ownedIssues array (same source, kept in sync by
+    // fetchOwnedEpisodes). Catches cases where the item arrived without the
+    // owned flag pre-stamped (e.g. raw API items not yet through the useMemo).
     const ownedForEp = ownedIssues.filter((issue) => issue.episodeNumber === episodeNumber);
     if (ownedForEp.length > 0) return false;
     // Optional credential gate (e.g. investor-only preorders). Only matters
