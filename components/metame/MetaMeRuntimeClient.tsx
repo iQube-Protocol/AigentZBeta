@@ -1940,7 +1940,9 @@ export default function MetaMeRuntimeClient() {
   // Read the active persona from PersonaContext when mounted inside the (shell) layout.
   // This covers the standalone-page case (/shell/metame/runtime) where no SHELL_READY
   // message arrives from a parent iframe — PersonaContext is the authoritative source.
-  const { activePersonaId: ctxPersonaId } = usePersonaSafe();
+  // `ctxHydrated` becomes true once PersonaContext has read localStorage on the client;
+  // we wait for it before deciding the user has no persona.
+  const { activePersonaId: ctxPersonaId, hydrated: ctxHydrated } = usePersonaSafe();
 
   const embedMode = searchParams?.get("embed") === "1";
   const thinShellQueryMode = searchParams?.get("shell") === "thin" || searchParams?.get("chrome") === "content-only";
@@ -1957,7 +1959,7 @@ export default function MetaMeRuntimeClient() {
   const selectedExperienceArticleDraft = parseRuntimeArticleDraft(searchParams?.get("experienceArticleDraft"));
   const runtimeIntentParam = coerceRuntimeIntent(searchParams?.get("runtimeIntent"));
   const runtimeQuickLinkParam = coerceRuntimeIntent(searchParams?.get("runtimeQuickLink"));
-  const runtimeAdminMode = searchParams?.get("runtimeAdmin") === "1" || searchParams?.get("admin") === "1";
+  const runtimeAdminUrlOverride = searchParams?.get("runtimeAdmin") === "1" || searchParams?.get("admin") === "1";
   const runtimeContentKindParam = searchParams?.get("contentKind");
   const runtimeActiveCodexId = searchParams?.get("activeCodexId");
   const runtimeActiveCodexName = searchParams?.get("activeCodexName");
@@ -1990,6 +1992,14 @@ export default function MetaMeRuntimeClient() {
   // banner so signed-in users don't see a flash of "please sign in" before the
   // resolver completes and populates activePersonaId.
   const [personaResolving, setPersonaResolving] = useState(true);
+  // Whether the resolved persona has an active admin role. Combined with the
+  // URL override below to decide between RuntimeCapsuleAdminEditor (pricing
+  // layer) and RuntimeCapsuleRemixEditor.
+  const [personaIsAdmin, setPersonaIsAdmin] = useState(false);
+  // Final dispatch flag: URL forces admin mode if explicitly set, otherwise
+  // falls back to the persona's admin status. Admins navigating to the runtime
+  // without an explicit ?admin=1 still get the pricing layer.
+  const runtimeAdminMode = runtimeAdminUrlOverride || personaIsAdmin;
 
   // Sync from PersonaContext whenever it changes — covers the standalone
   // page case where no SHELL_READY arrives. Shell-supplied persona_id
@@ -2016,6 +2026,13 @@ export default function MetaMeRuntimeClient() {
         setPersonaResolving(false);
         return;
       }
+
+      // Wait for PersonaContext to finish reading localStorage on the client
+      // before deciding the user has no persona. Without this guard the
+      // resolver fires immediately on mount (when ctxHydrated is still false
+      // and ctxPersonaId is null) and proceeds with the async fallback even
+      // though localStorage might already have the persona.
+      if (!ctxHydrated) return;
 
       try {
         const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -2100,7 +2117,45 @@ export default function MetaMeRuntimeClient() {
       cancelled = true;
       unsub?.data.subscription.unsubscribe();
     };
-  }, []);
+  }, [ctxHydrated]);
+
+  // Resolve admin status from the authenticated session. Runs once a persona
+  // is identified (or whenever the user changes). The admin-check API is
+  // email-based and queries crm_admin_roles. Without this, runtimeAdminMode
+  // can only be true when the URL explicitly says ?admin=1, so admins
+  // navigating to the runtime via the KNYT cartridge see the consumer remix
+  // editor instead of the pricing layer.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!activePersonaId) {
+      setPersonaIsAdmin(false);
+      return;
+    }
+    let cancelled = false;
+
+    async function checkAdmin() {
+      try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        if (!url || !anonKey) return;
+        const { createClient } = await import("@supabase/supabase-js");
+        const supabase = createClient(url, anonKey);
+        const { data: { session } } = await supabase.auth.getSession();
+        const email = session?.user?.email;
+        if (!email || cancelled) return;
+
+        const res = await fetch(`/api/codex/admin-check?email=${encodeURIComponent(email)}`);
+        if (!res.ok || cancelled) return;
+        const json = await res.json();
+        if (!cancelled) setPersonaIsAdmin(Boolean(json?.isAdmin));
+      } catch {
+        // Non-fatal — defaults to false (consumer view)
+      }
+    }
+
+    void checkAdmin();
+    return () => { cancelled = true; };
+  }, [activePersonaId]);
 
   const [walletDrawerOpen, setWalletDrawerOpen] = useState(false);
   const [personaIQubeDrawer, setPersonaIQubeDrawer] = useState<"knyt" | "qripto" | null>(null);

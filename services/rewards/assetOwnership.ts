@@ -154,8 +154,19 @@ function skuCoversAsset(sku: StoreSku, meta: AssetMeta): boolean {
 
 /**
  * Does the persona own the asset, either directly or via an SKU grant?
+ *
+ * Episode 0 (the GN free preview) is always accessible — no entitlement
+ * required. Other content goes through direct grant → SKU expansion checks.
  */
-export async function userOwnsAsset(personaId: string, assetId: string): Promise<{ owned: boolean; via: 'direct' | 'sku' | null }> {
+export async function userOwnsAsset(personaId: string, assetId: string): Promise<{ owned: boolean; via: 'direct' | 'sku' | 'free' | null }> {
+  // Free-preview short-circuit: Episode 0 (GN preview) is open to everyone.
+  // Resolved before any persona check so it works for unauthenticated previews
+  // and personas without any SKUs.
+  const meta = await getAssetMeta(assetId);
+  if (meta && meta.category === 'gn' && meta.episodeNumber === 0) {
+    return { owned: true, via: 'free' };
+  }
+
   const ents = await getEntitlementService().getPersonaEntitlements(personaId);
 
   // 1. Direct grant
@@ -175,7 +186,6 @@ export async function userOwnsAsset(personaId: string, assetId: string): Promise
   }
 
   // 2b. category + episode-scope match
-  const meta = await getAssetMeta(assetId);
   if (!meta) return { owned: false, via: null };
   for (const sku of ownedSkus) {
     if (skuCoversAsset(sku, meta)) {

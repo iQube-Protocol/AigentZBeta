@@ -167,39 +167,67 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
   // ?meta=1 → return page count without rendering (lightweight)
   if (req.nextUrl.searchParams.get('meta') === '1') {
-    const { data: master } = await supabase
-      .from('master_content_qubes')
-      .select('auto_drive_cid, pdf_lite_url, page_count')
-      .eq('id', masterId)
-      .single();
+    try {
+      const { data: master, error: masterErr } = await supabase
+        .from('master_content_qubes')
+        .select('auto_drive_cid, pdf_lite_url, page_count')
+        .eq('id', masterId)
+        .maybeSingle();
 
-    if (!master) return NextResponse.json({ error: 'Master not found' }, { status: 404 });
+      if (masterErr) {
+        console.error('[PdfPageByMaster:meta] master lookup error', { masterId, masterErr });
+        return NextResponse.json({ error: 'Master lookup failed' }, { status: 502 });
+      }
+      if (!master) return NextResponse.json({ error: 'Master not found' }, { status: 404 });
 
-    // Return cached page count if available
-    if (typeof (master as any).page_count === 'number' && (master as any).page_count > 0) {
-      return NextResponse.json({ pages: (master as any).page_count, suggestedWidth: 1200 });
+      // Return cached page count if available
+      if (typeof (master as any).page_count === 'number' && (master as any).page_count > 0) {
+        return NextResponse.json({ pages: (master as any).page_count, suggestedWidth: 1200 });
+      }
+
+      // Count pages by fetching the PDF (slow path, only needed once per master)
+      const rawCid = master.auto_drive_cid as string | null;
+      const isUrl = typeof rawCid === 'string' && (rawCid.startsWith('http://') || rawCid.startsWith('https://'));
+      const pdfUrl: string | null = (master as any).pdf_lite_url || (isUrl ? rawCid : null);
+
+      if (!pdfUrl) {
+        // No URL available — return a sane default rather than crashing the viewer.
+        return NextResponse.json({ pages: 1, suggestedWidth: 1200 });
+      }
+
+      let fetchRes: Response;
+      try {
+        fetchRes = await fetch(pdfUrl);
+      } catch (fetchErr) {
+        console.error('[PdfPageByMaster:meta] fetch threw', { masterId, pdfUrl, fetchErr });
+        return NextResponse.json({ pages: 1, suggestedWidth: 1200 });
+      }
+      if (!fetchRes.ok) {
+        console.warn('[PdfPageByMaster:meta] fetch !ok', { masterId, pdfUrl, status: fetchRes.status });
+        return NextResponse.json({ pages: 1, suggestedWidth: 1200 });
+      }
+
+      const pdfBytes = Buffer.from(await fetchRes.arrayBuffer());
+      const pdfjs = await import('pdfjs-dist/build/pdf.mjs');
+      const { getDocument } = pdfjs as any;
+      const pdf = await getDocument({ data: new Uint8Array(pdfBytes), isEvalSupported: false }).promise;
+      const pages = pdf.numPages as number;
+
+      // Best-effort write-back; don't fail the request if the column is missing
+      // or RLS blocks the update.
+      try {
+        await supabase.from('master_content_qubes').update({ page_count: pages } as any).eq('id', masterId);
+      } catch (updateErr) {
+        console.warn('[PdfPageByMaster:meta] page_count update failed (non-fatal)', { masterId, updateErr });
+      }
+
+      return NextResponse.json({ pages, suggestedWidth: 1200 });
+    } catch (e: any) {
+      console.error('[PdfPageByMaster:meta] unhandled error', { masterId, error: e?.message, stack: e?.stack });
+      // Return a soft default so the viewer still loads page 1 rather than
+      // showing a blocking error.
+      return NextResponse.json({ pages: 1, suggestedWidth: 1200 });
     }
-
-    // Count pages by fetching the PDF (slow path, only needed once per master)
-    const rawCid = master.auto_drive_cid as string | null;
-    const isUrl = typeof rawCid === 'string' && (rawCid.startsWith('http://') || rawCid.startsWith('https://'));
-    const pdfUrl: string | null = master.pdf_lite_url || (isUrl ? rawCid : null);
-
-    if (!pdfUrl) return NextResponse.json({ pages: 1, suggestedWidth: 1200 });
-
-    const fetchRes = await fetch(pdfUrl);
-    if (!fetchRes.ok) return NextResponse.json({ pages: 1, suggestedWidth: 1200 });
-
-    const pdfBytes = Buffer.from(await fetchRes.arrayBuffer());
-    const pdfjs = await import('pdfjs-dist/build/pdf.mjs');
-    const { getDocument } = pdfjs as any;
-    const pdf = await getDocument({ data: new Uint8Array(pdfBytes), isEvalSupported: false }).promise;
-    const pages = pdf.numPages as number;
-
-    // Cache the page count for next time
-    await supabase.from('master_content_qubes').update({ page_count: pages } as any).eq('id', masterId);
-
-    return NextResponse.json({ pages, suggestedWidth: 1200 });
   }
 
   await acquireRenderSlot();

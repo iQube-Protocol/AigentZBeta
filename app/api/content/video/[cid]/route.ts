@@ -193,17 +193,28 @@ export async function GET(req: NextRequest, { params }: { params: { cid: string 
       });
     }
 
-    // When no Range header is sent, return the first chunk as partial content.
-    // This avoids oversized full-body responses that can trigger 413 on hosted edge.
-    const start = 0;
-    const end = clampChunkEnd(start);
-    return new NextResponse(new Uint8Array(videoData.slice(start, end + 1)), {
-      status: 206,
+    // No Range header sent (mobile Safari often omits it on the first probe).
+    // Returning a 206 here causes mobile browsers to treat the partial chunk
+    // as the entire file and never issue follow-up Range requests — desktop
+    // recovers, mobile silently fails. So we send the full body as 200 with
+    // Accept-Ranges, which mobile parses correctly and adapters can range
+    // into for seeking. Edge body-size limits are mitigated by streaming via
+    // a ReadableStream rather than buffering the whole Uint8Array at once.
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        const CHUNK = 1_048_576; // 1 MiB
+        for (let i = 0; i < videoData.length; i += CHUNK) {
+          controller.enqueue(new Uint8Array(videoData.slice(i, Math.min(i + CHUNK, videoData.length))));
+        }
+        controller.close();
+      },
+    });
+    return new NextResponse(stream, {
+      status: 200,
       headers: {
         'Content-Type': mimeType,
-        'Content-Range': `bytes ${start}-${end}/${videoData.length}`,
+        'Content-Length': String(videoData.length),
         'Accept-Ranges': 'bytes',
-        'Content-Length': String(end - start + 1),
         'Cache-Control': 'no-store',
       },
     });
