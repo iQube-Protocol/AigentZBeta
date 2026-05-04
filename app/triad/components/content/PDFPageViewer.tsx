@@ -69,7 +69,7 @@ export function PDFPageViewer({ cid, masterId, personaId, title, onClose }: PDFP
           throw new Error('No cid or masterId provided');
         }
 
-        const manifestRes = await fetch(`${apiBase}/api/content/pdf-pages/${cid}`);
+        const manifestRes = await fetch(`${apiBase}/api/content/pdf-pages/${encodeURIComponent(cid)}`);
         if (manifestRes.ok) {
           const data = await manifestRes.json();
           setManifest(data);
@@ -78,7 +78,7 @@ export function PDFPageViewer({ cid, masterId, personaId, title, onClose }: PDFP
           return;
         }
 
-        const metaRes = await fetch(`${apiBase}/api/content/pdf-meta/${cid}`);
+        const metaRes = await fetch(`${apiBase}/api/content/pdf-meta/${encodeURIComponent(cid)}`);
         if (!metaRes.ok) throw new Error(`HTTP ${metaRes.status}`);
         const data = await metaRes.json();
         setMeta(data);
@@ -329,7 +329,7 @@ function PDFPageImage({
       const qs = new URLSearchParams({ page: String(pageNum), width: String(width), ...(personaId ? { personaId } : {}) });
       pageUrl = `${apiBase}/api/content/pdf-page-by-master/${encodeURIComponent(masterId)}?${qs}`;
     } else if (cid) {
-      pageUrl = `${apiBase}/api/content/pdf-page/${cid}?page=${pageNum}&width=${width}`;
+      pageUrl = `${apiBase}/api/content/pdf-page/${encodeURIComponent(cid)}?page=${pageNum}&width=${width}`;
     } else {
       pageUrl = '';
     }
