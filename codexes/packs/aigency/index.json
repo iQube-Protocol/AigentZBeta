@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-04T21:39:30.835Z",
+  "last_updated": "2026-05-04T21:59:46.796Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "bc6c7cc508c72d85516bd8910e540def9e14e382",
-  "latest_commit_short": "bc6c7cc",
-  "latest_commit_title": "fix: isEpisodeLocked() now checks metadata.owned first, eliminating badge/lock divergence",
+  "latest_commit": "c1cd1d4f1cb0c69549ec48f321343cd4217826f1",
+  "latest_commit_short": "c1cd1d4",
+  "latest_commit_title": "docs: Phase 2 SmartTriad ownership unification backlog + KNYT stabilization session update",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c1cd1d4",
+      "full_sha": "c1cd1d4f1cb0c69549ec48f321343cd4217826f1",
+      "title": "docs: Phase 2 SmartTriad ownership unification backlog + KNYT stabilization session update",
+      "author": "Claude",
+      "timestamp": "2026-05-04T21:57:53Z",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-c1cd1d4.md"
+    },
     {
       "sha": "bc6c7cc",
       "full_sha": "bc6c7cc508c72d85516bd8910e540def9e14e382",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T22:57:01Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-5db543a.md"
-    },
-    {
-      "sha": "727ce61",
-      "full_sha": "727ce616b1dc51d6fc769c3f001f984aabb5c294",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-24T22:39:24Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-727ce61.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
