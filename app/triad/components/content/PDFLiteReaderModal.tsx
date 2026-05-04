@@ -127,31 +127,27 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
 
         <div className="relative w-full h-[calc(100%-60px)]">
           {isMobile ? (
-            // Mobile: <object>/<embed>/<iframe> all fail to render PDFs
-            // inline on iOS Safari and most mobile browsers. Hand off to the
-            // OS-native viewer via target="_blank" — opens in Safari/Chrome's
-            // built-in PDF reader where pinch-zoom + scroll work properly.
-            <div className="flex flex-col items-center justify-center h-full px-6 py-8 text-center gap-5">
-              <div className="text-sm text-white/90 max-w-[36ch]">
-                Open the PDF in your browser&rsquo;s native reader for the
-                best experience on mobile.
-              </div>
-              <a
-                href={pdfUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/15 active:bg-white/20 border border-white/20 px-5 py-3 text-sm font-medium text-white transition-colors"
-                onClick={() => {
-                  // Close the modal once the user has dispatched the open —
-                  // they're being taken to a new tab/system viewer anyway.
-                  setTimeout(onClose, 100);
-                }}
-              >
-                Open PDF
-              </a>
-              <div className="text-[11px] text-white/50 max-w-[36ch]">
-                {title || 'Document'}
-              </div>
+            // Mobile: render inside an <iframe> to keep the PDF within the app.
+            // Avoids target="_blank" which triggers OS download behaviour.
+            // iOS Safari 16.4+ renders PDFs inline in <iframe>; older versions
+            // show a blank area — the overlay prevents save/share gestures.
+            <div className="relative w-full h-full">
+              {loading && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40 z-10">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  <div className="text-xs text-white/80">Loading...</div>
+                </div>
+              )}
+              <iframe
+                src={safePdfUrl}
+                title={title || 'PDF viewer'}
+                className="w-full h-full border-0"
+                onLoad={() => setLoading(false)}
+                // Restrict navigation and scripting; omit allow-downloads
+                sandbox="allow-scripts allow-same-origin"
+              />
+              {/* Invisible full-width overlay blocks browser save/share long-press at the top toolbar area */}
+              <div className="pointer-events-auto absolute top-0 left-0 right-0 h-12 bg-transparent" />
             </div>
           ) : (
             <>

@@ -698,7 +698,20 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const [ownedIssues, setOwnedIssues] = useState<OwnedIssueFromAPI[]>([]);
   const [episodesCatalog, setEpisodesCatalog] = useState<EpisodeFromAPI[]>([]);
   const [loadedImages, setLoadedImages] = useState<Map<string, string>>(new Map());
-  
+
+  // Mobile detection — PDFPageViewer (page-image) is used on mobile to prevent
+  // raw PDF exposure. Desktop keeps the faster PDFLiteReaderModal path.
+  const [isMobileViewport, setIsMobileViewport] = useState<boolean>(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(max-width: 767px)');
+    const handler = (e: MediaQueryListEvent) => setIsMobileViewport(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
   // Viewer state
   const [videoPlayerOpen, setVideoPlayerOpen] = useState(false);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
@@ -3016,37 +3029,48 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             </div>
           )}
 
-          {/* PDF Lite modal (preferred when URL is available) */}
-          {pdfViewerOpen && currentPdfLiteUrl && (
-            <PDFLiteReaderModal
-              open={pdfViewerOpen}
-              pdfUrl={currentPdfLiteUrl}
-              title={currentPdfTitle}
-              onClose={() => {
-                setPdfViewerOpen(false);
-                setCurrentPdfLiteUrl(null);
-                setCurrentPdfCid(null);
-                setCurrentPdfTitle('');
-              }}
-            />
-          )}
-
-          {/* Custody-safe PDF viewer (page-image fallback) */}
-          {pdfViewerOpen && !currentPdfLiteUrl && currentPdfCid && (
-            <>
-              {console.log('[KnytTab] Rendering PDFPageViewer with CID:', currentPdfCid)}
-              <PDFPageViewer
-                cid={currentPdfCid}
-                title={currentPdfTitle}
-                onClose={() => {
-                  setPdfViewerOpen(false);
-                  setCurrentPdfLiteUrl(null);
-                  setCurrentPdfCid(null);
-                  setCurrentPdfTitle('');
-                }}
-              />
-            </>
-          )}
+          {/* PDF viewer — routing logic:
+              Mobile + CID available → PDFPageViewer (page images, raw PDF never reaches browser)
+              Mobile + URL only     → PDFLiteReaderModal (iframe, no download CTA)
+              Desktop + URL         → PDFLiteReaderModal (fast <object> embed)
+              Desktop + CID only    → PDFPageViewer (custody-safe fallback) */}
+          {pdfViewerOpen && (() => {
+            const closePdf = () => {
+              setPdfViewerOpen(false);
+              setCurrentPdfLiteUrl(null);
+              setCurrentPdfCid(null);
+              setCurrentPdfTitle('');
+            };
+            if (isMobileViewport && currentPdfCid) {
+              return (
+                <PDFPageViewer
+                  cid={currentPdfCid}
+                  title={currentPdfTitle}
+                  onClose={closePdf}
+                />
+              );
+            }
+            if (currentPdfLiteUrl) {
+              return (
+                <PDFLiteReaderModal
+                  open={pdfViewerOpen}
+                  pdfUrl={currentPdfLiteUrl}
+                  title={currentPdfTitle}
+                  onClose={closePdf}
+                />
+              );
+            }
+            if (currentPdfCid) {
+              return (
+                <PDFPageViewer
+                  cid={currentPdfCid}
+                  title={currentPdfTitle}
+                  onClose={closePdf}
+                />
+              );
+            }
+            return null;
+          })()}
 
           {/* Video Player Modal */}
           {videoPlayerOpen && (currentVideoUrl || currentVideoCid) && (
