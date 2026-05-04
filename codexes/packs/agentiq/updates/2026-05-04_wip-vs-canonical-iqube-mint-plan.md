@@ -45,7 +45,7 @@ In Phase 2, "Promote to Auto-Drive" becomes "Mint as iQube". A single atomic ope
 4. Generate tokenQube:
    - Wrap content key with persona's master key.
    - Mint NFT on-chain (Base for alpha; eventually one of the 7 ref chains based on persona's chain preference).
-   - On-chain artifact holds either the wrapped key bytes (small) or a hash + pointer to the wrapped key blob stored alongside the metaQube (large).
+   - **On-chain artifact holds a *pointer* to the wrapped key blob** (the wrapped-key bytes themselves never go on-chain). The wrapped-key blob lives on IPFS or Auto-Drive alongside the metaQube; the on-chain NFT commits to the blob's hash + URI. This keeps mint cost predictable across chains regardless of key/envelope size.
 5. Generate metaQube (non-sensitive descriptor: title, type, license, author, etc.) → upload to IPFS or Auto-Drive (configurable per-cartridge/per-cohort).
 6. Atomically record on `master_content_qubes`:
    - `auto_drive_cid` = Autonomys CID
@@ -67,30 +67,41 @@ When a *minted* iQube's underlying file is updated:
 
 The alternative — version-keyed (new key per version) — would invalidate every holder's tokenQube on every update. Rejected as a default. Reserved for explicit "republish-as-new-asset" admin actions where the new version is a different iQube with its own mint.
 
-### Access models (both supported, can coexist on the same platform)
+### Access models (both must be supported, can coexist on the same platform)
 
-#### A. Pool / access-token (1 asset, N tokens)
+The platform must implement **both** of these from day one of Phase 2 — one for **streaming/access**, one for **ownership/sovereignty**. They share the same encryption-key layer; the difference is purely in token issuance and on-chain semantics.
 
+#### A. Pool / access-token — STREAMING / ACCESS
+
+- **Intent:** access to the asset (read, watch, listen). Holder doesn't own the asset itself; they hold a license to consume it.
 - One ciphertext on Autonomys, one content key.
 - N tokenQubes minted, each wraps the same content key.
 - Tokens are transferable, revocable, and can be issued per-cohort or per-subscription.
-- Use cases: shared editions, "subscribe to read", per-cohort licenses, KS-backer rewards distributed via cohort token.
+- Use cases: shared editions, "subscribe to read", per-cohort licenses, KS-backer rewards, time-limited campaign drops.
+- **Delivery options:**
+  - **Deferred minting:** at access time, the platform mints a fresh access-tokenQube to the requesting persona on demand (lazy issuance). Cheap for the platform until access is actually requested.
+  - **Bulk pre-mint:** a fixed pool of N access tokens minted up front and distributed.
 
-#### B. Canonical NFT (1 token per holder, sovereign)
+#### B. Canonical NFT — OWNERSHIP / SOVEREIGNTY
 
+- **Intent:** ownership of a non-fungible edition. Each holder holds a unique on-chain asset they can sell, lend, transfer, or use as collateral.
 - Same one ciphertext on Autonomys, same one content key.
 - Each holder gets a unique tokenQube — itself a non-fungible NFT on the native chain.
-- Each tokenQube wraps the same content key (so all holders decrypt the same encrypted asset), but each token is a unique on-chain artifact with sovereign transfer semantics (sell, lend, gift).
-- Use cases: collector editions, 1-of-N rare drops, founder NFTs.
+- Each tokenQube wraps the same content key (so all holders decrypt the same encrypted asset), but each token is a unique on-chain artifact with sovereign transfer semantics.
+- Use cases: collector editions, 1-of-N rare drops, founder NFTs, signed editions.
+- **Delivery:** canonical pre-mint at iQube creation time (no deferred option — sovereignty implies the on-chain edition exists from t=0).
 
-The encryption-key layer is shared between A and B. The difference is purely in token issuance and on-chain semantics. A single platform mint can opt into either model (or even mix — e.g., 100 canonical NFTs + a public access-pool tokenQube for the same asset).
+#### Mixing models on the same asset
+
+A single platform mint can publish both surfaces against the same encrypted payload — e.g., 100 canonical NFTs (Model B, sovereign owners) + a public access-pool tokenQube (Model A, anyone with a subscription can stream). Operator picks the model(s) at mint time.
 
 ### Storage layout summary
 
 | Component | Storage | Mutable? | Notes |
 |---|---|---|---|
 | Encrypted payload (blakQube) | Autonomys (canonical) or Supabase (WIP) | Encrypted bytes immutable per CID; pointer can change on update | Same encryption applies to WIP if iQube model is bound |
-| tokenQube | On-chain NFT (Base for alpha; 7 ref chains eventually) + wrapped key blob (chain or IPFS/Auto-Drive sidecar) | Per-token transferable, revocable | Holds wrapped content key |
+| tokenQube on-chain artifact | Native chain NFT (Base for alpha; 7 ref chains eventually) | Transferable, revocable per token | Holds **a pointer (URI + content hash) to the wrapped-key blob** — never the wrapped-key bytes themselves |
+| Wrapped-key blob | IPFS or Auto-Drive sidecar (alongside metaQube) | Immutable per content-addressed hash | Wrapped content key in cleartext-but-encrypted-with-master-key form; only resolvable by the holding persona |
 | metaQube | IPFS or Auto-Drive (configurable) | Updated only on metadata change | Non-sensitive descriptor |
 | Registry row | Supabase `master_content_qubes` | Pointer-mutable (CID + status) | Operational state, not the source of truth on-chain |
 
@@ -115,8 +126,9 @@ Both modes return the same output (server-rendered page WebP). The browser never
 
 ### Minting cost considerations
 
-- Wrapped key on-chain: economical only if key blob is < ~1 KB. For larger keys (multi-recipient envelope), store off-chain (alongside metaQube on IPFS/Auto-Drive) and commit to its hash on-chain.
+- **Wrapped key never goes on-chain** (locked-in design). The on-chain NFT only holds a pointer (URI + content hash) to the wrapped-key blob stored alongside the metaQube on IPFS/Auto-Drive. Mint cost is therefore independent of envelope/key size, predictable across all 7 ref chains.
 - Cross-chain: tokenQube minting must be batched per chain. Allow the operator to pre-select the target chain at mint time; default to the persona's preferred chain for the cartridge (Base for alpha).
+- **Deferred-mint optimisation (Model A only):** for streaming/access pools, defer the per-holder NFT mint until first access is requested. The platform pays gas only for tokens that actually get used. Not applicable to Model B (sovereignty NFTs are pre-minted by definition).
 
 ### What this preserves vs Phase 1
 
@@ -125,13 +137,21 @@ Both modes return the same output (server-rendered page WebP). The browser never
 - Same admin panel — the "Promote" button becomes "Mint" with additional fields (chain, access model, edition count for canonical NFTs).
 - Same SmartContentItem types in client code — `pdf_master_id` resolution unchanged; client never needed to know the storage layer.
 
+### Locked-in design decisions (confirmed)
+
+1. **Update semantics: asset-keyed** (one content key per asset, stable across versions). Updates re-encrypt with the same key → new ciphertext + new CID + same tokenQubes. Existing holders' rights persist. Version-keyed rejected.
+2. **Mint = atomic operation** combining Auto-Drive upload + tokenQube creation + metaQube creation. "Promote to Auto-Drive" admin action becomes "Mint as iQube".
+3. **Both access models supported from day one of Phase 2** — Pool/access-token (streaming) AND Canonical NFT (ownership/sovereignty). Pool can use deferred minting; canonical is always pre-minted.
+4. **tokenQube on-chain artifact holds a pointer to the wrapped-key blob, never the bytes.** Wrapped-key blob lives on IPFS/Auto-Drive alongside the metaQube.
+5. **Phase 2 schema disambiguation:** `wip_storage_url` (nullable, mutable) + `auto_drive_cid` (nullable, set only on mint, never a URL) + `mint_status` enum (`wip` | `minted`). `auto_drive_cid` overload retired.
+
 ### Open questions for Phase 2 kickoff
 
-1. Wrapped-key location: on-chain bytes vs IPFS sidecar — pick at design time based on chain costs.
-2. Cross-chain mint UX: do we mint on one chain at promote time and bridge later, or mint on all 7 ref chains atomically? (Suggest: mint on persona's primary chain only at promotion; bridging is a separate operation.)
-3. Multi-recipient envelope encryption (if pool model): single wrapped key per token vs envelope-per-recipient? (Suggest: per-token wrap, simpler revocation.)
-4. metaQube updates: how often, who can update, do we version metaQubes alongside content versions? (Suggest: metaQube is mostly stable; bump only on title/license changes.)
-5. Republish as new asset (creates new content key + new metaQube + new tokenQube) — UX flow and how it relates to the original iQube's holders.
+1. Cross-chain mint UX: do we mint on one chain at promote time and bridge later, or mint on all 7 ref chains atomically? (Suggest: mint on persona's primary chain only at promotion; bridging is a separate operation.)
+2. Multi-recipient envelope encryption (Pool model): single wrapped key per token vs envelope-per-recipient? (Suggest: per-token wrap, simpler revocation.)
+3. metaQube updates: how often, who can update, do we version metaQubes alongside content versions? (Suggest: metaQube is mostly stable; bump only on title/license changes.)
+4. Republish as new asset (creates new content key + new metaQube + new tokenQube) — UX flow and how it relates to the original iQube's holders.
+5. Deferred-mint trigger (Pool model): mint at first access request, or at entitlement grant time (purchase/cohort assignment)? Latter is simpler for revocation, former is cheapest in gas.
 
 ---
 
