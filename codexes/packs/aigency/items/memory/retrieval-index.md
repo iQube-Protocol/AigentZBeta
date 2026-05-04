@@ -674,3 +674,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-7389c24.md](../build_/COMMITS/COMMIT-7389c24.md)
 - Message: fix runtime remix modal: seed activePersonaId from PersonaContext in standalone page mode
+
+## Commit `d271662` — 2026-05-04T02:57:47Z
+- Type: `push`
+- Brief: [COMMIT-d271662.md](../build_/COMMITS/COMMIT-d271662.md)
+- Message: prevent pdf download on mobile: route to PDFPageViewer on mobile when CID available; replace mobile download link with iframe in PDFLiteReaderModal

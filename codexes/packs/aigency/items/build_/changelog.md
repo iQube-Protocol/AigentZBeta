@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`d271662`](https://github.com/iQube-Protocol/AigentZBeta/commit/d2716629e7be5fdaa4d88f703cbacfeaf1297015) [push] prevent pdf download on mobile: route to PDFPageViewer on mobile when CID available; replace mobile download link with iframe in PDFLiteReaderModal (Claude, 2026-05-04T02:57:47Z)
 - [`7389c24`](https://github.com/iQube-Protocol/AigentZBeta/commit/7389c24a4b5640b88a932978f3fe9d2efb3864dd) [fix] fix runtime remix modal: seed activePersonaId from PersonaContext in standalone page mode (Claude, 2026-05-03T23:39:22Z)
 - [`2d2851e`](https://github.com/iQube-Protocol/AigentZBeta/commit/2d2851eae8bb80f8b1bfbb66b3ef0c7252103418) [feat] add knyt token gating workstream handover notes (Claude, 2026-05-02T23:16:39Z)
 - [`1ec0495`](https://github.com/iQube-Protocol/AigentZBeta/commit/1ec04957d2f5e7596c4fe4f46cad5a9d4a8f338e) [fix] fix entitlements enrichment for all asset id formats (Claude, 2026-05-02T17:02:07Z)
