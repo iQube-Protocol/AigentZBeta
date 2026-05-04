@@ -1494,6 +1494,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       const cached = getCachedValue<number[]>(cacheKey);
       if (cached) {
         setOwnedEpisodeNumbers(new Set(cached));
+        // ownedIssues drives isEpisodeLocked(); must be kept in sync with the
+        // episode-number set or owned items still route to the payment flow.
+        setOwnedIssues(cached.map((ep) => ({ episodeNumber: ep })));
         return;
       }
       const ownedRes = await fetch(`${apiBase}/api/codex/owned?personaId=${effectivePersonaId}`);
