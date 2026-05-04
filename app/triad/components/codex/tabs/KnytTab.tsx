@@ -217,7 +217,6 @@ import type {
 
 // Content viewers
 import { PDFPageViewer } from "@/app/triad/components/content/PDFPageViewer";
-import { PDFLiteReaderModal } from "@/app/triad/components/content/PDFLiteReaderModal";
 import { VideoPlayer, type VideoSegment } from "@/app/triad/components/content/VideoPlayer";
 import { VideoErrorBoundary } from "@/app/triad/components/content/VideoErrorBoundary";
 import { LoreTextReader } from "@/app/triad/components/content/LoreTextReader";
@@ -283,10 +282,11 @@ interface EpisodeFromAPI {
   printEpicCid?: string;
   printLegendaryCid?: string;
   printCommonCid?: string;
-  printRareLiteUrl?: string;
-  printEpicLiteUrl?: string;
-  printLegendaryLiteUrl?: string;
-  printCommonLiteUrl?: string;
+  // masterId fields — TEXT pk from master_content_qubes, used by entitlement-gated proxy
+  printCommonMasterId?: string;
+  printRareMasterId?: string;
+  printEpicMasterId?: string;
+  printLegendaryMasterId?: string;
   motionMasterCid?: string;
   motionMasterId?: string;
   availableCovers?: number;
@@ -699,24 +699,11 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const [episodesCatalog, setEpisodesCatalog] = useState<EpisodeFromAPI[]>([]);
   const [loadedImages, setLoadedImages] = useState<Map<string, string>>(new Map());
 
-  // Mobile detection — PDFPageViewer (page-image) is used on mobile to prevent
-  // raw PDF exposure. Desktop keeps the faster PDFLiteReaderModal path.
-  const [isMobileViewport, setIsMobileViewport] = useState<boolean>(() =>
-    typeof window !== 'undefined' ? window.matchMedia('(max-width: 767px)').matches : false
-  );
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mq = window.matchMedia('(max-width: 767px)');
-    const handler = (e: MediaQueryListEvent) => setIsMobileViewport(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
-
   // Viewer state
   const [videoPlayerOpen, setVideoPlayerOpen] = useState(false);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [currentPdfCid, setCurrentPdfCid] = useState<string | null>(null);
-  const [currentPdfLiteUrl, setCurrentPdfLiteUrl] = useState<string | null>(null);
+  const [currentPdfMasterId, setCurrentPdfMasterId] = useState<string | null>(null);
   const [currentPdfTitle, setCurrentPdfTitle] = useState('');
   const [currentVideoCid, setCurrentVideoCid] = useState<string | null>(null);
   const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null);
@@ -934,7 +921,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     const media = (knytItem.media ?? {}) as {
       text?: string;
       pdf_cid?: string;
-      pdf_lite_url?: string;
+      pdf_master_id?: string;
       video_cid?: string;
       video_url?: string;
       audio_url?: string;
@@ -993,7 +980,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         },
       } as ContentModalities,
       pdf_cid: media.pdf_cid,
-      pdf_lite_url: media.pdf_lite_url,
+      pdf_master_id: media.pdf_master_id,
       type: knytItem.type,
       created_at: metadata.created_at,
       updated_at: metadata.updated_at,
@@ -1022,8 +1009,8 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       if (episodeNumber < 0) continue;
       
       const printCid = ep.printRareCid || ep.printEpicCid || ep.printLegendaryCid || ep.printCommonCid;
-      const printLiteUrl = ep.printRareLiteUrl || ep.printEpicLiteUrl || ep.printLegendaryLiteUrl || ep.printCommonLiteUrl;
-      const hasReadable = !!(printCid || printLiteUrl);
+      const printMasterId = ep.printRareMasterId || ep.printEpicMasterId || ep.printLegendaryMasterId || ep.printCommonMasterId;
+      const hasReadable = !!(printCid || printMasterId);
       const hasCover = !!(ep.coverThumbUrl || ep.coverImageCid);
       const coverThumb =
         ep.coverThumbUrl ||
@@ -1063,9 +1050,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
           title: ep.title || `Episode ${ep.displayNumber}`,
           subtitle: `Episode ${ep.displayNumber}`,
           thumbnail: coverThumb,
-          media: { 
+          media: {
             pdf_cid: printCid,
-            pdf_lite_url: printLiteUrl,
+            pdf_master_id: printMasterId,
             video_cid: motionSource.cid,
             video_url: motionSource.url,
           },
@@ -1139,10 +1126,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     const gnPrintCid = gnEp
       ? (gnEp.printRareCid || gnEp.printEpicCid || gnEp.printLegendaryCid || gnEp.printCommonCid)
       : undefined;
-    const gnPrintLiteUrl = gnEp
-      ? (gnEp.printRareLiteUrl || gnEp.printEpicLiteUrl || gnEp.printLegendaryLiteUrl || gnEp.printCommonLiteUrl)
+    const gnPrintMasterId = gnEp
+      ? (gnEp.printRareMasterId || gnEp.printEpicMasterId || gnEp.printLegendaryMasterId || gnEp.printCommonMasterId)
       : undefined;
-    const gnHasReadable = !!(gnPrintCid || gnPrintLiteUrl);
+    const gnHasReadable = !!(gnPrintCid || gnPrintMasterId);
 
     const agnCards: KnytContentItem[] = PREORDER_CONTENT_VARIANTS.map((variant) => ({
       id: `metaKnyts_preorder_${variant.id}`,
@@ -1154,7 +1141,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       media: {
         image_cid: undefined,
         pdf_cid: gnPrintCid,
-        pdf_lite_url: gnPrintLiteUrl,
+        pdf_master_id: gnPrintMasterId,
       },
       metadata: {
         episodeNumber: PREORDER_VARIANT_EPISODE_NUMBER[variant.id],
@@ -2346,19 +2333,16 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       openPurchaseForItem(item, type === 'video' ? 'watch' : 'read');
       return;
     }
-    if (type === 'pdf' && item.media?.text && !item.media?.pdf_lite_url && !item.media?.pdf_cid) {
+    if (type === 'pdf' && item.media?.text && !item.media?.pdf_cid && !(item.media as any)?.pdf_master_id) {
       setCurrentText({ title: item.title, content: item.media.text });
       setTextReaderOpen(true);
       return;
     }
-    if (type === 'pdf' && (item.media?.pdf_lite_url || item.media?.pdf_cid)) {
-      console.log('[KnytTab] Opening PDF viewer:', {
-        pdf_lite_url: item.media.pdf_lite_url,
-        pdf_cid: item.media.pdf_cid,
-        title: item.title
-      });
-      setCurrentPdfLiteUrl(item.media.pdf_lite_url || null);
-      setCurrentPdfCid(item.media.pdf_cid || null);
+    if (type === 'pdf' && ((item as any).pdf_master_id || (item as any).pdf_cid || item.media?.pdf_master_id || item.media?.pdf_cid)) {
+      const masterId = (item as any).pdf_master_id || (item.media as any)?.pdf_master_id || null;
+      const cidVal = (item as any).pdf_cid || item.media?.pdf_cid || null;
+      setCurrentPdfMasterId(masterId);
+      setCurrentPdfCid(cidVal);
       setCurrentPdfTitle(item.title);
       setPdfViewerOpen(true);
     } else if (type === 'video') {
@@ -2768,12 +2752,11 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                             if (!cardAct.showSmartActions) {
                               return; // Restricted (credential gate, no credential) — silent no-op
                             }
-                            const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid || episode.printCommonCid;
-                            if (printCid) {
-                              setCurrentPdfLiteUrl(
-                                episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || episode.printCommonLiteUrl || null
-                              );
-                              setCurrentPdfCid(printCid);
+                            const epMasterId = episode.printRareMasterId || episode.printEpicMasterId || episode.printLegendaryMasterId || episode.printCommonMasterId;
+                            const epPrintCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid || episode.printCommonCid;
+                            if (epMasterId || epPrintCid) {
+                              setCurrentPdfMasterId(epMasterId || null);
+                              setCurrentPdfCid(epPrintCid || null);
                               setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
                               setPdfViewerOpen(true);
                             }
@@ -2840,12 +2823,11 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                                 title="Read"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid || episode.printCommonCid;
-                                  if (printCid) {
-                                    setCurrentPdfLiteUrl(
-                                      episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || episode.printCommonLiteUrl || null
-                                    );
-                                    setCurrentPdfCid(printCid);
+                                  const btnMasterId = episode.printRareMasterId || episode.printEpicMasterId || episode.printLegendaryMasterId || episode.printCommonMasterId;
+                                  const btnPrintCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid || episode.printCommonCid;
+                                  if (btnMasterId || btnPrintCid) {
+                                    setCurrentPdfMasterId(btnMasterId || null);
+                                    setCurrentPdfCid(btnPrintCid || null);
                                     setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
                                     setPdfViewerOpen(true);
                                   }
@@ -3029,32 +3011,22 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             </div>
           )}
 
-          {/* PDF viewer — routing logic:
-              Mobile + CID available → PDFPageViewer (page images, raw PDF never reaches browser)
-              Mobile + URL only     → PDFLiteReaderModal (iframe, no download CTA)
-              Desktop + URL         → PDFLiteReaderModal (fast <object> embed)
-              Desktop + CID only    → PDFPageViewer (custody-safe fallback) */}
+          {/* PDF viewer — all gated content goes through PDFPageViewer (custody-safe page-image renderer).
+              The raw PDF URL never reaches the browser.
+              masterId → /api/content/pdf-page-by-master/[id] (entitlement-gated proxy, Supabase-hosted)
+              cid      → /api/content/pdf-page/[cid] (server-decrypts Autonomys-hosted PDF) */}
           {pdfViewerOpen && (() => {
             const closePdf = () => {
               setPdfViewerOpen(false);
-              setCurrentPdfLiteUrl(null);
+              setCurrentPdfMasterId(null);
               setCurrentPdfCid(null);
               setCurrentPdfTitle('');
             };
-            if (isMobileViewport && currentPdfCid) {
+            if (currentPdfMasterId) {
               return (
                 <PDFPageViewer
-                  cid={currentPdfCid}
-                  title={currentPdfTitle}
-                  onClose={closePdf}
-                />
-              );
-            }
-            if (currentPdfLiteUrl) {
-              return (
-                <PDFLiteReaderModal
-                  open={pdfViewerOpen}
-                  pdfUrl={currentPdfLiteUrl}
+                  masterId={currentPdfMasterId}
+                  personaId={effectivePersonaId || undefined}
                   title={currentPdfTitle}
                   onClose={closePdf}
                 />

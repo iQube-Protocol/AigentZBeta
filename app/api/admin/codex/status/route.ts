@@ -48,10 +48,12 @@ interface EpisodeStatus {
   printEpicCid?: string;
   printLegendaryCid?: string;
   printCommonCid?: string;
-  printRareLiteUrl?: string; // Supabase Storage PDF-lite URL
-  printEpicLiteUrl?: string;
-  printLegendaryLiteUrl?: string;
-  printCommonLiteUrl?: string;
+  // masterId fields: TEXT pk from master_content_qubes (e.g. mk_ep01_print_common)
+  // Used by the proxy route /api/content/pdf-page-by-master/[masterId] — URL stays server-side
+  printCommonMasterId?: string;
+  printRareMasterId?: string;
+  printEpicMasterId?: string;
+  printLegendaryMasterId?: string;
   coverCount: number;
   coverImageCid?: string; // CID of primary cover for display
   coverThumbUrl?: string; // Supabase Storage cover thumbnail URL
@@ -456,30 +458,29 @@ if (series === 'metaKnyts') {
           status.motionMasterId = master.id;
           status.motionMasterCid = master.auto_drive_cid;
         } else if (master.content_type === 'episode_print') {
-          // Handle print editions by tier - store CID and pdf_lite_url for PDF viewing.
-          // For Supabase-hosted rows the auto_drive_cid is the public URL; lift it
-          // into pdf_lite_url so the PDF Lite reader (which expects a fetchable URL)
-          // is used instead of the Auto-Drive decryption proxy.
+          // Handle print editions by tier.
+          // masterId (TEXT pk) is sent to the client; the actual PDF URL is
+          // resolved server-side in /api/content/pdf-page-by-master/[masterId].
+          // liteUrls are intentionally NOT forwarded to the client.
           const cid = master.auto_drive_cid;
           const isUrl = typeof cid === 'string' && (cid.startsWith('http://') || cid.startsWith('https://'));
-          const liteUrl = master.pdf_lite_url || (isUrl ? cid : undefined);
           const tier = master.edition_tier;
           if (tier === 'rare') {
             status.hasPrintRare = true;
-            status.printRareCid = cid;
-            status.printRareLiteUrl = liteUrl;
+            status.printRareMasterId = master.id;
+            if (!isUrl) status.printRareCid = cid; // only for Autonomys CIDs
           } else if (tier === 'epic') {
             status.hasPrintEpic = true;
-            status.printEpicCid = cid;
-            status.printEpicLiteUrl = liteUrl;
+            status.printEpicMasterId = master.id;
+            if (!isUrl) status.printEpicCid = cid;
           } else if (tier === 'legendary') {
             status.hasPrintLegendary = true;
-            status.printLegendaryCid = cid;
-            status.printLegendaryLiteUrl = liteUrl;
+            status.printLegendaryMasterId = master.id;
+            if (!isUrl) status.printLegendaryCid = cid;
           } else if (tier === 'common' || !tier) {
             status.hasPrintCommon = true;
-            status.printCommonCid = cid;
-            status.printCommonLiteUrl = liteUrl;
+            status.printCommonMasterId = master.id;
+            if (!isUrl) status.printCommonCid = cid;
           }
         }
       }

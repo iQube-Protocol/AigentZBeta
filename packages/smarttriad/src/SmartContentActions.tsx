@@ -36,7 +36,7 @@ export interface SmartContentItem {
   section?: string;
   // PDF support
   pdf_cid?: string;
-  pdf_lite_url?: string;
+  pdf_master_id?: string;
 }
 
 interface Props {

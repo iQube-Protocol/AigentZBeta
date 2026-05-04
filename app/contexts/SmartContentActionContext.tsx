@@ -119,7 +119,7 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
         type: item.type,
         modalities: item.modalities,
         pdf_cid: item.pdf_cid,
-        pdf_lite_url: item.pdf_lite_url,
+        pdf_master_id: item.pdf_master_id,
         created_at: item.created_at,
         updated_at: item.updated_at,
       };

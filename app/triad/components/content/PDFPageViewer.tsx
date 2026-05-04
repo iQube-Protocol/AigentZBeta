@@ -2,8 +2,11 @@
  * PDFPageViewer - Lazy-loading page-based PDF viewer
  *
  * Custody-safe page-image renderer.
- * Uses page manifests + page image streaming (/api/content/pdf-page) to avoid
- * exposing raw PDF URLs to clients.
+ * Two source modes:
+ *   cid      → /api/content/pdf-page/[cid]          (Autonomys-hosted, server-decrypts)
+ *   masterId → /api/content/pdf-page-by-master/[id]  (Supabase-hosted, entitlement-gated proxy)
+ *
+ * In either mode the raw PDF URL never reaches the browser.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -12,7 +15,12 @@ import { Button } from "@/components/ui/button";
 import { API_BASE_URL } from "@/app/config/api";
 
 interface PDFPageViewerProps {
-  cid: string;
+  /** Autonomys CID — use this for encrypted Autonomys-hosted PDFs */
+  cid?: string;
+  /** master_content_qubes TEXT pk (e.g. mk_ep01_print_common) — use for Supabase-hosted PDFs */
+  masterId?: string;
+  /** Required when masterId is provided — identifies the requesting persona for entitlement gate */
+  personaId?: string;
   title?: string;
   onClose: () => void;
 }
@@ -29,7 +37,7 @@ interface PageManifest {
   cached?: boolean;
 }
 
-export function PDFPageViewer({ cid, title, onClose }: PDFPageViewerProps) {
+export function PDFPageViewer({ cid, masterId, personaId, title, onClose }: PDFPageViewerProps) {
   const [manifest, setManifest] = useState<PageManifest | null>(null);
   const [meta, setMeta] = useState<PageMeta | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -46,6 +54,21 @@ export function PDFPageViewer({ cid, title, onClose }: PDFPageViewerProps) {
   useEffect(() => {
     const fetchPages = async () => {
       try {
+        if (masterId) {
+          // masterId mode: entitlement-gated proxy route
+          const qs = new URLSearchParams({ meta: '1', ...(personaId ? { personaId } : {}) });
+          const metaRes = await fetch(`${apiBase}/api/content/pdf-page-by-master/${encodeURIComponent(masterId)}?${qs}`);
+          if (!metaRes.ok) throw new Error(`HTTP ${metaRes.status}`);
+          const data = await metaRes.json();
+          setMeta({ pages: data.pages ?? 1, suggestedWidth: data.suggestedWidth });
+          setLoadingMeta(false);
+          return;
+        }
+
+        if (!cid) {
+          throw new Error('No cid or masterId provided');
+        }
+
         const manifestRes = await fetch(`${apiBase}/api/content/pdf-pages/${cid}`);
         if (manifestRes.ok) {
           const data = await manifestRes.json();
@@ -66,7 +89,7 @@ export function PDFPageViewer({ cid, title, onClose }: PDFPageViewerProps) {
       }
     };
     fetchPages();
-  }, [apiBase, cid]);
+  }, [apiBase, cid, masterId, personaId]);
 
   useEffect(() => {
     if (!meta) return;
@@ -198,6 +221,8 @@ export function PDFPageViewer({ cid, title, onClose }: PDFPageViewerProps) {
             <PDFPageImage
               key={pageNum}
               cid={cid}
+              masterId={masterId}
+              personaId={personaId}
               pageNum={pageNum}
               width={width}
               apiBase={apiBase}
@@ -266,7 +291,9 @@ export function PDFPageViewer({ cid, title, onClose }: PDFPageViewerProps) {
 }
 
 interface PDFPageImageProps {
-  cid: string;
+  cid?: string;
+  masterId?: string;
+  personaId?: string;
   pageNum: number;
   width: number;
   apiBase: string;
@@ -280,6 +307,8 @@ interface PDFPageImageProps {
 
 function PDFPageImage({
   cid,
+  masterId,
+  personaId,
   pageNum,
   width,
   apiBase,
@@ -293,7 +322,18 @@ function PDFPageImage({
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const pageUrl = prerenderedUrl || `${apiBase}/api/content/pdf-page/${cid}?page=${pageNum}&width=${width}`;
+
+  let pageUrl = prerenderedUrl;
+  if (!pageUrl) {
+    if (masterId) {
+      const qs = new URLSearchParams({ page: String(pageNum), width: String(width), ...(personaId ? { personaId } : {}) });
+      pageUrl = `${apiBase}/api/content/pdf-page-by-master/${encodeURIComponent(masterId)}?${qs}`;
+    } else if (cid) {
+      pageUrl = `${apiBase}/api/content/pdf-page/${cid}?page=${pageNum}&width=${width}`;
+    } else {
+      pageUrl = '';
+    }
+  }
 
   useEffect(() => {
     if (!containerRef.current) return;

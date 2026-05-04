@@ -31,7 +31,7 @@ export interface SmartWalletContentPayload {
   type?: string;
   modalities?: SmartContentItem["modalities"];
   pdf_cid?: string;
-  pdf_lite_url?: string;
+  pdf_master_id?: string;
   created_at?: string;
   updated_at?: string;
   pricingModel?: {

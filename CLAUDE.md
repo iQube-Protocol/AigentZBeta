@@ -209,6 +209,36 @@ Multiple Claude Code sessions may run concurrently on this codebase. Each sessio
 
 ---
 
+## Gated Content — Confidential Exposure Rules (PARAMOUNT)
+
+Purchased/entitled content (PDFs, videos, and any other gated media) must be treated as **confidential information exposed only under controlled conditions**. The underlying file URL and bytes must never be handed to the OS or browser outside the application's own viewers.
+
+### Hard rules — apply to all gated/locked content:
+
+1. **No `target="_blank"`** on links or anchors pointing at gated PDF or video files. Opening a new tab hands the URL to the browser, which can download, share, or cache the file.
+
+2. **No raw storage URLs in the browser** — Supabase Storage URLs (`https://[project].supabase.co/storage/...`), Autonomys CIDs, or any other direct file path for gated content must never be sent to the client as-is. They must be proxied through an authenticated server-side route that validates the persona's entitlement before streaming bytes.
+
+3. **No `window.open()` on gated file URLs** — same exposure risk as `target="_blank"`.
+
+4. **PDFs must render only inside `PDFPageViewer`** — this component converts each page to an image server-side; raw PDF bytes never reach the browser. `PDFLiteReaderModal` (which embeds via `<object>` or `<iframe>`) exposes the URL and must not be used for gated content.
+
+5. **Videos must render only inside the app's `VideoPlayer` component** — never via a direct URL in a new tab or `<a>` link.
+
+6. **This applies to every surface** — KnytTab, store tabs, Terra, Community, 21 Sats, runtime, embed routes, and any future surface. The rule travels with the content, not the surface.
+
+### What is NOT gated (can follow the standard exposed process):
+
+- Free/preview content with no entitlement requirement
+- Marketing assets, cover thumbnails, promotional images
+- Public KB documents and lore that are not access-restricted
+
+### Phase note:
+
+Phase 2 will enforce this via iQube encryption (assets stored as encrypted non-fungible files, decrypted only for verified holders). Until then, server-side proxying + in-app-only rendering is the enforcement mechanism.
+
+---
+
 ## Architecture Layers (respect the boundaries)
 
 | Layer | Responsibility | Technologies |

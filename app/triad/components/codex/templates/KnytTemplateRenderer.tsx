@@ -1372,7 +1372,7 @@ function RealmBridgeMapTemplate({
                   }
                 }}
                 onRead={() => {
-                  if (item.media?.text && !item.media?.pdf_cid && !item.media?.pdf_lite_url) {
+                  if (item.media?.text && !item.media?.pdf_cid && !(item.media as any)?.pdf_master_id) {
                     onSmartAction?.(item, 'read');
                     return;
                   }
