@@ -15,6 +15,9 @@ import { RemixDialog } from "@/components/metame/runtime/RemixDialog";
 
 interface Props {
   personaId: string | null;
+  /** While true, persona resolution is still in progress. The sign-in banner
+      is suppressed so signed-in users don't see a flash of "please sign in". */
+  personaResolving?: boolean;
   sourceExperienceId: string;
   initialTitle: string;
   initialPrompt: string;
@@ -25,6 +28,7 @@ interface Props {
 
 export function RuntimeCapsuleRemixEditor({
   personaId,
+  personaResolving = false,
   sourceExperienceId,
   initialTitle,
   initialPrompt,
@@ -73,6 +77,7 @@ export function RuntimeCapsuleRemixEditor({
             variant="inline"
             open={true}
             personaId={personaId}
+            personaResolving={personaResolving}
             sourceExperienceId={sourceExperienceId}
             initialTitle={initialTitle}
             initialPrompt={initialPrompt}

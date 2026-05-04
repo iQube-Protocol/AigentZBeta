@@ -1986,6 +1986,10 @@ export default function MetaMeRuntimeClient() {
     typeof crypto !== "undefined" ? crypto.randomUUID() : `conv-${Date.now()}`
   );
   const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
+  // True while the async persona resolver is running — suppresses the sign-in
+  // banner so signed-in users don't see a flash of "please sign in" before the
+  // resolver completes and populates activePersonaId.
+  const [personaResolving, setPersonaResolving] = useState(true);
 
   // Sync from PersonaContext whenever it changes — covers the standalone
   // page case where no SHELL_READY arrives. Shell-supplied persona_id
@@ -2000,21 +2004,24 @@ export default function MetaMeRuntimeClient() {
   // iframe shell (e.g. runtime.metame.com loaded directly), no parent
   // posts SHELL_READY with a persona_id, so activePersonaId stays null
   // even after the user signs in. Resolve from the browser auth session
-  // → nakamoto_knyt_personas (KNYT cartridge persona) → fall back to
-  // any localStorage currentPersonaId. Re-runs on auth state changes.
+  // → nakamoto_knyt_personas (KNYT cartridge persona) → generic wallet API
+  // → localStorage. Re-runs on auth state changes.
   useEffect(() => {
     if (typeof window === "undefined") return;
     let cancelled = false;
 
     async function resolvePersona() {
       // If PersonaContext or a parent shell already supplied a persona, leave it alone.
-      if (ctxPersonaId || shellContextRef.current.persona_id) return;
-
-      const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-      if (!url || !anonKey) return;
+      if (ctxPersonaId || shellContextRef.current.persona_id) {
+        setPersonaResolving(false);
+        return;
+      }
 
       try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        if (!url || !anonKey) return;
+
         const { createClient } = await import("@supabase/supabase-js");
         const supabase = createClient(url, anonKey);
         const { data: { user } } = await supabase.auth.getUser();
@@ -2034,6 +2041,26 @@ export default function MetaMeRuntimeClient() {
             try { localStorage.setItem("currentPersonaId", pid); } catch { /* noop */ }
             return;
           }
+
+          // Not in nakamoto_knyt_personas — try the generic wallet API which
+          // covers personas created through the main onboarding flow.
+          try {
+            const { data: { session: activeSession } } = await supabase.auth.getSession();
+            if (activeSession?.access_token && !cancelled) {
+              const res = await fetch("/api/wallet/personas", {
+                headers: { Authorization: `Bearer ${activeSession.access_token}` },
+              });
+              if (res.ok && !cancelled) {
+                const list = await res.json();
+                const firstId = Array.isArray(list) ? (list[0] as { id?: unknown })?.id : null;
+                if (typeof firstId === "string" && firstId) {
+                  setActivePersonaId(firstId);
+                  try { localStorage.setItem("currentPersonaId", firstId); } catch { /* noop */ }
+                  return;
+                }
+              }
+            }
+          } catch { /* non-fatal */ }
         }
 
         // Fallback to any persona ID stashed in localStorage by another surface.
@@ -2043,6 +2070,8 @@ export default function MetaMeRuntimeClient() {
         } catch { /* noop */ }
       } catch {
         // Non-fatal — resolver runs again on next mount or auth change.
+      } finally {
+        if (!cancelled) setPersonaResolving(false);
       }
     }
 
@@ -3010,6 +3039,7 @@ export default function MetaMeRuntimeClient() {
             ) : (
               <RuntimeCapsuleRemixEditor
                 personaId={activePersonaId}
+                personaResolving={personaResolving}
                 sourceExperienceId={resolveRuntimeExperienceId(content) ?? content.id}
                 initialTitle={content.title || ""}
                 initialPrompt={articleDraft?.prompt || content.description || ""}
