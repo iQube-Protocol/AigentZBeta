@@ -1267,7 +1267,7 @@ function CategoryDetailPanel({
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-white">{CATEGORY_LABELS[category]} <span className="ml-2 text-xs font-normal text-slate-400">{rows.length} asset{rows.length === 1 ? '' : 's'}</span></p>
-          <p className="text-xs text-slate-500">Edit the <span className="text-slate-300">Supabase</span> title (used by app). The <span className="text-slate-300">Auto-Drive</span> title is locked once uploaded. Click any CID to copy. Click <Pencil className="inline h-3 w-3" /> to edit, archive icon to hide.</p>
+          <p className="text-xs text-slate-500">Edit the <span className="text-slate-300">Supabase</span> title (used by app). The <span className="text-slate-300">Auto-Drive</span> title is locked once uploaded. Click any CID to copy. <Pencil className="inline h-3 w-3" /> edit, <Upload className="inline h-3 w-3 text-sky-300" /> replace WIP file (Supabase only — overwrites in place), <Sparkles className="inline h-3 w-3 text-violet-300" /> promote to Auto-Drive (encrypts, becomes canonical & immutable), archive icon to hide.</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <label className="flex items-center gap-1.5 text-xs text-slate-400 cursor-pointer">
@@ -1355,9 +1355,116 @@ function EditableAssetRow({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
+  const [replacing, setReplacing] = useState(false);
+  const [promoting, setPromoting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const tierLabel = row.editionTier ?? row.rarityTier ?? null;
   const isArchived = row.status === 'archived';
+  // Supabase-hosted WIP rows store the public Storage URL in cid; canonical
+  // Auto-Drive rows store a real CID (no http prefix). Replace + Promote
+  // affordances only apply to WIP rows — Auto-Drive is immutable.
+  const isSupabaseHosted = typeof row.cid === 'string' && (row.cid.startsWith('http://') || row.cid.startsWith('https://'));
+
+  // Extract storage path from Supabase URL (after `/object/public/{bucket}/`).
+  const extractStoragePath = (url: string): { bucket: string; path: string } | null => {
+    const m = url.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+?)(?:\?.*)?$/);
+    if (!m) return null;
+    return { bucket: m[1], path: decodeURIComponent(m[2]) };
+  };
+
+  const handleReplaceClick = () => {
+    if (!isSupabaseHosted || replacing || promoting) return;
+    fileInputRef.current?.click();
+  };
+
+  const handleReplaceFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting same file later
+    if (!file || !row.cid) return;
+    const parsed = extractStoragePath(row.cid);
+    if (!parsed) {
+      setSaveError('Could not parse storage path from URL');
+      return;
+    }
+
+    setReplacing(true);
+    setSaveError(null);
+    try {
+      // 1. Get a signed upload URL targeting the EXISTING path (overwrite).
+      const signRes = await fetch('/api/admin/codex/storage/sign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          existingPath: parsed.path,
+          fileName: file.name,
+          mimeType: file.type,
+          // category is required by the route, but ignored when existingPath set
+          category: isMasterTable ? 'master' : (row.assetKind || 'asset'),
+        }),
+      });
+      const signJson = await signRes.json().catch(() => ({}));
+      if (!signRes.ok) throw new Error(signJson?.error || `Sign failed (${signRes.status})`);
+
+      // 2. Direct PUT to Supabase Storage (overwrites the existing object).
+      const putRes = await fetch(signJson.signedUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        body: file,
+      });
+      if (!putRes.ok) throw new Error(`Upload failed (${putRes.status})`);
+
+      // 3. Cleanup: drop stale page manifests, reset pages_ready, update file_size.
+      const postRes = await fetch('/api/admin/codex/storage/post-replace', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assetId: row.id,
+          table: isMasterTable ? 'master_content_qubes' : 'codex_media_assets',
+          fileSize: file.size,
+          mimeType: file.type,
+        }),
+      });
+      const postJson = await postRes.json().catch(() => ({}));
+      if (!postRes.ok) throw new Error(postJson?.error || `Cleanup failed (${postRes.status})`);
+
+      // URL stays the same; just refresh the row so any callers re-read.
+      onSaved({ ...row, mimeType: file.type || row.mimeType });
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Replace failed');
+    } finally {
+      setReplacing(false);
+    }
+  };
+
+  const handlePromote = async () => {
+    if (!isSupabaseHosted || replacing || promoting) return;
+    if (!window.confirm(
+      'Promote this Supabase asset to Auto-Drive? The new copy will be encrypted and immutable. The current Supabase blob remains as a backup.'
+    )) return;
+
+    setPromoting(true);
+    setSaveError(null);
+    try {
+      const res = await fetch('/api/admin/codex/promote-to-autonomys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assetId: row.id,
+          table: isMasterTable ? 'master_content_qubes' : 'codex_media_assets',
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || `Promote failed (${res.status})`);
+      // Row now has a real CID — reflect it locally so the row re-renders
+      // without the Replace/Promote affordances.
+      onSaved({ ...row, cid: json.cid });
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Promote failed');
+    } finally {
+      setPromoting(false);
+    }
+  };
 
   const beginEdit = () => {
     setTier((row.editionTier ?? row.rarityTier ?? '') as AllowedTier | '');
@@ -1547,6 +1654,36 @@ function EditableAssetRow({
             >
               <Pencil className="h-3 w-3" />
             </button>
+            {/* Replace file — only for Supabase-hosted WIP. Overwrites at the same
+                storage path so the public URL stays stable. */}
+            {isSupabaseHosted && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => void handleReplaceFile(e)}
+                />
+                <button
+                  type="button"
+                  onClick={handleReplaceClick}
+                  disabled={replacing || promoting}
+                  title="Replace file (Supabase WIP — overwrites in place)"
+                  className="rounded border border-sky-500/40 bg-sky-500/10 p-1 text-sky-300 hover:bg-sky-500/20 disabled:opacity-50"
+                >
+                  {replacing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handlePromote()}
+                  disabled={replacing || promoting}
+                  title="Promote to Auto-Drive (encrypted, immutable, canonical)"
+                  className="rounded border border-violet-500/40 bg-violet-500/10 p-1 text-violet-300 hover:bg-violet-500/20 disabled:opacity-50"
+                >
+                  {promoting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                </button>
+              </>
+            )}
             <button
               type="button"
               onClick={() => void toggleArchive()}

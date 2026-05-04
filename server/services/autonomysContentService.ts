@@ -564,3 +564,119 @@ export function validateFileType(
 
   return allowed.includes(mimeType);
 }
+
+// =============================================================================
+// Phase 1 → Phase 2 transition helper
+// =============================================================================
+
+/**
+ * Promote an existing Supabase-hosted asset to Autonomys (encrypted).
+ *
+ * Phase 1 admin-panel action. The row already exists with auto_drive_cid set
+ * to a Supabase URL. We:
+ *   1. Download the bytes from the Supabase URL
+ *   2. Encrypt with a fresh content key
+ *   3. Upload ciphertext to Autonomys → real CID
+ *   4. Wrap content key with master key + persist as a tokenQube
+ *   5. Update the existing row with the real CID + encryption metadata +
+ *      token_qube_id, replacing the Supabase URL pointer
+ *   6. Drop pdf_page_manifests keyed by the old URL so derivatives regenerate
+ *
+ * After this call, the row is canonical (immutable on Autonomys). The Supabase
+ * blob is left in place as a backup; an operator can clean it up separately.
+ *
+ * Phase 2 will replace this with the full iQube mint (adds metaQube + on-chain
+ * tokenQube NFT). For Phase 1 we only persist the off-chain artifacts.
+ */
+export async function promoteRowToAutonomys(params: {
+  rowId: string;
+  table: 'master_content_qubes' | 'codex_media_assets';
+}): Promise<{ rowId: string; cid: string; tokenQubeId: string; bytesEncrypted: number }> {
+  const { rowId, table } = params;
+
+  const supabase = getSupabase();
+  const { data: row, error: readError } = await supabase
+    .from(table)
+    .select('id, auto_drive_cid, mime_type, title')
+    .eq('id', rowId)
+    .single();
+
+  if (readError || !row) {
+    throw new Error(`Asset not found: ${rowId}`);
+  }
+
+  const currentCid = row.auto_drive_cid as string | null;
+  const isUrl = typeof currentCid === 'string' && (currentCid.startsWith('http://') || currentCid.startsWith('https://'));
+  if (!isUrl) {
+    throw new Error('Asset is already canonical (Auto-Drive). Promote is only allowed on Supabase-hosted WIP content.');
+  }
+
+  console.log(`[promote] Fetching Supabase blob: ${currentCid}`);
+  const fetchRes = await fetch(currentCid);
+  if (!fetchRes.ok) {
+    throw new Error(`Failed to fetch Supabase blob: HTTP ${fetchRes.status}`);
+  }
+  const fileBytes = Buffer.from(await fetchRes.arrayBuffer());
+  console.log(`[promote] Fetched ${fileBytes.length} bytes`);
+
+  const contentKey = generateContentKey();
+  const encrypted = encryptContent(fileBytes, contentKey);
+  const checksum = computeChecksum(fileBytes);
+  console.log(`[promote] Encrypted ${fileBytes.length} → ${encrypted.ciphertext.length} bytes`);
+
+  const api = getAutoDriveApi();
+  const filename = `${(row.title as string) || rowId}.enc`;
+  const newCid = await uploadToAutonomys(api, encrypted.ciphertext, filename);
+  console.log(`[promote] Uploaded to Autonomys: ${newCid}`);
+
+  const wrappedKey = wrapKeyWithMasterKey(contentKey);
+  const tokenQubeId = await createTokenQube({
+    keyCiphertext: wrappedKey.keyCiphertext,
+    wrappingAlg: wrappedKey.wrappingAlgorithm,
+    keyType: 'AES-256',
+  });
+
+  const blakQubeId = await createBlakQube({
+    cid: newCid,
+    payloadType: (row.mime_type as string) || 'application/octet-stream',
+    provider: 'autonomys',
+    encryptionAlg: ENCRYPTION_ALGORITHM,
+    iv: encrypted.iv,
+    authTag: encrypted.authTag,
+    size: fileBytes.length,
+    checksum,
+  });
+
+  const { error: updateError } = await supabase
+    .from(table)
+    .update({
+      auto_drive_cid: newCid,
+      file_size: fileBytes.length,
+      encryption_alg: ENCRYPTION_ALGORITHM,
+      encryption_iv: encrypted.iv,
+      encryption_auth_tag: encrypted.authTag,
+      token_qube_id: tokenQubeId,
+      blak_qube_id: blakQubeId,
+      pages_ready: false,  // Page renderer will regenerate from decrypted bytes
+      pages_count: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', rowId);
+
+  if (updateError) {
+    throw new Error(`Row update failed: ${updateError.message}`);
+  }
+
+  // Drop stale pre-rendered page manifests keyed by the old Supabase URL.
+  await supabase
+    .from('pdf_page_manifests')
+    .delete()
+    .eq('auto_drive_cid', currentCid);
+
+  return {
+    rowId,
+    cid: newCid,
+    tokenQubeId,
+    bytesEncrypted: encrypted.ciphertext.length,
+  };
+}

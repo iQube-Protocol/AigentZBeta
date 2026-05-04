@@ -62,16 +62,27 @@ export async function POST(req: NextRequest) {
     const {
       category, series = 'metaKnyts', episodeNumber = null,
       assetKind, contentType, fileName, mimeType,
+      existingPath,
     } = body as {
       category: string; series?: string; episodeNumber?: number | null;
       assetKind?: string; contentType?: string; fileName: string; mimeType?: string;
+      // When set, sign for THIS exact storage path (overwrite/replace). Used by
+      // the "Replace file" admin action so the public URL stays stable and no
+      // DB pointer needs updating. Caller must verify the path is owned by the
+      // asset being replaced.
+      existingPath?: string;
     };
 
-    if (!category || !fileName) {
-      return NextResponse.json({ error: 'Missing category or fileName' }, { status: 400 });
+    if (!category && !existingPath) {
+      return NextResponse.json({ error: 'Missing category or existingPath' }, { status: 400 });
+    }
+    if (!existingPath && !fileName) {
+      return NextResponse.json({ error: 'Missing fileName' }, { status: 400 });
     }
 
-    const path = buildPath({ category, series, episodeNumber, assetKind, contentType, fileName, mimeType });
+    const path = existingPath
+      ? existingPath
+      : buildPath({ category, series, episodeNumber, assetKind, contentType, fileName, mimeType });
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
