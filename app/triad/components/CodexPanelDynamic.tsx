@@ -581,10 +581,13 @@ export default function CodexPanelDynamic({
                 </div>
               </div>
 
-              {/* Single combined sub-header: sub-tabs on left, context badges + colored icon + title + description on right */}
-              <div className={`flex-shrink-0 border-b px-4 py-1.5 flex items-center gap-3 min-w-0 ${isDark ? 'border-white/[0.06] bg-white/[0.02] backdrop-blur-sm' : 'border-slate-200 bg-slate-50'}`}>
+              {/* Single combined sub-header: sub-tabs on left, context badges + colored icon + title + description on right.
+                  Mobile: sub-tabs become a horizontal scroll carousel (flex-1 + overflow-x-auto + no-scrollbar)
+                  so the row can't push the page beyond the viewport. The right-cluster title hides on mobile
+                  (it duplicates the active sub-tab label anyway) so the carousel gets all available space. */}
+              <div className={`flex-shrink-0 border-b px-4 py-1.5 flex items-center gap-3 min-w-0 overflow-hidden ${isDark ? 'border-white/[0.06] bg-white/[0.02] backdrop-blur-sm' : 'border-slate-200 bg-slate-50'}`}>
                 {activeGroup && activeGroupSubTabs.length > 1 ? (
-                  <div className="flex gap-1 overflow-x-auto flex-shrink-0">
+                  <div className="flex gap-1 flex-1 min-w-0 overflow-x-auto no-scrollbar">
                     {activeGroupSubTabs.map((tab) => {
                       const isActive = tab.slug === activeTabSlug;
                       const Icon = getIconComponent(tab.metadata?.icon || 'Circle');
@@ -592,7 +595,7 @@ export default function CodexPanelDynamic({
                         <button
                           key={tab.id}
                           onClick={() => setActiveTabSlug(tab.slug)}
-                          className={`flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium transition-all whitespace-nowrap rounded-md ${
+                          className={`flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium transition-all whitespace-nowrap rounded-md flex-shrink-0 ${
                             isActive
                               ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/25 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
                               : isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
@@ -605,7 +608,7 @@ export default function CodexPanelDynamic({
                     })}
                   </div>
                 ) : (
-                  <div ref={setSubHeaderSlotEl} className="flex gap-1 overflow-x-auto flex-shrink-0 items-center" />
+                  <div ref={setSubHeaderSlotEl} className="flex gap-1 flex-1 min-w-0 overflow-x-auto no-scrollbar items-center" />
                 )}
                 {/* Right cluster: context badges + colored icon + title + description, all justified right */}
                 <div className="ml-auto flex items-center gap-2 min-w-0 flex-shrink-0">
@@ -627,7 +630,7 @@ export default function CodexPanelDynamic({
                     </div>
                   )}
                   <ActiveTabIcon className={`h-3.5 w-3.5 flex-shrink-0 text-${activeTab?.metadata?.color || accentColor}-400`} />
-                  <span className="text-xs font-semibold text-white whitespace-nowrap">{activeTabTitle}</span>
+                  <span className="hidden md:inline text-xs font-semibold text-white whitespace-nowrap">{activeTabTitle}</span>
                   {activeTabDescription && (
                     <span className="hidden sm:block truncate text-xs text-slate-500 max-w-52" title={activeTabDescription}>
                       {activeTabDescription}

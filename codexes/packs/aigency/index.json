@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-02T23:18:37.389Z",
+  "last_updated": "2026-05-03T23:41:22.378Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "2d2851eae8bb80f8b1bfbb66b3ef0c7252103418",
-  "latest_commit_short": "2d2851e",
-  "latest_commit_title": "add knyt token gating workstream handover notes",
+  "latest_commit": "7389c24a4b5640b88a932978f3fe9d2efb3864dd",
+  "latest_commit_short": "7389c24",
+  "latest_commit_title": "fix runtime remix modal: seed activePersonaId from PersonaContext in standalone page mode",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "7389c24",
+      "full_sha": "7389c24a4b5640b88a932978f3fe9d2efb3864dd",
+      "title": "fix runtime remix modal: seed activePersonaId from PersonaContext in standalone page mode",
+      "author": "Claude",
+      "timestamp": "2026-05-03T23:39:22Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-7389c24.md"
+    },
     {
       "sha": "2d2851e",
       "full_sha": "2d2851eae8bb80f8b1bfbb66b3ef0c7252103418",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T22:33:06Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-ee9555c.md"
-    },
-    {
-      "sha": "b69563e",
-      "full_sha": "b69563e1a4d13b650d4950ecb3e1577bfd903266",
-      "title": "Revert \"fix experiences broad fallback, discord video proxy resolution, and auto-gen logging\"",
-      "author": "Claude",
-      "timestamp": "2026-03-24T22:33:01Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-b69563e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

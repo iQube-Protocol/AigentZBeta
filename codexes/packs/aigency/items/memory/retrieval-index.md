@@ -669,3 +669,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-2d2851e.md](../build_/COMMITS/COMMIT-2d2851e.md)
 - Message: add knyt token gating workstream handover notes
+
+## Commit `7389c24` — 2026-05-03T23:39:22Z
+- Type: `fix`
+- Brief: [COMMIT-7389c24.md](../build_/COMMITS/COMMIT-7389c24.md)
+- Message: fix runtime remix modal: seed activePersonaId from PersonaContext in standalone page mode
