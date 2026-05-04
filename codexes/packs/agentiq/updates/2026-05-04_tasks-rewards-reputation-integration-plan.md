@@ -9,6 +9,8 @@ This doc captures what's already built across the tasks/rewards/reputation surfa
 
 It also captures the adjusted scope for the **Investor Dashboard** (admin-only My Documents stub + admin-only Investment Card with upload).
 
+> **Visibility scope (locked):** Tasks, Rewards, and Reputation are **universal user features** — every persona has access. Only the Investor and Investments sub-tabs are gated (investor-gated and admin-only respectively). The wallet's Tasks/Rewards/Reputation tabs and the Order-tab right-HUD QuestRail render for every signed-in user; nothing in this plan investor-gates the core loop.
+
 ---
 
 ## 1. Audit — what's already built

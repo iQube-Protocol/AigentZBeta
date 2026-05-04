@@ -733,7 +733,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   ]);
   const lastCopilotContextRef = useRef<string | null>(null);
   
-  // Quest/Task state
+  // Quest/Task state — populated from /api/wallet/tasks (unified source for
+  // wallet Tasks/Reputation/Rewards tabs and the Order tab right-HUD QuestRail).
+  // Tasks/rewards/reputation are universal user features — not investor-gated.
   const [taskData, setTaskData] = useState({
     activeTask: null as { id: string; title: string; progress: number; nextStep: string } | null,
     rewards: [] as Array<{ id: string; amount: number; source: string }>,
@@ -795,6 +797,37 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectivePersonaId]);
+
+  // Fetch unified wallet tasks state for the Order tab right-HUD QuestRail.
+  // Universal feature — runs for any signed-in persona (not investor-gated).
+  // Single source of truth: /api/wallet/tasks (Tasks/Rewards/Reputation
+  // tabs and the right HUD all consume the same payload).
+  useEffect(() => {
+    if (!effectivePersonaId) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    fetch(`/api/wallet/tasks?personaId=${encodeURIComponent(effectivePersonaId)}`, {
+      signal: controller.signal,
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data) return;
+        const qr = data.questRail ?? {};
+        setTaskData({
+          activeTask: qr.activeTask ?? null,
+          rewards: Array.isArray(qr.rewards) ? qr.rewards : [],
+          ascensionRank: qr.ascensionRank ?? { current: 'Initiate', next: 'Acolyte', progress: 0 },
+        });
+      })
+      .catch(() => {
+        // Network/fetch error — leave existing taskData as-is. Right HUD shows
+        // whatever was last loaded (or the initial Initiate→Acolyte default).
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [effectivePersonaId]);
 
   const cardAccess = useCardAccess({
