@@ -2329,6 +2329,20 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   }, [codexCopilotOpen, selectedContentItem, activeTab]);
 
   const handleViewerOpen = useCallback((item: KnytContentItem, type: 'pdf' | 'video' | 'poster') => {
+    // Diagnostic — surfaces the actual ids the renderer received so we can see
+    // (in production) when an item routes to the PDF path but ships no
+    // pdf_master_id / pdf_cid / text. Otherwise the function silently no-ops.
+    console.log('[KnytTab] handleViewerOpen', {
+      type,
+      title: item.title,
+      pdf_master_id: (item as any).pdf_master_id || item.media?.pdf_master_id || null,
+      pdf_cid: (item as any).pdf_cid || item.media?.pdf_cid || null,
+      hasText: !!item.media?.text,
+      video_url: item.media?.video_url || item.media?.video_cid || null,
+      modalities: item.modalities,
+      effectivePersonaId,
+    });
+
     if (isEpisodeLocked(item)) {
       openPurchaseForItem(item, type === 'video' ? 'watch' : 'read');
       return;
@@ -2345,6 +2359,15 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       setCurrentPdfCid(cidVal);
       setCurrentPdfTitle(item.title);
       setPdfViewerOpen(true);
+    } else if (type === 'pdf') {
+      // No master_id, no cid, no text — there's nothing we can render.
+      // Surface a toast so the operator sees this instead of a silent no-op.
+      console.warn('[KnytTab] PDF requested but no source available', { item });
+      toast({
+        title: 'No readable file',
+        description: `"${item.title}" has no PDF attached.`,
+        variant: 'destructive',
+      });
     } else if (type === 'video') {
       const episodeNumber = typeof item.metadata?.episodeNumber === 'number' ? item.metadata.episodeNumber : null;
       if (episodeNumber !== null) {
