@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`bc6c7cc`](https://github.com/iQube-Protocol/AigentZBeta/commit/bc6c7cc508c72d85516bd8910e540def9e14e382) [fix] fix: isEpisodeLocked() now checks metadata.owned first, eliminating badge/lock divergence (Claude, 2026-05-04T21:37:47Z)
 - [`ad4d1e5`](https://github.com/iQube-Protocol/AigentZBeta/commit/ad4d1e52f0d4fd4dc67182cc720326c6a2a5d1ac) [push] trigger deploy: persona hydration + PDF meta + video mobile + admin dispatch fixes (Claude, 2026-05-04T20:40:11Z)
 - [`d271662`](https://github.com/iQube-Protocol/AigentZBeta/commit/d2716629e7be5fdaa4d88f703cbacfeaf1297015) [push] prevent pdf download on mobile: route to PDFPageViewer on mobile when CID available; replace mobile download link with iframe in PDFLiteReaderModal (Claude, 2026-05-04T02:57:47Z)
 - [`7389c24`](https://github.com/iQube-Protocol/AigentZBeta/commit/7389c24a4b5640b88a932978f3fe9d2efb3864dd) [fix] fix runtime remix modal: seed activePersonaId from PersonaContext in standalone page mode (Claude, 2026-05-03T23:39:22Z)

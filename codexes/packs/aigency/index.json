@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-04T20:42:00.791Z",
+  "last_updated": "2026-05-04T21:39:30.835Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "ad4d1e52f0d4fd4dc67182cc720326c6a2a5d1ac",
-  "latest_commit_short": "ad4d1e5",
-  "latest_commit_title": "trigger deploy: persona hydration + PDF meta + video mobile + admin dispatch fixes",
+  "latest_commit": "bc6c7cc508c72d85516bd8910e540def9e14e382",
+  "latest_commit_short": "bc6c7cc",
+  "latest_commit_title": "fix: isEpisodeLocked() now checks metadata.owned first, eliminating badge/lock divergence",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "bc6c7cc",
+      "full_sha": "bc6c7cc508c72d85516bd8910e540def9e14e382",
+      "title": "fix: isEpisodeLocked() now checks metadata.owned first, eliminating badge/lock divergence",
+      "author": "Claude",
+      "timestamp": "2026-05-04T21:37:47Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-bc6c7cc.md"
+    },
     {
       "sha": "ad4d1e5",
       "full_sha": "ad4d1e52f0d4fd4dc67182cc720326c6a2a5d1ac",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T22:39:24Z",
       "type": "deploy",
       "brief": "items/build_/COMMITS/COMMIT-727ce61.md"
-    },
-    {
-      "sha": "3e30138",
-      "full_sha": "3e3013896281b30590ab3e611b1c789f95a8f96f",
-      "title": "surface supabase write failures and merge in-memory store into list results",
-      "author": "Claude",
-      "timestamp": "2026-03-24T22:39:24Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-3e30138.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

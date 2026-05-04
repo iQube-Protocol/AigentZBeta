@@ -684,3 +684,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-ad4d1e5.md](../build_/COMMITS/COMMIT-ad4d1e5.md)
 - Message: trigger deploy: persona hydration + PDF meta + video mobile + admin dispatch fixes
+
+## Commit `bc6c7cc` — 2026-05-04T21:37:47Z
+- Type: `fix`
+- Brief: [COMMIT-bc6c7cc.md](../build_/COMMITS/COMMIT-bc6c7cc.md)
+- Message: fix: isEpisodeLocked() now checks metadata.owned first, eliminating badge/lock divergence
