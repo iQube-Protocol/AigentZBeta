@@ -4,6 +4,11 @@
  * Custody-safe page-image renderer.
  * Uses page manifests + page image streaming (/api/content/pdf-page) to avoid
  * exposing raw PDF URLs to clients.
+ *
+ * Mobile note: page-image streaming + IntersectionObserver scroll viewer
+ * doesn't fit a small viewport. On mobile we hand off to the OS-native PDF
+ * reader (Safari/Chrome built-in) via target="_blank" — same pattern as
+ * PDFLiteReaderModal. Desktop keeps the page-image flow intact.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -29,6 +34,34 @@ interface PageManifest {
   cached?: boolean;
 }
 
+function useIsMobileViewport(): boolean {
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(max-width: 767px)').matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(max-width: 767px)');
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  return isMobile;
+}
+
+/**
+ * Resolve a "cid" parameter to a fetchable PDF URL. For Supabase-hosted
+ * masters, auto_drive_cid is already an http(s) URL — use it directly.
+ * For Auto-Drive CIDs, route through the decryption proxy with proper
+ * URL-encoding so slashes don't collapse into the dynamic route.
+ */
+function resolvePdfHref(cid: string, apiBase: string): string {
+  if (cid.startsWith('http://') || cid.startsWith('https://')) return cid;
+  return `${apiBase}/api/content/pdf/${encodeURIComponent(cid)}`;
+}
+
 export function PDFPageViewer({ cid, title, onClose }: PDFPageViewerProps) {
   const [manifest, setManifest] = useState<PageManifest | null>(null);
   const [meta, setMeta] = useState<PageMeta | null>(null);
@@ -42,11 +75,20 @@ export function PDFPageViewer({ cid, title, onClose }: PDFPageViewerProps) {
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   const apiBase = API_BASE_URL;
+  const isMobile = useIsMobileViewport();
+  const isUrlCid = cid.startsWith('http://') || cid.startsWith('https://');
+  const directPdfHref = resolvePdfHref(cid, apiBase);
 
   useEffect(() => {
+    // Mobile or URL-hosted PDF: skip the page-manifest fetch entirely. We're
+    // handing off to the OS-native viewer; the page-image flow doesn't apply.
+    if (isMobile || isUrlCid) {
+      setLoadingMeta(false);
+      return;
+    }
     const fetchPages = async () => {
       try {
-        const manifestRes = await fetch(`${apiBase}/api/content/pdf-pages/${cid}`);
+        const manifestRes = await fetch(`${apiBase}/api/content/pdf-pages/${encodeURIComponent(cid)}`);
         if (manifestRes.ok) {
           const data = await manifestRes.json();
           setManifest(data);
@@ -55,7 +97,7 @@ export function PDFPageViewer({ cid, title, onClose }: PDFPageViewerProps) {
           return;
         }
 
-        const metaRes = await fetch(`${apiBase}/api/content/pdf-meta/${cid}`);
+        const metaRes = await fetch(`${apiBase}/api/content/pdf-meta/${encodeURIComponent(cid)}`);
         if (!metaRes.ok) throw new Error(`HTTP ${metaRes.status}`);
         const data = await metaRes.json();
         setMeta(data);
@@ -66,7 +108,7 @@ export function PDFPageViewer({ cid, title, onClose }: PDFPageViewerProps) {
       }
     };
     fetchPages();
-  }, [apiBase, cid]);
+  }, [apiBase, cid, isMobile, isUrlCid]);
 
   useEffect(() => {
     if (!meta) return;
@@ -144,6 +186,60 @@ export function PDFPageViewer({ cid, title, onClose }: PDFPageViewerProps) {
     document.addEventListener("contextmenu", handleContextMenu);
     return () => document.removeEventListener("contextmenu", handleContextMenu);
   }, []);
+
+  // Mobile branch: skip the in-page renderer and hand off to the OS-native
+  // PDF reader. Same UX as PDFLiteReaderModal so users get a consistent
+  // mobile experience regardless of which viewer was selected.
+  if (isMobile || isUrlCid) {
+    return (
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-2xl"
+        onMouseDown={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
+        <div className="relative w-full h-full md:w-[min(560px,95vw)] md:h-auto md:max-h-[60vh] bg-zinc-950 border border-white/10 rounded-none md:rounded-xl overflow-hidden shadow-xl">
+          <div className="flex items-center justify-between px-4 py-4 border-b border-white/10">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-white truncate">
+                {title || 'Reading'}
+              </div>
+              <div className="text-xs text-white/60 truncate">PDF reader</div>
+            </div>
+            <button
+              className="w-10 h-10 rounded-full bg-black/50 border border-white/20 text-white hover:bg-black/70 transition-colors flex items-center justify-center"
+              onClick={onClose}
+              aria-label="Close PDF preview"
+            >
+              ×
+            </button>
+          </div>
+          <div className="flex flex-col items-center justify-center px-6 py-8 text-center gap-5">
+            <div className="text-sm text-white/90 max-w-[36ch]">
+              Open the PDF in your browser&rsquo;s native reader for the
+              best experience{isMobile ? ' on mobile' : ''}.
+            </div>
+            <a
+              href={directPdfHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/15 active:bg-white/20 border border-white/20 px-5 py-3 text-sm font-medium text-white transition-colors"
+              onClick={() => {
+                setTimeout(onClose, 100);
+              }}
+            >
+              Open PDF
+            </a>
+            <div className="text-[11px] text-white/50 max-w-[36ch]">
+              {title || 'Document'}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loadingMeta) {
     return (
