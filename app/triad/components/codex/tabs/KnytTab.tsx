@@ -2815,9 +2815,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                             {/* Cart — render ONLY when payment-gated and not owned. Anonymous routes through sign-in. */}
                             {cardAct.showShoppingCart && (
                               <button
-                                className="w-6 h-6 rounded-md bg-amber-500/80 backdrop-blur-sm flex items-center justify-center ring-1 ring-amber-400/40 text-white hover:bg-amber-400 transition-all"
+                                className="w-9 h-9 md:w-6 md:h-6 rounded-md bg-amber-500/80 backdrop-blur-sm flex items-center justify-center ring-1 ring-amber-400/40 text-white hover:bg-amber-400 active:bg-amber-500 transition-all touch-manipulation"
                                 title={cardAct.cartCtaTarget === 'sign-in' ? 'Sign in to buy' : (priceKnyt ? `Buy for ${priceKnyt} KNYT` : 'Buy')}
                                 onClick={(e) => {
+                                  e.preventDefault();
                                   e.stopPropagation();
                                   cardAccess.handleCartClick(
                                     { id: cardId, source: 'codex', episodeNumber: episode.episodeNumber },
@@ -2830,15 +2831,16 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                                   );
                                 }}
                               >
-                                <ShoppingCart className="w-3 h-3" />
+                                <ShoppingCart className="w-4 h-4 md:w-3 md:h-3" />
                               </button>
                             )}
                             {/* Read — render ONLY when smart actions are allowed (owned or credentialed). */}
                             {cardAct.showSmartActions && (episode.hasPrintRare || episode.hasPrintEpic || episode.hasPrintLegendary || episode.hasPrintCommon) && (
                               <button
-                                className="w-6 h-6 rounded-md bg-black/60 backdrop-blur-sm flex items-center justify-center ring-1 ring-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-white transition-all"
+                                className="w-9 h-9 md:w-6 md:h-6 rounded-md bg-black/60 backdrop-blur-sm flex items-center justify-center ring-1 ring-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-white active:bg-cyan-600 transition-all touch-manipulation"
                                 title="Read"
                                 onClick={(e) => {
+                                  e.preventDefault();
                                   e.stopPropagation();
                                   const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid || episode.printCommonCid;
                                   if (printCid) {
@@ -2851,13 +2853,13 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                                   }
                                 }}
                               >
-                                <BookOpen className="w-3 h-3" />
+                                <BookOpen className="w-4 h-4 md:w-3 md:h-3" />
                               </button>
                             )}
                             {/* Watch — same gate. */}
                             {cardAct.showSmartActions && episode.hasMotionMaster && (episodeVideo.cid || episodeVideo.url) && (
                               <button
-                                className="w-6 h-6 rounded-md bg-black/60 backdrop-blur-sm flex items-center justify-center ring-1 ring-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-white transition-all"
+                                className="w-9 h-9 md:w-6 md:h-6 rounded-md bg-black/60 backdrop-blur-sm flex items-center justify-center ring-1 ring-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-white active:bg-cyan-600 transition-all touch-manipulation"
                                 title="Watch"
                                 onClick={(e) => {
                                   e.preventDefault();
@@ -2865,7 +2867,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                                   void openEpisodeVideo(episode, episodeVideo.cid || null, episodeVideo.url || null);
                                 }}
                               >
-                                <Play className="w-3 h-3" />
+                                <Play className="w-4 h-4 md:w-3 md:h-3" />
                               </button>
                             )}
                           </div>
@@ -2882,7 +2884,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                               </div>
                             ) : null}
                           </div>
-                          <div className="absolute inset-0 bg-cyan-500/0 group-hover:bg-cyan-500/10 transition-colors" />
+                          <div className="absolute inset-0 bg-cyan-500/0 group-hover:bg-cyan-500/10 transition-colors pointer-events-none" />
                         </div>
                       );
                     })}
