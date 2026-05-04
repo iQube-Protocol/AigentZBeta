@@ -168,8 +168,19 @@ export function useCodexEmbedAuthBridge(
   input?: UseCodexEmbedAuthBridgeInput
 ): UseCodexEmbedAuthBridgeResult {
   const { initialPersonaId, initialAuthProfileId, initialIsAdmin } = normalizeInput(input);
-  const [personaId, setPersonaId] = useState<string | undefined>(sanitizeValue(initialPersonaId));
-  const [authProfileId, setAuthProfileId] = useState<string | undefined>();
+  // Lazy initializer: prefer the URL-provided persona, otherwise fall back
+  // to whatever the host shell already wrote to localStorage. firstStoredValue
+  // returns undefined on the server (typeof window === "undefined"), so the
+  // server render and the very first client render still match — but every
+  // subsequent client render after hydration sees the persisted value
+  // immediately, eliminating the "personaId undefined on first paint" window
+  // that hid KnytRemixButton, gated PDF downloads, etc.
+  const [personaId, setPersonaId] = useState<string | undefined>(
+    () => sanitizeValue(initialPersonaId) || firstStoredValue(PERSONA_STORAGE_KEYS)
+  );
+  const [authProfileId, setAuthProfileId] = useState<string | undefined>(
+    () => sanitizeValue(initialAuthProfileId) || firstStoredValue(AUTH_PROFILE_STORAGE_KEYS)
+  );
   const [isAdmin, setIsAdmin] = useState<boolean | undefined>(initialIsAdmin);
   const allowedOrigins = useMemo(() => parseAllowedOrigins(), []);
 

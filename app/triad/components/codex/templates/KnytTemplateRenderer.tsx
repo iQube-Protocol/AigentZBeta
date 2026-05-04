@@ -188,8 +188,10 @@ function ContentCard({ item, variant, onSelect, onWatch, onRead, isSelected, onA
         )}
       </div>
 
-      {/* Action buttons - SmartContentActions or legacy buttons */}
-      <div className="absolute bottom-12 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+      {/* Action buttons - SmartContentActions or legacy buttons.
+          Mobile/touch devices have no hover state, so the buttons must be
+          visible by default; only hide-on-non-hover for desktop (md and up). */}
+      <div className="absolute bottom-12 right-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
         {smartModalities ? (
           <div className="flex items-center gap-1">
             <SmartContentActions
