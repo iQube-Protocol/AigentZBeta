@@ -189,7 +189,6 @@ export async function userOwnsAsset(personaId: string, assetId: string): Promise
 
   // 3. SKU expansion
   const ownedSkus = await getOwnedSkus(personaId);
-  if (ownedSkus.length === 0) return { owned: false, via: null };
 
   // 3a. extra_asset_ids escape hatch
   for (const sku of ownedSkus) {
@@ -199,11 +198,24 @@ export async function userOwnsAsset(personaId: string, assetId: string): Promise
   }
 
   // 3b. category + episode-scope match
-  if (!meta) return { owned: false, via: null };
-  for (const sku of ownedSkus) {
-    if (skuCoversAsset(sku, meta)) {
+  if (meta) {
+    for (const sku of ownedSkus) {
+      if (skuCoversAsset(sku, meta)) {
+        return { owned: true, via: 'sku' };
+      }
+    }
+  }
+
+  // 4. Full enumeration fallback — same source as /api/codex/owned. If the
+  // badge says owned, this gate must agree. Catches any entitlement format
+  // not matched above (UUIDs, bundle ids, future formats).
+  try {
+    const { direct, expanded } = await getOwnedAssetIds(personaId);
+    if (direct.includes(assetId) || expanded.includes(assetId)) {
       return { owned: true, via: 'sku' };
     }
+  } catch {
+    // fall through
   }
 
   return { owned: false, via: null };
