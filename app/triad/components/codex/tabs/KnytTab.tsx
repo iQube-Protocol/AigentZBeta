@@ -216,7 +216,6 @@ import type {
 } from "@/app/types/knytLiquidUI";
 
 // Content viewers
-import { PDFPageViewer } from "@/app/triad/components/content/PDFPageViewer";
 import { PDFLiteReaderModal } from "@/app/triad/components/content/PDFLiteReaderModal";
 import { VideoPlayer, type VideoSegment } from "@/app/triad/components/content/VideoPlayer";
 import { VideoErrorBoundary } from "@/app/triad/components/content/VideoErrorBoundary";
@@ -381,8 +380,8 @@ const PREORDER_VARIANT_EPISODE_NUMBER: Record<PreorderVariantId, number> = {
   common: -1,
 };
 
-const KNYT_CONTENT_CACHE_KEY = "codex:knyt:content:v7";
-const KNYT_EPISODES_CACHE_KEY = "codex:knyt:episodes:v5";
+const KNYT_CONTENT_CACHE_KEY = "codex:knyt:content:v8";
+const KNYT_EPISODES_CACHE_KEY = "codex:knyt:episodes:v6";
 const KNYT_SESSION_CACHE_KEY = "codex:knyt:session:v6";
 const KNYT_SESSION_CACHE_TTL_MS = 30 * 60 * 1000;
 
@@ -3038,11 +3037,16 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             </div>
           )}
 
-          {/* PDF Lite modal (preferred when URL is available) */}
-          {pdfViewerOpen && currentPdfLiteUrl && (
+          {/* PDF viewer — always PDFLiteReaderModal. If no liteUrl is set, build
+              the proxy URL from the CID at render time. PDFPageViewer is broken
+              in this environment and must never be used. */}
+          {pdfViewerOpen && (currentPdfLiteUrl || currentPdfCid) && (
             <PDFLiteReaderModal
               open={pdfViewerOpen}
-              pdfUrl={currentPdfLiteUrl}
+              pdfUrl={
+                currentPdfLiteUrl ||
+                (currentPdfCid ? `${API_BASE_URL}/api/content/pdf/${encodeURIComponent(currentPdfCid)}` : '')
+              }
               title={currentPdfTitle}
               onClose={() => {
                 setPdfViewerOpen(false);
@@ -3051,23 +3055,6 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                 setCurrentPdfTitle('');
               }}
             />
-          )}
-
-          {/* Custody-safe PDF viewer (page-image fallback) */}
-          {pdfViewerOpen && !currentPdfLiteUrl && currentPdfCid && (
-            <>
-              {console.log('[KnytTab] Rendering PDFPageViewer with CID:', currentPdfCid)}
-              <PDFPageViewer
-                cid={currentPdfCid}
-                title={currentPdfTitle}
-                onClose={() => {
-                  setPdfViewerOpen(false);
-                  setCurrentPdfLiteUrl(null);
-                  setCurrentPdfCid(null);
-                  setCurrentPdfTitle('');
-                }}
-              />
-            </>
           )}
 
           {/* Video Player Modal */}
