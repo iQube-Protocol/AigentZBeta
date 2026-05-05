@@ -105,16 +105,13 @@ Commit `a8f1f69a` (pre-this-debug-cycle session) changed the desktop element fro
 
 ### 2. Mobile renders too large (default zoom)
 - iOS Safari renders PDF in iframe at native page width. On mobile viewports the PDF appears zoomed in.
-- **Possible surgical fix:** add `style={{ transform: 'scale(...)', transformOrigin: 'top left' }}` calculated from viewport width. Untested.
-- **Better fix (Phase 2):** route mobile to `PDFPageViewer` when an Autonomys CID is available. Page-by-page renderer respects viewport.
+- **Status:** parked. Mobile lite-reader is acceptable as-is for now (renders inline, no download). Video will be the more relevant mobile read mode once more motion comics are uploaded.
+- **If revisited:** add `style={{ transform: 'scale(...)', transformOrigin: 'top left' }}` calculated from viewport width. Untested.
 
 ### 3. Mobile cannot paginate past page 1
 - iOS Safari's iframe-PDF renderer shows only the first page and does not allow scrolling within the iframe. This is a WebKit limitation, not a bug in our code.
-- **Cannot be fixed by changing PDFLiteReaderModal alone.** Possible paths forward:
-  - **(a)** Route mobile to `PDFPageViewer` (requires CID; not all assets have one)
-  - **(b)** Pre-render the PDF to images server-side and serve as a paginated image carousel on mobile
-  - **(c)** Vendor `pdfjs-dist` and render with our own JS-based viewer on mobile (heaviest option, full UX control)
-- Whichever path is taken, do it as a separate surgical change that touches `PDFLiteReaderModal` mobile branch only and routes to a new viewer when appropriate.
+- **Status:** parked. Routing mobile to `PDFPageViewer` was considered and explicitly rejected — opens a different can of worms (overlapping blank pages on Firefox in our environment). Win banked on desktop + no-download mobile.
+- **Future direction:** mobile read mode is being de-prioritized in favour of video (motion comics) once more videos are uploaded. PDF mobile is acceptable at first-page-only for now.
 
 ### 4. PDF URL exposure (security)
 - The `pdf_lite_url` is currently a direct Supabase Storage public URL. A network-tab-savvy user can extract this URL and access the PDF outside the app's gate.
