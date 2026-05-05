@@ -198,29 +198,40 @@ export async function userOwnsAsset(personaId: string, assetId: string): Promise
   // 3. SKU expansion
   const ownedSkus = await getOwnedSkus(personaId);
   console.log('[userOwnsAsset] SKU check', { assetId, ownedSkuCount: ownedSkus.length });
-  if (ownedSkus.length === 0) {
-    console.log('[userOwnsAsset] no owned SKUs — denied', { assetId, personaId });
-    return { owned: false, via: null };
-  }
 
-  // 3a. extra_asset_ids escape hatch
-  for (const sku of ownedSkus) {
-    if (sku.extra_asset_ids && sku.extra_asset_ids.includes(assetId)) {
-      console.log('[userOwnsAsset] granted via SKU extra_asset_ids', { assetId, sku: sku.sku_id });
-      return { owned: true, via: 'sku' };
+  if (ownedSkus.length > 0) {
+    // 3a. extra_asset_ids escape hatch
+    for (const sku of ownedSkus) {
+      if (sku.extra_asset_ids && sku.extra_asset_ids.includes(assetId)) {
+        console.log('[userOwnsAsset] granted via SKU extra_asset_ids', { assetId, sku: sku.sku_id });
+        return { owned: true, via: 'sku' };
+      }
+    }
+
+    // 3b. category + episode-scope match
+    if (meta) {
+      for (const sku of ownedSkus) {
+        if (skuCoversAsset(sku, meta)) {
+          console.log('[userOwnsAsset] granted via SKU category match', { assetId, sku: sku.sku_id, meta });
+          return { owned: true, via: 'sku' };
+        }
+      }
     }
   }
 
-  // 3b. category + episode-scope match
-  if (!meta) {
-    console.log('[userOwnsAsset] meta null — cannot SKU-check, denied', { assetId });
-    return { owned: false, via: null };
-  }
-  for (const sku of ownedSkus) {
-    if (skuCoversAsset(sku, meta)) {
-      console.log('[userOwnsAsset] granted via SKU category match', { assetId, sku: sku.sku_id, meta });
+  // 4. Full ownership enumeration fallback — same source as /api/codex/owned and
+  // the OWNED badge. If the badge says owned, this gate must agree. Covers any
+  // entitlement format not matched by the checks above (e.g. SKU ids stored
+  // directly, bundle grants, any future format).
+  try {
+    const { direct, expanded } = await getOwnedAssetIds(personaId);
+    const ownedViaEnumeration = direct.includes(assetId) || expanded.includes(assetId);
+    if (ownedViaEnumeration) {
+      console.log('[userOwnsAsset] granted via full enumeration fallback', { assetId });
       return { owned: true, via: 'sku' };
     }
+  } catch (enumErr) {
+    console.warn('[userOwnsAsset] enumeration fallback threw', { assetId, enumErr });
   }
 
   console.log('[userOwnsAsset] denied — no matching grant', { assetId, personaId, meta });
