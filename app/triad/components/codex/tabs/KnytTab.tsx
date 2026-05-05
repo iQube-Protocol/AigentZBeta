@@ -3165,6 +3165,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             total={cart.total}
             totalWithKnyt={cart.totalWithKnyt}
             onSignInRequest={() => handleOpenWallet('signin')}
+            onPurchaseComplete={() => {
+              refreshPurchases();
+              fetchOwnedEpisodes({ force: true });
+            }}
           />
 
           {cart.count > 0 && !cartOpen && (

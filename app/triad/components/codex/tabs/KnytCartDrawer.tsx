@@ -18,6 +18,10 @@ interface Props {
   totalWithKnyt: number;
   /** Triggered when an anonymous user clicks "Sign in to checkout" inside the modal. */
   onSignInRequest?: () => void;
+  /** Triggered after at least one cart line settles successfully — consumers wire
+   *  this to refresh ownership/balance state so newly purchased items appear as
+   *  owned without requiring a manual reload. */
+  onPurchaseComplete?: () => void;
 }
 
 function lineQty(item: CartItem): number {
@@ -35,6 +39,7 @@ export function KnytCartDrawer({
   total,
   totalWithKnyt,
   onSignInRequest,
+  onPurchaseComplete,
 }: Props) {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [useKnytDiscount, setUseKnytDiscount] = useState(false);
@@ -247,6 +252,11 @@ export function KnytCartDrawer({
           // Remove every settled line from the cart. Failed lines stay so
           // the user can retry — they'll see them when they re-open the cart.
           for (const id of settledIds) onRemove(id);
+          // Fire the post-purchase hook so consumers (KnytTab) refresh
+          // ownership/balance state and the codex shows the new "Owned" badge
+          // immediately. Single-item ContentPurchaseModal already calls this
+          // via onPurchaseComplete; cart settlement is the parallel hook.
+          if (settledIds.length > 0) onPurchaseComplete?.();
           // On full success, keep the modal open for 2 s so the user sees
           // the green confirmation, then close automatically.
           if (failedIds.length === 0 && settledIds.length > 0) {
