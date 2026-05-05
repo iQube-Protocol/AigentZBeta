@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-05T00:27:10.700Z",
+  "last_updated": "2026-05-05T00:46:38.665Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "388cd07a00682088200eb4d76c46304656de2d2d",
-  "latest_commit_short": "388cd07",
-  "latest_commit_title": "backlog: add entitlement format divergence + isEpisodeLocked redesign to Phase 2",
+  "latest_commit": "fded6075707a21c8c69aaadb8a5b17356f490712",
+  "latest_commit_short": "fded607",
+  "latest_commit_title": "fix: add getOwnedAssetIds enumeration fallback to userOwnsAsset + deploy trigger",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "fded607",
+      "full_sha": "fded6075707a21c8c69aaadb8a5b17356f490712",
+      "title": "fix: add getOwnedAssetIds enumeration fallback to userOwnsAsset + deploy trigger",
+      "author": "Claude",
+      "timestamp": "2026-05-05T00:44:47Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-fded607.md"
+    },
     {
       "sha": "388cd07",
       "full_sha": "388cd07a00682088200eb4d76c46304656de2d2d",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T23:13:46Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-05e5f5c.md"
-    },
-    {
-      "sha": "6fb42b7",
-      "full_sha": "6fb42b7bad6b96b2cd32e52bd559346aa92787d0",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-24T22:57:01Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-6fb42b7.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

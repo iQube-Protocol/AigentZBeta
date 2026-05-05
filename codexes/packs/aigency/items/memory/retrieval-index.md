@@ -699,3 +699,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-388cd07.md](../build_/COMMITS/COMMIT-388cd07.md)
 - Message: backlog: add entitlement format divergence + isEpisodeLocked redesign to Phase 2
+
+## Commit `fded607` — 2026-05-05T00:44:47Z
+- Type: `fix`
+- Brief: [COMMIT-fded607.md](../build_/COMMITS/COMMIT-fded607.md)
+- Message: fix: add getOwnedAssetIds enumeration fallback to userOwnsAsset + deploy trigger
