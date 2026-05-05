@@ -1289,12 +1289,16 @@ function QuestHudHubTemplate({
         </div>
       </div>
 
-      {/* Right HUD - Tasks & Rewards */}
+      {/* Right HUD - Tasks & Rewards. Wired to /api/wallet/tasks via the
+          parent KnytTab's taskData state (universal user feature, not
+          investor-gated). Pass ascensionRank too so the rank-progress
+          panel renders alongside Active Quest + claimable Rewards. */}
       {device !== 'mobile' && (
         <div className="w-64 p-4">
           <QuestRail
             activeTask={activeTask}
             rewards={rewards}
+            ascensionRank={ascensionRank}
           />
         </div>
       )}
