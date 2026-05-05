@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ArrowLeft, Crown, Film, Lock, Package, Plus, ShoppingCart, Sparkles, User, Zap } from 'lucide-react';
 import {
   BUNDLE_PRICING,
@@ -375,18 +375,13 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
   const [view, setView]         = useState<InvestorView>({ kind: 'landing' });
   const [purchase, setPurchase] = useState<PendingPurchase | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
-  const [isVerified, setIsVerified] = useState<boolean>(false);
+  // Purchase access mirrors the retail store: anyone reaching this tab can
+  // purchase at investor pricing. The investor offers themselves are the
+  // discount; further entitlement enforcement lives at the cart/checkout layer.
+  const isVerified = true;
   const { getCoverThumb, getCharacterThumb } = useKnytThumbnails();
   const { getBundleImage } = useBundleImages();
   const cart = useKnytCart();
-
-  useEffect(() => {
-    if (!personaId) return;
-    fetch(`/api/crm/campaign/investor-status?personaId=${encodeURIComponent(personaId)}`)
-      .then((r) => r.ok ? r.json() : { isInvestor: false })
-      .then((d) => { if (d.isInvestor) setIsVerified(true); })
-      .catch(() => { /* non-fatal — purchase buttons stay locked */ });
-  }, [personaId]);
 
   const detailLabel = view.kind === 'bundle-detail' ? view.bundle.label : null;
 
@@ -463,18 +458,6 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
                 </p>
               </div>
             </div>
-
-            {!isVerified && (
-              <div className="rounded-xl border border-slate-700/40 bg-slate-800/30 px-3 py-2.5 flex items-start gap-2">
-                <Lock className="h-3.5 w-3.5 text-slate-500 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-[11px] font-semibold text-slate-300 mb-0.5">CRM-verified investors</p>
-                  <p className="text-[10px] text-slate-500">
-                    Purchase access is reserved for verified KNYT investors. If you are an investor, sign in with your registered email to unlock pricing.
-                  </p>
-                </div>
-              </div>
-            )}
 
             {/* Graphic Novel investor editions */}
             {gnInvestorBundles.length > 0 && (
