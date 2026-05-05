@@ -63,8 +63,8 @@ Once the environment variables are updated:
 
 After updating environment variables, test these endpoints:
 
-1. **DVN Status**: `https://staging-beta.aigent-z.me/api/ops/dvn/status`
-2. **Ops Console**: `https://staging-beta.aigent-z.me/ops`
+1. **DVN Status**: `https://staging-beta.aigentz.me/api/ops/dvn/status`
+2. **Ops Console**: `https://staging-beta.aigentz.me/ops`
 3. **DVN Health**: Check the DVN card shows live data
 
 **The DVN will not work correctly until these environment variables are updated in AWS Amplify!**
