@@ -62,7 +62,7 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
     const timer = window.setTimeout(() => {
       setLoading(false);
       setFailed('Preview timed out. Please close and retry.');
-    }, 90000);
+    }, 20000);
     return () => window.clearTimeout(timer);
   }, [open, loading]);
 
@@ -115,19 +115,21 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
             </div>
           )}
 
-          {/* iframe works across all modern browsers (Chrome, Firefox, Safari).
-              <object> was dropping NS_ERROR_WONT_HANDLE_CONTENT in Firefox. */}
-          <iframe
-            src={safePdfUrl}
-            className="w-full h-full touch-pan-y border-0"
-            title={title || 'PDF preview'}
+          <object
+            data={safePdfUrl}
+            type="application/pdf"
+            className="w-full h-full touch-pan-y"
             onLoad={() => {
               setLoading(false);
               setFailed(null);
             }}
-            sandbox="allow-same-origin allow-scripts allow-forms"
-          />
-          {/* Toolbar guard rail: covers the top native PDF-viewer bar */}
+            aria-label={title || 'PDF preview'}
+          >
+            <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+              <p className="text-white mb-4">PDF preview not supported in this browser.</p>
+            </div>
+          </object>
+          {/* Toolbar guard rail: hides and blocks top native controls when browser ignores toolbar=0 */}
           <div className="pointer-events-auto absolute top-0 left-0 right-0 h-11 bg-zinc-950/95" />
         </div>
       </div>
