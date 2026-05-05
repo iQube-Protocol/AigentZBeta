@@ -1527,9 +1527,6 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       const cached = getCachedValue<number[]>(cacheKey);
       if (cached) {
         setOwnedEpisodeNumbers(new Set(cached));
-        // ownedIssues drives isEpisodeLocked(); must be kept in sync with the
-        // episode-number set or owned items still route to the payment flow.
-        setOwnedIssues(cached.map((ep) => ({ episodeNumber: ep })));
         return;
       }
       const ownedRes = await fetch(`${apiBase}/api/codex/owned?personaId=${effectivePersonaId}`);
@@ -1961,14 +1958,6 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const isEpisodeLocked = useCallback((item: KnytContentItem) => {
     const episodeNumber = resolveEpisodeNumber(item);
     if (episodeNumber === null) return false;
-    // Primary check: item.metadata?.owned is stamped by contentWithOwnership
-    // useMemo from the same ownedEpisodeNumbers Set that drives the badge.
-    // Checking it first ensures the lock decision ALWAYS agrees with the badge,
-    // even when ownedIssues is momentarily stale (e.g. mid-fetch or cache miss).
-    if (item.metadata?.owned) return false;
-    // Secondary check: ownedIssues array (same source, kept in sync by
-    // fetchOwnedEpisodes). Catches cases where the item arrived without the
-    // owned flag pre-stamped (e.g. raw API items not yet through the useMemo).
     const ownedForEp = ownedIssues.filter((issue) => issue.episodeNumber === episodeNumber);
     if (ownedForEp.length > 0) return false;
     // Optional credential gate (e.g. investor-only preorders). Only matters
