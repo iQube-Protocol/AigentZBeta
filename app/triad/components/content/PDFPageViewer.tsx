@@ -2,11 +2,8 @@
  * PDFPageViewer - Lazy-loading page-based PDF viewer
  *
  * Custody-safe page-image renderer.
- * Two source modes:
- *   cid      → /api/content/pdf-page/[cid]          (Autonomys-hosted, server-decrypts)
- *   masterId → /api/content/pdf-page-by-master/[id]  (Supabase-hosted, entitlement-gated proxy)
- *
- * In either mode the raw PDF URL never reaches the browser.
+ * Uses page manifests + page image streaming (/api/content/pdf-page) to avoid
+ * exposing raw PDF URLs to clients.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -15,12 +12,7 @@ import { Button } from "@/components/ui/button";
 import { API_BASE_URL } from "@/app/config/api";
 
 interface PDFPageViewerProps {
-  /** Autonomys CID — use this for encrypted Autonomys-hosted PDFs */
-  cid?: string;
-  /** master_content_qubes TEXT pk (e.g. mk_ep01_print_common) — use for Supabase-hosted PDFs */
-  masterId?: string;
-  /** Required when masterId is provided — identifies the requesting persona for entitlement gate */
-  personaId?: string;
+  cid: string;
   title?: string;
   onClose: () => void;
 }
@@ -28,7 +20,6 @@ interface PDFPageViewerProps {
 interface PageMeta {
   pages: number;
   suggestedWidth?: number;
-  pagePending?: boolean;
 }
 
 interface PageManifest {
@@ -38,7 +29,7 @@ interface PageManifest {
   cached?: boolean;
 }
 
-export function PDFPageViewer({ cid, masterId, personaId, title, onClose }: PDFPageViewerProps) {
+export function PDFPageViewer({ cid, title, onClose }: PDFPageViewerProps) {
   const [manifest, setManifest] = useState<PageManifest | null>(null);
   const [meta, setMeta] = useState<PageMeta | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -52,44 +43,10 @@ export function PDFPageViewer({ cid, masterId, personaId, title, onClose }: PDFP
 
   const apiBase = API_BASE_URL;
 
-  // When meta came back with pagePending=true (pages_count not yet in DB),
-  // re-fetch meta after page 1 renders so we discover the real total page count.
-  // The render path writes pages_count to DB before returning the image, so by
-  // the time onLoad fires the DB has the correct value.
-  const refetchMetaAfterPage1 = useCallback(async () => {
-    if (!masterId || !meta?.pagePending) return;
-    try {
-      const qs = new URLSearchParams({ meta: '1', ...(personaId ? { personaId } : {}) });
-      const res = await fetch(`${apiBase}/api/content/pdf-page-by-master/${encodeURIComponent(masterId)}?${qs}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      if (typeof data.pages === 'number' && data.pages > 1) {
-        setMeta((prev) => prev ? { ...prev, pages: data.pages, pagePending: false } : prev);
-      }
-    } catch {
-      // non-fatal
-    }
-  }, [masterId, meta?.pagePending, personaId, apiBase]);
-
   useEffect(() => {
     const fetchPages = async () => {
       try {
-        if (masterId) {
-          // masterId mode: entitlement-gated proxy route
-          const qs = new URLSearchParams({ meta: '1', ...(personaId ? { personaId } : {}) });
-          const metaRes = await fetch(`${apiBase}/api/content/pdf-page-by-master/${encodeURIComponent(masterId)}?${qs}`);
-          if (!metaRes.ok) throw new Error(`HTTP ${metaRes.status}`);
-          const data = await metaRes.json();
-          setMeta({ pages: data.pages ?? 1, suggestedWidth: data.suggestedWidth, pagePending: !!data.pagePending });
-          setLoadingMeta(false);
-          return;
-        }
-
-        if (!cid) {
-          throw new Error('No cid or masterId provided');
-        }
-
-        const manifestRes = await fetch(`${apiBase}/api/content/pdf-pages/${encodeURIComponent(cid)}`);
+        const manifestRes = await fetch(`${apiBase}/api/content/pdf-pages/${cid}`);
         if (manifestRes.ok) {
           const data = await manifestRes.json();
           setManifest(data);
@@ -98,7 +55,7 @@ export function PDFPageViewer({ cid, masterId, personaId, title, onClose }: PDFP
           return;
         }
 
-        const metaRes = await fetch(`${apiBase}/api/content/pdf-meta/${encodeURIComponent(cid)}`);
+        const metaRes = await fetch(`${apiBase}/api/content/pdf-meta/${cid}`);
         if (!metaRes.ok) throw new Error(`HTTP ${metaRes.status}`);
         const data = await metaRes.json();
         setMeta(data);
@@ -109,7 +66,7 @@ export function PDFPageViewer({ cid, masterId, personaId, title, onClose }: PDFP
       }
     };
     fetchPages();
-  }, [apiBase, cid, masterId, personaId]);
+  }, [apiBase, cid]);
 
   useEffect(() => {
     if (!meta) return;
@@ -241,14 +198,11 @@ export function PDFPageViewer({ cid, masterId, personaId, title, onClose }: PDFP
             <PDFPageImage
               key={pageNum}
               cid={cid}
-              masterId={masterId}
-              personaId={personaId}
               pageNum={pageNum}
               width={width}
               apiBase={apiBase}
               shouldLoad={loadedPages.has(pageNum)}
               onInView={(num) => setCurrentPage(num)}
-              onLoad={pageNum === 1 ? refetchMetaAfterPage1 : undefined}
               onError={() =>
                 setFailedPages((prev) => {
                   const next = new Set(prev);
@@ -312,9 +266,7 @@ export function PDFPageViewer({ cid, masterId, personaId, title, onClose }: PDFP
 }
 
 interface PDFPageImageProps {
-  cid?: string;
-  masterId?: string;
-  personaId?: string;
+  cid: string;
   pageNum: number;
   width: number;
   apiBase: string;
@@ -322,15 +274,12 @@ interface PDFPageImageProps {
   onInView: (pageNum: number) => void;
   onError: () => void;
   onRetry: () => void;
-  onLoad?: () => void;
   isFailed: boolean;
   pageUrl?: string;
 }
 
 function PDFPageImage({
   cid,
-  masterId,
-  personaId,
   pageNum,
   width,
   apiBase,
@@ -338,25 +287,13 @@ function PDFPageImage({
   onInView,
   onError,
   onRetry,
-  onLoad: onLoadProp,
   isFailed,
   pageUrl: prerenderedUrl,
 }: PDFPageImageProps) {
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  let pageUrl = prerenderedUrl;
-  if (!pageUrl) {
-    if (masterId) {
-      const qs = new URLSearchParams({ page: String(pageNum), width: String(width), ...(personaId ? { personaId } : {}) });
-      pageUrl = `${apiBase}/api/content/pdf-page-by-master/${encodeURIComponent(masterId)}?${qs}`;
-    } else if (cid) {
-      pageUrl = `${apiBase}/api/content/pdf-page/${encodeURIComponent(cid)}?page=${pageNum}&width=${width}`;
-    } else {
-      pageUrl = '';
-    }
-  }
+  const pageUrl = prerenderedUrl || `${apiBase}/api/content/pdf-page/${cid}?page=${pageNum}&width=${width}`;
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -419,7 +356,6 @@ function PDFPageImage({
           onLoad={() => {
             setLoaded(true);
             setLoading(false);
-            onLoadProp?.();
           }}
           onError={() => {
             setLoading(false);

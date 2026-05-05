@@ -3,12 +3,6 @@
  *
  * Ported from Qriptopian Web App object-based rendering.
  * Uses native browser PDF preview when pdf_lite_url is available.
- *
- * Mobile note: iOS Safari and most mobile browsers refuse to render PDFs
- * inline via <object>/<embed>/<iframe>. On mobile we swap to a "Open PDF"
- * CTA that hands off to the OS-native viewer (Safari/Chrome PDF viewer)
- * via target="_blank". Desktop continues to use the existing <object>
- * embed exactly as before.
  */
 
 import { useEffect, useState } from 'react';
@@ -31,30 +25,10 @@ function buildSecureViewerUrl(rawUrl: string): string {
   return `${base}#${params.toString()}`;
 }
 
-function useIsMobileViewport(): boolean {
-  // Single source of truth for "mobile" inside this modal: viewport width
-  // < 768px. Avoids UA sniffing while still keeping desktop behavior intact.
-  const [isMobile, setIsMobile] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return window.matchMedia('(max-width: 767px)').matches;
-  });
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mq = window.matchMedia('(max-width: 767px)');
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
-
-  return isMobile;
-}
-
 export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteReaderModalProps) {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState<string | null>(null);
   const safePdfUrl = buildSecureViewerUrl(pdfUrl);
-  const isMobile = useIsMobileViewport();
 
   useEffect(() => {
     if (!open) return;
@@ -84,15 +58,13 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
   }, [open, onClose]);
 
   useEffect(() => {
-    // Desktop-only: the <object> load timeout. On mobile we don't render the
-    // <object> at all, so this timeout would fire incorrectly.
-    if (!open || !loading || isMobile) return;
+    if (!open || !loading) return;
     const timer = window.setTimeout(() => {
       setLoading(false);
       setFailed('Preview timed out. Please close and retry.');
     }, 20000);
     return () => window.clearTimeout(timer);
-  }, [open, loading, isMobile]);
+  }, [open, loading]);
 
   if (!open) return null;
 
@@ -112,7 +84,7 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
               {title || 'Reading'}
             </div>
             <div className="text-xs text-white/60 truncate">
-              {isMobile ? 'PDF reader' : 'PDF-lite (fast preview)'}
+              PDF-lite (fast preview)
             </div>
           </div>
 
@@ -126,66 +98,39 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
         </div>
 
         <div className="relative w-full h-[calc(100%-60px)]">
-          {isMobile ? (
-            // Mobile: render inside an <iframe> to keep the PDF within the app.
-            // Avoids target="_blank" which triggers OS download behaviour.
-            // iOS Safari 16.4+ renders PDFs inline in <iframe>; older versions
-            // show a blank area — the overlay prevents save/share gestures.
-            <div className="relative w-full h-full">
-              {loading && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40 z-10">
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  <div className="text-xs text-white/80">Loading...</div>
-                </div>
-              )}
-              <iframe
-                src={safePdfUrl}
-                title={title || 'PDF viewer'}
-                className="w-full h-full border-0"
-                onLoad={() => setLoading(false)}
-                // Restrict navigation and scripting; omit allow-downloads
-                sandbox="allow-scripts allow-same-origin"
-              />
-              {/* Invisible full-width overlay blocks browser save/share long-press at the top toolbar area */}
-              <div className="pointer-events-auto absolute top-0 left-0 right-0 h-12 bg-transparent" />
+          {loading && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40 z-10">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+              <div className="text-xs text-white/80">Loading PDF...</div>
             </div>
-          ) : (
-            <>
-              {loading && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40 z-10">
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  <div className="text-xs text-white/80">Loading PDF...</div>
-                </div>
-              )}
-
-              {failed && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/60 z-10 p-6 text-center">
-                  <div className="text-sm text-white">Could not load the PDF preview.</div>
-                  <div className="text-xs text-white/70 max-w-[60ch]">{failed}</div>
-                  <button className="text-xs px-3 py-1.5 rounded-md bg-white/10 text-white" onClick={onClose}>
-                    Close
-                  </button>
-                </div>
-              )}
-
-              <object
-                data={safePdfUrl}
-                type="application/pdf"
-                className="w-full h-full touch-pan-y"
-                onLoad={() => {
-                  setLoading(false);
-                  setFailed(null);
-                }}
-                aria-label={title || 'PDF preview'}
-              >
-                <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-                  <p className="text-white mb-4">PDF preview not supported in this browser.</p>
-                </div>
-              </object>
-              {/* Toolbar guard rail: hides and blocks top native controls when browser ignores toolbar=0 */}
-              <div className="pointer-events-auto absolute top-0 left-0 right-0 h-11 bg-zinc-950/95" />
-            </>
           )}
+
+          {failed && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/60 z-10 p-6 text-center">
+              <div className="text-sm text-white">Could not load the PDF preview.</div>
+              <div className="text-xs text-white/70 max-w-[60ch]">{failed}</div>
+              <button className="text-xs px-3 py-1.5 rounded-md bg-white/10 text-white" onClick={onClose}>
+                Close
+              </button>
+            </div>
+          )}
+
+          <object
+            data={safePdfUrl}
+            type="application/pdf"
+            className="w-full h-full touch-pan-y"
+            onLoad={() => {
+              setLoading(false);
+              setFailed(null);
+            }}
+            aria-label={title || 'PDF preview'}
+          >
+            <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+              <p className="text-white mb-4">PDF preview not supported in this browser.</p>
+            </div>
+          </object>
+          {/* Toolbar guard rail: hides and blocks top native controls when browser ignores toolbar=0 */}
+          <div className="pointer-events-auto absolute top-0 left-0 right-0 h-11 bg-zinc-950/95" />
         </div>
       </div>
     </div>

@@ -154,68 +154,33 @@ function skuCoversAsset(sku: StoreSku, meta: AssetMeta): boolean {
 
 /**
  * Does the persona own the asset, either directly or via an SKU grant?
- *
- * Episode 0 (the GN free preview) is always accessible — no entitlement
- * required. Other content goes through direct grant → SKU expansion checks.
  */
-export async function userOwnsAsset(personaId: string, assetId: string): Promise<{ owned: boolean; via: 'direct' | 'sku' | 'free' | null }> {
-  // Free-preview short-circuit: Episode 0 (GN preview) is open to everyone.
-  // Resolved before any persona check so it works for unauthenticated previews
-  // and personas without any SKUs.
-  const meta = await getAssetMeta(assetId);
-  if (meta && meta.category === 'gn' && meta.episodeNumber === 0) {
-    return { owned: true, via: 'free' };
-  }
-
+export async function userOwnsAsset(personaId: string, assetId: string): Promise<{ owned: boolean; via: 'direct' | 'sku' | null }> {
   const ents = await getEntitlementService().getPersonaEntitlements(personaId);
 
-  // 1. Direct grant — exact assetId match
+  // 1. Direct grant
   if (ents.some((e) => e.assetId === assetId)) {
     return { owned: true, via: 'direct' };
   }
 
-  // 2. Legacy episode entitlement format — episode-N / epN (pricing convention,
-  // where pricingEp = dbEp - 1). Covers personas whose entitlements were written
-  // before the canonical mk_ep{NN}_* format was adopted.
-  const masterEpMatch = assetId.match(/^mk_ep(\d+)_/i);
-  if (masterEpMatch) {
-    const pricingEp = parseInt(masterEpMatch[1], 10) - 1;
-    const hasLegacyGrant = ents.some((e) => {
-      const m = e.assetId?.match(/episode-(-?\d+)/i) ?? e.assetId?.match(/^ep(-?\d+)$/i);
-      return m != null && parseInt(m[1], 10) === pricingEp;
-    });
-    if (hasLegacyGrant) return { owned: true, via: 'direct' };
-  }
-
-  // 3. SKU expansion
+  // 2. SKU expansion
   const ownedSkus = await getOwnedSkus(personaId);
+  if (ownedSkus.length === 0) return { owned: false, via: null };
 
-  // 3a. extra_asset_ids escape hatch
+  // 2a. extra_asset_ids escape hatch
   for (const sku of ownedSkus) {
     if (sku.extra_asset_ids && sku.extra_asset_ids.includes(assetId)) {
       return { owned: true, via: 'sku' };
     }
   }
 
-  // 3b. category + episode-scope match
-  if (meta) {
-    for (const sku of ownedSkus) {
-      if (skuCoversAsset(sku, meta)) {
-        return { owned: true, via: 'sku' };
-      }
-    }
-  }
-
-  // 4. Full enumeration fallback — same source as /api/codex/owned. If the
-  // badge says owned, this gate must agree. Catches any entitlement format
-  // not matched above (UUIDs, bundle ids, future formats).
-  try {
-    const { direct, expanded } = await getOwnedAssetIds(personaId);
-    if (direct.includes(assetId) || expanded.includes(assetId)) {
+  // 2b. category + episode-scope match
+  const meta = await getAssetMeta(assetId);
+  if (!meta) return { owned: false, via: null };
+  for (const sku of ownedSkus) {
+    if (skuCoversAsset(sku, meta)) {
       return { owned: true, via: 'sku' };
     }
-  } catch {
-    // fall through
   }
 
   return { owned: false, via: null };

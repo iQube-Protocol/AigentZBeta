@@ -217,6 +217,7 @@ import type {
 
 // Content viewers
 import { PDFPageViewer } from "@/app/triad/components/content/PDFPageViewer";
+import { PDFLiteReaderModal } from "@/app/triad/components/content/PDFLiteReaderModal";
 import { VideoPlayer, type VideoSegment } from "@/app/triad/components/content/VideoPlayer";
 import { VideoErrorBoundary } from "@/app/triad/components/content/VideoErrorBoundary";
 import { LoreTextReader } from "@/app/triad/components/content/LoreTextReader";
@@ -282,11 +283,10 @@ interface EpisodeFromAPI {
   printEpicCid?: string;
   printLegendaryCid?: string;
   printCommonCid?: string;
-  // masterId fields — TEXT pk from master_content_qubes, used by entitlement-gated proxy
-  printCommonMasterId?: string;
-  printRareMasterId?: string;
-  printEpicMasterId?: string;
-  printLegendaryMasterId?: string;
+  printRareLiteUrl?: string;
+  printEpicLiteUrl?: string;
+  printLegendaryLiteUrl?: string;
+  printCommonLiteUrl?: string;
   motionMasterCid?: string;
   motionMasterId?: string;
   availableCovers?: number;
@@ -381,9 +381,9 @@ const PREORDER_VARIANT_EPISODE_NUMBER: Record<PreorderVariantId, number> = {
   common: -1,
 };
 
-const KNYT_CONTENT_CACHE_KEY = "codex:knyt:content:v8";
-const KNYT_EPISODES_CACHE_KEY = "codex:knyt:episodes:v6";
-const KNYT_SESSION_CACHE_KEY = "codex:knyt:session:v7";
+const KNYT_CONTENT_CACHE_KEY = "codex:knyt:content:v7";
+const KNYT_EPISODES_CACHE_KEY = "codex:knyt:episodes:v5";
+const KNYT_SESSION_CACHE_KEY = "codex:knyt:session:v6";
 const KNYT_SESSION_CACHE_TTL_MS = 30 * 60 * 1000;
 
 type KnytSessionSnapshot = {
@@ -698,12 +698,12 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const [ownedIssues, setOwnedIssues] = useState<OwnedIssueFromAPI[]>([]);
   const [episodesCatalog, setEpisodesCatalog] = useState<EpisodeFromAPI[]>([]);
   const [loadedImages, setLoadedImages] = useState<Map<string, string>>(new Map());
-
+  
   // Viewer state
   const [videoPlayerOpen, setVideoPlayerOpen] = useState(false);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [currentPdfCid, setCurrentPdfCid] = useState<string | null>(null);
-  const [currentPdfMasterId, setCurrentPdfMasterId] = useState<string | null>(null);
+  const [currentPdfLiteUrl, setCurrentPdfLiteUrl] = useState<string | null>(null);
   const [currentPdfTitle, setCurrentPdfTitle] = useState('');
   const [currentVideoCid, setCurrentVideoCid] = useState<string | null>(null);
   const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null);
@@ -733,9 +733,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   ]);
   const lastCopilotContextRef = useRef<string | null>(null);
   
-  // Quest/Task state — populated from /api/wallet/tasks (unified source for
-  // wallet Tasks/Reputation/Rewards tabs and the Order tab right-HUD QuestRail).
-  // Tasks/rewards/reputation are universal user features — not investor-gated.
+  // Quest/Task state
   const [taskData, setTaskData] = useState({
     activeTask: null as { id: string; title: string; progress: number; nextStep: string } | null,
     rewards: [] as Array<{ id: string; amount: number; source: string }>,
@@ -797,37 +795,6 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effectivePersonaId]);
-
-  // Fetch unified wallet tasks state for the Order tab right-HUD QuestRail.
-  // Universal feature — runs for any signed-in persona (not investor-gated).
-  // Single source of truth: /api/wallet/tasks (Tasks/Rewards/Reputation
-  // tabs and the right HUD all consume the same payload).
-  useEffect(() => {
-    if (!effectivePersonaId) return;
-    let cancelled = false;
-    const controller = new AbortController();
-    fetch(`/api/wallet/tasks?personaId=${encodeURIComponent(effectivePersonaId)}`, {
-      signal: controller.signal,
-    })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (cancelled || !data) return;
-        const qr = data.questRail ?? {};
-        setTaskData({
-          activeTask: qr.activeTask ?? null,
-          rewards: Array.isArray(qr.rewards) ? qr.rewards : [],
-          ascensionRank: qr.ascensionRank ?? { current: 'Initiate', next: 'Acolyte', progress: 0 },
-        });
-      })
-      .catch(() => {
-        // Network/fetch error — leave existing taskData as-is. Right HUD shows
-        // whatever was last loaded (or the initial Initiate→Acolyte default).
-      });
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
   }, [effectivePersonaId]);
 
   const cardAccess = useCardAccess({
@@ -954,7 +921,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     const media = (knytItem.media ?? {}) as {
       text?: string;
       pdf_cid?: string;
-      pdf_master_id?: string;
+      pdf_lite_url?: string;
       video_cid?: string;
       video_url?: string;
       audio_url?: string;
@@ -1013,7 +980,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         },
       } as ContentModalities,
       pdf_cid: media.pdf_cid,
-      pdf_master_id: media.pdf_master_id,
+      pdf_lite_url: media.pdf_lite_url,
       type: knytItem.type,
       created_at: metadata.created_at,
       updated_at: metadata.updated_at,
@@ -1042,8 +1009,8 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       if (episodeNumber < 0) continue;
       
       const printCid = ep.printRareCid || ep.printEpicCid || ep.printLegendaryCid || ep.printCommonCid;
-      const printMasterId = ep.printRareMasterId || ep.printEpicMasterId || ep.printLegendaryMasterId || ep.printCommonMasterId;
-      const hasReadable = !!(printCid || printMasterId);
+      const printLiteUrl = ep.printRareLiteUrl || ep.printEpicLiteUrl || ep.printLegendaryLiteUrl || ep.printCommonLiteUrl;
+      const hasReadable = !!(printCid || printLiteUrl);
       const hasCover = !!(ep.coverThumbUrl || ep.coverImageCid);
       const coverThumb =
         ep.coverThumbUrl ||
@@ -1083,9 +1050,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
           title: ep.title || `Episode ${ep.displayNumber}`,
           subtitle: `Episode ${ep.displayNumber}`,
           thumbnail: coverThumb,
-          media: {
+          media: { 
             pdf_cid: printCid,
-            pdf_master_id: printMasterId,
+            pdf_lite_url: printLiteUrl,
             video_cid: motionSource.cid,
             video_url: motionSource.url,
           },
@@ -1159,10 +1126,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     const gnPrintCid = gnEp
       ? (gnEp.printRareCid || gnEp.printEpicCid || gnEp.printLegendaryCid || gnEp.printCommonCid)
       : undefined;
-    const gnPrintMasterId = gnEp
-      ? (gnEp.printRareMasterId || gnEp.printEpicMasterId || gnEp.printLegendaryMasterId || gnEp.printCommonMasterId)
+    const gnPrintLiteUrl = gnEp
+      ? (gnEp.printRareLiteUrl || gnEp.printEpicLiteUrl || gnEp.printLegendaryLiteUrl || gnEp.printCommonLiteUrl)
       : undefined;
-    const gnHasReadable = !!(gnPrintCid || gnPrintMasterId);
+    const gnHasReadable = !!(gnPrintCid || gnPrintLiteUrl);
 
     const agnCards: KnytContentItem[] = PREORDER_CONTENT_VARIANTS.map((variant) => ({
       id: `metaKnyts_preorder_${variant.id}`,
@@ -1174,7 +1141,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       media: {
         image_cid: undefined,
         pdf_cid: gnPrintCid,
-        pdf_master_id: gnPrintMasterId,
+        pdf_lite_url: gnPrintLiteUrl,
       },
       metadata: {
         episodeNumber: PREORDER_VARIANT_EPISODE_NUMBER[variant.id],
@@ -1527,10 +1494,6 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       const cached = getCachedValue<number[]>(cacheKey);
       if (cached) {
         setOwnedEpisodeNumbers(new Set(cached));
-        // ownedIssues drives isEpisodeLocked(); without this the cache-hit path
-        // leaves it empty and every owned episode routes to purchase modal
-        // instead of the PDF viewer.
-        setOwnedIssues(cached.map((ep) => ({ episodeNumber: ep })));
         return;
       }
       const ownedRes = await fetch(`${apiBase}/api/codex/owned?personaId=${effectivePersonaId}`);
@@ -1962,6 +1925,14 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const isEpisodeLocked = useCallback((item: KnytContentItem) => {
     const episodeNumber = resolveEpisodeNumber(item);
     if (episodeNumber === null) return false;
+    // Episodes are INHERENTLY gated. We do not consult item.metadata?.price
+    // because the cartridge data shape does not always carry it; absence of
+    // a price MUST NOT imply free access.
+    //
+    // Source of truth for ownership: ownedIssues (populated from
+    // /api/codex/owned, which is SKU-aware). For anonymous viewers this is
+    // empty, so every episode reads as locked. For authenticated owners or
+    // bundle holders, the matching episode is unlocked.
     const ownedForEp = ownedIssues.filter((issue) => issue.episodeNumber === episodeNumber);
     if (ownedForEp.length > 0) return false;
     // Optional credential gate (e.g. investor-only preorders). Only matters
@@ -2358,45 +2329,25 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   }, [codexCopilotOpen, selectedContentItem, activeTab]);
 
   const handleViewerOpen = useCallback((item: KnytContentItem, type: 'pdf' | 'video' | 'poster') => {
-    // Diagnostic — surfaces the actual ids the renderer received so we can see
-    // (in production) when an item routes to the PDF path but ships no
-    // pdf_master_id / pdf_cid / text. Otherwise the function silently no-ops.
-    console.log('[KnytTab] handleViewerOpen', {
-      type,
-      title: item.title,
-      pdf_master_id: (item as any).pdf_master_id || item.media?.pdf_master_id || null,
-      pdf_cid: (item as any).pdf_cid || item.media?.pdf_cid || null,
-      hasText: !!item.media?.text,
-      video_url: item.media?.video_url || item.media?.video_cid || null,
-      modalities: item.modalities,
-      effectivePersonaId,
-    });
-
     if (isEpisodeLocked(item)) {
       openPurchaseForItem(item, type === 'video' ? 'watch' : 'read');
       return;
     }
-    if (type === 'pdf' && item.media?.text && !item.media?.pdf_cid && !(item.media as any)?.pdf_master_id) {
+    if (type === 'pdf' && item.media?.text && !item.media?.pdf_lite_url && !item.media?.pdf_cid) {
       setCurrentText({ title: item.title, content: item.media.text });
       setTextReaderOpen(true);
       return;
     }
-    if (type === 'pdf' && ((item as any).pdf_master_id || (item as any).pdf_cid || item.media?.pdf_master_id || item.media?.pdf_cid)) {
-      const masterId = (item as any).pdf_master_id || (item.media as any)?.pdf_master_id || null;
-      const cidVal = (item as any).pdf_cid || item.media?.pdf_cid || null;
-      setCurrentPdfMasterId(masterId);
-      setCurrentPdfCid(cidVal);
+    if (type === 'pdf' && (item.media?.pdf_lite_url || item.media?.pdf_cid)) {
+      console.log('[KnytTab] Opening PDF viewer:', {
+        pdf_lite_url: item.media.pdf_lite_url,
+        pdf_cid: item.media.pdf_cid,
+        title: item.title
+      });
+      setCurrentPdfLiteUrl(item.media.pdf_lite_url || null);
+      setCurrentPdfCid(item.media.pdf_cid || null);
       setCurrentPdfTitle(item.title);
       setPdfViewerOpen(true);
-    } else if (type === 'pdf') {
-      // No master_id, no cid, no text — there's nothing we can render.
-      // Surface a toast so the operator sees this instead of a silent no-op.
-      console.warn('[KnytTab] PDF requested but no source available', { item });
-      toast({
-        title: 'No readable file',
-        description: `"${item.title}" has no PDF attached.`,
-        variant: 'destructive',
-      });
     } else if (type === 'video') {
       const episodeNumber = typeof item.metadata?.episodeNumber === 'number' ? item.metadata.episodeNumber : null;
       if (episodeNumber !== null) {
@@ -2804,11 +2755,12 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                             if (!cardAct.showSmartActions) {
                               return; // Restricted (credential gate, no credential) — silent no-op
                             }
-                            const epMasterId = episode.printRareMasterId || episode.printEpicMasterId || episode.printLegendaryMasterId || episode.printCommonMasterId;
-                            const epPrintCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid || episode.printCommonCid;
-                            if (epMasterId || epPrintCid) {
-                              setCurrentPdfMasterId(epMasterId || null);
-                              setCurrentPdfCid(epPrintCid || null);
+                            const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid || episode.printCommonCid;
+                            if (printCid) {
+                              setCurrentPdfLiteUrl(
+                                episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || episode.printCommonLiteUrl || null
+                              );
+                              setCurrentPdfCid(printCid);
                               setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
                               setPdfViewerOpen(true);
                             }
@@ -2850,10 +2802,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                             {/* Cart — render ONLY when payment-gated and not owned. Anonymous routes through sign-in. */}
                             {cardAct.showShoppingCart && (
                               <button
-                                className="w-9 h-9 md:w-6 md:h-6 rounded-md bg-amber-500/80 backdrop-blur-sm flex items-center justify-center ring-1 ring-amber-400/40 text-white hover:bg-amber-400 active:bg-amber-500 transition-all touch-manipulation"
+                                className="w-6 h-6 rounded-md bg-amber-500/80 backdrop-blur-sm flex items-center justify-center ring-1 ring-amber-400/40 text-white hover:bg-amber-400 transition-all"
                                 title={cardAct.cartCtaTarget === 'sign-in' ? 'Sign in to buy' : (priceKnyt ? `Buy for ${priceKnyt} KNYT` : 'Buy')}
                                 onClick={(e) => {
-                                  e.preventDefault();
                                   e.stopPropagation();
                                   cardAccess.handleCartClick(
                                     { id: cardId, source: 'codex', episodeNumber: episode.episodeNumber },
@@ -2866,34 +2817,34 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                                   );
                                 }}
                               >
-                                <ShoppingCart className="w-4 h-4 md:w-3 md:h-3" />
+                                <ShoppingCart className="w-3 h-3" />
                               </button>
                             )}
                             {/* Read — render ONLY when smart actions are allowed (owned or credentialed). */}
                             {cardAct.showSmartActions && (episode.hasPrintRare || episode.hasPrintEpic || episode.hasPrintLegendary || episode.hasPrintCommon) && (
                               <button
-                                className="w-9 h-9 md:w-6 md:h-6 rounded-md bg-black/60 backdrop-blur-sm flex items-center justify-center ring-1 ring-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-white active:bg-cyan-600 transition-all touch-manipulation"
+                                className="w-6 h-6 rounded-md bg-black/60 backdrop-blur-sm flex items-center justify-center ring-1 ring-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-white transition-all"
                                 title="Read"
                                 onClick={(e) => {
-                                  e.preventDefault();
                                   e.stopPropagation();
-                                  const btnMasterId = episode.printRareMasterId || episode.printEpicMasterId || episode.printLegendaryMasterId || episode.printCommonMasterId;
-                                  const btnPrintCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid || episode.printCommonCid;
-                                  if (btnMasterId || btnPrintCid) {
-                                    setCurrentPdfMasterId(btnMasterId || null);
-                                    setCurrentPdfCid(btnPrintCid || null);
+                                  const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid || episode.printCommonCid;
+                                  if (printCid) {
+                                    setCurrentPdfLiteUrl(
+                                      episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || episode.printCommonLiteUrl || null
+                                    );
+                                    setCurrentPdfCid(printCid);
                                     setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
                                     setPdfViewerOpen(true);
                                   }
                                 }}
                               >
-                                <BookOpen className="w-4 h-4 md:w-3 md:h-3" />
+                                <BookOpen className="w-3 h-3" />
                               </button>
                             )}
                             {/* Watch — same gate. */}
                             {cardAct.showSmartActions && episode.hasMotionMaster && (episodeVideo.cid || episodeVideo.url) && (
                               <button
-                                className="w-9 h-9 md:w-6 md:h-6 rounded-md bg-black/60 backdrop-blur-sm flex items-center justify-center ring-1 ring-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-white active:bg-cyan-600 transition-all touch-manipulation"
+                                className="w-6 h-6 rounded-md bg-black/60 backdrop-blur-sm flex items-center justify-center ring-1 ring-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-white transition-all"
                                 title="Watch"
                                 onClick={(e) => {
                                   e.preventDefault();
@@ -2901,7 +2852,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                                   void openEpisodeVideo(episode, episodeVideo.cid || null, episodeVideo.url || null);
                                 }}
                               >
-                                <Play className="w-4 h-4 md:w-3 md:h-3" />
+                                <Play className="w-3 h-3" />
                               </button>
                             )}
                           </div>
@@ -2918,7 +2869,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                               </div>
                             ) : null}
                           </div>
-                          <div className="absolute inset-0 bg-cyan-500/0 group-hover:bg-cyan-500/10 transition-colors pointer-events-none" />
+                          <div className="absolute inset-0 bg-cyan-500/0 group-hover:bg-cyan-500/10 transition-colors" />
                         </div>
                       );
                     })}
@@ -3065,38 +3016,37 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             </div>
           )}
 
-          {/* PDF viewer — all gated content goes through PDFPageViewer (custody-safe page-image renderer).
-              The raw PDF URL never reaches the browser.
-              masterId → /api/content/pdf-page-by-master/[id] (entitlement-gated proxy, Supabase-hosted)
-              cid      → /api/content/pdf-page/[cid] (server-decrypts Autonomys-hosted PDF) */}
-          {pdfViewerOpen && (() => {
-            const closePdf = () => {
-              setPdfViewerOpen(false);
-              setCurrentPdfMasterId(null);
-              setCurrentPdfCid(null);
-              setCurrentPdfTitle('');
-            };
-            if (currentPdfMasterId) {
-              return (
-                <PDFPageViewer
-                  masterId={currentPdfMasterId}
-                  personaId={effectivePersonaId || undefined}
-                  title={currentPdfTitle}
-                  onClose={closePdf}
-                />
-              );
-            }
-            if (currentPdfCid) {
-              return (
-                <PDFPageViewer
-                  cid={currentPdfCid}
-                  title={currentPdfTitle}
-                  onClose={closePdf}
-                />
-              );
-            }
-            return null;
-          })()}
+          {/* PDF Lite modal (preferred when URL is available) */}
+          {pdfViewerOpen && currentPdfLiteUrl && (
+            <PDFLiteReaderModal
+              open={pdfViewerOpen}
+              pdfUrl={currentPdfLiteUrl}
+              title={currentPdfTitle}
+              onClose={() => {
+                setPdfViewerOpen(false);
+                setCurrentPdfLiteUrl(null);
+                setCurrentPdfCid(null);
+                setCurrentPdfTitle('');
+              }}
+            />
+          )}
+
+          {/* Custody-safe PDF viewer (page-image fallback) */}
+          {pdfViewerOpen && !currentPdfLiteUrl && currentPdfCid && (
+            <>
+              {console.log('[KnytTab] Rendering PDFPageViewer with CID:', currentPdfCid)}
+              <PDFPageViewer
+                cid={currentPdfCid}
+                title={currentPdfTitle}
+                onClose={() => {
+                  setPdfViewerOpen(false);
+                  setCurrentPdfLiteUrl(null);
+                  setCurrentPdfCid(null);
+                  setCurrentPdfTitle('');
+                }}
+              />
+            </>
+          )}
 
           {/* Video Player Modal */}
           {videoPlayerOpen && (currentVideoUrl || currentVideoCid) && (
