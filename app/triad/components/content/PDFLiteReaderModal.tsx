@@ -115,20 +115,15 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
             </div>
           )}
 
-          <object
-            data={safePdfUrl}
-            type="application/pdf"
+          <iframe
+            src={safePdfUrl}
             className="w-full h-full touch-pan-y"
+            title={title || 'PDF preview'}
             onLoad={() => {
               setLoading(false);
               setFailed(null);
             }}
-            aria-label={title || 'PDF preview'}
-          >
-            <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-              <p className="text-white mb-4">PDF preview not supported in this browser.</p>
-            </div>
-          </object>
+          />
           {/* Toolbar guard rail: hides and blocks top native controls when browser ignores toolbar=0 */}
           <div className="pointer-events-auto absolute top-0 left-0 right-0 h-11 bg-zinc-950/95" />
         </div>

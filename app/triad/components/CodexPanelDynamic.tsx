@@ -585,7 +585,7 @@ export default function CodexPanelDynamic({
                   Mobile: sub-tabs become a horizontal scroll carousel (flex-1 + overflow-x-auto + no-scrollbar)
                   so the row can't push the page beyond the viewport. The right-cluster title hides on mobile
                   (it duplicates the active sub-tab label anyway) so the carousel gets all available space. */}
-              <div className={`flex-shrink-0 border-b px-4 py-1.5 flex items-center gap-3 min-w-0 overflow-hidden ${isDark ? 'border-white/[0.06] bg-white/[0.02] backdrop-blur-sm' : 'border-slate-200 bg-slate-50'}`}>
+              <div className={`flex-shrink-0 border-b px-4 py-1.5 flex items-center gap-3 min-w-0 ${isDark ? 'border-white/[0.06] bg-white/[0.02] backdrop-blur-sm' : 'border-slate-200 bg-slate-50'}`}>
                 {activeGroup && activeGroupSubTabs.length > 1 ? (
                   <div className="flex gap-1 flex-1 min-w-0 overflow-x-auto no-scrollbar">
                     {activeGroupSubTabs.map((tab) => {
