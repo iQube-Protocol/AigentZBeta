@@ -1497,7 +1497,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   ]);
 
   // Fetch owned episodes
-  const fetchOwnedEpisodes = useCallback(async () => {
+  const fetchOwnedEpisodes = useCallback(async (options?: { force?: boolean }) => {
     if (!effectivePersonaId) {
       setOwnedEpisodeNumbers(new Set());
       setOwnedIssues([]);
@@ -1506,10 +1506,15 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     try {
       const apiBase = API_BASE_URL;
       const cacheKey = `codex:knyt:owned:${effectivePersonaId}`;
-      const cached = getCachedValue<number[]>(cacheKey);
-      if (cached) {
-        setOwnedEpisodeNumbers(new Set(cached));
-        return;
+      // After a purchase the cached list is stale; force=true skips the cache
+      // and refetches so a new episode appears in ownedIssues immediately.
+      if (!options?.force) {
+        const cached = getCachedValue<number[]>(cacheKey);
+        if (cached) {
+          setOwnedEpisodeNumbers(new Set(cached));
+          // NOTE: cache only stored episode numbers, not full issues. Fall through
+          // to fetch full issues so isEpisodeLocked / owned badge stay in sync.
+        }
       }
       const ownedRes = await fetch(`${apiBase}/api/codex/owned?personaId=${effectivePersonaId}`);
       if (!ownedRes.ok) return;
@@ -2526,7 +2531,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                     currentContent={selectedSmartContent}
                     onPurchaseComplete={() => {
                       refreshPurchases();
-                      fetchOwnedEpisodes();
+                      fetchOwnedEpisodes({ force: true });
                     }}
                     onOpenCopilot={() => setCodexCopilotOpen(true)}
                   />
@@ -3147,7 +3152,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
               onPurchaseComplete={() => {
                 setPurchaseModalOpen(false);
                 setPurchaseContent(null);
-                fetchOwnedEpisodes();
+                fetchOwnedEpisodes({ force: true });
               }}
               onAddToCart={addPurchaseContentToCart}
               onBalanceRefresh={refreshBalance}
