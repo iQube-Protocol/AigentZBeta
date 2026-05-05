@@ -14,6 +14,19 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Mirrors resolveThumb() in /api/knyt/thumbnails: prefers cover_thumb_url,
+// falls back to auto_drive_cid when it is a plain https URL (Supabase-hosted),
+// or treats it as a CID for the cover proxy otherwise.
+function resolveAssetThumb(row: { cover_thumb_url?: string | null; auto_drive_cid?: string | null } | null | undefined): { coverUrl: string | undefined; coverCid: string | undefined } {
+  const adCid = row?.auto_drive_cid ?? undefined;
+  const coverUrl =
+    row?.cover_thumb_url ||
+    (adCid?.startsWith('http') ? adCid : undefined) ||
+    undefined;
+  const coverCid = !coverUrl && adCid && !adCid.startsWith('http') ? adCid : undefined;
+  return { coverUrl, coverCid };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -100,13 +113,14 @@ export async function GET(request: NextRequest) {
               const parenMatch = characterName?.match(/^([^(]+)/);
               if (parenMatch) characterName = parenMatch[1].trim();
 
+              const { coverUrl: charCoverUrl, coverCid: charCoverCid } = resolveAssetThumb(asset);
               assetMeta = {
                 title: asset.title,
                 assetKind: asset.asset_kind,
                 episodeNumber: asset.episode_number,
                 autoDriveCid: asset.auto_drive_cid,
-                coverUrl: asset.cover_thumb_url || undefined,
-                coverCid: !asset.cover_thumb_url ? (asset.auto_drive_cid || undefined) : undefined,
+                coverUrl: charCoverUrl,
+                coverCid: charCoverCid,
                 characterName,
                 coverType: 'CHARACTER',
                 isMotion,
@@ -129,8 +143,8 @@ export async function GET(request: NextRequest) {
               .from('codex_media_assets')
               .select('id, title, asset_kind, rarity, auto_drive_cid, cover_thumb_url, episode_number')
               .in('episode_number', [epNum, epNum + 1])
-              .in('asset_kind', ['motion_master', 'print_rare', 'print_epic', 'print_legendary', 'cover_image'])
-              .limit(10);
+              .in('asset_kind', ['motion_master', 'print_rare', 'print_epic', 'print_legendary', 'cover_image', 'cover_pdf'])
+              .limit(12);
 
             const preferDbEp = epNum + 1;
             const dbConventionRows = (epAssets || []).filter((a) => a.episode_number === preferDbEp);
@@ -142,10 +156,10 @@ export async function GET(request: NextRequest) {
               ? printAsset.asset_kind?.replace('print_', '').toUpperCase()
               : (isMotion ? 'MOTION' : 'RARE');
             const motionAsset = chosenAssets.find((a) => a.asset_kind === 'motion_master');
-            const coverAsset = chosenAssets.find((a) => a.asset_kind === 'cover_image');
+            const coverAsset = chosenAssets.find((a) => a.asset_kind === 'cover_image')
+              || chosenAssets.find((a) => a.asset_kind === 'cover_pdf');
             const bestAsset = coverAsset || printAsset;
-            const coverUrl = bestAsset?.cover_thumb_url || undefined;
-            const coverCid = !coverUrl ? (bestAsset?.auto_drive_cid || undefined) : undefined;
+            const { coverUrl, coverCid } = resolveAssetThumb(bestAsset);
 
             assetMeta = {
               title: `Episode ${epNum}`,
@@ -166,12 +180,13 @@ export async function GET(request: NextRequest) {
               .in('asset_kind', ['cover_image', 'print_rare', 'print_epic', 'print_legendary'])
               .limit(3);
 
-            const coverAsset = (epAssets || []).find(a => a.asset_kind === 'cover_image')
+            const bundleCoverAsset = (epAssets || []).find(a => a.asset_kind === 'cover_image')
               || (epAssets || [])[0];
+            const { coverUrl: bundleCoverUrl, coverCid: bundleCoverCid } = resolveAssetThumb(bundleCoverAsset);
             assetMeta = {
               title: assetId.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-              coverUrl: coverAsset?.cover_thumb_url || undefined,
-              coverCid: !coverAsset?.cover_thumb_url ? (coverAsset?.auto_drive_cid || undefined) : undefined,
+              coverUrl: bundleCoverUrl,
+              coverCid: bundleCoverCid,
               coverType: 'BUNDLE',
             };
           }
