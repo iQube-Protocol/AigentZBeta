@@ -64,11 +64,7 @@ export async function POST(req: NextRequest) {
         const filename = `pdf-lite/${asset.id}.pdf`;
         await supabase.storage
           .from('content-media')
-          .upload(filename, decryptedPdf, {
-            contentType: 'application/pdf',
-            upsert: true,
-            metadata: { contentDisposition: 'inline' },
-          });
+          .upload(filename, decryptedPdf, { contentType: 'application/pdf', upsert: true });
 
         const { data: urlData } = supabase.storage
           .from('content-media')
