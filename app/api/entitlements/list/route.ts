@@ -114,22 +114,35 @@ export async function GET(request: NextRequest) {
             }
           } else if (epMatch) {
             // Episode asset: episode-1, episode-1-qripto-still, mk_ep01, ep01_motion, etc.
+            // Cart purchase ids carry the pricing-convention episode number
+            // (E0 → 0, E1 → 1, …). codex_media_assets stores the autodrive
+            // episode_number which is the db convention = pricingEp + 1
+            // (mk_ep1 → pricingEp 0, mk_ep2 → pricingEp 1, …). Query both
+            // candidates and prefer the db-convention row when present so
+            // wallet thumbnails resolve for purchases written in pricing
+            // convention. Falls back to pricingEp for any legacy rows that
+            // happened to be seeded under the pricing number.
             const epNum = parseInt(epMatch[1], 10);
             const isMotion = assetId.toLowerCase().includes('motion');
 
             const { data: epAssets } = await supabase
               .from('codex_media_assets')
-              .select('id, title, asset_kind, rarity, auto_drive_cid, cover_thumb_url')
-              .eq('episode_number', epNum)
+              .select('id, title, asset_kind, rarity, auto_drive_cid, cover_thumb_url, episode_number')
+              .in('episode_number', [epNum, epNum + 1])
               .in('asset_kind', ['motion_master', 'print_rare', 'print_epic', 'print_legendary', 'cover_image'])
-              .limit(5);
+              .limit(10);
 
-            const printAsset = (epAssets || []).find(a => a.asset_kind?.startsWith('print_'));
+            const preferDbEp = epNum + 1;
+            const dbConventionRows = (epAssets || []).filter((a) => a.episode_number === preferDbEp);
+            const pricingConventionRows = (epAssets || []).filter((a) => a.episode_number === epNum);
+            const chosenAssets = dbConventionRows.length > 0 ? dbConventionRows : pricingConventionRows;
+
+            const printAsset = chosenAssets.find((a) => a.asset_kind?.startsWith('print_'));
             const coverType = printAsset
               ? printAsset.asset_kind?.replace('print_', '').toUpperCase()
               : (isMotion ? 'MOTION' : 'RARE');
-            const motionAsset = (epAssets || []).find(a => a.asset_kind === 'motion_master');
-            const coverAsset = (epAssets || []).find(a => a.asset_kind === 'cover_image');
+            const motionAsset = chosenAssets.find((a) => a.asset_kind === 'motion_master');
+            const coverAsset = chosenAssets.find((a) => a.asset_kind === 'cover_image');
             const bestAsset = coverAsset || printAsset;
             const coverUrl = bestAsset?.cover_thumb_url || undefined;
             const coverCid = !coverUrl ? (bestAsset?.auto_drive_cid || undefined) : undefined;
