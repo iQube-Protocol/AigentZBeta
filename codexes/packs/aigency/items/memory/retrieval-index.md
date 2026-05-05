@@ -694,3 +694,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-c1cd1d4.md](../build_/COMMITS/COMMIT-c1cd1d4.md)
 - Message: docs: Phase 2 SmartTriad ownership unification backlog + KNYT stabilization session update
+
+## Commit `388cd07` — 2026-05-05T00:25:20Z
+- Type: `feat`
+- Brief: [COMMIT-388cd07.md](../build_/COMMITS/COMMIT-388cd07.md)
+- Message: backlog: add entitlement format divergence + isEpisodeLocked redesign to Phase 2
