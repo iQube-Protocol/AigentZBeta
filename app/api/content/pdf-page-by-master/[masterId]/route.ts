@@ -124,6 +124,7 @@ interface RouteParams {
 
 export async function GET(req: NextRequest, { params }: RouteParams) {
   const { masterId } = params;
+  const isMeta = req.nextUrl.searchParams.get('meta') === '1';
 
   if (!masterId) {
     return NextResponse.json({ error: 'masterId required' }, { status: 400 });
@@ -135,22 +136,32 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   const page = clampInt(Number(pageParam), 1, 10_000);
   const width = clampInt(Number(widthParam), 600, 1800);
 
-  if (!personaId) {
-    return NextResponse.json({ error: 'personaId required' }, { status: 401 });
-  }
-
-  // Entitlement gate — PDF never fetched if persona is not entitled
-  let entitled = false;
+  // Wrap the entire handler so any uncaught exception returns a graceful response
+  // instead of a Next.js 500. The viewer can then render at least page 1 or a
+  // placeholder rather than showing a blocking error.
   try {
-    const { owned } = await userOwnsAsset(personaId, masterId);
-    entitled = owned;
-  } catch (e) {
-    console.error('[PdfPageByMaster] Entitlement check error:', e);
-  }
+    // GN free-preview short-circuit — no personaId required
+    const isGnMaster = /^mk_ep0+_/.test(masterId);
 
-  if (!entitled) {
-    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-  }
+    if (!isGnMaster && !personaId) {
+      return NextResponse.json({ error: 'personaId required' }, { status: 401 });
+    }
+
+    // Entitlement gate — PDF never fetched if persona is not entitled
+    let entitled = isGnMaster;
+    if (!entitled) {
+      try {
+        const { owned } = await userOwnsAsset(personaId, masterId);
+        entitled = owned;
+      } catch (e) {
+        console.error('[PdfPageByMaster] Entitlement check error:', { masterId, personaId, err: (e as any)?.message });
+      }
+    }
+
+    if (!entitled) {
+      console.warn('[PdfPageByMaster] denied', { masterId, personaId });
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
 
   const cacheKey = `master:${masterId}:page:${page}:w:${width}`;
   const cached = getCachedImage(cacheKey);
@@ -227,7 +238,14 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     }
 
     // Fetch PDF bytes from Supabase Storage — URL stays on the server
-    const fetchRes = await fetch(pdfUrl);
+    const fetchCtrl = new AbortController();
+    const fetchTimer = setTimeout(() => fetchCtrl.abort(), 15000);
+    let fetchRes: Response;
+    try {
+      fetchRes = await fetch(pdfUrl, { signal: fetchCtrl.signal });
+    } finally {
+      clearTimeout(fetchTimer);
+    }
     if (!fetchRes.ok) {
       return NextResponse.json({ error: `PDF fetch failed: ${fetchRes.status}` }, { status: 502 });
     }
@@ -278,5 +296,25 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     });
   } finally {
     releaseRenderSlot();
+  }
+  } catch (outerErr: any) {
+    // Top-level safety net — never let this route return a Next.js 500.
+    console.error('[PdfPageByMaster] OUTER unhandled error', {
+      masterId,
+      personaId,
+      isMeta,
+      err: outerErr?.message,
+      stack: outerErr?.stack,
+    });
+    if (isMeta) {
+      return NextResponse.json({ pages: 1, suggestedWidth: 1200 }, { status: 200 });
+    }
+    return new NextResponse(new Uint8Array(PLACEHOLDER_PNG), {
+      headers: {
+        'Content-Type': 'image/png',
+        'Cache-Control': 'private, max-age=60',
+        'X-Render-OK': '0',
+      },
+    });
   }
 }

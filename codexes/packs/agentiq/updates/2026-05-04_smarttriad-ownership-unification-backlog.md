@@ -132,11 +132,40 @@ Symptoms this caused:
 
 ---
 
+## Known server-side conflict to resolve in Phase 2
+
+### Entitlement format divergence: `/api/codex/owned` vs `userOwnsAsset`
+
+**Status:** Temporarily patched (2026-05-05, commit `733ecf96`). Root cause still present architecturally.
+
+`/api/codex/owned` (the badge source) handles multiple legacy entitlement `assetId` formats:
+- `episode-N` (pricing convention, e.g. `episode-0` = first purchasable episode)
+- `epN` (shorthand format)
+- `mk_epNN_*` master IDs (via `getOwnedAssetIds` expansion)
+- Direct UUIDs
+
+`userOwnsAsset` (the PDF/video proxy gate) only handled exact-match and SKU expansion — no legacy format awareness. Personas whose entitlements use `episode-N` format saw badge=OWNED but PDF gate returned 403.
+
+**Temporary fix:** Added a legacy format check (step 2) to `userOwnsAsset` that parses `mk_epNN_*` master IDs, converts to pricing convention (`pricingEp = dbEp - 1`), and matches against `episode-N`/`epN` entitlements. Structural mismatch remains.
+
+**Phase 2 resolution — part of the unified ownership store:**
+
+1. **Canonical entitlement normalisation** — a single function `normaliseEntitlementAssetId(rawId): NormalisedAssetRef` that maps all known formats (`episode-N`, `epN`, `mk_ep*`, UUID, bundle SKU) to a common `{ type, episodeNumber, masterId, skuId }` shape. All ownership resolvers call this; no format-specific logic scattered across routes.
+
+2. **Single ownership API** — one endpoint (`/api/entitlements/owned-assets`) that enumerates what a persona owns in normalised form. Both the badge and the gate read from this. The current split between `/api/codex/owned` and the `userOwnsAsset` service call is eliminated.
+
+3. **`isEpisodeLocked()` redesign** — the current client-side function has accumulated four overlapping checks: `episodeNumber === null`, `item.metadata?.owned`, `ownedIssues`, `hasAccessRestriction`. These are ordered by recency of patch, not by logical precedence. Phase 2 replaces this with a single `useSmartTriadOwnership().isEpisodeOwned(num)` call whose source of truth is the unified store — no local state forks possible.
+
+4. **Entitlement write path** — purchases must record entitlements in the canonical format from day one, not in `episode-N` legacy format. Purchase handler updated to write `mk_ep{NN}_{type}_{tier}` master IDs directly, or SKU grants via `store_skus`, so legacy format check becomes unreachable.
+
+---
+
 ## Reference — symptoms patched in stabilization (NOT this phase)
 
 - Cache-hit early return in `fetchOwnedEpisodes` left `ownedIssues` empty — fixed by reconstructing it from cached episode numbers
 - `isEpisodeLocked` now checks `item.metadata?.owned` first as a primary gate, eliminating the local divergence window
 - Mobile-invisible action buttons (`opacity-0 group-hover:opacity-100`) — fixed in `KnytTemplateRenderer`
+- `userOwnsAsset` legacy format patch (`episode-N` → masterId mapping) — temporary fix for badge/gate 403 divergence
 - Embed bridge persona race — fixed via lazy localStorage initializer in `useCodexEmbedAuthBridge`
 - Diagnostic logs added to `KnytTab.handleViewerOpen`, `MetaMeRuntime` persona resolver, admin-check, and editor dispatch
 
