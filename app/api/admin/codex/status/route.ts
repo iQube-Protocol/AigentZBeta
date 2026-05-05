@@ -48,8 +48,12 @@ interface EpisodeStatus {
   printEpicCid?: string;
   printLegendaryCid?: string;
   printCommonCid?: string;
+  // Lite URLs: forwarded only for free content (episode 0 = GN); gated content URLs stay server-side
+  printCommonLiteUrl?: string;
+  printRareLiteUrl?: string;
+  printEpicLiteUrl?: string;
+  printLegendaryLiteUrl?: string;
   // masterId fields: TEXT pk from master_content_qubes (e.g. mk_ep01_print_common)
-  // Used by the proxy route /api/content/pdf-page-by-master/[masterId] — URL stays server-side
   printCommonMasterId?: string;
   printRareMasterId?: string;
   printEpicMasterId?: string;
@@ -458,29 +462,33 @@ if (series === 'metaKnyts') {
           status.motionMasterId = master.id;
           status.motionMasterCid = master.auto_drive_cid;
         } else if (master.content_type === 'episode_print') {
-          // Handle print editions by tier.
-          // masterId (TEXT pk) is sent to the client; the actual PDF URL is
-          // resolved server-side in /api/content/pdf-page-by-master/[masterId].
-          // liteUrls are intentionally NOT forwarded to the client.
           const cid = master.auto_drive_cid;
+          const liteUrl = master.pdf_lite_url as string | null | undefined;
           const isUrl = typeof cid === 'string' && (cid.startsWith('http://') || cid.startsWith('https://'));
           const tier = master.edition_tier;
+          // Forward pdf_lite_url only for episode 0 (GN — free content).
+          // Gated episode URLs must not be sent to public clients.
+          const isGnEpisode = ep === 0;
           if (tier === 'rare') {
             status.hasPrintRare = true;
             status.printRareMasterId = master.id;
-            if (!isUrl) status.printRareCid = cid; // only for Autonomys CIDs
+            if (!isUrl) status.printRareCid = cid;
+            if (isGnEpisode && liteUrl) status.printRareLiteUrl = liteUrl;
           } else if (tier === 'epic') {
             status.hasPrintEpic = true;
             status.printEpicMasterId = master.id;
             if (!isUrl) status.printEpicCid = cid;
+            if (isGnEpisode && liteUrl) status.printEpicLiteUrl = liteUrl;
           } else if (tier === 'legendary') {
             status.hasPrintLegendary = true;
             status.printLegendaryMasterId = master.id;
             if (!isUrl) status.printLegendaryCid = cid;
+            if (isGnEpisode && liteUrl) status.printLegendaryLiteUrl = liteUrl;
           } else if (tier === 'common' || !tier) {
             status.hasPrintCommon = true;
             status.printCommonMasterId = master.id;
             if (!isUrl) status.printCommonCid = cid;
+            if (isGnEpisode && liteUrl) status.printCommonLiteUrl = liteUrl;
           }
         }
       }

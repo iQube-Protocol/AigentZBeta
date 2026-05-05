@@ -1925,18 +1925,16 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const isEpisodeLocked = useCallback((item: KnytContentItem) => {
     const episodeNumber = resolveEpisodeNumber(item);
     if (episodeNumber === null) return false;
-    // Episodes are INHERENTLY gated. We do not consult item.metadata?.price
-    // because the cartridge data shape does not always carry it; absence of
-    // a price MUST NOT imply free access.
-    //
-    // Source of truth for ownership: ownedIssues (populated from
-    // /api/codex/owned, which is SKU-aware). For anonymous viewers this is
-    // empty, so every episode reads as locked. For authenticated owners or
-    // bundle holders, the matching episode is unlocked.
+
+    // GN (DB ep 0, represented as AGN preorder with ep -1) is free to read.
+    // pdf_lite_url being present indicates the free Supabase-hosted print.
+    if (typeof episodeNumber === 'number' && episodeNumber <= 0 && item.media?.pdf_lite_url) {
+      return false;
+    }
+
+    // Source of truth for ownership: ownedIssues (SKU-aware, from /api/codex/owned).
     const ownedForEp = ownedIssues.filter((issue) => issue.episodeNumber === episodeNumber);
     if (ownedForEp.length > 0) return false;
-    // Optional credential gate (e.g. investor-only preorders). Only matters
-    // when the metadata explicitly declares one — not used as a free pass.
     if (hasAccessRestriction(item.metadata as GatingMetadata | undefined)) return true;
     return true;
   }, [resolveEpisodeNumber, ownedIssues, hasAccessRestriction]);
@@ -2693,11 +2691,18 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                     {episodesCatalog.map((episode) => {
                       const owned = getOwnedIssuesForEpisode(episode.episodeNumber);
                       const isOwned = owned.length > 0;
-                      // Unified gate: episode is codex-source content, gated
-                      // by payment, owned-flag overridden by ownedIssues check.
+                      // Episode 0 = GN is free content — gating: free bypasses the payment gate
+                      // without incorrectly stamping an "Owned" badge on free content.
+                      const isGnFree = episode.episodeNumber === 0 &&
+                        !!(episode.printCommonLiteUrl || episode.printCommonCid);
                       const cardId = episode.purchaseId || `mk_ep${String(episode.episodeNumber).padStart(2, '0')}`;
                       const cardAct = cardAccess.evaluate(
-                        { id: cardId, source: 'codex', episodeNumber: episode.episodeNumber },
+                        {
+                          id: cardId,
+                          source: 'codex',
+                          episodeNumber: episode.episodeNumber,
+                          gating: isGnFree ? { kind: 'free' as const } : undefined,
+                        },
                         { manualOwned: isOwned },
                       );
                       const episodeVideo = normalizeVideoSource(
@@ -2755,12 +2760,11 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                             if (!cardAct.showSmartActions) {
                               return; // Restricted (credential gate, no credential) — silent no-op
                             }
+                            const printLiteUrl = episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || episode.printCommonLiteUrl;
                             const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid || episode.printCommonCid;
-                            if (printCid) {
-                              setCurrentPdfLiteUrl(
-                                episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || episode.printCommonLiteUrl || null
-                              );
-                              setCurrentPdfCid(printCid);
+                            if (printCid || printLiteUrl) {
+                              setCurrentPdfLiteUrl(printLiteUrl || null);
+                              setCurrentPdfCid(printCid || null);
                               setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
                               setPdfViewerOpen(true);
                             }
@@ -2827,12 +2831,11 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                                 title="Read"
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  const printLiteUrl = episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || episode.printCommonLiteUrl;
                                   const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid || episode.printCommonCid;
-                                  if (printCid) {
-                                    setCurrentPdfLiteUrl(
-                                      episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || episode.printCommonLiteUrl || null
-                                    );
-                                    setCurrentPdfCid(printCid);
+                                  if (printCid || printLiteUrl) {
+                                    setCurrentPdfLiteUrl(printLiteUrl || null);
+                                    setCurrentPdfCid(printCid || null);
                                     setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
                                     setPdfViewerOpen(true);
                                   }
