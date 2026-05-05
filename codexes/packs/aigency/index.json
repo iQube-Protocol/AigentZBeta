@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-04T21:59:46.796Z",
+  "last_updated": "2026-05-05T00:27:10.700Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c1cd1d4f1cb0c69549ec48f321343cd4217826f1",
-  "latest_commit_short": "c1cd1d4",
-  "latest_commit_title": "docs: Phase 2 SmartTriad ownership unification backlog + KNYT stabilization session update",
+  "latest_commit": "388cd07a00682088200eb4d76c46304656de2d2d",
+  "latest_commit_short": "388cd07",
+  "latest_commit_title": "backlog: add entitlement format divergence + isEpisodeLocked redesign to Phase 2",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "388cd07",
+      "full_sha": "388cd07a00682088200eb4d76c46304656de2d2d",
+      "title": "backlog: add entitlement format divergence + isEpisodeLocked redesign to Phase 2",
+      "author": "Claude",
+      "timestamp": "2026-05-05T00:25:20Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-388cd07.md"
+    },
     {
       "sha": "c1cd1d4",
       "full_sha": "c1cd1d4f1cb0c69549ec48f321343cd4217826f1",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-24T22:57:01Z",
       "type": "deploy",
       "brief": "items/build_/COMMITS/COMMIT-6fb42b7.md"
-    },
-    {
-      "sha": "5db543a",
-      "full_sha": "5db543ad084eb6fdb6b38656be00215fdbd58baa",
-      "title": "fix typescript cast for supabase write error check",
-      "author": "Claude",
-      "timestamp": "2026-03-24T22:57:01Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-5db543a.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
