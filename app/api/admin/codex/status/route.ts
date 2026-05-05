@@ -466,29 +466,26 @@ if (series === 'metaKnyts') {
           const liteUrl = master.pdf_lite_url as string | null | undefined;
           const isUrl = typeof cid === 'string' && (cid.startsWith('http://') || cid.startsWith('https://'));
           const tier = master.edition_tier;
-          // Forward pdf_lite_url only for episode 0 (GN — free content).
-          // Gated episode URLs must not be sent to public clients.
-          const isGnEpisode = ep === 0;
           if (tier === 'rare') {
             status.hasPrintRare = true;
             status.printRareMasterId = master.id;
             if (!isUrl) status.printRareCid = cid;
-            if (isGnEpisode && liteUrl) status.printRareLiteUrl = liteUrl;
+            if (liteUrl) status.printRareLiteUrl = liteUrl;
           } else if (tier === 'epic') {
             status.hasPrintEpic = true;
             status.printEpicMasterId = master.id;
             if (!isUrl) status.printEpicCid = cid;
-            if (isGnEpisode && liteUrl) status.printEpicLiteUrl = liteUrl;
+            if (liteUrl) status.printEpicLiteUrl = liteUrl;
           } else if (tier === 'legendary') {
             status.hasPrintLegendary = true;
             status.printLegendaryMasterId = master.id;
             if (!isUrl) status.printLegendaryCid = cid;
-            if (isGnEpisode && liteUrl) status.printLegendaryLiteUrl = liteUrl;
+            if (liteUrl) status.printLegendaryLiteUrl = liteUrl;
           } else if (tier === 'common' || !tier) {
             status.hasPrintCommon = true;
             status.printCommonMasterId = master.id;
             if (!isUrl) status.printCommonCid = cid;
-            if (isGnEpisode && liteUrl) status.printCommonLiteUrl = liteUrl;
+            if (liteUrl) status.printCommonLiteUrl = liteUrl;
           }
         }
       }
