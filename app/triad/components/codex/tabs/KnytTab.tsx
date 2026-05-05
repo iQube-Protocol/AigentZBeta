@@ -953,7 +953,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       modalities: {
         read: {
           text: media.text,
-          available: !!media.text,
+          available: !!(media.text || media.pdf_cid || media.pdf_lite_url),
           cid: media.pdf_cid,
           duration: metadata.duration,
         },
