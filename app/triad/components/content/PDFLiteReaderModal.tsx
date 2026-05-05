@@ -1,10 +1,8 @@
 /**
  * PDFLiteReaderModal - Lightweight PDF Reader Modal
  *
- * Fetches the PDF into a local Blob URL so all browsers (including Firefox)
- * render it inline. blob: URLs are same-origin from the browser's perspective
- * and bypass cross-origin Content-Disposition handling that Firefox enforces
- * more strictly than Chromium.
+ * Ported from Qriptopian Web App object-based rendering.
+ * Uses native browser PDF preview when pdf_lite_url is available.
  */
 
 import { useEffect, useState } from 'react';
@@ -16,41 +14,26 @@ interface PDFLiteReaderModalProps {
   onClose: () => void;
 }
 
+function buildSecureViewerUrl(rawUrl: string): string {
+  const [base, hash = ''] = rawUrl.split('#');
+  const params = new URLSearchParams(hash);
+  // Browser support varies, but these are the native viewer controls we can hint off.
+  params.set('toolbar', '0');
+  params.set('navpanes', '0');
+  params.set('statusbar', '0');
+  params.set('messages', '0');
+  return `${base}#${params.toString()}`;
+}
+
 export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteReaderModalProps) {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState<string | null>(null);
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const safePdfUrl = buildSecureViewerUrl(pdfUrl);
 
   useEffect(() => {
     if (!open) return;
-    let cancelled = false;
-    let objectUrl: string | null = null;
-
     setLoading(true);
     setFailed(null);
-    setBlobUrl(null);
-
-    fetch(pdfUrl)
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.blob();
-      })
-      .then((blob) => {
-        if (cancelled) return;
-        objectUrl = URL.createObjectURL(blob);
-        setBlobUrl(objectUrl);
-        setLoading(false);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setLoading(false);
-        setFailed(`Could not load PDF preview. ${err instanceof Error ? err.message : 'Unknown error'}`);
-      });
-
-    return () => {
-      cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
   }, [open, pdfUrl]);
 
   useEffect(() => {
@@ -63,7 +46,9 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
         e.stopPropagation();
       }
     };
-    const onContextMenu = (e: MouseEvent) => e.preventDefault();
+    const onContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
     window.addEventListener('keydown', onKey);
     window.addEventListener('contextmenu', onContextMenu);
     return () => {
@@ -130,13 +115,15 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
             </div>
           )}
 
-          {blobUrl && (
-            <iframe
-              src={blobUrl}
-              className="w-full h-full touch-pan-y"
-              title={title || 'PDF preview'}
-            />
-          )}
+          <iframe
+            src={safePdfUrl}
+            className="w-full h-full touch-pan-y"
+            title={title || 'PDF preview'}
+            onLoad={() => {
+              setLoading(false);
+              setFailed(null);
+            }}
+          />
           {/* Toolbar guard rail: hides and blocks top native controls when browser ignores toolbar=0 */}
           <div className="pointer-events-auto absolute top-0 left-0 right-0 h-11 bg-zinc-950/95" />
         </div>
