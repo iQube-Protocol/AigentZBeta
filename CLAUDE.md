@@ -221,7 +221,7 @@ Purchased/entitled content (PDFs, videos, and any other gated media) must be tre
 
 3. **No `window.open()` on gated file URLs** — same exposure risk as `target="_blank"`.
 
-4. **PDFs must render only inside `PDFPageViewer`** — this component converts each page to an image server-side; raw PDF bytes never reach the browser. `PDFLiteReaderModal` (which embeds via `<object>` or `<iframe>`) exposes the URL and must not be used for gated content.
+4. **PDFs must render only inside `PDFLiteReaderModal`** — this is the canonical PDF viewer for all content in the application. It embeds the PDF via `<object>` using either a direct Supabase Storage URL (for free/owned content) or the thin proxy at `/api/content/pdf/[cid]` (for Autonomys-hosted content). **Do NOT use `PDFPageViewer`** — it uses `pdfjs-dist` server-side page-image rendering which does not work in the Lambda/Next.js environment and renders empty pages. `PDFPageViewer` is considered deprecated and must not be introduced or re-used anywhere.
 
 5. **Videos must render only inside the app's `VideoPlayer` component** — never via a direct URL in a new tab or `<a>` link.
 
@@ -229,13 +229,33 @@ Purchased/entitled content (PDFs, videos, and any other gated media) must be tre
 
 ### What is NOT gated (can follow the standard exposed process):
 
-- Free/preview content with no entitlement requirement
+- Free/preview content with no entitlement requirement (e.g. GN episode 0)
 - Marketing assets, cover thumbnails, promotional images
 - Public KB documents and lore that are not access-restricted
 
 ### Phase note:
 
-Phase 2 will enforce this via iQube encryption (assets stored as encrypted non-fungible files, decrypted only for verified holders). Until then, server-side proxying + in-app-only rendering is the enforcement mechanism.
+Phase 2 will enforce this via iQube encryption (assets stored as encrypted non-fungible files, decrypted only for verified holders). Until then, the enforcement mechanism is:
+- Client-side ownership gate (prevents unauthorised viewers from opening the viewer)
+- `/api/content/pdf/[cid]` proxy for Autonomys CIDs (no raw URL exposure to browser)
+- Direct Supabase Storage URL only for free/public content
+
+### Phase 2 Backlog — Secure PDF URL handling
+
+**Status: deferred to Phase 2**
+
+Currently, Supabase Storage URLs for owned/gated episodes are forwarded through the `/api/admin/codex/status` API response and used directly in `PDFLiteReaderModal`. This means a user inspecting the network tab can retrieve the storage URL for any episode visible in the catalog, even episodes they don't own.
+
+**Phase 2 task:** Replace the direct URL in `PDFLiteReaderModal` with an authenticated server-side redirect route:
+
+1. Add a route `GET /api/content/pdf-signed/[masterId]` that:
+   - Validates `personaId` owns the episode (check `owned_issues` or equivalent)
+   - Generates a short-lived Supabase Storage signed URL (e.g. 5-minute TTL)
+   - Returns a 302 redirect to the signed URL
+2. Update `PDFLiteReaderModal` to use `/api/content/pdf-signed/${masterId}` as its `pdfUrl` for gated content
+3. Keep the direct URL path for free/public content (episode 0 GN, preview assets)
+
+This eliminates the URL-leakage window without requiring `pdfjs-dist` or full-PDF downloads on the server.
 
 ---
 

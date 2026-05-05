@@ -26,7 +26,7 @@ import {
 // Import agentiQ-specific components
 import { VideoModal } from '@/packages/smarttriad/src/VideoModal';
 import { SocialSharingModal } from '@/packages/smarttriad/src/SocialSharingModal';
-import { PDFPageViewer } from '@/app/triad/components/content/PDFPageViewer';
+import { PDFLiteReaderModal } from '@/app/triad/components/content/PDFLiteReaderModal';
 
 interface SmartContentActionContextValue {
   /**
@@ -184,12 +184,18 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
         }
         break;
         
-      case 'read':
-        if (item.modalities?.read?.text || item.modalities?.read?.cid) {
+      case 'read': {
+        const hasPdf = !!(item.pdf_lite_url || item.pdf_cid);
+        const hasText = !!(item.modalities?.read?.text);
+        if (hasText) {
           setReadArticle(item);
           setArticleModalOpen(true);
+        } else if (hasPdf) {
+          setPdfItem(item);
+          setPdfViewerOpen(true);
         }
         break;
+      }
         
       case 'listen':
         // TODO: Implement audio player when ready
@@ -314,10 +320,14 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
         </div>
       )}
 
-      {/* Global PDFPageViewer */}
+      {/* Global PDF viewer — uses PDFLiteReaderModal (browser-native embed) */}
       {pdfViewerOpen && pdfItem && (
-        <PDFPageViewer
-          cid={pdfItem.pdf_cid || pdfItem.modalities?.read?.cid || ''}
+        <PDFLiteReaderModal
+          open={pdfViewerOpen}
+          pdfUrl={
+            pdfItem.pdf_lite_url ||
+            (pdfItem.pdf_cid ? `/api/content/pdf/${encodeURIComponent(pdfItem.pdf_cid)}` : '')
+          }
           title={pdfItem.title}
           onClose={() => {
             setPdfViewerOpen(false);

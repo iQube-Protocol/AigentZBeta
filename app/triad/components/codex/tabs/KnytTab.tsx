@@ -1196,6 +1196,15 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         (episodeNumber !== null ? episodeThumbs.get(episodeNumber) : undefined) ||
         fallbackThumb;
 
+      // Build a viewable URL: Supabase-hosted assets use the URL directly;
+      // Autonomys CIDs go through the existing thin proxy at /api/content/pdf/[cid].
+      const rawCid = asset.auto_drive_cid;
+      const pdfLiteUrl = rawCid
+        ? rawCid.startsWith('http')
+          ? rawCid
+          : `${API_BASE_URL}/api/content/pdf/${encodeURIComponent(rawCid)}`
+        : undefined;
+
       return {
         id: `lore_${asset.id}`,
         type: 'lore_snippet',
@@ -1203,7 +1212,8 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         subtitle: asset.asset_kind.replace(/_/g, ' '),
         thumbnail: loreThumb,
         media: {
-          pdf_cid: asset.auto_drive_cid,
+          pdf_cid: rawCid,
+          pdf_lite_url: pdfLiteUrl,
           text: asset.extracted_text || undefined,
         },
         metadata: {
@@ -1212,7 +1222,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
           episodeNumber: episodeNumber ?? undefined,
         },
         modalities: {
-          read: { available: true, cid: asset.auto_drive_cid },
+          read: { available: true, cid: rawCid },
         },
       };
     });
