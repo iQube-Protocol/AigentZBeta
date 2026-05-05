@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useEvmKnytPayment } from '@/app/hooks/useEvmKnytPayment';
 import { useSupabaseSessionPersonas } from '@/app/hooks/useSupabaseSessionPersonas';
+import { bundleIncludesPrintGn } from '@/types/knyt-store';
 
 // Phase 1 Pricing Constants
 const KNYT_USD_RATE = 1.40;
@@ -241,14 +242,17 @@ export function ContentPurchaseModal({
 
   const canAffordKnyt = effectiveSpendable >= pricing.rails.knyt.amount;
   const canAffordEvmKnyt = evmKnyt >= pricing.rails.knyt.amount;
+  // Bundles containing a physical print GN may not be settled via EVM KNYT
+  // (operator rule: DVN KNYT is OK, on-chain EVM KNYT is not for these SKUs).
+  const evmKnytBlocked = bundleIncludesPrintGn(contentId ?? '');
   // True when user has no DVN KNYT but has sufficient EVM KNYT — triggers MetaMask signing path
-  const useEvmPath = selectedRail === 'knyt' && !canAffordKnyt && canAffordEvmKnyt;
+  const useEvmPath = selectedRail === 'knyt' && !canAffordKnyt && canAffordEvmKnyt && !evmKnytBlocked;
 
   const apiBase = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || '';
 
   useEffect(() => {
     if (open) {
-      setSelectedRail(canAffordKnyt || canAffordEvmKnyt ? 'knyt' : 'paypal');
+      setSelectedRail(canAffordKnyt || (canAffordEvmKnyt && !evmKnytBlocked) ? 'knyt' : 'paypal');
       setError(null);
       setSuccess(null);
       setShowConfirmation(false);
