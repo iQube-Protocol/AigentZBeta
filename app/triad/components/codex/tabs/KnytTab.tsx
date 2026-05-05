@@ -1527,6 +1527,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       const cached = getCachedValue<number[]>(cacheKey);
       if (cached) {
         setOwnedEpisodeNumbers(new Set(cached));
+        // ownedIssues drives isEpisodeLocked(); without this the cache-hit path
+        // leaves it empty and every owned episode routes to purchase modal
+        // instead of the PDF viewer.
+        setOwnedIssues(cached.map((ep) => ({ episodeNumber: ep })));
         return;
       }
       const ownedRes = await fetch(`${apiBase}/api/codex/owned?personaId=${effectivePersonaId}`);
