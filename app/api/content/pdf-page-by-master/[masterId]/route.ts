@@ -197,7 +197,10 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
       let fetchRes: Response;
       try {
-        fetchRes = await fetch(pdfUrl);
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 8000);
+        fetchRes = await fetch(pdfUrl, { signal: ctrl.signal });
+        clearTimeout(timer);
       } catch (fetchErr) {
         console.error('[PdfPageByMaster:meta] fetch threw', { masterId, pdfUrl, fetchErr });
         return NextResponse.json({ pages: 1, suggestedWidth: 1200 });
@@ -258,7 +261,14 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     }
 
     // Fetch PDF bytes from Supabase Storage — URL stays on the server
-    const fetchRes = await fetch(pdfUrl);
+    const fetchCtrl = new AbortController();
+    const fetchTimer = setTimeout(() => fetchCtrl.abort(), 15000);
+    let fetchRes: Response;
+    try {
+      fetchRes = await fetch(pdfUrl, { signal: fetchCtrl.signal });
+    } finally {
+      clearTimeout(fetchTimer);
+    }
     if (!fetchRes.ok) {
       return NextResponse.json({ error: `PDF fetch failed: ${fetchRes.status}` }, { status: 502 });
     }
