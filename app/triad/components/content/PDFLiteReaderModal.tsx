@@ -1,8 +1,15 @@
 /**
  * PDFLiteReaderModal - Lightweight PDF Reader Modal
  *
- * Ported from Qriptopian Web App object-based rendering.
- * Uses native browser PDF preview when pdf_lite_url is available.
+ * Desktop: <object type="application/pdf"> — historically the only render
+ * mode that works inline in Firefox. Chromium/Safari desktop also render
+ * <object> PDFs inline.
+ * Mobile: <iframe> — iOS Safari + Android Chrome currently render PDFs
+ * inline from iframes; <object> historically did not on iOS.
+ *
+ * This restores the pre-`a8f1f69a` desktop/mobile split. Switching the
+ * desktop render from <iframe> back to <object> is what fixes the Firefox
+ * download regression while preserving the mobile inline render.
  */
 
 import { useEffect, useState } from 'react';
@@ -25,10 +32,28 @@ function buildSecureViewerUrl(rawUrl: string): string {
   return `${base}#${params.toString()}`;
 }
 
+function useIsMobileViewport(): boolean {
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(max-width: 767px)').matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(max-width: 767px)');
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  return isMobile;
+}
+
 export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteReaderModalProps) {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState<string | null>(null);
   const safePdfUrl = buildSecureViewerUrl(pdfUrl);
+  const isMobile = useIsMobileViewport();
 
   useEffect(() => {
     if (!open) return;
@@ -115,15 +140,32 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
             </div>
           )}
 
-          <iframe
-            src={safePdfUrl}
-            className="w-full h-full touch-pan-y"
-            title={title || 'PDF preview'}
-            onLoad={() => {
-              setLoading(false);
-              setFailed(null);
-            }}
-          />
+          {isMobile ? (
+            <iframe
+              src={safePdfUrl}
+              className="w-full h-full touch-pan-y"
+              title={title || 'PDF preview'}
+              onLoad={() => {
+                setLoading(false);
+                setFailed(null);
+              }}
+            />
+          ) : (
+            <object
+              data={safePdfUrl}
+              type="application/pdf"
+              className="w-full h-full touch-pan-y"
+              onLoad={() => {
+                setLoading(false);
+                setFailed(null);
+              }}
+              aria-label={title || 'PDF preview'}
+            >
+              <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+                <p className="text-white mb-4">PDF preview not supported in this browser.</p>
+              </div>
+            </object>
+          )}
           {/* Toolbar guard rail: hides and blocks top native controls when browser ignores toolbar=0 */}
           <div className="pointer-events-auto absolute top-0 left-0 right-0 h-11 bg-zinc-950/95" />
         </div>
