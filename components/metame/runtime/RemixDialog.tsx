@@ -51,6 +51,10 @@ interface GeneratedContent {
 interface Props {
   open: boolean;
   personaId: string | null;
+  /** While true, the async persona resolver is still running. Suppresses the
+      sign-in banner so signed-in users don't see a flash of "please sign in"
+      before the resolver populates personaId. */
+  personaResolving?: boolean;
   sourceExperienceId?: string | null;
   initialTitle?: string;
   initialPrompt?: string;
@@ -72,6 +76,7 @@ type GenerationStep = "idle" | "charging" | "writing" | "rendering" | "saving";
 export function RemixDialog({
   open,
   personaId,
+  personaResolving = false,
   sourceExperienceId,
   initialTitle,
   initialPrompt,
@@ -258,8 +263,8 @@ export function RemixDialog({
     // as the modal variant — just no fixed positioning and no scroll cap.
     return (
       <div className="space-y-3 px-1 pb-1">
-        {/* Sign-in banner — front and centre when no persona is active */}
-        {!personaId && !generated && (
+        {/* Sign-in banner — only once persona resolution is confirmed failed */}
+        {!personaId && !personaResolving && !generated && (
           <SignInBanner onSignIn={onSignInRequest} />
         )}
 
@@ -273,9 +278,9 @@ export function RemixDialog({
             skill={skill} setSkill={setSkill}
             title={title} setTitle={setTitle}
             prompt={prompt} setPrompt={setPrompt}
-            quota={quota} quotaError={quotaError} hasPersona={!!personaId}
+            quota={quota} quotaError={quotaError} hasPersona={!!personaId || personaResolving}
             skillCost={skillCost ?? null} isFree={isFree} showCostBadge={!!showCostBadge}
-            disabled={generating || !personaId}
+            disabled={generating || (!personaId && !personaResolving)}
           />
         ) : (
           <PreviewView generated={generated} />
@@ -293,7 +298,9 @@ export function RemixDialog({
           {!generated ? (
             <>
               <div className="text-[10px] text-slate-400 min-w-0 truncate">
-                {!personaId
+                {personaResolving && !personaId
+                  ? <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Checking session…</span>
+                  : !personaId
                   ? <span className="text-amber-300/80">Sign in required</span>
                   : !quota && !quotaError
                   ? <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Loading quota…</span>
@@ -309,7 +316,16 @@ export function RemixDialog({
                   : "—"
                 }
               </div>
-              {!personaId ? (
+              {personaResolving && !personaId ? (
+                <button
+                  type="button"
+                  disabled
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-200 opacity-40"
+                >
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Loading…
+                </button>
+              ) : !personaId ? (
                 <button
                   type="button"
                   onClick={() => onSignInRequest?.()}
@@ -406,8 +422,8 @@ export function RemixDialog({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-4 py-3">
-          {/* Sign-in banner — front and centre when no persona is active */}
-          {!personaId && !generated && (
+          {/* Sign-in banner — only once persona resolution is confirmed failed */}
+          {!personaId && !personaResolving && !generated && (
             <SignInBanner onSignIn={onSignInRequest} />
           )}
 
@@ -430,7 +446,7 @@ export function RemixDialog({
               skillCost={skillCost ?? null}
               isFree={isFree}
               showCostBadge={!!showCostBadge}
-              disabled={generating || !personaId}
+              disabled={generating || (!personaId && !personaResolving)}
             />
           ) : (
             <PreviewView generated={generated} />
@@ -448,7 +464,9 @@ export function RemixDialog({
           {!generated ? (
             <>
               <div className="text-[10px] text-slate-400 min-w-0 truncate">
-                {!personaId
+                {personaResolving && !personaId
+                  ? <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Checking session…</span>
+                  : !personaId
                   ? <span className="text-amber-300/80">Sign in required</span>
                   : !quota && !quotaError
                   ? <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Loading quota…</span>
@@ -464,7 +482,16 @@ export function RemixDialog({
                   : "—"
                 }
               </div>
-              {!personaId ? (
+              {personaResolving && !personaId ? (
+                <button
+                  type="button"
+                  disabled
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-200 opacity-40"
+                >
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Loading…
+                </button>
+              ) : !personaId ? (
                 <button
                   type="button"
                   onClick={() => onSignInRequest?.()}

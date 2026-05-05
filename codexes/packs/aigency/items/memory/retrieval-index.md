@@ -679,3 +679,18 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-d271662.md](../build_/COMMITS/COMMIT-d271662.md)
 - Message: prevent pdf download on mobile: route to PDFPageViewer on mobile when CID available; replace mobile download link with iframe in PDFLiteReaderModal
+
+## Commit `ad4d1e5` — 2026-05-04T20:40:11Z
+- Type: `push`
+- Brief: [COMMIT-ad4d1e5.md](../build_/COMMITS/COMMIT-ad4d1e5.md)
+- Message: trigger deploy: persona hydration + PDF meta + video mobile + admin dispatch fixes
+
+## Commit `bc6c7cc` — 2026-05-04T21:37:47Z
+- Type: `fix`
+- Brief: [COMMIT-bc6c7cc.md](../build_/COMMITS/COMMIT-bc6c7cc.md)
+- Message: fix: isEpisodeLocked() now checks metadata.owned first, eliminating badge/lock divergence
+
+## Commit `c1cd1d4` — 2026-05-04T21:57:53Z
+- Type: `docs`
+- Brief: [COMMIT-c1cd1d4.md](../build_/COMMITS/COMMIT-c1cd1d4.md)
+- Message: docs: Phase 2 SmartTriad ownership unification backlog + KNYT stabilization session update

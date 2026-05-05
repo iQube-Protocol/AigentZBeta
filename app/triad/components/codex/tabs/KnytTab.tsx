@@ -1527,6 +1527,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       const cached = getCachedValue<number[]>(cacheKey);
       if (cached) {
         setOwnedEpisodeNumbers(new Set(cached));
+        // ownedIssues drives isEpisodeLocked(); must be kept in sync with the
+        // episode-number set or owned items still route to the payment flow.
+        setOwnedIssues(cached.map((ep) => ({ episodeNumber: ep })));
         return;
       }
       const ownedRes = await fetch(`${apiBase}/api/codex/owned?personaId=${effectivePersonaId}`);
@@ -1958,14 +1961,14 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const isEpisodeLocked = useCallback((item: KnytContentItem) => {
     const episodeNumber = resolveEpisodeNumber(item);
     if (episodeNumber === null) return false;
-    // Episodes are INHERENTLY gated. We do not consult item.metadata?.price
-    // because the cartridge data shape does not always carry it; absence of
-    // a price MUST NOT imply free access.
-    //
-    // Source of truth for ownership: ownedIssues (populated from
-    // /api/codex/owned, which is SKU-aware). For anonymous viewers this is
-    // empty, so every episode reads as locked. For authenticated owners or
-    // bundle holders, the matching episode is unlocked.
+    // Primary check: item.metadata?.owned is stamped by contentWithOwnership
+    // useMemo from the same ownedEpisodeNumbers Set that drives the badge.
+    // Checking it first ensures the lock decision ALWAYS agrees with the badge,
+    // even when ownedIssues is momentarily stale (e.g. mid-fetch or cache miss).
+    if (item.metadata?.owned) return false;
+    // Secondary check: ownedIssues array (same source, kept in sync by
+    // fetchOwnedEpisodes). Catches cases where the item arrived without the
+    // owned flag pre-stamped (e.g. raw API items not yet through the useMemo).
     const ownedForEp = ownedIssues.filter((issue) => issue.episodeNumber === episodeNumber);
     if (ownedForEp.length > 0) return false;
     // Optional credential gate (e.g. investor-only preorders). Only matters
@@ -2362,6 +2365,20 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   }, [codexCopilotOpen, selectedContentItem, activeTab]);
 
   const handleViewerOpen = useCallback((item: KnytContentItem, type: 'pdf' | 'video' | 'poster') => {
+    // Diagnostic — surfaces the actual ids the renderer received so we can see
+    // (in production) when an item routes to the PDF path but ships no
+    // pdf_master_id / pdf_cid / text. Otherwise the function silently no-ops.
+    console.log('[KnytTab] handleViewerOpen', {
+      type,
+      title: item.title,
+      pdf_master_id: (item as any).pdf_master_id || item.media?.pdf_master_id || null,
+      pdf_cid: (item as any).pdf_cid || item.media?.pdf_cid || null,
+      hasText: !!item.media?.text,
+      video_url: item.media?.video_url || item.media?.video_cid || null,
+      modalities: item.modalities,
+      effectivePersonaId,
+    });
+
     if (isEpisodeLocked(item)) {
       openPurchaseForItem(item, type === 'video' ? 'watch' : 'read');
       return;
@@ -2378,6 +2395,15 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       setCurrentPdfCid(cidVal);
       setCurrentPdfTitle(item.title);
       setPdfViewerOpen(true);
+    } else if (type === 'pdf') {
+      // No master_id, no cid, no text — there's nothing we can render.
+      // Surface a toast so the operator sees this instead of a silent no-op.
+      console.warn('[KnytTab] PDF requested but no source available', { item });
+      toast({
+        title: 'No readable file',
+        description: `"${item.title}" has no PDF attached.`,
+        variant: 'destructive',
+      });
     } else if (type === 'video') {
       const episodeNumber = typeof item.metadata?.episodeNumber === 'number' ? item.metadata.episodeNumber : null;
       if (episodeNumber !== null) {

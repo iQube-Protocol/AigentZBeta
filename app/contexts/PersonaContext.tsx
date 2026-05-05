@@ -40,6 +40,13 @@ interface PersonaContextValue {
   /** The active persona ID, or null when no persona is selected. */
   activePersonaId: string | null;
   /**
+   * True once the provider has read from localStorage on the client.
+   * False on the very first render (server + initial client paint) before
+   * the hydration effect runs. UI gating sign-in vs signed-in state should
+   * suppress the sign-in prompt while !hydrated to avoid a flash.
+   */
+  hydrated: boolean;
+  /**
    * Switch the active persona.
    * Writes canonical localStorage key + sessionStorage, dispatches a
    * synthetic storage event so same-tab subscribers react, and broadcasts
@@ -110,12 +117,25 @@ function readFromStorage(): string | null {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function PersonaProvider({ children }: { children: React.ReactNode }) {
-  const [activePersonaId, setLocalState] = useState<string | null>(() =>
-    readFromStorage()
-  );
+  // The lazy initializer runs on the server (where window is undefined →
+  // returns null) and React doesn't re-run it during client hydration. So we
+  // start with null and re-read localStorage in a client-side useEffect on
+  // mount. Without this, every PersonaProvider tree starts with null even
+  // when localStorage has a valid currentPersonaId.
+  const [activePersonaId, setLocalState] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
   const [cartridgeDefaults, setCartridgeDefaults] = useState<Record<string, string>>({});
   const [personaDisplayNames, setPersonaDisplayNames] = useState<Record<string, string>>({});
   const defaultsLoadedRef = useRef(false);
+
+  // Hydrate activePersonaId from localStorage after mount. Runs once, before
+  // first paint of children that depend on activePersonaId (synchronous-ish
+  // because useEffect fires immediately after the first commit).
+  useEffect(() => {
+    const stored = readFromStorage();
+    if (stored) setLocalState(stored);
+    setHydrated(true);
+  }, []);
 
   // ── Load cartridge defaults once on mount (if authenticated) ──────────────
   useEffect(() => {
@@ -208,6 +228,7 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
     <PersonaContext.Provider
       value={{
         activePersonaId,
+        hydrated,
         setActivePersonaId,
         cartridgeDefaults,
         getCartridgeDefault,
@@ -236,6 +257,7 @@ export function usePersonaSafe(): PersonaContextValue {
   return (
     useContext(PersonaContext) ?? {
       activePersonaId: null,
+      hydrated: true, // outside provider tree we have no hydration distinction
       setActivePersonaId: () => {},
       cartridgeDefaults: {},
       getCartridgeDefault: () => null,

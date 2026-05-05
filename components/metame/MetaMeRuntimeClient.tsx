@@ -1940,7 +1940,9 @@ export default function MetaMeRuntimeClient() {
   // Read the active persona from PersonaContext when mounted inside the (shell) layout.
   // This covers the standalone-page case (/shell/metame/runtime) where no SHELL_READY
   // message arrives from a parent iframe — PersonaContext is the authoritative source.
-  const { activePersonaId: ctxPersonaId } = usePersonaSafe();
+  // `ctxHydrated` becomes true once PersonaContext has read localStorage on the client;
+  // we wait for it before deciding the user has no persona.
+  const { activePersonaId: ctxPersonaId, hydrated: ctxHydrated } = usePersonaSafe();
 
   const embedMode = searchParams?.get("embed") === "1";
   const thinShellQueryMode = searchParams?.get("shell") === "thin" || searchParams?.get("chrome") === "content-only";
@@ -1957,7 +1959,7 @@ export default function MetaMeRuntimeClient() {
   const selectedExperienceArticleDraft = parseRuntimeArticleDraft(searchParams?.get("experienceArticleDraft"));
   const runtimeIntentParam = coerceRuntimeIntent(searchParams?.get("runtimeIntent"));
   const runtimeQuickLinkParam = coerceRuntimeIntent(searchParams?.get("runtimeQuickLink"));
-  const runtimeAdminMode = searchParams?.get("runtimeAdmin") === "1" || searchParams?.get("admin") === "1";
+  const runtimeAdminUrlOverride = searchParams?.get("runtimeAdmin") === "1" || searchParams?.get("admin") === "1";
   const runtimeContentKindParam = searchParams?.get("contentKind");
   const runtimeActiveCodexId = searchParams?.get("activeCodexId");
   const runtimeActiveCodexName = searchParams?.get("activeCodexName");
@@ -1986,6 +1988,18 @@ export default function MetaMeRuntimeClient() {
     typeof crypto !== "undefined" ? crypto.randomUUID() : `conv-${Date.now()}`
   );
   const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
+  // True while the async persona resolver is running — suppresses the sign-in
+  // banner so signed-in users don't see a flash of "please sign in" before the
+  // resolver completes and populates activePersonaId.
+  const [personaResolving, setPersonaResolving] = useState(true);
+  // Whether the resolved persona has an active admin role. Combined with the
+  // URL override below to decide between RuntimeCapsuleAdminEditor (pricing
+  // layer) and RuntimeCapsuleRemixEditor.
+  const [personaIsAdmin, setPersonaIsAdmin] = useState(false);
+  // Final dispatch flag: URL forces admin mode if explicitly set, otherwise
+  // falls back to the persona's admin status. Admins navigating to the runtime
+  // without an explicit ?admin=1 still get the pricing layer.
+  const runtimeAdminMode = runtimeAdminUrlOverride || personaIsAdmin;
 
   // Sync from PersonaContext whenever it changes — covers the standalone
   // page case where no SHELL_READY arrives. Shell-supplied persona_id
@@ -2000,21 +2014,43 @@ export default function MetaMeRuntimeClient() {
   // iframe shell (e.g. runtime.metame.com loaded directly), no parent
   // posts SHELL_READY with a persona_id, so activePersonaId stays null
   // even after the user signs in. Resolve from the browser auth session
-  // → nakamoto_knyt_personas (KNYT cartridge persona) → fall back to
-  // any localStorage currentPersonaId. Re-runs on auth state changes.
+  // → nakamoto_knyt_personas (KNYT cartridge persona) → generic wallet API
+  // → localStorage. Re-runs on auth state changes.
   useEffect(() => {
     if (typeof window === "undefined") return;
     let cancelled = false;
 
     async function resolvePersona() {
       // If PersonaContext or a parent shell already supplied a persona, leave it alone.
-      if (ctxPersonaId || shellContextRef.current.persona_id) return;
+      if (ctxPersonaId || shellContextRef.current.persona_id) {
+        console.log('[MetaMeRuntime] persona resolver — using context/shell persona', {
+          ctxPersonaId,
+          shellPersonaId: shellContextRef.current.persona_id,
+        });
+        setPersonaResolving(false);
+        return;
+      }
 
-      const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-      if (!url || !anonKey) return;
+      // Wait for PersonaContext to finish reading localStorage on the client
+      // before deciding the user has no persona. Without this guard the
+      // resolver fires immediately on mount (when ctxHydrated is still false
+      // and ctxPersonaId is null) and proceeds with the async fallback even
+      // though localStorage might already have the persona.
+      if (!ctxHydrated) {
+        console.log('[MetaMeRuntime] persona resolver — waiting for PersonaContext hydration');
+        return;
+      }
+      console.log('[MetaMeRuntime] persona resolver — starting async fallback', {
+        ctxPersonaId,
+        ctxHydrated,
+        localStorageCurrent: typeof window !== 'undefined' ? localStorage.getItem('currentPersonaId') : null,
+      });
 
       try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        if (!url || !anonKey) return;
+
         const { createClient } = await import("@supabase/supabase-js");
         const supabase = createClient(url, anonKey);
         const { data: { user } } = await supabase.auth.getUser();
@@ -2034,6 +2070,26 @@ export default function MetaMeRuntimeClient() {
             try { localStorage.setItem("currentPersonaId", pid); } catch { /* noop */ }
             return;
           }
+
+          // Not in nakamoto_knyt_personas — try the generic wallet API which
+          // covers personas created through the main onboarding flow.
+          try {
+            const { data: { session: activeSession } } = await supabase.auth.getSession();
+            if (activeSession?.access_token && !cancelled) {
+              const res = await fetch("/api/wallet/personas", {
+                headers: { Authorization: `Bearer ${activeSession.access_token}` },
+              });
+              if (res.ok && !cancelled) {
+                const list = await res.json();
+                const firstId = Array.isArray(list) ? (list[0] as { id?: unknown })?.id : null;
+                if (typeof firstId === "string" && firstId) {
+                  setActivePersonaId(firstId);
+                  try { localStorage.setItem("currentPersonaId", firstId); } catch { /* noop */ }
+                  return;
+                }
+              }
+            }
+          } catch { /* non-fatal */ }
         }
 
         // Fallback to any persona ID stashed in localStorage by another surface.
@@ -2043,6 +2099,8 @@ export default function MetaMeRuntimeClient() {
         } catch { /* noop */ }
       } catch {
         // Non-fatal — resolver runs again on next mount or auth change.
+      } finally {
+        if (!cancelled) setPersonaResolving(false);
       }
     }
 
@@ -2071,7 +2129,56 @@ export default function MetaMeRuntimeClient() {
       cancelled = true;
       unsub?.data.subscription.unsubscribe();
     };
-  }, []);
+  }, [ctxHydrated]);
+
+  // Resolve admin status from the authenticated session. Runs once a persona
+  // is identified (or whenever the user changes). The admin-check API is
+  // email-based and queries crm_admin_roles. Without this, runtimeAdminMode
+  // can only be true when the URL explicitly says ?admin=1, so admins
+  // navigating to the runtime via the KNYT cartridge see the consumer remix
+  // editor instead of the pricing layer.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!activePersonaId) {
+      setPersonaIsAdmin(false);
+      return;
+    }
+    let cancelled = false;
+
+    async function checkAdmin() {
+      try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        if (!url || !anonKey) {
+          console.log('[MetaMeRuntime] admin-check skipped — missing supabase env');
+          return;
+        }
+        const { createClient } = await import("@supabase/supabase-js");
+        const supabase = createClient(url, anonKey);
+        const { data: { session } } = await supabase.auth.getSession();
+        const email = session?.user?.email;
+        if (!email || cancelled) {
+          console.log('[MetaMeRuntime] admin-check skipped — no session email', { hasSession: !!session, cancelled });
+          return;
+        }
+
+        const res = await fetch(`/api/codex/admin-check?email=${encodeURIComponent(email)}`);
+        if (!res.ok || cancelled) {
+          console.log('[MetaMeRuntime] admin-check fetch failed', { status: res.status, cancelled });
+          return;
+        }
+        const json = await res.json();
+        console.log('[MetaMeRuntime] admin-check result', { email, isAdmin: json?.isAdmin, json });
+        if (!cancelled) setPersonaIsAdmin(Boolean(json?.isAdmin));
+      } catch (err) {
+        console.warn('[MetaMeRuntime] admin-check threw', err);
+        // Non-fatal — defaults to false (consumer view)
+      }
+    }
+
+    void checkAdmin();
+    return () => { cancelled = true; };
+  }, [activePersonaId]);
 
   const [walletDrawerOpen, setWalletDrawerOpen] = useState(false);
   const [personaIQubeDrawer, setPersonaIQubeDrawer] = useState<"knyt" | "qripto" | null>(null);
@@ -2997,25 +3104,39 @@ export default function MetaMeRuntimeClient() {
               </div>
             ) : null}
 
-            {runtimeAdminMode ? (
-              <RuntimeCapsuleAdminEditor
-                content={content}
-                onComplete={(override) =>
-                  setRuntimeExperienceOverrides((prev) => ({
-                    ...prev,
-                    [resolveRuntimeExperienceId(content) ?? content.id]: override,
-                  }))
-                }
-              />
-            ) : (
-              <RuntimeCapsuleRemixEditor
-                personaId={activePersonaId}
-                sourceExperienceId={resolveRuntimeExperienceId(content) ?? content.id}
-                initialTitle={content.title || ""}
-                initialPrompt={articleDraft?.prompt || content.description || ""}
-                onSignInRequest={() => setWalletDrawerOpen(true)}
-              />
-            )}
+            {(() => {
+              // Diagnostic — surfaces which editor branch fired and why.
+              if (typeof window !== 'undefined') {
+                console.log('[MetaMeRuntime] dispatch', {
+                  capsuleId: content.id,
+                  runtimeAdminMode,
+                  runtimeAdminUrlOverride,
+                  personaIsAdmin,
+                  activePersonaId,
+                  personaResolving,
+                });
+              }
+              return runtimeAdminMode ? (
+                <RuntimeCapsuleAdminEditor
+                  content={content}
+                  onComplete={(override) =>
+                    setRuntimeExperienceOverrides((prev) => ({
+                      ...prev,
+                      [resolveRuntimeExperienceId(content) ?? content.id]: override,
+                    }))
+                  }
+                />
+              ) : (
+                <RuntimeCapsuleRemixEditor
+                  personaId={activePersonaId}
+                  personaResolving={personaResolving}
+                  sourceExperienceId={resolveRuntimeExperienceId(content) ?? content.id}
+                  initialTitle={content.title || ""}
+                  initialPrompt={articleDraft?.prompt || content.description || ""}
+                  onSignInRequest={() => setWalletDrawerOpen(true)}
+                />
+              );
+            })()}
 
             <div id={mediaAnchorId} className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
               <ExperienceBlockHeader
