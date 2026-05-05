@@ -87,7 +87,7 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
     const timer = window.setTimeout(() => {
       setLoading(false);
       setFailed('Preview timed out. Please close and retry.');
-    }, 20000);
+    }, 24000);
     return () => window.clearTimeout(timer);
   }, [open, loading]);
 
