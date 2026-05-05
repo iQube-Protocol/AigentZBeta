@@ -15,7 +15,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CreditCard, ExternalLink, Loader2, ShoppingCart, X, Zap, Check, AlertCircle } from 'lucide-react';
-import { type CartItem, getKnytDiscountedPrice, KNYT_COYN_DISCOUNT, usdToKnyt, cartItemCount } from '@/types/knyt-store';
+import { type CartItem, getKnytDiscountedPrice, KNYT_COYN_DISCOUNT, usdToKnyt, cartItemCount, bundleIncludesPrintGn } from '@/types/knyt-store';
 import { useEvmKnytPayment } from '@/app/hooks/useEvmKnytPayment';
 
 type Rail = 'knyt' | 'qcents' | 'usdc' | 'paypal';
@@ -214,11 +214,14 @@ export function KnytCartCheckoutModal({
     return need > knytBalance ? Math.ceil((need - knytBalance) * 100) / 100 : 0;
   }, [selectedRail, quote, knytBalance]);
 
+  // Bundles containing a physical print GN may not be settled via EVM KNYT.
+  const cartHasPrintGnBundle = items.some(i => bundleIncludesPrintGn(i.id));
+
   // True when user has no/insufficient DVN KNYT but has enough EVM KNYT on-chain
   const canPayWithEvm = useMemo(() => {
-    if (!quote || selectedRail !== 'knyt' || knytShortfall <= 0) return false;
+    if (!quote || selectedRail !== 'knyt' || knytShortfall <= 0 || cartHasPrintGnBundle) return false;
     return evmKnytBalance >= quote.rails.knyt.total;
-  }, [quote, selectedRail, knytShortfall, evmKnytBalance]);
+  }, [quote, selectedRail, knytShortfall, evmKnytBalance, cartHasPrintGnBundle]);
 
   useEffect(() => {
     if (knytShortfall > 0) void fetchTopupPackages();
