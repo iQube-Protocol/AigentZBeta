@@ -165,12 +165,17 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     });
   }
 
-  // ?meta=1 → return page count without rendering (lightweight)
+  // ?meta=1 → return page count (DB-only, never fetches PDF or runs pdfjs).
+  // pdfjs page-count discovery is intentionally moved to the render path so
+  // Lambda never OOMs/times-out on a meta request. If pages_count is not yet
+  // cached in DB (pagePending: true) the viewer renders page 1 first; the
+  // render path writes pages_count back to DB, and the viewer re-fetches meta
+  // after page 1 loads to discover the true total.
   if (req.nextUrl.searchParams.get('meta') === '1') {
     try {
       const { data: master, error: masterErr } = await supabase
         .from('master_content_qubes')
-        .select('auto_drive_cid, pdf_lite_url, page_count')
+        .select('pages_count')
         .eq('id', masterId)
         .maybeSingle();
 
@@ -180,53 +185,17 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       }
       if (!master) return NextResponse.json({ error: 'Master not found' }, { status: 404 });
 
-      // Return cached page count if available
-      if (typeof (master as any).page_count === 'number' && (master as any).page_count > 0) {
-        return NextResponse.json({ pages: (master as any).page_count, suggestedWidth: 1200 });
+      const cachedCount = (master as any).pages_count;
+      if (typeof cachedCount === 'number' && cachedCount > 0) {
+        return NextResponse.json({ pages: cachedCount, suggestedWidth: 1200 });
       }
 
-      // Count pages by fetching the PDF (slow path, only needed once per master)
-      const rawCid = master.auto_drive_cid as string | null;
-      const isUrl = typeof rawCid === 'string' && (rawCid.startsWith('http://') || rawCid.startsWith('https://'));
-      const pdfUrl: string | null = (master as any).pdf_lite_url || (isUrl ? rawCid : null);
-
-      if (!pdfUrl) {
-        // No URL available — return a sane default rather than crashing the viewer.
-        return NextResponse.json({ pages: 1, suggestedWidth: 1200 });
-      }
-
-      let fetchRes: Response;
-      try {
-        fetchRes = await fetch(pdfUrl);
-      } catch (fetchErr) {
-        console.error('[PdfPageByMaster:meta] fetch threw', { masterId, pdfUrl, fetchErr });
-        return NextResponse.json({ pages: 1, suggestedWidth: 1200 });
-      }
-      if (!fetchRes.ok) {
-        console.warn('[PdfPageByMaster:meta] fetch !ok', { masterId, pdfUrl, status: fetchRes.status });
-        return NextResponse.json({ pages: 1, suggestedWidth: 1200 });
-      }
-
-      const pdfBytes = Buffer.from(await fetchRes.arrayBuffer());
-      const pdfjs = await import('pdfjs-dist/build/pdf.mjs');
-      const { getDocument } = pdfjs as any;
-      const pdf = await getDocument({ data: new Uint8Array(pdfBytes), isEvalSupported: false }).promise;
-      const pages = pdf.numPages as number;
-
-      // Best-effort write-back; don't fail the request if the column is missing
-      // or RLS blocks the update.
-      try {
-        await supabase.from('master_content_qubes').update({ page_count: pages } as any).eq('id', masterId);
-      } catch (updateErr) {
-        console.warn('[PdfPageByMaster:meta] page_count update failed (non-fatal)', { masterId, updateErr });
-      }
-
-      return NextResponse.json({ pages, suggestedWidth: 1200 });
+      // pages_count not yet in DB — return safe fallback. The first actual page
+      // render will populate pages_count and the viewer re-fetches meta then.
+      return NextResponse.json({ pages: 1, pagePending: true, suggestedWidth: 1200 });
     } catch (e: any) {
       console.error('[PdfPageByMaster:meta] unhandled error', { masterId, error: e?.message, stack: e?.stack });
-      // Return a soft default so the viewer still loads page 1 rather than
-      // showing a blocking error.
-      return NextResponse.json({ pages: 1, suggestedWidth: 1200 });
+      return NextResponse.json({ pages: 1, pagePending: true, suggestedWidth: 1200 });
     }
   }
 
@@ -235,7 +204,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     // Look up master — URL is resolved entirely server-side
     const { data: master, error: masterError } = await supabase
       .from('master_content_qubes')
-      .select('auto_drive_cid, pdf_lite_url')
+      .select('auto_drive_cid, pdf_lite_url, pages_count')
       .eq('id', masterId)
       .single();
 
@@ -267,6 +236,20 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     const { pngBuffer, numPages } = await renderPdfPageToPng(pdfBytes, page, width);
     if (page > numPages) {
       return NextResponse.json({ error: `Invalid page. PDF has ${numPages} pages.` }, { status: 400 });
+    }
+
+    // Populate pages_count in DB if not already set so ?meta=1 returns the
+    // real total on subsequent opens. Done before encoding so it's committed
+    // by the time the client's onLoad fires and re-fetches meta.
+    if (!(master as any).pages_count) {
+      try {
+        await supabase
+          .from('master_content_qubes')
+          .update({ pages_count: numPages } as any)
+          .eq('id', masterId);
+      } catch (writeErr) {
+        console.warn('[PdfPageByMaster] pages_count write-back failed (non-fatal)', { masterId, writeErr });
+      }
     }
 
     const encoded = await encodeWebPUnderLimit(pngBuffer, width);

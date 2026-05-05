@@ -28,6 +28,7 @@ interface PDFPageViewerProps {
 interface PageMeta {
   pages: number;
   suggestedWidth?: number;
+  pagePending?: boolean;
 }
 
 interface PageManifest {
@@ -51,6 +52,25 @@ export function PDFPageViewer({ cid, masterId, personaId, title, onClose }: PDFP
 
   const apiBase = API_BASE_URL;
 
+  // When meta came back with pagePending=true (pages_count not yet in DB),
+  // re-fetch meta after page 1 renders so we discover the real total page count.
+  // The render path writes pages_count to DB before returning the image, so by
+  // the time onLoad fires the DB has the correct value.
+  const refetchMetaAfterPage1 = useCallback(async () => {
+    if (!masterId || !meta?.pagePending) return;
+    try {
+      const qs = new URLSearchParams({ meta: '1', ...(personaId ? { personaId } : {}) });
+      const res = await fetch(`${apiBase}/api/content/pdf-page-by-master/${encodeURIComponent(masterId)}?${qs}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (typeof data.pages === 'number' && data.pages > 1) {
+        setMeta((prev) => prev ? { ...prev, pages: data.pages, pagePending: false } : prev);
+      }
+    } catch {
+      // non-fatal
+    }
+  }, [masterId, meta?.pagePending, personaId, apiBase]);
+
   useEffect(() => {
     const fetchPages = async () => {
       try {
@@ -60,7 +80,7 @@ export function PDFPageViewer({ cid, masterId, personaId, title, onClose }: PDFP
           const metaRes = await fetch(`${apiBase}/api/content/pdf-page-by-master/${encodeURIComponent(masterId)}?${qs}`);
           if (!metaRes.ok) throw new Error(`HTTP ${metaRes.status}`);
           const data = await metaRes.json();
-          setMeta({ pages: data.pages ?? 1, suggestedWidth: data.suggestedWidth });
+          setMeta({ pages: data.pages ?? 1, suggestedWidth: data.suggestedWidth, pagePending: !!data.pagePending });
           setLoadingMeta(false);
           return;
         }
@@ -228,6 +248,7 @@ export function PDFPageViewer({ cid, masterId, personaId, title, onClose }: PDFP
               apiBase={apiBase}
               shouldLoad={loadedPages.has(pageNum)}
               onInView={(num) => setCurrentPage(num)}
+              onLoad={pageNum === 1 ? refetchMetaAfterPage1 : undefined}
               onError={() =>
                 setFailedPages((prev) => {
                   const next = new Set(prev);
@@ -301,6 +322,7 @@ interface PDFPageImageProps {
   onInView: (pageNum: number) => void;
   onError: () => void;
   onRetry: () => void;
+  onLoad?: () => void;
   isFailed: boolean;
   pageUrl?: string;
 }
@@ -316,6 +338,7 @@ function PDFPageImage({
   onInView,
   onError,
   onRetry,
+  onLoad: onLoadProp,
   isFailed,
   pageUrl: prerenderedUrl,
 }: PDFPageImageProps) {
@@ -396,6 +419,7 @@ function PDFPageImage({
           onLoad={() => {
             setLoaded(true);
             setLoading(false);
+            onLoadProp?.();
           }}
           onError={() => {
             setLoading(false);
