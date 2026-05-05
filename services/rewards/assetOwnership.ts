@@ -169,23 +169,36 @@ export async function userOwnsAsset(personaId: string, assetId: string): Promise
 
   const ents = await getEntitlementService().getPersonaEntitlements(personaId);
 
-  // 1. Direct grant
+  // 1. Direct grant — exact assetId match
   if (ents.some((e) => e.assetId === assetId)) {
     return { owned: true, via: 'direct' };
   }
 
-  // 2. SKU expansion
+  // 2. Legacy episode entitlement format — episode-N / epN (pricing convention,
+  // where pricingEp = dbEp - 1). Covers personas whose entitlements were written
+  // before the canonical mk_ep{NN}_* format was adopted.
+  const masterEpMatch = assetId.match(/^mk_ep(\d+)_/i);
+  if (masterEpMatch) {
+    const pricingEp = parseInt(masterEpMatch[1], 10) - 1;
+    const hasLegacyGrant = ents.some((e) => {
+      const m = e.assetId?.match(/episode-(-?\d+)/i) ?? e.assetId?.match(/^ep(-?\d+)$/i);
+      return m != null && parseInt(m[1], 10) === pricingEp;
+    });
+    if (hasLegacyGrant) return { owned: true, via: 'direct' };
+  }
+
+  // 3. SKU expansion
   const ownedSkus = await getOwnedSkus(personaId);
   if (ownedSkus.length === 0) return { owned: false, via: null };
 
-  // 2a. extra_asset_ids escape hatch
+  // 3a. extra_asset_ids escape hatch
   for (const sku of ownedSkus) {
     if (sku.extra_asset_ids && sku.extra_asset_ids.includes(assetId)) {
       return { owned: true, via: 'sku' };
     }
   }
 
-  // 2b. category + episode-scope match
+  // 3b. category + episode-scope match
   if (!meta) return { owned: false, via: null };
   for (const sku of ownedSkus) {
     if (skuCoversAsset(sku, meta)) {
