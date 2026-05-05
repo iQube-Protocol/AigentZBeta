@@ -156,7 +156,8 @@ function skuCoversAsset(sku: StoreSku, meta: AssetMeta): boolean {
  * Does the persona own the asset, either directly or via an SKU grant?
  *
  * Episode 0 (the GN free preview) is always accessible — no entitlement
- * required. Other content goes through direct grant → SKU expansion checks.
+ * required. Other content goes through direct grant → legacy episode grant →
+ * SKU expansion checks.
  */
 export async function userOwnsAsset(personaId: string, assetId: string): Promise<{ owned: boolean; via: 'direct' | 'sku' | 'free' | null }> {
   // Free-preview short-circuit: Episode 0 (GN preview) is open to everyone.
@@ -164,35 +165,65 @@ export async function userOwnsAsset(personaId: string, assetId: string): Promise
   // and personas without any SKUs.
   const meta = await getAssetMeta(assetId);
   if (meta && meta.category === 'gn' && meta.episodeNumber === 0) {
+    console.log('[userOwnsAsset] GN free-preview short-circuit', { assetId, personaId });
     return { owned: true, via: 'free' };
   }
 
   const ents = await getEntitlementService().getPersonaEntitlements(personaId);
+  console.log('[userOwnsAsset] checking', { assetId, personaId, entitlementCount: ents.length, meta: meta ?? 'null' });
 
-  // 1. Direct grant
+  // 1. Direct grant — exact assetId match
   if (ents.some((e) => e.assetId === assetId)) {
+    console.log('[userOwnsAsset] granted via direct exact match', { assetId });
     return { owned: true, via: 'direct' };
   }
 
-  // 2. SKU expansion
-  const ownedSkus = await getOwnedSkus(personaId);
-  if (ownedSkus.length === 0) return { owned: false, via: null };
+  // 2. Legacy episode entitlement format — /api/codex/owned supports 'episode-N'
+  // and 'epN' style assetIds (pricing convention, where pricingEp = dbEp - 1).
+  // The PDF gate must honour the same grants so the badge and the gate agree.
+  const masterEpMatch = assetId.match(/^mk_ep(\d+)_/i);
+  if (masterEpMatch) {
+    const dbEp = parseInt(masterEpMatch[1], 10);
+    const pricingEp = dbEp - 1; // DB ep 1 → pricing ep 0, DB ep 0 (GN) → pricing ep -1
+    const hasLegacyEpisodeGrant = ents.some((e) => {
+      const legacyMatch = e.assetId?.match(/^episode-(-?\d+)$/i) ?? e.assetId?.match(/^ep(-?\d+)$/i);
+      return legacyMatch != null && parseInt(legacyMatch[1], 10) === pricingEp;
+    });
+    if (hasLegacyEpisodeGrant) {
+      console.log('[userOwnsAsset] granted via legacy episode entitlement', { assetId, pricingEp });
+      return { owned: true, via: 'direct' };
+    }
+  }
 
-  // 2a. extra_asset_ids escape hatch
+  // 3. SKU expansion
+  const ownedSkus = await getOwnedSkus(personaId);
+  console.log('[userOwnsAsset] SKU check', { assetId, ownedSkuCount: ownedSkus.length });
+  if (ownedSkus.length === 0) {
+    console.log('[userOwnsAsset] no owned SKUs — denied', { assetId, personaId });
+    return { owned: false, via: null };
+  }
+
+  // 3a. extra_asset_ids escape hatch
   for (const sku of ownedSkus) {
     if (sku.extra_asset_ids && sku.extra_asset_ids.includes(assetId)) {
+      console.log('[userOwnsAsset] granted via SKU extra_asset_ids', { assetId, sku: sku.sku_id });
       return { owned: true, via: 'sku' };
     }
   }
 
-  // 2b. category + episode-scope match
-  if (!meta) return { owned: false, via: null };
+  // 3b. category + episode-scope match
+  if (!meta) {
+    console.log('[userOwnsAsset] meta null — cannot SKU-check, denied', { assetId });
+    return { owned: false, via: null };
+  }
   for (const sku of ownedSkus) {
     if (skuCoversAsset(sku, meta)) {
+      console.log('[userOwnsAsset] granted via SKU category match', { assetId, sku: sku.sku_id, meta });
       return { owned: true, via: 'sku' };
     }
   }
 
+  console.log('[userOwnsAsset] denied — no matching grant', { assetId, personaId, meta });
   return { owned: false, via: null };
 }
 
