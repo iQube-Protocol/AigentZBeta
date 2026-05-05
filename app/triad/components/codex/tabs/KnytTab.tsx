@@ -1010,11 +1010,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       
       const printCid = ep.printRareCid || ep.printEpicCid || ep.printLegendaryCid || ep.printCommonCid;
       const printLiteUrl = ep.printRareLiteUrl || ep.printEpicLiteUrl || ep.printLegendaryLiteUrl || ep.printCommonLiteUrl;
-      // When only a CID is available (no Supabase pdf_lite_url in DB), route
-      // through the existing /api/content/pdf/[cid] thin proxy so PDFLiteReaderModal
-      // always receives a URL — PDFPageViewer is broken in this environment.
-      const pdfViewUrl = printLiteUrl ||
-        (printCid ? `${API_BASE_URL}/api/content/pdf/${encodeURIComponent(printCid)}` : undefined);
+      // pdf_lite_url = direct Supabase URL (fast, iframe-rendered via PDFLiteReaderModal)
+      // pdf_cid      = Autonomys CID only (page-by-page via PDFPageViewer)
+      // Never put a proxy URL in pdf_lite_url — that buffers the whole PDF through
+      // Lambda and returns 413 for any file over ~6 MB.
       const hasReadable = !!(printCid || printLiteUrl);
       const hasCover = !!(ep.coverThumbUrl || ep.coverImageCid);
       const coverThumb =
@@ -1057,7 +1056,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
           thumbnail: coverThumb,
           media: {
             pdf_cid: printCid,
-            pdf_lite_url: pdfViewUrl,
+            pdf_lite_url: printLiteUrl,
             video_cid: motionSource.cid,
             video_url: motionSource.url,
           },
@@ -2782,10 +2781,8 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                             }
                             const printLiteUrl = episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || episode.printCommonLiteUrl;
                             const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid || episode.printCommonCid;
-                            const pdfUrl = printLiteUrl ||
-                              (printCid ? `${API_BASE_URL}/api/content/pdf/${encodeURIComponent(printCid)}` : null);
-                            if (pdfUrl) {
-                              setCurrentPdfLiteUrl(pdfUrl);
+                            if (printLiteUrl || printCid) {
+                              setCurrentPdfLiteUrl(printLiteUrl || null);
                               setCurrentPdfCid(printCid || null);
                               setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
                               setPdfViewerOpen(true);
@@ -2855,10 +2852,8 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                                   e.stopPropagation();
                                   const printLiteUrl = episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || episode.printCommonLiteUrl;
                                   const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid || episode.printCommonCid;
-                                  const pdfUrl = printLiteUrl ||
-                                    (printCid ? `${API_BASE_URL}/api/content/pdf/${encodeURIComponent(printCid)}` : null);
-                                  if (pdfUrl) {
-                                    setCurrentPdfLiteUrl(pdfUrl);
+                                  if (printLiteUrl || printCid) {
+                                    setCurrentPdfLiteUrl(printLiteUrl || null);
                                     setCurrentPdfCid(printCid || null);
                                     setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
                                     setPdfViewerOpen(true);
