@@ -689,3 +689,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-bc6c7cc.md](../build_/COMMITS/COMMIT-bc6c7cc.md)
 - Message: fix: isEpisodeLocked() now checks metadata.owned first, eliminating badge/lock divergence
+
+## Commit `c1cd1d4` — 2026-05-04T21:57:53Z
+- Type: `docs`
+- Brief: [COMMIT-c1cd1d4.md](../build_/COMMITS/COMMIT-c1cd1d4.md)
+- Message: docs: Phase 2 SmartTriad ownership unification backlog + KNYT stabilization session update
