@@ -216,6 +216,7 @@ import type {
 } from "@/app/types/knytLiquidUI";
 
 // Content viewers
+import { PDFPageViewer } from "@/app/triad/components/content/PDFPageViewer";
 import { PDFLiteReaderModal } from "@/app/triad/components/content/PDFLiteReaderModal";
 import { VideoPlayer, type VideoSegment } from "@/app/triad/components/content/VideoPlayer";
 import { VideoErrorBoundary } from "@/app/triad/components/content/VideoErrorBoundary";
@@ -3037,16 +3038,29 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             </div>
           )}
 
-          {/* PDF viewer — always PDFLiteReaderModal. If no liteUrl is set, build
-              the proxy URL from the CID at render time. PDFPageViewer is broken
-              in this environment and must never be used. */}
-          {pdfViewerOpen && (currentPdfLiteUrl || currentPdfCid) && (
+          {/* PDF viewer split:
+              - pdf_lite_url present (direct/Supabase URL): use PDFLiteReaderModal
+                (fast browser-native iframe — 302 redirect bypasses Lambda).
+              - Only pdf_cid (Autonomys): use PDFPageViewer (page-by-page render
+                via /api/content/pdf-page; full-PDF proxy hits Lambda's 6MB limit
+                and returns 413 for large files like episode PDFs). */}
+          {pdfViewerOpen && currentPdfLiteUrl && (
             <PDFLiteReaderModal
               open={pdfViewerOpen}
-              pdfUrl={
-                currentPdfLiteUrl ||
-                (currentPdfCid ? `${API_BASE_URL}/api/content/pdf/${encodeURIComponent(currentPdfCid)}` : '')
-              }
+              pdfUrl={currentPdfLiteUrl}
+              title={currentPdfTitle}
+              onClose={() => {
+                setPdfViewerOpen(false);
+                setCurrentPdfLiteUrl(null);
+                setCurrentPdfCid(null);
+                setCurrentPdfTitle('');
+              }}
+            />
+          )}
+
+          {pdfViewerOpen && !currentPdfLiteUrl && currentPdfCid && (
+            <PDFPageViewer
+              cid={currentPdfCid}
               title={currentPdfTitle}
               onClose={() => {
                 setPdfViewerOpen(false);

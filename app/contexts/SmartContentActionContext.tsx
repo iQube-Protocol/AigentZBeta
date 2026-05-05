@@ -27,6 +27,7 @@ import {
 import { VideoModal } from '@/packages/smarttriad/src/VideoModal';
 import { SocialSharingModal } from '@/packages/smarttriad/src/SocialSharingModal';
 import { PDFLiteReaderModal } from '@/app/triad/components/content/PDFLiteReaderModal';
+import { PDFPageViewer } from '@/app/triad/components/content/PDFPageViewer';
 
 interface SmartContentActionContextValue {
   /**
@@ -320,14 +321,23 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
         </div>
       )}
 
-      {/* Global PDF viewer — uses PDFLiteReaderModal (browser-native embed) */}
-      {pdfViewerOpen && pdfItem && (
+      {/* Global PDF viewer — split between fast iframe (lite URL) and
+          page-by-page render (Autonomys CID, avoids Lambda 6MB response limit) */}
+      {pdfViewerOpen && pdfItem?.pdf_lite_url && (
         <PDFLiteReaderModal
           open={pdfViewerOpen}
-          pdfUrl={
-            pdfItem.pdf_lite_url ||
-            (pdfItem.pdf_cid ? `/api/content/pdf/${encodeURIComponent(pdfItem.pdf_cid)}` : '')
-          }
+          pdfUrl={pdfItem.pdf_lite_url}
+          title={pdfItem.title}
+          onClose={() => {
+            setPdfViewerOpen(false);
+            setPdfItem(null);
+          }}
+        />
+      )}
+
+      {pdfViewerOpen && pdfItem && !pdfItem.pdf_lite_url && pdfItem.pdf_cid && (
+        <PDFPageViewer
+          cid={pdfItem.pdf_cid}
           title={pdfItem.title}
           onClose={() => {
             setPdfViewerOpen(false);

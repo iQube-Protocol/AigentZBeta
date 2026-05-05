@@ -221,7 +221,10 @@ Purchased/entitled content (PDFs, videos, and any other gated media) must be tre
 
 3. **No `window.open()` on gated file URLs** — same exposure risk as `target="_blank"`.
 
-4. **PDFs must render only inside `PDFLiteReaderModal`** — this is the canonical PDF viewer for all content in the application. It embeds the PDF via `<object>` using either a direct Supabase Storage URL (for free/owned content) or the thin proxy at `/api/content/pdf/[cid]` (for Autonomys-hosted content). **Do NOT use `PDFPageViewer`** — it uses `pdfjs-dist` server-side page-image rendering which does not work in the Lambda/Next.js environment and renders empty pages. `PDFPageViewer` is considered deprecated and must not be introduced or re-used anywhere.
+4. **PDF viewer split** — there are two canonical PDF viewers, used for different sources:
+   - **`PDFLiteReaderModal`** — fast browser-native iframe viewer. Use when a `pdf_lite_url` (direct Supabase Storage URL) is available. Works because the URL is loaded directly by the browser; no Lambda response buffering.
+   - **`PDFPageViewer`** — page-by-page render via `/api/content/pdf-page/[cid]?page=N`. Use when only an Autonomys `pdf_cid` is available (no Supabase URL). **Required** for large Autonomys-hosted PDFs because the full-PDF proxy at `/api/content/pdf/[cid]` returns 413 (AWS Lambda 6MB response payload limit) for files like episode comics.
+   - The render contract is: `if (pdf_lite_url) PDFLiteReaderModal else if (pdf_cid) PDFPageViewer`. Never use the full-PDF proxy as a viewer source for Autonomys CIDs — it works only for the 302-redirect Supabase case. Never use `<object>` for the PDF embed (Firefox throws `NS_ERROR_WONT_HANDLE_CONTENT`); use `<iframe>`.
 
 5. **Videos must render only inside the app's `VideoPlayer` component** — never via a direct URL in a new tab or `<a>` link.
 
