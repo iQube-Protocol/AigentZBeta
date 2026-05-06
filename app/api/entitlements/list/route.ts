@@ -7,13 +7,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getEntitlementService } from '@/services/rewards/entitlementService';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { BUNDLE_PRICING } from '@/types/knyt-store';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 // Mirrors resolveThumb() in /api/knyt/thumbnails: prefers cover_thumb_url,
 // falls back to auto_drive_cid when it is a plain https URL (Supabase-hosted),
@@ -35,6 +30,11 @@ export async function GET(request: NextRequest) {
 
     if (!personaId) {
       return NextResponse.json({ error: 'personaId is required' }, { status: 400,  });
+    }
+
+    const supabase = getSupabaseServer();
+    if (!supabase) {
+      return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
     }
 
     // Resolve FIO handle (e.g. aigentz@aigent) to UUID — entitlements are stored by UUID
