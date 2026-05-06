@@ -1,0 +1,295 @@
+/**
+ * getContentDescriptor — server-side builder for ContentAccessDescriptor.
+ *
+ * Phase 1.2 of the unified identity-content-access foundation plan.
+ *
+ * Reads `master_content_qubes` (TEXT id, e.g. mk_ep00_print_common) and
+ * `codex_media_assets` (UUID id) and emits a single normalised
+ * ContentAccessDescriptor that downstream consumers (evaluateAccess, the
+ * delivery proxies, the SmartTriad spine) act on uniformly.
+ *
+ * Composition (additive):
+ *   - services/rewards/contentGating.classifyContentGating  — gating kind
+ *   - master_content_qubes / codex_media_assets row read    — envelope
+ *
+ * State derivation (best-effort against current schema):
+ *   gating='free' AND no encryption_iv     -> A_open_unqubed
+ *   gating='free' AND encryption_iv set    -> B_open_iqubed
+ *   gating in (payment|credential)
+ *     AND auto_drive_cid LIKE 'http%'      -> C_gated_wip       (Supabase-hosted)
+ *     AND auto_drive_cid is a CID          -> D_gated_canonical_pool
+ *   State E (sovereign per-holder) is never returned by this builder;
+ *   Phase 4b lights it up via a per-holder envelope read keyed by the
+ *   active persona.
+ *
+ * The descriptor is intentionally identity-agnostic — it describes the
+ * asset, not the caller. The caller-aware decision is `evaluateAccess`.
+ */
+
+import { createClient } from '@supabase/supabase-js';
+
+import { classifyContentGating, type GatingKind as ClassifierKind } from '@/services/rewards/contentGating';
+import type {
+  ContentAccessDescriptor,
+  ContentClass,
+  ContentIQubeEnvelope,
+  ContentState,
+  ContentStoragePointer,
+  GatingKind,
+} from '@/types/access';
+
+let cachedClient: ReturnType<typeof createClient> | null = null;
+function db() {
+  if (cachedClient) return cachedClient;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) throw new Error('Supabase configuration missing for getContentDescriptor');
+  cachedClient = createClient(url, key);
+  return cachedClient;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Row shapes (loose; schema may have additional columns we ignore)
+// ─────────────────────────────────────────────────────────────────────────
+
+interface MasterQubeRow {
+  id: string;
+  content_type: string | null;
+  episode_number: number | null;
+  series: string | null;
+  auto_drive_cid: string | null;
+  pdf_lite_url: string | null;
+  encryption_iv: string | null;
+  encryption_auth_tag?: string | null;
+  token_qube_id: string | null;
+  meta_qube_id: string | null;
+  blak_qube_id: string | null;
+  gating_kind: ClassifierKind | null;
+  gating_credential?: string | null;
+  mint_status?: string | null;
+}
+
+interface MediaAssetRow {
+  id: string;
+  asset_kind: string | null;
+  episode_number: number | null;
+  series: string | null;
+  auto_drive_cid: string | null;
+  encryption_iv: string | null;
+  encryption_auth_tag?: string | null;
+  token_qube_id: string | null;
+  meta_qube_id: string | null;
+  blak_qube_id: string | null;
+  gating_kind: ClassifierKind | null;
+  gating_credential?: string | null;
+  mint_status?: string | null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Mapping helpers
+// ─────────────────────────────────────────────────────────────────────────
+
+function mapContentTypeToClass(value: string | null, episodeNumber: number | null): ContentClass {
+  // Episode 0 in the DB is the GN free preview / graphic novel.
+  if (episodeNumber === 0) return 'gn';
+  switch (value) {
+    case 'episode_still':  return 'episode_still';
+    case 'episode_motion': return 'episode_motion';
+    case 'episode_print':  return 'episode_print';
+    default:               return 'other';
+  }
+}
+
+function mapAssetKindToClass(value: string | null): ContentClass {
+  switch (value) {
+    case 'character_poster':        return 'character_card';
+    case 'background_lore_doc':     return 'lore';
+    case 'powers_sheet':            return 'lore';
+    case 'twenty_one_sats_concept': return 'lore';
+    default:                        return 'other';
+  }
+}
+
+function isHttpPointer(p: string | null | undefined): boolean {
+  return typeof p === 'string' && /^https?:\/\//i.test(p);
+}
+
+function deriveContentState(
+  gatingKind: GatingKind,
+  hasEncryption: boolean,
+  storagePointer: string | null,
+): ContentState {
+  if (gatingKind === 'free') {
+    return hasEncryption ? 'B_open_iqubed' : 'A_open_unqubed';
+  }
+  // Gated (payment | credential)
+  if (isHttpPointer(storagePointer)) return 'C_gated_wip';
+  return 'D_gated_canonical_pool';
+}
+
+function derivePreferredPointer(
+  autoDriveCid: string | null,
+  pdfLiteUrl: string | null,
+): { backend: ContentStoragePointer['backend']; pointer: string } | null {
+  // Prefer pdf_lite_url for state-A/B PDFs (Supabase direct-read works there).
+  // Otherwise fall back to auto_drive_cid which holds either a CID or a
+  // Supabase URL (legacy overload retired in Phase 2 schema disambiguation).
+  if (pdfLiteUrl && isHttpPointer(pdfLiteUrl)) {
+    return { backend: 'supabase', pointer: pdfLiteUrl };
+  }
+  if (autoDriveCid) {
+    return isHttpPointer(autoDriveCid)
+      ? { backend: 'supabase', pointer: autoDriveCid }
+      : { backend: 'autodrive', pointer: autoDriveCid };
+  }
+  return null;
+}
+
+function buildEnvelope(
+  iv: string | null,
+  authTag: string | null | undefined,
+  storage: ContentStoragePointer,
+  ids: { metaQubeId: string | null; blakQubeId: string | null; tokenQubeId: string | null },
+): ContentIQubeEnvelope | undefined {
+  if (!ids.metaQubeId && !ids.blakQubeId && !ids.tokenQubeId && !iv) {
+    return undefined; // pure state A
+  }
+  const envelope: ContentIQubeEnvelope = {
+    metaQubeId: ids.metaQubeId ?? '',
+    blakQubeId: ids.blakQubeId ?? '',
+    storage,
+  };
+  if (ids.tokenQubeId) envelope.tokenQubeId = ids.tokenQubeId;
+  if (iv) {
+    envelope.encryption = {
+      alg: 'AES-256-GCM',
+      iv,
+      // Auth tag may not yet be present on legacy rows — the Phase 2
+      // encryption migration backfills it. Empty string is a known sentinel.
+      authTag: authTag ?? '',
+    };
+  }
+  return envelope;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Public API
+// ─────────────────────────────────────────────────────────────────────────
+
+export async function getContentDescriptor(
+  assetId: string,
+): Promise<ContentAccessDescriptor | null> {
+  if (!assetId || typeof assetId !== 'string') return null;
+
+  // 1) master_content_qubes (TEXT pk, e.g. mk_ep00_print_common)
+  const { data: masterRaw } = await db()
+    .from('master_content_qubes')
+    .select(
+      'id,content_type,episode_number,series,auto_drive_cid,pdf_lite_url,' +
+        'encryption_iv,encryption_auth_tag,token_qube_id,meta_qube_id,blak_qube_id,' +
+        'gating_kind,gating_credential,mint_status',
+    )
+    .eq('id', assetId)
+    .maybeSingle();
+  const master = masterRaw as MasterQubeRow | null;
+
+  if (master) {
+    const contentClass = mapContentTypeToClass(master.content_type, master.episode_number);
+    const gating = classifyContentGating({
+      gating_kind: master.gating_kind,
+      gating_credential: master.gating_credential ?? null,
+      contentType: master.content_type,
+    });
+    const pointer = derivePreferredPointer(master.auto_drive_cid, master.pdf_lite_url);
+    const hasEncryption = !!master.encryption_iv;
+    const storagePointer = pointer
+      ? pointer.pointer
+      : (master.auto_drive_cid ?? master.pdf_lite_url ?? null);
+    const state = deriveContentState(gating.kind, hasEncryption, storagePointer);
+
+    const storage: ContentStoragePointer | null = pointer
+      ? { backend: pointer.backend, pointer: pointer.pointer }
+      : null;
+
+    return {
+      assetId: master.id,
+      contentClass,
+      state,
+      gating: {
+        kind: gating.kind,
+        credential: gating.credential,
+        priceUsd: gating.priceUsd,
+        reason: gating.reason,
+      },
+      iqube: storage
+        ? buildEnvelope(
+            master.encryption_iv,
+            master.encryption_auth_tag,
+            storage,
+            {
+              metaQubeId: master.meta_qube_id,
+              blakQubeId: master.blak_qube_id,
+              tokenQubeId: master.token_qube_id,
+            },
+          )
+        : undefined,
+      // State C/D delivery is receipt-eligible (audit per-read access).
+      // State A/B is not; reading free content does not anchor a receipt.
+      receiptEligible: state === 'C_gated_wip' || state === 'D_gated_canonical_pool',
+    };
+  }
+
+  // 2) codex_media_assets (UUID pk)
+  const { data: assetRaw } = await db()
+    .from('codex_media_assets')
+    .select(
+      'id,asset_kind,episode_number,series,auto_drive_cid,' +
+        'encryption_iv,encryption_auth_tag,token_qube_id,meta_qube_id,blak_qube_id,' +
+        'gating_kind,gating_credential,mint_status',
+    )
+    .eq('id', assetId)
+    .maybeSingle();
+  const asset = assetRaw as MediaAssetRow | null;
+  if (!asset) return null;
+
+  const contentClass = mapAssetKindToClass(asset.asset_kind);
+  const gating = classifyContentGating({
+    gating_kind: asset.gating_kind,
+    gating_credential: asset.gating_credential ?? null,
+    assetKind: asset.asset_kind,
+  });
+  const pointer = derivePreferredPointer(asset.auto_drive_cid, null);
+  const hasEncryption = !!asset.encryption_iv;
+  const state = deriveContentState(gating.kind, hasEncryption, asset.auto_drive_cid);
+  const storage: ContentStoragePointer | null = pointer
+    ? { backend: pointer.backend, pointer: pointer.pointer }
+    : null;
+
+  return {
+    assetId: asset.id,
+    contentClass,
+    state,
+    gating: {
+      kind: gating.kind,
+      credential: gating.credential,
+      priceUsd: gating.priceUsd,
+      reason: gating.reason,
+    },
+    iqube: storage
+      ? buildEnvelope(
+          asset.encryption_iv,
+          asset.encryption_auth_tag,
+          storage,
+          {
+            metaQubeId: asset.meta_qube_id,
+            blakQubeId: asset.blak_qube_id,
+            tokenQubeId: asset.token_qube_id,
+          },
+        )
+      : undefined,
+    receiptEligible: state === 'C_gated_wip' || state === 'D_gated_canonical_pool',
+  };
+}
