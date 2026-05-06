@@ -19,20 +19,21 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { getCallerIdentityContext } from '@/services/wallet/personaRepo';
 
 export const dynamic = 'force-dynamic';
-
-const admin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
 
 export async function GET(request: NextRequest) {
   try {
     const context = await getCallerIdentityContext(request);
     if (!context?.authProfileId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const admin = getSupabaseServer();
+    if (!admin) {
+      return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
     }
 
     const canonicalId = context.authProfileId;
