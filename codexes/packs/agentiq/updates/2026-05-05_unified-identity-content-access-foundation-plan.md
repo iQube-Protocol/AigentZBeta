@@ -1,8 +1,8 @@
 # Unified Identity, Content & Access Management — Foundation Plan
 
-**Date:** 2026-05-05 (rev. v2 — operator corrections applied)
+**Date:** 2026-05-05 (rev. v3 — identifier exposure tiers + LZ/ICP bridging confirmation)
 **Branch:** `claude/blockchain-identity-ai-foundation-lEyk2`
-**Status:** Plan, operator §11 decisions locked. Privacy-first revisions applied: rootDid removed from default identity shape; receipts attribute via cohort alias commitments only; 5th content state (sovereign per-holder ciphertext) added; Phase 4 split into 4a (pool) / 4b (sovereign).
+**Status:** Plan, operator §11 decisions locked. v3 adds: explicit identifier exposure tiers (T0 server / T1 session-token / T2 public alias) generalising the EVM-wallet-alias pattern to all persistent persona handles; LayerZero + ICP bridging confirmation for primary-only mint; fioHandle moved to consented disclosure.
 **Predecessors (must read in order):**
 - `2026-05-05_handover-identity-access-management-session.md` (scope handover)
 - `2026-05-04_smarttriad-ownership-unification-backlog.md` (Phase 2 ownership unification)
@@ -130,63 +130,142 @@ This is the only new thing this plan introduces. It is a **contract**, not a ser
 
 ### 4.1 `ActivePersona` (identity contract — privacy-first)
 
-The identity contract is split into a **public-safe shell** that every surface can read, and a **consented disclosure** layer that returns confidential credentials only when a compliance flow has been authorised by the persona owner. This honours the privacy-first mandate from the DiDQube docs: personas are obfuscated in public DVN traffic via cohort aliases, root DiDs never appear in public receipts or default surface state, and even the persona UUID is not transmitted in clear on the public network — the on-chain identifier is an ephemeral commitment that the Escrow canister purges at the end of the escrow window (per `2026-04-27_cohort-escrow-root-did-reputation-backlog.md`).
+The identity contract is split into:
+1. A **server-internal context** holding the canonical persona handles. This is what server code uses to resolve entitlements, decide gates, and write DB rows. It never crosses the wire to the browser.
+2. A **public-safe surface state** containing only an opaque session token plus operational flags. This is what every surface (KnytTab, embed, runtime, wallet drawer, viewer, remix dialog) reads.
+3. A **consented disclosure** layer that returns confidential credentials only when a compliance flow has been authorised by the persona owner.
 
-#### 4.1.a Public-safe shell — what every surface gets
+This honours the privacy-first mandate from the DiDQube docs and generalises the wallet-alias pattern (`2026-04-29_plaintext-wallet-address-deprecation.md`) to **all** persistent persona handles — not just EVM addresses. Any identifier that, if observed across multiple sessions/surfaces/networks, could correlate a user across contexts is treated as a confidential handle and held server-side only.
+
+#### 4.1.a Identifier exposure tiers
+
+Every persona-related identifier in the system has exactly one exposure tier. Tier determines storage, transport, lifetime, and who can see it.
+
+| Tier | Identifier | Lifetime | Storage | Visibility |
+|---|---|---|---|---|
+| **T0 — server-internal** | `personaId` (UUID), `authProfileId`, `fioHandle`, `rootDid` (on disclosure), `kybe_DiD` (future) | Persistent | `personas` / `crm_auth_profiles` rows; encrypted columns where applicable; server memory during request | Server processes only. Holder via consented BlakQube unwrap. **Never** in client responses, URL params, postMessage payloads, or browser storage. |
+| **T1 — same-origin trusted shell** | `personaSessionToken` (opaque, server-signed, short-lived, rotating) | Per session (rotates on persona switch, sign-out, TTL) | Browser localStorage / sessionStorage / cookie; postMessage within the AigentZ shell origin set | Same browser session only. Cannot be correlated across sessions or to any persistent identifier without the server. Replaces today's raw `currentPersonaId` in localStorage and the `?personaId=` query param. |
+| **T2 — public-network** | `aliasCommitment = hash(personaId + cohortId + salt)` | Per-tx, escrow-window TTL | DVN receipts, on-chain anchors, mailbox relays, any URL or message that traverses the open internet outside the trusted shell | Anyone — but un-correlatable post-purge. The Escrow canister destroys the alias→persona mapping when the escrow window closes. |
+
+**The rule:** an identifier may move down a tier (T0 → T1 → T2) only via a deliberate transformation function. It must never move up a tier. A `personaSessionToken` is exchanged for a `personaId` only on the server; an `aliasCommitment` is never reversed to a `personaId` outside the escrow window.
+
+#### 4.1.b Server-internal context — `ActivePersonaContext`
+
+This is the shape `getActivePersona(req)` returns to *server-side* callers (API routes, services). It never leaves the server.
 
 ```typescript
-interface ActivePersona {
-  // Identifier the surface uses to scope reads/writes locally.
-  // NEVER transmitted on a public chain; on-chain anchoring uses
-  // the cohort alias commitment (see §4.4) instead.
-  personaId: string;                    // canonical UUID
+interface ActivePersonaContext {
+  personaId: string;                    // T0 — canonical UUID; server-internal only
+  authProfileId: string;                // T0 — multi-email-merged caller identity
+  identifiability: 'anonymous' | 'semi_anonymous' | 'semi_identifiable' | 'identifiable';
+  cartridgeFlags: {
+    isAdmin: boolean;
+    isPartner: boolean;
+  };
+  cohortMemberships: string[];          // cohort_ids only (no aliases at rest)
+  source: 'session-cookie' | 'session-token' | 'api-key' | 'postmessage-token';
+}
+```
 
-  // Server-only — never sent to the browser. Used by API routes to
-  // resolve multi-email-merged caller identity. Stripped before
-  // any response leaves the server.
-  authProfileId?: string;               // server-internal only
+API routes use this context to resolve entitlements, gate access, and write rows. Before any response is built, the route discards the context and emits only the public-safe surface state below.
 
-  // Public by definition (registered on FIO chain). Optional —
-  // anonymous personas have no handle.
-  fioHandle?: string;
+#### 4.1.c Public-safe surface state — `ActivePersonaSurface`
 
-  // Self-asserted disclosure level controls how much the persona
-  // is willing to reveal in any given context.
+This is what the browser sees. The browser never sees `personaId`, `authProfileId`, `fioHandle`, or `rootDid`.
+
+```typescript
+interface ActivePersonaSurface {
+  // T1 — opaque, server-signed, short-lived. Resolves on the server back
+  // to ActivePersonaContext. Rotates on persona switch, sign-out, or TTL.
+  // This is the ONLY persona handle that touches client storage or URLs.
+  personaSessionToken: string;
+
+  // Self-asserted disclosure level — drives default UI affordances. This
+  // is a category, not a handle, so it does not correlate.
   identifiability: 'anonymous' | 'semi_anonymous' | 'semi_identifiable' | 'identifiable';
 
-  // Cartridge-scoped operational flags. These do NOT reveal real-world
-  // identity; they are platform-role flags resolved per request.
-  // `isInvestor` is intentionally absent here — investor status is a
-  // compliance-bearing fact and lives behind 4.1.b consented disclosure.
+  // Cartridge-role flags. Booleans only — no underlying identifier exposed.
   cartridgeFlags: {
     isAdmin: boolean;
     isPartner: boolean;
   };
 
-  // Cohort group identifiers (not aliases). The alias commitment
-  // is computed on demand at the point of a network tx and is
-  // never carried around in client state.
+  // Display-only: a non-correlating handle the user has chosen for this
+  // surface — usually their own pet name for the persona ("Work", "Anon",
+  // "Knight"). Stored in the persona row; not derived from personaId/fioHandle.
+  // Optional; absent means anonymous presentation.
+  displayLabel?: string;
+
+  // Cohort group ids ARE T1-safe — they identify the group, not the member,
+  // and groups are public/semi-public by design (e.g. "knyt-investors").
   cohortMemberships: string[];
 
-  // Provenance trace for debugging — which input source produced
-  // this resolution. Strictly informational.
-  source: 'url-param' | 'postmessage' | 'session-storage' | 'api-resolved';
+  // TTL hint for the session token; client refreshes proactively.
+  sessionExpiresAt: string;
 }
 ```
 
 What is **not** in this shape, by design:
 
-- **`rootDid`** — never default-exposed. It is the durable accountability anchor; revealing it on every resolution is the linkage attack surface DiDQube was built to prevent. Available only via 4.1.b consented disclosure.
-- **`kybe_DiD`** — even more confidential than rootDid; never appears in any client state and never in routine API responses. Backlog: surface presence (not contents) only when World ID adapter ships.
-- **`isInvestor`** / KYC level / legal name / wallet addresses (plaintext) — all confidential; available only via 4.1.b.
-- **Cohort alias commitments** — these are computed at network-tx time, are ephemeral by design, and have a TTL after which the Escrow canister purges them.
+- **`personaId`** — server-internal (T0). The browser never has it. Replaced by `personaSessionToken` (T1) for cross-surface correlation within the trusted shell.
+- **`fioHandle`** — server-internal (T0) by default. Public on the FIO chain, yes — but pinning it onto every surface read recreates the EVM-address correlation hazard. Available only via 4.1.e consented disclosure when the persona explicitly chooses identifiable presentation.
+- **`rootDid`** — never default-exposed. Available only via 4.1.e consented disclosure.
+- **`kybe_DiD`** — even more confidential than rootDid; never appears in any client state. Future surface activation gated on World ID adapter (§11.a backlog).
+- **`isInvestor`** / KYC level / legal name / wallet addresses (plaintext) — all confidential; available only via 4.1.e.
+- **Cohort alias commitments** — these are T2; computed at network-tx time, ephemeral, never in client state.
 
-#### 4.1.b Consented disclosure — for compliance flows only
+#### 4.1.d How `personaSessionToken` works (the wire-side identifier)
 
-When a compliance flow legitimately requires a confidential credential (e.g. an investor lookup against `nakamoto_knyt_personas`, a KYC verification, or a Root DiD reputation read), the requesting code path calls a separate, audited disclosure function:
+The session token replaces today's `currentPersonaId` localStorage value and the `?personaId=` URL param in `buildCodexUrl()`. This is a Phase 1 mechanical change.
+
+```
+Browser                              AigentZ server
+   │                                       │
+   │ ── auth: cookie / OAuth ──────────────▶│
+   │                                       │ resolve session → personaId (T0)
+   │ ◀── ActivePersonaSurface (T1 token) ──│ sign + return surface
+   │                                       │
+   │ store token in shell-origin storage   │
+   │                                       │
+   │ ── cross-cartridge nav: ?pst=<T1> ───▶│ verify token → personaId (T0)
+   │                                       │ build response with T1 only
+   │                                       │
+   │ ── postMessage to embed: { pst } ────▶│ (within shell origin allow-list)
+   │                                       │
+   │ ── persona switch ────────────────────▶│ rotate token; old T1 is dead
+   │                                       │
+```
+
+Properties:
+- **Opaque to the browser.** Token is an HMAC-signed envelope `{personaId, authProfileId, exp, version}` — the browser cannot parse or correlate it across sessions.
+- **Origin-scoped.** Tokens are issued bound to the AigentZ shell origin allow-list (`embedPolicy.authAllowedOrigins`); a leaked token outside that origin set fails verification.
+- **Rotating.** Every persona switch issues a fresh token; the previous one is rejected. Sign-out invalidates all tokens for the session. TTL is short (15–30 min) and refreshed via cookie.
+- **Server-resolvable only.** The path `T1 → T0` exists exclusively on the AigentZ server. No client code, no third-party origin, no public observer can perform the resolution.
+
+#### 4.1.e How a persona maps to a content asset without leaking T0
+
+This is the answer to "if the wire identifier is ephemeral, how does gating work?":
+
+1. User enters the SmartWallet shell. Authenticated session cookie established. Server resolves cookie → `authProfileId` → `personaId` (T0).
+2. Server issues a `personaSessionToken` (T1) and returns it as part of `ActivePersonaSurface`. Browser stores T1 in shell-origin storage.
+3. User navigates to a codex tab. Surface URL carries `?pst=<T1>` (not `?personaId=`).
+4. The codex tab page-route receives the request, server-side calls `getActivePersona(req)`, which:
+   - reads the session cookie (preferred, same-origin), or
+   - reads `?pst=` from the URL (cross-cartridge), and
+   - resolves T1 → `ActivePersonaContext` (T0).
+5. The page-route uses the T0 context to call `getContentDescriptor(assetId)` and `evaluateAccess(context, descriptor, action)`.
+6. The response sent back to the browser contains the gate decision and the delivery payload (or proxy URL). It does **not** contain the T0 personaId. The browser only ever holds the T1 token.
+7. For on-chain or DVN-receipt traffic, the server computes a fresh `aliasCommitment` (T2) per tx via the cohort/wallet alias service. The receipt anchors the T2 alias only.
+
+The mapping is **always server-internal**. The client never names a persona; the server names it from the session/token.
+
+#### 4.1.f Consented disclosure — `discloseCredential`
+
+When a compliance flow legitimately requires a confidential credential (e.g. an investor lookup against `nakamoto_knyt_personas`, a KYC verification, a Root DiD reputation read, or surfacing the holder's FIO handle on an explicit identifiable interaction), the requesting code path calls a separate, audited disclosure function:
 
 ```typescript
 interface DisclosedPersonaCredential {
+  fioHandle?: string;                   // T0 → consented surface (rare, identifiable contexts)
   rootDid?: string;                     // did:fio:* or did:iq:* — only when consented
   rootReputationBucket?: number;        // 0..5 from RQH — only when consented
   isInvestor?: boolean;                 // CRM compliance flag — only when consented
@@ -196,26 +275,28 @@ interface DisclosedPersonaCredential {
 }
 
 async function discloseCredential(
-  personaId: string,
-  requesterContext: { route: string; reason: string; scope: 'investor'|'kyc'|'reputation'|'root_did' },
+  context: ActivePersonaContext,
+  requesterContext: { route: string; reason: string; scope: 'investor'|'kyc'|'reputation'|'root_did'|'fio_handle' },
 ): Promise<DisclosedPersonaCredential>;
 ```
 
 Properties of `discloseCredential`:
 
-1. **Returns from a BlakQube unwrap.** Confidential credentials live in encrypted persona BlakQube fields, not in the persona's open columns. Disclosure is an explicit decrypt step, not a default read.
-2. **Emits a DVN receipt anchored to a cohort alias** — never to the persona UUID or root DiD directly. The receipt records *that* a disclosure happened in a given scope; it does not record the disclosed value.
-3. **Requires explicit consent.** For a routine read (e.g. a content gate), there is no disclosure. For a compliance read (e.g. investor verification), the persona's consent is already granted by the act of opting into the investor cohort; for an ad-hoc read (e.g. a root-DiD audit), explicit per-request consent is required.
+1. **Returns from a BlakQube unwrap or a server-internal column read.** Confidential credentials are not in the persona's open columns at rest where possible; disclosure is an explicit decrypt step.
+2. **Emits a sync DVN receipt** anchored to a fresh cohort alias commitment — never to the persona UUID, fioHandle, or root DiD directly. The receipt records *that* a disclosure happened in a given scope; it does not record the disclosed value.
+3. **Requires explicit consent.** Persona's consent for routine compliance scopes (investor cohort) is granted at cohort-opt-in time; ad-hoc reads (root_did audit, kybe attestation) require per-request explicit consent.
 4. **Strictly server-internal.** Never called from client code. The endpoint that needs the credential calls it, uses the value to make a decision, and discards it before the response is built.
-5. **Scoped minimum-disclosure.** Each call returns only the field(s) the requester's scope needs. Asking for `scope: 'investor'` returns `isInvestor` only — never `rootDid`.
+5. **Scoped minimum-disclosure.** Each call returns only the field(s) the requester's scope needs. Asking for `scope: 'investor'` returns `isInvestor` only — never `rootDid` or `fioHandle`.
 
-#### 4.1.c What the resolver does and does not do
+#### 4.1.g What the resolver does and does not do
 
-`getActivePersona(req|ctx)` returns the public-safe shell from 4.1.a. That is it. Today's `effectivePersonaId`, `useCodexEmbedAuthBridge`, `KnytTab` candidate-chain, raw `localStorage` reads, and persona postMessage events all collapse into this single resolver.
+Server-side: `getActivePersona(req)` returns `ActivePersonaContext` (T0). Today's `effectivePersonaId`, raw `personaId` URL-param reads, `KnytTab` candidate-chain, `useCodexEmbedAuthBridge` server-resolution, and CRM email lookups all collapse into this single function.
 
-Consented disclosure (4.1.b) is a separate function called by a small set of compliance-bearing routes. Most surfaces never call it.
+Client-side: `useActivePersona()` (a thin replacement for the current persona hooks) returns `ActivePersonaSurface` (T1). The browser never sees T0.
 
-**Use-case grounding (operator example).** A KNYT prospect or non-investor never has their root DiD touched at any point: they purchase a comic, the gate calls `evaluateAccess` against an entitlement, no rootDid is read or written. A KNYT investor has provided root-DiD-level data at investor onboarding (KYC); their compliance-bearing reads (e.g. confirming investor status to unlock the investor tab) go through `discloseCredential` with `scope: 'investor'`. The audit trail records that the check happened; the value never leaves server memory.
+`discloseCredential` (§4.1.f) is a separate server-only function called by a small set of compliance-bearing routes. Most surfaces never call it.
+
+**Use-case grounding.** A KNYT prospect or non-investor never has their root DiD or fioHandle touched: they purchase a comic, the URL carries `?pst=<T1>`, the page-route resolves T1 → T0 server-side, calls `evaluateAccess`, returns the gate decision without naming the persona to the browser. A KNYT investor has provided root-DiD-level data at investor onboarding (KYC); their compliance-bearing reads go through `discloseCredential` with `scope: 'investor'`. The audit trail records that the check happened; the value never leaves server memory and never appears on the wire.
 
 ### 4.2 `ContentAccessDescriptor` (content-side intelligence)
 
@@ -293,7 +374,7 @@ interface CohortAliasCommitment {
 
 ### 4.5 The three contracts in one sentence
 
-> **`getActivePersona` returns who you are (public-safe). `getContentDescriptor` returns what the asset is. `evaluateAccess` returns whether you can use it — and emits an alias-anchored receipt. Confidential credentials require an explicit consented disclosure. No surface ever decides on its own; no public receipt ever names you.**
+> **`getActivePersona` returns the server-only context (T0); the browser holds only an opaque session token (T1) and the public network sees only an ephemeral alias commitment (T2). `getContentDescriptor` returns what the asset is. `evaluateAccess` returns whether you can use it — and emits an alias-anchored receipt. Confidential credentials require an explicit consented disclosure. No surface ever decides on its own; no public receipt ever names you; no browser state ever holds a correlatable persona handle.**
 
 ---
 
@@ -417,9 +498,22 @@ Each phase is independently shippable, independently revertable, and adds capabi
 
 **Outcome:** every surface that today reads persona or ownership has a single function it can call. Existing functions stay intact and still work — the new ones are facades.
 
-**1.1 Server-side `resolvePersona`**
-- New file: `services/identity/resolvePersona.ts` — composes `personaRepo.getCallerAuthProfileId` + `multiEmailIdentity.getMergedLinkedAuthProfileIds` + admin-check + investor-status + cohort-resolver into one `ResolvedPersona`.
-- Existing routes keep their current resolution paths working in parallel; new routes call `resolvePersona`. Migration is one route per commit.
+**1.1 Server-side `getActivePersona`**
+- New file: `services/identity/getActivePersona.ts` — composes `personaRepo.getCallerAuthProfileId` + `multiEmailIdentity.getMergedLinkedAuthProfileIds` + admin-check + cohort-resolver into one `ActivePersonaContext` (T0). Note: `isInvestor` is **not** in the context — that goes through `discloseCredential` with `scope: 'investor'`.
+- Existing routes keep their current resolution paths working in parallel; new routes call `getActivePersona`. Migration is one route per commit.
+
+**1.1.a `personaSessionToken` issuance and resolution (T1)**
+- New service: `services/identity/personaSessionToken.ts` — HMAC-signed envelope `{personaId, authProfileId, exp, version}`. Issue on session start, persona switch, and explicit refresh. Verify + resolve back to `ActivePersonaContext` on every request. Origin-bound to `embedPolicy.authAllowedOrigins`.
+- Storage migration: existing `currentPersonaId` / `activePersonaId` localStorage keys are renamed and replaced with `personaSessionToken`. A one-shot migration in `useCodexEmbedAuthBridge` swaps any legacy raw-UUID value for a freshly issued token (server round-trip). Backward-compatibility window: the resolver accepts raw UUIDs from legacy storage for one release cycle, then rejects.
+
+**1.1.b `buildCodexUrl` migration `?personaId=` → `?pst=`**
+- Edit: `utils/codex-nav.ts` `buildCodexUrl()` — replace `?personaId=` with `?pst=` carrying the T1 token.
+- Edit: `app/(embed)/triad/embed/codex/[codexSlug]/page.tsx` — read `?pst=` server-side, resolve to `ActivePersonaContext` before rendering. The page never echoes T0 to the browser; it returns `ActivePersonaSurface` (T1) only.
+- Backward compat: the page-route accepts `?personaId=` for one release cycle and treats it as a deprecated input that triggers an immediate token-issue + redirect, scrubbing the URL.
+
+**1.1.c Client-side `useActivePersona()` hook**
+- New file: `app/hooks/useActivePersona.ts` — returns `ActivePersonaSurface` (T1 token + display flags). Replaces ad-hoc `currentPersonaId` reads in surface components.
+- `useCodexEmbedAuthBridge` continues to exist as the postMessage handler, but its internal state migrates to T1 tokens.
 
 **1.2 Server-side `getContentDescriptor`**
 - New file: `services/content/getContentDescriptor.ts` — reads `master_content_qubes` / `codex_media_assets` plus `contentGating.classifyContentGating` plus `iqube_mint_stubs` and emits `ContentAccessDescriptor`.
@@ -594,8 +688,10 @@ There is no big-bang switchover. Every phase coexists with the prior baseline.
 
 The plan is complete when:
 
-- [ ] **Identity:** `getActivePersona` is the only function that produces a persona shape. Every surface uses it. `rootDid` never appears in default surface state.
-- [ ] **Confidential disclosure:** every read of `rootDid`, investor status, KYC, or legal identity goes through `discloseCredential` with a scoped reason, emits a sync DVN receipt, and never leaks the value into client state.
+- [ ] **Identity (server-side):** `getActivePersona` is the only function that produces an `ActivePersonaContext`. Every server-side gate uses it.
+- [ ] **Identity (client-side, T0 containment):** searching the entire client bundle for `personaId` UUIDs, raw `fioHandle` strings, or `did:fio:` / `did:iq:` substrings returns zero matches outside legacy compat shims. The browser only ever holds `personaSessionToken`.
+- [ ] **Wire-side identifier:** every URL, postMessage, and persistent client storage key carrying a persona handle uses `personaSessionToken` (T1) inside the trusted shell or `aliasCommitment` (T2) on public networks. No raw `?personaId=` remains after the Phase 1 deprecation window.
+- [ ] **Confidential disclosure:** every read of `rootDid`, `fioHandle` (in identifiable contexts), investor status, KYC, or legal identity goes through `discloseCredential` with a scoped reason, emits a sync DVN receipt, and never leaks the value into client state.
 - [ ] **Content:** every content row's openness/gating/encryption state and uniqueness mode (D pool vs E sovereign) is decidable from `getContentDescriptor`. No surface infers state from URL or filename.
 - [ ] **Decision:** every gate-evaluation in the codebase is a call to `evaluateAccess`. Searching for `userOwnsAsset` outside `services/access/*` returns nothing.
 - [ ] **Encryption parity:** any row with `gating_kind IN ('payment','credential')` has `encryption_iv != ''`, regardless of storage backend.
@@ -616,10 +712,20 @@ The following are settled. Phase 1 builds against them.
 | 1 | Resolver name | **`getActivePersona`** |
 | 2 | `evaluateAccess` receipt mode | **Async by default; sync (`requireSyncReceipt: true`) opt-in for mint, transfer, payment-settle, policy-escalation, root-DiD disclosure, kybe attestation.** Decision boundary set in `services/access/policyResolvers.ts`, not per surface. |
 | 3 | State-B (open iQubed) gate | **Open-by-any-token.** Tokenless personas allowed via pool token issued at first access. |
-| 4 | Cross-chain mint at promotion | **Primary chain only** at promotion (Base for alpha). Bridging to other ref chains is a separate user-driven operation. |
+| 4 | Cross-chain mint at promotion | **Primary chain only** at promotion (Base for alpha). **Confirmed:** atomic cross-chain mint is not required because (a) **LayerZero ONFT** moves NFTs across the ref-chain set on holder-initiated bridge events, and (b) **ICP `cross_chain_service` + `evm_rpc` canisters** (already in `services/ops/idl/`) enable chain-agnostic ownership verification — `evaluateAccess` queries the canister, which discovers which ref chain currently holds the holder's TokenQube. The wrapped-key blob is content-addressed (IPFS / AutoDrive sidecar), so it does not move with the token. Bridging is user-driven and event-driven; the platform reads ownership wherever it currently is. See §11.b for implementation notes. |
 | 5 | Pool-mode deferred mint trigger | **At entitlement grant** (purchase / cohort assignment). Simpler revocation; avoids first-access latency spike. |
 | 6 | kybe_DiD activation | **Stay schema-stub** until World ID adapter is in scope. Add to backlog (see §11.a). |
 | 7 | Phase 4 ordering (canonical mint) | **Develop capability now; execute post-alpha launch.** Phases 4a (state D pool/streaming) and 4b (state E sovereign) build in this cycle but go live for KNYT investor SKUs after alpha launch is stable. |
+
+### 11.b Cross-chain (LayerZero + ICP) — confirmed implementation notes
+
+These follow from Decision §11.4. They are not new work in Phase 4; they are constraints on the TokenQube contract template and the verifier path.
+
+1. **LayerZero ONFT** is the bridge mechanism. The TokenQube NFT contract template must implement the LZ ONFT V2 standard so that `_lzReceive` mints a faithful representation on the destination chain and `send` locks/burns on the source. This is a contract-design constraint, not a protocol change — the template is finalised before the first canonical mint goes live.
+2. **The on-chain pointer to the wrapped-key blob (URI + content hash) must survive the bridge** in the destination NFT's metadata. LZ ONFT supports arbitrary URI metadata, so this is a contract-template implementation detail. The wrapped-key blob itself is content-addressed (IPFS / AutoDrive sidecar) and does not move; the destination NFT references the same blob.
+3. **`evaluateAccess` is chain-agnostic.** When verifying TokenQube ownership for a state-D or state-E asset, the access evaluator calls the ICP `cross_chain_service` canister, which (via `evm_rpc`) reads the holder's TokenQube ownership across the ref-chain set. There is no central "which chain holds what" registry — the canister discovers.
+4. **State-E sovereign holders may bridge off-platform custody.** Because state-E ciphertext and the per-holder wrapped-key blob are both content-addressed, bridging the on-chain NFT to a different chain or copying the ciphertext to a holder-chosen storage backend does not require platform action. The holder retains decryption capability regardless of where the NFT lives or where the ciphertext is stored. This is the sovereignty guarantee.
+5. **Receipt anchoring after bridge** continues to attribute via `aliasCommitment + cohortId` per §4.4. The chain on which the alias is anchored may differ from the chain on which the TokenQube is currently held — these are independent.
 
 ### 11.a Backlog item — kybe_DiD surface activation
 
