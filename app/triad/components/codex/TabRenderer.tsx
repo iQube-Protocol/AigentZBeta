@@ -70,6 +70,7 @@ import { KnytStoreInvestorTab } from "./tabs/KnytStoreInvestorTab";
 import { KnytStoreAdminTab } from "./tabs/KnytStoreAdminTab";
 import { KnytTreasuryAdminTab } from "./tabs/KnytTreasuryAdminTab";
 import { KnytShelfTab } from "./tabs/KnytShelfTab";
+import { KnytInvestorDashboardTab } from "./tabs/KnytInvestorDashboardTab";
 import { KnytCommunityContentTab } from "./tabs/KnytCommunityContentTab";
 import { KnytCommunityContentAdminTab } from "./tabs/KnytCommunityContentAdminTab";
 import { AigentMissionsBoardTab } from "./tabs/AigentMissionsBoardTab";
@@ -91,6 +92,7 @@ interface TabRendererProps {
   personaId?: string;
   isAdmin?: boolean;
   isPartner?: boolean;
+  isInvestor?: boolean;
   partnerId?: string;
   issueSlug?: string;
   previewDevice?: DeviceType;
@@ -155,6 +157,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   KnytCommunityContentTab,
   KnytCommunityContentAdminTab,
   KnytShelfTab,
+  KnytInvestorDashboardTab,
   AigentMissionsBoardTab,
   AigentCOSTab,
   DevPersonaTab,
@@ -171,7 +174,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   TutorialsTab: PlaceholderTab,
 };
 
-export function TabRenderer({ tab, codexId, theme, density, personaId, isAdmin, isPartner, partnerId, issueSlug, previewDevice, shell }: TabRendererProps) {
+export function TabRenderer({ tab, codexId, theme, density, personaId, isAdmin, isPartner, isInvestor, partnerId, issueSlug, previewDevice, shell }: TabRendererProps) {
   // Handle static tabs
   if (tab.type === 'static') {
     const componentName = tab.config.component;
@@ -204,6 +207,7 @@ export function TabRenderer({ tab, codexId, theme, density, personaId, isAdmin, 
         personaId={personaId}
         isAdmin={isAdmin}
         isPartner={isPartner}
+        isInvestor={isInvestor}
         partnerId={partnerId}
         issueSlug={issueSlug}
         forcedDevice={previewDevice}

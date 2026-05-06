@@ -70,6 +70,9 @@ function DynamicCodexContent() {
   ]);
   const queryIsAdmin = searchParams?.get("isAdmin") === "true" || searchParams?.get("admin") === "1";
   const queryIsPartner = searchParams?.get("isPartner") === "true" || searchParams?.get("partner") === "1";
+  // Stub passthrough — IAM service will resolve isInvestor server-side from
+  // the persona; the URL param is only for optimistic gating like isAdmin/isPartner.
+  const queryIsInvestor = searchParams?.get("isInvestor") === "true" || searchParams?.get("investor") === "1";
   const queryPartnerId = readFirst(searchParams, ["partnerId", "partner_id"]);
   const { personaId, isAdmin } = useCodexEmbedAuthBridge({
     initialPersonaId: queryPersonaId,
@@ -87,6 +90,7 @@ function DynamicCodexContent() {
       personaId={personaId}
       isAdmin={isAdmin}
       isPartner={queryIsPartner || undefined}
+      isInvestor={queryIsInvestor || undefined}
       partnerId={queryPartnerId || undefined}
       useDefaults={true}
     />

@@ -125,14 +125,16 @@ export function hasCodexPermission(
  * Helper to get enabled tabs from codex config.
  * - adminOnly tabs: hidden unless isAdmin
  * - partnerOnly tabs: hidden unless isPartner or isAdmin
+ * - investorOnly tabs: hidden unless isInvestor or isAdmin
  */
-export function getEnabledTabs(codex: CodexConfig | undefined, isAdmin = false, isPartner = false) {
+export function getEnabledTabs(codex: CodexConfig | undefined, isAdmin = false, isPartner = false, isInvestor = false) {
   if (!codex) return [];
   return codex.tabs
     .filter(tab => {
       if (!tab.enabled) return false;
       if (tab.adminOnly && !isAdmin) return false;
       if (tab.partnerOnly && !isPartner && !isAdmin) return false;
+      if (tab.investorOnly && !isInvestor && !isAdmin) return false;
       return true;
     })
     .sort((a, b) => a.order - b.order);

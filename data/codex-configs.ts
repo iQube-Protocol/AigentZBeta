@@ -541,6 +541,22 @@ export const KNYT_CODEX: CodexConfig = {
         color: 'indigo'
       }
     },
+    {
+      id: 'investor',
+      label: 'Investor',
+      slug: 'investor',
+      enabled: true,
+      investorOnly: true,
+      group: 'order-group',
+      order: 4,
+      type: 'static',
+      config: { component: 'KnytInvestorDashboardTab' },
+      metadata: {
+        icon: 'Briefcase',
+        description: 'Investor dashboard — capital events, equity, token allocations, and documents',
+        color: 'emerald'
+      }
+    },
 
     // ── 21 Sats (standalone) ───────────────────────────────────
     {
