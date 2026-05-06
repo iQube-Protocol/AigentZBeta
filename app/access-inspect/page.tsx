@@ -163,7 +163,12 @@ export default function AccessInspectPage() {
       background: '#0b0b0e',
       minHeight: '100vh',
     }}>
-      <h1 style={{ fontSize: 18, marginBottom: 8 }}>Access Spine — Inspect</h1>
+      <h1 style={{ fontSize: 18, marginBottom: 8 }}>
+        Access Spine — Inspect
+        <span style={{ fontSize: 11, color: '#6b7280', marginLeft: 12, fontWeight: 'normal' }}>
+          v2 · browse-panel + jwt-from-localStorage
+        </span>
+      </h1>
       <p style={{ fontSize: 12, color: '#9ca3af', marginBottom: 16 }}>
         Server-side decision for the active persona against a content asset.
         Pair with <code>[SPINE]</code> log lines in Amplify CloudWatch / dev terminal.
@@ -373,16 +378,23 @@ export default function AccessInspectPage() {
 
       <details style={{ marginTop: 24, fontSize: 12, color: '#9ca3af' }}>
         <summary style={{ cursor: 'pointer' }}>One-liner for DevTools console</summary>
+        <p style={{ marginTop: 8, marginBottom: 4 }}>
+          Reads the JWT from localStorage where supabase-js stores it (no dynamic import).
+        </p>
         <pre style={{ padding: 12, background: '#111', marginTop: 8, overflow: 'auto' }}>
-{`(async (cid, action='read') => {
-  const { getSupabaseBrowserClient } = await import('/utils/supabaseBrowser');
-  const { data } = await getSupabaseBrowserClient().auth.getSession();
-  const r = await fetch(\`/api/access/inspect?cid=\${encodeURIComponent(cid)}&action=\${action}\`, {
-    headers: { Authorization: \`Bearer \${data.session?.access_token ?? ''}\` },
+{`(async (cidOrAssetId, action='read') => {
+  const k = Object.keys(localStorage).find(x => x.startsWith('sb-') && x.endsWith('-auth-token'));
+  const raw = k ? JSON.parse(localStorage.getItem(k) || 'null') : null;
+  const jwt = raw?.access_token ?? raw?.currentSession?.access_token ?? '';
+  const r = await fetch(\`/api/access/inspect?cid=\${encodeURIComponent(cidOrAssetId)}&action=\${action}\`, {
+    headers: { Authorization: \`Bearer \${jwt}\` },
   });
   return r.json();
-})('YOUR-CID-HERE')`}
+})('mk_ep00_print_common')`}
         </pre>
+        <p style={{ marginTop: 8, color: '#6b7280' }}>
+          Pass either a cid or an assetId — the route falls back automatically.
+        </p>
       </details>
     </div>
   );

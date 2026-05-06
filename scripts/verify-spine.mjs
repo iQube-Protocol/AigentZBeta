@@ -22,7 +22,11 @@
  * The JWT comes from the JWT env var. To grab yours from the browser,
  * sign into dev-beta.aigentz.me, open DevTools console and run:
  *
- *   (await (await import('/utils/supabaseBrowser')).getSupabaseBrowserClient().auth.getSession()).data.session.access_token
+ *   (() => {
+ *     const k = Object.keys(localStorage).find(x => x.startsWith('sb-') && x.endsWith('-auth-token'));
+ *     const raw = k ? JSON.parse(localStorage.getItem(k) || 'null') : null;
+ *     return raw?.access_token ?? raw?.currentSession?.access_token ?? '';
+ *   })()
  *
  * Copy the string and run this script with it as JWT.
  *
