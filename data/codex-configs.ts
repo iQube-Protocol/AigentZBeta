@@ -557,6 +557,22 @@ export const KNYT_CODEX: CodexConfig = {
         color: 'emerald'
       }
     },
+    {
+      id: 'investments',
+      label: 'Investments',
+      slug: 'investments',
+      enabled: true,
+      adminOnly: true,
+      group: 'order-group',
+      order: 5,
+      type: 'static',
+      config: { component: 'KnytInvestmentsAdminTab' },
+      metadata: {
+        icon: 'ShieldCheck',
+        description: 'Admin: per-investor capital events, document upload, and visibility toggle',
+        color: 'amber'
+      }
+    },
 
     // ── 21 Sats (standalone) ───────────────────────────────────
     {
