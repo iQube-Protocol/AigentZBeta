@@ -12,7 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { getKnytBalance } from '@/services/wallet/knyt/knytLedgerService';
 import { getEvmKnytBalance } from '@/services/wallet/knyt/evmKnytService';
 import { getPersonaFioService } from '@/services/wallet/personaFioService';
@@ -79,11 +79,8 @@ async function _getBalance(personaId: string, callerEvmAddress?: string): Promis
     }
 
     if (!evmAddress) try {
-      const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-      
-      if (supabaseUrl && supabaseKey) {
-        const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+      const supabase = getSupabaseServer();
+      if (supabase) {
         
         // First, get the FIO handle for this persona
         let fioHandle: string | null = null;
