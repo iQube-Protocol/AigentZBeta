@@ -282,6 +282,53 @@ export interface ContentIQubeEnvelope {
   storage: ContentStoragePointer;
   /** Present for D/E only. */
   onChain?: ContentOnChainAnchor;
+  /**
+   * Public verification affordance — present for B/C/D/E.
+   *
+   * The minimum public material required for any third party to
+   * independently verify that the BlakQube ciphertext (wherever the
+   * holder mirrors it), the MetaQube descriptor, and the on-chain
+   * TokenQube state are coherent — without trusting AigentZ.
+   *
+   * For state E (sovereign) this is the holder's "proof I really hold
+   * an asset that matches the canonical metaQube" — a third party can
+   * fetch ciphertext from any mirror, recompute the hash, fetch the
+   * metaQube by CID, and verify the on-chain tokenQube anchor.
+   *
+   * For B/C/D this is the same coherence proof at the asset level
+   * (shared payload). Holders/observers can request a zero-knowledge
+   * proof of coherence from a verifier service when they cannot fetch
+   * the bytes (e.g. for compliance or audit attestation).
+   */
+  verification?: ContentCoherenceAffordance;
+}
+
+/**
+ * Public-by-design verification material. Carries no persona handle;
+ * exposes only content-addressed hashes + on-chain anchors. Safe to
+ * include in third-party-facing API responses (registry public read,
+ * compliance attestation, holder export bundle).
+ */
+export interface ContentCoherenceAffordance {
+  /** Hash of the BlakQube ciphertext (matches the storage pointer's CID for AutoDrive). */
+  ciphertextHash: string;
+  /** CID / hash of the MetaQube descriptor blob. */
+  metaQubeCid: string;
+  /** CID / hash of the wrapped-key blob (sidecar to metaQube). */
+  wrappedKeyBlobCid?: string;
+  /**
+   * On-chain anchor hash — the TokenQube contract state commits to
+   * (metaQubeCid, ciphertextHash, wrappedKeyBlobCid). Recomputable
+   * by any reader from the on-chain anchor.
+   */
+  onChainCommitmentHash?: string;
+  /**
+   * URL of a verifier service (typically a DVN canister endpoint)
+   * that returns a ZK proof of coherence on request. Used when the
+   * holder is exporting a state-E payload to an off-platform mirror
+   * and needs to attest its provenance without revealing identity.
+   */
+  proofVerifierUrl?: string;
 }
 
 /**
@@ -306,14 +353,25 @@ export interface ContentAccessDescriptor {
 
 /**
  * The set of actions the access evaluator gates. Most are read-side
- * (return content); mint/transfer/payment-settle/policy-escalation are
- * the small consequential set that opt into sync receipt emission.
+ * (return content); mint/transfer/payment-settle/policy-escalation/
+ * disclosure are the small consequential set that opt into sync
+ * receipt emission.
+ *
+ *   read | watch | listen   — deliver content payload
+ *   invoke                  — call an agentQube / toolQube / modelQube / workflowQube
+ *   connect                 — bind a connectorQube (per ingestion factory)
+ *   remix                   — derive new content from existing (edit is a remix variant)
+ *   mint | transfer         — token lifecycle (sync receipt)
+ *   payment-settle          — value settlement (sync receipt)
+ *   policy-escalation       — guardian intervention path (sync receipt)
+ *   disclosure              — discloseCredential() emission (sync receipt)
  */
 export type AccessAction =
   | 'read'
   | 'watch'
   | 'listen'
   | 'invoke'
+  | 'connect'
   | 'remix'
   | 'mint'
   | 'transfer'
