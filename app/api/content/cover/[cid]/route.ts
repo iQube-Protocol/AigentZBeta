@@ -72,9 +72,9 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         const context = await getActivePersona(req);
         if (!context) {
           console.log(
-            `[CoverStream] spine: unauthenticated cid=${cid} ` +
-            `(asset=${descriptor.assetId}, state=${descriptor.state}, ` +
-            `gating=${descriptor.gating.kind}); enforce=${enforceGate}`,
+            `[SPINE] route=cover result=unauthenticated cid=${cid} ` +
+            `asset=${descriptor.assetId} state=${descriptor.state} ` +
+            `gating=${descriptor.gating.kind} enforce=${enforceGate}`,
           );
           if (enforceGate && descriptor.gating.kind !== 'free') {
             return withCors(NextResponse.json(
@@ -85,9 +85,9 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         } else {
           const decision = await evaluateAccess(context, descriptor, 'read');
           console.log(
-            `[CoverStream] spine: cid=${cid} asset=${descriptor.assetId} ` +
+            `[SPINE] route=cover result=${decision.allow ? 'ALLOW' : 'DENY'} ` +
+            `reason=${decision.reason} cid=${cid} asset=${descriptor.assetId} ` +
             `state=${descriptor.state} gating=${descriptor.gating.kind} ` +
-            `decision=${decision.allow ? 'ALLOW' : 'DENY'}/${decision.reason} ` +
             `enforce=${enforceGate}`,
           );
           if (enforceGate && !decision.allow) {
@@ -98,10 +98,10 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
           }
         }
       } else {
-        console.log(`[CoverStream] spine: no descriptor for cid=${cid}; gate skipped`);
+        console.log(`[SPINE] route=cover result=skip cid=${cid} reason=no-descriptor`);
       }
     } catch (gateErr) {
-      console.error('[CoverStream] spine: gate threw:', gateErr);
+      console.error('[SPINE] route=cover result=ERROR', gateErr);
       if (enforceGate) {
         return withCors(NextResponse.json(
           { error: 'gate-error' },

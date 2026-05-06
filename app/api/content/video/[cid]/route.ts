@@ -53,9 +53,9 @@ export async function GET(req: NextRequest, { params }: { params: { cid: string 
         const context = await getActivePersona(req);
         if (!context) {
           console.log(
-            `[VideoStream] spine: unauthenticated cid=${cid} ` +
-            `(asset=${descriptor.assetId}, state=${descriptor.state}, ` +
-            `gating=${descriptor.gating.kind}); enforce=${enforceGate}`,
+            `[SPINE] route=video result=unauthenticated cid=${cid} ` +
+            `asset=${descriptor.assetId} state=${descriptor.state} ` +
+            `gating=${descriptor.gating.kind} enforce=${enforceGate}`,
           );
           if (enforceGate && descriptor.gating.kind !== 'free') {
             return NextResponse.json(
@@ -66,9 +66,9 @@ export async function GET(req: NextRequest, { params }: { params: { cid: string 
         } else {
           const decision = await evaluateAccess(context, descriptor, 'watch');
           console.log(
-            `[VideoStream] spine: cid=${cid} asset=${descriptor.assetId} ` +
+            `[SPINE] route=video result=${decision.allow ? 'ALLOW' : 'DENY'} ` +
+            `reason=${decision.reason} cid=${cid} asset=${descriptor.assetId} ` +
             `state=${descriptor.state} gating=${descriptor.gating.kind} ` +
-            `decision=${decision.allow ? 'ALLOW' : 'DENY'}/${decision.reason} ` +
             `enforce=${enforceGate}`,
           );
           if (enforceGate && !decision.allow) {
@@ -79,10 +79,10 @@ export async function GET(req: NextRequest, { params }: { params: { cid: string 
           }
         }
       } else {
-        console.log(`[VideoStream] spine: no descriptor for cid=${cid}; gate skipped`);
+        console.log(`[SPINE] route=video result=skip cid=${cid} reason=no-descriptor`);
       }
     } catch (gateErr) {
-      console.error('[VideoStream] spine: gate threw:', gateErr);
+      console.error('[SPINE] route=video result=ERROR', gateErr);
       if (enforceGate) {
         return NextResponse.json(
           { error: 'gate-error' },

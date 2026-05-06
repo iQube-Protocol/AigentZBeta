@@ -139,9 +139,9 @@ export async function GET(
         const context = await getActivePersona(req);
         if (!context) {
           console.log(
-            `[PDFStream] spine: unauthenticated cid=${cid} ` +
-            `(asset=${descriptor.assetId}, state=${descriptor.state}, ` +
-            `gating=${descriptor.gating.kind}); enforce=${enforceGate}`,
+            `[SPINE] route=pdf result=unauthenticated cid=${cid} ` +
+            `asset=${descriptor.assetId} state=${descriptor.state} ` +
+            `gating=${descriptor.gating.kind} enforce=${enforceGate}`,
           );
           if (enforceGate && descriptor.gating.kind !== 'free') {
             return NextResponse.json(
@@ -152,9 +152,9 @@ export async function GET(
         } else {
           const decision = await evaluateAccess(context, descriptor, 'read');
           console.log(
-            `[PDFStream] spine: cid=${cid} asset=${descriptor.assetId} ` +
+            `[SPINE] route=pdf result=${decision.allow ? 'ALLOW' : 'DENY'} ` +
+            `reason=${decision.reason} cid=${cid} asset=${descriptor.assetId} ` +
             `state=${descriptor.state} gating=${descriptor.gating.kind} ` +
-            `decision=${decision.allow ? 'ALLOW' : 'DENY'}/${decision.reason} ` +
             `enforce=${enforceGate}`,
           );
           if (enforceGate && !decision.allow) {
@@ -165,10 +165,10 @@ export async function GET(
           }
         }
       } else {
-        console.log(`[PDFStream] spine: no descriptor for cid=${cid}; gate skipped`);
+        console.log(`[SPINE] route=pdf result=skip cid=${cid} reason=no-descriptor`);
       }
     } catch (gateErr) {
-      console.error('[PDFStream] spine: gate threw:', gateErr);
+      console.error('[SPINE] route=pdf result=ERROR', gateErr);
       if (enforceGate) {
         return NextResponse.json(
           { error: 'gate-error' },
