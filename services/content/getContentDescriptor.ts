@@ -293,3 +293,38 @@ export async function getContentDescriptor(
     receiptEligible: state === 'C_gated_wip' || state === 'D_gated_canonical_pool',
   };
 }
+
+/**
+ * Convenience: resolve a descriptor by Autonomys CID (or Supabase URL when
+ * the legacy auto_drive_cid overload still applies). Used by delivery
+ * proxies that key off the CID rather than the canonical assetId.
+ *
+ * Falls through to `getContentDescriptor(assetId)` once the row's
+ * canonical id is found, so the descriptor shape is identical regardless
+ * of input.
+ */
+export async function getContentDescriptorByCid(
+  cid: string,
+): Promise<ContentAccessDescriptor | null> {
+  if (!cid) return null;
+
+  // 1) master_content_qubes — pdf_lite_url and auto_drive_cid both candidates
+  const { data: masterRaw } = await db()
+    .from('master_content_qubes')
+    .select('id')
+    .or(`auto_drive_cid.eq.${cid},pdf_lite_url.eq.${cid}`)
+    .maybeSingle();
+  const masterId = (masterRaw as { id?: string } | null)?.id;
+  if (masterId) return getContentDescriptor(masterId);
+
+  // 2) codex_media_assets — auto_drive_cid only
+  const { data: assetRaw } = await db()
+    .from('codex_media_assets')
+    .select('id')
+    .eq('auto_drive_cid', cid)
+    .maybeSingle();
+  const assetId = (assetRaw as { id?: string } | null)?.id;
+  if (assetId) return getContentDescriptor(assetId);
+
+  return null;
+}

@@ -20,6 +20,10 @@ import {
   decryptContent,
 } from '@/server/services/encryptionService';
 
+import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getContentDescriptorByCid } from '@/services/content/getContentDescriptor';
+import { evaluateAccess } from '@/services/access/evaluateAccess';
+
 import { getCachedImage, setCachedImage } from './cache';
 
 export const runtime = 'nodejs';
@@ -118,6 +122,87 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
   const page = clampInt(Number(pageParam), 1, 10_000);
   const width = clampInt(Number(widthParam), 600, 1800);
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Spine gate — Phase 1.4 consumer migration
+  //
+  // This route was previously un-gated (anyone with a CID could fetch
+  // any page of any asset). The unified IAM spine adds an entitlement
+  // check at this seam.
+  //
+  // Rollout posture: shadow-log by default. The gate runs and logs
+  // its decision but does NOT block. When the operator confirms
+  // baseline behaviour is intact across the five test surfaces (Brave
+  // platform, Brave thin-client, Firefox both, mobile Safari), they
+  // flip ACCESS_SPINE_ENFORCE=1 to enforce.
+  //
+  // See plan §1.5 (consumer migration order) and the surgical-change
+  // protocol in CLAUDE.md.
+  // ─────────────────────────────────────────────────────────────────────
+  const enforceGate = process.env.ACCESS_SPINE_ENFORCE === '1';
+  try {
+    const descriptor = await getContentDescriptorByCid(cid);
+    if (!descriptor) {
+      // No descriptor = unknown asset. Today's behaviour is to 404 below
+      // when findAssetByCid returns null. Skip the gate; fall through.
+      console.log(`[PdfPage] spine: no descriptor for cid=${cid}; gate skipped`);
+    } else {
+      const context = await getActivePersona(req);
+      if (!context) {
+        console.log(
+          `[PdfPage] spine: unauthenticated caller for cid=${cid} ` +
+          `(asset=${descriptor.assetId}, state=${descriptor.state}, ` +
+          `gating=${descriptor.gating.kind}); enforce=${enforceGate}`,
+        );
+        if (enforceGate && descriptor.gating.kind !== 'free') {
+          return new NextResponse(new Uint8Array(PLACEHOLDER_PNG), {
+            status: 403,
+            headers: {
+              'Content-Type': 'image/png',
+              'Content-Length': PLACEHOLDER_PNG.length.toString(),
+              'Cache-Control': 'no-store',
+              'X-Access-Denied': 'unauthenticated',
+            },
+          });
+        }
+      } else {
+        const decision = await evaluateAccess(context, descriptor, 'read');
+        console.log(
+          `[PdfPage] spine: cid=${cid} asset=${descriptor.assetId} ` +
+          `state=${descriptor.state} gating=${descriptor.gating.kind} ` +
+          `decision=${decision.allow ? 'ALLOW' : 'DENY'}/${decision.reason} ` +
+          `enforce=${enforceGate}`,
+        );
+        if (enforceGate && !decision.allow) {
+          return new NextResponse(new Uint8Array(PLACEHOLDER_PNG), {
+            status: 403,
+            headers: {
+              'Content-Type': 'image/png',
+              'Content-Length': PLACEHOLDER_PNG.length.toString(),
+              'Cache-Control': 'no-store',
+              'X-Access-Denied': decision.reason,
+            },
+          });
+        }
+      }
+    }
+  } catch (gateErr) {
+    // Never let a gate failure break a previously-working flow.
+    // Log loudly; fall through to the legacy path so behaviour is
+    // unchanged in shadow-log mode. In enforce mode, fail closed.
+    console.error('[PdfPage] spine: gate threw:', gateErr);
+    if (enforceGate) {
+      return new NextResponse(new Uint8Array(PLACEHOLDER_PNG), {
+        status: 503,
+        headers: {
+          'Content-Type': 'image/png',
+          'Content-Length': PLACEHOLDER_PNG.length.toString(),
+          'Cache-Control': 'no-store',
+          'X-Access-Denied': 'gate-error',
+        },
+      });
+    }
+  }
 
   const cacheKey = `${cid}:page:${page}:w:${width}`;
   const cached = getCachedImage(cacheKey);
