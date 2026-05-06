@@ -148,7 +148,8 @@
       "description": "Aigent identity model, DiDQube design, and trust architecture decisions",
       "items": [
         "items/AIGENT_DIDQUBE_IDENTITY_UPGRADE_NOTE.md",
-        "items/IQUBE_IDENTITY_SOVEREIGNTY_ARCHITECTURE.md"
+        "items/IQUBE_IDENTITY_SOVEREIGNTY_ARCHITECTURE.md",
+        "updates/2026-05-05_unified-identity-content-access-foundation-plan.md"
       ]
     }
   ]
