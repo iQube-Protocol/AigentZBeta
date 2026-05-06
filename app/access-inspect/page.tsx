@@ -113,6 +113,13 @@ export default function AccessInspectPage() {
         Server-side decision for the active persona against a content asset.
         Pair with <code>[SPINE]</code> log lines in Amplify CloudWatch / dev terminal.
       </p>
+      <p style={{ fontSize: 11, color: '#6b7280', marginBottom: 16 }}>
+        <strong>assetId</strong> looks like <code>mk_ep01_print_common</code> (master row TEXT pk) or a UUID (codex_media_assets).
+        <br />
+        <strong>cid</strong> is the long Autonomys content hash, or a full Supabase storage URL stored in <code>auto_drive_cid</code> / <code>pdf_lite_url</code>.
+        <br />
+        Either dropdown works either way — the route falls back automatically if you pick the wrong one.
+      </p>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         <select
