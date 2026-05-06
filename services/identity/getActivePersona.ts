@@ -29,6 +29,10 @@ import {
   type CallerIdentityContext,
 } from '@/services/wallet/personaRepo';
 import { getMergedLinkedAuthProfileIds } from '@/services/wallet/multiEmailIdentity';
+import {
+  readTokenFromRequest,
+  verifyPersonaSessionToken,
+} from '@/services/identity/personaSessionToken';
 
 import type {
   ActivePersonaContext,
@@ -67,23 +71,32 @@ function getAdminClient() {
 async function resolveActivePersonaId(
   request: NextRequest,
   ownedPersonaIds: string[],
+  callerAuthProfileId: string,
+  linkedAuthProfileIds: string[],
 ): Promise<{ personaId: string | null; source: ActivePersonaContext['source'] }> {
-  // 1) personaSessionToken (T1) — Phase 1.1.a hook
-  const pstFromQuery = (() => {
-    try {
-      return new URL(request.url).searchParams.get('pst');
-    } catch {
-      return null;
-    }
-  })();
-  const pstFromHeader = request.headers.get('x-persona-session-token');
-  const pst = pstFromQuery || pstFromHeader;
+  // 1) personaSessionToken (T1) — preferred input source
+  const pst = readTokenFromRequest(request);
   if (pst) {
-    // TODO Phase 1.1.a: services/identity/personaSessionToken.verify(pst)
-    // For now, the hook is reserved; verifier returns null until Phase 1.1.a ships.
-    // Do NOT silently fall through if a PST was presented but the verifier is
-    // unavailable — that would be a privacy regression. Log and continue.
-    // (Logger omitted; this branch is dormant until 1.1.a wires the verifier.)
+    const verified = verifyPersonaSessionToken(pst);
+    if (verified.ok) {
+      // The token's authProfileId must match the caller's session (or any
+      // linked profile under multi-email merge). This rejects replay across
+      // sessions while still honouring multi-email-merged personas.
+      const allowedProfiles = new Set([callerAuthProfileId, ...linkedAuthProfileIds]);
+      if (
+        allowedProfiles.has(verified.data.authProfileId) &&
+        ownedPersonaIds.includes(verified.data.personaId)
+      ) {
+        return { personaId: verified.data.personaId, source: 'session-token' };
+      }
+      // Token is cryptographically valid but does not bind to this caller;
+      // do NOT fall through to weaker sources — refuse rather than silently
+      // pick the default. This protects against PST mis-binding.
+      return { personaId: null, source: 'session-token' };
+    }
+    // Verifier failure (expired / bad-signature / malformed): fall through
+    // to weaker sources during the Phase 1 backward-compat window. After
+    // the deprecation window closes (Phase 5), this becomes a hard reject.
   }
 
   // 2) x-persona-id header — existing convention
@@ -123,10 +136,10 @@ interface OwnedPersonaRow {
 
 async function listOwnedPersonas(
   authProfileId: string,
-): Promise<OwnedPersonaRow[]> {
+): Promise<{ personas: OwnedPersonaRow[]; linkedAuthProfileIds: string[] }> {
   const admin = getAdminClient();
-  const linked = await getMergedLinkedAuthProfileIds(authProfileId).catch(() => []);
-  const visibleAuthProfileIds = Array.from(new Set([authProfileId, ...linked]));
+  const linkedAuthProfileIds = await getMergedLinkedAuthProfileIds(authProfileId).catch(() => []);
+  const visibleAuthProfileIds = Array.from(new Set([authProfileId, ...linkedAuthProfileIds]));
 
   const { data, error } = await admin
     .from('personas')
@@ -135,12 +148,15 @@ async function listOwnedPersonas(
     .eq('status', 'active')
     .order('created_at', { ascending: true });
 
-  if (error) return [];
+  if (error) return { personas: [], linkedAuthProfileIds };
   const rows = (data || []) as Array<{ id: string; default_identity_state: string | null }>;
-  return rows.map((row) => ({
-    id: String(row.id),
-    default_identity_state: row.default_identity_state ?? null,
-  }));
+  return {
+    personas: rows.map((row) => ({
+      id: String(row.id),
+      default_identity_state: row.default_identity_state ?? null,
+    })),
+    linkedAuthProfileIds,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -211,11 +227,18 @@ export async function getActivePersona(
   if (!caller?.authProfileId) return null;
 
   // 2. Owned personas (across merged auth profiles)
-  const owned = await listOwnedPersonas(caller.authProfileId);
+  const { personas: owned, linkedAuthProfileIds } = await listOwnedPersonas(
+    caller.authProfileId,
+  );
   const ownedIds = owned.map((p) => p.id);
 
   // 3. Active persona pick
-  const { personaId, source } = await resolveActivePersonaId(request, ownedIds);
+  const { personaId, source } = await resolveActivePersonaId(
+    request,
+    ownedIds,
+    caller.authProfileId,
+    linkedAuthProfileIds,
+  );
   if (!personaId) return null;
 
   // 4. Identifiability — read from the persona row, not invented
