@@ -76,9 +76,25 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const descriptor = cid
+  // Lenient resolution: if the value passed under one key doesn't yield a
+  // descriptor, try the other key with the same value. Operator shouldn't
+  // need to know which column they're querying — assetIds (mk_ep*),
+  // CIDs (Autonomys hash), and Supabase storage URLs all resolve through
+  // this single endpoint.
+  const primary = cid ?? assetId!;
+  let descriptor = cid
     ? await getContentDescriptorByCid(cid)
     : await getContentDescriptor(assetId!);
+  let resolvedVia: 'cid' | 'assetId' = cid ? 'cid' : 'assetId';
+  if (!descriptor) {
+    const fallback = cid
+      ? await getContentDescriptor(primary)
+      : await getContentDescriptorByCid(primary);
+    if (fallback) {
+      descriptor = fallback;
+      resolvedVia = cid ? 'assetId' : 'cid';
+    }
+  }
 
   if (!descriptor) {
     return NextResponse.json(
@@ -87,7 +103,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         persona: summarisePersona(context),
         descriptor: null,
         decision: null,
-        note: 'No descriptor found. The asset is unknown to master_content_qubes / codex_media_assets.',
+        note:
+          `No descriptor found by either ${cid ? 'cid' : 'assetId'} or ${cid ? 'assetId' : 'cid'} fallback. ` +
+          `The value is unknown to master_content_qubes / codex_media_assets. ` +
+          `Hint: assetIds look like 'mk_epNN_<type>_<tier>' or a UUID; CIDs are long Autonomys content hashes or full Supabase storage URLs.`,
       },
       { status: 404, headers: { 'Cache-Control': 'no-store' } },
     );
@@ -97,7 +116,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json(
     {
-      input: { cid, assetId, action },
+      input: { cid, assetId, action, resolvedVia },
       persona: summarisePersona(context),
       descriptor: {
         assetId: descriptor.assetId,
