@@ -28,21 +28,36 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getMergedLinkedAuthProfileIds } from '@/services/wallet/multiEmailIdentity';
+import {
+  buildDebugBypassContext,
+  isDebugBypassEnabled,
+  logDebugBypass,
+} from '@/services/access/debugBypass';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const ctx = await getActivePersona(req);
+  let ctx = await getActivePersona(req);
+  let bypassed = false;
   if (!ctx) {
-    return NextResponse.json(
-      { error: 'unauthenticated' },
-      { status: 401, headers: { 'Cache-Control': 'no-store' } },
-    );
+    if (isDebugBypassEnabled()) {
+      logDebugBypass('whoami');
+      ctx = buildDebugBypassContext();
+      bypassed = true;
+    } else {
+      return NextResponse.json(
+        { error: 'unauthenticated' },
+        { status: 401, headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
   }
 
   // Surface the linked auth profile ids the multi-email merge produced —
-  // useful when 'why is isAdmin=false?' needs to be traced.
-  const linkedAuthProfileIds = await getMergedLinkedAuthProfileIds(ctx.authProfileId).catch(() => []);
+  // useful when 'why is isAdmin=false?' needs to be traced. Skipped in
+  // bypass mode (no real authProfileId to merge).
+  const linkedAuthProfileIds = bypassed
+    ? []
+    : await getMergedLinkedAuthProfileIds(ctx.authProfileId).catch(() => []);
 
   return NextResponse.json(
     {
@@ -54,10 +69,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       cartridgeFlags: ctx.cartridgeFlags,
       cohortMemberships: ctx.cohortMemberships,
       source: ctx.source,
-      hint:
-        'If cartridgeFlags.isAdmin is false but you expect admin, check that ' +
-        'crm_admin_roles has a row with is_active=true and auth_profile_id IN (' +
-        [ctx.authProfileId, ...linkedAuthProfileIds].join(', ') + ').',
+      bypassed,
+      hint: bypassed
+        ? 'ACCESS_DEBUG_OPEN=1 is active — this response is the synthesised debug context, not your real session.'
+        : 'If cartridgeFlags.isAdmin is false but you expect admin, check that ' +
+          'crm_admin_roles has a row with is_active=true and auth_profile_id IN (' +
+          [ctx.authProfileId, ...linkedAuthProfileIds].join(', ') + ').',
     },
     { headers: { 'Cache-Control': 'no-store' } },
   );

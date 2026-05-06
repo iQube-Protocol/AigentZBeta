@@ -34,6 +34,11 @@ import {
   getContentDescriptorByCid,
 } from '@/services/content/getContentDescriptor';
 import { evaluateAccess } from '@/services/access/evaluateAccess';
+import {
+  buildDebugBypassContext,
+  isDebugBypassEnabled,
+  logDebugBypass,
+} from '@/services/access/debugBypass';
 
 import type { AccessAction } from '@/types/access';
 
@@ -68,12 +73,17 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const context = await getActivePersona(req);
+  let context = await getActivePersona(req);
   if (!context) {
-    return NextResponse.json(
-      { error: 'unauthenticated' },
-      { status: 401, headers: { 'Cache-Control': 'no-store' } },
-    );
+    if (isDebugBypassEnabled()) {
+      logDebugBypass('inspect');
+      context = buildDebugBypassContext();
+    } else {
+      return NextResponse.json(
+        { error: 'unauthenticated' },
+        { status: 401, headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
   }
 
   // Lenient resolution: if the value passed under one key doesn't yield a
