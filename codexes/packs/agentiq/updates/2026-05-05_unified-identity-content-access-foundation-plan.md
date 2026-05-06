@@ -727,6 +727,45 @@ These follow from Decision §11.4. They are not new work in Phase 4; they are co
 4. **State-E sovereign holders may bridge off-platform custody.** Because state-E ciphertext and the per-holder wrapped-key blob are both content-addressed, bridging the on-chain NFT to a different chain or copying the ciphertext to a holder-chosen storage backend does not require platform action. The holder retains decryption capability regardless of where the NFT lives or where the ciphertext is stored. This is the sovereignty guarantee.
 5. **Receipt anchoring after bridge** continues to attribute via `aliasCommitment + cohortId` per §4.4. The chain on which the alias is anchored may differ from the chain on which the TokenQube is currently held — these are independent.
 
+### 11.d Backlog item — bounded delegation: agent identifiability floor from operator
+
+**Operator concern (raised on v3 review):** an Aigent persona delegated by a human operator must not present a higher identifiability than its operator currently does. If the operator's persona is `anonymous`, an agent acting on their behalf cannot disclose at `identifiable` even if the agent's own declared identifiability would allow it. This is the canonical rule from `AIGENT_DIDQUBE_IDENTITY_UPGRADE_NOTE.md` §6 ("an Aigent should mirror its owner's or client's identifiability policy directly as a delegate") and §7 ("personas may vary, accountability must persist").
+
+**Goal:** when `getActivePersona` resolves an agent persona, clamp the returned `identifiability` to the **floor** of (agent's declared identifiability, operator's current identifiability). Most-restrictive wins. The clamp is invisible to consumers — they trust the single resolved field as today.
+
+**Why deferred from Phase 1:**
+- No contract change is required. `ActivePersonaContext.identifiability` is already a single resolved value; the clamp lands inside `getActivePersona` without any consumer breakage.
+- Agent-persona delegation paths are not yet routine in production traffic; today's flows are human-persona-only. Wiring the resolver against a path with no live test coverage adds regression risk for low immediate value.
+- Bounded delegation (delegation scopes, cohort scope-of-disclosure, agent reputation-roll-to-root) is its own workstream. The identifiability floor is one slice of that envelope and lands alongside the rest, not as a one-off here.
+
+**Sketch of the resolver (when this work is in scope):**
+
+```typescript
+// inside getActivePersona, after persona row read
+if (personaRow.is_agent_persona) {
+  const operatorIdentifiability = await resolveOperatorIdentifiabilityForAgent(personaId);
+  context.identifiability = floorIdentifiability(
+    context.identifiability,
+    operatorIdentifiability,
+  );
+}
+```
+
+Where `resolveOperatorIdentifiabilityForAgent` walks `agent_persona → owner_root_identity → root_identity → currently-active human persona` and returns that human persona's `default_identity_state`. `floorIdentifiability` returns the most-restrictive of the two values (anonymous > semi_anonymous > semi_identifiable > identifiable).
+
+**Tables touched (already in schema):** `agent_persona`, `agent_root_identity`, `root_identity`, `personas`. No new columns required.
+
+**Acceptance:**
+- An agent persona with declared `identifiability='identifiable'`, owned by a human persona currently set to `anonymous`, returns `identifiability='anonymous'` from `getActivePersona`. Surfaces render anonymous-mode UI accordingly.
+- `discloseCredential` invocations from an agent context are bounded by the operator's floor — an agent cannot disclose `rootDid` if its operator's current persona is at `anonymous` or `semi_anonymous`, even if a compliance flow asks for it. The disclosure receipt records the refusal.
+- `evaluateAccess` continues to read `context.identifiability` as a single value with no awareness of whether the floor came from a delegation chain — the contract is unchanged.
+
+**Predecessors:**
+- `AIGENT_DIDQUBE_IDENTITY_UPGRADE_NOTE.md` (one root, multiple bounded personas; persona-level presentation may vary, root-level accountability must persist)
+- `2026-04-27_cohort-escrow-root-did-reputation-backlog.md` (delegation_scopes structure for join_cohort, read_cohort_reputation, submit_evidence)
+
+---
+
 ### 11.c Backlog item — subpoena-resistant T1→T0 (zero-knowledge session resolution)
 
 **Operator concern (raised on v3 review):** the plan as written has the AigentZ server able to reverse `personaSessionToken` (T1) back to `personaId` (T0). That is the design intent today — the server needs to gate access — but it leaves the platform itself as a single point of compelled disclosure. A subpoena, an insider, or a compromised key could in principle re-link a T1 token to a persona UUID.

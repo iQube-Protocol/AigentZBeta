@@ -241,7 +241,16 @@ export async function getActivePersona(
   );
   if (!personaId) return null;
 
-  // 4. Identifiability — read from the persona row, not invented
+  // 4. Identifiability — read from the persona row, not invented.
+  //
+  //    EXTENSION POINT (plan §11.d backlog): when `personaRow` belongs to
+  //    an agent persona, clamp this value to the FLOOR of (agent declared,
+  //    operator current). Most-restrictive wins. Walks
+  //    agent_persona -> owner_root_identity -> active human persona.
+  //    Not implemented in Phase 1 because delegation paths are not yet
+  //    routine in production traffic; landing now would add regression
+  //    risk against an untested path. The contract here does not change
+  //    when the clamp lands — `identifiability` remains a single value.
   const personaRow = owned.find((p) => p.id === personaId);
   const identifiability = normaliseIdentifiability(personaRow?.default_identity_state ?? null);
 
