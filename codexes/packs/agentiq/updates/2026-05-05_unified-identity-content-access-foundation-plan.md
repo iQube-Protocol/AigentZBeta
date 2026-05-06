@@ -1,8 +1,8 @@
 # Unified Identity, Content & Access Management — Foundation Plan
 
-**Date:** 2026-05-05
+**Date:** 2026-05-05 (rev. v2 — operator corrections applied)
 **Branch:** `claude/blockchain-identity-ai-foundation-lEyk2`
-**Status:** Plan — operator review before any code changes
+**Status:** Plan, operator §11 decisions locked. Privacy-first revisions applied: rootDid removed from default identity shape; receipts attribute via cohort alias commitments only; 5th content state (sovereign per-holder ciphertext) added; Phase 4 split into 4a (pool) / 4b (sovereign).
 **Predecessors (must read in order):**
 - `2026-05-05_handover-identity-access-management-session.md` (scope handover)
 - `2026-05-04_smarttriad-ownership-unification-backlog.md` (Phase 2 ownership unification)
@@ -92,23 +92,35 @@ For Aigents the hierarchy is the same minus kybe_DiD. **One Root DiDQube. Multip
 
 ---
 
-## 3. The four content states (locked-in, exhaustive)
+## 3. The five content states (locked-in, exhaustive)
 
-Every content object in the estate falls into exactly one of these four states. State determines the storage path, encryption posture, gating evaluator, and whether a TokenQube is required.
+Every content object in the estate falls into exactly one of these five states. State determines the storage path, encryption posture, gating evaluator, payload uniqueness, and whether a TokenQube is required.
 
-| State | Encrypted? | Storage | iQubed? | Gated? | TokenQube | Notes |
-|---|---|---|---|---|---|---|
-| **A. Open · non-iQubed** | No | Supabase public | No | No | None | Marketing assets, free previews (e.g. GN ep 0), public KB. Today's default for editorial/community content. |
-| **B. Open · iQubed (survivability)** | Yes | AutoDrive | Yes | No | Public/pool access token (anyone-can-decrypt) | Censorship-resistant publication; any persona decrypts. The "iQube but free" case the operator called out. |
-| **C. Gated · WIP** | **Yes** | Supabase | Yes (WIP envelope) | Yes | Bound to TokenQube; decryption proxied server-side | Mutable working-progress content that must still be encrypted at rest. The "encrypted at rest in Supabase" requirement. |
-| **D. Gated · Canonical** | Yes | AutoDrive | Yes (full mint) | Yes | On-chain (Base for alpha; bridgeable to 7 ref chains; or DVN-internal) | Sovereign or pool-licensed content. Asset-keyed: same content key across versions; existing TokenQubes survive updates. |
+| State | Encrypted? | Storage | iQubed? | Gated? | Payload | TokenQube | Notes |
+|---|---|---|---|---|---|---|---|
+| **A. Open · non-iQubed** | No | Supabase public | No | No | Shared, plaintext | None | Marketing, free previews (GN ep 0), public KB. Today's default for editorial/community content. |
+| **B. Open · iQubed (survivability)** | Yes | AutoDrive | Yes | No | Shared ciphertext | Public access token (any persona unwraps) | Censorship-resistant publication; any persona can decrypt. The "iQube but free" case. |
+| **C. Gated · WIP** | **Yes** | Supabase | Yes (WIP envelope) | Yes | Shared ciphertext | Bound to TokenQube; decryption proxied server-side | Mutable working-progress content that must still be encrypted at rest. |
+| **D. Gated · Canonical streaming/pool** | Yes | AutoDrive | Yes (full mint) | Yes | **Shared ciphertext, asset-keyed** (one payload, one content key, N wrappers) | On-chain or DVN-internal pool token; transferable; deferred-mintable | Asset-keyed updates: same content key survives version changes; existing TokenQubes still decrypt. **License/access** semantics. Holder consumes; does not own the bytes. |
+| **E. Gated · Canonical sovereign** | Yes | **Holder-custodied** (AutoDrive primary; holder may copy off-platform) | Yes (full mint) | Yes | **Unique ciphertext per holder, unique key per holder** — non-fungible at the byte level | On-chain NFT, one per holder, pre-minted | True ownership: each holder has their own ciphertext + their own key. Holder can move the payload anywhere (off-platform, cold storage, hardware wallet). Same plaintext bytes, different ciphertext (different IV / key) → different CID per holder. **Custody/sovereignty** semantics. |
 
-**Two access models on gated content (states C & D), both must coexist:**
+### Why D and E are distinct (operator clarification)
 
-- **Pool / access-token** — streaming/license. One ciphertext, N TokenQubes wrapping the same key. Transferable, revocable, deferrable mint. For subscriptions, cohort drops, KS rewards.
-- **Canonical NFT** — ownership/sovereignty. Same one ciphertext, each holder gets a unique NFT TokenQube. Pre-minted. For collector editions, founder NFTs.
+D and E both qualify as "canonical mint" but they are categorically different at the byte layer.
 
-A single asset can publish both surfaces against the same payload (e.g. 100 collector NFTs + a public stream-pool token).
+- **D (streaming/pool)** is the *fungible-license* model. One canonical ciphertext on AutoDrive, one content key, N TokenQubes that all unwrap the same key. Asset-keyed update semantics work because the wrappers point to the same key. Holders consume; they do not custody bytes. Best for subscriptions, cohort drops, KS rewards, "subscribe to read" libraries.
+- **E (sovereign)** is the *non-fungible-custody* model. Each holder's payload is encrypted with **their own** content key, producing a different ciphertext with a different CID — even though the underlying plaintext is identical. The TokenQube is unique per holder; transferring the NFT transfers the wrapped key alongside it; the holder can copy the ciphertext off-platform and the key still decrypts it. Update semantics are different: a republish under E is its own new mint per holder (no shared key to update). Best for collector editions, signed first prints, sovereign-grade investor instruments, founder NFTs, and any content where the operator wants the holder to be able to leave the platform with the bytes.
+
+A single underlying work can publish multiple surfaces simultaneously — e.g. 100 sovereign-mint editions (state E) + a public stream-pool (state D) + a free preview (state A). The operator picks the model(s) at mint time.
+
+### Pool vs sovereign access-models — clean naming going forward
+
+To prevent ambiguity, we drop "Pool/access-token vs Canonical NFT" wording in favor of state names:
+
+- **State D = canonical pool/streaming** (shared payload, fungible licenses)
+- **State E = canonical sovereign** (unique payload per holder, non-fungible custody)
+
+When this plan refers to "TokenQube proof" in Phase 4, it covers both D and E — the proof mechanism is the same (sign challenge with the TokenQube's owning key), but the unwrap path differs: D unwraps the shared content key; E unwraps the per-holder content key from the per-holder wrapped-key blob.
 
 ---
 
@@ -116,24 +128,94 @@ A single asset can publish both surfaces against the same payload (e.g. 100 coll
 
 This is the only new thing this plan introduces. It is a **contract**, not a service: a typed shape that the existing services already implement (or will implement with minimal change). Codifying it removes every surface's freedom to invent its own gating logic.
 
-### 4.1 `ResolvedPersona` (identity contract)
+### 4.1 `ActivePersona` (identity contract — privacy-first)
+
+The identity contract is split into a **public-safe shell** that every surface can read, and a **consented disclosure** layer that returns confidential credentials only when a compliance flow has been authorised by the persona owner. This honours the privacy-first mandate from the DiDQube docs: personas are obfuscated in public DVN traffic via cohort aliases, root DiDs never appear in public receipts or default surface state, and even the persona UUID is not transmitted in clear on the public network — the on-chain identifier is an ephemeral commitment that the Escrow canister purges at the end of the escrow window (per `2026-04-27_cohort-escrow-root-did-reputation-backlog.md`).
+
+#### 4.1.a Public-safe shell — what every surface gets
 
 ```typescript
-interface ResolvedPersona {
+interface ActivePersona {
+  // Identifier the surface uses to scope reads/writes locally.
+  // NEVER transmitted on a public chain; on-chain anchoring uses
+  // the cohort alias commitment (see §4.4) instead.
   personaId: string;                    // canonical UUID
-  authProfileId: string;                // multi-email-merged caller identity
-  rootDid: string;                      // did:fio:* or did:iq:*
+
+  // Server-only — never sent to the browser. Used by API routes to
+  // resolve multi-email-merged caller identity. Stripped before
+  // any response leaves the server.
+  authProfileId?: string;               // server-internal only
+
+  // Public by definition (registered on FIO chain). Optional —
+  // anonymous personas have no handle.
   fioHandle?: string;
+
+  // Self-asserted disclosure level controls how much the persona
+  // is willing to reveal in any given context.
   identifiability: 'anonymous' | 'semi_anonymous' | 'semi_identifiable' | 'identifiable';
-  isAdmin: boolean;
-  isPartner: boolean;
-  isInvestor: boolean;
-  cohortMemberships: string[];          // cohort_ids resolved from this persona
+
+  // Cartridge-scoped operational flags. These do NOT reveal real-world
+  // identity; they are platform-role flags resolved per request.
+  // `isInvestor` is intentionally absent here — investor status is a
+  // compliance-bearing fact and lives behind 4.1.b consented disclosure.
+  cartridgeFlags: {
+    isAdmin: boolean;
+    isPartner: boolean;
+  };
+
+  // Cohort group identifiers (not aliases). The alias commitment
+  // is computed on demand at the point of a network tx and is
+  // never carried around in client state.
+  cohortMemberships: string[];
+
+  // Provenance trace for debugging — which input source produced
+  // this resolution. Strictly informational.
   source: 'url-param' | 'postmessage' | 'session-storage' | 'api-resolved';
 }
 ```
 
-Every surface that needs a persona calls **one** function — `resolvePersona(req|ctx)` — and receives this shape. Today's `effectivePersonaId`, `useCodexEmbedAuthBridge`, `KnytTab` candidate-chain, raw `localStorage` reads, and CRM email lookups all collapse into this single resolver.
+What is **not** in this shape, by design:
+
+- **`rootDid`** — never default-exposed. It is the durable accountability anchor; revealing it on every resolution is the linkage attack surface DiDQube was built to prevent. Available only via 4.1.b consented disclosure.
+- **`kybe_DiD`** — even more confidential than rootDid; never appears in any client state and never in routine API responses. Backlog: surface presence (not contents) only when World ID adapter ships.
+- **`isInvestor`** / KYC level / legal name / wallet addresses (plaintext) — all confidential; available only via 4.1.b.
+- **Cohort alias commitments** — these are computed at network-tx time, are ephemeral by design, and have a TTL after which the Escrow canister purges them.
+
+#### 4.1.b Consented disclosure — for compliance flows only
+
+When a compliance flow legitimately requires a confidential credential (e.g. an investor lookup against `nakamoto_knyt_personas`, a KYC verification, or a Root DiD reputation read), the requesting code path calls a separate, audited disclosure function:
+
+```typescript
+interface DisclosedPersonaCredential {
+  rootDid?: string;                     // did:fio:* or did:iq:* — only when consented
+  rootReputationBucket?: number;        // 0..5 from RQH — only when consented
+  isInvestor?: boolean;                 // CRM compliance flag — only when consented
+  legalIdentityRef?: string;            // KYC record id, never the record itself
+  kybeAttestation?: string;             // proof-of-personhood, when World ID is wired
+  consentReceiptId: string;             // DVN receipt anchoring the disclosure event
+}
+
+async function discloseCredential(
+  personaId: string,
+  requesterContext: { route: string; reason: string; scope: 'investor'|'kyc'|'reputation'|'root_did' },
+): Promise<DisclosedPersonaCredential>;
+```
+
+Properties of `discloseCredential`:
+
+1. **Returns from a BlakQube unwrap.** Confidential credentials live in encrypted persona BlakQube fields, not in the persona's open columns. Disclosure is an explicit decrypt step, not a default read.
+2. **Emits a DVN receipt anchored to a cohort alias** — never to the persona UUID or root DiD directly. The receipt records *that* a disclosure happened in a given scope; it does not record the disclosed value.
+3. **Requires explicit consent.** For a routine read (e.g. a content gate), there is no disclosure. For a compliance read (e.g. investor verification), the persona's consent is already granted by the act of opting into the investor cohort; for an ad-hoc read (e.g. a root-DiD audit), explicit per-request consent is required.
+4. **Strictly server-internal.** Never called from client code. The endpoint that needs the credential calls it, uses the value to make a decision, and discards it before the response is built.
+5. **Scoped minimum-disclosure.** Each call returns only the field(s) the requester's scope needs. Asking for `scope: 'investor'` returns `isInvestor` only — never `rootDid`.
+
+#### 4.1.c What the resolver does and does not do
+
+`getActivePersona(req|ctx)` returns the public-safe shell from 4.1.a. That is it. Today's `effectivePersonaId`, `useCodexEmbedAuthBridge`, `KnytTab` candidate-chain, raw `localStorage` reads, and persona postMessage events all collapse into this single resolver.
+
+Consented disclosure (4.1.b) is a separate function called by a small set of compliance-bearing routes. Most surfaces never call it.
+
+**Use-case grounding (operator example).** A KNYT prospect or non-investor never has their root DiD touched at any point: they purchase a comic, the gate calls `evaluateAccess` against an entitlement, no rootDid is read or written. A KNYT investor has provided root-DiD-level data at investor onboarding (KYC); their compliance-bearing reads (e.g. confirming investor status to unlock the investor tab) go through `discloseCredential` with `scope: 'investor'`. The audit trail records that the check happened; the value never leaves server memory.
 
 ### 4.2 `ContentAccessDescriptor` (content-side intelligence)
 
@@ -175,16 +257,43 @@ interface AccessDecision {
         | 'token-required' | 'policy-blocked' | 'guardian-vetoed';
   deliveryMode: 'plain-redirect' | 'decrypt-stream' | 'page-image-proxy' | 'token-proof-stream';
   tokenQubeProofChallenge?: string;     // if deliveryMode = token-proof-stream
-  receiptId?: string;                   // emitted DVN receipt (if applicable)
+  receipt: {
+    mode: 'sync' | 'async';             // sync = anchored before return; async = queued
+    receiptId?: string;                 // present if mode='sync' or already queued
+    aliasCommitment: string;            // alias attribution (NEVER personaId or rootDid)
+    cohortId: string;
+  };
   expiresAt?: string;                   // for ephemeral signed-URL grants
 }
 ```
 
-A single endpoint — `evaluateAccess(persona: ResolvedPersona, content: ContentAccessDescriptor, action: 'read'|'watch'|'listen'|'mint'|'remix'|'invoke')` — returns this. Every gate in the system, on every surface, calls this and trusts the answer.
+A single function — `evaluateAccess(persona: ActivePersona, content: ContentAccessDescriptor, action: AccessAction, opts?: { requireSyncReceipt?: boolean })` — returns this. Every gate in the system, on every surface, calls this and trusts the answer.
 
-### 4.4 The three contracts in one sentence
+**Sync vs async receipt emission (operator-decided: async by default).**
+- `requireSyncReceipt: false` (default): the decision is returned at DB latency; the receipt is enqueued and the DVN pipeline (`services/dvn/qubetalkReceiptPipeline.ts` + `receiptFinalizationService.ts`) anchors it asynchronously with retry/backoff. A reconciliation sweep picks up any drops. Used for high-frequency reads (PDF page, video stream, content list, tool invocation list).
+- `requireSyncReceipt: true` (opt-in): the function blocks on DVN anchoring before returning. Reserved for the small set of consequential actions where the receipt is the proof and the action must not happen without it: **mint, transfer, payment-settle, policy-escalation, root-DiD disclosure, kybe attestation**. Failure to anchor returns `allow: false, reason: 'policy-blocked'`.
 
-> **`resolvePersona` returns who you are. `getContentDescriptor` returns what the asset is. `evaluateAccess` returns whether you can use it. No surface ever decides on its own.**
+Sync mode inherits canister latency; async mode does not. The decision boundary is set per action type in `services/access/policyResolvers.ts`, not per surface.
+
+### 4.4 Cohort alias commitment (the on-chain identifier)
+
+Per `2026-04-27_cohort-escrow-root-did-reputation-backlog.md`, the only identifier that ever reaches a public chain (or a public DVN receipt) is an **ephemeral cohort alias commitment**:
+
+```typescript
+interface CohortAliasCommitment {
+  aliasCommitment: string;              // hash(persona_uuid + cohort_id + salt)
+  cohortId: string;                     // dynamic; tx- or group-scoped; never permanent
+  expiresAt: string;                    // Escrow canister purges after this
+}
+```
+
+- One-way hash; the path from `aliasCommitment` → `personaId` is held server-side only and exists only for the escrow window. Once the escrow window expires, the Escrow canister calls `purge_expired()` and the mapping is destroyed.
+- Flags raised against an alias during the escrow window route through FBC → RQH and update the **root-level** reputation bucket on `root_identity` — without the cohort ever knowing which persona was involved and without the persona-to-root link being on-chain.
+- Receipts attribute actions to `aliasCommitment + cohortId`, **not** to `personaId` and **never** to `rootDid`. The DVN's privacy guarantee depends on this.
+
+### 4.5 The three contracts in one sentence
+
+> **`getActivePersona` returns who you are (public-safe). `getContentDescriptor` returns what the asset is. `evaluateAccess` returns whether you can use it — and emits an alias-anchored receipt. Confidential credentials require an explicit consented disclosure. No surface ever decides on its own; no public receipt ever names you.**
 
 ---
 
@@ -390,25 +499,47 @@ Each phase is independently shippable, independently revertable, and adds capabi
 
 ---
 
-### Phase 4 — TokenQube on-chain ownership proof (state D delivery)
+### Phase 4a — TokenQube on-chain ownership proof for state D (pool / streaming)
 
-**Outcome:** for state-D (canonical-minted) content, the gate is satisfied by an on-chain ownership proof rather than a Supabase entitlement row. Clients sign a challenge proving control of the TokenQube; server validates against the chain (Base for alpha; bridgeable later).
+**Outcome:** for state-D content, the gate is satisfied by an on-chain (or DVN-internal) ownership proof against any pool TokenQube. Pool tokens are minted at entitlement grant per Decision §11.4. Build now; activate post-alpha launch per Decision §11.7.
 
-**4.1 TokenQube proof challenge**
-- New route: `POST /api/access/tokenqube-challenge` — issues a server-signed nonce.
-- Client signs with the TokenQube's owning EVM key (smart wallet handles this).
-- New route: `POST /api/access/tokenqube-verify` — validates signature + on-chain ownership.
+**4a.1 Challenge / verify endpoints**
+- New route: `POST /api/access/tokenqube-challenge` — issues a server-signed nonce bound to `(personaId, assetId, action)` with short TTL.
+- Client signs with the TokenQube's owning key via the SmartWallet.
+- New route: `POST /api/access/tokenqube-verify` — validates signature + on-chain ownership; if valid, mints a short-lived decrypt grant.
 
-**4.2 Decryption by unwrapped key**
-- After verification, server unwraps the content key from the wrapped-key blob (IPFS or AutoDrive sidecar) and decrypts the BlakQube. Same page-image / streaming output as Phase 2.
+**4a.2 Shared-key decrypt**
+- After verification, server unwraps the **shared** content key from the asset's wrapped-key blob (IPFS or AutoDrive sidecar). Decrypts the shared BlakQube on AutoDrive. Streams page-image / video segment to the holder.
+- Asset-keyed update semantics: when the operator updates the content, a new ciphertext + new CID are produced under the **same** content key; existing pool tokens still decrypt.
 
-**4.3 Both access models supported**
-- Pool model: any holder of any pool TokenQube unwraps the same key. Deferred mint optional (mint at first access).
-- Canonical model: per-holder NFT, each wraps the same content key.
+**4a.3 Pool mint at entitlement grant**
+- `services/rewards/purchaseHandler.ts` — on bundle/SKU purchase or cohort assignment, mint pool TokenQubes synchronously per Decision §11.5. Sync receipt under §11.2 (mint is consequential).
+- Cross-chain: mint on the persona's primary chain only per Decision §11.4. Bridging is a separate operation.
 
-**Backward compatibility:** state-C content continues to use entitlement-table gating (Phase 2). State-D content checks TokenQube proof first; falls back to entitlement table if the chain is unreachable. Operator can migrate any specific asset from C → D via "Mint as iQube" admin action.
+**Backward compatibility:** state-C entitlement-table gating remains; state-D adds the on-chain path with entitlement-table fallback if the chain is unreachable. Operator migrates any specific asset C → D via "Mint as iQube (pool)" admin action.
 
-**Acceptance:** owning the TokenQube is sufficient and necessary for state-D content access. Selling/transferring the TokenQube on-chain transfers access without any platform-side action.
+**Acceptance for D:** holding any pool TokenQube for an asset is sufficient and necessary to read it. Receipt of access is alias-anchored. Transfer of a pool TokenQube transfers access; revocation flips the pool token's revoked flag in the canister and the next access fails verification.
+
+---
+
+### Phase 4b — Sovereign TokenQube + per-holder ciphertext for state E
+
+**Outcome:** for state-E content, each holder has their own ciphertext, their own content key, and their own TokenQube NFT. Holders can copy the ciphertext off-platform and continue to decrypt with their key. This is the true non-fungible-custody case used for collector editions, signed first prints, and sovereign-grade investor instruments.
+
+**4b.1 Per-holder mint**
+- New service: `services/iqube/sovereignMint.ts` — for each holder of a state-E edition, generate a fresh content key, encrypt the plaintext under that key (yielding a unique ciphertext with a unique CID), upload to AutoDrive, wrap the per-holder key with the holder's master key, mint the NFT TokenQube on the persona's primary chain, and atomically record the per-holder triple on `master_content_qubes` with an extension table `iq_sovereign_holders` keyed by `(masterId, personaId, tokenQubeId)`.
+- Pre-mint at iQube creation time (no deferred mint — sovereignty implies the on-chain edition exists from t=0).
+
+**4b.2 Per-holder decrypt path**
+- Same challenge/verify endpoints as 4a, but `evaluateAccess` resolves the holder's specific TokenQube and unwraps the **per-holder** content key, decrypting the **per-holder** ciphertext. Receipt is alias-anchored to the holder's cohort, not to the asset's pool.
+- Holder may export the ciphertext + their wrapped key blob for off-platform custody. With possession of both they can decrypt without ever calling AigentZ.
+
+**4b.3 Mixed-mode mint**
+- A single underlying work can publish state-D + state-E surfaces simultaneously against the same plaintext. The "Mint as iQube" admin action takes a `models: ('pool' | 'sovereign')[]` array and a sovereign edition count.
+
+**Backward compatibility:** state-D path is unchanged. State-E is purely additive. If a sovereign holder later wants to surrender custody back to a pool license, that is a separate flow — Phase 5 territory or beyond.
+
+**Acceptance for E:** every state-E edition has a unique CID, a unique content key, a unique on-chain TokenQube, and a unique entry in `iq_sovereign_holders`. Transfer of the NFT transfers access on-chain. Holder-side off-platform decryption succeeds without the platform.
 
 ---
 
@@ -434,7 +565,7 @@ These are not negotiable and apply to every change:
 3. **Always `getSupabaseServer()` for new server-side Supabase access.** Never raw `createClient`.
 4. **Every push to dev carries a descriptive merge message** naming what's pushed (`merge dev: sync before pushing <thing>`).
 5. **Test the spine on five surfaces before declaring a phase done:** Brave platform, Brave thin-client (`metame.live`), Firefox platform, Firefox thin-client, mobile Safari.
-6. **Every receipt-eligible event includes `actor_root_did` in metadata.** No exceptions.
+6. **Every receipt-eligible event attributes via `aliasCommitment + cohortId`, never `personaId` or `rootDid`.** This is the privacy-first mandate. The Escrow canister mints the alias for the action, the receipt anchors it on Bitcoin (or the relevant chain), and the alias is purged when the escrow window expires. Root-DiD reputation impact is routed anonymously through FBC → RQH; the link from alias → root is held server-side only and is destroyed at escrow purge. No public surveyor of the chain can link a transaction to a persona, an authProfileId, or a real-world identity. Compliance-bearing reads of `rootDid` go through `discloseCredential` (§4.1.b), not through receipt metadata.
 7. **`NEXT_PUBLIC_*` is browser-only.** Service-role keys, master keys, and TokenQube unwrap keys never carry this prefix.
 8. **The DVN remains the authority.** Storage backend (Supabase vs AutoDrive) and chain (Base vs DVN-internal) are implementation details, not policy boundaries.
 9. **Surfaces never decide.** A surface that contains a gating check that is not a call into `evaluateAccess` is a bug.
@@ -463,43 +594,61 @@ There is no big-bang switchover. Every phase coexists with the prior baseline.
 
 The plan is complete when:
 
-- [ ] **Identity:** `resolvePersona` is the only function that produces a persona shape. Every surface uses it.
-- [ ] **Content:** every content row's openness/gating/encryption state is decidable from `getContentDescriptor`. No surface infers state from URL or filename.
+- [ ] **Identity:** `getActivePersona` is the only function that produces a persona shape. Every surface uses it. `rootDid` never appears in default surface state.
+- [ ] **Confidential disclosure:** every read of `rootDid`, investor status, KYC, or legal identity goes through `discloseCredential` with a scoped reason, emits a sync DVN receipt, and never leaks the value into client state.
+- [ ] **Content:** every content row's openness/gating/encryption state and uniqueness mode (D pool vs E sovereign) is decidable from `getContentDescriptor`. No surface infers state from URL or filename.
 - [ ] **Decision:** every gate-evaluation in the codebase is a call to `evaluateAccess`. Searching for `userOwnsAsset` outside `services/access/*` returns nothing.
 - [ ] **Encryption parity:** any row with `gating_kind IN ('payment','credential')` has `encryption_iv != ''`, regardless of storage backend.
-- [ ] **Receipts:** every receipt-eligible action emits an OrchestrationEvent with `actor_root_did` populated and a DVN ordinal anchor confirmed within 24h.
-- [ ] **Sovereignty:** for any state-D asset, ownership of the TokenQube alone (verified on-chain) is sufficient to access the payload.
+- [ ] **Receipts:** every receipt-eligible action emits an OrchestrationEvent attributed via `aliasCommitment + cohortId` (never `personaId` or `rootDid` in clear). DVN ordinal anchor confirmed within 24h for async; before-return for sync. Public chain inspection of any receipt cannot link to a persona or real-world identity.
+- [ ] **Sovereignty (D):** for any state-D asset, ownership of any pool TokenQube (verified on-chain or DVN-internal) is sufficient to access the shared payload.
+- [ ] **Sovereignty (E):** for any state-E asset, the holder's unique TokenQube unwraps the holder's unique content key, decrypting the holder's unique ciphertext. Transferring the NFT transfers access. The holder can copy the ciphertext off-platform and continue to decrypt.
 - [ ] **Spine:** persona switch on any surface synchronously clears ownership state on all open surfaces. OWNED-badge ≡ gate-allow by construction.
 - [ ] **No fallback drift:** after Phase 5 cleanup, no duplicate persona resolver, ownership fetcher, or gate evaluator remains.
 
 ---
 
-## 11. Open decisions for operator review
+## 11. Operator decisions — locked
 
-These need a call before Phase 1 starts:
+The following are settled. Phase 1 builds against them.
 
-1. **Resolver name:** `resolvePersona` vs `getActivePersona` vs `resolveCallerIdentity`. Naming sticks for the lifetime of the codebase.
-2. **`evaluateAccess` shape on receipt-eligible actions:** synchronous emit (block on DVN) or asynchronous fire-and-forget with reconciliation? Recommend async.
-3. **State-B (open iQubed) gate:** open by default to any persona, or require any-persona-token? Recommend open-by-any-token (tokenless personas still allowed via pool token issued at first access).
-4. **Cross-chain mint at promotion:** mint on the persona's primary chain only, or atomically on all 7 ref chains? Recommend primary only; bridging is a separate user-driven operation.
-5. **Pool-mode deferred mint trigger:** at entitlement grant (purchase) or at first access? Recommend entitlement-grant time for revocation simplicity.
-6. **kybe_DiD activation:** stays application-stub for now, or do we surface presence (not contents) in IdentityIQubeDrawer? Recommend stay stub until World ID adapter is in scope.
-7. **Phase 4 ordering:** mint canonical NFTs for KNYT investor SKUs at the end of alpha, or defer until post-alpha launch? This determines whether Phase 4 lands in this plan cycle or the next.
+| # | Decision | Operator call |
+|---|---|---|
+| 1 | Resolver name | **`getActivePersona`** |
+| 2 | `evaluateAccess` receipt mode | **Async by default; sync (`requireSyncReceipt: true`) opt-in for mint, transfer, payment-settle, policy-escalation, root-DiD disclosure, kybe attestation.** Decision boundary set in `services/access/policyResolvers.ts`, not per surface. |
+| 3 | State-B (open iQubed) gate | **Open-by-any-token.** Tokenless personas allowed via pool token issued at first access. |
+| 4 | Cross-chain mint at promotion | **Primary chain only** at promotion (Base for alpha). Bridging to other ref chains is a separate user-driven operation. |
+| 5 | Pool-mode deferred mint trigger | **At entitlement grant** (purchase / cohort assignment). Simpler revocation; avoids first-access latency spike. |
+| 6 | kybe_DiD activation | **Stay schema-stub** until World ID adapter is in scope. Add to backlog (see §11.a). |
+| 7 | Phase 4 ordering (canonical mint) | **Develop capability now; execute post-alpha launch.** Phases 4a (state D pool/streaming) and 4b (state E sovereign) build in this cycle but go live for KNYT investor SKUs after alpha launch is stable. |
+
+### 11.a Backlog item — kybe_DiD surface activation
+
+Captured here for routing into the next cycle:
+
+- **Trigger:** when a World ID adapter (or equivalent proof-of-personhood protocol) lands in the platform.
+- **Scope:** surface kybe_DiD *presence* (boolean) in `IdentityIQubeDrawer` — never the address, never the value.
+- **Owner:** TBD; aligns with the comprehensive identity doc backlog (`2026-04-29_identity-management-comprehensive-doc-backlog.md`).
+- **Files when ready:** `components/iqube/IdentityIQubeDrawer.tsx`; new resolver `services/identity/kybeAttestationService.ts`.
+- **Until then:** the `public.kybe_identity` table stays application-stub as documented in §15.8 of `AIGENT_DIDQUBE_IDENTITY_UPGRADE_NOTE.md`. No code reads or writes the column beyond the dev stub.
 
 ---
 
 ## 12. Sequence summary
 
 ```
-Phase 0  (1 day)   types only — operator approval gate
-Phase 1  (2 wk)    spine + first 7 consumers — eliminates today's regressions
-Phase 2  (2 wk)    Supabase encryption + decrypt proxy — closes leak
-Phase 3  (1 wk)    DVN policy hook + receipts — proves provenance
-Phase 4  (2 wk)    TokenQube on-chain proof — sovereignty live
-Phase 5  (1 wk)    cleanup + retire dead paths
+Phase 0   (1 day)   types only — operator approval gate (decisions §11 already locked)
+Phase 1   (2 wk)    spine + first 7 consumers (getActivePersona, async receipts default,
+                    discloseCredential plumbing) — eliminates today's regressions
+Phase 2   (2 wk)    Supabase WIP encryption + decrypt proxy — closes leak (state C live)
+Phase 3   (1 wk)    DVN policy hook + alias-anchored receipts (no rootDid in clear)
+Phase 4a  (2 wk)    State D: pool TokenQube on-chain proof + shared-key decrypt
+                    [develop now; activate post-alpha launch]
+Phase 4b  (2 wk)    State E: sovereign TokenQube + per-holder ciphertext
+                    [develop now; activate post-alpha launch]
+Phase 5   (1 wk)    cleanup + retire dead paths
 ```
 
-Phases 0–3 give a clean baseline that resolves every May 2026 regression without changing the storage or chain story. Phases 4–5 light up the full iQube sovereignty model on top of the same spine, asset by asset.
+Phases 0–3 give a clean baseline that resolves every May 2026 regression without changing the storage or chain story and **without ever exposing a rootDid by default**. Phases 4a and 4b light up the full iQube sovereignty model — both pool and sovereign — on top of the same spine, asset by asset, on operator schedule.
 
 ---
 
