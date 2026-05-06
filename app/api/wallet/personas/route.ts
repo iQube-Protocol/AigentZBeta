@@ -1,20 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { getCallerAuthProfileId } from '@/services/wallet/personaRepo';
 import { getMergedLinkedAuthProfileIds, getPersonaPrefs } from '@/services/wallet/multiEmailIdentity';
 
-// Anon client for validating user JWTs (service role client cannot use getUser with token)
+// Anon client for validating user JWTs (service role client cannot use getUser with token).
+// Keep on bare createClient — JWT validation hits /auth/v1/user, not the DB, so the
+// timeout guard from getSupabaseServer is unnecessary here.
 const supabaseAnon = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL || '',
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 );
 
 export const dynamic = 'force-dynamic';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
 
 type PersonaRow = {
   id: string;
@@ -88,6 +86,11 @@ export async function GET(request: NextRequest) {
     const callerAuthProfileId = await getCallerAuthProfileId(request);
     if (!callerAuthProfileId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const supabase = getSupabaseServer();
+    if (!supabase) {
+      return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
     }
 
     const { searchParams } = new URL(request.url);
