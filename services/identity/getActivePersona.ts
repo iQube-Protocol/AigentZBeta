@@ -163,28 +163,57 @@ async function listOwnedPersonas(
 // Cartridge flags
 // ─────────────────────────────────────────────────────────────────────────
 
-async function resolveAdminFlag(callerEmail: string | null): Promise<boolean> {
-  if (!callerEmail) return false;
+async function resolveAdminFlag(
+  authProfileId: string,
+  linkedAuthProfileIds: string[],
+  callerEmail: string | null,
+): Promise<boolean> {
   try {
     const admin = getAdminClient();
-    const email = callerEmail.trim().toLowerCase();
 
-    // Locate the auth profile id for this email (handles multi-email merge).
-    const { data: profile } = await admin
-      .from('crm_auth_profiles')
-      .select('id')
-      .eq('email', email)
-      .maybeSingle();
-    const authProfileId = profile?.id;
-    if (!authProfileId) return false;
+    // 1) Direct lookup against the canonical authProfileId + every multi-
+    //    email-merged linked profile in a single IN query. This matches the
+    //    behaviour of getCallerIdentityContext which has already resolved
+    //    the canonical id; we should not redo the email lookup ourselves.
+    const candidateProfileIds = Array.from(
+      new Set([authProfileId, ...linkedAuthProfileIds]),
+    );
+    if (candidateProfileIds.length > 0) {
+      const { data } = await admin
+        .from('crm_admin_roles')
+        .select('id')
+        .in('auth_profile_id', candidateProfileIds)
+        .eq('is_active', true)
+        .limit(1);
+      if (Array.isArray(data) && data.length > 0) return true;
+    }
 
-    const { data: roles } = await admin
-      .from('crm_admin_roles')
-      .select('id,is_active')
-      .eq('auth_profile_id', authProfileId)
-      .eq('is_active', true)
-      .limit(1);
-    return Array.isArray(roles) && roles.length > 0;
+    // 2) Fallback via the alias table — covers the case where the admin
+    //    role was granted against an auth_profile_id that the merge view
+    //    hasn't linked yet, but the email IS registered on it. Same path
+    //    /api/codex/admin-check uses.
+    if (callerEmail) {
+      const email = callerEmail.trim().toLowerCase();
+      const { data: aliasRows } = await admin
+        .from('crm_auth_profile_emails')
+        .select('auth_profile_id')
+        .eq('email_normalized', email)
+        .eq('status', 'active');
+      const aliasProfileIds = ((aliasRows || []) as Array<{ auth_profile_id?: string }>)
+        .map((r) => r.auth_profile_id)
+        .filter((id): id is string => !!id && !candidateProfileIds.includes(id));
+      if (aliasProfileIds.length > 0) {
+        const { data } = await admin
+          .from('crm_admin_roles')
+          .select('id')
+          .in('auth_profile_id', aliasProfileIds)
+          .eq('is_active', true)
+          .limit(1);
+        if (Array.isArray(data) && data.length > 0) return true;
+      }
+    }
+
+    return false;
   } catch {
     return false;
   }
@@ -256,7 +285,7 @@ export async function getActivePersona(
 
   // 5. Cartridge flags
   const [isAdmin, isPartner] = await Promise.all([
-    resolveAdminFlag(caller.email ?? null),
+    resolveAdminFlag(caller.authProfileId, linkedAuthProfileIds, caller.email ?? null),
     Promise.resolve(resolvePartnerFlag()),
   ]);
 
