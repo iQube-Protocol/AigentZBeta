@@ -1,4 +1,5 @@
 # Build — Changelog
+- [PR #84](https://github.com/iQube-Protocol/AigentZBeta/pull/84) — Staging (@noahbuller, 2026-05-06T14:30:24Z)
 - [`fded607`](https://github.com/iQube-Protocol/AigentZBeta/commit/fded6075707a21c8c69aaadb8a5b17356f490712) [fix] fix: add getOwnedAssetIds enumeration fallback to userOwnsAsset + deploy trigger (Claude, 2026-05-05T00:44:47Z)
 - [`388cd07`](https://github.com/iQube-Protocol/AigentZBeta/commit/388cd07a00682088200eb4d76c46304656de2d2d) [feat] backlog: add entitlement format divergence + isEpisodeLocked redesign to Phase 2 (Claude, 2026-05-05T00:25:20Z)
 - [`c1cd1d4`](https://github.com/iQube-Protocol/AigentZBeta/commit/c1cd1d4f1cb0c69549ec48f321343cd4217826f1) [docs] docs: Phase 2 SmartTriad ownership unification backlog + KNYT stabilization session update (Claude, 2026-05-04T21:57:53Z)

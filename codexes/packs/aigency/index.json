@@ -2,13 +2,22 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-05T00:46:38.665Z",
-  "latest_pr": 78,
+  "last_updated": "2026-05-06T14:32:09.768Z",
+  "latest_pr": 84,
   "latest_pr_title": "Staging",
   "latest_commit": "fded6075707a21c8c69aaadb8a5b17356f490712",
   "latest_commit_short": "fded607",
   "latest_commit_title": "fix: add getOwnedAssetIds enumeration fallback to userOwnsAsset + deploy trigger",
   "pr_history": [
+    {
+      "number": 84,
+      "title": "Staging",
+      "author": "noahbuller",
+      "merged_at": "2026-05-06T14:30:24Z",
+      "brief": "items/build_/PR/PR-84.md",
+      "has_decisions": false,
+      "has_problems": false
+    },
     {
       "number": 78,
       "title": "Staging",

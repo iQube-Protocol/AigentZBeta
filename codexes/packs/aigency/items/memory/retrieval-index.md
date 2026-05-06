@@ -704,3 +704,5 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-fded607.md](../build_/COMMITS/COMMIT-fded607.md)
 - Message: fix: add getOwnedAssetIds enumeration fallback to userOwnsAsset + deploy trigger
+## PR #84 — 2026-05-06T14:30:24Z
+- Brief: [PR-84.md](../build_/PR/PR-84.md)
