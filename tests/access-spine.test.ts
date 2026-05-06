@@ -245,6 +245,25 @@ describe('evaluateAccess', () => {
     expect(mockedOwns).not.toHaveBeenCalled();
   });
 
+  it('GN free preview (assetId=mk_ep00_*): descriptor must surface gating.kind=free', async () => {
+    // Regression test for the live verify-spine FAIL on 2026-05-06:
+    // mk_ep00_print_common returned DENY/payment-required because the
+    // category-default classifier maps content_type='episode_print' to
+    // 'payment'. The fix: getContentDescriptor overrides ep=0 to 'free'.
+    // This test exercises that the descriptor input contract is honoured
+    // by evaluateAccess (free → ALLOW/free; mockedOwns never called).
+    const ctx = makeContext();
+    const desc = makeDescriptor('A_open_unqubed', 'free', {
+      assetId: 'mk_ep00_print_common',
+      contentClass: 'gn',
+      gating: { kind: 'free', reason: 'GN free preview (episode 0)' },
+    });
+    const decision = await evaluateAccess(ctx, desc, 'read');
+    expect(decision.allow).toBe(true);
+    expect(decision.reason).toBe('free');
+    expect(mockedOwns).not.toHaveBeenCalled();
+  });
+
   it('FREE state-B (open iqubed): ALLOW; PDF -> page-image-proxy, video -> decrypt-stream', async () => {
     const ctx = makeContext();
     const pdf = makeDescriptor('B_open_iqubed', 'free', { contentClass: 'episode_print' });
