@@ -47,6 +47,21 @@ type InspectResult = {
   error?: string;
 };
 
+type AssetListEntry = {
+  id: string;
+  content_type?: string | null;
+  asset_kind?: string | null;
+  episode_number: number | null;
+  gating_kind: string | null;
+};
+type AssetListResponse = {
+  filters?: { prefix: string; source: string; limit: number };
+  counts?: { masters: number; assets: number };
+  masters?: AssetListEntry[];
+  assets?: AssetListEntry[];
+  error?: string;
+};
+
 const ACTIONS = [
   'read', 'watch', 'listen', 'invoke', 'connect', 'remix',
   'mint', 'transfer', 'payment-settle', 'policy-escalation', 'disclosure',
@@ -60,6 +75,9 @@ export default function AccessInspectPage() {
   const [status, setStatus] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [browsePrefix, setBrowsePrefix] = useState('');
+  const [browseResult, setBrowseResult] = useState<AssetListResponse | null>(null);
+  const [browseLoading, setBrowseLoading] = useState(false);
 
   const inspect = useCallback(async () => {
     if (!cidOrAsset.trim()) {
@@ -97,6 +115,43 @@ export default function AccessInspectPage() {
       setLoading(false);
     }
   }, [cidOrAsset, keyKind, action]);
+
+  const browseAssets = useCallback(async () => {
+    setBrowseLoading(true);
+    setBrowseResult(null);
+    try {
+      let authHeaders: Record<string, string> = {};
+      try {
+        const { getSupabaseBrowserClient } = await import('@/utils/supabaseBrowser');
+        const { data } = await getSupabaseBrowserClient().auth.getSession();
+        if (data.session?.access_token) {
+          authHeaders = { Authorization: `Bearer ${data.session.access_token}` };
+        }
+      } catch { /* fall through */ }
+      const params = new URLSearchParams();
+      if (browsePrefix.trim()) params.set('prefix', browsePrefix.trim());
+      params.set('limit', '50');
+      const res = await fetch(`/api/access/list-assets?${params.toString()}`, {
+        credentials: 'include',
+        headers: { Accept: 'application/json', ...authHeaders },
+      });
+      const json = (await res.json()) as AssetListResponse;
+      if (!res.ok) {
+        setBrowseResult({ error: json.error ?? `HTTP ${res.status}` });
+      } else {
+        setBrowseResult(json);
+      }
+    } catch (e: unknown) {
+      setBrowseResult({ error: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBrowseLoading(false);
+    }
+  }, [browsePrefix]);
+
+  const pickAsset = (id: string) => {
+    setKeyKind('assetId');
+    setCidOrAsset(id);
+  };
 
   return (
     <div style={{
@@ -220,6 +275,101 @@ export default function AccessInspectPage() {
           </pre>
         </>
       )}
+
+      <details style={{ marginTop: 24, fontSize: 12, color: '#d1d5db' }}>
+        <summary style={{ cursor: 'pointer', color: '#a78bfa' }}>
+          Browse assets (admin only) — find a real assetId to test
+        </summary>
+        <div style={{ marginTop: 12 }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            <input
+              value={browsePrefix}
+              onChange={(e) => setBrowsePrefix(e.target.value)}
+              placeholder="prefix filter (e.g. mk_ep01) — leave empty for first 50"
+              style={{
+                flex: 1,
+                padding: '6px 10px',
+                background: '#111',
+                color: '#e5e7eb',
+                border: '1px solid #333',
+                fontFamily: 'inherit',
+              }}
+              onKeyDown={(e) => { if (e.key === 'Enter') browseAssets(); }}
+            />
+            <button
+              onClick={browseAssets}
+              disabled={browseLoading}
+              style={{
+                padding: '6px 16px',
+                background: browseLoading ? '#333' : '#a78bfa',
+                color: '#0b0b0e',
+                border: 'none',
+                cursor: browseLoading ? 'default' : 'pointer',
+                fontWeight: 600,
+              }}
+            >
+              {browseLoading ? '…' : 'List'}
+            </button>
+          </div>
+          {browseResult?.error && (
+            <div style={{ padding: 12, background: '#3f1d1d', color: '#fca5a5', fontSize: 13 }}>
+              {browseResult.error}
+            </div>
+          )}
+          {browseResult?.masters && browseResult.masters.length > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4 }}>
+                master_content_qubes ({browseResult.masters.length})
+              </div>
+              {browseResult.masters.map((m) => (
+                <div
+                  key={m.id}
+                  onClick={() => pickAsset(m.id)}
+                  style={{
+                    padding: '4px 8px',
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    borderBottom: '1px solid #1f2937',
+                  }}
+                  title="click to load into the input"
+                >
+                  <span style={{ color: '#34d399' }}>{m.id}</span>
+                  <span style={{ color: '#9ca3af' }}>
+                    {' · '}ep={m.episode_number}{' · '}{m.content_type}{' · gating='}
+                    {m.gating_kind ?? '(default)'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          {browseResult?.assets && browseResult.assets.length > 0 && (
+            <div>
+              <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 4 }}>
+                codex_media_assets ({browseResult.assets.length})
+              </div>
+              {browseResult.assets.map((a) => (
+                <div
+                  key={a.id}
+                  onClick={() => pickAsset(a.id)}
+                  style={{
+                    padding: '4px 8px',
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    borderBottom: '1px solid #1f2937',
+                  }}
+                  title="click to load into the input"
+                >
+                  <span style={{ color: '#60a5fa' }}>{a.id}</span>
+                  <span style={{ color: '#9ca3af' }}>
+                    {' · '}ep={a.episode_number}{' · '}{a.asset_kind}{' · gating='}
+                    {a.gating_kind ?? '(default)'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </details>
 
       <details style={{ marginTop: 24, fontSize: 12, color: '#9ca3af' }}>
         <summary style={{ cursor: 'pointer' }}>One-liner for DevTools console</summary>
