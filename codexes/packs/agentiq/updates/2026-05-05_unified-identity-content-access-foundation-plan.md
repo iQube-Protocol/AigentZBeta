@@ -727,6 +727,32 @@ These follow from Decision §11.4. They are not new work in Phase 4; they are co
 4. **State-E sovereign holders may bridge off-platform custody.** Because state-E ciphertext and the per-holder wrapped-key blob are both content-addressed, bridging the on-chain NFT to a different chain or copying the ciphertext to a holder-chosen storage backend does not require platform action. The holder retains decryption capability regardless of where the NFT lives or where the ciphertext is stored. This is the sovereignty guarantee.
 5. **Receipt anchoring after bridge** continues to attribute via `aliasCommitment + cohortId` per §4.4. The chain on which the alias is anchored may differ from the chain on which the TokenQube is currently held — these are independent.
 
+### 11.e Backlog item — retire the debug-endpoint auth bypass; replace with first-class operator inspection
+
+**Status (2026-05-05, current):** during Phase 1.4 spine verification a tactical bypass was hardcoded ON in `services/access/debugBypass.ts` (`isDebugBypassEnabled()` returns `true`). It affects ONLY the three debug endpoints — `/api/access/inspect`, `/api/access/whoami`, `/api/access/list-assets` — and never the four content-delivery gates or `/api/wallet/active-persona`. The bypass was operator-authorised to unblock spine verification when the auth flow was fighting them.
+
+**Operator principle (2026-05-05):** a bypass is itself an IAM anti-pattern. The whole purpose of this workstream is to eliminate exactly this kind of emergency mechanism. The bypass is therefore tracked as a workstream item, not as a forget-me revert.
+
+**Resolution (Phase 5 territory):** spine-native operator inspection. Replace the bypass with:
+
+1. **A first-class "operator inspect" capability resolved through the spine itself.** The active persona's `cartridgeFlags.canInspectAccess` (new flag, granted via `crm_admin_roles` with a new `inspect-access` role) gates the three debug endpoints. No bypass, no env var — the spine answers "is this caller allowed to inspect?" the same way it answers every other access question.
+2. **A persona-impersonation affordance for admin-grade debug.** Inspect endpoints accept an `?asPersonaId=<uuid>` query param honoured only when `cartridgeFlags.canImpersonateForDebug` is true. The synthesised context is the impersonated persona's real context (with the impersonator's authProfileId stamped on every emitted receipt). This is how the operator tests "what would persona X see?" without bypassing auth.
+3. **Receipt anchoring on every debug call.** Inspect/whoami/list-assets calls become receipt-eligible actions of action type `disclosure` (already in the `AccessAction` union, sync-receipt by §11.2). The DVN audit trail records every operator inspection — both the impersonator's persona and the impersonated target are anchored via cohort alias commitments.
+4. **Restoration of strict auth on the three debug endpoints.** `isDebugBypassEnabled()` removed entirely (or hardcoded to return false). The auth wall is back; the inspection capability comes from the persona's role, not from the absence of a wall.
+
+**Why this fits the spine philosophy:** every "who can do what" question — including operator debug — flows through the same `getActivePersona` + `evaluateAccess` chain. There is no "second auth path for ops." Operator inspection is a permission, not a hole.
+
+**Acceptance:**
+- `services/access/debugBypass.ts` deleted (or `isDebugBypassEnabled()` returns false unconditionally)
+- `cartridgeFlags.canInspectAccess` and `cartridgeFlags.canImpersonateForDebug` added to `ActivePersonaContext` and `ActivePersonaSurface`
+- Inspect/whoami/list-assets gated by `canInspectAccess`; impersonation gated by `canImpersonateForDebug`; both checked through `evaluateAccess`
+- Every inspection call emits a sync DVN receipt with `disclosure` action; alias-anchored per §4.4
+- Operator can hit `/api/access/whoami` from a non-admin persona and get 403 (not 401), proving the gate is working at the role layer not the auth layer
+
+**Predecessors:** the bypass commits in this workstream — `a780cf4` (env-gated) and `5e5c2d0` (hardcoded ON) — are the artifacts to retire.
+
+---
+
 ### 11.d Backlog item — bounded delegation: agent identifiability floor from operator
 
 **Operator concern (raised on v3 review):** an Aigent persona delegated by a human operator must not present a higher identifiability than its operator currently does. If the operator's persona is `anonymous`, an agent acting on their behalf cannot disclose at `identifiable` even if the agent's own declared identifiability would allow it. This is the canonical rule from `AIGENT_DIDQUBE_IDENTITY_UPGRADE_NOTE.md` §6 ("an Aigent should mirror its owner's or client's identifiability policy directly as a delegate") and §7 ("personas may vary, accountability must persist").
