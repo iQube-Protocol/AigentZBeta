@@ -50,7 +50,39 @@ export async function GET(request: NextRequest) {
 
     const entitlementService = getEntitlementService();
     const entitlements = await entitlementService.getPersonaEntitlements(resolvedPersonaId);
-    
+
+    // Pre-fetch all metaKnyts cover/character thumbnails into a lookup map.
+    // Mirrors /api/knyt/thumbnails exactly (same series + status + asset_kind
+    // filters and same ordering) so the wallet/shelf show identical thumbs to
+    // the store. Doing it once here also collapses the per-entitlement lookups
+    // the episode branch used to do.
+    const { data: thumbAssets } = await supabase
+      .from('codex_media_assets')
+      .select('episode_number, asset_kind, cover_thumb_url, auto_drive_cid, rarity_tier, title')
+      .eq('series', 'metaKnyts')
+      .eq('status', 'active')
+      .in('asset_kind', ['cover_image', 'cover_pdf', 'character_poster'])
+      .order('episode_number', { ascending: true })
+      .order('asset_kind', { ascending: true })
+      .order('created_at', { ascending: false });
+
+    // dbEp -> first resolved cover (cover_image preferred over cover_pdf because
+    // of the asset_kind ASC ordering above; newest upload wins per kind).
+    const coverByDbEp = new Map<number, { cover_thumb_url: string | null; auto_drive_cid: string | null; rarity_tier: string | null }>();
+    for (const a of thumbAssets ?? []) {
+      const ak = a.asset_kind as string | null;
+      if (ak !== 'cover_image' && ak !== 'cover_pdf') continue;
+      const ep = a.episode_number as number | null;
+      if (ep === null || ep === undefined) continue;
+      if (!coverByDbEp.has(ep)) {
+        coverByDbEp.set(ep, {
+          cover_thumb_url: (a.cover_thumb_url as string | null) ?? null,
+          auto_drive_cid:  (a.auto_drive_cid as string | null) ?? null,
+          rarity_tier:     (a.rarity_tier as string | null) ?? null,
+        });
+      }
+    }
+
     // Enrich entitlements with asset metadata
     const enrichedEntitlements = await Promise.all(
       entitlements.map(async (ent) => {
@@ -183,43 +215,23 @@ export async function GET(request: NextRequest) {
             // Episode asset. Two id conventions appear here:
             //   pricing convention (cart writes): episode-2-qripto-still → epNum=2 → db ep=3
             //   db convention (master_content_qubes): mk_ep02_print_common → epNum=2 → db ep=2
-            // Query both candidates and prefer the right convention based on the prefix.
+            // Look up both candidates in the pre-fetched thumbnail map so we
+            // never miss a cover the store would have shown.
             const epNumExtracted = parseInt(epMatch[1], 10);
             const dbEp = epIsDbConvention ? epNumExtracted : epNumExtracted + 1;
             const altEp = epIsDbConvention ? epNumExtracted + 1 : epNumExtracted;
             const displayEp = epIsDbConvention ? epNumExtracted - 1 : epNumExtracted;
             const isMotion = assetId.toLowerCase().includes('motion');
 
-            const { data: epAssets } = await supabase
-              .from('codex_media_assets')
-              .select('id, title, asset_kind, rarity_tier, auto_drive_cid, cover_thumb_url, episode_number')
-              .eq('series', 'metaKnyts')
-              .eq('status', 'active')
-              .in('episode_number', [dbEp, altEp])
-              .in('asset_kind', ['motion_master', 'print_rare', 'print_epic', 'print_legendary', 'cover_image', 'cover_pdf'])
-              .order('asset_kind', { ascending: true })
-              .order('created_at', { ascending: false })
-              .limit(12);
-
-            const dbRows = (epAssets || []).filter((a) => a.episode_number === dbEp);
-            const altRows = (epAssets || []).filter((a) => a.episode_number === altEp);
-            const chosenAssets = dbRows.length > 0 ? dbRows : altRows;
-
-            const printAsset = chosenAssets.find((a) => a.asset_kind?.startsWith('print_'));
-            const coverType = printAsset
-              ? printAsset.asset_kind?.replace('print_', '').toUpperCase()
-              : (isMotion ? 'MOTION' : 'RARE');
-            const motionAsset = chosenAssets.find((a) => a.asset_kind === 'motion_master');
-            const coverAsset = chosenAssets.find((a) => a.asset_kind === 'cover_image')
-              || chosenAssets.find((a) => a.asset_kind === 'cover_pdf');
-            const bestAsset = coverAsset || printAsset;
-            const { coverUrl, coverCid } = resolveAssetThumb(bestAsset);
+            const cover = coverByDbEp.get(dbEp) || coverByDbEp.get(altEp);
+            const { coverUrl, coverCid } = resolveAssetThumb(cover);
+            const rarity = cover?.rarity_tier?.toUpperCase();
+            const coverType = isMotion ? 'MOTION' : (rarity || 'RARE');
 
             assetMeta = {
               title: `Episode ${displayEp}`,
               episodeNumber: displayEp,
-              coverType: isMotion ? 'MOTION' : coverType,
-              autoDriveCid: motionAsset?.auto_drive_cid,
+              coverType,
               coverUrl,
               coverCid,
               isMotion,
@@ -246,19 +258,8 @@ export async function GET(request: NextRequest) {
             let bundleCoverUrl: string | undefined;
             let bundleCoverCid: string | undefined;
             if (repDbEp !== null) {
-              const { data: epAssets } = await supabase
-                .from('codex_media_assets')
-                .select('id, asset_kind, auto_drive_cid, cover_thumb_url, episode_number')
-                .in('episode_number', [repDbEp, repDbEp - 1])
-                .in('asset_kind', ['cover_image', 'cover_pdf', 'print_rare', 'print_epic', 'print_legendary'])
-                .limit(6);
-
-              const dbCover = (epAssets || []).find((a) => a.episode_number === repDbEp && a.asset_kind === 'cover_image')
-                || (epAssets || []).find((a) => a.episode_number === repDbEp && a.asset_kind === 'cover_pdf')
-                || (epAssets || []).find((a) => a.episode_number === repDbEp);
-              const fallbackCover = (epAssets || []).find((a) => a.asset_kind === 'cover_image')
-                || (epAssets || [])[0];
-              const resolved = resolveAssetThumb(dbCover || fallbackCover);
+              const cover = coverByDbEp.get(repDbEp) || coverByDbEp.get(repDbEp - 1);
+              const resolved = resolveAssetThumb(cover);
               bundleCoverUrl = resolved.coverUrl;
               bundleCoverCid = resolved.coverCid;
             }
