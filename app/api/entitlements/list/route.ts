@@ -192,9 +192,13 @@ export async function GET(request: NextRequest) {
 
             const { data: epAssets } = await supabase
               .from('codex_media_assets')
-              .select('id, title, asset_kind, rarity, auto_drive_cid, cover_thumb_url, episode_number')
+              .select('id, title, asset_kind, rarity_tier, auto_drive_cid, cover_thumb_url, episode_number')
+              .eq('series', 'metaKnyts')
+              .eq('status', 'active')
               .in('episode_number', [dbEp, altEp])
               .in('asset_kind', ['motion_master', 'print_rare', 'print_epic', 'print_legendary', 'cover_image', 'cover_pdf'])
+              .order('asset_kind', { ascending: true })
+              .order('created_at', { ascending: false })
               .limit(12);
 
             const dbRows = (epAssets || []).filter((a) => a.episode_number === dbEp);
