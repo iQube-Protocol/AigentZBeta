@@ -185,13 +185,16 @@ export async function getContentDescriptor(
   if (!assetId || typeof assetId !== 'string') return null;
 
   // 1) master_content_qubes (TEXT pk, e.g. mk_ep00_print_common)
+  //
+  // Use select('*') so the query succeeds regardless of which optional
+  // columns (gating_kind, gating_credential, mint_status, pdf_lite_url)
+  // exist on the deployed schema. PostgREST silently returns data:null
+  // when ANY referenced column is missing — so a strict explicit select
+  // becomes a brittle dependency on migration order. Reading optional
+  // fields defensively from the row is the resilient path.
   const { data: masterRaw } = await db()
     .from('master_content_qubes')
-    .select(
-      'id,content_type,episode_number,series,auto_drive_cid,pdf_lite_url,' +
-        'encryption_iv,encryption_auth_tag,token_qube_id,meta_qube_id,blak_qube_id,' +
-        'gating_kind,gating_credential,mint_status',
-    )
+    .select('*')
     .eq('id', assetId)
     .maybeSingle();
   const master = masterRaw as MasterQubeRow | null;
@@ -242,14 +245,10 @@ export async function getContentDescriptor(
     };
   }
 
-  // 2) codex_media_assets (UUID pk)
+  // 2) codex_media_assets (UUID pk) — same select('*') resilience
   const { data: assetRaw } = await db()
     .from('codex_media_assets')
-    .select(
-      'id,asset_kind,episode_number,series,auto_drive_cid,' +
-        'encryption_iv,encryption_auth_tag,token_qube_id,meta_qube_id,blak_qube_id,' +
-        'gating_kind,gating_credential,mint_status',
-    )
+    .select('*')
     .eq('id', assetId)
     .maybeSingle();
   const asset = assetRaw as MediaAssetRow | null;

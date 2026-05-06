@@ -73,10 +73,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     assets: Array<{ id: string; asset_kind: string | null; episode_number: number | null; gating_kind: string | null }>;
   } = { masters: [], assets: [] };
 
+  // select('*') because PostgREST silently returns null on any missing
+  // column, and gating_kind / gating_credential / mint_status are added
+  // by scripts that may not have been applied on every environment yet.
+  // Reading the columns we need defensively from the row is the resilient
+  // path; over-fetching a few columns is cheap.
   if (source === 'master' || source === 'both') {
     let q = supabase
       .from('master_content_qubes')
-      .select('id, content_type, episode_number, gating_kind, series')
+      .select('*')
       .order('id', { ascending: true })
       .limit(limit);
     if (prefix) {
@@ -87,13 +92,20 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       );
     }
     const { data } = await q;
-    out.masters = (data || []) as typeof out.masters;
+    const rows = (data || []) as Array<Record<string, unknown>>;
+    out.masters = rows.map((r) => ({
+      id: String(r.id ?? ''),
+      content_type: (r.content_type as string | null) ?? null,
+      episode_number: (r.episode_number as number | null) ?? null,
+      gating_kind: (r.gating_kind as string | null) ?? null,
+      series: (r.series as string | null) ?? null,
+    }));
   }
 
   if (source === 'asset' || source === 'both') {
     let q = supabase
       .from('codex_media_assets')
-      .select('id, asset_kind, episode_number, gating_kind, series')
+      .select('*')
       .order('episode_number', { ascending: true, nullsFirst: false })
       .limit(limit);
     if (prefix) {
@@ -102,7 +114,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       );
     }
     const { data } = await q;
-    out.assets = (data || []) as typeof out.assets;
+    const rows = (data || []) as Array<Record<string, unknown>>;
+    out.assets = rows.map((r) => ({
+      id: String(r.id ?? ''),
+      asset_kind: (r.asset_kind as string | null) ?? null,
+      episode_number: (r.episode_number as number | null) ?? null,
+      gating_kind: (r.gating_kind as string | null) ?? null,
+      series: (r.series as string | null) ?? null,
+    }));
   }
 
   return NextResponse.json(
