@@ -15,6 +15,10 @@ import { unwrapKeyWithMasterKey, decryptContent } from '../../../../../server/se
 import { getCachedImage, setCachedImage } from './cache';
 import sharp from 'sharp';
 
+import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getContentDescriptorByCid } from '@/services/content/getContentDescriptor';
+import { evaluateAccess } from '@/services/access/evaluateAccess';
+
 export const runtime = 'nodejs';
 
 // CORS headers for cross-origin requests from thin client
@@ -47,6 +51,63 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     if (!cid) {
       return withCors(NextResponse.json({ error: 'CID required' }, { status: 400 }));
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Spine gate — Phase 1.4 consumer migration #2
+    //
+    // Most covers are state A (free, plain redirect) so the gate
+    // returns ALLOW for them. The principle is that EVERY content
+    // delivery — even a public cover thumbnail — flows through
+    // evaluateAccess so we have a single audit seam.
+    //
+    // Shadow-log default; ACCESS_SPINE_ENFORCE=1 enforces. Same
+    // posture as the PDF migration. Failure mode: shadow logs and
+    // falls through; enforce fails closed.
+    // ─────────────────────────────────────────────────────────────────
+    const enforceGate = process.env.ACCESS_SPINE_ENFORCE === '1';
+    try {
+      const descriptor = await getContentDescriptorByCid(cid);
+      if (descriptor) {
+        const context = await getActivePersona(req);
+        if (!context) {
+          console.log(
+            `[CoverStream] spine: unauthenticated cid=${cid} ` +
+            `(asset=${descriptor.assetId}, state=${descriptor.state}, ` +
+            `gating=${descriptor.gating.kind}); enforce=${enforceGate}`,
+          );
+          if (enforceGate && descriptor.gating.kind !== 'free') {
+            return withCors(NextResponse.json(
+              { error: 'unauthenticated' },
+              { status: 403, headers: { 'X-Access-Denied': 'unauthenticated' } },
+            ));
+          }
+        } else {
+          const decision = await evaluateAccess(context, descriptor, 'read');
+          console.log(
+            `[CoverStream] spine: cid=${cid} asset=${descriptor.assetId} ` +
+            `state=${descriptor.state} gating=${descriptor.gating.kind} ` +
+            `decision=${decision.allow ? 'ALLOW' : 'DENY'}/${decision.reason} ` +
+            `enforce=${enforceGate}`,
+          );
+          if (enforceGate && !decision.allow) {
+            return withCors(NextResponse.json(
+              { error: decision.reason },
+              { status: 403, headers: { 'X-Access-Denied': decision.reason } },
+            ));
+          }
+        }
+      } else {
+        console.log(`[CoverStream] spine: no descriptor for cid=${cid}; gate skipped`);
+      }
+    } catch (gateErr) {
+      console.error('[CoverStream] spine: gate threw:', gateErr);
+      if (enforceGate) {
+        return withCors(NextResponse.json(
+          { error: 'gate-error' },
+          { status: 503, headers: { 'X-Access-Denied': 'gate-error' } },
+        ));
+      }
     }
 
     // Supabase-hosted asset: cid is the public URL — redirect directly, no decryption
