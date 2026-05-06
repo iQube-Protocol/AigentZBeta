@@ -76,10 +76,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (source === 'master' || source === 'both') {
     let q = supabase
       .from('master_content_qubes')
-      .select('id, content_type, episode_number, gating_kind')
+      .select('id, content_type, episode_number, gating_kind, series')
       .order('id', { ascending: true })
       .limit(limit);
-    if (prefix) q = q.ilike('id', `${prefix}%`);
+    if (prefix) {
+      // Multi-column substring match: id, series, content_type. Operator
+      // can type 'mk_ep00', 'metaKnyts', or 'episode_motion' and find rows.
+      q = q.or(
+        `id.ilike.%${prefix}%,series.ilike.%${prefix}%,content_type.ilike.%${prefix}%`,
+      );
+    }
     const { data } = await q;
     out.masters = (data || []) as typeof out.masters;
   }
@@ -87,10 +93,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   if (source === 'asset' || source === 'both') {
     let q = supabase
       .from('codex_media_assets')
-      .select('id, asset_kind, episode_number, gating_kind')
+      .select('id, asset_kind, episode_number, gating_kind, series')
       .order('episode_number', { ascending: true, nullsFirst: false })
       .limit(limit);
-    if (prefix) q = q.ilike('asset_kind', `${prefix}%`);
+    if (prefix) {
+      q = q.or(
+        `id.ilike.%${prefix}%,series.ilike.%${prefix}%,asset_kind.ilike.%${prefix}%`,
+      );
+    }
     const { data } = await q;
     out.assets = (data || []) as typeof out.assets;
   }
