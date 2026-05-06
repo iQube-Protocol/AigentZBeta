@@ -57,9 +57,23 @@ export function useActivePersona(): UseActivePersonaResult {
     setLoading(true);
     setError(null);
     try {
+      // Acquire the Supabase access token the same way the rest of the
+      // platform does (see PersonaSelector.tsx:getAuthHeaders, SmartWalletDrawer
+      // line 703–706). Browser navigations don't carry this token; only
+      // explicit fetches do. The /api/wallet/active-persona route resolves
+      // the caller via getCallerIdentityContext which expects the Bearer.
+      let authHeaders: Record<string, string> = {};
+      try {
+        const { getSupabaseBrowserClient } = await import('@/utils/supabaseBrowser');
+        const { data } = await getSupabaseBrowserClient().auth.getSession();
+        if (data.session?.access_token) {
+          authHeaders = { Authorization: `Bearer ${data.session.access_token}` };
+        }
+      } catch { /* unauthenticated browsing; the route will return 401 */ }
+
       const res = await fetch(ACTIVE_PERSONA_ENDPOINT, {
         credentials: "include",
-        headers: { Accept: "application/json" },
+        headers: { Accept: "application/json", ...authHeaders },
         signal,
       });
       if (signal?.aborted) return;
