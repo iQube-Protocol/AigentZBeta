@@ -727,6 +727,26 @@ These follow from Decision §11.4. They are not new work in Phase 4; they are co
 4. **State-E sovereign holders may bridge off-platform custody.** Because state-E ciphertext and the per-holder wrapped-key blob are both content-addressed, bridging the on-chain NFT to a different chain or copying the ciphertext to a holder-chosen storage backend does not require platform action. The holder retains decryption capability regardless of where the NFT lives or where the ciphertext is stored. This is the sovereignty guarantee.
 5. **Receipt anchoring after bridge** continues to attribute via `aliasCommitment + cohortId` per §4.4. The chain on which the alias is anchored may differ from the chain on which the TokenQube is currently held — these are independent.
 
+### 11.c Backlog item — subpoena-resistant T1→T0 (zero-knowledge session resolution)
+
+**Operator concern (raised on v3 review):** the plan as written has the AigentZ server able to reverse `personaSessionToken` (T1) back to `personaId` (T0). That is the design intent today — the server needs to gate access — but it leaves the platform itself as a single point of compelled disclosure. A subpoena, an insider, or a compromised key could in principle re-link a T1 token to a persona UUID.
+
+**Goal:** make T1→T0 resolution un-performable by the platform alone, even with full DB and server-key access.
+
+**Sketch of approaches (to be evaluated when this work is in scope):**
+
+- **Holder-side resolution** — the T1 token is a commitment that can only be opened with a key held in the holder's wallet (not by AigentZ). Server-side gating becomes a zero-knowledge proof flow: the holder proves "I am the persona that owns asset X" without revealing which persona. Threshold or MPC scheme so that no single party (including AigentZ) can complete the resolution.
+- **Per-tx blinded session tokens** — instead of a single rotating T1 token, every server request carries a fresh blinded credential derived from a holder-held secret. The server verifies the credential without learning the underlying personaId. Similar to anonymous credentials (Brands, Camenisch-Lysyanskaya) or BBS+ signatures.
+- **ICP-anchored proof gate** — defer resolution to an ICP canister that holds the only mapping; AigentZ never has it. The canister enforces policy (e.g. only the holding wallet can request a resolution; rate-limited; auditable). This shifts the trust boundary to ICP's permissionless governance rather than AigentZ.
+
+**Status:** backlog. None of the above is required for Phase 1–5 as currently planned; the v3 architecture is already a substantial privacy upgrade over today's "personaId in localStorage and URL" baseline. This row records the operator's intent to harden further once the foundational work is stable.
+
+**Predecessors:** the wallet-alias / DVN OTA scheme (`2026-04-29_plaintext-wallet-address-deprecation.md`) is the closest existing model in the codebase. It is a useful starting reference for any zero-knowledge T1→T0 design.
+
+**Acceptance (when this lands):** even with full read access to AigentZ's database, server-side keys, and source code, an adversary cannot construct a working T1→T0 mapping for any persona. Only the holder can authorise a resolution.
+
+---
+
 ### 11.a Backlog item — kybe_DiD surface activation
 
 Captured here for routing into the next cycle:
