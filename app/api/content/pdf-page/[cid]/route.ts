@@ -145,14 +145,14 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     if (!descriptor) {
       // No descriptor = unknown asset. Today's behaviour is to 404 below
       // when findAssetByCid returns null. Skip the gate; fall through.
-      console.log(`[PdfPage] spine: no descriptor for cid=${cid}; gate skipped`);
+      console.log(`[SPINE] route=pdf-page result=skip cid=${cid} reason=no-descriptor`);
     } else {
       const context = await getActivePersona(req);
       if (!context) {
         console.log(
-          `[PdfPage] spine: unauthenticated caller for cid=${cid} ` +
-          `(asset=${descriptor.assetId}, state=${descriptor.state}, ` +
-          `gating=${descriptor.gating.kind}); enforce=${enforceGate}`,
+          `[SPINE] route=pdf-page result=unauthenticated cid=${cid} ` +
+          `asset=${descriptor.assetId} state=${descriptor.state} ` +
+          `gating=${descriptor.gating.kind} enforce=${enforceGate}`,
         );
         if (enforceGate && descriptor.gating.kind !== 'free') {
           return new NextResponse(new Uint8Array(PLACEHOLDER_PNG), {
@@ -168,9 +168,9 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       } else {
         const decision = await evaluateAccess(context, descriptor, 'read');
         console.log(
-          `[PdfPage] spine: cid=${cid} asset=${descriptor.assetId} ` +
+          `[SPINE] route=pdf-page result=${decision.allow ? 'ALLOW' : 'DENY'} ` +
+          `reason=${decision.reason} cid=${cid} asset=${descriptor.assetId} ` +
           `state=${descriptor.state} gating=${descriptor.gating.kind} ` +
-          `decision=${decision.allow ? 'ALLOW' : 'DENY'}/${decision.reason} ` +
           `enforce=${enforceGate}`,
         );
         if (enforceGate && !decision.allow) {
@@ -190,7 +190,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     // Never let a gate failure break a previously-working flow.
     // Log loudly; fall through to the legacy path so behaviour is
     // unchanged in shadow-log mode. In enforce mode, fail closed.
-    console.error('[PdfPage] spine: gate threw:', gateErr);
+    console.error('[SPINE] route=pdf-page result=ERROR', gateErr);
     if (enforceGate) {
       return new NextResponse(new Uint8Array(PLACEHOLDER_PNG), {
         status: 503,
