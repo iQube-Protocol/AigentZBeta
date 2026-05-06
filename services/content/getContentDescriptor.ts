@@ -192,11 +192,20 @@ export async function getContentDescriptor(
   // when ANY referenced column is missing — so a strict explicit select
   // becomes a brittle dependency on migration order. Reading optional
   // fields defensively from the row is the resilient path.
-  const { data: masterRaw } = await db()
+  const { data: masterRaw, error: masterErr } = await db()
     .from('master_content_qubes')
     .select('*')
     .eq('id', assetId)
     .maybeSingle();
+  if (masterErr) {
+    // Don't silently null — operator needs to see transient errors so
+    // 'descriptor not found' on a known-good asset is distinguishable
+    // from 'rate-limited' / 'cold-start timeout' / 'transient supabase'.
+    console.warn(
+      `[getContentDescriptor] master_content_qubes error assetId=${assetId} ` +
+      `code=${masterErr.code ?? '?'} message=${masterErr.message ?? '?'}`,
+    );
+  }
   const master = masterRaw as MasterQubeRow | null;
 
   if (master) {
@@ -206,6 +215,19 @@ export async function getContentDescriptor(
       gating_credential: master.gating_credential ?? null,
       contentType: master.content_type,
     });
+
+    // GN free-preview convention: episode 0 of any series is the free
+    // preview / graphic novel and must be reachable without payment. The
+    // category-default classifier maps content_type='episode_print' to
+    // 'payment' — true for ep1+ but wrong for ep0. Override here.
+    //
+    // This matches the convention already enforced in
+    // services/rewards/assetOwnership.userOwnsAsset which short-circuits
+    // ep=0 as 'always owned'. The two paths now agree.
+    if (master.episode_number === 0 && gating.kind !== 'free') {
+      gating.kind = 'free';
+      gating.reason = 'GN free preview (episode 0)';
+    }
     const pointer = derivePreferredPointer(master.auto_drive_cid, master.pdf_lite_url);
     const hasEncryption = !!master.encryption_iv;
     const storagePointer = pointer
@@ -246,11 +268,17 @@ export async function getContentDescriptor(
   }
 
   // 2) codex_media_assets (UUID pk) — same select('*') resilience
-  const { data: assetRaw } = await db()
+  const { data: assetRaw, error: assetErr } = await db()
     .from('codex_media_assets')
     .select('*')
     .eq('id', assetId)
     .maybeSingle();
+  if (assetErr) {
+    console.warn(
+      `[getContentDescriptor] codex_media_assets error assetId=${assetId} ` +
+      `code=${assetErr.code ?? '?'} message=${assetErr.message ?? '?'}`,
+    );
+  }
   const asset = assetRaw as MediaAssetRow | null;
   if (!asset) return null;
 
@@ -315,20 +343,32 @@ export async function getContentDescriptorByCid(
   if (!cid) return null;
 
   // 1) master_content_qubes — pdf_lite_url and auto_drive_cid both candidates
-  const { data: masterRaw } = await db()
+  const { data: masterRaw, error: masterErr } = await db()
     .from('master_content_qubes')
     .select('id')
     .or(`auto_drive_cid.eq.${cid},pdf_lite_url.eq.${cid}`)
     .maybeSingle();
+  if (masterErr) {
+    console.warn(
+      `[getContentDescriptorByCid] master_content_qubes lookup error cid=${cid.slice(0, 16)} ` +
+      `code=${masterErr.code ?? '?'} message=${masterErr.message ?? '?'}`,
+    );
+  }
   const masterId = (masterRaw as { id?: string } | null)?.id;
   if (masterId) return getContentDescriptor(masterId);
 
   // 2) codex_media_assets — auto_drive_cid only
-  const { data: assetRaw } = await db()
+  const { data: assetRaw, error: assetErr } = await db()
     .from('codex_media_assets')
     .select('id')
     .eq('auto_drive_cid', cid)
     .maybeSingle();
+  if (assetErr) {
+    console.warn(
+      `[getContentDescriptorByCid] codex_media_assets lookup error cid=${cid.slice(0, 16)} ` +
+      `code=${assetErr.code ?? '?'} message=${assetErr.message ?? '?'}`,
+    );
+  }
   const assetId = (assetRaw as { id?: string } | null)?.id;
   if (assetId) return getContentDescriptor(assetId);
 
