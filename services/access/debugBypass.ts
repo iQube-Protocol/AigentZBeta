@@ -15,13 +15,15 @@
  *   /api/wallet/active-persona     (real T1 surface issuer)
  *   ...and every other gated route in the platform.
  *
- * Toggle: set ACCESS_DEBUG_OPEN=1 in the deployment environment to
- * enable the bypass. Unset (or anything other than '1') to disable.
+ * Toggle: HARDCODED ON during operator-authorised debug period. The
+ * three debug endpoints accept unauthenticated callers and synthesise
+ * an ActivePersonaContext with isAdmin=true so the operator can run
+ * the spine verification recipe without fighting auth.
  *
- * When enabled, the three debug endpoints accept unauthenticated
- * callers and synthesise an ActivePersonaContext with isAdmin=true
- * so the operator can run the spine verification recipe without
- * fighting auth.
+ * To restore strict auth: revert this file (or change
+ * isDebugBypassEnabled() to return false) and re-deploy. There is no
+ * env var to set/unset — the operator explicitly asked for the bypass
+ * to be 'just there', no Amplify console juggling required.
  *
  * Every bypass invocation emits a loud
  *   [SPINE] DEBUG-OPEN BYPASS route=<...>
@@ -34,8 +36,19 @@
 
 import type { ActivePersonaContext } from '@/types/access';
 
+/**
+ * TEMPORARY DEBUG — operator-authorised, unconditional bypass.
+ *
+ * To restore strict auth on the three debug endpoints:
+ *   1. Change this function to return false, OR
+ *   2. Revert the commit that flipped this on.
+ *
+ * Tracked as a todo on the engineering session that introduced this:
+ * 'Revert ACCESS_DEBUG_OPEN unconditional bypass after spine
+ * verification is complete'.
+ */
 export function isDebugBypassEnabled(): boolean {
-  return process.env.ACCESS_DEBUG_OPEN === '1';
+  return true; // TEMPORARY DEBUG — restore to `process.env.ACCESS_DEBUG_OPEN === '1'` (or `false`) after testing.
 }
 
 export function buildDebugBypassContext(): ActivePersonaContext {

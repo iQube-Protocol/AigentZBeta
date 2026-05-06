@@ -71,7 +71,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       source: ctx.source,
       bypassed,
       hint: bypassed
-        ? 'ACCESS_DEBUG_OPEN=1 is active — this response is the synthesised debug context, not your real session.'
+        ? 'TEMPORARY DEBUG — auth bypass is hardcoded ON in services/access/debugBypass.ts. ' +
+          'This response is the synthesised debug context, NOT your real session. ' +
+          'Restore strict auth by flipping isDebugBypassEnabled() back to false / env-gated.'
         : 'If cartridgeFlags.isAdmin is false but you expect admin, check that ' +
           'crm_admin_roles has a row with is_active=true and auth_profile_id IN (' +
           [ctx.authProfileId, ...linkedAuthProfileIds].join(', ') + ').',
