@@ -91,12 +91,22 @@ export default function AccessInspectPage() {
     try {
       let authHeaders: Record<string, string> = {};
       try {
-        const { getSupabaseBrowserClient } = await import('@/utils/supabaseBrowser');
-        const { data } = await getSupabaseBrowserClient().auth.getSession();
-        if (data.session?.access_token) {
-          authHeaders = { Authorization: `Bearer ${data.session.access_token}` };
+        // Read localStorage directly — getSession() triggers refresh attempts
+        // that emit AuthApiError noise when the user is signed out.
+        const k = Object.keys(window.localStorage).find(
+          (x) => x.startsWith('sb-') && x.endsWith('-auth-token'),
+        );
+        if (k) {
+          const raw = window.localStorage.getItem(k);
+          if (raw) {
+            const parsed = JSON.parse(raw) as
+              | { access_token?: string; currentSession?: { access_token?: string } }
+              | null;
+            const token = parsed?.access_token ?? parsed?.currentSession?.access_token;
+            if (token) authHeaders = { Authorization: `Bearer ${token}` };
+          }
         }
-      } catch { /* fall through; expect 401 */ }
+      } catch { /* fall through; expect 401 unless bypass is on */ }
 
       const params = new URLSearchParams();
       params.set(keyKind, cidOrAsset.trim());
@@ -319,6 +329,18 @@ export default function AccessInspectPage() {
           {browseResult?.error && (
             <div style={{ padding: 12, background: '#3f1d1d', color: '#fca5a5', fontSize: 13 }}>
               {browseResult.error}
+            </div>
+          )}
+          {browseResult && !browseResult.error && (
+            <div style={{ marginBottom: 8, fontSize: 11, color: '#6b7280' }}>
+              {browseResult.counts
+                ? `query returned ${browseResult.counts.masters} masters, ${browseResult.counts.assets} assets`
+                : 'query returned 0 results'}
+            </div>
+          )}
+          {browseResult && (!browseResult.masters?.length) && (!browseResult.assets?.length) && !browseResult.error && (
+            <div style={{ padding: 12, background: '#1f2937', color: '#9ca3af', fontSize: 13 }}>
+              No rows matched. Try a different prefix (e.g. <code>mk_ep00</code>) or empty for first 50.
             </div>
           )}
           {browseResult?.masters && browseResult.masters.length > 0 && (
