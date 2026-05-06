@@ -57,17 +57,27 @@ export function useActivePersona(): UseActivePersonaResult {
     setLoading(true);
     setError(null);
     try {
-      // Acquire the Supabase access token the same way the rest of the
-      // platform does (see PersonaSelector.tsx:getAuthHeaders, SmartWalletDrawer
-      // line 703–706). Browser navigations don't carry this token; only
-      // explicit fetches do. The /api/wallet/active-persona route resolves
-      // the caller via getCallerIdentityContext which expects the Bearer.
+      // Acquire the Supabase access token without triggering a refresh
+      // attempt — getSession() will try to refresh if the token is near
+      // expiry and emit AuthApiError("Refresh Token Not Found") to the
+      // console when the user is signed out. We only need the current
+      // token (or absence of one) — read localStorage directly.
       let authHeaders: Record<string, string> = {};
       try {
-        const { getSupabaseBrowserClient } = await import('@/utils/supabaseBrowser');
-        const { data } = await getSupabaseBrowserClient().auth.getSession();
-        if (data.session?.access_token) {
-          authHeaders = { Authorization: `Bearer ${data.session.access_token}` };
+        if (typeof window !== 'undefined') {
+          const k = Object.keys(window.localStorage).find(
+            (x) => x.startsWith('sb-') && x.endsWith('-auth-token'),
+          );
+          if (k) {
+            const raw = window.localStorage.getItem(k);
+            if (raw) {
+              const parsed = JSON.parse(raw) as
+                | { access_token?: string; currentSession?: { access_token?: string } }
+                | null;
+              const token = parsed?.access_token ?? parsed?.currentSession?.access_token;
+              if (token) authHeaders = { Authorization: `Bearer ${token}` };
+            }
+          }
         }
       } catch { /* unauthenticated browsing; the route will return 401 */ }
 

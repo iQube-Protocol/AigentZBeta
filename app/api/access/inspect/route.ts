@@ -107,6 +107,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   if (!descriptor) {
+    // Self-help: when the lookup misses, surface a few nearby candidates so
+    // the operator can tell whether the value was wrong (typo / stale CID)
+    // versus genuinely unknown to the catalog. Fixed prefix length keeps
+    // this cheap and bounded.
+    const probe = primary.slice(0, 8);
+    const nearby = await findNearbyAssetIds(probe);
     return NextResponse.json(
       {
         input: { cid, assetId, action },
@@ -114,9 +120,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         descriptor: null,
         decision: null,
         note:
-          `No descriptor found by either ${cid ? 'cid' : 'assetId'} or ${cid ? 'assetId' : 'cid'} fallback. ` +
+          `No descriptor found by cid OR assetId fallback OR iq_blak_qubes.cid fallback. ` +
           `The value is unknown to master_content_qubes / codex_media_assets. ` +
           `Hint: assetIds look like 'mk_epNN_<type>_<tier>' or a UUID; CIDs are long Autonomys content hashes or full Supabase storage URLs.`,
+        nearby,
       },
       { status: 404, headers: { 'Cache-Control': 'no-store' } },
     );
@@ -179,4 +186,51 @@ function summarisePersona(ctx: {
     cohortMemberships: ctx.cohortMemberships,
     source: ctx.source,
   };
+}
+
+/**
+ * Best-effort "did you mean?" — returns a handful of asset/master ids whose
+ * own ids OR cid-bearing columns share a prefix with the missing value.
+ * Self-help only; never throws.
+ */
+async function findNearbyAssetIds(probe: string): Promise<{
+  byAssetIdPrefix: string[];
+  byCidPrefix: string[];
+}> {
+  if (!probe || probe.length < 4) return { byAssetIdPrefix: [], byCidPrefix: [] };
+  const out: { byAssetIdPrefix: string[]; byCidPrefix: string[] } = { byAssetIdPrefix: [], byCidPrefix: [] };
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    const key =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.SUPABASE_ANON_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !key) return out;
+    const sb = createClient(url, key);
+
+    const { data: byMaster } = await sb
+      .from('master_content_qubes')
+      .select('id')
+      .ilike('id', `${probe}%`)
+      .limit(5);
+    out.byAssetIdPrefix.push(...((byMaster || []) as Array<{ id: string }>).map((r) => r.id));
+
+    const { data: byCidMaster } = await sb
+      .from('master_content_qubes')
+      .select('id')
+      .ilike('auto_drive_cid', `${probe}%`)
+      .limit(5);
+    out.byCidPrefix.push(...((byCidMaster || []) as Array<{ id: string }>).map((r) => r.id));
+
+    const { data: byCidAsset } = await sb
+      .from('codex_media_assets')
+      .select('id')
+      .ilike('auto_drive_cid', `${probe}%`)
+      .limit(5);
+    out.byCidPrefix.push(...((byCidAsset || []) as Array<{ id: string }>).map((r) => r.id));
+  } catch {
+    // Self-help is best-effort; do not surface lookup failures to the caller.
+  }
+  return out;
 }

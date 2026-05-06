@@ -299,6 +299,13 @@ export async function getContentDescriptor(
  * the legacy auto_drive_cid overload still applies). Used by delivery
  * proxies that key off the CID rather than the canonical assetId.
  *
+ * Lookup order:
+ *   1. master_content_qubes.auto_drive_cid OR master_content_qubes.pdf_lite_url
+ *   2. codex_media_assets.auto_drive_cid
+ *   3. iq_blak_qubes.cid -> back-resolve to the master/asset row that
+ *      references that blak_qube_id (covers cases where the canonical
+ *      payload CID lives on the BlakQube row, not duplicated on the master)
+ *
  * Falls through to `getContentDescriptor(assetId)` once the row's
  * canonical id is found, so the descriptor shape is identical regardless
  * of input.
@@ -325,6 +332,33 @@ export async function getContentDescriptorByCid(
     .maybeSingle();
   const assetId = (assetRaw as { id?: string } | null)?.id;
   if (assetId) return getContentDescriptor(assetId);
+
+  // 3) iq_blak_qubes.cid — payload CID may live on the BlakQube row only.
+  //    Find the blak_qube_id, then back-resolve to whichever master /
+  //    codex_media_asset references it.
+  const { data: blakRaw } = await db()
+    .from('iq_blak_qubes')
+    .select('id')
+    .eq('cid', cid)
+    .maybeSingle();
+  const blakQubeId = (blakRaw as { id?: string } | null)?.id;
+  if (blakQubeId) {
+    const { data: masterByBlak } = await db()
+      .from('master_content_qubes')
+      .select('id')
+      .eq('blak_qube_id', blakQubeId)
+      .maybeSingle();
+    const masterIdByBlak = (masterByBlak as { id?: string } | null)?.id;
+    if (masterIdByBlak) return getContentDescriptor(masterIdByBlak);
+
+    const { data: assetByBlak } = await db()
+      .from('codex_media_assets')
+      .select('id')
+      .eq('blak_qube_id', blakQubeId)
+      .maybeSingle();
+    const assetIdByBlak = (assetByBlak as { id?: string } | null)?.id;
+    if (assetIdByBlak) return getContentDescriptor(assetIdByBlak);
+  }
 
   return null;
 }
