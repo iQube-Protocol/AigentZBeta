@@ -22,6 +22,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 import { getActivePersona } from '@/services/identity/getActivePersona';
+import {
+  buildDebugBypassContext,
+  isDebugBypassEnabled,
+  logDebugBypass,
+} from '@/services/access/debugBypass';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,12 +41,24 @@ function adminClient() {
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const ctx = await getActivePersona(req);
+  let ctx = await getActivePersona(req);
   if (!ctx) {
-    return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+    if (isDebugBypassEnabled()) {
+      logDebugBypass('list-assets');
+      ctx = buildDebugBypassContext();
+    } else {
+      return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+    }
   }
   if (!ctx.cartridgeFlags.isAdmin) {
-    return NextResponse.json({ error: 'admin-only' }, { status: 403 });
+    if (isDebugBypassEnabled()) {
+      // Bypass admin gate too — the bypass context already has isAdmin=true,
+      // but a real-but-non-admin caller hitting list-assets while bypass is
+      // active still gets through. Loud log as a reminder.
+      logDebugBypass('list-assets:admin-bypass');
+    } else {
+      return NextResponse.json({ error: 'admin-only' }, { status: 403 });
+    }
   }
 
   const url = new URL(req.url);
