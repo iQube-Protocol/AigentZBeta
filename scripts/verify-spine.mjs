@@ -157,9 +157,13 @@ if (!bypassActive && jwt) {
 // Step 4: inspect cases
 // ───────────────────────────────────────────────────────────────────────
 for (const c of cases) {
-  // Skip the 'owned' case under bypass — synthetic persona doesn't own real entitlements
-  if (bypassActive && c.expect.reason === 'owned') {
-    console.log(`${c.label.padEnd(14)} ${c.target.padEnd(40)} SKIP (bypass — synth persona has no entitlements)`);
+  // Skip 'owned' ONLY when this request will actually use the bypass —
+  // i.e. no JWT was provided. The bypass synthesises an admin context
+  // when getActivePersona returns null (unauthenticated). With a JWT,
+  // the real persona is resolved server-side and ownership tests are
+  // valid even while the bypass is hardcoded ON for unauth callers.
+  if (bypassActive && !jwt && c.expect.reason === 'owned') {
+    console.log(`${c.label.padEnd(14)} ${c.target.padEnd(40)} SKIP (bypass + no JWT — synth persona has no entitlements)`);
     continue;
   }
 
