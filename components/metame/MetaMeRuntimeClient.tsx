@@ -2031,6 +2031,36 @@ export default function MetaMeRuntimeClient() {
         return;
       }
 
+      // CLOSURE-STALENESS GUARD (fix: persona reverts to anonym every hour)
+      //
+      // resolvePersona is also called directly by the onAuthStateChange
+      // handler below on TOKEN_REFRESHED (Supabase emits this every hour).
+      // That handler captures THIS closure, which has the ctxPersonaId from
+      // the render when this useEffect last ran. After the user switches to
+      // a different persona via PersonaSelector, ctxPersonaId in the
+      // closure is stale (still null/anonym). Without this guard, every
+      // hourly TOKEN_REFRESHED event would re-run the nakamoto_knyt_personas
+      // lookup and overwrite localStorage back to whatever that table says
+      // (typically anonym@knyt for KNYT cartridge users).
+      //
+      // localStorage is the cross-render source of truth that PersonaContext
+      // also writes to. Reading it here means we honour the user's most
+      // recent explicit choice regardless of closure staleness.
+      if (typeof window !== 'undefined') {
+        try {
+          const stored = window.localStorage.getItem('currentPersonaId');
+          if (stored) {
+            console.log(
+              '[MetaMeRuntime] persona resolver — honouring localStorage currentPersonaId',
+              stored,
+            );
+            setActivePersonaId(stored);
+            setPersonaResolving(false);
+            return;
+          }
+        } catch { /* storage unavailable; fall through to server lookup */ }
+      }
+
       // Wait for PersonaContext to finish reading localStorage on the client
       // before deciding the user has no persona. Without this guard the
       // resolver fires immediately on mount (when ctxHydrated is still false
@@ -2066,8 +2096,16 @@ export default function MetaMeRuntimeClient() {
           if (cancelled) return;
           if (persona && typeof (persona as { id?: string }).id === "string") {
             const pid = (persona as { id: string }).id;
+            // Only seed the persona; never overwrite an existing user choice.
+            // If the user has already explicitly switched to another persona,
+            // the closure-staleness guard above returns first; this branch
+            // only runs when localStorage is genuinely empty.
             setActivePersonaId(pid);
-            try { localStorage.setItem("currentPersonaId", pid); } catch { /* noop */ }
+            try {
+              if (!localStorage.getItem("currentPersonaId")) {
+                localStorage.setItem("currentPersonaId", pid);
+              }
+            } catch { /* noop */ }
             return;
           }
 
@@ -2084,7 +2122,13 @@ export default function MetaMeRuntimeClient() {
                 const firstId = Array.isArray(list) ? (list[0] as { id?: unknown })?.id : null;
                 if (typeof firstId === "string" && firstId) {
                   setActivePersonaId(firstId);
-                  try { localStorage.setItem("currentPersonaId", firstId); } catch { /* noop */ }
+                  // Same defensive write as above: never clobber an
+                  // existing localStorage value with the API's first hit.
+                  try {
+                    if (!localStorage.getItem("currentPersonaId")) {
+                      localStorage.setItem("currentPersonaId", firstId);
+                    }
+                  } catch { /* noop */ }
                   return;
                 }
               }

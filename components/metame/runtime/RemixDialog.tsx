@@ -19,6 +19,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { Coins, FileText, Image as ImageIcon, Loader2, LogIn, RotateCw, Send, Share2, Sparkles, Trash2, X } from "lucide-react";
+import { checkSpineDecision, type SpineDecision } from "@/services/access/spineGateClient";
 
 type Skill = "article" | "story";
 
@@ -90,6 +91,13 @@ export function RemixDialog({
   const [prompt, setPrompt] = useState(initialPrompt ?? "");
   const [quota, setQuota] = useState<QuotaState | null>(null);
   const [quotaError, setQuotaError] = useState<string | null>(null);
+  // Phase 1.4 spine consumer migration #2 — INFORMATIONAL ONLY for now.
+  // Surfaces whether the active persona owns the source experience so the
+  // operator can decide gating policy in Phase 2 (per the smarttriad
+  // ownership unification backlog: 'remixing an owned source is free;
+  // remixing a non-owned source either pays the source price first or is
+  // denied'). For now we only display the state; we do not gate.
+  const [sourceOwnership, setSourceOwnership] = useState<SpineDecision | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generationStep, setGenerationStep] = useState<GenerationStep>("idle");
   const [generated, setGenerated] = useState<GeneratedContent | null>(null);
@@ -110,6 +118,21 @@ export function RemixDialog({
     setGenerationStep("idle");
     setQuotaError(null);
   }, [open, initialTitle, initialPrompt]);
+
+  // Fetch source ownership state when dialog opens with a sourceExperienceId.
+  // The spine call is fail-open (returns null on any error / unknown asset);
+  // the dialog renders the ownership banner only when a decision was reached.
+  useEffect(() => {
+    if (!open || !personaId || !sourceExperienceId) {
+      setSourceOwnership(null);
+      return;
+    }
+    let cancelled = false;
+    checkSpineDecision(sourceExperienceId, 'remix')
+      .then((d) => { if (!cancelled) setSourceOwnership(d); })
+      .catch(() => { if (!cancelled) setSourceOwnership(null); });
+    return () => { cancelled = true; };
+  }, [open, personaId, sourceExperienceId]);
 
   // Fetch quota when dialog opens
   useEffect(() => {
@@ -266,6 +289,11 @@ export function RemixDialog({
         {/* Sign-in banner — only once persona resolution is confirmed failed */}
         {!personaId && !personaResolving && !generated && (
           <SignInBanner onSignIn={onSignInRequest} />
+        )}
+
+        {/* Source ownership banner — informational; gating policy is Phase 2 */}
+        {personaId && !generated && sourceOwnership && (
+          <SourceOwnershipBanner decision={sourceOwnership} />
         )}
 
         {/* Generation progress strip */}
@@ -425,6 +453,11 @@ export function RemixDialog({
           {/* Sign-in banner — only once persona resolution is confirmed failed */}
           {!personaId && !personaResolving && !generated && (
             <SignInBanner onSignIn={onSignInRequest} />
+          )}
+
+          {/* Source ownership banner — informational; gating policy is Phase 2 */}
+          {personaId && !generated && sourceOwnership && (
+            <SourceOwnershipBanner decision={sourceOwnership} />
           )}
 
           {/* Generation progress strip — shows above the form while charging/generating */}
@@ -703,6 +736,38 @@ function ComposeView({
 }
 
 // ─── Sign-in banner ──────────────────────────────────────────────────────────
+
+// ─── Source ownership banner ─────────────────────────────────────────────────
+// Phase 1.4 spine consumer migration #2 — INFORMATIONAL ONLY.
+// Surfaces the spine's decision on whether the active persona owns the source
+// experience this remix is derived from. The gating policy (charge / deny /
+// allow) is a Phase 2 decision per the smarttriad ownership unification
+// backlog; this banner just makes the state visible to the user and operator.
+function SourceOwnershipBanner({ decision }: { decision: SpineDecision }) {
+  const owned = decision.allow && decision.reason === 'owned';
+  const free  = decision.allow && decision.reason === 'free';
+  if (free) {
+    return (
+      <div className="mb-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-1.5 text-[11px] text-emerald-300/80">
+        Source: free preview — remixable.
+      </div>
+    );
+  }
+  if (owned) {
+    return (
+      <div className="mb-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-[11px] text-emerald-200">
+        Source: owned by your persona — remixable.
+      </div>
+    );
+  }
+  // Not owned — surface the gate reason without blocking generation today.
+  return (
+    <div className="mb-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-200">
+      Source: not owned by your persona ({decision.reason}). Generation continues for now;
+      Phase 2 will enforce the source-ownership policy.
+    </div>
+  );
+}
 
 function SignInBanner({ onSignIn }: { onSignIn?: () => void }) {
   return (

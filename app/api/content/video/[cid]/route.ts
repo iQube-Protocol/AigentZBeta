@@ -9,6 +9,10 @@ import { createAutoDriveApi } from '@autonomys/auto-drive';
 import { NetworkId } from '@autonomys/auto-utils';
 import { unwrapKeyWithMasterKey, decryptContent } from '@/server/services/encryptionService';
 
+import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getContentDescriptorByCid } from '@/services/content/getContentDescriptor';
+import { evaluateAccess } from '@/services/access/evaluateAccess';
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -31,6 +35,61 @@ export async function GET(req: NextRequest, { params }: { params: { cid: string 
   try {
     const cid = params.cid;
     if (!cid) return NextResponse.json({ error: 'CID required' }, { status: 400,  });
+
+    // ─────────────────────────────────────────────────────────────────
+    // Spine gate — Phase 1.4 consumer migration #3
+    //
+    // Video deliveries are higher-stakes than covers (motion-comic
+    // assets are typically state D / payment-gated). Same shadow-log
+    // posture: gate runs and logs; ACCESS_SPINE_ENFORCE=1 enforces.
+    //
+    // Gate runs BEFORE the early HTTP-redirect path so even direct-
+    // redirect deliveries pass through evaluateAccess.
+    // ─────────────────────────────────────────────────────────────────
+    const enforceGate = process.env.ACCESS_SPINE_ENFORCE === '1';
+    try {
+      const descriptor = await getContentDescriptorByCid(cid);
+      if (descriptor) {
+        const context = await getActivePersona(req);
+        if (!context) {
+          console.log(
+            `[SPINE] route=video result=unauthenticated cid=${cid} ` +
+            `asset=${descriptor.assetId} state=${descriptor.state} ` +
+            `gating=${descriptor.gating.kind} enforce=${enforceGate}`,
+          );
+          if (enforceGate && descriptor.gating.kind !== 'free') {
+            return NextResponse.json(
+              { error: 'unauthenticated' },
+              { status: 403, headers: { 'X-Access-Denied': 'unauthenticated' } },
+            );
+          }
+        } else {
+          const decision = await evaluateAccess(context, descriptor, 'watch');
+          console.log(
+            `[SPINE] route=video result=${decision.allow ? 'ALLOW' : 'DENY'} ` +
+            `reason=${decision.reason} cid=${cid} asset=${descriptor.assetId} ` +
+            `state=${descriptor.state} gating=${descriptor.gating.kind} ` +
+            `enforce=${enforceGate}`,
+          );
+          if (enforceGate && !decision.allow) {
+            return NextResponse.json(
+              { error: decision.reason },
+              { status: 403, headers: { 'X-Access-Denied': decision.reason } },
+            );
+          }
+        }
+      } else {
+        console.log(`[SPINE] route=video result=skip cid=${cid} reason=no-descriptor`);
+      }
+    } catch (gateErr) {
+      console.error('[SPINE] route=video result=ERROR', gateErr);
+      if (enforceGate) {
+        return NextResponse.json(
+          { error: 'gate-error' },
+          { status: 503, headers: { 'X-Access-Denied': 'gate-error' } },
+        );
+      }
+    }
 
     // Supabase-hosted asset: cid is the public URL — redirect directly, no decryption
     if (cid.startsWith('http://') || cid.startsWith('https://')) {

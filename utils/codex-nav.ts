@@ -21,7 +21,22 @@
 export type CodexShell = "embed" | "viewer";
 
 export interface CodexNavOptions {
-  /** Active persona — propagated as ?personaId= */
+  /**
+   * **Preferred** — opaque T1 persona session token, propagated as `?pst=`.
+   * Replaces `personaId` for new call sites. Server-resolves to the active
+   * persona on receipt; the browser never holds a correlatable handle.
+   *
+   * See `services/identity/personaSessionToken.ts` and the unified IAM
+   * foundation plan §4.1.d.
+   */
+  personaSessionToken?: string;
+  /**
+   * **Deprecated** — raw persona UUID, propagated as `?personaId=`.
+   * Accepted for the Phase 1 backward-compat window. New call sites must
+   * use `personaSessionToken` instead. Existing call sites are migrated
+   * one per commit per the surgical-change protocol; the legacy param is
+   * removed in Phase 5.
+   */
   personaId?: string;
   /** Initial tab slug in the target codex */
   tab?: string;
@@ -53,11 +68,29 @@ export interface CodexNavOptions {
  *   suffix) and passed as ?id=.
  */
 export function buildCodexUrl(slug: string, opts: CodexNavOptions = {}): string {
-  const { personaId, tab, isAdmin, isPartner, isInvestor, from, fromTab, shell = "embed" } = opts;
+  const {
+    personaSessionToken,
+    personaId,
+    tab,
+    isAdmin,
+    isPartner,
+    isInvestor,
+    from,
+    fromTab,
+    shell = "embed",
+  } = opts;
 
   const params = new URLSearchParams();
 
-  if (personaId)  params.set("personaId",  personaId);
+  // Prefer the T1 session token (?pst=) over the raw UUID (?personaId=).
+  // If both are provided (transitional period), emit only ?pst=. The
+  // legacy ?personaId= path is accepted by `getActivePersona` during
+  // the Phase 1 backward-compat window and is removed in Phase 5.
+  if (personaSessionToken) {
+    params.set("pst", personaSessionToken);
+  } else if (personaId) {
+    params.set("personaId", personaId);
+  }
   if (isAdmin)    params.set("isAdmin",    "true");
   if (isPartner)  params.set("isPartner",  "true");
   if (isInvestor) params.set("isInvestor", "true");

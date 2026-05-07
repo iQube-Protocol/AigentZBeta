@@ -22,6 +22,7 @@ import {
   dispatchSmartWalletPayment,
   SMART_WALLET_EVENTS,
 } from '@/app/wallet/events';
+import { checkSpineDecision } from '@/services/access/spineGateClient';
 
 // Import agentiQ-specific components
 import { VideoModal } from '@/packages/smarttriad/src/VideoModal';
@@ -208,10 +209,54 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
         setShareModalOpen(true);
         break;
         
-      case 'buy':
-        // Handle payment action - REUSE EXISTING PAYMENT SURFACES
-        handlePaymentAction(item);
+      case 'buy': {
+        // Phase 1.4 spine consumer migration #1: don't charge an owner.
+        //
+        // Before opening any payment surface, ask the spine whether the
+        // active persona already owns this item. If so, route to the
+        // appropriate consumption surface (watch/read) instead of
+        // taking payment.
+        //
+        // Fail-open posture: if the spine call fails for any reason
+        // (network, auth, server error), we fall through to the legacy
+        // payment flow. A spine outage must NEVER block purchases.
+        // The legacy 'charge an owner' bug is therefore reproduced only
+        // when the spine itself is unavailable, and even then the user
+        // can still complete the purchase if they really intend to.
+        void (async () => {
+          try {
+            const decision = await checkSpineDecision(item.id, 'read');
+            if (decision?.allow && decision.reason === 'owned') {
+              console.log(
+                `[SmartContentAction] spine: already-owned ${item.id}; ` +
+                `routing to consumption (was buy).`,
+              );
+              if (item.modalities?.watch?.video_url) {
+                executeAction('watch', item, playlist);
+                return;
+              }
+              if (item.pdf_lite_url || item.pdf_cid || item.modalities?.read) {
+                executeAction('read', item, playlist);
+                return;
+              }
+              // No obvious consumption surface — log and fall through
+              // to payment so the user isn't silently dropped.
+              console.warn(
+                `[SmartContentAction] spine: already-owned ${item.id} ` +
+                `but no consumption modality; allowing buy as fallback.`,
+              );
+            }
+          } catch (err) {
+            console.warn(
+              `[SmartContentAction] spine ownership check failed; ` +
+              `allowing buy as fallback.`,
+              err,
+            );
+          }
+          handlePaymentAction(item);
+        })();
         break;
+      }
         
       case 'link':
         if (item.modalities?.link?.url) {

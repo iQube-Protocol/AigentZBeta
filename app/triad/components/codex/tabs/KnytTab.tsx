@@ -13,6 +13,10 @@ import dynamic from "next/dynamic";
 import { Loader2, BookOpen, Play, Lock, Check, Sparkles, Coins, ShoppingCart, AlertTriangle, RefreshCw, LogIn, FileText, Cpu, Globe, Shield, Scroll, ArrowLeft, User, Zap } from "lucide-react";
 import { useCardAccess } from "@/app/hooks/useCardAccess";
 import { OwnedBadge, AccessibleBadge, RestrictedBadge, CartButton } from "@/app/components/content/CardAccessBadges";
+// Phase 1.4 UI #3 — spine shadow cross-check. Used to log divergence
+// between legacy ownedIssues (/api/codex/owned) and the spine's per-asset
+// decision via /api/access/evaluate. Does not change any rendering.
+import { checkSpineDecision } from "@/services/access/spineGateClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -1600,6 +1604,67 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   useEffect(() => {
     fetchOwnedEpisodes();
   }, [fetchOwnedEpisodes]);
+
+  // ─────────────────────────────────────────────────────────────────────
+  // Phase 1.4 UI #3 — spine shadow cross-check (no rendering impact).
+  //
+  // Whenever the legacy ownedIssues list updates, sample one of the
+  // 'owned' assets and ask the spine /api/access/evaluate what it
+  // thinks. Log divergence with [SPINE] prefix.
+  //
+  // Why sample (not enumerate): this runs on every effectivePersonaId
+  // change and ownedIssues update; enumerating every asset would
+  // generate N requests for users with large libraries. One sample
+  // per refresh is enough to catch class-level divergence; we ramp up
+  // to per-asset checks in Phase 2 when SmartTriadProvider hoists
+  // ownership and the cross-check becomes the canonical answer.
+  //
+  // The legacy badge logic continues to drive what the user sees.
+  // This is observability only.
+  // ─────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!effectivePersonaId) return;
+    if (ownedIssues.length === 0) {
+      console.log(
+        `[SPINE] knyt-tab: cross-check personaId=${effectivePersonaId} ` +
+        `ownedCount=0 (no items to sample)`,
+      );
+      return;
+    }
+    let cancelled = false;
+    const sample = ownedIssues[0] as { episodeNumber?: number; assetId?: string };
+    const probe =
+      (typeof sample.assetId === 'string' && sample.assetId) ||
+      (typeof sample.episodeNumber === 'number'
+        ? `mk_ep${String(sample.episodeNumber).padStart(2, '0')}_print_common`
+        : null);
+    if (!probe) return;
+    void checkSpineDecision(probe, 'read').then((decision) => {
+      if (cancelled) return;
+      if (!decision) {
+        console.warn(
+          `[SPINE] knyt-tab: cross-check personaId=${effectivePersonaId} ` +
+          `probe=${probe} result=NULL (spine unreachable or descriptor not found)`,
+        );
+        return;
+      }
+      const expectedAllow = true; // legacy says it's owned
+      if (decision.allow === expectedAllow) {
+        console.log(
+          `[SPINE] knyt-tab: cross-check personaId=${effectivePersonaId} ` +
+          `probe=${probe} legacy=OWNED spine=${decision.allow ? 'ALLOW' : 'DENY'}/` +
+          `${decision.reason} ✓ AGREE`,
+        );
+      } else {
+        console.warn(
+          `[SPINE] knyt-tab: cross-check DIVERGENCE personaId=${effectivePersonaId} ` +
+          `probe=${probe} legacy=OWNED spine=${decision.allow ? 'ALLOW' : 'DENY'}/` +
+          `${decision.reason} ✗ — investigate before Phase 2 hoist`,
+        );
+      }
+    });
+    return () => { cancelled = true; };
+  }, [effectivePersonaId, ownedIssues]);
 
   useEffect(() => {
     async function loadEpisodes() {
