@@ -26,9 +26,8 @@
  * asset, not the caller. The caller-aware decision is `evaluateAccess`.
  */
 
-import { createClient } from '@supabase/supabase-js';
-
 import { classifyContentGating, type GatingKind as ClassifierKind } from '@/services/rewards/contentGating';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import type {
   ContentAccessDescriptor,
   ContentClass,
@@ -38,17 +37,13 @@ import type {
   GatingKind,
 } from '@/types/access';
 
-let cachedClient: ReturnType<typeof createClient> | null = null;
+// Timeout-guarded Supabase client (8s prod / 4s dev). When the DB is
+// slow, queries fail in 8s instead of hanging to Lambda's 30s timeout
+// and returning an empty 504. The canonical factory.
 function db() {
-  if (cachedClient) return cachedClient;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) throw new Error('Supabase configuration missing for getContentDescriptor');
-  cachedClient = createClient(url, key);
-  return cachedClient;
+  const client = getSupabaseServer();
+  if (!client) throw new Error('Supabase configuration missing for getContentDescriptor');
+  return client;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
