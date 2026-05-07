@@ -727,6 +727,43 @@ These follow from Decision §11.4. They are not new work in Phase 4; they are co
 4. **State-E sovereign holders may bridge off-platform custody.** Because state-E ciphertext and the per-holder wrapped-key blob are both content-addressed, bridging the on-chain NFT to a different chain or copying the ciphertext to a holder-chosen storage backend does not require platform action. The holder retains decryption capability regardless of where the NFT lives or where the ciphertext is stored. This is the sovereignty guarantee.
 5. **Receipt anchoring after bridge** continues to attribute via `aliasCommitment + cohortId` per §4.4. The chain on which the alias is anchored may differ from the chain on which the TokenQube is currently held — these are independent.
 
+### 11.f Backlog item — proper content-preview affordances (replace the assumed "GN free preview")
+
+**Operator clarification (2026-05-06):** an earlier handover doc described a "GN free-preview short-circuit" treating episode 0 (`mk_ep00_print_common`) as free-by-default. This was aspirational, not implemented, and not the operator's intent. The GN is paid content; my Phase 1.4 commits incorrectly mirrored that aspirational language by overriding `gating.kind = 'free'` on ep=0 in `getContentDescriptor`. Reverted in commit immediately following this row.
+
+**The real preview need:** users browsing the store should be able to **sample** gated content before buying — first N pages of a print episode, first 30–60s of a motion comic, first scene of a video. Today's "preview" buttons in the store are not implemented. The right design needs a small spec.
+
+**Sketch (when this work is in scope):**
+
+1. **Schema** — add `preview_window_pages` / `preview_window_seconds` columns on `master_content_qubes` and `codex_media_assets`. Operator-editable per-asset; `0` or NULL means "no preview." Defaults set by content_type / asset_kind:
+   - `episode_print` / `gn` → 5 pages
+   - `episode_motion` / `episode_still` → 30 seconds
+   - `character_card` → no preview (the card itself is the preview)
+2. **Descriptor** — extend `ContentAccessDescriptor` with an optional `preview` field:
+   ```typescript
+   preview?: { kind: 'pages' | 'seconds'; window: number };
+   ```
+   `getContentDescriptor` populates this when `preview_window_*` is non-zero on the row. The descriptor itself remains gated (`gating.kind` unchanged); the preview is a *partial* delivery, not a re-classification.
+3. **Delivery proxies** — extend the four content-delivery routes (`pdf-page`, `video`, `pdf`, `cover`) with a `?preview=1` query param. When present AND the descriptor has a preview window, the proxy serves only the preview window (page ≤ window for PDFs; clip 0–N seconds for video). Beyond the window: 403 with reason `preview-exhausted`.
+4. **Spine action** — add `'preview'` to `AccessAction` union. `evaluateAccess(ctx, desc, 'preview')` returns `ALLOW/preview-window` for any persona regardless of ownership; non-preview actions (`read`, `watch`) still gate normally.
+5. **Receipt anchoring** — preview reads ARE receipt-eligible (`async` mode) so the conversion funnel is auditable. Operator can later analyse "previewed but did not buy" cohorts via DVN trail.
+6. **UI** — store-card "Preview" button calls the proxy with `?preview=1`. Lock overlay surfaces "Preview ended — buy to continue" CTA after the window.
+
+**Why this is its own backlog row, not Phase 2:**
+- Distinct from Phase 2 (Supabase WIP encryption parity) — preview can ship before or after, independently
+- Requires UX/product decisions (how many pages? does each tier get a different window?) that aren't urgent for IAM correctness
+- Acceptance criterion is product-driven (conversion lift), not security-driven
+
+**Files when ready:**
+- `supabase/migrations/<date>_preview_windows.sql` — schema
+- `services/content/getContentDescriptor.ts` — populate descriptor.preview
+- `services/access/evaluateAccess.ts` — handle 'preview' action
+- `app/api/content/{pdf-page,video,pdf,cover}/[cid]/route.ts` — `?preview=1` branch
+- `types/access.ts` — extend AccessAction + ContentAccessDescriptor
+- `app/components/content/SmartContentActions.tsx` — preview button wire-up
+
+---
+
 ### 11.e Backlog item — retire the debug-endpoint auth bypass; replace with first-class operator inspection
 
 **Status (2026-05-05, current):** during Phase 1.4 spine verification a tactical bypass was hardcoded ON in `services/access/debugBypass.ts` (`isDebugBypassEnabled()` returns `true`). It affects ONLY the three debug endpoints — `/api/access/inspect`, `/api/access/whoami`, `/api/access/list-assets` — and never the four content-delivery gates or `/api/wallet/active-persona`. The bypass was operator-authorised to unblock spine verification when the auth flow was fighting them.

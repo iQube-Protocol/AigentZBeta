@@ -245,23 +245,24 @@ describe('evaluateAccess', () => {
     expect(mockedOwns).not.toHaveBeenCalled();
   });
 
-  it('GN free preview (assetId=mk_ep00_*): descriptor must surface gating.kind=free', async () => {
-    // Regression test for the live verify-spine FAIL on 2026-05-06:
-    // mk_ep00_print_common returned DENY/payment-required because the
-    // category-default classifier maps content_type='episode_print' to
-    // 'payment'. The fix: getContentDescriptor overrides ep=0 to 'free'.
-    // This test exercises that the descriptor input contract is honoured
-    // by evaluateAccess (free → ALLOW/free; mockedOwns never called).
+  it('GN (assetId=mk_ep00_*) is gated, not free — operator clarification 2026-05-06', async () => {
+    // Earlier code special-cased ep=0 as free based on a 'GN free-preview
+    // short-circuit' aspirational comment in the handover. The operator
+    // confirmed the GN is NOT free in production: it must be paid like
+    // any other episode. Real preview affordances (first N pages, etc.)
+    // are tracked in plan §11.f as a separate backlog feature.
+    //
+    // This test locks in: an ep=0 print descriptor with payment gating
+    // and no entitlement returns DENY/payment-required, same as ep>0.
+    mockedOwns.mockResolvedValue({ owned: false, via: null });
     const ctx = makeContext();
-    const desc = makeDescriptor('A_open_unqubed', 'free', {
+    const desc = makeDescriptor('C_gated_wip', 'payment', {
       assetId: 'mk_ep00_print_common',
       contentClass: 'gn',
-      gating: { kind: 'free', reason: 'GN free preview (episode 0)' },
     });
     const decision = await evaluateAccess(ctx, desc, 'read');
-    expect(decision.allow).toBe(true);
-    expect(decision.reason).toBe('free');
-    expect(mockedOwns).not.toHaveBeenCalled();
+    expect(decision.allow).toBe(false);
+    expect(decision.reason).toBe('payment-required');
   });
 
   it('FREE state-B (open iqubed): ALLOW; PDF -> page-image-proxy, video -> decrypt-stream', async () => {

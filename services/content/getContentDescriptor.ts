@@ -216,18 +216,19 @@ export async function getContentDescriptor(
       contentType: master.content_type,
     });
 
-    // GN free-preview convention: episode 0 of any series is the free
-    // preview / graphic novel and must be reachable without payment. The
-    // category-default classifier maps content_type='episode_print' to
-    // 'payment' — true for ep1+ but wrong for ep0. Override here.
+    // NOTE 2026-05-06 — operator clarification: the GN (episode 0) is
+    // NOT a free asset. An earlier handover doc referred to a "GN free-
+    // preview short-circuit" which was aspirational, not implemented,
+    // and not the operator's intent. The GN must remain gated like any
+    // other paid episode. Real preview affordances (first N pages of
+    // print / first 30–60s of motion) are a backlog feature; see
+    // codexes/packs/agentiq/updates/2026-05-05_unified-identity-content-access-foundation-plan.md
+    // §11.f for the proper-preview backlog row.
     //
-    // This matches the convention already enforced in
-    // services/rewards/assetOwnership.userOwnsAsset which short-circuits
-    // ep=0 as 'always owned'. The two paths now agree.
-    if (master.episode_number === 0 && gating.kind !== 'free') {
-      gating.kind = 'free';
-      gating.reason = 'GN free preview (episode 0)';
-    }
+    // The classifier's category-default (episode_print → payment) is
+    // therefore the correct answer for ep=0 and ep>0 alike. Row-level
+    // gating_kind overrides still take precedence (operator can flip
+    // any individual row to free explicitly via the column).
     const pointer = derivePreferredPointer(master.auto_drive_cid, master.pdf_lite_url);
     const hasEncryption = !!master.encryption_iv;
     const storagePointer = pointer

@@ -52,7 +52,13 @@ const baseUrl = host.startsWith('http') ? host : `https://${host}`;
 const authHeader = jwt ? { Authorization: `Bearer ${jwt}` } : {};
 
 const cases = [
-  { label: 'free asset',    target: args.free    ?? 'mk_ep00_print_common', expect: { allow: true,  reason: 'free' } },
+  // --free has NO default. Per operator (2026-05-06) the GN
+  // (mk_ep00_print_common) is paid in production; we no longer have a
+  // confirmed-free seeded asset to test against. The free-state-A path
+  // is exercised by the local unit tests; live verification of ALLOW/free
+  // requires the operator to point --free at a row whose gating_kind
+  // column is explicitly set to 'free'.
+  ...(args.free ? [{ label: 'free asset', target: args.free, expect: { allow: true, reason: 'free' } }] : []),
   ...(args.owned ? [{ label: 'owned asset', target: args.owned, expect: { allow: true, reason: 'owned' } }] : []),
   { label: 'unowned asset', target: args.unowned ?? 'mk_ep01_print_rare',   expect: { allow: false, reason: 'payment-required' } },
 ];
