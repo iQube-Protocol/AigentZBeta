@@ -200,14 +200,11 @@ async function findNearbyAssetIds(probe: string): Promise<{
   if (!probe || probe.length < 4) return { byAssetIdPrefix: [], byCidPrefix: [] };
   const out: { byAssetIdPrefix: string[]; byCidPrefix: string[] } = { byAssetIdPrefix: [], byCidPrefix: [] };
   try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-    const key =
-      process.env.SUPABASE_SERVICE_ROLE_KEY ||
-      process.env.SUPABASE_ANON_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!url || !key) return out;
-    const sb = createClient(url, key);
+    // Timeout-guarded factory (8s prod / 4s dev) so the 'did you mean'
+    // helper doesn't itself hang Lambda 30s under DB stress.
+    const { getSupabaseServer } = await import('@/app/api/_lib/supabaseServer');
+    const sb = getSupabaseServer();
+    if (!sb) return out;
 
     const { data: byMaster } = await sb
       .from('master_content_qubes')
