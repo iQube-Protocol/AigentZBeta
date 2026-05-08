@@ -228,6 +228,8 @@ export async function POST(req: NextRequest) {
     const { ethers } = await import("ethers");
     const rpc = (cid: number) => {
       switch (cid) {
+        case 1: // Ethereum Mainnet — KNYT canonical token lives here
+          return process.env.ETH_RPC_URL || process.env.ETH_RPC_FALLBACK_URL;
         case 11155111: // Ethereum Sepolia
           return process.env.NEXT_PUBLIC_RPC_SEPOLIA;
         case 421614: // Arbitrum Sepolia
@@ -244,6 +246,7 @@ export async function POST(req: NextRequest) {
     };
     const chainName = (cid: number) => {
       switch (cid) {
+        case 1: return 'ETH_MAINNET';
         case 11155111: return 'ETH_SEPOLIA';
         case 421614: return 'ARB_SEPOLIA';
         case 84532: return 'BASE_SEPOLIA';
