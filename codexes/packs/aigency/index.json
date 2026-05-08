@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-05T00:46:38.665Z",
+  "last_updated": "2026-05-07T23:08:25.250Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "fded6075707a21c8c69aaadb8a5b17356f490712",
-  "latest_commit_short": "fded607",
-  "latest_commit_title": "fix: add getOwnedAssetIds enumeration fallback to userOwnsAsset + deploy trigger",
+  "latest_commit": "d2c46454970e0e0f00cd510168d5e0ce82f73d26",
+  "latest_commit_short": "d2c4645",
+  "latest_commit_title": "add dev note: supabase postgrest silent column error + episode thumbnail fix pattern",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,105 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d2c4645",
+      "full_sha": "d2c46454970e0e0f00cd510168d5e0ce82f73d26",
+      "title": "add dev note: supabase postgrest silent column error + episode thumbnail fix pattern",
+      "author": "Claude",
+      "timestamp": "2026-05-06T05:33:01Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-d2c4645.md"
+    },
+    {
+      "sha": "e09bfed",
+      "full_sha": "e09bfed180980a917574098f424aa83c4a90c133",
+      "title": "wire wallet tasks/reputation/rewards tabs to /api/wallet/tasks",
+      "author": "Claude",
+      "timestamp": "2026-05-06T20:29:58Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-e09bfed.md"
+    },
+    {
+      "sha": "49d9905",
+      "full_sha": "49d9905135a7e72919532b200ebaf6eb3de34df6",
+      "title": "migrate entitlements/list route to getSupabaseServer (timeout-guarded)",
+      "author": "Claude",
+      "timestamp": "2026-05-06T20:43:23Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-49d9905.md"
+    },
+    {
+      "sha": "69da15a",
+      "full_sha": "69da15a4abbe119fb57135ffea9258f204fb99ae",
+      "title": "migrate codex/owned route to getSupabaseServer (timeout-guarded)",
+      "author": "Claude",
+      "timestamp": "2026-05-06T20:43:36Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-69da15a.md"
+    },
+    {
+      "sha": "ff8a4f9",
+      "full_sha": "ff8a4f959579609485a7cec22364602b9409a3ca",
+      "title": "migrate wallet/personas DB client to getSupabaseServer (timeout-guarded)",
+      "author": "Claude",
+      "timestamp": "2026-05-06T20:44:10Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-ff8a4f9.md"
+    },
+    {
+      "sha": "1b0d145",
+      "full_sha": "1b0d1450aa384e6b1345e2341ca909e538b3ccff",
+      "title": "migrate wallet/knyt/balance route to getSupabaseServer (timeout-guarded)",
+      "author": "Claude",
+      "timestamp": "2026-05-06T20:44:40Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1b0d145.md"
+    },
+    {
+      "sha": "244ff4f",
+      "full_sha": "244ff4f6bc5b4c2b893ffc3db9918d60c283eadc",
+      "title": "migrate wallet/identity/profile DB client to getSupabaseServer (timeout-guarded)",
+      "author": "Claude",
+      "timestamp": "2026-05-06T20:45:14Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-244ff4f.md"
+    },
+    {
+      "sha": "eaad44a",
+      "full_sha": "eaad44a6b29e30cfbf6bd95948a15cbf91e09ef2",
+      "title": "migrate wallet/identity/consolidate DB client to getSupabaseServer (timeout-guarded)",
+      "author": "Claude",
+      "timestamp": "2026-05-06T20:46:08Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-eaad44a.md"
+    },
+    {
+      "sha": "71dbc5a",
+      "full_sha": "71dbc5a454f26969c56c1eff750c9eddf902b0d2",
+      "title": "sprint 3: add investor dashboard tables, RLS, and read/admin APIs",
+      "author": "Claude",
+      "timestamp": "2026-05-06T20:57:07Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-71dbc5a.md"
+    },
+    {
+      "sha": "b06e8df",
+      "full_sha": "b06e8df9f3698a6c12df7c77a9e60977bb9fc82a",
+      "title": "sprint 3: add KnytInvestorDashboardTab + investorOnly gating + tab wiring",
+      "author": "Claude",
+      "timestamp": "2026-05-06T20:57:12Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-b06e8df.md"
+    },
+    {
+      "sha": "37baf80",
+      "full_sha": "37baf80729073eaf0d48b39d060896894254cc52",
+      "title": "sprint 4: add KnytInvestmentsAdminTab — per-investor expandable rows + add event/doc + visibility toggle",
+      "author": "Claude",
+      "timestamp": "2026-05-06T21:05:50Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-37baf80.md"
+    },
     {
       "sha": "fded607",
       "full_sha": "fded6075707a21c8c69aaadb8a5b17356f490712",
@@ -1153,105 +1252,6 @@
       "timestamp": "2026-03-25T00:55:29Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-3a6d0f3.md"
-    },
-    {
-      "sha": "35220ea",
-      "full_sha": "35220ea8c5a7129f28e34f776a4148ba6a3bfa72",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-25T00:31:15Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-35220ea.md"
-    },
-    {
-      "sha": "e5667bb",
-      "full_sha": "e5667bb8e4b0d94d0ffcb08f8b12148a525ba93c",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-25T00:27:28Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-e5667bb.md"
-    },
-    {
-      "sha": "2cc9223",
-      "full_sha": "2cc9223c0e672127fa2429b131b37c2f7fd0931a",
-      "title": "add Marketa voice to ComposerStudio via VAPI + Cartesia",
-      "author": "Claude",
-      "timestamp": "2026-03-25T00:27:22Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-2cc9223.md"
-    },
-    {
-      "sha": "afead86",
-      "full_sha": "afead8678593a87601ba688fb030b796e93954d1",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-25T00:03:01Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-afead86.md"
-    },
-    {
-      "sha": "a226de1",
-      "full_sha": "a226de17d850cf531ac49bd77bda5691c4ef2170",
-      "title": "restore legacy experience qube fetch and video artifact fixes",
-      "author": "Claude",
-      "timestamp": "2026-03-25T00:02:57Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a226de1.md"
-    },
-    {
-      "sha": "6b636ea",
-      "full_sha": "6b636ea1f56c902373582082a6c576d5f65dd849",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-24T23:34:20Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-6b636ea.md"
-    },
-    {
-      "sha": "133ad20",
-      "full_sha": "133ad2099fe2cbe68116f7328d3349918e884194",
-      "title": "Revert \"surface supabase write failures and merge in-memory store into list results\"",
-      "author": "Claude",
-      "timestamp": "2026-03-24T23:34:15Z",
-      "type": "revert",
-      "brief": "items/build_/COMMITS/COMMIT-133ad20.md"
-    },
-    {
-      "sha": "9f68216",
-      "full_sha": "9f6821637b2be430369b09cc245265a4bc9115ad",
-      "title": "Revert \"fix typescript cast for supabase write error check\"",
-      "author": "Claude",
-      "timestamp": "2026-03-24T23:34:14Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-9f68216.md"
-    },
-    {
-      "sha": "32a28c5",
-      "full_sha": "32a28c5259a38141944a516edf1c8812c4d0d5f3",
-      "title": "Revert \"fix typescript cast for supabase write error in composerPersistence\"",
-      "author": "Claude",
-      "timestamp": "2026-03-24T23:34:14Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-32a28c5.md"
-    },
-    {
-      "sha": "509d2c0",
-      "full_sha": "509d2c0eb5a697c9af7d24e5ed64b8740c62a39f",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-24T23:13:46Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-509d2c0.md"
-    },
-    {
-      "sha": "05e5f5c",
-      "full_sha": "05e5f5c3d7766e581ca4569da53f5a1d8c919def",
-      "title": "fix typescript cast for supabase write error in composerPersistence",
-      "author": "Claude",
-      "timestamp": "2026-03-24T23:13:46Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-05e5f5c.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

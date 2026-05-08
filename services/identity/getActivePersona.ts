@@ -22,7 +22,6 @@
  */
 
 import type { NextRequest } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 
 import {
   getCallerIdentityContext,
@@ -33,6 +32,7 @@ import {
   readTokenFromRequest,
   verifyPersonaSessionToken,
 } from '@/services/identity/personaSessionToken';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
 import type {
   ActivePersonaContext,
@@ -40,18 +40,16 @@ import type {
 } from '@/types/access';
 
 // ─────────────────────────────────────────────────────────────────────────
-// Internal Supabase admin client (read-only access for resolution).
-// Server-side only; never imported into client bundles.
+// Supabase client — timeout-guarded factory (8s in prod, 4s in dev) so a
+// slow DB query doesn't hang to the Lambda 30s ceiling and 504. This was
+// flagged in the Phase 2 backlog as a class-wide reliability issue; this
+// service uses the canonical factory from day 1.
 // ─────────────────────────────────────────────────────────────────────────
 
 function getAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) throw new Error('Supabase configuration missing for getActivePersona');
-  return createClient(url, key);
+  const client = getSupabaseServer();
+  if (!client) throw new Error('Supabase configuration missing for getActivePersona');
+  return client;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
