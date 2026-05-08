@@ -162,6 +162,19 @@ if (!bypassActive && jwt) {
   const res = await fetch(url, { headers: baseHeaders }).catch((e) => ({ error: e }));
   if (res?.error || res.status !== 200) {
     console.log(`SKIP (active-persona unavailable; HTTP ${res?.status ?? 'network'})`);
+    // Surface the error body's hint when present — the route returns
+    // { error, detail, hint } on 500 so the operator gets actionable
+    // diagnostics inline instead of having to curl separately.
+    try {
+      const errBody = res?.json ? await res.json().catch(() => null) : null;
+      if (errBody?.hint) {
+        console.log(`            ℹ  ${errBody.hint}`);
+      } else if (errBody?.detail) {
+        console.log(`            ℹ  detail: ${errBody.detail}`);
+      } else if (errBody?.error) {
+        console.log(`            ℹ  error: ${errBody.error}`);
+      }
+    } catch { /* non-JSON body; nothing to surface */ }
   } else {
     const surface = await res.json().catch(() => null);
     const leaks = [];
