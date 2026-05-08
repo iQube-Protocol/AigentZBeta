@@ -12,6 +12,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import {
   Send,
   Download,
@@ -26,6 +27,13 @@ import {
   Wallet,
 } from 'lucide-react';
 import { useExternalWallet } from './useExternalWallet';
+
+// Same dynamic import the SmartWalletDrawer uses — guarantees identical
+// connect behavior between the Connections tab and this modal.
+const ExternalWalletConnect = dynamic(
+  () => import('./ExternalWalletConnect').then((m) => ({ default: m.ExternalWalletConnect })),
+  { ssr: false, loading: () => <div className="py-2 text-center text-[11px] text-white/30">Loading wallet…</div> }
+);
 
 // =============================================================================
 // TYPES
@@ -1105,47 +1113,19 @@ export function TransactionModal({
                       </div>
 
                       {signerSource === 'metamask' && !wallet.address && (
-                        <div className="mt-2 p-2 rounded-lg bg-amber-500/10 ring-1 ring-amber-500/30 text-xs text-amber-300">
-                          {wallet.wallets.length === 0 ? (
-                            <span>No wallet detected. Install MetaMask or a compatible browser wallet.</span>
-                          ) : (
-                            <div className="space-y-1.5">
-                              <div className="text-[11px] text-amber-300/80">Pick a wallet to connect:</div>
-                              {/* Mirrors ExternalWalletConnect.connectTo: pass the provider
-                                  reference directly rather than re-finding by id, and show
-                                  per-button spinner via connectingId. */}
-                              {[...wallet.wallets].sort((a, b) => {
-                                const aMM = a.name.toLowerCase().includes('metamask') || a.provider.isMetaMask ? -1 : 0;
-                                const bMM = b.name.toLowerCase().includes('metamask') || b.provider.isMetaMask ? -1 : 0;
-                                return aMM - bMM;
-                              }).map((w) => {
-                                const spinning = wallet.connectingId === w.id;
-                                const anyConnecting = wallet.connectingId !== null;
-                                return (
-                                  <button
-                                    key={w.id}
-                                    type="button"
-                                    onClick={() => wallet.connectByProvider(w.provider, w.id)}
-                                    disabled={anyConnecting}
-                                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[11px] font-medium disabled:opacity-50 text-left"
-                                  >
-                                    {w.icon ? (
-                                      <img src={w.icon} alt={w.name} className="h-4 w-4 rounded shrink-0" />
-                                    ) : (
-                                      <Wallet className="h-3.5 w-3.5 shrink-0" />
-                                    )}
-                                    <span className="flex-1">
-                                      {spinning ? `Check ${w.name} for a connection request…` : `Connect ${w.name}`}
-                                    </span>
-                                    {spinning && <Loader2 className="h-3 w-3 animate-spin" />}
-                                  </button>
-                                );
-                              })}
-                              {wallet.error && (
-                                <div className="text-[10px] text-red-300/80 mt-1">{wallet.error}</div>
-                              )}
-                            </div>
-                          )}
+                        <div className="mt-2 p-2 rounded-lg bg-amber-500/5 ring-1 ring-white/10">
+                          {/* Render the same component the SmartWalletDrawer's
+                              Connections tab uses — same connect flow, same
+                              MetaMask popup. After it connects, sessionStorage
+                              is written; useExternalWallet.refresh() makes our
+                              hook adopt that connection so this inline UI hides
+                              and the modal reverts to its compact state. */}
+                          <ExternalWalletConnect
+                            personaId={personaId}
+                            onConnected={(addr) => {
+                              if (addr) wallet.refresh();
+                            }}
+                          />
                         </div>
                       )}
 
