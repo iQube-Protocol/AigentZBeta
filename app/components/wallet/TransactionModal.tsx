@@ -35,7 +35,8 @@ export type TokenType = 'KNYT' | 'QCT' | 'USDC';
 
 export type DeliveryMode = 'custody' | 'claim' | 'canonical' | 'dvn';
 
-export type ChainId = 
+export type ChainId =
+  | 1         // Ethereum Mainnet
   | 421614    // Arbitrum Sepolia
   | 84532     // Base Sepolia
   | 80002     // Polygon Amoy
@@ -117,6 +118,14 @@ export interface PaymentRequest {
 
 export const SUPPORTED_CHAINS: ChainConfig[] = [
   {
+    id: 1,
+    name: 'Ethereum Mainnet',
+    ticker: 'ETH',
+    color: 'text-indigo-300',
+    explorer: 'https://etherscan.io',
+    active: true,
+  },
+  {
     id: 421614,
     name: 'Arbitrum Sepolia',
     ticker: 'ARB',
@@ -184,6 +193,8 @@ const QCT_ADDRESSES: Record<number, string> = {
 };
 
 const KNYT_ADDRESSES: Partial<Record<number, string>> = {
+  // Ethereum mainnet KNYT contract — see services/wallet/knyt/evmKnytService.ts
+  1: process.env.NEXT_PUBLIC_KNYT_CONTRACT_ADDRESS || "",
   11155111: process.env.NEXT_PUBLIC_KNYT_SEPOLIA || "",
 };
 
@@ -201,9 +212,9 @@ const TOKEN_LABEL: Record<TokenType, string> = {
 
 const DELIVERY_LABEL: Record<DeliveryMode, string> = {
   canonical: "Direct (Mainnet)",
-  custody: "Remote (Mainnet)",
-  claim: "Deferred (Mainnet)",
-  dvn: "ICP Chain (DVN)",
+  custody: "Remote (Delegated)",
+  claim: "Deferred (Cross-chain)",
+  dvn: "DVN (ICP)",
 };
 
 // =============================================================================
@@ -311,6 +322,13 @@ export function TransactionModal({
       if (selectedToken === 'KNYT' && prev === 'canonical') return 'dvn';
       return prev;
     });
+    // KNYT lives on Ethereum mainnet — snap the chain when the user picks it
+    // (the chain selector is hidden in this modal, so this is the only path).
+    if (selectedToken === 'KNYT') {
+      setSelectedChain((prev) => (prev === 1 ? prev : 1));
+    } else {
+      setSelectedChain((prev) => (prev === 1 ? 421614 : prev));
+    }
   }, [selectedToken]);
 
   if (!isOpen) return null;
@@ -503,7 +521,7 @@ export function TransactionModal({
               chain: chainConfig.name.toLowerCase().replace(' ', '-'),
               address: resolvedRecipient,
             },
-            from_chain: 'arbitrum-sepolia',
+            from_chain: chainConfig.name.toLowerCase().replace(' ', '-'),
             sender_identifier: senderIdentifier, // For flexible key lookup
           }),
         });
@@ -953,7 +971,7 @@ export function TransactionModal({
                           }`}
                         >
                           <div className="text-xs font-medium">DVN</div>
-                          <div className="text-[10px] text-white/40">ICP Chain</div>
+                          <div className="text-[10px] text-white/40">ICP</div>
                         </button>
                       )}
                       <button
@@ -977,7 +995,7 @@ export function TransactionModal({
                           }`}
                         >
                           <div className="text-xs font-medium">Remote</div>
-                          <div className="text-[10px] text-white/40">Mainnet</div>
+                          <div className="text-[10px] text-white/40">Delegated</div>
                         </button>
                       )}
                       <button
@@ -989,7 +1007,7 @@ export function TransactionModal({
                         }`}
                       >
                         <div className="text-xs font-medium">Deferred</div>
-                        <div className="text-[10px] text-white/40">Mainnet</div>
+                        <div className="text-[10px] text-white/40">Cross-chain</div>
                       </button>
                     </div>
                   </div>
@@ -1255,15 +1273,36 @@ export function TransactionModal({
                     )}
                   </div>
 
-                  <a
-                    href={getExplorerUrl(txHash, verifyChain)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full mt-3 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm transition-colors"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    View on Explorer
-                  </a>
+                  {(() => {
+                    const isDvn = txHash.startsWith('knyt_');
+                    if (isDvn) {
+                      const icpBase = process.env.NEXT_PUBLIC_ICP_EXPLORER_BASE;
+                      const batchId = verifyResult?.dvnBatchId;
+                      if (!icpBase || !batchId) return null;
+                      return (
+                        <a
+                          href={`${icpBase.replace(/\/$/, '')}/${encodeURIComponent(batchId)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-2 w-full mt-3 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm transition-colors"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          View on ICP Explorer
+                        </a>
+                      );
+                    }
+                    return (
+                      <a
+                        href={getExplorerUrl(txHash, verifyChain)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-2 w-full mt-3 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm transition-colors"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        View on Explorer
+                      </a>
+                    );
+                  })()}
                 </div>
               )}
 
