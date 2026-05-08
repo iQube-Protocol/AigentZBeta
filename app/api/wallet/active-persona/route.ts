@@ -33,20 +33,35 @@ function getAdminClient() {
   return client;
 }
 
-async function readDisplayLabel(personaId: string): Promise<string | undefined> {
+async function readPersonaPresentation(
+  personaId: string,
+): Promise<{ displayLabel?: string; ownFioHandle?: string }> {
   try {
     const admin = getAdminClient();
     const { data } = await admin
       .from('personas')
-      .select('display_name')
+      .select('display_name, fio_handle')
       .eq('id', personaId)
       .maybeSingle();
-    const raw = (data as { display_name?: string } | null)?.display_name;
-    if (typeof raw === 'string' && raw.trim().length > 0) return raw.trim();
+    const row = data as { display_name?: string; fio_handle?: string } | null;
+    const displayLabel =
+      typeof row?.display_name === 'string' && row.display_name.trim().length > 0
+        ? row.display_name.trim()
+        : undefined;
+    // Surface the persona's OWN fio_handle in the response. Privacy
+    // contract allows this because the response is bound to the
+    // authenticated caller's own session — the user already knows
+    // their own handle. Cross-persona handle surfacing would be a
+    // T0 leak; this is not.
+    const ownFioHandle =
+      typeof row?.fio_handle === 'string' && row.fio_handle.trim().length > 0
+        ? row.fio_handle.trim()
+        : undefined;
+    return { displayLabel, ownFioHandle };
   } catch {
-    // Non-fatal — display label is purely cosmetic.
+    // Non-fatal — display data is purely cosmetic.
+    return {};
   }
-  return undefined;
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -63,19 +78,22 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     authProfileId: context.authProfileId,
   });
 
-  const displayLabel = await readDisplayLabel(context.personaId);
+  const { displayLabel, ownFioHandle } = await readPersonaPresentation(context.personaId);
 
-  const surface: ActivePersonaSurface = {
+  const surface: ActivePersonaSurface & { ownFioHandle?: string } = {
     personaSessionToken: issued.token,
     identifiability: context.identifiability,
     cartridgeFlags: { ...context.cartridgeFlags },
     cohortMemberships: [...context.cohortMemberships],
     sessionExpiresAt: issued.expiresAt,
     ...(displayLabel ? { displayLabel } : {}),
+    ...(ownFioHandle ? { ownFioHandle } : {}),
   };
 
-  // Privacy guard: assert no T0 leak by construction. The response shape
-  // is `ActivePersonaSurface` exactly; any drift is a build error.
+  // Privacy guard: T0 handles (personaId, authProfileId, rootDid) are
+  // NOT surfaced. The fio_handle that IS surfaced belongs to the
+  // authenticated caller's own active persona — they already know it.
+  // Cross-persona handle resolution is forbidden.
   return NextResponse.json(surface, {
     headers: {
       'Cache-Control': 'no-store',

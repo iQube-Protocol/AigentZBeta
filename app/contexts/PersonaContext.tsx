@@ -178,14 +178,32 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
       new StorageEvent("storage", { key: LS_KEY, newValue: id })
     );
 
-    // Broadcast to all child iframes
     const msg = { type: "aa-persona-change-v1", personaId: id };
+
+    // Broadcast DOWN to all child iframes (codex embeds, runtime embeds, etc.)
     try {
       const frames = document.querySelectorAll<HTMLIFrameElement>("iframe");
       frames.forEach((frame) => {
         try { frame.contentWindow?.postMessage(msg, "*"); } catch { /* cross-origin */ }
       });
     } catch { /* SSR guard */ }
+
+    // Broadcast UP to the parent window when the platform is itself
+    // running inside a parent shell (e.g. when dev-beta.aigentz.me is
+    // embedded inside metame.live as the thin client). Without this
+    // hop the thin client never learns about persona switches initiated
+    // from inside the platform iframe — its header/handle would stay
+    // stuck on the previous persona.
+    //
+    // No-op when not iframed (window.parent === window). Cross-origin
+    // postMessage to '*' is intentional; every shell origin in the
+    // allow-list (embedPolicy.authAllowedOrigins) listens for this
+    // and ignores messages it doesn't recognise.
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage(msg, "*");
+      }
+    } catch { /* SSR / cross-origin */ }
   }, []);
 
   // ── Cartridge defaults ────────────────────────────────────────────────────
