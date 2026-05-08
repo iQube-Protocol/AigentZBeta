@@ -764,3 +764,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-2d81f86.md](../build_/COMMITS/COMMIT-2d81f86.md)
 - Message: trigger amplify rebuild: sprint 3+4 investor dashboard + admin investments tab
+
+## Commit `10db221` — 2026-05-08T01:45:25Z
+- Type: `feat`
+- Brief: [COMMIT-10db221.md](../build_/COMMITS/COMMIT-10db221.md)
+- Message: feat: thin-client active-persona integration — surface ownFioHandle + parent broadcast + integration doc
