@@ -17,13 +17,23 @@
  *
  *   JWT=<your-supabase-jwt> node scripts/verify-spine.mjs \
  *     --host dev-beta.aigentz.me \
- *     --free   mk_ep00_print_common \
+ *     --personaId <uuid-of-the-persona-you-want-tested> \
+ *     --free   <asset-with-row-level-gating_kind=free> \
  *     --owned  <an-asset-the-test-persona-owns> \
  *     --unowned mk_ep01_print_rare
  *
  * Args (all optional):
  *   --host       Target host (default: dev-beta.aigentz.me)
- *   --free       Asset id/cid expected ALLOW/free (default: mk_ep00_print_common)
+ *   --personaId  UUID of the persona to test against. Sent as
+ *                x-persona-id header so the server resolves the
+ *                operator's intended persona instead of falling
+ *                through to 'first owned'. REQUIRED for users with
+ *                multiple personas where ownership lives only on
+ *                a non-default one. Get yours from /api/access/whoami
+ *                or from localStorage.currentPersonaId after a wallet
+ *                drawer switch.
+ *   --free       Asset id/cid expected ALLOW/free (no default — the GN
+ *                is no longer free in production; supply explicitly)
  *   --owned      Asset id/cid expected ALLOW/owned (skipped if omitted)
  *   --unowned    Asset id/cid expected DENY/payment-required
  *                  (default: mk_ep01_print_rare — known seeded paid asset)
@@ -47,9 +57,16 @@ const args = parseArgs(process.argv.slice(2));
 const jwt = process.env.JWT || args.jwt || '';
 const host = args.host || 'dev-beta.aigentz.me';
 const action = args.action || 'read';
+const personaId = args.personaId || process.env.PERSONA_ID || '';
 
 const baseUrl = host.startsWith('http') ? host : `https://${host}`;
 const authHeader = jwt ? { Authorization: `Bearer ${jwt}` } : {};
+// When a personaId is supplied, send x-persona-id so the server-side
+// resolver picks the operator's intended persona instead of falling
+// through to 'first owned by created_at'. Required for users with
+// multiple personas where ownership only exists on one of them.
+const personaHeader = personaId ? { 'x-persona-id': personaId } : {};
+const baseHeaders = { Accept: 'application/json', ...authHeader, ...personaHeader };
 
 const cases = [
   // --free has NO default. Per operator (2026-05-06) the GN
@@ -65,6 +82,7 @@ const cases = [
 
 console.log(`[verify-spine] target: ${baseUrl}`);
 console.log(`[verify-spine] jwt:    ${jwt ? '(provided)' : '(none — relying on bypass if active)'}`);
+console.log(`[verify-spine] persona:${personaId ? ' ' + personaId : ' (none — server picks default)'}`);
 console.log(`[verify-spine] action: ${action}`);
 console.log(`[verify-spine] cases:  ${cases.length}\n`);
 
@@ -77,7 +95,7 @@ let bypassActive = false;
 {
   const url = `${baseUrl}/api/access/whoami`;
   process.stdout.write(`whoami         /api/access/whoami           ... `);
-  const res = await fetch(url, { headers: { Accept: 'application/json', ...authHeader } }).catch((e) => ({ error: e }));
+  const res = await fetch(url, { headers: baseHeaders }).catch((e) => ({ error: e }));
   if (res?.error) {
     console.log(`FAIL (network: ${res.error.message})`);
     failures++;
@@ -115,7 +133,7 @@ let bypassActive = false;
 {
   const url = `${baseUrl}/api/access/list-assets?limit=10`;
   process.stdout.write(`list-assets    /api/access/list-assets      ... `);
-  const res = await fetch(url, { headers: { Accept: 'application/json', ...authHeader } }).catch((e) => ({ error: e }));
+  const res = await fetch(url, { headers: baseHeaders }).catch((e) => ({ error: e }));
   if (res?.error) {
     console.log(`FAIL (network: ${res.error.message})`);
     failures++;
@@ -141,7 +159,7 @@ let bypassActive = false;
 if (!bypassActive && jwt) {
   const url = `${baseUrl}/api/wallet/active-persona`;
   process.stdout.write(`privacy guard  T0 leak check                ... `);
-  const res = await fetch(url, { headers: { Accept: 'application/json', ...authHeader } }).catch((e) => ({ error: e }));
+  const res = await fetch(url, { headers: baseHeaders }).catch((e) => ({ error: e }));
   if (res?.error || res.status !== 200) {
     console.log(`SKIP (active-persona unavailable; HTTP ${res?.status ?? 'network'})`);
   } else {
@@ -181,7 +199,7 @@ for (const c of cases) {
 
   const url = `${baseUrl}/api/access/inspect?cid=${encodeURIComponent(c.target)}&action=${action}`;
   process.stdout.write(`${c.label.padEnd(14)} ${c.target.padEnd(40)} `);
-  const res = await fetch(url, { headers: { Accept: 'application/json', ...authHeader } }).catch((e) => ({ error: e }));
+  const res = await fetch(url, { headers: baseHeaders }).catch((e) => ({ error: e }));
   if (res?.error) {
     console.log(`FAIL (network: ${res.error.message})`);
     failures++;
