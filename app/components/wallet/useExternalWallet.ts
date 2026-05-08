@@ -62,6 +62,10 @@ export interface UseExternalWalletResult {
   connect: (walletId: string) => Promise<void>;
   connectByProvider: (provider: EthereumProvider, walletId?: string) => Promise<void>;
   switchToChain: (chainIdHex: string) => Promise<void>;
+  /** Re-run sessionStorage restore — call after another surface (e.g. embedded
+   *  ExternalWalletConnect) successfully connects so this hook adopts that
+   *  connection without waiting for the wallets list to change. */
+  refresh: () => void;
 }
 
 export function useExternalWallet(): UseExternalWalletResult {
@@ -146,9 +150,8 @@ export function useExternalWallet(): UseExternalWalletResult {
     };
   }, []);
 
-  // Restore previous connection from sessionStorage (non-prompting eth_accounts)
-  useEffect(() => {
-    if (address || wallets.length === 0) return;
+  const restoreFromStorage = useCallback(() => {
+    if (wallets.length === 0) return;
     let savedAddr: string | null = null;
     let savedId: string | null = null;
     try {
@@ -156,6 +159,7 @@ export function useExternalWallet(): UseExternalWalletResult {
       savedId = sessionStorage.getItem(STORAGE_KEY_ID);
     } catch { return; }
     if (!savedAddr) return;
+    if (address && address.toLowerCase() === savedAddr.toLowerCase()) return;
 
     const wallet = savedId ? wallets.find((w) => w.id === savedId) : wallets[0];
     if (!wallet) return;
@@ -169,6 +173,11 @@ export function useExternalWallet(): UseExternalWalletResult {
       })
       .catch(() => { /* ignore */ });
   }, [wallets, address, attachProvider]);
+
+  // Auto-run restore whenever wallets change (initial discovery + re-discovery)
+  useEffect(() => {
+    if (!address) restoreFromStorage();
+  }, [wallets, address, restoreFromStorage]);
 
   // Cleanup listeners on unmount
   useEffect(() => () => {
@@ -240,5 +249,6 @@ export function useExternalWallet(): UseExternalWalletResult {
     connect,
     connectByProvider,
     switchToChain,
+    refresh: restoreFromStorage,
   };
 }
