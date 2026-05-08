@@ -33,7 +33,7 @@ export type TransactionTab = 'send' | 'receive' | 'verify';
 
 export type TokenType = 'KNYT' | 'QCT' | 'USDC';
 
-export type DeliveryMode = 'custody' | 'claim' | 'canonical';
+export type DeliveryMode = 'custody' | 'claim' | 'canonical' | 'dvn';
 
 export type ChainId = 
   | 421614    // Arbitrum Sepolia
@@ -201,6 +201,7 @@ const DELIVERY_LABEL: Record<DeliveryMode, string> = {
   canonical: "Direct",
   custody: "Remote",
   claim: "Deferred",
+  dvn: "DVN (off-chain)",
 };
 
 // =============================================================================
@@ -239,8 +240,12 @@ export function TransactionModal({
   const [sendLoading, setSendLoading] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [sendSuccess, setSendSuccess] = useState<TransactionResult | null>(null);
-  const initialDeliveryMode: DeliveryMode =
-    !enableCustody && deliveryMode === 'custody' ? 'canonical' : deliveryMode;
+  const initialDeliveryMode: DeliveryMode = (() => {
+    // KNYT defaults to off-chain DVN settlement (no gas, instant)
+    if (initialToken === 'KNYT' && deliveryMode === 'canonical') return 'dvn';
+    if (!enableCustody && deliveryMode === 'custody') return 'canonical';
+    return deliveryMode;
+  })();
   const [selectedDeliveryMode, setSelectedDeliveryMode] = useState<DeliveryMode>(initialDeliveryMode);
   
   // Receive state
@@ -296,13 +301,25 @@ export function TransactionModal({
     }
   }, [enableCustody, selectedDeliveryMode]);
 
+  // DVN mode is KNYT-only — only normalise on token change so the user can
+  // still explicitly pick canonical/claim/custody for KNYT once selected.
+  useEffect(() => {
+    setSelectedDeliveryMode((prev) => {
+      if (selectedToken !== 'KNYT' && prev === 'dvn') return 'canonical';
+      if (selectedToken === 'KNYT' && prev === 'canonical') return 'dvn';
+      return prev;
+    });
+  }, [selectedToken]);
+
   if (!isOpen) return null;
 
   // ==========================================================================
   // SEND HANDLER
   // ==========================================================================
   const handleSend = async () => {
-    if (!recipient || !amount || !agentId) {
+    // DVN mode is KNYT-only and skips wallet/agent address requirements
+    const isDvn = selectedDeliveryMode === 'dvn';
+    if (!recipient || !amount || (!isDvn && !agentId)) {
       setSendError('Please fill in all required fields');
       return;
     }
@@ -325,6 +342,44 @@ export function TransactionModal({
     setSendSuccess(null);
 
     try {
+      // DVN off-chain transfer — bypass chain/recipient resolution; the server
+      // resolves persona handles via the KNYT ledger service.
+      if (isDvn) {
+        if (selectedToken !== 'KNYT') {
+          throw new Error('DVN mode is only available for KNYT');
+        }
+        const fromIdentifier = fioHandle || personaId || agentId;
+        if (!fromIdentifier) {
+          throw new Error('Sender persona is not available');
+        }
+        const transferRes = await fetch('/api/wallet/knyt/transfer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fromPersonaId: fromIdentifier,
+            toPersonaId: recipient,
+            amount: amountNum,
+          }),
+        });
+        if (!transferRes.ok) {
+          const err = await transferRes.json().catch(() => ({}));
+          throw new Error(err.error || 'DVN transfer failed');
+        }
+        const data = await transferRes.json();
+        const result: TransactionResult = {
+          success: true,
+          chainId: selectedChain,
+          amount: amountNum,
+          recipient,
+          deliveryMode: 'dvn',
+          claimId: data.fromTxId,
+        };
+        setSendSuccess(result);
+        onTransactionComplete?.(result);
+        setSendLoading(false);
+        return;
+      }
+
       // Resolve recipient (FIO handle or wallet address)
       let resolvedRecipient = recipient;
       if (recipient.includes('@') || recipient.endsWith('.fio')) {
@@ -797,7 +852,20 @@ export function TransactionModal({
                     <label className="block text-sm font-medium text-white/70 mb-2">
                       Delivery Mode
                     </label>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className={`grid ${selectedToken === 'KNYT' ? (enableCustody ? 'grid-cols-4' : 'grid-cols-3') : (enableCustody ? 'grid-cols-3' : 'grid-cols-2')} gap-2`}>
+                      {selectedToken === 'KNYT' && (
+                        <button
+                          onClick={() => setSelectedDeliveryMode('dvn')}
+                          className={`p-2 rounded-lg text-center transition-colors ${
+                            selectedDeliveryMode === 'dvn'
+                              ? 'bg-amber-500/20 ring-1 ring-amber-500/50 text-amber-300'
+                              : 'bg-white/5 ring-1 ring-white/10 text-white/60 hover:bg-white/10'
+                          }`}
+                        >
+                          <div className="text-xs font-medium">DVN</div>
+                          <div className="text-[10px] text-white/40">Off-chain</div>
+                        </button>
+                      )}
                       <button
                         onClick={() => setSelectedDeliveryMode('canonical')}
                         className={`p-2 rounded-lg text-center transition-colors ${
