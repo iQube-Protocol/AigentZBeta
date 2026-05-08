@@ -57,9 +57,10 @@ export interface UseExternalWalletResult {
   walletName: string;
   wallets: WalletEntry[];
   provider: EthereumProvider | null;
-  connecting: boolean;
+  connectingId: string | null;
   error: string | null;
   connect: (walletId: string) => Promise<void>;
+  connectByProvider: (provider: EthereumProvider, walletId?: string) => Promise<void>;
   switchToChain: (chainIdHex: string) => Promise<void>;
 }
 
@@ -68,7 +69,7 @@ export function useExternalWallet(): UseExternalWalletResult {
   const [chainId, setChainId] = useState<number | null>(null);
   const [walletName, setWalletName] = useState<string>('');
   const [wallets, setWallets] = useState<WalletEntry[]>([]);
-  const [connecting, setConnecting] = useState(false);
+  const [connectingId, setConnectingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const providerRef = useRef<EthereumProvider | null>(null);
@@ -178,26 +179,44 @@ export function useExternalWallet(): UseExternalWalletResult {
     }
   }, [handleAccountsChanged, handleChainChanged]);
 
-  const connect = useCallback(async (walletId: string) => {
-    const wallet = wallets.find((w) => w.id === walletId);
-    if (!wallet) {
-      setError('Wallet not found');
-      return;
-    }
-    setConnecting(true);
+  const connectByProvider = useCallback(async (p: EthereumProvider, walletId?: string) => {
+    setConnectingId(walletId ?? 'unknown');
     setError(null);
+
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(
+        () => reject(new Error('Wallet not responding — open the extension and approve the connection request.')),
+        30_000,
+      );
+    });
+
     try {
-      const accounts = await wallet.provider.request({ method: 'eth_requestAccounts' }) as string[];
-      if (accounts.length) attachProvider(wallet.provider, accounts[0], wallet.id);
+      const accounts = await Promise.race([
+        p.request({ method: 'eth_requestAccounts' }) as Promise<string[]>,
+        timeout,
+      ]);
+      clearTimeout(timeoutId!);
+      if (accounts.length) attachProvider(p, accounts[0], walletId);
     } catch (err) {
+      clearTimeout(timeoutId!);
       const msg = err instanceof Error ? err.message : 'Connection failed';
       if (!msg.toLowerCase().includes('user rejected') && !msg.toLowerCase().includes('user denied')) {
         setError(msg);
       }
     } finally {
-      setConnecting(false);
+      setConnectingId(null);
     }
-  }, [wallets, attachProvider]);
+  }, [attachProvider]);
+
+  const connect = useCallback(async (walletId: string) => {
+    const w = wallets.find((entry) => entry.id === walletId);
+    if (!w) {
+      setError('Wallet not found');
+      return;
+    }
+    return connectByProvider(w.provider, w.id);
+  }, [wallets, connectByProvider]);
 
   const switchToChain = useCallback(async (chainIdHex: string) => {
     const p = providerRef.current;
@@ -216,9 +235,10 @@ export function useExternalWallet(): UseExternalWalletResult {
     walletName,
     wallets,
     provider: providerRef.current,
-    connecting,
+    connectingId,
     error,
     connect,
+    connectByProvider,
     switchToChain,
   };
 }

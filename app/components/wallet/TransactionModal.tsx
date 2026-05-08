@@ -1111,28 +1111,36 @@ export function TransactionModal({
                           ) : (
                             <div className="space-y-1.5">
                               <div className="text-[11px] text-amber-300/80">Pick a wallet to connect:</div>
-                              {/* Order: MetaMask first if present, then everything else */}
+                              {/* Mirrors ExternalWalletConnect.connectTo: pass the provider
+                                  reference directly rather than re-finding by id, and show
+                                  per-button spinner via connectingId. */}
                               {[...wallet.wallets].sort((a, b) => {
                                 const aMM = a.name.toLowerCase().includes('metamask') || a.provider.isMetaMask ? -1 : 0;
                                 const bMM = b.name.toLowerCase().includes('metamask') || b.provider.isMetaMask ? -1 : 0;
                                 return aMM - bMM;
-                              }).map((w) => (
-                                <button
-                                  key={w.id}
-                                  onClick={() => wallet.connect(w.id)}
-                                  disabled={wallet.connecting}
-                                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[11px] font-medium disabled:opacity-50 text-left"
-                                >
-                                  {w.icon ? (
-                                    <img src={w.icon} alt={w.name} className="h-4 w-4 rounded shrink-0" />
-                                  ) : (
-                                    <Wallet className="h-3.5 w-3.5 shrink-0" />
-                                  )}
-                                  <span className="flex-1">
-                                    {wallet.connecting ? 'Connecting…' : `Connect ${w.name}`}
-                                  </span>
-                                </button>
-                              ))}
+                              }).map((w) => {
+                                const spinning = wallet.connectingId === w.id;
+                                const anyConnecting = wallet.connectingId !== null;
+                                return (
+                                  <button
+                                    key={w.id}
+                                    type="button"
+                                    onClick={() => wallet.connectByProvider(w.provider, w.id)}
+                                    disabled={anyConnecting}
+                                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[11px] font-medium disabled:opacity-50 text-left"
+                                  >
+                                    {w.icon ? (
+                                      <img src={w.icon} alt={w.name} className="h-4 w-4 rounded shrink-0" />
+                                    ) : (
+                                      <Wallet className="h-3.5 w-3.5 shrink-0" />
+                                    )}
+                                    <span className="flex-1">
+                                      {spinning ? `Check ${w.name} for a connection request…` : `Connect ${w.name}`}
+                                    </span>
+                                    {spinning && <Loader2 className="h-3 w-3 animate-spin" />}
+                                  </button>
+                                );
+                              })}
                               {wallet.error && (
                                 <div className="text-[10px] text-red-300/80 mt-1">{wallet.error}</div>
                               )}
