@@ -6,7 +6,7 @@
 export * from './types';
 
 // Ledger operations
-export { getKnytBalance, creditKnyt, debitKnyt } from './knytLedgerService';
+export { getKnytBalance, creditKnyt, debitKnyt, transferDvnKnyt } from './knytLedgerService';
 
 // DVN batching
 export { enqueueDvnEvent, flushBatch, getBatcherStatus, initKnytBatcher, stopKnytBatcher } from './knytDvnBatcher';

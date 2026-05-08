@@ -21,21 +21,17 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { getCallerIdentityContext } from '@/services/wallet/personaRepo';
 
 export const dynamic = 'force-dynamic';
-
-const admin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
 
 function isUuid(v: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
 }
 
-async function ensureProfileExists(id: string, email: string): Promise<void> {
+async function ensureProfileExists(admin: SupabaseClient, id: string, email: string): Promise<void> {
   // ignoreDuplicates: true — never overwrite an existing row's email with a
   // synthetic placeholder. If the row already exists (real or synthetic), leave it.
   await admin
@@ -46,7 +42,7 @@ async function ensureProfileExists(id: string, email: string): Promise<void> {
     );
 }
 
-async function linkToCanonical(canonicalId: string, otherId: string): Promise<void> {
+async function linkToCanonical(admin: SupabaseClient, canonicalId: string, otherId: string): Promise<void> {
   if (canonicalId === otherId) return;
   await admin.from('crm_auth_profile_links').upsert(
     {
@@ -64,6 +60,11 @@ export async function POST(request: NextRequest) {
     const context = await getCallerIdentityContext(request);
     if (!context?.authProfileId || !context.email) {
       return NextResponse.json({ error: 'Unauthorized — Bearer token with email required' }, { status: 401 });
+    }
+
+    const admin = getSupabaseServer();
+    if (!admin) {
+      return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
     }
 
     const canonicalId = context.authProfileId;
@@ -140,8 +141,8 @@ export async function POST(request: NextRequest) {
 
     for (const otherId of mergeableIds) {
       if (!isUuid(otherId)) continue;
-      await ensureProfileExists(otherId, `${otherId}@linked.agentiq.local`);
-      await linkToCanonical(canonicalId, otherId);
+      await ensureProfileExists(admin, otherId, `${otherId}@linked.agentiq.local`);
+      await linkToCanonical(admin, canonicalId, otherId);
 
       const { count } = await admin
         .from('personas')

@@ -704,3 +704,68 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-fded607.md](../build_/COMMITS/COMMIT-fded607.md)
 - Message: fix: add getOwnedAssetIds enumeration fallback to userOwnsAsset + deploy trigger
+
+## Commit `37baf80` — 2026-05-06T21:05:50Z
+- Type: `feat`
+- Brief: [COMMIT-37baf80.md](../build_/COMMITS/COMMIT-37baf80.md)
+- Message: sprint 4: add KnytInvestmentsAdminTab — per-investor expandable rows + add event/doc + visibility toggle
+
+## Commit `b06e8df` — 2026-05-06T20:57:12Z
+- Type: `feat`
+- Brief: [COMMIT-b06e8df.md](../build_/COMMITS/COMMIT-b06e8df.md)
+- Message: sprint 3: add KnytInvestorDashboardTab + investorOnly gating + tab wiring
+
+## Commit `71dbc5a` — 2026-05-06T20:57:07Z
+- Type: `feat`
+- Brief: [COMMIT-71dbc5a.md](../build_/COMMITS/COMMIT-71dbc5a.md)
+- Message: sprint 3: add investor dashboard tables, RLS, and read/admin APIs
+
+## Commit `eaad44a` — 2026-05-06T20:46:08Z
+- Type: `push`
+- Brief: [COMMIT-eaad44a.md](../build_/COMMITS/COMMIT-eaad44a.md)
+- Message: migrate wallet/identity/consolidate DB client to getSupabaseServer (timeout-guarded)
+
+## Commit `244ff4f` — 2026-05-06T20:45:14Z
+- Type: `push`
+- Brief: [COMMIT-244ff4f.md](../build_/COMMITS/COMMIT-244ff4f.md)
+- Message: migrate wallet/identity/profile DB client to getSupabaseServer (timeout-guarded)
+
+## Commit `1b0d145` — 2026-05-06T20:44:40Z
+- Type: `push`
+- Brief: [COMMIT-1b0d145.md](../build_/COMMITS/COMMIT-1b0d145.md)
+- Message: migrate wallet/knyt/balance route to getSupabaseServer (timeout-guarded)
+
+## Commit `ff8a4f9` — 2026-05-06T20:44:10Z
+- Type: `push`
+- Brief: [COMMIT-ff8a4f9.md](../build_/COMMITS/COMMIT-ff8a4f9.md)
+- Message: migrate wallet/personas DB client to getSupabaseServer (timeout-guarded)
+
+## Commit `69da15a` — 2026-05-06T20:43:36Z
+- Type: `push`
+- Brief: [COMMIT-69da15a.md](../build_/COMMITS/COMMIT-69da15a.md)
+- Message: migrate codex/owned route to getSupabaseServer (timeout-guarded)
+
+## Commit `49d9905` — 2026-05-06T20:43:23Z
+- Type: `push`
+- Brief: [COMMIT-49d9905.md](../build_/COMMITS/COMMIT-49d9905.md)
+- Message: migrate entitlements/list route to getSupabaseServer (timeout-guarded)
+
+## Commit `e09bfed` — 2026-05-06T20:29:58Z
+- Type: `feat`
+- Brief: [COMMIT-e09bfed.md](../build_/COMMITS/COMMIT-e09bfed.md)
+- Message: wire wallet tasks/reputation/rewards tabs to /api/wallet/tasks
+
+## Commit `d2c4645` — 2026-05-06T05:33:01Z
+- Type: `feat`
+- Brief: [COMMIT-d2c4645.md](../build_/COMMITS/COMMIT-d2c4645.md)
+- Message: add dev note: supabase postgrest silent column error + episode thumbnail fix pattern
+
+## Commit `2d81f86` — 2026-05-08T00:24:54Z
+- Type: `push`
+- Brief: [COMMIT-2d81f86.md](../build_/COMMITS/COMMIT-2d81f86.md)
+- Message: trigger amplify rebuild: sprint 3+4 investor dashboard + admin investments tab
+
+## Commit `10db221` — 2026-05-08T01:45:25Z
+- Type: `feat`
+- Brief: [COMMIT-10db221.md](../build_/COMMITS/COMMIT-10db221.md)
+- Message: feat: thin-client active-persona integration — surface ownFioHandle + parent broadcast + integration doc

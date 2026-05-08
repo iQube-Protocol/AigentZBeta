@@ -1363,6 +1363,62 @@ export default function SmartWalletDrawer({
   const quests = walletNode?.activeQuests || [];
   const rewards = walletNode?.rewardsContext;
 
+  // Live task/reputation/rewards data from /api/wallet/tasks
+  interface WalletTaskCard {
+    id: string;
+    templateId: string;
+    title: string;
+    description: string;
+    family: string;
+    status: 'available' | 'in_progress' | 'completed';
+    progress: number;
+    rewardPreview: string;
+    rewardKnyt: number;
+    iconHint?: string;
+    accentHint?: string;
+    primaryAction?: string;
+    deepLink?: string;
+    nextStep?: string;
+  }
+  interface WalletTasksPayload {
+    cards: { active: WalletTaskCard[]; available: WalletTaskCard[]; completed: WalletTaskCard[] };
+    questRail: {
+      rewards: { id: string; amount: number; source: string }[];
+      ascensionRank: { current: string; next: string; progress: number };
+    };
+    summary: {
+      activeCount: number;
+      availableCount: number;
+      completedCount: number;
+      claimableKnyt: number;
+      lifetimeKnytEarned: number;
+    };
+    reputation: {
+      overall: number;
+      technical: number;
+      creative: number;
+      entrepreneurial: number;
+      dataArch: number;
+      community: number;
+      lifetimeCvs: number;
+      totalTasksCompleted: number;
+    } | null;
+  }
+  const [walletTasksData, setWalletTasksData] = useState<WalletTasksPayload | null>(null);
+  const [walletTasksLoading, setWalletTasksLoading] = useState(false);
+  useEffect(() => {
+    const pid = personaId || localPersonaId;
+    if (!pid) { setWalletTasksData(null); return; }
+    let cancelled = false;
+    setWalletTasksLoading(true);
+    fetch(`/api/wallet/tasks?personaId=${encodeURIComponent(pid)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: WalletTasksPayload | null) => { if (!cancelled) setWalletTasksData(data); })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setWalletTasksLoading(false); });
+    return () => { cancelled = true; };
+  }, [personaId, localPersonaId]);
+
   // Get pricing info for current content
   const contentPrice = currentContent?.pricingModel?.tiers?.[0];
   const isFreeContent = !contentPrice || contentPrice.kind === "free" || contentPrice.amount === 0;
@@ -3171,147 +3227,200 @@ export default function SmartWalletDrawer({
           {/* Tasks Tab */}
           {activeTab === "tasks" && (
             <div className="space-y-4">
-              {/* Hero Tasks */}
-              <section className="rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 ring-1 ring-cyan-500/20 p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <Users className="w-4 h-4 text-cyan-400" />
-                  <span className="text-xs font-medium text-cyan-300">Bring a Knight</span>
-                  <span className="ml-auto text-[10px] text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded">+2 KNYT</span>
+              {walletTasksLoading && !walletTasksData ? (
+                <div className="flex items-center justify-center py-10 text-white/40 text-xs gap-2">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  Loading tasks…
                 </div>
-                <p className="text-[10px] text-white/50 mb-2">Invite friends to join. Earn 2 KNYT when they make their first purchase.</p>
-                <button className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded bg-cyan-500/20 text-cyan-300 text-xs hover:bg-cyan-500/30">
-                  <Share2 className="w-3 h-3" />
-                  Share Invite Link
-                </button>
-              </section>
-
-              <section className="rounded-xl bg-gradient-to-br from-purple-500/10 to-fuchsia-500/10 ring-1 ring-purple-500/20 p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <Flame className="w-4 h-4 text-orange-400" />
-                  <span className="text-xs font-medium text-purple-300">Knight of Attention</span>
-                  <span className="ml-auto text-[10px] text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded">+0.5 KNYT</span>
-                </div>
-                <p className="text-[10px] text-white/50 mb-2">Complete episodes to earn rewards. Build streaks for bonus KNYT.</p>
-                <div className="flex items-center gap-2 text-[10px] text-white/40">
-                  <span>Episodes: 0/2 this week</span>
-                  <span className="text-white/20">|</span>
-                  <span>Streak: 0 weeks</span>
-                </div>
-              </section>
-
-              <section className="rounded-xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 ring-1 ring-amber-500/20 p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <Trophy className="w-4 h-4 text-amber-400" />
-                  <span className="text-xs font-medium text-amber-300">Herald of the Order</span>
-                  <span className="ml-auto text-[10px] text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded">+0.25 KNYT</span>
-                </div>
-                <p className="text-[10px] text-white/50 mb-2">Share content and earn when others click, sign up, or purchase.</p>
-                <div className="flex items-center gap-2 text-[10px] text-white/40">
-                  <span>Clicks: 0/10</span>
-                  <span className="text-white/20">|</span>
-                  <span>Signups: 0/3</span>
-                </div>
-              </section>
-
-              {/* Living Canon — 21 Sats Participation */}
-              <section className="rounded-xl bg-gradient-to-br from-violet-500/10 to-amber-500/10 ring-1 ring-violet-500/20 p-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="w-4 h-4 text-amber-400" />
-                  <span className="text-xs font-medium text-amber-200">Living Canon — 21 Sats</span>
-                </div>
-                <p className="text-[10px] text-white/50 mb-2.5">
-                  Participate in the canon. Vote on elections, submit contributions, or file dispatches as a Correspondent.
-                </p>
-                <div className="space-y-1.5">
-                  {[
-                    { label: "Vote on open elections", badge: "+21 KNYT", badgeClass: "text-amber-300 bg-amber-500/10" },
-                    { label: "Submit community contribution", badge: "PoKW", badgeClass: "text-cyan-300 bg-cyan-500/10" },
-                    { label: "File Correspondent dispatch", badge: "Featured", badgeClass: "text-violet-300 bg-violet-500/10" },
-                  ].map(({ label, badge, badgeClass }) => (
-                    <button
-                      key={label}
-                      type="button"
-                      onClick={() => {
-                        window.dispatchEvent(new CustomEvent('knyt:navigate-tab', { detail: { tab: 'living-canon' } }));
-                      }}
-                      className="w-full flex items-center justify-between rounded-lg bg-white/5 hover:bg-white/10 transition px-2 py-1.5 text-left"
-                    >
-                      <span className="text-[11px] text-white/70">{label}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${badgeClass}`}>{badge}</span>
-                    </button>
-                  ))}
-                </div>
-                <p className="text-[10px] text-white/30 mt-2">Opens the 21 Sats tab in the KNYT Codex.</p>
-              </section>
-
-              {/* Active Tasks */}
-              <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
-                <div className="text-[11px] uppercase tracking-wider text-white/60 mb-2">Active Tasks</div>
-                <div className="space-y-2">
-                  {tasks.filter((t) => t.status === "pending" || t.status === "in_progress").length === 0 && (
-                    <div className="text-xs text-white/50">No active tasks</div>
-                  )}
-                  {tasks
-                    .filter((t) => t.status === "pending" || t.status === "in_progress")
-                    .map((task: any) => (
-                      <div key={task.id} className="rounded-lg bg-white/5 ring-1 ring-white/10 p-2">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <div className="text-sm text-white/90">{task.title || task.label}</div>
-                            <div className="text-xs text-white/50 mt-0.5">{task.description}</div>
+              ) : walletTasksData ? (
+                <>
+                  {/* General task cards from API */}
+                  {walletTasksData.cards.available
+                    .filter((c) => c.family !== 'living_canon')
+                    .map((card) => {
+                      const STYLE: Record<string, { grad: string; ring: string; tc: string; icon: React.ReactNode }> = {
+                        'knyt:bring-a-knight':      { grad: 'from-cyan-500/10 to-blue-500/10',     ring: 'ring-cyan-500/20',   tc: 'text-cyan-300',   icon: <Users  className="w-4 h-4 text-cyan-400" /> },
+                        'knyt:knight-of-attention': { grad: 'from-purple-500/10 to-fuchsia-500/10', ring: 'ring-purple-500/20', tc: 'text-purple-300', icon: <Flame  className="w-4 h-4 text-orange-400" /> },
+                        'knyt:herald-of-the-order': { grad: 'from-amber-500/10 to-orange-500/10',   ring: 'ring-amber-500/20',  tc: 'text-amber-300',  icon: <Trophy className="w-4 h-4 text-amber-400" /> },
+                      };
+                      const s = STYLE[card.id] ?? { grad: 'from-slate-500/10 to-slate-400/10', ring: 'ring-slate-500/20', tc: 'text-white/80', icon: <Sparkles className="w-4 h-4 text-slate-400" /> };
+                      return (
+                        <section key={card.id} className={`rounded-xl bg-gradient-to-br ${s.grad} ring-1 ${s.ring} p-3`}>
+                          <div className="flex items-center gap-2 mb-2">
+                            {s.icon}
+                            <span className={`text-xs font-medium ${s.tc}`}>{card.title}</span>
+                            <span className="ml-auto text-[10px] text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded">{card.rewardPreview}</span>
                           </div>
-                          <Tooltip text={`Task type: ${task.type}`}>
-                            <span
-                              className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded ${
-                                task.type === "reward"
-                                  ? "bg-amber-500/20 text-amber-300"
-                                  : task.type === "quest"
-                                  ? "bg-purple-500/20 text-purple-300"
-                                  : task.type === "social"
-                                  ? "bg-blue-500/20 text-blue-300"
-                                  : "bg-slate-500/20 text-white/70"
-                              }`}
+                          <p className="text-[10px] text-white/50 mb-2">{card.description}</p>
+                          {card.status === 'in_progress' && card.progress > 0 && (
+                            <div className="mb-2">
+                              <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                                <div className="h-full bg-gradient-to-r from-teal-500 to-cyan-400" style={{ width: `${card.progress}%` }} />
+                              </div>
+                              {card.nextStep && <p className="text-[10px] text-white/40 mt-1">{card.nextStep}</p>}
+                            </div>
+                          )}
+                          {(card.id === 'knyt:bring-a-knight' || card.id === 'knyt:herald-of-the-order') && (
+                            <button
+                              type="button"
+                              onClick={() => window.dispatchEvent(new CustomEvent('knyt:navigate-tab', { detail: { tab: 'referral' } }))}
+                              className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded bg-cyan-500/20 text-cyan-300 text-xs hover:bg-cyan-500/30"
                             >
-                              {task.type === "reward" && <Gift className="w-3 h-3" />}
-                              {task.type === "quest" && <Target className="w-3 h-3" />}
-                              {task.type === "social" && <Users className="w-3 h-3" />}
-                              {!["reward", "quest", "social"].includes(task.type) && <CheckSquare className="w-3 h-3" />}
-                              {task.type}
-                            </span>
-                          </Tooltip>
+                              <Share2 className="w-3 h-3" />
+                              Share Invite Link
+                            </button>
+                          )}
+                        </section>
+                      );
+                    })}
+
+                  {/* Living Canon section */}
+                  {(() => {
+                    const canonCards = walletTasksData.cards.available.filter((c) => c.family === 'living_canon');
+                    if (canonCards.length === 0) return null;
+                    return (
+                      <section className="rounded-xl bg-gradient-to-br from-violet-500/10 to-amber-500/10 ring-1 ring-violet-500/20 p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Sparkles className="w-4 h-4 text-amber-400" />
+                          <span className="text-xs font-medium text-amber-200">Living Canon — 21 Sats</span>
                         </div>
-                        {(task.rewardPreview || task.reward) && (
-                          <div className="mt-2 text-xs text-amber-300 flex items-center gap-1">
-                            <Coins className="w-3 h-3" />
-                            +{task.rewardPreview?.amount || task.reward?.amount} {task.rewardPreview?.asset || task.reward?.currency}
+                        <p className="text-[10px] text-white/50 mb-2.5">
+                          Participate in the canon. Vote on elections, submit contributions, or file dispatches as a Correspondent.
+                        </p>
+                        <div className="space-y-1.5">
+                          {canonCards.map((card) => (
+                            <button
+                              key={card.id}
+                              type="button"
+                              onClick={() => window.dispatchEvent(new CustomEvent('knyt:navigate-tab', { detail: { tab: card.deepLink ?? 'living-canon' } }))}
+                              className="w-full flex items-center justify-between rounded-lg bg-white/5 hover:bg-white/10 transition px-2 py-1.5 text-left"
+                            >
+                              <span className="text-[11px] text-white/70">{card.title}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded text-cyan-300 bg-cyan-500/10">{card.rewardPreview}</span>
+                            </button>
+                          ))}
+                        </div>
+                        <p className="text-[10px] text-white/30 mt-2">Opens the 21 Sats tab in the KNYT Codex.</p>
+                      </section>
+                    );
+                  })()}
+
+                  {/* Active Tasks — in-progress contributions */}
+                  {walletTasksData.cards.active.length > 0 && (
+                    <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
+                      <div className="text-[11px] uppercase tracking-wider text-white/60 mb-2">Active Tasks</div>
+                      <div className="space-y-2">
+                        {walletTasksData.cards.active.map((card) => (
+                          <div key={card.id} className="rounded-lg bg-white/5 ring-1 ring-white/10 p-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <div className="text-sm text-white/90">{card.title}</div>
+                                {card.nextStep && <div className="text-xs text-white/50 mt-0.5">{card.nextStep}</div>}
+                              </div>
+                              <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300">{card.rewardPreview}</span>
+                            </div>
+                            {card.progress > 0 && (
+                              <div className="mt-2 h-1 bg-white/10 rounded-full overflow-hidden">
+                                <div className="h-full bg-gradient-to-r from-purple-500 to-fuchsia-500" style={{ width: `${card.progress}%` }} />
+                              </div>
+                            )}
                           </div>
-                        )}
-                        <div className="mt-2 flex gap-1">
-                          <Tooltip text="Mark task as complete">
-                            <button
-                              onClick={() => onTaskAction?.(task, "complete")}
-                              className="flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 text-xs hover:bg-emerald-500/30"
-                            >
-                              <Check className="w-3 h-3" />
-                              Complete
-                            </button>
-                          </Tooltip>
-                          <Tooltip text="Dismiss this task">
-                            <button
-                              onClick={() => onTaskAction?.(task, "dismiss")}
-                              className="flex items-center gap-1 px-2 py-1 rounded bg-white/5 text-white/50 text-xs hover:bg-white/10"
-                            >
-                              <X className="w-3 h-3" />
-                              Dismiss
-                            </button>
-                          </Tooltip>
-                        </div>
+                        ))}
                       </div>
-                    ))}
-                </div>
-              </section>
+                    </section>
+                  )}
 
-              {/* Quest Progress */}
+                  {/* Completed Tasks */}
+                  {walletTasksData.cards.completed.length > 0 && (
+                    <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
+                      <div className="text-[11px] uppercase tracking-wider text-white/60 mb-2">Completed</div>
+                      <div className="space-y-1.5">
+                        {walletTasksData.cards.completed.map((card) => (
+                          <div key={card.id} className="flex items-center gap-2 text-xs text-white/50 px-1">
+                            <Check className="w-3 h-3 text-emerald-400 shrink-0" />
+                            <span>{card.title}</span>
+                            <span className="ml-auto text-emerald-400">{card.rewardPreview}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+                </>
+              ) : (
+                /* Static fallback when no personaId or API unavailable */
+                <>
+                  <section className="rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 ring-1 ring-cyan-500/20 p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Users className="w-4 h-4 text-cyan-400" />
+                      <span className="text-xs font-medium text-cyan-300">Bring a Knight</span>
+                      <span className="ml-auto text-[10px] text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded">+2 KNYT</span>
+                    </div>
+                    <p className="text-[10px] text-white/50 mb-2">Invite friends to join. Earn 2 KNYT when they make their first purchase.</p>
+                    <button className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded bg-cyan-500/20 text-cyan-300 text-xs hover:bg-cyan-500/30">
+                      <Share2 className="w-3 h-3" />
+                      Share Invite Link
+                    </button>
+                  </section>
+
+                  <section className="rounded-xl bg-gradient-to-br from-purple-500/10 to-fuchsia-500/10 ring-1 ring-purple-500/20 p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Flame className="w-4 h-4 text-orange-400" />
+                      <span className="text-xs font-medium text-purple-300">Knight of Attention</span>
+                      <span className="ml-auto text-[10px] text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded">+0.5 KNYT</span>
+                    </div>
+                    <p className="text-[10px] text-white/50 mb-2">Complete episodes to earn rewards. Build streaks for bonus KNYT.</p>
+                    <div className="flex items-center gap-2 text-[10px] text-white/40">
+                      <span>Episodes: 0/2 this week</span>
+                      <span className="text-white/20">|</span>
+                      <span>Streak: 0 weeks</span>
+                    </div>
+                  </section>
+
+                  <section className="rounded-xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 ring-1 ring-amber-500/20 p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Trophy className="w-4 h-4 text-amber-400" />
+                      <span className="text-xs font-medium text-amber-300">Herald of the Order</span>
+                      <span className="ml-auto text-[10px] text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded">+0.25 KNYT</span>
+                    </div>
+                    <p className="text-[10px] text-white/50 mb-2">Share content and earn when others click, sign up, or purchase.</p>
+                    <div className="flex items-center gap-2 text-[10px] text-white/40">
+                      <span>Clicks: 0/10</span>
+                      <span className="text-white/20">|</span>
+                      <span>Signups: 0/3</span>
+                    </div>
+                  </section>
+
+                  <section className="rounded-xl bg-gradient-to-br from-violet-500/10 to-amber-500/10 ring-1 ring-violet-500/20 p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles className="w-4 h-4 text-amber-400" />
+                      <span className="text-xs font-medium text-amber-200">Living Canon — 21 Sats</span>
+                    </div>
+                    <p className="text-[10px] text-white/50 mb-2.5">
+                      Participate in the canon. Vote on elections, submit contributions, or file dispatches as a Correspondent.
+                    </p>
+                    <div className="space-y-1.5">
+                      {[
+                        { label: "Vote on open elections", badge: "+21 KNYT", badgeClass: "text-amber-300 bg-amber-500/10" },
+                        { label: "Submit community contribution", badge: "PoKW", badgeClass: "text-cyan-300 bg-cyan-500/10" },
+                        { label: "File Correspondent dispatch", badge: "Featured", badgeClass: "text-violet-300 bg-violet-500/10" },
+                      ].map(({ label, badge, badgeClass }) => (
+                        <button
+                          key={label}
+                          type="button"
+                          onClick={() => window.dispatchEvent(new CustomEvent('knyt:navigate-tab', { detail: { tab: 'living-canon' } }))}
+                          className="w-full flex items-center justify-between rounded-lg bg-white/5 hover:bg-white/10 transition px-2 py-1.5 text-left"
+                        >
+                          <span className="text-[11px] text-white/70">{label}</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded ${badgeClass}`}>{badge}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-white/30 mt-2">Opens the 21 Sats tab in the KNYT Codex.</p>
+                  </section>
+                </>
+              )}
+
+              {/* Quest Progress — walletNode quests (unchanged) */}
               {quests.length > 0 && (
                 <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
                   <div className="text-[11px] uppercase tracking-wider text-white/60 mb-2">Quest Progress</div>
@@ -3384,37 +3493,67 @@ export default function SmartWalletDrawer({
 
               {/* Reputation Breakdown */}
               <section className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
-                <div className="text-[10px] uppercase tracking-wider text-white/50 mb-2">Score Breakdown</div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-2 text-white/80">
-                      <FileText className="w-4 h-4 text-purple-400" />
-                      Content Created
-                    </span>
-                    <span className="text-white font-medium">+0</span>
+                <div className="text-[10px] uppercase tracking-wider text-white/50 mb-3">Score Breakdown</div>
+                {walletTasksData?.reputation ? (
+                  <div className="space-y-2.5">
+                    {([
+                      { label: 'Technical',       value: walletTasksData.reputation.technical,       color: 'bg-sky-500' },
+                      { label: 'Creative',         value: walletTasksData.reputation.creative,         color: 'bg-fuchsia-500' },
+                      { label: 'Entrepreneurial',  value: walletTasksData.reputation.entrepreneurial,  color: 'bg-amber-500' },
+                      { label: 'Data Architecture',value: walletTasksData.reputation.dataArch,         color: 'bg-teal-500' },
+                      { label: 'Community',        value: walletTasksData.reputation.community,        color: 'bg-violet-500' },
+                    ] as { label: string; value: number; color: string }[]).map(({ label, value, color }) => (
+                      <div key={label}>
+                        <div className="flex items-center justify-between text-[10px] mb-1">
+                          <span className="text-white/60">{label}</span>
+                          <span className="text-white/80 font-medium">{Math.round(value)}</span>
+                        </div>
+                        <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                          <div className={`h-full ${color}`} style={{ width: `${Math.min(100, value)}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between text-[10px] pt-1 border-t border-white/10 mt-1">
+                      <span className="text-white/50">Tasks completed</span>
+                      <span className="text-white/80 font-medium">{walletTasksData.reputation.totalTasksCompleted}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="text-white/50">Lifetime CVS</span>
+                      <span className="text-white/80 font-medium">{walletTasksData.reputation.lifetimeCvs.toFixed(2)}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-2 text-white/80">
-                      <CheckSquare className="w-4 h-4 text-purple-400" />
-                      Tasks Completed
-                    </span>
-                    <span className="text-white font-medium">+0</span>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="flex items-center gap-2 text-white/80">
+                        <FileText className="w-4 h-4 text-purple-400" />
+                        Content Created
+                      </span>
+                      <span className="text-white font-medium">+0</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="flex items-center gap-2 text-white/80">
+                        <CheckSquare className="w-4 h-4 text-purple-400" />
+                        Tasks Completed
+                      </span>
+                      <span className="text-white font-medium">+0</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="flex items-center gap-2 text-white/80">
+                        <ThumbsUp className="w-4 h-4 text-purple-400" />
+                        Community Votes
+                      </span>
+                      <span className="text-white font-medium">+0</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="flex items-center gap-2 text-white/80">
+                        <BadgeCheck className="w-4 h-4 text-purple-400" />
+                        Verified Claims
+                      </span>
+                      <span className="text-white font-medium">+0</span>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-2 text-white/80">
-                      <ThumbsUp className="w-4 h-4 text-purple-400" />
-                      Community Votes
-                    </span>
-                    <span className="text-white font-medium">+0</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="flex items-center gap-2 text-white/80">
-                      <BadgeCheck className="w-4 h-4 text-purple-400" />
-                      Verified Claims
-                    </span>
-                    <span className="text-white font-medium">+0</span>
-                  </div>
-                </div>
+                )}
               </section>
 
               {/* Submit Claim */}
@@ -3439,6 +3578,48 @@ export default function SmartWalletDrawer({
           {/* Rewards Tab */}
           {activeTab === "rewards" && (
             <div className="space-y-4">
+              {/* Ascension rank progress from API */}
+              {walletTasksData?.questRail.ascensionRank && (
+                <section className="rounded-xl bg-gradient-to-br from-teal-500/10 to-cyan-500/10 ring-1 ring-teal-500/20 p-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="text-[10px] uppercase tracking-wider text-teal-300/70">Ascension Rank</div>
+                    <span className="text-xs font-semibold text-teal-300">{walletTasksData.questRail.ascensionRank.current}</span>
+                  </div>
+                  <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-teal-500 to-cyan-400 transition-all"
+                      style={{ width: `${walletTasksData.questRail.ascensionRank.progress}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between mt-1 text-[10px] text-white/40">
+                    <span>{walletTasksData.questRail.ascensionRank.progress}% to {walletTasksData.questRail.ascensionRank.next}</span>
+                    <span>{walletTasksData.summary.lifetimeKnytEarned.toFixed(2)} KNYT earned</span>
+                  </div>
+                </section>
+              )}
+
+              {/* Claimable rewards from API */}
+              {(walletTasksData?.questRail.rewards.length ?? 0) > 0 && (
+                <section className="rounded-xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10 ring-1 ring-emerald-500/20 p-3">
+                  <div className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-emerald-300 mb-2">
+                    <Gift className="w-3.5 h-3.5" />
+                    Claimable Rewards
+                  </div>
+                  <div className="space-y-2">
+                    {walletTasksData!.questRail.rewards.map((r) => (
+                      <div key={r.id} className="flex items-center justify-between rounded-lg bg-white/5 ring-1 ring-white/10 px-2 py-1.5">
+                        <span className="text-xs text-white/70">{r.source}</span>
+                        <span className="flex items-center gap-1 text-sm font-medium text-emerald-300">
+                          <Coins className="w-3.5 h-3.5" />
+                          +{r.amount} KNYT
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-white/30 mt-2">Contact support to claim — on-chain claim flow coming soon.</p>
+                </section>
+              )}
+
               <section className="rounded-xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 ring-1 ring-amber-500/20 p-3">
                 <div className="text-[10px] uppercase tracking-wider text-amber-300/70 mb-2">KNYT Balance</div>
                 <div className="text-2xl font-bold text-amber-300">

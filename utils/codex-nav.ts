@@ -44,6 +44,8 @@ export interface CodexNavOptions {
   isAdmin?: boolean;
   /** Carry partner flag for optimistic gate rendering */
   isPartner?: boolean;
+  /** Carry investor flag for optimistic gate rendering (server re-validates) */
+  isInvestor?: boolean;
   /** Source slug — used as ?from= for breadcrumb back-links */
   from?: string;
   /** Source tab slug — used as ?fromTab= for back-link construction */
@@ -72,6 +74,7 @@ export function buildCodexUrl(slug: string, opts: CodexNavOptions = {}): string 
     tab,
     isAdmin,
     isPartner,
+    isInvestor,
     from,
     fromTab,
     shell = "embed",
@@ -88,10 +91,11 @@ export function buildCodexUrl(slug: string, opts: CodexNavOptions = {}): string 
   } else if (personaId) {
     params.set("personaId", personaId);
   }
-  if (isAdmin)   params.set("isAdmin",   "true");
-  if (isPartner) params.set("isPartner", "true");
-  if (from)      params.set("from",      from);
-  if (fromTab)   params.set("fromTab",   fromTab);
+  if (isAdmin)    params.set("isAdmin",    "true");
+  if (isPartner)  params.set("isPartner",  "true");
+  if (isInvestor) params.set("isInvestor", "true");
+  if (from)       params.set("from",       from);
+  if (fromTab)    params.set("fromTab",    fromTab);
 
   if (shell === "viewer") {
     // Normalise to full codexId — viewer expects ?id=knyt-codex, not the bare slug

@@ -37,6 +37,7 @@ interface CodexPanelDynamicProps {
   personaId?: string;
   isAdmin?: boolean;            // Explicit admin override — hides adminOnly tabs from non-admins
   isPartner?: boolean;          // Partner identity — shows partnerOnly tabs, hides adminOnly tabs
+  isInvestor?: boolean;         // Investor identity — shows investorOnly tabs (IAM service resolves this)
   partnerId?: string;           // avl_partner_contacts.id — passed to partner tab components
   useDefaults?: boolean;        // Use hardcoded configs vs database
   previewDevice?: DeviceType;
@@ -94,6 +95,7 @@ export default function CodexPanelDynamic({
   personaId,
   isAdmin: isAdminProp,
   isPartner: isPartnerProp,
+  isInvestor = false,
   partnerId,
   useDefaults = true,
   previewDevice,
@@ -182,8 +184,8 @@ export default function CodexPanelDynamic({
   const effectivePartnerId = partnerId || resolvedPartnerId;
 
   const enabledTabs = useMemo(
-    () => getEnabledTabs(codex, isAdmin, effectiveIsPartner).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
-    [codex, isAdmin, effectiveIsPartner, hiddenTabSet]
+    () => getEnabledTabs(codex, isAdmin, effectiveIsPartner, isInvestor).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
+    [codex, isAdmin, effectiveIsPartner, isInvestor, hiddenTabSet]
   );
   
   const [activeTabSlug, setActiveTabSlug] = useState<string>(
@@ -682,6 +684,7 @@ export default function CodexPanelDynamic({
                 personaId={resolvedPersonaId}
                 isAdmin={isAdmin}
                 isPartner={effectiveIsPartner}
+                isInvestor={isInvestor}
                 partnerId={effectivePartnerId}
                 issueSlug={isQriptopian ? issueSlug : undefined}
                 previewDevice={previewDevice}

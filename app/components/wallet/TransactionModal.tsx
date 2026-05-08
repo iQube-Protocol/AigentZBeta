@@ -23,7 +23,9 @@ import {
   Copy,
   ExternalLink,
   RefreshCw,
+  Wallet,
 } from 'lucide-react';
+import { useExternalWallet } from './useExternalWallet';
 
 // =============================================================================
 // TYPES
@@ -33,9 +35,12 @@ export type TransactionTab = 'send' | 'receive' | 'verify';
 
 export type TokenType = 'KNYT' | 'QCT' | 'USDC';
 
-export type DeliveryMode = 'custody' | 'claim' | 'canonical';
+export type DeliveryMode = 'custody' | 'claim' | 'canonical' | 'dvn';
 
-export type ChainId = 
+export type SignerSource = 'agent' | 'metamask';
+
+export type ChainId =
+  | 1         // Ethereum Mainnet
   | 421614    // Arbitrum Sepolia
   | 84532     // Base Sepolia
   | 80002     // Polygon Amoy
@@ -92,6 +97,8 @@ export interface TransactionResult {
   deliveryMode: DeliveryMode;
   custodySessionId?: string;
   claimId?: string;
+  /** DVN ledger transaction id (wallet_transactions.id) for off-chain transfers */
+  txId?: string;
 }
 
 export interface PaymentRequest {
@@ -114,6 +121,14 @@ export interface PaymentRequest {
 // =============================================================================
 
 export const SUPPORTED_CHAINS: ChainConfig[] = [
+  {
+    id: 1,
+    name: 'Ethereum Mainnet',
+    ticker: 'ETH',
+    color: 'text-indigo-300',
+    explorer: 'https://etherscan.io',
+    active: true,
+  },
   {
     id: 421614,
     name: 'Arbitrum Sepolia',
@@ -182,6 +197,8 @@ const QCT_ADDRESSES: Record<number, string> = {
 };
 
 const KNYT_ADDRESSES: Partial<Record<number, string>> = {
+  // Ethereum mainnet KNYT contract — see services/wallet/knyt/evmKnytService.ts
+  1: process.env.NEXT_PUBLIC_KNYT_CONTRACT_ADDRESS || "",
   11155111: process.env.NEXT_PUBLIC_KNYT_SEPOLIA || "",
 };
 
@@ -198,9 +215,10 @@ const TOKEN_LABEL: Record<TokenType, string> = {
 };
 
 const DELIVERY_LABEL: Record<DeliveryMode, string> = {
-  canonical: "Direct",
-  custody: "Remote",
-  claim: "Deferred",
+  canonical: "Direct (Mainnet)",
+  custody: "Remote (Delegated)",
+  claim: "Deferred (Cross-chain)",
+  dvn: "DVN (ICP)",
 };
 
 // =============================================================================
@@ -239,9 +257,15 @@ export function TransactionModal({
   const [sendLoading, setSendLoading] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [sendSuccess, setSendSuccess] = useState<TransactionResult | null>(null);
-  const initialDeliveryMode: DeliveryMode =
-    !enableCustody && deliveryMode === 'custody' ? 'canonical' : deliveryMode;
+  const initialDeliveryMode: DeliveryMode = (() => {
+    // KNYT defaults to off-chain DVN settlement (no gas, instant)
+    if (initialToken === 'KNYT' && deliveryMode === 'canonical') return 'dvn';
+    if (!enableCustody && deliveryMode === 'custody') return 'canonical';
+    return deliveryMode;
+  })();
   const [selectedDeliveryMode, setSelectedDeliveryMode] = useState<DeliveryMode>(initialDeliveryMode);
+  const [signerSource, setSignerSource] = useState<SignerSource>('agent');
+  const wallet = useExternalWallet();
   
   // Receive state
   const [requestAmount, setRequestAmount] = useState('');
@@ -296,13 +320,35 @@ export function TransactionModal({
     }
   }, [enableCustody, selectedDeliveryMode]);
 
+  // DVN mode is KNYT-only — only normalise on token change so the user can
+  // still explicitly pick canonical/claim/custody for KNYT once selected.
+  useEffect(() => {
+    setSelectedDeliveryMode((prev) => {
+      if (selectedToken !== 'KNYT' && prev === 'dvn') return 'canonical';
+      if (selectedToken === 'KNYT' && prev === 'canonical') return 'dvn';
+      return prev;
+    });
+    // KNYT lives on Ethereum mainnet — snap the chain when the user picks it
+    // (the chain selector is hidden in this modal, so this is the only path).
+    if (selectedToken === 'KNYT') {
+      setSelectedChain((prev) => (prev === 1 ? prev : 1));
+    } else {
+      setSelectedChain((prev) => (prev === 1 ? 421614 : prev));
+    }
+  }, [selectedToken]);
+
   if (!isOpen) return null;
 
   // ==========================================================================
   // SEND HANDLER
   // ==========================================================================
   const handleSend = async () => {
-    if (!recipient || !amount || !agentId) {
+    // DVN mode and MetaMask canonical mode don't need an agent identity —
+    // DVN uses the persona ledger; MetaMask uses the connected wallet's signer.
+    const isDvn = selectedDeliveryMode === 'dvn';
+    const isMetaMaskCanonical =
+      selectedDeliveryMode === 'canonical' && signerSource === 'metamask';
+    if (!recipient || !amount || (!isDvn && !isMetaMaskCanonical && !agentId)) {
       setSendError('Please fill in all required fields');
       return;
     }
@@ -325,6 +371,61 @@ export function TransactionModal({
     setSendSuccess(null);
 
     try {
+      // DVN off-chain transfer — bypass chain/recipient resolution; the server
+      // resolves persona handles via the KNYT ledger service.
+      if (isDvn) {
+        if (selectedToken !== 'KNYT') {
+          throw new Error('DVN mode is only available for KNYT');
+        }
+        const fromIdentifier = fioHandle || personaId || agentId;
+        if (!fromIdentifier) {
+          throw new Error('Sender persona is not available');
+        }
+        const transferRes = await fetch('/api/wallet/knyt/transfer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fromPersonaId: fromIdentifier,
+            toPersonaId: recipient,
+            amount: amountNum,
+          }),
+        });
+        if (!transferRes.ok) {
+          const err = await transferRes.json().catch(() => ({}));
+          throw new Error(err.error || 'DVN transfer failed');
+        }
+        const data = await transferRes.json();
+        const result: TransactionResult = {
+          success: true,
+          chainId: selectedChain,
+          amount: amountNum,
+          recipient,
+          deliveryMode: 'dvn',
+          txId: data.fromTxId,
+        };
+
+        // Inject into the wallet drawer's "Recent DVN Events" panel so the user
+        // sees the transfer immediately without waiting on the SSE stream.
+        if (typeof window !== 'undefined' && data.fromTxId) {
+          window.dispatchEvent(new CustomEvent('dvn:local-event', {
+            detail: {
+              event: 'PaymentConfirmed',
+              chain: 'ICP',
+              asset: 'KNYT',
+              txHash: data.fromTxId,
+              amount: `${amountNum} KNYT`,
+              timestamp: Math.floor(Date.now() / 1000),
+              meta: { to: recipient, mode: 'dvn' },
+            },
+          }));
+        }
+
+        setSendSuccess(result);
+        onTransactionComplete?.(result);
+        setSendLoading(false);
+        return;
+      }
+
       // Resolve recipient (FIO handle or wallet address)
       let resolvedRecipient = recipient;
       if (recipient.includes('@') || recipient.endsWith('.fio')) {
@@ -429,7 +530,7 @@ export function TransactionModal({
               chain: chainConfig.name.toLowerCase().replace(' ', '-'),
               address: resolvedRecipient,
             },
-            from_chain: 'arbitrum-sepolia',
+            from_chain: chainConfig.name.toLowerCase().replace(' ', '-'),
             sender_identifier: senderIdentifier, // For flexible key lookup
           }),
         });
@@ -449,6 +550,55 @@ export function TransactionModal({
           claimId: claimData.settlementId || claimData.messageId,
         };
 
+      } else if (selectedDeliveryMode === 'canonical' && signerSource === 'metamask') {
+        // Self-custody mainnet send via the user's connected EVM wallet.
+        // Uses raw eth_sendTransaction with ERC-20 transfer(address,uint256)
+        // calldata so we don't need an ethers dependency on this surface.
+        if (!wallet.provider || !wallet.address) {
+          throw new Error('Connect a wallet to send from MetaMask');
+        }
+        if (typeof selectedChain !== 'number') {
+          throw new Error('MetaMask sends require an EVM chain');
+        }
+        // Auto-attempt a chain switch if the wallet is on the wrong network.
+        // This avoids a dead-end where the user has to switch manually then click
+        // Send again. wallet_switchEthereumChain triggers MetaMask's switch popup.
+        if (wallet.chainId !== selectedChain) {
+          try {
+            await wallet.provider.request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId: '0x' + selectedChain.toString(16) }],
+            });
+          } catch {
+            throw new Error(
+              `Wrong network — switch your wallet to ${chainConfig.name} (chainId ${selectedChain})`
+            );
+          }
+        }
+        if (!tokenAddress) {
+          throw new Error(`No ${selectedToken} contract configured for ${chainConfig.name}`);
+        }
+        // ERC-20 transfer(address,uint256) selector + 32-byte address + 32-byte uint
+        const toEncoded = resolvedRecipient.toLowerCase().replace(/^0x/, '').padStart(64, '0');
+        const amountHex = BigInt(amountWei).toString(16).padStart(64, '0');
+        const data = '0xa9059cbb' + toEncoded + amountHex;
+        const txHash = await wallet.provider.request({
+          method: 'eth_sendTransaction',
+          params: [{
+            from: wallet.address,
+            to: tokenAddress,
+            data,
+            value: '0x0',
+          }],
+        }) as string;
+        result = {
+          success: true,
+          txHash,
+          chainId: selectedChain as ChainId,
+          amount: amountNum,
+          recipient: resolvedRecipient,
+          deliveryMode: 'canonical',
+        };
       } else {
         // Canonical mode - direct on-chain transfer
         const transferRes = await fetch('/api/a2a/signer/transfer', {
@@ -569,8 +719,14 @@ export function TransactionModal({
     setVerifyResult(null);
 
     try {
-      const res = await fetch(`/api/x402/verify?txHash=${encodeURIComponent(txHash)}&chainId=${verifyChain}`);
-      
+      // DVN ledger tx IDs are prefixed `knyt_`; everything else is treated as
+      // an on-chain hash and routed through the x402 verifier.
+      const isDvnTxId = txHash.startsWith('knyt_');
+      const url = isDvnTxId
+        ? `/api/wallet/knyt/verify?txId=${encodeURIComponent(txHash)}`
+        : `/api/x402/verify?txHash=${encodeURIComponent(txHash)}&chainId=${verifyChain}`;
+      const res = await fetch(url);
+
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || 'Verification failed');
@@ -591,6 +747,14 @@ export function TransactionModal({
   // ==========================================================================
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
+  };
+
+  const jumpToVerify = (id: string, chainId?: ChainId) => {
+    setTxHash(id);
+    if (chainId) setVerifyChain(chainId);
+    setActiveTab('verify');
+    setVerifyResult(null);
+    setVerifyError(null);
   };
 
   const getExplorerUrl = (hash: string, chainId: ChainId) => {
@@ -690,6 +854,7 @@ export function TransactionModal({
                           <button
                             onClick={() => copyToClipboard(sendSuccess.txHash!)}
                             className="p-1 hover:bg-white/10 rounded"
+                            title="Copy"
                           >
                             <Copy className="w-3 h-3 text-white/60" />
                           </button>
@@ -698,16 +863,72 @@ export function TransactionModal({
                             target="_blank"
                             rel="noopener noreferrer"
                             className="p-1 hover:bg-white/10 rounded"
+                            title="View on explorer"
                           >
                             <ExternalLink className="w-3 h-3 text-white/60" />
                           </a>
+                          {enableVerify && (
+                            <button
+                              onClick={() => jumpToVerify(sendSuccess.txHash!, sendSuccess.chainId)}
+                              className="p-1 hover:bg-white/10 rounded"
+                              title="Verify"
+                            >
+                              <Search className="w-3 h-3 text-white/60" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {sendSuccess.txId && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-white/60">Tx ID</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs text-white truncate max-w-[120px]">
+                            {sendSuccess.txId}
+                          </span>
+                          <button
+                            onClick={() => copyToClipboard(sendSuccess.txId!)}
+                            className="p-1 hover:bg-white/10 rounded"
+                            title="Copy"
+                          >
+                            <Copy className="w-3 h-3 text-white/60" />
+                          </button>
+                          {enableVerify && (
+                            <button
+                              onClick={() => jumpToVerify(sendSuccess.txId!)}
+                              className="p-1 hover:bg-white/10 rounded"
+                              title="Verify"
+                            >
+                              <Search className="w-3 h-3 text-white/60" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     )}
                     {sendSuccess.claimId && (
-                      <div className="flex justify-between">
+                      <div className="flex items-center justify-between">
                         <span className="text-white/60">Claim ID</span>
-                        <span className="font-mono text-xs text-white">{sendSuccess.claimId}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs text-white truncate max-w-[120px]">
+                            {sendSuccess.claimId}
+                          </span>
+                          <button
+                            onClick={() => copyToClipboard(sendSuccess.claimId!)}
+                            className="p-1 hover:bg-white/10 rounded"
+                            title="Copy"
+                          >
+                            <Copy className="w-3 h-3 text-white/60" />
+                          </button>
+                          {enableVerify && (
+                            <button
+                              onClick={() => jumpToVerify(sendSuccess.claimId!)}
+                              className="p-1 hover:bg-white/10 rounded"
+                              title="Verify"
+                            >
+                              <Search className="w-3 h-3 text-white/60" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -797,7 +1018,20 @@ export function TransactionModal({
                     <label className="block text-sm font-medium text-white/70 mb-2">
                       Delivery Mode
                     </label>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className={`grid ${selectedToken === 'KNYT' ? (enableCustody ? 'grid-cols-4' : 'grid-cols-3') : (enableCustody ? 'grid-cols-3' : 'grid-cols-2')} gap-2`}>
+                      {selectedToken === 'KNYT' && (
+                        <button
+                          onClick={() => setSelectedDeliveryMode('dvn')}
+                          className={`p-2 rounded-lg text-center transition-colors ${
+                            selectedDeliveryMode === 'dvn'
+                              ? 'bg-amber-500/20 ring-1 ring-amber-500/50 text-amber-300'
+                              : 'bg-white/5 ring-1 ring-white/10 text-white/60 hover:bg-white/10'
+                          }`}
+                        >
+                          <div className="text-xs font-medium">DVN</div>
+                          <div className="text-[10px] text-white/40">ICP</div>
+                        </button>
+                      )}
                       <button
                         onClick={() => setSelectedDeliveryMode('canonical')}
                         className={`p-2 rounded-lg text-center transition-colors ${
@@ -807,7 +1041,7 @@ export function TransactionModal({
                         }`}
                       >
                         <div className="text-xs font-medium">Direct</div>
-                        <div className="text-[10px] text-white/40">On-chain</div>
+                        <div className="text-[10px] text-white/40">Mainnet</div>
                       </button>
                       {enableCustody && (
                         <button
@@ -835,6 +1069,105 @@ export function TransactionModal({
                       </button>
                     </div>
                   </div>
+
+                  {/* Signer source — only meaningful for canonical (Direct) mode */}
+                  {selectedDeliveryMode === 'canonical' && (
+                    <div>
+                      <label className="block text-sm font-medium text-white/70 mb-2">
+                        Signer
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => setSignerSource('agent')}
+                          className={`p-2 rounded-lg text-center transition-colors ${
+                            signerSource === 'agent'
+                              ? 'bg-cyan-500/20 ring-1 ring-cyan-500/50 text-cyan-300'
+                              : 'bg-white/5 ring-1 ring-white/10 text-white/60 hover:bg-white/10'
+                          }`}
+                        >
+                          <div className="text-xs font-medium">Agent</div>
+                          <div className="text-[10px] text-white/40">Agent pays gas</div>
+                        </button>
+                        <button
+                          onClick={() => setSignerSource('metamask')}
+                          className={`p-2 rounded-lg text-center transition-colors ${
+                            signerSource === 'metamask'
+                              ? 'bg-amber-500/20 ring-1 ring-amber-500/50 text-amber-300'
+                              : 'bg-white/5 ring-1 ring-white/10 text-white/60 hover:bg-white/10'
+                          }`}
+                        >
+                          <div className="text-xs font-medium flex items-center justify-center gap-1">
+                            <Wallet className="w-3 h-3" />
+                            MetaMask
+                          </div>
+                          <div className="text-[10px] text-white/40">You pay gas</div>
+                        </button>
+                      </div>
+
+                      {signerSource === 'metamask' && !wallet.address && (
+                        <div className="mt-2 p-2 rounded-lg bg-amber-500/10 ring-1 ring-amber-500/30 text-xs text-amber-300">
+                          {wallet.wallets.length === 0 ? (
+                            <span>No wallet detected. Install MetaMask or a compatible browser wallet.</span>
+                          ) : (
+                            <div className="space-y-1.5">
+                              <div className="text-[11px] text-amber-300/80">Pick a wallet to connect:</div>
+                              {/* Mirrors ExternalWalletConnect.connectTo: pass the provider
+                                  reference directly rather than re-finding by id, and show
+                                  per-button spinner via connectingId. */}
+                              {[...wallet.wallets].sort((a, b) => {
+                                const aMM = a.name.toLowerCase().includes('metamask') || a.provider.isMetaMask ? -1 : 0;
+                                const bMM = b.name.toLowerCase().includes('metamask') || b.provider.isMetaMask ? -1 : 0;
+                                return aMM - bMM;
+                              }).map((w) => {
+                                const spinning = wallet.connectingId === w.id;
+                                const anyConnecting = wallet.connectingId !== null;
+                                return (
+                                  <button
+                                    key={w.id}
+                                    type="button"
+                                    onClick={() => wallet.connectByProvider(w.provider, w.id)}
+                                    disabled={anyConnecting}
+                                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[11px] font-medium disabled:opacity-50 text-left"
+                                  >
+                                    {w.icon ? (
+                                      <img src={w.icon} alt={w.name} className="h-4 w-4 rounded shrink-0" />
+                                    ) : (
+                                      <Wallet className="h-3.5 w-3.5 shrink-0" />
+                                    )}
+                                    <span className="flex-1">
+                                      {spinning ? `Check ${w.name} for a connection request…` : `Connect ${w.name}`}
+                                    </span>
+                                    {spinning && <Loader2 className="h-3 w-3 animate-spin" />}
+                                  </button>
+                                );
+                              })}
+                              {wallet.error && (
+                                <div className="text-[10px] text-red-300/80 mt-1">{wallet.error}</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {signerSource === 'metamask' && wallet.address && typeof selectedChain === 'number' && wallet.chainId !== selectedChain && (
+                        <div className="mt-2 p-2 rounded-lg bg-amber-500/10 ring-1 ring-amber-500/30 text-xs text-amber-300 flex items-center justify-between gap-2">
+                          <span>Wrong network — switch to {SUPPORTED_CHAINS.find(c => c.id === selectedChain)?.name}</span>
+                          <button
+                            onClick={() => wallet.switchToChain('0x' + selectedChain.toString(16))}
+                            className="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[11px] font-medium"
+                          >
+                            Switch
+                          </button>
+                        </div>
+                      )}
+
+                      {signerSource === 'metamask' && wallet.address && wallet.chainId === selectedChain && (
+                        <div className="mt-2 text-[11px] text-white/40 font-mono truncate">
+                          {wallet.walletName} · {wallet.address.slice(0, 6)}…{wallet.address.slice(-4)}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Send Button */}
                   <button
@@ -1097,15 +1430,36 @@ export function TransactionModal({
                     )}
                   </div>
 
-                  <a
-                    href={getExplorerUrl(txHash, verifyChain)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full mt-3 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm transition-colors"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    View on Explorer
-                  </a>
+                  {(() => {
+                    const isDvn = txHash.startsWith('knyt_');
+                    if (isDvn) {
+                      const icpBase = process.env.NEXT_PUBLIC_ICP_EXPLORER_BASE;
+                      const batchId = verifyResult?.dvnBatchId;
+                      if (!icpBase || !batchId) return null;
+                      return (
+                        <a
+                          href={`${icpBase.replace(/\/$/, '')}/${encodeURIComponent(batchId)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-2 w-full mt-3 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm transition-colors"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                          View on ICP Explorer
+                        </a>
+                      );
+                    }
+                    return (
+                      <a
+                        href={getExplorerUrl(txHash, verifyChain)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center gap-2 w-full mt-3 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm transition-colors"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        View on Explorer
+                      </a>
+                    );
+                  })()}
                 </div>
               )}
 

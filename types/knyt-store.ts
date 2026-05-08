@@ -346,6 +346,12 @@ export const BUNDLE_PRICING: BundlePricing[] = [
   },
 ];
 
+/** Returns true when the bundle includes a physical print GN (Paperback or Hardcover AGN). */
+export function bundleIncludesPrintGn(bundleId: string): boolean {
+  const bundle = BUNDLE_PRICING.find(b => b.id === bundleId);
+  return bundle?.includes?.some(item => /paperback|hardcover/i.test(item)) ?? false;
+}
+
 export interface GraphicNovelPricing {
   layer: CommercialLayer;
   label: string;

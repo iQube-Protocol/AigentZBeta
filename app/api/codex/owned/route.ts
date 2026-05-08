@@ -8,24 +8,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEntitlementService } from '@/services/rewards/entitlementService';
 import { getOwnedAssetIds } from '@/services/rewards/assetOwnership';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const personaId = searchParams.get('personaId');
-    
+
     if (!personaId) {
-      return NextResponse.json({ 
-        error: 'personaId is required' 
+      return NextResponse.json({
+        error: 'personaId is required'
       }, { status: 400,  });
     }
-    
+
+    const supabase = getSupabaseServer();
+    if (!supabase) {
+      return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
+    }
+
     const entitlementService = getEntitlementService();
     const entitlements = await entitlementService.getPersonaEntitlements(personaId);
     
