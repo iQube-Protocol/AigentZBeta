@@ -92,6 +92,8 @@ export interface TransactionResult {
   deliveryMode: DeliveryMode;
   custodySessionId?: string;
   claimId?: string;
+  /** DVN ledger transaction id (wallet_transactions.id) for off-chain transfers */
+  txId?: string;
 }
 
 export interface PaymentRequest {
@@ -198,10 +200,10 @@ const TOKEN_LABEL: Record<TokenType, string> = {
 };
 
 const DELIVERY_LABEL: Record<DeliveryMode, string> = {
-  canonical: "Direct",
-  custody: "Remote",
-  claim: "Deferred",
-  dvn: "DVN (off-chain)",
+  canonical: "Direct (Mainnet)",
+  custody: "Remote (Mainnet)",
+  claim: "Deferred (Mainnet)",
+  dvn: "ICP Chain (DVN)",
 };
 
 // =============================================================================
@@ -372,8 +374,25 @@ export function TransactionModal({
           amount: amountNum,
           recipient,
           deliveryMode: 'dvn',
-          claimId: data.fromTxId,
+          txId: data.fromTxId,
         };
+
+        // Inject into the wallet drawer's "Recent DVN Events" panel so the user
+        // sees the transfer immediately without waiting on the SSE stream.
+        if (typeof window !== 'undefined' && data.fromTxId) {
+          window.dispatchEvent(new CustomEvent('dvn:local-event', {
+            detail: {
+              event: 'PaymentConfirmed',
+              chain: 'ICP',
+              asset: 'KNYT',
+              txHash: data.fromTxId,
+              amount: `${amountNum} KNYT`,
+              timestamp: Math.floor(Date.now() / 1000),
+              meta: { to: recipient, mode: 'dvn' },
+            },
+          }));
+        }
+
         setSendSuccess(result);
         onTransactionComplete?.(result);
         setSendLoading(false);
@@ -624,8 +643,14 @@ export function TransactionModal({
     setVerifyResult(null);
 
     try {
-      const res = await fetch(`/api/x402/verify?txHash=${encodeURIComponent(txHash)}&chainId=${verifyChain}`);
-      
+      // DVN ledger tx IDs are prefixed `knyt_`; everything else is treated as
+      // an on-chain hash and routed through the x402 verifier.
+      const isDvnTxId = txHash.startsWith('knyt_');
+      const url = isDvnTxId
+        ? `/api/wallet/knyt/verify?txId=${encodeURIComponent(txHash)}`
+        : `/api/x402/verify?txHash=${encodeURIComponent(txHash)}&chainId=${verifyChain}`;
+      const res = await fetch(url);
+
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || 'Verification failed');
@@ -646,6 +671,14 @@ export function TransactionModal({
   // ==========================================================================
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
+  };
+
+  const jumpToVerify = (id: string, chainId?: ChainId) => {
+    setTxHash(id);
+    if (chainId) setVerifyChain(chainId);
+    setActiveTab('verify');
+    setVerifyResult(null);
+    setVerifyError(null);
   };
 
   const getExplorerUrl = (hash: string, chainId: ChainId) => {
@@ -745,6 +778,7 @@ export function TransactionModal({
                           <button
                             onClick={() => copyToClipboard(sendSuccess.txHash!)}
                             className="p-1 hover:bg-white/10 rounded"
+                            title="Copy"
                           >
                             <Copy className="w-3 h-3 text-white/60" />
                           </button>
@@ -753,16 +787,72 @@ export function TransactionModal({
                             target="_blank"
                             rel="noopener noreferrer"
                             className="p-1 hover:bg-white/10 rounded"
+                            title="View on explorer"
                           >
                             <ExternalLink className="w-3 h-3 text-white/60" />
                           </a>
+                          {enableVerify && (
+                            <button
+                              onClick={() => jumpToVerify(sendSuccess.txHash!, sendSuccess.chainId)}
+                              className="p-1 hover:bg-white/10 rounded"
+                              title="Verify"
+                            >
+                              <Search className="w-3 h-3 text-white/60" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {sendSuccess.txId && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-white/60">Tx ID</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs text-white truncate max-w-[120px]">
+                            {sendSuccess.txId}
+                          </span>
+                          <button
+                            onClick={() => copyToClipboard(sendSuccess.txId!)}
+                            className="p-1 hover:bg-white/10 rounded"
+                            title="Copy"
+                          >
+                            <Copy className="w-3 h-3 text-white/60" />
+                          </button>
+                          {enableVerify && (
+                            <button
+                              onClick={() => jumpToVerify(sendSuccess.txId!)}
+                              className="p-1 hover:bg-white/10 rounded"
+                              title="Verify"
+                            >
+                              <Search className="w-3 h-3 text-white/60" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     )}
                     {sendSuccess.claimId && (
-                      <div className="flex justify-between">
+                      <div className="flex items-center justify-between">
                         <span className="text-white/60">Claim ID</span>
-                        <span className="font-mono text-xs text-white">{sendSuccess.claimId}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs text-white truncate max-w-[120px]">
+                            {sendSuccess.claimId}
+                          </span>
+                          <button
+                            onClick={() => copyToClipboard(sendSuccess.claimId!)}
+                            className="p-1 hover:bg-white/10 rounded"
+                            title="Copy"
+                          >
+                            <Copy className="w-3 h-3 text-white/60" />
+                          </button>
+                          {enableVerify && (
+                            <button
+                              onClick={() => jumpToVerify(sendSuccess.claimId!)}
+                              className="p-1 hover:bg-white/10 rounded"
+                              title="Verify"
+                            >
+                              <Search className="w-3 h-3 text-white/60" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -863,7 +953,7 @@ export function TransactionModal({
                           }`}
                         >
                           <div className="text-xs font-medium">DVN</div>
-                          <div className="text-[10px] text-white/40">Off-chain</div>
+                          <div className="text-[10px] text-white/40">ICP Chain</div>
                         </button>
                       )}
                       <button
@@ -875,7 +965,7 @@ export function TransactionModal({
                         }`}
                       >
                         <div className="text-xs font-medium">Direct</div>
-                        <div className="text-[10px] text-white/40">On-chain</div>
+                        <div className="text-[10px] text-white/40">Mainnet</div>
                       </button>
                       {enableCustody && (
                         <button
@@ -887,7 +977,7 @@ export function TransactionModal({
                           }`}
                         >
                           <div className="text-xs font-medium">Remote</div>
-                          <div className="text-[10px] text-white/40">Delegated</div>
+                          <div className="text-[10px] text-white/40">Mainnet</div>
                         </button>
                       )}
                       <button
@@ -899,7 +989,7 @@ export function TransactionModal({
                         }`}
                       >
                         <div className="text-xs font-medium">Deferred</div>
-                        <div className="text-[10px] text-white/40">Cross-chain</div>
+                        <div className="text-[10px] text-white/40">Mainnet</div>
                       </button>
                     </div>
                   </div>
