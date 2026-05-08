@@ -2,7 +2,9 @@
 
 **Status:** canonical  
 **Authority:** product owner  
-**Last updated:** 2026-04-06
+**Last updated:** 2026-05-08 (Phase 1 IAM spine landed)
+
+> **2026-05-08 milestone — Identity & Access Management spine LIVE on dev.** The foundation that every alpha workstream depends on (persona-aware ownership, admin-gated tabs, cross-cartridge identity propagation, byte-level content enforcement) is now shipped, validated 25/25 unit + 4/4 live, and load-bearing for the four content-delivery proxies (`ACCESS_SPINE_ENFORCE=1`). The protocol's four-layer sovereignty model (DIDQube + DVN + blakQube + Auto-Drive) and the runtime spine that delivers it (`getActivePersona` → `personaSessionToken` → `evaluateAccess`) are stable. Detailed plan + Phase 2–5 sequencing in `updates/2026-05-05_unified-identity-content-access-foundation-plan.md`.
 
 ---
 

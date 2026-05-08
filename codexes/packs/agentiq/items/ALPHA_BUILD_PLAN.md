@@ -2,8 +2,10 @@
 
 **Status:** canonical  
 **Authority:** product owner  
-**Last updated:** 2026-04-06  
-**Version:** alpha-1.0
+**Last updated:** 2026-05-08 (Phase 1 IAM spine landed)
+**Version:** alpha-1.1
+
+> **2026-05-08 update — Identity & Access Management spine LIVE.** The unified identity-content-access foundation plan (Phase 1) landed end-to-end on dev-beta. Every persona / content / access decision in the platform now flows through a single resolver chain (`getActivePersona` → `personaSessionToken` → `evaluateAccess`), with byte-level enforcement on the four content-delivery proxies (`ACCESS_SPINE_ENFORCE=1` set in Amplify dev env) and a privacy-guard that confirms zero T0 leak in the wire payload. See `IQUBE_IDENTITY_SOVEREIGNTY_ARCHITECTURE.md` §"Phase 1 spine — runtime layer" for the implementation index, and `updates/2026-05-05_unified-identity-content-access-foundation-plan.md` for the full plan + Phase 2–5 sequencing. This unblocks every alpha workstream that depends on persona-bound state (KNYT cartridge ownership gates, investor cohort gating, cross-cartridge persona propagation, delegation envelope).
 
 This is the implementation plan for the AgentiQ Alpha Closed-Loop Launch Program. It maps the Master Operator Brief and PRD against the existing codebase, identifies exactly what is built/aligned/stitched/needs light build, and sequences the work across acceptance gates.
 

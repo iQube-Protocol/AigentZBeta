@@ -1,8 +1,22 @@
 # Unified Identity, Content & Access Management — Foundation Plan
 
-**Date:** 2026-05-05 (rev. v3 — identifier exposure tiers + LZ/ICP bridging confirmation)
+**Date:** 2026-05-05 (rev. v8 — Phase 1 LIVE on dev as of 2026-05-08)
 **Branch:** `claude/blockchain-identity-ai-foundation-lEyk2`
-**Status:** Plan, operator §11 decisions locked. v3 adds: explicit identifier exposure tiers (T0 server / T1 session-token / T2 public alias) generalising the EVM-wallet-alias pattern to all persistent persona handles; LayerZero + ICP bridging confirmation for primary-only mint; fioHandle moved to consented disclosure.
+**Status:** Plan v8 — **Phase 1 LIVE on dev (2026-05-08).** All §11 operator decisions locked. v3 added explicit identifier exposure tiers (T0 server / T1 session-token / T2 public alias) generalising the EVM-wallet-alias pattern to all persistent persona handles; LZ + ICP bridging confirmation for primary-only mint; fioHandle moved to consented disclosure. v4 added the col_architecture pinning + §11.c subpoena-resistance backlog. v5 added §11.d bounded-delegation. v6 added §11.e debug-bypass retirement. v7 added §11.f preview affordances.
+
+> **🟢 Phase 1 closure (2026-05-08).** The runtime spine described below is shipped end-to-end on dev-beta:
+>
+> - **25/25 unit-test suite GREEN** locally (`tests/access-spine.test.ts`)
+> - **4/4 live integration GREEN** on dev-beta (`scripts/verify-spine.mjs` with JWT + persona id):
+>   - `whoami` PASS — real JWT resolution, admin recognised
+>   - `list-assets` PASS — server reaches DB cleanly via `getSupabaseServer` 8s-timeout-guarded path
+>   - `privacy guard` PASS — wire payload contains zero T0 (`personaId`/`authProfileId`/`fioHandle`/`rootDid` confirmed absent via canary test)
+>   - `unowned asset` PASS — gate logic enforces correctly
+> - **`ACCESS_SPINE_ENFORCE=1` set** in Amplify dev env. The four delivery proxies (`/api/content/{pdf-page,cover,video,pdf}/[cid]`) DENY at byte level for unowned content.
+> - **TEMPORARY DEBUG bypass** (`services/access/debugBypass.ts:isDebugBypassEnabled()` returns `true`) remains hardcoded on the three debug endpoints (`/api/access/{whoami,inspect,list-assets}`); retirement is plan §11.e.
+> - **Persona-stuck class of bugs** (Firefox snap-back, multi-persona resolution divergence, codex/viewer prop-wins-over-context) all closed by commits in this branch (`d2d2682`, `a877053`, `a9e25e3`, `c5880cf`, plus admin-row-orphan SQL fix).
+>
+> Phase 2–5 remain queued. Operator standing offers from §11 close-out: resolver fourth-fallback by `kybe_did = caller.email` (a), housekeeping migration to repoint orphaned `@linked.agentiq.local` admin rows (b), server-side persona last-active memory (c), Phase 5 §11.e bypass retirement (d), Phase 2 Supabase WIP encryption parity (e).
 **Predecessors (must read in order):**
 - `2026-05-05_handover-identity-access-management-session.md` (scope handover)
 - `2026-05-04_smarttriad-ownership-unification-backlog.md` (Phase 2 ownership unification)

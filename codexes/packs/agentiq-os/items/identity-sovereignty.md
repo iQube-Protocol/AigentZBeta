@@ -2,6 +2,8 @@
 
 Understanding how identity, data integrity, and verifiability work together in the iQube protocol stack — and why this design is a significant trust advantage.
 
+> **Phase 1 IAM spine — LIVE on dev (2026-05-08).** The runtime implementation of the four-layer protocol described below is now shipped end-to-end on the AgentiQ platform. Every consumer (delivery proxies, UI components, the SmartTriad spine, the wallet drawer, embed bridges) reads identity + content + access decisions from a single source-of-truth chain (`getActivePersona` → `personaSessionToken` → `evaluateAccess`). The protocol layers below describe **what** the system guarantees; the access spine is the runtime that delivers those guarantees uniformly. See "Querying the spine from a thin client" at the end of this doc for the integration contract.
+
 ---
 
 ## The Four Layers
@@ -116,3 +118,61 @@ If you are building a cartridge, registering an AigentQube, or designing a missi
 - **ICP anonymous verification means identity is provable without being exposable** — a verifier can confirm an agent has accumulated legitimate standing without learning anything about the person behind it.
 
 This layered model — automatic anchoring at the event level, encrypted integrity at the data level, and optional content-addressed sovereignty at the identity level — is a deliberate design choice. It allows the platform to provide strong accountability guarantees while preserving user privacy and enabling full sovereignty for those who want it.
+
+---
+
+## Querying the spine from a thin client
+
+Building on top of AgentiQ OS — running your own thin client, embedding cartridges, surfacing persona state in your own UI — means consuming the access spine through one stable endpoint. The full integration contract is in `codexes/packs/agentiq/updates/2026-05-07_thin-client-active-persona-integration.md`. The shorthand:
+
+### Endpoint
+
+```
+GET https://dev-beta.aigentz.me/api/wallet/active-persona
+Authorization: Bearer <supabase-jwt>
+```
+
+### Response (200 OK)
+
+```jsonc
+{
+  "personaSessionToken": "<opaque-T1-handle>",   // resolves to T0 only on the AigentZ server
+  "identifiability": "anonymous" | "semi_anonymous" | "semi_identifiable" | "identifiable",
+  "cartridgeFlags": { "isAdmin": false, "isPartner": false },
+  "displayLabel": "Knight",                       // user-chosen pet name
+  "ownFioHandle": "alice@knyt",                   // their own handle (safe to render to themselves)
+  "cohortMemberships": [],
+  "sessionExpiresAt": "2026-05-08T01:00:00.000Z"
+}
+```
+
+### Persona-change broadcast
+
+When the active persona changes inside the platform iframe (wallet drawer dropdown, persona-quick-add, cartridge-default switch), the platform `postMessage`s `aa-persona-change-v1` to:
+
+- All child iframes (codex embeds, runtime embeds)
+- The parent window (when the platform is itself iframed inside a thin client)
+
+Listen and refetch:
+
+```typescript
+window.addEventListener('message', async (event) => {
+  if (event.origin !== 'https://dev-beta.aigentz.me') return;
+  if (event.data?.type !== 'aa-persona-change-v1') return;
+  const fresh = await loadActivePersona();
+  renderHeader(fresh);
+});
+```
+
+### Forbidden / common pitfalls
+
+| Don't | Why |
+|---|---|
+| Use `personaId` from `aa-persona-change-v1` payload as a key | T0 server-internal handle; treat the message as a refetch trigger only |
+| Cache the surface across user changes / sign-outs | `personaSessionToken` is opaque + rotating; stale tokens return 401 |
+| Display `ownFioHandle` to other personas / surfaces | Surfaced only to the caller's own session; cross-persona handle resolution is forbidden |
+| Skip the `Authorization: Bearer` header | Endpoint returns 401; the platform's debug bypass does not extend to it |
+
+### What this means for builders
+
+The four sovereignty layers (DIDQube + DVN + blakQube + Auto-Drive) are the protocol guarantees. The **access spine** is the runtime contract you call. Both are now stable. If you're building on top of AgentiQ OS, the spine is the integration boundary — you don't need to (and should not) speak to the underlying tables, services, or canisters directly.
