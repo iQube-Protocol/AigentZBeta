@@ -23,7 +23,9 @@ import {
   Copy,
   ExternalLink,
   RefreshCw,
+  Wallet,
 } from 'lucide-react';
+import { useExternalWallet } from './useExternalWallet';
 
 // =============================================================================
 // TYPES
@@ -34,6 +36,8 @@ export type TransactionTab = 'send' | 'receive' | 'verify';
 export type TokenType = 'KNYT' | 'QCT' | 'USDC';
 
 export type DeliveryMode = 'custody' | 'claim' | 'canonical' | 'dvn';
+
+export type SignerSource = 'agent' | 'metamask';
 
 export type ChainId =
   | 1         // Ethereum Mainnet
@@ -260,6 +264,8 @@ export function TransactionModal({
     return deliveryMode;
   })();
   const [selectedDeliveryMode, setSelectedDeliveryMode] = useState<DeliveryMode>(initialDeliveryMode);
+  const [signerSource, setSignerSource] = useState<SignerSource>('agent');
+  const wallet = useExternalWallet();
   
   // Receive state
   const [requestAmount, setRequestAmount] = useState('');
@@ -337,9 +343,12 @@ export function TransactionModal({
   // SEND HANDLER
   // ==========================================================================
   const handleSend = async () => {
-    // DVN mode is KNYT-only and skips wallet/agent address requirements
+    // DVN mode and MetaMask canonical mode don't need an agent identity —
+    // DVN uses the persona ledger; MetaMask uses the connected wallet's signer.
     const isDvn = selectedDeliveryMode === 'dvn';
-    if (!recipient || !amount || (!isDvn && !agentId)) {
+    const isMetaMaskCanonical =
+      selectedDeliveryMode === 'canonical' && signerSource === 'metamask';
+    if (!recipient || !amount || (!isDvn && !isMetaMaskCanonical && !agentId)) {
       setSendError('Please fill in all required fields');
       return;
     }
@@ -541,6 +550,40 @@ export function TransactionModal({
           claimId: claimData.settlementId || claimData.messageId,
         };
 
+      } else if (selectedDeliveryMode === 'canonical' && signerSource === 'metamask') {
+        // Self-custody mainnet send via the user's connected EVM wallet.
+        // Uses raw eth_sendTransaction with ERC-20 transfer(address,uint256)
+        // calldata so we don't need an ethers dependency on this surface.
+        if (!wallet.provider || !wallet.address) {
+          throw new Error('Connect a wallet to send from MetaMask');
+        }
+        if (typeof selectedChain !== 'number') {
+          throw new Error('MetaMask sends require an EVM chain');
+        }
+        if (wallet.chainId !== selectedChain) {
+          throw new Error(
+            `Wrong network — switch your wallet to ${chainConfig.name} (chainId ${selectedChain})`
+          );
+        }
+        if (!tokenAddress) {
+          throw new Error(`No ${selectedToken} contract configured for ${chainConfig.name}`);
+        }
+        // ERC-20 transfer(address,uint256) selector + 32-byte address + 32-byte uint
+        const toEncoded = resolvedRecipient.toLowerCase().replace(/^0x/, '').padStart(64, '0');
+        const amountHex = BigInt(amountWei).toString(16).padStart(64, '0');
+        const data = '0xa9059cbb' + toEncoded + amountHex;
+        const txHash = await wallet.provider.request({
+          method: 'eth_sendTransaction',
+          params: [{ from: wallet.address, to: tokenAddress, data }],
+        }) as string;
+        result = {
+          success: true,
+          txHash,
+          chainId: selectedChain as ChainId,
+          amount: amountNum,
+          recipient: resolvedRecipient,
+          deliveryMode: 'canonical',
+        };
       } else {
         // Canonical mode - direct on-chain transfer
         const transferRes = await fetch('/api/a2a/signer/transfer', {
@@ -1011,6 +1054,79 @@ export function TransactionModal({
                       </button>
                     </div>
                   </div>
+
+                  {/* Signer source — only meaningful for canonical (Direct) mode */}
+                  {selectedDeliveryMode === 'canonical' && (
+                    <div>
+                      <label className="block text-sm font-medium text-white/70 mb-2">
+                        Signer
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => setSignerSource('agent')}
+                          className={`p-2 rounded-lg text-center transition-colors ${
+                            signerSource === 'agent'
+                              ? 'bg-cyan-500/20 ring-1 ring-cyan-500/50 text-cyan-300'
+                              : 'bg-white/5 ring-1 ring-white/10 text-white/60 hover:bg-white/10'
+                          }`}
+                        >
+                          <div className="text-xs font-medium">Agent</div>
+                          <div className="text-[10px] text-white/40">Agent pays gas</div>
+                        </button>
+                        <button
+                          onClick={() => setSignerSource('metamask')}
+                          className={`p-2 rounded-lg text-center transition-colors ${
+                            signerSource === 'metamask'
+                              ? 'bg-amber-500/20 ring-1 ring-amber-500/50 text-amber-300'
+                              : 'bg-white/5 ring-1 ring-white/10 text-white/60 hover:bg-white/10'
+                          }`}
+                        >
+                          <div className="text-xs font-medium flex items-center justify-center gap-1">
+                            <Wallet className="w-3 h-3" />
+                            MetaMask
+                          </div>
+                          <div className="text-[10px] text-white/40">You pay gas</div>
+                        </button>
+                      </div>
+
+                      {signerSource === 'metamask' && !wallet.address && (
+                        <div className="mt-2 p-2 rounded-lg bg-amber-500/10 ring-1 ring-amber-500/30 text-xs text-amber-300">
+                          {wallet.wallets.length === 0 ? (
+                            <span>No wallet detected. Install MetaMask or a compatible browser wallet.</span>
+                          ) : (
+                            <div className="flex items-center justify-between gap-2">
+                              <span>No wallet connected</span>
+                              <button
+                                onClick={() => wallet.connect(wallet.wallets[0].id)}
+                                disabled={wallet.connecting}
+                                className="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[11px] font-medium disabled:opacity-50"
+                              >
+                                {wallet.connecting ? 'Connecting…' : `Connect ${wallet.wallets[0].name}`}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {signerSource === 'metamask' && wallet.address && typeof selectedChain === 'number' && wallet.chainId !== selectedChain && (
+                        <div className="mt-2 p-2 rounded-lg bg-amber-500/10 ring-1 ring-amber-500/30 text-xs text-amber-300 flex items-center justify-between gap-2">
+                          <span>Wrong network — switch to {SUPPORTED_CHAINS.find(c => c.id === selectedChain)?.name}</span>
+                          <button
+                            onClick={() => wallet.switchToChain('0x' + selectedChain.toString(16))}
+                            className="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[11px] font-medium"
+                          >
+                            Switch
+                          </button>
+                        </div>
+                      )}
+
+                      {signerSource === 'metamask' && wallet.address && wallet.chainId === selectedChain && (
+                        <div className="mt-2 text-[11px] text-white/40 font-mono truncate">
+                          {wallet.walletName} · {wallet.address.slice(0, 6)}…{wallet.address.slice(-4)}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Send Button */}
                   <button
