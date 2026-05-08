@@ -73,10 +73,36 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const issued = issuePersonaSessionToken({
-    personaId: context.personaId,
-    authProfileId: context.authProfileId,
-  });
+  // Token issuance can throw if PERSONA_SESSION_TOKEN_HMAC_KEY is missing
+  // in production AND NEXTAUTH_SECRET is also missing or too short. Catch
+  // that here and return a clear 500 with diagnostics instead of an
+  // unhandled throw — operators reading CloudWatch get an actionable
+  // line, and downstream tooling (verify-spine.mjs privacy-guard check)
+  // gets a stable error envelope.
+  let issued: ReturnType<typeof issuePersonaSessionToken>;
+  try {
+    issued = issuePersonaSessionToken({
+      personaId: context.personaId,
+      authProfileId: context.authProfileId,
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(
+      `[active-persona] token issuance failed: ${msg}. ` +
+      `Set PERSONA_SESSION_TOKEN_HMAC_KEY (>=32 chars) in Amplify env, ` +
+      `or ensure NEXTAUTH_SECRET (>=32 chars) is set as fallback.`,
+    );
+    return NextResponse.json(
+      {
+        error: 'token-issuance-failed',
+        detail: msg,
+        hint:
+          'Set PERSONA_SESSION_TOKEN_HMAC_KEY (>=32 chars) in Amplify env, ' +
+          'or ensure NEXTAUTH_SECRET (>=32 chars) is set as fallback.',
+      },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
 
   const { displayLabel, ownFioHandle } = await readPersonaPresentation(context.personaId);
 

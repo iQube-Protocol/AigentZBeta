@@ -100,6 +100,12 @@ let bypassActive = false;
     if (bypassActive) {
       console.log(`            ⚠  TEMPORARY DEBUG bypass is live. Persona-owned tests will be skipped.`);
     }
+    // When admin=false but caller expected admin, surface the whoami hint
+    // (which names the exact auth_profile_id rows to check in
+    // crm_admin_roles). Saves operator a second curl.
+    if (body && body.cartridgeFlags?.isAdmin === false && body.hint) {
+      console.log(`            ℹ  ${body.hint}`);
+    }
   }
 }
 
