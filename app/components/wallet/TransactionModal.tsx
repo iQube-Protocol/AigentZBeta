@@ -560,10 +560,20 @@ export function TransactionModal({
         if (typeof selectedChain !== 'number') {
           throw new Error('MetaMask sends require an EVM chain');
         }
+        // Auto-attempt a chain switch if the wallet is on the wrong network.
+        // This avoids a dead-end where the user has to switch manually then click
+        // Send again. wallet_switchEthereumChain triggers MetaMask's switch popup.
         if (wallet.chainId !== selectedChain) {
-          throw new Error(
-            `Wrong network — switch your wallet to ${chainConfig.name} (chainId ${selectedChain})`
-          );
+          try {
+            await wallet.provider.request({
+              method: 'wallet_switchEthereumChain',
+              params: [{ chainId: '0x' + selectedChain.toString(16) }],
+            });
+          } catch {
+            throw new Error(
+              `Wrong network — switch your wallet to ${chainConfig.name} (chainId ${selectedChain})`
+            );
+          }
         }
         if (!tokenAddress) {
           throw new Error(`No ${selectedToken} contract configured for ${chainConfig.name}`);
@@ -574,7 +584,12 @@ export function TransactionModal({
         const data = '0xa9059cbb' + toEncoded + amountHex;
         const txHash = await wallet.provider.request({
           method: 'eth_sendTransaction',
-          params: [{ from: wallet.address, to: tokenAddress, data }],
+          params: [{
+            from: wallet.address,
+            to: tokenAddress,
+            data,
+            value: '0x0',
+          }],
         }) as string;
         result = {
           success: true,
@@ -1094,15 +1109,33 @@ export function TransactionModal({
                           {wallet.wallets.length === 0 ? (
                             <span>No wallet detected. Install MetaMask or a compatible browser wallet.</span>
                           ) : (
-                            <div className="flex items-center justify-between gap-2">
-                              <span>No wallet connected</span>
-                              <button
-                                onClick={() => wallet.connect(wallet.wallets[0].id)}
-                                disabled={wallet.connecting}
-                                className="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[11px] font-medium disabled:opacity-50"
-                              >
-                                {wallet.connecting ? 'Connecting…' : `Connect ${wallet.wallets[0].name}`}
-                              </button>
+                            <div className="space-y-1.5">
+                              <div className="text-[11px] text-amber-300/80">Pick a wallet to connect:</div>
+                              {/* Order: MetaMask first if present, then everything else */}
+                              {[...wallet.wallets].sort((a, b) => {
+                                const aMM = a.name.toLowerCase().includes('metamask') || a.provider.isMetaMask ? -1 : 0;
+                                const bMM = b.name.toLowerCase().includes('metamask') || b.provider.isMetaMask ? -1 : 0;
+                                return aMM - bMM;
+                              }).map((w) => (
+                                <button
+                                  key={w.id}
+                                  onClick={() => wallet.connect(w.id)}
+                                  disabled={wallet.connecting}
+                                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[11px] font-medium disabled:opacity-50 text-left"
+                                >
+                                  {w.icon ? (
+                                    <img src={w.icon} alt={w.name} className="h-4 w-4 rounded shrink-0" />
+                                  ) : (
+                                    <Wallet className="h-3.5 w-3.5 shrink-0" />
+                                  )}
+                                  <span className="flex-1">
+                                    {wallet.connecting ? 'Connecting…' : `Connect ${w.name}`}
+                                  </span>
+                                </button>
+                              ))}
+                              {wallet.error && (
+                                <div className="text-[10px] text-red-300/80 mt-1">{wallet.error}</div>
+                              )}
                             </div>
                           )}
                         </div>
