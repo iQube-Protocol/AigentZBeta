@@ -40,6 +40,12 @@ const envVars = [
   'DISCORD_METAKNYTS_CHANNEL_ID',
   'AA_JWT_SECRET',
   'SUPABASE_JWT_SECRET',
+  // Persona session token HMAC signing key — used by
+  // services/identity/personaSessionToken.ts to sign T1 opaque tokens
+  // returned by /api/wallet/active-persona. Must be >=32 chars; falls
+  // back to NEXTAUTH_SECRET if absent.
+  'PERSONA_SESSION_TOKEN_HMAC_KEY',
+  'NEXTAUTH_SECRET',
   'BROWSERBASE_API_KEY',
   'BROWSERBASE_PROJECT_ID',
   'BROWSERBASE_API_BASE_URL',
