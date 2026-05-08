@@ -1,5 +1,7 @@
 # Aigent DiDQube Identity Upgrade Note
 
+> **Phase 1 spine status (2026-05-08).** The runtime that the principles below live in is now shipped. `getActivePersona` resolves `ActivePersonaContext.identifiability` from the persona row; bounded-delegation handling for agent personas (where the agent's identifiability must clamp to the FLOOR of (agent declared, operator current) per §6/§7 below) is recorded as plan §11.d backlog and an extension-point comment is in place at `services/identity/getActivePersona.ts` so the clamp lands without a contract change. See `updates/2026-05-05_unified-identity-content-access-foundation-plan.md` §11.d for the resolver sketch.
+
 ## 1. Purpose
 This note records an important upgrade to the Aigent identity model.
 

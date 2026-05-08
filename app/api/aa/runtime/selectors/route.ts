@@ -10,6 +10,6 @@ export async function POST(request: NextRequest) {
   } catch {
     body = {};
   }
-  return NextResponse.json(postSelectorsPayload(request, body));
+  return NextResponse.json(await postSelectorsPayload(request, body));
 }
 

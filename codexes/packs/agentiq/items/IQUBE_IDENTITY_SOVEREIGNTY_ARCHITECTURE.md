@@ -2,6 +2,20 @@
 
 Engineering reference for how identity, data integrity, and verifiability are layered in the iQube protocol stack. This document covers the implementation details behind each layer.
 
+> **Phase 1 spine — LIVE on dev (2026-05-08).**
+> The unified identity-and-access-management spine described in
+> `updates/2026-05-05_unified-identity-content-access-foundation-plan.md`
+> is shipped, validated, and load-bearing.
+>
+> | | |
+> |---|---|
+> | Unit-test suite | 25/25 GREEN locally (`tests/access-spine.test.ts`) |
+> | Live integration | 4/4 GREEN on `dev-beta.aigentz.me` (`scripts/verify-spine.mjs`) |
+> | Privacy-guard canary | wire payload contains zero T0 (`personaId` / `authProfileId` / `fioHandle` / `rootDid`) — verified empirically |
+> | Enforce flag | `ACCESS_SPINE_ENFORCE=1` set in Amplify dev env; the four delivery proxies (`/api/content/{pdf-page,cover,video,pdf}/[cid]`) DENY at byte level for unowned content |
+>
+> Today the four sovereignty layers below are the canonical *protocol* model. The Phase 1 spine is the *runtime* implementation that makes every persona/content/access decision flow through a single resolver chain — `getActivePersona` (T0) → `personaSessionToken` (T1) → `aliasCommitment` (T2 — public-network only). See §"Phase 1 spine — runtime layer" at the end of this doc for the implementation index.
+
 ---
 
 ## Overview — Four Cooperating Layers
@@ -227,3 +241,53 @@ The system provides strong accountability guarantees while preserving user priva
 | Cryptographic composability | CID-based iQube bindings | **Yes** |
 
 Minting is the step from **platform citizen** (accountability + tamper-evidence within platform) to **protocol citizen** (full sovereignty, portability, ecosystem interoperability).
+
+---
+
+## Phase 1 spine — runtime layer
+
+The four sovereignty layers above describe **what** the protocol guarantees. The Phase 1 IAM foundation plan describes **how** the runtime delivers those guarantees through a single source of truth — the access spine — that every consumer (delivery proxies, UI components, the SmartTriad, the wallet drawer, the embed bridge) reads from.
+
+### The three universal contracts
+
+| Type | Tier | Purpose |
+|------|------|---------|
+| `ActivePersonaContext` (T0) | server-internal | Canonical persona handles. Holds `personaId`, `authProfileId`, `identifiability`, `cartridgeFlags`, cohort memberships. Never crosses to the browser. |
+| `ActivePersonaSurface` (T1) | same-origin shell | Browser-safe view. Holds `personaSessionToken` (opaque, HMAC-signed, rotating, origin-bound), `displayLabel`, `ownFioHandle`, cartridge flags. The single thing client code holds. |
+| `CohortAliasCommitment` (T2) | public network | Per-tx hash `(personaId + cohortId + salt)`. The only persona-related identifier that ever reaches a public chain or DVN receipt. Purged at escrow expiry. |
+
+Every persona-related identifier in the system has exactly one tier. Identifiers may move down a tier (T0 → T1 → T2) only via deliberate transformation; never up.
+
+### Implementation index
+
+| Concern | File |
+|---|---|
+| Type contracts | `types/access.ts` |
+| Server resolver `getActivePersona` (T0) | `services/identity/getActivePersona.ts` |
+| `personaSessionToken` issuer/verifier (T1) | `services/identity/personaSessionToken.ts` |
+| `getContentDescriptor` builder | `services/content/getContentDescriptor.ts` |
+| `evaluateAccess` decision evaluator | `services/access/evaluateAccess.ts` |
+| `policyResolvers` (sync vs async receipts; cartridge-flag credentials; external-verifier classification) | `services/access/policyResolvers.ts` |
+| Public access endpoint | `app/api/wallet/active-persona/route.ts` (T1 surface) + `app/api/access/evaluate/route.ts` (decision) + `app/api/access/inspect/route.ts` (debug) |
+| Client-side spine helper | `services/access/spineGateClient.ts` (`checkSpineDecision`, `isSpineOwned`) |
+| Client-side T1 surface hook | `app/hooks/useActivePersona.ts` |
+| Cross-cartridge nav | `utils/codex-nav.ts` `buildCodexUrl()` (`?pst=` preferred over `?personaId=`) |
+| Embed auth bridge | `app/(embed)/triad/embed/codex/_lib/useCodexEmbedAuthBridge.ts` |
+| Delivery proxies (shadow-log + enforce) | `app/api/content/{pdf-page,cover,video,pdf}/[cid]/route.ts` |
+
+### Receipt anchoring
+
+The `evaluateAccess` decision today carries a placeholder `aliasCommitment: '__phase1_pending_alias__'`. Phase 3 wires the live cohort-alias issuance via the Escrow + RQH + FBC ICP canisters per `2026-04-27_cohort-escrow-root-did-reputation-backlog.md`. Until then receipts are emitted but not yet anchored on-chain to a real alias.
+
+### What's next
+
+| Phase | Description | Status |
+|---|---|---|
+| 1 | Universal contracts + server resolver + four delivery proxies + UI consumers + observability | **DONE — empirically validated 2026-05-08** |
+| 2 | Supabase WIP encryption parity (encrypt-on-upload, decrypt-supabase-proxy) — closes the cryptographic fallback gap for all gated content regardless of storage backend | queued |
+| 3 | DVN policy hook + alias-anchored receipts (replace `__phase1_pending_alias__`) | queued |
+| 4a | Pool-mode TokenQube on-chain proof (state D) | queued |
+| 4b | Sovereign-mode TokenQube + per-holder ciphertext (state E) | queued |
+| 5 | Retire `ACCESS_DEBUG_OPEN` bypass; replace with `cartridgeFlags.canInspectAccess` permission per plan §11.e | queued |
+
+Plan doc with full sequencing: `updates/2026-05-05_unified-identity-content-access-foundation-plan.md` (registered in `col_architecture`).

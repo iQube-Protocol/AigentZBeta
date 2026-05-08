@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     body = {};
   }
 
-  const result = postPromptActionPayload(request, body);
+  const result = await postPromptActionPayload(request, body);
   return NextResponse.json(result.body, { status: result.status });
 }
 

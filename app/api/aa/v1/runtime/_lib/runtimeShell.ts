@@ -56,6 +56,12 @@ type RuntimeContext = {
   personaId: string;
   deviceHint: "desktop" | "tablet" | "mobile";
   processing: boolean;
+  // Persona presentation for the 'Be' menu item label. Populated by
+  // resolveRuntimeContext from the personas table. Both fields may be
+  // empty for guest / default / unresolvable personas; the menu builder
+  // falls through to the hardcoded 'Be' label in that case.
+  personaDisplayLabel?: string;
+  personaOwnFioHandle?: string;
 };
 
 const AGENT_OPTIONS: SelectorOption[] = [
@@ -398,7 +404,48 @@ function updateStateForModel(state: RuntimeState, llmId: string): RuntimeState {
   };
 }
 
-export function resolveRuntimeContext(request: NextRequest, body: Record<string, unknown> = {}): RuntimeContext {
+/**
+ * Resolve persona presentation (display_name + fio_handle) for the active
+ * runtime context. Used to substitute the 'Be' menu item's hardcoded label
+ * with the user's chosen handle, e.g. 'aigentz@aigent'.
+ *
+ * Fail-open: any lookup error returns empty fields; the menu builder
+ * then falls through to the hardcoded 'Be' label, which is the right
+ * behaviour for guest / default / unresolvable personas.
+ *
+ * Mirrors `app/api/wallet/active-persona/route.ts:readPersonaPresentation`
+ * — kept as a separate copy here to avoid circular imports between the
+ * runtime shell and the wallet route.
+ */
+async function readRuntimePersonaPresentation(
+  personaId: string,
+): Promise<{ displayLabel?: string; ownFioHandle?: string }> {
+  if (!personaId || personaId === "guest" || personaId === "default") return {};
+  try {
+    const { getSupabaseServer } = await import("@/app/api/_lib/supabaseServer");
+    const sb = getSupabaseServer();
+    if (!sb) return {};
+    const { data } = await sb
+      .from("personas")
+      .select("display_name, fio_handle")
+      .eq("id", personaId)
+      .maybeSingle();
+    const row = data as { display_name?: string; fio_handle?: string } | null;
+    const displayLabel =
+      typeof row?.display_name === "string" && row.display_name.trim().length > 0
+        ? row.display_name.trim()
+        : undefined;
+    const ownFioHandle =
+      typeof row?.fio_handle === "string" && row.fio_handle.trim().length > 0
+        ? row.fio_handle.trim()
+        : undefined;
+    return { displayLabel, ownFioHandle };
+  } catch {
+    return {};
+  }
+}
+
+export async function resolveRuntimeContext(request: NextRequest, body: Record<string, unknown> = {}): Promise<RuntimeContext> {
   const url = new URL(request.url);
   const query = url.searchParams;
   const tenantId =
@@ -431,18 +478,33 @@ export function resolveRuntimeContext(request: NextRequest, body: Record<string,
     normalizeBoolean(request.headers.get("x-runtime-processing")) ??
     false;
 
+  // Async-fetch the persona presentation. Empty for guest / unresolvable.
+  const { displayLabel, ownFioHandle } = await readRuntimePersonaPresentation(personaId);
+
   return {
     tenantId,
     personaId,
     deviceHint,
     processing,
+    personaDisplayLabel: displayLabel,
+    personaOwnFioHandle: ownFioHandle,
   };
 }
 
 function buildMenu(ctx: RuntimeContext, state: RuntimeState) {
+  // Persona-aware 'Be' label substitution — the 'Be' menu item is the
+  // identity slot in the runtime shell. Default label is the brand name
+  // 'Be'; when an active persona has a display_name or fio_handle, render
+  // that instead so the user immediately sees which persona is active.
+  // Fallback chain (operator-decided): displayLabel ?? ownFioHandle ?? 'Be'.
+  const personaHandle = ctx.personaDisplayLabel ?? ctx.personaOwnFioHandle;
+  const items = personaHandle
+    ? MENU_ITEMS.map((item) => (item.id === "be" ? { ...item, label: personaHandle } : item))
+    : MENU_ITEMS;
+
   return {
     mode: state.menu_mode,
-    items: MENU_ITEMS,
+    items,
     policy: {
       collapse_to_metame_button: true,
       edge_items_when_needed: true,
@@ -556,8 +618,8 @@ export function buildShellConfig(ctx: RuntimeContext, state: RuntimeState) {
   };
 }
 
-export function getShellConfigPayload(request: NextRequest) {
-  const ctx = resolveRuntimeContext(request);
+export async function getShellConfigPayload(request: NextRequest) {
+  const ctx = await resolveRuntimeContext(request);
   const current = getOrCreateState(ctx);
   const modeOverride = normalizeMode(new URL(request.url).searchParams.get("mode"));
   const nextState = modeOverride ? { ...current, menu_mode: modeOverride, updated_at: nowIso() } : current;
@@ -565,8 +627,8 @@ export function getShellConfigPayload(request: NextRequest) {
   return buildShellConfig(ctx, nextState);
 }
 
-export function postSelectorsPayload(request: NextRequest, body: Record<string, unknown>) {
-  const ctx = resolveRuntimeContext(request, body);
+export async function postSelectorsPayload(request: NextRequest, body: Record<string, unknown>) {
+  const ctx = await resolveRuntimeContext(request, body);
   const current = getOrCreateState(ctx);
   const requestedAgentId = asString(body.aigent_id) || current.selected_aigent_id;
   const requestedLlmId = asString(body.llm_id);
@@ -587,8 +649,8 @@ export function postSelectorsPayload(request: NextRequest, body: Record<string, 
   };
 }
 
-export function postMenuActionPayload(request: NextRequest, body: Record<string, unknown>) {
-  const ctx = resolveRuntimeContext(request, body);
+export async function postMenuActionPayload(request: NextRequest, body: Record<string, unknown>) {
+  const ctx = await resolveRuntimeContext(request, body);
   const current = getOrCreateState(ctx);
   const rawActionId = asString(body.action_id);
   if (!rawActionId) {
@@ -715,8 +777,8 @@ export function postMenuActionPayload(request: NextRequest, body: Record<string,
   };
 }
 
-export function postPromptActionPayload(request: NextRequest, body: Record<string, unknown>) {
-  const ctx = resolveRuntimeContext(request, body);
+export async function postPromptActionPayload(request: NextRequest, body: Record<string, unknown>) {
+  const ctx = await resolveRuntimeContext(request, body);
   const current = getOrCreateState(ctx);
   const prompt = asString(body.prompt) || asString(body.text);
   if (!prompt) {
