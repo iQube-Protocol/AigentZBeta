@@ -15,6 +15,7 @@ const DVN_SSE = process.env.NEXT_PUBLIC_DVN_SSE_URL as string | undefined;
 
 export function useDVNEvents(agentId?: string) {
   const [events, setEvents] = useState<DVNEvent[]>([]);
+
   useEffect(() => {
     if (!DVN_SSE) return;
     const src = new EventSource(`${DVN_SSE}?agent=${agentId ?? ""}`);
@@ -29,5 +30,19 @@ export function useDVNEvents(agentId?: string) {
     };
     return () => src.close();
   }, [agentId]);
+
+  // Local optimistic events (e.g. DVN KNYT P2P transfer just completed in this
+  // session). Dispatched as `window.dispatchEvent(new CustomEvent('dvn:local-event', { detail }))`.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onLocal = (e: Event) => {
+      const ev = (e as CustomEvent<DVNEvent>).detail;
+      if (!ev) return;
+      setEvents((prev) => [ev, ...prev].slice(0, 200));
+    };
+    window.addEventListener('dvn:local-event', onLocal as EventListener);
+    return () => window.removeEventListener('dvn:local-event', onLocal as EventListener);
+  }, []);
+
   return events;
 }
