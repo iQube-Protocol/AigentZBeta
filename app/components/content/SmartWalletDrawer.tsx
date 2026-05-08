@@ -299,9 +299,22 @@ export default function SmartWalletDrawer({
     ? (allAvailablePersonas.find(
         (p) => p.id === personaId || (p as any).fioHandle === personaId
       ) || walletNode?.personaContext?.activePersona || null)
-    // No explicit prop: normal resolution
+    // No explicit prop: normal resolution.
+    //
+    // RESOLUTION ORDER MATTERS — the previous order put
+    // walletNode.personaContext.activePersonaId FIRST. That's a separate
+    // state machine on the smart-wallet-qube node which does NOT update
+    // when the user clicks a persona in the dropdown (the click only
+    // updates localPersonaId + PersonaContext.activePersonaId). Result:
+    // wallet header rendered the persona walletNode last knew about
+    // (typically anonym@knyt for KNYT cartridge users), even though
+    // localStorage and PersonaContext had moved on to the user's choice.
+    //
+    // New order: PersonaContext (ctxActivePersonaId) is the canonical
+    // source. localPersonaId mirrors it. walletNode is a downstream
+    // hint that lags by design. Use the freshest source first.
     : (allAvailablePersonas.find(
-        (persona) => persona.id === (walletNode?.personaContext?.activePersonaId ?? localPersonaId)
+        (persona) => persona.id === (ctxActivePersonaId ?? localPersonaId ?? walletNode?.personaContext?.activePersonaId)
       ) || walletNode?.personaContext?.activePersona || allAvailablePersonas[0] || null);
   const hasAnyPersona = allAvailablePersonas.length > 0 || !!walletNode?.personaContext?.activePersonaId;
   const effectivePersonaId =
