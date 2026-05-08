@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-07T23:08:25.250Z",
+  "last_updated": "2026-05-08T00:26:38.602Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d2c46454970e0e0f00cd510168d5e0ce82f73d26",
-  "latest_commit_short": "d2c4645",
-  "latest_commit_title": "add dev note: supabase postgrest silent column error + episode thumbnail fix pattern",
+  "latest_commit": "2d81f86cc10342037812083f85683ee486ad1e15",
+  "latest_commit_short": "2d81f86",
+  "latest_commit_title": "trigger amplify rebuild: sprint 3+4 investor dashboard + admin investments tab",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "2d81f86",
+      "full_sha": "2d81f86cc10342037812083f85683ee486ad1e15",
+      "title": "trigger amplify rebuild: sprint 3+4 investor dashboard + admin investments tab",
+      "author": "Claude",
+      "timestamp": "2026-05-08T00:24:54Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-2d81f86.md"
+    },
     {
       "sha": "d2c4645",
       "full_sha": "d2c46454970e0e0f00cd510168d5e0ce82f73d26",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-25T00:55:29Z",
       "type": "deploy",
       "brief": "items/build_/COMMITS/COMMIT-7e15c10.md"
-    },
-    {
-      "sha": "3a6d0f3",
-      "full_sha": "3a6d0f3c5f114b8247d09298eb04fd2bc514f8c9",
-      "title": "add marketa voice toggle to copilot input",
-      "author": "Claude",
-      "timestamp": "2026-03-25T00:55:29Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-3a6d0f3.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

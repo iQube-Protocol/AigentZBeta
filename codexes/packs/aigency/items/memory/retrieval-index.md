@@ -759,3 +759,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-d2c4645.md](../build_/COMMITS/COMMIT-d2c4645.md)
 - Message: add dev note: supabase postgrest silent column error + episode thumbnail fix pattern
+
+## Commit `2d81f86` — 2026-05-08T00:24:54Z
+- Type: `push`
+- Brief: [COMMIT-2d81f86.md](../build_/COMMITS/COMMIT-2d81f86.md)
+- Message: trigger amplify rebuild: sprint 3+4 investor dashboard + admin investments tab
