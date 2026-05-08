@@ -456,13 +456,32 @@ export async function resolveRuntimeContext(request: NextRequest, body: Record<s
     asString(request.headers.get("x-tenant-id")) ||
     "metame";
 
-  const personaId =
+  // Spine-authoritative persona resolution. The request-provided personaId
+  // (header/query/body) is treated as a HINT only — when the caller has a
+  // valid session we prefer the spine's getActivePersona() so the runtime
+  // shell stays in lock-step with the platform's active persona (the same
+  // source the wallet drawer + PersonaContext consult). Falls back to the
+  // request hint only when the spine cannot resolve (no JWT, no PST).
+  const requestPersonaHint =
     asString(query.get("persona_id")) ||
     asString(query.get("personaId")) ||
     asString(body.persona_id) ||
     asString(body.personaId) ||
     asString(request.headers.get("x-persona-id")) ||
-    "guest";
+    "";
+
+  let personaId = requestPersonaHint || "guest";
+  try {
+    const { getActivePersona } = await import("@/services/identity/getActivePersona");
+    const active = await getActivePersona(request);
+    if (active?.personaId) {
+      personaId = active.personaId;
+    }
+  } catch (err) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[runtimeShell] getActivePersona failed, using request hint", err);
+    }
+  }
 
   const deviceHint =
     normalizeDeviceHint(query.get("device")) ||
