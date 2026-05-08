@@ -2160,8 +2160,24 @@ export default function MetaMeRuntimeClient() {
         const supabase = createClient(url, anonKey);
         unsub = supabase.auth.onAuthStateChange((event) => {
           if (event === "SIGNED_OUT") {
+            // Clear local component state but DO NOT remove the
+            // localStorage currentPersonaId. Supabase emits SIGNED_OUT
+            // on explicit sign-out AND on token-refresh failures (e.g.
+            // when the platform is having a 504 wave). Removing the
+            // persona id on a transient refresh failure causes the
+            // SmartContentActionContext.ensurePersonaId resolver to
+            // fire on the next render and re-seed localStorage from
+            // /api/personas ORDER BY created_at DESC, which for KNYT
+            // users typically returns anonym@knyt (most-recently-
+            // created persona), overwriting the user's admin choice.
+            //
+            // Persona id is a UI hint, not auth state. Leaving it set
+            // is safe even when the user is genuinely signed out —
+            // the next protected action will redirect to sign-in
+            // anyway, and persisting the persona id means the user's
+            // preference is preserved across token-refresh hiccups.
             setActivePersonaId(null);
-            try { localStorage.removeItem("currentPersonaId"); } catch { /* noop */ }
+            // Intentionally NOT calling localStorage.removeItem here.
           } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
             void resolvePersona();
           }
