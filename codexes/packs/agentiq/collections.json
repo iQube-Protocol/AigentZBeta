@@ -69,7 +69,8 @@
                 "updates/2026-05-05_handover-identity-access-management-session.md",
                 "updates/2026-05-05_unified-identity-content-access-foundation-plan.md",
                 "updates/2026-05-07_thin-client-active-persona-integration.md",
-                "updates/2026-05-08_phase-1-iam-spine-closure.md"
+                "updates/2026-05-08_phase-1-iam-spine-closure.md",
+                "updates/2026-05-08_thin-client-handshake-spec.md"
       ]
     },
     {
@@ -153,7 +154,8 @@
         "items/IQUBE_IDENTITY_SOVEREIGNTY_ARCHITECTURE.md",
         "updates/2026-05-05_unified-identity-content-access-foundation-plan.md",
         "updates/2026-05-07_thin-client-active-persona-integration.md",
-        "updates/2026-05-08_phase-1-iam-spine-closure.md"
+        "updates/2026-05-08_phase-1-iam-spine-closure.md",
+        "updates/2026-05-08_thin-client-handshake-spec.md"
       ]
     }
   ]
