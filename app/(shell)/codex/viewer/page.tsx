@@ -14,6 +14,7 @@ const CodexCopilotLayer = dynamic(
   { ssr: false }
 );
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
+import { usePersonaSafe } from "@/app/contexts/PersonaContext";
 import {
   BookOpen,
   Bot,
@@ -101,12 +102,26 @@ export default function CodexViewerPage() {
     } catch { /* storage unavailable */ }
   }, [hiddenTabs, codexId]);
 
-  // Resolve active session persona so SmartTriadProvider queries the right ownership data
+  // Resolve active persona — PersonaContext (the user's explicit choice
+  // via wallet drawer / persona switcher / etc.) is the canonical source.
+  // Fall back to the first human session persona only when the user has
+  // not yet picked one.
+  //
+  // BUG FIX 2026-05-08: this page previously resolved from
+  // useSupabaseSessionPersonas only, which returns the first human
+  // persona in the session list (typically anonym@knyt for KNYT users).
+  // The resulting activePersonaId was passed as a prop to
+  // CodexPanelDynamic, where prop-wins-over-ctx made the user's
+  // wallet-drawer switch invisible to the rendered codex. Result:
+  // 'persona switching not working DIRECTLY on dev-beta.aigentz.me'.
+  // PersonaContext now wins.
   const { sessionPersonas } = useSupabaseSessionPersonas();
+  const { activePersonaId: ctxPersonaId } = usePersonaSafe();
   const activePersonaId = useMemo(() => {
+    if (ctxPersonaId) return ctxPersonaId;
     const human = sessionPersonas.find(p => !p.isAgent);
     return human?.id || sessionPersonas[0]?.id;
-  }, [sessionPersonas]);
+  }, [ctxPersonaId, sessionPersonas]);
 
   const isAigentiqCodex = codexId === "agentiq-codex";
   const isAgentiqOSCartridge = codexId === "agentiq-os-cartridge";
