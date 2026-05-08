@@ -239,27 +239,70 @@ export function useCodexEmbedAuthBridge(
     };
   }, [personaId, authProfileId]);
 
-  // Auto-detect admin status via the platform admin-check API when no explicit
-  // isAdmin signal was received from the parent (postMessage or query param).
-  // personaId may be an email (e.g. dele@metame.com) — the API accepts either.
+  // Auto-detect admin status authoritatively via the spine endpoint.
+  //
+  // Earlier versions of this hook tried to fetch /api/codex/admin-check
+  // with personaId-as-email — but personaId is a UUID, not an email, so
+  // the fetch never fired and isAdmin stayed undefined. Result: in the
+  // KNYT cartridge embed, admin-gated tabs were dark even when the user
+  // was signed in as an admin and had selected their admin persona at
+  // the parent shell.
+  //
+  // The spine endpoint /api/wallet/active-persona returns
+  // cartridgeFlags.isAdmin authoritatively from the server-side
+  // resolver (services/identity/getActivePersona.ts). It uses the
+  // already-canonicalised authProfileId + every multi-email-merged
+  // linked profile + a fallback via crm_auth_profile_emails alias
+  // table. This is the single source of truth for 'is this caller
+  // an admin' regardless of which persona is active — no email-
+  // string heuristics, no UUID parsing.
+  //
+  // Re-runs whenever personaId changes (i.e. the parent shell
+  // broadcasts aa-persona-change-v1 or the embed boots fresh).
+  // Bearer token is the standard supabase-js access token from
+  // localStorage; without it the endpoint returns 401 and we leave
+  // isAdmin undefined (treated as false by every consumer).
   useEffect(() => {
-    if (isAdmin !== undefined) return; // already resolved
+    if (typeof window === 'undefined') return;
     if (!personaId) return;
-    // Only query if personaId looks like an email (the admin-check API uses email)
-    if (!personaId.includes('@')) return;
 
     let cancelled = false;
-    fetch(`/api/codex/admin-check?email=${encodeURIComponent(personaId)}`)
-      .then((res) => res.json())
+
+    // Read JWT from localStorage directly — avoid getSession()'s refresh-
+    // token chatter that would emit AuthApiError on signed-out callers.
+    let jwt = '';
+    try {
+      const k = Object.keys(window.localStorage).find(
+        (x) => x.startsWith('sb-') && x.endsWith('-auth-token'),
+      );
+      if (k) {
+        const raw = window.localStorage.getItem(k);
+        if (raw) {
+          const parsed = JSON.parse(raw) as
+            | { access_token?: string; currentSession?: { access_token?: string } }
+            | null;
+          jwt = parsed?.access_token ?? parsed?.currentSession?.access_token ?? '';
+        }
+      }
+    } catch { /* unauthenticated browsing */ }
+
+    if (!jwt) return; // no auth → cannot resolve flags; leave undefined
+
+    fetch('/api/wallet/active-persona', {
+      headers: { Accept: 'application/json', Authorization: `Bearer ${jwt}` },
+      credentials: 'include',
+    })
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (!cancelled && typeof data?.isAdmin === 'boolean') {
-          setIsAdmin(data.isAdmin);
+        if (cancelled || !data) return;
+        if (typeof data.cartridgeFlags?.isAdmin === 'boolean') {
+          setIsAdmin(data.cartridgeFlags.isAdmin);
         }
       })
-      .catch(() => { /* non-fatal — isAdmin stays undefined (treated as false) */ });
+      .catch(() => { /* non-fatal */ });
 
     return () => { cancelled = true; };
-  }, [personaId, isAdmin]);
+  }, [personaId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
