@@ -80,6 +80,16 @@ ALTER TABLE codex_media_assets
 DO $$
 BEGIN
   IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'codex_media_assets' AND column_name = 'mint_status'
+  ) THEN
+    ALTER TABLE codex_media_assets ADD COLUMN mint_status text NOT NULL DEFAULT 'wip';
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
     SELECT 1 FROM information_schema.table_constraints
     WHERE constraint_name = 'codex_media_assets_state_check'
   ) THEN
