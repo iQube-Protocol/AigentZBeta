@@ -140,12 +140,15 @@ export async function evaluateAccess(
   opts: EvaluateAccessOptions = {},
 ): Promise<AccessDecision> {
   const decision = await runDecision(context, descriptor, action, opts);
-  // Phase 3.2 — receipt emission. Fire-and-forget so a slow DB write
-  // never blocks the gate response. The emitter strips T0 fields by
-  // construction; the canary in tests/access-spine.test.ts asserts no
-  // personaId/authProfileId/rootDid leaks into the receipt row.
+  // Phase 3.2 — receipt emission. Awaited (not fire-and-forget) because
+  // AWS Lambda freezes the container immediately after the response,
+  // dropping any pending writes. The emitter is wrapped in try/catch
+  // and can never throw; the DB insert is fast (single row, no joins).
+  // Privacy contract: emitter strips T0 fields by construction; canary
+  // in tests/access-spine.test.ts asserts no personaId/authProfileId/
+  // rootDid leaks into the receipt row.
   if (decision.receipt.mode !== 'none') {
-    void emitDecisionReceipt({ context, descriptor, action, decision });
+    await emitDecisionReceipt({ context, descriptor, action, decision });
   }
   return decision;
 }
