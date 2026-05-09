@@ -73,7 +73,35 @@ export async function capturePayPalOrder(orderId: string) {
     method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
   });
   const order = await res.json();
-  if (order.status !== 'COMPLETED') return { success: false, error: order.status };
+  // Surface a few PayPal error fingerprints so the route can recover from a
+  // race (e.g. ORDER_ALREADY_CAPTURED) by reading the order back instead of
+  // just bubbling a generic failure.
+  const issue = order?.details?.[0]?.issue || order?.name || null;
+  if (order.status !== 'COMPLETED') {
+    return { success: false, error: order.status || issue || 'UNKNOWN', issue, raw: order };
+  }
+  const meta = JSON.parse(order.purchase_units?.[0]?.custom_id || '{}');
+  return { success: true, ...meta, usdAmount: parseFloat(order.purchase_units?.[0]?.amount?.value || '0') };
+}
+
+/**
+ * Read a PayPal order without trying to capture. Used by the capture route
+ * to recover from races where the order was already captured by a previous
+ * poll: we re-derive the credit from the stored order rather than calling
+ * /capture again (which would error with ORDER_ALREADY_CAPTURED).
+ */
+export async function getPayPalOrder(orderId: string) {
+  const token = await getAccessToken();
+  const res = await fetch(`${PAYPAL_API}/v2/checkout/orders/${orderId}`, {
+    method: 'GET', headers: { 'Authorization': `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    return { success: false, error: `PayPal getOrder ${res.status}` };
+  }
+  const order = await res.json();
+  if (order.status !== 'COMPLETED') {
+    return { success: false, error: order.status || 'NOT_COMPLETED' };
+  }
   const meta = JSON.parse(order.purchase_units?.[0]?.custom_id || '{}');
   return { success: true, ...meta, usdAmount: parseFloat(order.purchase_units?.[0]?.amount?.value || '0') };
 }
