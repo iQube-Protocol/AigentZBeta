@@ -11,6 +11,7 @@ import {
   getContentPricing,
   getKnytPackages,
   getKnytPackagesAsync,
+  getKnytUsdPrice,
   KNYT_BUY_RAIL_FEE_PERCENT,
   priceForRail,
   ContentType,
@@ -121,7 +122,10 @@ export async function GET(request: NextRequest) {
     // Each package is the flat base USD price; per-rail surcharges (Q¢ 0%,
     // USDC 1%, PayPal 10%) are exposed separately so the modal can render a
     // payment-method picker and live total without knowing the rate logic.
+    // `usdPerKnyt` lets the modal price arbitrary custom amounts without an
+    // extra round-trip — same number used to compute the package prices.
     const packages = await getKnytPackagesAsync();
+    const usdPerKnyt = await getKnytUsdPrice();
     const packagesWithRails = packages.map((p) => ({
       ...p,
       rails: {
@@ -133,6 +137,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       packages: packagesWithRails,
       railFeePercent: KNYT_BUY_RAIL_FEE_PERCENT,
+      usdPerKnyt,
+      minKnytAmount: 10,
     });
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 500,  });
