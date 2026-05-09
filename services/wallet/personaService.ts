@@ -299,18 +299,64 @@ export async function createPersona(input: CreatePersonaInput): Promise<CreatePe
       tenantId: input.tenantId,
     };
     
-    // 7. Store persona
+    // 7. Store persona (initial row — fio_registration_status defaults to pending
+    //    until the chain register call below confirms it)
     await storePersona(persona);
-    
-    // 8. Optionally register FIO handle (can be deferred for testnet)
-    // For now, we skip actual FIO registration and just store locally
-    // In production, uncomment:
-    // const fioRegistration = await fioService.registerHandle(input.username, input.domain, evmKey.publicKey);
-    
+
+    // 8. Register FIO handle on-chain. Operator decision (2026-05-09): FIO
+    //    is mandatory at signup; the platform's FIO_SYSTEM_* funded wallet
+    //    pays the fee. The route reads the system key from env — we never
+    //    send a private key from the client.
+    //
+    //    A FIO keypair must exist for the persona before registration (the
+    //    pubkey is passed as the handle owner). We generate it server-side
+    //    via /api/identity/fio/generate-keypair so bip39 + FIOSDK Node deps
+    //    stay out of the browser bundle.
+    let fioKeyPair: { publicKey: string; privateKey: string; mnemonic: string } | null = null;
+    let fioRegistration: { txId: string; fioAddress: string; expiration: string; fee: number } | null = null;
+    let fioRegistrationError: string | null = null;
+    try {
+      const keyRes = await fetch('/api/identity/fio/generate-keypair', withAuthHeaders({ method: 'POST' }));
+      if (keyRes.ok) {
+        fioKeyPair = await keyRes.json();
+      } else {
+        fioRegistrationError = 'Failed to generate FIO keypair';
+      }
+    } catch (e) {
+      fioRegistrationError = (e as Error).message;
+    }
+
+    if (fioKeyPair) {
+      try {
+        const regRes = await fetch(
+          '/api/identity/fio/register',
+          withAuthHeaders({
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              handle: fioHandle,
+              publicKey: fioKeyPair.publicKey,
+              personaId: persona.id,
+            }),
+          }),
+        );
+        const regJson = await regRes.json();
+        if (regRes.ok && regJson?.ok) {
+          fioRegistration = regJson.data;
+        } else {
+          fioRegistrationError = regJson?.error || 'FIO registration failed';
+        }
+      } catch (e) {
+        fioRegistrationError = (e as Error).message;
+      }
+    }
+
     return {
       success: true,
       persona,
-      // fioRegistration,
+      fioKeyPair,
+      fioRegistration,
+      fioRegistrationError,
     };
     
   } catch (error) {

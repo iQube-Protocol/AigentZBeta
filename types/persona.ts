@@ -272,7 +272,17 @@ export interface CreatePersonaInput {
 export interface CreatePersonaResult {
   success: boolean;
   persona?: PersonaQube;
-  fioRegistration?: FioRegistration;
+  fioRegistration?: FioRegistration | { txId: string; fioAddress: string; expiration: string; fee: number } | null;
+  /**
+   * FIO keypair for the persona. Returned ONCE on creation so the wizard
+   * can show the user their private key + mnemonic for backup. Never
+   * persisted server-side in Phase 1 — the user is responsible for
+   * recording it. Phase 2 will add encrypted server-side custody as an
+   * optional convenience.
+   */
+  fioKeyPair?: { publicKey: string; privateKey: string; mnemonic: string } | null;
+  /** Non-fatal error from the FIO chain register step. Persona is still created. */
+  fioRegistrationError?: string | null;
   error?: string;
 }
 

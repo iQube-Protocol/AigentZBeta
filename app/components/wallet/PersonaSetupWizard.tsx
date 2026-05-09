@@ -29,6 +29,13 @@ interface PersonaSetupWizardProps {
   tenantId?: string;
   onComplete: (personaId: string) => void;
   onCancel?: () => void;
+  /**
+   * When true, hide the cancel button. Used by the post-signup flow:
+   * FIO registration is mandatory at signup, so the user cannot dismiss
+   * the wizard until a persona is created and the handle is registered
+   * on-chain.
+   */
+  mandatory?: boolean;
 }
 
 type WizardStep = 'domain' | 'handle' | 'keys' | 'password' | 'confirm';
@@ -47,10 +54,11 @@ interface WizardState {
 // WIZARD COMPONENT
 // =============================================================================
 
-export function PersonaSetupWizard({ 
-  tenantId = 'default', 
-  onComplete, 
-  onCancel 
+export function PersonaSetupWizard({
+  tenantId = 'default',
+  onComplete,
+  onCancel,
+  mandatory = false,
 }: PersonaSetupWizardProps) {
   const [step, setStep] = useState<WizardStep>('domain');
   const [state, setState] = useState<WizardState>({
@@ -69,7 +77,11 @@ export function PersonaSetupWizard({
   const [showPassword, setShowPassword] = useState(false);
   const [showImportedKey, setShowImportedKey] = useState(false);
   const [createdPersona, setCreatedPersona] = useState<any>(null);
+  const [createdFioKeyPair, setCreatedFioKeyPair] = useState<{ publicKey: string; privateKey: string; mnemonic: string } | null>(null);
+  const [createdFioRegistration, setCreatedFioRegistration] = useState<{ txId: string; fioAddress: string; expiration: string; fee: number } | null>(null);
+  const [fioRegError, setFioRegError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedFioPriv, setCopiedFioPriv] = useState(false);
 
   // Step navigation
   const steps: WizardStep[] = ['domain', 'handle', 'keys', 'password', 'confirm'];
@@ -151,9 +163,12 @@ export function PersonaSetupWizard({
       };
       
       const result = await createPersona(input);
-      
+
       if (result.success && result.persona) {
         setCreatedPersona(result.persona);
+        setCreatedFioKeyPair(result.fioKeyPair ?? null);
+        setCreatedFioRegistration((result.fioRegistration as any) ?? null);
+        setFioRegError(result.fioRegistrationError ?? null);
         setStep('confirm');
       } else {
         setError(result.error || 'Failed to create persona');
@@ -162,6 +177,14 @@ export function PersonaSetupWizard({
       setError((err as Error).message);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const copyFioPrivateKey = async () => {
+    if (createdFioKeyPair?.privateKey) {
+      await navigator.clipboard.writeText(createdFioKeyPair.privateKey);
+      setCopiedFioPriv(true);
+      setTimeout(() => setCopiedFioPriv(false), 2000);
     }
   };
 
@@ -489,6 +512,54 @@ export function PersonaSetupWizard({
               ))}
             </div>
           </div>
+
+          {/* FIO chain registration */}
+          {createdFioRegistration && (
+            <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle className="w-4 h-4 text-emerald-400" />
+                <span className="text-sm text-emerald-300 font-medium">FIO handle registered on-chain</span>
+              </div>
+              <div className="text-xs text-slate-400 mb-1">Tx ID</div>
+              <div className="text-xs font-mono text-white break-all mb-2">{createdFioRegistration.txId}</div>
+              <div className="text-xs text-slate-400 mb-1">Expires</div>
+              <div className="text-xs text-white">
+                {new Date(createdFioRegistration.expiration).toLocaleDateString()}
+              </div>
+            </div>
+          )}
+
+          {fioRegError && !createdFioRegistration && (
+            <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+              <div className="text-sm text-amber-300 font-medium mb-1">FIO registration deferred</div>
+              <div className="text-xs text-amber-200/70">{fioRegError}</div>
+              <div className="text-xs text-slate-400 mt-2">
+                You can complete on-chain registration later from your wallet settings.
+              </div>
+            </div>
+          )}
+
+          {/* FIO private key — shown ONCE; user must save it */}
+          {createdFioKeyPair && (
+            <div className="p-4 bg-rose-500/10 border border-rose-500/30 rounded-lg">
+              <div className="text-sm text-rose-300 font-medium mb-1">⚠ FIO Private Key — save this now</div>
+              <div className="text-xs text-rose-200/70 mb-3">
+                This is the private key for your FIO handle. We are not storing it. Copy it to a password manager — without it you cannot send FIO transactions or recover this handle.
+              </div>
+              <div className="p-3 bg-black/30 rounded font-mono text-xs text-white break-all mb-2">
+                {createdFioKeyPair.privateKey}
+              </div>
+              <button
+                onClick={copyFioPrivateKey}
+                className="w-full py-2 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/30 text-rose-200 text-xs rounded flex items-center justify-center gap-2 transition-colors"
+              >
+                {copiedFioPriv ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                {copiedFioPriv ? 'Copied — store it safely' : 'Copy private key'}
+              </button>
+              <div className="mt-3 text-xs text-slate-400 mb-1">Public key</div>
+              <div className="text-xs font-mono text-white/70 break-all">{createdFioKeyPair.publicKey}</div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -529,18 +600,26 @@ export function PersonaSetupWizard({
         
         {/* Footer */}
         <div className="px-6 py-4 bg-white/5 border-t border-white/10 flex items-center justify-between">
-          {/* Back / Cancel */}
-          <button
-            onClick={currentIndex === 0 ? onCancel : goBack}
-            className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
-            disabled={isLoading}
-          >
-            {currentIndex === 0 ? 'Cancel' : (
-              <span className="flex items-center gap-1">
-                <ArrowLeft className="w-4 h-4" /> Back
-              </span>
-            )}
-          </button>
+          {/* Back / Cancel — Cancel is hidden in mandatory mode (post-signup
+              FIO-registration flow). User cannot exit until a persona is
+              created and the FIO handle is registered on-chain. */}
+          {currentIndex === 0 && mandatory ? (
+            <span className="px-4 py-2 text-xs text-slate-500">
+              Setup required — FIO handle is registered on-chain
+            </span>
+          ) : (
+            <button
+              onClick={currentIndex === 0 ? onCancel : goBack}
+              className="px-4 py-2 text-slate-400 hover:text-white transition-colors"
+              disabled={isLoading}
+            >
+              {currentIndex === 0 ? 'Cancel' : (
+                <span className="flex items-center gap-1">
+                  <ArrowLeft className="w-4 h-4" /> Back
+                </span>
+              )}
+            </button>
+          )}
           
           {/* Next / Create / Done */}
           {step === 'confirm' ? (

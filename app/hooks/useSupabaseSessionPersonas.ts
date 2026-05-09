@@ -110,28 +110,11 @@ export interface SessionIdentity {
   refreshPersonas: () => Promise<void>;
 }
 
-/**
- * Fire-and-forget: bootstrap a starter persona for a freshly signed-up user.
- * Idempotent server-side — safe to call on every SIGNED_IN event. Returns
- * silently if the user already owns at least one persona.
- *
- * The starter persona is the spine's anchor for first-time users — without
- * it, getActivePersona returns null and the wallet drawer renders empty.
- */
-async function bootstrapStarterPersona(accessToken: string, email: string | null): Promise<void> {
-  try {
-    await fetch('/api/wallet/personas/bootstrap-starter', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ email }),
-    });
-  } catch {
-    // non-fatal — user can still create personas manually via the wizard
-  }
-}
+// Bootstrap-starter helper retired (2026-05-09). FIO registration is now
+// mandatory at signup, so the hook no longer auto-creates a placeholder
+// persona. The PersonaSetupWizard handles the full signup → FIO chain
+// register → persona row flow. See bootstrap-starter route for the legacy
+// API path (retained for direct callers, no longer auto-invoked).
 
 export function useSupabaseSessionPersonas(): SessionIdentity {
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
@@ -192,22 +175,17 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
       const data = await res.json();
       const list = Array.isArray(data) ? data : [];
 
-      // Spine bootstrap: if a signed-in user has zero personas, this is a
-      // first-time signup. Auto-create a starter persona so the spine has
-      // something to resolve. Server route is idempotent.
-      if (list.length === 0) {
-        await bootstrapStarterPersona(accessToken, sessionEmail);
-        const retry = await fetch("/api/wallet/personas", {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (retry.ok) {
-          const retryData = await retry.json();
-          const retryList = Array.isArray(retryData) ? retryData : [];
-          setSessionPersonas(retryList.map((r: Record<string, unknown>) => mapToPersonaState(r)));
-          return;
-        }
-      }
-
+      // Operator decision (2026-05-09): FIO registration is mandatory at
+      // signup. When a signed-in user has zero personas, we DO NOT auto-
+      // create a placeholder anymore — instead the drawer auto-opens the
+      // PersonaSetupWizard in mandatory mode, which generates a FIO
+      // keypair and registers the handle on-chain (funded by the
+      // FIO_SYSTEM_* wallet) before the persona row is finalised.
+      //
+      // The bootstrap-starter API endpoint is retained for direct API
+      // callers but is no longer the default path. The hook signals
+      // "must complete setup" via the empty list — see SessionIdentity
+      // consumers in SmartWalletDrawer.
       setSessionPersonas(list.map((r: Record<string, unknown>) => mapToPersonaState(r)));
     } catch {
       // non-fatal — wallet still works without session personas

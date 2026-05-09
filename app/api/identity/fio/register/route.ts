@@ -6,66 +6,86 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 /**
- * Register a new FIO handle
+ * Register a new FIO handle. Operator decision (2026-05-09): FIO
+ * registration is now mandatory at signup, funded by the platform's
+ * system wallet (FIO_SYSTEM_PRIVATE_KEY). The persona's own FIO key is
+ * passed in only as the publicKey to register (the owner of the handle).
+ *
+ * The system private key is read from server env and NEVER accepted from
+ * the request body — earlier versions of this route accepted it client-
+ * side, which exposed the funding wallet's signing authority to anyone
+ * who could call the route. That hole is closed here.
+ *
  * POST /api/identity/fio/register
+ *   body: { handle, publicKey, personaId }
+ *     handle      — desired FIO handle (e.g. "alice@aigent")
+ *     publicKey   — persona's FIO public key (owns the handle)
+ *     personaId   — DB row to update with the registration result
  */
 export async function POST(req: NextRequest) {
   let body: any;
   try {
     body = await req.json();
-    const { handle, publicKey, personaId, privateKey } = body;
+    const { handle, publicKey, personaId } = body;
 
     if (!handle || !publicKey || !personaId) {
       return NextResponse.json(
-        { ok: false, error: 'Handle, publicKey, and personaId are required' },
+        { ok: false, error: 'handle, publicKey, and personaId are required' },
         { status: 400 }
       );
     }
 
-    if (!privateKey) {
-      return NextResponse.json(
-        { ok: false, error: 'Private key is required for registration' },
-        { status: 400 }
-      );
-    }
-
-    // Check if mock mode is enabled (for development when testnet is unavailable)
+    const systemPublicKey = process.env.FIO_SYSTEM_PUBLIC_KEY || '';
+    const systemPrivateKey = process.env.FIO_SYSTEM_PRIVATE_KEY || '';
     const mockMode = process.env.FIO_MOCK_MODE === 'true';
-    
+
+    if (!mockMode && (!systemPublicKey || !systemPrivateKey)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            'Server-side FIO funding wallet is not configured. ' +
+            'Set FIO_SYSTEM_PUBLIC_KEY and FIO_SYSTEM_PRIVATE_KEY in env, ' +
+            'or set FIO_MOCK_MODE=true to bypass on-chain registration.',
+        },
+        { status: 500 }
+      );
+    }
+
     console.log('[FIO Register] Starting registration:', {
       handle,
       personaId,
       mockMode,
-      publicKey: publicKey.substring(0, 20) + '...',
-      hasPrivateKey: !!privateKey
+      ownerPublicKey: publicKey.substring(0, 20) + '...',
+      systemPublicKey: systemPublicKey.substring(0, 20) + '...',
     });
-    
+
     let result;
-    
+
     if (mockMode) {
-      // Mock registration for development
       console.log('[FIO Register] MOCK MODE: Simulating registration for', handle);
       result = {
         txId: `mock_tx_${Date.now()}`,
         fioAddress: handle,
-        expiration: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
+        expiration: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
         fee: 40000000000
       };
     } else {
-      // Real FIO registration
-      console.log('[FIO Register] REAL MODE: Registering on FIO blockchain');
       const endpoint = process.env.FIO_API_ENDPOINT || 'https://testnet.fioprotocol.io/v1/';
       const chainId = process.env.FIO_CHAIN_ID || 'b20901380af44ef59c5918439a1f9a41d83669020319a80574b804a5f95cbd7e';
-      
-      console.log('[FIO Register] Initializing FIO SDK:', { endpoint, chainId });
-      
+
+      console.log('[FIO Register] REAL MODE — system wallet pays fee:', { endpoint });
+
       try {
         const fioService = getFIOService();
+        // Initialize SDK with the SYSTEM key (signer + fee payer). The handle
+        // we register will be owned by `publicKey` (the persona's own key)
+        // via the SDK's registerHandle path.
         await fioService.initialize({
           endpoint,
           chainId,
-          privateKey,
-          publicKey
+          privateKey: systemPrivateKey,
+          publicKey: systemPublicKey,
         });
 
         console.log('[FIO Register] Calling registerHandle...');
@@ -73,21 +93,18 @@ export async function POST(req: NextRequest) {
         console.log('[FIO Register] Registration successful:', {
           txId: result.txId,
           fioAddress: result.fioAddress,
-          fee: result.fee
+          fee: result.fee,
         });
       } catch (fioError: any) {
         console.error('[FIO Register] FIO API Error:', fioError.message);
         console.log('[FIO Register] Falling back to MOCK MODE due to FIO API failure');
-        
-        // Fallback to mock registration if FIO API is down
+
         result = {
           txId: `fallback_tx_${Date.now()}`,
           fioAddress: handle,
           expiration: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-          fee: 40000000000
+          fee: 40000000000,
         };
-        
-        console.log('[FIO Register] Using fallback registration:', result);
       }
     }
 

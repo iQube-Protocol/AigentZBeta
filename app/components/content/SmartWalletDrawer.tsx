@@ -334,6 +334,7 @@ export default function SmartWalletDrawer({
   const [buyKnytModalOpen, setBuyKnytModalOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [personaSetupOpen, setPersonaSetupOpen] = useState(false);
+  const [personaSetupMandatory, setPersonaSetupMandatory] = useState(false);
   const [personaEditModalOpen, setPersonaEditModalOpen] = useState(false);
   const [editingPersona, setEditingPersona] = useState<PersonaState | null>(null);
   const [copilotOpen, setCopilotOpen] = useState(false);
@@ -784,10 +785,24 @@ export default function SmartWalletDrawer({
     ctxSetActivePersonaId(newPersonaId);
     onPersonaChange?.(newPersonaId);
     setPersonaSetupOpen(false);
+    setPersonaSetupMandatory(false);
     // Re-fetch session personas so the newly created persona appears in the dropdown
     refreshPersonas();
   };
-  
+
+  // Auto-open the persona setup wizard for newly signed-up users.
+  // Operator decision (2026-05-09): FIO registration is mandatory at
+  // signup. When a user has signed in but owns zero personas, we open
+  // the wizard automatically and disable cancellation — they cannot
+  // proceed without completing FIO chain registration.
+  useEffect(() => {
+    if (!sessionEmail) return;
+    if (allAvailablePersonas.length > 0) return;
+    if (personaSetupOpen) return;
+    setPersonaSetupOpen(true);
+    setPersonaSetupMandatory(true);
+  }, [sessionEmail, allAvailablePersonas.length, personaSetupOpen]);
+
   // Persona state
   const [showUnlockModal, setShowUnlockModal] = useState(false);
   const [isWalletUnlocked, setIsWalletUnlocked] = useState(false);
@@ -4005,7 +4020,8 @@ export default function SmartWalletDrawer({
         <PersonaSetupWizard
           tenantId={tenantId}
           onComplete={handlePersonaCreated}
-          onCancel={() => setPersonaSetupOpen(false)}
+          onCancel={personaSetupMandatory ? undefined : () => setPersonaSetupOpen(false)}
+          mandatory={personaSetupMandatory}
         />
       )}
 
