@@ -11,6 +11,8 @@
 /** Source of a KNYT transaction */
 export type KnytTxSource =
   | 'paypal_purchase'      // User bought KNYT with PayPal
+  | 'qc_purchase'          // User bought KNYT with Base Q¢ (stubbed)
+  | 'usdc_purchase'        // User bought KNYT with USDC (stubbed)
   | 'content_purchase'     // User spent KNYT on content (Codex, Scroll, etc.)
   | 'reward'               // User earned KNYT from quest/task completion
   | 'referral'             // User earned KNYT from referral

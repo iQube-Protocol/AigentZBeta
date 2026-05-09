@@ -292,7 +292,12 @@ export async function getKnytUsdPrice(): Promise<number> {
 }
 
 /**
- * Get KNYT package options for PayPal purchase (with live pricing)
+ * Get KNYT package options for purchase (with live pricing).
+ *
+ * Packages are flat: 1 KNYT = `knytUsdPrice` USD. No volume discount and
+ * no bonus KNYT — those previously broke parity with store SKU pricing.
+ * Rail-specific fees (Q¢ 0% / USDC 1% / PayPal 10%) are applied at the
+ * point of purchase, not baked into the package.
  */
 export async function getKnytPackagesAsync(): Promise<Array<{
   packageId: string;
@@ -302,17 +307,18 @@ export async function getKnytPackagesAsync(): Promise<Array<{
   label: string;
 }>> {
   const knytUsdPrice = await getKnytUsdPrice();
-  
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+
   return [
-    { packageId: 'knyt_10', knytAmount: 10, usdPrice: Math.round(10 * knytUsdPrice * 100) / 100, bonusKnyt: 0, label: '10 KNYT' },
-    { packageId: 'knyt_50', knytAmount: 50, usdPrice: Math.round(50 * knytUsdPrice * 0.9 * 100) / 100, bonusKnyt: 5, label: '50 KNYT (+5 bonus)' }, // 10% discount
-    { packageId: 'knyt_100', knytAmount: 100, usdPrice: Math.round(100 * knytUsdPrice * 0.8 * 100) / 100, bonusKnyt: 20, label: '100 KNYT (+20 bonus)' }, // 20% discount
-    { packageId: 'knyt_500', knytAmount: 500, usdPrice: Math.round(500 * knytUsdPrice * 0.7 * 100) / 100, bonusKnyt: 150, label: '500 KNYT (+150 bonus)' }, // 30% discount
+    { packageId: 'knyt_10',  knytAmount: 10,  usdPrice: round2(10 * knytUsdPrice),  bonusKnyt: 0, label: '10 KNYT' },
+    { packageId: 'knyt_50',  knytAmount: 50,  usdPrice: round2(50 * knytUsdPrice),  bonusKnyt: 0, label: '50 KNYT' },
+    { packageId: 'knyt_100', knytAmount: 100, usdPrice: round2(100 * knytUsdPrice), bonusKnyt: 0, label: '100 KNYT' },
+    { packageId: 'knyt_500', knytAmount: 500, usdPrice: round2(500 * knytUsdPrice), bonusKnyt: 0, label: '500 KNYT' },
   ];
 }
 
 /**
- * Get KNYT package options for PayPal purchase (sync version with fallback)
+ * Get KNYT package options (sync version with fallback).
  * @deprecated Use getKnytPackagesAsync for live pricing
  */
 export function getKnytPackages(): Array<{
@@ -324,10 +330,30 @@ export function getKnytPackages(): Array<{
 }> {
   // Fallback prices based on ~$3500 ETH ($1.75 per KNYT)
   const fallbackKnytPrice = 1.75;
+  const round2 = (n: number) => Math.round(n * 100) / 100;
   return [
-    { packageId: 'knyt_10', knytAmount: 10, usdPrice: Math.round(10 * fallbackKnytPrice * 100) / 100, bonusKnyt: 0, label: '10 KNYT' },
-    { packageId: 'knyt_50', knytAmount: 50, usdPrice: Math.round(50 * fallbackKnytPrice * 0.9 * 100) / 100, bonusKnyt: 5, label: '50 KNYT (+5 bonus)' },
-    { packageId: 'knyt_100', knytAmount: 100, usdPrice: Math.round(100 * fallbackKnytPrice * 0.8 * 100) / 100, bonusKnyt: 20, label: '100 KNYT (+20 bonus)' },
-    { packageId: 'knyt_500', knytAmount: 500, usdPrice: Math.round(500 * fallbackKnytPrice * 0.7 * 100) / 100, bonusKnyt: 150, label: '500 KNYT (+150 bonus)' },
+    { packageId: 'knyt_10',  knytAmount: 10,  usdPrice: round2(10 * fallbackKnytPrice),  bonusKnyt: 0, label: '10 KNYT' },
+    { packageId: 'knyt_50',  knytAmount: 50,  usdPrice: round2(50 * fallbackKnytPrice),  bonusKnyt: 0, label: '50 KNYT' },
+    { packageId: 'knyt_100', knytAmount: 100, usdPrice: round2(100 * fallbackKnytPrice), bonusKnyt: 0, label: '100 KNYT' },
+    { packageId: 'knyt_500', knytAmount: 500, usdPrice: round2(500 * fallbackKnytPrice), bonusKnyt: 0, label: '500 KNYT' },
   ];
+}
+
+/**
+ * Per-rail fee applied on top of the base USD price when buying KNYT
+ * directly from the wallet's Buy KNYT flow. Mirrors the rail-fee tiers
+ * exposed by the store cart so prices stay in parity across surfaces.
+ */
+export const KNYT_BUY_RAIL_FEE_PERCENT = {
+  qc: 0,
+  usdc: 0.01,
+  paypal: 0.10,
+} as const;
+
+export type KnytBuyRail = keyof typeof KNYT_BUY_RAIL_FEE_PERCENT;
+
+/** Base price × (1 + rail fee), rounded to cents. */
+export function priceForRail(basePriceUsd: number, rail: KnytBuyRail): number {
+  const fee = KNYT_BUY_RAIL_FEE_PERCENT[rail] ?? 0;
+  return Math.round(basePriceUsd * (1 + fee) * 100) / 100;
 }

@@ -7,7 +7,14 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { purchaseWithKnyt, purchaseWithKnytSku, purchaseKnytWithPaypal } from '@/services/wallet/knyt/knytPurchaseService';
-import { getContentPricing, getKnytPackages, getKnytPackagesAsync, ContentType } from '@/services/wallet/knyt/knytPricingService';
+import {
+  getContentPricing,
+  getKnytPackages,
+  getKnytPackagesAsync,
+  KNYT_BUY_RAIL_FEE_PERCENT,
+  priceForRail,
+  ContentType,
+} from '@/services/wallet/knyt/knytPricingService';
 import { quoteSkuOffers } from '@/services/wallet/knyt/knytSkuQuoteService';
 import type { PricingKind } from '@/types/smartContent';
 
@@ -110,9 +117,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ pricing });
     }
     
-    // Return KNYT packages with live ETH pricing
+    // Return KNYT packages with live ETH pricing.
+    // Each package is the flat base USD price; per-rail surcharges (Q¢ 0%,
+    // USDC 1%, PayPal 10%) are exposed separately so the modal can render a
+    // payment-method picker and live total without knowing the rate logic.
     const packages = await getKnytPackagesAsync();
-    return NextResponse.json({ packages });
+    const packagesWithRails = packages.map((p) => ({
+      ...p,
+      rails: {
+        qc:     { feePct: KNYT_BUY_RAIL_FEE_PERCENT.qc,     priceUsd: priceForRail(p.usdPrice, 'qc') },
+        usdc:   { feePct: KNYT_BUY_RAIL_FEE_PERCENT.usdc,   priceUsd: priceForRail(p.usdPrice, 'usdc') },
+        paypal: { feePct: KNYT_BUY_RAIL_FEE_PERCENT.paypal, priceUsd: priceForRail(p.usdPrice, 'paypal') },
+      },
+    }));
+    return NextResponse.json({
+      packages: packagesWithRails,
+      railFeePercent: KNYT_BUY_RAIL_FEE_PERCENT,
+    });
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 500,  });
   }
