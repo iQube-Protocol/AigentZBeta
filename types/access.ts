@@ -426,7 +426,12 @@ export type DeliveryMode =
  *          `evaluateAccess` blocks on DVN anchoring before returning;
  *          failure to anchor returns allow=false / 'policy-blocked'.
  */
-export type ReceiptMode = 'sync' | 'async';
+/**
+ *   sync           — emit before returning the decision (highest cost, lowest latency)
+ *   async-batched  — durable now, batched onto chain in N-min intervals (Phase 3.4)
+ *   none           — non-receipt-eligible action (idempotent reads etc.)
+ */
+export type ReceiptMode = 'sync' | 'async' | 'async-batched' | 'none';
 
 export interface AccessReceiptHandle {
   mode: ReceiptMode;

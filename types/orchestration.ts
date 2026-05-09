@@ -141,6 +141,7 @@ export type OrchestrationEventType =
   | 'guardian_intervened'
   | 'guardian_suggested'
   | 'guardian_auto_acted'
+  | 'access_decision'
 
 export interface OrchestrationEvent {
   event_id: string
