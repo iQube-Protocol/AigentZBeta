@@ -17,6 +17,7 @@ import { useKnytCart } from './useKnytCart';
 import { KnytCartDrawer } from './KnytCartDrawer';
 import { ContentPurchaseModal } from '../../content/ContentPurchaseModal';
 import type { ContentType } from '../../content/ContentPurchaseModal';
+import { useKnytBalance } from '@/app/hooks/useKnytBalance';
 
 interface Props {
   personaId?: string;
@@ -375,6 +376,10 @@ const gnInvestorBundles         = BUNDLE_PRICING.filter((b) => b.isInvestorOnly 
 const collectionInvestorBundles = BUNDLE_PRICING.filter((b) => b.isInvestorOnly && !(b.episodes.length === 1 && b.episodes[0] === -1));
 
 export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
+  // DVN KNYT balance for the active persona — feeds the ContentPurchaseModal's
+  // Pay-with-KNYT affordance. Without this prop the modal renders "No KNYT
+  // balance" disabled, even when the persona has a credited DVN balance.
+  const { balance, spendableBalance, refreshBalance } = useKnytBalance(personaId);
   const [view, setView]         = useState<InvestorView>({ kind: 'landing' });
   const [purchase, setPurchase] = useState<PendingPurchase | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
@@ -540,6 +545,14 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
           contentImage={purchase.contentImage}
           priceUsdOverride={purchase.priceUsdOverride}
           baseKnytOverride={purchase.baseKnytOverride ?? usdToKnyt(purchase.priceUsdOverride)}
+          knytBalance={balance?.dvnKnyt ?? 0}
+          spendableKnyt={spendableBalance ?? 0}
+          evmKnyt={balance?.evmKnyt ?? 0}
+          onBalanceRefresh={() => refreshBalance()}
+          onPurchaseComplete={() => {
+            setPurchase(null);
+            void refreshBalance();
+          }}
         />
       )}
 
