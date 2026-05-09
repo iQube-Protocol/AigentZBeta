@@ -11,9 +11,23 @@ import type { OrchestrationEvent } from '@/types/orchestration';
 
 function getDb() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  if (!serviceKey && anonKey) {
+    // Anon key + RLS = receipts dropped silently. Surface this once
+    // per Lambda cold start so it shows up in CloudWatch.
+    if (!loggedMissingServiceKey) {
+      loggedMissingServiceKey = true;
+      console.error(
+        '[orchestrationEvents] SUPABASE_SERVICE_ROLE_KEY is missing — ' +
+          'falling back to anon key. RLS will block receipt writes.',
+      );
+    }
+  }
+  const key = serviceKey || anonKey;
   return createClient(url, key, { auth: { persistSession: false } });
 }
+let loggedMissingServiceKey = false;
 
 /**
  * Emit an orchestration event. Fire-and-forget — callers should void this.
