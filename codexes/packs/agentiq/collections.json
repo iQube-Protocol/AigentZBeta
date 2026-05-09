@@ -71,7 +71,8 @@
                 "updates/2026-05-06_supabase-postgrest-silent-column-error-pattern.md",
                 "updates/2026-05-07_thin-client-active-persona-integration.md",
                 "updates/2026-05-08_phase-1-iam-spine-closure.md",
-                "updates/2026-05-08_thin-client-handshake-spec.md"
+                "updates/2026-05-08_thin-client-handshake-spec.md",
+                "updates/2026-05-09_phase-2-encryption-decisions.md"
       ]
     },
     {
