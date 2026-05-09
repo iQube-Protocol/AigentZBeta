@@ -21,7 +21,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getPayPalOrder } from '@/services/wallet/knyt/paypalService';
+import { getPayPalOrder, getPayPalCapture } from '@/services/wallet/knyt/paypalService';
 import { creditKnyt } from '@/services/wallet/knyt/knytLedgerService';
 import { createClient } from '@supabase/supabase-js';
 
@@ -47,20 +47,37 @@ async function isAuthorized(request: NextRequest): Promise<boolean> {
   return false;
 }
 
-async function findExistingCredit(orderId: string) {
+/**
+ * Idempotency lookup. The operator may paste either an order id or a capture
+ * (transaction) id, so we check both metadata keys.
+ */
+async function findExistingCredit(id: string) {
   const sb = supabaseSr();
-  const { data } = await sb
+  const { data: byOrder } = await sb
     .from('wallet_transactions')
     .select('id, persona_id, amount, created_at')
     .eq('source', 'paypal_purchase')
-    .filter('metadata->>paypalOrderId', 'eq', orderId)
+    .filter('metadata->>paypalOrderId', 'eq', id)
     .limit(1)
     .maybeSingle();
-  return data ?? null;
+  if (byOrder) return byOrder;
+  const { data: byCapture } = await sb
+    .from('wallet_transactions')
+    .select('id, persona_id, amount, created_at')
+    .eq('source', 'paypal_purchase')
+    .filter('metadata->>paypalCaptureId', 'eq', id)
+    .limit(1)
+    .maybeSingle();
+  return byCapture ?? null;
 }
 
 interface RecoverResult {
-  orderId: string;
+  /** Whatever id the operator pasted — could be an order id or a capture id. */
+  id: string;
+  /** PayPal order id, populated once resolved (may equal `id`). */
+  orderId?: string;
+  /** PayPal capture / transaction id, populated when resolved via capture lookup. */
+  captureId?: string;
   status: 'credited' | 'alreadyCredited' | 'notCompleted' | 'missingMetadata' | 'error';
   personaId?: string;
   knytAmount?: number;
@@ -73,22 +90,30 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   try {
-    const body = await request.json() as { orderIds?: string[]; fioHandle?: string };
-    const { orderIds, fioHandle } = body;
-    if (!Array.isArray(orderIds) || orderIds.length === 0) {
+    // Accept either field name. `ids` is preferred since values may be order
+    // ids OR capture/transaction ids; `orderIds` is kept for backwards compat
+    // with operators who already have a curl invocation.
+    const body = await request.json() as {
+      ids?: string[];
+      orderIds?: string[];
+      fioHandle?: string;
+    };
+    const inputIds = body.ids ?? body.orderIds ?? [];
+    const { fioHandle } = body;
+    if (!Array.isArray(inputIds) || inputIds.length === 0) {
       return NextResponse.json(
-        { error: 'orderIds (array) required. fioHandle alone is not enough — PayPal requires the order id.' },
+        { error: 'ids (array) required. Each entry can be a PayPal order id OR a capture / transaction id.' },
         { status: 400 },
       );
     }
 
     const results: RecoverResult[] = [];
-    for (const orderId of orderIds) {
+    for (const id of inputIds) {
       try {
-        const existing = await findExistingCredit(orderId);
+        const existing = await findExistingCredit(id);
         if (existing) {
           results.push({
-            orderId,
+            id,
             status: 'alreadyCredited',
             personaId: existing.persona_id,
             knytAmount: Number(existing.amount),
@@ -97,42 +122,82 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        const order = await getPayPalOrder(orderId);
-        if (!order.success) {
-          results.push({ orderId, status: 'notCompleted', message: order.error });
+        // Try as an order id first; fall back to capture id if the order
+        // lookup 404s (PayPal merchant dashboard surfaces capture ids
+        // prominently, so operators frequently paste those).
+        let resolved: any = await getPayPalOrder(id);
+        let resolvedOrderId: string | undefined = id;
+        let resolvedCaptureId: string | undefined;
+
+        if (!resolved.success) {
+          if (resolved.status === 404) {
+            const cap = await getPayPalCapture(id);
+            if (!cap.success) {
+              results.push({ id, status: 'notCompleted', message: `${resolved.error}; capture lookup: ${cap.error}` });
+              continue;
+            }
+            resolved = cap;
+            resolvedCaptureId = (cap as any).captureId ?? id;
+            resolvedOrderId = (cap as any).orderId ?? undefined;
+          } else {
+            results.push({ id, status: 'notCompleted', message: resolved.error });
+            continue;
+          }
+        }
+
+        const personaId = (resolved as any).personaId as string | undefined;
+        const knytAmount = Number((resolved as any).knytAmount || 0);
+        const usdAmount = Number((resolved as any).usdAmount || 0);
+        const packageId = (resolved as any).packageId as string | undefined;
+        if (!personaId || knytAmount <= 0) {
+          results.push({ id, orderId: resolvedOrderId, captureId: resolvedCaptureId, status: 'missingMetadata' });
           continue;
         }
-        const personaId = (order as any).personaId as string | undefined;
-        const knytAmount = Number((order as any).knytAmount || 0);
-        const usdAmount = Number((order as any).usdAmount || 0);
-        const packageId = (order as any).packageId as string | undefined;
-        if (!personaId || knytAmount <= 0) {
-          results.push({ orderId, status: 'missingMetadata' });
-          continue;
+
+        // Re-check idempotency now that we know both ids — covers the case
+        // where the operator pasted the order id but a previous credit was
+        // recorded under captureId, or vice versa.
+        if (resolvedOrderId && resolvedOrderId !== id) {
+          const dupe = await findExistingCredit(resolvedOrderId);
+          if (dupe) {
+            results.push({
+              id,
+              orderId: resolvedOrderId,
+              captureId: resolvedCaptureId,
+              status: 'alreadyCredited',
+              personaId: dupe.persona_id,
+              knytAmount: Number(dupe.amount),
+              transactionId: dupe.id,
+            });
+            continue;
+          }
         }
 
         const credit = await creditKnyt(personaId, knytAmount, 'paypal_purchase', {
           fiatAmount: usdAmount,
           fiatCurrency: 'USD',
-          paypalOrderId: orderId,
+          paypalOrderId: resolvedOrderId ?? null,
+          paypalCaptureId: resolvedCaptureId ?? null,
           packageId,
           recovered: true,
           recoveredFromHandle: fioHandle ?? null,
         });
 
         if (!credit.success) {
-          results.push({ orderId, status: 'error', message: credit.error });
+          results.push({ id, orderId: resolvedOrderId, captureId: resolvedCaptureId, status: 'error', message: credit.error });
           continue;
         }
         results.push({
-          orderId,
+          id,
+          orderId: resolvedOrderId,
+          captureId: resolvedCaptureId,
           status: 'credited',
           personaId,
           knytAmount,
           transactionId: credit.transaction?.id,
         });
       } catch (err) {
-        results.push({ orderId, status: 'error', message: (err as Error).message });
+        results.push({ id, status: 'error', message: (err as Error).message });
       }
     }
 
