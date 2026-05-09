@@ -103,7 +103,34 @@ export interface SessionIdentity {
   isLoading: boolean;
   signOut: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string) => Promise<{
+    error: string | null;
+    requiresEmailConfirmation: boolean;
+  }>;
   refreshPersonas: () => Promise<void>;
+}
+
+/**
+ * Fire-and-forget: bootstrap a starter persona for a freshly signed-up user.
+ * Idempotent server-side — safe to call on every SIGNED_IN event. Returns
+ * silently if the user already owns at least one persona.
+ *
+ * The starter persona is the spine's anchor for first-time users — without
+ * it, getActivePersona returns null and the wallet drawer renders empty.
+ */
+async function bootstrapStarterPersona(accessToken: string, email: string | null): Promise<void> {
+  try {
+    await fetch('/api/wallet/personas/bootstrap-starter', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ email }),
+    });
+  } catch {
+    // non-fatal — user can still create personas manually via the wizard
+  }
 }
 
 export function useSupabaseSessionPersonas(): SessionIdentity {
@@ -125,6 +152,20 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
     return { error: null };
   }, []);
 
+  const signUp = useCallback(async (
+    email: string,
+    password: string,
+  ): Promise<{ error: string | null; requiresEmailConfirmation: boolean }> => {
+    const supabase = getSupabaseBrowserClient();
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) return { error: error.message, requiresEmailConfirmation: false };
+    // Supabase signals "confirmation required" via empty identities array on the
+    // returned user. When confirmation is OFF (dev), session is populated and
+    // onAuthStateChange will fire SIGNED_IN, triggering starter bootstrap.
+    const requiresEmailConfirmation = !data.session;
+    return { error: null, requiresEmailConfirmation };
+  }, []);
+
   // Stores the current access token so refreshPersonas can re-use it without
   // requiring a new getSession() call on every persona creation.
   const accessTokenRef = useRef<string | null>(null);
@@ -133,7 +174,7 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
   // Track the last consolidation timestamp; skip if within 10 seconds.
   const lastConsolidatedAtRef = useRef<number>(0);
 
-  const fetchPersonas = useCallback(async (accessToken: string, force = false) => {
+  const fetchPersonas = useCallback(async (accessToken: string, force = false, sessionEmail: string | null = null) => {
     const now = Date.now();
     const skipConsolidate = !force && (now - lastConsolidatedAtRef.current) < 10_000;
     if (!skipConsolidate) {
@@ -150,6 +191,23 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
       if (!res.ok) return;
       const data = await res.json();
       const list = Array.isArray(data) ? data : [];
+
+      // Spine bootstrap: if a signed-in user has zero personas, this is a
+      // first-time signup. Auto-create a starter persona so the spine has
+      // something to resolve. Server route is idempotent.
+      if (list.length === 0) {
+        await bootstrapStarterPersona(accessToken, sessionEmail);
+        const retry = await fetch("/api/wallet/personas", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (retry.ok) {
+          const retryData = await retry.json();
+          const retryList = Array.isArray(retryData) ? retryData : [];
+          setSessionPersonas(retryList.map((r: Record<string, unknown>) => mapToPersonaState(r)));
+          return;
+        }
+      }
+
       setSessionPersonas(list.map((r: Record<string, unknown>) => mapToPersonaState(r)));
     } catch {
       // non-fatal — wallet still works without session personas
@@ -169,7 +227,7 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
       if (session?.user?.email) {
         accessTokenRef.current = session.access_token;
         setSessionEmail(session.user.email);
-        fetchPersonas(session.access_token).finally(() => setIsLoading(false));
+        fetchPersonas(session.access_token, false, session.user.email).finally(() => setIsLoading(false));
       } else {
         setIsLoading(false);
       }
@@ -182,7 +240,7 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
       if (session?.user?.email) {
         accessTokenRef.current = session.access_token;
         setSessionEmail(session.user.email);
-        fetchPersonas(session.access_token);
+        fetchPersonas(session.access_token, false, session.user.email);
       } else {
         accessTokenRef.current = null;
         setSessionEmail(null);
@@ -193,5 +251,5 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
     return () => subscription.unsubscribe();
   }, [fetchPersonas]);
 
-  return { sessionEmail, sessionPersonas, isLoading, signOut, signIn, refreshPersonas };
+  return { sessionEmail, sessionPersonas, isLoading, signOut, signIn, signUp, refreshPersonas };
 }
