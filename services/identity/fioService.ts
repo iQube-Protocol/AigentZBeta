@@ -1,4 +1,5 @@
 import { FIOSDK } from '@fioprotocol/fiosdk';
+import { withFioCache } from './fioCache';
 import fetch from 'cross-fetch';
 import { randomBytes } from 'crypto';
 
@@ -100,7 +101,14 @@ export class FIOService {
     }
 
     try {
-      const availability = await this.sdk.isAvailable(handle);
+      // Cache + in-flight de-dup against the public FIO node to avoid
+      // 429 rate limits. See services/identity/fioCache.ts.
+      const sdk = this.sdk;
+      const availability = await withFioCache<{ is_registered: number }>(
+        'isAvailable',
+        handle,
+        () => sdk.isAvailable(handle),
+      );
       return availability.is_registered === 0;
     } catch (error: any) {
       // Log the full error for debugging
