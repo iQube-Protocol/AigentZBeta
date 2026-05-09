@@ -87,8 +87,12 @@ interface MultiRailPricing {
   };
 }
 
-function calculatePricing(baseKnyt: number, extraUsd: number = 0): MultiRailPricing {
-  const usdBase = baseKnyt * KNYT_USD_RATE + extraUsd;
+function calculatePricing(baseKnyt: number, extraUsd: number = 0, usdOverride?: number): MultiRailPricing {
+  // When usdOverride is provided, lock the USD-rail prices to it (plus any
+  // extras like shipping). Otherwise fall back to the static USD/KNYT rate.
+  // Used for SKUs like the Satoshi KNYT Collection whose USD price has no
+  // discount vs retail and shouldn't be re-derived from the KNYT figure.
+  const usdBase = (usdOverride !== undefined ? usdOverride : baseKnyt * KNYT_USD_RATE) + extraUsd;
 
   return {
     baseKnyt,
@@ -235,10 +239,10 @@ export function ContentPurchaseModal({
   const isPreorder = contentId?.startsWith(PREORDER_ID_PREFIX);
   const shippingUsd = isPreorder ? PREORDER_SHIPPING_USD : 0;
 
-  const baseUsd = baseKnyt * KNYT_USD_RATE;
+  const baseUsd = priceUsdOverride !== undefined ? priceUsdOverride : baseKnyt * KNYT_USD_RATE;
   const totalUsd = baseUsd + shippingUsd;
 
-  const pricing = calculatePricing(baseKnyt, shippingUsd);
+  const pricing = calculatePricing(baseKnyt, shippingUsd, priceUsdOverride);
 
   const canAffordKnyt = effectiveSpendable >= pricing.rails.knyt.amount;
   const canAffordEvmKnyt = evmKnyt >= pricing.rails.knyt.amount;

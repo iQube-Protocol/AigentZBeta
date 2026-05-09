@@ -110,6 +110,16 @@ export interface BundlePricing {
   digitalPrice: number;
   /** Retail (public) price shown slashed-through on investor bundles */
   retailPrice?: number;
+  /**
+   * Optional explicit KNYT-token base price. Overrides the static
+   * usdToKnyt(digitalPrice) conversion (which uses a fixed $1.40 rate).
+   * Use this for SKUs where the USD price isn't discounted vs retail and
+   * the KNYT-rail price needs to track a different rate so the 20% KNYT
+   * discount lands at a sensible token figure. Example: Satoshi KNYT
+   * Collection — digitalPrice $2100, baseKnytOverride 1800 → KNYT
+   * discounted = 1440 (rather than 2100/1.40×0.8 = 1200).
+   */
+  baseKnytOverride?: number;
   /** Visual badge on bundle cards: 'qripto' = purple Qripto badge, 'digital' = sky Digital badge */
   badgeTier?: 'qripto' | 'digital';
   memberPrice?: number;    // persona-gated cohort price (e.g. ZeroKNYT members)
@@ -218,8 +228,12 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     id: 'satoshi-knyt-investor',
     label: 'Satoshi KNYT Collection',
     episodes: [-1,0,1,2,3,4,5,6,7,8,9,10,11,12],
-    digitalPrice: 2100,  // same for retail and investor
+    digitalPrice: 2100,  // same for retail and investor — no USD discount on this perk
     retailPrice:  2100,
+    // No discount on retail USD, so usdToKnyt($2100) → 1500 KNYT undershoots
+    // the actual KNYT/USD market. Lock the KNYT base to 1800 so the rail
+    // discount lands at 1440 KNYT instead of 1200.
+    baseKnytOverride: 1800,
     badgeTier: 'qripto',
     isFullSeason: false,
     isInvestorOnly: true,
