@@ -17,6 +17,7 @@ import {
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getContentDescriptorByCid } from '@/services/content/getContentDescriptor';
 import { evaluateAccess } from '@/services/access/evaluateAccess';
+import { findStateCRowByUrl, streamStateCPlaintext } from '@/services/content/stateCDelivery';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -177,9 +178,20 @@ export async function GET(
       }
     }
 
-    // Supabase-hosted asset: cid is the public URL — redirect directly, no decryption
+    // Phase 2.6 — state-C content (Supabase-hosted, encrypted at rest)
+    // is now served via decrypt-stream instead of a raw 302 to the
+    // public URL. The 302 path leaked the URL to the browser, where it
+    // could be cached and replayed outside the gate. Now: look up the
+    // row by URL, download ciphertext, decrypt, stream plaintext.
     if (cid.startsWith('http://') || cid.startsWith('https://')) {
-      return NextResponse.redirect(cid, 302);
+      const found = await findStateCRowByUrl(cid);
+      if (!found) {
+        return NextResponse.json({ error: 'State-C row not found' }, { status: 404 });
+      }
+      return await streamStateCPlaintext(found.row, {
+        contentType: 'application/pdf',
+        contentDisposition: 'inline',
+      });
     }
 
     // Try master_content_qubes first (where PDFs are stored)
