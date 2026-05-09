@@ -19,6 +19,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { creditKnyt } from '@/services/wallet/knyt/knytLedgerService';
 import {
   getKnytPackages,
+  getKnytUsdPrice,
   priceForRail,
   KNYT_BUY_RAIL_FEE_PERCENT,
   KnytBuyRail,
@@ -27,21 +28,24 @@ import { getKnytBalance } from '@/services/wallet/knyt/knytLedgerService';
 
 export const runtime = 'nodejs';
 
+const MIN_CUSTOM_KNYT = 10;
+
 export async function OPTIONS() {
   return new NextResponse(null);
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { personaId, packageId, rail } = await request.json() as {
+    const { personaId, packageId, rail, customKnytAmount } = await request.json() as {
       personaId?: string;
       packageId?: string;
       rail?: KnytBuyRail;
+      customKnytAmount?: number;
     };
 
-    if (!personaId || !packageId || !rail) {
+    if (!personaId || !rail) {
       return NextResponse.json(
-        { error: 'personaId, packageId and rail required' },
+        { error: 'personaId and rail required' },
         { status: 400 }
       );
     }
@@ -52,22 +56,51 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const pkg = getKnytPackages().find((p) => p.packageId === packageId);
-    if (!pkg) {
-      return NextResponse.json({ error: 'Invalid packageId' }, { status: 400 });
+    // Resolve the purchase: either a preset package or a custom amount.
+    // Custom amount uses the live USD-per-KNYT rate so price parity holds
+    // with the GET /purchase response the modal already consumed.
+    let knytAmount: number;
+    let basePriceUsd: number;
+    let resolvedPackageId: string;
+
+    if (typeof customKnytAmount === 'number' && customKnytAmount > 0) {
+      if (customKnytAmount < MIN_CUSTOM_KNYT) {
+        return NextResponse.json(
+          { error: `Minimum custom amount is ${MIN_CUSTOM_KNYT} KNYT` },
+          { status: 400 }
+        );
+      }
+      knytAmount = Math.floor(customKnytAmount);
+      const usdPerKnyt = await getKnytUsdPrice();
+      basePriceUsd = Math.round(knytAmount * usdPerKnyt * 100) / 100;
+      resolvedPackageId = `knyt_custom_${knytAmount}`;
+    } else if (packageId) {
+      const pkg = getKnytPackages().find((p) => p.packageId === packageId);
+      if (!pkg) {
+        return NextResponse.json({ error: 'Invalid packageId' }, { status: 400 });
+      }
+      knytAmount = pkg.knytAmount;
+      basePriceUsd = pkg.usdPrice;
+      resolvedPackageId = pkg.packageId;
+    } else {
+      return NextResponse.json(
+        { error: 'Either packageId or customKnytAmount required' },
+        { status: 400 }
+      );
     }
 
-    const finalUsd = priceForRail(pkg.usdPrice, rail);
+    const finalUsd = priceForRail(basePriceUsd, rail);
     const feePct = KNYT_BUY_RAIL_FEE_PERCENT[rail];
     const source = rail === 'qc' ? 'qc_purchase' : 'usdc_purchase';
 
-    const credit = await creditKnyt(personaId, pkg.knytAmount, source, {
-      packageId,
+    const credit = await creditKnyt(personaId, knytAmount, source, {
+      packageId: resolvedPackageId,
       rail,
-      basePriceUsd: pkg.usdPrice,
+      basePriceUsd,
       finalPriceUsd: finalUsd,
       feePct,
       stub: true,
+      custom: resolvedPackageId.startsWith('knyt_custom_'),
     });
 
     if (!credit.success) {
@@ -78,13 +111,15 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      knytAmount: pkg.knytAmount,
+      knytAmount,
       newBalance: balance.balance?.dvnKnyt ?? credit.newBalance,
       transactionId: credit.transaction?.id,
       rail,
+      basePriceUsd,
       finalPriceUsd: finalUsd,
       feePct,
       stub: true,
+      packageId: resolvedPackageId,
     });
   } catch (error) {
     console.error('[KNYT buy-stub] Error:', error);

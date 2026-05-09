@@ -63,6 +63,24 @@ Guessing critical values (especially URLs) wastes the operator's time, breaks in
 
 ---
 
+## Q¢ (Q-cent) Pricing — Canonical Conversion
+
+**$1 = 100 Q¢. One Q¢ is worth $0.01.**
+
+This is the canonical conversion across every surface (wallet, store cart, content purchase, codex tabs, runtime, embed routes, API, ledger, anywhere a Q¢ value appears). It applies to AigentZ / iQube Protocol, the Venture Lab α / KNYT codex programmes, and every future cartridge that surfaces Q¢ pricing.
+
+### Rules for any code that handles Q¢
+
+1. **Storage** — store Q¢ as integer cents (no decimals). The DB column `amount_qc` (and equivalents like `amount_qcent`, `spent_qcents`) is a count of cents, not a USD value.
+2. **Conversion helpers** — when you need to display USD next to a Q¢ count, use `usd = qc / 100`. When you need to convert a USD amount to Q¢, use `qc = Math.round(usd * 100)`.
+3. **Display** — the user-facing primary price for any rail (KNYT, Q¢, USDC, PayPal) renders in **USD** for parity with the store's payment modal. If you also show the Q¢ count, render it as a secondary line: `$9.00` primary, `900 Q¢` secondary.
+4. **Never assume `qcent === usd`** — older code in `app/services/token/pricingService.ts` (e.g. `convertFromKnyt`, `convertFromQcent`, `convertFromUsdc`, `calculatePaymentPricing`) returns `qcent` as a USD-equivalent value, not a cents count. Treat those return values as USD when consuming, and prefer the cart-quote / multi-rail helpers for new surfaces. Do not propagate the `qcent === usd` assumption further.
+5. **Submit copy** — Q¢ rail buttons should say `Pay $X.XX with Q¢`, not `Pay X.XX Q¢`, to keep the principal display in USD. Show the Q¢ count separately if useful.
+
+If you encounter a value labelled `qc` / `qcent` / `q_cent` / `qCents` and aren't sure whether it's a cents count or a USD value, **trace it back to its source before using it** — getting this wrong moves money by 100×.
+
+---
+
 ## Operator Instructions — Always Provide Runnable Scripts
 
 When the operator needs to take any action, always provide the exact command(s) to run — never describe steps in prose that require manual interpretation.
