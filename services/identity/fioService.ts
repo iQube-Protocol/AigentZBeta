@@ -189,11 +189,45 @@ export class FIOService {
         console.log('This may require a transfer after registration');
       }
       
-      const result = await this.sdk.registerFioAddress(
-        handle,
-        feeToUse,
-        tpid
-      );
+      // Retry-with-exponential-backoff around the public-node REGADDRESS call.
+      // The free FIO node rate-limits aggressively (429); without a retry the
+      // wizard surfaces a hard "rate limit error" the moment the node ticks
+      // over, even though the request itself is valid. We retry up to 4 times
+      // with jittered backoff (0.8s → 1.6s → 3.2s → 6.4s) before giving up
+      // and surfacing a user-facing "rate-limited, try again in a moment"
+      // message — which the wizard renders cleanly via setError. The
+      // dedicated-node migration via FIO_API_ENDPOINT_DEDICATED retires
+      // this stop-gap.
+      const isRateLimited = (err: any): boolean => {
+        const msg = String(err?.message || '').toLowerCase();
+        const status = err?.statusCode || err?.status || err?.json?.statusCode;
+        return status === 429
+          || msg.includes('rate limit')
+          || msg.includes('429')
+          || msg.includes('too many');
+      };
+
+      let result: any;
+      let lastError: any;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        try {
+          result = await this.sdk.registerFioAddress(handle, feeToUse, tpid);
+          lastError = undefined;
+          break;
+        } catch (err) {
+          lastError = err;
+          if (!isRateLimited(err)) throw err;
+          const baseMs = 800 * Math.pow(2, attempt);
+          const jitter = Math.floor(Math.random() * 200);
+          await new Promise((res) => setTimeout(res, baseMs + jitter));
+        }
+      }
+      if (lastError) {
+        throw new Error(
+          'FIO node is rate-limited right now. Please wait ~30 seconds and try again. ' +
+          '(Operator: switch to a dedicated FIO node by setting FIO_API_ENDPOINT_DEDICATED.)'
+        );
+      }
 
       console.log('FIO registration result:', result);
 

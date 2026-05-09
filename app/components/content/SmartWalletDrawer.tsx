@@ -263,8 +263,12 @@ export default function SmartWalletDrawer({
   const [showArchivedPersonas, setShowArchivedPersonas] = useState(false);
   const [archivedPersonas, setArchivedPersonas] = useState<typeof sessionPersonas>([]);
 
-  // Merge session-derived personas with any walletNode personas (session takes precedence, deduped by id)
+  // Merge session-derived personas with any walletNode personas (session takes precedence, deduped by id).
+  // When signed out (sessionEmail is null) we hard-blank the list — walletNode
+  // and archivedPersonas can still hold the previous user's data, and the
+  // dropdown should never show foreign personas while no one is logged in.
   const allAvailablePersonas = useMemo((): PersonaState[] => {
+    if (!sessionEmail) return [];
     const fromWallet = walletNode?.personaContext?.availablePersonas ?? [];
     const merged = [...sessionPersonas, ...fromWallet];
     if (showArchivedPersonas) {
@@ -274,7 +278,7 @@ export default function SmartWalletDrawer({
     }
     const seen = new Set<string>();
     return merged.filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)));
-  }, [sessionPersonas, walletNode?.personaContext?.availablePersonas, showArchivedPersonas, archivedPersonas]);
+  }, [sessionEmail, sessionPersonas, walletNode?.personaContext?.availablePersonas, showArchivedPersonas, archivedPersonas]);
 
   // When personaId prop is explicit (cartridge context), lock localPersonaId to it
   // so the full resolution chain (activePersona, useKnytBalance, etc.) stays aligned.
@@ -2040,6 +2044,32 @@ export default function SmartWalletDrawer({
                     <button
                       onClick={() => {
                         setPersonaMenuOpen(false);
+                        // Clear ALL persona-related local state alongside the
+                        // Supabase signOut. Without this, sessionPersonas
+                        // empties (via the hook) but walletNode personas,
+                        // localPersonaId, the persona context, and the
+                        // localStorage keys still hold the previous user's
+                        // data — the dropdown then keeps showing foreign
+                        // personas after sign-out.
+                        setLocalPersonaId(null);
+                        setArchivedPersonas([]);
+                        setShowArchivedPersonas(false);
+                        // PersonaContext.setActivePersonaId only accepts a
+                        // string; clear via localStorage + a synthetic storage
+                        // event so the context's listener picks up the
+                        // null-out without us bypassing its public API.
+                        try {
+                          localStorage.removeItem('currentPersonaId');
+                          localStorage.removeItem('activePersonaId');
+                          sessionStorage.removeItem('currentPersonaId');
+                          sessionStorage.removeItem('activePersonaId');
+                          window.dispatchEvent(
+                            new StorageEvent('storage', {
+                              key: 'currentPersonaId',
+                              newValue: null,
+                            })
+                          );
+                        } catch { /* ignore */ }
                         signOutSession();
                       }}
                       className="w-full px-3 py-2 flex items-center gap-2 text-red-400/80 hover:bg-red-500/10 transition-colors"
