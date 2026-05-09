@@ -35,6 +35,12 @@ import {
   credentialRequiresExternalVerifier,
   resolveReceiptMode,
 } from '@/services/access/policyResolvers';
+import {
+  computeAliasCommitment,
+  getCurrentEpoch,
+  isAliasServiceConfigured,
+} from '@/services/identity/cohortAliasService';
+import { emitDecisionReceipt } from '@/services/access/receiptEmitter';
 
 import type {
   AccessAction,
@@ -55,12 +61,35 @@ import type {
 const RECEIPT_PLACEHOLDER_ALIAS = '__phase1_pending_alias__';
 const DEFAULT_COHORT_ID = 'default';
 
-function buildReceiptHandle(mode: ReceiptMode): AccessReceiptHandle {
-  return {
-    mode,
-    aliasCommitment: RECEIPT_PLACEHOLDER_ALIAS,
-    cohortId: DEFAULT_COHORT_ID,
-  };
+/**
+ * Build the receipt handle for a decision. Phase 3.1 — when the alias
+ * service is configured, emit a real HMAC-SHA256 commitment instead of
+ * the Phase 1 placeholder. Persona is required to compute the
+ * commitment; pass null for unauthenticated paths (placeholder remains).
+ *
+ * The cohortId is selected from the persona's primary cohort
+ * membership when one exists, falling back to 'default'. Phase 3.3
+ * will route this through the cohortFlagRouter for finer-grained
+ * cohort selection per content descriptor.
+ */
+function buildReceiptHandle(
+  mode: ReceiptMode,
+  context: ActivePersonaContext | null,
+): AccessReceiptHandle {
+  if (!context || !isAliasServiceConfigured()) {
+    return {
+      mode,
+      aliasCommitment: RECEIPT_PLACEHOLDER_ALIAS,
+      cohortId: DEFAULT_COHORT_ID,
+    };
+  }
+  const cohortId = context.cohortMemberships[0] ?? DEFAULT_COHORT_ID;
+  const aliasCommitment = computeAliasCommitment(
+    context.personaId,
+    cohortId,
+    getCurrentEpoch(),
+  );
+  return { mode, aliasCommitment, cohortId };
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -110,8 +139,25 @@ export async function evaluateAccess(
   action: AccessAction,
   opts: EvaluateAccessOptions = {},
 ): Promise<AccessDecision> {
+  const decision = await runDecision(context, descriptor, action, opts);
+  // Phase 3.2 — receipt emission. Fire-and-forget so a slow DB write
+  // never blocks the gate response. The emitter strips T0 fields by
+  // construction; the canary in tests/access-spine.test.ts asserts no
+  // personaId/authProfileId/rootDid leaks into the receipt row.
+  if (decision.receipt.mode !== 'none') {
+    void emitDecisionReceipt({ context, descriptor, action, decision });
+  }
+  return decision;
+}
+
+async function runDecision(
+  context: ActivePersonaContext,
+  descriptor: ContentAccessDescriptor,
+  action: AccessAction,
+  opts: EvaluateAccessOptions = {},
+): Promise<AccessDecision> {
   const receiptMode = resolveReceiptMode(action, opts.requireSyncReceipt);
-  const receipt = buildReceiptHandle(receiptMode);
+  const receipt = buildReceiptHandle(receiptMode, context);
 
   // 0. Tx-class FIO guard. Persona must have a FIO handle before any
   //    value-moving action proceeds. The wallet drawer reads this deny

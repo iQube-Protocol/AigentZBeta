@@ -22,6 +22,21 @@ function getDb() {
 export async function emitOrchestrationEvent(event: OrchestrationEvent): Promise<void> {
   try {
     const db = getDb();
+    // Phase 3.2 — pull T2 attribution out of metadata into top-level
+    // columns so the receipt batcher can index on them without parsing
+    // JSON. Falls back gracefully if the columns don't exist (column-
+    // additive migration is idempotent and may not have run yet).
+    const meta = (event.metadata ?? {}) as Record<string, unknown>;
+    const aliasCommitment = typeof meta.actor_alias_commitment === 'string'
+      ? meta.actor_alias_commitment
+      : null;
+    const cohortId = typeof meta.cohort_id === 'string'
+      ? meta.cohort_id
+      : null;
+    const receiptMode = typeof meta.receipt_mode === 'string'
+      ? meta.receipt_mode
+      : null;
+
     await db.from('orchestration_events').insert({
       event_id: event.event_id,
       event_type: event.event_type,
@@ -34,6 +49,9 @@ export async function emitOrchestrationEvent(event: OrchestrationEvent): Promise
       receipt_eligible: event.receipt_eligible,
       metadata: event.metadata,
       created_at: event.timestamp,
+      actor_alias_commitment: aliasCommitment,
+      cohort_id: cohortId,
+      receipt_mode: receiptMode,
     });
   } catch {
     // Non-fatal — event table may not exist yet during migration
