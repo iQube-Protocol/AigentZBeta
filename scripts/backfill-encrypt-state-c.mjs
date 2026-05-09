@@ -138,40 +138,44 @@ async function uploadCiphertext(bucket, objectPath, ciphertext) {
     return;
   }
 
-  // Large files — use signed-upload URL with a manual PUT and an
-  // extended timeout. This is what Supabase recommends for >5MB
-  // bodies and matches what the dashboard does internally.
-  const { data: signed, error: signErr } = await sb.storage
-    .from(bucket)
-    .createSignedUploadUrl(objectPath, { upsert: true });
-  if (signErr || !signed) {
-    throw new Error(`createSignedUploadUrl failed: ${signErr?.message || 'no data'}`);
-  }
-  console.log(`    [upload] size=${ciphertext.byteLength} bytes target=${signed.signedUrl.slice(0, 100)}...`);
-  const ac = new AbortController();
-  const timer = setTimeout(() => ac.abort(), 5 * 60 * 1000);
-  try {
-    const res = await fetch(signed.signedUrl, {
-      method: 'PUT',
-      body: ciphertext,
+  // Large files — TUS resumable chunked upload via tus-js-client. This
+  // is the same protocol Supabase's dashboard uses internally; chunks
+  // default to 6MB and the upload survives transient socket drops
+  // (UND_ERR_SOCKET on Node 18) by resuming from the last acked offset.
+  const tus = await import('tus-js-client');
+  const totalBytes = ciphertext.byteLength;
+  let lastReported = 0;
+  await new Promise((resolve, reject) => {
+    const upload = new tus.Upload(ciphertext, {
+      endpoint: `${SUPABASE_URL}/storage/v1/upload/resumable`,
+      retryDelays: [0, 3000, 5000, 10000, 20000],
       headers: {
-        'Content-Type': 'application/octet-stream',
+        authorization: `Bearer ${SERVICE_KEY}`,
         'x-upsert': 'true',
       },
-      signal: ac.signal,
-      duplex: 'half',
+      uploadDataDuringCreation: true,
+      removeFingerprintOnSuccess: true,
+      metadata: {
+        bucketName: bucket,
+        objectName: objectPath,
+        contentType: 'application/octet-stream',
+        cacheControl: '3600',
+      },
+      chunkSize: 6 * 1024 * 1024,
+      onError: (err) => reject(err),
+      onProgress: (uploaded, total) => {
+        // Throttle progress logs to ~10% increments
+        const pct = Math.floor((uploaded / total) * 10) * 10;
+        if (pct > lastReported) {
+          lastReported = pct;
+          console.log(`    [tus] ${pct}% (${uploaded}/${total} bytes)`);
+        }
+      },
+      onSuccess: () => resolve(),
     });
-    if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      throw new Error(`signed-PUT ${res.status} ${res.statusText}: ${body.slice(0, 300)}`);
-    }
-  } catch (e) {
-    // Surface the real cause behind 'fetch failed'
-    const cause = e?.cause ? ` | cause: ${e.cause.code || e.cause.message || JSON.stringify(e.cause).slice(0, 200)}` : '';
-    throw new Error(`${e.message}${cause}`);
-  } finally {
-    clearTimeout(timer);
-  }
+    console.log(`    [tus] starting resumable upload size=${totalBytes} target=${objectPath}`);
+    upload.start();
+  });
 }
 
 async function processRow(table, row) {
