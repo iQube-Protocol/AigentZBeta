@@ -133,3 +133,11 @@ Phase 2 is complete when:
 - **Phase 3** — DVN policy enforcement: the decryption proxy is the natural enforcement point for DVN policy hooks
 - **Phase 4a/4b** — TokenQube on-chain proof: the encryption primitive here is reused for pool-key wrapping (4a) and per-holder key wrapping (4b)
 - **CLAUDE.md gated-content rule** — moves from "client-side gate + raw URL" to "server-decrypted bytes only" — the rule's enforcement mechanism, not just its policy
+
+---
+
+## Backlog (carried over from Phase 2 work)
+
+- **Node 18 → 20 upgrade.** `@supabase/supabase-js` requires native WebSocket which Node 18 lacks. The Phase 2.5 backfill script currently injects a `ws` polyfill (`scripts/backfill-encrypt-state-c.mjs`); remove that block once the dev env is on Node ≥20. Several other deps also have engine warnings (vite 7, marked 16, lru-cache 11, chokidar 5, iceberg-js).
+- **Phase 2.3 v2 — streaming encrypt for large uploads.** The admin storage register route currently caps inline encryption at 5MB. The TUS resumable upload primitive added to the backfill script (commit `6835e2f`) can be lifted into the admin route to handle multi-hundred-MB uploads automatically without operator-in-the-loop. Track separately as Phase 2.3.b.
+- **TUS protocol path for the in-app admin upload UI.** Same plumbing as 2.3 v2 but on the browser side — replace the current single-PUT signed-upload flow with `tus-js-client` against the same `/storage/v1/upload/resumable` endpoint. Eliminates the >50MB ceiling in the admin codex panel.
