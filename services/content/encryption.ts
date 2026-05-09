@@ -152,3 +152,25 @@ export function isEncryptionConfigured(): boolean {
     return false;
   }
 }
+
+/**
+ * Persistence helpers — the spine's row schema treats encryption_iv and
+ * encryption_auth_tag as text columns (services/content/getContentDescriptor.ts
+ * declares them as string|null). We base64-encode the binary values for
+ * round-tripping through PostgREST + JSON without surprises.
+ */
+export function ivToBase64(iv: Buffer): string {
+  return iv.toString('base64');
+}
+
+export function authTagToBase64(authTag: Buffer): string {
+  return authTag.toString('base64');
+}
+
+export function ivFromBase64(s: string): Buffer {
+  return Buffer.from(s, 'base64');
+}
+
+export function authTagFromBase64(s: string): Buffer {
+  return Buffer.from(s, 'base64');
+}
