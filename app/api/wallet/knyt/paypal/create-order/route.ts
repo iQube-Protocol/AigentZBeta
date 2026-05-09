@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createPayPalOrder } from '@/services/wallet/knyt/paypalService';
-import { getKnytPackages } from '@/services/wallet/knyt/knytPricingService';
+import { getKnytPackages, priceForRail } from '@/services/wallet/knyt/knytPricingService';
 
 export const runtime = 'nodejs';
 
@@ -32,8 +32,12 @@ export async function POST(request: NextRequest) {
     
     const pkg = getKnytPackages().find(p => p.packageId === packageId);
     if (!pkg) return withCors(NextResponse.json({ error: 'Invalid packageId' }, { status: 400 }), origin);
-    
-    const result = await createPayPalOrder(personaId, packageId, pkg.usdPrice, pkg.knytAmount + pkg.bonusKnyt);
+
+    // Apply the 10% PayPal rail fee on top of the flat package USD price.
+    // The user is charged that amount via PayPal but credited the package's
+    // straight knytAmount — the fee covers PayPal processing.
+    const paypalUsdPrice = priceForRail(pkg.usdPrice, 'paypal');
+    const result = await createPayPalOrder(personaId, packageId, paypalUsdPrice, pkg.knytAmount + pkg.bonusKnyt);
     return withCors(NextResponse.json(result), origin);
   } catch (error) {
     console.error('[PayPal Create Order] Error:', error);
