@@ -111,7 +111,15 @@ if (!MASTER_KEY) {
   process.exit(1);
 }
 
-const sb = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+const sb = createClient(SUPABASE_URL, SERVICE_KEY, {
+  auth: { persistSession: false },
+  // Node 18 has no native WebSocket. The supabase-js client unconditionally
+  // initialises a RealtimeClient even when you only use storage/postgrest,
+  // so we hand it the `ws` polyfill. Drop this branch when Node ≥20 lands.
+  realtime: {
+    transport: (await import('ws')).default,
+  },
+});
 
 function pathFromStorageUrl(url) {
   const m = url.match(/\/storage\/v1\/object\/(?:public|sign)\/[^/]+\/(.+)$/);
