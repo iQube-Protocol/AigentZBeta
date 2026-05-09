@@ -262,8 +262,16 @@ export function ContentPurchaseModal({
       setShowConfirmation(false);
       evmPay.reset();
     }
+  // Intentionally only depends on `open`. Including canAffordKnyt /
+  // canAffordEvmKnyt would re-fire this reset every time the buyer's
+  // balance changes mid-flow — which happens immediately after a
+  // successful purchase (onBalanceRefresh updates the parent's balance,
+  // affordability recomputes, the reset wipes setSuccess(...) before the
+  // success view paints). The 5-second auto-close path runs through
+  // onPurchaseComplete instead, so resetting here on balance change is
+  // unnecessary AND breaks the confirmation render.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, canAffordKnyt, canAffordEvmKnyt]);
+  }, [open]);
 
   const handlePurchase = async (evmTxHash?: string) => {
     setPurchasing(true);
