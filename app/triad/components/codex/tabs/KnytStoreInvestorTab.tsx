@@ -29,6 +29,9 @@ interface PendingPurchase {
   contentTitle: string;
   contentImage?: string;
   priceUsdOverride: number;
+  /** Optional explicit KNYT base, set per-SKU when the static USD→KNYT
+   *  conversion doesn't reflect the desired token figure (e.g. Satoshi). */
+  baseKnytOverride?: number;
 }
 
 type InvestorView =
@@ -410,6 +413,7 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
       contentTitle:     bundle.label,
       contentImage:     image,
       priceUsdOverride: bundle.memberPrice ?? bundle.digitalPrice,
+      baseKnytOverride: bundle.baseKnytOverride,
     });
   }
 
@@ -535,7 +539,7 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
           contentTitle={purchase.contentTitle}
           contentImage={purchase.contentImage}
           priceUsdOverride={purchase.priceUsdOverride}
-          baseKnytOverride={usdToKnyt(purchase.priceUsdOverride)}
+          baseKnytOverride={purchase.baseKnytOverride ?? usdToKnyt(purchase.priceUsdOverride)}
         />
       )}
 
