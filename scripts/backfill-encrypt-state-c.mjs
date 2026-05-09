@@ -147,9 +147,8 @@ async function uploadCiphertext(bucket, objectPath, ciphertext) {
   if (signErr || !signed) {
     throw new Error(`createSignedUploadUrl failed: ${signErr?.message || 'no data'}`);
   }
+  console.log(`    [upload] size=${ciphertext.byteLength} bytes target=${signed.signedUrl.slice(0, 100)}...`);
   const ac = new AbortController();
-  // 5-minute hard ceiling; anything slower than this needs operator
-  // attention regardless of file size
   const timer = setTimeout(() => ac.abort(), 5 * 60 * 1000);
   try {
     const res = await fetch(signed.signedUrl, {
@@ -160,11 +159,16 @@ async function uploadCiphertext(bucket, objectPath, ciphertext) {
         'x-upsert': 'true',
       },
       signal: ac.signal,
+      duplex: 'half',
     });
     if (!res.ok) {
       const body = await res.text().catch(() => '');
-      throw new Error(`signed-PUT ${res.status}: ${body.slice(0, 200)}`);
+      throw new Error(`signed-PUT ${res.status} ${res.statusText}: ${body.slice(0, 300)}`);
     }
+  } catch (e) {
+    // Surface the real cause behind 'fetch failed'
+    const cause = e?.cause ? ` | cause: ${e.cause.code || e.cause.message || JSON.stringify(e.cause).slice(0, 200)}` : '';
+    throw new Error(`${e.message}${cause}`);
   } finally {
     clearTimeout(timer);
   }
