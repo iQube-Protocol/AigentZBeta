@@ -15,6 +15,7 @@ import { emitCampaignEvent } from '@/services/campaign/campaignService';
 import { getEntitlementService } from './entitlementService';
 import { getMultiRailPricing, PaymentRail, ContentType } from '../wallet/knyt/knytPricingService';
 import { verifyEvmKnytTransfer } from '../wallet/knyt/evmKnytService';
+import { BUNDLE_PRICING, KNYT_USD_RATE, KNYT_COYN_DISCOUNT, usdToKnyt } from '@/types/knyt-store';
 
 // =============================================================================
 // TYPES
@@ -92,8 +93,44 @@ export class PurchaseHandler {
         return { success: false, error: `Product not found: ${productType}` };
       }
       
-      // Get pricing for the payment rail
-      const pricing = getMultiRailPricing('purchase', productType as ContentType);
+      // Get pricing for the payment rail.
+      //
+      // Investor / store bundles carry per-SKU prices in BUNDLE_PRICING that
+      // diverge from the per-content-type defaults in BASE_PRICES. Without
+      // this override, a Satoshi KNYT Collection ($2100, 1800-KNYT base)
+      // would map by productType=knyt_season_codex_stills to a 25-KNYT base
+      // → 20-KNYT debit on the KNYT rail. That's a $2080 leak per sale.
+      // When assetIds[0] matches a BUNDLE_PRICING entry, derive the rail
+      // prices from that bundle's digitalPrice / baseKnytOverride. Falls
+      // through to the static path for non-bundle purchases (singles, etc.).
+      const bundleSku = (assetIds && assetIds.length > 0)
+        ? BUNDLE_PRICING.find((b) => b.id === assetIds[0])
+        : null;
+
+      let pricing: ReturnType<typeof getMultiRailPricing>;
+      if (bundleSku) {
+        const baseKnyt = bundleSku.baseKnytOverride ?? usdToKnyt(bundleSku.digitalPrice);
+        const usdBase = bundleSku.digitalPrice;
+        // Mirror ContentPurchaseModal's calculatePricing fee structure
+        // exactly so the server's debit matches the price the buyer saw.
+        // Knyt rail: -20% discount. USDC: +1% fee. PayPal: +10% fee.
+        // qc rail price is the USD base (Q¢ count is computed off USD).
+        pricing = {
+          contentId: bundleSku.id,
+          contentType: productType as ContentType,
+          baseKnytPrice: baseKnyt,
+          usdBasePrice: usdBase,
+          rails: {
+            qc:     { price: usdBase, currency: 'QC' },
+            knyt:   { price: Math.round(baseKnyt * (1 - KNYT_COYN_DISCOUNT) * 100) / 100, currency: 'KNYT', discount: KNYT_COYN_DISCOUNT },
+            usdc:   { price: Math.round(usdBase * 1.01 * 100) / 100, currency: 'USDC', fee: 0.01 },
+            paypal: { price: Math.round(usdBase * 1.10 * 100) / 100, currency: 'USD', fee: 0.10 },
+          },
+        };
+      } else {
+        pricing = getMultiRailPricing('purchase', productType as ContentType);
+      }
+
       // knyt_evm uses the same KNYT pricing as the DVN knyt rail
       const effectiveRailKey = paymentRail === 'knyt_evm' ? 'knyt' : paymentRail;
       const railPricing = pricing.rails[effectiveRailKey as keyof typeof pricing.rails];
