@@ -111,13 +111,12 @@ WHERE content_state IS NULL
   AND auto_drive_cid IS NOT NULL
   AND auto_drive_cid NOT LIKE 'http%';
 
-UPDATE master_content_qubes
-SET content_state = CASE
-  WHEN encryption_iv IS NOT NULL THEN 'B'
-  ELSE 'A'
-END
-WHERE content_state IS NULL
-  AND (gating_kind IS NULL OR gating_kind = 'free');
+-- Free-state (A/B) backfill skipped: gating_kind column does not exist on
+-- master_content_qubes / codex_media_assets in production. The spine
+-- already derives A vs B at read time from encryption_iv presence
+-- (services/content/getContentDescriptor.ts), so no DB backfill is needed.
+-- If gating_kind lands later as a column, an additive backfill can run
+-- then to fill in A/B explicitly.
 
 UPDATE codex_media_assets
 SET
@@ -135,14 +134,6 @@ SET
 WHERE content_state IS NULL
   AND auto_drive_cid IS NOT NULL
   AND auto_drive_cid NOT LIKE 'http%';
-
-UPDATE codex_media_assets
-SET content_state = CASE
-  WHEN encryption_iv IS NOT NULL THEN 'B'
-  ELSE 'A'
-END
-WHERE content_state IS NULL
-  AND (gating_kind IS NULL OR gating_kind = 'free');
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- Index for state-aware proxy branching (Phase 2.4) — content_state is
