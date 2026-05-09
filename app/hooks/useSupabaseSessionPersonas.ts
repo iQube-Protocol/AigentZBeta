@@ -158,16 +158,25 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
   const lastConsolidatedAtRef = useRef<number>(0);
 
   const fetchPersonas = useCallback(async (accessToken: string, force = false, sessionEmail: string | null = null) => {
-    const now = Date.now();
-    const skipConsolidate = !force && (now - lastConsolidatedAtRef.current) < 10_000;
-    if (!skipConsolidate) {
-      lastConsolidatedAtRef.current = now;
-      // consolidate only merges email-confirmed duplicate profiles + JWT user UUID.
-      // linkDeviceProfile is NOT called here — device UUID linking is 'device_session'
-      // mode only and must be an explicit user action to preserve identity sovereignty.
-      await consolidateIdentity(accessToken);
-    }
+    // Guard the wizard auto-open in SmartWalletDrawer: setIsLoading(true) here
+    // (not just on initial mount) means every code path that triggers a refetch
+    // — getSession() at mount, onAuthStateChange on sign-in/token-refresh,
+    // refreshPersonas after persona create — keeps `isLoading` truthy while the
+    // fetch is in flight. Without this, the drawer's auto-open effect saw a
+    // brief window where sessionEmail was set and isLoading was already false
+    // from a previous resolve, so allAvailablePersonas.length === 0 was briefly
+    // observed and the wizard flickered open.
+    setIsLoading(true);
     try {
+      const now = Date.now();
+      const skipConsolidate = !force && (now - lastConsolidatedAtRef.current) < 10_000;
+      if (!skipConsolidate) {
+        lastConsolidatedAtRef.current = now;
+        // consolidate only merges email-confirmed duplicate profiles + JWT user UUID.
+        // linkDeviceProfile is NOT called here — device UUID linking is 'device_session'
+        // mode only and must be an explicit user action to preserve identity sovereignty.
+        await consolidateIdentity(accessToken);
+      }
       const res = await fetch("/api/wallet/personas", {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
@@ -189,6 +198,8 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
       setSessionPersonas(list.map((r: Record<string, unknown>) => mapToPersonaState(r)));
     } catch {
       // non-fatal — wallet still works without session personas
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
@@ -200,12 +211,14 @@ export function useSupabaseSessionPersonas(): SessionIdentity {
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
 
-    // Bootstrap from current session
+    // Bootstrap from current session. fetchPersonas owns the isLoading
+    // lifecycle now — keep this branch lean and only flip loading false when
+    // there is no session at all.
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user?.email) {
         accessTokenRef.current = session.access_token;
         setSessionEmail(session.user.email);
-        fetchPersonas(session.access_token, false, session.user.email).finally(() => setIsLoading(false));
+        fetchPersonas(session.access_token, false, session.user.email);
       } else {
         setIsLoading(false);
       }
