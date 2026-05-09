@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Coins, Check, Loader2 } from 'lucide-react';
+import { X, Coins, Check, Loader2, Sparkles, Wallet, CreditCard } from 'lucide-react';
 
 type Rail = 'qc' | 'usdc' | 'paypal';
 
@@ -23,18 +23,6 @@ interface Props {
   personaId: string;
   onPurchaseComplete?: (knytAmount: number, newBalance: number) => void;
 }
-
-const RAIL_LABEL: Record<Rail, string> = {
-  qc: 'Base Q¢',
-  usdc: 'USDC',
-  paypal: 'PayPal',
-};
-
-const RAIL_HINT: Record<Rail, string> = {
-  qc: 'No fee · stubbed',
-  usdc: '1% fee · stubbed',
-  paypal: '10% fee · live',
-};
 
 export function BuyKnytModal({ open, onClose, personaId, onPurchaseComplete }: Props) {
   const [packages, setPackages] = useState<KnytPackage[]>([]);
@@ -64,19 +52,12 @@ export function BuyKnytModal({ open, onClose, personaId, onPurchaseComplete }: P
 
   const pkg = useMemo(() => packages.find((p) => p.packageId === selected), [packages, selected]);
 
-  // Rail-adjusted price for the selected package. Falls back to base × (1 + fee)
-  // if the API didn't return a rails block (older clients / fallback path).
-  const railPriceUsd = useMemo(() => {
+  const railPrice = (r: Rail): number => {
     if (!pkg) return 0;
-    if (pkg.rails) return pkg.rails[rail].priceUsd;
-    const fee = rail === 'paypal' ? 0.10 : rail === 'usdc' ? 0.01 : 0;
+    if (pkg.rails) return pkg.rails[r].priceUsd;
+    const fee = r === 'paypal' ? 0.10 : r === 'usdc' ? 0.01 : 0;
     return Math.round(pkg.usdPrice * (1 + fee) * 100) / 100;
-  }, [pkg, rail]);
-
-  const railFeePct = useMemo(() => {
-    if (pkg?.rails) return pkg.rails[rail].feePct;
-    return rail === 'paypal' ? 0.10 : rail === 'usdc' ? 0.01 : 0;
-  }, [pkg, rail]);
+  };
 
   const handlePayPal = async () => {
     if (!selected) return;
@@ -145,21 +126,23 @@ export function BuyKnytModal({ open, onClose, personaId, onPurchaseComplete }: P
 
   if (!open) return null;
 
-  const submitLabel = purchasing
-    ? 'Processing…'
-    : rail === 'paypal'
-      ? `Pay $${railPriceUsd.toFixed(2)} with PayPal`
-      : rail === 'usdc'
-        ? `Pay $${railPriceUsd.toFixed(2)} with USDC (stub)`
-        : `Pay ${railPriceUsd.toFixed(2)} Q¢ (stub)`;
+  const submitLabel = !pkg
+    ? 'Select a package'
+    : purchasing
+      ? 'Processing…'
+      : rail === 'paypal'
+        ? `Pay $${railPrice('paypal').toFixed(2)} with PayPal`
+        : rail === 'usdc'
+          ? `Pay $${railPrice('usdc').toFixed(2)} with USDC`
+          : `Pay $${railPrice('qc').toFixed(2)} with Q¢`;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto py-8"
       onClick={onClose}
     >
       <div
-        className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-sm mx-4 p-5"
+        className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-md mx-4 p-5"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -191,64 +174,105 @@ export function BuyKnytModal({ open, onClose, personaId, onPurchaseComplete }: P
         ) : (
           <>
             {/* Package picker */}
-            <div className="space-y-2 mb-4">
-              {packages.map((p) => {
-                const railed = p.rails ? p.rails[rail].priceUsd : p.usdPrice;
-                return (
-                  <button
-                    key={p.packageId}
-                    onClick={() => setSelected(p.packageId)}
-                    className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${
-                      selected === p.packageId
-                        ? 'border-amber-500/50 bg-amber-500/10'
-                        : 'border-white/10 bg-white/5 hover:bg-white/10'
-                    }`}
-                  >
-                    <div className="text-left">
-                      <div className="text-white font-medium">{p.knytAmount} KNYT</div>
-                    </div>
-                    <div className="text-amber-300 font-semibold">
-                      {rail === 'qc' ? `${railed.toFixed(2)} Q¢` : `$${railed.toFixed(2)}`}
-                    </div>
-                  </button>
-                );
-              })}
+            <p className="text-xs text-white/50 uppercase tracking-wider mb-2">Choose Amount</p>
+            <div className="grid grid-cols-2 gap-2 mb-5">
+              {packages.map((p) => (
+                <button
+                  key={p.packageId}
+                  onClick={() => setSelected(p.packageId)}
+                  className={`p-3 rounded-xl border transition-all text-left ${
+                    selected === p.packageId
+                      ? 'border-amber-500/50 bg-amber-500/10'
+                      : 'border-white/10 bg-white/5 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="text-white font-medium">{p.knytAmount} KNYT</div>
+                  <div className="text-amber-300/80 text-xs">${p.usdPrice.toFixed(2)}</div>
+                </button>
+              ))}
             </div>
 
-            {/* Payment method picker */}
-            <div className="mb-3">
-              <div className="text-[10px] uppercase tracking-wider text-white/50 mb-1.5">Pay with</div>
-              <div className="grid grid-cols-3 gap-1.5">
-                {(['qc', 'usdc', 'paypal'] as Rail[]).map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => setRail(r)}
-                    className={`p-2 rounded-lg text-center transition-colors ${
-                      rail === r
-                        ? 'bg-amber-500/20 ring-1 ring-amber-500/50 text-amber-200'
-                        : 'bg-white/5 ring-1 ring-white/10 text-white/60 hover:bg-white/10'
-                    }`}
-                  >
-                    <div className="text-xs font-medium">{RAIL_LABEL[r]}</div>
-                    <div className="text-[10px] text-white/40">{RAIL_HINT[r]}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Fee breakdown */}
+            {/* Base price card — mirrors the store's content purchase modal */}
             {pkg && (
-              <div className="text-[11px] text-white/50 mb-3 px-1">
-                Base ${pkg.usdPrice.toFixed(2)}
-                {railFeePct > 0 && <> + {(railFeePct * 100).toFixed(0)}% {RAIL_LABEL[rail]} fee</>}
-                {' = '}
-                <span className="text-amber-300 font-medium">
-                  {rail === 'qc' ? `${railPriceUsd.toFixed(2)} Q¢` : `$${railPriceUsd.toFixed(2)}`}
-                </span>
+              <div className="mb-5 p-3 rounded-xl bg-white/5 border border-white/10">
+                <div className="flex items-center justify-between">
+                  <span className="text-white/60 text-sm">Base Price</span>
+                  <div className="text-right">
+                    <span className="text-lg font-bold text-white">{pkg.knytAmount} KNYT</span>
+                    <span className="text-white/40 text-sm ml-2">(${pkg.usdPrice.toFixed(2)})</span>
+                  </div>
+                </div>
               </div>
             )}
 
-            {error && <p className="text-red-400 text-xs mb-3">{error}</p>}
+            {/* Payment method picker — same visual treatment as ContentPurchaseModal */}
+            <div className="space-y-2 mb-5">
+              <p className="text-xs text-white/50 uppercase tracking-wider mb-2">Select Payment Method</p>
+
+              <button
+                onClick={() => setRail('qc')}
+                className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${
+                  rail === 'qc'
+                    ? 'border-cyan-500/50 bg-cyan-500/10'
+                    : 'border-white/10 bg-white/5 hover:bg-white/10'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+                    <Sparkles className="w-4 h-4 text-cyan-400" />
+                  </div>
+                  <div className="text-left">
+                    <div className="text-white font-medium">Pay with Q¢</div>
+                    <div className="text-xs text-white/50">No fees</div>
+                  </div>
+                </div>
+                <div className="text-cyan-300 font-bold">${railPrice('qc').toFixed(2)}</div>
+              </button>
+
+              <button
+                onClick={() => setRail('usdc')}
+                className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${
+                  rail === 'usdc'
+                    ? 'border-blue-500/50 bg-blue-500/10'
+                    : 'border-white/10 bg-white/5 hover:bg-white/10'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                    <Wallet className="w-4 h-4 text-blue-400" />
+                  </div>
+                  <div className="text-left">
+                    <div className="text-white font-medium">Pay with USDC</div>
+                    <div className="text-xs text-white/50">1% fee</div>
+                  </div>
+                </div>
+                <div className="text-blue-300 font-bold">${railPrice('usdc').toFixed(2)}</div>
+              </button>
+
+              <button
+                onClick={() => setRail('paypal')}
+                className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${
+                  rail === 'paypal'
+                    ? 'border-indigo-500/50 bg-indigo-500/10'
+                    : 'border-white/10 bg-white/5 hover:bg-white/10'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center">
+                    <CreditCard className="w-4 h-4 text-indigo-400" />
+                  </div>
+                  <div className="text-left">
+                    <div className="text-white font-medium">Pay with PayPal</div>
+                    <div className="text-xs text-white/50">10% fee</div>
+                  </div>
+                </div>
+                <div className="text-indigo-300 font-bold">${railPrice('paypal').toFixed(2)}</div>
+              </button>
+            </div>
+
+            {error && (
+              <p className="text-red-400 text-xs mb-3 p-2 bg-red-500/10 rounded-lg">{error}</p>
+            )}
 
             <button
               onClick={handlePurchase}
