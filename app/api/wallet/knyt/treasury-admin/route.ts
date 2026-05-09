@@ -26,15 +26,44 @@ async function queryDeposits(supabase: ReturnType<typeof createClient>, source: 
   return data ?? [];
 }
 
+/**
+ * Multi-source query for fiat-funded KNYT issuance. Combines paypal_purchase
+ * (live), qc_purchase (stub), and usdc_purchase (stub) into one chronological
+ * list. Recovered credits (metadata.recovered = true) are included since the
+ * operator wants the treasury card to reflect the full liability picture, not
+ * just fresh sales.
+ */
+async function queryKnytIssued(supabase: ReturnType<typeof createClient>) {
+  const { data, error } = await supabase
+    .from('wallet_transactions')
+    .select('id, persona_id, amount, created_at, metadata, source')
+    .in('source', ['paypal_purchase', 'qc_purchase', 'usdc_purchase'])
+    .eq('direction', 'credit')
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+function readMetaNumber(meta: unknown, key: string): number {
+  if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
+    const v = (meta as Record<string, unknown>)[key];
+    const n = typeof v === 'number' ? v : typeof v === 'string' ? parseFloat(v) : NaN;
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+}
+
 export async function GET() {
   try {
     const supabase = getSupabase();
 
-    const [deposits, usdcDeposits, qcDeposits, qcBalResult] = await Promise.all([
+    const [deposits, usdcDeposits, qcDeposits, qcBalResult, knytIssued] = await Promise.all([
       queryDeposits(supabase, 'evm_deposit'),
       queryDeposits(supabase, 'usdc_deposit'),
       queryDeposits(supabase, 'qc_deposit'),
       supabase.from('qc_balances').select('balance').eq('currency', 'base_qc'),
+      queryKnytIssued(supabase),
     ]);
 
     const total = deposits.reduce((sum, d) => sum + parseFloat(d.amount), 0);
@@ -43,6 +72,19 @@ export async function GET() {
     const qcDvnTotal = (qcBalResult.data ?? []).reduce(
       (sum, r) => sum + parseFloat((r as { balance?: string }).balance ?? '0'), 0
     );
+
+    // PayPal-only fiat inflow: sum of metadata.fiatAmount (or finalPriceUsd as
+    // a fallback for older rows). qc_purchase / usdc_purchase are stubs that
+    // didn't actually move USD, so they don't count toward the fiat card.
+    const paypalRows = knytIssued.filter((r) => (r as { source: string }).source === 'paypal_purchase');
+    const totalFiatPaypalUsd = paypalRows.reduce(
+      (sum, r) => sum + (readMetaNumber((r as { metadata: unknown }).metadata, 'fiatAmount') || readMetaNumber((r as { metadata: unknown }).metadata, 'finalPriceUsd')),
+      0,
+    );
+
+    // KNYT issued via any of the three off-chain sources. This is the
+    // platform's liability — DVN KNYT we owe to user wallets.
+    const totalKnytIssued = knytIssued.reduce((sum, r) => sum + parseFloat((r as { amount: string }).amount), 0);
 
     return NextResponse.json({
       deposits,
@@ -55,6 +97,13 @@ export async function GET() {
       totalQcDeposited: totalQc.toFixed(4),
       qcCount: qcDeposits.length,
       qcDvnTotal: qcDvnTotal.toFixed(2),
+
+      // Fiat-funded sales + KNYT issuance liability
+      knytIssued,
+      totalKnytIssued: totalKnytIssued.toFixed(4),
+      knytIssuedCount: knytIssued.length,
+      totalFiatPaypalUsd: totalFiatPaypalUsd.toFixed(2),
+      fiatPaypalCount: paypalRows.length,
     });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

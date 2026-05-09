@@ -58,6 +58,32 @@ interface Deposit {
   metadata?: { tx_hash?: string };
 }
 
+/**
+ * Off-chain KNYT issuance row — credit emitted by paypal/qc/usdc-funded
+ * sales (and the recover endpoint). Carries the rail and the USD amount
+ * the user was charged so the recent-purchases table can show both.
+ */
+interface IssuedRow {
+  id: string;
+  persona_id: string;
+  amount: string;
+  created_at: string;
+  source: 'paypal_purchase' | 'qc_purchase' | 'usdc_purchase' | string;
+  metadata?: {
+    fiatAmount?: number;
+    finalPriceUsd?: number;
+    basePriceUsd?: number;
+    feePct?: number;
+    paypalOrderId?: string | null;
+    paypalCaptureId?: string | null;
+    packageId?: string;
+    rail?: 'qc' | 'usdc';
+    stub?: boolean;
+    custom?: boolean;
+    recovered?: boolean;
+  };
+}
+
 interface AdminData {
   deposits?: Deposit[];
   totalDeposited?: string;
@@ -66,6 +92,11 @@ interface AdminData {
   qcDeposits?: Deposit[];
   totalQcDeposited?: string;
   qcDvnTotal?: string;
+  knytIssued?: IssuedRow[];
+  totalKnytIssued?: string;
+  knytIssuedCount?: number;
+  totalFiatPaypalUsd?: string;
+  fiatPaypalCount?: number;
 }
 
 interface Props {
@@ -146,6 +177,11 @@ export function KnytTreasuryAdminTab({ isAdmin }: Props) {
   const [qcDeposits, setQcDeposits] = useState<Deposit[]>([]);
   const [totalQcDeposited, setTotalQcDeposited] = useState<string>('0');
   const [qcDvnTotal, setQcDvnTotal] = useState<string>('0');
+  const [knytIssued, setKnytIssued] = useState<IssuedRow[]>([]);
+  const [totalKnytIssued, setTotalKnytIssued] = useState<string>('0');
+  const [knytIssuedCount, setKnytIssuedCount] = useState<number>(0);
+  const [totalFiatPaypalUsd, setTotalFiatPaypalUsd] = useState<string>('0');
+  const [fiatPaypalCount, setFiatPaypalCount] = useState<number>(0);
   const [historyLoading, setHistoryLoading] = useState(false);
 
   const [airdropAddress, setAirdropAddress] = useState('');
@@ -178,6 +214,11 @@ export function KnytTreasuryAdminTab({ isAdmin }: Props) {
       setQcDeposits(json.qcDeposits ?? []);
       setTotalQcDeposited(json.totalQcDeposited ?? '0');
       setQcDvnTotal(json.qcDvnTotal ?? '0');
+      setKnytIssued(json.knytIssued ?? []);
+      setTotalKnytIssued(json.totalKnytIssued ?? '0');
+      setKnytIssuedCount(json.knytIssuedCount ?? 0);
+      setTotalFiatPaypalUsd(json.totalFiatPaypalUsd ?? '0');
+      setFiatPaypalCount(json.fiatPaypalCount ?? 0);
     } catch {
       // ignore
     } finally {
@@ -294,6 +335,19 @@ export function KnytTreasuryAdminTab({ isAdmin }: Props) {
               ? <Loader2 className="h-4 w-4 animate-spin text-white/30" />
               : <p className="text-base font-semibold text-violet-300">{totalQcDeposited} <span className="text-[10px] font-normal text-white/40">Q¢ · {qcDeposits.length} txns</span></p>}
           </div>
+          {/* Row 4: fiat-funded sales (USD) + KNYT issued off-chain (liability) */}
+          <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+            <p className="text-[9px] text-white/40 mb-1 uppercase tracking-wider">Fiat Sales (PayPal)</p>
+            {historyLoading
+              ? <Loader2 className="h-4 w-4 animate-spin text-white/30" />
+              : <p className="text-base font-semibold text-orange-300">${totalFiatPaypalUsd} <span className="text-[10px] font-normal text-white/40">USD · {fiatPaypalCount} txns</span></p>}
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+            <p className="text-[9px] text-white/40 mb-1 uppercase tracking-wider">KNYT Issued (off-chain)</p>
+            {historyLoading
+              ? <Loader2 className="h-4 w-4 animate-spin text-white/30" />
+              : <p className="text-base font-semibold text-amber-300">{totalKnytIssued} <span className="text-[10px] font-normal text-white/40">KNYT · {knytIssuedCount} txns</span></p>}
+          </div>
         </div>
 
         {TREASURY && (
@@ -371,6 +425,63 @@ export function KnytTreasuryAdminTab({ isAdmin }: Props) {
             unit="Q¢"
             explorerBase="https://basescan.org/tx/"
           />
+        </div>
+      </section>
+
+      {/* ── Recent Fiat-Funded Sales (PayPal + Q¢/USDC stubs + recovered) ── */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-white/50">
+            <ArrowDownToLine className="h-3.5 w-3.5 text-orange-400" />
+            Fiat-Funded Sales  <span className="text-orange-400 font-semibold">${totalFiatPaypalUsd} USD · {totalKnytIssued} KNYT issued</span>
+          </div>
+        </div>
+        <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
+          {historyLoading ? (
+            <div className="py-5 text-center"><Loader2 className="h-4 w-4 animate-spin text-white/30 mx-auto" /></div>
+          ) : knytIssued.length === 0 ? (
+            <p className="py-5 text-center text-xs text-white/30">No fiat-funded sales yet.</p>
+          ) : (
+            <table className="w-full text-[10px]">
+              <thead className="border-b border-white/10 bg-white/5">
+                <tr className="text-left text-white/50 uppercase tracking-wider">
+                  <th className="px-3 py-2 font-medium">Source</th>
+                  <th className="px-3 py-2 font-medium">Persona</th>
+                  <th className="px-3 py-2 font-medium text-right">KNYT</th>
+                  <th className="px-3 py-2 font-medium text-right">USD</th>
+                  <th className="px-3 py-2 font-medium">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {knytIssued.map((row) => {
+                  const md = row.metadata ?? {};
+                  const usd = md.fiatAmount ?? md.finalPriceUsd ?? null;
+                  const recovered = md.recovered === true;
+                  const stub = md.stub === true;
+                  const sourceLabel =
+                    row.source === 'paypal_purchase' ? 'PayPal'
+                    : row.source === 'qc_purchase' ? 'Q¢'
+                    : row.source === 'usdc_purchase' ? 'USDC'
+                    : row.source;
+                  return (
+                    <tr key={row.id} className="border-b border-white/5 last:border-0">
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-white/80">{sourceLabel}</span>
+                          {recovered && <span className="px-1 py-0.5 rounded bg-amber-500/15 text-amber-300 text-[9px]">recovered</span>}
+                          {stub && <span className="px-1 py-0.5 rounded bg-white/10 text-white/40 text-[9px]">stub</span>}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 font-mono text-white/40">{row.persona_id.slice(0, 8)}…</td>
+                      <td className="px-3 py-2 text-right font-semibold text-amber-300">{parseFloat(row.amount).toFixed(2)}</td>
+                      <td className="px-3 py-2 text-right text-orange-300">{usd != null ? `$${Number(usd).toFixed(2)}` : '—'}</td>
+                      <td className="px-3 py-2 text-white/50">{new Date(row.created_at).toLocaleString()}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
       </section>
 
