@@ -252,7 +252,7 @@ export default function SmartWalletDrawer({
     },
     { refreshKey: balanceRefreshKey }
   );
-  const { sessionEmail, sessionPersonas, signOut: signOutSession, signIn: signInWithEmail, signUp: signUpWithEmail, refreshPersonas } = useSupabaseSessionPersonas();
+  const { sessionEmail, sessionPersonas, isLoading: sessionPersonasLoading, signOut: signOutSession, signIn: signInWithEmail, signUp: signUpWithEmail, refreshPersonas } = useSupabaseSessionPersonas();
   const { getCartridgeDefault, setCartridgeDefault, activePersonaId: ctxActivePersonaId, setActivePersonaId: ctxSetActivePersonaId } = usePersonaSafe();
 
   // NOTE: these two useState calls MUST be declared before the allAvailablePersonas
@@ -795,13 +795,32 @@ export default function SmartWalletDrawer({
   // signup. When a user has signed in but owns zero personas, we open
   // the wizard automatically and disable cancellation — they cannot
   // proceed without completing FIO chain registration.
+  //
+  // Race-condition guards (the bug "wizard opens on every login"):
+  //   1. Wait for sessionPersonasLoading to settle. At session start,
+  //      sessionEmail flips to set BEFORE the personas API call returns,
+  //      so allAvailablePersonas.length === 0 is briefly true even for
+  //      users who own personas. Without this guard, the effect fires
+  //      in that gap and opens the wizard.
+  //   2. Auto-close the wizard if personas appear after it auto-opened.
+  //      Covers the case where a different tab created a persona, or
+  //      the user signs in just as a sync completes.
   useEffect(() => {
     if (!sessionEmail) return;
-    if (allAvailablePersonas.length > 0) return;
+    if (sessionPersonasLoading) return;
+    if (allAvailablePersonas.length > 0) {
+      // Personas exist — if the wizard auto-opened during the loading
+      // gap, close it now.
+      if (personaSetupOpen && personaSetupMandatory) {
+        setPersonaSetupOpen(false);
+        setPersonaSetupMandatory(false);
+      }
+      return;
+    }
     if (personaSetupOpen) return;
     setPersonaSetupOpen(true);
     setPersonaSetupMandatory(true);
-  }, [sessionEmail, allAvailablePersonas.length, personaSetupOpen]);
+  }, [sessionEmail, sessionPersonasLoading, allAvailablePersonas.length, personaSetupOpen, personaSetupMandatory]);
 
   // Persona state
   const [showUnlockModal, setShowUnlockModal] = useState(false);
