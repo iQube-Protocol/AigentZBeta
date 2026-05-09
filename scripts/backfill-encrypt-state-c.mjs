@@ -76,7 +76,10 @@ function ivToBase64(iv) { return iv.toString('base64'); }
 function authTagToBase64(t) { return t.toString('base64'); }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-loadEnv({ path: path.resolve(__dirname, '../.env.local') });
+// override: true — dotenv v17 default is "do not overwrite existing env",
+// so a stale empty CONTENT_ENCRYPTION_MASTER_KEY in the shell silently
+// shadows the .env.local value. This forces .env.local to win.
+loadEnv({ path: path.resolve(__dirname, '../.env.local'), override: true });
 
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
@@ -95,7 +98,16 @@ if (!SUPABASE_URL || !SERVICE_KEY) {
   process.exit(1);
 }
 if (!MASTER_KEY) {
-  console.error('[backfill] CONTENT_ENCRYPTION_MASTER_KEY not set — generate with `openssl rand -base64 32`');
+  console.error('[backfill] CONTENT_ENCRYPTION_MASTER_KEY not set in process.env after .env.local load.');
+  console.error('[backfill] Diagnostics:');
+  console.error('  - .env.local path:', path.resolve(__dirname, '../.env.local'));
+  console.error('  - var present in process.env:', 'CONTENT_ENCRYPTION_MASTER_KEY' in process.env);
+  console.error('  - var value length:', (process.env.CONTENT_ENCRYPTION_MASTER_KEY || '').length);
+  console.error('[backfill] Common causes:');
+  console.error('  - .env.local has the var on a line with quotes/spaces that broke parsing');
+  console.error('  - shell has CONTENT_ENCRYPTION_MASTER_KEY="" exported (overrides dotenv unless override:true)');
+  console.error('  - .env.local was edited but the wrong path was loaded');
+  console.error('[backfill] Verify with: grep CONTENT_ENCRYPTION_MASTER_KEY .env.local');
   process.exit(1);
 }
 
