@@ -13,6 +13,11 @@
  *   # Limit
  *   node scripts/backfill-encrypt-state-c.mjs --limit=3
  *
+ *   # With per-row plaintext backup (recommended for live runs).
+ *   # Atomic: each row is written to disk + size-verified BEFORE
+ *   # encryption proceeds. If backup fails the row is skipped.
+ *   node scripts/backfill-encrypt-state-c.mjs --backup-to=./backfill-backups
+ *
  * Required env (loaded from .env.local automatically):
  *   NEXT_PUBLIC_SUPABASE_URL
  *   SUPABASE_SERVICE_ROLE_KEY
@@ -37,6 +42,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { config as loadEnv } from 'dotenv';
 import path from 'node:path';
+import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { createCipheriv, randomBytes, hkdfSync } from 'node:crypto';
 
@@ -76,6 +82,8 @@ const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
 const limitArg = args.find((a) => a.startsWith('--limit='));
 const limit = limitArg ? parseInt(limitArg.split('=')[1], 10) : 100;
+const backupArg = args.find((a) => a.startsWith('--backup-to='));
+const backupDir = backupArg ? backupArg.split('=')[1] : null;
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -117,6 +125,28 @@ async function processRow(table, row) {
     return { ok: false, reason: 'download-failed' };
   }
   const plaintext = Buffer.from(await blob.arrayBuffer());
+
+  // Atomic backup-before-encrypt: when --backup-to is set, write
+  // plaintext to disk and verify the file exists at the expected
+  // size BEFORE encryption proceeds. Any backup failure aborts the
+  // row — no data lost.
+  if (backupDir) {
+    const safeName = `${table}__${id}__${path.basename(objectPath)}`.replace(/[/\\]/g, '_');
+    const backupPath = path.join(backupDir, safeName);
+    try {
+      await fs.mkdir(backupDir, { recursive: true });
+      await fs.writeFile(backupPath, plaintext);
+      const stat = await fs.stat(backupPath);
+      if (stat.size !== plaintext.byteLength) {
+        throw new Error(`backup size mismatch: ${stat.size} vs ${plaintext.byteLength}`);
+      }
+      console.log(`  ${table}/${id}  backup → ${backupPath}`);
+    } catch (e) {
+      console.log(`  ${table}/${id}  FAIL backup: ${e.message}`);
+      return { ok: false, reason: 'backup-failed' };
+    }
+  }
+
   const enc = encryptBuffer(plaintext, id);
   const { error: upErr } = await sb.storage.from(BUCKET).upload(objectPath, enc.ciphertext, {
     upsert: true,
