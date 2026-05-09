@@ -49,6 +49,14 @@ interface QuoteLineInput {
   contentType?: string;
   priceUsd: number;
   qty?: number;
+  /**
+   * Optional explicit KNYT-token base for SKUs whose USD/KNYT relationship
+   * isn't the static $1.40 rate (e.g. Satoshi KNYT Collection: $2100 USD,
+   * 1800 KNYT base). When present, overrides the priceUsd / KNYT_USD_RATE
+   * derivation for the KNYT rail. Other rails (Q¢, USDC, PayPal) keep
+   * pricing off priceUsd unchanged.
+   */
+  baseKnytOverride?: number;
 }
 
 interface QuoteRequest {
@@ -100,10 +108,17 @@ export async function POST(req: NextRequest) {
   for (const line of lines) {
     const qty = clampQty(line.qty);
     const priceUsd = typeof line.priceUsd === 'number' && Number.isFinite(line.priceUsd) && line.priceUsd >= 0 ? line.priceUsd : 0;
-    const baseKnyt = priceUsd / KNYT_USD_RATE;
-    const ct = (line.contentType as ContentType | undefined) ?? 'scroll_still';
+    // Per-SKU baseKnytOverride takes precedence over the priceUsd-derived
+    // KNYT figure so SKUs like Satoshi (1800 KNYT base, not 1500) quote
+    // the correct KNYT-rail price. We also pass priceUsd as the USD-base
+    // override so getMultiRailPricing doesn't recompute the USD rails as
+    // 1800 × $1.40 = $2520 — the Q¢/USDC/PayPal rails stay locked to
+    // the line's actual priceUsd.
+    const hasOverride = typeof line.baseKnytOverride === 'number' && line.baseKnytOverride > 0;
+    const baseKnyt = hasOverride ? line.baseKnytOverride! : priceUsd / KNYT_USD_RATE;
+    const ct = ((line.contentType as ContentType | undefined) ?? 'scroll_still') as ContentType;
 
-    const rail = getMultiRailPricing(line.id, ct, baseKnyt);
+    const rail = getMultiRailPricing(line.id, ct, baseKnyt, hasOverride ? priceUsd : undefined);
     knytDiscountPct = rail.rails.knyt.discount ?? knytDiscountPct;
     usdcFeePct = rail.rails.usdc.fee ?? usdcFeePct;
     paypalFeePct = rail.rails.paypal.fee ?? paypalFeePct;

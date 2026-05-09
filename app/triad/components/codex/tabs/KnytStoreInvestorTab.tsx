@@ -404,6 +404,10 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
       priceUsd:    bundle.memberPrice ?? bundle.digitalPrice,
       thumbUrl:    image,
       contentType: 'season_codex_still',  // mirrors openBundlePurchase below
+      // Forward per-SKU KNYT base when present (e.g. Satoshi 1800 KNYT)
+      // so the /api/cart/quote KNYT-rail price matches what
+      // ContentPurchaseModal shows for the same bundle.
+      baseKnytOverride: bundle.baseKnytOverride,
     };
     cart.addToCart(item);
     setCartOpen(true);
