@@ -12,10 +12,22 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import {
+  encryptBuffer,
+  ivToBase64,
+  authTagToBase64,
+  isEncryptionConfigured,
+} from '@/services/content/encryption';
 
 export const runtime = 'nodejs';
 
 const BUCKET = 'content-media';
+
+// Phase 2.3 — encrypt-at-register inline. Files larger than this are
+// rejected with a clear error pointing at the streaming-upload Phase
+// 2.3 v2 follow-up. 5MB is well under the Lambda 6MB body limit, with
+// headroom for the response payload.
+const INLINE_ENCRYPT_MAX_BYTES = 5 * 1024 * 1024;
 
 function getSupabaseServiceClient() {
   return createClient(
@@ -23,6 +35,50 @@ function getSupabaseServiceClient() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false } }
   );
+}
+
+/**
+ * Download the file the browser just PUT, encrypt it in memory, re-upload
+ * (overwrite same path) so the bytes-at-rest become ciphertext. Returns
+ * the IV + auth tag + key id for persistence on the row.
+ *
+ * The plaintext exists in Supabase only for the seconds between the
+ * browser's PUT completing and this function's overwrite landing.
+ * Phase 2.3 v2 will close that gap with client-side encryption (browser
+ * uploads ciphertext directly via signed URL, server never sees plaintext).
+ */
+async function encryptInPlace(
+  supabase: ReturnType<typeof getSupabaseServiceClient>,
+  bucket: string,
+  path: string,
+  masterId: string,
+): Promise<{ iv: string; authTag: string; keyId: string }> {
+  const { data: blob, error: dlErr } = await supabase.storage.from(bucket).download(path);
+  if (dlErr || !blob) {
+    throw new Error(`Encrypt-at-register: download failed: ${dlErr?.message || 'no data'}`);
+  }
+  const plaintext = Buffer.from(await blob.arrayBuffer());
+  if (plaintext.byteLength > INLINE_ENCRYPT_MAX_BYTES) {
+    throw new Error(
+      `File is ${plaintext.byteLength} bytes; inline encryption supports up to ${INLINE_ENCRYPT_MAX_BYTES} bytes. ` +
+        'Streaming-upload encryption ships in Phase 2.3 v2.',
+    );
+  }
+  const enc = encryptBuffer(plaintext, { masterId });
+  const { error: upErr } = await supabase.storage
+    .from(bucket)
+    .upload(path, enc.ciphertext, {
+      upsert: true,
+      contentType: 'application/octet-stream',
+    });
+  if (upErr) {
+    throw new Error(`Encrypt-at-register: re-upload failed: ${upErr.message}`);
+  }
+  return {
+    iv: ivToBase64(enc.iv),
+    authTag: authTagToBase64(enc.authTag),
+    keyId: enc.keyId,
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -70,6 +126,30 @@ export async function POST(req: NextRequest) {
       const tierIdSuffix = editionTier ? `_${editionTier}` : '';
       const id = `mk_ep${String(ep).padStart(2, '0')}_${ct.replace('episode_', '')}${tierIdSuffix}`;
 
+      // Phase 2.3 — encrypt the file at rest before persisting the row.
+      // No-op when CONTENT_ENCRYPTION_MASTER_KEY isn't set (returns the
+      // existing plaintext-row behaviour with a warning) so dev parity is
+      // preserved during rollout.
+      let encIv = '';
+      let encAuthTag = '';
+      let encKeyId = '';
+      let contentState = 'C';
+      if (isEncryptionConfigured()) {
+        try {
+          const out = await encryptInPlace(supabase, bucket, path, id);
+          encIv = out.iv;
+          encAuthTag = out.authTag;
+          encKeyId = out.keyId;
+        } catch (e) {
+          return NextResponse.json(
+            { error: (e as Error).message || 'Encryption failed' },
+            { status: 500 },
+          );
+        }
+      } else {
+        console.warn('[register] CONTENT_ENCRYPTION_MASTER_KEY missing — skipping encryption (state-C plaintext)');
+      }
+
       const { error } = await supabase
         .from('master_content_qubes')
         .upsert({
@@ -81,9 +161,14 @@ export async function POST(req: NextRequest) {
           series,
           edition_tier: editionTier || null,
           auto_drive_cid: storageUrl,
+          wip_storage_url: storageUrl,
           mime_type: safeMime,
           file_size: fileSize || null,
-          encryption_iv: '',
+          encryption_iv: encIv,
+          encryption_auth_tag: encAuthTag,
+          encryption_key_id: encKeyId,
+          content_state: contentState,
+          mint_status: 'wip',
           status: 'active',
           updated_at: new Date().toISOString(),
         }, { onConflict: 'id' });
@@ -92,20 +177,47 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
-      return NextResponse.json({ id, storageUrl });
+      return NextResponse.json({ id, storageUrl, encrypted: !!encIv });
     }
 
-    // codex_media_assets
+    // codex_media_assets — generate UUID up-front so we can derive the
+    // per-asset encryption key BEFORE insert (HKDF salt is the row id).
+    const mediaId = crypto.randomUUID();
+    let encIv2 = '';
+    let encAuthTag2 = '';
+    let encKeyId2 = '';
+    if (isEncryptionConfigured()) {
+      try {
+        const out = await encryptInPlace(supabase, bucket, path, mediaId);
+        encIv2 = out.iv;
+        encAuthTag2 = out.authTag;
+        encKeyId2 = out.keyId;
+      } catch (e) {
+        return NextResponse.json(
+          { error: (e as Error).message || 'Encryption failed' },
+          { status: 500 },
+        );
+      }
+    } else {
+      console.warn('[register] CONTENT_ENCRYPTION_MASTER_KEY missing — skipping encryption (state-C plaintext)');
+    }
+
     const insertRow: Record<string, unknown> = {
+      id: mediaId,
       title,                  // Auto-Drive label (locked)
       supabase_title: title,  // editable, defaults to upload-time title
       episode_number: episodeNumber ?? null,
       asset_kind: assetKind,
       series,
       auto_drive_cid: storageUrl,
+      wip_storage_url: storageUrl,
       mime_type: safeMime,
       file_size: fileSize || null,
-      encryption_iv: '',
+      encryption_iv: encIv2,
+      encryption_auth_tag: encAuthTag2,
+      encryption_key_id: encKeyId2,
+      content_state: 'C',
+      mint_status: 'wip',
       status: 'active',
     };
     // Populate cover_thumb_url so the viewer renders directly (the KnytTab
