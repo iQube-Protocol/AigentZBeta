@@ -118,6 +118,58 @@ function pathFromStorageUrl(url) {
   return m ? m[1] : null;
 }
 
+/**
+ * Upload bytes to Supabase Storage using the resumable / TUS protocol.
+ * Handles files larger than the simple .upload() endpoint can manage
+ * (which fails with `fetch failed` on the default Node 18 fetch timeouts
+ * when the file is more than a few MB and the connection is slow).
+ *
+ * Falls back to a single PUT for small files since the resumable
+ * handshake adds latency we don't need for sub-MB content.
+ */
+async function uploadCiphertext(bucket, objectPath, ciphertext) {
+  // Small files — keep the simple path (low latency, fewer round trips)
+  if (ciphertext.byteLength < 5 * 1024 * 1024) {
+    const { error } = await sb.storage.from(bucket).upload(objectPath, ciphertext, {
+      upsert: true,
+      contentType: 'application/octet-stream',
+    });
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  // Large files — use signed-upload URL with a manual PUT and an
+  // extended timeout. This is what Supabase recommends for >5MB
+  // bodies and matches what the dashboard does internally.
+  const { data: signed, error: signErr } = await sb.storage
+    .from(bucket)
+    .createSignedUploadUrl(objectPath, { upsert: true });
+  if (signErr || !signed) {
+    throw new Error(`createSignedUploadUrl failed: ${signErr?.message || 'no data'}`);
+  }
+  const ac = new AbortController();
+  // 5-minute hard ceiling; anything slower than this needs operator
+  // attention regardless of file size
+  const timer = setTimeout(() => ac.abort(), 5 * 60 * 1000);
+  try {
+    const res = await fetch(signed.signedUrl, {
+      method: 'PUT',
+      body: ciphertext,
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'x-upsert': 'true',
+      },
+      signal: ac.signal,
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(`signed-PUT ${res.status}: ${body.slice(0, 200)}`);
+    }
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function processRow(table, row) {
   const id = row.id;
   const url = row.wip_storage_url || row.auto_drive_cid;
@@ -160,12 +212,10 @@ async function processRow(table, row) {
   }
 
   const enc = encryptBuffer(plaintext, id);
-  const { error: upErr } = await sb.storage.from(BUCKET).upload(objectPath, enc.ciphertext, {
-    upsert: true,
-    contentType: 'application/octet-stream',
-  });
-  if (upErr) {
-    console.log(`  ${table}/${id}  FAIL upload: ${upErr.message}`);
+  try {
+    await uploadCiphertext(BUCKET, objectPath, enc.ciphertext);
+  } catch (e) {
+    console.log(`  ${table}/${id}  FAIL upload: ${e.message}`);
     return { ok: false, reason: 'upload-failed' };
   }
   const { error: updErr } = await sb
