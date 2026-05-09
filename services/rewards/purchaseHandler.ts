@@ -135,12 +135,51 @@ export class PurchaseHandler {
       const effectiveRailKey = paymentRail === 'knyt_evm' ? 'knyt' : paymentRail;
       const railPricing = pricing.rails[effectiveRailKey as keyof typeof pricing.rails];
 
+      // Reconcile unit-purchase pricing against the client-supplied amount.
+      //
+      // Unit purchases (single episode, character card) don't match a
+      // BUNDLE_PRICING entry, so the price falls through to BASE_PRICES — a
+      // small static placeholder (3 KNYT for any still scroll, 1 KNYT for
+      // any character card). Real episode prices range $6–$18 USD and card
+      // packs $26 — debiting only the static price is a per-sale leak.
+      //
+      // The modal sends the actual rail amount in metadata.amount with a
+      // matching currency tag. We trust it when:
+      //   - it's GREATER than the static fallback (we never undercharge)
+      //   - currency matches the rail (KNYT for the knyt rail, USD/USDC otherwise)
+      //   - it falls under a sanity cap (5000 KNYT / $10000 USD)
+      //
+      // For bundle SKUs (already correctly priced via the BUNDLE_PRICING
+      // path above) we don't override — the bundle's own digitalPrice is
+      // canonical and we don't want client metadata to widen it further.
+      let resolvedRailPrice = railPricing.price;
+      if (!bundleSku && metadata && metadata.amount != null) {
+        const metaAmountRaw = metadata.amount;
+        const metaAmount = typeof metaAmountRaw === 'number'
+          ? metaAmountRaw
+          : parseFloat(String(metaAmountRaw));
+        if (Number.isFinite(metaAmount) && metaAmount > resolvedRailPrice) {
+          const railCurrency = effectiveRailKey === 'knyt' ? 'KNYT' : 'USD';
+          const metaCurrency = String(metadata.currency || '').toUpperCase();
+          const currencyMatches =
+            (railCurrency === 'KNYT' && metaCurrency === 'KNYT') ||
+            (railCurrency === 'USD' && (metaCurrency === 'USD' || metaCurrency === 'USDC'));
+          const cap = railCurrency === 'KNYT' ? 5000 : 10000;
+          if (currencyMatches && metaAmount <= cap) {
+            console.log(
+              `[PurchaseHandler] Unit-price reconciled: static=${resolvedRailPrice} ${railPricing.currency}, metadata=${metaAmount} ${metaCurrency} → using metadata`
+            );
+            resolvedRailPrice = metaAmount;
+          }
+        }
+      }
+
       // 2a. Guard: verify on-chain EVM KNYT transfer for knyt_evm rail
       if (paymentRail === 'knyt_evm') {
         if (!paymentReference || !/^0x[0-9a-fA-F]{64}$/.test(paymentReference)) {
           return { success: false, error: 'Valid EVM transaction hash required' };
         }
-        const verification = await verifyEvmKnytTransfer(paymentReference, railPricing.price);
+        const verification = await verifyEvmKnytTransfer(paymentReference, resolvedRailPrice);
         if (!verification.verified) {
           return { success: false, error: verification.error || 'EVM KNYT transaction verification failed' };
         }
@@ -161,7 +200,7 @@ export class PurchaseHandler {
         }
 
         const currentBalance = balanceRow?.balance ? parseFloat(balanceRow.balance) : 0;
-        if (currentBalance < railPricing.price) {
+        if (currentBalance < resolvedRailPrice) {
           return { success: false, error: 'Insufficient KNYT balance' };
         }
       }
@@ -174,7 +213,7 @@ export class PurchaseHandler {
           product_id: product.id,
           product_type: productType,
           payment_rail: paymentRail,
-          amount: railPricing.price,
+          amount: resolvedRailPrice,
           currency: railPricing.currency,
           status: 'completed',
           payment_reference: paymentReference,
@@ -192,7 +231,7 @@ export class PurchaseHandler {
       // 3. Record wallet transaction (for KNYT/Q¢ payments)
       // knyt_evm: KNYT went directly to treasury on-chain — no DVN balance to deduct
       if (paymentRail === 'knyt' || paymentRail === 'qc') {
-        await this.recordWalletTransaction(personaId, purchase.id, railPricing.price, railPricing.currency, productType);
+        await this.recordWalletTransaction(personaId, purchase.id, resolvedRailPrice, railPricing.currency, productType);
       }
       
       // 4. Grant entitlements
