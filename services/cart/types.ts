@@ -49,6 +49,14 @@ export interface CartItem {
     | 'bundle_5_motion'
     | 'season_codex_still'
     | 'season_codex_motion';
+  /**
+   * Optional explicit KNYT-token base for SKUs whose USD/KNYT relationship
+   * isn't the static $1.40 rate. Mirrors BundlePricing.baseKnytOverride —
+   * Satoshi KNYT Collection ($2100 base USD, 1800 KNYT base) needs this so
+   * the cart quote's KNYT-rail price doesn't recompute to 1500/1200 via
+   * usdToKnyt(2100). Optional everywhere; absent for normal SKUs.
+   */
+  baseKnytOverride?: number;
 }
 
 export function lineQty(item: CartItem): number {

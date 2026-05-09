@@ -117,6 +117,9 @@ export function KnytCartCheckoutModal({
         contentType: line.contentType,
         priceUsd: line.priceUsd,
         qty: lineQty(line),
+        // Per-SKU KNYT base override (e.g. Satoshi). Only forwarded when
+        // present so non-override lines remain identical on the wire.
+        ...(line.baseKnytOverride ? { baseKnytOverride: line.baseKnytOverride } : {}),
       })),
     [items],
   );

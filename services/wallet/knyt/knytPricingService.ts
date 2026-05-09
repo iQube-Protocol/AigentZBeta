@@ -164,18 +164,32 @@ export interface MultiRailPricing {
 export function getMultiRailPricing(
   contentId: string,
   contentType: ContentType,
-  customBaseKnytPrice?: number
+  customBaseKnytPrice?: number,
+  /**
+   * Optional explicit USD base for SKUs whose USD/KNYT relationship doesn't
+   * track the static KNYT_USD_RATE ($1.40). Without this, an override that
+   * sets baseKnytPrice to 1800 for a $2100 SKU would derive
+   * usdBasePrice = 1800 × 1.40 = $2520 — wrong. When provided, lock the
+   * USD base for the Q¢/USDC/PayPal rails to this value while still using
+   * customBaseKnytPrice for the KNYT-rail token figure. KNYT-rail discount
+   * still applies as a flat 20% off the KNYT figure.
+   */
+  customUsdBasePrice?: number,
 ): MultiRailPricing {
   const normalizedType = normalizeContentType(contentType);
   const baseKnytPrice = customBaseKnytPrice ?? BASE_PRICES[normalizedType];
-  const usdBasePrice = baseKnytPrice * KNYT_USD_RATE;
-  
+  const usdBasePrice = customUsdBasePrice ?? baseKnytPrice * KNYT_USD_RATE;
+
   // Q¢ (Base) - no fee, no premium
   const qcPrice = Math.round(usdBasePrice * 100) / 100;
-  
-  // KNYT - discounted vs fiat, then convert back to KNYT tokens
-  const knytPriceUsd = usdBasePrice * (1 - RAIL_CONFIG.knytDiscountPercent);
-  const knytPriceTokens = Math.round(knytPriceUsd / KNYT_USD_RATE * 100) / 100;
+
+  // KNYT - discounted as a flat percentage off the KNYT base. When a
+  // customUsdBasePrice is provided we bypass the round-trip-via-USD path
+  // (which assumed USD = KNYT × $1.40) and just take 20% off the token
+  // figure directly. For unmodified callers this yields the same result.
+  const knytPriceTokens = customUsdBasePrice !== undefined
+    ? Math.round(baseKnytPrice * (1 - RAIL_CONFIG.knytDiscountPercent) * 100) / 100
+    : Math.round((usdBasePrice * (1 - RAIL_CONFIG.knytDiscountPercent)) / KNYT_USD_RATE * 100) / 100;
   
   // USDC - with fee + premium
   const usdcPrice = Math.round(usdBasePrice * (1 + RAIL_CONFIG.usdcFeePercent + RAIL_CONFIG.fiatPremiumPercent) * 100) / 100;
