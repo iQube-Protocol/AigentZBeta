@@ -95,6 +95,93 @@ Violating this rule is a critical security incident regardless of intent.
 
 ---
 
+## Identity & Access Spine — CANONICAL SoT (PARAMOUNT)
+
+**Every backend touchpoint involving identity, asset correlation, content gating, or rewards MUST flow through the identity spine. Do not build parallel resolvers, parallel gates, or parallel decision logic.**
+
+The spine is the single source of truth for:
+- "Who is the active persona?" → `getActivePersona(request)`
+- "Does this persona own this asset?" → `userOwnsAsset(personaId, assetId)`
+- "Should this read/tx be allowed?" → `evaluateAccess(persona, descriptor, action)`
+- "What does the browser see about this persona?" → `GET /api/wallet/active-persona` (T1 surface)
+- "How do I link across cartridges?" → `buildCodexUrl(slug, { personaSessionToken, ... })`
+
+### Identifier exposure tiers — never mix them
+
+| Tier | Where it lives | Examples | What you can do |
+|---|---|---|---|
+| **T0** server-internal | Server only (Lambda) | `personaId`, `authProfileId`, `rootDid`, `fioHandle` | DB key, internal services. NEVER serialise to JSON, NEVER include in receipts. |
+| **T1** browser-safe | postMessage + JSON | `personaSessionToken`, `displayLabel`, `ownFioHandle`, `cartridgeFlags` | Render in UI, log for debugging. |
+| **T2** public-network | DVN, ordinals | `cohortAliasCommitment`, `cohortId` | The ONLY identifier allowed in receipts. |
+
+### Five fields that MUST NEVER appear in browser-bound JSON or chain-bound receipts
+
+| Field | Reason |
+|---|---|
+| `personaId` | T0 — server-internal only |
+| `authProfileId` | T0 — multi-email-merged caller id |
+| `rootDid` | T0 — compliance-bearing (`did:fio:` family) |
+| `kybeAttestation` | KYC layer; reveal only via `discloseCredential()` |
+| Cross-persona `fioHandle` | The caller's OWN handle is OK on T1; resolving someone else's is forbidden |
+
+Tests in `tests/persona-broadcast-handshake.test.ts` and `tests/access-spine.test.ts` enforce this. Mirror the canary pattern in any test suite you add.
+
+### Don't rebuild these — the spine already provides them
+
+| Tempting parallel implementation | Use this instead |
+|---|---|
+| Your own `getCurrentPersona()` reading JWT | `getActivePersona(request)` |
+| Your own auth gate before granting rewards | `evaluateAccess(persona, descriptor, 'transfer')` |
+| Your own FIO-handle-required check | The spine denies with `reason='fio-handle-required'`; surface that |
+| Your own admin / partner role checker | `persona.cartridgeFlags.{isAdmin,isPartner}` (server-resolved) |
+| Your own decryption for state-C content | `streamStateCPlaintext` from `services/content/stateCDelivery` |
+| Your own persona-switch listener | Subscribe to the `aa-persona-change-v1` postMessage |
+
+### Files you MUST NOT modify without operator approval
+
+- `services/identity/getActivePersona.ts`
+- `services/identity/personaSessionToken.ts`
+- `services/access/evaluateAccess.ts`
+- `services/access/policyResolvers.ts`
+- `services/content/getContentDescriptor.ts`
+- `services/content/encryption.ts`
+- `services/content/stateCDelivery.ts`
+- `types/access.ts`
+
+These are the canonical contract. Extend by composition, not by forking.
+
+### Smoke test gate before merging spine-touching work
+
+```
+node scripts/verify-spine.mjs --host=dev-beta.aigentz.me \
+  --personaId=<a-persona-you-own> \
+  --owned=<an-asset-the-persona-owns> \
+  --txGuard=<an-asset-id>
+```
+
+All checks must pass. If you've added new spine surface area, extend `verify-spine.mjs` rather than building parallel verification.
+
+### Required reading before any code that touches identity/assets/gating/rewards
+
+The full integration brief lives at:
+
+```
+codexes/packs/agentiq/updates/2026-05-09_spine-integration-brief-knyt-rep-rewards-tasks.md
+```
+
+It's written for the KNYT reputation/rewards/tasks workstream but applies to **every** workstream that consumes identity, asset correlation, or access decisions. Read it end-to-end before writing code in any of those areas.
+
+Supporting docs (in order):
+1. `types/access.ts` — full type contract
+2. `services/identity/getActivePersona.ts` — the resolver, end-to-end
+3. `services/access/evaluateAccess.ts` — the decision gate
+4. `services/content/getContentDescriptor.ts` — descriptor builder
+5. `codexes/packs/agentiq/updates/2026-05-05_unified-identity-content-access-foundation-plan.md` — plan v8 + decision log
+6. `codexes/packs/agentiq/updates/2026-05-08_phase-1-iam-spine-closure.md` — Phase 1 closure
+7. `codexes/packs/agentiq/updates/2026-05-09_phase-2-encryption-decisions.md` — Phase 2 decisions
+
+---
+
 ## Core Principle: Extend, Don't Duplicate
 
 This is a mature, actively evolving codebase. Before writing any new code:
