@@ -99,6 +99,10 @@ const envVars = [
   'WALLET_ALIAS_CHALLENGE_DOMAIN',
   'ESCROW_CANISTER_ID',
   'ALLOW_LEGACY_PLAINTEXT_WALLET_WRITE',
+  // Operator ops bearer for backstop tools (paypal/recover, etc.).
+  // Set to any random ≥32-char string. Generate locally with:
+  //   openssl rand -hex 32
+  'ADMIN_OPS_TOKEN',
 ];
 
 let content = '';
