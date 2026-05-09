@@ -92,6 +92,18 @@ function deriveDeliveryMode(descriptor: ContentAccessDescriptor): DeliveryMode {
 // Public API
 // ─────────────────────────────────────────────────────────────────────────
 
+/**
+ * Tx-class actions that require a FIO handle on the active persona.
+ * Operator decision (2026-05-09): FIO is optional at signup, required
+ * only at tx time. Read/watch/listen/connect/invoke don't need it; any
+ * action that moves value, mints, or commits a settlement does.
+ */
+const TX_CLASS_ACTIONS: ReadonlySet<AccessAction> = new Set([
+  'mint',
+  'transfer',
+  'payment-settle',
+]);
+
 export async function evaluateAccess(
   context: ActivePersonaContext,
   descriptor: ContentAccessDescriptor,
@@ -100,6 +112,13 @@ export async function evaluateAccess(
 ): Promise<AccessDecision> {
   const receiptMode = resolveReceiptMode(action, opts.requireSyncReceipt);
   const receipt = buildReceiptHandle(receiptMode);
+
+  // 0. Tx-class FIO guard. Persona must have a FIO handle before any
+  //    value-moving action proceeds. The wallet drawer reads this deny
+  //    reason and prompts inline registration via PersonaSetupWizard.
+  if (TX_CLASS_ACTIONS.has(action) && !context.fioHandle) {
+    return denyDecision('fio-handle-required', descriptor, receipt);
+  }
 
   // 1. Free content — open access.
   if (descriptor.gating.kind === 'free') {

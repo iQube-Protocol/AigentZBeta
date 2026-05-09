@@ -130,6 +130,7 @@ async function resolveActivePersonaId(
 interface OwnedPersonaRow {
   id: string;
   default_identity_state: string | null;
+  fio_handle: string | null;
 }
 
 async function listOwnedPersonas(
@@ -141,17 +142,18 @@ async function listOwnedPersonas(
 
   const { data, error } = await admin
     .from('personas')
-    .select('id,default_identity_state,created_at')
+    .select('id,default_identity_state,fio_handle,created_at')
     .in('auth_profile_id', visibleAuthProfileIds)
     .eq('status', 'active')
     .order('created_at', { ascending: true });
 
   if (error) return { personas: [], linkedAuthProfileIds };
-  const rows = (data || []) as Array<{ id: string; default_identity_state: string | null }>;
+  const rows = (data || []) as Array<{ id: string; default_identity_state: string | null; fio_handle: string | null }>;
   return {
     personas: rows.map((row) => ({
       id: String(row.id),
       default_identity_state: row.default_identity_state ?? null,
+      fio_handle: row.fio_handle ?? null,
     })),
     linkedAuthProfileIds,
   };
@@ -301,6 +303,7 @@ export async function getActivePersona(
       isPartner,
     },
     cohortMemberships,
+    fioHandle: personaRow?.fio_handle ?? null,
     source,
   };
 }

@@ -123,6 +123,7 @@ export async function POST(request: NextRequest) {
       email,
       completed_missions = [],
       notes,
+      signup_source,
     } = body as {
       persona_id?: string;
       bridge_stage?: BridgeStage;
@@ -130,6 +131,7 @@ export async function POST(request: NextRequest) {
       email?: string;
       completed_missions?: string[];
       notes?: string;
+      signup_source?: 'agentiq' | 'qriptopian' | 'direct';
     };
 
     if (!persona_id || typeof persona_id !== 'string') {
@@ -163,6 +165,7 @@ export async function POST(request: NextRequest) {
         notes: notes ?? '',
         agent_root_did: 'did:iqube:aigent-c-os-root',
         nanos_bridge_candidate: stage !== 'open_onboarding',
+        signup_source: signup_source ?? 'agentiq',
       },
     });
 

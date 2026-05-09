@@ -72,6 +72,15 @@ export interface ActivePersonaContext {
   /** Cohort group ids the persona is a member of (no aliases at rest). */
   cohortMemberships: string[];
 
+  /**
+   * Persona's FIO handle, if registered. T0 — server-internal only.
+   * Null when the persona has no FIO handle yet (e.g. fresh signups
+   * who skipped the optional registration step). Required for tx-class
+   * actions per evaluateAccess gate; surfaced via the new
+   * `fio-handle-required` deny reason.
+   */
+  fioHandle?: string | null;
+
   /** Provenance trace for debugging — which input source produced this. */
   source:
     | 'session-cookie'
@@ -387,6 +396,7 @@ export type AccessDecisionReason =
   | 'payment-required'
   | 'credential-required'
   | 'token-required'
+  | 'fio-handle-required'
   | 'policy-blocked'
   | 'guardian-vetoed';
 

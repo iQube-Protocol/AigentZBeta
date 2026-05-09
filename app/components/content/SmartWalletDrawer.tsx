@@ -252,7 +252,7 @@ export default function SmartWalletDrawer({
     },
     { refreshKey: balanceRefreshKey }
   );
-  const { sessionEmail, sessionPersonas, signOut: signOutSession, signIn: signInWithEmail, refreshPersonas } = useSupabaseSessionPersonas();
+  const { sessionEmail, sessionPersonas, signOut: signOutSession, signIn: signInWithEmail, signUp: signUpWithEmail, refreshPersonas } = useSupabaseSessionPersonas();
   const { getCartridgeDefault, setCartridgeDefault, activePersonaId: ctxActivePersonaId, setActivePersonaId: ctxSetActivePersonaId } = usePersonaSafe();
 
   // NOTE: these two useState calls MUST be declared before the allAvailablePersonas
@@ -356,6 +356,8 @@ export default function SmartWalletDrawer({
   const [signInPasswordInput, setSignInPasswordInput] = useState("");
   const [signInError, setSignInError] = useState<string | null>(null);
   const [signInPending, setSignInPending] = useState(false);
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
+  const [signUpConfirmationSent, setSignUpConfirmationSent] = useState(false);
   const [showQcBreakdown, setShowQcBreakdown] = useState(false);
   const [logoLoadErrors, setLogoLoadErrors] = useState<Record<string, boolean>>({});
   const askCopilotCardRef = useRef<HTMLElement | null>(null);
@@ -1680,72 +1682,152 @@ export default function SmartWalletDrawer({
                   </div>
                 )}
 
-                {/* Inline sign-in form — shown when not signed in */}
+                {/* Inline auth form — sign-in / sign-up tabs. Shown when not signed in. */}
                 {!sessionEmail && signingIn && (
                   <div className="px-3 py-3 border-b border-white/10">
-                    <p className="text-xs text-white/50 uppercase tracking-wider mb-2">Sign In</p>
-                    <input
-                      type="email"
-                      placeholder="Email"
-                      value={signInEmailInput}
-                      onChange={(e) => setSignInEmailInput(e.target.value)}
-                      className="w-full mb-2 px-2 py-1.5 text-sm bg-white/5 border border-white/10 rounded text-white placeholder-white/30 focus:outline-none focus:border-cyan-500/50"
-                      autoComplete="email"
-                    />
-                    <input
-                      type="password"
-                      placeholder="Password"
-                      value={signInPasswordInput}
-                      onChange={(e) => setSignInPasswordInput(e.target.value)}
-                      onKeyDown={async (e) => {
-                        if (e.key !== "Enter") return;
-                        setSignInPending(true);
-                        setSignInError(null);
-                        const { error } = await signInWithEmail(signInEmailInput, signInPasswordInput);
-                        setSignInPending(false);
-                        if (error) {
-                          setSignInError(error);
-                        } else {
-                          setSigningIn(false);
-                          setSignInEmailInput("");
-                          setSignInPasswordInput("");
-                          setPersonaMenuOpen(false);
-                        }
-                      }}
-                      className="w-full mb-2 px-2 py-1.5 text-sm bg-white/5 border border-white/10 rounded text-white placeholder-white/30 focus:outline-none focus:border-cyan-500/50"
-                      autoComplete="current-password"
-                    />
-                    {signInError && (
-                      <p className="text-xs text-red-400 mb-2">{signInError}</p>
-                    )}
-                    <div className="flex gap-2">
+                    {/* Tab toggle */}
+                    <div className="flex gap-1 mb-3 bg-white/5 rounded p-0.5">
                       <button
-                        onClick={async () => {
-                          setSignInPending(true);
-                          setSignInError(null);
-                          const { error } = await signInWithEmail(signInEmailInput, signInPasswordInput);
-                          setSignInPending(false);
-                          if (error) {
-                            setSignInError(error);
-                          } else {
-                            setSigningIn(false);
-                            setSignInEmailInput("");
-                            setSignInPasswordInput("");
-                            setPersonaMenuOpen(false);
-                          }
-                        }}
-                        disabled={signInPending}
-                        className="flex-1 py-1.5 text-xs bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/30 text-cyan-300 rounded transition-colors disabled:opacity-50"
+                        onClick={() => { setAuthMode("signin"); setSignInError(null); setSignUpConfirmationSent(false); }}
+                        className={`flex-1 py-1 text-xs rounded transition-colors ${
+                          authMode === "signin"
+                            ? "bg-cyan-500/20 text-cyan-300"
+                            : "text-white/50 hover:text-white/70"
+                        }`}
                       >
-                        {signInPending ? "Signing in…" : "Sign In"}
+                        Sign In
                       </button>
                       <button
-                        onClick={() => { setSigningIn(false); setSignInError(null); }}
-                        className="px-3 py-1.5 text-xs text-white/40 hover:text-white/60 transition-colors"
+                        onClick={() => { setAuthMode("signup"); setSignInError(null); setSignUpConfirmationSent(false); }}
+                        className={`flex-1 py-1 text-xs rounded transition-colors ${
+                          authMode === "signup"
+                            ? "bg-cyan-500/20 text-cyan-300"
+                            : "text-white/50 hover:text-white/70"
+                        }`}
                       >
-                        Cancel
+                        Sign Up
                       </button>
                     </div>
+
+                    {signUpConfirmationSent ? (
+                      <div className="text-xs text-white/70 mb-2">
+                        <p className="text-cyan-300 mb-1">Check your email.</p>
+                        <p className="text-white/50">
+                          We sent a confirmation link to {signInEmailInput || "your email"}. Click it to activate your account.
+                        </p>
+                        <button
+                          onClick={() => {
+                            setSignUpConfirmationSent(false);
+                            setAuthMode("signin");
+                            setSignInPasswordInput("");
+                          }}
+                          className="mt-2 text-cyan-400 hover:text-cyan-300 underline"
+                        >
+                          Back to sign in
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <input
+                          type="email"
+                          placeholder="Email"
+                          value={signInEmailInput}
+                          onChange={(e) => setSignInEmailInput(e.target.value)}
+                          className="w-full mb-2 px-2 py-1.5 text-sm bg-white/5 border border-white/10 rounded text-white placeholder-white/30 focus:outline-none focus:border-cyan-500/50"
+                          autoComplete="email"
+                        />
+                        <input
+                          type="password"
+                          placeholder={authMode === "signup" ? "Choose a password" : "Password"}
+                          value={signInPasswordInput}
+                          onChange={(e) => setSignInPasswordInput(e.target.value)}
+                          onKeyDown={async (e) => {
+                            if (e.key !== "Enter") return;
+                            setSignInPending(true);
+                            setSignInError(null);
+                            if (authMode === "signin") {
+                              const { error } = await signInWithEmail(signInEmailInput, signInPasswordInput);
+                              setSignInPending(false);
+                              if (error) {
+                                setSignInError(error);
+                              } else {
+                                setSigningIn(false);
+                                setSignInEmailInput("");
+                                setSignInPasswordInput("");
+                                setPersonaMenuOpen(false);
+                              }
+                            } else {
+                              const { error, requiresEmailConfirmation } = await signUpWithEmail(signInEmailInput, signInPasswordInput);
+                              setSignInPending(false);
+                              if (error) {
+                                setSignInError(error);
+                              } else if (requiresEmailConfirmation) {
+                                setSignUpConfirmationSent(true);
+                              } else {
+                                // session already populated — onAuthStateChange will close panel
+                                setSigningIn(false);
+                                setSignInPasswordInput("");
+                                setPersonaMenuOpen(false);
+                              }
+                            }
+                          }}
+                          className="w-full mb-2 px-2 py-1.5 text-sm bg-white/5 border border-white/10 rounded text-white placeholder-white/30 focus:outline-none focus:border-cyan-500/50"
+                          autoComplete={authMode === "signup" ? "new-password" : "current-password"}
+                        />
+                        {authMode === "signup" && (
+                          <p className="text-[10px] text-white/40 mb-2">
+                            FIO handle is optional and can be added later from your wallet. Required only for transactions.
+                          </p>
+                        )}
+                        {signInError && (
+                          <p className="text-xs text-red-400 mb-2">{signInError}</p>
+                        )}
+                        <div className="flex gap-2">
+                          <button
+                            onClick={async () => {
+                              setSignInPending(true);
+                              setSignInError(null);
+                              if (authMode === "signin") {
+                                const { error } = await signInWithEmail(signInEmailInput, signInPasswordInput);
+                                setSignInPending(false);
+                                if (error) {
+                                  setSignInError(error);
+                                } else {
+                                  setSigningIn(false);
+                                  setSignInEmailInput("");
+                                  setSignInPasswordInput("");
+                                  setPersonaMenuOpen(false);
+                                }
+                              } else {
+                                const { error, requiresEmailConfirmation } = await signUpWithEmail(signInEmailInput, signInPasswordInput);
+                                setSignInPending(false);
+                                if (error) {
+                                  setSignInError(error);
+                                } else if (requiresEmailConfirmation) {
+                                  setSignUpConfirmationSent(true);
+                                } else {
+                                  setSigningIn(false);
+                                  setSignInPasswordInput("");
+                                  setPersonaMenuOpen(false);
+                                }
+                              }
+                            }}
+                            disabled={signInPending}
+                            className="flex-1 py-1.5 text-xs bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/30 text-cyan-300 rounded transition-colors disabled:opacity-50"
+                          >
+                            {signInPending
+                              ? (authMode === "signin" ? "Signing in…" : "Creating…")
+                              : (authMode === "signin" ? "Sign In" : "Create Account")}
+                          </button>
+                          <button
+                            onClick={() => { setSigningIn(false); setSignInError(null); setSignUpConfirmationSent(false); }}
+                            className="px-3 py-1.5 text-xs text-white/40 hover:text-white/60 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
 

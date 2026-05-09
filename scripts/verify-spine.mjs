@@ -78,6 +78,12 @@ const cases = [
   ...(args.free ? [{ label: 'free asset', target: args.free, expect: { allow: true, reason: 'free' } }] : []),
   ...(args.owned ? [{ label: 'owned asset', target: args.owned, expect: { allow: true, reason: 'owned' } }] : []),
   { label: 'unowned asset', target: args.unowned ?? 'mk_ep01_print_rare',   expect: { allow: false, reason: 'payment-required' } },
+  // Tx-class FIO guard. When the active persona has no fio_handle,
+  // any tx-class action (mint/transfer/payment-settle) must deny with
+  // reason='fio-handle-required'. Run with `--txGuard` to exercise.
+  ...(args.txGuard
+    ? [{ label: 'tx-class FIO guard', target: args.txGuard, action: 'payment-settle', expect: { allow: false, reason: 'fio-handle-required' } }]
+    : []),
 ];
 
 console.log(`[verify-spine] target: ${baseUrl}`);
@@ -210,7 +216,8 @@ for (const c of cases) {
     continue;
   }
 
-  const url = `${baseUrl}/api/access/inspect?cid=${encodeURIComponent(c.target)}&action=${action}`;
+  const caseAction = c.action || action;
+  const url = `${baseUrl}/api/access/inspect?cid=${encodeURIComponent(c.target)}&action=${caseAction}`;
   process.stdout.write(`${c.label.padEnd(14)} ${c.target.padEnd(40)} `);
   const res = await fetch(url, { headers: baseHeaders }).catch((e) => ({ error: e }));
   if (res?.error) {
