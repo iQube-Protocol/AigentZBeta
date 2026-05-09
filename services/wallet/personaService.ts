@@ -66,9 +66,43 @@ function getOrCreateAuthProfileId(): string | null {
 
 function withAuthHeaders(init?: RequestInit): RequestInit {
   const headers = new Headers(init?.headers || {});
+  // Prefer the Supabase JWT when the user is signed in. The persona row's
+  // auth_profile_id is keyed off the canonical id resolved from the JWT,
+  // not the device UUID — without the JWT, persona creates land under the
+  // device UUID and become invisible to the wallet drawer (which queries
+  // personas by canonical id).
+  const accessToken = getSupabaseAccessTokenSync();
+  if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
+  // Device UUID is still useful as a fallback for unauthenticated flows.
   const devAuthProfileId = getOrCreateAuthProfileId() || '';
   if (devAuthProfileId) headers.set('x-auth-profile-id', devAuthProfileId);
   return { ...init, headers };
+}
+
+/**
+ * Read the cached Supabase access token from localStorage synchronously.
+ * Supabase persists session under `sb-<project-ref>-auth-token` (gotrue v2).
+ * We don't want to make withAuthHeaders async (it's used in tight call
+ * sites), so we read the cached value directly. If the token is expired,
+ * the server's JWT verifier will reject it and the call falls through to
+ * the device UUID — same as today's behaviour.
+ */
+function getSupabaseAccessTokenSync(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (!key || !key.startsWith('sb-') || !key.endsWith('-auth-token')) continue;
+      const raw = window.localStorage.getItem(key);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw);
+      const token = parsed?.access_token || parsed?.currentSession?.access_token;
+      if (typeof token === 'string' && token.length > 0) return token;
+    }
+  } catch {
+    // localStorage may be blocked or value malformed; fall through
+  }
+  return null;
 }
 
 function withAuthProfileParam(url: string): string {
