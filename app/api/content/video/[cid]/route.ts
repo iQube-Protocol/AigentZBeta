@@ -8,6 +8,7 @@ import { createClient } from '@supabase/supabase-js';
 import { createAutoDriveApi } from '@autonomys/auto-drive';
 import { NetworkId } from '@autonomys/auto-utils';
 import { unwrapKeyWithMasterKey, decryptContent } from '@/server/services/encryptionService';
+import { findStateCRowByUrl, streamStateCPlaintext } from '@/services/content/stateCDelivery';
 
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getContentDescriptorByCid } from '@/services/content/getContentDescriptor';
@@ -91,8 +92,15 @@ export async function GET(req: NextRequest, { params }: { params: { cid: string 
       }
     }
 
-    // Supabase-hosted asset: cid is the public URL — redirect directly, no decryption
+    // Phase 2.6 — state-C videos go through decrypt-stream; state-A
+    // (free) videos still 302-redirect (no encrypted bytes at rest).
     if (cid.startsWith('http://') || cid.startsWith('https://')) {
+      const found = await findStateCRowByUrl(cid);
+      if (found?.row?.encryption_iv) {
+        return await streamStateCPlaintext(found.row, {
+          contentType: found.row.mime_type || 'video/mp4',
+        });
+      }
       return NextResponse.redirect(cid, 302);
     }
 

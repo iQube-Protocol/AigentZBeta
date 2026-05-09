@@ -18,6 +18,7 @@ import sharp from 'sharp';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getContentDescriptorByCid } from '@/services/content/getContentDescriptor';
 import { evaluateAccess } from '@/services/access/evaluateAccess';
+import { findStateCRowByUrl, streamStateCPlaintext } from '@/services/content/stateCDelivery';
 
 export const runtime = 'nodejs';
 
@@ -110,8 +111,17 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // Supabase-hosted asset: cid is the public URL — redirect directly, no decryption
+    // Phase 2.6 — only state-A (free) Supabase URLs are 302-redirected.
+    // State-C (gated, encrypted at rest) goes through the decrypt-stream
+    // helper so the public URL is never exposed to the browser.
     if (cid.startsWith('http://') || cid.startsWith('https://')) {
+      const found = await findStateCRowByUrl(cid);
+      if (found?.row?.encryption_iv) {
+        const res = await streamStateCPlaintext(found.row, {
+          contentType: found.row.mime_type || 'image/webp',
+        });
+        return withCors(res);
+      }
       return withCors(NextResponse.redirect(cid, 302));
     }
 
