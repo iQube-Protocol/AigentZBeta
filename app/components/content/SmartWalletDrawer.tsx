@@ -4020,7 +4020,10 @@ export default function SmartWalletDrawer({
         <PersonaSetupWizard
           tenantId={tenantId}
           onComplete={handlePersonaCreated}
-          onCancel={personaSetupMandatory ? undefined : () => setPersonaSetupOpen(false)}
+          onCancel={() => {
+            setPersonaSetupOpen(false);
+            setPersonaSetupMandatory(false);
+          }}
           mandatory={personaSetupMandatory}
         />
       )}

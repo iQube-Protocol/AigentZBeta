@@ -570,8 +570,8 @@ export function PersonaSetupWizard({
   // =============================================================================
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="w-full max-w-lg mx-4 bg-slate-900/95 rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm overflow-y-auto py-4">
+      <div className="w-full max-w-lg mx-4 my-auto bg-slate-900/95 rounded-2xl border border-white/10 shadow-2xl flex flex-col max-h-[90vh]">
         {/* Progress bar */}
         <div className="h-1 bg-white/10">
           <div 
@@ -581,7 +581,7 @@ export function PersonaSetupWizard({
         </div>
         
         {/* Content */}
-        <div className="p-6">
+        <div className="p-6 overflow-y-auto flex-1 min-h-0">
           {/* Error display */}
           {error && (
             <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2 text-red-400">
@@ -604,9 +604,21 @@ export function PersonaSetupWizard({
               FIO-registration flow). User cannot exit until a persona is
               created and the FIO handle is registered on-chain. */}
           {currentIndex === 0 && mandatory ? (
-            <span className="px-4 py-2 text-xs text-slate-500">
-              Setup required — FIO handle is registered on-chain
-            </span>
+            <button
+              onClick={async () => {
+                try {
+                  const { getSupabaseBrowserClient } = await import('@/utils/supabaseBrowser');
+                  await getSupabaseBrowserClient().auth.signOut();
+                } catch {
+                  // non-fatal — falling back to onCancel below
+                }
+                onCancel?.();
+              }}
+              className="px-4 py-2 text-xs text-slate-400 hover:text-white transition-colors"
+              disabled={isLoading}
+            >
+              Sign out
+            </button>
           ) : (
             <button
               onClick={currentIndex === 0 ? onCancel : goBack}
