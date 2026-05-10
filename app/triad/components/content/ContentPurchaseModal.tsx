@@ -387,8 +387,14 @@ export function ContentPurchaseModal({
         season_codex_motion: 'knyt_season_codex_motion',
       };
 
+      // /api/purchase/complete resolves the active persona server-side via
+      // the spine's getActivePersona — the personaId field is no longer
+      // trusted from the request body (T0 leak / spoof risk). We keep
+      // sending it for backwards compatibility with older deployments;
+      // newer servers ignore it and read the session.
       const response = await fetch(`${apiBase}/api/purchase/complete`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           personaId: resolvedPersonaId,
