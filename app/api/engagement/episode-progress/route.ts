@@ -1,44 +1,57 @@
 /**
- * API Route: Episode Progress
+ * API Route: Episode Progress — spine-conformant
  * POST /api/engagement/episode-progress
- * 
- * Records episode engagement events and triggers rewards.
+ *
+ * Records episode engagement events for Knight-of-Attention task chain
+ * (decisions doc §3 + ops backlog §2). Persona resolved via the spine
+ * via getActivePersona — body.personaId is no longer trusted (T0 leak
+ * + spoof risk).
+ *
+ * On 'completed' events, engagementService.recordEngagement creates a
+ * crm_rewards row with status='approved' which the Phase D
+ * /api/wallet/knyt/rewards/redeem endpoint redeems through the spine.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getEngagementService } from '@/services/rewards/engagementService';
+import { getActivePersona } from '@/services/identity/getActivePersona';
 
 export async function POST(request: NextRequest) {
   try {
+    const persona = await getActivePersona(request);
+    if (!persona) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
-    const { personaId, episodeId, eventType, progressPercent, timeSpentSeconds, metadata } = body;
-    
-    if (!personaId || !episodeId || !eventType) {
-      return NextResponse.json({ 
-        error: 'personaId, episodeId, and eventType are required' 
+    const { episodeId, eventType, progressPercent, timeSpentSeconds, metadata } = body;
+
+    if (!episodeId || !eventType) {
+      return NextResponse.json({
+        error: 'episodeId and eventType are required',
       }, { status: 400 });
     }
-    
+
     if (!['started', 'progress', 'completed'].includes(eventType)) {
-      return NextResponse.json({ 
-        error: 'eventType must be started, progress, or completed' 
+      return NextResponse.json({
+        error: 'eventType must be started, progress, or completed',
       }, { status: 400 });
     }
-    
+
     const engagementService = getEngagementService();
     const result = await engagementService.recordEngagement({
-      personaId,
+      personaId: persona.personaId,
       episodeId,
       eventType,
       progressPercent,
       timeSpentSeconds,
       metadata,
     });
-    
+
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
-    
+
     return NextResponse.json({
       success: true,
       eventId: result.eventId,
