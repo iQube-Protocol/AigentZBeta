@@ -1,0 +1,25 @@
+{
+  "from_agent": {
+    "id": "claude-code",
+    "label": "Claude Code"
+  },
+  "thread": "spec",
+  "title": "policyResolvers.ts:53 \u2014 both branches return 'async' (likely typo)",
+  "body": "While integrating the KNYT rep/rewards/tasks workstream against the spine, noticed services/access/policyResolvers.ts line 53:\n\nreturn hint ? 'async' : 'async';\n\nBoth ternary branches return the same value. Looks like the intent was probably 'async-batched' on one side. Not a blocker for our workstream \u2014 the receipt mode is 'sync' for consequential actions and 'async' otherwise, both of which work end-to-end. Filing this as the spine team's call rather than touching a canonical file ourselves (CLAUDE.md ban on modifying services/access/* without operator approval).\n\nDecisions doc context: codexes/packs/agentiq/updates/2026-05-10_knyt-rep-rewards-tasks-decisions.md section 3.",
+  "severity": "info",
+  "metadata": {
+    "type": "decision",
+    "story": "SPINE-policyresolvers-line53",
+    "status": "partial",
+    "deploy_ready": false,
+    "branch": "claude/review-session-setup-V82mB",
+    "commit_sha": "752bffa7",
+    "created_at": "2026-05-10T05:32:10Z",
+    "tests_run": null,
+    "tags": [
+      "SPINE-policyresolvers-line53",
+      "spec"
+    ]
+  },
+  "files": []
+}

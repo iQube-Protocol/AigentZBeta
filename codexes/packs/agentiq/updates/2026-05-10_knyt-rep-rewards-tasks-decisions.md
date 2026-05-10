@@ -74,7 +74,7 @@ credential strings:
 |---|---|---|
 | `free` | n/a | spine returns allow=true with `reason='free'` |
 | `payment` | n/a | spine routes through KNYT debit (existing path) |
-| `credential` | `cohort:knyt:backers` | RQH cohort resolver (Phase 3.3a, live) |
+| `credential` | `cohort:knyt:backers` | RQH cohort resolver (Phase 3.3a, live) — one of the 5 seed cohorts from Phase 3 |
 | `credential` | `token:ethereum:0xABC...` | EVM token resolver (Phase 3.3b, live) |
 | `credential` | `admin` / `partner` | `cartridgeFlags` short-circuit (Phase 1) |
 
@@ -125,14 +125,14 @@ partition_id = `<cohortId>:<personaId>`
 ```
 
 Examples:
-- `knyt:backers:9de2eecc-...` — fost@knyt's reputation in the KNYT backers cohort
+- `knyt:risers:9de2eecc-...` — fost@knyt's reputation in the KNYT backers cohort
 - `agentiq:developers:abc123-...` — a dev's reputation in the AgentiQ developers cohort
 
 ### RQH record shape (per delta event)
 
 ```jsonc
 {
-  "partition_id": "knyt:backers:9de2eecc-...",
+  "partition_id": "knyt:risers:9de2eecc-...",
   "delta": 5,                              // signed integer; can be negative
   "dimension": "community",                // matches crm_persona_reputation columns
   "source_event_id": "<orchestration_event uuid>",
@@ -153,8 +153,8 @@ the OrchestrationEvent; `partition_id` lives in RQH; the two are linked by
 | Trigger | Source kind | Default delta | Cohort |
 |---|---|---|---|
 | Task accepted by editor | `task_completion` | `crm_task_templates.reputation_weight_<dimension>` | from task template's `cohort_id` |
-| Knight-of-Attention episode complete | `usage` | configurable per category | `knyt:backers` |
-| Bring-a-Knight qualified referral | `referral` | configurable | `knyt:backers` |
+| Knight-of-Attention episode complete | `usage` | configurable per category | `knyt:risers` |
+| Bring-a-Knight qualified referral | `referral` | configurable | `knyt:risers` |
 | Manual operator grant | `manual_grant` | per-call value | per-call cohort |
 | Decay sweep (weekly cron) | `decay` | configurable per dimension | global |
 
@@ -404,44 +404,55 @@ by forking.
 
 ---
 
-## 13. Open questions for the operator
+## 13. Operator answers (locked 2026-05-10)
 
-1. **Cohort id for the 3 General task families.** The Bring-a-Knight,
-   Knight-of-Attention, and Herald-of-the-Order tasks need a cohort to drive
-   the RQH partition convention. Default proposal: `knyt:backers`. Confirm
-   or specify alternative.
+1. **Cohort id for the 3 General task families.** ✅ **`knyt:risers`** —
+   distinct from the existing `knyt:backers` seed cohort (which gates
+   investor-tier perks). `knyt:risers` is the engagement-cohort whose
+   reputation deltas come from the General task families (Bring-a-Knight,
+   Knight-of-Attention, Herald-of-the-Order). Phase B / Phase C migrations
+   add `knyt:risers` to the cohort directory as a sixth seed cohort.
 
-2. **Reputation decay schedule.** Today there's no decay. We can land RQH
-   delta writes with `source_kind='decay'` on a weekly cron, but the rate
-   needs an operator call (e.g. -1% per week per dimension) before the cron
-   ships. Until decided, decay is not implemented.
+2. **Reputation decay schedule.** ✅ Weekly cron confirmed. The decay rate
+   per dimension is **TBD by operator** before the cron ships — until the
+   rate lands, the cron is not deployed and `source_kind='decay'` writes
+   never fire. Phase F lands the decay cron stub with the rate as a
+   `REPUTATION_DECAY_PCT_PER_WEEK_*` env var per dimension.
 
-3. **`crm_persona_reputation` cache TTL.** Proposed 5 minutes for the wallet
-   UI hot-read. Confirm or specify (e.g. 1 min for testing, 60 min for prod).
+3. **`crm_persona_reputation` cache TTL.** ✅ **5 minutes confirmed.**
+   Implementation: invalidate the row on every successful RQH write so the
+   wallet badge updates immediately after a delta; the 5-min TTL is the
+   passive refresh ceiling for hot reads that don't trigger a write.
 
-4. **`tests/access-spine-rewards.test.ts` runtime.** Vitest is the existing
-   convention. Confirm we should match (no Jest, no Playwright at this layer).
+4. **Test runtime.** ✅ **Vitest confirmed.** All new test files (Phase F)
+   use the same vitest setup as `tests/access-spine.test.ts` and
+   `tests/persona-broadcast-handshake.test.ts`. No Jest, no Playwright at
+   this layer.
 
-5. **Marketa ↔ KNYT cross-cartridge tasks.** Out of scope for v1 of this
-   workstream? Or do we need the cross-cartridge handoff path live before
-   wallet wire-up? Default proposal: out of scope, file as follow-up.
+5. **Marketa ↔ KNYT cross-cartridge tasks.** ✅ **Fast follow-up.** Out of
+   scope for v1 of THIS workstream, but explicitly tracked as a fast
+   follow-up. Filed as a separate backlog doc:
+   `2026-05-10_marketa-knyt-cross-cartridge-tasks-backlog.md`. The wallet
+   wire-up in Phase D leaves the integration point open (BuildCodexUrl is
+   already in place; the Marketa side just needs to start sending us
+   tasks).
 
-6. **The `policyResolvers.ts:53` typo flagged in §3.** Whose call to fix it
-   (spine team or this workstream)? Default proposal: spine team owns it;
-   we file via QubeTalk.
+6. **`policyResolvers.ts:53` typo.** ✅ **Spine team via QubeTalk.** Filed
+   as a QubeTalk bridge packet under `docs/qubetalk-bridge/outbox/`.
+   No code change in this workstream.
 
 ---
 
 ## 14. Acceptance criteria for this decisions doc
 
-- [ ] Operator reviews and approves the 13 numbered sections
-- [ ] All 6 open questions in §13 have answers (or are explicitly deferred)
-- [ ] Doc is registered in `codexes/packs/agentiq/collections.json` under
+- [x] Operator reviews and approves the 13 numbered sections
+- [x] All 6 open questions in §13 have answers
+- [x] Doc is registered in `codexes/packs/agentiq/collections.json` under
   `col_updates`
 - [ ] Doc is referenced from the next workstream commit's message so the
-  audit trail starts here
+  audit trail starts here *(Phase B opens this when it ships)*
 - [ ] No feature code lands until this is signed off (per the integration
-  brief's "decisions-doc-first" rule)
+  brief's "decisions-doc-first" rule) *(satisfied; Phase B can begin)*
 
 ---
 
