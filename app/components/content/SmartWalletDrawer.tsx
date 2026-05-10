@@ -3615,7 +3615,12 @@ export default function SmartWalletDrawer({
                   )}
                 </>
               ) : (
-                /* Static fallback when no personaId or API unavailable */
+                /* Static fallback when no personaId or API unavailable.
+                 * Buttons are wired with the same handlers as the data-driven
+                 * branch above — the user can still trigger task actions even
+                 * when the /api/wallet/tasks payload hasn't loaded (e.g. 401
+                 * during a brief session re-handshake, or empty cohort seed).
+                 */
                 <>
                   <section className="rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 ring-1 ring-cyan-500/20 p-3">
                     <div className="flex items-center gap-2 mb-2">
@@ -3624,9 +3629,14 @@ export default function SmartWalletDrawer({
                       <span className="ml-auto text-[10px] text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded">+2 KNYT</span>
                     </div>
                     <p className="text-[10px] text-white/50 mb-2">Invite friends to join. Earn 2 KNYT when they make their first purchase.</p>
-                    <button className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded bg-cyan-500/20 text-cyan-300 text-xs hover:bg-cyan-500/30">
+                    <button
+                      type="button"
+                      onClick={() => openInviteShare('bring-a-knight')}
+                      disabled={inviteShareLoading === 'bring-a-knight'}
+                      className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded bg-cyan-500/20 text-cyan-300 text-xs hover:bg-cyan-500/30 disabled:opacity-50"
+                    >
                       <Share2 className="w-3 h-3" />
-                      Share Invite Link
+                      {inviteShareLoading === 'bring-a-knight' ? 'Opening…' : 'Share Invite'}
                     </button>
                   </section>
 
@@ -3637,11 +3647,19 @@ export default function SmartWalletDrawer({
                       <span className="ml-auto text-[10px] text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded">+0.5 KNYT</span>
                     </div>
                     <p className="text-[10px] text-white/50 mb-2">Complete episodes to earn rewards. Build streaks for bonus KNYT.</p>
-                    <div className="flex items-center gap-2 text-[10px] text-white/40">
+                    <div className="flex items-center gap-2 text-[10px] text-white/40 mb-2">
                       <span>Episodes: 0/2 this week</span>
                       <span className="text-white/20">|</span>
                       <span>Streak: 0 weeks</span>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => navigateToKnytTab('scrolls')}
+                      className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded bg-purple-500/20 text-purple-300 text-xs hover:bg-purple-500/30"
+                    >
+                      <BookOpen className="w-3 h-3" />
+                      Open Episodes
+                    </button>
                   </section>
 
                   <section className="rounded-xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 ring-1 ring-amber-500/20 p-3">
@@ -3651,11 +3669,20 @@ export default function SmartWalletDrawer({
                       <span className="ml-auto text-[10px] text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded">+0.25 KNYT</span>
                     </div>
                     <p className="text-[10px] text-white/50 mb-2">Share content and earn when others click, sign up, or purchase.</p>
-                    <div className="flex items-center gap-2 text-[10px] text-white/40">
+                    <div className="flex items-center gap-2 text-[10px] text-white/40 mb-2">
                       <span>Clicks: 0/10</span>
                       <span className="text-white/20">|</span>
                       <span>Signups: 0/3</span>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => openInviteShare('herald')}
+                      disabled={inviteShareLoading === 'herald'}
+                      className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded bg-amber-500/20 text-amber-300 text-xs hover:bg-amber-500/30 disabled:opacity-50"
+                    >
+                      <Share2 className="w-3 h-3" />
+                      {inviteShareLoading === 'herald' ? 'Opening…' : 'Share Invite'}
+                    </button>
                   </section>
 
                   <section className="rounded-xl bg-gradient-to-br from-violet-500/10 to-amber-500/10 ring-1 ring-violet-500/20 p-3">
@@ -3668,14 +3695,14 @@ export default function SmartWalletDrawer({
                     </p>
                     <div className="space-y-1.5">
                       {[
-                        { label: "Vote on open elections", badge: "+21 KNYT", badgeClass: "text-amber-300 bg-amber-500/10" },
-                        { label: "Submit community contribution", badge: "PoKW", badgeClass: "text-cyan-300 bg-cyan-500/10" },
-                        { label: "File Correspondent dispatch", badge: "Featured", badgeClass: "text-violet-300 bg-violet-500/10" },
-                      ].map(({ label, badge, badgeClass }) => (
+                        { id: 'knyt:living-canon-vote',       label: "Vote on open elections",         badge: "+21 KNYT", badgeClass: "text-amber-300 bg-amber-500/10" },
+                        { id: 'knyt:living-canon-contribute', label: "Submit community contribution", badge: "PoKW",     badgeClass: "text-cyan-300 bg-cyan-500/10" },
+                        { id: 'knyt:living-canon-dispatch',   label: "File Correspondent dispatch",    badge: "Featured", badgeClass: "text-violet-300 bg-violet-500/10" },
+                      ].map(({ id, label, badge, badgeClass }) => (
                         <button
-                          key={label}
+                          key={id}
                           type="button"
-                          onClick={() => window.dispatchEvent(new CustomEvent('knyt:navigate-tab', { detail: { tab: 'living-canon' } }))}
+                          onClick={() => navigateToKnytTab('living-canon', id)}
                           className="w-full flex items-center justify-between rounded-lg bg-white/5 hover:bg-white/10 transition px-2 py-1.5 text-left"
                         >
                           <span className="text-[11px] text-white/70">{label}</span>
