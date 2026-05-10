@@ -645,11 +645,29 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     setActiveTab(resolvedInitialTab);
   }, [resolvedInitialTab]);
 
-  // Listen for wallet drawer CTA navigation events
+  // Listen for wallet drawer CTA navigation events.
+  // v2 ops adds taskSlug + fallbackTab support (Living Canon deep-links):
+  //   detail.tab           — preferred destination (e.g. '21-sats')
+  //   detail.taskSlug      — optional; receiving tab can pre-select the
+  //                           submission/vote/dispatch surface for this slug
+  //   detail.fallbackTab   — used when `tab` isn't a recognised KnytTabSlug
+  //                           (e.g. legacy 'living-canon' destinations)
+  // The taskSlug is parked on a window-scoped key so the receiving tab
+  // (21 Sats) can read it on mount without prop-drilling.
   useEffect(() => {
     const handler = (e: Event) => {
-      const slug = (e as CustomEvent<{ tab: string }>).detail?.tab;
-      if (slug && isKnytTabSlug(slug)) setActiveTab(slug);
+      const detail = (e as CustomEvent<{ tab?: string; taskSlug?: string; fallbackTab?: string }>).detail || {};
+      const candidate = detail.tab && isKnytTabSlug(detail.tab) ? detail.tab : null;
+      const fallback = detail.fallbackTab && isKnytTabSlug(detail.fallbackTab) ? detail.fallbackTab : null;
+      const target = candidate || fallback;
+      if (!target) return;
+      if (detail.taskSlug) {
+        // Park for the receiving tab to consume on mount.
+        try {
+          (window as unknown as { __knytPendingTaskSlug?: string }).__knytPendingTaskSlug = detail.taskSlug;
+        } catch { /* non-fatal */ }
+      }
+      setActiveTab(target);
     };
     window.addEventListener('knyt:navigate-tab', handler);
     return () => window.removeEventListener('knyt:navigate-tab', handler);

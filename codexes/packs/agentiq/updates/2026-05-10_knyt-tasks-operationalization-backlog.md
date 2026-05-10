@@ -114,6 +114,27 @@ Each chain is independently shippable. Recommend doing Bring-a-Knight first sinc
 
 ---
 
+---
+
+## v2 polish status (2026-05-10 — late session)
+
+After the v2 ops kickoff (`1fd09fcf`), the remaining polish items were
+addressed in commit `<this-commit>`:
+
+| # | Item | Status |
+|---|---|---|
+| 4 | Bring-a-Knight signup-side ref-code → persona resolver | ✅ Closed: new migration `20260511030000_referral_codes_index.sql` adds `referral_codes` table; share-link endpoint upserts on every code mint; new `GET /api/referral/resolve-code?ref=<code>` returns the matching referrer for the signup flow to call `/api/referral/process` against |
+| 1 | Click-tracking endpoint | ✅ Closed: new `POST /api/wallet/tasks/track-click` accepts `{ refCode, source }`, resolves the refCode → referrer via the same index, writes a `referral_clicks` row. Same migration adds the table |
+| 2 | 21 Sats tab side: receiver of `taskSlug` event detail | ✅ Half-closed: `KnytTab` navigate-tab handler now reads `detail.taskSlug` and parks it on `window.__knytPendingTaskSlug` for the receiving tab to consume on mount. The 21 Sats tab side that READS the parked value is the remaining half — small, mechanical follow-up |
+| 3 | Codex viewer client-side: fire `/api/engagement/episode-progress` on PDF-end / video-end | ❌ Deferred: touches `PdfPageViewer` + `VideoPlayer` shared components + has episode-id format coupling concerns. Filed for a fresh-context commit |
+
+The `referral_codes` table is the substrate that closes the BaK loop end
+to end: share-link → click attribution → signup resolution. Once a fresh
+session lands the viewer-side episode-complete fire (item #3), the four
+task chains are fully operationalised and v2 can close.
+
+---
+
 ## References
 
 - v1 closure: `2026-05-10_knyt-rep-rewards-tasks-closure.md`
