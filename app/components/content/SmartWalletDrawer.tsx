@@ -28,6 +28,7 @@ import { PersonaEditModal } from "../wallet/PersonaEditModal";
 import { PersonaQuickAddModal } from "../wallet/PersonaQuickAddModal";
 import { PersonaSetupWizard } from "../wallet/PersonaSetupWizard";
 import { TransactionModal } from "../wallet/TransactionModal";
+import { buildCodexUrl } from "@/utils/codex-nav";
 import { UnlockModal } from "../wallet/UnlockModal";
 import type { TransactionTab, ChainId, TransactionResult, PaymentRequest } from "../wallet/TransactionModal";
 import { useSmartTriad } from "./SmartTriadProvider";
@@ -1489,6 +1490,31 @@ export default function SmartWalletDrawer({
       setTimeout(() => setShareCopiedFor(null), 2500);
     } catch { /* non-fatal */ }
   }, []);
+
+  // Navigate to a KNYT cartridge tab from the wallet drawer.
+  // The wallet is global — it can be open from any cartridge or even a
+  // non-codex page. If the user is already in the KNYT codex, dispatch
+  // the navigate-tab event for fast intra-app routing. Otherwise build
+  // a cross-cartridge URL via buildCodexUrl so the browser lands on
+  // the right tab in a fresh codex shell. taskSlug rides as a query
+  // param so the receiving tab can pre-select the task surface.
+  const navigateToKnytTab = useCallback((tab: string, taskSlug?: string) => {
+    if (typeof window === 'undefined') return;
+    const inKnytCodex = /\/(triad\/embed\/codex\/)?knyt(-codex)?(\b|\/|$)/i.test(window.location.pathname);
+    if (inKnytCodex) {
+      window.dispatchEvent(new CustomEvent('knyt:navigate-tab', {
+        detail: { tab, taskSlug, fallbackTab: tab },
+      }));
+      onClose?.();
+      return;
+    }
+    // Cross-cartridge: navigate to the KNYT codex with the right tab.
+    let url = buildCodexUrl('knyt-codex', { tab, personaId: effectivePersonaId, from: 'wallet' });
+    if (taskSlug) {
+      url += (url.includes('?') ? '&' : '?') + `taskSlug=${encodeURIComponent(taskSlug)}`;
+    }
+    window.location.href = url;
+  }, [effectivePersonaId, onClose]);
   const redeemReward = useCallback(async (rewardId: string) => {
     setClaimingRewardId(rewardId);
     setClaimError(null);
@@ -3490,16 +3516,7 @@ export default function SmartWalletDrawer({
                           {card.id === 'knyt:knight-of-attention' && (
                             <button
                               type="button"
-                              onClick={() => {
-                                // Deep-link to the Scrolls tab where the user
-                                // can read/watch episodes; engagement events
-                                // fire from the viewer side and feed
-                                // crm_rewards via engagementService.
-                                window.dispatchEvent(new CustomEvent('knyt:navigate-tab', {
-                                  detail: { tab: 'scrolls' },
-                                }));
-                                onClose?.();
-                              }}
+                              onClick={() => navigateToKnytTab('scrolls')}
                               className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded bg-purple-500/20 text-purple-300 text-xs hover:bg-purple-500/30"
                             >
                               <BookOpen className="w-3 h-3" />
@@ -3528,20 +3545,7 @@ export default function SmartWalletDrawer({
                             <button
                               key={card.id}
                               type="button"
-                              onClick={() => {
-                                // v2 ops: deep-link Living Canon cards into the
-                                // 21 Sats tab with the task slug carried so the
-                                // receiving tab can pre-select the right surface.
-                                // Falls back to the generic 'living-canon' tab if
-                                // the receiver hasn't been updated yet.
-                                window.dispatchEvent(new CustomEvent('knyt:navigate-tab', {
-                                  detail: {
-                                    tab: '21-sats',
-                                    taskSlug: card.id,
-                                    fallbackTab: card.deepLink ?? 'living-canon',
-                                  },
-                                }));
-                              }}
+                              onClick={() => navigateToKnytTab('living-canon', card.id)}
                               className="w-full flex items-center justify-between rounded-lg bg-white/5 hover:bg-white/10 transition px-2 py-1.5 text-left"
                             >
                               <span className="text-[11px] text-white/70">{card.title}</span>
