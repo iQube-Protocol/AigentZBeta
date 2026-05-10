@@ -23,6 +23,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getEntitlementService } from '@/services/rewards/entitlementService';
+import { BUNDLE_PRICING } from '@/types/knyt-store';
 
 export const runtime = 'nodejs';
 
@@ -123,10 +124,38 @@ async function diagnose(personaId: string) {
     entitlementsByAsset.set(e.asset_id, (entitlementsByAsset.get(e.asset_id) ?? 0) + 1);
   });
 
-  const purchasesWithoutEntitlement = purchases.filter((p) => {
+  /**
+   * Resolve the canonical bundle SKU id for a purchase row. The modal sends
+   * assetIds with the bundle id (e.g. 'satoshi-knyt-investor'); processPurchase
+   * stores them in purchases.metadata. For older purchase rows that don't have
+   * assetIds in metadata, fall back to matching contentTitle against
+   * BUNDLE_PRICING.label — that's how we recover fost@knyt's Satoshi entitlement
+   * when the original grant failed and no assetIds were persisted.
+   */
+  function resolveBundleSkuId(p: typeof purchases[number]): string | null {
     const meta = (p.metadata as Record<string, unknown>) ?? {};
-    const candidate = (meta.assetIds as string[] | undefined)?.[0] ?? p.product_id;
-    return candidate && !entitlementsByAsset.has(candidate);
+    const explicitBundleId = typeof meta.bundleSkuId === 'string' ? meta.bundleSkuId : null;
+    if (explicitBundleId && BUNDLE_PRICING.some((b) => b.id === explicitBundleId)) {
+      return explicitBundleId;
+    }
+    const fromAssetIds = Array.isArray(meta.assetIds) ? (meta.assetIds as unknown[])[0] : null;
+    if (typeof fromAssetIds === 'string' && BUNDLE_PRICING.some((b) => b.id === fromAssetIds)) {
+      return fromAssetIds;
+    }
+    const contentTitle = typeof meta.contentTitle === 'string' ? meta.contentTitle : null;
+    if (contentTitle) {
+      const match = BUNDLE_PRICING.find((b) => b.label === contentTitle);
+      if (match) return match.id;
+    }
+    return null;
+  }
+
+  const purchasesWithoutEntitlement = purchases.filter((p) => {
+    const bundleId = resolveBundleSkuId(p);
+    if (bundleId) return !entitlementsByAsset.has(bundleId);
+    const meta = (p.metadata as Record<string, unknown>) ?? {};
+    const fallback = (meta.assetIds as string[] | undefined)?.[0] ?? p.product_id;
+    return fallback && !entitlementsByAsset.has(fallback);
   });
 
   return {
@@ -141,13 +170,19 @@ async function diagnose(personaId: string) {
     },
     repairCandidates: purchasesWithoutEntitlement.map((p) => {
       const meta = (p.metadata as Record<string, unknown>) ?? {};
+      const bundleId = resolveBundleSkuId(p);
+      const fallback = (meta.assetIds as string[] | undefined)?.[0] ?? p.product_id;
       return {
         purchaseId: p.id as string,
         productId: p.product_id as string,
         productType: p.product_type as string,
         amount: p.amount,
         currency: p.currency,
-        candidateAssetId: ((meta.assetIds as string[] | undefined)?.[0] ?? p.product_id) as string,
+        // Prefer the resolved bundle SKU id (matches store_skus); fall back
+        // to whatever was in assetIds or the product UUID as a last resort.
+        candidateAssetId: (bundleId ?? fallback) as string,
+        bundleSkuId: bundleId,
+        contentTitle: typeof meta.contentTitle === 'string' ? meta.contentTitle : null,
         completedAt: p.completed_at,
       };
     }),

@@ -217,7 +217,15 @@ export class PurchaseHandler {
           currency: railPricing.currency,
           status: 'completed',
           payment_reference: paymentReference,
-          metadata: metadata || {},
+          // Persist resolution context in metadata so the diagnostic / repair
+          // endpoint can recover the right asset_ids on future failures.
+          // Without this, a failed entitlement grant leaves an orphaned
+          // purchase row whose `metadata` doesn't tell us what was bought.
+          metadata: {
+            ...(metadata || {}),
+            assetIds: assetIds ?? null,
+            bundleSkuId: bundleSku?.id ?? null,
+          },
           completed_at: new Date().toISOString(),
         })
         .select()
@@ -245,8 +253,10 @@ export class PurchaseHandler {
       }
       
       let entitlementsGranted = 0;
-      
+      let entitlementErrors: string[] = [];
+
       if (assetsToGrant.length > 0) {
+        console.log('[PurchaseHandler] Granting bundle entitlements:', { personaId, assetsToGrant, purchaseId: purchase.id });
         const result = await entitlementService.grantBundleEntitlements(
           personaId,
           assetsToGrant,
@@ -254,6 +264,10 @@ export class PurchaseHandler {
           { productType, paymentRail }
         );
         entitlementsGranted = result.granted;
+        entitlementErrors = result.errors ?? [];
+        if (entitlementErrors.length > 0) {
+          console.error('[PurchaseHandler] Entitlement grant errors:', entitlementErrors);
+        }
       } else {
         // For singles without predefined asset IDs, grant based on product type
         const result = await entitlementService.grantEntitlement({
@@ -262,7 +276,25 @@ export class PurchaseHandler {
           sourcePurchaseId: purchase.id,
           metadata: { productType, paymentRail },
         });
-        if (result.success) entitlementsGranted = 1;
+        if (result.success) {
+          entitlementsGranted = 1;
+        } else {
+          entitlementErrors.push(result.error || 'unknown');
+          console.error('[PurchaseHandler] Single entitlement grant failed:', result.error);
+        }
+      }
+
+      // If we debited the buyer but failed to grant any entitlement, that's a
+      // partial-failure that the buyer must see and the operator must repair.
+      // Surface it as a hard error rather than swallowing — fost@knyt's case
+      // where the purchase row + balance debit succeeded but no entitlement
+      // was inserted and the modal still showed "complete!" must not repeat.
+      if (assetsToGrant.length > 0 && entitlementsGranted === 0) {
+        return {
+          success: false,
+          error: `Purchase recorded but entitlement grant failed: ${entitlementErrors.join('; ') || 'unknown'}. Contact support — purchase id: ${purchase.id}`,
+          purchaseId: purchase.id,
+        };
       }
       
       // 5. Check for first paid purchase (Bring a Knight)
