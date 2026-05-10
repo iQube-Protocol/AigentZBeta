@@ -1463,6 +1463,55 @@ export default function SmartWalletDrawer({
     return () => { cancelled = true; };
   }, [personaId, localPersonaId]);
 
+  // Reward redemption — Phase D of the rep/rewards/tasks workstream.
+  // POST /api/wallet/knyt/rewards/redeem flows through evaluateAccess('mint')
+  // which fires a sync receipt with T2 alias commitment + cohort_id and
+  // gates on fio-handle-required (the spine denies if the persona has no
+  // FIO handle registered). On success the DVN balance updates + the
+  // reward status flips to 'redeemed' server-side.
+  const [claimingRewardId, setClaimingRewardId] = useState<string | null>(null);
+  const [claimError, setClaimError] = useState<string | null>(null);
+  const redeemReward = useCallback(async (rewardId: string) => {
+    setClaimingRewardId(rewardId);
+    setClaimError(null);
+    try {
+      const res = await fetch('/api/wallet/knyt/rewards/redeem', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rewardId }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        const reason = json?.reason || json?.error || `redeem failed (${res.status})`;
+        // Surface FIO requirement specifically — the spine returns
+        // reason='fio-handle-required' for personas without FIO.
+        const friendly = reason === 'fio-handle-required'
+          ? 'Register your FIO handle in the Connections tab before claiming rewards.'
+          : reason;
+        setClaimError(friendly);
+        return;
+      }
+      // Refresh balance + tasks payload so the claimed row disappears
+      // and the new DVN balance reflects.
+      refreshKnyt();
+      const pid = personaId || localPersonaId;
+      if (pid) {
+        try {
+          const r = await fetch('/api/wallet/tasks', { credentials: 'include' });
+          if (r.ok) {
+            const data = await r.json();
+            setWalletTasksData(data);
+          }
+        } catch { /* non-fatal */ }
+      }
+    } catch (err) {
+      setClaimError((err as Error).message);
+    } finally {
+      setClaimingRewardId(null);
+    }
+  }, [personaId, localPersonaId]);
+
   // Get pricing info for current content
   const contentPrice = currentContent?.pricingModel?.tiers?.[0];
   const isFreeContent = !contentPrice || contentPrice.kind === "free" || contentPrice.amount === 0;
@@ -3756,17 +3805,45 @@ export default function SmartWalletDrawer({
                     Claimable Rewards
                   </div>
                   <div className="space-y-2">
-                    {walletTasksData!.questRail.rewards.map((r) => (
-                      <div key={r.id} className="flex items-center justify-between rounded-lg bg-white/5 ring-1 ring-white/10 px-2 py-1.5">
-                        <span className="text-xs text-white/70">{r.source}</span>
-                        <span className="flex items-center gap-1 text-sm font-medium text-emerald-300">
-                          <Coins className="w-3.5 h-3.5" />
-                          +{r.amount} KNYT
-                        </span>
-                      </div>
-                    ))}
+                    {walletTasksData!.questRail.rewards.map((r) => {
+                      const isClaiming = claimingRewardId === r.id;
+                      return (
+                        <div key={r.id} className="flex items-center justify-between rounded-lg bg-white/5 ring-1 ring-white/10 px-2 py-1.5">
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-xs text-white/70 truncate">{r.source}</span>
+                            <span className="text-[10px] text-emerald-400/70 inline-flex items-center gap-1">
+                              <Coins className="w-3 h-3" />
+                              +{r.amount} KNYT
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => redeemReward(r.id)}
+                            disabled={isClaiming || claimingRewardId !== null}
+                            className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-500/20 text-emerald-200 text-xs hover:bg-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            {isClaiming ? (
+                              <>
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                                Claiming…
+                              </>
+                            ) : (
+                              <>
+                                <Gift className="w-3 h-3" />
+                                Claim
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <p className="text-[10px] text-white/30 mt-2">Contact support to claim — on-chain claim flow coming soon.</p>
+                  {claimError && (
+                    <p className="text-[10px] text-red-400 mt-2">{claimError}</p>
+                  )}
+                  <p className="text-[10px] text-white/30 mt-2">
+                    Spine-mediated mint via deferred-claim flow. Credits DVN balance on success.
+                  </p>
                 </section>
               )}
 
