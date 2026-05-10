@@ -21,6 +21,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createHmac } from 'crypto';
+import { createClient } from '@supabase/supabase-js';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 
 export const runtime = 'nodejs';
@@ -43,7 +44,6 @@ function refEpoch(): string {
 function publicHost(req: NextRequest): string {
   const fromEnv = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL;
   if (fromEnv) return fromEnv.replace(/\/$/, '');
-  // Fall back to the request's origin so dev / preview / prod all work
   const origin = req.headers.get('origin') || req.nextUrl.origin;
   return origin.replace(/\/$/, '');
 }
@@ -53,6 +53,14 @@ function computeRefCode(source: ShareSource, personaId: string): string {
     .update(`${source}|${personaId}|${refEpoch()}`)
     .digest('hex')
     .substring(0, 16);
+}
+
+function supabaseSr() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } },
+  );
 }
 
 export async function GET(request: NextRequest) {
@@ -71,17 +79,32 @@ export async function GET(request: NextRequest) {
   const source = sourceParam as ShareSource;
 
   const refCode = computeRefCode(source, persona.personaId);
+  const epoch = refEpoch();
   const host = publicHost(request);
   const url = `${host}/?ref=${refCode}&utm_source=${source}`;
 
-  // T1-only response: refCode + url + source. NO personaId / authProfileId
-  // / rootDid in the response — the code is the persona's only public
-  // referral identifier (and even that's HMAC-derived, not the raw id).
+  // Upsert (code → persona_id) so /api/referral/resolve-code can do
+  // the reverse lookup at signup time. PRIMARY KEY on `code` makes
+  // the upsert idempotent — same persona generating the same source's
+  // share link multiple times is a no-op.
+  try {
+    await supabaseSr()
+      .from('referral_codes')
+      .upsert(
+        { code: refCode, persona_id: persona.personaId, source, epoch },
+        { onConflict: 'code' },
+      );
+  } catch (err) {
+    // Non-fatal: the code is still a valid HMAC; signup-side recomputation
+    // can fall through to a brute-force resolver if needed. Log and move on.
+    console.warn('[share-link] referral_codes upsert failed:', err);
+  }
+
   return NextResponse.json({
     success: true,
     source,
     refCode,
     url,
-    epoch: refEpoch(),
+    epoch,
   });
 }
