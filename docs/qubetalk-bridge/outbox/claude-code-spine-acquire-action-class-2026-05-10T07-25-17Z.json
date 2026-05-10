@@ -1,0 +1,25 @@
+{
+  "from_agent": {
+    "id": "claude-code",
+    "label": "Claude Code"
+  },
+  "thread": "spec",
+  "title": "Proposal: new AccessAction 'acquire' for buyer-providing-payment semantics",
+  "body": "Filing per the KNYT rep/rewards/tasks decisions doc \u00a711.B and the operator's 2026-05-10 sign-off.\n\n## Problem\n\nThe KNYT rep/rewards/tasks workstream wants every gated action to flow through evaluateAccess, including direct purchases (a buyer paying KNYT to receive entitlement to an asset). The spine's current AccessAction set works well for everything EXCEPT this case:\n\n- 'read' / 'watch' / 'listen' \u2014 read-side; ownership check\n- 'invoke' \u2014 generic side-effect; reward-eligibility checks land here\n- 'mint' / 'transfer' \u2014 token lifecycle; sync receipt; gates on ownership\n- 'payment-settle' \u2014 value settlement; sync receipt; gates on ownership\n\nFor 'mint' / 'transfer' / 'payment-settle' on a payment-gated descriptor, the spine's payment-gated branch in evaluateAccess returns:\n  - allow=true reason='owned' \u2014 if the persona ALREADY owns the asset (correct for post-purchase audit)\n  - allow=false reason='payment-required' \u2014 if not (correct for read-side denial CTA)\n\nNeither is right for a buyer who is CURRENTLY providing payment. They don't own it yet (so 'owned' is wrong); they aren't being denied (so 'payment-required' is wrong).\n\n## Today's workaround (B.2 commit 0bfef906)\n\nThe /api/purchase/complete route does its existing payment validation + entitlement grant, THEN calls evaluateAccess(persona, descriptor, 'payment-settle') AFTER the entitlement is in user_entitlements. The spine sees the post-grant state, returns allow=true reason='owned', and emits a sync receipt. We discard the decision and keep the receipt side-effect.\n\nThis works but is semantically awkward: the receipt anchors 'persona owns the asset' rather than 'persona just bought the asset'. The audit reader has to infer purchase semantics from timestamp proximity to the OrchestrationEvent.\n\n## Proposal\n\nAdd a new AccessAction:\n\n  type AccessAction = | ... existing ... | 'acquire';\n\nSemantics:\n  - Persona-providing-payment-to-receive-entitlement\n  - In TX_CLASS_ACTIONS (sync receipt, FIO-required guard)\n  - Evaluator branch:\n      - if descriptor.gating.kind === 'free' \u2192 allow reason='free'\n      - if descriptor.gating.kind === 'credential' \u2192 run external resolver (cohort/token), allow if matches\n      - if descriptor.gating.kind === 'payment' \u2192 allow reason='acquiring' (NEW reason)\n        \u2014 the gate's role here is to verify identifiability + FIO + credentials, NOT ownership\n      - existing payment-validation stays in the consumer (purchaseHandler)\n\nRequired additions:\n  - AccessDecisionReason: add 'acquiring'\n  - SYNC_RECEIPT_ACTIONS: add 'acquire'\n  - Decision tree in evaluateAccess.ts for the 'acquire' branch (skip userOwnsAsset check)\n\n## How the workstream would consume it\n\n  const decision = await evaluateAccess(persona, descriptor, 'acquire');\n  if (!decision.allow) return { error: decision.reason };  // fio-handle-required, credential-required, etc.\n  // proceed with payment validation + entitlement grant\n  // sync receipt already anchored\n\nThis matches the spine's 'single decision authority' principle without the post-grant re-evaluation hack.\n\n## Scope\n\nThis is a spine-canonical change \u2014 touches services/access/evaluateAccess.ts, services/access/policyResolvers.ts, types/access.ts. Per CLAUDE.md's canonical-files ban, I'm filing it for spine-team review rather than implementing it from this workstream.\n\nNot blocking: the post-grant receipt pattern in B.2 works end-to-end. This is the cleaner long-term shape.",
+  "severity": "info",
+  "metadata": {
+    "type": "decision",
+    "story": "SPINE-acquire-action-class",
+    "status": "partial",
+    "deploy_ready": false,
+    "branch": "claude/review-session-setup-V82mB",
+    "commit_sha": "0bfef906",
+    "created_at": "2026-05-10T07:25:17Z",
+    "tests_run": null,
+    "tags": [
+      "SPINE-acquire-action-class",
+      "spec"
+    ]
+  },
+  "files": []
+}
