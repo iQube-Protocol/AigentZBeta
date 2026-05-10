@@ -47,8 +47,22 @@ import type { ActivePersonaContext } from '@/types/access';
  * 'Revert ACCESS_DEBUG_OPEN unconditional bypass after spine
  * verification is complete'.
  */
+/**
+ * Env-gated bypass. OFF by default in every environment — set
+ * ACCESS_DEBUG_OPEN=1 in Amplify env (or .env.local) to enable.
+ *
+ * Affects only the three debug endpoints used by verify-spine.mjs:
+ *   /api/access/inspect, /api/access/whoami, /api/access/list-assets
+ *
+ * Real content-delivery + purchase + persona-mutating routes remain
+ * strict regardless of this flag. Every bypass invocation logs a loud
+ * `[SPINE] DEBUG-OPEN BYPASS` line for audit.
+ *
+ * Phase 5 will retire this bypass entirely once verify-spine.mjs has a
+ * proper JWT-based auth path.
+ */
 export function isDebugBypassEnabled(): boolean {
-  return true; // TEMPORARY DEBUG — restore to `process.env.ACCESS_DEBUG_OPEN === '1'` (or `false`) after testing.
+  return process.env.ACCESS_DEBUG_OPEN === '1';
 }
 
 export function buildDebugBypassContext(): ActivePersonaContext {
