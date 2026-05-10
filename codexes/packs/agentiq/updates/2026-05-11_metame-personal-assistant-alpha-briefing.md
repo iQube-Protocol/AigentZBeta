@@ -28,7 +28,7 @@ You have not seen this codebase. This document is your full cold-start. Read it 
 | **Studio** | Document, campaign, media, creative production | Existing primitives in `services/studio/`, `app/triad/components/codex/composer/` |
 | **Registry / Ingestion Factory** | Composable tools, skills, iQubes, cartridges | Existing — `app/api/registry/`, `services/registry/` |
 | **Google Workspace** | Gmail, Calendar, Drive, Docs, Slides | NEW — your build surface (Phase C) |
-| **Specialist agents** | Marketa, Quill, Aigent Z, Aigent C, KNYT guide | Existing — `services/orchestration/` |
+| **Specialist agents** | Marketa, Quill, Aigent Z, Aigent C, Aigent Kn0w1 (KNYT guide) | Existing — `services/orchestration/` |
 | **AgentiQ Venture Lab** | KPIs, venture goals, ops progress | Existing — `app/(shell)/marketa/`, `services/campaign/` |
 | **iQubes** | Governed context objects | Existing — Phase 2 encryption, Phase 3 receipts already enforce iQube discipline |
 
@@ -265,77 +265,103 @@ Token custody decision is critical (see §6.a).
 
 ---
 
-## 6. Decisions you need from the operator BEFORE writing code
+## 6. Decisions locked by operator (2026-05-11)
 
-### a. Google Workspace token custody
+> **All seven decisions locked.** The new agent does not need to re-ask — proceed straight to §10 and codify them as the contract.
 
-| Option | Pros | Cons |
-|---|---|---|
-| Per-persona row in `personas.google_tokens` (encrypted via Phase 2 lib) | Simplest; reuses existing encryption | Token rotation needs migration |
-| Separate `google_tokens` table (encrypted, FK to persona_id) | Clean separation; rotation friendly | New table + RLS policies |
-| KMS-backed token storage | Highest trust | Phase 4-style infra; not in current scope |
+### a. Google Workspace token custody — **LOCKED**
 
-Default recommendation: separate table with Phase 2 encryption. Make the call before Phase C starts.
+**Decision:** Tokens live inside an iQube. Persona-linked. Google API key + OAuth tokens stored as the **blakQube payload** (encrypted body of an iQube). The iQube descriptor → the persona; the blakQube ciphertext → the credentials.
 
-### b. OAuth scope set (read-only vs read-write)
+This reuses Phase 2 encryption (`services/content/encryption.ts`) for the blakQube body and Phase 3 alias-anchored receipts whenever the iQube is read. The token-holding iQube is a state-C content row by construction.
 
-Read-only is the conservative start. Read-write requires `evaluateAccess('transfer')` gating + Guardian approval queue. Pick before §C.0.
+Implementation pattern for the new agent:
+- New row in `master_content_qubes` per (persona, google-account) pair, content_state='C'
+- blakQube payload = JSON `{ access_token, refresh_token, expires_at, scopes, account_email }`, encrypted via Phase 2 lib
+- Read path goes through `streamStateCPlaintext` → server decrypts at use time → token never persisted in memory across calls
+- Receipt on every token read via `emitDecisionReceipt` so the user has an audit trail of when their Google credentials were touched
 
-### c. Aigent Me persona model
+### b. OAuth scope set — **LOCKED**
 
-| Option | Description |
+**Decision:** Read-only at start. Write requires `evaluateAccess('transfer')` gating + Guardian approval queue.
+
+Read scopes: `gmail.readonly`, `calendar.readonly`, `drive.metadata.readonly`, `documents.readonly`, `presentations.readonly`. Write scopes: requested separately at the action that needs them, gated through the approval queue (§6.e).
+
+### c. Aigent Me persona model — **LOCKED**
+
+**Decision (alpha):** Singleton agent. **Stubbed for per-user instance in beta** — more sovereign, potentially sold as a premium service.
+
+Implementation pattern:
+- Phase A.2 declares `aigent-me` as a singleton in `services/orchestration/agentVoices.ts`
+- Per-user state (routines, goals, approvals queue) is keyed by `personaId` even though the agent identity is shared
+- Beta upgrade path: introduce `aigent-me-<personaId>` slug naming; the routing layer becomes (lookup user instance) → fall back to singleton
+- No data migration needed when beta lands — the singleton acts on a persona's behalf in alpha; the per-user instance is the same code path with a different agent registry entry
+
+### d. Specialist routing taxonomy — **LOCKED (calibrated for refinement)**
+
+**Note:** KNYT guide is **Aigent Kn0w1**.
+
+| Intent class | Specialist |
 |---|---|
-| Singleton agent | One `aigent-me` declared once in agent registry; all users share the agent identity, distinguished by the persona it acts on behalf of |
-| Per-user instance | Each user has their own `aigent-me-<personaId>` instance — more invasive, more receipts complexity |
+| brief / draft a doc | **Quill** — Qriptopian / Kn0w1 — Story / **Marketa** — Experience |
+| schedule / book / send | **Aigent Me** (direct, with Guardian veto) |
+| campaign / cohort outreach | **Marketa** |
+| KNYT lore / quest help | **Kn0w1** |
+| crypto / chain tx help | **Nakamoto** |
+| ambiguous | **Aigent Z** (orchestrator) |
 
-Singleton is cheaper and cleaner. Pick before §A.2.
+Calibration: this taxonomy must be **evolvable**. Implementation pattern:
+- Intent → specialist mapping lives in a single `services/orchestration/intentRouter.ts` module
+- The mapping is data, not control flow (a typed map at the top of the file)
+- Operator can amend by editing the map; PR review surfaces routing changes as a single diff
+- The router emits a routing-decision OrchestrationEvent on every dispatch so the trail of "which specialist served which intent" is auditable
 
-### d. Specialist routing taxonomy
+### e. Trust gating — what requires Guardian approval — **LOCKED (refine via interface)**
 
-Which intent classes route to which specialist?
-
-```
-brief / draft a doc       → Quill (composition specialist)
-schedule / book / send    → Aigent Me (direct, with Guardian veto)
-campaign / cohort outreach → Marketa
-KNYT lore / quest help    → KNYT guide
-crypto / chain tx help    → Nakamoto
-ambiguous                 → Aigent Z (orchestrator)
-```
-
-Operator confirms or amends before §D.1.
-
-### e. Trust gating — what requires Guardian approval
+**Decision:** As outlined for now. **Interface to refine and manage** approval rules ships alongside the approvals queue (Phase B.4) so the boundary can evolve without code changes.
 
 | Action | Guardian gate? |
 |---|---|
 | Read calendar | No |
-| Send email | YES — async approval queue |
-| Schedule on user's behalf | YES |
+| Read email | No |
+| Read Drive metadata | No |
+| Send email on user's behalf | YES — async approval queue |
+| Schedule meeting on user's behalf | YES |
 | Compose Studio doc | No |
 | Publish to registry | YES |
 | Cross-cartridge token transfer | YES — already enforced by spine |
 
-Operator confirms boundary.
+Implementation pattern:
+- Approval rules live in a `guardian_approval_rules` table — JSON predicate per (action_class, scope) row
+- The metaMe Approvals tab has a "Refine rules" surface where the user can amend their own rules (within admin-set bounds)
+- Rule changes themselves are receipt-eligible (Guardian acts on a rule edit just like any other action)
 
-### f. Cartridge command vs in-cartridge surface
+### f. Cartridge command vs in-cartridge surface — **LOCKED**
 
-Does Aigent Me appear:
-- Globally (always-on copilot in every cartridge)?
-- Only inside the metaMe cartridge?
-- Both, but with different scopes?
+**Decision:** Both.
+- **Globally** — set in the agent selector in the **thin client / runtime header** and when in **runtime takeover mode**
+- **In-cartridge** — full Aigent Me home base inside the metaMe cartridge
 
-Recommendation: **Both**, with the metaMe cartridge as the home base + a global Aigent Me copilot button (similar to the existing CodexCopilotLayer). Decide before §A.1.
+Implementation pattern:
+- The thin client / runtime header gets an `aigent-me` entry alongside the existing `aigent-z`, `aigent-kn0w1`, `aigent-moneypenny`, `aigent-nakamoto`, `aigent-marketa` entries (see `runtimeShell.ts` AGENT_OPTIONS)
+- When user selects Aigent Me from the global selector, the runtime takes over with the Aigent Me copilot experience overlaid on the current cartridge
+- When user navigates to the metaMe cartridge directly, they get the full home base (routines / goals / tasks / approvals / artifacts / receipts tabs)
+- Both surfaces share the same backend services — only the UI shell differs
 
-### g. iQube wrapping policy for Google artifacts
+### g. iQube wrapping policy for Google artifacts — **LOCKED**
 
-Every Google artifact (email, event, file) wrapped as iQube on first read?
-- Pro: full receipt trail; user owns the artifact's metadata sovereignly
-- Con: heavier write path; storage cost
+**Decision:** Two-tier model.
 
-Or: iQube wrapping only on user opt-in (e.g. "remember this for me")?
+1. **Default:** Batch consolidation — Aigent Me batches the session's read activities into a **single consolidated receipt** rather than emitting one receipt per artifact read. Avoids receipt-noise for high-volume reads (e.g. scanning 50 emails to compose the morning briefing).
+2. **Opt-in iQube wrapping:** When the user explicitly says **"remember this for me"** / **"iQube this for me"**, the artifact gets wrapped as a first-class iQube (state-C, encrypted blakQube, alias-anchored receipt on every subsequent read).
 
-Operator's call.
+Implementation pattern:
+- Session activity log accumulates `{ artifact_ref, action, timestamp }` in memory
+- On session boundary (timeout / explicit close / user dismisses Aigent Me), one consolidated receipt is emitted via `emitDecisionReceipt` with the activity log as metadata
+- Opt-in wrapping creates a new master_content_qubes row + blakQube ciphertext per the §6.a token pattern
+- The user's Receipts tab shows both: consolidated session receipts AND per-iQube artifact receipts
+
+Trade-off: consolidated receipts are slightly less granular for audit but dramatically cheaper for both storage and on-chain submission. The opt-in path gives the user the high-fidelity mode when they need it (e.g. signing a contract, important meeting notes).
 
 ---
 
@@ -444,7 +470,7 @@ The spine team (me) has just shipped. The KNYT agent has just shipped. Both will
 
 Path: `codexes/packs/agentiq/updates/2026-05-XX_metame-aigent-me-decisions.md`
 
-Document the answers to all §6 decisions (operator-confirmed). Pre-register in `codexes/packs/agentiq/collections.json` under `col_updates`. Push, get operator review, then start §A.1.
+§6 decisions are **already locked** by the operator (2026-05-11). Codify them into the decisions doc as the contract, lock the agent registry slug (`aigent-me`), the iQube schema for the Google-token blakQube, the `intentRouter.ts` mapping shape, the `guardian_approval_rules` table shape, and the consolidated-vs-iQube receipt strategy. Pre-register in `codexes/packs/agentiq/collections.json` under `col_updates`. Push, get operator review, then start §A.1.
 
 This pattern (decisions-doc-first) prevents schema/contract drift and matches how the spine + KNYT teams shipped without surprises.
 
