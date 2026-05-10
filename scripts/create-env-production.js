@@ -103,6 +103,12 @@ const envVars = [
   // Set to any random ≥32-char string. Generate locally with:
   //   openssl rand -hex 32
   'ADMIN_OPS_TOKEN',
+  // KNYT rep/rewards/tasks v2 — referral share-link HMAC secret.
+  // Used by /api/wallet/tasks/share-link to derive deterministic per-persona
+  // referral codes for Bring-a-Knight + Herald. Falls back to NEXTAUTH_SECRET
+  // when unset; rotation via REFERRAL_SHARE_EPOCH (default 'v1').
+  'REFERRAL_SHARE_SECRET',
+  'REFERRAL_SHARE_EPOCH',
 ];
 
 let content = '';

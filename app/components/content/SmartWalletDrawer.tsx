@@ -1471,6 +1471,24 @@ export default function SmartWalletDrawer({
   // reward status flips to 'redeemed' server-side.
   const [claimingRewardId, setClaimingRewardId] = useState<string | null>(null);
   const [claimError, setClaimError] = useState<string | null>(null);
+
+  // Share-link copy state for Bring-a-Knight + Herald task cards (v2 ops).
+  // shareCopiedFor stores the card id whose button most recently flashed
+  // "Link copied!" — auto-resets after 2.5s.
+  const [shareCopiedFor, setShareCopiedFor] = useState<string | null>(null);
+  const copyShareLink = useCallback(async (source: 'bring-a-knight' | 'herald') => {
+    try {
+      const res = await fetch(`/api/wallet/tasks/share-link?source=${source}`, {
+        credentials: 'include',
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.url) return;
+      try { await navigator.clipboard.writeText(json.url); } catch { /* clipboard unavailable */ }
+      const cardId = source === 'bring-a-knight' ? 'knyt:bring-a-knight' : 'knyt:herald-of-the-order';
+      setShareCopiedFor(cardId);
+      setTimeout(() => setShareCopiedFor(null), 2500);
+    } catch { /* non-fatal */ }
+  }, []);
   const redeemReward = useCallback(async (rewardId: string) => {
     setClaimingRewardId(rewardId);
     setClaimError(null);
@@ -3462,11 +3480,11 @@ export default function SmartWalletDrawer({
                           {(card.id === 'knyt:bring-a-knight' || card.id === 'knyt:herald-of-the-order') && (
                             <button
                               type="button"
-                              onClick={() => window.dispatchEvent(new CustomEvent('knyt:navigate-tab', { detail: { tab: 'referral' } }))}
+                              onClick={() => copyShareLink(card.id === 'knyt:bring-a-knight' ? 'bring-a-knight' : 'herald')}
                               className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded bg-cyan-500/20 text-cyan-300 text-xs hover:bg-cyan-500/30"
                             >
                               <Share2 className="w-3 h-3" />
-                              Share Invite Link
+                              {shareCopiedFor === card.id ? 'Link copied!' : 'Copy Share Link'}
                             </button>
                           )}
                         </section>
@@ -3491,7 +3509,20 @@ export default function SmartWalletDrawer({
                             <button
                               key={card.id}
                               type="button"
-                              onClick={() => window.dispatchEvent(new CustomEvent('knyt:navigate-tab', { detail: { tab: card.deepLink ?? 'living-canon' } }))}
+                              onClick={() => {
+                                // v2 ops: deep-link Living Canon cards into the
+                                // 21 Sats tab with the task slug carried so the
+                                // receiving tab can pre-select the right surface.
+                                // Falls back to the generic 'living-canon' tab if
+                                // the receiver hasn't been updated yet.
+                                window.dispatchEvent(new CustomEvent('knyt:navigate-tab', {
+                                  detail: {
+                                    tab: '21-sats',
+                                    taskSlug: card.id,
+                                    fallbackTab: card.deepLink ?? 'living-canon',
+                                  },
+                                }));
+                              }}
                               className="w-full flex items-center justify-between rounded-lg bg-white/5 hover:bg-white/10 transition px-2 py-1.5 text-left"
                             >
                               <span className="text-[11px] text-white/70">{card.title}</span>
