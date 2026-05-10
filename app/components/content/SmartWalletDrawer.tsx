@@ -3487,6 +3487,25 @@ export default function SmartWalletDrawer({
                               {shareCopiedFor === card.id ? 'Link copied!' : 'Copy Share Link'}
                             </button>
                           )}
+                          {card.id === 'knyt:knight-of-attention' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                // Deep-link to the Scrolls tab where the user
+                                // can read/watch episodes; engagement events
+                                // fire from the viewer side and feed
+                                // crm_rewards via engagementService.
+                                window.dispatchEvent(new CustomEvent('knyt:navigate-tab', {
+                                  detail: { tab: 'scrolls' },
+                                }));
+                                onClose?.();
+                              }}
+                              className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded bg-purple-500/20 text-purple-300 text-xs hover:bg-purple-500/30"
+                            >
+                              <BookOpen className="w-3 h-3" />
+                              Open Episodes
+                            </button>
+                          )}
                         </section>
                       );
                     })}
