@@ -2,17 +2,18 @@
 -- Re-point user_entitlements.persona_id FK back to `personas` (plural).
 --
 -- Diagnostic on fost@knyt revealed the entitlement-grant insert was failing
--- silently. Likely cause: an earlier migration (20251217_fix_purchases_fk.sql)
--- attempted to re-point this FK to a `persona` (singular) table that doesn't
--- exist as a CREATE TABLE in any migration in this repo. If that migration
--- applied in production (manually or via an environment-specific path), the
--- FK target is invalid and every user_entitlements insert silently fails.
+-- silently with PG 23503 — the FK was pointing at `persona_legacy_20260125`,
+-- a renamed/archived snapshot of the original persona table. fost@knyt's
+-- persona row lives in the canonical `personas` table per the spine
+-- integration brief, so the insert kept getting rejected.
 --
--- This migration is idempotent — drops any existing FK on persona_id and
--- recreates it pointing at `personas(id)`, which is the table the rest of
--- the codebase reads (see services/wallet/knyt/knytLedgerService.resolve-
--- PersonaId, app/api/wallet/personas/route.ts, etc.). Safe to run even if
--- the FK was already correct.
+-- IMPORTANT: NOT VALID is required. The legacy table contains historical
+-- persona rows that were never migrated into the canonical `personas`,
+-- and existing user_entitlements rows reference some of those legacy
+-- persona_ids (orphans). A standard ADD CONSTRAINT validates all existing
+-- rows and aborts on the first orphan; NOT VALID applies the constraint
+-- to FUTURE inserts/updates only and leaves the orphans untouched until
+-- a separate cleanup decides what to do with them.
 -- =============================================================================
 
 ALTER TABLE user_entitlements
@@ -20,13 +21,16 @@ ALTER TABLE user_entitlements
 
 ALTER TABLE user_entitlements
   ADD CONSTRAINT user_entitlements_persona_id_fkey
-  FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE;
+  FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE
+  NOT VALID;
 
--- Same fix for purchases — the parallel "fix" migration would have re-pointed
--- both. If purchases inserts have been working, this is a no-op.
+-- Same fix for purchases for parity. If purchases inserts have been
+-- working under the legacy FK, this is a no-op for new rows.
 ALTER TABLE purchases
   DROP CONSTRAINT IF EXISTS purchases_persona_id_fkey;
 
 ALTER TABLE purchases
   ADD CONSTRAINT purchases_persona_id_fkey
-  FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE;
+  FOREIGN KEY (persona_id) REFERENCES personas(id) ON DELETE CASCADE
+  NOT VALID;
+
