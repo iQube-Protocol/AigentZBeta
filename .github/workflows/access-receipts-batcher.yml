@@ -1,0 +1,49 @@
+name: access-receipts-batcher
+
+# Phase 3.4 — submits pending alias-anchored receipts from
+# orchestration_events to the cross_chain_service DVN canister for
+# Bitcoin ordinal inscription. Runs every 15 minutes (operator
+# decision §3.0). Idempotent — only rows older than 60s with
+# on_chain_tx_id IS NULL are batched.
+#
+# Required secrets (Settings → Secrets and variables → Actions):
+#   ADMIN_OPS_TOKEN — the same value set in Amplify env. Authorises
+#                     the /api/access/finalize-receipts endpoint.
+#
+# Manual trigger: Actions → access-receipts-batcher → Run workflow.
+
+on:
+  schedule:
+    # Every 15 minutes. GitHub Actions cron has a >5-min minimum so
+    # 15-min is the smallest sane cadence here. Drift up to a few
+    # minutes is normal and acceptable for receipt batching.
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: access-receipts-batcher
+  cancel-in-progress: false
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Submit pending receipts to DVN
+        env:
+          ADMIN_OPS_TOKEN: ${{ secrets.ADMIN_OPS_TOKEN }}
+        run: |
+          if [ -z "$ADMIN_OPS_TOKEN" ]; then
+            echo "::error::ADMIN_OPS_TOKEN secret not set in repo settings"
+            exit 1
+          fi
+          response=$(curl -fsS -X POST \
+            -H "Authorization: Bearer $ADMIN_OPS_TOKEN" \
+            "https://dev-beta.aigentz.me/api/access/finalize-receipts")
+          echo "Batcher response: $response"
+          # Surface failures via the response body — the endpoint
+          # returns ok=false when any row failed to submit.
+          ok=$(echo "$response" | python3 -c "import sys,json; print(json.load(sys.stdin).get('ok', False))")
+          if [ "$ok" != "True" ] && [ "$ok" != "true" ]; then
+            echo "::error::Batcher reported failures"
+            exit 1
+          fi
