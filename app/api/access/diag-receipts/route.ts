@@ -13,6 +13,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { emitDecisionReceipt } from '@/services/access/receiptEmitter';
+import type {
+  ActivePersonaContext,
+  ContentAccessDescriptor,
+  AccessDecision,
+} from '@/types/access';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -37,54 +43,100 @@ export async function GET(_req: NextRequest) {
   }
 
   const sb = createClient(url, serviceKey || anonKey, { auth: { persistSession: false } });
-  const eventId = `diag_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-  const insertPayload = {
-    event_id: eventId,
+  // ─── Test 1: direct insert (same as before) ─────────────────────────
+  const directEventId = `diag_direct_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const directInsert = await sb.from('orchestration_events').insert({
+    event_id: directEventId,
     event_type: 'access_decision',
     from_role: 'aigent-z',
     to_role: 'aigent-c',
-    reason: 'phase3 diag',
+    reason: 'phase3 diag direct',
     journey_stage: 'acolyte',
-    active_cartridge: null,
     receipt_eligible: true,
     metadata: { diag: true },
     created_at: new Date().toISOString(),
     actor_alias_commitment: 'diag_test_alias',
     cohort_id: 'default',
     receipt_mode: 'async',
+  }).select();
+
+  // ─── Test 2: through emitDecisionReceipt (the real call path) ────────
+  const emitTestPersona: ActivePersonaContext = {
+    personaId: '__diag_test_persona__',
+    authProfileId: '__diag_test_authprofile__',
+    identifiability: 'pseudo',
+    cartridgeFlags: { isAdmin: false, isPartner: false },
+    cohortMemberships: [],
+    fioHandle: null,
+    source: 'session-token',
+  };
+  const emitTestDescriptor: ContentAccessDescriptor = {
+    assetId: '__diag_test_asset__',
+    contentClass: 'other',
+    state: 'A_open_unqubed',
+    gating: { kind: 'free' },
+    receiptEligible: true,
+    iqube: {
+      metaQubeId: '',
+      blakQubeId: '',
+      encryption: { alg: 'AES-256-GCM' },
+      storage: { backend: 'supabase', pointer: '' },
+    },
+  };
+  const emitTestDecision: AccessDecision = {
+    allow: true,
+    reason: 'free',
+    deliveryMode: 'plain-redirect',
+    receipt: {
+      mode: 'async',
+      aliasCommitment: 'diag_emitDecisionReceipt_test',
+      cohortId: 'default',
+    },
   };
 
-  const { data: insertData, error: insertError } = await sb
-    .from('orchestration_events')
-    .insert(insertPayload)
-    .select();
+  let emitError: string | null = null;
+  try {
+    await emitDecisionReceipt({
+      context: emitTestPersona,
+      descriptor: emitTestDescriptor,
+      action: 'read',
+      decision: emitTestDecision,
+    });
+  } catch (e) {
+    emitError = e instanceof Error ? e.message : String(e);
+  }
 
-  const { data: selectData } = await sb
+  const { data: emitRow } = await sb
     .from('orchestration_events')
-    .select('event_id, receipt_mode, actor_alias_commitment')
-    .eq('event_id', eventId)
+    .select('event_id, actor_alias_commitment, created_at')
+    .eq('actor_alias_commitment', 'diag_emitDecisionReceipt_test')
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle();
 
-  // Cleanup the diagnostic row so we don't pollute the table
-  if (selectData) {
-    await sb.from('orchestration_events').delete().eq('event_id', eventId);
+  // Cleanup
+  await sb.from('orchestration_events').delete().eq('event_id', directEventId);
+  if (emitRow) {
+    await sb.from('orchestration_events').delete().eq('event_id', emitRow.event_id);
   }
 
   return NextResponse.json({
     env,
-    insert: {
-      ok: !insertError,
-      error: insertError
+    direct_insert: {
+      ok: !directInsert.error,
+      error: directInsert.error
         ? {
-            code: (insertError as { code?: string }).code,
-            message: insertError.message,
-            details: (insertError as { details?: string }).details,
-            hint: (insertError as { hint?: string }).hint,
+            code: (directInsert.error as { code?: string }).code,
+            message: directInsert.error.message,
+            details: (directInsert.error as { details?: string }).details,
           }
         : null,
-      data: insertData,
     },
-    select_after_insert: selectData,
+    emit_decision_receipt: {
+      thrown: emitError,
+      row_landed: !!emitRow,
+      row: emitRow,
+    },
   });
 }
