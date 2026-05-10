@@ -192,6 +192,27 @@ export function KnytLivingCanonTemplate({
     void loadBranch(activeBranch);
   }, [activeBranch, loadBranch]);
 
+  // Sub-tab deep-link from the wallet drawer's Living Canon task chips.
+  // KnytTab parks the taskSlug on window.__knytPendingTaskSlug before
+  // switching to this tab; consume it here to land on the right branch.
+  //   knyt:living-canon-vote       → canon       (elections / dispatch)
+  //   knyt:living-canon-contribute → community   (PoKW submissions)
+  //   knyt:living-canon-dispatch   → correspondent
+  // Clears the parked slug after applying so a tab re-mount doesn't
+  // re-route unexpectedly.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const pending = (window as unknown as { __knytPendingTaskSlug?: string }).__knytPendingTaskSlug;
+    if (!pending) return;
+    const branch: CanonBranch | null =
+      pending === 'knyt:living-canon-vote'       ? 'canon'         :
+      pending === 'knyt:living-canon-contribute' ? 'community'     :
+      pending === 'knyt:living-canon-dispatch'   ? 'correspondent' :
+      null;
+    if (branch) setActiveBranch(branch);
+    (window as unknown as { __knytPendingTaskSlug?: string }).__knytPendingTaskSlug = undefined;
+  }, []);
+
   const handleBranchChange = (branch: CanonBranch) => {
     setActiveBranch(branch);
     setSubmissionSlug(null);
