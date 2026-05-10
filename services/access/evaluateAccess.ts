@@ -33,6 +33,7 @@ import {
 import {
   credentialMatchesCartridgeFlag,
   credentialRequiresExternalVerifier,
+  resolveExternalCredential,
   resolveReceiptMode,
 } from '@/services/access/policyResolvers';
 import {
@@ -140,12 +141,15 @@ export async function evaluateAccess(
   opts: EvaluateAccessOptions = {},
 ): Promise<AccessDecision> {
   const decision = await runDecision(context, descriptor, action, opts);
-  // Phase 3.2 — receipt emission. Fire-and-forget so a slow DB write
-  // never blocks the gate response. The emitter strips T0 fields by
-  // construction; the canary in tests/access-spine.test.ts asserts no
-  // personaId/authProfileId/rootDid leaks into the receipt row.
+  // Phase 3.2 — receipt emission. Awaited (not fire-and-forget) because
+  // AWS Lambda freezes the container immediately after the response,
+  // dropping any pending writes. The emitter is wrapped in try/catch
+  // and can never throw; the DB insert is fast (single row, no joins).
+  // Privacy contract: emitter strips T0 fields by construction; canary
+  // in tests/access-spine.test.ts asserts no personaId/authProfileId/
+  // rootDid leaks into the receipt row.
   if (decision.receipt.mode !== 'none') {
-    void emitDecisionReceipt({ context, descriptor, action, decision });
+    await emitDecisionReceipt({ context, descriptor, action, decision });
   }
   return decision;
 }
@@ -187,12 +191,20 @@ async function runDecision(
         receipt,
       };
     }
-    // External verifier (cohort:* / token:*) — Phase 3 wires this.
-    if (credentialRequiresExternalVerifier(credential)) {
-      // Conservative default during Phase 1: deny rather than allow when
-      // the verifier is not yet live. Once Phase 3 ships, this branch
-      // calls the cohort/token verifier and returns the real decision.
-      return denyDecision('credential-required', descriptor, receipt);
+    // External verifier (cohort:* / token:*) — Phase 3.3 wires this.
+    // cohort:* now calls the RQH canister via resolveCohortCredential.
+    // token:* still conservative-denies pending Phase 3.3.b token helper.
+    if (credential && credentialRequiresExternalVerifier(credential)) {
+      const ext = await resolveExternalCredential(credential, context.personaId);
+      if (ext.matches) {
+        return {
+          allow: true,
+          reason: 'credential-met',
+          deliveryMode: deriveDeliveryMode(descriptor),
+          receipt,
+        };
+      }
+      return denyDecision(ext.reason, descriptor, receipt);
     }
     // Unknown credential string -> deny (no implicit allow).
     return denyDecision('credential-required', descriptor, receipt);

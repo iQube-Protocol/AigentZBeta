@@ -12,6 +12,7 @@
 BEGIN;
 
 ALTER TABLE orchestration_events
+  ADD COLUMN IF NOT EXISTS active_codex          text,
   ADD COLUMN IF NOT EXISTS actor_alias_commitment text,
   ADD COLUMN IF NOT EXISTS cohort_id              text,
   ADD COLUMN IF NOT EXISTS receipt_mode           text,
@@ -20,7 +21,10 @@ ALTER TABLE orchestration_events
   ADD COLUMN IF NOT EXISTS inscribed_at           timestamptz;
 
 -- receipt_mode CHECK — only enforce on values we set; NULL allowed for
--- legacy rows that predate this column.
+-- legacy rows that predate this column. Includes 'async' because that's
+-- the default mode policyResolvers.resolveReceiptMode returns for read
+-- actions; missing this caused every Phase 3 emit to fail the check
+-- and silently drop receipts.
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -29,7 +33,7 @@ BEGIN
   ) THEN
     ALTER TABLE orchestration_events
       ADD CONSTRAINT orchestration_events_receipt_mode_check
-      CHECK (receipt_mode IS NULL OR receipt_mode IN ('sync','async-batched','none'));
+      CHECK (receipt_mode IS NULL OR receipt_mode IN ('sync','async','async-batched','none'));
   END IF;
 END $$;
 

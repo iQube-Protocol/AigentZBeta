@@ -11,9 +11,23 @@ import type { OrchestrationEvent } from '@/types/orchestration';
 
 function getDb() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  if (!serviceKey && anonKey) {
+    // Anon key + RLS = receipts dropped silently. Surface this once
+    // per Lambda cold start so it shows up in CloudWatch.
+    if (!loggedMissingServiceKey) {
+      loggedMissingServiceKey = true;
+      console.error(
+        '[orchestrationEvents] SUPABASE_SERVICE_ROLE_KEY is missing — ' +
+          'falling back to anon key. RLS will block receipt writes.',
+      );
+    }
+  }
+  const key = serviceKey || anonKey;
   return createClient(url, key, { auth: { persistSession: false } });
 }
+let loggedMissingServiceKey = false;
 
 /**
  * Emit an orchestration event. Fire-and-forget — callers should void this.
@@ -37,7 +51,7 @@ export async function emitOrchestrationEvent(event: OrchestrationEvent): Promise
       ? meta.receipt_mode
       : null;
 
-    await db.from('orchestration_events').insert({
+    const { error } = await db.from('orchestration_events').insert({
       event_id: event.event_id,
       event_type: event.event_type,
       from_role: event.from_role,
@@ -53,8 +67,19 @@ export async function emitOrchestrationEvent(event: OrchestrationEvent): Promise
       cohort_id: cohortId,
       receipt_mode: receiptMode,
     });
-  } catch {
-    // Non-fatal — event table may not exist yet during migration
+    if (error) {
+      // Surface the error — silent failures here mean receipts are
+      // dropped silently, which violates the durability contract.
+      console.error('[orchestrationEvents] insert failed', {
+        event_id: event.event_id,
+        event_type: event.event_type,
+        code: error.code,
+        message: error.message,
+        details: error.details,
+      });
+    }
+  } catch (e) {
+    console.error('[orchestrationEvents] threw', e);
   }
 }
 

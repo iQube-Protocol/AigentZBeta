@@ -80,3 +80,102 @@ export function credentialMatchesCartridgeFlag(
   if (credential === 'partner') return flags.isPartner;
   return false;
 }
+
+/**
+ * Phase 3.3 — resolve cohort:* and token:* credentials by calling the
+ * appropriate ICP canister.
+ *
+ *   cohort:<cohort-id>   — RQH (ReputationHub). Persona qualifies if their
+ *                          partition has any reputation record in the cohort
+ *                          bucket (membership proof).
+ *   token:<chain>:<addr> — EVM RPC canister. Persona qualifies if they own
+ *                          the ERC-721 / ERC-1155 token at the given address.
+ *
+ * Returns:
+ *   { matches: true, reason: 'credential-met' }   on positive proof
+ *   { matches: false, reason: 'credential-required' | 'token-required' }
+ *
+ * Defensive — any canister error or missing env returns {matches:false}
+ * with the appropriate reason. Conservative deny preserves the gate.
+ */
+export interface ExternalCredentialResolution {
+  matches: boolean;
+  reason: 'credential-met' | 'credential-required' | 'token-required';
+  evidence?: Record<string, unknown>;
+}
+
+export async function resolveExternalCredential(
+  credential: string,
+  personaId: string,
+): Promise<ExternalCredentialResolution> {
+  if (credential.startsWith('cohort:')) {
+    return resolveCohortCredential(credential.slice('cohort:'.length), personaId);
+  }
+  if (credential.startsWith('token:')) {
+    return resolveTokenCredential(credential.slice('token:'.length), personaId);
+  }
+  return { matches: false, reason: 'credential-required' };
+}
+
+async function resolveCohortCredential(
+  cohortId: string,
+  personaId: string,
+): Promise<ExternalCredentialResolution> {
+  const rqhId =
+    process.env.RQH_CANISTER_ID || process.env.NEXT_PUBLIC_RQH_CANISTER_ID;
+  if (!rqhId) return { matches: false, reason: 'credential-required' };
+
+  try {
+    const { fetchReputationFromRQH } = await import('@/services/crm/rewardVerificationService');
+    // Partition id = `${cohortId}:${personaId}` per RQH partition convention.
+    // The canister returns null when no reputation record exists, which we
+    // treat as "not in cohort" — conservative deny.
+    const partitionId = `${cohortId}:${personaId}`;
+    const reputation = await fetchReputationFromRQH(partitionId);
+    if (reputation && reputation.evidenceCount > 0) {
+      return {
+        matches: true,
+        reason: 'credential-met',
+        evidence: { source: 'rqh', cohortId, bucket: reputation.bucket },
+      };
+    }
+    return { matches: false, reason: 'credential-required' };
+  } catch (err) {
+    console.error('[policyResolvers] RQH cohort lookup failed', err);
+    return { matches: false, reason: 'credential-required' };
+  }
+}
+
+async function resolveTokenCredential(
+  spec: string,
+  personaId: string,
+): Promise<ExternalCredentialResolution> {
+  // spec format: "<chain>:<contract>" e.g. "base:0xAbC..."
+  // ERC-1155 form: "<chain>:<contract>:<tokenId>"
+  const parts = spec.split(':');
+  if (parts.length < 2) return { matches: false, reason: 'token-required' };
+  const [chain, contract, tokenIdRaw] = parts;
+  const tokenId = tokenIdRaw ? safeBigInt(tokenIdRaw) : null;
+
+  try {
+    const { resolvePersonaWalletAddress } = await import('@/services/identity/personaAddressResolver');
+    const address = await resolvePersonaWalletAddress(personaId, chain);
+    if (!address) return { matches: false, reason: 'token-required' };
+
+    const { ownsErc721, ownsErc1155 } = await import('@/services/access/tokenOwnership');
+    const owned = tokenId !== null
+      ? await ownsErc1155(chain, contract, address, tokenId)
+      : await ownsErc721(chain, contract, address);
+
+    return owned
+      ? { matches: true, reason: 'credential-met', evidence: { source: 'evm', chain, contract } }
+      : { matches: false, reason: 'token-required' };
+  } catch (err) {
+    console.error('[policyResolvers] EVM token lookup failed', err);
+    return { matches: false, reason: 'token-required' };
+  }
+}
+
+function safeBigInt(s: string): bigint | null {
+  try { return BigInt(s); } catch { return null; }
+}
