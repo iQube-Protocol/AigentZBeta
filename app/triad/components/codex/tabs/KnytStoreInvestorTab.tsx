@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Crown, Film, Lock, Package, Plus, ShoppingCart, Sparkles, User, Zap } from 'lucide-react';
 import {
   BUNDLE_PRICING,
@@ -110,6 +110,7 @@ function InvestorBundleCard({
   getCoverThumb,
   tierImage,
   isVerified,
+  remainingSupply,
 }: {
   bundle: BundlePricing;
   onClick: () => void;
@@ -117,6 +118,11 @@ function InvestorBundleCard({
   onAddToCart?: (e: React.MouseEvent) => void;
   getCoverThumb: (n: number) => string | undefined;
   tierImage?: string | null;
+  /** Live count of remaining units for limited SKUs, sourced from
+   *  /api/wallet/knyt/sku-supply. Falls back to bundle.limitedSupply when
+   *  the API hasn't responded yet. Undefined means "use the static field".
+   */
+  remainingSupply?: number;
   isVerified: boolean;
 }) {
   const isGnOnly = bundle.episodes.length === 1 && bundle.episodes[0] === -1;
@@ -141,7 +147,7 @@ function InvestorBundleCard({
           )}
           {bundle.isLimited && bundle.limitedSupply && (
             <div className="absolute top-1 right-1 rounded border border-red-700/40 bg-red-900/70 px-1 py-0.5 text-[9px] font-bold text-red-300">
-              {bundle.limitedSupply} left
+              {(remainingSupply ?? bundle.limitedSupply)} left
             </div>
           )}
           {bundle.isConditional && (
@@ -380,6 +386,29 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
   // Pay-with-KNYT affordance. Without this prop the modal renders "No KNYT
   // balance" disabled, even when the persona has a credited DVN balance.
   const { balance, spendableBalance, refreshBalance } = useKnytBalance(personaId);
+
+  // Live remaining-supply per limited bundle. Sourced from /sku-supply so
+  // the "N left" badge decrements as units sell. Refreshed on mount + after
+  // every successful purchase via refreshSupply().
+  const limitedBundleIds = useMemo(
+    () => BUNDLE_PRICING.filter((b) => b.isLimited && b.limitedSupply).map((b) => b.id),
+    [],
+  );
+  const [supplyMap, setSupplyMap] = useState<Record<string, number>>({});
+  const refreshSupply = useCallback(async () => {
+    if (limitedBundleIds.length === 0) return;
+    try {
+      const res = await fetch(`/api/wallet/knyt/sku-supply?ids=${limitedBundleIds.join(',')}`);
+      if (!res.ok) return;
+      const json = await res.json() as { supply: Record<string, { remaining: number | null }> };
+      const next: Record<string, number> = {};
+      for (const [id, row] of Object.entries(json.supply ?? {})) {
+        if (typeof row?.remaining === 'number') next[id] = row.remaining;
+      }
+      setSupplyMap(next);
+    } catch { /* non-fatal — falls back to static limitedSupply */ }
+  }, [limitedBundleIds]);
+  useEffect(() => { void refreshSupply(); }, [refreshSupply]);
   const [view, setView]         = useState<InvestorView>({ kind: 'landing' });
   const [purchase, setPurchase] = useState<PendingPurchase | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
@@ -487,6 +516,7 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
                       getCoverThumb={getCoverThumb}
                       tierImage={getBundleImage(bundle.id)}
                       isVerified={isVerified}
+                      remainingSupply={supplyMap[bundle.id]}
                     />
                   ))}
                 </div>
@@ -508,6 +538,7 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
                       getCoverThumb={getCoverThumb}
                       tierImage={getBundleImage(bundle.id)}
                       isVerified={isVerified}
+                      remainingSupply={supplyMap[bundle.id]}
                     />
                   ))}
                 </div>
@@ -556,6 +587,7 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
           onPurchaseComplete={() => {
             setPurchase(null);
             void refreshBalance();
+            void refreshSupply();
           }}
         />
       )}
