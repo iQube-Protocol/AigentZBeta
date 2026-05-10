@@ -147,21 +147,35 @@ async function resolveCohortCredential(
 }
 
 async function resolveTokenCredential(
-  _spec: string,
-  _personaId: string,
+  spec: string,
+  personaId: string,
 ): Promise<ExternalCredentialResolution> {
-  // Phase 3.3.b — deferred. The codebase has `evmCall` (generic EVM
-  // canister call) and alias-based wallet lookups, but no canonical
-  // ERC-721/1155 ownsToken helper or persona→address resolver yet.
-  // Until those land, token credentials conservative-deny so the gate
-  // is preserved (no implicit allow path).
-  //
-  // Implementation when 3.3.b ships:
-  //   1. Resolve persona's chain address (personas.evm_address or
-  //      walletAliasService.listWalletAliases filtered by chain)
-  //   2. Encode `balanceOf(address)` (ERC-721) or
-  //      `balanceOf(address, id)` (ERC-1155) call data
-  //   3. Call evmCall({ chain, to: contract, data })
-  //   4. Decode the response; matches=true if balance > 0
-  return { matches: false, reason: 'token-required' };
+  // spec format: "<chain>:<contract>" e.g. "base:0xAbC..."
+  // ERC-1155 form: "<chain>:<contract>:<tokenId>"
+  const parts = spec.split(':');
+  if (parts.length < 2) return { matches: false, reason: 'token-required' };
+  const [chain, contract, tokenIdRaw] = parts;
+  const tokenId = tokenIdRaw ? safeBigInt(tokenIdRaw) : null;
+
+  try {
+    const { resolvePersonaWalletAddress } = await import('@/services/identity/personaAddressResolver');
+    const address = await resolvePersonaWalletAddress(personaId, chain);
+    if (!address) return { matches: false, reason: 'token-required' };
+
+    const { ownsErc721, ownsErc1155 } = await import('@/services/access/tokenOwnership');
+    const owned = tokenId !== null
+      ? await ownsErc1155(chain, contract, address, tokenId)
+      : await ownsErc721(chain, contract, address);
+
+    return owned
+      ? { matches: true, reason: 'credential-met', evidence: { source: 'evm', chain, contract } }
+      : { matches: false, reason: 'token-required' };
+  } catch (err) {
+    console.error('[policyResolvers] EVM token lookup failed', err);
+    return { matches: false, reason: 'token-required' };
+  }
+}
+
+function safeBigInt(s: string): bigint | null {
+  try { return BigInt(s); } catch { return null; }
 }
