@@ -645,11 +645,29 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     setActiveTab(resolvedInitialTab);
   }, [resolvedInitialTab]);
 
-  // Listen for wallet drawer CTA navigation events
+  // Listen for wallet drawer CTA navigation events.
+  // v2 ops adds taskSlug + fallbackTab support (Living Canon deep-links):
+  //   detail.tab           — preferred destination (e.g. '21-sats')
+  //   detail.taskSlug      — optional; receiving tab can pre-select the
+  //                           submission/vote/dispatch surface for this slug
+  //   detail.fallbackTab   — used when `tab` isn't a recognised KnytTabSlug
+  //                           (e.g. legacy 'living-canon' destinations)
+  // The taskSlug is parked on a window-scoped key so the receiving tab
+  // (21 Sats) can read it on mount without prop-drilling.
   useEffect(() => {
     const handler = (e: Event) => {
-      const slug = (e as CustomEvent<{ tab: string }>).detail?.tab;
-      if (slug && isKnytTabSlug(slug)) setActiveTab(slug);
+      const detail = (e as CustomEvent<{ tab?: string; taskSlug?: string; fallbackTab?: string }>).detail || {};
+      const candidate = detail.tab && isKnytTabSlug(detail.tab) ? detail.tab : null;
+      const fallback = detail.fallbackTab && isKnytTabSlug(detail.fallbackTab) ? detail.fallbackTab : null;
+      const target = candidate || fallback;
+      if (!target) return;
+      if (detail.taskSlug) {
+        // Park for the receiving tab to consume on mount.
+        try {
+          (window as unknown as { __knytPendingTaskSlug?: string }).__knytPendingTaskSlug = detail.taskSlug;
+        } catch { /* non-fatal */ }
+      }
+      setActiveTab(target);
     };
     window.addEventListener('knyt:navigate-tab', handler);
     return () => window.removeEventListener('knyt:navigate-tab', handler);
@@ -2477,14 +2495,75 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     setUserIntent('realm_navigation');
   }, []);
 
-  const handleClaimReward = useCallback((rewardId: string) => {
-    console.log('[KnytTab] Claiming reward:', rewardId);
-    // TODO: Implement reward claim
-    setTaskData(prev => ({
-      ...prev,
-      rewards: prev.rewards.filter(r => r.id !== rewardId),
-    }));
-  }, []);
+  // Phase E — Order tab right-HUD QuestRail data. Fetches /api/wallet/tasks
+  // (spine-conformant; resolves the active persona server-side, no T0 in
+  // URL or response) and populates taskData with the live activeTask /
+  // rewards / ascensionRank so the QuestRail surfaces real data instead of
+  // the static 'Initiate → Acolyte' placeholder. Refreshes on persona
+  // change + after a successful reward redemption.
+  useEffect(() => {
+    if (!effectivePersonaId) return;
+    let cancelled = false;
+    fetch('/api/wallet/tasks', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((payload) => {
+        if (cancelled || !payload) return;
+        setTaskData({
+          activeTask: payload.questRail?.activeTask ?? null,
+          rewards: Array.isArray(payload.questRail?.rewards) ? payload.questRail.rewards : [],
+          ascensionRank: payload.questRail?.ascensionRank ?? {
+            current: 'Initiate',
+            next: 'Acolyte',
+            progress: 0,
+          },
+        });
+      })
+      .catch(() => { /* non-fatal — leaves the static defaults in place */ });
+    return () => { cancelled = true; };
+  }, [effectivePersonaId]);
+
+  const handleClaimReward = useCallback(async (rewardId: string) => {
+    console.log('[KnytTab] Claiming reward via spine:', rewardId);
+    try {
+      const res = await fetch('/api/wallet/knyt/rewards/redeem', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rewardId }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        console.warn('[KnytTab] Reward redeem failed:', json?.reason || json?.error);
+        return;
+      }
+      // Optimistic UI: drop the claimed row from the QuestRail. Next
+      // /api/wallet/tasks fetch will reconcile.
+      setTaskData(prev => ({
+        ...prev,
+        rewards: prev.rewards.filter(r => r.id !== rewardId),
+      }));
+      // Refresh DVN balance so the new credit shows in the wallet drawer
+      // immediately. Tasks payload re-fetch is below.
+      refreshBalance?.();
+      try {
+        const r = await fetch('/api/wallet/tasks', { credentials: 'include' });
+        if (r.ok) {
+          const payload = await r.json();
+          setTaskData({
+            activeTask: payload.questRail?.activeTask ?? null,
+            rewards: Array.isArray(payload.questRail?.rewards) ? payload.questRail.rewards : [],
+            ascensionRank: payload.questRail?.ascensionRank ?? {
+              current: 'Initiate',
+              next: 'Acolyte',
+              progress: 0,
+            },
+          });
+        }
+      } catch { /* non-fatal */ }
+    } catch (err) {
+      console.error('[KnytTab] Redeem error:', err);
+    }
+  }, [refreshBalance]);
 
   // Loading state for Liquid UI
   if (loading) {

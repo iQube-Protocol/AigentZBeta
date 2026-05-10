@@ -262,8 +262,16 @@ export function ContentPurchaseModal({
       setShowConfirmation(false);
       evmPay.reset();
     }
+  // Intentionally only depends on `open`. Including canAffordKnyt /
+  // canAffordEvmKnyt would re-fire this reset every time the buyer's
+  // balance changes mid-flow — which happens immediately after a
+  // successful purchase (onBalanceRefresh updates the parent's balance,
+  // affordability recomputes, the reset wipes setSuccess(...) before the
+  // success view paints). The 5-second auto-close path runs through
+  // onPurchaseComplete instead, so resetting here on balance change is
+  // unnecessary AND breaks the confirmation render.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, canAffordKnyt, canAffordEvmKnyt]);
+  }, [open]);
 
   const handlePurchase = async (evmTxHash?: string) => {
     setPurchasing(true);
@@ -379,8 +387,14 @@ export function ContentPurchaseModal({
         season_codex_motion: 'knyt_season_codex_motion',
       };
 
+      // /api/purchase/complete resolves the active persona server-side via
+      // the spine's getActivePersona — the personaId field is no longer
+      // trusted from the request body (T0 leak / spoof risk). We keep
+      // sending it for backwards compatibility with older deployments;
+      // newer servers ignore it and read the session.
       const response = await fetch(`${apiBase}/api/purchase/complete`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           personaId: resolvedPersonaId,

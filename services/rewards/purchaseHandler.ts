@@ -15,6 +15,7 @@ import { emitCampaignEvent } from '@/services/campaign/campaignService';
 import { getEntitlementService } from './entitlementService';
 import { getMultiRailPricing, PaymentRail, ContentType } from '../wallet/knyt/knytPricingService';
 import { verifyEvmKnytTransfer } from '../wallet/knyt/evmKnytService';
+import { BUNDLE_PRICING, KNYT_USD_RATE, KNYT_COYN_DISCOUNT, usdToKnyt } from '@/types/knyt-store';
 
 // =============================================================================
 // TYPES
@@ -92,18 +93,93 @@ export class PurchaseHandler {
         return { success: false, error: `Product not found: ${productType}` };
       }
       
-      // Get pricing for the payment rail
-      const pricing = getMultiRailPricing('purchase', productType as ContentType);
+      // Get pricing for the payment rail.
+      //
+      // Investor / store bundles carry per-SKU prices in BUNDLE_PRICING that
+      // diverge from the per-content-type defaults in BASE_PRICES. Without
+      // this override, a Satoshi KNYT Collection ($2100, 1800-KNYT base)
+      // would map by productType=knyt_season_codex_stills to a 25-KNYT base
+      // → 20-KNYT debit on the KNYT rail. That's a $2080 leak per sale.
+      // When assetIds[0] matches a BUNDLE_PRICING entry, derive the rail
+      // prices from that bundle's digitalPrice / baseKnytOverride. Falls
+      // through to the static path for non-bundle purchases (singles, etc.).
+      const bundleSku = (assetIds && assetIds.length > 0)
+        ? BUNDLE_PRICING.find((b) => b.id === assetIds[0])
+        : null;
+
+      let pricing: ReturnType<typeof getMultiRailPricing>;
+      if (bundleSku) {
+        const baseKnyt = bundleSku.baseKnytOverride ?? usdToKnyt(bundleSku.digitalPrice);
+        const usdBase = bundleSku.digitalPrice;
+        // Mirror ContentPurchaseModal's calculatePricing fee structure
+        // exactly so the server's debit matches the price the buyer saw.
+        // Knyt rail: -20% discount. USDC: +1% fee. PayPal: +10% fee.
+        // qc rail price is the USD base (Q¢ count is computed off USD).
+        pricing = {
+          contentId: bundleSku.id,
+          contentType: productType as ContentType,
+          baseKnytPrice: baseKnyt,
+          usdBasePrice: usdBase,
+          rails: {
+            qc:     { price: usdBase, currency: 'QC' },
+            knyt:   { price: Math.round(baseKnyt * (1 - KNYT_COYN_DISCOUNT) * 100) / 100, currency: 'KNYT', discount: KNYT_COYN_DISCOUNT },
+            usdc:   { price: Math.round(usdBase * 1.01 * 100) / 100, currency: 'USDC', fee: 0.01 },
+            paypal: { price: Math.round(usdBase * 1.10 * 100) / 100, currency: 'USD', fee: 0.10 },
+          },
+        };
+      } else {
+        pricing = getMultiRailPricing('purchase', productType as ContentType);
+      }
+
       // knyt_evm uses the same KNYT pricing as the DVN knyt rail
       const effectiveRailKey = paymentRail === 'knyt_evm' ? 'knyt' : paymentRail;
       const railPricing = pricing.rails[effectiveRailKey as keyof typeof pricing.rails];
+
+      // Reconcile unit-purchase pricing against the client-supplied amount.
+      //
+      // Unit purchases (single episode, character card) don't match a
+      // BUNDLE_PRICING entry, so the price falls through to BASE_PRICES — a
+      // small static placeholder (3 KNYT for any still scroll, 1 KNYT for
+      // any character card). Real episode prices range $6–$18 USD and card
+      // packs $26 — debiting only the static price is a per-sale leak.
+      //
+      // The modal sends the actual rail amount in metadata.amount with a
+      // matching currency tag. We trust it when:
+      //   - it's GREATER than the static fallback (we never undercharge)
+      //   - currency matches the rail (KNYT for the knyt rail, USD/USDC otherwise)
+      //   - it falls under a sanity cap (5000 KNYT / $10000 USD)
+      //
+      // For bundle SKUs (already correctly priced via the BUNDLE_PRICING
+      // path above) we don't override — the bundle's own digitalPrice is
+      // canonical and we don't want client metadata to widen it further.
+      let resolvedRailPrice = railPricing.price;
+      if (!bundleSku && metadata && metadata.amount != null) {
+        const metaAmountRaw = metadata.amount;
+        const metaAmount = typeof metaAmountRaw === 'number'
+          ? metaAmountRaw
+          : parseFloat(String(metaAmountRaw));
+        if (Number.isFinite(metaAmount) && metaAmount > resolvedRailPrice) {
+          const railCurrency = effectiveRailKey === 'knyt' ? 'KNYT' : 'USD';
+          const metaCurrency = String(metadata.currency || '').toUpperCase();
+          const currencyMatches =
+            (railCurrency === 'KNYT' && metaCurrency === 'KNYT') ||
+            (railCurrency === 'USD' && (metaCurrency === 'USD' || metaCurrency === 'USDC'));
+          const cap = railCurrency === 'KNYT' ? 5000 : 10000;
+          if (currencyMatches && metaAmount <= cap) {
+            console.log(
+              `[PurchaseHandler] Unit-price reconciled: static=${resolvedRailPrice} ${railPricing.currency}, metadata=${metaAmount} ${metaCurrency} → using metadata`
+            );
+            resolvedRailPrice = metaAmount;
+          }
+        }
+      }
 
       // 2a. Guard: verify on-chain EVM KNYT transfer for knyt_evm rail
       if (paymentRail === 'knyt_evm') {
         if (!paymentReference || !/^0x[0-9a-fA-F]{64}$/.test(paymentReference)) {
           return { success: false, error: 'Valid EVM transaction hash required' };
         }
-        const verification = await verifyEvmKnytTransfer(paymentReference, railPricing.price);
+        const verification = await verifyEvmKnytTransfer(paymentReference, resolvedRailPrice);
         if (!verification.verified) {
           return { success: false, error: verification.error || 'EVM KNYT transaction verification failed' };
         }
@@ -124,7 +200,7 @@ export class PurchaseHandler {
         }
 
         const currentBalance = balanceRow?.balance ? parseFloat(balanceRow.balance) : 0;
-        if (currentBalance < railPricing.price) {
+        if (currentBalance < resolvedRailPrice) {
           return { success: false, error: 'Insufficient KNYT balance' };
         }
       }
@@ -137,11 +213,19 @@ export class PurchaseHandler {
           product_id: product.id,
           product_type: productType,
           payment_rail: paymentRail,
-          amount: railPricing.price,
+          amount: resolvedRailPrice,
           currency: railPricing.currency,
           status: 'completed',
           payment_reference: paymentReference,
-          metadata: metadata || {},
+          // Persist resolution context in metadata so the diagnostic / repair
+          // endpoint can recover the right asset_ids on future failures.
+          // Without this, a failed entitlement grant leaves an orphaned
+          // purchase row whose `metadata` doesn't tell us what was bought.
+          metadata: {
+            ...(metadata || {}),
+            assetIds: assetIds ?? null,
+            bundleSkuId: bundleSku?.id ?? null,
+          },
           completed_at: new Date().toISOString(),
         })
         .select()
@@ -155,7 +239,7 @@ export class PurchaseHandler {
       // 3. Record wallet transaction (for KNYT/Q¢ payments)
       // knyt_evm: KNYT went directly to treasury on-chain — no DVN balance to deduct
       if (paymentRail === 'knyt' || paymentRail === 'qc') {
-        await this.recordWalletTransaction(personaId, purchase.id, railPricing.price, railPricing.currency, productType);
+        await this.recordWalletTransaction(personaId, purchase.id, resolvedRailPrice, railPricing.currency, productType);
       }
       
       // 4. Grant entitlements
@@ -169,8 +253,10 @@ export class PurchaseHandler {
       }
       
       let entitlementsGranted = 0;
-      
+      let entitlementErrors: string[] = [];
+
       if (assetsToGrant.length > 0) {
+        console.log('[PurchaseHandler] Granting bundle entitlements:', { personaId, assetsToGrant, purchaseId: purchase.id });
         const result = await entitlementService.grantBundleEntitlements(
           personaId,
           assetsToGrant,
@@ -178,6 +264,10 @@ export class PurchaseHandler {
           { productType, paymentRail }
         );
         entitlementsGranted = result.granted;
+        entitlementErrors = result.errors ?? [];
+        if (entitlementErrors.length > 0) {
+          console.error('[PurchaseHandler] Entitlement grant errors:', entitlementErrors);
+        }
       } else {
         // For singles without predefined asset IDs, grant based on product type
         const result = await entitlementService.grantEntitlement({
@@ -186,7 +276,25 @@ export class PurchaseHandler {
           sourcePurchaseId: purchase.id,
           metadata: { productType, paymentRail },
         });
-        if (result.success) entitlementsGranted = 1;
+        if (result.success) {
+          entitlementsGranted = 1;
+        } else {
+          entitlementErrors.push(result.error || 'unknown');
+          console.error('[PurchaseHandler] Single entitlement grant failed:', result.error);
+        }
+      }
+
+      // If we debited the buyer but failed to grant any entitlement, that's a
+      // partial-failure that the buyer must see and the operator must repair.
+      // Surface it as a hard error rather than swallowing — fost@knyt's case
+      // where the purchase row + balance debit succeeded but no entitlement
+      // was inserted and the modal still showed "complete!" must not repeat.
+      if (assetsToGrant.length > 0 && entitlementsGranted === 0) {
+        return {
+          success: false,
+          error: `Purchase recorded but entitlement grant failed: ${entitlementErrors.join('; ') || 'unknown'}. Contact support — purchase id: ${purchase.id}`,
+          purchaseId: purchase.id,
+        };
       }
       
       // 5. Check for first paid purchase (Bring a Knight)

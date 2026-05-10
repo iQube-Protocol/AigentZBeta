@@ -1,7 +1,7 @@
 /**
- * Unified user-facing tasks API
+ * Unified user-facing tasks API — spine-conformant.
  *
- * GET /api/wallet/tasks?personaId=<persona uuid>
+ * GET /api/wallet/tasks
  *
  * Single source for the wallet Tasks tab + the Order tab right-HUD QuestRail
  * + copilot "show tasks" prompts. Assembles per-persona task state from:
@@ -9,12 +9,14 @@
  *   crm_task_templates       — Task definitions (slug, title, reward preview, metadata)
  *   crm_contributions        — Persona's claims/submissions against templates
  *   crm_rewards              — Granted/claimable token rewards
- *   crm_persona_reputation   — Multi-dimensional reputation vector
+ *   crm_persona_reputation   — Multi-dimensional reputation vector (5-min TTL cache)
  *   knyt_persona_progression — Order rank progression (used for ascensionRank)
  *
- * personaId is the standard Identity persona id (personas.id) — we resolve it
- * to the matching CRM persona via crm_personas.identity_persona_id. If there
- * is no CRM persona yet (new user), all task state returns empty defaults.
+ * Persona resolution comes from the spine via `getActivePersona(request)` —
+ * the route NEVER reads `personaId` from a query string (that was a T0 leak
+ * per the privacy contract; see the rep/rewards/tasks decisions doc §1).
+ * The internal `personas.id` and `crm_personas.id` are T0 and stay
+ * server-side; the JSON response surfaces only T1 fields.
  *
  * Visibility: open to ANY signed-in persona — tasks/rewards/reputation are
  * universal user features, not investor-gated.
@@ -22,6 +24,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getActivePersona } from '@/services/identity/getActivePersona';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -94,10 +97,14 @@ interface RewardSummary {
 }
 
 export async function GET(req: NextRequest) {
-  const personaId = req.nextUrl.searchParams.get('personaId');
-  if (!personaId) {
-    return NextResponse.json({ error: 'Missing personaId' }, { status: 400 });
+  // Spine-mediated identity resolution. Replaces the previous
+  // `?personaId=<uuid>` query-param read which leaked T0 ids onto the wire.
+  // getActivePersona returns null when the caller is unauthenticated.
+  const persona = await getActivePersona(req);
+  if (!persona) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const personaId = persona.personaId;
 
   const supabase = supa();
 
@@ -244,9 +251,12 @@ export async function GET(req: NextRequest) {
       };
     });
 
+  // T1-only response. Per the privacy contract, the JSON the browser sees
+  // must not carry personaId / crmPersonaId / authProfileId / rootDid /
+  // cross-persona fioHandle. The wallet UI binds reads to "the active
+  // persona" — server resolves that on every request via getActivePersona,
+  // so the client never needs an explicit identifier handle here.
   return NextResponse.json({
-    personaId,
-    crmPersonaId,
     cards: {
       active:    taskCards.filter((t) => t.status === 'in_progress'),
       available: taskCards.filter((t) => t.status === 'available'),

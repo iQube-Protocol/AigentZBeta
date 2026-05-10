@@ -1451,12 +1451,83 @@ export default function SmartWalletDrawer({
     if (!pid) { setWalletTasksData(null); return; }
     let cancelled = false;
     setWalletTasksLoading(true);
-    fetch(`/api/wallet/tasks?personaId=${encodeURIComponent(pid)}`)
+    // /api/wallet/tasks resolves the active persona server-side via the
+    // spine's getActivePersona — no query-param personaId. The `pid` guard
+    // above prevents spinning up the fetch before the wallet has any
+    // persona context, but the server is the source of truth.
+    fetch(`/api/wallet/tasks`, { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : null))
       .then((data: WalletTasksPayload | null) => { if (!cancelled) setWalletTasksData(data); })
       .catch(() => {})
       .finally(() => { if (!cancelled) setWalletTasksLoading(false); });
     return () => { cancelled = true; };
+  }, [personaId, localPersonaId]);
+
+  // Reward redemption — Phase D of the rep/rewards/tasks workstream.
+  // POST /api/wallet/knyt/rewards/redeem flows through evaluateAccess('mint')
+  // which fires a sync receipt with T2 alias commitment + cohort_id and
+  // gates on fio-handle-required (the spine denies if the persona has no
+  // FIO handle registered). On success the DVN balance updates + the
+  // reward status flips to 'redeemed' server-side.
+  const [claimingRewardId, setClaimingRewardId] = useState<string | null>(null);
+  const [claimError, setClaimError] = useState<string | null>(null);
+
+  // Share-link copy state for Bring-a-Knight + Herald task cards (v2 ops).
+  // shareCopiedFor stores the card id whose button most recently flashed
+  // "Link copied!" — auto-resets after 2.5s.
+  const [shareCopiedFor, setShareCopiedFor] = useState<string | null>(null);
+  const copyShareLink = useCallback(async (source: 'bring-a-knight' | 'herald') => {
+    try {
+      const res = await fetch(`/api/wallet/tasks/share-link?source=${source}`, {
+        credentials: 'include',
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.url) return;
+      try { await navigator.clipboard.writeText(json.url); } catch { /* clipboard unavailable */ }
+      const cardId = source === 'bring-a-knight' ? 'knyt:bring-a-knight' : 'knyt:herald-of-the-order';
+      setShareCopiedFor(cardId);
+      setTimeout(() => setShareCopiedFor(null), 2500);
+    } catch { /* non-fatal */ }
+  }, []);
+  const redeemReward = useCallback(async (rewardId: string) => {
+    setClaimingRewardId(rewardId);
+    setClaimError(null);
+    try {
+      const res = await fetch('/api/wallet/knyt/rewards/redeem', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rewardId }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        const reason = json?.reason || json?.error || `redeem failed (${res.status})`;
+        // Surface FIO requirement specifically — the spine returns
+        // reason='fio-handle-required' for personas without FIO.
+        const friendly = reason === 'fio-handle-required'
+          ? 'Register your FIO handle in the Connections tab before claiming rewards.'
+          : reason;
+        setClaimError(friendly);
+        return;
+      }
+      // Refresh balance + tasks payload so the claimed row disappears
+      // and the new DVN balance reflects.
+      refreshKnyt();
+      const pid = personaId || localPersonaId;
+      if (pid) {
+        try {
+          const r = await fetch('/api/wallet/tasks', { credentials: 'include' });
+          if (r.ok) {
+            const data = await r.json();
+            setWalletTasksData(data);
+          }
+        } catch { /* non-fatal */ }
+      }
+    } catch (err) {
+      setClaimError((err as Error).message);
+    } finally {
+      setClaimingRewardId(null);
+    }
   }, [personaId, localPersonaId]);
 
   // Get pricing info for current content
@@ -3409,11 +3480,11 @@ export default function SmartWalletDrawer({
                           {(card.id === 'knyt:bring-a-knight' || card.id === 'knyt:herald-of-the-order') && (
                             <button
                               type="button"
-                              onClick={() => window.dispatchEvent(new CustomEvent('knyt:navigate-tab', { detail: { tab: 'referral' } }))}
+                              onClick={() => copyShareLink(card.id === 'knyt:bring-a-knight' ? 'bring-a-knight' : 'herald')}
                               className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded bg-cyan-500/20 text-cyan-300 text-xs hover:bg-cyan-500/30"
                             >
                               <Share2 className="w-3 h-3" />
-                              Share Invite Link
+                              {shareCopiedFor === card.id ? 'Link copied!' : 'Copy Share Link'}
                             </button>
                           )}
                         </section>
@@ -3438,7 +3509,20 @@ export default function SmartWalletDrawer({
                             <button
                               key={card.id}
                               type="button"
-                              onClick={() => window.dispatchEvent(new CustomEvent('knyt:navigate-tab', { detail: { tab: card.deepLink ?? 'living-canon' } }))}
+                              onClick={() => {
+                                // v2 ops: deep-link Living Canon cards into the
+                                // 21 Sats tab with the task slug carried so the
+                                // receiving tab can pre-select the right surface.
+                                // Falls back to the generic 'living-canon' tab if
+                                // the receiver hasn't been updated yet.
+                                window.dispatchEvent(new CustomEvent('knyt:navigate-tab', {
+                                  detail: {
+                                    tab: '21-sats',
+                                    taskSlug: card.id,
+                                    fallbackTab: card.deepLink ?? 'living-canon',
+                                  },
+                                }));
+                              }}
                               className="w-full flex items-center justify-between rounded-lg bg-white/5 hover:bg-white/10 transition px-2 py-1.5 text-left"
                             >
                               <span className="text-[11px] text-white/70">{card.title}</span>
@@ -3752,17 +3836,45 @@ export default function SmartWalletDrawer({
                     Claimable Rewards
                   </div>
                   <div className="space-y-2">
-                    {walletTasksData!.questRail.rewards.map((r) => (
-                      <div key={r.id} className="flex items-center justify-between rounded-lg bg-white/5 ring-1 ring-white/10 px-2 py-1.5">
-                        <span className="text-xs text-white/70">{r.source}</span>
-                        <span className="flex items-center gap-1 text-sm font-medium text-emerald-300">
-                          <Coins className="w-3.5 h-3.5" />
-                          +{r.amount} KNYT
-                        </span>
-                      </div>
-                    ))}
+                    {walletTasksData!.questRail.rewards.map((r) => {
+                      const isClaiming = claimingRewardId === r.id;
+                      return (
+                        <div key={r.id} className="flex items-center justify-between rounded-lg bg-white/5 ring-1 ring-white/10 px-2 py-1.5">
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-xs text-white/70 truncate">{r.source}</span>
+                            <span className="text-[10px] text-emerald-400/70 inline-flex items-center gap-1">
+                              <Coins className="w-3 h-3" />
+                              +{r.amount} KNYT
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => redeemReward(r.id)}
+                            disabled={isClaiming || claimingRewardId !== null}
+                            className="shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-500/20 text-emerald-200 text-xs hover:bg-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            {isClaiming ? (
+                              <>
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                                Claiming…
+                              </>
+                            ) : (
+                              <>
+                                <Gift className="w-3 h-3" />
+                                Claim
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <p className="text-[10px] text-white/30 mt-2">Contact support to claim — on-chain claim flow coming soon.</p>
+                  {claimError && (
+                    <p className="text-[10px] text-red-400 mt-2">{claimError}</p>
+                  )}
+                  <p className="text-[10px] text-white/30 mt-2">
+                    Spine-mediated mint via deferred-claim flow. Credits DVN balance on success.
+                  </p>
                 </section>
               )}
 

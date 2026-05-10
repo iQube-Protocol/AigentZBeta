@@ -24,6 +24,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPayPalOrder, getPayPalCapture } from '@/services/wallet/knyt/paypalService';
 import { creditKnyt } from '@/services/wallet/knyt/knytLedgerService';
 import { createClient } from '@supabase/supabase-js';
+import { emitOrchestrationEvent } from '@/services/orchestration/orchestrationEvents';
 
 export const runtime = 'nodejs';
 
@@ -199,6 +200,62 @@ export async function POST(request: NextRequest) {
       } catch (err) {
         results.push({ id, status: 'error', message: (err as Error).message });
       }
+    }
+
+    // Single batch-recovery receipt per /recover call (operator-confirmed
+    // option (b) per the rep/rewards/tasks decisions doc Phase B follow-up).
+    // Avoids per-row receipt noise when the operator backfills many orphans
+    // at once. Best-effort: failure here doesn't undo the credits.
+    try {
+      const credited = results.filter((r) => r.status === 'credited');
+      if (credited.length > 0) {
+        const totalKnyt = credited.reduce((sum, r) => sum + (r.knytAmount ?? 0), 0);
+        const affectedPersonas = Array.from(new Set(
+          credited.map((r) => r.personaId).filter((p): p is string => !!p),
+        ));
+        const recoveryRunId = `rec_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+        await emitOrchestrationEvent({
+          event_id: recoveryRunId,
+          timestamp: new Date().toISOString(),
+          // 'access_decision' is the canonical event_type per
+          // types/orchestration.ts. The recover endpoint backfills
+          // missed entitlement grants — each is logically an access
+          // decision, and the batch receipt represents the aggregate.
+          // metadata.recovered=true and the recovery_run_id flag this
+          // as an admin-side backfill rather than an organic decision.
+          event_type: 'access_decision',
+          from_role: 'aigent-z',
+          to_role: 'aigent-c',
+          reason: `paypal-capture-recovery: ${credited.length} order(s), ${totalKnyt} KNYT credited`,
+          journey_stage: 'acolyte',
+          active_cartridge: 'knyt',
+          active_codex: null,
+          receipt_eligible: true,
+          metadata: {
+            // T2 attribution intentionally null — operator-side action,
+            // no persona alias commitment. The `affected_persona_count`
+            // covers the audit need without leaking T0 ids; per-persona
+            // alias commitments are NOT computed here to avoid noise.
+            actor_alias_commitment: null,
+            cohort_id: null,
+            receipt_mode: 'async-batched',
+            // Recovery-specific aggregate fields
+            recovered: true,
+            recovery_run_id: recoveryRunId,
+            recovered_count: credited.length,
+            recovered_total_knyt: totalKnyt,
+            affected_persona_count: affectedPersonas.length,
+            // PayPal order/capture ids are public payment ids, safe in
+            // metadata — they are NOT T0 persona ids.
+            order_ids: credited.map((r) => r.orderId).filter(Boolean),
+            capture_ids: credited.map((r) => r.captureId).filter(Boolean),
+            fio_handle_hint: fioHandle ?? null,
+          },
+        });
+      }
+    } catch (recoveryReceiptErr) {
+      // Non-fatal — credits are already committed.
+      console.error('[PayPal Recover] Batch receipt emission failed (non-fatal):', recoveryReceiptErr);
     }
 
     return NextResponse.json({ results, fioHandle: fioHandle ?? null });
