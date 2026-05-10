@@ -125,14 +125,14 @@ partition_id = `<cohortId>:<personaId>`
 ```
 
 Examples:
-- `knyt:risers:9de2eecc-...` — fost@knyt's reputation in the KNYT backers cohort
+- `knyt:backers:9de2eecc-...` — fost@knyt's reputation in the KNYT backers cohort
 - `agentiq:developers:abc123-...` — a dev's reputation in the AgentiQ developers cohort
 
 ### RQH record shape (per delta event)
 
 ```jsonc
 {
-  "partition_id": "knyt:risers:9de2eecc-...",
+  "partition_id": "knyt:backers:9de2eecc-...",
   "delta": 5,                              // signed integer; can be negative
   "dimension": "community",                // matches crm_persona_reputation columns
   "source_event_id": "<orchestration_event uuid>",
@@ -153,8 +153,8 @@ the OrchestrationEvent; `partition_id` lives in RQH; the two are linked by
 | Trigger | Source kind | Default delta | Cohort |
 |---|---|---|---|
 | Task accepted by editor | `task_completion` | `crm_task_templates.reputation_weight_<dimension>` | from task template's `cohort_id` |
-| Knight-of-Attention episode complete | `usage` | configurable per category | `knyt:risers` |
-| Bring-a-Knight qualified referral | `referral` | configurable | `knyt:risers` |
+| Knight-of-Attention episode complete | `usage` | configurable per category | `knyt:backers` |
+| Bring-a-Knight qualified referral | `referral` | configurable | `knyt:backers` |
 | Manual operator grant | `manual_grant` | per-call value | per-call cohort |
 | Decay sweep (weekly cron) | `decay` | configurable per dimension | global |
 
@@ -406,12 +406,11 @@ by forking.
 
 ## 13. Operator answers (locked 2026-05-10)
 
-1. **Cohort id for the 3 General task families.** ✅ **`knyt:risers`** —
-   distinct from the existing `knyt:backers` seed cohort (which gates
-   investor-tier perks). `knyt:risers` is the engagement-cohort whose
-   reputation deltas come from the General task families (Bring-a-Knight,
-   Knight-of-Attention, Herald-of-the-Order). Phase B / Phase C migrations
-   add `knyt:risers` to the cohort directory as a sixth seed cohort.
+1. **Cohort id for the 3 General task families.** ✅ **`knyt:backers`** —
+   reuses the existing seed cohort from Phase 3 rather than creating a new
+   one. The General task families (Bring-a-Knight, Knight-of-Attention,
+   Herald-of-the-Order) write reputation deltas into the `knyt:backers`
+   RQH partition. No new cohort directory entry needed.
 
 2. **Reputation decay schedule.** ✅ Weekly cron confirmed. The decay rate
    per dimension is **TBD by operator** before the cron ships — until the

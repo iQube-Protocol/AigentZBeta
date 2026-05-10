@@ -1451,7 +1451,11 @@ export default function SmartWalletDrawer({
     if (!pid) { setWalletTasksData(null); return; }
     let cancelled = false;
     setWalletTasksLoading(true);
-    fetch(`/api/wallet/tasks?personaId=${encodeURIComponent(pid)}`)
+    // /api/wallet/tasks resolves the active persona server-side via the
+    // spine's getActivePersona — no query-param personaId. The `pid` guard
+    // above prevents spinning up the fetch before the wallet has any
+    // persona context, but the server is the source of truth.
+    fetch(`/api/wallet/tasks`, { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : null))
       .then((data: WalletTasksPayload | null) => { if (!cancelled) setWalletTasksData(data); })
       .catch(() => {})
