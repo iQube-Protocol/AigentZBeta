@@ -2520,13 +2520,14 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   }, []);
 
   // Phase E — Order tab right-HUD QuestRail data. Fetches /api/wallet/tasks
-  // (spine-conformant; resolves the active persona server-side, no T0 in
-  // URL or response) and populates taskData with the live activeTask /
-  // rewards / ascensionRank so the QuestRail surfaces real data instead of
-  // the static 'Initiate → Acolyte' placeholder. Refreshes on persona
-  // change + after a successful reward redemption.
+  // (spine-conformant; resolves the active persona server-side via session
+  // cookie, no T0 in URL or response). The HUD is universal — every
+  // signed-in user sees the General task families (Bring-a-Knight /
+  // Knight-of-Attention / Herald) regardless of progress, so the fetch
+  // does NOT gate on a client-side effectivePersonaId. Server returns 401
+  // for unauthenticated callers; we silently leave the static fallback
+  // in place. Refreshes on persona change + after a successful redemption.
   useEffect(() => {
-    if (!effectivePersonaId) return;
     let cancelled = false;
     fetch('/api/wallet/tasks', { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : null))
