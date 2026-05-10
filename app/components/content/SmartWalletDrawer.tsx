@@ -23,6 +23,7 @@ import PurchaseFlow, { type PurchaseStep, type PaymentMethod } from "./PurchaseF
 import type { SmartWalletNode, WalletTask, QuestProgress, RecentReward, PersonaState } from "@/types/smartWallet";
 import type { SmartContentQube } from "@/types/smartContent";
 import { BuyKnytModal } from "../wallet/BuyKnytModal";
+import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal";
 import { PaymentRequestsPanel } from "../wallet/PaymentRequestsPanel";
 import { PersonaEditModal } from "../wallet/PersonaEditModal";
 import { PersonaQuickAddModal } from "../wallet/PersonaQuickAddModal";
@@ -1473,22 +1474,31 @@ export default function SmartWalletDrawer({
   const [claimingRewardId, setClaimingRewardId] = useState<string | null>(null);
   const [claimError, setClaimError] = useState<string | null>(null);
 
-  // Share-link copy state for Bring-a-Knight + Herald task cards (v2 ops).
-  // shareCopiedFor stores the card id whose button most recently flashed
-  // "Link copied!" — auto-resets after 2.5s.
-  const [shareCopiedFor, setShareCopiedFor] = useState<string | null>(null);
-  const copyShareLink = useCallback(async (source: 'bring-a-knight' | 'herald') => {
+  // Invite-share modal state for Bring-a-Knight + Herald task cards (v2 ops).
+  // Clicking the share button on either card fetches a per-persona referral
+  // URL from /api/wallet/tasks/share-link and opens the SocialSharingModal
+  // pre-loaded with that URL — so the user can broadcast (Twitter/LinkedIn/
+  // Facebook) or narrowcast (WhatsApp/Telegram/Discord/Email/native share)
+  // the invite via any platform we already integrate. The URL carries the
+  // ref code, so click + signup attribution flows back to the referrer.
+  const [inviteShare, setInviteShare] = useState<{
+    source: 'bring-a-knight' | 'herald';
+    refCode: string;
+    url: string;
+  } | null>(null);
+  const [inviteShareLoading, setInviteShareLoading] = useState<string | null>(null);
+  const openInviteShare = useCallback(async (source: 'bring-a-knight' | 'herald') => {
+    setInviteShareLoading(source);
     try {
       const res = await fetch(`/api/wallet/tasks/share-link?source=${source}`, {
         credentials: 'include',
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.url) return;
-      try { await navigator.clipboard.writeText(json.url); } catch { /* clipboard unavailable */ }
-      const cardId = source === 'bring-a-knight' ? 'knyt:bring-a-knight' : 'knyt:herald-of-the-order';
-      setShareCopiedFor(cardId);
-      setTimeout(() => setShareCopiedFor(null), 2500);
-    } catch { /* non-fatal */ }
+      setInviteShare({ source, refCode: json.refCode, url: json.url });
+    } catch { /* non-fatal */ } finally {
+      setInviteShareLoading(null);
+    }
   }, []);
 
   // Navigate to a KNYT cartridge tab from the wallet drawer.
@@ -3503,16 +3513,21 @@ export default function SmartWalletDrawer({
                               {card.nextStep && <p className="text-[10px] text-white/40 mt-1">{card.nextStep}</p>}
                             </div>
                           )}
-                          {(card.id === 'knyt:bring-a-knight' || card.id === 'knyt:herald-of-the-order') && (
-                            <button
-                              type="button"
-                              onClick={() => copyShareLink(card.id === 'knyt:bring-a-knight' ? 'bring-a-knight' : 'herald')}
-                              className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded bg-cyan-500/20 text-cyan-300 text-xs hover:bg-cyan-500/30"
-                            >
-                              <Share2 className="w-3 h-3" />
-                              {shareCopiedFor === card.id ? 'Link copied!' : 'Copy Share Link'}
-                            </button>
-                          )}
+                          {(card.id === 'knyt:bring-a-knight' || card.id === 'knyt:herald-of-the-order') && (() => {
+                            const source = card.id === 'knyt:bring-a-knight' ? 'bring-a-knight' : 'herald';
+                            const loading = inviteShareLoading === source;
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => openInviteShare(source)}
+                                disabled={loading}
+                                className="w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded bg-cyan-500/20 text-cyan-300 text-xs hover:bg-cyan-500/30 disabled:opacity-50"
+                              >
+                                <Share2 className="w-3 h-3" />
+                                {loading ? 'Opening…' : 'Share Invite'}
+                              </button>
+                            );
+                          })()}
                           {card.id === 'knyt:knight-of-attention' && (
                             <button
                               type="button"
@@ -4238,6 +4253,38 @@ export default function SmartWalletDrawer({
           onClose={() => setBuyKnytModalOpen(false)}
           personaId={effectivePersonaId}
           onPurchaseComplete={() => refreshWalletBalances()}
+        />
+      )}
+
+      {inviteShare && (
+        <SocialSharingModal
+          isOpen={true}
+          onClose={() => setInviteShare(null)}
+          personaId={effectivePersonaId || undefined}
+          article={{
+            id: inviteShare.refCode,
+            title: inviteShare.source === 'bring-a-knight'
+              ? 'Join the KNYT Order in metaMe'
+              : 'Discover the KNYT Order in metaMe',
+            description: inviteShare.source === 'bring-a-knight'
+              ? 'I\'m riding with the KNYT Order in metaMe — sovereign identity, gated content, and the Living Canon. Join me with my invite link.'
+              : 'The KNYT Order in metaMe is opening. Sovereign identity, gated stories, and the Living Canon — all in one place. Take a look.',
+            section: 'KNYT',
+            url: inviteShare.url,
+          }}
+          onShare={(platform) => {
+            try {
+              fetch('/api/wallet/tasks/track-click', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  refCode: inviteShare.refCode,
+                  source: `${inviteShare.source}:${platform}`,
+                }),
+              }).catch(() => {});
+            } catch { /* non-fatal */ }
+          }}
         />
       )}
     </div>
