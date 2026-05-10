@@ -149,12 +149,26 @@ export class EntitlementService {
         })
         .select()
         .single();
-      
+
       if (error) {
-        console.error('[EntitlementService] Failed to grant entitlement:', error);
-        return { success: false, error: 'Failed to grant entitlement' };
+        // Surface the full Postgres error so the operator's diagnostic
+        // tooling can see exactly what blocked the insert (RLS, FK,
+        // enum mismatch, etc.) rather than the previous generic message.
+        console.error('[EntitlementService] Failed to grant entitlement:', {
+          assetId, personaId, tier,
+          code: (error as { code?: string }).code,
+          details: (error as { details?: string }).details,
+          hint: (error as { hint?: string }).hint,
+          message: error.message,
+        });
+        const detail = [error.message, (error as { details?: string }).details, (error as { hint?: string }).hint]
+          .filter(Boolean).join(' | ');
+        return {
+          success: false,
+          error: `grant failed (${(error as { code?: string }).code || '?'}): ${detail || 'unknown'}`,
+        };
       }
-      
+
       return { success: true, entitlementId: entitlement.id };
     } catch (err) {
       console.error('[EntitlementService] Error granting entitlement:', err);
