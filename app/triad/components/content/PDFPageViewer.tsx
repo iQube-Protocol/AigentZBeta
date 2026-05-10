@@ -15,6 +15,14 @@ interface PDFPageViewerProps {
   cid: string;
   title?: string;
   onClose: () => void;
+  /**
+   * Phase 3.x — fires once when the user has reached the final page.
+   * The caller decides what to do (typically POSTs to
+   * /api/engagement/episode-progress { episodeId, eventType: 'completed' }).
+   * The viewer never knows the episode-id format — that's the caller's
+   * concern. See KnytTab for the canonical wiring.
+   */
+  onComplete?: () => void;
 }
 
 interface PageMeta {
@@ -29,7 +37,7 @@ interface PageManifest {
   cached?: boolean;
 }
 
-export function PDFPageViewer({ cid, title, onClose }: PDFPageViewerProps) {
+export function PDFPageViewer({ cid, title, onClose, onComplete }: PDFPageViewerProps) {
   const [manifest, setManifest] = useState<PageManifest | null>(null);
   const [meta, setMeta] = useState<PageMeta | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -37,6 +45,22 @@ export function PDFPageViewer({ cid, title, onClose }: PDFPageViewerProps) {
   const [error, setError] = useState<string | null>(null);
   const [loadedPages, setLoadedPages] = useState<Set<number>>(new Set());
   const [failedPages, setFailedPages] = useState<Set<number>>(new Set());
+  const completionFiredRef = useRef<boolean>(false);
+
+  // Phase 3.x — fire onComplete once when the user reaches the final page.
+  // Idempotent via completionFiredRef so re-renders don't re-fire. Resets
+  // when cid changes (the caller is now showing a different episode).
+  useEffect(() => {
+    completionFiredRef.current = false;
+  }, [cid]);
+  useEffect(() => {
+    if (!onComplete) return;
+    if (!meta || meta.pages <= 0) return;
+    if (currentPage < meta.pages) return;
+    if (completionFiredRef.current) return;
+    completionFiredRef.current = true;
+    onComplete();
+  }, [currentPage, meta, onComplete]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);

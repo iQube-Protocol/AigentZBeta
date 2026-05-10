@@ -192,6 +192,32 @@ export function KnytLivingCanonTemplate({
     void loadBranch(activeBranch);
   }, [activeBranch, loadBranch]);
 
+  // v2 ops — KNYT Tasks "open 21 Sats and pre-select submission" deep-link.
+  // The wallet drawer's tasks tab parks the taskSlug on
+  // window.__knytPendingTaskSlug before navigating here. We read + clear
+  // it on mount and pre-select the community submission shell so the
+  // user lands on the right surface to act.
+  //
+  // We deliberately don't try to map taskSlug → schemaSlug here — the
+  // task slug is for telemetry / future routing decisions; the
+  // submission shell uses the branch's canonical schemaSlug. If a
+  // future task needs a different submission target, this is the
+  // single point to extend.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const w = window as unknown as { __knytPendingTaskSlug?: string };
+    const parked = w.__knytPendingTaskSlug;
+    if (!parked) return;
+    try { delete w.__knytPendingTaskSlug; } catch { /* non-fatal */ }
+    setActiveBranch('community');
+    setSubmissionSlug(BRANCH_CONFIG.community.schemaSlug);
+    // Telemetry — captured in console for now; full engagement_events
+    // routing lands when KnytTasks rep/rewards integrates the click flow.
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[living-canon] consumed parked taskSlug', parked);
+    }
+  }, []);
+
   const handleBranchChange = (branch: CanonBranch) => {
     setActiveBranch(branch);
     setSubmissionSlug(null);
