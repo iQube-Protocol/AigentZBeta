@@ -1723,12 +1723,29 @@ export const METAME_CODEX: CodexConfig = {
   },
   tabs: [
     {
+      id: 'aigent-me-welcome',
+      label: 'Aigent Me',
+      slug: 'aigent-me',
+      enabled: true,
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'AigentMeWelcomeTab',
+        props: {}
+      },
+      metadata: {
+        icon: 'Sparkles',
+        description: 'metaMe Personal Assistant — sovereign chief of staff for your active cartridges, goals, and venture work',
+        color: 'violet'
+      }
+    },
+    {
       id: 'experience-framework',
       label: 'Experience Framework',
       slug: 'experience-framework',
       enabled: true,
       adminOnly: true,
-      order: 0,
+      order: 1,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -1750,7 +1767,7 @@ export const METAME_CODEX: CodexConfig = {
       slug: 'experience-dashboard',
       enabled: true,
       adminOnly: true,
-      order: 1,
+      order: 2,
       type: 'static',
       config: {
         component: 'ExperienceDashboardTab',
