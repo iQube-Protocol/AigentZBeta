@@ -12,6 +12,7 @@
 BEGIN;
 
 ALTER TABLE orchestration_events
+  ADD COLUMN IF NOT EXISTS active_codex          text,
   ADD COLUMN IF NOT EXISTS actor_alias_commitment text,
   ADD COLUMN IF NOT EXISTS cohort_id              text,
   ADD COLUMN IF NOT EXISTS receipt_mode           text,
