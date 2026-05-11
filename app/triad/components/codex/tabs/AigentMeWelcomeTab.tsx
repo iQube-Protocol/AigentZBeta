@@ -60,6 +60,10 @@ import {
   ApprovalCard,
   type ApprovalCardAction,
 } from "@/components/metame/cards/ApprovalCard";
+import {
+  SpecialistResponseCard,
+  type SpecialistResponseData,
+} from "@/components/metame/cards/SpecialistResponseCard";
 
 interface Specialist {
   id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c';
@@ -141,6 +145,12 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
   const [ventureProgress, setVentureProgress] = useState<VentureProgressData | null>(null);
   const [ventureProgressLoading, setVentureProgressLoading] = useState(false);
   const [ventureProgressError, setVentureProgressError] = useState<string | null>(null);
+
+  // Phase 5 — Specialist responses keyed by nbeId. One specialist call per
+  // queued approval; the card stays visible until dismissed.
+  const [specialistResponses, setSpecialistResponses] = useState<Record<string, SpecialistResponseData>>({});
+  const [specialistLoading, setSpecialistLoading] = useState<Record<string, boolean>>({});
+  const [specialistErrors, setSpecialistErrors] = useState<Record<string, string>>({});
 
   // Phase 3.5 — Approval + IntentQube state. Single pending-approval slot
   // at a time; queued intents are remembered per nbeId so the user can see
@@ -374,12 +384,69 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
       }));
       // Clear the pending slot; the queued card will replace it inline.
       setPendingApprovalNbe(null);
+
+      // Phase 5 — if the NBE names a specialist, auto-fire the specialist
+      // consultation. The SpecialistResponseCard renders inline.
+      if (action.specialist) {
+        const nbeId = action.id;
+        const specialistId = action.specialist;
+        setSpecialistLoading((prev) => ({ ...prev, [nbeId]: true }));
+        setSpecialistErrors((prev) => {
+          const next = { ...prev };
+          delete next[nbeId];
+          return next;
+        });
+        void (async () => {
+          try {
+            const res = await personaFetch('/api/assistant/ask-agent', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                specialistId,
+                intentId: data.intentId,
+                cartridge: action.cartridge,
+              }),
+              personaIdHint: personaId,
+            });
+            if (!res.ok) {
+              const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+              throw new Error(body?.detail || body?.error || `ask-agent failed (${res.status})`);
+            }
+            const sp = (await res.json()) as SpecialistResponseData;
+            setSpecialistResponses((prev) => ({ ...prev, [nbeId]: sp }));
+          } catch (err) {
+            setSpecialistErrors((prev) => ({
+              ...prev,
+              [nbeId]: err instanceof Error ? err.message : String(err),
+            }));
+          } finally {
+            setSpecialistLoading((prev) => {
+              const next = { ...prev };
+              delete next[nbeId];
+              return next;
+            });
+          }
+        })();
+      }
     } catch (err) {
       setApprovalError(err instanceof Error ? err.message : String(err));
     } finally {
       setSubmittingApproval(false);
     }
   }, [pendingApprovalNbe, personaId]);
+
+  const handleDismissSpecialist = useCallback((nbeId: string) => {
+    setSpecialistResponses((prev) => {
+      const next = { ...prev };
+      delete next[nbeId];
+      return next;
+    });
+    setSpecialistErrors((prev) => {
+      const next = { ...prev };
+      delete next[nbeId];
+      return next;
+    });
+  }, []);
 
   const handleDismissQueued = useCallback((nbeId: string) => {
     setQueuedIntents((prev) => {
@@ -429,6 +496,10 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
           onApprovalApprove={handleApprovalApprove}
           onApprovalCancel={handleApprovalCancel}
           onDismissQueued={handleDismissQueued}
+          specialistResponses={specialistResponses}
+          specialistLoading={specialistLoading}
+          specialistErrors={specialistErrors}
+          onDismissSpecialist={handleDismissSpecialist}
           theme={theme}
           surfaceClass={surfaceClass}
           mutedClass={mutedClass}
@@ -497,6 +568,10 @@ interface BodyProps {
   onApprovalApprove: () => void;
   onApprovalCancel: () => void;
   onDismissQueued: (nbeId: string) => void;
+  specialistResponses: Record<string, SpecialistResponseData>;
+  specialistLoading: Record<string, boolean>;
+  specialistErrors: Record<string, string>;
+  onDismissSpecialist: (nbeId: string) => void;
   theme: 'light' | 'dark';
   surfaceClass: string;
   mutedClass: string;
@@ -531,6 +606,10 @@ function AigentMeWelcomeBody({
   onApprovalApprove,
   onApprovalCancel,
   onDismissQueued,
+  specialistResponses,
+  specialistLoading,
+  specialistErrors,
+  onDismissSpecialist,
   theme,
   surfaceClass,
   mutedClass,
@@ -642,6 +721,31 @@ function AigentMeWelcomeBody({
               theme={theme}
             />
           ))}
+        </section>
+      )}
+
+      {/* Specialist responses — Phase 5. Cards render inline once a queued
+          NBE with a specialist returns from /api/assistant/ask-agent. */}
+      {(Object.keys(specialistResponses).length > 0 ||
+        Object.keys(specialistLoading).length > 0 ||
+        Object.keys(specialistErrors).length > 0) && (
+        <section className="space-y-2">
+          {Object.keys({ ...specialistResponses, ...specialistLoading, ...specialistErrors }).map((nbeId) => {
+            const sp = specialistResponses[nbeId] ?? null;
+            const isLoading = !!specialistLoading[nbeId];
+            const err = specialistErrors[nbeId] ?? null;
+            return (
+              <SpecialistResponseCard
+                key={nbeId}
+                data={sp}
+                loading={isLoading}
+                error={err}
+                using={usingIqubes}
+                onDismiss={() => onDismissSpecialist(nbeId)}
+                theme={theme}
+              />
+            );
+          })}
         </section>
       )}
 
