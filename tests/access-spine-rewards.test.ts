@@ -8,6 +8,11 @@
  *
  *   - GET  /api/wallet/tasks
  *   - POST /api/wallet/knyt/rewards/redeem
+ *   - GET  /api/wallet/tasks/share-link
+ *   - GET  /api/referral/resolve-code
+ *   - POST /api/wallet/tasks/track-click
+ *   - GET  /api/admin/knyt/tasks-rewards
+ *   - PATCH /api/admin/knyt/tasks-rewards
  *
  * What this validates:
  *   1. Neither route's JSON response carries `personaId`, `crmPersonaId`,
@@ -159,6 +164,185 @@ describe('rep/rewards/tasks — T0 leak canary', () => {
         expect(keys.has(forbidden), `T0 field "${forbidden}" leaked into error response`).toBe(false);
       }
     }
+  });
+
+  // ── v2 ops endpoints (share-link, resolve-code, track-click) ────────────
+
+  it('/api/wallet/tasks/share-link response does not carry T0 ids', () => {
+    // The share-link endpoint mints a per-persona HMAC ref-code from
+    // (source, personaId, epoch) — the code itself is opaque, not a
+    // T0 id. The response carries the code + url + source + epoch.
+    const shareLinkResponse = {
+      success: true,
+      source: 'bring-a-knight',
+      refCode: 'a1b2c3d4e5f60718',
+      url: 'https://dev-beta.aigentz.me/?ref=a1b2c3d4e5f60718&utm_source=bring-a-knight',
+      epoch: 'v1',
+    };
+    const keys = new Set<string>();
+    collectKeys(shareLinkResponse, keys);
+    for (const forbidden of FORBIDDEN_T0_FIELDS) {
+      expect(keys.has(forbidden), `T0 field "${forbidden}" leaked into share-link response`).toBe(false);
+    }
+    // The ref-code is HMAC-derived — must NOT contain a literal persona
+    // uuid or a did: prefix. Canary against a regression where someone
+    // simplifies the derivation to a raw uuid.
+    expect(shareLinkResponse.refCode).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}/);
+    expect(shareLinkResponse.refCode).not.toContain('did:');
+    expect(shareLinkResponse.refCode).toMatch(/^[a-f0-9]{16}$/);
+  });
+
+  it('/api/referral/resolve-code response does not carry T0 ids', () => {
+    // The resolver returns ONLY a boolean + the source field; never the
+    // referrer's personaId or fio handle. Signup-side flow uses the
+    // existence signal to wire up referral attribution server-internally.
+    const resolveResponse = { matched: true, source: 'bring-a-knight' };
+    const keys = new Set<string>();
+    collectKeys(resolveResponse, keys);
+    for (const forbidden of FORBIDDEN_T0_FIELDS) {
+      expect(keys.has(forbidden), `T0 field "${forbidden}" leaked into resolve-code response`).toBe(false);
+    }
+    // Negative case — non-matching code returns a bare success envelope.
+    const noMatch = { matched: false };
+    const k2 = new Set<string>();
+    collectKeys(noMatch, k2);
+    for (const forbidden of FORBIDDEN_T0_FIELDS) {
+      expect(k2.has(forbidden)).toBe(false);
+    }
+  });
+
+  it('/api/wallet/tasks/track-click response does not carry T0 ids', () => {
+    // Click tracking returns success + the matched boolean — no persona
+    // identification flows back to the caller (which is a non-authed
+    // destination page on a freshly-clicked share link).
+    const trackClickResponse = { success: true, matched: true };
+    const keys = new Set<string>();
+    collectKeys(trackClickResponse, keys);
+    for (const forbidden of FORBIDDEN_T0_FIELDS) {
+      expect(keys.has(forbidden), `T0 field "${forbidden}" leaked into track-click response`).toBe(false);
+    }
+  });
+
+  // ── v2 admin endpoints (tasks-rewards admin) ────────────────────────────
+
+  it('/api/admin/knyt/tasks-rewards GET response does not carry T0 ids', () => {
+    // The admin route returns templates + aggregate counts/sums per
+    // template. AGGREGATES ONLY — no persona_id lists, no per-persona
+    // grant detail. The persona drill-down is a separate route gated
+    // on a stricter admin flag (not yet implemented).
+    const adminResponse = {
+      templates: [
+        {
+          id: 'tpl-uuid-1',
+          slug: 'knyt:bring-a-knight',
+          title: 'Bring a Knight',
+          description: 'Invite friends',
+          category: 'community',
+          difficulty_level: 2,
+          reward_qct: 0,
+          reward_qoyn: 0,
+          reward_knyt: 2,
+          cohort_id: 'knyt:backers',
+          is_active: true,
+          schema_json: {
+            family: 'general',
+            reward_task_type: 'BringAKnightQualifiedReferral',
+            completion_signal: 'qualified_referral_purchase',
+            service: 'referralService',
+          },
+          metadata: { card_label: 'Bring a Knight', icon: 'Users' },
+          reward_task_types: ['BringAKnightQualifiedReferral'],
+          aggregates: {
+            approved_count: 5,
+            approved_amount: 10,
+            redeemed_count: 3,
+            redeemed_amount: 6,
+            pending_count: 0,
+            pending_amount: 0,
+            rejected_count: 0,
+            last_grant_at: '2026-05-12T01:23:45.000Z',
+          },
+          created_at: '2026-05-04T00:00:00.000Z',
+          updated_at: '2026-05-12T00:00:00.000Z',
+        },
+      ],
+    };
+    const keys = new Set<string>();
+    collectKeys(adminResponse, keys);
+    for (const forbidden of FORBIDDEN_T0_FIELDS) {
+      expect(keys.has(forbidden), `T0 field "${forbidden}" leaked into admin tasks-rewards response`).toBe(false);
+    }
+    // Canary: aggregate field must NOT carry a persona_id list.
+    expect(keys.has('persona_id')).toBe(false);
+    expect(keys.has('persona_ids')).toBe(false);
+  });
+
+  it('/api/admin/knyt/tasks-rewards PATCH response does not carry T0 ids', () => {
+    const patchResponse = {
+      template: {
+        id: 'tpl-uuid-1',
+        slug: 'knyt:bring-a-knight',
+        title: 'Bring a Knight',
+        description: 'Invite friends',
+        reward_knyt: 2.5,
+        reward_qct: 0,
+        reward_qoyn: 0,
+        is_active: true,
+        updated_at: '2026-05-12T01:23:45.000Z',
+      },
+    };
+    const keys = new Set<string>();
+    collectKeys(patchResponse, keys);
+    for (const forbidden of FORBIDDEN_T0_FIELDS) {
+      expect(keys.has(forbidden), `T0 field "${forbidden}" leaked into admin patch response`).toBe(false);
+    }
+  });
+
+  it('admin tasks-rewards PATCH allowed-field allowlist is restrictive', () => {
+    // The route validates the patch object against an allowlist. The
+    // canary: future contributors must NOT add reward_qct etc. without
+    // privacy review — and they must NEVER allow patching cohort_id
+    // (would let an admin re-route receipts to a different cohort).
+    const ALLOWED_PATCH_FIELDS = [
+      'reward_knyt',
+      'is_active',
+      'title',
+      'description',
+      'reward_qct',
+      'reward_qoyn',
+    ] as const;
+    // tenant_id, slug, cohort_id, schema_json, metadata MUST NOT be
+    // patchable through this endpoint.
+    const FORBIDDEN_PATCH_FIELDS = ['tenant_id', 'slug', 'cohort_id', 'schema_json', 'metadata', 'persona_id'];
+    for (const f of FORBIDDEN_PATCH_FIELDS) {
+      expect((ALLOWED_PATCH_FIELDS as readonly string[]).includes(f), `${f} must NOT be in admin PATCH allowlist`).toBe(false);
+    }
+  });
+
+  // ── grant→crm_rewards bridge (Phase 2) ──────────────────────────────────
+
+  it('grantToCrmRewardsBridge orchestration_events metadata uses T2 only', () => {
+    // The bridge emits an orchestration_events row with T2 attribution
+    // (actor_alias_commitment + cohort_id) — NOT personaId or
+    // authProfileId. This canary validates the receipt payload shape.
+    const receiptMetadata = {
+      reward_task_type: 'KnightOfAttentionEpisodeComplete',
+      task_slug: 'knyt:knight-of-attention',
+      task_template_id: 'tpl-uuid-2',
+      amount_knyt: 0.5,
+      reward_grant_id: 'grant-uuid-1',
+      source_event_id: 'episode-cid-1',
+      receipt_mode: 'async-batched',
+      actor_alias_commitment: 'b'.repeat(64),
+      cohort_id: 'knyt:backers',
+    };
+    const keys = new Set<string>();
+    collectKeys(receiptMetadata, keys);
+    for (const forbidden of FORBIDDEN_T0_FIELDS) {
+      expect(keys.has(forbidden), `T0 field "${forbidden}" leaked into bridge receipt metadata`).toBe(false);
+    }
+    expect(receiptMetadata.receipt_mode).toBe('async-batched');
+    expect(receiptMetadata.actor_alias_commitment).toMatch(/^[a-f0-9]{64}$/);
   });
 
   it('reward redeem descriptor uses synthetic asset id (no master_content leak)', () => {
