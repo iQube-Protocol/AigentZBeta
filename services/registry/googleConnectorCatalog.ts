@@ -28,6 +28,7 @@ import type {
   PolicyClass,
   WrapperStrategy,
   CapabilityDescriptor,
+  RegistryAssetSummary,
 } from '@/types/registryIngestion';
 import {
   listGoogleConnectors,
@@ -129,4 +130,32 @@ export function buildGoogleConnectorCatalog(): ConnectorQube[] {
  */
 export function getGoogleConnectorQube(connectorId: string): ConnectorQube | null {
   return buildGoogleConnectorCatalog().find((q) => (q.metadata as { connectorId?: string }).connectorId === connectorId) ?? null;
+}
+
+/**
+ * Projection used by the Factory's `/api/registry/assets` list endpoint.
+ * Surfaces every Google connector as a `RegistryAssetSummary` so they
+ * appear alongside live registry rows (with `publicationStatus: 'seed'`
+ * so operators can distinguish them and choose to promote via intake).
+ *
+ * This is the bridge from the static catalog → the Factory UI without
+ * requiring a database write. Operators can later run intake on any
+ * entry to lift it from seed → published.
+ */
+export function listGoogleConnectorAssetSummaries(): RegistryAssetSummary[] {
+  return buildGoogleConnectorCatalog().map((q): RegistryAssetSummary => ({
+    assetId: q.assetId,
+    assetClass: q.assetClass,
+    name: q.name,
+    slug: q.slug,
+    description: q.description,
+    iconUrl: q.iconUrl,
+    currentVersion: q.currentVersion,
+    trustBand: q.trustBand,
+    publicationStatus: q.publicationStatus,
+    policyClass: q.policyClass,
+    tags: q.tags,
+    createdAt: q.createdAt,
+    updatedAt: q.updatedAt,
+  }));
 }
