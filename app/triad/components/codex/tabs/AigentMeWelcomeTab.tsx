@@ -66,6 +66,7 @@ import {
 } from "@/components/metame/cards/SpecialistResponseCard";
 import { ArtifactCard, type ArtifactCardData } from "@/components/metame/cards/ArtifactCard";
 import { ActivityReceiptCard, type ActivityReceiptData } from "@/components/metame/cards/ActivityReceiptCard";
+import { QuickLinksCard } from "@/components/metame/cards/QuickLinksCard";
 
 interface Specialist {
   id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c';
@@ -554,6 +555,7 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     <>
       <PersonaSpineGate state={spine}>
         <AigentMeWelcomeBody
+          personaId={personaId}
           data={data}
           bootstrapLoading={bootstrapLoading}
           bootstrapError={bootstrapError}
@@ -633,6 +635,7 @@ function toApprovalAction(nbe: NextBestActionData): ApprovalCardAction {
 }
 
 interface BodyProps {
+  personaId?: string;
   data: BootstrapSurface | null;
   bootstrapLoading: boolean;
   bootstrapError: string | null;
@@ -678,6 +681,7 @@ interface BodyProps {
 }
 
 function AigentMeWelcomeBody({
+  personaId,
   data,
   bootstrapLoading,
   bootstrapError,
@@ -918,6 +922,10 @@ function AigentMeWelcomeBody({
         onEdit={() => onCtaClick('set-up-experience-model')}
         theme={theme}
       />
+
+      {/* Quick links — deep-link into the cartridges and tabs the user
+          works in most. PersonaId travels with every link via buildCodexUrl. */}
+      <QuickLinksCard personaId={personaId} theme={theme} />
 
       {/* Context chips */}
       <section>

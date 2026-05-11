@@ -46,10 +46,13 @@ export function IqubeContextDisclosure({
   className = "",
 }: Props) {
   const isDark = theme === "dark";
+  // metaMe brand secondary — emerald — appears on every persistent iQube
+  // disclosure strip across the runtime. Keeps violet as the welcome /
+  // ExperienceModel primary while emerald grounds the "this is metaMe" rail.
   const surfaceClass = isDark
-    ? "bg-slate-900/30 border-slate-800/60 text-slate-300"
-    : "bg-slate-50 border-slate-200 text-slate-700";
-  const accentClass = isDark ? "text-violet-300" : "text-violet-700";
+    ? "bg-emerald-500/5 border-emerald-500/30 text-slate-300"
+    : "bg-emerald-50 border-emerald-200 text-slate-700";
+  const accentClass = isDark ? "text-emerald-300" : "text-emerald-700";
   const mutedClass = isDark ? "text-slate-500" : "text-slate-500";
 
   const notSharedList =

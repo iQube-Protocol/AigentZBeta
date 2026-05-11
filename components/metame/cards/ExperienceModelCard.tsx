@@ -175,9 +175,17 @@ export function ExperienceModelCard({ data, loading, onEdit, theme = "dark" }: P
         )}
       </div>
 
-      {/* Stage + confidentiality + progress model */}
+      {/* Stage + confidentiality + progress model. Stage chip gets the
+          metaMe emerald accent to anchor the brand colour alongside the
+          violet header. */}
       <div className="flex flex-wrap items-center gap-3 text-xs mb-4">
-        <span className={`px-2 py-1 rounded-full border ${chipClass}`}>
+        <span
+          className={`px-2 py-1 rounded-full border ${
+            isDark
+              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
+              : "border-emerald-400 bg-emerald-50 text-emerald-800"
+          }`}
+        >
           Stage · {STAGE_LABELS[meta.currentStage] ?? meta.currentStage}
         </span>
         <span className={`flex items-center gap-1 px-2 py-1 rounded-full border ${chipClass}`}>

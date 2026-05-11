@@ -149,7 +149,7 @@ export function BriefCard({ data, loading, error, onActOnNbe, theme = "dark" }: 
                 key={p.id}
                 className="flex items-center gap-2 text-sm"
               >
-                <ChevronRight className={`w-4 h-4 ${accentClass}`} />
+                <ChevronRight className={`w-4 h-4 ${isDark ? "text-emerald-300" : "text-emerald-700"}`} />
                 <span>{p.label}</span>
               </li>
             ))}
