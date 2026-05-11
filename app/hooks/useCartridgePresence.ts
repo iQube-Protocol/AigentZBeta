@@ -138,12 +138,22 @@ export function useCartridgePresence(args: UseCartridgePresenceArgs): void {
     });
   }, [cartridgeId, tab, subTab]);
 
-  // Inbound: shell asks the layer to close. Origin enforced; bare
-  // cartridgeId filter so a global close intent (cartridgeId omitted)
-  // doesn't fire every cartridge's onClose.
+  // Inbound: shell asks the layer to close. Distinguishes shell-driven
+  // close intents from same-frame echoes of our own unmount-time CLOSED
+  // broadcasts (which would otherwise loop back into onClose). Origin
+  // enforced via isMetameOriginAllowed; bare cartridgeId filter so a
+  // global close intent (cartridgeId omitted) targets every mounted
+  // cartridge while a targeted close (cartridgeId supplied) only fires
+  // the matching one.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     function onMessage(ev: MessageEvent<InboundShellMessage>): void {
+      // Same-frame echo guard — when the hook itself broadcasts a CLOSED
+      // event on unmount, that broadcast travels back to this listener
+      // via window.postMessage(msg, window.location.origin). We must
+      // ignore it; only honour close intents from a cross-frame source
+      // (the host shell).
+      if (ev.source === window) return;
       if (!isMetameOriginAllowed(ev.origin)) return;
       const data = ev.data;
       if (!data || typeof data !== 'object' || !data.type) return;

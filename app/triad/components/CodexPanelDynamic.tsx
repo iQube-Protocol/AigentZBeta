@@ -306,12 +306,24 @@ export default function CodexPanelDynamic({
   // and so the setter that switches the user-visible top-level codex tab
   // (Codex / Store / Terra / Order / Living Canon / …) is the one we
   // expose, not a cartridge-internal sub-state.
+  //
+  // onClose: shell-driven close intent. Navigate the iframe to the empty
+  // /triad/embed/codex-closed route — that page renders nothing visible
+  // and emits the canonical metame:cartridge-closed broadcast so the
+  // shell receives an unambiguous acknowledgment. The shell can also
+  // remove the iframe from its DOM for a hard teardown; this navigation
+  // is the soft "show nothing" fallback so the user sees the cartridge
+  // close even if the shell only sends the message and doesn't unmount.
   // Spec: docs/architecture/cartridge-presence-registry.md
   useCartridgePresence({
     cartridgeId: codexId,
     displayLabel: codex?.name?.replace(/\s+codex$/i, '').trim() || codex?.name || codexId,
     tab: activeTabSlug,
     onSetTab: setActiveTabSlug,
+    onClose: () => {
+      if (typeof window === 'undefined') return;
+      window.location.replace(`/triad/embed/codex-closed?cartridgeId=${encodeURIComponent(codexId)}`);
+    },
   });
 
   // Loading state
