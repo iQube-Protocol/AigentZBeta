@@ -3,25 +3,22 @@
  *
  * Closes the Bring-a-Knight + Herald loop: a freshly-signed-up persona
  * (or a signup form) calls this with the `ref` query the inviter shared,
- * the route returns the matching persona's public attribution surface,
- * and the signup flow then calls /api/referral/process with the
- * resolved referrer.
+ * the route confirms the code is valid + which task chain it belongs to,
+ * and the signup flow then calls /api/referral/process with the SAME
+ * refCode. The /process route resolves the refCode → referrerPersonaId
+ * server-side, so the T0 personaId NEVER touches the browser-bound JSON.
  *
  * Public — no auth needed. The code itself is the bearer of attribution
- * intent; matching against referral_codes returns ONLY the referrer's
- * persona id + the source (which task chain) + the epoch the code was
- * minted under. T0 fields (fioHandle, rootDid, authProfileId) are
- * NEVER in the response.
+ * intent. T0 fields (personaId, authProfileId, rootDid, fioHandle,
+ * kybeAttestation) are NEVER in the response.
  *
- * Note: the referrer's persona id IS T0 by tier definition, but in this
- * narrow context it's the only resolvable attribution handle the
- * downstream /api/referral/process accepts. Phase F follow-up: extend
- * /api/referral/process to accept a refCode directly so this endpoint
- * doesn't need to surface personaId at all.
+ * Rate-limited via system_rate_limits (key: 'referral:resolve-code',
+ * scope: 'ip'). Operator-tunable via the admin Tasks & Rewards tab.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { checkAndConsumeRateLimit, getClientIp } from '@/services/rateLimit/rateLimitService';
 
 export const runtime = 'nodejs';
 
@@ -34,6 +31,20 @@ function supabaseSr() {
 }
 
 export async function GET(request: NextRequest) {
+  // Per-IP rate limit — public endpoint without auth.
+  const clientIp = getClientIp(request.headers);
+  const rl = await checkAndConsumeRateLimit({
+    endpointKey: 'referral:resolve-code',
+    scope: 'ip',
+    scopeValue: clientIp,
+  });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'rate-limited', retryAfterSeconds: rl.retryAfterSeconds },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds ?? 60) } },
+    );
+  }
+
   const code = request.nextUrl.searchParams.get('ref');
   if (!code) {
     return NextResponse.json({ error: 'ref required' }, { status: 400 });
@@ -46,7 +57,7 @@ export async function GET(request: NextRequest) {
   const sb = supabaseSr();
   const { data, error } = await sb
     .from('referral_codes')
-    .select('persona_id, source, epoch, created_at')
+    .select('source, epoch')
     .eq('code', code)
     .maybeSingle();
 
@@ -58,9 +69,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ matched: false }, { status: 200 });
   }
 
+  // T0-safe response: only signal existence + which task chain. The
+  // signup flow passes `refCode` back to /api/referral/process which
+  // resolves the referrer server-side.
   return NextResponse.json({
     matched: true,
-    referrerPersonaId: data.persona_id,
     source: data.source,
     epoch: data.epoch,
   });

@@ -15,6 +15,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { checkAndConsumeRateLimit, getClientIp } from '@/services/rateLimit/rateLimitService';
 
 export const runtime = 'nodejs';
 
@@ -28,6 +29,22 @@ function supabaseSr() {
 
 export async function POST(request: NextRequest) {
   try {
+    // Per-IP rate limit — public endpoint with no auth, so the only
+    // bucket key is the client IP. Config in system_rate_limits,
+    // editable via admin tab.
+    const clientIp = getClientIp(request.headers);
+    const rl = await checkAndConsumeRateLimit({
+      endpointKey: 'wallet:tasks:track-click',
+      scope: 'ip',
+      scopeValue: clientIp,
+    });
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'rate-limited', retryAfterSeconds: rl.retryAfterSeconds },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds ?? 60) } },
+      );
+    }
+
     const body = await request.json().catch(() => ({}));
     const refCode = typeof body.refCode === 'string' ? body.refCode : null;
     const source = typeof body.source === 'string' ? body.source : null;

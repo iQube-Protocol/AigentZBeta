@@ -20,7 +20,20 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Check, Edit2, Loader2, Lock, Pause, Play, RefreshCw, Save, X } from 'lucide-react';
+import { AlertCircle, Check, Edit2, Loader2, Lock, Pause, Play, RefreshCw, Save, Shield, X } from 'lucide-react';
+
+// ── Rate-limit editor types ──────────────────────────────────────────────
+
+interface RateLimitConfig {
+  id: string;
+  endpoint_key: string;
+  scope: 'persona' | 'ip';
+  max_requests: number;
+  window_seconds: number;
+  is_active: boolean;
+  notes: string | null;
+  updated_at: string;
+}
 
 interface RewardAggregate {
   approved_count: number;
@@ -77,6 +90,65 @@ export function KnytTasksRewardsAdminTab({ isAdmin, theme = 'dark' }: Props) {
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState<string | null>(null);
 
+  // Rate-limit editor state — separate from task-template editor.
+  const [rateLimits, setRateLimits] = useState<RateLimitConfig[]>([]);
+  const [rateLimitsLoading, setRateLimitsLoading] = useState(false);
+  const [rateLimitsExpanded, setRateLimitsExpanded] = useState(false);
+  const [rlDraft, setRlDraft] = useState<Record<string, { max?: string; window?: string; active?: boolean }>>({});
+
+  const refreshRateLimits = useCallback(async () => {
+    setRateLimitsLoading(true);
+    try {
+      const res = await fetch('/api/admin/system/rate-limits', { credentials: 'include', cache: 'no-store' });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) setRateLimits(Array.isArray(json.limits) ? json.limits : []);
+    } catch { /* non-fatal */ } finally {
+      setRateLimitsLoading(false);
+    }
+  }, []);
+
+  const persistRateLimit = useCallback(async (cfg: RateLimitConfig, patch: Partial<RateLimitConfig>) => {
+    setRateLimitsLoading(true);
+    try {
+      const res = await fetch('/api/admin/system/rate-limits', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          endpointKey: cfg.endpoint_key,
+          scope: cfg.scope,
+          maxRequests: patch.max_requests ?? cfg.max_requests,
+          windowSeconds: patch.window_seconds ?? cfg.window_seconds,
+          isActive: patch.is_active ?? cfg.is_active,
+          notes: cfg.notes,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(json?.error || `HTTP ${res.status}`);
+        return false;
+      }
+      await refreshRateLimits();
+      return true;
+    } catch (err) {
+      setError((err as Error).message);
+      return false;
+    } finally {
+      setRateLimitsLoading(false);
+    }
+  }, [refreshRateLimits]);
+
+  const commitRateLimitDraft = useCallback(async (cfg: RateLimitConfig) => {
+    const d = rlDraft[cfg.endpoint_key + ':' + cfg.scope];
+    if (!d) return;
+    const max = d.max !== undefined ? Number(d.max) : cfg.max_requests;
+    const window = d.window !== undefined ? Number(d.window) : cfg.window_seconds;
+    if (!Number.isInteger(max) || max <= 0) { setError('maxRequests must be a positive integer'); return; }
+    if (!Number.isInteger(window) || window <= 0) { setError('windowSeconds must be a positive integer'); return; }
+    await persistRateLimit(cfg, { max_requests: max, window_seconds: window });
+    setRlDraft((s) => { const n = { ...s }; delete n[cfg.endpoint_key + ':' + cfg.scope]; return n; });
+  }, [rlDraft, persistRateLimit]);
+
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -97,6 +169,7 @@ export function KnytTasksRewardsAdminTab({ isAdmin, theme = 'dark' }: Props) {
   }, []);
 
   useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => { if (rateLimitsExpanded) void refreshRateLimits(); }, [rateLimitsExpanded, refreshRateLimits]);
 
   const startEdit = useCallback((t: TaskTemplate) => {
     setEditing(t.id);
@@ -261,6 +334,111 @@ export function KnytTasksRewardsAdminTab({ isAdmin, theme = 'dark' }: Props) {
             <span className="text-cyan-300/70">{totals.redeemedAmt.toFixed(2)} KNYT</span>
           </div>
         </div>
+      </div>
+
+      {/* Rate-limits editor — collapsible, lives at the top of the admin tab
+          but separate from the task templates so the operator can scan + tune
+          anti-abuse limits without scrolling past every task card. */}
+      <div className="rounded-xl border border-violet-500/20 bg-violet-500/5 p-3">
+        <button
+          type="button"
+          onClick={() => setRateLimitsExpanded((v) => !v)}
+          className="w-full flex items-center justify-between text-left"
+        >
+          <div className="flex items-center gap-2">
+            <Shield className="h-4 w-4 text-violet-300" />
+            <span className="text-sm font-medium text-violet-200">Rate limits</span>
+            <span className="text-[10px] text-violet-300/70">
+              {rateLimits.length > 0 ? `${rateLimits.filter((l) => l.is_active).length} active / ${rateLimits.length} total` : 'click to load'}
+            </span>
+          </div>
+          <span className="text-[10px] text-violet-300">{rateLimitsExpanded ? 'Hide' : 'Show'}</span>
+        </button>
+        {rateLimitsExpanded && (
+          <div className="mt-3 space-y-2">
+            {rateLimitsLoading && rateLimits.length === 0 ? (
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…
+              </div>
+            ) : rateLimits.length === 0 ? (
+              <div className="text-xs text-slate-400">No rate limits configured.</div>
+            ) : (
+              rateLimits.map((rl) => {
+                const dkey = rl.endpoint_key + ':' + rl.scope;
+                const d = rlDraft[dkey] || {};
+                const dirty = d.max !== undefined || d.window !== undefined;
+                return (
+                  <div
+                    key={rl.id}
+                    className={`rounded-lg border p-2.5 ${
+                      rl.is_active ? 'border-white/10 bg-white/[0.03]' : 'border-white/5 bg-white/[0.02] opacity-60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-[10px] text-slate-300">{rl.endpoint_key}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300">scope:{rl.scope}</span>
+                      <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded ${rl.is_active ? 'bg-emerald-500/15 text-emerald-300' : 'bg-slate-500/15 text-slate-400'}`}>
+                        {rl.is_active ? 'active' : 'disabled'}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2 flex-wrap">
+                      <label className="text-[10px] text-slate-400">Max</label>
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={d.max ?? String(rl.max_requests)}
+                        onChange={(e) => setRlDraft((s) => ({ ...s, [dkey]: { ...s[dkey], max: e.target.value } }))}
+                        className="w-20 rounded border border-slate-600 bg-slate-800 px-1.5 py-0.5 text-xs text-white focus:border-teal-500 focus:outline-none"
+                      />
+                      <label className="text-[10px] text-slate-400">per</label>
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={d.window ?? String(rl.window_seconds)}
+                        onChange={(e) => setRlDraft((s) => ({ ...s, [dkey]: { ...s[dkey], window: e.target.value } }))}
+                        className="w-24 rounded border border-slate-600 bg-slate-800 px-1.5 py-0.5 text-xs text-white focus:border-teal-500 focus:outline-none"
+                      />
+                      <span className="text-[10px] text-slate-500">seconds</span>
+
+                      <div className="ml-auto flex items-center gap-1">
+                        {dirty && (
+                          <button
+                            type="button"
+                            onClick={() => void commitRateLimitDraft(rl)}
+                            disabled={rateLimitsLoading}
+                            className="inline-flex items-center gap-1 rounded bg-emerald-500/20 px-2 py-0.5 text-[11px] text-emerald-300 hover:bg-emerald-500/30 disabled:opacity-50"
+                          >
+                            <Save className="h-3 w-3" /> Save
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => void persistRateLimit(rl, { is_active: !rl.is_active })}
+                          disabled={rateLimitsLoading}
+                          className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] disabled:opacity-50 ${
+                            rl.is_active
+                              ? 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30'
+                              : 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30'
+                          }`}
+                        >
+                          {rl.is_active ? <><Pause className="h-3 w-3" /> Disable</> : <><Play className="h-3 w-3" /> Enable</>}
+                        </button>
+                      </div>
+                    </div>
+                    {rl.notes && (
+                      <p className="mt-1.5 text-[10px] text-slate-500">{rl.notes}</p>
+                    )}
+                  </div>
+                );
+              })
+            )}
+            <p className="text-[10px] text-slate-500 pt-1">
+              Limits apply per-window on a sliding basis. Changes propagate in ~60s (config cache TTL). Fail-open: a Supabase outage doesn&apos;t block requests.
+            </p>
+          </div>
+        )}
       </div>
 
       {loading && templates.length === 0 ? (

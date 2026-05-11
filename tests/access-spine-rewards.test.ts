@@ -193,15 +193,21 @@ describe('rep/rewards/tasks — T0 leak canary', () => {
   });
 
   it('/api/referral/resolve-code response does not carry T0 ids', () => {
-    // The resolver returns ONLY a boolean + the source field; never the
-    // referrer's personaId or fio handle. Signup-side flow uses the
-    // existence signal to wire up referral attribution server-internally.
-    const resolveResponse = { matched: true, source: 'bring-a-knight' };
+    // The resolver returns ONLY matched + source + epoch. It used to
+    // expose `referrerPersonaId` (T0) — that field was removed in the
+    // alpha-readiness hardening pass. Signup flow now passes `refCode`
+    // back to /api/referral/process which resolves the referrer
+    // server-side.
+    const resolveResponse = { matched: true, source: 'bring-a-knight', epoch: 'v1' };
     const keys = new Set<string>();
     collectKeys(resolveResponse, keys);
     for (const forbidden of FORBIDDEN_T0_FIELDS) {
       expect(keys.has(forbidden), `T0 field "${forbidden}" leaked into resolve-code response`).toBe(false);
     }
+    // Regression guard: `referrerPersonaId` MUST NOT appear in this
+    // route's response (was a known T0 leak; closed by the alpha
+    // hardening pass).
+    expect(keys.has('referrerPersonaId')).toBe(false);
     // Negative case — non-matching code returns a bare success envelope.
     const noMatch = { matched: false };
     const k2 = new Set<string>();
@@ -209,6 +215,24 @@ describe('rep/rewards/tasks — T0 leak canary', () => {
     for (const forbidden of FORBIDDEN_T0_FIELDS) {
       expect(k2.has(forbidden)).toBe(false);
     }
+  });
+
+  it('/api/referral/process response does not carry referrerPersonaId (T0 leak closed)', () => {
+    // Previously returned referrerPersonaId. Now the response carries
+    // only attribution-success booleans + the referrer's FIO handle
+    // (which is the referrer's OWN handle — T1-safe by access.ts:56).
+    const processResponse = {
+      success: true,
+      referrerFound: true,
+      referrerHandle: 'aigentz@aigent',
+      error: undefined,
+    };
+    const keys = new Set<string>();
+    collectKeys(processResponse, keys);
+    for (const forbidden of FORBIDDEN_T0_FIELDS) {
+      expect(keys.has(forbidden), `T0 field "${forbidden}" leaked into process response`).toBe(false);
+    }
+    expect(keys.has('referrerPersonaId')).toBe(false);
   });
 
   it('/api/wallet/tasks/track-click response does not carry T0 ids', () => {
@@ -310,6 +334,8 @@ describe('rep/rewards/tasks — T0 leak canary', () => {
       'description',
       'reward_qct',
       'reward_qoyn',
+      'cap_max_per_period',
+      'cap_period_days',
     ] as const;
     // tenant_id, slug, cohort_id, schema_json, metadata MUST NOT be
     // patchable through this endpoint.
@@ -317,6 +343,58 @@ describe('rep/rewards/tasks — T0 leak canary', () => {
     for (const f of FORBIDDEN_PATCH_FIELDS) {
       expect((ALLOWED_PATCH_FIELDS as readonly string[]).includes(f), `${f} must NOT be in admin PATCH allowlist`).toBe(false);
     }
+  });
+
+  // ── Editable rate limits (Phase 8) ──────────────────────────────────────
+
+  it('/api/admin/system/rate-limits GET response carries no T0 ids', () => {
+    const limitsResponse = {
+      limits: [
+        {
+          id: 'rl-uuid-1',
+          endpoint_key: 'wallet:tasks:share-link',
+          scope: 'persona',
+          max_requests: 30,
+          window_seconds: 3600,
+          is_active: true,
+          notes: 'BaK/Herald share-link mint',
+          created_at: '2026-05-12T00:00:00.000Z',
+          updated_at: '2026-05-12T00:00:00.000Z',
+        },
+      ],
+    };
+    const keys = new Set<string>();
+    collectKeys(limitsResponse, keys);
+    for (const forbidden of FORBIDDEN_T0_FIELDS) {
+      expect(keys.has(forbidden), `T0 field "${forbidden}" leaked into rate-limits GET`).toBe(false);
+    }
+  });
+
+  it('admin rate-limits PATCH endpointKey allowlist is restrictive', () => {
+    // The route restricts the endpointKey field to a fixed allowlist —
+    // operators can edit limits on the 3 known endpoints, but cannot
+    // create new ones via the admin tab (would require code change to
+    // wire up the middleware call). This stops an admin from disabling
+    // rate limits on a future endpoint that hasn't been hardened yet.
+    const ALLOWED = ['wallet:tasks:share-link', 'wallet:tasks:track-click', 'referral:resolve-code'];
+    expect(ALLOWED.length).toBe(3);
+    for (const k of ALLOWED) {
+      expect(k.startsWith('wallet:') || k.startsWith('referral:')).toBe(true);
+    }
+  });
+
+  it('rate-limit responses carry a Retry-After header on 429', () => {
+    const errorResponse = {
+      error: 'rate-limited',
+      retryAfterSeconds: 3600,
+      limit: { max_requests: 30, window_seconds: 3600 },
+    };
+    const keys = new Set<string>();
+    collectKeys(errorResponse, keys);
+    for (const forbidden of FORBIDDEN_T0_FIELDS) {
+      expect(keys.has(forbidden), `T0 field "${forbidden}" leaked into 429 response`).toBe(false);
+    }
+    expect(errorResponse.retryAfterSeconds).toBeGreaterThan(0);
   });
 
   // ── grant→crm_rewards bridge (Phase 2) ──────────────────────────────────

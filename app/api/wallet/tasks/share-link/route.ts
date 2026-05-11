@@ -23,6 +23,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHmac } from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import { getActivePersona } from '@/services/identity/getActivePersona';
+import { checkAndConsumeRateLimit } from '@/services/rateLimit/rateLimitService';
 
 export const runtime = 'nodejs';
 
@@ -67,6 +68,20 @@ export async function GET(request: NextRequest) {
   const persona = await getActivePersona(request);
   if (!persona) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Per-persona rate limit — configured in system_rate_limits, editable
+  // by the operator via the admin Tasks & Rewards tab.
+  const rl = await checkAndConsumeRateLimit({
+    endpointKey: 'wallet:tasks:share-link',
+    scope: 'persona',
+    scopeValue: persona.personaId,
+  });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'rate-limited', retryAfterSeconds: rl.retryAfterSeconds, limit: rl.limit },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds ?? 60) } },
+    );
   }
 
   const sourceParam = request.nextUrl.searchParams.get('source') || 'bring-a-knight';

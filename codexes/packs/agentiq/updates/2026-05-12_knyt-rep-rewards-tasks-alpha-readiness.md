@@ -91,27 +91,36 @@ The full grant→display→claim→on-chain flow now connects, for each of the f
 | **Reward-amount inflation by admin** | The Tasks & Rewards admin tab emits `orchestration_events` for every edit + locks the patch allowlist to (reward_knyt, is_active, title, description, reward_qct, reward_qoyn) | ✅ Audit trail in place |
 | **Cohort-id tampering** | Admin PATCH allowlist explicitly excludes `cohort_id`, `slug`, `tenant_id`, `schema_json`, `metadata` (asserted by the privacy canary suite) | ✅ Enforced |
 
-### 2. Rate limits
+### 2. Rate limits — **shipped, editable in admin tab**
 
-| Endpoint | Current limit | Recommendation for alpha |
+| Endpoint | Default limit | Status |
 |---|---|---|
-| `/api/wallet/tasks/share-link` | None | **Add:** 30/hour/persona (the endpoint is idempotent — same secret + same persona → same code — so the limit only matters for distinguishing personas) |
-| `/api/wallet/tasks/track-click` | None | **Add:** 10/min/IP (the endpoint is public — no auth — and writes to `referral_clicks`. Without a limit a malicious referrer could inflate their click count) |
-| `/api/referral/resolve-code` | None | **Add:** 5/min/IP (rate limit to deter ref-code enumeration) |
+| `/api/wallet/tasks/share-link` | 30/hour/persona | ✅ Shipped — enforced via `checkAndConsumeRateLimit`; editable in admin Rate limits section |
+| `/api/wallet/tasks/track-click` | 10/min/IP | ✅ Shipped — editable in admin |
+| `/api/referral/resolve-code` | 5/min/IP | ✅ Shipped — editable in admin |
 | `/api/wallet/knyt/rewards/redeem` | FIO gate + per-reward idempotency | ✅ Sufficient for alpha (the FIO check + single-row UPDATE makes brute-force pointless) |
 | `/api/engagement/episode-progress` | `hasEpisodeReward` dedup | ✅ Sufficient for alpha (the dedup prevents farming + the viewer fires once per episode) |
-| `/api/admin/knyt/tasks-rewards` | Admin-only flag | ✅ Sufficient — admin role is rate-limited by Supabase auth |
+| `/api/admin/knyt/tasks-rewards` + `/api/admin/system/rate-limits` | Admin-only flag | ✅ Sufficient — admin role is rate-limited by Supabase auth |
 
-### 3. Supply caps
+Backed by the `system_rate_limits` + `rate_limit_counters` tables
+(migration `20260512010000_system_rate_limits.sql`). 60-second config
+cache; admin edits propagate within one minute. Fail-open on DB error.
+Audit trail via `orchestration_events admin.rate-limit-edit`.
 
-| Family | Per-period cap | Lifetime cap | Status |
-|---|---|---|---|
-| Bring-a-Knight | None | None | **Recommend:** 100 referrals/persona/year |
-| Knight-of-Attention | 14 episodes/week (weekly_streak threshold) | None | ✅ Implicit cap via available episode count |
-| Herald-of-the-Order | None | None | **Recommend:** soft cap once Herald aggregation lands |
-| Living Canon | None (operator-gated via approve flow) | None | ✅ Editor approval is the cap |
+### 3. Supply caps — **shipped, editable in admin tab**
 
-The `REWARD_CAPS` table in `services/rewards/rewardService.ts` already has slots for per-period caps — they just need to be populated. Operator decision before alpha launch: set `BringAKnightQualifiedReferral` to `{ maxPerPeriod: 100, periodDays: 365 }` to limit referral farms.
+| Family | Default cap | Status |
+|---|---|---|
+| Bring-a-Knight | 100/year/persona | ✅ Shipped — column `cap_max_per_period`+`cap_period_days` on `crm_task_templates`; editable per template in admin |
+| Knight-of-Attention | 10/week/persona (episode-complete) | ✅ Shipped + editable |
+| Herald-of-the-Order | 50/year/persona | ✅ Shipped + editable (covers click/signup/conversion variants) |
+| Living Canon | None (operator-gated via approve flow) | ✅ Editor approval is the cap |
+
+Migration `20260512000000_task_templates_editable_caps.sql` adds the
+columns + seeds the defaults. `services/rewards/rewardService.checkRewardCap`
+now reads from the template (with `REWARD_CAPS` constant as fallback);
+operator edits via the admin Tasks & Rewards tab take effect on the next
+grant.
 
 ### 4. Observability
 
