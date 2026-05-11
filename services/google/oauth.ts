@@ -361,21 +361,61 @@ export async function refreshAccessToken(record: GoogleTokenRecord): Promise<
 /**
  * Resolve a valid access token for (persona, source). Auto-refreshes when
  * the stored token is within 60s of expiry. Returns null when not
- * connected or refresh fails.
+ * connected or refresh fails — keep this signature stable for older
+ * callers; new code should prefer `resolveAccessToken` which returns a
+ * diagnostic discriminated union.
  */
 export async function getValidAccessToken(
   personaId: string,
   source: GoogleSource,
 ): Promise<string | null> {
+  const result = await resolveAccessToken(personaId, source);
+  return result.ok ? result.token : null;
+}
+
+/**
+ * Same lookup as `getValidAccessToken` but returns a diagnostic shape so
+ * callers can distinguish "no token record" from "refresh failed" — the
+ * status panel says "connected" as long as a record exists, but a stale
+ * record whose refresh-token Google has revoked still fails at use time.
+ * Connectors use this to surface the actual reason to the operator.
+ */
+export async function resolveAccessToken(
+  personaId: string,
+  source: GoogleSource,
+): Promise<
+  | { ok: true; token: string }
+  | { ok: false; code: 'no-record' | 'no-refresh-token' | 'refresh-failed'; reason: string }
+> {
   const record = await loadTokenRecord(personaId, source);
-  if (!record) return null;
-  if (!record.expiresAt) return record.accessToken;
+  if (!record) {
+    return {
+      ok: false,
+      code: 'no-record',
+      reason: `No Google ${source} token row for this persona. Either the consent flow was never completed or the row was saved under a different persona.`,
+    };
+  }
+  if (!record.expiresAt) return { ok: true, token: record.accessToken };
   const expiresMs = Date.parse(record.expiresAt);
   if (!Number.isFinite(expiresMs) || expiresMs - Date.now() > 60_000) {
-    return record.accessToken;
+    return { ok: true, token: record.accessToken };
+  }
+  if (!record.refreshToken) {
+    return {
+      ok: false,
+      code: 'no-refresh-token',
+      reason: `Google ${source} token expired and no refresh token is on file. Reconnect from Aigent Me → Connections.`,
+    };
   }
   const refreshed = await refreshAccessToken(record);
-  return refreshed.ok ? refreshed.record.accessToken : null;
+  if (!refreshed.ok) {
+    return {
+      ok: false,
+      code: 'refresh-failed',
+      reason: `Google ${source} refresh failed: ${refreshed.reason}. Reconnect from Aigent Me → Connections.`,
+    };
+  }
+  return { ok: true, token: refreshed.record.accessToken };
 }
 
 // ─────────────────────────────────────────────────────────────────────────
