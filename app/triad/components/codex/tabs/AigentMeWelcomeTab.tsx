@@ -47,6 +47,11 @@ import {
 } from "@/components/metame/cards/ExperienceModelCard";
 import { IqubeContextDisclosure } from "@/components/metame/cards/IqubeContextDisclosure";
 import { ExperienceModelSetupWizard } from "@/components/metame/setup/ExperienceModelSetupWizard";
+import { BriefCard, type BriefCardData } from "@/components/metame/cards/BriefCard";
+import {
+  NextBestActionCard,
+  type NextBestActionData,
+} from "@/components/metame/cards/NextBestActionCard";
 
 interface Specialist {
   id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c';
@@ -112,6 +117,18 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
   const [expModelLoading, setExpModelLoading] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
 
+  // Phase 3 — brief + move-forward state.
+  const [brief, setBrief] = useState<BriefCardData | null>(null);
+  const [briefLoading, setBriefLoading] = useState(false);
+  const [briefError, setBriefError] = useState<string | null>(null);
+  const [moveForwardCartridgeOpen, setMoveForwardCartridgeOpen] = useState(false);
+  const [moveForwardResult, setMoveForwardResult] = useState<{
+    cartridge: string;
+    topAction: NextBestActionData | null;
+    alternates: NextBestActionData[];
+  } | null>(null);
+  const [moveForwardLoading, setMoveForwardLoading] = useState(false);
+
   // Only fetch the bootstrap surface once the spine is ready. The spine's
   // own auth gate (PersonaSpineGate below) handles the loading /
   // unauthenticated / error states for persona resolution itself.
@@ -171,12 +188,75 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     return () => { cancelled = true; };
   }, [spine.status, personaId]);
 
+  const fetchBrief = useCallback(async () => {
+    setBriefLoading(true);
+    setBriefError(null);
+    setBrief(null);
+    try {
+      const res = await personaFetch('/api/assistant/brief', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ briefType: 'daily' }),
+        personaIdHint: personaId,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+        throw new Error(body?.detail || body?.error || `brief failed (${res.status})`);
+      }
+      const data = (await res.json()) as BriefCardData;
+      setBrief(data);
+    } catch (err) {
+      setBriefError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBriefLoading(false);
+    }
+  }, [personaId]);
+
+  const fetchMoveForward = useCallback(async (cartridge: string) => {
+    setMoveForwardLoading(true);
+    setMoveForwardResult(null);
+    try {
+      const res = await personaFetch('/api/assistant/move-forward', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cartridge }),
+        personaIdHint: personaId,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+        throw new Error(body?.detail || body?.error || `move-forward failed (${res.status})`);
+      }
+      const data = (await res.json()) as {
+        cartridge: string;
+        topAction: NextBestActionData | null;
+        alternates: NextBestActionData[];
+      };
+      setMoveForwardResult(data);
+    } catch {
+      // Surface failures inline; keep welcome usable.
+      setMoveForwardResult({ cartridge, topAction: null, alternates: [] });
+    } finally {
+      setMoveForwardLoading(false);
+    }
+  }, [personaId]);
+
   const handleCtaClick = useCallback((ctaId: string) => {
     if (ctaId === 'set-up-experience-model') {
       setWizardOpen(true);
+      return;
     }
-    // Other CTAs are still preview in this phase — no-op.
-  }, []);
+    if (ctaId === 'brief-me') {
+      void fetchBrief();
+      return;
+    }
+    if (ctaId === 'move-this-forward') {
+      setMoveForwardCartridgeOpen((open) => !open);
+      setMoveForwardResult(null);
+      return;
+    }
+    // Other CTAs (review-venture-progress, create-something, etc.) remain
+    // in 'preview' state until later phases land.
+  }, [fetchBrief]);
 
   const handleWizardSaved = useCallback((saved: ExperienceModelCardData) => {
     setExpModel(saved);
@@ -203,6 +283,13 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
           spineDisplayLabel={spine.displayLabel}
           expModel={expModel}
           expModelLoading={expModelLoading}
+          brief={brief}
+          briefLoading={briefLoading}
+          briefError={briefError}
+          moveForwardCartridgeOpen={moveForwardCartridgeOpen}
+          moveForwardResult={moveForwardResult}
+          moveForwardLoading={moveForwardLoading}
+          onPickMoveForwardCartridge={fetchMoveForward}
           onCtaClick={handleCtaClick}
           theme={theme}
           surfaceClass={surfaceClass}
@@ -237,6 +324,13 @@ interface BodyProps {
   spineDisplayLabel: string | null;
   expModel: ExperienceModelCardData | null;
   expModelLoading: boolean;
+  brief: BriefCardData | null;
+  briefLoading: boolean;
+  briefError: string | null;
+  moveForwardCartridgeOpen: boolean;
+  moveForwardResult: { cartridge: string; topAction: NextBestActionData | null; alternates: NextBestActionData[] } | null;
+  moveForwardLoading: boolean;
+  onPickMoveForwardCartridge: (cartridge: string) => void;
   onCtaClick: (ctaId: string) => void;
   theme: 'light' | 'dark';
   surfaceClass: string;
@@ -253,6 +347,13 @@ function AigentMeWelcomeBody({
   spineDisplayLabel,
   expModel,
   expModelLoading,
+  brief,
+  briefLoading,
+  briefError,
+  moveForwardCartridgeOpen,
+  moveForwardResult,
+  moveForwardLoading,
+  onPickMoveForwardCartridge,
   onCtaClick,
   theme,
   surfaceClass,
@@ -374,6 +475,87 @@ function AigentMeWelcomeBody({
           })}
         </div>
       </section>
+
+      {/* Brief Card — appears once 'Brief me' is clicked */}
+      {(briefLoading || briefError || brief) && (
+        <section>
+          <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
+            Brief
+          </h2>
+          <BriefCard
+            data={brief}
+            loading={briefLoading}
+            error={briefError}
+            theme={theme}
+          />
+        </section>
+      )}
+
+      {/* Move-forward — cartridge picker + result */}
+      {moveForwardCartridgeOpen && (
+        <section>
+          <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
+            Move which cartridge forward?
+          </h2>
+          <div className="flex flex-wrap gap-2 mb-3">
+            {data.availableCartridges.map((c) => {
+              const selected = moveForwardResult?.cartridge === c.slug;
+              return (
+                <button
+                  key={c.slug}
+                  onClick={() => onPickMoveForwardCartridge(c.slug)}
+                  className={`px-3 py-1.5 rounded-full border text-sm transition ${
+                    selected
+                      ? 'bg-violet-500/20 border-violet-500 text-violet-200'
+                      : isDark
+                        ? 'bg-slate-800/60 border-slate-700 text-slate-300 hover:border-slate-600'
+                        : 'bg-white border-slate-300 text-slate-700 hover:border-violet-400'
+                  }`}
+                >
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {moveForwardLoading && (
+            <p className={`text-sm ${mutedClass}`}>Looking for the strongest move…</p>
+          )}
+
+          {moveForwardResult && !moveForwardLoading && (
+            <div className="space-y-3">
+              {moveForwardResult.topAction ? (
+                <NextBestActionCard
+                  action={moveForwardResult.topAction}
+                  variant="hero"
+                  theme={theme}
+                />
+              ) : (
+                <p className={`text-sm ${mutedClass}`}>
+                  No catalogue match for this cartridge at your current stage.
+                  Try setting up your ExperienceModel first.
+                </p>
+              )}
+              {moveForwardResult.alternates.length > 0 && (
+                <>
+                  <h3 className={`text-xs uppercase tracking-wider mt-4 mb-1 ${mutedClass}`}>
+                    Or instead
+                  </h3>
+                  <div className="space-y-2">
+                    {moveForwardResult.alternates.map((a) => (
+                      <NextBestActionCard
+                        key={a.id}
+                        action={a}
+                        theme={theme}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Specialist directory */}
       <section>
