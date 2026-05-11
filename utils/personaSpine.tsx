@@ -32,6 +32,13 @@ import {
   getSupabaseAccessToken,
   getSupabaseBrowserClient,
 } from '@/utils/supabaseBrowser';
+import { isMetameOriginAllowed } from '@/utils/metameOriginAllowlist';
+import {
+  METAME_EVENTS,
+  METAME_DEPRECATED_ALIASES,
+  type PersonaSpineMirror,
+  type PersonaSpineMirrorSnapshot,
+} from '@/types/metameWindow';
 import type {
   ActivePersonaSurface,
   Identifiability,
@@ -237,18 +244,54 @@ async function doFetch(opts?: { silent?: boolean; hint?: string }): Promise<void
 // ─────────────────────────────────────────────────────────────────────────
 
 let triggersWired = false;
-const PERSONA_CHANGE_EVENT = 'aa-persona-change-v1';
+let deprecatedAliasWarned = false;
+
+/**
+ * Canonical event names — per docs/architecture/metame-client-protocols.md.
+ * The deprecated `aa-persona-change-v1` is still accepted (and dispatched
+ * alongside the canonical name) for one release after 2026-05-12.
+ */
+const PERSONA_CHANGED_EVENT = METAME_EVENTS.PERSONA_CHANGED;          // 'metame:persona-changed'
+const PERSONA_REVOKED_EVENT = METAME_EVENTS.PERSONA_REVOKED;          // 'metame:persona-revoked'
+const DEPRECATED_PERSONA_CHANGE_EVENT = 'aa-persona-change-v1';
+
+function isPersonaInvalidationMessage(type: unknown): boolean {
+  if (typeof type !== 'string') return false;
+  if (type === PERSONA_CHANGED_EVENT) return true;
+  if (type === PERSONA_REVOKED_EVENT) return true;
+  if (type === DEPRECATED_PERSONA_CHANGE_EVENT) {
+    if (!deprecatedAliasWarned) {
+      deprecatedAliasWarned = true;
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[personaSpine] received deprecated event '${DEPRECATED_PERSONA_CHANGE_EVENT}'. ` +
+        `Migrate to '${PERSONA_CHANGED_EVENT}' — alias will be removed in the next release. ` +
+        `See docs/architecture/metame-client-protocols.md.`,
+      );
+    }
+    // Also check that the canonical alias mapping declares it (defensive):
+    return METAME_DEPRECATED_ALIASES[DEPRECATED_PERSONA_CHANGE_EVENT] === PERSONA_CHANGED_EVENT;
+  }
+  return false;
+}
 
 function wireInvalidationTriggers() {
   if (triggersWired || typeof window === 'undefined') return;
   triggersWired = true;
 
-  // (a) postMessage broadcast from the embed bridge / persona switcher
+  // (a) postMessage broadcast from the embed bridge / persona switcher /
+  //     parent frame (Lovable shell etc.). Origin allowlist is mandatory
+  //     per the parent contract.
   window.addEventListener('message', (event: MessageEvent) => {
-    const data = event.data as { type?: string } | null | undefined;
-    if (data && typeof data === 'object' && data.type === PERSONA_CHANGE_EVENT) {
-      void doFetch({ hint: undefined });
+    if (!isMetameOriginAllowed(event.origin)) return;
+    const data = event.data as { type?: unknown } | null | undefined;
+    if (!data || typeof data !== 'object') return;
+    if (!isPersonaInvalidationMessage(data.type)) return;
+    if (data.type === PERSONA_REVOKED_EVENT) {
+      setStore({ status: 'unauthenticated', surface: null, error: null, lastHint: undefined });
+      return;
     }
+    void doFetch({ hint: undefined });
   });
 
   // (b) Supabase auth state changes — sign-in, sign-out, token refresh
@@ -266,6 +309,9 @@ function wireInvalidationTriggers() {
           error: null,
           lastHint: undefined,
         });
+        // Tell other frames (e.g. Lovable shell) the persona is gone so any
+        // shell-rendered switcher / chrome can clear itself immediately.
+        broadcastPersonaRevoked();
         return;
       }
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
@@ -275,6 +321,9 @@ function wireInvalidationTriggers() {
   } catch {
     /* Supabase client unavailable — fall through, fetch on demand */
   }
+
+  // (c) Publish the cross-frame mirror once the module is awake.
+  publishWindowMirror();
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -358,10 +407,93 @@ export async function refreshPersonaSpine(): Promise<void> {
   await doFetch();
 }
 
-/** Broadcast a persona-change event — for surfaces that own the switch UI. */
+/**
+ * Broadcast a persona-change event — for surfaces that own the switch UI.
+ *
+ * Dispatches in three directions per the parent contract
+ * (docs/architecture/metame-client-protocols.md §"The cross-frame rules"):
+ *   - same-frame (so in-frame subscribers receive it),
+ *   - parent frame (so the runtime shell / Lovable mirror picks it up),
+ *   - deprecated alias (one release; emits a deprecation warning).
+ *
+ * Origin enforcement on the receiving side filters out untrusted senders.
+ */
 export function broadcastPersonaChange(personaId?: string): void {
   if (typeof window === 'undefined') return;
-  window.postMessage({ type: PERSONA_CHANGE_EVENT, personaId }, window.location.origin);
+  const msg = { type: PERSONA_CHANGED_EVENT, personaId };
+  window.postMessage(msg, window.location.origin);
+  if (window.parent && window.parent !== window) {
+    try {
+      window.parent.postMessage(msg, '*');
+    } catch {
+      /* parent origin restricted — non-fatal */
+    }
+  }
+  // Deprecated alias — one release. Same payload shape; consumers either
+  // listen to the new name (preferred) or get a console.warn on receipt.
+  const legacy = { type: DEPRECATED_PERSONA_CHANGE_EVENT, personaId };
+  try {
+    window.postMessage(legacy, window.location.origin);
+  } catch {
+    /* non-fatal */
+  }
+}
+
+/**
+ * Broadcast a persona-revoked event — flips listening surfaces to the
+ * unauthenticated state immediately (no fetch needed).
+ */
+export function broadcastPersonaRevoked(): void {
+  if (typeof window === 'undefined') return;
+  const msg = { type: PERSONA_REVOKED_EVENT };
+  window.postMessage(msg, window.location.origin);
+  if (window.parent && window.parent !== window) {
+    try {
+      window.parent.postMessage(msg, '*');
+    } catch {
+      /* non-fatal */
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// `window.__metame.persona` read-only mirror.
+//
+// Published once per browser tab so non-React consumers (other frames via
+// contentWindow, vanilla JS callers, debug consoles) can read persona state
+// without importing this module. The module-level store remains the
+// source of truth; the mirror is a thin read-through plus subscribe.
+//
+// Per docs/architecture/metame-client-protocols.md §"window.__metame
+// namespace", every mirror exposes the shape:
+//   { getSnapshot(), subscribe(listener) → unsubscribe }
+// — PersonaSpineMirror extends that with refresh() for parity with the hook.
+// ─────────────────────────────────────────────────────────────────────────
+
+let mirrorPublished = false;
+
+function publishWindowMirror() {
+  if (mirrorPublished || typeof window === 'undefined') return;
+  mirrorPublished = true;
+
+  const mirror: PersonaSpineMirror = {
+    getSnapshot(): PersonaSpineMirrorSnapshot {
+      return {
+        status: store.status,
+        surface: store.surface,
+        error: store.error,
+      };
+    },
+    subscribe(listener: () => void) {
+      return subscribe(listener);
+    },
+    refresh: refreshPersonaSpine,
+  };
+
+  if (!window.__metame) {
+    window.__metame = {};
+  }
+  window.__metame.persona = mirror;
 }
 
 // ─────────────────────────────────────────────────────────────────────────

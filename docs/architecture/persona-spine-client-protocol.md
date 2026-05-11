@@ -1,7 +1,8 @@
 # PersonaSpine — Client-Side Protocol for Persona-Bound Auth
 
-**Status:** Canonical · introduced 2026-05-12
+**Status:** Canonical · introduced 2026-05-12 · aligned to parent contract 2026-05-12
 **Module:** `utils/personaSpine.tsx`
+**Parent contract:** `docs/architecture/metame-client-protocols.md` (event prefix, namespace, cross-frame rules, deprecation discipline)
 **Server companion:** `services/identity/getActivePersona.ts` (untouched)
 **Companion update:** `codexes/packs/agentiq/updates/2026-05-12_persona-spine-client-protocol.md`
 
@@ -108,7 +109,9 @@ For non-React contexts (modal constructors, imperative services). Returns the ca
 
 ### `refreshPersonaSpine()` / `broadcastPersonaChange(personaId?)`
 
-Triggered by surfaces that own the persona switch UI. The first re-fetches; the second posts the canonical `aa-persona-change-v1` event for any listening surface.
+Triggered by surfaces that own the persona switch UI. The first re-fetches; the second posts the canonical `metame:persona-changed` event (per the parent protocol contract — see `docs/architecture/metame-client-protocols.md`) to same-frame listeners *and* `window.parent` so cross-frame surfaces (Lovable shell, runtime embed) stay in sync. The deprecated `aa-persona-change-v1` alias is also dispatched for one release and emits a `console.warn` on receipt.
+
+A companion `broadcastPersonaRevoked()` dispatches `metame:persona-revoked`, which flips listening surfaces to the unauthenticated state without triggering a re-fetch. The hook auto-emits this on Supabase `SIGNED_OUT`.
 
 ---
 
@@ -119,7 +122,9 @@ Triggered by surfaces that own the persona switch UI. The first re-fetches; the 
 | Single source of truth | One in-flight request per browser tab (singleton store + React Query-style dedupe inside the module). |
 | Auth attach | Always `Authorization: Bearer <supabase-jwt>` via `getSupabaseAccessToken()`. Falls back to `localStorage` scan if the singleton client hasn't hydrated. |
 | Persona hint | Optional `?personaId=…` query — disambiguates multi-persona ownership. The spine remains authoritative. |
-| Invalidation triggers | (a) `postMessage` of type `aa-persona-change-v1`, (b) Supabase `onAuthStateChange` (`SIGNED_IN` / `SIGNED_OUT` / `TOKEN_REFRESHED`), (c) explicit `refresh()`. |
+| Invalidation triggers | (a) `postMessage` of type `metame:persona-changed` (or the deprecated `aa-persona-change-v1` alias) — only accepted from origins on the embed allowlist, (b) `metame:persona-revoked` — same allowlist gate, flips to unauthenticated, (c) Supabase `onAuthStateChange` (`SIGNED_IN` / `SIGNED_OUT` / `TOKEN_REFRESHED`), (d) explicit `refresh()`. |
+| Cross-frame parity | Outbound `metame:*` events are dispatched same-frame **and** to `window.parent`. Inbound events from the parent are accepted only when `event.origin` matches `configs/embed/policy.v1.json::authAllowedOrigins`. |
+| Window mirror | `window.__metame.persona` exposes `{ getSnapshot(), subscribe(), refresh() }` for non-React / cross-frame consumers. Read-only — mutations go through the module API. |
 | Silent refresh | 60s before `sessionExpiresAt`, the module re-issues a token without showing a loading state. Surfaces see `status: 'refreshing'` briefly. |
 | Failure surfaces | `status: 'unauthenticated'` → render sign-in prompt. `status: 'error'` → diagnostic with retry. Never silently fall through to default-pick semantics. |
 | SSR | Deterministic empty snapshot. No fetches on the server. |
