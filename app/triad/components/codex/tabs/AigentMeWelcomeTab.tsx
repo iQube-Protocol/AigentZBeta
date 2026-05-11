@@ -67,6 +67,7 @@ import {
 import { ArtifactCard, type ArtifactCardData } from "@/components/metame/cards/ArtifactCard";
 import { ActivityReceiptCard, type ActivityReceiptData } from "@/components/metame/cards/ActivityReceiptCard";
 import { QuickLinksCard } from "@/components/metame/cards/QuickLinksCard";
+import { GoogleConnectionsPanel } from "@/components/metame/connections/GoogleConnectionsPanel";
 
 interface Specialist {
   id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c';
@@ -926,6 +927,14 @@ function AigentMeWelcomeBody({
       {/* Quick links — deep-link into the cartridges and tabs the user
           works in most. PersonaId travels with every link via buildCodexUrl. */}
       <QuickLinksCard personaId={personaId} theme={theme} />
+
+      {/* Google Workspace connections — Phase 6.b. Per-source opt-in.
+          Renders an operator-action diagnostic for admins when env vars
+          aren't set yet; a neutral "coming soon" notice for non-admins. */}
+      <GoogleConnectionsPanel
+        isAdmin={!!data.cartridgeFlags?.isAdmin}
+        theme={theme}
+      />
 
       {/* Context chips */}
       <section>
