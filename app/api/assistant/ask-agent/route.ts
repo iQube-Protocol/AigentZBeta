@@ -32,6 +32,7 @@ import {
   type SpecialistId,
   type SpecialistContext,
 } from '@/services/agents/specialistRouter';
+import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 
 export const dynamic = 'force-dynamic';
 
@@ -107,6 +108,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       specialistId: body.specialistId,
       context: specialistContext,
     });
+
+    // Emit a 'specialist_consulted' receipt. Best-effort; non-fatal.
+    await createActivityReceipt({
+      personaId: context.personaId,
+      intentId: body.intentId ?? null,
+      activeCartridge,
+      actionType: 'specialist_consulted',
+      summary: `Consulted ${response.specialistLabel}: ${response.title}`,
+      agentsInvoked: ['aigent-me', body.specialistId],
+      toolsUsed: [response.source === 'llm' ? 'openai' : 'template'],
+      iqubesUsed: ['PersonaQube', 'ExperienceQube', 'IntentQube'],
+      contextShared: ['intent-summary', 'experience-meta-slice'],
+    }).catch(() => undefined);
 
     return NextResponse.json(response, {
       headers: { 'Cache-Control': 'no-store' },

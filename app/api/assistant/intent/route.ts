@@ -35,6 +35,7 @@ import {
   type SpecialistAgentId,
 } from '@/services/iqube/intentQube';
 import { NBE_CATALOGUE } from '@/services/orchestration/nbeCatalog';
+import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 
 export const dynamic = 'force-dynamic';
 
@@ -119,6 +120,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       approvalRequired: candidate.approvalRequired,
       rationale: body.rationale || candidate.rationale,
     });
+
+    // Emit an activity receipt. Best-effort — if the migration hasn't run
+    // yet, the helper logs and returns null without breaking the route.
+    await createActivityReceipt({
+      personaId: context.personaId,
+      intentId: intent.id,
+      activeCartridge: intent.activeCartridge,
+      actionType: 'intent_queued',
+      summary: `Queued: ${intent.intentName}`,
+      agentsInvoked: intent.targetAgents,
+      toolsUsed: [],
+      iqubesUsed: ['PersonaQube', 'ExperienceQube', 'IntentQube'],
+      contextShared: ['nbe-catalogue-entry'],
+      approvalsGranted: candidate.approvalRequired ? [] : [intent.id],
+    }).catch(() => undefined);
 
     const queueMessage = candidate.approvalRequired
       ? 'Queued for Aigent Me — approval required before any external action.'

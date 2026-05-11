@@ -34,6 +34,7 @@ import {
   type ConfidentialityDefault,
   type ActiveCartridgeSlug,
 } from '@/services/iqube/experienceQube';
+import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 
 export const dynamic = 'force-dynamic';
 
@@ -190,6 +191,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   try {
     const record = await upsertExperienceQube(context.personaId, input);
+
+    // Emit an 'experience_model_updated' receipt. Best-effort.
+    await createActivityReceipt({
+      personaId: context.personaId,
+      activeCartridge: 'metame',
+      actionType: 'experience_model_updated',
+      summary: `ExperienceModel ${record.meta.experienceName ? 'updated' : 'saved'}: ${record.meta.experienceName ?? '(untitled)'}`,
+      agentsInvoked: ['aigent-me'],
+      toolsUsed: [],
+      iqubesUsed: ['PersonaQube', 'ExperienceQube'],
+      contextShared: ['experience-meta-slice'],
+    }).catch(() => undefined);
+
     return NextResponse.json(shape(record), {
       headers: { 'Cache-Control': 'no-store' },
     });

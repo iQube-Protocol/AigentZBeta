@@ -64,6 +64,8 @@ import {
   SpecialistResponseCard,
   type SpecialistResponseData,
 } from "@/components/metame/cards/SpecialistResponseCard";
+import { ArtifactCard, type ArtifactCardData } from "@/components/metame/cards/ArtifactCard";
+import { ActivityReceiptCard, type ActivityReceiptData } from "@/components/metame/cards/ActivityReceiptCard";
 
 interface Specialist {
   id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c';
@@ -151,6 +153,14 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
   const [specialistResponses, setSpecialistResponses] = useState<Record<string, SpecialistResponseData>>({});
   const [specialistLoading, setSpecialistLoading] = useState<Record<string, boolean>>({});
   const [specialistErrors, setSpecialistErrors] = useState<Record<string, string>>({});
+
+  // Phase 6 — created artifacts (alpha: runtime-destination only).
+  const [artifacts, setArtifacts] = useState<ArtifactCardData[]>([]);
+
+  // Phase 7 — activity receipts panel.
+  const [receipts, setReceipts] = useState<ActivityReceiptData[]>([]);
+  const [receiptsLoading, setReceiptsLoading] = useState(false);
+  const [receiptsOpen, setReceiptsOpen] = useState(false);
 
   // Phase 3.5 — Approval + IntentQube state. Single pending-approval slot
   // at a time; queued intents are remembered per nbeId so the user can see
@@ -435,6 +445,79 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     }
   }, [pendingApprovalNbe, personaId]);
 
+  // Phase 6 — create an artifact from a specialist's suggested chip.
+  const handleCreateArtifact = useCallback(async (
+    artifactType: string,
+    opts: { sourceIntentId?: string; specialistId?: string } = {},
+  ) => {
+    try {
+      const res = await personaFetch('/api/assistant/create-artifact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          artifactType,
+          sourceIntentId: opts.sourceIntentId,
+          specialistId: opts.specialistId,
+          destination: 'runtime',
+        }),
+        personaIdHint: personaId,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+        throw new Error(body?.detail || body?.error || `create-artifact failed (${res.status})`);
+      }
+      const data = (await res.json()) as ArtifactCardData;
+      setArtifacts((prev) => [data, ...prev].slice(0, 10));
+    } catch (err) {
+      // Surface inline as a 'failed' artifact card so the user sees it.
+      const msg = err instanceof Error ? err.message : String(err);
+      setArtifacts((prev) =>
+        [
+          {
+            artifactId: `err_${Date.now()}`,
+            artifactType,
+            title: `Failed: ${msg}`,
+            destination: 'runtime',
+            status: 'draft',
+            receiptId: null,
+            intentId: opts.sourceIntentId ?? null,
+            createdAt: new Date().toISOString(),
+          } as ArtifactCardData,
+          ...prev,
+        ].slice(0, 10),
+      );
+    }
+  }, [personaId]);
+
+  const handleDismissArtifact = useCallback((artifactId: string) => {
+    setArtifacts((prev) => prev.filter((a) => a.artifactId !== artifactId));
+  }, []);
+
+  // Phase 7 — receipts panel.
+  const fetchReceipts = useCallback(async () => {
+    setReceiptsLoading(true);
+    try {
+      const res = await personaFetch('/api/assistant/receipts?limit=25', {
+        personaIdHint: personaId,
+      });
+      if (!res.ok) throw new Error(`receipts fetch failed (${res.status})`);
+      const data = (await res.json()) as { receipts: ActivityReceiptData[]; count: number };
+      setReceipts(data.receipts ?? []);
+    } catch {
+      setReceipts([]);
+    } finally {
+      setReceiptsLoading(false);
+    }
+  }, [personaId]);
+
+  const toggleReceipts = useCallback(() => {
+    setReceiptsOpen((open) => {
+      const next = !open;
+      if (next) void fetchReceipts();
+      return next;
+    });
+  }, [fetchReceipts]);
+
   const handleDismissSpecialist = useCallback((nbeId: string) => {
     setSpecialistResponses((prev) => {
       const next = { ...prev };
@@ -500,6 +583,13 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
           specialistLoading={specialistLoading}
           specialistErrors={specialistErrors}
           onDismissSpecialist={handleDismissSpecialist}
+          artifacts={artifacts}
+          onCreateArtifact={handleCreateArtifact}
+          onDismissArtifact={handleDismissArtifact}
+          receipts={receipts}
+          receiptsLoading={receiptsLoading}
+          receiptsOpen={receiptsOpen}
+          onToggleReceipts={toggleReceipts}
           theme={theme}
           surfaceClass={surfaceClass}
           mutedClass={mutedClass}
@@ -572,6 +662,13 @@ interface BodyProps {
   specialistLoading: Record<string, boolean>;
   specialistErrors: Record<string, string>;
   onDismissSpecialist: (nbeId: string) => void;
+  artifacts: ArtifactCardData[];
+  onCreateArtifact: (artifactType: string, opts?: { sourceIntentId?: string; specialistId?: string }) => void;
+  onDismissArtifact: (artifactId: string) => void;
+  receipts: ActivityReceiptData[];
+  receiptsLoading: boolean;
+  receiptsOpen: boolean;
+  onToggleReceipts: () => void;
   theme: 'light' | 'dark';
   surfaceClass: string;
   mutedClass: string;
@@ -610,6 +707,13 @@ function AigentMeWelcomeBody({
   specialistLoading,
   specialistErrors,
   onDismissSpecialist,
+  artifacts,
+  onCreateArtifact,
+  onDismissArtifact,
+  receipts,
+  receiptsLoading,
+  receiptsOpen,
+  onToggleReceipts,
   theme,
   surfaceClass,
   mutedClass,
@@ -734,6 +838,7 @@ function AigentMeWelcomeBody({
             const sp = specialistResponses[nbeId] ?? null;
             const isLoading = !!specialistLoading[nbeId];
             const err = specialistErrors[nbeId] ?? null;
+            const intentId = queuedIntents[nbeId]?.intentId;
             return (
               <SpecialistResponseCard
                 key={nbeId}
@@ -742,12 +847,69 @@ function AigentMeWelcomeBody({
                 error={err}
                 using={usingIqubes}
                 onDismiss={() => onDismissSpecialist(nbeId)}
+                onCreateArtifact={
+                  sp
+                    ? (artifactType) =>
+                        onCreateArtifact(artifactType, {
+                          sourceIntentId: intentId,
+                          specialistId: sp.specialistId,
+                        })
+                    : undefined
+                }
                 theme={theme}
               />
             );
           })}
         </section>
       )}
+
+      {/* Artifacts — Phase 6. Stack of recently-created runtime-destination
+          artifacts. */}
+      {artifacts.length > 0 && (
+        <section className="space-y-2">
+          <h2 className={`text-xs uppercase tracking-wider ${mutedClass}`}>
+            Artifacts
+          </h2>
+          {artifacts.map((a) => (
+            <ArtifactCard
+              key={a.artifactId}
+              data={a}
+              onDismiss={() => onDismissArtifact(a.artifactId)}
+              theme={theme}
+            />
+          ))}
+        </section>
+      )}
+
+      {/* Receipts panel — Phase 7. Collapsible. */}
+      <section>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className={`text-xs uppercase tracking-wider ${mutedClass}`}>
+            Recent activity
+          </h2>
+          <button
+            onClick={onToggleReceipts}
+            className={`text-xs px-2 py-1 rounded border ${chipClass}`}
+          >
+            {receiptsOpen ? 'Hide receipts' : 'Show receipts'}
+          </button>
+        </div>
+        {receiptsOpen && (
+          <div className="space-y-2">
+            {receiptsLoading ? (
+              <p className={`text-sm ${mutedClass}`}>Loading receipts…</p>
+            ) : receipts.length === 0 ? (
+              <p className={`text-sm ${mutedClass}`}>
+                No receipts yet. Acting on any NBE will produce one.
+              </p>
+            ) : (
+              receipts.map((r) => (
+                <ActivityReceiptCard key={r.id} data={r} theme={theme} />
+              ))
+            )}
+          </div>
+        )}
+      </section>
 
       {/* ExperienceModel card */}
       <ExperienceModelCard
