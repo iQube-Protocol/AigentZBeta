@@ -49,6 +49,10 @@ import { IqubeContextDisclosure } from "@/components/metame/cards/IqubeContextDi
 import { ExperienceModelSetupWizard } from "@/components/metame/setup/ExperienceModelSetupWizard";
 import { BriefCard, type BriefCardData } from "@/components/metame/cards/BriefCard";
 import {
+  VentureProgressCard,
+  type VentureProgressData,
+} from "@/components/metame/cards/VentureProgressCard";
+import {
   NextBestActionCard,
   type NextBestActionData,
 } from "@/components/metame/cards/NextBestActionCard";
@@ -132,6 +136,11 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     alternates: NextBestActionData[];
   } | null>(null);
   const [moveForwardLoading, setMoveForwardLoading] = useState(false);
+
+  // Phase 4 — Venture Progress state.
+  const [ventureProgress, setVentureProgress] = useState<VentureProgressData | null>(null);
+  const [ventureProgressLoading, setVentureProgressLoading] = useState(false);
+  const [ventureProgressError, setVentureProgressError] = useState<string | null>(null);
 
   // Phase 3.5 — Approval + IntentQube state. Single pending-approval slot
   // at a time; queued intents are remembered per nbeId so the user can see
@@ -264,6 +273,30 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     }
   }, [personaId]);
 
+  const fetchVentureProgress = useCallback(async () => {
+    setVentureProgressLoading(true);
+    setVentureProgressError(null);
+    setVentureProgress(null);
+    try {
+      const res = await personaFetch('/api/assistant/venture-progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+        personaIdHint: personaId,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+        throw new Error(body?.detail || body?.error || `venture-progress failed (${res.status})`);
+      }
+      const data = (await res.json()) as VentureProgressData;
+      setVentureProgress(data);
+    } catch (err) {
+      setVentureProgressError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setVentureProgressLoading(false);
+    }
+  }, [personaId]);
+
   const handleCtaClick = useCallback((ctaId: string) => {
     if (ctaId === 'set-up-experience-model') {
       setWizardOpen(true);
@@ -280,9 +313,14 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
       void fetchMoveForward();
       return;
     }
-    // Other CTAs (review-venture-progress, create-something, etc.) remain
-    // in 'preview' state until later phases land.
-  }, [fetchBrief, fetchMoveForward]);
+    if (ctaId === 'review-venture-progress') {
+      void fetchVentureProgress();
+      return;
+    }
+    // Remaining CTAs (create-something, coordinate-follow-ups, ask-*) stay
+    // in 'preview' state until Phases 5/6 wire specialist routing + artifact
+    // creation paths.
+  }, [fetchBrief, fetchMoveForward, fetchVentureProgress]);
 
   const handleWizardSaved = useCallback((saved: ExperienceModelCardData) => {
     setExpModel(saved);
@@ -379,6 +417,9 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
           moveForwardResult={moveForwardResult}
           moveForwardLoading={moveForwardLoading}
           onPickMoveForwardCartridge={fetchMoveForward}
+          ventureProgress={ventureProgress}
+          ventureProgressLoading={ventureProgressLoading}
+          ventureProgressError={ventureProgressError}
           onCtaClick={handleCtaClick}
           pendingApprovalNbe={pendingApprovalNbe}
           submittingApproval={submittingApproval}
@@ -444,6 +485,9 @@ interface BodyProps {
   moveForwardResult: { cartridge: string; topAction: NextBestActionData | null; alternates: NextBestActionData[] } | null;
   moveForwardLoading: boolean;
   onPickMoveForwardCartridge: (cartridge: string) => void;
+  ventureProgress: VentureProgressData | null;
+  ventureProgressLoading: boolean;
+  ventureProgressError: string | null;
   onCtaClick: (ctaId: string) => void;
   pendingApprovalNbe: NextBestActionData | null;
   submittingApproval: boolean;
@@ -475,6 +519,9 @@ function AigentMeWelcomeBody({
   moveForwardResult,
   moveForwardLoading,
   onPickMoveForwardCartridge,
+  ventureProgress,
+  ventureProgressLoading,
+  ventureProgressError,
   onCtaClick,
   pendingApprovalNbe,
   submittingApproval,
@@ -671,6 +718,22 @@ function AigentMeWelcomeBody({
             data={brief}
             loading={briefLoading}
             error={briefError}
+            onActOnNbe={onNbeAct}
+            theme={theme}
+          />
+        </section>
+      )}
+
+      {/* Venture Progress — appears once 'Review venture progress' is clicked */}
+      {(ventureProgressLoading || ventureProgressError || ventureProgress) && (
+        <section>
+          <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
+            Venture Progress
+          </h2>
+          <VentureProgressCard
+            data={ventureProgress}
+            loading={ventureProgressLoading}
+            error={ventureProgressError}
             onActOnNbe={onNbeAct}
             theme={theme}
           />

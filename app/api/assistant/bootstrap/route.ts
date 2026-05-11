@@ -178,7 +178,7 @@ const PRIMARY_CTAS: AssistantCta[] = [
   { id: 'set-up-experience-model', label: 'Set up my ExperienceModel', enabled: true,  status: 'available' },
   { id: 'brief-me',                label: 'Brief me',                  enabled: true,  status: 'available' },
   { id: 'move-this-forward',       label: 'Move this forward',         enabled: true,  status: 'available' },
-  { id: 'review-venture-progress', label: 'Review venture progress',   enabled: false, status: 'preview' },
+  { id: 'review-venture-progress', label: 'Review venture progress',   enabled: true,  status: 'available' },
   { id: 'create-something',        label: 'Create something',          enabled: false, status: 'preview' },
   { id: 'coordinate-follow-ups',   label: 'Coordinate follow-ups',     enabled: false, status: 'preview' },
   { id: 'ask-marketa',             label: 'Ask Marketa',               enabled: false, status: 'preview' },

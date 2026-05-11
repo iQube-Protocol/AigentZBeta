@@ -276,3 +276,35 @@ export async function setIntentQubeStatus(
   if (error || !data) return null;
   return rowToRecord(data as NbePlanRow);
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// List — recent IntentQubes for a persona.
+//
+// Used by the Venture Progress builder (Phase 4) to surface "recent
+// activity" without requiring the full receipt pipeline. Filters on the
+// sentinel-prefixed rationale so only Aigent Me intents come back; legacy
+// nbe_plans rows are excluded.
+// ─────────────────────────────────────────────────────────────────────────
+
+export async function listRecentIntentsForPersona(
+  personaId: string,
+  options?: { limit?: number; cartridge?: string },
+): Promise<IntentQubeRecord[]> {
+  if (!personaId) return [];
+  const limit = Math.min(options?.limit ?? 10, 50);
+  const admin = getAdminClient();
+  const { data, error } = await admin
+    .from('nbe_plans')
+    .select('*')
+    .eq('persona_id', personaId)
+    .like('rationale', `${RATIONALE_SENTINEL}%`)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  const rows = data as NbePlanRow[];
+  const records = rows.map(rowToRecord);
+  if (options?.cartridge) {
+    return records.filter((r) => r.activeCartridge === options.cartridge);
+  }
+  return records;
+}
