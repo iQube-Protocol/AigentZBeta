@@ -24,6 +24,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Sparkles, AlertTriangle, Loader2 } from "lucide-react";
+import { authedFetchHeaders } from "@/utils/supabaseBrowser";
 
 interface Specialist {
   id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c';
@@ -78,7 +79,7 @@ const CONTEXT_CHIPS = [
   'Google Workspace',
 ];
 
-export function AigentMeWelcomeTab({ theme = 'dark' }: Props) {
+export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
   const [data, setData] = useState<BootstrapSurface | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -88,33 +89,42 @@ export function AigentMeWelcomeTab({ theme = 'dark' }: Props) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-    fetch('/api/assistant/bootstrap', { signal: controller.signal })
-      .then(async (res) => {
+    (async () => {
+      try {
+        const headers = await authedFetchHeaders({ Accept: 'application/json' });
+        // Pass the resolved personaId from the codex auth bridge as a hint —
+        // the server still resolves the active persona via the spine, but
+        // this lets it pick the right one when the caller owns several.
+        const url = personaId
+          ? `/api/assistant/bootstrap?personaId=${encodeURIComponent(personaId)}`
+          : '/api/assistant/bootstrap';
+        const res = await fetch(url, {
+          headers,
+          credentials: 'include',
+          signal: controller.signal,
+        });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           throw new Error(body?.error || `bootstrap failed (${res.status})`);
         }
-        return res.json() as Promise<BootstrapSurface>;
-      })
-      .then((surface) => {
+        const surface = (await res.json()) as BootstrapSurface;
         if (!cancelled) setData(surface);
-      })
-      .catch((err) => {
+      } catch (err) {
         if (cancelled) return;
         const msg = err instanceof Error ? err.message : String(err);
         setError(msg);
-      })
-      .finally(() => {
+      } finally {
         clearTimeout(timeoutId);
         if (!cancelled) setLoading(false);
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
       controller.abort();
       clearTimeout(timeoutId);
     };
-  }, []);
+  }, [personaId]);
 
   const isDark = theme === 'dark';
   const surfaceClass = isDark
