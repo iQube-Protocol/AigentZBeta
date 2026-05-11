@@ -121,10 +121,15 @@ export function GoogleConnectionsPanel({ isAdmin = false, theme = "dark" }: Prop
   const handleConnect = useCallback(async (source: GoogleSource) => {
     setBusy(source);
     try {
+      // Capture the current thin-client URL so the callback can return
+      // the user to whichever origin they started from (metame.live /
+      // metame.dev / runtime.metame.com). The route validates against
+      // the metame embed allowlist before signing it into state.
+      const returnUrl = typeof window !== "undefined" ? window.location.href : undefined;
       const res = await personaFetch("/api/assistant/connect-google", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source }),
+        body: JSON.stringify({ source, ...(returnUrl ? { returnUrl } : {}) }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({} as { detail?: string; error?: string }));
