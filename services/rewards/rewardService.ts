@@ -16,6 +16,7 @@ import { logQcEventSilent } from '@/services/qc/qcEventService';
 import { createKnytClaim } from '@/services/wallet/knyt/knytClaimService';
 import { mintKnyt } from '@/services/wallet/knyt/evmKnytService';
 import type { KnytMintingMode } from '@/services/wallet/knyt/types';
+import { bridgeGrantToCrmRewards } from '@/services/rewards/grantToCrmRewardsBridge';
 
 // =============================================================================
 // TYPES
@@ -348,6 +349,30 @@ export class RewardService {
           sourceEventId: sourceEventId ?? null,
         },
       });
+
+      // 9b. Bridge to crm_rewards + emit spine OrchestrationEvent. This is
+      // the table the wallet UI + redeem endpoint read; without it the
+      // grant is invisible to the user. Bridge is idempotent on
+      // rewardGrantId and fail-open — the on-chain credit/claim flow
+      // (steps 6-7 above) is already authoritative for the KNYT amount.
+      // The bridge adds: UI visibility + audit-trail receipt + spine
+      // RQH partition (cohortId via task template).
+      try {
+        const bridgeResult = await bridgeGrantToCrmRewards({
+          personaId,
+          rewardTaskType: taskType,
+          amountKnyt: finalAmount,
+          rewardGrantId: grant.id,
+          sourceEventId,
+          metadata: { repMultiplier, baseAmount, ...(metadata || {}) },
+        });
+        if (!bridgeResult.bridged) {
+          console.warn('[RewardService] bridge to crm_rewards skipped:', bridgeResult.reason);
+        }
+      } catch (bridgeErr) {
+        console.error('[RewardService] bridge to crm_rewards threw:', bridgeErr);
+        // Non-fatal — grant is recorded; operator can backfill later.
+      }
 
       // 10. Log Qc event (fire-and-forget — 0 Qc in alpha, direction='meter')
       logQcEventSilent({

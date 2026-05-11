@@ -115,15 +115,42 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
 
       if (contrib?.persona_id) {
-        await supabase.from('knyt_reward_grants').insert({
-          persona_id: contrib.persona_id,
-          task_type: rewardType,
-          amount_knyt: action === 'elevate_eligible' ? 1.0 : 0.5,
-          base_amount_knyt: action === 'elevate_eligible' ? 1.0 : 0.5,
-          rep_multiplier: 1.0,
-          source_event_id: publication_id,
-          metadata: { action, publication_id, branch: pub.branch },
-        }).catch((e) => console.warn('[review] reward grant failed (non-fatal):', e));
+        const amountKnyt = action === 'elevate_eligible' ? 1.0 : 0.5;
+
+        // Legacy knyt_reward_grants insert (kept for the runtime
+        // takeover balance + KNYT state APIs that still read this
+        // table — see app/api/runtime/takeover/infer/route.ts:119
+        // and app/api/runtime/knyt-state/route.ts:114).
+        const { data: legacyGrant } = await supabase
+          .from('knyt_reward_grants')
+          .insert({
+            persona_id: contrib.persona_id,
+            task_type: rewardType,
+            amount_knyt: amountKnyt,
+            base_amount_knyt: amountKnyt,
+            rep_multiplier: 1.0,
+            source_event_id: publication_id,
+            metadata: { action, publication_id, branch: pub.branch },
+          })
+          .select('id')
+          .maybeSingle();
+
+        // Bridge to crm_rewards + emit spine OrchestrationEvent so the
+        // wallet UI surfaces the reward as claimable and the audit
+        // trail is anchored per the rep/rewards/tasks decisions doc.
+        try {
+          const { bridgeGrantToCrmRewards } = await import('@/services/rewards/grantToCrmRewardsBridge');
+          await bridgeGrantToCrmRewards({
+            personaId: contrib.persona_id,
+            rewardTaskType: rewardType,
+            amountKnyt,
+            rewardGrantId: legacyGrant?.id || `living-canon:${publication_id}`,
+            sourceEventId: publication_id,
+            metadata: { action, publication_id, branch: pub.branch },
+          });
+        } catch (bridgeErr) {
+          console.warn('[review] crm_rewards bridge failed (non-fatal):', bridgeErr);
+        }
 
         // Update contribution status to reflect review outcome
         await supabase
