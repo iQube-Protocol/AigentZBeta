@@ -39,21 +39,26 @@ export function SocialSharingModal({
 
   if (!isOpen) return null;
 
-  // Build the canonical content landing URL
-  const contentUrl = new URL(`${window.location.origin}/article`);
-  contentUrl.searchParams.set('id', article.id);
-  contentUrl.searchParams.set('title', article.title);
-  if (article.section) contentUrl.searchParams.set('section', article.section);
-  if (article.type) contentUrl.searchParams.set('type', article.type);
-  if (personaId) contentUrl.searchParams.set('persona', personaId);
-  if (shareId) contentUrl.searchParams.set('shareId', shareId);
+  // If the caller supplies article.url, treat it as the canonical share
+  // target (e.g. wallet invite links pointing at metame.live with an
+  // embedded ref code). Otherwise build the in-app /article landing URL.
+  let deepLink: string;
+  if (article.url) {
+    deepLink = article.url;
+  } else {
+    const contentUrl = new URL(`${window.location.origin}/article`);
+    contentUrl.searchParams.set('id', article.id);
+    contentUrl.searchParams.set('title', article.title);
+    if (article.section) contentUrl.searchParams.set('section', article.section);
+    if (article.type) contentUrl.searchParams.set('type', article.type);
+    if (personaId) contentUrl.searchParams.set('persona', personaId);
+    if (shareId) contentUrl.searchParams.set('shareId', shareId);
 
-  // Route through the social track redirect so clicks are recorded server-side
-  const trackUrl = new URL(`${window.location.origin}/api/social/track`);
-  trackUrl.searchParams.set('s', shareId);
-  trackUrl.searchParams.set('r', contentUrl.toString());
-
-  const deepLink = trackUrl.toString();
+    const trackUrl = new URL(`${window.location.origin}/api/social/track`);
+    trackUrl.searchParams.set('s', shareId);
+    trackUrl.searchParams.set('r', contentUrl.toString());
+    deepLink = trackUrl.toString();
+  }
   
   const shareText = `Check out this article: ${article.title}${article.description ? ` - ${article.description}` : ''}`;
 

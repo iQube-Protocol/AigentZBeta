@@ -111,7 +111,7 @@ Each row points to its canonical spec. Protocols may not deviate from the three 
 | Protocol | Module | Spec doc | Window key | Events |
 |---|---|---|---|---|
 | **PersonaSpine** | `utils/personaSpine.tsx` | `docs/architecture/persona-spine-client-protocol.md` | `window.__metame.persona` | `metame:persona-changed`, `metame:persona-revoked` |
-| **CartridgePresenceRegistry** | TBD by runtime-shell agent | TBD | `window.__metame.cartridges` | `metame:cartridge-opened`, `metame:cartridge-closed`, `metame:cartridge-tab-changed` |
+| **CartridgePresenceRegistry** | `services/cartridge/CartridgePresenceRegistry.ts` + `app/hooks/useCartridgePresence.ts` | `docs/architecture/cartridge-presence-registry.md` | `window.__metame.cartridges` | `metame:cartridge-opened`, `metame:cartridge-closed`, `metame:cartridge-tab-changed` |
 
 Future protocols (not yet implemented) reserve names below.
 
@@ -203,7 +203,9 @@ Most metaMe client protocols carry **no persona content at all** — they signal
 | `types/metameWindow.ts` | TypeScript augmentation of `Window['__metame']` |
 | `docs/architecture/persona-spine-client-protocol.md` | PersonaSpine spec |
 | `utils/personaSpine.tsx` | PersonaSpine implementation |
-| *(TBD)* | CartridgePresenceRegistry implementation + spec |
+| `services/cartridge/CartridgePresenceRegistry.ts` | CartridgePresenceRegistry implementation |
+| `app/hooks/useCartridgePresence.ts` | CartridgePresenceRegistry React hook |
+| `docs/architecture/cartridge-presence-registry.md` | CartridgePresenceRegistry spec |
 | `configs/embed/policy.v1.json` | `authAllowedOrigins` — the origin allowlist for cross-frame events |
 | `types/access.ts` | T0 / T1 / T2 privacy contract types |
 
@@ -213,6 +215,6 @@ Most metaMe client protocols carry **no persona content at all** — they signal
 
 - **2026-05-11** — PersonaSpine drafted with same-frame `aa-persona-change-v1` event and no `window.__metame` mirror.
 - **2026-05-12** — runtime-shell agent surfaces the CartridgePresenceRegistry need (wallet → cartridge tab opening across frame boundaries). Adjacency identified; parent contract drafted (this doc). PersonaSpine aligned in the same PR (`metame:persona-changed`, deprecated alias, window mirror, cross-frame broadcast, origin enforcement).
-- **TBD** — CartridgePresenceRegistry lands, registers `window.__metame.cartridges` and `metame:cartridge-*` events per this doc.
+- **2026-05-12** — CartridgePresenceRegistry lands aligned to this contract: registers `window.__metame.cartridges`, broadcasts `metame:cartridge-opened|closed|tab-changed`, inbound origin gated via `isMetameOriginAllowed`. KNYT wired as the canonical exemplar; wallet's `navigateToKnytTab` switched to `tryOpenInMountedCartridge`.
 
 Future amendments append entries here.

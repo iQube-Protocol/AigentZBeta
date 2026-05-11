@@ -576,7 +576,11 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     }
   }, [tabSlug]);
 
-  // Legacy state for cards/purchases (maintained for compatibility)
+  // Legacy state for cards/purchases (maintained for compatibility).
+  // NOTE: this `activeTab` is internal KnytTab sub-state, NOT the
+  // user-visible top-level codex tab. Cartridge-level presence (tab
+  // switching from the wallet, cross-cartridge nav, etc.) is wired at
+  // the codex shell — see CodexPanelDynamic's useCartridgePresence call.
   const [activeTab, setActiveTab] = useState<KnytTabSlug>(resolvedInitialTab);
   const isExternallyScopedTab = Boolean(tabSlug);
   const isLegacyFallbackTab = activeTab !== 'codex';

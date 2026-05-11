@@ -192,27 +192,33 @@ export function KnytLivingCanonTemplate({
     void loadBranch(activeBranch);
   }, [activeBranch, loadBranch]);
 
-  // v2 ops — KNYT Tasks "open 21 Sats and pre-select submission" deep-link.
-  // The wallet drawer's tasks tab parks the taskSlug on
-  // window.__knytPendingTaskSlug before navigating here. We read + clear
-  // it on mount and pre-select the community submission shell so the
-  // user lands on the right surface to act.
+  // Sub-tab deep-link from the wallet drawer's Living Canon task chips.
+  // KnytTab parks the taskSlug on window.__knytPendingTaskSlug before
+  // switching to this tab; we read + clear it on mount and map it to
+  // the right branch (and, for the contribute slug, pre-open the
+  // submission shell so the user lands directly on the action surface).
   //
-  // We deliberately don't try to map taskSlug → schemaSlug here — the
-  // task slug is for telemetry / future routing decisions; the
-  // submission shell uses the branch's canonical schemaSlug. If a
-  // future task needs a different submission target, this is the
-  // single point to extend.
+  //   knyt:living-canon-vote       → canon          (elections / dispatch)
+  //   knyt:living-canon-contribute → community + submission shell open
+  //   knyt:living-canon-dispatch   → correspondent
+  //
+  // Telemetry only fires in dev; full engagement_events routing lands
+  // when KnytTasks rep/rewards integrates the click flow.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const w = window as unknown as { __knytPendingTaskSlug?: string };
     const parked = w.__knytPendingTaskSlug;
     if (!parked) return;
     try { delete w.__knytPendingTaskSlug; } catch { /* non-fatal */ }
-    setActiveBranch('community');
-    setSubmissionSlug(BRANCH_CONFIG.community.schemaSlug);
-    // Telemetry — captured in console for now; full engagement_events
-    // routing lands when KnytTasks rep/rewards integrates the click flow.
+    const branch: CanonBranch | null =
+      parked === 'knyt:living-canon-vote'       ? 'canon'         :
+      parked === 'knyt:living-canon-contribute' ? 'community'     :
+      parked === 'knyt:living-canon-dispatch'   ? 'correspondent' :
+      null;
+    if (branch) setActiveBranch(branch);
+    if (parked === 'knyt:living-canon-contribute') {
+      setSubmissionSlug(BRANCH_CONFIG.community.schemaSlug);
+    }
     if (process.env.NODE_ENV !== 'production') {
       console.log('[living-canon] consumed parked taskSlug', parked);
     }

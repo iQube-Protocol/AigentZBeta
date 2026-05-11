@@ -10,6 +10,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCodexConfig, getEnabledTabs } from "@/app/hooks/useCodexConfig";
+import { useCartridgePresence } from "@/app/hooks/useCartridgePresence";
 import { CodexTab, TabGroup } from "@/types/codex";
 import type { DeviceType } from "@/app/types/knytLiquidUI";
 import { Loader2, AlertCircle, X, Coins, Zap, Sun, Moon, UserCircle2, ArrowRightLeft } from "lucide-react";
@@ -295,6 +296,23 @@ export default function CodexPanelDynamic({
     () => enabledTabs.find(tab => tab.slug === activeTabSlug) || enabledTabs[0],
     [enabledTabs, activeTabSlug]
   );
+
+  // Publish this codex into the CartridgePresenceRegistry so the wallet
+  // + cross-cartridge callers can switch tabs in place (instead of a full
+  // page reload via buildCodexUrl) and so the thin-client shell can
+  // render close chrome via the metame:cartridge-* postMessage protocol.
+  // Wired at the codex shell level (not per-cartridge top-level *Tab
+  // component) so all 10 cartridges are covered by a single hook call,
+  // and so the setter that switches the user-visible top-level codex tab
+  // (Codex / Store / Terra / Order / Living Canon / …) is the one we
+  // expose, not a cartridge-internal sub-state.
+  // Spec: docs/architecture/cartridge-presence-registry.md
+  useCartridgePresence({
+    cartridgeId: codexId,
+    displayLabel: codex?.name?.replace(/\s+codex$/i, '').trim() || codex?.name || codexId,
+    tab: activeTabSlug,
+    onSetTab: setActiveTabSlug,
+  });
 
   // Loading state
   if (isLoading) {
