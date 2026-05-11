@@ -1,14 +1,18 @@
 /**
  * Client-side helper for calling the access spine from React components.
  *
- * Phase 1.4 of the unified IAM foundation plan. Used by:
+ * Phase 1.4 of the unified IAM foundation plan. Migrated to PersonaSpine
+ * 2026-05-12 (per docs/architecture/persona-spine-client-protocol.md
+ * adoption sweep — first migration target).
+ *
+ * Used by:
  *   - SmartContentActionContext  (consult before 'buy' to avoid charging owners)
  *   - RemixDialog                (surface ownership state)
  *   - KnytTab                    (replace fetchOwnedEpisodes)
  *
  * Wraps the production-facing /api/access/evaluate endpoint with:
- *   - Bearer token injection (read directly from localStorage; avoids
- *     supabase-js getSession() which emits AuthApiError when refresh fails)
+ *   - PersonaSpine-driven Bearer attach (no localStorage scan; no
+ *     supabase-js getSession() AuthApiError on stale refresh)
  *   - Fail-open behaviour: any error returns null so callers can fall
  *     through to legacy paths rather than block the user
  *
@@ -22,29 +26,13 @@
 
 "use client";
 
+import { personaFetch } from "@/utils/personaSpine";
+
 export interface SpineDecision {
   allow: boolean;
   reason: string;
   deliveryMode: string;
   expiresAt?: string;
-}
-
-function readJwt(): string {
-  try {
-    if (typeof window === 'undefined') return '';
-    const k = Object.keys(window.localStorage).find(
-      (x) => x.startsWith('sb-') && x.endsWith('-auth-token'),
-    );
-    if (!k) return '';
-    const raw = window.localStorage.getItem(k);
-    if (!raw) return '';
-    const parsed = JSON.parse(raw) as
-      | { access_token?: string; currentSession?: { access_token?: string } }
-      | null;
-    return parsed?.access_token ?? parsed?.currentSession?.access_token ?? '';
-  } catch {
-    return '';
-  }
 }
 
 export type SpineAction =
@@ -67,13 +55,8 @@ export async function checkSpineDecision(
 ): Promise<SpineDecision | null> {
   if (!cidOrAssetId) return null;
   try {
-    const jwt = readJwt();
-    const headers: Record<string, string> = {
-      Accept: 'application/json',
-      ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
-    };
     const url = `/api/access/evaluate?cid=${encodeURIComponent(cidOrAssetId)}&action=${encodeURIComponent(action)}`;
-    const res = await fetch(url, { headers, credentials: 'include' });
+    const res = await personaFetch(url);
     if (!res.ok) return null;
     const data = (await res.json()) as Partial<SpineDecision>;
     if (typeof data?.allow !== 'boolean' || typeof data?.reason !== 'string') return null;
