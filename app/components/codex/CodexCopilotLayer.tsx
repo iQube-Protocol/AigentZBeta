@@ -182,17 +182,98 @@ export function CodexCopilotLayer({
   accentColor = 'cyan',
   walletTabSignal,
 }: CodexCopilotLayerProps) {
-  const ACCENT = ({
-    cyan:    { hex: 'text-cyan-400/90',    bot: 'text-cyan-300',    bubble: 'bg-cyan-500/20 text-cyan-100 ring-cyan-500/30' },
-    fuchsia: { hex: 'text-fuchsia-400/90', bot: 'text-fuchsia-300', bubble: 'bg-fuchsia-500/20 text-fuchsia-100 ring-fuchsia-500/30' },
-    rose:    { hex: 'text-rose-400/90',    bot: 'text-rose-300',    bubble: 'bg-rose-500/20 text-rose-100 ring-rose-500/30' },
-    amber:   { hex: 'text-amber-400/90',   bot: 'text-amber-300',   bubble: 'bg-amber-500/20 text-amber-100 ring-amber-500/30' },
-    emerald: { hex: 'text-emerald-400/90', bot: 'text-emerald-300', bubble: 'bg-emerald-500/20 text-emerald-100 ring-emerald-500/30' },
-    green:   { hex: 'text-green-400/90',   bot: 'text-green-300',   bubble: 'bg-green-500/20 text-green-100 ring-green-500/30' },
-    indigo:  { hex: 'text-indigo-400/90',  bot: 'text-indigo-300',  bubble: 'bg-indigo-500/20 text-indigo-100 ring-indigo-500/30' },
-  } as Record<string, { hex: string; bot: string; bubble: string }>)[accentColor] ?? {
-    hex: 'text-cyan-400/90', bot: 'text-cyan-300', bubble: 'bg-cyan-500/20 text-cyan-100 ring-cyan-500/30',
+  // Full accent palette — every cyan-* class in this component is derived
+  // from these tokens so a single accentColor prop fully re-themes the
+  // surface (e.g. emerald for metaMe / Aigent Me).
+  type AccentPalette = {
+    hex: string;
+    bot: string;
+    bubble: string;
+    pillBorder: string;
+    pillBg: string;
+    pillText: string;
+    pillHoverBg: string;
+    softBg: string;
+    softText: string;
+    softHoverBg: string;
+    highlightBg: string;
+    highlightText: string;
+    highlightTextStrong: string;
+    inputFocusBorder: string;
+    btnBg: string;
+    btnHoverBg: string;
   };
+  const ACCENT_PALETTES: Record<string, AccentPalette> = {
+    cyan: {
+      hex: 'text-cyan-400/90', bot: 'text-cyan-300', bubble: 'bg-cyan-500/20 text-cyan-100 ring-cyan-500/30',
+      pillBorder: 'border-cyan-400/40', pillBg: 'bg-cyan-500/15', pillText: 'text-cyan-100', pillHoverBg: 'hover:bg-cyan-500/25',
+      softBg: 'bg-cyan-500/20', softText: 'text-cyan-100', softHoverBg: 'hover:bg-cyan-500/30',
+      highlightBg: 'bg-cyan-500/15', highlightText: 'text-cyan-200', highlightTextStrong: 'text-cyan-400',
+      inputFocusBorder: 'focus:border-cyan-500',
+      btnBg: 'bg-cyan-500', btnHoverBg: 'hover:bg-cyan-600',
+    },
+    fuchsia: {
+      hex: 'text-fuchsia-400/90', bot: 'text-fuchsia-300', bubble: 'bg-fuchsia-500/20 text-fuchsia-100 ring-fuchsia-500/30',
+      pillBorder: 'border-fuchsia-400/40', pillBg: 'bg-fuchsia-500/15', pillText: 'text-fuchsia-100', pillHoverBg: 'hover:bg-fuchsia-500/25',
+      softBg: 'bg-fuchsia-500/20', softText: 'text-fuchsia-100', softHoverBg: 'hover:bg-fuchsia-500/30',
+      highlightBg: 'bg-fuchsia-500/15', highlightText: 'text-fuchsia-200', highlightTextStrong: 'text-fuchsia-400',
+      inputFocusBorder: 'focus:border-fuchsia-500',
+      btnBg: 'bg-fuchsia-500', btnHoverBg: 'hover:bg-fuchsia-600',
+    },
+    rose: {
+      hex: 'text-rose-400/90', bot: 'text-rose-300', bubble: 'bg-rose-500/20 text-rose-100 ring-rose-500/30',
+      pillBorder: 'border-rose-400/40', pillBg: 'bg-rose-500/15', pillText: 'text-rose-100', pillHoverBg: 'hover:bg-rose-500/25',
+      softBg: 'bg-rose-500/20', softText: 'text-rose-100', softHoverBg: 'hover:bg-rose-500/30',
+      highlightBg: 'bg-rose-500/15', highlightText: 'text-rose-200', highlightTextStrong: 'text-rose-400',
+      inputFocusBorder: 'focus:border-rose-500',
+      btnBg: 'bg-rose-500', btnHoverBg: 'hover:bg-rose-600',
+    },
+    amber: {
+      hex: 'text-amber-400/90', bot: 'text-amber-300', bubble: 'bg-amber-500/20 text-amber-100 ring-amber-500/30',
+      pillBorder: 'border-amber-400/40', pillBg: 'bg-amber-500/15', pillText: 'text-amber-100', pillHoverBg: 'hover:bg-amber-500/25',
+      softBg: 'bg-amber-500/20', softText: 'text-amber-100', softHoverBg: 'hover:bg-amber-500/30',
+      highlightBg: 'bg-amber-500/15', highlightText: 'text-amber-200', highlightTextStrong: 'text-amber-400',
+      inputFocusBorder: 'focus:border-amber-500',
+      btnBg: 'bg-amber-500', btnHoverBg: 'hover:bg-amber-600',
+    },
+    emerald: {
+      hex: 'text-emerald-400/90', bot: 'text-emerald-300', bubble: 'bg-emerald-500/20 text-emerald-100 ring-emerald-500/30',
+      pillBorder: 'border-emerald-400/40', pillBg: 'bg-emerald-500/15', pillText: 'text-emerald-100', pillHoverBg: 'hover:bg-emerald-500/25',
+      softBg: 'bg-emerald-500/20', softText: 'text-emerald-100', softHoverBg: 'hover:bg-emerald-500/30',
+      highlightBg: 'bg-emerald-500/15', highlightText: 'text-emerald-200', highlightTextStrong: 'text-emerald-400',
+      inputFocusBorder: 'focus:border-emerald-500',
+      btnBg: 'bg-emerald-500', btnHoverBg: 'hover:bg-emerald-600',
+    },
+    green: {
+      hex: 'text-green-400/90', bot: 'text-green-300', bubble: 'bg-green-500/20 text-green-100 ring-green-500/30',
+      pillBorder: 'border-green-400/40', pillBg: 'bg-green-500/15', pillText: 'text-green-100', pillHoverBg: 'hover:bg-green-500/25',
+      softBg: 'bg-green-500/20', softText: 'text-green-100', softHoverBg: 'hover:bg-green-500/30',
+      highlightBg: 'bg-green-500/15', highlightText: 'text-green-200', highlightTextStrong: 'text-green-400',
+      inputFocusBorder: 'focus:border-green-500',
+      btnBg: 'bg-green-500', btnHoverBg: 'hover:bg-green-600',
+    },
+    indigo: {
+      hex: 'text-indigo-400/90', bot: 'text-indigo-300', bubble: 'bg-indigo-500/20 text-indigo-100 ring-indigo-500/30',
+      pillBorder: 'border-indigo-400/40', pillBg: 'bg-indigo-500/15', pillText: 'text-indigo-100', pillHoverBg: 'hover:bg-indigo-500/25',
+      softBg: 'bg-indigo-500/20', softText: 'text-indigo-100', softHoverBg: 'hover:bg-indigo-500/30',
+      highlightBg: 'bg-indigo-500/15', highlightText: 'text-indigo-200', highlightTextStrong: 'text-indigo-400',
+      inputFocusBorder: 'focus:border-indigo-500',
+      btnBg: 'bg-indigo-500', btnHoverBg: 'hover:bg-indigo-600',
+    },
+  };
+  const ACCENT: AccentPalette = ACCENT_PALETTES[accentColor] ?? ACCENT_PALETTES.cyan;
+  // Pre-extract the ring-* class from the bubble token so nested template
+  // literals don't trip swc's parser. `bubble` is space-separated; the only
+  // ring-prefixed token in every palette is the ring color class.
+  const ACCENT_RING = ACCENT.bubble.split(' ').find((c) => c.startsWith('ring-')) ?? '';
+  // Pre-compute every accent-derived class combination used inside JSX
+  // attributes. swc's parser fails on template literals nested inside
+  // another template literal's `${…}` interpolation; consts let JSX use
+  // flat `${…}` substitution instead.
+  const ACCENT_BUBBLE_MINE       = `${ACCENT.bubble} rounded-br-sm text-sm`;
+  const ACCENT_PANEL_ACTIVE      = `${ACCENT.softBg} ${ACCENT_RING} ${ACCENT.highlightText}`;
+  const ACCENT_HIGHLIGHT_SOFT    = `${ACCENT.highlightBg} ${ACCENT.highlightText}`;
+  const ACCENT_HIGHLIGHT_STRONG  = `${ACCENT.softBg} ${ACCENT.highlightTextStrong}`;
   const isMobile = useIsMobile();
   const { requestAvatar, releaseAvatar } = useMetaAvatar();
 
@@ -998,7 +1079,7 @@ export function CodexCopilotLayer({
                               <div
                                 className={`max-w-[90%] px-3 py-2 rounded-xl ring-1 ${
                                   msg.role === "user"
-                                    ? `${ACCENT.bubble} rounded-br-sm text-sm`
+                                    ? ACCENT_BUBBLE_MINE
                                     : "bg-white/5 text-white/90 rounded-bl-sm ring-white/10"
                                 }`}
                               >
@@ -1024,7 +1105,7 @@ export function CodexCopilotLayer({
                                         setWalletPanelCollapsed(false);
                                         showWalletMenuWithTimeout(6000);
                                       }}
-                                      className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/40 bg-cyan-500/15 px-2.5 py-1 text-[11px] font-medium text-cyan-100 transition-colors hover:bg-cyan-500/25"
+                                      className={`inline-flex items-center gap-1.5 rounded-full border ${ACCENT.pillBorder} ${ACCENT.pillBg} px-2.5 py-1 text-[11px] font-medium ${ACCENT.pillText} transition-colors ${ACCENT.pillHoverBg}`}
                                     >
                                         {walletActionIcon(card)}
                                         <span>{card.label}</span>
@@ -1071,7 +1152,7 @@ export function CodexCopilotLayer({
                                     }}
                                     className={`h-10 w-full rounded-lg ring-1 transition-colors ${
                                       walletPanelOpen && walletPanelTab === tab && !walletPanelCollapsed
-                                        ? "bg-cyan-500/20 ring-cyan-500/30 text-cyan-200"
+                                        ? ACCENT_PANEL_ACTIVE
                                         : "bg-white/5 ring-white/10 text-white/70 hover:text-white hover:bg-white/10"
                                     }`}
                                   >
@@ -1180,13 +1261,13 @@ export function CodexCopilotLayer({
                                   placeholder={promptPlaceholder}
                                   rows={1}
                                   style={{ resize: "none", overflowY: "hidden", minHeight: "36px", maxHeight: promptMaxHeight ?? "160px" }}
-                                  className={inputPanelInputClassName ?? "flex-1 px-3 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"}
+                                  className={inputPanelInputClassName ?? `flex-1 px-3 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none ${ACCENT.inputFocusBorder} text-sm`}
                                   disabled={isLoading}
                                 />
                                 <button
                                   onClick={() => sendMessage()}
                                   disabled={!inputValue.trim() || isLoading}
-                                  className="p-1.5 bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors flex-shrink-0"
+                                  className={`p-1.5 ${ACCENT.btnBg} ${ACCENT.btnHoverBg} disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors flex-shrink-0`}
                                 >
                                   {isLoading ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -1226,13 +1307,13 @@ export function CodexCopilotLayer({
                               placeholder={promptPlaceholder}
                               rows={1}
                               style={{ resize: "none", overflowY: "hidden", minHeight: "36px", maxHeight: promptMaxHeight ?? "160px" }}
-                              className="flex-1 px-3 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500 text-sm"
+                              className={`flex-1 px-3 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none ${ACCENT.inputFocusBorder} text-sm`}
                               disabled={isLoading}
                             />
                             <button
                               onClick={() => sendMessage()}
                               disabled={!inputValue.trim() || isLoading}
-                              className="p-1.5 bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors flex-shrink-0"
+                              className={`p-1.5 ${ACCENT.btnBg} ${ACCENT.btnHoverBg} disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors flex-shrink-0`}
                             >
                               {isLoading ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -1255,7 +1336,7 @@ export function CodexCopilotLayer({
                                   <button
                                     type="button"
                                     onClick={() => setContextMenuOpen((prev) => !prev)}
-                                    className="flex items-center gap-1 rounded-sm border border-cyan-400/40 bg-cyan-500/20 px-2 py-1 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-500/30 transition"
+                                    className={`flex items-center gap-1 rounded-sm border ${ACCENT.pillBorder} ${ACCENT.softBg} px-2 py-1 text-[11px] font-semibold ${ACCENT.softText} ${ACCENT.softHoverBg} transition`}
                                   >
                                     {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
                                     <ChevronDown className={`w-3 h-3 transition-transform ${contextMenuOpen ? "rotate-180" : ""}`} />
@@ -1271,7 +1352,7 @@ export function CodexCopilotLayer({
                                           }}
                                           className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
                                             opt.id === contextId
-                                              ? "bg-cyan-500/15 text-cyan-200"
+                                              ? ACCENT_HIGHLIGHT_SOFT
                                               : "text-white/70 hover:bg-white/5"
                                           }`}
                                         >
@@ -1299,7 +1380,7 @@ export function CodexCopilotLayer({
                                 onClick={() => setCopilotMode("chat")}
                                 className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
                                   (copilotMode as CopilotMode) === "chat"
-                                    ? "bg-cyan-500/20 text-cyan-400"
+                                    ? ACCENT_HIGHLIGHT_STRONG
                                     : "text-white/50 hover:text-white/80"
                                 }`}
                               >
@@ -1315,7 +1396,7 @@ export function CodexCopilotLayer({
                                   <button
                                     type="button"
                                     onClick={() => setContextMenuOpen((prev) => !prev)}
-                                    className="flex items-center gap-1 rounded-sm border border-cyan-400/40 bg-cyan-500/20 px-2 py-1 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-500/30 transition"
+                                    className={`flex items-center gap-1 rounded-sm border ${ACCENT.pillBorder} ${ACCENT.softBg} px-2 py-1 text-[11px] font-semibold ${ACCENT.softText} ${ACCENT.softHoverBg} transition`}
                                   >
                                     {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
                                     <ChevronDown className={`w-3 h-3 transition-transform ${contextMenuOpen ? "rotate-180" : ""}`} />
@@ -1339,7 +1420,7 @@ export function CodexCopilotLayer({
                                         }}
                                         className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
                                           opt.id === contextId
-                                            ? "bg-cyan-500/15 text-cyan-200"
+                                            ? ACCENT_HIGHLIGHT_SOFT
                                             : "text-white/70 hover:bg-white/5"
                                         }`}
                                       >
@@ -1409,7 +1490,7 @@ export function CodexCopilotLayer({
                                 <button
                                   type="button"
                                   onClick={() => setContextMenuOpen((prev) => !prev)}
-                                  className="flex items-center gap-1 rounded-sm border border-cyan-400/40 bg-cyan-500/20 px-2 py-1 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-500/30 transition"
+                                  className={`flex items-center gap-1 rounded-sm border ${ACCENT.pillBorder} ${ACCENT.softBg} px-2 py-1 text-[11px] font-semibold ${ACCENT.softText} ${ACCENT.softHoverBg} transition`}
                                 >
                                   {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
                                   <ChevronDown className={`w-3 h-3 transition-transform ${contextMenuOpen ? "rotate-180" : ""}`} />
@@ -1425,7 +1506,7 @@ export function CodexCopilotLayer({
                                         }}
                                         className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
                                           opt.id === contextId
-                                            ? "bg-cyan-500/15 text-cyan-200"
+                                            ? ACCENT_HIGHLIGHT_SOFT
                                             : "text-white/70 hover:bg-white/5"
                                         }`}
                                       >
@@ -1453,7 +1534,7 @@ export function CodexCopilotLayer({
                               onClick={() => setCopilotMode("chat")}
                               className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
                                 (copilotMode as CopilotMode) === "chat"
-                                  ? "bg-cyan-500/20 text-cyan-400"
+                                  ? ACCENT_HIGHLIGHT_STRONG
                                   : "text-white/50 hover:text-white/80"
                               }`}
                             >
@@ -1469,7 +1550,7 @@ export function CodexCopilotLayer({
                                 <button
                                   type="button"
                                   onClick={() => setContextMenuOpen((prev) => !prev)}
-                                  className="flex items-center gap-1 rounded-sm border border-cyan-400/40 bg-cyan-500/20 px-2 py-1 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-500/30 transition"
+                                  className={`flex items-center gap-1 rounded-sm border ${ACCENT.pillBorder} ${ACCENT.softBg} px-2 py-1 text-[11px] font-semibold ${ACCENT.softText} ${ACCENT.softHoverBg} transition`}
                                 >
                                   {contextOptions?.find((opt) => opt.id === contextId)?.label || "Qriptopian Codex"}
                                   <ChevronDown className={`w-3 h-3 transition-transform ${contextMenuOpen ? "rotate-180" : ""}`} />
@@ -1493,7 +1574,7 @@ export function CodexCopilotLayer({
                                       }}
                                       className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
                                         opt.id === contextId
-                                          ? "bg-cyan-500/15 text-cyan-200"
+                                          ? ACCENT_HIGHLIGHT_SOFT
                                           : "text-white/70 hover:bg-white/5"
                                       }`}
                                     >

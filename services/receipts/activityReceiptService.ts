@@ -1,0 +1,215 @@
+/**
+ * ActivityReceiptService — Aigent Me Phase 6.
+ *
+ * Per PRD v0.2 §11 (ActivityReceipt data object) and §10 FR12 — every
+ * meaningful Aigent Me action produces a receipt.
+ *
+ * This is the canonical writer + reader. Routes that need to record an
+ * action call `createActivityReceipt(...)`; the receipts list endpoint
+ * calls `listActivityReceiptsForPersona(...)`.
+ *
+ * Anchoring lifecycle:
+ *   - alpha: receipts are local (`receipt_status: 'local'`)
+ *   - 6.b: DVN-pending → DVN-recorded as the batch finalizer runs
+ *
+ * Privacy:
+ *   - persona_id is T0. Never serialise to a JSON response.
+ *   - context_shared is a list of category labels ("brief context",
+ *     "experience-goals", "campaign extracts"); it MUST NOT contain
+ *     payload values.
+ */
+
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+
+// ─────────────────────────────────────────────────────────────────────────
+// Types.
+// ─────────────────────────────────────────────────────────────────────────
+
+export type ActivityActionType =
+  | 'intent_queued'
+  | 'specialist_consulted'
+  | 'artifact_created'
+  | 'artifact_sent'
+  | 'approval_granted'
+  | 'approval_rejected'
+  | 'experience_model_updated'
+  | 'session_started'
+  | 'session_completed';
+
+export type ReceiptStatus = 'local' | 'dvn_pending' | 'dvn_recorded' | 'dvn_failed';
+
+export interface ActivityReceiptRecord {
+  id: string;
+  sessionId: string | null;
+  intentId: string | null;
+  activeCartridge: string;
+  actionType: ActivityActionType;
+  summary: string;
+  agentsInvoked: string[];
+  toolsUsed: string[];
+  iqubesUsed: string[];
+  contextShared: string[];
+  artifactsCreated: string[];
+  approvalsGranted: string[];
+  policyEnvelopeId: string | null;
+  receiptStatus: ReceiptStatus;
+  dvnReceiptId: string | null;
+  createdAt: string;
+}
+
+interface DbRow {
+  id: string;
+  persona_id: string;
+  session_id: string | null;
+  intent_id: string | null;
+  active_cartridge: string;
+  action_type: ActivityActionType;
+  summary: string;
+  agents_invoked: string[];
+  tools_used: string[];
+  iqubes_used: string[];
+  context_shared: string[];
+  artifacts_created: string[];
+  approvals_granted: string[];
+  policy_envelope_id: string | null;
+  receipt_status: ReceiptStatus;
+  dvn_receipt_id: string | null;
+  created_at: string;
+}
+
+function rowToRecord(row: DbRow): ActivityReceiptRecord {
+  return {
+    id: row.id,
+    sessionId: row.session_id,
+    intentId: row.intent_id,
+    activeCartridge: row.active_cartridge,
+    actionType: row.action_type,
+    summary: row.summary,
+    agentsInvoked: row.agents_invoked ?? [],
+    toolsUsed: row.tools_used ?? [],
+    iqubesUsed: row.iqubes_used ?? [],
+    contextShared: row.context_shared ?? [],
+    artifactsCreated: row.artifacts_created ?? [],
+    approvalsGranted: row.approvals_granted ?? [],
+    policyEnvelopeId: row.policy_envelope_id,
+    receiptStatus: row.receipt_status,
+    dvnReceiptId: row.dvn_receipt_id,
+    createdAt: row.created_at,
+  };
+}
+
+function getAdminClient() {
+  const client = getSupabaseServer();
+  if (!client) throw new Error('Supabase configuration missing for ActivityReceiptService');
+  return client;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Create.
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface CreateActivityReceiptInput {
+  personaId: string;
+  sessionId?: string | null;
+  intentId?: string | null;
+  activeCartridge?: string;
+  actionType: ActivityActionType;
+  summary: string;
+  agentsInvoked?: string[];
+  toolsUsed?: string[];
+  iqubesUsed?: string[];
+  contextShared?: string[];
+  artifactsCreated?: string[];
+  approvalsGranted?: string[];
+  policyEnvelopeId?: string | null;
+}
+
+const TABLE_MISSING_CODES = new Set(['42P01', 'PGRST205']);
+
+function isMissingTable(err: { code?: string; message?: string } | null | undefined): boolean {
+  if (!err) return false;
+  if (err.code && TABLE_MISSING_CODES.has(err.code)) return true;
+  return typeof err.message === 'string' && /relation .* does not exist/i.test(err.message);
+}
+
+export async function createActivityReceipt(
+  input: CreateActivityReceiptInput,
+): Promise<ActivityReceiptRecord | null> {
+  if (!input.personaId) throw new Error('createActivityReceipt: personaId required');
+  if (!input.actionType) throw new Error('createActivityReceipt: actionType required');
+  if (!input.summary) throw new Error('createActivityReceipt: summary required');
+
+  const admin = getAdminClient();
+  const row = {
+    persona_id: input.personaId,
+    session_id: input.sessionId ?? null,
+    intent_id: input.intentId ?? null,
+    active_cartridge: input.activeCartridge ?? 'metame',
+    action_type: input.actionType,
+    summary: input.summary.slice(0, 1000),
+    agents_invoked: input.agentsInvoked ?? [],
+    tools_used: input.toolsUsed ?? [],
+    iqubes_used: input.iqubesUsed ?? [],
+    context_shared: input.contextShared ?? [],
+    artifacts_created: input.artifactsCreated ?? [],
+    approvals_granted: input.approvalsGranted ?? [],
+    policy_envelope_id: input.policyEnvelopeId ?? null,
+    receipt_status: 'local' as ReceiptStatus,
+  };
+
+  const { data, error } = await admin
+    .from('activity_receipts')
+    .insert(row)
+    .select('*')
+    .single();
+
+  if (error) {
+    if (isMissingTable(error)) {
+      console.warn(
+        '[ActivityReceipts] activity_receipts table missing — receipt dropped. ' +
+          'Apply supabase/migrations/20260514000000_activity_receipts.sql.',
+      );
+      return null;
+    }
+    throw new Error(`createActivityReceipt failed: ${error.message}`);
+  }
+  if (!data) return null;
+  return rowToRecord(data as DbRow);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Read.
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface ListReceiptsOptions {
+  limit?: number;
+  cartridge?: string;
+  actionTypes?: ActivityActionType[];
+}
+
+export async function listActivityReceiptsForPersona(
+  personaId: string,
+  options?: ListReceiptsOptions,
+): Promise<ActivityReceiptRecord[]> {
+  if (!personaId) return [];
+  const limit = Math.min(Math.max(options?.limit ?? 20, 1), 100);
+
+  const admin = getAdminClient();
+  let q = admin
+    .from('activity_receipts')
+    .select('*')
+    .eq('persona_id', personaId);
+
+  if (options?.cartridge) q = q.eq('active_cartridge', options.cartridge);
+  if (options?.actionTypes && options.actionTypes.length > 0) {
+    q = q.in('action_type', options.actionTypes);
+  }
+
+  const { data, error } = await q.order('created_at', { ascending: false }).limit(limit);
+  if (error) {
+    if (isMissingTable(error)) return [];
+    throw new Error(`listActivityReceiptsForPersona failed: ${error.message}`);
+  }
+  if (!data) return [];
+  return (data as DbRow[]).map(rowToRecord);
+}

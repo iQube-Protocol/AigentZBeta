@@ -2,34 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { BookOpen, Bot, ChevronDown, ChevronUp, Loader2, X } from "lucide-react";
-
-// ─── Auth helper (same pattern as PersonaIQubeDrawer / IdentityIQubeDrawer) ──
-
-function getAccessTokenFromStorage(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    for (let i = 0; i < window.localStorage.length; i++) {
-      const key = window.localStorage.key(i);
-      if (key && key.includes("auth-token")) {
-        const raw = window.localStorage.getItem(key);
-        if (!raw) continue;
-        const parsed = JSON.parse(raw) as Record<string, unknown>;
-        const token =
-          parsed.access_token ??
-          (parsed as Record<string, { access_token?: unknown }>).currentSession?.access_token;
-        if (typeof token === "string" && token) return token;
-      }
-    }
-  } catch { /* ignore */ }
-  return null;
-}
-
-function authHeaders(): Record<string, string> {
-  const token = getAccessTokenFromStorage();
-  return token
-    ? { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
-    : { "Content-Type": "application/json" };
-}
+import { personaFetch } from "@/utils/personaSpine";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -186,8 +159,7 @@ export function MemoryIQubeDrawer({ open, onClose }: Props) {
       });
       if (channel !== "all") params.set("type", channel);
 
-      const res = await fetch(`/api/iqube/memory?${params.toString()}`, {
-        headers: authHeaders(),
+      const res = await personaFetch(`/api/iqube/memory?${params.toString()}`, {
         signal: ctrl.signal,
       });
       if (!res.ok) {

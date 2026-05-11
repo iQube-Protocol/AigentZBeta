@@ -16,6 +16,7 @@ import { FioDomain } from "@/types/persona";
 import { createPersona } from "@/services/wallet/personaService";
 import { getPersonaFioService, isValidUsername, SUPPORTED_DOMAINS } from "@/services/wallet/personaFioService";
 import { validatePassword } from "@/services/wallet/keyService";
+import { personaFetch } from "@/utils/personaSpine";
 
 interface PersonaQuickAddModalProps {
   isOpen: boolean;
@@ -129,21 +130,6 @@ function buildAuthHeaders(): Headers {
   const authProfileId = getOrCreateAuthProfileId() || "";
   if (authProfileId) headers.set("x-auth-profile-id", authProfileId);
   return headers;
-}
-
-function getSupabaseAccessToken(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    for (let i = 0; i < window.localStorage.length; i++) {
-      const key = window.localStorage.key(i);
-      if (!key?.includes("auth-token")) continue;
-      const raw = window.localStorage.getItem(key);
-      if (!raw) continue;
-      const parsed = JSON.parse(raw) as { access_token?: string };
-      if (parsed?.access_token) return parsed.access_token;
-    }
-  } catch { /* ignore */ }
-  return null;
 }
 
 function randomEvmAddress(): string {
@@ -430,12 +416,9 @@ export function PersonaQuickAddModal({
     setClaimError(null);
     setClaimSuccess(false);
     try {
-      const token = getSupabaseAccessToken();
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch("/api/identity/persona/claim", {
+      const res = await personaFetch("/api/identity/persona/claim", {
         method: "POST",
-        headers,
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fioHandle: claimHandle.trim(), privateKey: claimPrivateKey.trim() }),
       });
       const data = await res.json() as { ok?: boolean; personaId?: string; error?: string };

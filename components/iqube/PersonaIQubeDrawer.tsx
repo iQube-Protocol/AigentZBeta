@@ -6,30 +6,7 @@ import {
   Wallet, Globe, User, Database, Settings, Eye, EyeOff,
   AlertCircle, CheckCircle2, Loader2, ExternalLink, RefreshCw, Sparkles,
 } from "lucide-react";
-
-function getAccessTokenFromStorage(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    for (let i = 0; i < window.localStorage.length; i++) {
-      const key = window.localStorage.key(i);
-      if (!key || !key.includes("auth-token")) continue;
-      const raw = window.localStorage.getItem(key);
-      if (!raw) continue;
-      const parsed = JSON.parse(raw) as { access_token?: string };
-      if (parsed?.access_token) return parsed.access_token;
-    }
-  } catch { /* ignore */ }
-  return null;
-}
-
-function authHeaders(extra?: Record<string, string>): Record<string, string> {
-  const token = getAccessTokenFromStorage();
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...extra,
-  };
-}
+import { personaFetch } from "@/utils/personaSpine";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -451,8 +428,8 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
     try {
       // Bind + persona load in parallel — bind stamps did_persona_id on the row
       const [bindRes, personaRes] = await Promise.all([
-        fetch("/api/identity/root-did/bind", { method: "POST", headers: authHeaders() }),
-        fetch(`/api/iqube/persona/${type}`, { headers: authHeaders() }),
+        personaFetch("/api/identity/root-did/bind", { method: "POST" }),
+        personaFetch(`/api/iqube/persona/${type}`),
       ]);
 
       // Extract only this persona's DID ID for the tokenQube wallet binding row
@@ -489,9 +466,9 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
     setSaveSuccess(false);
     setError(null);
     try {
-      const res = await fetch(`/api/iqube/persona/${type}`, {
+      const res = await personaFetch(`/api/iqube/persona/${type}`, {
         method: "PATCH",
-        headers: authHeaders(),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(editValues),
       });
       const json = await res.json();
@@ -534,9 +511,8 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
         if (/^0x[0-9a-fA-F]{40}$/.test(recipientInput)) {
           recipientAddr = recipientInput;
         } else {
-          const res = await fetch(
+          const res = await personaFetch(
             `/api/identity/resolve-recipient?q=${encodeURIComponent(recipientInput)}`,
-            { headers: authHeaders() },
           );
           const data = await res.json() as { resolvedAddress?: string; error?: string };
           if (!res.ok || !data.resolvedAddress) throw new Error(data.error ?? "Could not resolve recipient");
@@ -546,9 +522,8 @@ export function PersonaIQubeDrawer({ type, isAdmin = false, onClose }: Props) {
       }
 
       // Step 2: stage + encrypt persona blakQube
-      const stageRes = await fetch(`/api/iqube/persona/${type}/mint`, {
+      const stageRes = await personaFetch(`/api/iqube/persona/${type}/mint`, {
         method: "POST",
-        headers: authHeaders(),
       });
       const stageData = await stageRes.json() as { stub_id?: string; error?: string };
       if (!stageRes.ok) throw new Error(stageData.error ?? "Staging failed");

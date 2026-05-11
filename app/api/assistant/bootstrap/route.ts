@@ -32,6 +32,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { issuePersonaSessionToken } from '@/services/identity/personaSessionToken';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { getExperienceQubeBootstrapHint } from '@/services/iqube/experienceQube';
 import type { ActivePersonaSurface } from '@/types/access';
 
 export const dynamic = 'force-dynamic';
@@ -174,10 +175,10 @@ const AVAILABLE_SPECIALISTS: AssistantSpecialist[] = [
  * coming-soon state without claiming functionality that does not exist.
  */
 const PRIMARY_CTAS: AssistantCta[] = [
-  { id: 'set-up-experience-model', label: 'Set up my ExperienceModel', enabled: false, status: 'preview' },
-  { id: 'brief-me',                label: 'Brief me',                  enabled: false, status: 'preview' },
-  { id: 'move-this-forward',       label: 'Move this forward',         enabled: false, status: 'preview' },
-  { id: 'review-venture-progress', label: 'Review venture progress',   enabled: false, status: 'preview' },
+  { id: 'set-up-experience-model', label: 'Set up my ExperienceModel', enabled: true,  status: 'available' },
+  { id: 'brief-me',                label: 'Brief me',                  enabled: true,  status: 'available' },
+  { id: 'move-this-forward',       label: 'Move this forward',         enabled: true,  status: 'available' },
+  { id: 'review-venture-progress', label: 'Review venture progress',   enabled: true,  status: 'available' },
   { id: 'create-something',        label: 'Create something',          enabled: false, status: 'preview' },
   { id: 'coordinate-follow-ups',   label: 'Coordinate follow-ups',     enabled: false, status: 'preview' },
   { id: 'ask-marketa',             label: 'Ask Marketa',               enabled: false, status: 'preview' },
@@ -217,31 +218,20 @@ async function readPersonaPresentation(
 }
 
 /**
- * Best-effort ExperienceModel hint. Reads journey_states for the persona
- * and joins to experience_models if the existing schema is in place. The
- * full ExperienceQube service lands in Phase 2; this stays minimal.
+ * ExperienceModel hint — delegates to the canonical ExperienceQube service.
+ * Phase 2 wired the persona-scoped ExperienceQube; the bootstrap surface
+ * never reads the BlakQube payload directly.
  */
 async function readExperienceModelHint(
   personaId: string,
 ): Promise<ExperienceModelHint> {
   try {
-    const admin = getSupabaseServer();
-    if (!admin) return { configured: false };
-
-    const { data } = await admin
-      .from('journey_states')
-      .select('stage')
-      .eq('persona_id', personaId)
-      .order('active_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const row = data as { stage?: string } | null;
-    if (!row?.stage) return { configured: false };
-
+    const hint = await getExperienceQubeBootstrapHint(personaId);
+    if (!hint.configured) return { configured: false };
     return {
       configured: true,
-      currentStage: row.stage,
+      name: hint.experienceName,
+      currentStage: hint.currentStage,
     };
   } catch {
     return { configured: false };

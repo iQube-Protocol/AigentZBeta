@@ -131,6 +131,7 @@ export default function CodexPanelDynamic({
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(theme === 'light' ? 'light' : 'dark');
   const [marketaCopilotOpen, setMarketaCopilotOpen] = useState(false);
   const [knytCopilotOpen, setKnytCopilotOpen] = useState(false);
+  const [metameCopilotOpen, setMetameCopilotOpen] = useState(false);
   const normalizedInitialTab = (initialTab || '').trim().toLowerCase();
   const lastAppliedInitialTabRef = useRef<string>("");
 
@@ -755,6 +756,27 @@ export default function CodexPanelDynamic({
           contextId={`knyt-${activeTabSlug}`}
           promptPlaceholder="Ask about episodes, characters, bundles..."
           quickPrompts={['What episodes are available?', 'Show me bundle deals', 'KNYT Cards explained', 'Investor pricing']}
+        />
+      )}
+
+      {/* Aigent Me — copilot on every metaMe cartridge tab.
+          Emerald branding per the locked decision; persona = 'aigent-me' so
+          the chat route picks up the Aigent Me system prompt from
+          app/data/personas.ts. */}
+      {codexId === 'metame-codex' && (
+        <CodexCopilotLayer
+          isOpen={metameCopilotOpen}
+          onClose={() => setMetameCopilotOpen(false)}
+          onOpen={() => setMetameCopilotOpen(true)}
+          variant="floating"
+          accentColor="emerald"
+          agent={{ id: 'aigent-me', name: 'Aigent Me' }}
+          personaId={resolvedPersonaId ?? 'aigent-me'}
+          enableInferenceRendering
+          contextId={`metame-${activeTabSlug}`}
+          promptPlaceholder="Ask Aigent Me about your ExperienceModel, briefs, or next move..."
+          initialMessage="I'm Aigent Me — your sovereign chief of staff inside metaMe. I know your active ExperienceModel, your goals, the cartridges you're moving forward, and which specialists I can coordinate. Ask me anything."
+          quickPrompts={['Brief me', 'Move this forward', 'Review venture progress', 'Ask Marketa', 'Ask Quill', 'Ask Kn0w1']}
         />
       )}
     </SmartTriadProvider>

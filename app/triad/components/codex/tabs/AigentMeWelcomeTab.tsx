@@ -34,13 +34,39 @@
  * See docs/architecture/persona-spine-client-protocol.md
  */
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Sparkles, Loader2 } from "lucide-react";
 import {
   usePersonaSpine,
   personaFetch,
   PersonaSpineGate,
 } from "@/utils/personaSpine";
+import {
+  ExperienceModelCard,
+  type ExperienceModelCardData,
+} from "@/components/metame/cards/ExperienceModelCard";
+import { IqubeContextDisclosure } from "@/components/metame/cards/IqubeContextDisclosure";
+import { ExperienceModelSetupWizard } from "@/components/metame/setup/ExperienceModelSetupWizard";
+import { BriefCard, type BriefCardData } from "@/components/metame/cards/BriefCard";
+import {
+  VentureProgressCard,
+  type VentureProgressData,
+} from "@/components/metame/cards/VentureProgressCard";
+import {
+  NextBestActionCard,
+  type NextBestActionData,
+} from "@/components/metame/cards/NextBestActionCard";
+import {
+  ApprovalCard,
+  type ApprovalCardAction,
+} from "@/components/metame/cards/ApprovalCard";
+import {
+  SpecialistResponseCard,
+  type SpecialistResponseData,
+} from "@/components/metame/cards/SpecialistResponseCard";
+import { ArtifactCard, type ArtifactCardData } from "@/components/metame/cards/ArtifactCard";
+import { ActivityReceiptCard, type ActivityReceiptData } from "@/components/metame/cards/ActivityReceiptCard";
+import { QuickLinksCard } from "@/components/metame/cards/QuickLinksCard";
 
 interface Specialist {
   id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c';
@@ -101,6 +127,53 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [bootstrapLoading, setBootstrapLoading] = useState(false);
 
+  // Phase 2.b — ExperienceQube state, fetched once spine is ready.
+  const [expModel, setExpModel] = useState<ExperienceModelCardData | null>(null);
+  const [expModelLoading, setExpModelLoading] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+
+  // Phase 3 — brief + move-forward state.
+  const [brief, setBrief] = useState<BriefCardData | null>(null);
+  const [briefLoading, setBriefLoading] = useState(false);
+  const [briefError, setBriefError] = useState<string | null>(null);
+  const [moveForwardCartridgeOpen, setMoveForwardCartridgeOpen] = useState(false);
+  const [moveForwardResult, setMoveForwardResult] = useState<{
+    cartridge: string;
+    topAction: NextBestActionData | null;
+    alternates: NextBestActionData[];
+  } | null>(null);
+  const [moveForwardLoading, setMoveForwardLoading] = useState(false);
+
+  // Phase 4 — Venture Progress state.
+  const [ventureProgress, setVentureProgress] = useState<VentureProgressData | null>(null);
+  const [ventureProgressLoading, setVentureProgressLoading] = useState(false);
+  const [ventureProgressError, setVentureProgressError] = useState<string | null>(null);
+
+  // Phase 5 — Specialist responses keyed by nbeId. One specialist call per
+  // queued approval; the card stays visible until dismissed.
+  const [specialistResponses, setSpecialistResponses] = useState<Record<string, SpecialistResponseData>>({});
+  const [specialistLoading, setSpecialistLoading] = useState<Record<string, boolean>>({});
+  const [specialistErrors, setSpecialistErrors] = useState<Record<string, string>>({});
+
+  // Phase 6 — created artifacts (alpha: runtime-destination only).
+  const [artifacts, setArtifacts] = useState<ArtifactCardData[]>([]);
+
+  // Phase 7 — activity receipts panel.
+  const [receipts, setReceipts] = useState<ActivityReceiptData[]>([]);
+  const [receiptsLoading, setReceiptsLoading] = useState(false);
+  const [receiptsOpen, setReceiptsOpen] = useState(false);
+
+  // Phase 3.5 — Approval + IntentQube state. Single pending-approval slot
+  // at a time; queued intents are remembered per nbeId so the user can see
+  // which actions were already submitted.
+  const [pendingApprovalNbe, setPendingApprovalNbe] =
+    useState<NextBestActionData | null>(null);
+  const [submittingApproval, setSubmittingApproval] = useState(false);
+  const [approvalError, setApprovalError] = useState<string | null>(null);
+  const [queuedIntents, setQueuedIntents] = useState<
+    Record<string, { intentId: string; status: string; queueMessage: string }>
+  >({});
+
   // Only fetch the bootstrap surface once the spine is ready. The spine's
   // own auth gate (PersonaSpineGate below) handles the loading /
   // unauthenticated / error states for persona resolution itself.
@@ -144,6 +217,329 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     };
   }, [spine.status, personaId]);
 
+  // Fetch ExperienceQube state in parallel with bootstrap.
+  useEffect(() => {
+    if (spine.status !== 'ready' && spine.status !== 'refreshing') return;
+    let cancelled = false;
+    setExpModelLoading(true);
+    personaFetch('/api/assistant/experience-model', { personaIdHint: personaId })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`experience-model fetch failed (${res.status})`);
+        return res.json() as Promise<ExperienceModelCardData>;
+      })
+      .then((d) => { if (!cancelled) setExpModel(d); })
+      .catch(() => { if (!cancelled) setExpModel({ configured: false, meta: null, blakSummary: null, updatedAt: null }); })
+      .finally(() => { if (!cancelled) setExpModelLoading(false); });
+    return () => { cancelled = true; };
+  }, [spine.status, personaId]);
+
+  const fetchBrief = useCallback(async () => {
+    setBriefLoading(true);
+    setBriefError(null);
+    setBrief(null);
+    try {
+      const res = await personaFetch('/api/assistant/brief', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ briefType: 'daily' }),
+        personaIdHint: personaId,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+        throw new Error(body?.detail || body?.error || `brief failed (${res.status})`);
+      }
+      const data = (await res.json()) as BriefCardData;
+      setBrief(data);
+    } catch (err) {
+      setBriefError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBriefLoading(false);
+    }
+  }, [personaId]);
+
+  /**
+   * Move-forward fetch.
+   *
+   * - No `cartridge` arg → auto-pick mode: server returns the strongest NBE
+   *   across the user's active cartridges (default behaviour when the user
+   *   clicks "Move this forward").
+   * - `cartridge` arg → steering mode: re-fetch scoped to one cartridge
+   *   (used by the "Switch cartridge" strip below the hero card).
+   */
+  const fetchMoveForward = useCallback(async (cartridge?: string) => {
+    setMoveForwardLoading(true);
+    setMoveForwardResult(null);
+    try {
+      const res = await personaFetch('/api/assistant/move-forward', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cartridge ? { cartridge } : {}),
+        personaIdHint: personaId,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+        throw new Error(body?.detail || body?.error || `move-forward failed (${res.status})`);
+      }
+      const data = (await res.json()) as {
+        cartridge: string;
+        topAction: NextBestActionData | null;
+        alternates: NextBestActionData[];
+      };
+      setMoveForwardResult(data);
+    } catch {
+      // Surface failures inline; keep welcome usable.
+      setMoveForwardResult({ cartridge: cartridge ?? 'metame', topAction: null, alternates: [] });
+    } finally {
+      setMoveForwardLoading(false);
+    }
+  }, [personaId]);
+
+  const fetchVentureProgress = useCallback(async () => {
+    setVentureProgressLoading(true);
+    setVentureProgressError(null);
+    setVentureProgress(null);
+    try {
+      const res = await personaFetch('/api/assistant/venture-progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+        personaIdHint: personaId,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+        throw new Error(body?.detail || body?.error || `venture-progress failed (${res.status})`);
+      }
+      const data = (await res.json()) as VentureProgressData;
+      setVentureProgress(data);
+    } catch (err) {
+      setVentureProgressError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setVentureProgressLoading(false);
+    }
+  }, [personaId]);
+
+  const handleCtaClick = useCallback((ctaId: string) => {
+    if (ctaId === 'set-up-experience-model') {
+      setWizardOpen(true);
+      return;
+    }
+    if (ctaId === 'brief-me') {
+      void fetchBrief();
+      return;
+    }
+    if (ctaId === 'move-this-forward') {
+      // Open the section + fire the auto-pick fetch immediately. No picker
+      // step — Aigent Me decides the cartridge from the ExperienceQube.
+      setMoveForwardCartridgeOpen(true);
+      void fetchMoveForward();
+      return;
+    }
+    if (ctaId === 'review-venture-progress') {
+      void fetchVentureProgress();
+      return;
+    }
+    // Remaining CTAs (create-something, coordinate-follow-ups, ask-*) stay
+    // in 'preview' state until Phases 5/6 wire specialist routing + artifact
+    // creation paths.
+  }, [fetchBrief, fetchMoveForward, fetchVentureProgress]);
+
+  const handleWizardSaved = useCallback((saved: ExperienceModelCardData) => {
+    setExpModel(saved);
+  }, []);
+
+  // Phase 3.5 — clicking Act on any NBE opens the ApprovalCard.
+  const handleNbeAct = useCallback((action: NextBestActionData) => {
+    // If this NBE is already queued, dismiss + re-queue is a no-op for alpha;
+    // just no-op so the user sees the queued state stays.
+    if (queuedIntents[action.id]) return;
+    setApprovalError(null);
+    setPendingApprovalNbe(action);
+  }, [queuedIntents]);
+
+  const handleApprovalCancel = useCallback(() => {
+    setPendingApprovalNbe(null);
+    setApprovalError(null);
+  }, []);
+
+  const handleApprovalApprove = useCallback(async () => {
+    if (!pendingApprovalNbe) return;
+    const action = pendingApprovalNbe;
+    setSubmittingApproval(true);
+    setApprovalError(null);
+    try {
+      const res = await personaFetch('/api/assistant/intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nbeId: action.id,
+          cartridge: action.cartridge,
+        }),
+        personaIdHint: personaId,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+        throw new Error(body?.detail || body?.error || `intent create failed (${res.status})`);
+      }
+      const data = (await res.json()) as {
+        intentId: string;
+        status: string;
+        queueMessage: string;
+      };
+      setQueuedIntents((prev) => ({
+        ...prev,
+        [action.id]: {
+          intentId: data.intentId,
+          status: data.status,
+          queueMessage: data.queueMessage,
+        },
+      }));
+      // Clear the pending slot; the queued card will replace it inline.
+      setPendingApprovalNbe(null);
+
+      // Phase 5 — if the NBE names a specialist, auto-fire the specialist
+      // consultation. The SpecialistResponseCard renders inline.
+      if (action.specialist) {
+        const nbeId = action.id;
+        const specialistId = action.specialist;
+        setSpecialistLoading((prev) => ({ ...prev, [nbeId]: true }));
+        setSpecialistErrors((prev) => {
+          const next = { ...prev };
+          delete next[nbeId];
+          return next;
+        });
+        void (async () => {
+          try {
+            const res = await personaFetch('/api/assistant/ask-agent', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                specialistId,
+                intentId: data.intentId,
+                cartridge: action.cartridge,
+              }),
+              personaIdHint: personaId,
+            });
+            if (!res.ok) {
+              const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+              throw new Error(body?.detail || body?.error || `ask-agent failed (${res.status})`);
+            }
+            const sp = (await res.json()) as SpecialistResponseData;
+            setSpecialistResponses((prev) => ({ ...prev, [nbeId]: sp }));
+          } catch (err) {
+            setSpecialistErrors((prev) => ({
+              ...prev,
+              [nbeId]: err instanceof Error ? err.message : String(err),
+            }));
+          } finally {
+            setSpecialistLoading((prev) => {
+              const next = { ...prev };
+              delete next[nbeId];
+              return next;
+            });
+          }
+        })();
+      }
+    } catch (err) {
+      setApprovalError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSubmittingApproval(false);
+    }
+  }, [pendingApprovalNbe, personaId]);
+
+  // Phase 6 — create an artifact from a specialist's suggested chip.
+  const handleCreateArtifact = useCallback(async (
+    artifactType: string,
+    opts: { sourceIntentId?: string; specialistId?: string } = {},
+  ) => {
+    try {
+      const res = await personaFetch('/api/assistant/create-artifact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          artifactType,
+          sourceIntentId: opts.sourceIntentId,
+          specialistId: opts.specialistId,
+          destination: 'runtime',
+        }),
+        personaIdHint: personaId,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+        throw new Error(body?.detail || body?.error || `create-artifact failed (${res.status})`);
+      }
+      const data = (await res.json()) as ArtifactCardData;
+      setArtifacts((prev) => [data, ...prev].slice(0, 10));
+    } catch (err) {
+      // Surface inline as a 'failed' artifact card so the user sees it.
+      const msg = err instanceof Error ? err.message : String(err);
+      setArtifacts((prev) =>
+        [
+          {
+            artifactId: `err_${Date.now()}`,
+            artifactType,
+            title: `Failed: ${msg}`,
+            destination: 'runtime',
+            status: 'draft',
+            receiptId: null,
+            intentId: opts.sourceIntentId ?? null,
+            createdAt: new Date().toISOString(),
+          } as ArtifactCardData,
+          ...prev,
+        ].slice(0, 10),
+      );
+    }
+  }, [personaId]);
+
+  const handleDismissArtifact = useCallback((artifactId: string) => {
+    setArtifacts((prev) => prev.filter((a) => a.artifactId !== artifactId));
+  }, []);
+
+  // Phase 7 — receipts panel.
+  const fetchReceipts = useCallback(async () => {
+    setReceiptsLoading(true);
+    try {
+      const res = await personaFetch('/api/assistant/receipts?limit=25', {
+        personaIdHint: personaId,
+      });
+      if (!res.ok) throw new Error(`receipts fetch failed (${res.status})`);
+      const data = (await res.json()) as { receipts: ActivityReceiptData[]; count: number };
+      setReceipts(data.receipts ?? []);
+    } catch {
+      setReceipts([]);
+    } finally {
+      setReceiptsLoading(false);
+    }
+  }, [personaId]);
+
+  const toggleReceipts = useCallback(() => {
+    setReceiptsOpen((open) => {
+      const next = !open;
+      if (next) void fetchReceipts();
+      return next;
+    });
+  }, [fetchReceipts]);
+
+  const handleDismissSpecialist = useCallback((nbeId: string) => {
+    setSpecialistResponses((prev) => {
+      const next = { ...prev };
+      delete next[nbeId];
+      return next;
+    });
+    setSpecialistErrors((prev) => {
+      const next = { ...prev };
+      delete next[nbeId];
+      return next;
+    });
+  }, []);
+
+  const handleDismissQueued = useCallback((nbeId: string) => {
+    setQueuedIntents((prev) => {
+      const next = { ...prev };
+      delete next[nbeId];
+      return next;
+    });
+  }, []);
+
   const isDark = theme === 'dark';
   const surfaceClass = isDark
     ? 'bg-slate-900/40 border-slate-700/60 text-slate-100'
@@ -156,28 +552,126 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
 
   // ── Persona-spine gate handles idle / loading / unauth / error states.
   return (
-    <PersonaSpineGate state={spine}>
-      <AigentMeWelcomeBody
-        data={data}
-        bootstrapLoading={bootstrapLoading}
-        bootstrapError={bootstrapError}
-        spineDisplayLabel={spine.displayLabel}
-        theme={theme}
-        surfaceClass={surfaceClass}
-        mutedClass={mutedClass}
-        accentClass={accentClass}
-        chipClass={chipClass}
-        isDark={isDark}
+    <>
+      <PersonaSpineGate state={spine}>
+        <AigentMeWelcomeBody
+          personaId={personaId}
+          data={data}
+          bootstrapLoading={bootstrapLoading}
+          bootstrapError={bootstrapError}
+          spineDisplayLabel={spine.displayLabel}
+          expModel={expModel}
+          expModelLoading={expModelLoading}
+          brief={brief}
+          briefLoading={briefLoading}
+          briefError={briefError}
+          moveForwardCartridgeOpen={moveForwardCartridgeOpen}
+          moveForwardResult={moveForwardResult}
+          moveForwardLoading={moveForwardLoading}
+          onPickMoveForwardCartridge={fetchMoveForward}
+          ventureProgress={ventureProgress}
+          ventureProgressLoading={ventureProgressLoading}
+          ventureProgressError={ventureProgressError}
+          onCtaClick={handleCtaClick}
+          pendingApprovalNbe={pendingApprovalNbe}
+          submittingApproval={submittingApproval}
+          approvalError={approvalError}
+          queuedIntents={queuedIntents}
+          onNbeAct={handleNbeAct}
+          onApprovalApprove={handleApprovalApprove}
+          onApprovalCancel={handleApprovalCancel}
+          onDismissQueued={handleDismissQueued}
+          specialistResponses={specialistResponses}
+          specialistLoading={specialistLoading}
+          specialistErrors={specialistErrors}
+          onDismissSpecialist={handleDismissSpecialist}
+          artifacts={artifacts}
+          onCreateArtifact={handleCreateArtifact}
+          onDismissArtifact={handleDismissArtifact}
+          receipts={receipts}
+          receiptsLoading={receiptsLoading}
+          receiptsOpen={receiptsOpen}
+          onToggleReceipts={toggleReceipts}
+          theme={theme}
+          surfaceClass={surfaceClass}
+          mutedClass={mutedClass}
+          accentClass={accentClass}
+          chipClass={chipClass}
+          isDark={isDark}
+        />
+      </PersonaSpineGate>
+      <ExperienceModelSetupWizard
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        initial={expModel?.meta ? {
+          experienceName: expModel.meta.experienceName ?? undefined,
+          experienceType: expModel.meta.experienceType as never,
+          primaryGoal: expModel.meta.primaryGoal ?? undefined,
+          activeCartridges: expModel.meta.activeCartridges as never,
+          currentStage: expModel.meta.currentStage as never,
+          confidentialityDefault: expModel.meta.confidentialityDefault as never,
+          progressModel: expModel.meta.progressModel,
+        } : undefined}
+        onSaved={handleWizardSaved}
       />
-    </PersonaSpineGate>
+    </>
   );
 }
 
+/**
+ * Project an NBE into the shape ApprovalCard expects. Cheap pure helper —
+ * lives here because no other surface needs it yet.
+ */
+function toApprovalAction(nbe: NextBestActionData): ApprovalCardAction {
+  return {
+    nbeId: nbe.id,
+    label: nbe.label,
+    rationale: nbe.rationale,
+    cartridge: nbe.cartridge,
+    approvalRequired: nbe.approvalRequired,
+    specialist: nbe.specialist,
+    suggestedArtifact: nbe.suggestedArtifact,
+  };
+}
+
 interface BodyProps {
+  personaId?: string;
   data: BootstrapSurface | null;
   bootstrapLoading: boolean;
   bootstrapError: string | null;
   spineDisplayLabel: string | null;
+  expModel: ExperienceModelCardData | null;
+  expModelLoading: boolean;
+  brief: BriefCardData | null;
+  briefLoading: boolean;
+  briefError: string | null;
+  moveForwardCartridgeOpen: boolean;
+  moveForwardResult: { cartridge: string; topAction: NextBestActionData | null; alternates: NextBestActionData[] } | null;
+  moveForwardLoading: boolean;
+  onPickMoveForwardCartridge: (cartridge: string) => void;
+  ventureProgress: VentureProgressData | null;
+  ventureProgressLoading: boolean;
+  ventureProgressError: string | null;
+  onCtaClick: (ctaId: string) => void;
+  pendingApprovalNbe: NextBestActionData | null;
+  submittingApproval: boolean;
+  approvalError: string | null;
+  queuedIntents: Record<string, { intentId: string; status: string; queueMessage: string }>;
+  onNbeAct: (action: NextBestActionData) => void;
+  onApprovalApprove: () => void;
+  onApprovalCancel: () => void;
+  onDismissQueued: (nbeId: string) => void;
+  specialistResponses: Record<string, SpecialistResponseData>;
+  specialistLoading: Record<string, boolean>;
+  specialistErrors: Record<string, string>;
+  onDismissSpecialist: (nbeId: string) => void;
+  artifacts: ArtifactCardData[];
+  onCreateArtifact: (artifactType: string, opts?: { sourceIntentId?: string; specialistId?: string }) => void;
+  onDismissArtifact: (artifactId: string) => void;
+  receipts: ActivityReceiptData[];
+  receiptsLoading: boolean;
+  receiptsOpen: boolean;
+  onToggleReceipts: () => void;
   theme: 'light' | 'dark';
   surfaceClass: string;
   mutedClass: string;
@@ -187,16 +681,64 @@ interface BodyProps {
 }
 
 function AigentMeWelcomeBody({
+  personaId,
   data,
   bootstrapLoading,
   bootstrapError,
   spineDisplayLabel,
+  expModel,
+  expModelLoading,
+  brief,
+  briefLoading,
+  briefError,
+  moveForwardCartridgeOpen,
+  moveForwardResult,
+  moveForwardLoading,
+  onPickMoveForwardCartridge,
+  ventureProgress,
+  ventureProgressLoading,
+  ventureProgressError,
+  onCtaClick,
+  pendingApprovalNbe,
+  submittingApproval,
+  approvalError,
+  queuedIntents,
+  onNbeAct,
+  onApprovalApprove,
+  onApprovalCancel,
+  onDismissQueued,
+  specialistResponses,
+  specialistLoading,
+  specialistErrors,
+  onDismissSpecialist,
+  artifacts,
+  onCreateArtifact,
+  onDismissArtifact,
+  receipts,
+  receiptsLoading,
+  receiptsOpen,
+  onToggleReceipts,
+  theme,
   surfaceClass,
   mutedClass,
   accentClass,
   chipClass,
   isDark,
 }: BodyProps) {
+  const moveForwardSectionRef = useRef<HTMLElement | null>(null);
+
+  // When the move-forward section opens, scroll it into view so the user
+  // sees Aigent Me's hero recommendation immediately. Without this, the
+  // section can appear below the fold and look like a no-op click.
+  useEffect(() => {
+    if (moveForwardCartridgeOpen && moveForwardSectionRef.current) {
+      moveForwardSectionRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }
+  }, [moveForwardCartridgeOpen]);
+
   if (bootstrapLoading && !data) {
     return (
       <div className="p-10 flex items-center justify-center gap-3">
@@ -222,11 +764,8 @@ function AigentMeWelcomeBody({
   // Prefer the spine's displayLabel (single source of truth across surfaces);
   // fall back to the bootstrap copy if for some reason it differs.
   const greetingName = (spineDisplayLabel || data.displayLabel || '').trim();
-  const experienceLine = data.experienceModel.configured
-    ? `ExperienceModel: ${data.experienceModel.name || 'configured'}${
-        data.experienceModel.currentStage ? ` · stage: ${data.experienceModel.currentStage}` : ''
-      }`
-    : 'ExperienceModel: not yet set up';
+  const usingIqubes: ('PersonaQube' | 'ExperienceQube' | 'IntentQube')[] =
+    expModel?.configured ? ['PersonaQube', 'ExperienceQube'] : ['PersonaQube'];
 
   return (
     <div className="p-6 lg:p-10 max-w-5xl mx-auto space-y-8">
@@ -248,18 +787,145 @@ function AigentMeWelcomeBody({
         </p>
       </header>
 
-      {/* ExperienceModel state line */}
-      <div className={`rounded-lg border px-4 py-3 ${surfaceClass}`}>
-        <p className="text-sm">
-          <span className={accentClass}>{experienceLine}</span>
-        </p>
-        {!data.experienceModel.configured && (
-          <p className={`text-xs mt-1 ${mutedClass}`}>
-            Setup flow lands in Phase 2. The button below will activate once
-            the ExperienceModel API is live.
-          </p>
+      {/* iQube context disclosure — what's being used right now */}
+      <IqubeContextDisclosure using={usingIqubes} theme={theme} />
+
+      {/* Pending approval (single slot) — appears whenever the user clicks
+          Act on any NBE. Approve creates an IntentQube row; the queued
+          state replaces the pending one inline. */}
+      {pendingApprovalNbe && (
+        <ApprovalCard
+          action={toApprovalAction(pendingApprovalNbe)}
+          submitting={submittingApproval}
+          queued={null}
+          error={approvalError}
+          onApprove={onApprovalApprove}
+          onCancel={onApprovalCancel}
+          onEdit={() => { /* Phase 6 */ }}
+          using={usingIqubes}
+          theme={theme}
+        />
+      )}
+
+      {/* Queued intents — chip-sized confirmations stack here until dismissed */}
+      {Object.keys(queuedIntents).length > 0 && (
+        <section className="space-y-2">
+          {Object.entries(queuedIntents).map(([nbeId, queued]) => (
+            <ApprovalCard
+              key={nbeId}
+              action={{
+                nbeId,
+                label: nbeId,
+                rationale: '',
+                cartridge: 'metame',
+                approvalRequired: false,
+                specialist: null,
+                suggestedArtifact: null,
+              }}
+              queued={queued}
+              onApprove={() => { /* not used in queued state */ }}
+              onCancel={() => onDismissQueued(nbeId)}
+              using={usingIqubes}
+              theme={theme}
+            />
+          ))}
+        </section>
+      )}
+
+      {/* Specialist responses — Phase 5. Cards render inline once a queued
+          NBE with a specialist returns from /api/assistant/ask-agent. */}
+      {(Object.keys(specialistResponses).length > 0 ||
+        Object.keys(specialistLoading).length > 0 ||
+        Object.keys(specialistErrors).length > 0) && (
+        <section className="space-y-2">
+          {Object.keys({ ...specialistResponses, ...specialistLoading, ...specialistErrors }).map((nbeId) => {
+            const sp = specialistResponses[nbeId] ?? null;
+            const isLoading = !!specialistLoading[nbeId];
+            const err = specialistErrors[nbeId] ?? null;
+            const intentId = queuedIntents[nbeId]?.intentId;
+            return (
+              <SpecialistResponseCard
+                key={nbeId}
+                data={sp}
+                loading={isLoading}
+                error={err}
+                using={usingIqubes}
+                onDismiss={() => onDismissSpecialist(nbeId)}
+                onCreateArtifact={
+                  sp
+                    ? (artifactType) =>
+                        onCreateArtifact(artifactType, {
+                          sourceIntentId: intentId,
+                          specialistId: sp.specialistId,
+                        })
+                    : undefined
+                }
+                theme={theme}
+              />
+            );
+          })}
+        </section>
+      )}
+
+      {/* Artifacts — Phase 6. Stack of recently-created runtime-destination
+          artifacts. */}
+      {artifacts.length > 0 && (
+        <section className="space-y-2">
+          <h2 className={`text-xs uppercase tracking-wider ${mutedClass}`}>
+            Artifacts
+          </h2>
+          {artifacts.map((a) => (
+            <ArtifactCard
+              key={a.artifactId}
+              data={a}
+              onDismiss={() => onDismissArtifact(a.artifactId)}
+              theme={theme}
+            />
+          ))}
+        </section>
+      )}
+
+      {/* Receipts panel — Phase 7. Collapsible. */}
+      <section>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className={`text-xs uppercase tracking-wider ${mutedClass}`}>
+            Recent activity
+          </h2>
+          <button
+            onClick={onToggleReceipts}
+            className={`text-xs px-2 py-1 rounded border ${chipClass}`}
+          >
+            {receiptsOpen ? 'Hide receipts' : 'Show receipts'}
+          </button>
+        </div>
+        {receiptsOpen && (
+          <div className="space-y-2">
+            {receiptsLoading ? (
+              <p className={`text-sm ${mutedClass}`}>Loading receipts…</p>
+            ) : receipts.length === 0 ? (
+              <p className={`text-sm ${mutedClass}`}>
+                No receipts yet. Acting on any NBE will produce one.
+              </p>
+            ) : (
+              receipts.map((r) => (
+                <ActivityReceiptCard key={r.id} data={r} theme={theme} />
+              ))
+            )}
+          </div>
         )}
-      </div>
+      </section>
+
+      {/* ExperienceModel card */}
+      <ExperienceModelCard
+        data={expModel}
+        loading={expModelLoading}
+        onEdit={() => onCtaClick('set-up-experience-model')}
+        theme={theme}
+      />
+
+      {/* Quick links — deep-link into the cartridges and tabs the user
+          works in most. PersonaId travels with every link via buildCodexUrl. */}
+      <QuickLinksCard personaId={personaId} theme={theme} />
 
       {/* Context chips */}
       <section>
@@ -298,6 +964,7 @@ function AigentMeWelcomeBody({
               <button
                 key={cta.id}
                 disabled={!cta.enabled}
+                onClick={() => cta.enabled && onCtaClick(cta.id)}
                 className={`${baseBtn} ${cta.enabled ? enabledBtn : disabledBtn}`}
                 title={isPreview ? 'Coming in a later phase of the alpha' : undefined}
               >
@@ -314,6 +981,113 @@ function AigentMeWelcomeBody({
           })}
         </div>
       </section>
+
+      {/* Brief Card — appears once 'Brief me' is clicked */}
+      {(briefLoading || briefError || brief) && (
+        <section>
+          <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
+            Brief
+          </h2>
+          <BriefCard
+            data={brief}
+            loading={briefLoading}
+            error={briefError}
+            onActOnNbe={onNbeAct}
+            theme={theme}
+          />
+        </section>
+      )}
+
+      {/* Venture Progress — appears once 'Review venture progress' is clicked */}
+      {(ventureProgressLoading || ventureProgressError || ventureProgress) && (
+        <section>
+          <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
+            Venture Progress
+          </h2>
+          <VentureProgressCard
+            data={ventureProgress}
+            loading={ventureProgressLoading}
+            error={ventureProgressError}
+            onActOnNbe={onNbeAct}
+            theme={theme}
+          />
+        </section>
+      )}
+
+      {/* Move-forward — hero NBE first, then alternates, then 'switch cartridge' strip */}
+      {moveForwardCartridgeOpen && (
+        <section ref={moveForwardSectionRef}>
+          <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
+            Move this forward
+          </h2>
+
+          {moveForwardLoading && (
+            <p className={`text-sm ${mutedClass}`}>Looking for the strongest move…</p>
+          )}
+
+          {moveForwardResult && !moveForwardLoading && (
+            <div className="space-y-3">
+              {moveForwardResult.topAction ? (
+                <NextBestActionCard
+                  action={moveForwardResult.topAction}
+                  variant="hero"
+                  onAct={onNbeAct}
+                  theme={theme}
+                />
+              ) : (
+                <p className={`text-sm ${mutedClass}`}>
+                  No catalogue match at your current stage.
+                  Try setting up your ExperienceModel first.
+                </p>
+              )}
+              {moveForwardResult.alternates.length > 0 && (
+                <>
+                  <h3 className={`text-xs uppercase tracking-wider mt-4 mb-1 ${mutedClass}`}>
+                    Or instead
+                  </h3>
+                  <div className="space-y-2">
+                    {moveForwardResult.alternates.map((a) => (
+                      <NextBestActionCard
+                        key={a.id}
+                        action={a}
+                        onAct={onNbeAct}
+                        theme={theme}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Steering strip — swap cartridge if the user wants a different angle */}
+              <div className="pt-3 mt-3 border-t border-slate-800/40">
+                <div className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
+                  Switch cartridge
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {data.availableCartridges.map((c) => {
+                    const selected = moveForwardResult.cartridge === c.slug;
+                    return (
+                      <button
+                        key={c.slug}
+                        onClick={() => onPickMoveForwardCartridge(c.slug)}
+                        className={`px-2.5 py-1 rounded-full border text-xs transition ${
+                          selected
+                            ? 'bg-violet-500/20 border-violet-500 text-violet-200'
+                            : isDark
+                              ? 'bg-slate-800/60 border-slate-700 text-slate-300 hover:border-slate-600'
+                              : 'bg-white border-slate-300 text-slate-700 hover:border-violet-400'
+                        }`}
+                      >
+                        {c.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Specialist directory */}
       <section>
