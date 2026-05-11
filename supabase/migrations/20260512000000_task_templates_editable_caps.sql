@@ -49,9 +49,5 @@ UPDATE crm_task_templates
    AND slug = 'knyt:herald-of-the-order'
    AND cap_max_per_period IS NULL;
 
-COMMENT ON COLUMN crm_task_templates.cap_max_per_period IS
-  'Editable reward cap: max grants per persona per cap_period_days window. ' ||
-  'NULL = no cap. Read by services/rewards/rewardService.checkRewardCap.';
-COMMENT ON COLUMN crm_task_templates.cap_period_days IS
-  'Editable reward cap: sliding-window length in days. ' ||
-  'NULL = no cap. Paired with cap_max_per_period.';
+COMMENT ON COLUMN crm_task_templates.cap_max_per_period IS 'Editable reward cap: max grants per persona per cap_period_days window. NULL = no cap. Read by services/rewards/rewardService.checkRewardCap.';
+COMMENT ON COLUMN crm_task_templates.cap_period_days IS 'Editable reward cap: sliding-window length in days. NULL = no cap. Paired with cap_max_per_period.';

@@ -83,7 +83,4 @@ FOR EACH ROW
 WHEN (NEW.status = 'active')
 EXECUTE FUNCTION sync_persona_to_crm_persona();
 
-COMMENT ON FUNCTION sync_persona_to_crm_persona IS
-  'Auto-mirrors a new personas row into crm_personas so the wallet/tasks ' ||
-  'HUD + reward redemption flow has a working CRM identity. Idempotent ' ||
-  'via WHERE NOT EXISTS — manual links are never overwritten.';
+COMMENT ON FUNCTION sync_persona_to_crm_persona() IS 'Auto-mirrors a new personas row into crm_personas so the wallet/tasks HUD + reward redemption flow has a working CRM identity. Idempotent via WHERE NOT EXISTS — manual links are never overwritten.';
