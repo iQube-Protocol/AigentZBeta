@@ -6,6 +6,7 @@ import { User, Wallet, ChevronDown, ChevronUp, Info, Star, Globe, CheckCircle2, 
 import { PersonaCreationForm } from "@/components/identity/PersonaCreationForm";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
 import { usePersonaSafe } from "@/app/contexts/PersonaContext";
+import { personaFetch } from "@/utils/personaSpine";
 
 const SmartWalletDrawer = dynamic(
   () => import("@/app/components/content/SmartWalletDrawer"),
@@ -461,25 +462,9 @@ export function DevPersonaTab({ personaId }: DevPersonaTabProps) {
               onClick={async () => {
                 setClaiming(true); setClaimError(null); setClaimSuccess(false);
                 try {
-                  const token = typeof window !== 'undefined'
-                    ? (() => {
-                        for (let i = 0; i < window.localStorage.length; i++) {
-                          const k = window.localStorage.key(i);
-                          if (!k?.includes('auth-token')) continue;
-                          const raw = window.localStorage.getItem(k);
-                          if (!raw) continue;
-                          const p = JSON.parse(raw) as { access_token?: string };
-                          if (p?.access_token) return p.access_token;
-                        }
-                        return null;
-                      })()
-                    : null;
-                  const res = await fetch('/api/identity/persona/claim', {
+                  const res = await personaFetch('/api/identity/persona/claim', {
                     method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ fioHandle: claimHandle, privateKey: claimKey }),
                   });
                   const data = await res.json() as { ok?: boolean; personaId?: string; error?: string };

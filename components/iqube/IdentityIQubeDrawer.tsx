@@ -6,31 +6,7 @@ import {
   User, Mail, Phone, MapPin, Plus, Trash2,
   AlertCircle, CheckCircle2, Loader2, ShieldCheck,
 } from "lucide-react";
-
-// ─── Auth helper (same as PersonaIQubeDrawer) ─────────────────────────────────
-
-function getAccessTokenFromStorage(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    for (let i = 0; i < window.localStorage.length; i++) {
-      const key = window.localStorage.key(i);
-      if (!key || !key.includes("auth-token")) continue;
-      const raw = window.localStorage.getItem(key);
-      if (!raw) continue;
-      const parsed = JSON.parse(raw) as { access_token?: string };
-      if (parsed?.access_token) return parsed.access_token;
-    }
-  } catch { /* ignore */ }
-  return null;
-}
-
-function authHeaders(): Record<string, string> {
-  const token = getAccessTokenFromStorage();
-  return {
-    "Content-Type": "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-}
+import { personaFetch } from "@/utils/personaSpine";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -134,9 +110,9 @@ export function IdentityIQubeDrawer({ onClose }: { onClose: () => void }) {
     try {
       // Bind root DID + load identity + wallet personas in parallel
       const [bindRes, identityRes, walletRes] = await Promise.all([
-        fetch("/api/identity/root-did/bind", { method: "POST", headers: authHeaders() }),
-        fetch("/api/iqube/identity", { headers: authHeaders() }),
-        fetch("/api/wallet/personas", { headers: authHeaders() }),
+        personaFetch("/api/identity/root-did/bind", { method: "POST" }),
+        personaFetch("/api/iqube/identity"),
+        personaFetch("/api/wallet/personas"),
       ]);
       if (bindRes.ok) {
         const bindJson = await bindRes.json() as RootDidState;
@@ -165,8 +141,10 @@ export function IdentityIQubeDrawer({ onClose }: { onClose: () => void }) {
   const handleSave = async () => {
     setSaving(true); setSaveSuccess(false); setError(null);
     try {
-      const res = await fetch("/api/iqube/identity", {
-        method: "PATCH", headers: authHeaders(), body: JSON.stringify(data),
+      const res = await personaFetch("/api/iqube/identity", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
       });
       const json = await res.json() as { data?: IdentityData; error?: string };
       if (!res.ok) throw new Error(json.error ?? "Save failed");

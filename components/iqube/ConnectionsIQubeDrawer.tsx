@@ -3,34 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Link, Loader2, Network, Users, X } from "lucide-react";
 import { usePersonaSafe } from "@/app/contexts/PersonaContext";
-
-// ─── Auth helper ──────────────────────────────────────────────────────────────
-
-function getAccessTokenFromStorage(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    for (let i = 0; i < window.localStorage.length; i++) {
-      const key = window.localStorage.key(i);
-      if (key && key.includes("auth-token")) {
-        const raw = window.localStorage.getItem(key);
-        if (!raw) continue;
-        const parsed = JSON.parse(raw) as Record<string, unknown>;
-        const token =
-          parsed.access_token ??
-          (parsed as Record<string, { access_token?: unknown }>).currentSession?.access_token;
-        if (typeof token === "string" && token) return token;
-      }
-    }
-  } catch { /* ignore */ }
-  return null;
-}
-
-function authHeaders(): Record<string, string> {
-  const token = getAccessTokenFromStorage();
-  return token
-    ? { "Content-Type": "application/json", Authorization: `Bearer ${token}` }
-    : { "Content-Type": "application/json" };
-}
+import { personaFetch } from "@/utils/personaSpine";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -94,7 +67,7 @@ export function ConnectionsIQubeDrawer({ open, onClose }: Props) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/persona/active", { headers: authHeaders() });
+      const res = await personaFetch("/api/persona/active");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json() as { persona?: PersonaIdentity; data?: PersonaIdentity };
       setIdentity(data.persona ?? data.data ?? null);
