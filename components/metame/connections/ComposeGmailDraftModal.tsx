@@ -19,7 +19,7 @@
  */
 
 import React, { useState, useCallback } from "react";
-import { Loader2, X, Mail } from "lucide-react";
+import { Loader2, X, Mail, Sparkles } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -36,10 +36,34 @@ interface Props {
     cc?: string;
     bcc?: string;
   }) => Promise<void>;
+  /**
+   * Phase 6.b Part 2.5b — Aigent Me drafts a full email from a one-liner
+   * about what the user wants to achieve. Returns the suggestion so the
+   * modal can populate its fields (user can still edit before sending).
+   */
+  onDraftWithAigentMe: (prompt: string) => Promise<{
+    to: string;
+    cc: string;
+    bcc: string;
+    subject: string;
+    bodyText: string;
+    rationale: string;
+    source: 'llm' | 'template';
+  }>;
   theme?: "light" | "dark";
 }
 
-export function ComposeGmailDraftModal({ open, onClose, onCreate, theme = "dark" }: Props) {
+export function ComposeGmailDraftModal({
+  open,
+  onClose,
+  onCreate,
+  onDraftWithAigentMe,
+  theme = "dark",
+}: Props) {
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiDrafting, setAiDrafting] = useState(false);
+  const [aiRationale, setAiRationale] = useState<string | null>(null);
+  const [aiSource, setAiSource] = useState<'llm' | 'template' | null>(null);
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
   const [bodyText, setBodyText] = useState("");
@@ -47,6 +71,29 @@ export function ComposeGmailDraftModal({ open, onClose, onCreate, theme = "dark"
   const [bcc, setBcc] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleDraft = useCallback(async () => {
+    setError(null);
+    if (!aiPrompt.trim()) {
+      setError('Tell Aigent Me what the email is for (one sentence).');
+      return;
+    }
+    setAiDrafting(true);
+    try {
+      const draft = await onDraftWithAigentMe(aiPrompt.trim());
+      setTo(draft.to ?? "");
+      setCc(draft.cc ?? "");
+      setBcc(draft.bcc ?? "");
+      setSubject(draft.subject ?? "");
+      setBodyText(draft.bodyText ?? "");
+      setAiRationale(draft.rationale ?? null);
+      setAiSource(draft.source);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setAiDrafting(false);
+    }
+  }, [aiPrompt, onDraftWithAigentMe]);
 
   const isDark = theme === "dark";
   const overlayClass = "fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4";
@@ -81,6 +128,9 @@ export function ComposeGmailDraftModal({ open, onClose, onCreate, theme = "dark"
         ...(bcc.trim() ? { bcc: bcc.trim() } : {}),
       });
       // Reset on success so the modal is clean next time.
+      setAiPrompt("");
+      setAiRationale(null);
+      setAiSource(null);
       setTo("");
       setSubject("");
       setBodyText("");
@@ -126,6 +176,56 @@ export function ComposeGmailDraftModal({ open, onClose, onCreate, theme = "dark"
           >
             <X className="w-4 h-4" />
           </button>
+        </div>
+
+        {/* Aigent Me drafter — one-line prompt + Sparkle button. The
+            response auto-fills the To / Cc / Bcc / Subject / Body fields
+            below; the user can still edit anything before sending. */}
+        <div className={`mb-3 p-3 rounded border ${
+          isDark ? 'border-violet-500/30 bg-violet-500/5' : 'border-violet-300 bg-violet-50'
+        }`}>
+          <label className="block">
+            <span className={`block text-xs mb-1 ${labelClass}`}>
+              What&apos;s the email for? <span className="opacity-60">(Aigent Me will draft it)</span>
+            </span>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder="e.g. thank Alice (alice@example.com) for yesterday's call and propose a follow-up next week"
+                className={`flex-1 px-3 py-2 rounded ${inputClass}`}
+                disabled={aiDrafting || submitting}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    void handleDraft();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleDraft}
+                disabled={aiDrafting || submitting || !aiPrompt.trim()}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed ${submitBtn}`}
+              >
+                {aiDrafting ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3.5 h-3.5" />
+                )}
+                {aiDrafting ? 'Drafting…' : 'Draft for me'}
+              </button>
+            </div>
+          </label>
+          {aiRationale && (
+            <p className={`text-[11px] mt-2 ${labelClass}`}>
+              <span className="font-medium">Aigent Me:</span> {aiRationale}
+              {aiSource === 'template' && (
+                <span className="opacity-60"> (template fallback — no LLM key set)</span>
+              )}
+            </p>
+          )}
         </div>
 
         <div className="space-y-3 text-sm">

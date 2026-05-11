@@ -513,6 +513,31 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     }
   }, [personaId]);
 
+  // Phase 6.b Part 2.5b — Aigent Me drafts an email from a one-line prompt.
+  // The route assembles T1-safe context (ExperienceQube meta + intent
+  // name) and calls OpenAI live (or the deterministic template fallback).
+  const handleDraftEmail = useCallback(async (prompt: string) => {
+    const res = await personaFetch('/api/assistant/draft-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+      personaIdHint: personaId,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+      throw new Error(body?.detail || body?.error || `draft-email failed (${res.status})`);
+    }
+    return (await res.json()) as {
+      to: string;
+      cc: string;
+      bcc: string;
+      subject: string;
+      bodyText: string;
+      rationale: string;
+      source: 'llm' | 'template';
+    };
+  }, [personaId]);
+
   // Phase 6.b Part 2.5b — Compose Gmail draft → POST create-artifact with
   // destination='gmail'. The route eager-creates a real Gmail draft via
   // the gmail.draft connector and returns an ArtifactCardData carrying
@@ -757,6 +782,7 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
           composeGmailOpen={composeGmailOpen}
           onComposeGmailOpenChange={setComposeGmailOpen}
           onComposeGmailDraft={handleComposeGmailDraft}
+          onDraftEmail={handleDraftEmail}
           receipts={receipts}
           receiptsLoading={receiptsLoading}
           receiptsOpen={receiptsOpen}
@@ -855,6 +881,15 @@ interface BodyProps {
   composeGmailOpen: boolean;
   onComposeGmailOpenChange: (open: boolean) => void;
   onComposeGmailDraft: (input: { to: string; subject: string; bodyText: string; cc?: string; bcc?: string }) => Promise<void>;
+  onDraftEmail: (prompt: string) => Promise<{
+    to: string;
+    cc: string;
+    bcc: string;
+    subject: string;
+    bodyText: string;
+    rationale: string;
+    source: 'llm' | 'template';
+  }>;
   receipts: ActivityReceiptData[];
   receiptsLoading: boolean;
   receiptsOpen: boolean;
@@ -910,6 +945,7 @@ function AigentMeWelcomeBody({
   composeGmailOpen,
   onComposeGmailOpenChange,
   onComposeGmailDraft,
+  onDraftEmail,
   receipts,
   receiptsLoading,
   receiptsOpen,
@@ -1165,6 +1201,7 @@ function AigentMeWelcomeBody({
         open={composeGmailOpen}
         onClose={() => onComposeGmailOpenChange(false)}
         onCreate={onComposeGmailDraft}
+        onDraftWithAigentMe={onDraftEmail}
         theme={theme}
       />
 
