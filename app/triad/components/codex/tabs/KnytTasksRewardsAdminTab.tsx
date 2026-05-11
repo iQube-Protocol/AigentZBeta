@@ -20,7 +20,17 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Check, Edit2, Loader2, Lock, Pause, Play, RefreshCw, Save, Shield, X } from 'lucide-react';
+import { AlertCircle, Check, Edit2, Loader2, Lock, Pause, Play, RefreshCw, Save, Shield, Trophy, X } from 'lucide-react';
+
+interface HeraldAggregationSummary {
+  ranAt: string;
+  totalGranted: number;
+  totalSkipped: number;
+  totalErrors: number;
+  clicks: { granted: number; skipped: number };
+  signups: { granted: number; skipped: number };
+  conversions: { granted: number; skipped: number };
+}
 
 // ── Rate-limit editor types ──────────────────────────────────────────────
 
@@ -96,6 +106,11 @@ export function KnytTasksRewardsAdminTab({ isAdmin, theme = 'dark' }: Props) {
   const [rateLimitsExpanded, setRateLimitsExpanded] = useState(false);
   const [rlDraft, setRlDraft] = useState<Record<string, { max?: string; window?: string; active?: boolean }>>({});
 
+  // Herald aggregation trigger state — runHeraldAggregation defined after
+  // `refresh` below since it depends on it.
+  const [heraldRunning, setHeraldRunning] = useState(false);
+  const [heraldSummary, setHeraldSummary] = useState<HeraldAggregationSummary | null>(null);
+
   const refreshRateLimits = useCallback(async () => {
     setRateLimitsLoading(true);
     try {
@@ -170,6 +185,29 @@ export function KnytTasksRewardsAdminTab({ isAdmin, theme = 'dark' }: Props) {
 
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => { if (rateLimitsExpanded) void refreshRateLimits(); }, [rateLimitsExpanded, refreshRateLimits]);
+
+  // Herald aggregation trigger — placed after `refresh` so it can be
+  // called on success to update the per-template aggregates.
+  const runHeraldAggregation = useCallback(async () => {
+    setHeraldRunning(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/cron/herald-aggregation', { method: 'POST', credentials: 'include' });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(json?.error || `HTTP ${res.status}`);
+      } else {
+        setHeraldSummary(json as HeraldAggregationSummary);
+        // Refresh template aggregates so the newly-granted rewards
+        // show up in the per-template counts.
+        await refresh();
+      }
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setHeraldRunning(false);
+    }
+  }, [refresh]);
 
   const startEdit = useCallback((t: TaskTemplate) => {
     setEditing(t.id);
@@ -295,14 +333,49 @@ export function KnytTasksRewardsAdminTab({ isAdmin, theme = 'dark' }: Props) {
         <h2 className="text-lg font-semibold">Tasks &amp; Rewards Admin</h2>
         <button
           type="button"
+          onClick={() => void runHeraldAggregation()}
+          disabled={heraldRunning}
+          className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-200 hover:bg-amber-500/20 disabled:opacity-50"
+          title="Aggregate Herald clicks + signups + conversions into reward grants. Idempotent within the current period."
+        >
+          <Trophy className={`h-3 w-3 ${heraldRunning ? 'animate-pulse' : ''}`} />
+          {heraldRunning ? 'Running…' : 'Run Herald aggregation'}
+        </button>
+        <button
+          type="button"
           onClick={() => void refresh()}
           disabled={loading}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300 hover:bg-white/10 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300 hover:bg-white/10 disabled:opacity-50"
         >
           <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </button>
       </div>
+
+      {/* Herald aggregation last-run summary */}
+      {heraldSummary && (
+        <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5 text-xs">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Trophy className="h-3.5 w-3.5 text-amber-300" />
+            <span className="text-amber-200 font-medium">Herald aggregation</span>
+            <span className="text-amber-300/70">
+              ran {new Date(heraldSummary.ranAt).toLocaleString()}
+            </span>
+            <span className="ml-auto flex gap-2">
+              <span className="text-emerald-300">{heraldSummary.totalGranted} granted</span>
+              <span className="text-slate-400">{heraldSummary.totalSkipped} skipped</span>
+              {heraldSummary.totalErrors > 0 && (
+                <span className="text-red-300">{heraldSummary.totalErrors} errors</span>
+              )}
+            </span>
+          </div>
+          <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-slate-400">
+            <span>Clicks: {heraldSummary.clicks.granted} granted / {heraldSummary.clicks.skipped} skipped</span>
+            <span>Signups: {heraldSummary.signups.granted} granted / {heraldSummary.signups.skipped} skipped</span>
+            <span>Conversions: {heraldSummary.conversions.granted} granted / {heraldSummary.conversions.skipped} skipped</span>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="flex items-center gap-2 rounded-md border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-300">

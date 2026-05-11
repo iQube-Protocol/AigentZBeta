@@ -147,7 +147,7 @@ grant.
 
 ## Outstanding follow-ups (non-blocking for alpha)
 
-1. **Herald-of-the-Order click aggregation** — the `referral_clicks` table accrues rows but the rule `10 unique clicks / 7 days → +0.25 KNYT` isn't yet implemented as a cron / aggregation query. Today's grant path for Herald is dormant; the wallet shows the chip + share link works, but no rewards are emitted until aggregation lands. **Estimated: 1 commit (services/rewards/heraldAggregationService.ts + nightly cron).**
+1. **Herald-of-the-Order click aggregation** — ✅ **shipped.** `services/rewards/heraldAggregationService.ts` rolls up the three Herald variants (clicks / signups / conversions) on a deterministic per-period idempotency key. Trigger: `POST /api/cron/herald-aggregation` accepts either admin persona auth OR `x-cron-secret` header for scheduled callers. Admin tab has a "Run Herald aggregation" button + last-run summary panel. New migration `20260512020000_referral_attributions.sql` adds `referral_attributions` so the cron can distinguish Herald-sourced signups from BaK-sourced. **Operator follow-up:** wire `/api/cron/herald-aggregation` into the Amplify cron schedule (or pg_cron via HTTP extension) at e.g. every 30 min — until then operator triggers manually from the admin tab. Set `CRON_SECRET` env var.
 
 2. **Reputation cron + decay rates** — the `crm_persona_reputation` cache (5-min TTL per /api/wallet/tasks) is populated on read but the decay-over-time cron is stubbed pending rates operator decision. Per closure doc note. **Estimated: 1 commit once rates land.**
 

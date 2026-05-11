@@ -29,14 +29,46 @@ function sb() {
   );
 }
 
-async function resolveRefCodeToPersonaId(code: string): Promise<string | null> {
+async function resolveRefCodeToPersonaId(code: string): Promise<{ personaId: string; source: string } | null> {
   if (!/^[a-f0-9]{16}$/.test(code)) return null;
   const { data } = await sb()
     .from('referral_codes')
-    .select('persona_id')
+    .select('persona_id, source')
     .eq('code', code)
     .maybeSingle();
-  return (data?.persona_id as string | undefined) ?? null;
+  if (!data?.persona_id) return null;
+  return {
+    personaId: data.persona_id as string,
+    source: (data.source as string) || 'bring-a-knight',
+  };
+}
+
+/**
+ * Record the signup attribution so heraldAggregationService can
+ * distinguish Herald-sourced signups from Bring-a-Knight-sourced
+ * signups at aggregation time. Idempotent — UNIQUE(referrer, new_persona)
+ * collision falls through silently.
+ */
+async function recordAttribution(args: {
+  referrerPersonaId: string;
+  newPersonaId: string;
+  source: string;
+  refCode: string | null;
+}): Promise<void> {
+  try {
+    await sb()
+      .from('referral_attributions')
+      .insert({
+        referrer_persona_id: args.referrerPersonaId,
+        new_persona_id: args.newPersonaId,
+        source: args.source,
+        ref_code: args.refCode,
+      });
+  } catch (err) {
+    // Non-fatal — likely UNIQUE constraint collision on a retry. Log
+    // and continue; aggregation cron operates on the existing row.
+    console.warn('[referral/process] attribution row insert failed (likely dedup):', (err as Error).message);
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -50,9 +82,15 @@ export async function POST(request: NextRequest) {
 
     // Priority chain: refCode > referrerHandle > deprecated referrerPersonaId.
     let resolvedReferrerPersonaId: string | undefined;
+    let resolvedSource: string | null = null;
+    let usedRefCode: string | null = null;
     if (typeof refCode === 'string' && refCode.length > 0) {
       const resolved = await resolveRefCodeToPersonaId(refCode);
-      if (resolved) resolvedReferrerPersonaId = resolved;
+      if (resolved) {
+        resolvedReferrerPersonaId = resolved.personaId;
+        resolvedSource = resolved.source;
+        usedRefCode = refCode;
+      }
     } else if (referrerPersonaId && typeof referrerPersonaId === 'string') {
       // Deprecated path — log a server-side warning so we can track
       // unmigrated callers in CloudWatch.
@@ -73,6 +111,18 @@ export async function POST(request: NextRequest) {
       referrerPersonaId: resolvedReferrerPersonaId,
       campaignId,
     });
+
+    // Write attribution row (only when we know the source — i.e. refCode
+    // path). Deprecated direct-personaId callers don't get attribution
+    // tracking; they'll vanish in the next release as callers migrate.
+    if (result.success && result.referrerFound && result.referrerPersonaId && resolvedSource) {
+      await recordAttribution({
+        referrerPersonaId: result.referrerPersonaId,
+        newPersonaId,
+        source: resolvedSource,
+        refCode: usedRefCode,
+      });
+    }
 
     if (result.success && result.referrerFound && result.referrerPersonaId) {
       // emitCampaignEvent uses personaId server-side for the campaign

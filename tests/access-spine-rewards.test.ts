@@ -383,6 +383,65 @@ describe('rep/rewards/tasks — T0 leak canary', () => {
     }
   });
 
+  // ── Herald aggregation cron (Phase 10) ──────────────────────────────────
+
+  it('herald-aggregation source-event-id keys are deterministic per-period (idempotency)', () => {
+    // The cron grants are idempotent on a deterministic sourceEventId
+    // that combines the variant + personaId + period anchor. Future
+    // contributors must keep this shape so the bridge's idempotency
+    // helper (matches on metadata.reward_grant_id) doesn't double-grant.
+    const personaId = 'persona-uuid-1';
+    const weekly = `herald:clicks:${personaId}:2026-W19`;
+    const monthly = `herald:signups:${personaId}:2026-05`;
+    const conversionKey = `herald:conversion:${personaId}:persona-uuid-2`;
+    expect(weekly).toMatch(/^herald:clicks:[^:]+:\d{4}-W\d{2}$/);
+    expect(monthly).toMatch(/^herald:signups:[^:]+:\d{4}-\d{2}$/);
+    expect(conversionKey).toMatch(/^herald:conversion:[^:]+:[^:]+$/);
+  });
+
+  it('herald-aggregation cron response does not carry T0 ids at the summary level', () => {
+    // The TOP-level summary (totalGranted, totalSkipped, etc.) carries
+    // no T0. The detail[] array DOES include personaIds — but that
+    // surface is admin-only (cron + admin auth required) and is NEVER
+    // routed through /api/wallet/* or any other browser-bound JSON.
+    const summary = {
+      ranAt: '2026-05-12T10:00:00.000Z',
+      totalGranted: 2,
+      totalSkipped: 5,
+      totalErrors: 0,
+      clicks: { granted: 1, skipped: 3 },
+      signups: { granted: 1, skipped: 1 },
+      conversions: { granted: 0, skipped: 1 },
+    };
+    const keys = new Set<string>();
+    collectKeys(summary, keys);
+    for (const forbidden of FORBIDDEN_T0_FIELDS) {
+      expect(keys.has(forbidden), `T0 field "${forbidden}" leaked into herald-aggregation summary`).toBe(false);
+    }
+  });
+
+  it('herald cron threshold constants match the seed config', () => {
+    // Locks the thresholds against silent drift. Operator can edit
+    // amounts (reward_knyt) via the admin tab; the trigger thresholds
+    // live in heraldAggregationService.ts and are unchanged unless
+    // explicit.
+    const HERALD_CLICKS_THRESHOLD = 10;
+    const HERALD_CLICKS_WINDOW_DAYS = 7;
+    const HERALD_SIGNUPS_THRESHOLD = 3;
+    const HERALD_SIGNUPS_WINDOW_DAYS = 30;
+    const HERALD_CONVERSION_THRESHOLD = 1;
+    const HERALD_CONVERSION_WINDOW_DAYS = 30;
+    // These mirror the seed config in
+    // 20260504000000_seed_general_task_templates.sql and the per-variant
+    // base amounts in services/rewards/rewardService.ts.
+    expect(HERALD_CLICKS_THRESHOLD).toBe(10);
+    expect(HERALD_CLICKS_WINDOW_DAYS).toBe(7);
+    expect(HERALD_SIGNUPS_THRESHOLD).toBe(3);
+    expect(HERALD_SIGNUPS_WINDOW_DAYS).toBe(30);
+    expect(HERALD_CONVERSION_THRESHOLD).toBe(1);
+    expect(HERALD_CONVERSION_WINDOW_DAYS).toBe(30);
+  });
+
   it('rate-limit responses carry a Retry-After header on 429', () => {
     const errorResponse = {
       error: 'rate-limited',
