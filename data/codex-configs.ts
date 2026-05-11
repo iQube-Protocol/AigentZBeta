@@ -453,6 +453,18 @@ export const KNYT_CODEX: CodexConfig = {
       metadata: { icon: 'Sparkles', description: 'Promotion queue and Q¢ pricing for community-generated content', color: 'violet' }
     },
     {
+      id: 'tasks-rewards-admin',
+      label: 'Tasks & Rewards Admin',
+      slug: 'tasks-rewards-admin',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 8,
+      type: 'static',
+      config: { component: 'KnytTasksRewardsAdminTab' },
+      metadata: { icon: 'Coins', description: 'Live CRUD over KNYT task templates + reward amounts; aggregates from crm_rewards', color: 'amber' }
+    },
+    {
       id: 'terra',
       label: 'Terra',
       slug: 'terra',
