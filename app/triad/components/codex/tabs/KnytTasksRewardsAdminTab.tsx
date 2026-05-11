@@ -43,6 +43,8 @@ interface TaskTemplate {
   reward_qct: number;
   reward_qoyn: number;
   reward_knyt: number;
+  cap_max_per_period: number | null;
+  cap_period_days: number | null;
   cohort_id: string | null;
   is_active: boolean;
   schema_json: Record<string, unknown> | null;
@@ -62,6 +64,8 @@ interface DraftEdits {
   title?: string;
   description?: string;
   reward_knyt?: string;
+  cap_max_per_period?: string;
+  cap_period_days?: string;
 }
 
 export function KnytTasksRewardsAdminTab({ isAdmin, theme = 'dark' }: Props) {
@@ -100,6 +104,8 @@ export function KnytTasksRewardsAdminTab({ isAdmin, theme = 'dark' }: Props) {
       title: t.title,
       description: t.description,
       reward_knyt: String(t.reward_knyt),
+      cap_max_per_period: t.cap_max_per_period == null ? '' : String(t.cap_max_per_period),
+      cap_period_days: t.cap_period_days == null ? '' : String(t.cap_period_days),
     });
   }, []);
 
@@ -144,6 +150,35 @@ export function KnytTasksRewardsAdminTab({ isAdmin, theme = 'dark' }: Props) {
     if (draft.reward_knyt !== undefined) {
       const n = Number(draft.reward_knyt);
       if (Number.isFinite(n) && n >= 0 && n !== t.reward_knyt) patch.reward_knyt = n;
+    }
+    // Cap fields — blank string = clear cap (null); positive int = set cap.
+    // Must change as a pair: server rejects half-pairs.
+    const draftMax = draft.cap_max_per_period?.trim() ?? '';
+    const draftPeriod = draft.cap_period_days?.trim() ?? '';
+    const nextMax = draftMax === '' ? null : Number(draftMax);
+    const nextPeriod = draftPeriod === '' ? null : Number(draftPeriod);
+    const maxChanged = nextMax !== t.cap_max_per_period;
+    const periodChanged = nextPeriod !== t.cap_period_days;
+    if (maxChanged || periodChanged) {
+      // Validate before sending — both null or both positive integers.
+      if (nextMax === null && nextPeriod !== null) {
+        setError('Cap max blank → period must also be blank (clears the cap).');
+        return;
+      }
+      if (nextPeriod === null && nextMax !== null) {
+        setError('Cap period blank → max must also be blank (clears the cap).');
+        return;
+      }
+      if (nextMax !== null && (!Number.isInteger(nextMax) || nextMax <= 0)) {
+        setError('Cap max must be a positive integer.');
+        return;
+      }
+      if (nextPeriod !== null && (!Number.isInteger(nextPeriod) || nextPeriod <= 0)) {
+        setError('Cap period days must be a positive integer.');
+        return;
+      }
+      patch.cap_max_per_period = nextMax;
+      patch.cap_period_days = nextPeriod;
     }
     if (Object.keys(patch).length === 0) { cancelEdit(); return; }
     const ok = await persist(editing, patch);
@@ -344,6 +379,44 @@ export function KnytTasksRewardsAdminTab({ isAdmin, theme = 'dark' }: Props) {
                         <span className="text-sm font-mono text-amber-200">{t.reward_knyt.toFixed(2)}</span>
                       )}
                       <span className="text-[10px] text-slate-500">KNYT</span>
+                    </div>
+
+                    {/* Cap editor: max grants per persona in a sliding-window
+                        period. Blank = no cap. Both fields must be set together. */}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-slate-400">Cap</span>
+                      {isEditing ? (
+                        <>
+                          <input
+                            type="number"
+                            min={1}
+                            step={1}
+                            placeholder="—"
+                            value={draft.cap_max_per_period ?? ''}
+                            onChange={(e) => setDraft((d) => ({ ...d, cap_max_per_period: e.target.value }))}
+                            className="w-12 rounded border border-slate-600 bg-slate-800 px-1 py-0.5 text-xs text-white focus:border-teal-500 focus:outline-none"
+                            title="Max grants per persona in the period below (blank = no cap)"
+                          />
+                          <span className="text-[10px] text-slate-500">/</span>
+                          <input
+                            type="number"
+                            min={1}
+                            step={1}
+                            placeholder="—"
+                            value={draft.cap_period_days ?? ''}
+                            onChange={(e) => setDraft((d) => ({ ...d, cap_period_days: e.target.value }))}
+                            className="w-14 rounded border border-slate-600 bg-slate-800 px-1 py-0.5 text-xs text-white focus:border-teal-500 focus:outline-none"
+                            title="Sliding window length in days (blank = no cap)"
+                          />
+                          <span className="text-[10px] text-slate-500">days</span>
+                        </>
+                      ) : t.cap_max_per_period != null && t.cap_period_days != null ? (
+                        <span className="text-xs font-mono text-slate-300">
+                          {t.cap_max_per_period} / {t.cap_period_days}d
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-500 italic">no cap</span>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-1">

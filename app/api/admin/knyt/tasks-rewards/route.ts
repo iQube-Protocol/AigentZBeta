@@ -43,6 +43,8 @@ interface TaskTemplateRow {
   reward_qct: number;
   reward_qoyn: number;
   reward_knyt: number;
+  cap_max_per_period: number | null;
+  cap_period_days: number | null;
   cohort_id: string | null;
   is_active: boolean;
   schema_json: Record<string, unknown> | null;
@@ -86,7 +88,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const { data: templates, error: tErr } = await db
     .from('crm_task_templates')
     .select(
-      'id, slug, title, description, category, difficulty_level, reward_qct, reward_qoyn, reward_knyt, cohort_id, is_active, schema_json, metadata, created_at, updated_at',
+      'id, slug, title, description, category, difficulty_level, reward_qct, reward_qoyn, reward_knyt, cap_max_per_period, cap_period_days, cohort_id, is_active, schema_json, metadata, created_at, updated_at',
     )
     .eq('tenant_id', KNYT_TENANT_ID)
     .order('slug', { ascending: true });
@@ -169,7 +171,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
 interface PatchPayload {
   taskTemplateId: string;
-  patch: Partial<Pick<TaskTemplateRow, 'reward_knyt' | 'is_active' | 'title' | 'description' | 'reward_qct' | 'reward_qoyn'>>;
+  patch: Partial<Pick<TaskTemplateRow, 'reward_knyt' | 'is_active' | 'title' | 'description' | 'reward_qct' | 'reward_qoyn' | 'cap_max_per_period' | 'cap_period_days'>>;
 }
 
 export async function PATCH(request: NextRequest): Promise<NextResponse> {
@@ -181,7 +183,11 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'taskTemplateId + patch required' }, { status: 400 });
   }
 
-  const allowed: (keyof TaskTemplateRow)[] = ['reward_knyt', 'is_active', 'title', 'description', 'reward_qct', 'reward_qoyn'];
+  const allowed: (keyof TaskTemplateRow)[] = [
+    'reward_knyt', 'is_active', 'title', 'description',
+    'reward_qct', 'reward_qoyn',
+    'cap_max_per_period', 'cap_period_days',
+  ];
   const safePatch: Record<string, unknown> = {};
   for (const k of allowed) {
     if (k in body.patch && body.patch[k] !== undefined) {
@@ -192,6 +198,17 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
           return NextResponse.json({ error: `${k} must be a non-negative number` }, { status: 400 });
         }
         safePatch[k] = n;
+      } else if (k === 'cap_max_per_period' || k === 'cap_period_days') {
+        // null clears the cap (no limit). Otherwise must be a positive integer.
+        if (v === null) {
+          safePatch[k] = null;
+        } else {
+          const n = Number(v);
+          if (!Number.isInteger(n) || n <= 0) {
+            return NextResponse.json({ error: `${k} must be a positive integer or null` }, { status: 400 });
+          }
+          safePatch[k] = n;
+        }
       } else if (k === 'is_active') {
         safePatch[k] = Boolean(v);
       } else if (typeof v === 'string') {
@@ -207,6 +224,23 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     }
   }
 
+  // Cross-field validation: caps must be set together (both null or both numeric).
+  const capChanged = 'cap_max_per_period' in safePatch || 'cap_period_days' in safePatch;
+  if (capChanged) {
+    const max = 'cap_max_per_period' in safePatch
+      ? safePatch.cap_max_per_period
+      : undefined;
+    const period = 'cap_period_days' in safePatch
+      ? safePatch.cap_period_days
+      : undefined;
+    if (max === null && period !== null && period !== undefined) {
+      return NextResponse.json({ error: 'cap_max_per_period=null requires cap_period_days=null' }, { status: 400 });
+    }
+    if (period === null && max !== null && max !== undefined) {
+      return NextResponse.json({ error: 'cap_period_days=null requires cap_max_per_period=null' }, { status: 400 });
+    }
+  }
+
   if (Object.keys(safePatch).length === 0) {
     return NextResponse.json({ error: 'no editable fields in patch' }, { status: 400 });
   }
@@ -219,7 +253,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
     .update(safePatch)
     .eq('id', body.taskTemplateId)
     .eq('tenant_id', KNYT_TENANT_ID)
-    .select('id, slug, title, description, reward_knyt, reward_qct, reward_qoyn, is_active, updated_at')
+    .select('id, slug, title, description, reward_knyt, reward_qct, reward_qoyn, cap_max_per_period, cap_period_days, is_active, updated_at')
     .maybeSingle();
 
   if (error || !data) {

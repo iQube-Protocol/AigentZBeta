@@ -405,37 +405,91 @@ export class RewardService {
   }
   
   /**
-   * Check if persona has hit reward cap for task type
+   * Check if persona has hit reward cap for task type.
+   *
+   * Cap resolution order:
+   *   1. Editable cap from crm_task_templates (cap_max_per_period +
+   *      cap_period_days) — set + edited via the admin Tasks & Rewards
+   *      tab (PATCH /api/admin/knyt/tasks-rewards). Operators can tune
+   *      limits live without redeploying.
+   *   2. Legacy constant REWARD_CAPS[taskType] as fallback for task
+   *      types that don't have a template row (e.g. internal / not-yet-
+   *      seeded variants).
+   *
+   * NULL on either column → no cap on that task. Fail-open on DB error
+   * (the on-chain credit path is authoritative; we don't want a
+   * Supabase blip to block legit grants).
    */
   async checkRewardCap(personaId: string, taskType: RewardTaskType): Promise<{ allowed: boolean; reason?: string }> {
-    const cap = REWARD_CAPS[taskType];
+    // 1. Editable cap from the task template, looked up by
+    //    schema_json.reward_task_type (matches the bridge's resolver).
+    const templateCap = await this.lookupTemplateCap(taskType);
+    const cap = templateCap ?? REWARD_CAPS[taskType];
     if (!cap) {
       return { allowed: true };
     }
-    
+
     const periodStart = new Date();
     periodStart.setDate(periodStart.getDate() - cap.periodDays);
-    
+
     const { count, error } = await this.supabase
       .from('reward_grants')
       .select('id', { count: 'exact', head: true })
       .eq('persona_id', personaId)
       .eq('task_type', taskType)
       .gte('created_at', periodStart.toISOString());
-    
+
     if (error) {
       console.error('[RewardService] Error checking cap:', error);
       return { allowed: true }; // Allow on error (fail open)
     }
-    
+
     if ((count || 0) >= cap.maxPerPeriod) {
-      return { 
-        allowed: false, 
-        reason: `Max ${cap.maxPerPeriod} rewards per ${cap.periodDays} days` 
+      return {
+        allowed: false,
+        reason: `Max ${cap.maxPerPeriod} rewards per ${cap.periodDays} days`,
       };
     }
-    
+
     return { allowed: true };
+  }
+
+  /**
+   * Look up the editable cap for a task type from crm_task_templates.
+   * Returns null if no template row matches, or if the template has no
+   * cap set (cap_max_per_period IS NULL). The lookup considers all
+   * schema_json variants (primary + streak/streak_bonus/signup/conversion)
+   * so e.g. KnightOfAttentionWeeklyStreak resolves to the same template
+   * row as KnightOfAttentionEpisodeComplete.
+   */
+  private async lookupTemplateCap(
+    taskType: RewardTaskType,
+  ): Promise<{ maxPerPeriod: number; periodDays: number } | null> {
+    const variantFields = [
+      'reward_task_type',
+      'streak_reward_task_type',
+      'streak_bonus_reward_task_type',
+      'signup_reward_task_type',
+      'conversion_reward_task_type',
+    ];
+
+    for (const field of variantFields) {
+      const { data } = await this.supabase
+        .from('crm_task_templates')
+        .select('cap_max_per_period, cap_period_days')
+        .eq('tenant_id', 'knyt')
+        .filter(`schema_json->>${field}`, 'eq', taskType)
+        .maybeSingle();
+      if (data && data.cap_max_per_period != null && data.cap_period_days != null) {
+        return {
+          maxPerPeriod: Number(data.cap_max_per_period),
+          periodDays: Number(data.cap_period_days),
+        };
+      }
+      // Found template but cap explicitly null → no cap.
+      if (data) return null;
+    }
+    return null;
   }
   
   /**
