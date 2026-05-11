@@ -65,6 +65,7 @@ import {
   type SpecialistResponseData,
 } from "@/components/metame/cards/SpecialistResponseCard";
 import { ArtifactCard, type ArtifactCardData } from "@/components/metame/cards/ArtifactCard";
+import { SecondTierApprovalCard } from "@/components/metame/cards/SecondTierApprovalCard";
 import { ActivityReceiptCard, type ActivityReceiptData } from "@/components/metame/cards/ActivityReceiptCard";
 import { QuickLinksCard } from "@/components/metame/cards/QuickLinksCard";
 import { GoogleConnectionsPanel } from "@/components/metame/connections/GoogleConnectionsPanel";
@@ -158,6 +159,21 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
 
   // Phase 6 — created artifacts (alpha: runtime-destination only).
   const [artifacts, setArtifacts] = useState<ArtifactCardData[]>([]);
+
+  // Phase 6.b Part 2.5 — externalisation state. One artifact at a time can
+  // be in flight (pending second-tier approval or running). Errors render
+  // inline on the artifact card.
+  const [actionPendingArtifactId, setActionPendingArtifactId] = useState<string | null>(null);
+  const [actionErrors, setActionErrors] = useState<Record<string, string>>({});
+  const [secondTierApproval, setSecondTierApproval] = useState<{
+    artifactId: string;
+    connectorId: string;
+    connectorLabel: string;
+    summary: string;
+    detail?: string;
+    submitting: boolean;
+    error: string | null;
+  } | null>(null);
 
   // Phase 7 — activity receipts panel.
   const [receipts, setReceipts] = useState<ActivityReceiptData[]>([]);
@@ -493,6 +509,113 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
 
   const handleDismissArtifact = useCallback((artifactId: string) => {
     setArtifacts((prev) => prev.filter((a) => a.artifactId !== artifactId));
+    setActionErrors((prev) => {
+      if (!(artifactId in prev)) return prev;
+      const next = { ...prev };
+      delete next[artifactId];
+      return next;
+    });
+  }, []);
+
+  // Phase 6.b Part 2.5 — externalise an artifact via its bound connector.
+  // Flow:
+  //   1. POST /api/connectors/execute with the artifact's actionConnectorId.
+  //   2. If the route returns code='requires-approval', surface the
+  //      SecondTierApprovalCard for this artifact and wait for the user.
+  //   3. On approve, retry execute with a fresh approvalToken (a UUID for
+  //      alpha; signed-receipt hardening lands with Part 4).
+  //   4. On success, flip the artifact status to 'sent' and dismiss the
+  //      approval card.
+  const executeArtifactAction = useCallback(async (
+    artifact: ArtifactCardData,
+    approvalToken?: string,
+  ): Promise<void> => {
+    if (!artifact.actionConnectorId) return;
+    setActionPendingArtifactId(artifact.artifactId);
+    setActionErrors((prev) => {
+      if (!(artifact.artifactId in prev)) return prev;
+      const next = { ...prev };
+      delete next[artifact.artifactId];
+      return next;
+    });
+    try {
+      const res = await personaFetch('/api/connectors/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          connectorId: artifact.actionConnectorId,
+          input: artifact.actionInput ?? {},
+          sourceIntentId: artifact.intentId ?? undefined,
+          cartridge: 'metame',
+          ...(approvalToken ? { approvalToken } : {}),
+        }),
+        personaIdHint: personaId,
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.status === 403 && body?.code === 'requires-approval') {
+        // Surface the second-tier approval card next to the artifact.
+        setSecondTierApproval({
+          artifactId: artifact.artifactId,
+          connectorId: artifact.actionConnectorId,
+          connectorLabel: artifact.actionConnectorLabel || 'Confirm external action',
+          summary: artifact.title,
+          detail: body.reason || undefined,
+          submitting: false,
+          error: null,
+        });
+        return;
+      }
+      if (!res.ok || body?.ok === false) {
+        const msg = body?.reason || body?.detail || body?.error || `execute failed (${res.status})`;
+        setActionErrors((prev) => ({ ...prev, [artifact.artifactId]: msg }));
+        if (secondTierApproval && secondTierApproval.artifactId === artifact.artifactId) {
+          setSecondTierApproval({ ...secondTierApproval, submitting: false, error: msg });
+        }
+        return;
+      }
+      // Success — flip status to sent and clear the second-tier card.
+      setArtifacts((prev) =>
+        prev.map((a) =>
+          a.artifactId === artifact.artifactId ? { ...a, status: 'sent' } : a,
+        ),
+      );
+      setSecondTierApproval((prev) =>
+        prev && prev.artifactId === artifact.artifactId ? null : prev,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setActionErrors((prev) => ({ ...prev, [artifact.artifactId]: msg }));
+      if (secondTierApproval && secondTierApproval.artifactId === artifact.artifactId) {
+        setSecondTierApproval({ ...secondTierApproval, submitting: false, error: msg });
+      }
+    } finally {
+      setActionPendingArtifactId(null);
+    }
+  }, [personaId, secondTierApproval]);
+
+  const handleSendArtifact = useCallback((artifactId: string) => {
+    const artifact = artifacts.find((a) => a.artifactId === artifactId);
+    if (!artifact) return;
+    void executeArtifactAction(artifact);
+  }, [artifacts, executeArtifactAction]);
+
+  const handleApproveSecondTier = useCallback(() => {
+    if (!secondTierApproval) return;
+    const artifact = artifacts.find((a) => a.artifactId === secondTierApproval.artifactId);
+    if (!artifact) return;
+    // Alpha approvalToken — opaque UUID, no server-side verification yet.
+    // Phase 6.b Part 4 will swap this for a signed receipt id.
+    const approvalToken = `appr_${
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2)
+    }`;
+    setSecondTierApproval({ ...secondTierApproval, submitting: true, error: null });
+    void executeArtifactAction(artifact, approvalToken);
+  }, [secondTierApproval, artifacts, executeArtifactAction]);
+
+  const handleCancelSecondTier = useCallback(() => {
+    setSecondTierApproval(null);
   }, []);
 
   // Phase 7 — receipts panel.
@@ -589,6 +712,12 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
           artifacts={artifacts}
           onCreateArtifact={handleCreateArtifact}
           onDismissArtifact={handleDismissArtifact}
+          actionPendingArtifactId={actionPendingArtifactId}
+          actionErrors={actionErrors}
+          secondTierApproval={secondTierApproval}
+          onSendArtifact={handleSendArtifact}
+          onApproveSecondTier={handleApproveSecondTier}
+          onCancelSecondTier={handleCancelSecondTier}
           receipts={receipts}
           receiptsLoading={receiptsLoading}
           receiptsOpen={receiptsOpen}
@@ -669,6 +798,21 @@ interface BodyProps {
   artifacts: ArtifactCardData[];
   onCreateArtifact: (artifactType: string, opts?: { sourceIntentId?: string; specialistId?: string }) => void;
   onDismissArtifact: (artifactId: string) => void;
+  // Phase 6.b Part 2.5 — artifact externalisation.
+  actionPendingArtifactId: string | null;
+  actionErrors: Record<string, string>;
+  secondTierApproval: {
+    artifactId: string;
+    connectorId: string;
+    connectorLabel: string;
+    summary: string;
+    detail?: string;
+    submitting: boolean;
+    error: string | null;
+  } | null;
+  onSendArtifact: (artifactId: string) => void;
+  onApproveSecondTier: () => void;
+  onCancelSecondTier: () => void;
   receipts: ActivityReceiptData[];
   receiptsLoading: boolean;
   receiptsOpen: boolean;
@@ -715,6 +859,12 @@ function AigentMeWelcomeBody({
   artifacts,
   onCreateArtifact,
   onDismissArtifact,
+  actionPendingArtifactId,
+  actionErrors,
+  secondTierApproval,
+  onSendArtifact,
+  onApproveSecondTier,
+  onCancelSecondTier,
   receipts,
   receiptsLoading,
   receiptsOpen,
@@ -869,19 +1019,36 @@ function AigentMeWelcomeBody({
       )}
 
       {/* Artifacts — Phase 6. Stack of recently-created runtime-destination
-          artifacts. */}
+          artifacts. Phase 6.b Part 2.5 — Gmail-destination artifacts carry
+          an externalisation button (Send) gated by SecondTierApprovalCard. */}
       {artifacts.length > 0 && (
         <section className="space-y-2">
           <h2 className={`text-xs uppercase tracking-wider ${mutedClass}`}>
             Artifacts
           </h2>
           {artifacts.map((a) => (
-            <ArtifactCard
-              key={a.artifactId}
-              data={a}
-              onDismiss={() => onDismissArtifact(a.artifactId)}
-              theme={theme}
-            />
+            <React.Fragment key={a.artifactId}>
+              <ArtifactCard
+                data={a}
+                onDismiss={() => onDismissArtifact(a.artifactId)}
+                onAction={a.actionConnectorId ? () => onSendArtifact(a.artifactId) : undefined}
+                actionPending={actionPendingArtifactId === a.artifactId}
+                actionError={actionErrors[a.artifactId] ?? null}
+                theme={theme}
+              />
+              {secondTierApproval?.artifactId === a.artifactId && (
+                <SecondTierApprovalCard
+                  connectorLabel={secondTierApproval.connectorLabel}
+                  summary={secondTierApproval.summary}
+                  detail={secondTierApproval.detail}
+                  submitting={secondTierApproval.submitting}
+                  error={secondTierApproval.error}
+                  onApprove={onApproveSecondTier}
+                  onCancel={onCancelSecondTier}
+                  theme={theme}
+                />
+              )}
+            </React.Fragment>
           ))}
         </section>
       )}

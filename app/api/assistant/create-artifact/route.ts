@@ -36,6 +36,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getIntentQube } from '@/services/iqube/intentQube';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import { getGoogleConnector } from '@/services/google/connectors';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,7 +59,11 @@ const VALID_DESTINATIONS = new Set<string>([
   'cartridge_store',
 ]);
 
-const DEFERRED_DESTINATIONS = new Set<string>(['drive', 'gmail', 'cartridge_store']);
+// Phase 6.b Part 2.5 — gmail destination is live (gmail-draft → gmail.draft
+// connector eager-creates a real draft, returns location URL + the send
+// connector for the second-tier ApprovalCard). drive / cartridge_store stay
+// deferred until Parts 2.5b / 3 land.
+const DEFERRED_DESTINATIONS = new Set<string>(['drive', 'cartridge_store']);
 
 interface PostBody {
   artifactType?: string;
@@ -66,18 +71,28 @@ interface PostBody {
   sourceIntentId?: string;
   destination?: string;
   specialistId?: string;
+  /**
+   * Phase 6.b Part 2.5 — connector input forwarded to the eager-create
+   * connector (e.g. `{ to, subject, bodyText }` for a gmail-draft).
+   * Required when `destination='gmail'`.
+   */
+  connectorInput?: Record<string, unknown>;
 }
 
 interface CreateArtifactSurface {
   artifactId: string;
   artifactType: string;
   title: string;
-  destination: 'runtime';
+  destination: 'runtime' | 'gmail';
   status: 'draft';
   receiptId: string | null;
   intentId: string | null;
   message: string;
   createdAt: string;
+  locationUrl?: string | null;
+  actionConnectorId?: string;
+  actionConnectorLabel?: string;
+  actionInput?: Record<string, unknown>;
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -143,8 +158,93 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const createdAt = new Date().toISOString();
     const artifactId = `art_${cryptoRandomId()}`;
 
-    // Emit the receipt. Becomes null if the migration hasn't run yet —
-    // the route still returns a useful response so the demo flow stays alive.
+    // ─────────────────────────────────────────────────────────────────
+    // Phase 6.b Part 2.5 — Gmail destination. Eager-create a real draft
+    // via the gmail.draft connector so the user sees it in Gmail. The
+    // ArtifactCard then carries the gmail.send connector id; clicking
+    // Send triggers the second-tier ApprovalCard before externalising.
+    // ─────────────────────────────────────────────────────────────────
+    if (destination === 'gmail') {
+      if (body.artifactType !== 'gmail-draft') {
+        return NextResponse.json(
+          {
+            error: 'destination-mismatch',
+            detail: `destination='gmail' requires artifactType='gmail-draft'.`,
+          },
+          { status: 400, headers: { 'Cache-Control': 'no-store' } },
+        );
+      }
+      const draftConnector = getGoogleConnector('google.gmail.draft');
+      if (!draftConnector) {
+        return NextResponse.json(
+          { error: 'connector-unavailable', detail: 'gmail.draft connector not registered' },
+          { status: 500, headers: { 'Cache-Control': 'no-store' } },
+        );
+      }
+      const input = body.connectorInput ?? {};
+      const draftResult = await draftConnector.execute(input, {
+        personaId: context.personaId,
+        intentId: body.sourceIntentId ?? null,
+        cartridge,
+      });
+      if (!draftResult.ok) {
+        return NextResponse.json(
+          {
+            error: 'draft-create-failed',
+            code: draftResult.code,
+            detail: draftResult.reason,
+            hint: draftResult.hint,
+          },
+          { status: draftResult.code === 'not-connected' ? 409 : 502, headers: { 'Cache-Control': 'no-store' } },
+        );
+      }
+      const draftId = (draftResult.output as { draftId?: string } | undefined)?.draftId ?? '';
+      const locationUrl = draftId ? `https://mail.google.com/mail/u/0/#drafts/${draftId}` : null;
+
+      const receipt = await createActivityReceipt({
+        personaId: context.personaId,
+        intentId: body.sourceIntentId ?? null,
+        activeCartridge: cartridge,
+        actionType: 'artifact_created',
+        summary: `Created Gmail draft: ${derivedTitle}`,
+        agentsInvoked: [
+          'aigent-me',
+          ...(body.specialistId ? [body.specialistId] : []),
+        ],
+        toolsUsed: ['google.gmail.draft'],
+        iqubesUsed: ['PersonaQube', 'ExperienceQube', 'IntentQube'],
+        contextShared: ['intent-summary', 'experience-meta-slice'],
+        artifactsCreated: [`gmail-draft:${draftId || derivedTitle}`],
+        approvalsGranted: body.sourceIntentId ? [body.sourceIntentId] : [],
+      });
+
+      const surface: CreateArtifactSurface = {
+        artifactId,
+        artifactType: 'gmail-draft',
+        title: derivedTitle,
+        destination: 'gmail',
+        status: 'draft',
+        receiptId: receipt?.id ?? null,
+        intentId: body.sourceIntentId ?? null,
+        message:
+          `Gmail draft created. Click "Send draft" to externalise — ` +
+          `an approval card will confirm before the email leaves your account.`,
+        createdAt,
+        locationUrl,
+        actionConnectorId: 'google.gmail.send',
+        actionConnectorLabel: 'Send draft',
+        // Forward the draft id so the send connector targets it directly.
+        // gmail.send keys on `fromDraftId`; fall back to the raw compose
+        // input when the draft id is missing.
+        actionInput: draftId ? { fromDraftId: draftId } : input,
+      };
+
+      return NextResponse.json(surface, {
+        headers: { 'Cache-Control': 'no-store' },
+      });
+    }
+
+    // Runtime destination — receipt-bound record only.
     const receipt = await createActivityReceipt({
       personaId: context.personaId,
       intentId: body.sourceIntentId ?? null,
@@ -172,8 +272,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       intentId: body.sourceIntentId ?? null,
       message:
         `Artifact created in the runtime as a draft. ` +
-        `Send / share / publish lands in Phase 6.b alongside Google Workspace OAuth — ` +
-        `a fresh Approval Card will gate any external action then.`,
+        `Externalising to Drive / Calendar / Slides lands in Phase 6.b Part 2.5b.`,
       createdAt,
     };
 
