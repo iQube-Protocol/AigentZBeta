@@ -1533,10 +1533,18 @@ export default function SmartWalletDrawer({
       return;
     }
     // KNYT not currently mounted — full cross-cartridge navigation.
+    // Capture the user's current URL as the `returnTo` so closing the
+    // cartridge takes them back here instead of a blank /triad/embed/
+    // codex-closed page. This is the Wave 1 fix for the broken-journey
+    // bug; Wave 2 will replace this URL nav with a proper agent-prompt
+    // + cartridge-as-layer pattern (see backlog doc
+    // 2026-05-12_wallet-task-agent-prompt-cartridge-layer-backlog.md).
+    const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     let url = buildCodexUrl('knyt-codex', { tab, personaId: effectivePersonaId, from: 'wallet' });
     if (taskSlug) {
       url += (url.includes('?') ? '&' : '?') + `taskSlug=${encodeURIComponent(taskSlug)}`;
     }
+    url += (url.includes('?') ? '&' : '?') + `returnTo=${encodeURIComponent(returnTo)}`;
     window.location.href = url;
   }, [effectivePersonaId, onClose]);
   const redeemReward = useCallback(async (rewardId: string) => {

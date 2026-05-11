@@ -470,10 +470,15 @@ export default function CodexPanelDynamic({
     if (typeof window === "undefined") return;
     const isEmbedded = (window.parent && window.parent !== window) || (window.top && window.top !== window);
     if (isEmbedded) {
-      // Soft-close: navigate iframe to the empty route. The route also
+      // Soft-close: navigate iframe to the empty route, forwarding any
+      // `returnTo` the launcher attached so the user lands back on
+      // their previous view instead of a blank screen. The route also
       // re-broadcasts metame:cartridge-closed for the shell to confirm
       // the teardown (per CartridgePresenceRegistry contract).
-      window.location.replace(`/triad/embed/codex-closed?cartridgeId=${encodeURIComponent(codexId)}`);
+      const returnTo = searchParams?.get("returnTo");
+      let closedUrl = `/triad/embed/codex-closed?cartridgeId=${encodeURIComponent(codexId)}`;
+      if (returnTo) closedUrl += `&returnTo=${encodeURIComponent(returnTo)}`;
+      window.location.replace(closedUrl);
       return;
     }
     if (window.history.length > 1) {
