@@ -262,6 +262,10 @@ export function CodexCopilotLayer({
     },
   };
   const ACCENT: AccentPalette = ACCENT_PALETTES[accentColor] ?? ACCENT_PALETTES.cyan;
+  // Pre-extract the ring-* class from the bubble token so nested template
+  // literals don't trip swc's parser. `bubble` is space-separated; the only
+  // ring-prefixed token in every palette is the ring color class.
+  const ACCENT_RING = ACCENT.bubble.split(' ').find((c) => c.startsWith('ring-')) ?? '';
   const isMobile = useIsMobile();
   const { requestAvatar, releaseAvatar } = useMetaAvatar();
 
@@ -1140,7 +1144,7 @@ export function CodexCopilotLayer({
                                     }}
                                     className={`h-10 w-full rounded-lg ring-1 transition-colors ${
                                       walletPanelOpen && walletPanelTab === tab && !walletPanelCollapsed
-                                        ? `${ACCENT.softBg} ${ACCENT.bubble.split(' ').filter((c) => c.startsWith('ring-')).join(' ')} ${ACCENT.highlightText}`
+                                        ? `${ACCENT.softBg} ${ACCENT_RING} ${ACCENT.highlightText}`
                                         : "bg-white/5 ring-white/10 text-white/70 hover:text-white hover:bg-white/10"
                                     }`}
                                   >
