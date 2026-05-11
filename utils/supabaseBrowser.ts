@@ -19,3 +19,51 @@ export function getSupabaseBrowserClient(): SupabaseClient {
   }
   return _client;
 }
+
+/**
+ * Read the active Supabase access token for client-side fetches that need to
+ * authenticate against `/api/*` routes whose server resolves identity via
+ * `getCallerIdentityContext` (Authorization: Bearer …).
+ *
+ * Returns '' when no session exists. Two-tier resolution:
+ *   1. Supabase getSession() — preferred; uses the in-memory client first
+ *   2. localStorage fallback — covers the case where the singleton client
+ *      hasn't hydrated yet (matches the inline pattern used in
+ *      services/access/spineGateClient.ts and DevPersonaTab.tsx)
+ */
+export async function getSupabaseAccessToken(): Promise<string> {
+  if (typeof window === 'undefined') return '';
+  try {
+    const { data } = await getSupabaseBrowserClient().auth.getSession();
+    const token = data?.session?.access_token;
+    if (token) return token;
+  } catch {
+    /* fall through to localStorage scan */
+  }
+  try {
+    const k = Object.keys(window.localStorage).find(
+      (x) => x.startsWith('sb-') && x.endsWith('-auth-token'),
+    );
+    if (!k) return '';
+    const raw = window.localStorage.getItem(k);
+    if (!raw) return '';
+    const parsed = JSON.parse(raw) as
+      | { access_token?: string; currentSession?: { access_token?: string } }
+      | null;
+    return parsed?.access_token ?? parsed?.currentSession?.access_token ?? '';
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Convenience: build a `fetch` headers object that carries the active
+ * Supabase Bearer token when present. Use for any client→`/api/*` call that
+ * needs to surface as the signed-in caller.
+ */
+export async function authedFetchHeaders(
+  base: HeadersInit = {},
+): Promise<HeadersInit> {
+  const token = await getSupabaseAccessToken();
+  return token ? { ...base, Authorization: `Bearer ${token}` } : base;
+}
