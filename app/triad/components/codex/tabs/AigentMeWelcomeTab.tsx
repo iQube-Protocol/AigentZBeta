@@ -22,9 +22,25 @@
 
 "use client";
 
+/**
+ * Reference implementation for the PersonaSpine client protocol.
+ * Every other surface (tab, sub-tab, drawer, chip, capsule, ExperienceQube,
+ * iQube card, modal) follows this exact pattern:
+ *
+ *   1. const spine = usePersonaSpine({ personaIdHint });
+ *   2. <PersonaSpineGate state={spine}> ...your render... </PersonaSpineGate>
+ *   3. For data fetches: personaFetch('/api/...', { personaIdHint });
+ *
+ * See docs/architecture/persona-spine-client-protocol.md
+ */
+
 import React, { useEffect, useState } from "react";
-import { Sparkles, AlertTriangle, Loader2 } from "lucide-react";
-import { authedFetchHeaders } from "@/utils/supabaseBrowser";
+import { Sparkles, Loader2 } from "lucide-react";
+import {
+  usePersonaSpine,
+  personaFetch,
+  PersonaSpineGate,
+} from "@/utils/personaSpine";
 
 interface Specialist {
   id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c';
@@ -80,51 +96,53 @@ const CONTEXT_CHIPS = [
 ];
 
 export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
+  const spine = usePersonaSpine({ personaIdHint: personaId });
   const [data, setData] = useState<BootstrapSurface | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
+  const [bootstrapLoading, setBootstrapLoading] = useState(false);
 
+  // Only fetch the bootstrap surface once the spine is ready. The spine's
+  // own auth gate (PersonaSpineGate below) handles the loading /
+  // unauthenticated / error states for persona resolution itself.
   useEffect(() => {
+    if (spine.status !== 'ready' && spine.status !== 'refreshing') return;
     let cancelled = false;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10_000);
 
-    (async () => {
-      try {
-        const headers = await authedFetchHeaders({ Accept: 'application/json' });
-        // Pass the resolved personaId from the codex auth bridge as a hint —
-        // the server still resolves the active persona via the spine, but
-        // this lets it pick the right one when the caller owns several.
-        const url = personaId
-          ? `/api/assistant/bootstrap?personaId=${encodeURIComponent(personaId)}`
-          : '/api/assistant/bootstrap';
-        const res = await fetch(url, {
-          headers,
-          credentials: 'include',
-          signal: controller.signal,
-        });
+    setBootstrapLoading(true);
+    setBootstrapError(null);
+
+    personaFetch('/api/assistant/bootstrap', {
+      personaIdHint: personaId,
+      signal: controller.signal,
+    })
+      .then(async (res) => {
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
           throw new Error(body?.error || `bootstrap failed (${res.status})`);
         }
-        const surface = (await res.json()) as BootstrapSurface;
+        return res.json() as Promise<BootstrapSurface>;
+      })
+      .then((surface) => {
         if (!cancelled) setData(surface);
-      } catch (err) {
+      })
+      .catch((err) => {
         if (cancelled) return;
         const msg = err instanceof Error ? err.message : String(err);
-        setError(msg);
-      } finally {
+        setBootstrapError(msg);
+      })
+      .finally(() => {
         clearTimeout(timeoutId);
-        if (!cancelled) setLoading(false);
-      }
-    })();
+        if (!cancelled) setBootstrapLoading(false);
+      });
 
     return () => {
       cancelled = true;
       controller.abort();
       clearTimeout(timeoutId);
     };
-  }, [personaId]);
+  }, [spine.status, personaId]);
 
   const isDark = theme === 'dark';
   const surfaceClass = isDark
@@ -136,7 +154,50 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     ? 'bg-slate-800/60 border-slate-700 text-slate-200'
     : 'bg-slate-100 border-slate-200 text-slate-700';
 
-  if (loading) {
+  // ── Persona-spine gate handles idle / loading / unauth / error states.
+  return (
+    <PersonaSpineGate state={spine}>
+      <AigentMeWelcomeBody
+        data={data}
+        bootstrapLoading={bootstrapLoading}
+        bootstrapError={bootstrapError}
+        spineDisplayLabel={spine.displayLabel}
+        theme={theme}
+        surfaceClass={surfaceClass}
+        mutedClass={mutedClass}
+        accentClass={accentClass}
+        chipClass={chipClass}
+        isDark={isDark}
+      />
+    </PersonaSpineGate>
+  );
+}
+
+interface BodyProps {
+  data: BootstrapSurface | null;
+  bootstrapLoading: boolean;
+  bootstrapError: string | null;
+  spineDisplayLabel: string | null;
+  theme: 'light' | 'dark';
+  surfaceClass: string;
+  mutedClass: string;
+  accentClass: string;
+  chipClass: string;
+  isDark: boolean;
+}
+
+function AigentMeWelcomeBody({
+  data,
+  bootstrapLoading,
+  bootstrapError,
+  spineDisplayLabel,
+  surfaceClass,
+  mutedClass,
+  accentClass,
+  chipClass,
+  isDark,
+}: BodyProps) {
+  if (bootstrapLoading && !data) {
     return (
       <div className="p-10 flex items-center justify-center gap-3">
         <Loader2 className="w-5 h-5 animate-spin text-violet-400" />
@@ -145,28 +206,22 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     );
   }
 
-  if (error || !data) {
+  if (bootstrapError && !data) {
     return (
       <div className="p-10 max-w-2xl mx-auto">
         <div className={`rounded-lg border p-6 ${surfaceClass}`}>
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-400 mt-0.5" />
-            <div>
-              <h3 className="font-semibold mb-1">Aigent Me is not available right now</h3>
-              <p className={`text-sm ${mutedClass}`}>
-                {error || 'Bootstrap returned no data.'}
-              </p>
-              <p className={`text-sm mt-3 ${mutedClass}`}>
-                Sign in with an active persona to begin. If you are signed in, refresh this tab.
-              </p>
-            </div>
-          </div>
+          <h3 className="font-semibold mb-1">Aigent Me bootstrap failed</h3>
+          <p className={`text-sm ${mutedClass}`}>{bootstrapError}</p>
         </div>
       </div>
     );
   }
 
-  const greetingName = data.displayLabel?.trim();
+  if (!data) return null;
+
+  // Prefer the spine's displayLabel (single source of truth across surfaces);
+  // fall back to the bootstrap copy if for some reason it differs.
+  const greetingName = (spineDisplayLabel || data.displayLabel || '').trim();
   const experienceLine = data.experienceModel.configured
     ? `ExperienceModel: ${data.experienceModel.name || 'configured'}${
         data.experienceModel.currentStage ? ` · stage: ${data.experienceModel.currentStage}` : ''
