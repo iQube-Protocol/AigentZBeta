@@ -24,6 +24,7 @@ import type { SmartWalletNode, WalletTask, QuestProgress, RecentReward, PersonaS
 import type { SmartContentQube } from "@/types/smartContent";
 import { BuyKnytModal } from "../wallet/BuyKnytModal";
 import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal";
+import { tryOpenInMountedCartridge } from "@/services/cartridge/CartridgePresenceRegistry";
 import { PaymentRequestsPanel } from "../wallet/PaymentRequestsPanel";
 import { PersonaEditModal } from "../wallet/PersonaEditModal";
 import { PersonaQuickAddModal } from "../wallet/PersonaQuickAddModal";
@@ -1502,23 +1503,28 @@ export default function SmartWalletDrawer({
   }, []);
 
   // Navigate to a KNYT cartridge tab from the wallet drawer.
-  // The wallet is global — it can be open from any cartridge or even a
-  // non-codex page. If the user is already in the KNYT codex, dispatch
-  // the navigate-tab event for fast intra-app routing. Otherwise build
-  // a cross-cartridge URL via buildCodexUrl so the browser lands on
-  // the right tab in a fresh codex shell. taskSlug rides as a query
-  // param so the receiving tab can pre-select the task surface.
+  //
+  // Routing strategy (canonical — see CartridgePresenceRegistry spec doc):
+  //   1. If KNYT is already mounted somewhere on screen, switch its tab
+  //      in place via the registry (no reload, no event guessing).
+  //   2. Otherwise, fall through to a full cross-cartridge URL navigation
+  //      via buildCodexUrl. taskSlug rides as a query param so the
+  //      receiving tab can pre-select the task surface.
+  //
+  // taskSlug also gets parked on window.__knytPendingTaskSlug before the
+  // in-place switch — sub-tab routers (e.g. KnytLivingCanonTemplate) read
+  // it on mount to land on the right inner branch.
   const navigateToKnytTab = useCallback((tab: string, taskSlug?: string) => {
     if (typeof window === 'undefined') return;
-    const inKnytCodex = /\/(triad\/embed\/codex\/)?knyt(-codex)?(\b|\/|$)/i.test(window.location.pathname);
-    if (inKnytCodex) {
-      window.dispatchEvent(new CustomEvent('knyt:navigate-tab', {
-        detail: { tab, taskSlug, fallbackTab: tab },
-      }));
+    if (taskSlug) {
+      (window as unknown as { __knytPendingTaskSlug?: string }).__knytPendingTaskSlug = taskSlug;
+    }
+    const opened = tryOpenInMountedCartridge({ cartridgeId: 'knyt-codex', tab });
+    if (opened) {
       onClose?.();
       return;
     }
-    // Cross-cartridge: navigate to the KNYT codex with the right tab.
+    // KNYT not currently mounted — full cross-cartridge navigation.
     let url = buildCodexUrl('knyt-codex', { tab, personaId: effectivePersonaId, from: 'wallet' });
     if (taskSlug) {
       url += (url.includes('?') ? '&' : '?') + `taskSlug=${encodeURIComponent(taskSlug)}`;
