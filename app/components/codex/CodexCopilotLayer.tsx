@@ -266,6 +266,14 @@ export function CodexCopilotLayer({
   // literals don't trip swc's parser. `bubble` is space-separated; the only
   // ring-prefixed token in every palette is the ring color class.
   const ACCENT_RING = ACCENT.bubble.split(' ').find((c) => c.startsWith('ring-')) ?? '';
+  // Pre-compute every accent-derived class combination used inside JSX
+  // attributes. swc's parser fails on template literals nested inside
+  // another template literal's `${…}` interpolation; consts let JSX use
+  // flat `${…}` substitution instead.
+  const ACCENT_BUBBLE_MINE       = `${ACCENT.bubble} rounded-br-sm text-sm`;
+  const ACCENT_PANEL_ACTIVE      = `${ACCENT.softBg} ${ACCENT_RING} ${ACCENT.highlightText}`;
+  const ACCENT_HIGHLIGHT_SOFT    = `${ACCENT.highlightBg} ${ACCENT.highlightText}`;
+  const ACCENT_HIGHLIGHT_STRONG  = `${ACCENT.softBg} ${ACCENT.highlightTextStrong}`;
   const isMobile = useIsMobile();
   const { requestAvatar, releaseAvatar } = useMetaAvatar();
 
@@ -1071,7 +1079,7 @@ export function CodexCopilotLayer({
                               <div
                                 className={`max-w-[90%] px-3 py-2 rounded-xl ring-1 ${
                                   msg.role === "user"
-                                    ? `${ACCENT.bubble} rounded-br-sm text-sm`
+                                    ? ACCENT_BUBBLE_MINE
                                     : "bg-white/5 text-white/90 rounded-bl-sm ring-white/10"
                                 }`}
                               >
@@ -1144,7 +1152,7 @@ export function CodexCopilotLayer({
                                     }}
                                     className={`h-10 w-full rounded-lg ring-1 transition-colors ${
                                       walletPanelOpen && walletPanelTab === tab && !walletPanelCollapsed
-                                        ? `${ACCENT.softBg} ${ACCENT_RING} ${ACCENT.highlightText}`
+                                        ? ACCENT_PANEL_ACTIVE
                                         : "bg-white/5 ring-white/10 text-white/70 hover:text-white hover:bg-white/10"
                                     }`}
                                   >
@@ -1344,7 +1352,7 @@ export function CodexCopilotLayer({
                                           }}
                                           className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
                                             opt.id === contextId
-                                              ? `${ACCENT.highlightBg} ${ACCENT.highlightText}`
+                                              ? ACCENT_HIGHLIGHT_SOFT
                                               : "text-white/70 hover:bg-white/5"
                                           }`}
                                         >
@@ -1372,7 +1380,7 @@ export function CodexCopilotLayer({
                                 onClick={() => setCopilotMode("chat")}
                                 className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
                                   (copilotMode as CopilotMode) === "chat"
-                                    ? `${ACCENT.softBg} ${ACCENT.highlightTextStrong}`
+                                    ? ACCENT_HIGHLIGHT_STRONG
                                     : "text-white/50 hover:text-white/80"
                                 }`}
                               >
@@ -1412,7 +1420,7 @@ export function CodexCopilotLayer({
                                         }}
                                         className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
                                           opt.id === contextId
-                                            ? `${ACCENT.highlightBg} ${ACCENT.highlightText}`
+                                            ? ACCENT_HIGHLIGHT_SOFT
                                             : "text-white/70 hover:bg-white/5"
                                         }`}
                                       >
@@ -1498,7 +1506,7 @@ export function CodexCopilotLayer({
                                         }}
                                         className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
                                           opt.id === contextId
-                                            ? `${ACCENT.highlightBg} ${ACCENT.highlightText}`
+                                            ? ACCENT_HIGHLIGHT_SOFT
                                             : "text-white/70 hover:bg-white/5"
                                         }`}
                                       >
@@ -1526,7 +1534,7 @@ export function CodexCopilotLayer({
                               onClick={() => setCopilotMode("chat")}
                               className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
                                 (copilotMode as CopilotMode) === "chat"
-                                  ? `${ACCENT.softBg} ${ACCENT.highlightTextStrong}`
+                                  ? ACCENT_HIGHLIGHT_STRONG
                                   : "text-white/50 hover:text-white/80"
                               }`}
                             >
@@ -1566,7 +1574,7 @@ export function CodexCopilotLayer({
                                       }}
                                       className={`w-full rounded-lg px-3 py-2 text-left text-xs transition ${
                                         opt.id === contextId
-                                          ? `${ACCENT.highlightBg} ${ACCENT.highlightText}`
+                                          ? ACCENT_HIGHLIGHT_SOFT
                                           : "text-white/70 hover:bg-white/5"
                                       }`}
                                     >
