@@ -17,6 +17,15 @@ interface VideoPlayerProps {
   currentSegmentIndex?: number;
   onSegmentChange?: (index: number) => void;
   streamMode?: 'blob' | 'direct';
+  /**
+   * Phase 3.x — fires once when the user reaches the end of the
+   * content. For multi-segment videos, only fires when the LAST
+   * segment ends. The caller decides what to do (typically POSTs to
+   * /api/engagement/episode-progress { episodeId, eventType: 'completed' }).
+   * The viewer never knows the episode-id format — that's the caller's
+   * concern. See KnytTab for the canonical wiring.
+   */
+  onComplete?: () => void;
 }
 
 // Global cache for preloaded video blobs - persists across component renders
@@ -30,8 +39,10 @@ export function VideoPlayer({
   currentSegmentIndex = 0,
   onSegmentChange,
   streamMode = 'blob',
+  onComplete,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const completionFiredRef = useRef<boolean>(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -134,7 +145,13 @@ export function VideoPlayer({
     if (!video) return;
     const onTime = () => video.duration && setProgress((video.currentTime / video.duration) * 100);
     const onEnded = () => {
-      if (canGoNext) goToSegment(currentSegmentIndex + 1);
+      if (canGoNext) {
+        goToSegment(currentSegmentIndex + 1);
+      } else if (onComplete && !completionFiredRef.current) {
+        // Last segment ended (or single-segment video) — fire once.
+        completionFiredRef.current = true;
+        onComplete();
+      }
     };
     video.addEventListener('timeupdate', onTime);
     video.addEventListener('ended', onEnded);
@@ -142,7 +159,12 @@ export function VideoPlayer({
       video.removeEventListener('timeupdate', onTime);
       video.removeEventListener('ended', onEnded);
     };
-  }, [currentSegmentIndex, canGoNext]);
+  }, [currentSegmentIndex, canGoNext, onComplete]);
+
+  // Reset completion-fired guard when the source video changes.
+  useEffect(() => {
+    completionFiredRef.current = false;
+  }, [videoUrl]);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {

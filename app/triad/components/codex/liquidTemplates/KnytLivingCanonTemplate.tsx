@@ -194,23 +194,34 @@ export function KnytLivingCanonTemplate({
 
   // Sub-tab deep-link from the wallet drawer's Living Canon task chips.
   // KnytTab parks the taskSlug on window.__knytPendingTaskSlug before
-  // switching to this tab; consume it here to land on the right branch.
-  //   knyt:living-canon-vote       → canon       (elections / dispatch)
-  //   knyt:living-canon-contribute → community   (PoKW submissions)
+  // switching to this tab; we read + clear it on mount and map it to
+  // the right branch (and, for the contribute slug, pre-open the
+  // submission shell so the user lands directly on the action surface).
+  //
+  //   knyt:living-canon-vote       → canon          (elections / dispatch)
+  //   knyt:living-canon-contribute → community + submission shell open
   //   knyt:living-canon-dispatch   → correspondent
-  // Clears the parked slug after applying so a tab re-mount doesn't
-  // re-route unexpectedly.
+  //
+  // Telemetry only fires in dev; full engagement_events routing lands
+  // when KnytTasks rep/rewards integrates the click flow.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const pending = (window as unknown as { __knytPendingTaskSlug?: string }).__knytPendingTaskSlug;
-    if (!pending) return;
+    const w = window as unknown as { __knytPendingTaskSlug?: string };
+    const parked = w.__knytPendingTaskSlug;
+    if (!parked) return;
+    try { delete w.__knytPendingTaskSlug; } catch { /* non-fatal */ }
     const branch: CanonBranch | null =
-      pending === 'knyt:living-canon-vote'       ? 'canon'         :
-      pending === 'knyt:living-canon-contribute' ? 'community'     :
-      pending === 'knyt:living-canon-dispatch'   ? 'correspondent' :
+      parked === 'knyt:living-canon-vote'       ? 'canon'         :
+      parked === 'knyt:living-canon-contribute' ? 'community'     :
+      parked === 'knyt:living-canon-dispatch'   ? 'correspondent' :
       null;
     if (branch) setActiveBranch(branch);
-    (window as unknown as { __knytPendingTaskSlug?: string }).__knytPendingTaskSlug = undefined;
+    if (parked === 'knyt:living-canon-contribute') {
+      setSubmissionSlug(BRANCH_CONFIG.community.schemaSlug);
+    }
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[living-canon] consumed parked taskSlug', parked);
+    }
   }, []);
 
   const handleBranchChange = (branch: CanonBranch) => {

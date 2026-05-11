@@ -747,6 +747,30 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const [currentVideoSegmentIndex, setCurrentVideoSegmentIndex] = useState(0);
   const [currentVideoUseDirectStream, setCurrentVideoUseDirectStream] = useState(false);
   const episodeSegmentsCacheRef = useRef<Map<string, VideoSegment[]>>(new Map());
+  // Phase 3.x viewer-side episode-complete fire — KnytTab passes this to
+  // PDFPageViewer and VideoPlayer as `onComplete`. The viewers don't
+  // know the episodeId format; they just signal "user finished viewing".
+  // We POST to /api/engagement/episode-progress with the anchor cid as
+  // the canonical episode_id (consistent with how engagement_events
+  // already records progress events). engagementService dedupes via
+  // (personaId, episodeId) so re-firing on a re-open is safe.
+  const fireEpisodeComplete = useCallback((episodeId: string | null) => {
+    if (!episodeId) return;
+    void fetch('/api/engagement/episode-progress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        episodeId,
+        eventType: 'completed',
+        progressPercent: 100,
+        metadata: { source: 'knyt-tab-viewer' },
+      }),
+    }).catch(() => {
+      // non-fatal — engagement is best-effort; the gate decisions
+      // and content delivery are unaffected by failure here
+    });
+  }, []);
   const [textReaderOpen, setTextReaderOpen] = useState(false);
   const [currentText, setCurrentText] = useState<{ title: string; content: string } | null>(null);
   // Wallet drawer state
@@ -3226,6 +3250,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                 setCurrentPdfCid(null);
                 setCurrentPdfTitle('');
               }}
+              onComplete={() => fireEpisodeComplete(currentPdfCid)}
             />
           )}
 
@@ -3263,6 +3288,14 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                   setCurrentVideoSegments([]);
                   setCurrentVideoSegmentIndex(0);
                   setCurrentVideoUseDirectStream(false);
+                }}
+                onComplete={() => {
+                  // The episode anchor is the FIRST segment's cid (or the
+                  // current cid for single-segment content). This stays
+                  // stable across segment switches so engagement_events
+                  // dedupe correctly per episode.
+                  const anchorCid = currentVideoSegments[0]?.auto_drive_cid || currentVideoCid;
+                  fireEpisodeComplete(anchorCid);
                 }}
               />
             </VideoErrorBoundary>

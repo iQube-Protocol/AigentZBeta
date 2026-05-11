@@ -1,50 +1,55 @@
 /**
- * useCartridgePresence — the one-line a cartridge top-level component
- * calls to publish itself into the CartridgePresenceRegistry.
+ * useCartridgePresence — one-line hook every cartridge top-level
+ * component calls to publish itself into the CartridgePresenceRegistry
+ * and the metaMe cross-frame protocol.
  *
- * Usage (every cartridge top-level component):
+ * Honours the parent contract:
+ *   docs/architecture/metame-client-protocols.md
+ *
+ * On mount:
+ *   - registerCartridge() into the in-app registry (publishes to
+ *     window.__metame.cartridges automatically)
+ *   - postMessage(METAME_EVENTS.CARTRIDGE_OPENED) to same-frame +
+ *     window.parent (the host shell)
+ *
+ * On tab / subTab change:
+ *   - updateCartridgeState() in the registry
+ *   - postMessage(METAME_EVENTS.CARTRIDGE_TAB_CHANGED) to same-frame +
+ *     parent so the shell can mirror breadcrumbs
+ *
+ * On unmount:
+ *   - deregisterCartridge()
+ *   - postMessage(METAME_EVENTS.CARTRIDGE_CLOSED) to same-frame + parent
+ *
+ * Inbound messages:
+ *   - Listens for METAME_EVENTS.CARTRIDGE_CLOSED — when the shell sends
+ *     this for our cartridgeId, we invoke onClose so the layer tears
+ *     down. Origin enforced via isMetameOriginAllowed.
+ *
+ * Privacy: only surface identity (cartridgeId, displayLabel, tab,
+ * subTab) appears in events / mirror. No T0 or T1 persona content.
+ *
+ * Usage example (KnytTab):
  *
  *   useCartridgePresence({
  *     cartridgeId: 'knyt-codex',
  *     displayLabel: 'KNYT Cartridge',
  *     tab: activeTab,
- *     subTab: activeSubTab,           // optional
  *     onSetTab: setActiveTab,
- *     onSetSubTab: setActiveSubTab,   // optional
- *     onClose,                        // only when mounted as a layer
- *     mode: 'inline' | 'layer',       // defaults to 'inline'
  *   });
- *
- * What it does:
- *   - On mount → registerCartridge() into the in-app registry AND
- *     postMessage('metame:cartridge-opened') to the shell (if mode === 'layer'
- *     OR if running inside an iframe whose parent is the thin client).
- *   - When tab / subTab change → updateCartridgeState() + postMessage(
- *     'metame:cartridge-state-changed').
- *   - On unmount → deregisterCartridge() + postMessage('metame:cartridge-closed').
- *   - Listens for inbound shell messages:
- *       'metame:cartridge-set-tab' → invoke onSetTab/onSetSubTab.
- *       'metame:cartridge-close'   → invoke onClose.
- *
- * The hook is intentionally side-effect-only — it returns nothing. Callers
- * stay declarative: render their own UI, manage their own state, and the
- * hook syncs that state to the rest of the world.
- *
- * Stateless cartridges (no tab state) still call this hook with `tab`
- * omitted so that wallet / cross-cartridge callers can at least see
- * "this cartridge is mounted" and route around it correctly.
  */
 
 import { useEffect, useRef } from 'react';
 import {
-  type CartridgeId,
   registerCartridge,
   deregisterCartridge,
   updateCartridgeState,
 } from '@/services/cartridge/CartridgePresenceRegistry';
+import { METAME_EVENTS } from '@/types/metameWindow';
+import { isMetameOriginAllowed } from '@/utils/metameOriginAllowlist';
 
 export interface UseCartridgePresenceArgs {
-  cartridgeId: CartridgeId;
+  cartridgeId: string;
   displayLabel: string;
   tab?: string;
   subTab?: string;
@@ -55,20 +60,21 @@ export interface UseCartridgePresenceArgs {
 }
 
 interface InboundShellMessage {
-  type: 'metame:cartridge-close' | 'metame:cartridge-set-tab';
-  cartridgeId?: CartridgeId;
-  tab?: string;
-  subTab?: string;
+  type?: string;
+  cartridgeId?: string;
 }
 
-function postToShell(payload: Record<string, unknown>): void {
+function broadcast(payload: Record<string, unknown>): void {
   if (typeof window === 'undefined') return;
-  // Always target window.parent — if there's no parent frame (top-level
-  // app), the postMessage no-ops. The thin-client shell embeds the app
-  // in an iframe and listens on its window.
+  // Same-frame mirror so in-frame subscribers receive every event.
   try {
-    window.parent.postMessage(payload, '*');
-  } catch { /* cross-origin denied; silently ignore */ }
+    window.postMessage(payload, window.location.origin);
+  } catch { /* origin-locked or restricted */ }
+  // Cross-frame mirror to parent (host shell). Parent decides via its
+  // own allowlist whether to act on it.
+  if (window.parent !== window) {
+    try { window.parent.postMessage(payload, '*'); } catch { /* CSP / cross-origin denied */ }
+  }
 }
 
 export function useCartridgePresence(args: UseCartridgePresenceArgs): void {
@@ -83,8 +89,8 @@ export function useCartridgePresence(args: UseCartridgePresenceArgs): void {
     mode = 'inline',
   } = args;
 
-  // Keep latest setters in a ref so the inbound-message listener never
-  // closes over a stale onSetTab from the first render.
+  // Keep latest setters in a ref so the inbound listener never closes
+  // over a stale onClose from the first render.
   const handlersRef = useRef({ onSetTab, onSetSubTab, onClose });
   handlersRef.current = { onSetTab, onSetSubTab, onClose };
 
@@ -101,20 +107,21 @@ export function useCartridgePresence(args: UseCartridgePresenceArgs): void {
       close: onClose,
       mode,
     });
-    postToShell({
-      type: 'metame:cartridge-opened',
+    broadcast({
+      type: METAME_EVENTS.CARTRIDGE_OPENED,
+      schemaVersion: 1,
       cartridgeId,
       displayLabel,
-      tab,
-      subTab,
-      mode,
     });
     return () => {
       deregisterCartridge(cartridgeId);
-      postToShell({ type: 'metame:cartridge-closed', cartridgeId });
+      broadcast({
+        type: METAME_EVENTS.CARTRIDGE_CLOSED,
+        schemaVersion: 1,
+        cartridgeId,
+      });
     };
-    // We intentionally depend only on cartridgeId/displayLabel/mode for
-    // the mount/unmount cycle. Tab changes are synced separately below.
+    // mount / unmount only — tab changes are synced in a separate effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cartridgeId, displayLabel, mode]);
 
@@ -122,28 +129,31 @@ export function useCartridgePresence(args: UseCartridgePresenceArgs): void {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     updateCartridgeState(cartridgeId, { tab, subTab });
-    postToShell({
-      type: 'metame:cartridge-state-changed',
+    broadcast({
+      type: METAME_EVENTS.CARTRIDGE_TAB_CHANGED,
+      schemaVersion: 1,
       cartridgeId,
       tab,
       subTab,
     });
   }, [cartridgeId, tab, subTab]);
 
-  // Inbound shell messages — let the shell drive tab/close.
+  // Inbound: shell asks the layer to close. Origin enforced; bare
+  // cartridgeId filter so a global close intent (cartridgeId omitted)
+  // doesn't fire every cartridge's onClose.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     function onMessage(ev: MessageEvent<InboundShellMessage>): void {
+      if (!isMetameOriginAllowed(ev.origin)) return;
       const data = ev.data;
       if (!data || typeof data !== 'object' || !data.type) return;
       if (data.cartridgeId && data.cartridgeId !== cartridgeId) return;
+      if (data.type !== METAME_EVENTS.CARTRIDGE_CLOSED) return;
+      // Self-echo guard: our own outbound CLOSED broadcasts come from
+      // the unmount path. If we receive CLOSED while still mounted, it's
+      // a shell-driven request → invoke onClose.
       const h = handlersRef.current;
-      if (data.type === 'metame:cartridge-set-tab') {
-        if (data.tab !== undefined && h.onSetTab) h.onSetTab(data.tab);
-        if (data.subTab !== undefined && h.onSetSubTab) h.onSetSubTab(data.subTab);
-      } else if (data.type === 'metame:cartridge-close') {
-        if (h.onClose) h.onClose();
-      }
+      if (h.onClose) h.onClose();
     }
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
