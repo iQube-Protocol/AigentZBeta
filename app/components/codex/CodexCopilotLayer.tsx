@@ -1307,7 +1307,7 @@ export function CodexCopilotLayer({
                               placeholder={promptPlaceholder}
                               rows={1}
                               style={{ resize: "none", overflowY: "hidden", minHeight: "36px", maxHeight: promptMaxHeight ?? "160px" }}
-                              className=`flex-1 px-3 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none ${ACCENT.inputFocusBorder} text-sm`
+                              className={`flex-1 px-3 py-1.5 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none ${ACCENT.inputFocusBorder} text-sm`}
                               disabled={isLoading}
                             />
                             <button
