@@ -34,13 +34,19 @@
  * See docs/architecture/persona-spine-client-protocol.md
  */
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Sparkles, Loader2 } from "lucide-react";
 import {
   usePersonaSpine,
   personaFetch,
   PersonaSpineGate,
 } from "@/utils/personaSpine";
+import {
+  ExperienceModelCard,
+  type ExperienceModelCardData,
+} from "@/components/metame/cards/ExperienceModelCard";
+import { IqubeContextDisclosure } from "@/components/metame/cards/IqubeContextDisclosure";
+import { ExperienceModelSetupWizard } from "@/components/metame/setup/ExperienceModelSetupWizard";
 
 interface Specialist {
   id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c';
@@ -101,6 +107,11 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [bootstrapLoading, setBootstrapLoading] = useState(false);
 
+  // Phase 2.b — ExperienceQube state, fetched once spine is ready.
+  const [expModel, setExpModel] = useState<ExperienceModelCardData | null>(null);
+  const [expModelLoading, setExpModelLoading] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+
   // Only fetch the bootstrap surface once the spine is ready. The spine's
   // own auth gate (PersonaSpineGate below) handles the loading /
   // unauthenticated / error states for persona resolution itself.
@@ -144,6 +155,33 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     };
   }, [spine.status, personaId]);
 
+  // Fetch ExperienceQube state in parallel with bootstrap.
+  useEffect(() => {
+    if (spine.status !== 'ready' && spine.status !== 'refreshing') return;
+    let cancelled = false;
+    setExpModelLoading(true);
+    personaFetch('/api/assistant/experience-model', { personaIdHint: personaId })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`experience-model fetch failed (${res.status})`);
+        return res.json() as Promise<ExperienceModelCardData>;
+      })
+      .then((d) => { if (!cancelled) setExpModel(d); })
+      .catch(() => { if (!cancelled) setExpModel({ configured: false, meta: null, blakSummary: null, updatedAt: null }); })
+      .finally(() => { if (!cancelled) setExpModelLoading(false); });
+    return () => { cancelled = true; };
+  }, [spine.status, personaId]);
+
+  const handleCtaClick = useCallback((ctaId: string) => {
+    if (ctaId === 'set-up-experience-model') {
+      setWizardOpen(true);
+    }
+    // Other CTAs are still preview in this phase — no-op.
+  }, []);
+
+  const handleWizardSaved = useCallback((saved: ExperienceModelCardData) => {
+    setExpModel(saved);
+  }, []);
+
   const isDark = theme === 'dark';
   const surfaceClass = isDark
     ? 'bg-slate-900/40 border-slate-700/60 text-slate-100'
@@ -156,20 +194,39 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
 
   // ── Persona-spine gate handles idle / loading / unauth / error states.
   return (
-    <PersonaSpineGate state={spine}>
-      <AigentMeWelcomeBody
-        data={data}
-        bootstrapLoading={bootstrapLoading}
-        bootstrapError={bootstrapError}
-        spineDisplayLabel={spine.displayLabel}
-        theme={theme}
-        surfaceClass={surfaceClass}
-        mutedClass={mutedClass}
-        accentClass={accentClass}
-        chipClass={chipClass}
-        isDark={isDark}
+    <>
+      <PersonaSpineGate state={spine}>
+        <AigentMeWelcomeBody
+          data={data}
+          bootstrapLoading={bootstrapLoading}
+          bootstrapError={bootstrapError}
+          spineDisplayLabel={spine.displayLabel}
+          expModel={expModel}
+          expModelLoading={expModelLoading}
+          onCtaClick={handleCtaClick}
+          theme={theme}
+          surfaceClass={surfaceClass}
+          mutedClass={mutedClass}
+          accentClass={accentClass}
+          chipClass={chipClass}
+          isDark={isDark}
+        />
+      </PersonaSpineGate>
+      <ExperienceModelSetupWizard
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        initial={expModel?.meta ? {
+          experienceName: expModel.meta.experienceName ?? undefined,
+          experienceType: expModel.meta.experienceType as never,
+          primaryGoal: expModel.meta.primaryGoal ?? undefined,
+          activeCartridges: expModel.meta.activeCartridges as never,
+          currentStage: expModel.meta.currentStage as never,
+          confidentialityDefault: expModel.meta.confidentialityDefault as never,
+          progressModel: expModel.meta.progressModel,
+        } : undefined}
+        onSaved={handleWizardSaved}
       />
-    </PersonaSpineGate>
+    </>
   );
 }
 
@@ -178,6 +235,9 @@ interface BodyProps {
   bootstrapLoading: boolean;
   bootstrapError: string | null;
   spineDisplayLabel: string | null;
+  expModel: ExperienceModelCardData | null;
+  expModelLoading: boolean;
+  onCtaClick: (ctaId: string) => void;
   theme: 'light' | 'dark';
   surfaceClass: string;
   mutedClass: string;
@@ -191,6 +251,10 @@ function AigentMeWelcomeBody({
   bootstrapLoading,
   bootstrapError,
   spineDisplayLabel,
+  expModel,
+  expModelLoading,
+  onCtaClick,
+  theme,
   surfaceClass,
   mutedClass,
   accentClass,
@@ -222,11 +286,8 @@ function AigentMeWelcomeBody({
   // Prefer the spine's displayLabel (single source of truth across surfaces);
   // fall back to the bootstrap copy if for some reason it differs.
   const greetingName = (spineDisplayLabel || data.displayLabel || '').trim();
-  const experienceLine = data.experienceModel.configured
-    ? `ExperienceModel: ${data.experienceModel.name || 'configured'}${
-        data.experienceModel.currentStage ? ` · stage: ${data.experienceModel.currentStage}` : ''
-      }`
-    : 'ExperienceModel: not yet set up';
+  const usingIqubes: ('PersonaQube' | 'ExperienceQube' | 'IntentQube')[] =
+    expModel?.configured ? ['PersonaQube', 'ExperienceQube'] : ['PersonaQube'];
 
   return (
     <div className="p-6 lg:p-10 max-w-5xl mx-auto space-y-8">
@@ -248,18 +309,16 @@ function AigentMeWelcomeBody({
         </p>
       </header>
 
-      {/* ExperienceModel state line */}
-      <div className={`rounded-lg border px-4 py-3 ${surfaceClass}`}>
-        <p className="text-sm">
-          <span className={accentClass}>{experienceLine}</span>
-        </p>
-        {!data.experienceModel.configured && (
-          <p className={`text-xs mt-1 ${mutedClass}`}>
-            Setup flow lands in Phase 2. The button below will activate once
-            the ExperienceModel API is live.
-          </p>
-        )}
-      </div>
+      {/* iQube context disclosure — what's being used right now */}
+      <IqubeContextDisclosure using={usingIqubes} theme={theme} />
+
+      {/* ExperienceModel card */}
+      <ExperienceModelCard
+        data={expModel}
+        loading={expModelLoading}
+        onEdit={() => onCtaClick('set-up-experience-model')}
+        theme={theme}
+      />
 
       {/* Context chips */}
       <section>
@@ -298,6 +357,7 @@ function AigentMeWelcomeBody({
               <button
                 key={cta.id}
                 disabled={!cta.enabled}
+                onClick={() => cta.enabled && onCtaClick(cta.id)}
                 className={`${baseBtn} ${cta.enabled ? enabledBtn : disabledBtn}`}
                 title={isPreview ? 'Coming in a later phase of the alpha' : undefined}
               >
