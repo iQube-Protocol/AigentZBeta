@@ -239,14 +239,34 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
       const ownFioHandle = surface?.ownFioHandle;
       const fallback = displayLabel ?? ownFioHandle ?? 'Be';
 
-      // Compose envelope. Top-level fields for the simplest receivers,
-      // surface-nested for receivers that prefer the typed object.
-      const msg = {
-        type: 'aa-persona-change-v1' as const,
+      // Two envelopes broadcast in parallel:
+      //   1. Canonical metame:persona-changed — per the metaMe client
+      //      protocol parent contract (docs/architecture/metame-client-protocols.md).
+      //      Carries the inline T1 surface so shell consumers do NOT need
+      //      a cross-origin /api/wallet/active-persona call (they don't
+      //      have the Bearer token anyway). Pattern A from the Lovable
+      //      thin-client integration brief.
+      //   2. Legacy aa-persona-change-v1 — kept for one release for
+      //      receivers that haven't migrated. Same payload shape.
+      //
+      // Privacy: only T1 fields ride inline. personaId is a hint (legacy
+      // backward-compat field) — receivers should treat the surface as
+      // authoritative for display state, and re-fetch from the server
+      // for anything T0-adjacent.
+      const inlinePayload = {
         personaId,
         ...(displayLabel ? { displayLabel } : {}),
         ...(ownFioHandle ? { ownFioHandle } : {}),
         ...(surface ? { surface } : {}),
+      };
+      const canonicalMsg = {
+        type: 'metame:persona-changed' as const,
+        schemaVersion: 1 as const,
+        ...inlinePayload,
+      };
+      const legacyMsg = {
+        type: 'aa-persona-change-v1' as const,
+        ...inlinePayload,
       };
 
       // Greppable handle-source log line for operator debug.
@@ -258,20 +278,28 @@ export function PersonaProvider({ children }: { children: React.ReactNode }) {
         `resolvedHandle=${fallback}`,
       );
 
+      function sendBoth(target: Window): void {
+        try { target.postMessage(canonicalMsg, '*'); } catch { /* cross-origin */ }
+        try { target.postMessage(legacyMsg, '*'); } catch { /* cross-origin */ }
+      }
+
       // Down to all child iframes
       try {
         const frames = document.querySelectorAll<HTMLIFrameElement>('iframe');
-        frames.forEach((frame) => {
-          try { frame.contentWindow?.postMessage(msg, '*'); } catch { /* cross-origin */ }
-        });
+        frames.forEach((frame) => { if (frame.contentWindow) sendBoth(frame.contentWindow); });
       } catch { /* SSR */ }
 
       // Up to the parent shell (when iframed inside a thin client)
       try {
-        if (window.parent && window.parent !== window) {
-          window.parent.postMessage(msg, '*');
-        }
+        if (window.parent && window.parent !== window) sendBoth(window.parent);
       } catch { /* SSR / cross-origin */ }
+
+      // Same-frame mirror — in-frame subscribers (PersonaSpine hook,
+      // useActivePersona consumers) read both envelopes.
+      try {
+        window.postMessage(canonicalMsg, window.location.origin);
+        window.postMessage(legacyMsg, window.location.origin);
+      } catch { /* non-fatal */ }
     },
     [],
   );

@@ -416,11 +416,25 @@ export async function refreshPersonaSpine(): Promise<void> {
  *   - parent frame (so the runtime shell / Lovable mirror picks it up),
  *   - deprecated alias (one release; emits a deprecation warning).
  *
+ * Per the Lovable thin-client integration brief (Pattern A): the
+ * canonical envelope carries the inline T1 ActivePersonaSurface so
+ * cross-frame consumers (the shell) can render directly without a
+ * /api/wallet/active-persona call — which they can't make anyway
+ * because they don't have the Bearer token. Privacy: only T1 fields
+ * ride inline. The `personaId` field is a hint, never authoritative.
+ *
  * Origin enforcement on the receiving side filters out untrusted senders.
  */
-export function broadcastPersonaChange(personaId?: string): void {
+export function broadcastPersonaChange(
+  personaId?: string,
+  surface?: ActivePersonaSurface | null,
+): void {
   if (typeof window === 'undefined') return;
-  const msg = { type: PERSONA_CHANGED_EVENT, personaId };
+  const payload = {
+    ...(personaId ? { personaId } : {}),
+    ...(surface ? { surface } : {}),
+  };
+  const msg = { type: PERSONA_CHANGED_EVENT, schemaVersion: 1 as const, ...payload };
   window.postMessage(msg, window.location.origin);
   if (window.parent && window.parent !== window) {
     try {
@@ -431,7 +445,7 @@ export function broadcastPersonaChange(personaId?: string): void {
   }
   // Deprecated alias — one release. Same payload shape; consumers either
   // listen to the new name (preferred) or get a console.warn on receipt.
-  const legacy = { type: DEPRECATED_PERSONA_CHANGE_EVENT, personaId };
+  const legacy = { type: DEPRECATED_PERSONA_CHANGE_EVENT, ...payload };
   try {
     window.postMessage(legacy, window.location.origin);
   } catch {
