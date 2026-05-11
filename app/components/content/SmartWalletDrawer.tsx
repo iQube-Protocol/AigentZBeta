@@ -1521,6 +1521,14 @@ export default function SmartWalletDrawer({
     }
     const opened = tryOpenInMountedCartridge({ cartridgeId: 'knyt-codex', tab });
     if (opened) {
+      // If the destination tab is already mounted (user clicks a different
+      // Living Canon chip while on 21 Sats), its mount-time effect won't
+      // re-fire — dispatch a live event so the tab can re-route in place.
+      if (tab === 'living-canon' && taskSlug) {
+        window.dispatchEvent(new CustomEvent('knyt:living-canon-set-branch', {
+          detail: { taskSlug },
+        }));
+      }
       onClose?.();
       return;
     }

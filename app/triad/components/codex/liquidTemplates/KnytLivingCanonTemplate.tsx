@@ -193,10 +193,12 @@ export function KnytLivingCanonTemplate({
   }, [activeBranch, loadBranch]);
 
   // Sub-tab deep-link from the wallet drawer's Living Canon task chips.
-  // KnytTab parks the taskSlug on window.__knytPendingTaskSlug before
-  // switching to this tab; we read + clear it on mount and map it to
-  // the right branch (and, for the contribute slug, pre-open the
-  // submission shell so the user lands directly on the action surface).
+  // Two channels feed this:
+  //   1. window.__knytPendingTaskSlug — set by KnytTab/wallet BEFORE the
+  //      Living Canon tab is mounted (initial open). Read once on mount.
+  //   2. `knyt:living-canon-set-branch` window event — dispatched by the
+  //      wallet when the user clicks ANOTHER Living Canon chip while the
+  //      tab is already mounted (so [] mount-effect never re-fires).
   //
   //   knyt:living-canon-vote       → canon          (elections / dispatch)
   //   knyt:living-canon-contribute → community + submission shell open
@@ -206,22 +208,37 @@ export function KnytLivingCanonTemplate({
   // when KnytTasks rep/rewards integrates the click flow.
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    function apply(parked: string): void {
+      const branch: CanonBranch | null =
+        parked === 'knyt:living-canon-vote'       ? 'canon'         :
+        parked === 'knyt:living-canon-contribute' ? 'community'     :
+        parked === 'knyt:living-canon-dispatch'   ? 'correspondent' :
+        null;
+      if (branch) setActiveBranch(branch);
+      if (parked === 'knyt:living-canon-contribute') {
+        setSubmissionSlug(BRANCH_CONFIG.community.schemaSlug);
+      } else {
+        setSubmissionSlug(null);
+      }
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[living-canon] applied taskSlug', parked, '→ branch', branch);
+      }
+    }
+    // 1) Mount-time consumer.
     const w = window as unknown as { __knytPendingTaskSlug?: string };
-    const parked = w.__knytPendingTaskSlug;
-    if (!parked) return;
-    try { delete w.__knytPendingTaskSlug; } catch { /* non-fatal */ }
-    const branch: CanonBranch | null =
-      parked === 'knyt:living-canon-vote'       ? 'canon'         :
-      parked === 'knyt:living-canon-contribute' ? 'community'     :
-      parked === 'knyt:living-canon-dispatch'   ? 'correspondent' :
-      null;
-    if (branch) setActiveBranch(branch);
-    if (parked === 'knyt:living-canon-contribute') {
-      setSubmissionSlug(BRANCH_CONFIG.community.schemaSlug);
+    if (w.__knytPendingTaskSlug) {
+      const parked = w.__knytPendingTaskSlug;
+      try { delete w.__knytPendingTaskSlug; } catch { /* non-fatal */ }
+      apply(parked);
     }
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[living-canon] consumed parked taskSlug', parked);
+    // 2) Live re-routing while the tab stays mounted.
+    function onSetBranch(ev: Event): void {
+      const detail = (ev as CustomEvent<{ taskSlug?: string }>).detail;
+      if (!detail?.taskSlug) return;
+      apply(detail.taskSlug);
     }
+    window.addEventListener('knyt:living-canon-set-branch', onSetBranch as EventListener);
+    return () => window.removeEventListener('knyt:living-canon-set-branch', onSetBranch as EventListener);
   }, []);
 
   const handleBranchChange = (branch: CanonBranch) => {
