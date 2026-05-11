@@ -29,7 +29,7 @@
  */
 
 import {
-  getValidAccessToken,
+  resolveAccessToken,
   type GoogleSource,
   GOOGLE_SCOPES,
 } from '@/services/google/oauth';
@@ -96,16 +96,21 @@ async function requireToken(
   personaId: string,
   source: GoogleSource,
 ): Promise<{ ok: true; token: string } | ConnectorExecuteFailure> {
-  const token = await getValidAccessToken(personaId, source);
-  if (!token) {
-    return {
-      ok: false,
-      code: 'not-connected',
-      reason: `Persona has not connected Google ${source}. Surface the consent flow via /api/assistant/connect-google.`,
-      hint: `Open the welcome surface → Connect Google Workspace → ${source}.`,
-    };
-  }
-  return { ok: true, token };
+  const result = await resolveAccessToken(personaId, source);
+  if (result.ok) return result;
+  // Map the rich diagnostic into ConnectorExecuteFailure codes:
+  //   'no-record'         → not-connected   (consent never completed for this persona)
+  //   'no-refresh-token'  → token-expired   (consent didn't grant offline access)
+  //   'refresh-failed'    → token-expired   (Google rejected the refresh — needs reconnect)
+  // Each carries the verbose reason so the UI shows the actual cause
+  // instead of the generic "not connected" message.
+  const code = result.code === 'no-record' ? 'not-connected' : 'token-expired';
+  return {
+    ok: false,
+    code,
+    reason: result.reason,
+    hint: `Open Aigent Me → Connections, click Disconnect, then Connect Google ${source} again.`,
+  };
 }
 
 function base64UrlEncode(input: string): string {
