@@ -69,10 +69,14 @@ function verifyState(state: string):
 }
 
 function returnRedirectUri(reason: string, extra: Record<string, string> = {}): string {
+  // Default: land back inside the Aigent Me tab of the metaMe cartridge so
+  // the user sees the post-consent state (Connect → Connected) in the
+  // GoogleConnectionsPanel without an extra navigation step. Operator can
+  // override via GOOGLE_OAUTH_RETURN_URL (e.g. a Lovable preview URL).
   const base =
     process.env.GOOGLE_OAUTH_RETURN_URL ||
     process.env.NEXT_PUBLIC_RUNTIME_URL ||
-    '/metame';
+    '/codex/viewer?id=metame-codex&tab=aigent-me';
   const url = new URL(base, 'https://placeholder.invalid');
   for (const [k, v] of Object.entries({ google_oauth: reason, ...extra })) {
     url.searchParams.set(k, v);

@@ -90,7 +90,9 @@ export function buildGoogleConnectorCatalog(): ConnectorQube[] {
   const connectors = listGoogleConnectors();
   const now = NOW();
   return connectors.map((c): ConnectorQube => ({
-    assetId: `google.${c.id}`,
+    // c.id is already `google.<area>.<verb>` (e.g. 'google.gmail.draft');
+    // do NOT re-prefix or asset ids end up doubled (`google.google.…`).
+    assetId: c.id,
     tenantId: TENANT_ID,
     assetClass: 'ConnectorQube',
     name: c.label,
