@@ -454,10 +454,28 @@ export default function CodexPanelDynamic({
       }, "*");
     }
     if (handledInline) return;
-    if ((window.parent && window.parent !== window) || (window.top && window.top !== window)) {
+
+    // Self-clear path — when there's no inline onClose handler, the
+    // iframe must tear down its own view; relying on the parent shell
+    // to honour the broadcast above is unreliable (the Lovable shell's
+    // METAME_CODEX_CLOSE_LAYER listener is opt-in).
+    //
+    // Two scenarios reach this point with handledInline=false:
+    //   A. Wallet URL-navigated to /triad/embed/codex/<slug> inside
+    //      the Lovable thin-client iframe — `window.parent !== window`.
+    //      Navigate to /triad/embed/codex-closed so the user sees the
+    //      cartridge clear; the shell may still remove the iframe
+    //      based on the broadcast.
+    //   B. Top-level page (not embedded) — history.back() if possible.
+    if (typeof window === "undefined") return;
+    const isEmbedded = (window.parent && window.parent !== window) || (window.top && window.top !== window);
+    if (isEmbedded) {
+      // Soft-close: navigate iframe to the empty route. The route also
+      // re-broadcasts metame:cartridge-closed for the shell to confirm
+      // the teardown (per CartridgePresenceRegistry contract).
+      window.location.replace(`/triad/embed/codex-closed?cartridgeId=${encodeURIComponent(codexId)}`);
       return;
     }
-
     if (window.history.length > 1) {
       window.history.back();
     }
