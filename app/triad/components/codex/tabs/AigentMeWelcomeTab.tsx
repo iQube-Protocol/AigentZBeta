@@ -69,6 +69,7 @@ import { SecondTierApprovalCard } from "@/components/metame/cards/SecondTierAppr
 import { ActivityReceiptCard, type ActivityReceiptData } from "@/components/metame/cards/ActivityReceiptCard";
 import { QuickLinksCard } from "@/components/metame/cards/QuickLinksCard";
 import { GoogleConnectionsPanel } from "@/components/metame/connections/GoogleConnectionsPanel";
+import { ComposeGmailDraftModal } from "@/components/metame/connections/ComposeGmailDraftModal";
 
 interface Specialist {
   id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c';
@@ -174,6 +175,11 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     submitting: boolean;
     error: string | null;
   } | null>(null);
+
+  // Phase 6.b Part 2.5b — Compose Gmail draft modal. Lets the user
+  // originate a Gmail-destination artifact from the welcome surface
+  // without a specialist round-trip or curl.
+  const [composeGmailOpen, setComposeGmailOpen] = useState(false);
 
   // Phase 7 — activity receipts panel.
   const [receipts, setReceipts] = useState<ActivityReceiptData[]>([]);
@@ -507,6 +513,36 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     }
   }, [personaId]);
 
+  // Phase 6.b Part 2.5b — Compose Gmail draft → POST create-artifact with
+  // destination='gmail'. The route eager-creates a real Gmail draft via
+  // the gmail.draft connector and returns an ArtifactCardData carrying
+  // the gmail.send connector binding for the Send button.
+  const handleComposeGmailDraft = useCallback(async (input: {
+    to: string;
+    subject: string;
+    bodyText: string;
+    cc?: string;
+    bcc?: string;
+  }) => {
+    const res = await personaFetch('/api/assistant/create-artifact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        artifactType: 'gmail-draft',
+        destination: 'gmail',
+        title: input.subject,
+        connectorInput: input,
+      }),
+      personaIdHint: personaId,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as { error?: string; detail?: string; hint?: string }));
+      throw new Error(body?.detail || body?.hint || body?.error || `create-artifact failed (${res.status})`);
+    }
+    const data = (await res.json()) as ArtifactCardData;
+    setArtifacts((prev) => [data, ...prev].slice(0, 10));
+  }, [personaId]);
+
   const handleDismissArtifact = useCallback((artifactId: string) => {
     setArtifacts((prev) => prev.filter((a) => a.artifactId !== artifactId));
     setActionErrors((prev) => {
@@ -718,6 +754,9 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
           onSendArtifact={handleSendArtifact}
           onApproveSecondTier={handleApproveSecondTier}
           onCancelSecondTier={handleCancelSecondTier}
+          composeGmailOpen={composeGmailOpen}
+          onComposeGmailOpenChange={setComposeGmailOpen}
+          onComposeGmailDraft={handleComposeGmailDraft}
           receipts={receipts}
           receiptsLoading={receiptsLoading}
           receiptsOpen={receiptsOpen}
@@ -813,6 +852,9 @@ interface BodyProps {
   onSendArtifact: (artifactId: string) => void;
   onApproveSecondTier: () => void;
   onCancelSecondTier: () => void;
+  composeGmailOpen: boolean;
+  onComposeGmailOpenChange: (open: boolean) => void;
+  onComposeGmailDraft: (input: { to: string; subject: string; bodyText: string; cc?: string; bcc?: string }) => Promise<void>;
   receipts: ActivityReceiptData[];
   receiptsLoading: boolean;
   receiptsOpen: boolean;
@@ -865,6 +907,9 @@ function AigentMeWelcomeBody({
   onSendArtifact,
   onApproveSecondTier,
   onCancelSecondTier,
+  composeGmailOpen,
+  onComposeGmailOpenChange,
+  onComposeGmailDraft,
   receipts,
   receiptsLoading,
   receiptsOpen,
@@ -1100,6 +1145,26 @@ function AigentMeWelcomeBody({
           aren't set yet; a neutral "coming soon" notice for non-admins. */}
       <GoogleConnectionsPanel
         isAdmin={!!data.cartridgeFlags?.isAdmin}
+        theme={theme}
+      />
+
+      {/* Phase 6.b Part 2.5b — Compose Gmail draft entry point. The route
+          gates on persona connection state; clicking without a connected
+          Gmail account surfaces the connector's "not-connected" message
+          inline on the modal. */}
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => onComposeGmailOpenChange(true)}
+          className="text-xs px-3 py-1.5 rounded-md border border-violet-500/40 text-violet-200 hover:border-violet-400 hover:text-violet-100 transition"
+        >
+          Compose Gmail draft
+        </button>
+      </div>
+      <ComposeGmailDraftModal
+        open={composeGmailOpen}
+        onClose={() => onComposeGmailOpenChange(false)}
+        onCreate={onComposeGmailDraft}
         theme={theme}
       />
 
