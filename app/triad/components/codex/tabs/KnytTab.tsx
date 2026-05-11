@@ -12,7 +12,6 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import { Loader2, BookOpen, Play, Lock, Check, Sparkles, Coins, ShoppingCart, AlertTriangle, RefreshCw, LogIn, FileText, Cpu, Globe, Shield, Scroll, ArrowLeft, User, Zap } from "lucide-react";
 import { useCardAccess } from "@/app/hooks/useCardAccess";
-import { useCartridgePresence } from "@/app/hooks/useCartridgePresence";
 import { OwnedBadge, AccessibleBadge, RestrictedBadge, CartButton } from "@/app/components/content/CardAccessBadges";
 // Phase 1.4 UI #3 — spine shadow cross-check. Used to log divergence
 // between legacy ownedIssues (/api/codex/owned) and the spine's per-asset
@@ -577,20 +576,12 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     }
   }, [tabSlug]);
 
-  // Legacy state for cards/purchases (maintained for compatibility)
+  // Legacy state for cards/purchases (maintained for compatibility).
+  // NOTE: this `activeTab` is internal KnytTab sub-state, NOT the
+  // user-visible top-level codex tab. Cartridge-level presence (tab
+  // switching from the wallet, cross-cartridge nav, etc.) is wired at
+  // the codex shell — see CodexPanelDynamic's useCartridgePresence call.
   const [activeTab, setActiveTab] = useState<KnytTabSlug>(resolvedInitialTab);
-
-  // Publish this cartridge into the CartridgePresenceRegistry so the wallet
-  // + cross-cartridge callers can switch tabs in place (instead of full
-  // page-reload via buildCodexUrl) and so the thin-client shell can render
-  // close chrome via the metame:cartridge-* postMessage protocol.
-  // Spec: codexes/packs/agentiq/updates/2026-05-11_cartridge-presence-registry-spec.md
-  useCartridgePresence({
-    cartridgeId: 'knyt-codex',
-    displayLabel: 'KNYT Cartridge',
-    tab: activeTab,
-    onSetTab: (next) => setActiveTab(next as KnytTabSlug),
-  });
   const isExternallyScopedTab = Boolean(tabSlug);
   const isLegacyFallbackTab = activeTab !== 'codex';
   const showLegacyFallbackUI = false;

@@ -123,21 +123,25 @@ useCartridgePresence({
 
 Stateless cartridges still call the hook (omit tab / setters) so that wallet + cross-cartridge callers can see "this cartridge is mounted" and route around it correctly.
 
-## Per-cartridge migration
+## Wiring strategy — codex shell, not per-cartridge
 
-Each cartridge top-level component adds **one hook call**. KNYT is wired as the canonical example in this commit; the remaining 9 land in follow-up commits (mechanical, non-blocking).
+The hook is wired **once at the codex shell** (`app/triad/components/CodexPanelDynamic.tsx`), not in each cartridge's top-level `*Tab.tsx`. One call covers all 10 cartridges, and — critically — it exposes the setter that switches the **user-visible top-level codex tab** (Codex / Store / Terra / Order / Living Canon / 21 Sats / …) rather than a cartridge-internal sub-state.
 
-| Cartridge | Top file | activeTab state | Hook call (concise) |
-|---|---|---|---|
-| **KNYT** (`knyt-codex`) | `app/triad/components/codex/tabs/KnytTab.tsx` | `activeTab` | ✅ wired |
-| **Qriptopian** | `QriptopiaTab.tsx` | (stateless) | `useCartridgePresence({ cartridgeId: 'qriptopian', displayLabel: 'Qriptopian Cartridge' })` |
-| **AgentiQ** | `AgentiqCartridgeTab.tsx` | `activePath` | `useCartridgePresence({ cartridgeId: 'agentiq', displayLabel: 'AgentiQ Cartridge', tab: activePath, onSetTab: setActivePath })` |
-| **AgentiQ OS** | `AgentiQOSTab.tsx` | (stateless) | `useCartridgePresence({ cartridgeId: 'agentiq-os', displayLabel: 'AgentiQ OS' })` |
-| **Venture Lab α** | `KnytAlphaTab.tsx` | (stateless) | `useCartridgePresence({ cartridgeId: 'alpha-knyt', displayLabel: 'Venture Lab α' })` |
-| **metaMe** | delegates to `AgentiqCartridgeTab` | (inherits `activePath`) | wrap with `cartridgeId: 'metame'`, `displayLabel: 'metaMe Cartridge'` |
-| **Marketa** | `MarketaTab.tsx` | `activeParent` + `adminSub`/`partnerSub` | `tab: activeParent, subTab: activeParent === 'admin' ? adminSub : partnerSub, onSetTab: setActiveParent, onSetSubTab: activeParent === 'admin' ? setAdminSub : setPartnerSub` |
-| **Aigent MoneyPenny** | `MoneyPennyCartridge.tsx` | `activeTab` | `useCartridgePresence({ cartridgeId: 'aigent-moneypenny', displayLabel: 'Aigent MoneyPenny', tab: activeTab, onSetTab: setActiveTab })` |
-| **Aigent Nakamoto** | `NakamotoTab.tsx` | `activeTab` + nested `tabState` | `useCartridgePresence({ cartridgeId: 'aigent-nakamoto', displayLabel: 'Aigent Nakamoto', tab: activeTab, subTab: tabState?.sub, onSetTab: setActiveTab, onSetSubTab: (s) => setTabState({ ...tabState, sub: s }) })` |
+```ts
+// app/triad/components/CodexPanelDynamic.tsx
+useCartridgePresence({
+  cartridgeId: codexId,                                                            // e.g. 'knyt-codex'
+  displayLabel: codex?.name?.replace(/\s+codex$/i, '').trim() || codex?.name || codexId,
+  tab: activeTabSlug,
+  onSetTab: setActiveTabSlug,
+});
+```
+
+**Why not per-cartridge.** The first iteration wired the hook in `KnytTab.tsx` against its `activeTab` state — that was a sub-view state inside the legacy KNYT panel, not the codex shell's tab navigation. Wallet calls to switch to e.g. `'living-canon'` therefore changed the wrong layer's state and silently no-op'd. The shell-level wiring fixes this for all cartridges in one stroke.
+
+**Sub-tabs are routed by the destination tab itself.** For surfaces with their own internal sub-navigation (e.g. KNYT's Living Canon → canon / community / correspondent), the wallet parks `taskSlug` on `window.__knytPendingTaskSlug` and the destination tab's mount-time effect maps the slug to the right sub-tab. See `KnytLivingCanonTemplate.tsx`'s mount-time consumer for the canonical pattern.
+
+This means **stateless cartridges and complex multi-tier ones (e.g. Marketa) are all already covered** — no per-cartridge edit needed.
 
 ## Layered mount harness (next commit)
 
@@ -166,10 +170,10 @@ function CartridgeLayer({ cartridgeId, initialTab, initialSubTab, onDismiss }) {
 
 - [x] `services/cartridge/CartridgePresenceRegistry.ts` exists; publishes to `window.__metame.cartridges` via the canonical `CartridgePresenceMirror` shape.
 - [x] `app/hooks/useCartridgePresence.ts` broadcasts canonical `METAME_EVENTS.CARTRIDGE_*` events; inbound listener gated via `isMetameOriginAllowed`.
-- [x] KNYT (`KnytTab.tsx`) wired as the canonical example.
+- [x] Codex shell (`CodexPanelDynamic.tsx`) wired with the hook — covers all 10 cartridges in one place via `codexId` + `setActiveTabSlug`.
 - [x] Wallet drawer's `navigateToKnytTab` consults `tryOpenInMountedCartridge` first; falls through to `buildCodexUrl` only when the target cartridge isn't mounted.
 - [x] Parent contract's protocol registry table updated to point at this spec.
-- [ ] All 9 remaining cartridges call the hook (follow-up commit; mechanical).
+- [x] All 10 cartridges covered (shell-level wiring — see "Wiring strategy" above).
 - [ ] `CartridgeLayer` wrapper exists for layered mounts with `onClose` wiring (follow-up commit).
 - [ ] Lovable thin-client shell subscribes to `metame:cartridge-opened|closed|tab-changed` and renders the cartridge icon + × close button in the shell header. (Owned by the shell team — pass them this spec.)
 
