@@ -190,8 +190,4 @@ UPDATE crm_personas legacy
    AND legacy.identity_persona_id IS NULL
    AND p.status = 'active';
 
-COMMENT ON FUNCTION sync_persona_to_crm_persona IS
-  'Smart link: on personas INSERT, locate an existing crm_personas row ' ||
-  'via root_did or email and UPDATE its identity_persona_id; only INSERT ' ||
-  'a new row if no match exists. Makes PersonaSpine the canonical SoT ' ||
-  'for identity while honouring DIDQube anchors + pre-existing CRM data.';
+COMMENT ON FUNCTION sync_persona_to_crm_persona() IS 'Smart link: on personas INSERT, locate an existing crm_personas row via root_did or email and UPDATE its identity_persona_id; only INSERT a new row if no match exists. Makes PersonaSpine the canonical SoT for identity while honouring DIDQube anchors + pre-existing CRM data.';

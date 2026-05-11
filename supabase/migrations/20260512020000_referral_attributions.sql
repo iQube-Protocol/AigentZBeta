@@ -47,6 +47,4 @@ CREATE INDEX IF NOT EXISTS idx_referral_attributions_conversion
   ON referral_attributions(referrer_persona_id, first_conversion_at DESC)
   WHERE first_conversion_at IS NOT NULL;
 
-COMMENT ON TABLE referral_attributions IS
-  'Per-signup attribution log. Captures the share source (bring-a-knight | herald | platform-suffixed) ' ||
-  'so heraldAggregationService can grant HeraldAudienceSignups + HeraldConversionPayingUser correctly.';
+COMMENT ON TABLE referral_attributions IS 'Per-signup attribution log. Captures the share source (bring-a-knight | herald | platform-suffixed) so heraldAggregationService can grant HeraldAudienceSignups + HeraldConversionPayingUser correctly.';
