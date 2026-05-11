@@ -34,7 +34,7 @@
  * See docs/architecture/persona-spine-client-protocol.md
  */
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Sparkles, Loader2 } from "lucide-react";
 import {
   usePersonaSpine,
@@ -212,14 +212,23 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     }
   }, [personaId]);
 
-  const fetchMoveForward = useCallback(async (cartridge: string) => {
+  /**
+   * Move-forward fetch.
+   *
+   * - No `cartridge` arg → auto-pick mode: server returns the strongest NBE
+   *   across the user's active cartridges (default behaviour when the user
+   *   clicks "Move this forward").
+   * - `cartridge` arg → steering mode: re-fetch scoped to one cartridge
+   *   (used by the "Switch cartridge" strip below the hero card).
+   */
+  const fetchMoveForward = useCallback(async (cartridge?: string) => {
     setMoveForwardLoading(true);
     setMoveForwardResult(null);
     try {
       const res = await personaFetch('/api/assistant/move-forward', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cartridge }),
+        body: JSON.stringify(cartridge ? { cartridge } : {}),
         personaIdHint: personaId,
       });
       if (!res.ok) {
@@ -234,7 +243,7 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
       setMoveForwardResult(data);
     } catch {
       // Surface failures inline; keep welcome usable.
-      setMoveForwardResult({ cartridge, topAction: null, alternates: [] });
+      setMoveForwardResult({ cartridge: cartridge ?? 'metame', topAction: null, alternates: [] });
     } finally {
       setMoveForwardLoading(false);
     }
@@ -250,13 +259,15 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
       return;
     }
     if (ctaId === 'move-this-forward') {
-      setMoveForwardCartridgeOpen((open) => !open);
-      setMoveForwardResult(null);
+      // Open the section + fire the auto-pick fetch immediately. No picker
+      // step — Aigent Me decides the cartridge from the ExperienceQube.
+      setMoveForwardCartridgeOpen(true);
+      void fetchMoveForward();
       return;
     }
     // Other CTAs (review-venture-progress, create-something, etc.) remain
     // in 'preview' state until later phases land.
-  }, [fetchBrief]);
+  }, [fetchBrief, fetchMoveForward]);
 
   const handleWizardSaved = useCallback((saved: ExperienceModelCardData) => {
     setExpModel(saved);
@@ -362,6 +373,20 @@ function AigentMeWelcomeBody({
   chipClass,
   isDark,
 }: BodyProps) {
+  const moveForwardSectionRef = useRef<HTMLElement | null>(null);
+
+  // When the move-forward section opens, scroll it into view so the user
+  // sees Aigent Me's hero recommendation immediately. Without this, the
+  // section can appear below the fold and look like a no-op click.
+  useEffect(() => {
+    if (moveForwardCartridgeOpen && moveForwardSectionRef.current) {
+      moveForwardSectionRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }
+  }, [moveForwardCartridgeOpen]);
+
   if (bootstrapLoading && !data) {
     return (
       <div className="p-10 flex items-center justify-center gap-3">
@@ -491,32 +516,12 @@ function AigentMeWelcomeBody({
         </section>
       )}
 
-      {/* Move-forward — cartridge picker + result */}
+      {/* Move-forward — hero NBE first, then alternates, then 'switch cartridge' strip */}
       {moveForwardCartridgeOpen && (
-        <section>
+        <section ref={moveForwardSectionRef}>
           <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
-            Move which cartridge forward?
+            Move this forward
           </h2>
-          <div className="flex flex-wrap gap-2 mb-3">
-            {data.availableCartridges.map((c) => {
-              const selected = moveForwardResult?.cartridge === c.slug;
-              return (
-                <button
-                  key={c.slug}
-                  onClick={() => onPickMoveForwardCartridge(c.slug)}
-                  className={`px-3 py-1.5 rounded-full border text-sm transition ${
-                    selected
-                      ? 'bg-violet-500/20 border-violet-500 text-violet-200'
-                      : isDark
-                        ? 'bg-slate-800/60 border-slate-700 text-slate-300 hover:border-slate-600'
-                        : 'bg-white border-slate-300 text-slate-700 hover:border-violet-400'
-                  }`}
-                >
-                  {c.label}
-                </button>
-              );
-            })}
-          </div>
 
           {moveForwardLoading && (
             <p className={`text-sm ${mutedClass}`}>Looking for the strongest move…</p>
@@ -532,7 +537,7 @@ function AigentMeWelcomeBody({
                 />
               ) : (
                 <p className={`text-sm ${mutedClass}`}>
-                  No catalogue match for this cartridge at your current stage.
+                  No catalogue match at your current stage.
                   Try setting up your ExperienceModel first.
                 </p>
               )}
@@ -552,6 +557,33 @@ function AigentMeWelcomeBody({
                   </div>
                 </>
               )}
+
+              {/* Steering strip — swap cartridge if the user wants a different angle */}
+              <div className="pt-3 mt-3 border-t border-slate-800/40">
+                <div className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
+                  Switch cartridge
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {data.availableCartridges.map((c) => {
+                    const selected = moveForwardResult.cartridge === c.slug;
+                    return (
+                      <button
+                        key={c.slug}
+                        onClick={() => onPickMoveForwardCartridge(c.slug)}
+                        className={`px-2.5 py-1 rounded-full border text-xs transition ${
+                          selected
+                            ? 'bg-violet-500/20 border-violet-500 text-violet-200'
+                            : isDark
+                              ? 'bg-slate-800/60 border-slate-700 text-slate-300 hover:border-slate-600'
+                              : 'bg-white border-slate-300 text-slate-700 hover:border-violet-400'
+                        }`}
+                      >
+                        {c.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
         </section>

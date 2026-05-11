@@ -188,23 +188,47 @@ export interface MoveForwardShape {
 
 export async function buildMoveForward(input: {
   personaId: string;
-  cartridge: ActiveCartridgeSlug;
+  /**
+   * Optional cartridge scope. When omitted, the builder picks the strongest
+   * NBE across the user's active cartridges (Aigent Me's default move).
+   * Use the explicit form when the user has steered to a specific cartridge.
+   */
+  cartridge?: ActiveCartridgeSlug;
 }): Promise<MoveForwardShape> {
   const qube = await getExperienceQube(input.personaId);
 
-  const activeCartridges = qube?.meta.activeCartridges ?? [input.cartridge];
+  const activeCartridges = qube?.meta.activeCartridges ?? (input.cartridge ? [input.cartridge] : ['metame']);
   const currentStage: ExperienceStage = qube?.meta.currentStage ?? 'setup';
   const experienceName = qube?.meta.experienceName ?? null;
   const primaryGoal = qube?.meta.primaryGoal ?? null;
   const experienceConfigured = !!qube;
 
-  const top = selectTopNbeForCartridge(input.cartridge, currentStage);
-  const alts = selectNbeCandidates({
-    activeCartridges,
-    currentStage,
-    scopedCartridge: input.cartridge,
-    limit: 3,
-  }).filter((c) => c.id !== top?.id);
+  // Auto-pick mode: select the strongest NBE across all active cartridges,
+  // then return its sibling 2 (highest-weighted) as alternates. Otherwise
+  // honour the cartridge scope the caller requested.
+  let topCandidate: NbeCandidate | null;
+  let altsRaw: NbeCandidate[];
+
+  if (input.cartridge) {
+    topCandidate = selectTopNbeForCartridge(input.cartridge, currentStage);
+    altsRaw = selectNbeCandidates({
+      activeCartridges,
+      currentStage,
+      scopedCartridge: input.cartridge,
+      limit: 3,
+    }).filter((c) => c.id !== topCandidate?.id);
+  } else {
+    const ranked = selectNbeCandidates({
+      activeCartridges,
+      currentStage,
+      limit: 5,
+    });
+    topCandidate = ranked[0] ?? null;
+    altsRaw = ranked.slice(1);
+  }
+
+  const resolvedCartridge: ActiveCartridgeSlug =
+    input.cartridge ?? topCandidate?.cartridge ?? activeCartridges[0] ?? 'metame';
 
   const toAction = (c: NbeCandidate): BriefNextBestAction => ({
     id: c.id,
@@ -219,7 +243,7 @@ export async function buildMoveForward(input: {
   });
 
   return {
-    cartridge: input.cartridge,
+    cartridge: resolvedCartridge,
     context: {
       activeCartridges,
       primaryGoal,
@@ -227,8 +251,8 @@ export async function buildMoveForward(input: {
       experienceName,
       experienceConfigured,
     },
-    topAction: top ? toAction(top) : null,
-    alternates: alts.slice(0, 2).map(toAction),
+    topAction: topCandidate ? toAction(topCandidate) : null,
+    alternates: altsRaw.slice(0, 2).map(toAction),
     using: experienceConfigured
       ? ['PersonaQube', 'ExperienceQube', 'IntentQube']
       : ['PersonaQube', 'IntentQube'],
