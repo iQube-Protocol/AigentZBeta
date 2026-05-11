@@ -136,9 +136,25 @@ export function GoogleConnectionsPanel({ isAdmin = false, theme = "dark" }: Prop
         throw new Error(body?.detail || body?.error || `connect failed (${res.status})`);
       }
       const json = (await res.json()) as { consentUrl: string };
-      // Open the consent flow in the same window. Google will redirect
-      // back to the callback route, which then 302s to the runtime.
-      window.location.href = json.consentUrl;
+      // Break out of the iframe before redirecting to Google. The metame
+      // thin clients embed the platform in an iframe, and accounts.google.com
+      // sets X-Frame-Options: DENY on its OAuth pages — so setting
+      // window.location inside the iframe results in a generic 403 from
+      // Google. Targeting window.top puts the consent flow in the top-level
+      // browsing context where Google renders it correctly. The callback's
+      // signed-state returnUrl already brings the user back to whichever
+      // thin client they started from.
+      try {
+        if (window.top && window.top !== window.self) {
+          window.top.location.href = json.consentUrl;
+        } else {
+          window.location.href = json.consentUrl;
+        }
+      } catch {
+        // Cross-origin access on window.top can throw — fall back to
+        // navigating the current frame so we at least attempt OAuth.
+        window.location.href = json.consentUrl;
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       setBusy(null);
