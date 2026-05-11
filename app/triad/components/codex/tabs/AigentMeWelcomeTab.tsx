@@ -52,6 +52,10 @@ import {
   NextBestActionCard,
   type NextBestActionData,
 } from "@/components/metame/cards/NextBestActionCard";
+import {
+  ApprovalCard,
+  type ApprovalCardAction,
+} from "@/components/metame/cards/ApprovalCard";
 
 interface Specialist {
   id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c';
@@ -128,6 +132,17 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     alternates: NextBestActionData[];
   } | null>(null);
   const [moveForwardLoading, setMoveForwardLoading] = useState(false);
+
+  // Phase 3.5 — Approval + IntentQube state. Single pending-approval slot
+  // at a time; queued intents are remembered per nbeId so the user can see
+  // which actions were already submitted.
+  const [pendingApprovalNbe, setPendingApprovalNbe] =
+    useState<NextBestActionData | null>(null);
+  const [submittingApproval, setSubmittingApproval] = useState(false);
+  const [approvalError, setApprovalError] = useState<string | null>(null);
+  const [queuedIntents, setQueuedIntents] = useState<
+    Record<string, { intentId: string; status: string; queueMessage: string }>
+  >({});
 
   // Only fetch the bootstrap surface once the spine is ready. The spine's
   // own auth gate (PersonaSpineGate below) handles the loading /
@@ -273,6 +288,69 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     setExpModel(saved);
   }, []);
 
+  // Phase 3.5 — clicking Act on any NBE opens the ApprovalCard.
+  const handleNbeAct = useCallback((action: NextBestActionData) => {
+    // If this NBE is already queued, dismiss + re-queue is a no-op for alpha;
+    // just no-op so the user sees the queued state stays.
+    if (queuedIntents[action.id]) return;
+    setApprovalError(null);
+    setPendingApprovalNbe(action);
+  }, [queuedIntents]);
+
+  const handleApprovalCancel = useCallback(() => {
+    setPendingApprovalNbe(null);
+    setApprovalError(null);
+  }, []);
+
+  const handleApprovalApprove = useCallback(async () => {
+    if (!pendingApprovalNbe) return;
+    const action = pendingApprovalNbe;
+    setSubmittingApproval(true);
+    setApprovalError(null);
+    try {
+      const res = await personaFetch('/api/assistant/intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nbeId: action.id,
+          cartridge: action.cartridge,
+        }),
+        personaIdHint: personaId,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+        throw new Error(body?.detail || body?.error || `intent create failed (${res.status})`);
+      }
+      const data = (await res.json()) as {
+        intentId: string;
+        status: string;
+        queueMessage: string;
+      };
+      setQueuedIntents((prev) => ({
+        ...prev,
+        [action.id]: {
+          intentId: data.intentId,
+          status: data.status,
+          queueMessage: data.queueMessage,
+        },
+      }));
+      // Clear the pending slot; the queued card will replace it inline.
+      setPendingApprovalNbe(null);
+    } catch (err) {
+      setApprovalError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSubmittingApproval(false);
+    }
+  }, [pendingApprovalNbe, personaId]);
+
+  const handleDismissQueued = useCallback((nbeId: string) => {
+    setQueuedIntents((prev) => {
+      const next = { ...prev };
+      delete next[nbeId];
+      return next;
+    });
+  }, []);
+
   const isDark = theme === 'dark';
   const surfaceClass = isDark
     ? 'bg-slate-900/40 border-slate-700/60 text-slate-100'
@@ -302,6 +380,14 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
           moveForwardLoading={moveForwardLoading}
           onPickMoveForwardCartridge={fetchMoveForward}
           onCtaClick={handleCtaClick}
+          pendingApprovalNbe={pendingApprovalNbe}
+          submittingApproval={submittingApproval}
+          approvalError={approvalError}
+          queuedIntents={queuedIntents}
+          onNbeAct={handleNbeAct}
+          onApprovalApprove={handleApprovalApprove}
+          onApprovalCancel={handleApprovalCancel}
+          onDismissQueued={handleDismissQueued}
           theme={theme}
           surfaceClass={surfaceClass}
           mutedClass={mutedClass}
@@ -328,6 +414,22 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
   );
 }
 
+/**
+ * Project an NBE into the shape ApprovalCard expects. Cheap pure helper —
+ * lives here because no other surface needs it yet.
+ */
+function toApprovalAction(nbe: NextBestActionData): ApprovalCardAction {
+  return {
+    nbeId: nbe.id,
+    label: nbe.label,
+    rationale: nbe.rationale,
+    cartridge: nbe.cartridge,
+    approvalRequired: nbe.approvalRequired,
+    specialist: nbe.specialist,
+    suggestedArtifact: nbe.suggestedArtifact,
+  };
+}
+
 interface BodyProps {
   data: BootstrapSurface | null;
   bootstrapLoading: boolean;
@@ -343,6 +445,14 @@ interface BodyProps {
   moveForwardLoading: boolean;
   onPickMoveForwardCartridge: (cartridge: string) => void;
   onCtaClick: (ctaId: string) => void;
+  pendingApprovalNbe: NextBestActionData | null;
+  submittingApproval: boolean;
+  approvalError: string | null;
+  queuedIntents: Record<string, { intentId: string; status: string; queueMessage: string }>;
+  onNbeAct: (action: NextBestActionData) => void;
+  onApprovalApprove: () => void;
+  onApprovalCancel: () => void;
+  onDismissQueued: (nbeId: string) => void;
   theme: 'light' | 'dark';
   surfaceClass: string;
   mutedClass: string;
@@ -366,6 +476,14 @@ function AigentMeWelcomeBody({
   moveForwardLoading,
   onPickMoveForwardCartridge,
   onCtaClick,
+  pendingApprovalNbe,
+  submittingApproval,
+  approvalError,
+  queuedIntents,
+  onNbeAct,
+  onApprovalApprove,
+  onApprovalCancel,
+  onDismissQueued,
   theme,
   surfaceClass,
   mutedClass,
@@ -437,6 +555,48 @@ function AigentMeWelcomeBody({
 
       {/* iQube context disclosure — what's being used right now */}
       <IqubeContextDisclosure using={usingIqubes} theme={theme} />
+
+      {/* Pending approval (single slot) — appears whenever the user clicks
+          Act on any NBE. Approve creates an IntentQube row; the queued
+          state replaces the pending one inline. */}
+      {pendingApprovalNbe && (
+        <ApprovalCard
+          action={toApprovalAction(pendingApprovalNbe)}
+          submitting={submittingApproval}
+          queued={null}
+          error={approvalError}
+          onApprove={onApprovalApprove}
+          onCancel={onApprovalCancel}
+          onEdit={() => { /* Phase 6 */ }}
+          using={usingIqubes}
+          theme={theme}
+        />
+      )}
+
+      {/* Queued intents — chip-sized confirmations stack here until dismissed */}
+      {Object.keys(queuedIntents).length > 0 && (
+        <section className="space-y-2">
+          {Object.entries(queuedIntents).map(([nbeId, queued]) => (
+            <ApprovalCard
+              key={nbeId}
+              action={{
+                nbeId,
+                label: nbeId,
+                rationale: '',
+                cartridge: 'metame',
+                approvalRequired: false,
+                specialist: null,
+                suggestedArtifact: null,
+              }}
+              queued={queued}
+              onApprove={() => { /* not used in queued state */ }}
+              onCancel={() => onDismissQueued(nbeId)}
+              using={usingIqubes}
+              theme={theme}
+            />
+          ))}
+        </section>
+      )}
 
       {/* ExperienceModel card */}
       <ExperienceModelCard
@@ -511,6 +671,7 @@ function AigentMeWelcomeBody({
             data={brief}
             loading={briefLoading}
             error={briefError}
+            onActOnNbe={onNbeAct}
             theme={theme}
           />
         </section>
@@ -533,6 +694,7 @@ function AigentMeWelcomeBody({
                 <NextBestActionCard
                   action={moveForwardResult.topAction}
                   variant="hero"
+                  onAct={onNbeAct}
                   theme={theme}
                 />
               ) : (
@@ -551,6 +713,7 @@ function AigentMeWelcomeBody({
                       <NextBestActionCard
                         key={a.id}
                         action={a}
+                        onAct={onNbeAct}
                         theme={theme}
                       />
                     ))}
