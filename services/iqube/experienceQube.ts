@@ -190,6 +190,55 @@ function getAdminClient() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Timeout-guarded query wrapper.
+//
+// The Supabase JS client does not honor AbortSignal cleanly across all
+// network layers. When the table does not exist OR a connection stalls,
+// the call can hang past Lambda's 30s timeout and surface to the client
+// as a 504. We wrap every DB call in Promise.race against an explicit
+// timeout so the route can return a clear 500 with a diagnostic instead.
+//
+// Tunable via EXPERIENCE_QUBE_DB_TIMEOUT_MS env var; defaults to 6s.
+// ─────────────────────────────────────────────────────────────────────────
+
+const DB_TIMEOUT_MS = Number(process.env.EXPERIENCE_QUBE_DB_TIMEOUT_MS) || 6000;
+
+function withTimeout<T>(promise: Promise<T>, op: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(
+        () =>
+          reject(
+            new Error(
+              `[ExperienceQube] ${op} timed out after ${DB_TIMEOUT_MS}ms. ` +
+                `Check that the experience_qubes migration has been applied ` +
+                `(supabase/migrations/20260513000000_experience_qubes.sql) ` +
+                `and that the Supabase project is reachable.`,
+            ),
+          ),
+        DB_TIMEOUT_MS,
+      ),
+    ),
+  ]);
+}
+
+/**
+ * Detect a "relation does not exist" error from supabase-js / PostgREST.
+ * When the migration hasn't been applied we want to fail fast with a
+ * specific error rather than hang on retries.
+ */
+function isMissingTable(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  if (error.code === '42P01') return true; // PG undefined_table
+  if (error.code === 'PGRST205') return true; // PostgREST: relation not found
+  if (typeof error.message === 'string' && /relation .* does not exist/i.test(error.message)) {
+    return true;
+  }
+  return false;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Reads.
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -202,14 +251,26 @@ export async function getExperienceQube(
   personaId: string,
 ): Promise<ExperienceQubeRecord | null> {
   const admin = getAdminClient();
-  const { data, error } = await admin
-    .from('experience_qubes')
-    .select('*')
-    .eq('persona_id', personaId)
-    .maybeSingle();
+  const result = await withTimeout(
+    admin
+      .from('experience_qubes')
+      .select('*')
+      .eq('persona_id', personaId)
+      .maybeSingle(),
+    'getExperienceQube',
+  );
+  const { data, error } = result as { data: unknown; error: { code?: string; message?: string } | null };
   if (error) {
-    // Table may not exist yet (migration not applied) — treat as 'no qube'.
-    return null;
+    if (isMissingTable(error)) {
+      // Migration not applied yet — degrade gracefully.
+      console.warn(
+        '[ExperienceQube] experience_qubes table missing — returning null. ' +
+          'Apply supabase/migrations/20260513000000_experience_qubes.sql.',
+      );
+      return null;
+    }
+    // Other DB errors propagate so the route layer can surface them.
+    throw new Error(`getExperienceQube failed: ${error.message ?? 'unknown error'}`);
   }
   if (!data) return null;
   return rowToRecord(data as DbRow);
@@ -358,13 +419,23 @@ export async function upsertExperienceQube(
     blak_qube: mergedBlak as Record<string, unknown>,
   };
 
-  const { data, error } = await admin
-    .from('experience_qubes')
-    .upsert(row, { onConflict: 'persona_id' })
-    .select('*')
-    .single();
+  const result = await withTimeout(
+    admin
+      .from('experience_qubes')
+      .upsert(row, { onConflict: 'persona_id' })
+      .select('*')
+      .single(),
+    'upsertExperienceQube',
+  );
+  const { data, error } = result as { data: unknown; error: { code?: string; message?: string } | null };
 
   if (error || !data) {
+    if (isMissingTable(error)) {
+      throw new Error(
+        'upsertExperienceQube: experience_qubes table is missing. ' +
+          'Apply supabase/migrations/20260513000000_experience_qubes.sql in the Supabase SQL editor.',
+      );
+    }
     throw new Error(`upsertExperienceQube failed: ${error?.message ?? 'no row returned'}`);
   }
 
