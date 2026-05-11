@@ -6,6 +6,12 @@ import { PDFDocument } from 'pdf-lib';
 import { unwrapKeyWithMasterKey, decryptContent } from '@/server/services/encryptionService';
 
 export const runtime = 'nodejs';
+// Phase B fix — Bug 2: 430MB GN takes >10s to download from Autonomys
+// + decrypt + parse page count. Default serverless timeout is 10s,
+// which produces the "Preview timed out" error. Bump to 60s so the
+// first-time meta fetch can complete + persist page_count so future
+// reads hit the fast path on line 37.
+export const maxDuration = 60;
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204,  });

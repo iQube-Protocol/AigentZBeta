@@ -484,11 +484,17 @@ function GNSkuDetail({
   thumbUrl,
   onBuy,
   onAddToCart,
+  isOwned,
 }: {
   sku: GNSku;
   thumbUrl?: string;
   onBuy: (p: PendingPurchase) => void;
   onAddToCart?: (p: PendingPurchase) => void;
+  /** Phase B fix — Bug 1: render Owned badge on the variant the persona
+   *  has rights to. Qripto + Digital map to gn_still (covered by
+   *  grants_gn flag). Paperback + Hardcover land in Phase C when
+   *  grants_gn_paperback / grants_gn_hardcover flags ship. */
+  isOwned?: boolean;
 }) {
   const isPrint  = sku.layer === 'print';
   const isQripto = sku.layer === 'qripto';
@@ -499,7 +505,14 @@ function GNSkuDetail({
 
       <div className="space-y-2.5 min-w-0">
         <div>
-          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Graphic Novel</p>
+          <div className="flex items-center gap-2">
+            <p className="text-[10px] text-slate-500 uppercase tracking-wide">Graphic Novel</p>
+            {isOwned && (
+              <span className="rounded border border-emerald-500/30 bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-300 uppercase tracking-wide">
+                ✓ Owned
+              </span>
+            )}
+          </div>
           <p className="text-sm font-bold text-white">{sku.label}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">{sku.sublabel}</p>
         </div>
@@ -784,6 +797,16 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
             thumbUrl={getCoverThumb(-1)}
             onBuy={setPurchase}
             onAddToCart={addPendingToCart}
+            // Phase B fix — Bug 1: Qripto + Digital variants resolve to
+            // gn_still (covered by grants_gn flag). Paperback +
+            // Hardcover require Phase C flags (grants_gn_paperback /
+            // grants_gn_hardcover) which haven't shipped yet; leave
+            // them unowned for now so the badge doesn't lie.
+            isOwned={
+              (view.sku.layer === 'qripto' || view.sku.layer === 'digital')
+                ? isEpisodeOwned(-1)
+                : false
+            }
           />
         )}
       </div>

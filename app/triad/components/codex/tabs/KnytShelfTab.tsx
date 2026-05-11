@@ -22,7 +22,7 @@ import {
   type OwnedCollectibleState,
   type ShelfItemSource,
 } from '@/types/knyt-store';
-import { useOwnedEntitlements } from '@/app/hooks/useOwnedEntitlements';
+import { useOwnedEntitlements, type OwnedEntitlement } from '@/app/hooks/useOwnedEntitlements';
 
 interface Props {
   personaId?: string;
@@ -96,7 +96,9 @@ function SourceChip({ source }: { source: ShelfItemSource }) {
 
 // ── Shelf item card ───────────────────────────────────────────────────────────
 
-function ShelfCard({ item }: { item: ShelfItem }) {
+type ShelfItemExt = ShelfItem & { comingSoon?: boolean };
+
+function ShelfCard({ item }: { item: ShelfItemExt }) {
   const isDimmed = item.state === 'missing';
 
   return (
@@ -123,7 +125,14 @@ function ShelfCard({ item }: { item: ShelfItem }) {
           )}
         </div>
         <p className="text-sm font-semibold text-white truncate">{item.label}</p>
-        <StateBadge state={item.state} />
+        {item.comingSoon ? (
+          <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-400">
+            <CheckCircle2 className="h-3 w-3" />
+            Owned · <span className="text-slate-400">Coming Soon</span>
+          </span>
+        ) : (
+          <StateBadge state={item.state} />
+        )}
         {/* NBE/quest progression placeholder */}
         {item.progressionState && item.progressionState !== 'none' && (
           <p className="text-[10px] text-slate-500 mt-0.5">
@@ -162,11 +171,69 @@ function ShelfStats({ items }: { items: ShelfItem[] }) {
 
 export function KnytShelfTab({ personaId, theme }: Props) {
   const [view, setView] = useState<ShelfView>({ kind: 'overview' });
-  const { entitlements, loading } = useOwnedEntitlements(personaId);
+  const { entitlements, expandedItems, loading } = useOwnedEntitlements(personaId);
 
-  const items = useMemo<ShelfItem[]>(() => {
+  // Phase B fix — Bug 4: render the SKU-expanded constituent items, not
+  // the raw entitlement rows. A Top KNYT Shelf bundle expands into 40
+  // tiles (1 GN + 13 stills + 13 motions + 13 characters), with each
+  // not-yet-uploaded slot rendered as an "Owned · Coming Soon" placeholder.
+  // Falls back to entitlements for personas with no expansion data.
+  const items = useMemo<ShelfItemExt[]>(() => {
     if (!personaId) return [];
-    return entitlements.map((ent) => {
+
+    // Build an asset-meta index from entitlements so expanded items can
+    // pick up thumbnails/titles when present.
+    const metaByAssetId = new Map<string, OwnedEntitlement['assetMeta']>();
+    for (const ent of entitlements) {
+      if (ent.assetId) metaByAssetId.set(ent.assetId, ent.assetMeta);
+    }
+
+    if (expandedItems && expandedItems.length > 0) {
+      return expandedItems.map((it): ShelfItemExt => {
+        const meta = metaByAssetId.get(it.itemId);
+        const isMotion = (it.formats ?? []).some((f) => f === 'episode_motion' || f === 'motion');
+
+        let family: AssetFamily;
+        let collectionGroup: string;
+        let label: string;
+
+        if (it.category === 'gn') {
+          family = 'graphic-novel';
+          collectionGroup = 'graphic-novel';
+          label = meta?.title || 'KNYT Graphic Novel';
+        } else if (it.category === 'character') {
+          family = 'knyt-cards';
+          collectionGroup = 'cards';
+          label = meta?.characterName
+            || meta?.title
+            || (it.episodeNumber != null ? `Character — Episode ${it.episodeNumber}` : 'KNYT Character');
+        } else {
+          family = isMotion ? 'motion-comics' : 'still-comics';
+          collectionGroup = 'episodes';
+          label = meta?.title || (it.episodeNumber != null ? `Episode ${it.episodeNumber}` : 'Episode');
+        }
+
+        const thumbnailUrl = meta?.coverUrl
+          || (meta?.coverCid ? `/api/content/cover/${encodeURIComponent(meta.coverCid)}?variant=thumb` : undefined);
+
+        return {
+          id: it.itemId,
+          personaId,
+          source: (it.category === 'character' ? 'cartridge' : 'codex') as ShelfItemSource,
+          family,
+          label,
+          thumbnailUrl,
+          state: 'owned' as OwnedCollectibleState,
+          isQripto: it.category === 'gn',
+          episodeNumber: it.episodeNumber,
+          collectionGroup,
+          progressionState: 'none',
+          comingSoon: !it.available,
+        };
+      });
+    }
+
+    return entitlements.map((ent): ShelfItemExt => {
       const meta = ent.assetMeta;
       const isGn    = meta.coverType === 'GN';
       const isChar  = meta.coverType === 'CHARACTER';
@@ -202,7 +269,7 @@ export function KnytShelfTab({ personaId, theme }: Props) {
         progressionState: 'none',
       };
     });
-  }, [entitlements, personaId]);
+  }, [entitlements, expandedItems, personaId]);
 
   // Group items by collectionGroup
   const groups = Array.from(
@@ -211,7 +278,7 @@ export function KnytShelfTab({ personaId, theme }: Props) {
       if (!map.has(g)) map.set(g, []);
       map.get(g)!.push(item);
       return map;
-    }, new Map<string, ShelfItem[]>())
+    }, new Map<string, ShelfItemExt[]>())
   );
 
   const activeItems = view.kind === 'collection'

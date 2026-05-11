@@ -17,6 +17,31 @@ export interface OwnedEntitlement {
 }
 
 /**
+ * Phase B fix — Bug 4: atomized constituent items for shelf/library views.
+ *
+ * `entitlements` returns raw user_entitlements rows (1 row per purchase →
+ * 1 row for a bundle SKU). For the KNYT Shelf grid + wallet library
+ * surfaces we want the SKU-expanded contents (40 items for Top KNYT
+ * Shelf, not just the 1 bundle entitlement). `expandedItems` is built
+ * from /api/codex/owned's detail block so callers don't have to
+ * reconcile entitlements + expansion themselves.
+ */
+export interface ExpandedItem {
+  /** Per-item canonical id. For episodes/GN: 'ep:<N>'. For characters:
+   *  the codex_media_assets.id when uploaded, or 'character:ep<N>' when
+   *  a coming-soon placeholder. */
+  itemId: string;
+  category: 'gn' | 'episode' | 'character';
+  /** -1 for GN; 0..12 for episodes/characters; undefined for ungated. */
+  episodeNumber?: number;
+  /** True for uploaded + available now; false for granted-but-not-yet
+   *  Coming Soon placeholders. */
+  available: boolean;
+  /** Episode rows include the formats they're available in (still/motion/print). */
+  formats?: string[];
+}
+
+/**
  * Single ownership source for codex/store/order/wallet surfaces.
  *
  * Combines two backend sources so callers don't have to reconcile them:
@@ -35,6 +60,7 @@ export function useOwnedEntitlements(personaId?: string) {
   const [ownedAssetIds, setOwnedAssetIds] = useState<Set<string>>(new Set());
   const [ownedEpisodeNumbers, setOwnedEpisodeNumbers] = useState<Set<number>>(new Set());
   const [ownedCharacterIds, setOwnedCharacterIds] = useState<Set<string>>(new Set());
+  const [expandedItems, setExpandedItems] = useState<ExpandedItem[]>([]);
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -43,6 +69,7 @@ export function useOwnedEntitlements(personaId?: string) {
       setOwnedAssetIds(new Set());
       setOwnedEpisodeNumbers(new Set());
       setOwnedCharacterIds(new Set());
+      setExpandedItems([]);
       return;
     }
     setLoading(true);
@@ -63,9 +90,45 @@ export function useOwnedEntitlements(personaId?: string) {
         const data = await ownedRes.json() as {
           issues?: Array<{ episodeNumber: number; owned: boolean }>;
           characters?: Array<{ characterId: string; owned: boolean }>;
+          detail?: {
+            gn?: { available: boolean; comingSoon: boolean };
+            episodes?: {
+              available?: Array<{ episodeNumber: number; formats: string[] }>;
+              comingSoon?: Array<{ episodeNumber: number; formats: string[] }>;
+            };
+            characters?: {
+              available?: Array<{ characterId: string; episodeNumber?: number }>;
+              comingSoon?: Array<{ characterId: string; episodeNumber?: number }>;
+            };
+          };
         };
         setOwnedEpisodeNumbers(new Set((data.issues ?? []).map((i) => i.episodeNumber)));
         setOwnedCharacterIds(new Set((data.characters ?? []).map((c) => c.characterId)));
+
+        const detail = data.detail;
+        if (detail) {
+          const items: ExpandedItem[] = [];
+          if (detail.gn?.available) {
+            items.push({ itemId: 'ep:-1', category: 'gn', episodeNumber: -1, available: true });
+          } else if (detail.gn?.comingSoon) {
+            items.push({ itemId: 'ep:-1', category: 'gn', episodeNumber: -1, available: false });
+          }
+          for (const e of detail.episodes?.available ?? []) {
+            items.push({ itemId: `ep:${e.episodeNumber}`, category: 'episode', episodeNumber: e.episodeNumber, available: true, formats: e.formats });
+          }
+          for (const e of detail.episodes?.comingSoon ?? []) {
+            items.push({ itemId: `ep:${e.episodeNumber}`, category: 'episode', episodeNumber: e.episodeNumber, available: false, formats: e.formats });
+          }
+          for (const c of detail.characters?.available ?? []) {
+            items.push({ itemId: c.characterId, category: 'character', episodeNumber: c.episodeNumber, available: true });
+          }
+          for (const c of detail.characters?.comingSoon ?? []) {
+            items.push({ itemId: c.characterId, category: 'character', episodeNumber: c.episodeNumber, available: false });
+          }
+          setExpandedItems(items);
+        } else {
+          setExpandedItems([]);
+        }
       }
     } catch {
       // degrade gracefully — badges simply won't show
@@ -96,6 +159,7 @@ export function useOwnedEntitlements(personaId?: string) {
     ownedAssetIds,
     ownedEpisodeNumbers,
     ownedCharacterIds,
+    expandedItems,
     isEpisodeOwned,
     isCharacterOwned,
     loading,
