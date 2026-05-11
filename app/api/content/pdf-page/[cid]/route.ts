@@ -28,6 +28,10 @@ import { getCachedImage, setCachedImage } from './cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+// Phase B fix — Bug 2: large PDFs (e.g. 430MB GN) need more than the
+// default 10s serverless timeout to download + decrypt + render a
+// single page. 60s comfortably covers worst-case Autonomys + render.
+export const maxDuration = 60;
 
 // CORS headers for cross-origin requests from thin client
 export async function OPTIONS() {
