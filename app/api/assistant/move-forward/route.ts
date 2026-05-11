@@ -4,10 +4,15 @@
  * Aigent Me Phase 3 — Move This Cartridge Forward.
  * Per PRD v0.2 §12 (Move cartridge forward) and §8 Golden Path 3.
  *
- * Body:
+ * Body (all optional):
  *   {
- *     cartridge: 'metame'|'knyt'|'qriptopian'|'marketa'|'avl'
+ *     cartridge?: 'metame'|'knyt'|'qriptopian'|'marketa'|'avl'
  *   }
+ *
+ * - Body omitted → builder picks the strongest NBE across the user's active
+ *   cartridges. This is Aigent Me's default move ("KNYT is the highest-
+ *   leverage move today, here's the hero action").
+ * - Body with `cartridge` → scope to that cartridge for steering.
  *
  * Response: MoveForwardShape (services/orchestration/briefBuilder.ts).
  *
@@ -44,31 +49,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  let raw: unknown;
+  // Body is optional. Empty / missing body → auto-pick top NBE across
+  // active cartridges. Explicit `cartridge` → scope to one for steering.
+  let raw: unknown = {};
   try {
     raw = await request.json();
   } catch {
-    return NextResponse.json(
-      { error: 'invalid-json' },
-      { status: 400, headers: { 'Cache-Control': 'no-store' } },
-    );
+    /* no body — auto-pick mode */
   }
 
   const body = (raw && typeof raw === 'object' ? raw : {}) as PostBody;
-  if (!body.cartridge || !VALID_CARTRIDGES.includes(body.cartridge)) {
-    return NextResponse.json(
-      {
-        error: 'invalid-cartridge',
-        detail: `cartridge must be one of: ${VALID_CARTRIDGES.join(', ')}`,
-      },
-      { status: 400, headers: { 'Cache-Control': 'no-store' } },
-    );
-  }
+  const scoped: ActiveCartridgeSlug | undefined =
+    body.cartridge && VALID_CARTRIDGES.includes(body.cartridge)
+      ? body.cartridge
+      : undefined;
 
   try {
     const result = await buildMoveForward({
       personaId: context.personaId,
-      cartridge: body.cartridge,
+      ...(scoped ? { cartridge: scoped } : {}),
     });
     return NextResponse.json(result, {
       headers: { 'Cache-Control': 'no-store' },
