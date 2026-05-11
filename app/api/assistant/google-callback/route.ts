@@ -22,6 +22,7 @@ import {
   type GoogleSource,
 } from '@/services/google/oauth';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import { isMetameOriginAllowed } from '@/utils/metameOriginAllowlist';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,8 +35,29 @@ function getStateSigningKey(): string {
   );
 }
 
+/**
+ * Re-validate a returnUrl extracted from a signed state token against the
+ * metame embed allowlist. Defense in depth — even though the state is
+ * HMAC-signed and a valid signature implies we wrote the value at consent
+ * initiation, we never trust the payload contents to dictate a redirect
+ * without re-checking the origin allowlist at use time. The allowlist may
+ * have tightened since the token was issued.
+ */
+function verifyReturnUrl(value: unknown): string | undefined {
+  if (typeof value !== 'string' || value.trim().length === 0) return undefined;
+  if (!/^https?:\/\//.test(value)) return undefined;
+  try {
+    const parsed = new URL(value);
+    const origin = `${parsed.protocol}//${parsed.host}`;
+    if (isMetameOriginAllowed(origin)) return value;
+  } catch {
+    // fall through
+  }
+  return undefined;
+}
+
 function verifyState(state: string):
-  | { ok: true; personaId: string; source: GoogleSource }
+  | { ok: true; personaId: string; source: GoogleSource; returnUrl?: string }
   | { ok: false; reason: string } {
   const key = getStateSigningKey();
   if (!key) return { ok: false, reason: 'state-signing-not-configured' };
@@ -58,11 +80,17 @@ function verifyState(state: string):
     return { ok: false, reason: 'state-signature-mismatch' };
   }
   try {
-    const payload = JSON.parse(data) as { personaId?: string; source?: GoogleSource };
+    const payload = JSON.parse(data) as { personaId?: string; source?: GoogleSource; returnUrl?: string };
     if (!payload.personaId || !payload.source || !GOOGLE_SOURCES.includes(payload.source)) {
       return { ok: false, reason: 'state-payload-invalid' };
     }
-    return { ok: true, personaId: payload.personaId, source: payload.source };
+    const verifiedReturnUrl = verifyReturnUrl(payload.returnUrl);
+    return {
+      ok: true,
+      personaId: payload.personaId,
+      source: payload.source,
+      ...(verifiedReturnUrl ? { returnUrl: verifiedReturnUrl } : {}),
+    };
   } catch {
     return { ok: false, reason: 'state-json-invalid' };
   }
@@ -106,6 +134,7 @@ function returnRedirectUri(
   request: NextRequest,
   reason: string,
   extra: Record<string, string> = {},
+  stateReturnUrl?: string,
 ): string {
   // Default: land back inside the Aigent Me tab of the metaMe cartridge so
   // the user sees the post-consent state (Connect → Connected) in the
@@ -128,7 +157,13 @@ function returnRedirectUri(
   //   2. relative default path resolved against the request origin
   //   3. last-resort relative path (lets the caller's `new URL(base, request.url)` resolve it)
   let baseAbsolute: string;
-  if (usableEnv) {
+  if (stateReturnUrl) {
+    // Highest priority: the caller-supplied return URL captured (and
+    // allowlist-validated) at consent-initiation time. Lets users who
+    // started OAuth from metame.live / metame.dev / runtime.metame.com
+    // land back on the same thin client they started from.
+    baseAbsolute = stateReturnUrl;
+  } else if (usableEnv) {
     baseAbsolute = usableEnv;
   } else if (requestOrigin) {
     baseAbsolute = `${requestOrigin}/codex/viewer?id=metame-codex&tab=aigent-me`;
@@ -183,7 +218,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!result.ok) {
     return NextResponse.redirect(
       new URL(
-        returnRedirectUri(request, 'exchange-failed', { reason: result.reason.slice(0, 100) }),
+        returnRedirectUri(
+          request,
+          'exchange-failed',
+          { reason: result.reason.slice(0, 100) },
+          verified.returnUrl,
+        ),
         request.url,
       ),
       302,
@@ -202,7 +242,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }).catch(() => undefined);
 
   return NextResponse.redirect(
-    new URL(returnRedirectUri(request, 'connected', { source: verified.source }), request.url),
+    new URL(
+      returnRedirectUri(
+        request,
+        'connected',
+        { source: verified.source },
+        verified.returnUrl,
+      ),
+      request.url,
+    ),
     302,
   );
 }

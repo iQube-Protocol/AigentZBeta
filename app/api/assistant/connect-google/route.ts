@@ -23,11 +23,20 @@ import {
   GOOGLE_SOURCES,
   type GoogleSource,
 } from '@/services/google/oauth';
+import { isMetameOriginAllowed } from '@/utils/metameOriginAllowlist';
 
 export const dynamic = 'force-dynamic';
 
 interface PostBody {
   source?: GoogleSource;
+  /**
+   * Caller's preferred post-OAuth landing URL. Must be an absolute URL
+   * whose origin matches the metame embed allowlist
+   * (configs/embed/policy.v1.json::authAllowedOrigins). When omitted,
+   * the callback falls back to the request's forwarded origin or the
+   * GOOGLE_OAUTH_RETURN_URL env var.
+   */
+  returnUrl?: string;
 }
 
 function getStateSigningKey(): string {
@@ -43,6 +52,8 @@ export function signOAuthState(payload: {
   personaId: string;
   source: GoogleSource;
   nonce: string;
+  /** Allow-list-validated return URL captured at consent-initiation time. */
+  returnUrl?: string;
 }): string {
   const key = getStateSigningKey();
   const data = JSON.stringify(payload);
@@ -53,6 +64,41 @@ export function signOAuthState(payload: {
     .slice(0, 32);
   const body = Buffer.from(data, 'utf8').toString('base64url');
   return `${body}.${sig}`;
+}
+
+/**
+ * Decide which return URL to sign into the state token.
+ * Priority:
+ *   1. body.returnUrl when supplied AND origin is in the embed allowlist
+ *   2. Referer header (full URL) when its origin is in the allowlist
+ *   3. Origin header when in the allowlist → defaults to
+ *      <origin>/codex/viewer?id=metame-codex&tab=aigent-me
+ *   4. undefined → callback falls back to env var / forwarded request origin
+ *
+ * Allowlist enforcement is required — without it, any caller could redirect
+ * the user to an arbitrary URL after consent.
+ */
+function pickReturnUrl(request: NextRequest, bodyReturnUrl: string | undefined): string | undefined {
+  const candidates: string[] = [];
+  if (typeof bodyReturnUrl === 'string' && bodyReturnUrl.trim().length > 0) {
+    candidates.push(bodyReturnUrl.trim());
+  }
+  const referer = request.headers.get('referer');
+  if (referer) candidates.push(referer);
+  const origin = request.headers.get('origin');
+  if (origin) candidates.push(`${origin}/codex/viewer?id=metame-codex&tab=aigent-me`);
+
+  for (const candidate of candidates) {
+    if (!/^https?:\/\//.test(candidate)) continue;
+    try {
+      const parsed = new URL(candidate);
+      const candidateOrigin = `${parsed.protocol}//${parsed.host}`;
+      if (isMetameOriginAllowed(candidateOrigin)) return candidate;
+    } catch {
+      // Skip malformed candidates.
+    }
+  }
+  return undefined;
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -85,10 +131,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
+  const pickedReturnUrl = pickReturnUrl(request, body.returnUrl);
+
   const state = signOAuthState({
     personaId: context.personaId,
     source: body.source,
     nonce: crypto.randomBytes(8).toString('hex'),
+    ...(pickedReturnUrl ? { returnUrl: pickedReturnUrl } : {}),
   });
 
   const result = buildConsentUrl({
