@@ -6,6 +6,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 
 interface SocialSharingModalProps {
   isOpen: boolean;
@@ -203,8 +204,11 @@ export function SocialSharingModal({
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/95 backdrop-blur-2xl flex items-center justify-center z-[60] p-4">
+  // Portal to document.body so the modal escapes any transformed/clipping
+  // parent (e.g. the embedded wallet drawer inside the copilot layer
+  // applies CSS transforms, which would clip a child `position: fixed`).
+  const modal = (
+    <div className="fixed inset-0 bg-black/95 backdrop-blur-2xl flex items-center justify-center z-[9999] p-4">
       <div className="bg-[#050f1f] border border-[#1e2b40] rounded-none md:rounded-xl w-full h-full md:h-auto md:max-w-[896px] md:max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="p-4 md:p-6 border-b border-[#1e2b40]">
@@ -290,4 +294,7 @@ export function SocialSharingModal({
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return modal;
+  return createPortal(modal, document.body);
 }
