@@ -68,21 +68,85 @@ function verifyState(state: string):
   }
 }
 
-function returnRedirectUri(reason: string, extra: Record<string, string> = {}): string {
+/**
+ * Resolve the public origin of the current request, honouring Amplify's
+ * x-forwarded-* headers so the Lambda doesn't return localhost or the
+ * internal proxy host. Falls through to request.nextUrl.origin (which is
+ * usually correct for Next.js App Router routes).
+ */
+function resolveRequestOrigin(request: NextRequest): string {
+  const forwardedHost = request.headers.get('x-forwarded-host') || '';
+  const forwardedProto = request.headers.get('x-forwarded-proto') || 'https';
+  if (forwardedHost && !/^(localhost|127\.0\.0\.1|::1|0\.0\.0\.0)(:|$)/.test(forwardedHost)) {
+    return `${forwardedProto}://${forwardedHost}`;
+  }
+  const hostHeader = request.headers.get('host') || '';
+  if (hostHeader && !/^(localhost|127\.0\.0\.1|::1|0\.0\.0\.0)(:|$)/.test(hostHeader)) {
+    return `https://${hostHeader}`;
+  }
+  try {
+    return request.nextUrl.origin;
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Treat localhost / 127.0.0.1 / 0.0.0.0 / .local URLs as ignorable when
+ * running in production. Otherwise a stale dev-time env var (e.g.
+ * GOOGLE_OAUTH_RETURN_URL=http://localhost:3000/...) leaks into the
+ * production redirect and the user lands on an unreachable URL.
+ */
+function isLocalhostUrl(value: string | undefined): boolean {
+  if (!value) return false;
+  return /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(:|\/|$)/.test(value);
+}
+
+function returnRedirectUri(
+  request: NextRequest,
+  reason: string,
+  extra: Record<string, string> = {},
+): string {
   // Default: land back inside the Aigent Me tab of the metaMe cartridge so
   // the user sees the post-consent state (Connect → Connected) in the
   // GoogleConnectionsPanel without an extra navigation step. Operator can
   // override via GOOGLE_OAUTH_RETURN_URL (e.g. a Lovable preview URL).
-  const base =
-    process.env.GOOGLE_OAUTH_RETURN_URL ||
-    process.env.NEXT_PUBLIC_RUNTIME_URL ||
-    '/codex/viewer?id=metame-codex&tab=aigent-me';
-  const url = new URL(base, 'https://placeholder.invalid');
+  //
+  // Localhost values in env vars are ignored — they're almost always a
+  // dev-time misconfiguration that leaked into production. The forwarded
+  // request origin is the safer fallback.
+  const envReturn = process.env.GOOGLE_OAUTH_RETURN_URL;
+  const envRuntime = process.env.NEXT_PUBLIC_RUNTIME_URL;
+  const usableEnv =
+    (envReturn && !isLocalhostUrl(envReturn) ? envReturn : null) ??
+    (envRuntime && !isLocalhostUrl(envRuntime) ? envRuntime : null);
+
+  const requestOrigin = resolveRequestOrigin(request);
+
+  // Compute base URL absolutely. Three sources, in order:
+  //   1. usable env (already absolute)
+  //   2. relative default path resolved against the request origin
+  //   3. last-resort relative path (lets the caller's `new URL(base, request.url)` resolve it)
+  let baseAbsolute: string;
+  if (usableEnv) {
+    baseAbsolute = usableEnv;
+  } else if (requestOrigin) {
+    baseAbsolute = `${requestOrigin}/codex/viewer?id=metame-codex&tab=aigent-me`;
+  } else {
+    baseAbsolute = '/codex/viewer?id=metame-codex&tab=aigent-me';
+  }
+
+  // Append the OAuth diagnostic params.
+  const url = new URL(baseAbsolute, requestOrigin || 'https://placeholder.invalid');
   for (const [k, v] of Object.entries({ google_oauth: reason, ...extra })) {
     url.searchParams.set(k, v);
   }
-  // Preserve relative if base was relative; encodeURI handles both.
-  return base.startsWith('http') ? url.toString() : `${url.pathname}${url.search}`;
+  // If we couldn't resolve an origin at all, return a relative path so the
+  // route's `new URL(..., request.url)` resolves it against the request.
+  if (!requestOrigin && !usableEnv) {
+    return `${url.pathname}${url.search}`;
+  }
+  return url.toString();
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -92,13 +156,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   if (errorParam) {
     return NextResponse.redirect(
-      new URL(returnRedirectUri('cancelled', { reason: errorParam }), request.url),
+      new URL(returnRedirectUri(request, 'cancelled', { reason: errorParam }), request.url),
       302,
     );
   }
   if (!code || !state) {
     return NextResponse.redirect(
-      new URL(returnRedirectUri('missing-code-or-state'), request.url),
+      new URL(returnRedirectUri(request, 'missing-code-or-state'), request.url),
       302,
     );
   }
@@ -106,7 +170,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const verified = verifyState(state);
   if (!verified.ok) {
     return NextResponse.redirect(
-      new URL(returnRedirectUri('state-invalid', { reason: verified.reason }), request.url),
+      new URL(returnRedirectUri(request, 'state-invalid', { reason: verified.reason }), request.url),
       302,
     );
   }
@@ -119,7 +183,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!result.ok) {
     return NextResponse.redirect(
       new URL(
-        returnRedirectUri('exchange-failed', { reason: result.reason.slice(0, 100) }),
+        returnRedirectUri(request, 'exchange-failed', { reason: result.reason.slice(0, 100) }),
         request.url,
       ),
       302,
@@ -138,7 +202,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   }).catch(() => undefined);
 
   return NextResponse.redirect(
-    new URL(returnRedirectUri('connected', { source: verified.source }), request.url),
+    new URL(returnRedirectUri(request, 'connected', { source: verified.source }), request.url),
     302,
   );
 }
