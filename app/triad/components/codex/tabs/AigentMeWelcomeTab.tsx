@@ -71,6 +71,8 @@ import { QuickLinksCard } from "@/components/metame/cards/QuickLinksCard";
 import { GoogleConnectionsPanel } from "@/components/metame/connections/GoogleConnectionsPanel";
 import { ComposeGmailDraftModal } from "@/components/metame/connections/ComposeGmailDraftModal";
 import { ComposeCalendarEventModal } from "@/components/metame/connections/ComposeCalendarEventModal";
+import { ComposeGoogleDocModal } from "@/components/metame/connections/ComposeGoogleDocModal";
+import { ComposeSlidesModal } from "@/components/metame/connections/ComposeSlidesModal";
 
 interface Specialist {
   id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c';
@@ -185,6 +187,8 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
   // Phase 6.b Part 2.5c — Compose Calendar event modal. Same chief-of-
   // staff pattern: drafter strip + form fields.
   const [composeCalendarOpen, setComposeCalendarOpen] = useState(false);
+  const [composeDocOpen, setComposeDocOpen] = useState(false);
+  const [composeSlidesOpen, setComposeSlidesOpen] = useState(false);
 
   // Phase 7 — activity receipts panel.
   const [receipts, setReceipts] = useState<ActivityReceiptData[]>([]);
@@ -624,6 +628,91 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     setArtifacts((prev) => [data, ...prev].slice(0, 10));
   }, [personaId]);
 
+  // Phase 6.b Part 2.5c — Google Doc drafter + creator.
+  const handleDraftDoc = useCallback(async (prompt: string) => {
+    const res = await personaFetch('/api/assistant/draft-doc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+      personaIdHint: personaId,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+      throw new Error(body?.detail || body?.error || `draft-doc failed (${res.status})`);
+    }
+    return (await res.json()) as {
+      title: string;
+      bodyText: string;
+      shareSuggestions: Array<{ email: string; role: 'reader' | 'commenter' | 'writer' }>;
+      rationale: string;
+      source: 'llm' | 'template';
+    };
+  }, [personaId]);
+
+  const handleComposeGoogleDoc = useCallback(async (input: {
+    title: string;
+    bodyText: string;
+    shareSuggestions: Array<{ email: string; role: 'reader' | 'commenter' | 'writer' }>;
+  }) => {
+    const res = await personaFetch('/api/assistant/create-artifact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        artifactType: 'google-doc',
+        destination: 'drive',
+        title: input.title,
+        connectorInput: input,
+      }),
+      personaIdHint: personaId,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as { error?: string; detail?: string; hint?: string }));
+      throw new Error(body?.detail || body?.hint || body?.error || `create-artifact failed (${res.status})`);
+    }
+    const data = (await res.json()) as ArtifactCardData;
+    setArtifacts((prev) => [data, ...prev].slice(0, 10));
+  }, [personaId]);
+
+  // Phase 6.b Part 2.5c — Slides drafter + creator.
+  const handleDraftSlides = useCallback(async (prompt: string) => {
+    const res = await personaFetch('/api/assistant/draft-slides', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+      personaIdHint: personaId,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+      throw new Error(body?.detail || body?.error || `draft-slides failed (${res.status})`);
+    }
+    return (await res.json()) as {
+      title: string;
+      outline: string[];
+      rationale: string;
+      source: 'llm' | 'template';
+    };
+  }, [personaId]);
+
+  const handleComposeSlides = useCallback(async (input: { title: string; outline: string[] }) => {
+    const res = await personaFetch('/api/assistant/create-artifact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        artifactType: 'slide-outline',
+        destination: 'drive',
+        title: input.title,
+        connectorInput: input,
+      }),
+      personaIdHint: personaId,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as { error?: string; detail?: string; hint?: string }));
+      throw new Error(body?.detail || body?.hint || body?.error || `create-artifact failed (${res.status})`);
+    }
+    const data = (await res.json()) as ArtifactCardData;
+    setArtifacts((prev) => [data, ...prev].slice(0, 10));
+  }, [personaId]);
+
   const handleDismissArtifact = useCallback((artifactId: string) => {
     setArtifacts((prev) => prev.filter((a) => a.artifactId !== artifactId));
     setActionErrors((prev) => {
@@ -843,6 +932,14 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
           onComposeCalendarOpenChange={setComposeCalendarOpen}
           onComposeCalendarEvent={handleComposeCalendarEvent}
           onDraftEvent={handleDraftEvent}
+          composeDocOpen={composeDocOpen}
+          onComposeDocOpenChange={setComposeDocOpen}
+          onComposeGoogleDoc={handleComposeGoogleDoc}
+          onDraftDoc={handleDraftDoc}
+          composeSlidesOpen={composeSlidesOpen}
+          onComposeSlidesOpenChange={setComposeSlidesOpen}
+          onComposeSlides={handleComposeSlides}
+          onDraftSlides={handleDraftSlides}
           receipts={receipts}
           receiptsLoading={receiptsLoading}
           receiptsOpen={receiptsOpen}
@@ -970,6 +1067,29 @@ interface BodyProps {
     rationale: string;
     source: 'llm' | 'template';
   }>;
+  composeDocOpen: boolean;
+  onComposeDocOpenChange: (open: boolean) => void;
+  onComposeGoogleDoc: (input: {
+    title: string;
+    bodyText: string;
+    shareSuggestions: Array<{ email: string; role: 'reader' | 'commenter' | 'writer' }>;
+  }) => Promise<void>;
+  onDraftDoc: (prompt: string) => Promise<{
+    title: string;
+    bodyText: string;
+    shareSuggestions: Array<{ email: string; role: 'reader' | 'commenter' | 'writer' }>;
+    rationale: string;
+    source: 'llm' | 'template';
+  }>;
+  composeSlidesOpen: boolean;
+  onComposeSlidesOpenChange: (open: boolean) => void;
+  onComposeSlides: (input: { title: string; outline: string[] }) => Promise<void>;
+  onDraftSlides: (prompt: string) => Promise<{
+    title: string;
+    outline: string[];
+    rationale: string;
+    source: 'llm' | 'template';
+  }>;
   receipts: ActivityReceiptData[];
   receiptsLoading: boolean;
   receiptsOpen: boolean;
@@ -1030,6 +1150,14 @@ function AigentMeWelcomeBody({
   onComposeCalendarOpenChange,
   onComposeCalendarEvent,
   onDraftEvent,
+  composeDocOpen,
+  onComposeDocOpenChange,
+  onComposeGoogleDoc,
+  onDraftDoc,
+  composeSlidesOpen,
+  onComposeSlidesOpenChange,
+  onComposeSlides,
+  onDraftSlides,
   receipts,
   receiptsLoading,
   receiptsOpen,
@@ -1272,7 +1400,21 @@ function AigentMeWelcomeBody({
           gates on persona connection state; clicking without a connected
           Gmail account surfaces the connector's "not-connected" message
           inline on the modal. */}
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-wrap justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => onComposeSlidesOpenChange(true)}
+          className="text-xs px-3 py-1.5 rounded-md border border-violet-500/40 text-violet-200 hover:border-violet-400 hover:text-violet-100 transition"
+        >
+          Compose Slides deck
+        </button>
+        <button
+          type="button"
+          onClick={() => onComposeDocOpenChange(true)}
+          className="text-xs px-3 py-1.5 rounded-md border border-violet-500/40 text-violet-200 hover:border-violet-400 hover:text-violet-100 transition"
+        >
+          Compose Google Doc
+        </button>
         <button
           type="button"
           onClick={() => onComposeCalendarOpenChange(true)}
@@ -1300,6 +1442,20 @@ function AigentMeWelcomeBody({
         onClose={() => onComposeCalendarOpenChange(false)}
         onCreate={onComposeCalendarEvent}
         onDraftWithAigentMe={onDraftEvent}
+        theme={theme}
+      />
+      <ComposeGoogleDocModal
+        open={composeDocOpen}
+        onClose={() => onComposeDocOpenChange(false)}
+        onCreate={onComposeGoogleDoc}
+        onDraftWithAigentMe={onDraftDoc}
+        theme={theme}
+      />
+      <ComposeSlidesModal
+        open={composeSlidesOpen}
+        onClose={() => onComposeSlidesOpenChange(false)}
+        onCreate={onComposeSlides}
+        onDraftWithAigentMe={onDraftSlides}
         theme={theme}
       />
 
