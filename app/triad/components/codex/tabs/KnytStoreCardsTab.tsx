@@ -283,9 +283,14 @@ export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
   const [cartOpen, setCartOpen] = useState(false);
   const { characters, getCharacterThumb } = useKnytThumbnails();
   const cart = useKnytCart();
-  const { ownedAssetIds } = useOwnedEntitlements(personaId);
+  const { ownedAssetIds, isCharacterOwnedByEp } = useOwnedEntitlements(personaId);
 
+  // Direct purchases write character-card-N-{still,motion,bundle} into
+  // user_entitlements.asset_id. Bundle holders (Top KNYT Shelf etc.) get
+  // SKU-expanded ownership keyed by pricing-episode number — checked via
+  // isCharacterOwnedByEp(epNum).
   function isCardOwned(epNum: number): boolean {
+    if (isCharacterOwnedByEp(epNum)) return true;
     return (
       ownedAssetIds.has(`character-card-${epNum}-still`) ||
       ownedAssetIds.has(`character-card-${epNum}-motion`) ||

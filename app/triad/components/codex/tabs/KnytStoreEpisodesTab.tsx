@@ -15,6 +15,7 @@ import {
   usdToKnyt,
   type CartItem,
   type EpisodePricing,
+  type GnVariant,
 } from '@/types/knyt-store';
 
 type Modality = 'still' | 'motion' | 'bundle';
@@ -730,12 +731,16 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
                 {GN_SKUS.map((sku) => {
                   const thumb = getCoverThumb(-1);
-                  // Phase B fix — Bug 1: Qripto + Digital resolve to gn_still
-                  // (covered by grants_gn). Paperback + Hardcover defer to
-                  // Phase C, so leave them unowned for now.
-                  const skuOwned = (sku.layer === 'qripto' || sku.layer === 'digital')
-                    ? isEpisodeOwned(-1)
-                    : false;
+                  // Resolve owned-state per GN variant the bundle granted.
+                  // Top KNYT Shelf → qripto + paperback. Digital KNYT Shelf →
+                  // digital + paperback. See gnVariants on each BundlePricing.
+                  const variantKey: GnVariant | null =
+                    sku.layer === 'qripto'  ? 'qripto'  :
+                    sku.layer === 'digital' ? 'digital' :
+                    sku.printVariant === 'paperback' ? 'paperback' :
+                    sku.printVariant === 'hardcover' ? 'hardcover' :
+                    null;
+                  const skuOwned = variantKey ? isGnVariantOwned(variantKey) : false;
                   return (
                     <GNGridCard
                       key={sku.id}
@@ -816,24 +821,23 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
           />
         )}
 
-        {view.kind === 'gn-sku' && (
-          <GNSkuDetail
-            sku={view.sku}
-            thumbUrl={getCoverThumb(-1)}
-            onBuy={setPurchase}
-            onAddToCart={addPendingToCart}
-            // Phase B fix — Bug 1: Qripto + Digital variants resolve to
-            // gn_still (covered by grants_gn flag). Paperback +
-            // Hardcover require Phase C flags (grants_gn_paperback /
-            // grants_gn_hardcover) which haven't shipped yet; leave
-            // them unowned for now so the badge doesn't lie.
-            isOwned={
-              (view.sku.layer === 'qripto' || view.sku.layer === 'digital')
-                ? isEpisodeOwned(-1)
-                : false
-            }
-          />
-        )}
+        {view.kind === 'gn-sku' && (() => {
+          const variantKey: GnVariant | null =
+            view.sku.layer === 'qripto'  ? 'qripto'  :
+            view.sku.layer === 'digital' ? 'digital' :
+            view.sku.printVariant === 'paperback' ? 'paperback' :
+            view.sku.printVariant === 'hardcover' ? 'hardcover' :
+            null;
+          return (
+            <GNSkuDetail
+              sku={view.sku}
+              thumbUrl={getCoverThumb(-1)}
+              onBuy={setPurchase}
+              onAddToCart={addPendingToCart}
+              isOwned={variantKey ? isGnVariantOwned(variantKey) : false}
+            />
+          );
+        })()}
       </div>
 
       {/* Purchase modal — express buy path */}

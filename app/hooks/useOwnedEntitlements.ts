@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { getOwnedGnVariants, type GnVariant } from '@/types/knyt-store';
 
 export interface OwnedEntitlement {
   id: string;
@@ -154,14 +155,42 @@ export function useOwnedEntitlements(personaId?: string) {
     [ownedCharacterIds]
   );
 
+  // Character ownership by pricing-convention episode number (0..12), honoring
+  // SKU-expanded bundles. The store's KNYT Cards tab uses this so bundle
+  // holders (Top KNYT Shelf etc.) see Owned badges on each of the 13 cards
+  // without needing the per-card UUID.
+  const isCharacterOwnedByEp = useCallback(
+    (pricingEp: number) =>
+      expandedItems.some(
+        (it) => it.category === 'character' && it.episodeNumber === pricingEp && it.available,
+      ),
+    [expandedItems],
+  );
+
+  // Which GN variants (qripto / digital / paperback / hardcover / leatherbound)
+  // the persona owns, derived from their bundle SKUs. Top KNYT Shelf →
+  // qripto + paperback, so the GN store badges only those two — not Digital.
+  const ownedGnVariants = useMemo<Set<GnVariant>>(
+    () => getOwnedGnVariants(ownedAssetIds),
+    [ownedAssetIds],
+  );
+
+  const isGnVariantOwned = useCallback(
+    (variant: GnVariant) => ownedGnVariants.has(variant),
+    [ownedGnVariants],
+  );
+
   return {
     entitlements,
     ownedAssetIds,
     ownedEpisodeNumbers,
     ownedCharacterIds,
     expandedItems,
+    ownedGnVariants,
     isEpisodeOwned,
     isCharacterOwned,
+    isCharacterOwnedByEp,
+    isGnVariantOwned,
     loading,
     refresh,
   };
