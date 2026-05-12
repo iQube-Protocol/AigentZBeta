@@ -145,12 +145,17 @@ function CartButton({
 function GNGridCard({
   sku,
   thumbUrl,
+  isOwned,
   onClick,
   onBuy,
   onAddToCart,
 }: {
   sku: GNSku;
   thumbUrl?: string;
+  /** Phase B fix — Bug 1: badge the GN variant the persona owns. Qripto +
+   *  Digital map to gn_still (covered by grants_gn). Paperback + Hardcover
+   *  defer to Phase C when grants_gn_paperback / grants_gn_hardcover ship. */
+  isOwned?: boolean;
   onClick: () => void;
   onBuy: (e: React.MouseEvent) => void;
   onAddToCart?: (e: React.MouseEvent) => void;
@@ -160,7 +165,11 @@ function GNGridCard({
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col rounded-xl border border-white/5 bg-slate-900/60 overflow-hidden text-left transition-colors hover:border-teal-500/20 hover:bg-slate-800/60 w-full"
+      className={`flex flex-col rounded-xl border overflow-hidden text-left transition-colors w-full ${
+        isOwned
+          ? 'border-emerald-700/40 bg-emerald-900/10 hover:border-emerald-600/50 hover:bg-emerald-900/20'
+          : 'border-white/5 bg-slate-900/60 hover:border-teal-500/20 hover:bg-slate-800/60'
+      }`}
     >
       <div className="relative w-full aspect-[2/3] bg-slate-950 overflow-hidden">
         {thumbUrl ? (
@@ -173,13 +182,22 @@ function GNGridCard({
         <div className={`absolute top-1 right-1 rounded border px-1.5 py-0.5 text-[9px] font-bold capitalize ${badgeClass}`}>
           {sku.layer}
         </div>
+        {isOwned && (
+          <div className="absolute top-1 left-1 flex items-center gap-0.5 rounded border border-emerald-600/50 bg-emerald-900/80 px-1 py-0.5">
+            <CheckCircle className="h-2.5 w-2.5 text-emerald-400" />
+            <span className="text-[8px] font-bold text-emerald-300">Owned</span>
+          </div>
+        )}
       </div>
       <div className="px-1.5 pt-1 pb-1.5 space-y-1">
         <p className="text-[10px] font-semibold text-white leading-tight">{sku.label}</p>
         <p className="text-[9px] text-slate-500 leading-tight">{sku.sublabel}</p>
         <div className="flex items-center justify-between">
-          <p className="text-[11px] font-bold text-white">${sku.price}</p>
-          <CartButton onClick={onBuy} onAddToCart={onAddToCart} />
+          {isOwned
+            ? <span className="text-[10px] font-semibold text-emerald-400">In Library</span>
+            : <p className="text-[11px] font-bold text-white">${sku.price}</p>
+          }
+          {!isOwned && <CartButton onClick={onBuy} onAddToCart={onAddToCart} />}
         </div>
       </div>
     </button>
@@ -712,11 +730,18 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
                 {GN_SKUS.map((sku) => {
                   const thumb = getCoverThumb(-1);
+                  // Phase B fix — Bug 1: Qripto + Digital resolve to gn_still
+                  // (covered by grants_gn). Paperback + Hardcover defer to
+                  // Phase C, so leave them unowned for now.
+                  const skuOwned = (sku.layer === 'qripto' || sku.layer === 'digital')
+                    ? isEpisodeOwned(-1)
+                    : false;
                   return (
                     <GNGridCard
                       key={sku.id}
                       sku={sku}
                       thumbUrl={thumb}
+                      isOwned={skuOwned}
                       onClick={() => setView({ kind: 'gn-sku', sku })}
                       onBuy={() => setPurchase({
                         contentType: 'scroll_still',
