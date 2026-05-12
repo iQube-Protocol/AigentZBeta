@@ -41,7 +41,8 @@ export type SpecialistId =
   | 'quill'
   | 'kn0w1'
   | 'aigent-z'
-  | 'aigent-c';
+  | 'aigent-c'
+  | 'aigent-nakamoto';
 
 export type SpecialistRequestType =
   | 'proposal'
@@ -51,7 +52,9 @@ export type SpecialistRequestType =
   | 'customer_journey'
   | 'partner_brief'
   | 'campaign_brief'
-  | 'article_brief';
+  | 'article_brief'
+  | 'decentralisation_brief'
+  | 'policy_brief';
 
 export interface SpecialistContext {
   /** Cartridge the specialist should treat as primary. */
@@ -103,6 +106,7 @@ const SPECIALIST_PERSONA_KEY: Record<SpecialistId, keyof typeof personas | null>
   kn0w1: 'aigent-kn0w1',
   'aigent-z': 'aigent-z',
   'aigent-c': 'aigent-c',
+  'aigent-nakamoto': 'aigent-nakamoto',
 };
 
 const SPECIALIST_LABELS: Record<SpecialistId, string> = {
@@ -111,6 +115,7 @@ const SPECIALIST_LABELS: Record<SpecialistId, string> = {
   kn0w1: 'Kn0w1',
   'aigent-z': 'Aigent Z',
   'aigent-c': 'Aigent C',
+  'aigent-nakamoto': 'Aigent Nakamoto (Satoshi)',
 };
 
 // Map specialist + cartridge → default request type so the prompt knows
@@ -121,6 +126,7 @@ function inferRequestType(specialistId: SpecialistId, cartridge: string): Specia
   if (specialistId === 'kn0w1') return 'mission_recommendation';
   if (specialistId === 'aigent-z') return 'system_guidance';
   if (specialistId === 'aigent-c') return 'customer_journey';
+  if (specialistId === 'aigent-nakamoto') return 'decentralisation_brief';
   // Cartridge hint:
   if (cartridge === 'qriptopian') return 'editorial_angle';
   if (cartridge === 'knyt') return 'mission_recommendation';
@@ -326,21 +332,38 @@ function templateResponse(
       confidence: 'high',
     };
   }
-  // aigent-c
+  if (specialistId === 'aigent-c') {
+    return {
+      requestType,
+      title: `Customer-journey framing for "${intent}"`,
+      summary:
+        `Aigent C frames ${intent} from the user's current journey stage. The next step should fit their depth band and surface a single forward motion.`,
+      recommendations: [
+        `Confirm the user's current depth (pill / capsule / mini-runtime / codex).`,
+        `Offer one next-depth experience tied to the intent.`,
+        `Translate platform vocabulary into ordinary language.`,
+        `Route to the specialist whose territory the next step lands in.`,
+      ],
+      suggestedArtifacts: ['brief'],
+      requiresApproval: false,
+      confidence: 'medium',
+    };
+  }
+  // aigent-nakamoto — decentralisation + Bitcoin + iQube/Qripto policy steward.
   return {
     requestType,
-    title: `Customer-journey framing for "${intent}"`,
+    title: `Decentralisation & policy framing for "${intent}"`,
     summary:
-      `Aigent C frames ${intent} from the user's current journey stage. The next step should fit their depth band and surface a single forward motion.`,
+      `Aigent Nakamoto frames ${intent} through the lens of Bitcoin-grade self-custody, censorship-resistance, and iQube/Qripto policy. Surface the protocol primitives at stake and any policy trade-offs before acting.`,
     recommendations: [
-      `Confirm the user's current depth (pill / capsule / mini-runtime / codex).`,
-      `Offer one next-depth experience tied to the intent.`,
-      `Translate platform vocabulary into ordinary language.`,
-      `Route to the specialist whose territory the next step lands in.`,
+      `Name the iQube/Qripto primitives this action touches (DiD/DiDQube, blakQube, metaQube, tokenQube, cohort attestation).`,
+      `Identify which policy tier owns enforcement: platform (Aigent Z) / customer (Aigent C) / ecosystem (iQube Protocol).`,
+      `If the action settles on-chain, name the settlement assurance you want (provenance, finality, censorship-resistance).`,
+      `Spell out the key-management implication for the persona — what they hold, what they delegate, what they should never expose.`,
     ],
     suggestedArtifacts: ['brief'],
     requiresApproval: false,
-    confidence: 'medium',
+    confidence: 'high',
   };
 }
 

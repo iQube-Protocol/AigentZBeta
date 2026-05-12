@@ -49,11 +49,11 @@ interface ExperienceModelHint {
 }
 
 interface AssistantSpecialist {
-  id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c';
+  id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c' | 'aigent-nakamoto';
   label: string;
   description: string;
   /** Where this specialist primarily operates from. */
-  homeCartridge: 'cross-cutting' | 'qriptopian' | 'knyt' | 'platform';
+  homeCartridge: 'cross-cutting' | 'qriptopian' | 'knyt' | 'platform' | 'protocol';
 }
 
 interface AssistantCta {
@@ -167,6 +167,12 @@ const AVAILABLE_SPECIALISTS: AssistantSpecialist[] = [
     description: 'Customer journey, AgentiQ OS builder context',
     homeCartridge: 'platform',
   },
+  {
+    id: 'aigent-nakamoto',
+    label: 'Aigent Nakamoto (Satoshi)',
+    description: 'Decentralisation, Bitcoin, iQube/Qripto protocols, ecosystem policy',
+    homeCartridge: 'protocol',
+  },
 ];
 
 /**
@@ -184,6 +190,7 @@ const PRIMARY_CTAS: AssistantCta[] = [
   { id: 'ask-marketa',             label: 'Ask Marketa',               enabled: false, status: 'preview' },
   { id: 'ask-quill',               label: 'Ask Quill',                 enabled: false, status: 'preview' },
   { id: 'ask-kn0w1',               label: 'Ask Kn0w1',                 enabled: false, status: 'preview' },
+  { id: 'ask-nakamoto',            label: 'Ask Nakamoto',              enabled: false, status: 'preview' },
 ];
 
 const ALLOWED_CARTRIDGE_SLUGS = new Set<string>(

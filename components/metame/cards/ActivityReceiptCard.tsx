@@ -40,6 +40,14 @@ export interface ActivityReceiptData {
 
 interface Props {
   data: ActivityReceiptData;
+  /**
+   * T1-safe persona display label resolved server-side by the receipts
+   * endpoint. Surfaced as an "Acting persona" footer so the user can see
+   * which bounded persona originated the receipt without ever exposing
+   * personaId, authProfileId, rootDid, or any T0 identifier. Per the
+   * PersonaSpine / DiDQube client protocol contract.
+   */
+  personaDisplayLabel?: string | null;
   theme?: "light" | "dark";
 }
 
@@ -73,7 +81,7 @@ const CARTRIDGE_LABELS: Record<string, string> = {
   avl: "AVL",
 };
 
-export function ActivityReceiptCard({ data, theme = "dark" }: Props) {
+export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" }: Props) {
   const isDark = theme === "dark";
   const surfaceClass = isDark
     ? "bg-slate-900/40 border-slate-700/60 text-slate-100"
@@ -124,8 +132,16 @@ export function ActivityReceiptCard({ data, theme = "dark" }: Props) {
         )}
       </div>
 
-      <div className={`text-[11px] ${mutedClass} flex items-center gap-2 pt-1 border-t border-slate-800/40`}>
+      <div className={`text-[11px] ${mutedClass} flex flex-wrap items-center gap-2 pt-1 border-t border-slate-800/40`}>
         <span>{new Date(data.createdAt).toLocaleString()}</span>
+        {personaDisplayLabel && (
+          // T1 persona display label only — never the persona id, root
+          // DiD, or auth profile. Per PersonaSpine / DiDQube contract.
+          <span className="ml-2">
+            Acting persona:{" "}
+            <span className={accentClass}>{personaDisplayLabel}</span>
+          </span>
+        )}
         {data.dvnReceiptId && (
           <span className="ml-auto">DVN: <span className="font-mono">{data.dvnReceiptId.slice(0, 10)}…</span></span>
         )}
