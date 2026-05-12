@@ -38,6 +38,10 @@ import { getGoogleConnector, type GoogleConnectorId } from '@/services/google/co
 import { getMarketaConnector } from '@/services/marketa/marketaConnector';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { getOAuthConfig } from '@/services/google/oauth';
+import {
+  verifyApprovalToken,
+  isApprovalTokenSigningConfigured,
+} from '@/services/access/approvalToken';
 
 export const dynamic = 'force-dynamic';
 
@@ -107,18 +111,50 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Second-tier approval gate.
-  if (connector.requiresApproval && !body.approvalToken) {
-    return NextResponse.json(
-      {
-        ok: false,
-        code: 'requires-approval',
-        reason: `${connector.label} requires explicit approval before execution.`,
-        hint:
-          'Surface the Phase 6.b second-tier ApprovalCard; pass the approval id back as approvalToken.',
-      },
-      { status: 403, headers: { 'Cache-Control': 'no-store' } },
-    );
+  // Second-tier approval gate (hardened — Phase 6.b Part 4).
+  // The token must be HMAC-signed by /api/assistant/approve-action AND
+  // bound to (this personaId, this connectorId, < 5 min old). An opaque
+  // string no longer suffices.
+  if (connector.requiresApproval) {
+    if (!body.approvalToken) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: 'requires-approval',
+          reason: `${connector.label} requires explicit approval before execution.`,
+          hint:
+            'POST /api/assistant/approve-action with { connectorId } to mint a signed approvalToken, then retry execute.',
+        },
+        { status: 403, headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
+    if (!isApprovalTokenSigningConfigured()) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: 'approval-signing-not-configured',
+          reason:
+            'Server cannot verify approval tokens — APPROVAL_TOKEN_HMAC_KEY / PERSONA_SESSION_TOKEN_HMAC_KEY / NEXTAUTH_SECRET unset.',
+        },
+        { status: 503, headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
+    const verified = verifyApprovalToken(body.approvalToken, {
+      personaId: context.personaId,
+      connectorId: connector.id,
+    });
+    if (!verified.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: 'approval-token-invalid',
+          reason: `approvalToken rejected: ${verified.reason}`,
+          hint:
+            'Re-approve the action — token is single-use, persona-bound, and expires after 5 minutes.',
+        },
+        { status: 403, headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
   }
 
   // Execute.
