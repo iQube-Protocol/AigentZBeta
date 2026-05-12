@@ -60,12 +60,17 @@ export async function GET(request: NextRequest) {
     //    rights to per their bundle SKUs. The new `expectedSlots` array
     //    gives us the full granted matrix (whether uploaded or not).
     let expanded = { direct: [] as string[], expandedIds: [] as string[], expectedSlots: [] as ExpectedSlot[] };
+    let expansionError: string | null = null;
     try {
       const r = await getOwnedAssetIds(personaId, 'metaKnyts');
       expanded = { direct: r.direct, expandedIds: r.expanded, expectedSlots: r.expectedSlots };
     } catch (e) {
+      expansionError = (e as Error)?.message || String(e);
       console.error('[codex/owned] SKU expansion failed', e);
     }
+
+    // Debug-only — return raw chain diagnostics when ?debug=1.
+    const wantDebug = searchParams.get('debug') === '1';
 
     // ── Walk the canonical asset rows the persona's SKUs grant access to,
     //    so we can correlate `expectedSlots` to real rows + episode numbers.
@@ -223,6 +228,22 @@ export async function GET(request: NextRequest) {
         availableCount: (gnAvailable ? 1 : 0) + episodeAvailable.size + characterAvailable.length,
         comingSoonCount: (gnComingSoon ? 1 : 0) + episodeComingSoon.size + characterComingSoon.length,
       },
+      // Temporary debug surface for tracing empty-ownership reports.
+      // Append ?debug=1 to receive: raw entitlement count, direct/expanded
+      // id lists, expectedSlots, uploadedSlotMap keys, and any expansion
+      // error. Strip this block once the issue is root-caused.
+      ...(wantDebug ? {
+        _debug: {
+          entitlementsCount: entitlements.length,
+          entitlementAssetIds: entitlements.map((e) => e.assetId),
+          expansionError,
+          direct: expanded.direct,
+          expandedIds: expanded.expandedIds,
+          expectedSlotsCount: expanded.expectedSlots.length,
+          expectedSlots: expanded.expectedSlots,
+          uploadedSlotKeys: Array.from(uploadedSlotMap.keys()),
+        },
+      } : {}),
     });
   } catch (error) {
     console.error('[API] Error fetching owned issues:', error);
