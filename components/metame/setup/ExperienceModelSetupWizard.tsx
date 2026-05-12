@@ -2,7 +2,7 @@
 
 /**
  * ExperienceModelSetupWizard — multi-step setup flow for the user's
- * ExperienceQube. Aigent Me Phase 2.b.
+ * ExperienceQube. aigentMe Phase 2.b.
  *
  * Per PRD v0.2 §6.3 (ExperienceModel setup flow). Six PRD prompts are
  * grouped into three logical steps so the user can complete setup in <2
@@ -118,9 +118,9 @@ const CARTRIDGES: Array<{ slug: ActiveCartridgeSlug; label: string }> = [
 ];
 
 const CONFIDENTIALITY_OPTIONS: Array<{ value: ConfidentialityDefault; label: string; hint: string }> = [
-  { value: "private_by_default", label: "Private by default", hint: "Aigent Me asks before sharing any context with specialists or external tools" },
-  { value: "selective_share",    label: "Selective share",    hint: "Aigent Me may share scoped context with the specialists you've enabled, asking only on consequential actions" },
-  { value: "open",               label: "Open",               hint: "Aigent Me may share context broadly across enabled specialists; consequential actions still require approval" },
+  { value: "private_by_default", label: "Private by default", hint: "aigentMe asks before sharing any context with specialists or external tools" },
+  { value: "selective_share",    label: "Selective share",    hint: "aigentMe may share scoped context with the specialists you've enabled, asking only on consequential actions" },
+  { value: "open",               label: "Open",               hint: "aigentMe may share context broadly across enabled specialists; consequential actions still require approval" },
 ];
 
 const PROGRESS_MODEL_OPTIONS: Array<{ value: string; label: string }> = [
@@ -324,7 +324,7 @@ export function ExperienceModelSetupWizard({ open, onOpenChange, initial, onSave
                   ))}
                 </select>
                 <p className="text-xs text-slate-500 mt-2">
-                  How Aigent Me structures your daily / project briefs.
+                  How aigentMe structures your daily / project briefs.
                 </p>
               </Field>
             </>

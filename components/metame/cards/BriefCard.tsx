@@ -184,7 +184,7 @@ export function BriefCard({ data, loading, error, onActOnNbe, theme = "dark" }: 
       {/* Footer */}
       <footer className={`text-xs ${mutedClass} pt-2 border-t border-slate-800/40`}>
         <Sparkles className="w-3 h-3 inline -mt-0.5 mr-1" />
-        Aigent Me · brief generated{" "}
+        aigentMe · brief generated{" "}
         {new Date(data.generatedAt).toLocaleString()}
       </footer>
     </div>

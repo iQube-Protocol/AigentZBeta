@@ -793,12 +793,12 @@ export default function CodexPanelDynamic({
           onOpen={() => setMetameCopilotOpen(true)}
           variant="floating"
           accentColor="emerald"
-          agent={{ id: 'aigent-me', name: 'Aigent Me' }}
+          agent={{ id: 'aigent-me', name: 'aigentMe' }}
           personaId={resolvedPersonaId ?? 'aigent-me'}
           enableInferenceRendering
           contextId={`metame-${activeTabSlug}`}
-          promptPlaceholder="Ask Aigent Me about your ExperienceModel, briefs, or next move..."
-          initialMessage="I'm Aigent Me — your sovereign chief of staff inside metaMe. I know your active ExperienceModel, your goals, the cartridges you're moving forward, and which specialists I can coordinate. Ask me anything."
+          promptPlaceholder="Ask aigentMe about your ExperienceModel, briefs, or next move..."
+          initialMessage="I'm aigentMe — your sovereign chief of staff inside metaMe. I know your active ExperienceModel, your goals, the cartridges you're moving forward, and which specialists I can coordinate. Ask me anything."
           quickPrompts={['Brief me', 'Move this forward', 'Review venture progress', 'Ask Marketa', 'Ask Quill', 'Ask Kn0w1']}
         />
       )}

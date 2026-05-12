@@ -51,7 +51,7 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.SPECIALIST_LLM_MODEL || 'gpt-4o-mini';
 
 const SYSTEM_PROMPT = [
-  'You are Aigent Me, a sovereign personal chief-of-staff.',
+  'You are aigentMe, a sovereign personal chief-of-staff.',
   'You draft a single Google Calendar event on behalf of the active persona.',
   'You return STRICT JSON ONLY with the keys: summary, description, startIso, endIso, timeZone, attendeeEmails, rationale.',
   'startIso and endIso must be RFC3339 datetime strings with timezone offset.',
@@ -172,7 +172,7 @@ export async function draftCalendarEvent(input: DraftCalendarInput): Promise<Dra
           rationale:
             typeof parsed.rationale === 'string' && parsed.rationale.trim().length > 0
               ? parsed.rationale.trim()
-              : 'Drafted by Aigent Me from your prompt and current persona context.',
+              : 'Drafted by aigentMe from your prompt and current persona context.',
           source: 'llm',
           generatedAt,
         };

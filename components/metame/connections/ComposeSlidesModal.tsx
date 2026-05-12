@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * ComposeSlidesModal — Aigent Me Phase 6.b Part 2.5c.
+ * ComposeSlidesModal — aigentMe Phase 6.b Part 2.5c.
  *
  * Drafter strip + form. POSTs /api/assistant/create-artifact with
  * destination='drive' + artifactType='slide-outline'. Deck is created
@@ -11,13 +11,24 @@
 import React, { useState, useCallback } from "react";
 import { Loader2, X, Presentation, Sparkles } from "lucide-react";
 
+interface SlideSection {
+  title: string;
+  bullets: string[];
+  diagramConcept?: string;
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
-  onCreate: (input: { title: string; outline: string[] }) => Promise<void>;
+  onCreate: (input: {
+    title: string;
+    outline: string[];
+    sections?: SlideSection[];
+  }) => Promise<void>;
   onDraftWithAigentMe: (prompt: string) => Promise<{
     title: string;
     outline: string[];
+    sections: SlideSection[];
     rationale: string;
     source: 'llm' | 'template';
   }>;
@@ -31,6 +42,10 @@ export function ComposeSlidesModal({ open, onClose, onCreate, onDraftWithAigentM
   const [aiSource, setAiSource] = useState<'llm' | 'template' | null>(null);
   const [title, setTitle] = useState("");
   const [outlineText, setOutlineText] = useState("");
+  // Phase 6.b 2.5c v2 — full per-slide structure (bullets + diagram concept)
+  // returned by the drafter. The textarea above stays as the simple manual
+  // override path; when the user clicks Draft for me we keep both in sync.
+  const [sections, setSections] = useState<SlideSection[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,7 +68,7 @@ export function ComposeSlidesModal({ open, onClose, onCreate, onDraftWithAigentM
   const handleDraft = useCallback(async () => {
     setError(null);
     if (!aiPrompt.trim()) {
-      setError('Tell Aigent Me what the deck is for.');
+      setError('Tell aigentMe what the deck is for.');
       return;
     }
     setAiDrafting(true);
@@ -61,6 +76,7 @@ export function ComposeSlidesModal({ open, onClose, onCreate, onDraftWithAigentM
       const draft = await onDraftWithAigentMe(aiPrompt.trim());
       setTitle(draft.title ?? "");
       setOutlineText((draft.outline ?? []).join("\n"));
+      setSections(Array.isArray(draft.sections) ? draft.sections : []);
       setAiRationale(draft.rationale ?? null);
       setAiSource(draft.source);
     } catch (err) {
@@ -81,11 +97,22 @@ export function ComposeSlidesModal({ open, onClose, onCreate, onDraftWithAigentM
       .split(/\r?\n/)
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
+    // If the user edited the outline textarea we trust those titles. We
+    // still forward sections (bullets + diagram concepts) as long as they
+    // align positionally with the manual outline — otherwise the textarea
+    // is the override and sections become empty so the connector renders
+    // title-only slides.
+    const alignedSections =
+      sections.length > 0 &&
+      outline.length === sections.length &&
+      outline.every((t, i) => t === sections[i].title)
+        ? sections
+        : undefined;
     setSubmitting(true);
     try {
-      await onCreate({ title: title.trim(), outline });
+      await onCreate({ title: title.trim(), outline, sections: alignedSections });
       setAiPrompt(""); setAiRationale(null); setAiSource(null);
-      setTitle(""); setOutlineText("");
+      setTitle(""); setOutlineText(""); setSections([]);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -112,7 +139,7 @@ export function ComposeSlidesModal({ open, onClose, onCreate, onDraftWithAigentM
         <div className={`mb-3 p-3 rounded border ${isDark ? 'border-violet-500/30 bg-violet-500/5' : 'border-violet-300 bg-violet-50'}`}>
           <label className="block">
             <span className={`block text-xs mb-1 ${labelClass}`}>
-              What&apos;s the deck for? <span className="opacity-60">(Aigent Me will draft the outline)</span>
+              What&apos;s the deck for? <span className="opacity-60">(aigentMe will draft the outline)</span>
             </span>
             <div className="flex gap-2">
               <input
@@ -137,7 +164,7 @@ export function ComposeSlidesModal({ open, onClose, onCreate, onDraftWithAigentM
           </label>
           {aiRationale && (
             <p className={`text-[11px] mt-2 ${labelClass}`}>
-              <span className="font-medium">Aigent Me:</span> {aiRationale}
+              <span className="font-medium">aigentMe:</span> {aiRationale}
               {aiSource === 'template' && <span className="opacity-60"> (template fallback)</span>}
             </p>
           )}
@@ -159,6 +186,32 @@ export function ComposeSlidesModal({ open, onClose, onCreate, onDraftWithAigentM
               disabled={submitting}
             />
           </label>
+          {sections.length > 0 && (
+            <div className={`rounded border ${isDark ? 'border-slate-700/60 bg-slate-900/40' : 'border-slate-200 bg-slate-50'} p-3`}>
+              <p className={`text-[11px] mb-2 ${labelClass}`}>
+                <span className="font-medium">aigentMe drafted bullets + visuals.</span> Reviewed on the slides once created — edit the outline above to drop sections.
+              </p>
+              <ul className="space-y-2 text-xs">
+                {sections.map((s, i) => (
+                  <li key={`${i}-${s.title}`}>
+                    <div className={`font-medium ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{i + 1}. {s.title}</div>
+                    {s.bullets.length > 0 && (
+                      <ul className={`mt-1 pl-4 list-disc ${labelClass}`}>
+                        {s.bullets.slice(0, 5).map((b, j) => (
+                          <li key={j}>{b}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {s.diagramConcept && (
+                      <p className={`mt-1 pl-4 italic ${labelClass}`}>
+                        Visual concept: {s.diagramConcept}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         {error && (

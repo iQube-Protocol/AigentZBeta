@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * ComposeGoogleDocModal — Aigent Me Phase 6.b Part 2.5c.
+ * ComposeGoogleDocModal — aigentMe Phase 6.b Part 2.5c.
  *
  * Same chief-of-staff pattern: drafter strip on top, editable fields
  * below. POSTs /api/assistant/create-artifact with destination='drive'
@@ -67,7 +67,7 @@ export function ComposeGoogleDocModal({ open, onClose, onCreate, onDraftWithAige
   const handleDraft = useCallback(async () => {
     setError(null);
     if (!aiPrompt.trim()) {
-      setError('Tell Aigent Me what the doc is for.');
+      setError('Tell aigentMe what the doc is for.');
       return;
     }
     setAiDrafting(true);
@@ -133,7 +133,7 @@ export function ComposeGoogleDocModal({ open, onClose, onCreate, onDraftWithAige
         <div className={`mb-3 p-3 rounded border ${isDark ? 'border-violet-500/30 bg-violet-500/5' : 'border-violet-300 bg-violet-50'}`}>
           <label className="block">
             <span className={`block text-xs mb-1 ${labelClass}`}>
-              What&apos;s the doc for? <span className="opacity-60">(Aigent Me will draft it)</span>
+              What&apos;s the doc for? <span className="opacity-60">(aigentMe will draft it)</span>
             </span>
             <div className="flex gap-2">
               <input
@@ -158,7 +158,7 @@ export function ComposeGoogleDocModal({ open, onClose, onCreate, onDraftWithAige
           </label>
           {aiRationale && (
             <p className={`text-[11px] mt-2 ${labelClass}`}>
-              <span className="font-medium">Aigent Me:</span> {aiRationale}
+              <span className="font-medium">aigentMe:</span> {aiRationale}
               {aiSource === 'template' && <span className="opacity-60"> (template fallback)</span>}
             </p>
           )}

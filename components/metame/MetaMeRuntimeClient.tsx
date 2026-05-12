@@ -6126,12 +6126,12 @@ export default function MetaMeRuntimeClient() {
                   type="button"
                   onClick={() => {
                     signalRuntimeBusy("quick_link:aigent_me", { autoClearMs: 0 });
-                    setActiveCartridgeOverlay({ slug: 'metame-codex', title: 'Aigent Me', initialTab: 'aigent-me' });
+                    setActiveCartridgeOverlay({ slug: 'metame-codex', title: 'aigentMe', initialTab: 'aigent-me' });
                   }}
                   className="flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[11px] text-emerald-200/80 hover:border-emerald-500/40 hover:text-emerald-100 transition-colors backdrop-blur-sm"
                 >
                   <Compass className="h-3 w-3 shrink-0" />
-                  Open Aigent Me
+                  Open aigentMe
                 </button>
                 <button
                   type="button"

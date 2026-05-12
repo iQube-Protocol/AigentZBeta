@@ -172,7 +172,7 @@ export function ApprovalCard({
           <dd>
             {action.approvalRequired
               ? "Approval gate before any send / share / publish"
-              : "No external action; queued for Aigent Me"}
+              : "No external action; queued for aigentMe"}
           </dd>
         </div>
       </dl>
