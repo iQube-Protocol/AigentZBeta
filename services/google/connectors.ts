@@ -787,6 +787,62 @@ const slidesCreate: GoogleConnector<SlidesCreateInput, SlidesCreateOutput> = {
       }
       const created = (await createRes.json()) as { presentationId?: string };
       const presentationId = created.presentationId ?? '';
+
+      // Phase 6.b Part 2.5c fix — append one TITLE_ONLY slide per outline
+      // entry. The fresh presentation only has a single cover slide; the
+      // outline was previously declared in inputSchema but never wired,
+      // so the deck looked empty. We materialise each outline string as
+      // its own slide title via a single batchUpdate (createSlide +
+      // insertText pairs) using placeholderIdMappings so we know which
+      // objectId to write the title text into.
+      const outline = Array.isArray(input.outline)
+        ? input.outline.filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+        : [];
+      let partialBuildWarning: string | null = null;
+      if (presentationId && outline.length > 0) {
+        const requests: Array<Record<string, unknown>> = [];
+        outline.forEach((slideTitle, idx) => {
+          const slideId = `aigentme_slide_${idx + 1}`;
+          const titleId = `aigentme_title_${idx + 1}`;
+          requests.push({
+            createSlide: {
+              objectId: slideId,
+              slideLayoutReference: { predefinedLayout: 'TITLE_ONLY' },
+              placeholderIdMappings: [
+                {
+                  layoutPlaceholder: { type: 'TITLE', index: 0 },
+                  objectId: titleId,
+                },
+              ],
+            },
+          });
+          requests.push({
+            insertText: { objectId: titleId, text: slideTitle.trim() },
+          });
+        });
+        try {
+          const batchRes = await fetch(
+            `https://slides.googleapis.com/v1/presentations/${presentationId}:batchUpdate`,
+            {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${t.token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ requests }),
+            },
+          );
+          if (!batchRes.ok) {
+            const text = await batchRes.text().catch(() => '');
+            partialBuildWarning = `outline insert failed (${batchRes.status}): ${text.slice(0, 200)}`;
+            console.warn(`[slides.create] ${partialBuildWarning}`);
+          }
+        } catch (err) {
+          partialBuildWarning = err instanceof Error ? err.message : String(err);
+          console.warn(`[slides.create] outline insert threw: ${partialBuildWarning}`);
+        }
+      }
+
       // webViewLink lookup via Drive — best-effort.
       let webViewLink: string | null = null;
       try {
@@ -803,6 +859,18 @@ const slidesCreate: GoogleConnector<SlidesCreateInput, SlidesCreateOutput> = {
         }
       } catch {
         /* non-fatal */
+      }
+      // The cover slide was created with the deck. partialBuildWarning is
+      // surfaced via the api-error code only when the outline insert
+      // failed entirely; otherwise we return success and let the operator
+      // see which slides materialised.
+      if (partialBuildWarning) {
+        return {
+          ok: false,
+          code: 'api-error',
+          reason: `slides outline insert failed: ${partialBuildWarning}`,
+          hint: `Deck was created (id=${presentationId}) but content slides could not be added.`,
+        };
       }
       return { ok: true, output: { presentationId, webViewLink } };
     } catch (err) {
