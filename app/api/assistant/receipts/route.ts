@@ -20,7 +20,7 @@ import {
   listActivityReceiptsForPersona,
   type ActivityActionType,
 } from '@/services/receipts/activityReceiptService';
-import { getSupabaseServer } from '@/services/server/supabaseServer';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
 /**
  * T1-safe display label for the active persona. Never returns the
