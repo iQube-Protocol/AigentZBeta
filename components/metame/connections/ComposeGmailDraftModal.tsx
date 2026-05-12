@@ -158,7 +158,7 @@ export function ComposeGmailDraftModal({
     >
       <form
         onSubmit={handleSubmit}
-        className={`rounded-lg p-5 w-full max-w-lg shadow-xl ${panelClass}`}
+        className={`rounded-lg p-5 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl ${panelClass}`}
       >
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">

@@ -34,7 +34,7 @@ export interface NextBestActionData {
   effort: "light" | "standard" | "deep";
   impact: "low" | "medium" | "high";
   approvalRequired: boolean;
-  specialist: "marketa" | "quill" | "kn0w1" | "aigent-z" | "aigent-c" | null;
+  specialist: "marketa" | "quill" | "kn0w1" | "aigent-z" | "aigent-c" | "aigent-nakamoto" | null;
   suggestedArtifact: string | null;
 }
 
@@ -60,6 +60,7 @@ const SPECIALIST_LABELS: Record<string, string> = {
   kn0w1: "Kn0w1",
   "aigent-z": "Aigent Z",
   "aigent-c": "Aigent C",
+  "aigent-nakamoto": "Aigent Nakamoto",
 };
 
 const EFFORT_CHIP: Record<NextBestActionData["effort"], string> = {

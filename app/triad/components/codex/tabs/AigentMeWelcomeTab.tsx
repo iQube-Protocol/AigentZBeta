@@ -75,10 +75,10 @@ import { ComposeGoogleDocModal } from "@/components/metame/connections/ComposeGo
 import { ComposeSlidesModal } from "@/components/metame/connections/ComposeSlidesModal";
 
 interface Specialist {
-  id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c';
+  id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c' | 'aigent-nakamoto';
   label: string;
   description: string;
-  homeCartridge: 'cross-cutting' | 'qriptopian' | 'knyt' | 'platform';
+  homeCartridge: 'cross-cutting' | 'qriptopian' | 'knyt' | 'platform' | 'protocol';
 }
 
 interface PrimaryCta {
@@ -162,7 +162,37 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
   const [specialistErrors, setSpecialistErrors] = useState<Record<string, string>>({});
 
   // Phase 6 — created artifacts (alpha: runtime-destination only).
-  const [artifacts, setArtifacts] = useState<ArtifactCardData[]>([]);
+  // Phase 6.b — Artifacts list is restored from sessionStorage on mount so
+  // the user keeps their working drafts when navigating away and back to
+  // the tab. Keyed by personaId so a persona switch doesn't bleed state.
+  // sessionStorage is intentional: clears on browser close (no stale
+  // drafts), survives tab navigation. Per the metaMe client protocol the
+  // only fields here are T1-safe (artifact ids, titles, action connector
+  // hints, public locationUrl) — no personaId, authProfileId, or rootDid.
+  const [artifacts, setArtifacts] = useState<ArtifactCardData[]>(() => {
+    if (typeof window === 'undefined' || !personaId) return [];
+    try {
+      const raw = window.sessionStorage.getItem(`aigentme:artifacts:${personaId}`);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? (parsed as ArtifactCardData[]) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Persist artifacts on every change. Cheap JSON write keyed by persona.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !personaId) return;
+    try {
+      window.sessionStorage.setItem(
+        `aigentme:artifacts:${personaId}`,
+        JSON.stringify(artifacts),
+      );
+    } catch {
+      // Quota exceeded or storage disabled — silently degrade.
+    }
+  }, [artifacts, personaId]);
 
   // Phase 6.b Part 2.5 — externalisation state. One artifact at a time can
   // be in flight (pending second-tier approval or running). Errors render
@@ -194,6 +224,9 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
   const [receipts, setReceipts] = useState<ActivityReceiptData[]>([]);
   const [receiptsLoading, setReceiptsLoading] = useState(false);
   const [receiptsOpen, setReceiptsOpen] = useState(false);
+  // Phase 6.b — T1-safe persona display label echoed by the receipts
+  // endpoint. Never personaId / authProfileId / rootDid.
+  const [receiptsPersonaLabel, setReceiptsPersonaLabel] = useState<string | null>(null);
 
   // Phase 3.5 — Approval + IntentQube state. Single pending-approval slot
   // at a time; queued intents are remembered per nbeId so the user can see
@@ -837,10 +870,16 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
         personaIdHint: personaId,
       });
       if (!res.ok) throw new Error(`receipts fetch failed (${res.status})`);
-      const data = (await res.json()) as { receipts: ActivityReceiptData[]; count: number };
+      const data = (await res.json()) as {
+        receipts: ActivityReceiptData[];
+        count: number;
+        personaDisplayLabel: string | null;
+      };
       setReceipts(data.receipts ?? []);
+      setReceiptsPersonaLabel(data.personaDisplayLabel ?? null);
     } catch {
       setReceipts([]);
+      setReceiptsPersonaLabel(null);
     } finally {
       setReceiptsLoading(false);
     }
@@ -949,6 +988,7 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
           receiptsLoading={receiptsLoading}
           receiptsOpen={receiptsOpen}
           onToggleReceipts={toggleReceipts}
+          receiptsPersonaLabel={receiptsPersonaLabel}
           theme={theme}
           surfaceClass={surfaceClass}
           mutedClass={mutedClass}
@@ -1104,6 +1144,8 @@ interface BodyProps {
   receiptsLoading: boolean;
   receiptsOpen: boolean;
   onToggleReceipts: () => void;
+  /** T1-safe persona display label echoed by the receipts endpoint. */
+  receiptsPersonaLabel: string | null;
   theme: 'light' | 'dark';
   surfaceClass: string;
   mutedClass: string;
@@ -1172,6 +1214,7 @@ function AigentMeWelcomeBody({
   receiptsLoading,
   receiptsOpen,
   onToggleReceipts,
+  receiptsPersonaLabel,
   theme,
   surfaceClass,
   mutedClass,
@@ -1379,7 +1422,7 @@ function AigentMeWelcomeBody({
               </p>
             ) : (
               receipts.map((r) => (
-                <ActivityReceiptCard key={r.id} data={r} theme={theme} />
+                <ActivityReceiptCard key={r.id} data={r} personaDisplayLabel={receiptsPersonaLabel} theme={theme} />
               ))
             )}
           </div>

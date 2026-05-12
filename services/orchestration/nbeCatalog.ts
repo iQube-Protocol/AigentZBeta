@@ -37,7 +37,7 @@ export interface NbeCandidate {
   /** Stages where this NBE is relevant. Empty = all stages. */
   stages?: ExperienceStage[];
   /** Specialist most relevant to coordinate. Optional. */
-  specialist?: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c';
+  specialist?: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c' | 'aigent-nakamoto';
   /** Suggested artifact type to produce. */
   suggestedArtifact?:
     | 'google-doc'

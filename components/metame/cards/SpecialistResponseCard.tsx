@@ -26,7 +26,7 @@ import {
 import { IqubeContextDisclosure, type IqubeKind } from "./IqubeContextDisclosure";
 
 export interface SpecialistResponseData {
-  specialistId: "marketa" | "quill" | "kn0w1" | "aigent-z" | "aigent-c";
+  specialistId: "marketa" | "quill" | "kn0w1" | "aigent-z" | "aigent-c" | "aigent-nakamoto";
   specialistLabel: string;
   requestType: string;
   title: string;

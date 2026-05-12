@@ -119,7 +119,7 @@ export function ComposeGoogleDocModal({ open, onClose, onCreate, onDraftWithAige
 
   return (
     <div className={overlayClass} role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget && !submitting) onClose(); }}>
-      <form onSubmit={handleSubmit} className={`rounded-lg p-5 w-full max-w-lg shadow-xl ${panelClass}`}>
+      <form onSubmit={handleSubmit} className={`rounded-lg p-5 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl ${panelClass}`}>
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-violet-400" />
