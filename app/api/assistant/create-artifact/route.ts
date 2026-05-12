@@ -63,14 +63,17 @@ const VALID_DESTINATIONS = new Set<string>([
 // Phase 6.b Part 2.5 — gmail destination is live (gmail-draft → gmail.draft
 // connector eager-creates a real draft, returns location URL + the send
 // connector for the second-tier ApprovalCard).
-// Phase 6.b Part 2.5c — calendar destination joins the party:
+// Phase 6.b Part 2.5c — calendar + drive destinations live:
 //   - calendar-block + no attendees → eager-create via calendar.create-event
 //     (no approval needed; event is private to the user).
 //   - calendar-block + attendees    → runtime-only artifact carrying
 //     calendar.invite-external as the action connector. Send invites
 //     triggers the second-tier ApprovalCard because invites externalise.
-// drive / cartridge_store stay deferred until 2.5c follow-ups.
-const DEFERRED_DESTINATIONS = new Set<string>(['drive', 'cartridge_store']);
+//   - google-doc → eager-create via drive.create-doc (no approval); if the
+//     drafter suggested shareSuggestions, artifact binds drive.share-doc
+//     for an approval-gated share.
+// cartridge_store stays deferred until Phase 7 work.
+const DEFERRED_DESTINATIONS = new Set<string>(['cartridge_store']);
 
 interface PostBody {
   artifactType?: string;
@@ -90,7 +93,7 @@ interface CreateArtifactSurface {
   artifactId: string;
   artifactType: string;
   title: string;
-  destination: 'runtime' | 'gmail' | 'calendar';
+  destination: 'runtime' | 'gmail' | 'calendar' | 'drive';
   status: 'draft';
   receiptId: string | null;
   intentId: string | null;
@@ -382,6 +385,162 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           attendeeEmails,
           sendUpdates: 'all',
         },
+      };
+      return NextResponse.json(surface, { headers: { 'Cache-Control': 'no-store' } });
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Phase 6.b Part 2.5c — Drive destination (Google Doc / Slides).
+    // For google-doc:
+    //   Eager-create via drive.create-doc (no approval). If the caller
+    //   passed shareSuggestions, the artifact binds google.drive.share-doc
+    //   to the first suggestion; subsequent suggestions require manual
+    //   re-shares for now (kept simple in alpha).
+    // For slide-outline:
+    //   Eager-create via slides.create (no approval). No second-tier
+    //   needed — Slides decks are private by default and sharing happens
+    //   through the Drive surface.
+    // ─────────────────────────────────────────────────────────────────
+    if (destination === 'drive') {
+      if (body.artifactType !== 'google-doc' && body.artifactType !== 'slide-outline') {
+        return NextResponse.json(
+          { error: 'destination-mismatch', detail: `destination='drive' requires artifactType='google-doc' or 'slide-outline'.` },
+          { status: 400, headers: { 'Cache-Control': 'no-store' } },
+        );
+      }
+
+      if (body.artifactType === 'google-doc') {
+        const input = (body.connectorInput ?? {}) as {
+          title?: string;
+          bodyText?: string;
+          shareSuggestions?: Array<{ email: string; role: 'reader' | 'commenter' | 'writer' }>;
+        };
+        if (!input.title) {
+          return NextResponse.json(
+            { error: 'invalid-connector-input', detail: 'title required' },
+            { status: 400, headers: { 'Cache-Control': 'no-store' } },
+          );
+        }
+        const createDoc = getGoogleConnector('google.drive.create-doc');
+        if (!createDoc) {
+          return NextResponse.json(
+            { error: 'connector-unavailable', detail: 'drive.create-doc not registered' },
+            { status: 500, headers: { 'Cache-Control': 'no-store' } },
+          );
+        }
+        const result = await createDoc.execute(
+          { title: input.title, bodyText: input.bodyText ?? '' },
+          { personaId: context.personaId, intentId: body.sourceIntentId ?? null, cartridge },
+        );
+        if (!result.ok) {
+          return NextResponse.json(
+            { error: 'doc-create-failed', code: result.code, detail: result.reason, hint: result.hint },
+            { status: result.code === 'not-connected' ? 409 : 502, headers: { 'Cache-Control': 'no-store' } },
+          );
+        }
+        const output = result.output as { documentId?: string; webViewLink?: string | null } | undefined;
+        const documentId = output?.documentId ?? '';
+        const locationUrl = output?.webViewLink ?? (documentId ? `https://docs.google.com/document/d/${documentId}/edit` : null);
+        const shareSuggestions = Array.isArray(input.shareSuggestions) ? input.shareSuggestions : [];
+        const firstShare = shareSuggestions.find((s) => s && typeof s.email === 'string' && /@/.test(s.email));
+
+        const receipt = await createActivityReceipt({
+          personaId: context.personaId,
+          intentId: body.sourceIntentId ?? null,
+          activeCartridge: cartridge,
+          actionType: 'artifact_created',
+          summary: `Created Google Doc: ${input.title}`,
+          agentsInvoked: ['aigent-me', ...(body.specialistId ? [body.specialistId] : [])],
+          toolsUsed: ['google.drive.create-doc'],
+          iqubesUsed: ['PersonaQube', 'ExperienceQube', 'IntentQube'],
+          contextShared: ['intent-summary', 'experience-meta-slice'],
+          artifactsCreated: [`google-doc:${documentId || input.title}`],
+          approvalsGranted: body.sourceIntentId ? [body.sourceIntentId] : [],
+        });
+
+        const surface: CreateArtifactSurface = {
+          artifactId,
+          artifactType: 'google-doc',
+          title: input.title,
+          destination: 'drive',
+          status: 'draft',
+          receiptId: receipt?.id ?? null,
+          intentId: body.sourceIntentId ?? null,
+          message: firstShare
+            ? `Doc created. Click "Share doc" to grant ${firstShare.email} ${firstShare.role} access — approval required.`
+            : 'Doc created privately in your Drive.',
+          createdAt,
+          locationUrl,
+          ...(firstShare && documentId
+            ? {
+                actionConnectorId: 'google.drive.share-doc',
+                actionConnectorLabel: `Share with ${firstShare.email}`,
+                actionInput: {
+                  documentId,
+                  email: firstShare.email,
+                  role: firstShare.role,
+                  sendNotification: true,
+                },
+              }
+            : {}),
+        };
+        return NextResponse.json(surface, { headers: { 'Cache-Control': 'no-store' } });
+      }
+
+      // slide-outline
+      const input = (body.connectorInput ?? {}) as { title?: string; outline?: string[] };
+      if (!input.title) {
+        return NextResponse.json(
+          { error: 'invalid-connector-input', detail: 'title required' },
+          { status: 400, headers: { 'Cache-Control': 'no-store' } },
+        );
+      }
+      const slides = getGoogleConnector('google.slides.create');
+      if (!slides) {
+        return NextResponse.json(
+          { error: 'connector-unavailable', detail: 'slides.create not registered' },
+          { status: 500, headers: { 'Cache-Control': 'no-store' } },
+        );
+      }
+      const slidesResult = await slides.execute(
+        { title: input.title, outline: Array.isArray(input.outline) ? input.outline : [] },
+        { personaId: context.personaId, intentId: body.sourceIntentId ?? null, cartridge },
+      );
+      if (!slidesResult.ok) {
+        return NextResponse.json(
+          { error: 'slides-create-failed', code: slidesResult.code, detail: slidesResult.reason, hint: slidesResult.hint },
+          { status: slidesResult.code === 'not-connected' ? 409 : 502, headers: { 'Cache-Control': 'no-store' } },
+        );
+      }
+      const slidesOut = slidesResult.output as { presentationId?: string; webViewLink?: string | null } | undefined;
+      const presentationId = slidesOut?.presentationId ?? '';
+      const locationUrl = slidesOut?.webViewLink ?? (presentationId ? `https://docs.google.com/presentation/d/${presentationId}/edit` : null);
+
+      const receipt = await createActivityReceipt({
+        personaId: context.personaId,
+        intentId: body.sourceIntentId ?? null,
+        activeCartridge: cartridge,
+        actionType: 'artifact_created',
+        summary: `Created Slides deck: ${input.title}`,
+        agentsInvoked: ['aigent-me', ...(body.specialistId ? [body.specialistId] : [])],
+        toolsUsed: ['google.slides.create'],
+        iqubesUsed: ['PersonaQube', 'ExperienceQube', 'IntentQube'],
+        contextShared: ['intent-summary', 'experience-meta-slice'],
+        artifactsCreated: [`slide-outline:${presentationId || input.title}`],
+        approvalsGranted: body.sourceIntentId ? [body.sourceIntentId] : [],
+      });
+
+      const surface: CreateArtifactSurface = {
+        artifactId,
+        artifactType: 'slide-outline',
+        title: input.title,
+        destination: 'drive',
+        status: 'draft',
+        receiptId: receipt?.id ?? null,
+        intentId: body.sourceIntentId ?? null,
+        message: 'Slides deck created privately in your Drive.',
+        createdAt,
+        locationUrl,
       };
       return NextResponse.json(surface, { headers: { 'Cache-Control': 'no-store' } });
     }
