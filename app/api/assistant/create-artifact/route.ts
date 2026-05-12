@@ -438,9 +438,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             { status: result.code === 'not-connected' ? 409 : 502, headers: { 'Cache-Control': 'no-store' } },
           );
         }
-        const output = result.output as { documentId?: string; webViewLink?: string | null } | undefined;
+        const output = result.output as {
+          documentId?: string;
+          webViewLink?: string | null;
+          warning?: string;
+        } | undefined;
         const documentId = output?.documentId ?? '';
         const locationUrl = output?.webViewLink ?? (documentId ? `https://docs.google.com/document/d/${documentId}/edit` : null);
+        const bodyWarning = output?.warning ?? null;
         const shareSuggestions = Array.isArray(input.shareSuggestions) ? input.shareSuggestions : [];
         const firstShare = shareSuggestions.find((s) => s && typeof s.email === 'string' && /@/.test(s.email));
 
@@ -466,9 +471,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           status: 'draft',
           receiptId: receipt?.id ?? null,
           intentId: body.sourceIntentId ?? null,
-          message: firstShare
-            ? `Doc created. Click "Share doc" to grant ${firstShare.email} ${firstShare.role} access — approval required.`
-            : 'Doc created privately in your Drive.',
+          message: bodyWarning
+            ? `Doc created (title only). ${bodyWarning}`
+            : firstShare
+              ? `Doc created. Click "Share doc" to grant ${firstShare.email} ${firstShare.role} access — approval required.`
+              : 'Doc created privately in your Drive.',
           createdAt,
           locationUrl,
           ...(firstShare && documentId
