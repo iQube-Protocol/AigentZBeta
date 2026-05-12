@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * ComposeGmailDraftModal — Aigent Me Phase 6.b Part 2.5b.
+ * ComposeGmailDraftModal — aigentMe Phase 6.b Part 2.5b.
  *
  * A small overlay that lets the user originate a Gmail draft from the
- * Aigent Me welcome surface (no curl, no specialist round-trip required).
+ * aigentMe welcome surface (no curl, no specialist round-trip required).
  *
  * Flow:
  *   To / Subject / Body fields → POST /api/assistant/create-artifact with
@@ -37,7 +37,7 @@ interface Props {
     bcc?: string;
   }) => Promise<void>;
   /**
-   * Phase 6.b Part 2.5b — Aigent Me drafts a full email from a one-liner
+   * Phase 6.b Part 2.5b — aigentMe drafts a full email from a one-liner
    * about what the user wants to achieve. Returns the suggestion so the
    * modal can populate its fields (user can still edit before sending).
    */
@@ -75,7 +75,7 @@ export function ComposeGmailDraftModal({
   const handleDraft = useCallback(async () => {
     setError(null);
     if (!aiPrompt.trim()) {
-      setError('Tell Aigent Me what the email is for (one sentence).');
+      setError('Tell aigentMe what the email is for (one sentence).');
       return;
     }
     setAiDrafting(true);
@@ -178,7 +178,7 @@ export function ComposeGmailDraftModal({
           </button>
         </div>
 
-        {/* Aigent Me drafter — one-line prompt + Sparkle button. The
+        {/* aigentMe drafter — one-line prompt + Sparkle button. The
             response auto-fills the To / Cc / Bcc / Subject / Body fields
             below; the user can still edit anything before sending. */}
         <div className={`mb-3 p-3 rounded border ${
@@ -186,7 +186,7 @@ export function ComposeGmailDraftModal({
         }`}>
           <label className="block">
             <span className={`block text-xs mb-1 ${labelClass}`}>
-              What&apos;s the email for? <span className="opacity-60">(Aigent Me will draft it)</span>
+              What&apos;s the email for? <span className="opacity-60">(aigentMe will draft it)</span>
             </span>
             <div className="flex gap-2">
               <input
@@ -220,7 +220,7 @@ export function ComposeGmailDraftModal({
           </label>
           {aiRationale && (
             <p className={`text-[11px] mt-2 ${labelClass}`}>
-              <span className="font-medium">Aigent Me:</span> {aiRationale}
+              <span className="font-medium">aigentMe:</span> {aiRationale}
               {aiSource === 'template' && (
                 <span className="opacity-60"> (template fallback — no LLM key set)</span>
               )}

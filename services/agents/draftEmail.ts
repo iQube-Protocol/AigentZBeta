@@ -58,7 +58,7 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.SPECIALIST_LLM_MODEL || 'gpt-4o-mini';
 
 const SYSTEM_PROMPT = [
-  'You are Aigent Me, a sovereign personal chief-of-staff.',
+  'You are aigentMe, a sovereign personal chief-of-staff.',
   'You draft a single short, professional Gmail message on behalf of the active persona.',
   'You return STRICT JSON ONLY with the keys: to, cc, bcc, subject, bodyText, rationale.',
   'Empty strings are valid for to / cc / bcc when the user did not specify a recipient.',
@@ -177,7 +177,7 @@ export async function draftEmail(input: DraftEmailInput): Promise<DraftEmailOutp
           rationale:
             typeof parsed.rationale === 'string' && parsed.rationale.trim().length > 0
               ? parsed.rationale.trim()
-              : 'Drafted by Aigent Me from your prompt and current persona context.',
+              : 'Drafted by aigentMe from your prompt and current persona context.',
           source: 'llm',
           generatedAt,
         };

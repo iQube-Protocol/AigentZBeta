@@ -45,7 +45,7 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.SPECIALIST_LLM_MODEL || 'gpt-4o-mini';
 
 const SYSTEM_PROMPT = [
-  'You are Aigent Me, a sovereign personal chief-of-staff.',
+  'You are aigentMe, a sovereign personal chief-of-staff.',
   'You draft a single Google Doc on behalf of the active persona.',
   'You return STRICT JSON ONLY with the keys: title, bodyText, shareSuggestions, rationale.',
   'bodyText is plain text (no Markdown, no HTML), 150–500 words structured with clear paragraphs.',
@@ -139,7 +139,7 @@ export async function draftGoogleDoc(input: DraftGoogleDocInput): Promise<DraftG
           shareSuggestions,
           rationale: typeof parsed.rationale === 'string' && parsed.rationale.trim()
             ? parsed.rationale.trim()
-            : 'Drafted by Aigent Me from your prompt and current persona context.',
+            : 'Drafted by aigentMe from your prompt and current persona context.',
           source: 'llm',
           generatedAt,
         };

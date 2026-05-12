@@ -220,7 +220,7 @@ export function GoogleConnectionsPanel({ isAdmin = false, theme = "dark" }: Prop
             <div>
               <h3 className="font-semibold mb-1">Google Workspace connections — coming soon</h3>
               <p className={`text-sm ${mutedClass}`}>
-                Aigent Me will be able to coordinate Gmail, Calendar, and Drive
+                aigentMe will be able to coordinate Gmail, Calendar, and Drive
                 actions once your operator finishes the connection setup.
                 Each source is opt-in separately.
               </p>

@@ -688,12 +688,17 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     return (await res.json()) as {
       title: string;
       outline: string[];
+      sections: Array<{ title: string; bullets: string[]; diagramConcept?: string }>;
       rationale: string;
       source: 'llm' | 'template';
     };
   }, [personaId]);
 
-  const handleComposeSlides = useCallback(async (input: { title: string; outline: string[] }) => {
+  const handleComposeSlides = useCallback(async (input: {
+    title: string;
+    outline: string[];
+    sections?: Array<{ title: string; bullets: string[]; diagramConcept?: string }>;
+  }) => {
     const res = await personaFetch('/api/assistant/create-artifact', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1083,10 +1088,15 @@ interface BodyProps {
   }>;
   composeSlidesOpen: boolean;
   onComposeSlidesOpenChange: (open: boolean) => void;
-  onComposeSlides: (input: { title: string; outline: string[] }) => Promise<void>;
+  onComposeSlides: (input: {
+    title: string;
+    outline: string[];
+    sections?: Array<{ title: string; bullets: string[]; diagramConcept?: string }>;
+  }) => Promise<void>;
   onDraftSlides: (prompt: string) => Promise<{
     title: string;
     outline: string[];
+    sections: Array<{ title: string; bullets: string[]; diagramConcept?: string }>;
     rationale: string;
     source: 'llm' | 'template';
   }>;
@@ -1187,7 +1197,7 @@ function AigentMeWelcomeBody({
     return (
       <div className="p-10 flex items-center justify-center gap-3">
         <Loader2 className="w-5 h-5 animate-spin text-violet-400" />
-        <span className={mutedClass}>Bringing Aigent Me online…</span>
+        <span className={mutedClass}>Bringing aigentMe online…</span>
       </div>
     );
   }
@@ -1196,7 +1206,7 @@ function AigentMeWelcomeBody({
     return (
       <div className="p-10 max-w-2xl mx-auto">
         <div className={`rounded-lg border p-6 ${surfaceClass}`}>
-          <h3 className="font-semibold mb-1">Aigent Me bootstrap failed</h3>
+          <h3 className="font-semibold mb-1">aigentMe bootstrap failed</h3>
           <p className={`text-sm ${mutedClass}`}>{bootstrapError}</p>
         </div>
       </div>

@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * ComposeCalendarEventModal — Aigent Me Phase 6.b Part 2.5c.
+ * ComposeCalendarEventModal — aigentMe Phase 6.b Part 2.5c.
  *
- * Mirrors ComposeGmailDraftModal: top strip is Aigent Me's drafter
+ * Mirrors ComposeGmailDraftModal: top strip is aigentMe's drafter
  * ("What's the meeting for?"), the fields below auto-populate from the
  * draft and remain editable.
  *
@@ -103,7 +103,7 @@ export function ComposeCalendarEventModal({
   const handleDraft = useCallback(async () => {
     setError(null);
     if (!aiPrompt.trim()) {
-      setError('Tell Aigent Me what the meeting is for.');
+      setError('Tell aigentMe what the meeting is for.');
       return;
     }
     setAiDrafting(true);
@@ -185,7 +185,7 @@ export function ComposeCalendarEventModal({
         <div className={`mb-3 p-3 rounded border ${isDark ? 'border-violet-500/30 bg-violet-500/5' : 'border-violet-300 bg-violet-50'}`}>
           <label className="block">
             <span className={`block text-xs mb-1 ${labelClass}`}>
-              What&apos;s the meeting for? <span className="opacity-60">(Aigent Me will draft it)</span>
+              What&apos;s the meeting for? <span className="opacity-60">(aigentMe will draft it)</span>
             </span>
             <div className="flex gap-2">
               <input
@@ -210,7 +210,7 @@ export function ComposeCalendarEventModal({
           </label>
           {aiRationale && (
             <p className={`text-[11px] mt-2 ${labelClass}`}>
-              <span className="font-medium">Aigent Me:</span> {aiRationale}
+              <span className="font-medium">aigentMe:</span> {aiRationale}
               {aiSource === 'template' && <span className="opacity-60"> (template fallback)</span>}
             </p>
           )}

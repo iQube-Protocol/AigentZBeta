@@ -745,7 +745,16 @@ const docsAppend: GoogleConnector<DocsAppendInput, DocsAppendOutput> = {
 
 interface SlidesCreateInput {
   title: string;
+  /** Back-compat: array of slide titles. Used when sections is absent. */
   outline?: string[];
+  /**
+   * Phase 6.b 2.5c v2 — per-slide structure with bullets and an optional
+   * diagramConcept string. When provided, each entry materialises as a
+   * TITLE_AND_BODY slide; diagramConcept becomes a placeholder text box
+   * near the foot of the slide that the operator can swap for a real
+   * graphic later.
+   */
+  sections?: Array<{ title: string; bullets: string[]; diagramConcept?: string }>;
 }
 interface SlidesCreateOutput {
   presentationId: string;
@@ -788,37 +797,120 @@ const slidesCreate: GoogleConnector<SlidesCreateInput, SlidesCreateOutput> = {
       const created = (await createRes.json()) as { presentationId?: string };
       const presentationId = created.presentationId ?? '';
 
-      // Phase 6.b Part 2.5c fix — append one TITLE_ONLY slide per outline
-      // entry. The fresh presentation only has a single cover slide; the
-      // outline was previously declared in inputSchema but never wired,
-      // so the deck looked empty. We materialise each outline string as
-      // its own slide title via a single batchUpdate (createSlide +
-      // insertText pairs) using placeholderIdMappings so we know which
-      // objectId to write the title text into.
-      const outline = Array.isArray(input.outline)
-        ? input.outline.filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
-        : [];
+      // Phase 6.b Part 2.5c v2 — materialise per-slide structure.
+      // When the caller passes `sections` (each with title + bullets +
+      // optional diagramConcept), every entry becomes a TITLE_AND_BODY
+      // slide with bullets joined by newlines and a "Visual concept" text
+      // box for any diagram hint. When only `outline` is passed (back-
+      // compat path), each entry becomes a TITLE_ONLY slide.
+      // The batch is built up-front and submitted in one batchUpdate so
+      // partial-success windows stay small.
+      type Section = { title: string; bullets: string[]; diagramConcept?: string };
+      const sections: Section[] = Array.isArray(input.sections) && input.sections.length > 0
+        ? input.sections
+            .filter((s): s is Section => !!s && typeof s.title === 'string' && s.title.trim().length > 0)
+            .map((s) => ({
+              title: s.title.trim(),
+              bullets: Array.isArray(s.bullets)
+                ? s.bullets.filter((b): b is string => typeof b === 'string' && b.trim().length > 0).map((b) => b.trim())
+                : [],
+              ...(typeof s.diagramConcept === 'string' && s.diagramConcept.trim().length > 0
+                ? { diagramConcept: s.diagramConcept.trim() }
+                : {}),
+            }))
+        : Array.isArray(input.outline)
+          ? input.outline
+              .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+              .map((slideTitle) => ({ title: slideTitle.trim(), bullets: [] }))
+          : [];
+
       let partialBuildWarning: string | null = null;
-      if (presentationId && outline.length > 0) {
+      if (presentationId && sections.length > 0) {
         const requests: Array<Record<string, unknown>> = [];
-        outline.forEach((slideTitle, idx) => {
+        sections.forEach((section, idx) => {
           const slideId = `aigentme_slide_${idx + 1}`;
           const titleId = `aigentme_title_${idx + 1}`;
+          const bodyId = `aigentme_body_${idx + 1}`;
+          const useBody = section.bullets.length > 0;
           requests.push({
             createSlide: {
               objectId: slideId,
-              slideLayoutReference: { predefinedLayout: 'TITLE_ONLY' },
+              slideLayoutReference: {
+                predefinedLayout: useBody ? 'TITLE_AND_BODY' : 'TITLE_ONLY',
+              },
               placeholderIdMappings: [
                 {
                   layoutPlaceholder: { type: 'TITLE', index: 0 },
                   objectId: titleId,
                 },
+                ...(useBody
+                  ? [{
+                      layoutPlaceholder: { type: 'BODY', index: 0 },
+                      objectId: bodyId,
+                    }]
+                  : []),
               ],
             },
           });
           requests.push({
-            insertText: { objectId: titleId, text: slideTitle.trim() },
+            insertText: { objectId: titleId, text: section.title },
           });
+          if (useBody) {
+            requests.push({
+              insertText: { objectId: bodyId, text: section.bullets.join('\n') },
+            });
+          }
+          if (section.diagramConcept) {
+            // Render a stylised text box near the slide foot describing the
+            // suggested visual. The operator can replace it with a real
+            // graphic; deletion is one click in Slides.
+            // Slide dimensions in EMU: 10in × 5.625in (16:9 default) =
+            // 9144000 × 5143500. Box: 8.5in × 0.7in centred horizontally,
+            // anchored ~0.4in from the bottom.
+            const conceptShapeId = `aigentme_concept_shape_${idx + 1}`;
+            const conceptTextId = `aigentme_concept_text_${idx + 1}`;
+            requests.push({
+              createShape: {
+                objectId: conceptShapeId,
+                shapeType: 'TEXT_BOX',
+                elementProperties: {
+                  pageObjectId: slideId,
+                  size: {
+                    width: { magnitude: 7772400, unit: 'EMU' },   // 8.5 in
+                    height: { magnitude: 640080, unit: 'EMU' },   // 0.7 in
+                  },
+                  transform: {
+                    scaleX: 1,
+                    scaleY: 1,
+                    translateX: 685800,                            // 0.75 in
+                    translateY: 4135120,                           // ~4.52 in
+                    unit: 'EMU',
+                  },
+                },
+              },
+            });
+            requests.push({
+              insertText: {
+                objectId: conceptShapeId,
+                text: `Visual concept: ${section.diagramConcept}`,
+              },
+            });
+            requests.push({
+              updateTextStyle: {
+                objectId: conceptShapeId,
+                style: {
+                  italic: true,
+                  fontSize: { magnitude: 11, unit: 'PT' },
+                  foregroundColor: { opaqueColor: { rgbColor: { red: 0.45, green: 0.41, blue: 0.65 } } },
+                },
+                textRange: { type: 'ALL' },
+                fields: 'italic,fontSize,foregroundColor',
+              },
+            });
+            // Suppress unused-id warning — conceptTextId reserved for a
+            // future style update path. Cast to void so TS stays quiet.
+            void conceptTextId;
+          }
         });
         try {
           const batchRes = await fetch(

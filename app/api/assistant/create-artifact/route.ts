@@ -488,7 +488,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
 
       // slide-outline
-      const input = (body.connectorInput ?? {}) as { title?: string; outline?: string[] };
+      const input = (body.connectorInput ?? {}) as {
+        title?: string;
+        outline?: string[];
+        sections?: Array<{ title: string; bullets: string[]; diagramConcept?: string }>;
+      };
       if (!input.title) {
         return NextResponse.json(
           { error: 'invalid-connector-input', detail: 'title required' },
@@ -503,7 +507,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         );
       }
       const slidesResult = await slides.execute(
-        { title: input.title, outline: Array.isArray(input.outline) ? input.outline : [] },
+        {
+          title: input.title,
+          outline: Array.isArray(input.outline) ? input.outline : [],
+          sections: Array.isArray(input.sections) ? input.sections : undefined,
+        },
         { personaId: context.personaId, intentId: body.sourceIntentId ?? null, cartridge },
       );
       if (!slidesResult.ok) {
