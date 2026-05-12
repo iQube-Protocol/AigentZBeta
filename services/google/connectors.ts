@@ -402,6 +402,37 @@ const calendarInviteExternal: GoogleConnector<CalendarInviteExternalInput, Calen
       return { ok: false, code: 'invalid-input', reason: 'summary + startIso + endIso + attendeeEmails required' };
     }
     const sendUpdates = input.sendUpdates ?? 'all';
+
+    // Resolve organiser identity before creating the event so the invite
+    // doesn't go out as "Unknown sender". Without an explicit organizer
+    // block, the Calendar API populates it from the auth token but the
+    // recipient's mail client can't always derive the sender's display
+    // name from that — they see the meeting but no clear "from".
+    // Pulling /calendars/primary gives us the id (the user's email) and
+    // a usable summary (typically the user's name); both are T1-safe to
+    // serialise into the event body. Best-effort: a failure here just
+    // means we fall through to Google's default behaviour.
+    let organizer: { email: string; displayName?: string } | undefined;
+    try {
+      const primaryRes = await fetch(
+        'https://www.googleapis.com/calendar/v3/calendars/primary',
+        { headers: { Authorization: `Bearer ${t.token}` } },
+      );
+      if (primaryRes.ok) {
+        const primaryJson = (await primaryRes.json()) as { id?: string; summary?: string };
+        if (typeof primaryJson.id === 'string' && /@/.test(primaryJson.id)) {
+          organizer = {
+            email: primaryJson.id,
+            ...(typeof primaryJson.summary === 'string' && primaryJson.summary.trim().length > 0
+              ? { displayName: primaryJson.summary.trim() }
+              : {}),
+          };
+        }
+      }
+    } catch {
+      // Soft-fail; the invite still sends with default organiser info.
+    }
+
     try {
       const url = new URL('https://www.googleapis.com/calendar/v3/calendars/primary/events');
       url.searchParams.set('sendUpdates', sendUpdates);
@@ -417,6 +448,9 @@ const calendarInviteExternal: GoogleConnector<CalendarInviteExternalInput, Calen
           start: { dateTime: input.startIso, timeZone: input.timeZone || 'UTC' },
           end: { dateTime: input.endIso, timeZone: input.timeZone || 'UTC' },
           attendees: input.attendeeEmails.map((email) => ({ email })),
+          ...(organizer ? { organizer } : {}),
+          guestsCanSeeOtherGuests: true,
+          guestsCanModify: false,
         }),
       });
       if (!res.ok) {
@@ -444,6 +478,13 @@ interface DriveCreateDocInput {
 interface DriveCreateDocOutput {
   documentId: string;
   webViewLink: string | null;
+  /**
+   * Set when the Doc was created (drive.file scope) but the body content
+   * could not be written (docs scope absent or batchUpdate rejected). The
+   * file still exists; the UI surfaces this so the operator knows to
+   * connect Docs and re-run if they wanted body content.
+   */
+  warning?: string;
 }
 
 const driveCreateDoc: GoogleConnector<DriveCreateDocInput, DriveCreateDocOutput> = {
@@ -488,29 +529,67 @@ const driveCreateDoc: GoogleConnector<DriveCreateDocInput, DriveCreateDocOutput>
       const webViewLink = created.webViewLink ?? null;
 
       // Step 2 — optional initial body via Docs API.
+      //
+      // The Docs API requires the `documents` scope (granted via the
+      // separate 'docs' source connection). drive.file alone is enough
+      // to create the file but NOT to write content to it via
+      // documents.batchUpdate. Previously we swallowed the error here
+      // with .catch(() => undefined) and the user got a title-only doc
+      // with no warning. Now we:
+      //   1) require the docs token explicitly (no drive-token fallback
+      //      since it has the wrong scope),
+      //   2) check the batchUpdate response and surface a clear hint
+      //      pointing the operator at Connections → Connect Docs.
+      // The doc itself still exists either way; we return ok:true with a
+      // diagnostic body-insert message so the artifact appears in the UI.
+      let bodyInsertWarning: string | null = null;
       if (input.bodyText && documentId) {
-        const docsToken = await requireToken(ctx.personaId, 'docs').catch(() => driveToken);
-        const token = docsToken.ok ? docsToken.token : driveToken.token;
-        await fetch(
-          `https://docs.googleapis.com/v1/documents/${documentId}:batchUpdate`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              requests: [
-                {
-                  insertText: { location: { index: 1 }, text: input.bodyText },
+        const docsToken = await resolveAccessToken(ctx.personaId, 'docs');
+        if (!docsToken.ok) {
+          bodyInsertWarning =
+            `Body content not written — ${docsToken.reason} ` +
+            `Open Aigent Me → Connections, connect Google Docs, then create the doc again.`;
+        } else {
+          try {
+            const updateRes = await fetch(
+              `https://docs.googleapis.com/v1/documents/${documentId}:batchUpdate`,
+              {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${docsToken.token}`,
+                  'Content-Type': 'application/json',
                 },
-              ],
-            }),
-          },
-        ).catch(() => undefined);
+                body: JSON.stringify({
+                  requests: [
+                    {
+                      insertText: { location: { index: 1 }, text: input.bodyText },
+                    },
+                  ],
+                }),
+              },
+            );
+            if (!updateRes.ok) {
+              const text = await updateRes.text().catch(() => '');
+              bodyInsertWarning = `Body insert failed (${updateRes.status}): ${text.slice(0, 200)}`;
+            }
+          } catch (err) {
+            bodyInsertWarning = err instanceof Error ? err.message : String(err);
+          }
+        }
       }
 
-      return { ok: true, output: { documentId, webViewLink } };
+      // Always succeed when the file itself exists — the body insert is
+      // best-effort within the same operation. When it fails we attach a
+      // warning so the UI can display it on the artifact card and the
+      // operator can fix the consent issue and re-run.
+      return {
+        ok: true,
+        output: {
+          documentId,
+          webViewLink,
+          ...(bodyInsertWarning ? { warning: bodyInsertWarning } : {}),
+        },
+      };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return { ok: false, code: 'api-error', reason: msg };
