@@ -901,16 +901,35 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     if (!secondTierApproval) return;
     const artifact = artifacts.find((a) => a.artifactId === secondTierApproval.artifactId);
     if (!artifact) return;
-    // Alpha approvalToken — opaque UUID, no server-side verification yet.
-    // Phase 6.b Part 4 will swap this for a signed receipt id.
-    const approvalToken = `appr_${
-      typeof crypto !== 'undefined' && 'randomUUID' in crypto
-        ? crypto.randomUUID()
-        : Math.random().toString(36).slice(2)
-    }`;
+    // Phase 6.b Part 4 — request a signed approvalToken from the server
+    // bound to (personaId, connectorId, 5-min expiry). The execute route
+    // verifies the HMAC + persona match + connector match before running.
     setSecondTierApproval({ ...secondTierApproval, submitting: true, error: null });
-    void executeArtifactAction(artifact, approvalToken);
-  }, [secondTierApproval, artifacts, executeArtifactAction]);
+    void (async () => {
+      try {
+        const res = await personaFetch('/api/assistant/approve-action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            connectorId: secondTierApproval.connectorId,
+            sourceIntentId: artifact.intentId ?? undefined,
+            cartridge: 'metame',
+          }),
+          personaIdHint: personaId,
+        });
+        const json = await res.json().catch(() => ({} as { approvalToken?: string; detail?: string; error?: string }));
+        if (!res.ok || !json.approvalToken) {
+          const msg = json.detail || json.error || `approve-action failed (${res.status})`;
+          setSecondTierApproval({ ...secondTierApproval, submitting: false, error: msg });
+          return;
+        }
+        await executeArtifactAction(artifact, json.approvalToken);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setSecondTierApproval({ ...secondTierApproval, submitting: false, error: msg });
+      }
+    })();
+  }, [secondTierApproval, artifacts, executeArtifactAction, personaId]);
 
   const handleCancelSecondTier = useCallback(() => {
     setSecondTierApproval(null);
