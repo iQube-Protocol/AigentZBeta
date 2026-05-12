@@ -70,6 +70,7 @@ import { ActivityReceiptCard, type ActivityReceiptData } from "@/components/meta
 import { QuickLinksCard } from "@/components/metame/cards/QuickLinksCard";
 import { GoogleConnectionsPanel } from "@/components/metame/connections/GoogleConnectionsPanel";
 import { ComposeGmailDraftModal } from "@/components/metame/connections/ComposeGmailDraftModal";
+import { ComposeCalendarEventModal } from "@/components/metame/connections/ComposeCalendarEventModal";
 
 interface Specialist {
   id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c';
@@ -180,6 +181,10 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
   // originate a Gmail-destination artifact from the welcome surface
   // without a specialist round-trip or curl.
   const [composeGmailOpen, setComposeGmailOpen] = useState(false);
+
+  // Phase 6.b Part 2.5c — Compose Calendar event modal. Same chief-of-
+  // staff pattern: drafter strip + form fields.
+  const [composeCalendarOpen, setComposeCalendarOpen] = useState(false);
 
   // Phase 7 — activity receipts panel.
   const [receipts, setReceipts] = useState<ActivityReceiptData[]>([]);
@@ -568,6 +573,57 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     setArtifacts((prev) => [data, ...prev].slice(0, 10));
   }, [personaId]);
 
+  // Phase 6.b Part 2.5c — Calendar event drafter + creator.
+  const handleDraftEvent = useCallback(async (prompt: string) => {
+    const res = await personaFetch('/api/assistant/draft-event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+      personaIdHint: personaId,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+      throw new Error(body?.detail || body?.error || `draft-event failed (${res.status})`);
+    }
+    return (await res.json()) as {
+      summary: string;
+      description: string;
+      startIso: string;
+      endIso: string;
+      timeZone: string;
+      attendeeEmails: string[];
+      rationale: string;
+      source: 'llm' | 'template';
+    };
+  }, [personaId]);
+
+  const handleComposeCalendarEvent = useCallback(async (input: {
+    summary: string;
+    description: string;
+    startIso: string;
+    endIso: string;
+    timeZone: string;
+    attendeeEmails: string[];
+  }) => {
+    const res = await personaFetch('/api/assistant/create-artifact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        artifactType: 'calendar-block',
+        destination: 'calendar',
+        title: input.summary,
+        connectorInput: input,
+      }),
+      personaIdHint: personaId,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as { error?: string; detail?: string; hint?: string }));
+      throw new Error(body?.detail || body?.hint || body?.error || `create-artifact failed (${res.status})`);
+    }
+    const data = (await res.json()) as ArtifactCardData;
+    setArtifacts((prev) => [data, ...prev].slice(0, 10));
+  }, [personaId]);
+
   const handleDismissArtifact = useCallback((artifactId: string) => {
     setArtifacts((prev) => prev.filter((a) => a.artifactId !== artifactId));
     setActionErrors((prev) => {
@@ -783,6 +839,10 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
           onComposeGmailOpenChange={setComposeGmailOpen}
           onComposeGmailDraft={handleComposeGmailDraft}
           onDraftEmail={handleDraftEmail}
+          composeCalendarOpen={composeCalendarOpen}
+          onComposeCalendarOpenChange={setComposeCalendarOpen}
+          onComposeCalendarEvent={handleComposeCalendarEvent}
+          onDraftEvent={handleDraftEvent}
           receipts={receipts}
           receiptsLoading={receiptsLoading}
           receiptsOpen={receiptsOpen}
@@ -890,6 +950,26 @@ interface BodyProps {
     rationale: string;
     source: 'llm' | 'template';
   }>;
+  composeCalendarOpen: boolean;
+  onComposeCalendarOpenChange: (open: boolean) => void;
+  onComposeCalendarEvent: (input: {
+    summary: string;
+    description: string;
+    startIso: string;
+    endIso: string;
+    timeZone: string;
+    attendeeEmails: string[];
+  }) => Promise<void>;
+  onDraftEvent: (prompt: string) => Promise<{
+    summary: string;
+    description: string;
+    startIso: string;
+    endIso: string;
+    timeZone: string;
+    attendeeEmails: string[];
+    rationale: string;
+    source: 'llm' | 'template';
+  }>;
   receipts: ActivityReceiptData[];
   receiptsLoading: boolean;
   receiptsOpen: boolean;
@@ -946,6 +1026,10 @@ function AigentMeWelcomeBody({
   onComposeGmailOpenChange,
   onComposeGmailDraft,
   onDraftEmail,
+  composeCalendarOpen,
+  onComposeCalendarOpenChange,
+  onComposeCalendarEvent,
+  onDraftEvent,
   receipts,
   receiptsLoading,
   receiptsOpen,
@@ -1188,7 +1272,14 @@ function AigentMeWelcomeBody({
           gates on persona connection state; clicking without a connected
           Gmail account surfaces the connector's "not-connected" message
           inline on the modal. */}
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => onComposeCalendarOpenChange(true)}
+          className="text-xs px-3 py-1.5 rounded-md border border-violet-500/40 text-violet-200 hover:border-violet-400 hover:text-violet-100 transition"
+        >
+          Compose Calendar event
+        </button>
         <button
           type="button"
           onClick={() => onComposeGmailOpenChange(true)}
@@ -1202,6 +1293,13 @@ function AigentMeWelcomeBody({
         onClose={() => onComposeGmailOpenChange(false)}
         onCreate={onComposeGmailDraft}
         onDraftWithAigentMe={onDraftEmail}
+        theme={theme}
+      />
+      <ComposeCalendarEventModal
+        open={composeCalendarOpen}
+        onClose={() => onComposeCalendarOpenChange(false)}
+        onCreate={onComposeCalendarEvent}
+        onDraftWithAigentMe={onDraftEvent}
         theme={theme}
       />
 

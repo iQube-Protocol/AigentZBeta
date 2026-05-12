@@ -56,13 +56,20 @@ const VALID_DESTINATIONS = new Set<string>([
   'runtime',
   'drive',
   'gmail',
+  'calendar',
   'cartridge_store',
 ]);
 
 // Phase 6.b Part 2.5 — gmail destination is live (gmail-draft → gmail.draft
 // connector eager-creates a real draft, returns location URL + the send
-// connector for the second-tier ApprovalCard). drive / cartridge_store stay
-// deferred until Parts 2.5b / 3 land.
+// connector for the second-tier ApprovalCard).
+// Phase 6.b Part 2.5c — calendar destination joins the party:
+//   - calendar-block + no attendees → eager-create via calendar.create-event
+//     (no approval needed; event is private to the user).
+//   - calendar-block + attendees    → runtime-only artifact carrying
+//     calendar.invite-external as the action connector. Send invites
+//     triggers the second-tier ApprovalCard because invites externalise.
+// drive / cartridge_store stay deferred until 2.5c follow-ups.
 const DEFERRED_DESTINATIONS = new Set<string>(['drive', 'cartridge_store']);
 
 interface PostBody {
@@ -83,7 +90,7 @@ interface CreateArtifactSurface {
   artifactId: string;
   artifactType: string;
   title: string;
-  destination: 'runtime' | 'gmail';
+  destination: 'runtime' | 'gmail' | 'calendar';
   status: 'draft';
   receiptId: string | null;
   intentId: string | null;
@@ -242,6 +249,141 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json(surface, {
         headers: { 'Cache-Control': 'no-store' },
       });
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Phase 6.b Part 2.5c — Calendar destination.
+    // No external attendees → eager-create a private event via
+    //   calendar.create-event (no approval). Artifact carries the Open
+    //   link; no Send button needed.
+    // External attendees present → defer creation. Artifact is runtime-
+    //   only with actionConnectorId='google.calendar.invite-external'.
+    //   The Send-invites click runs invite-external in one shot, which
+    //   creates the event AND sends invites (approval-gated).
+    // ─────────────────────────────────────────────────────────────────
+    if (destination === 'calendar') {
+      if (body.artifactType !== 'calendar-block') {
+        return NextResponse.json(
+          { error: 'destination-mismatch', detail: `destination='calendar' requires artifactType='calendar-block'.` },
+          { status: 400, headers: { 'Cache-Control': 'no-store' } },
+        );
+      }
+      const input = (body.connectorInput ?? {}) as {
+        summary?: string;
+        description?: string;
+        startIso?: string;
+        endIso?: string;
+        timeZone?: string;
+        attendeeEmails?: string[];
+      };
+      if (!input.summary || !input.startIso || !input.endIso) {
+        return NextResponse.json(
+          { error: 'invalid-connector-input', detail: 'summary + startIso + endIso required' },
+          { status: 400, headers: { 'Cache-Control': 'no-store' } },
+        );
+      }
+      const attendeeEmails = Array.isArray(input.attendeeEmails)
+        ? input.attendeeEmails.filter((e): e is string => typeof e === 'string' && /@/.test(e))
+        : [];
+
+      if (attendeeEmails.length === 0) {
+        // Private event — eager-create.
+        const createEvent = getGoogleConnector('google.calendar.create-event');
+        if (!createEvent) {
+          return NextResponse.json(
+            { error: 'connector-unavailable', detail: 'calendar.create-event not registered' },
+            { status: 500, headers: { 'Cache-Control': 'no-store' } },
+          );
+        }
+        const result = await createEvent.execute(
+          {
+            summary: input.summary,
+            description: input.description ?? '',
+            startIso: input.startIso,
+            endIso: input.endIso,
+            timeZone: input.timeZone ?? 'UTC',
+          },
+          { personaId: context.personaId, intentId: body.sourceIntentId ?? null, cartridge },
+        );
+        if (!result.ok) {
+          return NextResponse.json(
+            { error: 'event-create-failed', code: result.code, detail: result.reason, hint: result.hint },
+            { status: result.code === 'not-connected' ? 409 : 502, headers: { 'Cache-Control': 'no-store' } },
+          );
+        }
+        const output = result.output as { eventId?: string; htmlLink?: string | null } | undefined;
+        const eventId = output?.eventId ?? '';
+        const locationUrl = output?.htmlLink ?? (eventId ? `https://calendar.google.com/calendar/u/0/r/eventedit/${eventId}` : null);
+
+        const receipt = await createActivityReceipt({
+          personaId: context.personaId,
+          intentId: body.sourceIntentId ?? null,
+          activeCartridge: cartridge,
+          actionType: 'artifact_created',
+          summary: `Created Calendar event: ${input.summary}`,
+          agentsInvoked: ['aigent-me', ...(body.specialistId ? [body.specialistId] : [])],
+          toolsUsed: ['google.calendar.create-event'],
+          iqubesUsed: ['PersonaQube', 'ExperienceQube', 'IntentQube'],
+          contextShared: ['intent-summary', 'experience-meta-slice'],
+          artifactsCreated: [`calendar-block:${eventId || input.summary}`],
+          approvalsGranted: body.sourceIntentId ? [body.sourceIntentId] : [],
+        });
+
+        const surface: CreateArtifactSurface = {
+          artifactId,
+          artifactType: 'calendar-block',
+          title: input.summary,
+          destination: 'calendar',
+          status: 'draft',
+          receiptId: receipt?.id ?? null,
+          intentId: body.sourceIntentId ?? null,
+          message: 'Calendar event created (private — no attendees).',
+          createdAt,
+          locationUrl,
+        };
+        return NextResponse.json(surface, { headers: { 'Cache-Control': 'no-store' } });
+      }
+
+      // External attendees present — defer creation behind the approval gate.
+      const receipt = await createActivityReceipt({
+        personaId: context.personaId,
+        intentId: body.sourceIntentId ?? null,
+        activeCartridge: cartridge,
+        actionType: 'artifact_created',
+        summary: `Drafted Calendar event with ${attendeeEmails.length} external attendee(s): ${input.summary}`,
+        agentsInvoked: ['aigent-me', ...(body.specialistId ? [body.specialistId] : [])],
+        toolsUsed: ['runtime'],
+        iqubesUsed: ['PersonaQube', 'ExperienceQube', 'IntentQube'],
+        contextShared: ['intent-summary', 'experience-meta-slice'],
+        artifactsCreated: [`calendar-block:${input.summary}`],
+        approvalsGranted: body.sourceIntentId ? [body.sourceIntentId] : [],
+      });
+
+      const surface: CreateArtifactSurface = {
+        artifactId,
+        artifactType: 'calendar-block',
+        title: input.summary,
+        destination: 'calendar',
+        status: 'draft',
+        receiptId: receipt?.id ?? null,
+        intentId: body.sourceIntentId ?? null,
+        message:
+          `Event drafted with ${attendeeEmails.length} external attendee(s). ` +
+          `Click "Send invites" to create the event and notify attendees — approval required.`,
+        createdAt,
+        actionConnectorId: 'google.calendar.invite-external',
+        actionConnectorLabel: 'Send invites',
+        actionInput: {
+          summary: input.summary,
+          description: input.description ?? '',
+          startIso: input.startIso,
+          endIso: input.endIso,
+          timeZone: input.timeZone ?? 'UTC',
+          attendeeEmails,
+          sendUpdates: 'all',
+        },
+      };
+      return NextResponse.json(surface, { headers: { 'Cache-Control': 'no-store' } });
     }
 
     // Runtime destination — receipt-bound record only.
