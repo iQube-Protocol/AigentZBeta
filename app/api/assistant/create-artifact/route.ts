@@ -50,6 +50,7 @@ const VALID_ARTIFACT_TYPES = new Set<string>([
   'video-script',
   'slide-outline',
   'venture-report',
+  'marketa-email',
 ]);
 
 const VALID_DESTINATIONS = new Set<string>([
@@ -556,6 +557,64 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         message: 'Slides deck created privately in your Drive.',
         createdAt,
         locationUrl,
+      };
+      return NextResponse.json(surface, { headers: { 'Cache-Control': 'no-store' } });
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Phase 6.b Part 3 — Marketa email artifact. Marketa send is always
+    // a "send-then-store" flow (Mailjet has no draft state), so we just
+    // record the artifact in the runtime with the action connector
+    // bound; the Send button + SecondTierApprovalCard externalise it.
+    // ─────────────────────────────────────────────────────────────────
+    if (body.artifactType === 'marketa-email') {
+      const input = (body.connectorInput ?? {}) as {
+        to?: string;
+        subject?: string;
+        bodyText?: string;
+        cc?: string;
+        bcc?: string;
+        fromName?: string;
+      };
+      if (!input.to || !input.subject || !input.bodyText) {
+        return NextResponse.json(
+          { error: 'invalid-connector-input', detail: 'to + subject + bodyText required' },
+          { status: 400, headers: { 'Cache-Control': 'no-store' } },
+        );
+      }
+      const receiptRow = await createActivityReceipt({
+        personaId: context.personaId,
+        intentId: body.sourceIntentId ?? null,
+        activeCartridge: cartridge,
+        actionType: 'artifact_created',
+        summary: `Drafted Marketa email: ${input.subject}`,
+        agentsInvoked: ['aigent-me', 'marketa'],
+        toolsUsed: ['runtime'],
+        iqubesUsed: ['PersonaQube', 'ExperienceQube', 'IntentQube'],
+        contextShared: ['intent-summary', 'experience-meta-slice'],
+        artifactsCreated: [`marketa-email:${input.subject}`],
+        approvalsGranted: body.sourceIntentId ? [body.sourceIntentId] : [],
+      });
+      const surface: CreateArtifactSurface = {
+        artifactId,
+        artifactType: 'marketa-email',
+        title: input.subject,
+        destination: 'runtime',
+        status: 'draft',
+        receiptId: receiptRow?.id ?? null,
+        intentId: body.sourceIntentId ?? null,
+        message: `Marketa email drafted for ${input.to}. Click "Send via Mailjet" to externalise — approval required.`,
+        createdAt,
+        actionConnectorId: 'marketa.send-transactional',
+        actionConnectorLabel: 'Send via Mailjet',
+        actionInput: {
+          to: input.to,
+          subject: input.subject,
+          bodyText: input.bodyText,
+          ...(input.cc ? { cc: input.cc } : {}),
+          ...(input.bcc ? { bcc: input.bcc } : {}),
+          ...(input.fromName ? { fromName: input.fromName } : {}),
+        },
       };
       return NextResponse.json(surface, { headers: { 'Cache-Control': 'no-store' } });
     }

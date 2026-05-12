@@ -35,13 +35,16 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getGoogleConnector, type GoogleConnectorId } from '@/services/google/connectors';
+import { getMarketaConnector } from '@/services/marketa/marketaConnector';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
 import { getOAuthConfig } from '@/services/google/oauth';
 
 export const dynamic = 'force-dynamic';
 
 interface PostBody {
-  connectorId?: GoogleConnectorId;
+  // Widened to plain string to cover both Google and Marketa connector
+  // namespaces; the dispatch lookup below validates against both registries.
+  connectorId?: string;
   input?: Record<string, unknown>;
   sourceIntentId?: string;
   cartridge?: string;
@@ -54,21 +57,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       { error: 'unauthenticated' },
       { status: 401, headers: { 'Cache-Control': 'no-store' } },
-    );
-  }
-
-  const cfg = getOAuthConfig();
-  if (!cfg.configured) {
-    return NextResponse.json(
-      {
-        ok: false,
-        code: 'oauth-not-configured',
-        reason: cfg.reason,
-        missing: cfg.missing,
-        hint:
-          'Operator action — set GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET / GOOGLE_OAUTH_REDIRECT_URI in Amplify env.',
-      },
-      { status: 503, headers: { 'Cache-Control': 'no-store' } },
     );
   }
 
@@ -87,7 +75,31 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const connector = getGoogleConnector(body.connectorId);
+  // Dispatch order: Google connectors first, then Marketa. Each registry
+  // owns its own configuration gate (OAuth for Google, Mailjet env for
+  // Marketa) — keeps a missing Mailjet config from blocking Google calls
+  // and vice versa.
+  const isMarketa = body.connectorId.startsWith('marketa.');
+  if (!isMarketa) {
+    const cfg = getOAuthConfig();
+    if (!cfg.configured) {
+      return NextResponse.json(
+        {
+          ok: false,
+          code: 'oauth-not-configured',
+          reason: cfg.reason,
+          missing: cfg.missing,
+          hint:
+            'Operator action — set GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET / GOOGLE_OAUTH_REDIRECT_URI in Amplify env.',
+        },
+        { status: 503, headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
+  }
+
+  const connector = isMarketa
+    ? getMarketaConnector(body.connectorId)
+    : getGoogleConnector(body.connectorId as GoogleConnectorId);
   if (!connector) {
     return NextResponse.json(
       { error: 'unknown-connector', detail: `connectorId ${body.connectorId} not registered` },

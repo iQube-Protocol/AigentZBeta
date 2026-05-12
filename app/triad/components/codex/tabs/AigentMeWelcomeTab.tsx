@@ -73,6 +73,7 @@ import { ComposeGmailDraftModal } from "@/components/metame/connections/ComposeG
 import { ComposeCalendarEventModal } from "@/components/metame/connections/ComposeCalendarEventModal";
 import { ComposeGoogleDocModal } from "@/components/metame/connections/ComposeGoogleDocModal";
 import { ComposeSlidesModal } from "@/components/metame/connections/ComposeSlidesModal";
+import { ComposeMarketaEmailModal } from "@/components/metame/connections/ComposeMarketaEmailModal";
 
 interface Specialist {
   id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c' | 'aigent-nakamoto';
@@ -219,6 +220,7 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
   const [composeCalendarOpen, setComposeCalendarOpen] = useState(false);
   const [composeDocOpen, setComposeDocOpen] = useState(false);
   const [composeSlidesOpen, setComposeSlidesOpen] = useState(false);
+  const [composeMarketaOpen, setComposeMarketaOpen] = useState(false);
 
   // Phase 7 — activity receipts panel.
   const [receipts, setReceipts] = useState<ActivityReceiptData[]>([]);
@@ -751,6 +753,58 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     setArtifacts((prev) => [data, ...prev].slice(0, 10));
   }, [personaId]);
 
+  // Phase 6.b Part 3 — Marketa email drafter + compose. Sends via Mailjet
+  // through the existing /api/connectors/execute path (marketa.send-
+  // transactional connector), gated by the SecondTierApprovalCard.
+  const handleDraftMarketa = useCallback(async (prompt: string) => {
+    const res = await personaFetch('/api/assistant/draft-marketa-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+      personaIdHint: personaId,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+      throw new Error(body?.detail || body?.error || `draft-marketa-email failed (${res.status})`);
+    }
+    return (await res.json()) as {
+      to: string;
+      cc: string;
+      bcc: string;
+      subject: string;
+      bodyText: string;
+      rationale: string;
+      source: 'llm' | 'template';
+    };
+  }, [personaId]);
+
+  const handleComposeMarketa = useCallback(async (input: {
+    to: string;
+    subject: string;
+    bodyText: string;
+    cc?: string;
+    bcc?: string;
+    fromName?: string;
+  }) => {
+    const res = await personaFetch('/api/assistant/create-artifact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        artifactType: 'marketa-email',
+        destination: 'runtime',
+        title: input.subject,
+        connectorInput: input,
+      }),
+      personaIdHint: personaId,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as { error?: string; detail?: string; hint?: string }));
+      throw new Error(body?.detail || body?.hint || body?.error || `create-artifact failed (${res.status})`);
+    }
+    const data = (await res.json()) as ArtifactCardData;
+    setArtifacts((prev) => [data, ...prev].slice(0, 10));
+  }, [personaId]);
+
   const handleDismissArtifact = useCallback((artifactId: string) => {
     setArtifacts((prev) => prev.filter((a) => a.artifactId !== artifactId));
     setActionErrors((prev) => {
@@ -984,6 +1038,10 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
           onComposeSlidesOpenChange={setComposeSlidesOpen}
           onComposeSlides={handleComposeSlides}
           onDraftSlides={handleDraftSlides}
+          composeMarketaOpen={composeMarketaOpen}
+          onComposeMarketaOpenChange={setComposeMarketaOpen}
+          onComposeMarketa={handleComposeMarketa}
+          onDraftMarketa={handleDraftMarketa}
           receipts={receipts}
           receiptsLoading={receiptsLoading}
           receiptsOpen={receiptsOpen}
@@ -1140,6 +1198,25 @@ interface BodyProps {
     rationale: string;
     source: 'llm' | 'template';
   }>;
+  composeMarketaOpen: boolean;
+  onComposeMarketaOpenChange: (open: boolean) => void;
+  onComposeMarketa: (input: {
+    to: string;
+    subject: string;
+    bodyText: string;
+    cc?: string;
+    bcc?: string;
+    fromName?: string;
+  }) => Promise<void>;
+  onDraftMarketa: (prompt: string) => Promise<{
+    to: string;
+    cc: string;
+    bcc: string;
+    subject: string;
+    bodyText: string;
+    rationale: string;
+    source: 'llm' | 'template';
+  }>;
   receipts: ActivityReceiptData[];
   receiptsLoading: boolean;
   receiptsOpen: boolean;
@@ -1210,6 +1287,10 @@ function AigentMeWelcomeBody({
   onComposeSlidesOpenChange,
   onComposeSlides,
   onDraftSlides,
+  composeMarketaOpen,
+  onComposeMarketaOpenChange,
+  onComposeMarketa,
+  onDraftMarketa,
   receipts,
   receiptsLoading,
   receiptsOpen,
@@ -1456,6 +1537,13 @@ function AigentMeWelcomeBody({
       <div className="flex flex-wrap justify-end gap-2">
         <button
           type="button"
+          onClick={() => onComposeMarketaOpenChange(true)}
+          className="text-xs px-3 py-1.5 rounded-md border border-violet-500/40 text-violet-200 hover:border-violet-400 hover:text-violet-100 transition"
+        >
+          Compose Marketa email
+        </button>
+        <button
+          type="button"
           onClick={() => onComposeSlidesOpenChange(true)}
           className="text-xs px-3 py-1.5 rounded-md border border-violet-500/40 text-violet-200 hover:border-violet-400 hover:text-violet-100 transition"
         >
@@ -1509,6 +1597,13 @@ function AigentMeWelcomeBody({
         onClose={() => onComposeSlidesOpenChange(false)}
         onCreate={onComposeSlides}
         onDraftWithAigentMe={onDraftSlides}
+        theme={theme}
+      />
+      <ComposeMarketaEmailModal
+        open={composeMarketaOpen}
+        onClose={() => onComposeMarketaOpenChange(false)}
+        onCreate={onComposeMarketa}
+        onDraftWithAigentMe={onDraftMarketa}
         theme={theme}
       />
 
