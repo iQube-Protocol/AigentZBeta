@@ -641,7 +641,7 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
   // Single ownership source (matches codex SoT) — covers SKU expansion +
   // direct knyt_purchases via /api/codex/owned. epNum is the pricing-episode
   // number used by the store/codex UI (DB ep N → pricing N-1).
-  const { isEpisodeOwned } = useOwnedEntitlements(personaId);
+  const { isEpisodeOwned, isGnVariantOwned } = useOwnedEntitlements(personaId);
 
   const episodes = EPISODE_PRICING
     .filter((e) => e.episodeNumber >= 0)
