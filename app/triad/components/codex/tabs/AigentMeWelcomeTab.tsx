@@ -38,7 +38,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Sparkles, Loader2, Mail, Calendar, FileText, Layout,
   Megaphone, Zap, BarChart3, Layers, Users, Plus,
-  Brain, Shield, ChevronDown, ChevronUp, Target,
+  Brain, Shield, Target,
 } from "lucide-react";
 import {
   usePersonaSpine,
@@ -229,7 +229,6 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
   // Phase 7 — activity receipts panel.
   const [receipts, setReceipts] = useState<ActivityReceiptData[]>([]);
   const [receiptsLoading, setReceiptsLoading] = useState(false);
-  const [receiptsOpen, setReceiptsOpen] = useState(false);
   // Phase 6.b — T1-safe persona display label echoed by the receipts
   // endpoint. Never personaId / authProfileId / rootDid.
   const [receiptsPersonaLabel, setReceiptsPersonaLabel] = useState<string | null>(null);
@@ -288,7 +287,7 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     };
   }, [spine.status, personaId]);
 
-  // Fetch ExperienceQube state in parallel with bootstrap.
+  // Fetch ExperienceQube state and initial receipts in parallel with bootstrap.
   useEffect(() => {
     if (spine.status !== 'ready' && spine.status !== 'refreshing') return;
     let cancelled = false;
@@ -301,6 +300,21 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
       .then((d) => { if (!cancelled) setExpModel(d); })
       .catch(() => { if (!cancelled) setExpModel({ configured: false, meta: null, blakSummary: null, updatedAt: null }); })
       .finally(() => { if (!cancelled) setExpModelLoading(false); });
+
+    // Auto-load receipts on mount so they're visible immediately.
+    setReceiptsLoading(true);
+    personaFetch('/api/assistant/receipts?limit=25', { personaIdHint: personaId })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const d = (await res.json()) as { receipts: ActivityReceiptData[]; personaDisplayLabel: string | null };
+        if (!cancelled) {
+          setReceipts(d.receipts ?? []);
+          setReceiptsPersonaLabel(d.personaDisplayLabel ?? null);
+        }
+      })
+      .catch(() => { /* best-effort */ })
+      .finally(() => { if (!cancelled) setReceiptsLoading(false); });
+
     return () => { cancelled = true; };
   }, [spine.status, personaId]);
 
@@ -416,7 +430,8 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
 
   const handleWizardSaved = useCallback((saved: ExperienceModelCardData) => {
     setExpModel(saved);
-  }, []);
+    void fetchReceipts();
+  }, [fetchReceipts]);
 
   // Phase 3.5 — clicking Act on any NBE opens the ApprovalCard.
   const handleNbeAct = useCallback((action: NextBestActionData) => {
@@ -466,6 +481,7 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
       }));
       // Clear the pending slot; the queued card will replace it inline.
       setPendingApprovalNbe(null);
+      void fetchReceipts();
 
       // Phase 5 — if the NBE names a specialist, auto-fire the specialist
       // consultation. The SpecialistResponseCard renders inline.
@@ -515,7 +531,7 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     } finally {
       setSubmittingApproval(false);
     }
-  }, [pendingApprovalNbe, personaId]);
+  }, [pendingApprovalNbe, personaId, fetchReceipts]);
 
   // Phase 6 — create an artifact from a specialist's suggested chip.
   const handleCreateArtifact = useCallback(async (
@@ -809,7 +825,8 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     }
     const data = (await res.json()) as ArtifactCardData;
     setArtifacts((prev) => [data, ...prev].slice(0, 10));
-  }, [personaId]);
+    void fetchReceipts();
+  }, [personaId, fetchReceipts]);
 
   const handleDismissArtifact = useCallback((artifactId: string) => {
     setArtifacts((prev) => prev.filter((a) => a.artifactId !== artifactId));
@@ -964,13 +981,6 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     }
   }, [personaId]);
 
-  const toggleReceipts = useCallback(() => {
-    setReceiptsOpen((open) => {
-      const next = !open;
-      if (next) void fetchReceipts();
-      return next;
-    });
-  }, [fetchReceipts]);
 
   const handleDismissSpecialist = useCallback((nbeId: string) => {
     setSpecialistResponses((prev) => {
@@ -1069,8 +1079,6 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
           onDraftMarketa={handleDraftMarketa}
           receipts={receipts}
           receiptsLoading={receiptsLoading}
-          receiptsOpen={receiptsOpen}
-          onToggleReceipts={toggleReceipts}
           receiptsPersonaLabel={receiptsPersonaLabel}
           theme={theme}
           surfaceClass={surfaceClass}
@@ -1246,8 +1254,6 @@ interface BodyProps {
   }>;
   receipts: ActivityReceiptData[];
   receiptsLoading: boolean;
-  receiptsOpen: boolean;
-  onToggleReceipts: () => void;
   /** T1-safe persona display label echoed by the receipts endpoint. */
   receiptsPersonaLabel: string | null;
   theme: 'light' | 'dark';
@@ -1320,8 +1326,6 @@ function AigentMeWelcomeBody({
   onDraftMarketa,
   receipts,
   receiptsLoading,
-  receiptsOpen,
-  onToggleReceipts,
   receiptsPersonaLabel,
   theme,
   surfaceClass,
@@ -1661,23 +1665,16 @@ function AigentMeWelcomeBody({
         )}
 
         {/* ── ACTIVITY RECEIPTS — compact collapsible ───────────────────────── */}
-        <section className={`rounded-lg border ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
-          <button
-            onClick={onToggleReceipts}
-            className="flex items-center justify-between w-full px-3 py-2 text-left"
-          >
-            <span className={`text-xs uppercase tracking-wider ${mutedClass}`}>Activity receipts</span>
-            {receiptsOpen
-              ? <ChevronUp className="w-3.5 h-3.5 text-slate-600" />
-              : <ChevronDown className="w-3.5 h-3.5 text-slate-600" />
-            }
-          </button>
-          {receiptsOpen && (
+        {/* Receipts render when there is something to show, or while loading. */}
+        {(receiptsLoading || receipts.length > 0) && (
+          <section className={`rounded-lg border ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+            <div className="flex items-center justify-between px-3 py-2">
+              <span className={`text-xs uppercase tracking-wider ${mutedClass}`}>Activity receipts</span>
+              {receiptsLoading && <Loader2 className="w-3 h-3 animate-spin text-slate-600" />}
+            </div>
             <div className={`px-3 pb-3 space-y-2 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
-              {receiptsLoading ? (
+              {receiptsLoading && receipts.length === 0 ? (
                 <p className={`text-sm pt-2 ${mutedClass}`}>Loading receipts…</p>
-              ) : receipts.length === 0 ? (
-                <p className={`text-sm pt-2 ${mutedClass}`}>No receipts yet. Acting on any NBE will produce one.</p>
               ) : (
                 <div className="pt-2 space-y-2">
                   {receipts.map((r) => (
@@ -1686,8 +1683,8 @@ function AigentMeWelcomeBody({
                 </div>
               )}
             </div>
-          )}
-        </section>
+          </section>
+        )}
 
         {/* ── BELOW-FOLD: specialists, model, quick links, connections ─────────
             Separated visually — users set up / configure here, then act above. */}
