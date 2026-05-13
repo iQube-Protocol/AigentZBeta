@@ -44,10 +44,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config as loadDotenv } from 'dotenv';
-import {
-  uploadCodexMediaAsset,
-  type CodexAssetKind,
-} from '../server/services/autonomysContentService';
+// CodexAssetKind is type-only — no runtime import, no module evaluation.
+// uploadCodexMediaAsset is imported dynamically inside main() AFTER loadDotenv
+// runs, so that encryptionService.ts captures CODEX_MASTER_KEY at its
+// module-init time rather than seeing an empty string.
+import type { CodexAssetKind } from '../server/services/autonomysContentService';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 loadDotenv({ path: path.resolve(__dirname, '..', '.env.local') });
@@ -127,6 +128,10 @@ async function main() {
   console.log(`  assetKind:  ${assetKind}`);
   console.log(`  ep number:  ${episodeNumberStr ?? '(none)'}`);
   console.log(`  series:     ${series}`);
+
+  // Dynamic import: autonomysContentService → encryptionService runs HERE,
+  // after loadDotenv() has already written CODEX_MASTER_KEY into process.env.
+  const { uploadCodexMediaAsset } = await import('../server/services/autonomysContentService');
 
   try {
     const result = await uploadCodexMediaAsset({
