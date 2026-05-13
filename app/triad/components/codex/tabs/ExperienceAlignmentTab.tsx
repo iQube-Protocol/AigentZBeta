@@ -64,6 +64,7 @@ function ExperienceAlignmentInner({ personaId }: { personaId: string }) {
   const [savingPrecedence, setSavingPrecedence] = useState(false);
   const [newRiskSphere, setNewRiskSphere] = useState<SphereAxis>("energy");
   const [newRiskSignal, setNewRiskSignal] = useState("");
+  const [newRiskSuggestion, setNewRiskSuggestion] = useState("");
   const [savingRisk, setSavingRisk] = useState(false);
 
   const load = useCallback(async () => {
@@ -114,12 +115,15 @@ function ExperienceAlignmentInner({ personaId }: { personaId: string }) {
     if (!guide || savingRisk || !newRiskSignal.trim()) return;
     setSavingRisk(true);
     try {
-      const next: RepairRisk[] = [
-        ...(guide.repairRisks ?? []),
-        { sphere: newRiskSphere, signal: newRiskSignal.trim() },
-      ];
+      const risk: RepairRisk = {
+        sphere: newRiskSphere,
+        signal: newRiskSignal.trim(),
+        ...(newRiskSuggestion.trim() ? { suggestion: newRiskSuggestion.trim() } : {}),
+      };
+      const next: RepairRisk[] = [...(guide.repairRisks ?? []), risk];
       await persist({ repairRisks: next });
       setNewRiskSignal("");
+      setNewRiskSuggestion("");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -269,33 +273,45 @@ function ExperienceAlignmentInner({ personaId }: { personaId: string }) {
           ))}
         </ul>
 
-        <div className="flex flex-wrap gap-2 items-center">
-          <select
-            value={newRiskSphere}
-            onChange={(e) => setNewRiskSphere(e.target.value as SphereAxis)}
-            className="px-2 py-1.5 rounded bg-slate-800 border border-slate-700 text-xs text-slate-100"
-          >
-            {SPHERE_AXES.map((s) => (
-              <option key={s} value={s}>{SPHERE_LABEL[s]}</option>
-            ))}
-          </select>
-          <input
-            type="text"
-            value={newRiskSignal}
-            onChange={(e) => setNewRiskSignal(e.target.value)}
-            placeholder="What is pulling this sphere out of alignment?"
-            className="flex-1 min-w-[200px] px-3 py-1.5 rounded bg-slate-800 border border-slate-700 text-xs text-slate-100"
-            maxLength={500}
-          />
-          <button
-            type="button"
-            disabled={savingRisk || !newRiskSignal.trim()}
-            onClick={() => void addRisk()}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-violet-500 hover:bg-violet-400 text-white text-xs font-medium disabled:opacity-50"
-          >
-            {savingRisk ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-            Add risk
-          </button>
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-2 items-center">
+            <select
+              value={newRiskSphere}
+              onChange={(e) => setNewRiskSphere(e.target.value as SphereAxis)}
+              className="px-2 py-1.5 rounded bg-slate-800 border border-slate-700 text-xs text-slate-100"
+            >
+              {SPHERE_AXES.map((s) => (
+                <option key={s} value={s}>{SPHERE_LABEL[s]}</option>
+              ))}
+            </select>
+            <input
+              type="text"
+              value={newRiskSignal}
+              onChange={(e) => setNewRiskSignal(e.target.value)}
+              placeholder="What is pulling this sphere out of alignment?"
+              className="flex-1 min-w-[200px] px-3 py-1.5 rounded bg-slate-800 border border-slate-700 text-xs text-slate-100"
+              maxLength={500}
+            />
+          </div>
+          <div className="flex flex-wrap gap-2 items-center">
+            <input
+              type="text"
+              value={newRiskSuggestion}
+              onChange={(e) => setNewRiskSuggestion(e.target.value)}
+              placeholder="Suggested remedy (optional)"
+              className="flex-1 min-w-[200px] px-3 py-1.5 rounded bg-slate-800 border border-slate-700 text-xs text-slate-100"
+              maxLength={500}
+            />
+            <button
+              type="button"
+              disabled={savingRisk || !newRiskSignal.trim()}
+              onClick={() => void addRisk()}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-md bg-violet-500 hover:bg-violet-400 text-white text-xs font-medium disabled:opacity-50"
+            >
+              {savingRisk ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+              Add risk
+            </button>
+          </div>
         </div>
       </section>
 

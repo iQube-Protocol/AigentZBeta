@@ -33,6 +33,12 @@ export interface BriefCardData {
     currentStage: string;
     experienceName: string | null;
     experienceConfigured: boolean;
+    personalGuide?: {
+      alignmentState: string;
+      precedenceMode: string;
+      focusIntent?: string;
+      guidanceNote: string;
+    };
   };
   topPriorities: Array<{ id: string; label: string; cartridge: string }>;
   nextBestActions: NextBestActionData[];
@@ -114,6 +120,11 @@ export function BriefCard({ data, loading, error, onActOnNbe, theme = "dark" }: 
             <p className={`text-sm mt-1 ${mutedClass}`}>
               <span className={accentClass}>Primary goal:</span>{" "}
               {data.context.primaryGoal}
+            </p>
+          )}
+          {data.context.personalGuide?.guidanceNote && (
+            <p className={`text-xs mt-1.5 ${mutedClass} italic`}>
+              {data.context.personalGuide.guidanceNote}
             </p>
           )}
         </div>

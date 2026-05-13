@@ -33,6 +33,8 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import { issuePersonaSessionToken } from '@/services/identity/personaSessionToken';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { getExperienceQubeBootstrapHint } from '@/services/iqube/experienceQube';
+import { getPersonalGuide } from '@/services/iqube/experienceQube';
+import type { AlignmentState, PrecedenceMode } from '@/types/experienceGuide';
 import type { ActivePersonaSurface } from '@/types/access';
 
 export const dynamic = 'force-dynamic';
@@ -108,6 +110,18 @@ interface AssistantBootstrapSurface {
 
   /** ExperienceModel state hint — does the user have one? */
   experienceModel: ExperienceModelHint;
+
+  /**
+   * Personal ExperienceGuide summary — T1 safe. Sphere positions and repair
+   * risk details stay server-side; only alignment state, precedence mode, and
+   * focus intent are surfaced here for the welcome chip and brief framing.
+   */
+  personalGuide: {
+    configured: boolean;
+    alignmentState?: AlignmentState;
+    precedenceMode?: PrecedenceMode;
+    focusIntent?: string;
+  };
 
   /** Counters (deferred phases). 0 in alpha bootstrap. */
   pendingApprovals: number;
@@ -245,6 +259,23 @@ async function readExperienceModelHint(
   }
 }
 
+async function readPersonalGuideHint(
+  personaId: string,
+): Promise<AssistantBootstrapSurface['personalGuide']> {
+  try {
+    const guide = await getPersonalGuide(personaId);
+    if (!guide) return { configured: false };
+    return {
+      configured: true,
+      alignmentState: guide.alignmentState,
+      precedenceMode: guide.precedenceMode,
+      ...(guide.focusIntent ? { focusIntent: guide.focusIntent } : {}),
+    };
+  } catch {
+    return { configured: false };
+  }
+}
+
 function pickActiveCartridge(request: NextRequest): string {
   const fromQuery = request.nextUrl.searchParams.get('cartridge');
   if (fromQuery && ALLOWED_CARTRIDGE_SLUGS.has(fromQuery)) return fromQuery;
@@ -289,9 +320,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const [{ displayLabel }, experienceModel] = await Promise.all([
+  const [{ displayLabel }, experienceModel, personalGuide] = await Promise.all([
     readPersonaPresentation(context.personaId),
     readExperienceModelHint(context.personaId),
+    readPersonalGuideHint(context.personaId),
   ]);
 
   const surface: AssistantBootstrapSurface = {
@@ -303,6 +335,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     availableSpecialists: AVAILABLE_SPECIALISTS,
     primaryCtas: PRIMARY_CTAS,
     experienceModel,
+    personalGuide,
     pendingApprovals: 0,
     recentActivity: [],
     naming: {
