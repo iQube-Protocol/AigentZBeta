@@ -15,6 +15,7 @@ import {
   usdToKnyt,
   type CartItem,
   type EpisodePricing,
+  type GnVariant,
 } from '@/types/knyt-store';
 
 type Modality = 'still' | 'motion' | 'bundle';
@@ -145,12 +146,17 @@ function CartButton({
 function GNGridCard({
   sku,
   thumbUrl,
+  isOwned,
   onClick,
   onBuy,
   onAddToCart,
 }: {
   sku: GNSku;
   thumbUrl?: string;
+  /** Phase B fix — Bug 1: badge the GN variant the persona owns. Qripto +
+   *  Digital map to gn_still (covered by grants_gn). Paperback + Hardcover
+   *  defer to Phase C when grants_gn_paperback / grants_gn_hardcover ship. */
+  isOwned?: boolean;
   onClick: () => void;
   onBuy: (e: React.MouseEvent) => void;
   onAddToCart?: (e: React.MouseEvent) => void;
@@ -160,7 +166,11 @@ function GNGridCard({
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col rounded-xl border border-white/5 bg-slate-900/60 overflow-hidden text-left transition-colors hover:border-teal-500/20 hover:bg-slate-800/60 w-full"
+      className={`flex flex-col rounded-xl border overflow-hidden text-left transition-colors w-full ${
+        isOwned
+          ? 'border-emerald-700/40 bg-emerald-900/10 hover:border-emerald-600/50 hover:bg-emerald-900/20'
+          : 'border-white/5 bg-slate-900/60 hover:border-teal-500/20 hover:bg-slate-800/60'
+      }`}
     >
       <div className="relative w-full aspect-[2/3] bg-slate-950 overflow-hidden">
         {thumbUrl ? (
@@ -173,13 +183,22 @@ function GNGridCard({
         <div className={`absolute top-1 right-1 rounded border px-1.5 py-0.5 text-[9px] font-bold capitalize ${badgeClass}`}>
           {sku.layer}
         </div>
+        {isOwned && (
+          <div className="absolute top-1 left-1 flex items-center gap-0.5 rounded border border-emerald-600/50 bg-emerald-900/80 px-1 py-0.5">
+            <CheckCircle className="h-2.5 w-2.5 text-emerald-400" />
+            <span className="text-[8px] font-bold text-emerald-300">Owned</span>
+          </div>
+        )}
       </div>
       <div className="px-1.5 pt-1 pb-1.5 space-y-1">
         <p className="text-[10px] font-semibold text-white leading-tight">{sku.label}</p>
         <p className="text-[9px] text-slate-500 leading-tight">{sku.sublabel}</p>
         <div className="flex items-center justify-between">
-          <p className="text-[11px] font-bold text-white">${sku.price}</p>
-          <CartButton onClick={onBuy} onAddToCart={onAddToCart} />
+          {isOwned
+            ? <span className="text-[10px] font-semibold text-emerald-400">In Library</span>
+            : <p className="text-[11px] font-bold text-white">${sku.price}</p>
+          }
+          {!isOwned && <CartButton onClick={onBuy} onAddToCart={onAddToCart} />}
         </div>
       </div>
     </button>
@@ -484,11 +503,17 @@ function GNSkuDetail({
   thumbUrl,
   onBuy,
   onAddToCart,
+  isOwned,
 }: {
   sku: GNSku;
   thumbUrl?: string;
   onBuy: (p: PendingPurchase) => void;
   onAddToCart?: (p: PendingPurchase) => void;
+  /** Phase B fix — Bug 1: render Owned badge on the variant the persona
+   *  has rights to. Qripto + Digital map to gn_still (covered by
+   *  grants_gn flag). Paperback + Hardcover land in Phase C when
+   *  grants_gn_paperback / grants_gn_hardcover flags ship. */
+  isOwned?: boolean;
 }) {
   const isPrint  = sku.layer === 'print';
   const isQripto = sku.layer === 'qripto';
@@ -499,7 +524,14 @@ function GNSkuDetail({
 
       <div className="space-y-2.5 min-w-0">
         <div>
-          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Graphic Novel</p>
+          <div className="flex items-center gap-2">
+            <p className="text-[10px] text-slate-500 uppercase tracking-wide">Graphic Novel</p>
+            {isOwned && (
+              <span className="rounded border border-emerald-500/30 bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-300 uppercase tracking-wide">
+                ✓ Owned
+              </span>
+            )}
+          </div>
           <p className="text-sm font-bold text-white">{sku.label}</p>
           <p className="text-[10px] text-slate-400 mt-0.5">{sku.sublabel}</p>
         </div>
@@ -609,7 +641,7 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
   // Single ownership source (matches codex SoT) — covers SKU expansion +
   // direct knyt_purchases via /api/codex/owned. epNum is the pricing-episode
   // number used by the store/codex UI (DB ep N → pricing N-1).
-  const { isEpisodeOwned } = useOwnedEntitlements(personaId);
+  const { isEpisodeOwned, isGnVariantOwned } = useOwnedEntitlements(personaId);
 
   const episodes = EPISODE_PRICING
     .filter((e) => e.episodeNumber >= 0)
@@ -699,11 +731,22 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
                 {GN_SKUS.map((sku) => {
                   const thumb = getCoverThumb(-1);
+                  // Resolve owned-state per GN variant the bundle granted.
+                  // Top KNYT Shelf → qripto + paperback. Digital KNYT Shelf →
+                  // digital + paperback. See gnVariants on each BundlePricing.
+                  const variantKey: GnVariant | null =
+                    sku.layer === 'qripto'  ? 'qripto'  :
+                    sku.layer === 'digital' ? 'digital' :
+                    sku.printVariant === 'paperback' ? 'paperback' :
+                    sku.printVariant === 'hardcover' ? 'hardcover' :
+                    null;
+                  const skuOwned = variantKey ? isGnVariantOwned(variantKey) : false;
                   return (
                     <GNGridCard
                       key={sku.id}
                       sku={sku}
                       thumbUrl={thumb}
+                      isOwned={skuOwned}
                       onClick={() => setView({ kind: 'gn-sku', sku })}
                       onBuy={() => setPurchase({
                         contentType: 'scroll_still',
@@ -778,14 +821,23 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
           />
         )}
 
-        {view.kind === 'gn-sku' && (
-          <GNSkuDetail
-            sku={view.sku}
-            thumbUrl={getCoverThumb(-1)}
-            onBuy={setPurchase}
-            onAddToCart={addPendingToCart}
-          />
-        )}
+        {view.kind === 'gn-sku' && (() => {
+          const variantKey: GnVariant | null =
+            view.sku.layer === 'qripto'  ? 'qripto'  :
+            view.sku.layer === 'digital' ? 'digital' :
+            view.sku.printVariant === 'paperback' ? 'paperback' :
+            view.sku.printVariant === 'hardcover' ? 'hardcover' :
+            null;
+          return (
+            <GNSkuDetail
+              sku={view.sku}
+              thumbUrl={getCoverThumb(-1)}
+              onBuy={setPurchase}
+              onAddToCart={addPendingToCart}
+              isOwned={variantKey ? isGnVariantOwned(variantKey) : false}
+            />
+          );
+        })()}
       </div>
 
       {/* Purchase modal — express buy path */}

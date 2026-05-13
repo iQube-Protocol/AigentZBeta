@@ -102,6 +102,16 @@ export function usdToKnyt(usd: number): number {
   return Math.round((usd / KNYT_USD_RATE) * 100) / 100;
 }
 
+/**
+ * GN variants this bundle grants ownership of. Multiple bundles grant multiple
+ * variants (e.g. Top KNYT Shelf → ['qripto', 'paperback']). Drives the per-SKU
+ * Owned badge in the store's GN section so a Qripto-grade bundle holder doesn't
+ * see the Digital variant falsely marked as owned. Phase C will wire matching
+ * grants_gn_paperback / grants_gn_hardcover SKU flags into store_skus; this
+ * client-side mapping is the bridge until that ships.
+ */
+export type GnVariant = 'qripto' | 'digital' | 'paperback' | 'hardcover' | 'leatherbound';
+
 export interface BundlePricing {
   id: string;
   label: string;
@@ -135,6 +145,8 @@ export interface BundlePricing {
   printFulfillment: 'post-kickstarter' | 'publisher' | 'signed-author';
   includes?: string[];   // human-readable contents
   accessGrant?: string;  // e.g. 'zero-knyt-order' for Order of Metaiye tiers
+  /** Which GN variants this bundle grants. See GnVariant. Empty/undefined → bundle does not grant the GN. */
+  gnVariants?: GnVariant[];
 }
 
 export const BUNDLE_PRICING: BundlePricing[] = [
@@ -156,6 +168,7 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     isFullSeason: false,
     isInvestorOnly: true,
     printFulfillment: 'post-kickstarter',
+    gnVariants: ['qripto'],
     includes: [
       '1 QAGN (Qripto AgentiQ Graphic Novel)',
       '13 Qripto Editions (all episodes)',
@@ -172,6 +185,7 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     isFullSeason: false,
     isInvestorOnly: true,
     printFulfillment: 'post-kickstarter',
+    gnVariants: ['qripto', 'paperback'],
     includes: [
       '1 QAGN (Qripto AgentiQ Graphic Novel)',
       '13 Qripto Editions (all episodes)',
@@ -189,6 +203,7 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     isFullSeason: false,
     isInvestorOnly: true,
     printFulfillment: 'signed-author',
+    gnVariants: ['qripto', 'hardcover'],
     includes: [
       '1 QAGN (Qripto AgentiQ Graphic Novel)',
       '13 Qripto Editions (all episodes)',
@@ -214,6 +229,7 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     limitedSupply: 21,
     printFulfillment: 'signed-author',
     accessGrant: 'zero-knyt-order',
+    gnVariants: ['qripto', 'hardcover'],
     includes: [
       '1 QAGN (Qripto AgentiQ Graphic Novel)',
       '13 Qripto Editions (all episodes)',
@@ -244,6 +260,7 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     limitedSupply: 21,
     printFulfillment: 'signed-author',
     accessGrant: 'zero-knyt-order',
+    gnVariants: ['qripto', 'hardcover', 'leatherbound'],
     includes: [
       'Special leather-bound author-signed Hardcover AGN (investor exclusive)',
       '2 author-signed Hardcover AGNs',
@@ -267,6 +284,7 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     isFullSeason: false,
     isInvestorOnly: true,
     printFulfillment: 'publisher',
+    gnVariants: ['qripto'],
     includes: ['1 QAGN (Qripto AgentiQ Graphic Novel)'],
   },
   {
@@ -279,6 +297,7 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     isFullSeason: false,
     isInvestorOnly: true,
     printFulfillment: 'publisher',
+    gnVariants: ['digital'],
     includes: ['1 Digital AGN (AgentiQ Graphic Novel)'],
   },
   {
@@ -290,6 +309,7 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     isFullSeason: false,
     isInvestorOnly: true,
     printFulfillment: 'publisher',
+    gnVariants: ['paperback'],
     includes: ['Paperback AgentiQ Graphic Novel (AGN)'],
   },
   {
@@ -301,6 +321,7 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     isFullSeason: false,
     isInvestorOnly: true,
     printFulfillment: 'publisher',
+    gnVariants: ['hardcover'],
     includes: ['Hardcover AgentiQ Graphic Novel (AGN)'],
   },
 
@@ -315,6 +336,7 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     isFullSeason: false,
     isInvestorOnly: true,
     printFulfillment: 'post-kickstarter',
+    gnVariants: ['digital'],
     includes: [
       '1 Digital AGN (AgentiQ Graphic Novel)',
       '13 Digital Editions (all episodes)',
@@ -331,6 +353,7 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     isFullSeason: false,
     isInvestorOnly: true,
     printFulfillment: 'post-kickstarter',
+    gnVariants: ['digital', 'paperback'],
     includes: [
       '1 Digital AGN (AgentiQ Graphic Novel)',
       '13 Digital Editions (all episodes)',
@@ -348,6 +371,7 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     isFullSeason: false,
     isInvestorOnly: true,
     printFulfillment: 'signed-author',
+    gnVariants: ['digital', 'hardcover'],
     includes: [
       '1 Digital AGN (AgentiQ Graphic Novel)',
       '13 Digital Editions (all episodes)',
@@ -364,6 +388,24 @@ export const BUNDLE_PRICING: BundlePricing[] = [
 export function bundleIncludesPrintGn(bundleId: string): boolean {
   const bundle = BUNDLE_PRICING.find(b => b.id === bundleId);
   return bundle?.includes?.some(item => /paperback|hardcover/i.test(item)) ?? false;
+}
+
+/**
+ * Given a set of asset IDs the persona owns (direct entitlement asset_ids or
+ * bundle SKU ids — both come through the same column), return the set of GN
+ * variants those grants resolve to. Investor bundles can grant multiple at
+ * once (e.g. Top KNYT Shelf → qripto + paperback). Use this to drive the
+ * per-variant Owned badge in the GN section of the store.
+ */
+export function getOwnedGnVariants(ownedAssetIds: Iterable<string>): Set<GnVariant> {
+  const variants = new Set<GnVariant>();
+  for (const id of ownedAssetIds) {
+    const bundle = BUNDLE_PRICING.find((b) => b.id === id);
+    if (bundle?.gnVariants) {
+      for (const v of bundle.gnVariants) variants.add(v);
+    }
+  }
+  return variants;
 }
 
 export interface GraphicNovelPricing {

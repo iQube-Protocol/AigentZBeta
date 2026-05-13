@@ -6,6 +6,35 @@ const EMBED_PREFIX = '/triad/embed';
 const EMBED_FRAME_ANCESTORS = embedPolicy.frameAncestors.join(' ');
 const EMBED_CSP = `frame-ancestors ${EMBED_FRAME_ANCESTORS};`;
 
+// Build the CORS allowlist from the same authAllowedOrigins config that the
+// embed policy uses, so origins stay in one place. Each entry is converted
+// into a matcher: exact string for plain entries, regex for entries with
+// wildcards (e.g. `https://*.metame.live`, `http://localhost:*`).
+const ORIGIN_MATCHERS = (embedPolicy.authAllowedOrigins as string[]).map((pattern) => {
+  if (!pattern.includes('*')) return { kind: 'exact' as const, value: pattern };
+  // Escape regex specials except '*', then turn '*' into the appropriate
+  // segment matcher: '*.example.com' → '[^.]+\\.example\\.com', and a
+  // trailing port wildcard like ':*' → ':\\d+'.
+  const escaped = pattern
+    .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*/g, '__STAR__');
+  // Hostname wildcards consume a single subdomain segment; port wildcards
+  // consume digits.
+  const expanded = escaped
+    .replace(/:__STAR__/g, ':\\d+')
+    .replace(/__STAR__/g, '[^./]+');
+  return { kind: 'regex' as const, value: new RegExp(`^${expanded}$`) };
+});
+
+function resolveAllowedOrigin(origin: string | null): string | null {
+  if (!origin) return null;
+  for (const m of ORIGIN_MATCHERS) {
+    if (m.kind === 'exact' && m.value === origin) return origin;
+    if (m.kind === 'regex' && m.value.test(origin)) return origin;
+  }
+  return null;
+}
+
 // Performance tracking
 const performanceMetrics = new Map<string, {
   count: number;
@@ -92,26 +121,40 @@ export function middleware(request: NextRequest) {
     recentRequests.push(now);
     rateLimitStore.set(clientId, recentRequests);
 
+    // Reflect the request's Origin against the auth allowlist so embeds
+    // hosted at metame.live / *.aigentz.me / *.netlify.app / etc. all
+    // resolve. Previously hardcoded to a single Netlify preview, which
+    // silently broke /api/codex/owned (and every other CORS-gated route)
+    // for the codex iframe under the metame.live runtime shell.
+    const requestOrigin = request.headers.get('Origin');
+    const allowedOrigin = resolveAllowedOrigin(requestOrigin);
+
     // Handle preflight requests first
     if (request.method === 'OPTIONS') {
-      return new NextResponse(null, {
-        status: 200,
-        headers: {
-          'Access-Control-Allow-Origin': 'https://theqriptopian.netlify.app',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Cache-Control, Pragma, Expires',
-          'Access-Control-Max-Age': '86400',
-        },
-      });
+      const headers: Record<string, string> = {
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Cache-Control, Pragma, Expires',
+        'Access-Control-Max-Age': '86400',
+        'Vary': 'Origin',
+      };
+      if (allowedOrigin) {
+        headers['Access-Control-Allow-Origin'] = allowedOrigin;
+        headers['Access-Control-Allow-Credentials'] = 'true';
+      }
+      return new NextResponse(null, { status: 200, headers });
     }
 
     const response = NextResponse.next();
 
     // Add CORS headers for actual requests
-    response.headers.set('Access-Control-Allow-Origin', 'https://theqriptopian.netlify.app');
+    if (allowedOrigin) {
+      response.headers.set('Access-Control-Allow-Origin', allowedOrigin);
+      response.headers.set('Access-Control-Allow-Credentials', 'true');
+    }
     response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
     response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Cache-Control, Pragma, Expires');
     response.headers.set('Access-Control-Max-Age', '86400');
+    response.headers.set('Vary', 'Origin');
 
     // Add performance headers
     const responseTime = performance.now() - startTime;

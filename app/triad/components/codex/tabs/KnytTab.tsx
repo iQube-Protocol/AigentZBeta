@@ -766,6 +766,29 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const [currentText, setCurrentText] = useState<{ title: string; content: string } | null>(null);
   // Wallet drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Auto-reopen the wallet drawer on return from a wallet-launched
+  // cartridge close. The wallet's navigateToKnytTab appends
+  // ?reopenWallet=1 to its returnTo URL when it navigates away; the
+  // codex-closed route honours that on return, landing the user back
+  // here with reopenWallet=1 in the URL. We consume + strip the param
+  // on mount so the drawer pops open without keeping a sticky URL
+  // state across refreshes. Closes the "wallet drawer not preserved
+  // across round-trip" UX gap.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('reopenWallet') === '1') {
+      setDrawerOpen(true);
+      params.delete('reopenWallet');
+      const search = params.toString();
+      const newUrl =
+        window.location.pathname +
+        (search ? `?${search}` : '') +
+        window.location.hash;
+      try { window.history.replaceState(null, '', newUrl); } catch { /* non-fatal */ }
+    }
+  }, []);
   // Copilot state declared FIRST so handleOpenWallet's setters resolve at
   // call time without TDZ noise.
   const [codexCopilotOpen, setCodexCopilotOpen] = useState(false);
@@ -783,14 +806,34 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   ]);
   const lastCopilotContextRef = useRef<string | null>(null);
   
-  // Quest/Task state
+  // Quest/Task state — extended with the summary + reputation sub-objects
+  // returned by /api/wallet/tasks so the Order tab right-HUD can render
+  // task counts, status differentiation, lifetime KNYT earned, and the
+  // five-axis reputation vector. (Alpha-readiness HUD detail expansion.)
   const [taskData, setTaskData] = useState({
     activeTask: null as { id: string; title: string; progress: number; nextStep: string } | null,
-    rewards: [] as Array<{ id: string; amount: number; source: string }>,
+    rewards: [] as Array<{ id: string; amount: number; source: string; status?: string; tokenType?: string }>,
     ascensionRank: {
       current: 'Initiate',
       next: 'Acolyte',
       progress: 0,
+    },
+    summary: undefined as undefined | {
+      activeCount?: number;
+      availableCount?: number;
+      completedCount?: number;
+      claimableKnyt?: number;
+      lifetimeKnytEarned?: number;
+    },
+    reputation: null as null | {
+      overall?: number;
+      technical?: number;
+      creative?: number;
+      entrepreneurial?: number;
+      dataArch?: number;
+      community?: number;
+      lifetimeCvs?: number;
+      totalTasksCompleted?: number;
     },
   });
   
@@ -2545,6 +2588,8 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             next: 'Acolyte',
             progress: 0,
           },
+          summary: payload.summary ?? undefined,
+          reputation: payload.reputation ?? null,
         });
       })
       .catch(() => { /* non-fatal — leaves the static defaults in place */ });
@@ -2678,6 +2723,8 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
               activeTask={taskData.activeTask || undefined}
               rewards={taskData.rewards}
               ascensionRank={taskData.ascensionRank}
+              summary={taskData.summary}
+              reputation={taskData.reputation}
               activeRealm={activeRealm}
               onRealmChange={handleRealmChange}
               onCopilotModeChange={handleCopilotModeChange}

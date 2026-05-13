@@ -189,11 +189,38 @@ export async function userOwnsAsset(personaId: string, assetId: string): Promise
 /**
  * Enumerate every asset the persona owns (direct + SKU-expanded). Used to
  * populate library views and per-card lock state without N+1 fetching.
+ *
+ * Canonical taxonomy (Phase B — post-retag 2026-05-13):
+ *   - GN is a separate content_type='gn_still' with episode_number=-1.
+ *     NOT episode_number=0 (which is now display Ep #0, a real episode).
+ *   - Episodes have episode_number 0..12 (display Ep #0..#12).
+ *   - The grants_gn flag maps to content_type='gn_still' (1 row).
+ *   - grants_episodes_still maps to content_type='episode_still' (13 rows).
+ *
+ * Returns:
+ *   direct        — asset_ids granted explicitly (entitlement.asset_id)
+ *   expanded      — asset_ids resolved via SKU category-grant expansion
+ *   ownedSkus     — sku_ids the persona currently holds
+ *   expectedSlots — (Phase B) the full set of (category, episode_number)
+ *                   the persona has RIGHTS to per their SKUs. Used by the
+ *                   codex UI to render "Owned · Coming Soon" placeholders
+ *                   for granted-but-not-yet-uploaded items.
  */
+// Canonical episode-number set for fully-stocked KNYT collection
+// (matches the taxonomy decision 2026-05-13). Episodes are 0-indexed
+// in DB. GN sits at -1 in its own content_type.
+const CANONICAL_EPISODE_NUMBERS: ReadonlyArray<number> = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+
+export interface ExpectedSlot {
+  category: AssetCategory;       // 'gn' | 'episode_still' | 'episode_motion' | 'episode_print' | 'character_card' | 'lore'
+  episodeNumber: number | null;  // null for ungated categories; -1 for gn; 0..12 for episodes/characters
+}
+
 export async function getOwnedAssetIds(personaId: string, series: string = 'metaKnyts'): Promise<{
   direct: string[];
   expanded: string[];
   ownedSkus: string[];
+  expectedSlots: ExpectedSlot[];
 }> {
   const ents = await getEntitlementService().getPersonaEntitlements(personaId);
   const direct = ents.map((e) => e.assetId).filter((s): s is string => !!s);
@@ -201,7 +228,7 @@ export async function getOwnedAssetIds(personaId: string, series: string = 'meta
   const ownedSkuIds = ownedSkus.map((s) => s.sku_id);
 
   if (ownedSkus.length === 0) {
-    return { direct, expanded: [], ownedSkus: ownedSkuIds };
+    return { direct, expanded: [], ownedSkus: ownedSkuIds, expectedSlots: [] };
   }
 
   // Determine the union of episode_number filters across owned SKUs and the
@@ -237,10 +264,14 @@ export async function getOwnedAssetIds(personaId: string, series: string = 'meta
   const expanded = new Set<string>(extras);
 
   // Master content rows (gn / episodes still / motion / print)
+  // CANONICAL: GN is content_type='gn_still' with episode_number=-1.
+  // Episodes are content_type='episode_{still,motion,print}' with
+  // episode_number 0..12. The legacy ep===0 heuristic is gone.
   const masterContentTypes: string[] = [];
+  if (globalCats.has('gn'))                                                       masterContentTypes.push('gn_still');
   if (globalCats.has('episode_still')  || scopedEpsByCat.has('episode_still'))  masterContentTypes.push('episode_still');
   if (globalCats.has('episode_motion') || scopedEpsByCat.has('episode_motion')) masterContentTypes.push('episode_motion');
-  if (globalCats.has('episode_print')  || scopedEpsByCat.has('episode_print')   || globalCats.has('gn')) masterContentTypes.push('episode_print');
+  if (globalCats.has('episode_print')  || scopedEpsByCat.has('episode_print'))  masterContentTypes.push('episode_print');
 
   if (masterContentTypes.length > 0) {
     const { data: masters } = await supa()
@@ -260,15 +291,15 @@ export async function getOwnedAssetIds(personaId: string, series: string = 'meta
 
     for (const m of masters ?? []) {
       const ep = m.episode_number as number | null;
-      const isGn = ep === 0;
       const ct = m.content_type as string;
-      if (isGn && globalCats.has('gn')) {
+      // GN is its own row keyed on content_type — no episode_number heuristics.
+      if (ct === 'gn_still' && globalCats.has('gn')) {
         expanded.add(m.id);
         continue;
       }
-      if (!isGn && ct === 'episode_still'  && categoryAllows('episode_still',  ep)) expanded.add(m.id);
-      if (!isGn && ct === 'episode_motion' && categoryAllows('episode_motion', ep)) expanded.add(m.id);
-      if (!isGn && ct === 'episode_print'  && categoryAllows('episode_print',  ep)) expanded.add(m.id);
+      if (ct === 'episode_still'  && categoryAllows('episode_still',  ep)) expanded.add(m.id);
+      if (ct === 'episode_motion' && categoryAllows('episode_motion', ep)) expanded.add(m.id);
+      if (ct === 'episode_print'  && categoryAllows('episode_print',  ep)) expanded.add(m.id);
     }
   }
 
@@ -290,5 +321,51 @@ export async function getOwnedAssetIds(personaId: string, series: string = 'meta
     }
   }
 
-  return { direct, expanded: Array.from(expanded), ownedSkus: ownedSkuIds };
+  // ── Phase B: compute expectedSlots ─────────────────────────────────────
+  // For each category the persona has rights to, enumerate every
+  // (category, episode_number) pair the SKU grants. The UI uses this to
+  // render "Owned · Coming Soon" placeholders for items not yet uploaded.
+  //
+  // Resolution rule per category:
+  //   - global (episode_numbers=NULL on any owned SKU) → CANONICAL range
+  //   - scoped → exactly the union of episode_numbers from owning SKUs
+  //   - 'gn'           → single slot at episode_number=-1
+  //   - 'character_card' / 'lore' → ungated; null episode_number
+  const expectedSlots: ExpectedSlot[] = [];
+
+  if (globalCats.has('gn')) {
+    expectedSlots.push({ category: 'gn', episodeNumber: -1 });
+  }
+
+  const episodeCategories: AssetCategory[] = ['episode_still', 'episode_motion', 'episode_print'];
+  for (const cat of episodeCategories) {
+    if (globalCats.has(cat)) {
+      for (const n of CANONICAL_EPISODE_NUMBERS) {
+        expectedSlots.push({ category: cat, episodeNumber: n });
+      }
+    } else {
+      const scoped = scopedEpsByCat.get(cat);
+      if (scoped) {
+        // Sort scoped episode numbers so the UI gets a stable order.
+        Array.from(scoped).sort((a, b) => a - b).forEach((n) => {
+          expectedSlots.push({ category: cat, episodeNumber: n });
+        });
+      }
+    }
+  }
+
+  if (globalCats.has('character_card')) {
+    // Character cards mirror episode numbering 0..12 (taxonomy decision
+    // 2026-05-13). The 14th collector card is a separate SKU and not
+    // accounted for here; Phase C wires it in.
+    for (const n of CANONICAL_EPISODE_NUMBERS) {
+      expectedSlots.push({ category: 'character_card', episodeNumber: n });
+    }
+  }
+
+  if (globalCats.has('lore')) {
+    expectedSlots.push({ category: 'lore', episodeNumber: null });
+  }
+
+  return { direct, expanded: Array.from(expanded), ownedSkus: ownedSkuIds, expectedSlots };
 }

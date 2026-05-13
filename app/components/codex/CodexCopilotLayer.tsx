@@ -287,6 +287,26 @@ export function CodexCopilotLayer({
   const [walletPanelCollapsed, setWalletPanelCollapsed] = useState(false);
   const [walletCopilotOpen, setWalletCopilotOpen] = useState(false);
   const [walletActionsCollapsed, setWalletActionsCollapsed] = useState(false);
+
+  // Auto-reopen the embedded wallet panel on return from a wallet-launched
+  // cartridge close. SmartWalletDrawer's navigateToKnytTab appends
+  // ?reopenWallet=1 to its returnTo URL; the codex-closed route lands
+  // the user back here. Consume + strip the param so the panel re-opens
+  // on the Tasks tab exactly where they left off pre-cartridge-launch.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('reopenWallet') !== '1') return;
+    setWalletPanelOpen(true);
+    setWalletPanelCollapsed(false);
+    params.delete('reopenWallet');
+    const search = params.toString();
+    const newUrl =
+      window.location.pathname +
+      (search ? `?${search}` : '') +
+      window.location.hash;
+    try { window.history.replaceState(null, '', newUrl); } catch { /* non-fatal */ }
+  }, []);
   const [walletPanelTab, setWalletPanelTab] = useState<WalletTab>("wallet");
   const [walletMenuVisible, setWalletMenuVisible] = useState(true);
   const [walletMenuHover, setWalletMenuHover] = useState(false);

@@ -25,6 +25,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getActivePersona } from '@/services/identity/getActivePersona';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -61,11 +62,33 @@ function deriveTier(metrics: {
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const personaId = searchParams.get('persona_id');
+    // Spine guard — resolve the caller's active persona server-side.
+    // Previously this route trusted the `?persona_id=` query param,
+    // which let any caller read tier/rewards for any persona. The
+    // spine path returns the authenticated caller's own persona; admin
+    // callers (cartridgeFlags.isAdmin) are still allowed to read any
+    // persona via the explicit query param for support tooling.
+    const persona = await getActivePersona(request);
+    if (!persona) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    if (!personaId) {
-      return NextResponse.json({ error: 'persona_id query param required' }, { status: 400 });
+    const { searchParams } = new URL(request.url);
+    const requestedPersonaId = searchParams.get('persona_id');
+
+    // Default to the caller's own persona; admins may override via the
+    // query param for support / debugging.
+    let personaId: string;
+    if (requestedPersonaId && requestedPersonaId !== persona.personaId) {
+      if (!persona.cartridgeFlags?.isAdmin) {
+        return NextResponse.json(
+          { error: 'Cannot read another persona\'s order state' },
+          { status: 403 },
+        );
+      }
+      personaId = requestedPersonaId;
+    } else {
+      personaId = persona.personaId;
     }
 
     // Run metrics queries in parallel

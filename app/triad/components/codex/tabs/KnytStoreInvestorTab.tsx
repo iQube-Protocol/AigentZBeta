@@ -147,7 +147,7 @@ function InvestorBundleCard({
           )}
           {bundle.isLimited && bundle.limitedSupply && (
             <div className="absolute top-1 right-1 rounded border border-red-700/40 bg-red-900/70 px-1 py-0.5 text-[9px] font-bold text-red-300">
-              {(remainingSupply ?? bundle.limitedSupply)} left
+              {(remainingSupply ?? bundle.limitedSupply)} of {bundle.limitedSupply} left
             </div>
           )}
           {bundle.isConditional && (

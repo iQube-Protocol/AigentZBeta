@@ -57,8 +57,26 @@ interface KnytTemplateRendererProps {
   selectedItemId?: string;
   // Quest/Task state
   activeTask?: { id: string; title: string; progress: number; nextStep: string };
-  rewards?: Array<{ id: string; amount: number; source: string }>;
+  rewards?: Array<{ id: string; amount: number; source: string; status?: string; tokenType?: string }>;
   ascensionRank?: { current: string; next: string; progress: number };
+  // OrderHUD expanded surface — populated from /api/wallet/tasks summary + reputation.
+  summary?: {
+    activeCount?: number;
+    availableCount?: number;
+    completedCount?: number;
+    claimableKnyt?: number;
+    lifetimeKnytEarned?: number;
+  };
+  reputation?: {
+    overall?: number;
+    technical?: number;
+    creative?: number;
+    entrepreneurial?: number;
+    dataArch?: number;
+    community?: number;
+    lifetimeCvs?: number;
+    totalTasksCompleted?: number;
+  } | null;
   // Realm state
   activeRealm?: Realm;
   onRealmChange?: (realm: Realm) => void;
@@ -283,14 +301,48 @@ function ContentCard({ item, variant, onSelect, onWatch, onRead, isSelected, onA
 
 interface QuestRailProps {
   activeTask?: { id: string; title: string; progress: number; nextStep: string };
-  rewards?: Array<{ id: string; amount: number; source: string }>;
+  rewards?: Array<{ id: string; amount: number; source: string; status?: string; tokenType?: string }>;
   ascensionRank?: { current: string; next: string; progress: number };
+  /** Task category counts surfaced from /api/wallet/tasks summary */
+  summary?: {
+    activeCount?: number;
+    availableCount?: number;
+    completedCount?: number;
+    claimableKnyt?: number;
+    lifetimeKnytEarned?: number;
+  };
+  /** Reputation vector — five-axis polar projection of the user's rep */
+  reputation?: {
+    overall?: number;
+    technical?: number;
+    creative?: number;
+    entrepreneurial?: number;
+    dataArch?: number;
+    community?: number;
+    lifetimeCvs?: number;
+    totalTasksCompleted?: number;
+  } | null;
   onClaimReward?: (id: string) => void;
 }
 
-function QuestRail({ activeTask, rewards, ascensionRank, onClaimReward }: QuestRailProps) {
+function StatusChip({ status }: { status?: string }) {
+  if (!status) return null;
+  const config: Record<string, { label: string; cls: string }> = {
+    approved:           { label: 'Approved',  cls: 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30' },
+    pending_redemption: { label: 'Pending',   cls: 'bg-amber-500/15 text-amber-300 ring-amber-500/30' },
+    redeemed:           { label: 'Redeemed',  cls: 'bg-cyan-500/15 text-cyan-300 ring-cyan-500/30' },
+    rejected:           { label: 'Rejected',  cls: 'bg-slate-500/15 text-slate-400 ring-slate-500/30' },
+    draft:              { label: 'Draft',     cls: 'bg-slate-500/15 text-slate-400 ring-slate-500/30' },
+  };
+  const c = config[status] ?? { label: status, cls: 'bg-white/5 text-white/60 ring-white/10' };
   return (
-    <div className="h-full flex flex-col gap-4 p-4 bg-black/40 backdrop-blur-sm rounded-xl ring-1 ring-white/10">
+    <span className={`text-[9px] px-1.5 py-0.5 rounded ring-1 ${c.cls}`}>{c.label}</span>
+  );
+}
+
+function QuestRail({ activeTask, rewards, ascensionRank, summary, reputation, onClaimReward }: QuestRailProps) {
+  return (
+    <div className="h-full flex flex-col gap-3 p-4 bg-black/40 backdrop-blur-sm rounded-xl ring-1 ring-white/10 overflow-y-auto">
       {/* Active Task */}
       {activeTask && (
         <div className="p-3 rounded-lg bg-gradient-to-br from-green-500/20 to-emerald-500/20 ring-1 ring-green-500/30">
@@ -300,7 +352,7 @@ function QuestRail({ activeTask, rewards, ascensionRank, onClaimReward }: QuestR
           </div>
           <p className="text-sm text-white font-medium mb-2">{activeTask.title}</p>
           <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mb-2">
-            <div 
+            <div
               className="h-full bg-gradient-to-r from-green-500 to-emerald-400"
               style={{ width: `${activeTask.progress}%` }}
             />
@@ -311,26 +363,95 @@ function QuestRail({ activeTask, rewards, ascensionRank, onClaimReward }: QuestR
         </div>
       )}
 
-      {/* Rewards */}
+      {/* Task category counts — shows scale of the user's task surface */}
+      {summary && (summary.activeCount !== undefined || summary.availableCount !== undefined || summary.completedCount !== undefined) && (
+        <div className="grid grid-cols-3 gap-1.5">
+          <div className="p-2 rounded-lg bg-white/[0.03] ring-1 ring-white/5 text-center">
+            <div className="text-base font-semibold text-emerald-300">{summary.activeCount ?? 0}</div>
+            <div className="text-[9px] uppercase tracking-wider text-white/40">Active</div>
+          </div>
+          <div className="p-2 rounded-lg bg-white/[0.03] ring-1 ring-white/5 text-center">
+            <div className="text-base font-semibold text-cyan-300">{summary.availableCount ?? 0}</div>
+            <div className="text-[9px] uppercase tracking-wider text-white/40">Available</div>
+          </div>
+          <div className="p-2 rounded-lg bg-white/[0.03] ring-1 ring-white/5 text-center">
+            <div className="text-base font-semibold text-slate-300">{summary.completedCount ?? 0}</div>
+            <div className="text-[9px] uppercase tracking-wider text-white/40">Done</div>
+          </div>
+        </div>
+      )}
+
+      {/* Rewards — now shows up to 3 with status chips + claimable totals */}
       {rewards && rewards.length > 0 && (
         <div className="p-3 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20 ring-1 ring-amber-500/30">
           <div className="flex items-center gap-2 mb-2">
             <Gift className="w-4 h-4 text-amber-400" />
             <span className="text-xs text-amber-400 font-medium">Rewards</span>
+            {summary?.claimableKnyt !== undefined && summary.claimableKnyt > 0 && (
+              <span className="ml-auto text-[10px] text-amber-300">
+                {summary.claimableKnyt.toFixed(2)} claimable
+              </span>
+            )}
           </div>
-          <div className="space-y-2">
-            {rewards.slice(0, 2).map((reward) => (
-              <div key={reward.id} className="flex items-center justify-between">
-                <span className="text-xs text-white">{reward.amount} KNYT</span>
-                <button 
-                  className="text-xs text-amber-400 hover:text-amber-300"
-                  onClick={() => onClaimReward?.(reward.id)}
-                >
-                  Claim
-                </button>
+          <div className="space-y-1.5">
+            {rewards.slice(0, 3).map((reward) => (
+              <div key={reward.id} className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-xs text-white font-medium shrink-0">{reward.amount.toFixed(2)} {reward.tokenType ?? 'KNYT'}</span>
+                  <StatusChip status={reward.status} />
+                </div>
+                {(reward.status === 'approved' || !reward.status) && (
+                  <button
+                    className="text-xs text-amber-400 hover:text-amber-300 shrink-0"
+                    onClick={() => onClaimReward?.(reward.id)}
+                  >
+                    Claim
+                  </button>
+                )}
               </div>
             ))}
           </div>
+          {summary?.lifetimeKnytEarned !== undefined && (
+            <div className="mt-2 pt-2 border-t border-amber-500/20 text-[10px] text-amber-300/70">
+              Lifetime: {summary.lifetimeKnytEarned.toFixed(2)} KNYT earned
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Reputation vector — compact 5-axis bar chart */}
+      {reputation && (
+        <div className="p-3 rounded-lg bg-gradient-to-br from-blue-500/15 to-cyan-500/15 ring-1 ring-blue-500/30">
+          <div className="flex items-center gap-2 mb-2">
+            <Crown className="w-4 h-4 text-cyan-400" />
+            <span className="text-xs text-cyan-400 font-medium">Reputation</span>
+            {reputation.overall !== undefined && (
+              <span className="ml-auto text-[10px] text-cyan-300">{reputation.overall.toFixed(1)} overall</span>
+            )}
+          </div>
+          <div className="space-y-1">
+            {[
+              { label: 'Technical',       value: reputation.technical       ?? 0, color: 'from-sky-500 to-sky-300' },
+              { label: 'Creative',         value: reputation.creative         ?? 0, color: 'from-fuchsia-500 to-fuchsia-300' },
+              { label: 'Entrepreneurial',  value: reputation.entrepreneurial  ?? 0, color: 'from-amber-500 to-amber-300' },
+              { label: 'Data Arch',         value: reputation.dataArch         ?? 0, color: 'from-teal-500 to-teal-300' },
+              { label: 'Community',        value: reputation.community        ?? 0, color: 'from-violet-500 to-violet-300' },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="flex items-center gap-2">
+                <span className="text-[9px] text-white/60 w-20 shrink-0 truncate">{label}</span>
+                <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
+                  <div className={`h-full bg-gradient-to-r ${color}`} style={{ width: `${Math.min(100, Math.max(0, value * 10))}%` }} />
+                </div>
+                <span className="text-[9px] text-white/50 w-7 text-right shrink-0">{value.toFixed(1)}</span>
+              </div>
+            ))}
+          </div>
+          {reputation.totalTasksCompleted !== undefined && (
+            <div className="mt-2 pt-2 border-t border-cyan-500/20 text-[10px] text-cyan-300/70 flex items-center justify-between">
+              <span>Tasks done</span>
+              <span className="text-white/80">{reputation.totalTasksCompleted}</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -343,7 +464,7 @@ function QuestRail({ activeTask, rewards, ascensionRank, onClaimReward }: QuestR
           </div>
           <p className="text-sm text-white font-bold">{ascensionRank.current}</p>
           <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden my-2">
-            <div 
+            <div
               className="h-full bg-gradient-to-r from-purple-500 to-pink-400"
               style={{ width: `${ascensionRank.progress}%` }}
             />
@@ -1020,6 +1141,8 @@ function DualPosterStageTemplate({
   activeTask,
   rewards,
   ascensionRank,
+  summary,
+  reputation,
   device,
   userIntent,
 }: {
@@ -1028,8 +1151,10 @@ function DualPosterStageTemplate({
   onViewerOpen: (item: KnytContentItem, type: 'pdf' | 'video' | 'poster') => void;
   selectedItemId?: string;
   activeTask?: { id: string; title: string; progress: number; nextStep: string };
-  rewards?: Array<{ id: string; amount: number; source: string }>;
+  rewards?: Array<{ id: string; amount: number; source: string; status?: string; tokenType?: string }>;
   ascensionRank?: { current: string; next: string; progress: number };
+  summary?: QuestRailProps['summary'];
+  reputation?: QuestRailProps['reputation'];
   device: DeviceType;
   userIntent: UserIntent;
 }) {
@@ -1104,6 +1229,8 @@ function DualPosterStageTemplate({
               activeTask={activeTask}
               rewards={rewards}
               ascensionRank={ascensionRank}
+              summary={summary}
+              reputation={reputation}
             />
           </div>
         </div>
@@ -1203,6 +1330,8 @@ function QuestHudHubTemplate({
   activeTask,
   rewards,
   ascensionRank,
+  summary,
+  reputation,
   device,
   userIntent,
   personaId,
@@ -1212,8 +1341,10 @@ function QuestHudHubTemplate({
   onViewerOpen: (item: KnytContentItem, type: 'pdf' | 'video' | 'poster') => void;
   selectedItemId?: string;
   activeTask?: { id: string; title: string; progress: number; nextStep: string };
-  rewards?: Array<{ id: string; amount: number; source: string }>;
+  rewards?: Array<{ id: string; amount: number; source: string; status?: string; tokenType?: string }>;
   ascensionRank?: { current: string; next: string; progress: number };
+  summary?: QuestRailProps['summary'];
+  reputation?: QuestRailProps['reputation'];
   device: DeviceType;
   userIntent: UserIntent;
   personaId?: string;
@@ -1299,6 +1430,8 @@ function QuestHudHubTemplate({
             activeTask={activeTask}
             rewards={rewards}
             ascensionRank={ascensionRank}
+            summary={summary}
+            reputation={reputation}
           />
         </div>
       )}
@@ -1425,6 +1558,8 @@ export function KnytTemplateRenderer({
   activeTask,
   rewards,
   ascensionRank,
+  summary,
+  reputation,
   activeRealm,
   onRealmChange,
   knytBalance,
@@ -1510,6 +1645,8 @@ export function KnytTemplateRenderer({
             activeTask={activeTask}
             rewards={rewards}
             ascensionRank={ascensionRank}
+            summary={summary}
+            reputation={reputation}
             device={device}
             userIntent={userIntent}
           />
@@ -1539,6 +1676,8 @@ export function KnytTemplateRenderer({
             activeTask={activeTask}
             rewards={rewards}
             ascensionRank={ascensionRank}
+            summary={summary}
+            reputation={reputation}
             device={device}
             userIntent={userIntent}
             personaId={personaId}
