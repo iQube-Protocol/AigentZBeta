@@ -18,7 +18,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Loader2, Plus, Trash2, RefreshCw } from "lucide-react";
 
-import { usePersonaSpine, PersonaSpineGate, personaFetch } from "@/utils/personaSpine";
+import { personaFetch } from "@/utils/personaSpine";
 import {
   ALIGNMENT_LABEL,
   MATURITY_LABEL,
@@ -58,7 +58,7 @@ interface ApiResponse {
 
 function ExperienceAlignmentInner({ personaId }: { personaId: string }) {
   const [guide, setGuide] = useState<PersonalGuideData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!!personaId);
   const [error, setError] = useState<string | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [savingPrecedence, setSavingPrecedence] = useState(false);
@@ -67,7 +67,7 @@ function ExperienceAlignmentInner({ personaId }: { personaId: string }) {
   const [savingRisk, setSavingRisk] = useState(false);
 
   const load = useCallback(async () => {
-    if (!personaId) return;
+    if (!personaId) { setLoading(false); return; }
     setLoading(true);
     setError(null);
     try {
@@ -309,13 +309,8 @@ function ExperienceAlignmentInner({ personaId }: { personaId: string }) {
   );
 }
 
-export function ExperienceAlignmentTab() {
-  const spine = usePersonaSpine();
-  return (
-    <PersonaSpineGate state={spine}>
-      <ExperienceAlignmentInner personaId={spine.personaId ?? ""} />
-    </PersonaSpineGate>
-  );
+export function ExperienceAlignmentTab({ personaId }: { personaId?: string }) {
+  return <ExperienceAlignmentInner personaId={personaId ?? ""} />;
 }
 
 export default ExperienceAlignmentTab;

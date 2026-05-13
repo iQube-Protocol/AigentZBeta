@@ -19,7 +19,7 @@
 import React, { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 
-import { usePersonaSpine, PersonaSpineGate, personaFetch } from "@/utils/personaSpine";
+import { personaFetch } from "@/utils/personaSpine";
 import {
   ALIGNMENT_LABEL,
   MATURITY_LABEL,
@@ -54,12 +54,12 @@ interface ApiResponse {
 
 function PersonalExperienceMatrixInner({ personaId }: { personaId: string }) {
   const [guide, setGuide] = useState<PersonalGuideData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!!personaId);
   const [error, setError] = useState<string | null>(null);
   const [hoveredCell, setHoveredCell] = useState<{ sphere: SphereAxis; level: MaturityLevel } | null>(null);
 
   useEffect(() => {
-    if (!personaId) return;
+    if (!personaId) { setLoading(false); return; }
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -189,13 +189,8 @@ function PersonalExperienceMatrixInner({ personaId }: { personaId: string }) {
   );
 }
 
-export function PersonalExperienceMatrixTab() {
-  const spine = usePersonaSpine();
-  return (
-    <PersonaSpineGate state={spine}>
-      <PersonalExperienceMatrixInner personaId={spine.personaId ?? ""} />
-    </PersonaSpineGate>
-  );
+export function PersonalExperienceMatrixTab({ personaId }: { personaId?: string }) {
+  return <PersonalExperienceMatrixInner personaId={personaId ?? ""} />;
 }
 
 export default PersonalExperienceMatrixTab;
