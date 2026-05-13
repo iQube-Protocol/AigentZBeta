@@ -58,6 +58,7 @@ export interface RegistryViewRow {
   epic_count: number;
   rare_count: number;
   secret_black_rare_count: number;
+  common_count: number;
   codex_slugs: string[] | null;
 }
 
@@ -145,6 +146,10 @@ export function buildEditionSummary(row: RegistryViewRow): ContentQubeEditionSum
       epic:              { total: row.epic_count,              issued: 0 },
       rare:              { total: row.rare_count,              issued: 0 },
       secret_black_rare: { total: row.secret_black_rare_count, issued: 0 },
+      // Commons are streaming-access: 'total' here is the running count of
+      // sales (no upper bound). 'issued' mirrors it because every common
+      // row exists only when sold.
+      common:            { total: row.common_count,            issued: row.common_count },
     } as Record<ContentQubeRarity, { total: number; issued: number }>,
     chain_minted_count: row.chain_minted_count,
   };
@@ -170,7 +175,13 @@ export function buildDisplayManifest(
     gating_kind: row.gating_kind ?? 'free',
     price_qc: row.price_qc,
     storage_kinds: row.storage_kinds ?? [],
-    rarity_counts: row.total_editions > 0 ? CONTENT_QUBE_RARITY_COUNTS : null,
+    // rarity_counts surfaces the canonical-mintable seed only (1,860).
+    // Commons are reflected via editionSummary.rarity_breakdown.common
+    // because their count is unbounded and not pre-seeded.
+    rarity_counts:
+      (row.legendary_count + row.epic_count + row.rare_count + row.secret_black_rare_count) > 0
+        ? CONTENT_QUBE_RARITY_COUNTS
+        : null,
     persona_owns: personaOwns,
   };
 }
