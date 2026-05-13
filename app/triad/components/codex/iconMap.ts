@@ -40,6 +40,7 @@ import {
   Package,
   Hexagon,
   Target,
+  Activity,
   type LucideIcon
 } from "lucide-react";
 
@@ -80,6 +81,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Package,
   Hexagon,
   Target,
+  Activity,
 };
 
 /**
