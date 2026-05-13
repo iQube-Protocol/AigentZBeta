@@ -90,6 +90,10 @@ import { ComposerStudio } from "@/components/composer/ComposerStudio";
 import { MetaMeStudioTab } from "./tabs/MetaMeStudioTab";
 import { PersonalExperienceMatrixTab } from "./tabs/PersonalExperienceMatrixTab";
 import { ExperienceAlignmentTab } from "./tabs/ExperienceAlignmentTab";
+import { MetaMeStrategyTab } from "./tabs/MetaMeStrategyTab";
+import { MetaMeStatusTab } from "./tabs/MetaMeStatusTab";
+import { MetaMeNbeTab } from "./tabs/MetaMeNbeTab";
+import { MetaMeAnalysisTab } from "./tabs/MetaMeAnalysisTab";
 
 interface TabRendererProps {
   tab: CodexTab;
@@ -182,6 +186,10 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   MetaMeStudioTab,
   PersonalExperienceMatrixTab,
   ExperienceAlignmentTab,
+  MetaMeStrategyTab,
+  MetaMeStatusTab,
+  MetaMeNbeTab,
+  MetaMeAnalysisTab,
   RewardsTab: PlaceholderTab,
   DocsTab: PlaceholderTab,
   APITab: PlaceholderTab,
