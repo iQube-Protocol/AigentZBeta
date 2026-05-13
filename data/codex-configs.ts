@@ -1728,14 +1728,14 @@ export const METAME_CODEX: CodexConfig = {
   owner: 'metame-guardian',
   metadata: {
     description: 'metaMe sovereignty layer: experience framework, progression model, PCS ladder, and next-best-pathway logic',
-    icon: 'User',
-    color: 'violet',
+    icon: 'Hexagon',
+    color: 'emerald',
     category: 'sovereignty',
     tags: ['metame', 'experience', 'pcs', 'sovereignty', 'progression', 'nbe']
   },
   tabGroups: [
     { id: 'aigentme',  label: 'aigentMe',      icon: 'Sparkles',   order: 0 },
-    { id: 'vl',        label: 'VL',            icon: 'TrendingUp', order: 1, adminOnly: true },
+    { id: 'vl',        label: 'Venture Lab',   icon: 'TrendingUp', order: 1, adminOnly: true },
     { id: 'marketa',   label: 'Marketa',       icon: 'Megaphone',  order: 2, adminOnly: true },
     { id: 'studio',    label: 'metaMe Studio', icon: 'Wand2',      order: 3, adminOnly: true },
     { id: 'agentiqos', label: 'AgentiQ OS',    icon: 'Cpu',        order: 4, adminOnly: true },
@@ -1900,22 +1900,94 @@ export const METAME_CODEX: CodexConfig = {
       group: 'studio',
       order: 30,
       type: 'static',
-      config: { component: 'ComposerStudio', props: {} },
-      metadata: { icon: 'Wand2', description: 'Composer Studio — experience authoring surface', color: 'violet' }
+      config: { component: 'MetaMeStudioTab', props: {} },
+      metadata: { icon: 'Wand2', description: 'Build Experiences using guided templates, the Composer API and receipt pipeline.', color: 'violet' }
     },
 
-    // ── AgentiQ OS group (admin-gated) ───────────────────────────────────────
+    // ── AgentiQ OS group (admin-gated) — mirrors AgentiQ OS cartridge top groups ──
     {
-      id: 'agentiqos-overview',
-      label: 'AgentiQ OS',
-      slug: 'agentiqos',
+      id: 'agentiqos-home',
+      label: 'Home',
+      slug: 'agentiqos-home',
       enabled: true,
       adminOnly: true,
       group: 'agentiqos',
       order: 40,
       type: 'static',
-      config: { component: 'AgentiQOSTab', props: {} },
-      metadata: { icon: 'Cpu', description: 'AgentiQ OS command center', color: 'violet' }
+      config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_start_here' } },
+      metadata: { icon: 'Home', description: 'AgentiQ OS — start here', color: 'emerald' }
+    },
+    {
+      id: 'agentiqos-docs',
+      label: 'Docs',
+      slug: 'agentiqos-docs',
+      enabled: true,
+      adminOnly: true,
+      group: 'agentiqos',
+      order: 41,
+      type: 'static',
+      config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_docs_kb' } },
+      metadata: { icon: 'BookOpen', description: 'Protocol reference and developer standards', color: 'emerald' }
+    },
+    {
+      id: 'agentiqos-build',
+      label: 'Build',
+      slug: 'agentiqos-build',
+      enabled: true,
+      adminOnly: true,
+      group: 'agentiqos',
+      order: 42,
+      type: 'static',
+      config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_sdk_api' } },
+      metadata: { icon: 'Code', description: 'SDK / API reference', color: 'emerald' }
+    },
+    {
+      id: 'agentiqos-bind',
+      label: 'Bind',
+      slug: 'agentiqos-bind',
+      enabled: true,
+      adminOnly: true,
+      group: 'agentiqos',
+      order: 43,
+      type: 'static',
+      config: { component: 'DevPersonaTab', props: {} },
+      metadata: { icon: 'User', description: 'Persona and bounded delegation', color: 'emerald' }
+    },
+    {
+      id: 'agentiqos-deploy',
+      label: 'Deploy',
+      slug: 'agentiqos-deploy',
+      enabled: true,
+      adminOnly: true,
+      group: 'agentiqos',
+      order: 44,
+      type: 'static',
+      config: { component: 'DevRegistryTab', props: {} },
+      metadata: { icon: 'Package', description: 'Ingestion factory and registry', color: 'emerald' }
+    },
+    {
+      id: 'agentiqos-missions',
+      label: 'Missions',
+      slug: 'agentiqos-missions',
+      enabled: true,
+      adminOnly: true,
+      group: 'agentiqos',
+      order: 45,
+      type: 'static',
+      config: { component: 'DevMissionBoardTab', props: { panel: 'your-missions' } },
+      metadata: { icon: 'Target', description: 'Dev missions and learning tracks', color: 'emerald' }
+    },
+    {
+      id: 'agentiqos-community',
+      label: 'Community',
+      slug: 'agentiqos-community',
+      enabled: true,
+      adminOnly: true,
+      group: 'agentiqos',
+      order: 46,
+      type: 'static',
+      config: { component: 'Kn0wdZTab', props: {} },
+      metadata: { icon: 'Users', description: 'Community resources and Kn0wdZ', color: 'emerald' }
     },
 
     // ── Qriptopia group ──────────────────────────────────────────────────────

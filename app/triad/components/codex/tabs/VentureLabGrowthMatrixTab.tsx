@@ -103,8 +103,8 @@ export function VentureLabGrowthMatrixTab({ isAdmin }: Props) {
   return (
     <div className="h-full flex flex-col bg-slate-950 text-slate-100 overflow-hidden">
 
-      {/* Header */}
-      <div className="flex-shrink-0 px-4 py-2.5 border-b border-white/[0.06] flex items-center gap-2 flex-wrap">
+      {/* Header — sub-tabs | zone legend | lens + controls */}
+      <div className="flex-shrink-0 px-4 py-2 border-b border-white/[0.06] flex items-center gap-2 flex-wrap">
 
         {/* Sub-tabs */}
         <div className="flex items-center gap-0.5">
@@ -120,6 +120,33 @@ export function VentureLabGrowthMatrixTab({ isAdmin }: Props) {
             </button>
           ))}
         </div>
+
+        {/* Divider */}
+        <div className="w-px h-4 bg-white/[0.08] mx-1" />
+
+        {/* Zone legend — inline between tabs and lens */}
+        {(['formation','validation','activation','strategic','scale'] as const).map(zone => {
+          const dots: Record<string, string> = {
+            formation: 'bg-slate-400', validation: 'bg-blue-400',
+            activation: 'bg-emerald-400', strategic: 'bg-amber-400', scale: 'bg-violet-400',
+          };
+          const labels: Record<string, string> = {
+            formation: 'text-slate-400', validation: 'text-blue-300',
+            activation: 'text-emerald-300', strategic: 'text-amber-300', scale: 'text-violet-300',
+          };
+          return (
+            <div key={zone} className="flex items-center gap-1">
+              <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dots[zone]}`} />
+              <span className={`text-[10px] capitalize ${labels[zone]}`}>{zone}</span>
+            </div>
+          );
+        })}
+        {showGoldenPath && (
+          <div className="flex items-center gap-1 ml-1">
+            <span className="text-amber-400/60 text-[10px]">◆</span>
+            <span className="text-[10px] text-amber-400/60">path</span>
+          </div>
+        )}
 
         <div className="flex-1" />
 
@@ -160,32 +187,6 @@ export function VentureLabGrowthMatrixTab({ isAdmin }: Props) {
             <Plus className="w-3.5 h-3.5" />
             Add
           </button>
-        )}
-      </div>
-
-      {/* Zone legend strip */}
-      <div className="flex-shrink-0 px-4 py-1.5 border-b border-white/[0.04] flex items-center gap-4">
-        {(['formation','validation','activation','strategic','scale'] as const).map(zone => {
-          const dots: Record<string, string> = {
-            formation: 'bg-slate-400', validation: 'bg-blue-400',
-            activation: 'bg-emerald-400', strategic: 'bg-amber-400', scale: 'bg-violet-400',
-          };
-          const labels: Record<string, string> = {
-            formation: 'text-slate-400', validation: 'text-blue-300',
-            activation: 'text-emerald-300', strategic: 'text-amber-300', scale: 'text-violet-300',
-          };
-          return (
-            <div key={zone} className="flex items-center gap-1.5">
-              <div className={`w-1.5 h-1.5 rounded-full ${dots[zone]}`} />
-              <span className={`text-[10px] capitalize ${labels[zone]}`}>{zone}</span>
-            </div>
-          );
-        })}
-        {showGoldenPath && (
-          <div className="flex items-center gap-1.5 ml-2">
-            <span className="text-amber-400/60 text-[10px]">◆</span>
-            <span className="text-[10px] text-amber-400/60">golden path</span>
-          </div>
         )}
       </div>
 
