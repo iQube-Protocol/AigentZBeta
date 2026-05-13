@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getOwnedAssetIds } from '@/services/rewards/assetOwnership';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,7 +24,22 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const result = await getOwnedAssetIds(personaId, series);
+    // FIO handle resolution — entitlements are stored by persona UUID.
+    // Strictly additive: no-op for UUIDs.
+    let resolvedPersonaId = personaId;
+    if (personaId.includes('@')) {
+      const supabase = getSupabaseServer();
+      if (supabase) {
+        const { data: personaRow } = await supabase
+          .from('personas')
+          .select('id')
+          .eq('fio_handle', personaId)
+          .single();
+        if (personaRow?.id) resolvedPersonaId = personaRow.id;
+      }
+    }
+
+    const result = await getOwnedAssetIds(resolvedPersonaId, series);
     return NextResponse.json(result);
   } catch (e) {
     console.error('[owned-assets]', e);

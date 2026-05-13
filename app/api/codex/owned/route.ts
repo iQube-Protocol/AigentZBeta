@@ -11,7 +11,7 @@
  * Phase B canonical taxonomy (2026-05-13):
  *   - GN is content_type='gn_still' with episode_number=-1 (its own slot)
  *   - Episodes are episode_number 0..12 across episode_still / motion / print
- *   - Characters are 0..12 in codex_media_assets asset_kind='character_poster'
+ *   - Characters are 0..13 in codex_media_assets asset_kind='character_poster' (ep 13 = display #12)
  *
  * Backward compatibility: the legacy `issues` / `characters` / `episodeCount`
  * / `characterCount` fields are kept so older callers don't break.
@@ -53,8 +53,21 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
     }
 
+    // FIO handle resolution — entitlements are stored by persona UUID.
+    // If the caller passes a FIO handle (contains '@'), resolve it to UUID
+    // first. Strictly additive: no-op for UUIDs.
+    let resolvedPersonaId = personaId;
+    if (personaId.includes('@')) {
+      const { data: personaRow } = await supabase
+        .from('personas')
+        .select('id')
+        .eq('fio_handle', personaId)
+        .single();
+      if (personaRow?.id) resolvedPersonaId = personaRow.id;
+    }
+
     const entitlementService = getEntitlementService();
-    const entitlements = await entitlementService.getPersonaEntitlements(personaId);
+    const entitlements = await entitlementService.getPersonaEntitlements(resolvedPersonaId);
 
     // ── SKU-expansion: enumerate everything the persona owns OR has
     //    rights to per their bundle SKUs. The new `expectedSlots` array
@@ -62,7 +75,7 @@ export async function GET(request: NextRequest) {
     let expanded = { direct: [] as string[], expandedIds: [] as string[], expectedSlots: [] as ExpectedSlot[] };
     let expansionError: string | null = null;
     try {
-      const r = await getOwnedAssetIds(personaId, 'metaKnyts');
+      const r = await getOwnedAssetIds(resolvedPersonaId, 'metaKnyts');
       expanded = { direct: r.direct, expandedIds: r.expanded, expectedSlots: r.expectedSlots };
     } catch (e) {
       expansionError = (e as Error)?.message || String(e);
@@ -142,7 +155,7 @@ export async function GET(request: NextRequest) {
       // character_card slots handled below
     }
 
-    // Characters: rights for episodes 0..12 → match uploaded characters by episode_number.
+    // Characters: rights for episodes 0..13 → match uploaded characters by episode_number.
     const characterAvailable: OwnedCharacter[] = [];
     const characterComingSoon: OwnedCharacter[] = [];
     const expectedCharacterEps = new Set<number>();
@@ -152,13 +165,18 @@ export async function GET(request: NextRequest) {
       }
     }
     if (expectedCharacterEps.size > 0) {
-      // Index uploaded characters by episode_number (when set).
-      const uploadedByEp = new Map<number, { id: string; title: string | null }>();
+      // ── Convention bridge: characters use a DIFFERENT episode_number
+      //    convention than episodes.
+      //      master_content_qubes (episodes):   0-indexed — DB ep 0..12 = display #0..#12
+      //      codex_media_assets   (characters): 1-indexed — DB ep 1..13 = display #0..#12
+      //    expectedCharacterEps is in display convention (0..12). To look up
+      //    the uploaded character row, translate: DB ep = display ep + 1.
+      const uploadedByDbEp = new Map<number, { id: string; title: string | null }>();
       for (const c of uploadedCharacters) {
-        if (c.episodeNumber != null) uploadedByEp.set(c.episodeNumber, { id: c.id, title: c.title });
+        if (c.episodeNumber != null) uploadedByDbEp.set(c.episodeNumber, { id: c.id, title: c.title });
       }
       for (const ep of Array.from(expectedCharacterEps).sort((a, b) => a - b)) {
-        const hit = uploadedByEp.get(ep);
+        const hit = uploadedByDbEp.get(ep + 1);
         if (hit) {
           characterAvailable.push({ characterId: hit.id, owned: true, episodeNumber: ep });
         } else {

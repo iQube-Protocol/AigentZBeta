@@ -465,6 +465,18 @@ export const KNYT_CODEX: CodexConfig = {
       metadata: { icon: 'Coins', description: 'Live CRUD over KNYT task templates + reward amounts; aggregates from crm_rewards', color: 'amber' }
     },
     {
+      id: 'codex-admin',
+      label: 'Codex Admin',
+      slug: 'codex-admin',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 9,
+      type: 'static',
+      config: { component: 'KnytCodexAdminTab' },
+      metadata: { icon: 'BookOpen', description: 'Canonical reference for the metaKnyt content corpus — IDs, episode_number conventions, CIDs, completeness, mismatch detector. Human + Machine views.', color: 'sky' }
+    },
+    {
       id: 'terra',
       label: 'Terra',
       slug: 'terra',
