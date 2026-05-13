@@ -666,7 +666,8 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     }
     const data = (await res.json()) as ArtifactCardData;
     setArtifacts((prev) => [data, ...prev].slice(0, 10));
-  }, [personaId]);
+    void fetchReceipts();
+  }, [personaId, fetchReceipts]);
 
   // Phase 6.b Part 2.5c — Calendar event drafter + creator.
   const handleDraftEvent = useCallback(async (prompt: string) => {
@@ -717,7 +718,8 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     }
     const data = (await res.json()) as ArtifactCardData;
     setArtifacts((prev) => [data, ...prev].slice(0, 10));
-  }, [personaId]);
+    void fetchReceipts();
+  }, [personaId, fetchReceipts]);
 
   // Phase 6.b Part 2.5c — Google Doc drafter + creator.
   const handleDraftDoc = useCallback(async (prompt: string) => {
@@ -762,7 +764,8 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     }
     const data = (await res.json()) as ArtifactCardData;
     setArtifacts((prev) => [data, ...prev].slice(0, 10));
-  }, [personaId]);
+    void fetchReceipts();
+  }, [personaId, fetchReceipts]);
 
   // Phase 6.b Part 2.5c — Slides drafter + creator.
   const handleDraftSlides = useCallback(async (prompt: string) => {
@@ -807,7 +810,8 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     }
     const data = (await res.json()) as ArtifactCardData;
     setArtifacts((prev) => [data, ...prev].slice(0, 10));
-  }, [personaId]);
+    void fetchReceipts();
+  }, [personaId, fetchReceipts]);
 
   // Google Sheets drafter + compose.
   const handleDraftSheet = useCallback(async (prompt: string) => {
@@ -1022,6 +1026,7 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
       setSecondTierApproval((prev) =>
         prev && prev.artifactId === artifact.artifactId ? null : prev,
       );
+      void fetchReceipts();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setActionErrors((prev) => ({ ...prev, [artifact.artifactId]: msg }));
@@ -1031,7 +1036,7 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     } finally {
       setActionPendingArtifactId(null);
     }
-  }, [personaId, secondTierApproval]);
+  }, [personaId, secondTierApproval, fetchReceipts]);
 
   const handleSendArtifact = useCallback((artifactId: string) => {
     const artifact = artifacts.find((a) => a.artifactId === artifactId);
@@ -1803,32 +1808,6 @@ function AigentMeWelcomeBody({
           </section>
         )}
 
-        {/* ── ACTIVITY RECEIPTS — always-visible panel ──────────────────────── */}
-        {/* The receipts panel anchors the welcome surface — it stays in
-            view even when the feed is empty so the user always knows the
-            audit trail lives here. */}
-        <section className={`rounded-lg border ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
-          <div className="flex items-center justify-between px-3 py-2">
-            <span className={`text-xs uppercase tracking-wider ${mutedClass}`}>Activity receipts</span>
-            {receiptsLoading && <Loader2 className="w-3 h-3 animate-spin text-slate-600" />}
-          </div>
-          <div className={`px-3 pb-3 space-y-2 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
-            {receiptsLoading && receipts.length === 0 ? (
-              <p className={`text-sm pt-2 ${mutedClass}`}>Loading receipts…</p>
-            ) : receipts.length === 0 ? (
-              <p className={`text-sm pt-2 ${mutedClass}`}>
-                No activity yet. Every action you take through aigentMe — brief, move-forward, specialist consult, artifact, approval — is receipted here as it happens.
-              </p>
-            ) : (
-              <div className="pt-2 space-y-2">
-                {receipts.map((r) => (
-                  <ActivityReceiptCard key={r.id} data={r} personaDisplayLabel={receiptsPersonaLabel} theme={theme} />
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-
         {/* ── BELOW-FOLD: specialists, model, quick links, connections ─────────
             Separated visually — users set up / configure here, then act above.
             Sections collapse to a tight summary line to keep the page calm. */}
@@ -1992,6 +1971,30 @@ function AigentMeWelcomeBody({
                 </span>
               ))}
             </div>
+          </CollapsibleSection>
+
+          {/* Activity receipts — collapsible, below Active Context. */}
+          <CollapsibleSection
+            title="Activity receipts"
+            summary={receiptsLoading ? 'Loading…' : receipts.length > 0 ? `${receipts.length} recent` : 'No activity yet'}
+            defaultOpen={false}
+            isDark={isDark}
+            mutedClass={mutedClass}
+            accentClass={accentClass}
+          >
+            {receiptsLoading && receipts.length === 0 ? (
+              <p className={`text-sm pt-1 ${mutedClass}`}>Loading receipts…</p>
+            ) : receipts.length === 0 ? (
+              <p className={`text-sm pt-1 ${mutedClass}`}>
+                No activity yet. Every action you take through aigentMe — brief, move-forward, specialist consult, artifact, approval — is receipted here as it happens.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {receipts.map((r) => (
+                  <ActivityReceiptCard key={r.id} data={r} personaDisplayLabel={receiptsPersonaLabel} theme={theme} />
+                ))}
+              </div>
+            )}
           </CollapsibleSection>
 
           {/* Footer */}
