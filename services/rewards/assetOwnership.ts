@@ -207,9 +207,10 @@ export async function userOwnsAsset(personaId: string, assetId: string): Promise
  *                   for granted-but-not-yet-uploaded items.
  */
 // Canonical episode-number set for fully-stocked KNYT collection.
-// Episodes 0..12 = display #0..#11; episode 13 = display #12 (13th issue).
-// GN sits at -1 in its own content_type.
-const CANONICAL_EPISODE_NUMBERS: ReadonlyArray<number> = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+// DB ep=0..12 = the 13 episodes/characters. AutoDrive labels them 1..13 (off
+// by one), but the DB convention is 0-indexed: display "Episode #12" = DB
+// episode_number=12 (the 13th issue). GN sits at -1 in its own content_type.
+const CANONICAL_EPISODE_NUMBERS: ReadonlyArray<number> = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
 export interface ExpectedSlot {
   category: AssetCategory;       // 'gn' | 'episode_still' | 'episode_motion' | 'episode_print' | 'character_card' | 'lore'
@@ -355,8 +356,7 @@ export async function getOwnedAssetIds(personaId: string, series: string = 'meta
   }
 
   if (globalCats.has('character_card')) {
-    // Character cards mirror episode numbering 0..13 (episodes 0..12 + the
-    // 13th display issue at DB ep=13). All 14 character slots are canonical.
+    // Character cards mirror episode numbering 0..12 (the 13 canonical slots).
     for (const n of CANONICAL_EPISODE_NUMBERS) {
       expectedSlots.push({ category: 'character_card', episodeNumber: n });
     }
