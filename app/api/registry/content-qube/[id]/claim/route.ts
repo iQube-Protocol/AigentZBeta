@@ -23,14 +23,20 @@
  *   - The transfer receipt emitted by claimEditionForPurchase carries the
  *     T2 alias commitment, not the persona_id
  *
- * NOTE: Phase 9 pilot — alias commitment piping via evaluateAccess is
- * deferred to Phase 9.1. The transfer receipt currently writes
- * t2_alias_commitment=null for system-level claims.
+ * NOTE: Phase 9.1 — alias commitment is computed directly from the persona
+ * context via cohortAliasService (same computation as buildReceiptHandle in
+ * evaluateAccess.ts) without an evaluateAccess side-effect. The payment has
+ * already settled; we need the T2 handle for the transfer receipt only.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { claimEditionForPurchase } from '@/services/content/claimEdition';
+import {
+  computeAliasCommitment,
+  getCurrentEpoch,
+  isAliasServiceConfigured,
+} from '@/services/identity/cohortAliasService';
 import type { ContentQubeRarity } from '@/types/contentQube';
 
 export const runtime = 'nodejs';
@@ -68,12 +74,25 @@ export async function POST(req: NextRequest, { params }: Params): Promise<NextRe
     );
   }
 
+  // Derive T2 alias commitment for the transfer receipt.
+  // Mirrors the buildReceiptHandle logic in evaluateAccess.ts.
+  // Non-fatal: falls back to null if the alias service is unconfigured.
+  let aliasCommitment: string | null = null;
+  if (isAliasServiceConfigured()) {
+    try {
+      const cohortId = persona.cohortMemberships[0] ?? 'default';
+      aliasCommitment = computeAliasCommitment(persona.personaId, cohortId, getCurrentEpoch());
+    } catch {
+      // non-fatal — transfer receipt writes null aliasCommitment
+    }
+  }
+
   const result = await claimEditionForPurchase({
     contentQubeId,
     personaId: persona.personaId,
     rarity,
     sourcePurchaseId: body.sourcePurchaseId,
-    aliasCommitment: null,
+    aliasCommitment,
   });
 
   if (!result.ok) {
