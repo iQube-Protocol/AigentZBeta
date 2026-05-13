@@ -53,21 +53,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Supabase not configured' }, { status: 500 });
     }
 
-    // FIO handle resolution — entitlements are stored by persona UUID.
-    // If the caller passes a FIO handle (contains '@'), resolve it to UUID first.
-    // Mirrors the same resolution in /api/entitlements/list.
-    let resolvedPersonaId = personaId;
-    if (personaId.includes('@')) {
-      const { data: personaRow } = await supabase
-        .from('personas')
-        .select('id')
-        .eq('fio_handle', personaId)
-        .single();
-      if (personaRow?.id) resolvedPersonaId = personaRow.id;
-    }
-
     const entitlementService = getEntitlementService();
-    const entitlements = await entitlementService.getPersonaEntitlements(resolvedPersonaId);
+    const entitlements = await entitlementService.getPersonaEntitlements(personaId);
 
     // ── SKU-expansion: enumerate everything the persona owns OR has
     //    rights to per their bundle SKUs. The new `expectedSlots` array
@@ -75,7 +62,7 @@ export async function GET(request: NextRequest) {
     let expanded = { direct: [] as string[], expandedIds: [] as string[], expectedSlots: [] as ExpectedSlot[] };
     let expansionError: string | null = null;
     try {
-      const r = await getOwnedAssetIds(resolvedPersonaId, 'metaKnyts');
+      const r = await getOwnedAssetIds(personaId, 'metaKnyts');
       expanded = { direct: r.direct, expandedIds: r.expanded, expectedSlots: r.expectedSlots };
     } catch (e) {
       expansionError = (e as Error)?.message || String(e);
