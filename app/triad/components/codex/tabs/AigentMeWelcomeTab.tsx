@@ -428,6 +428,31 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     // creation paths.
   }, [fetchBrief, fetchMoveForward, fetchVentureProgress]);
 
+  // Phase 7 — receipts fetcher. Declared up here (before the action
+  // handlers) because several handlers reference it in their useCallback
+  // dep arrays — declaring it later would TDZ-trap on first render.
+  const fetchReceipts = useCallback(async () => {
+    setReceiptsLoading(true);
+    try {
+      const res = await personaFetch('/api/assistant/receipts?limit=25', {
+        personaIdHint: personaId,
+      });
+      if (!res.ok) throw new Error(`receipts fetch failed (${res.status})`);
+      const data = (await res.json()) as {
+        receipts: ActivityReceiptData[];
+        count: number;
+        personaDisplayLabel: string | null;
+      };
+      setReceipts(data.receipts ?? []);
+      setReceiptsPersonaLabel(data.personaDisplayLabel ?? null);
+    } catch {
+      setReceipts([]);
+      setReceiptsPersonaLabel(null);
+    } finally {
+      setReceiptsLoading(false);
+    }
+  }, [personaId]);
+
   const handleWizardSaved = useCallback((saved: ExperienceModelCardData) => {
     setExpModel(saved);
     void fetchReceipts();
@@ -957,29 +982,6 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
   const handleCancelSecondTier = useCallback(() => {
     setSecondTierApproval(null);
   }, []);
-
-  // Phase 7 — receipts panel.
-  const fetchReceipts = useCallback(async () => {
-    setReceiptsLoading(true);
-    try {
-      const res = await personaFetch('/api/assistant/receipts?limit=25', {
-        personaIdHint: personaId,
-      });
-      if (!res.ok) throw new Error(`receipts fetch failed (${res.status})`);
-      const data = (await res.json()) as {
-        receipts: ActivityReceiptData[];
-        count: number;
-        personaDisplayLabel: string | null;
-      };
-      setReceipts(data.receipts ?? []);
-      setReceiptsPersonaLabel(data.personaDisplayLabel ?? null);
-    } catch {
-      setReceipts([]);
-      setReceiptsPersonaLabel(null);
-    } finally {
-      setReceiptsLoading(false);
-    }
-  }, [personaId]);
 
 
   const handleDismissSpecialist = useCallback((nbeId: string) => {
