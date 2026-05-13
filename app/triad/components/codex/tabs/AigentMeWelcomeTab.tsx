@@ -789,6 +789,8 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     cc?: string;
     bcc?: string;
     fromName?: string;
+    campaignId?: string;
+    cohortId?: string;
   }) => {
     const res = await personaFetch('/api/assistant/create-artifact', {
       method: 'POST',
@@ -1230,6 +1232,8 @@ interface BodyProps {
     cc?: string;
     bcc?: string;
     fromName?: string;
+    campaignId?: string;
+    cohortId?: string;
   }) => Promise<void>;
   onDraftMarketa: (prompt: string) => Promise<{
     to: string;
@@ -1382,18 +1386,18 @@ function AigentMeWelcomeBody({
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="p-4 max-w-5xl mx-auto space-y-3">
+      <div className="px-6 py-4 w-full space-y-3">
 
-        {/* ── CONSOLE HEADER — compact identity + status row ─────────────────── */}
+        {/* ── ROW 1 — identity badge + experience state + iQube context banner ── */}
         <div className="flex items-center gap-3 flex-wrap py-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <Sparkles className={`w-4 h-4 ${accentClass}`} />
             <span className="text-sm font-semibold text-slate-100">
               {greetingName ? greetingName : data.naming.productLabel}
             </span>
           </div>
           {!expModelLoading && expModel && (
-            <span className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap ${
+            <span className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 ${
               expModel.configured
                 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
                 : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
@@ -1403,9 +1407,23 @@ function AigentMeWelcomeBody({
                 : 'Setup Experience Model'}
             </span>
           )}
-          <div className="flex-1" />
-          <IqubeContextDisclosure using={usingIqubes} theme={theme} />
+          <div className="flex-1 min-w-[120px]" />
+          <div className="shrink-0">
+            <IqubeContextDisclosure using={usingIqubes} theme={theme} />
+          </div>
         </div>
+
+        {/* ── ROW 2 — personal greeting + concise capability line ─────────────── */}
+        {greetingName && (
+          <div className="flex items-baseline gap-2 flex-wrap py-0.5">
+            <span className="text-sm font-medium text-slate-100">
+              Welcome back, {greetingName}.
+            </span>
+            <span className={`text-xs ${mutedClass}`}>
+              Brief your day, guide strategy, move cartridges forward, create artifacts, and track progress.
+            </span>
+          </div>
+        )}
 
         {/* ── PRIMARY ACTION GRID ─────────────────────────────────────────────── */}
         <section>

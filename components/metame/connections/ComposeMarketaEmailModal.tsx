@@ -10,8 +10,14 @@
  * /api/connectors/execute flow.
  */
 
-import React, { useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Loader2, X, Send, Sparkles } from "lucide-react";
+
+interface CampaignOption {
+  id: string;
+  name: string;
+  cohorts: Array<{ id: string; label: string }>;
+}
 
 interface Props {
   open: boolean;
@@ -23,6 +29,8 @@ interface Props {
     cc?: string;
     bcc?: string;
     fromName?: string;
+    campaignId?: string;
+    cohortId?: string;
   }) => Promise<void>;
   onDraftWithAigentMe: (prompt: string) => Promise<{
     to: string;
@@ -49,6 +57,42 @@ export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithA
   const [fromName, setFromName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [campaigns, setCampaigns] = useState<CampaignOption[]>([]);
+  const [campaignsLoading, setCampaignsLoading] = useState(false);
+  const [campaignId, setCampaignId] = useState("");
+  const [cohortId, setCohortId] = useState("");
+
+  // Fetch campaigns + their cohorts when the modal opens. Live shape comes
+  // from /api/marketa/campaigns (KS Prospects, KNYT Codex, Partners).
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setCampaignsLoading(true);
+    fetch("/api/marketa/campaigns")
+      .then((r) => r.json())
+      .then((d: { ok: boolean; campaigns?: Array<{ id: string; name: string; sub_cohorts?: Array<{ cohort: string }>; wave_1?: unknown; wave_2?: unknown }> }) => {
+        if (cancelled || !d.ok || !Array.isArray(d.campaigns)) return;
+        const options: CampaignOption[] = d.campaigns.map((c) => {
+          const cohorts: Array<{ id: string; label: string }> = [];
+          if (Array.isArray(c.sub_cohorts)) {
+            for (const sc of c.sub_cohorts) {
+              cohorts.push({ id: sc.cohort, label: sc.cohort.replace(/_/g, " ") });
+            }
+          }
+          if (c.wave_1 || c.wave_2) {
+            if (c.wave_1) cohorts.push({ id: "wave_1", label: "wave 1" });
+            if (c.wave_2) cohorts.push({ id: "wave_2", label: "wave 2" });
+          }
+          return { id: c.id, name: c.name, cohorts };
+        });
+        setCampaigns(options);
+      })
+      .catch(() => { /* selectors stay optional */ })
+      .finally(() => { if (!cancelled) setCampaignsLoading(false); });
+    return () => { cancelled = true; };
+  }, [open]);
+
+  const activeCampaign = campaigns.find((c) => c.id === campaignId);
 
   const isDark = theme === "dark";
   const overlayClass = "fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4";
@@ -105,9 +149,12 @@ export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithA
         ...(cc.trim() ? { cc: cc.trim() } : {}),
         ...(bcc.trim() ? { bcc: bcc.trim() } : {}),
         ...(fromName.trim() ? { fromName: fromName.trim() } : {}),
+        ...(campaignId ? { campaignId } : {}),
+        ...(cohortId ? { cohortId } : {}),
       });
       setAiPrompt(""); setAiRationale(null); setAiSource(null);
       setTo(""); setSubject(""); setBodyText(""); setCc(""); setBcc(""); setFromName("");
+      setCampaignId(""); setCohortId("");
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -171,6 +218,38 @@ export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithA
         </div>
 
         <div className="space-y-3 text-sm">
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className={`block text-xs mb-1 ${labelClass}`}>
+                Campaign {campaignsLoading && <Loader2 className="inline w-3 h-3 animate-spin ml-1 align-text-bottom" />}
+              </span>
+              <select
+                value={campaignId}
+                onChange={(e) => { setCampaignId(e.target.value); setCohortId(""); }}
+                disabled={submitting || campaignsLoading}
+                className={`w-full px-3 py-2 rounded ${inputClass}`}
+              >
+                <option value="">— None —</option>
+                {campaigns.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className={`block text-xs mb-1 ${labelClass}`}>Cohort</span>
+              <select
+                value={cohortId}
+                onChange={(e) => setCohortId(e.target.value)}
+                disabled={submitting || !activeCampaign || activeCampaign.cohorts.length === 0}
+                className={`w-full px-3 py-2 rounded ${inputClass}`}
+              >
+                <option value="">{activeCampaign && activeCampaign.cohorts.length > 0 ? "— Select cohort —" : "— None —"}</option>
+                {activeCampaign?.cohorts.map((co) => (
+                  <option key={co.id} value={co.id}>{co.label}</option>
+                ))}
+              </select>
+            </label>
+          </div>
           <label className="block">
             <span className={`block text-xs mb-1 ${labelClass}`}>To</span>
             <input type="text" value={to} onChange={(e) => setTo(e.target.value)} placeholder="recipient@example.com" className={`w-full px-3 py-2 rounded ${inputClass}`} disabled={submitting} />

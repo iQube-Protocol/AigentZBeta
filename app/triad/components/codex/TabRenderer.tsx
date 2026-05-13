@@ -87,6 +87,7 @@ import { RefRuntimeTab } from "./tabs/RefRuntimeTab";
 import { RefStudioTab } from "./tabs/RefStudioTab";
 import { RefAigentTab } from "./tabs/RefAigentTab";
 import { ComposerStudio } from "@/components/composer/ComposerStudio";
+import { MetaMeStudioTab } from "./tabs/MetaMeStudioTab";
 
 interface TabRendererProps {
   tab: CodexTab;
@@ -176,6 +177,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   RefStudioTab,
   RefAigentTab,
   ComposerStudio,
+  MetaMeStudioTab,
   RewardsTab: PlaceholderTab,
   DocsTab: PlaceholderTab,
   APITab: PlaceholderTab,
