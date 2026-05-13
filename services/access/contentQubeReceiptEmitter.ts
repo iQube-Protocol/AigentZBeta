@@ -19,7 +19,7 @@
 
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import type { AccessAction, AccessDecision, ContentAccessDescriptor } from '@/types/access';
-import type { ContentQubeDvnReceiptKind } from '@/types/contentQube';
+import type { ContentQubeDvnReceiptKind, ContentQubeRarity } from '@/types/contentQube';
 
 interface EmitContentQubeReceiptInput {
   contentQubeId: string;
@@ -82,6 +82,64 @@ export async function emitContentQubeReceipt(input: EmitContentQubeReceiptInput)
   if (error) {
     console.warn(
       `[emitContentQubeReceipt] insert failed qube=${contentQubeId} ` +
+      `code=${error.code ?? '?'} msg=${error.message ?? '?'}`,
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Mint receipt
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface EmitMintReceiptInput {
+  contentQubeId: string;
+  /** UUID of the edition row (absent for master-qube mints). */
+  editionId?: string;
+  /** Hex uint256 token ID assigned on-chain. */
+  tokenId: string;
+  txHash: string;
+  /** Rarity class (absent for master-qube mints). */
+  rarity?: ContentQubeRarity;
+  /** Chain identifier, e.g. 'base'. */
+  chain: string;
+  /** T2 alias commitment — the ONLY persona handle written to the receipt. */
+  aliasCommitment: string | null;
+  /** True when minting the ERC-721 master token rather than an edition. */
+  masterMint?: boolean;
+}
+
+/**
+ * Write a 'mint' receipt for a canonical TokenQube mint event.
+ * Fire-and-forget tolerant — errors are logged but never thrown.
+ */
+export async function emitContentQubeMintReceipt(input: EmitMintReceiptInput): Promise<void> {
+  const supabase = getSupabaseServer();
+  if (!supabase) {
+    console.warn('[emitContentQubeMintReceipt] Supabase unavailable; receipt dropped');
+    return;
+  }
+
+  const { contentQubeId, editionId, tokenId, txHash, rarity, chain, aliasCommitment, masterMint } = input;
+
+  const receipt_payload: Record<string, unknown> = {
+    token_id:    tokenId,
+    tx_hash:     txHash,
+    chain,
+    master_mint: masterMint ?? false,
+  };
+  if (editionId) receipt_payload.edition_id = editionId;
+  if (rarity)    receipt_payload.rarity      = rarity;
+
+  const { error } = await supabase.from('content_qube_dvn_receipts').insert({
+    content_qube_id:     contentQubeId,
+    receipt_kind:        'mint' as ContentQubeDvnReceiptKind,
+    t2_alias_commitment: aliasCommitment,
+    receipt_payload,
+  });
+
+  if (error) {
+    console.warn(
+      `[emitContentQubeMintReceipt] insert failed qube=${contentQubeId} ` +
       `code=${error.code ?? '?'} msg=${error.message ?? '?'}`,
     );
   }
