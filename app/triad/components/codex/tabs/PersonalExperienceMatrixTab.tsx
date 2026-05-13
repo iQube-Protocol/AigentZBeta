@@ -113,7 +113,7 @@ function PersonalExperienceMatrixInner({ personaId }: { personaId: string }) {
         <div>
           <h2 className="text-lg font-semibold">Personal Experience Matrix</h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Sphere of Agency × Experience Maturity. Highlighted cell is your current position on each sphere.
+            Sphere of Agency (Legacy → Energy) × Experience Maturity. Progress moves toward the top-right. Highlighted cell is your current position on each sphere.
           </p>
         </div>
         <span className={`text-xs px-2 py-1 rounded-full border ${ALIGNMENT_BADGE_BG[alignment]}`}>
@@ -126,7 +126,7 @@ function PersonalExperienceMatrixInner({ personaId }: { personaId: string }) {
         <table className="min-w-full text-xs border-separate" style={{ borderSpacing: 4 }}>
           <thead>
             <tr>
-              <th className="text-left text-slate-500 font-medium pr-2">Sphere ↓ / Maturity →</th>
+              <th className="text-left text-slate-500 font-medium pr-2">Sphere ↑ / Maturity →</th>
               {MATURITY_LEVELS.map((m) => (
                 <th key={m} className="text-left text-slate-300 font-medium px-2 py-1 whitespace-nowrap">
                   {MATURITY_LABEL[m]}
@@ -135,7 +135,7 @@ function PersonalExperienceMatrixInner({ personaId }: { personaId: string }) {
             </tr>
           </thead>
           <tbody>
-            {SPHERE_AXES.map((sphere) => (
+            {[...SPHERE_AXES].reverse().map((sphere) => (
               <tr key={sphere}>
                 <td className="text-slate-300 font-medium pr-2 align-top whitespace-nowrap">
                   {SPHERE_LABEL[sphere]}
