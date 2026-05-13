@@ -1774,32 +1774,26 @@ export const METAME_CODEX: CodexConfig = {
       metadata: { icon: 'Layers', description: 'Experience model definition', color: 'violet' }
     },
     {
-      id: 'aigentme-experience-ladder',
-      label: 'Experience Ladder',
-      slug: 'experience-ladder',
+      id: 'aigentme-experience-matrix',
+      label: 'Experience Matrix',
+      slug: 'experience-matrix',
       enabled: true,
       group: 'aigentme',
       order: 2,
       type: 'static',
-      config: {
-        component: 'PlaceholderTab',
-        props: { title: 'Experience Ladder', description: 'PCS progression ladder — pill → capsule → mini_runtime → codex. Coming soon.' }
-      },
-      metadata: { icon: 'TrendingUp', description: 'PCS progression ladder', color: 'violet' }
+      config: { component: 'PersonalExperienceMatrixTab', props: {} },
+      metadata: { icon: 'Grid3x3', description: 'Personal Experience Matrix — Sphere of Agency × Experience Maturity', color: 'violet' }
     },
     {
-      id: 'aigentme-experience-journey',
-      label: 'Experience Journey',
-      slug: 'experience-journey',
+      id: 'aigentme-experience-alignment',
+      label: 'Alignment Helper',
+      slug: 'experience-alignment',
       enabled: true,
       group: 'aigentme',
       order: 3,
       type: 'static',
-      config: {
-        component: 'PlaceholderTab',
-        props: { title: 'Experience Journey', description: 'Track your progression across cartridges and stages. Coming soon.' }
-      },
-      metadata: { icon: 'Route', description: 'User journey progression', color: 'violet' }
+      config: { component: 'ExperienceAlignmentTab', props: {} },
+      metadata: { icon: 'Target', description: 'Personal ExperienceGuide alignment helper — bars, repair risks, precedence', color: 'violet' }
     },
 
     // ── VL group (admin-gated) ───────────────────────────────────────────────
