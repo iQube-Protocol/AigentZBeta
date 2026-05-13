@@ -14,6 +14,7 @@
 
 import {
   getExperienceQube,
+  getPersonalGuide,
   type ActiveCartridgeSlug,
   type ExperienceStage,
 } from '@/services/iqube/experienceQube';
@@ -22,6 +23,13 @@ import {
   selectTopNbeForCartridge,
   type NbeCandidate,
 } from '@/services/orchestration/nbeCatalog';
+import {
+  ALIGNMENT_LABEL,
+  SPHERE_LABEL,
+  type AlignmentState,
+  type PrecedenceMode,
+  type SphereAxis,
+} from '@/types/experienceGuide';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Public types — match the Brief Card render contract.
@@ -36,6 +44,14 @@ export interface BriefContext {
   experienceName: string | null;
   /** Whether ExperienceQube is configured. Drives invitation copy. */
   experienceConfigured: boolean;
+  /** Personal ExperienceGuide context — T1 safe summary only. */
+  personalGuide?: {
+    alignmentState: AlignmentState;
+    precedenceMode: PrecedenceMode;
+    focusIntent?: string;
+    /** One-line framing for the brief header. */
+    guidanceNote: string;
+  };
 }
 
 export interface BriefPriority {
@@ -97,8 +113,25 @@ const PRIORITY_LABELS_BY_CARTRIDGE: Record<ActiveCartridgeSlug, string> = {
   avl: 'Tighten venture progress',
 };
 
+function buildGuidanceNote(
+  alignmentState: AlignmentState,
+  precedenceMode: PrecedenceMode,
+  focusIntent?: string,
+): string {
+  const alignLabel = ALIGNMENT_LABEL[alignmentState];
+  const sphereLabel =
+    precedenceMode !== 'auto'
+      ? `${SPHERE_LABEL[precedenceMode as SphereAxis]} sphere leading`
+      : 'auto precedence';
+  const focusPart = focusIntent ? ` · Focus: ${focusIntent}` : '';
+  return `ExperienceGuide: ${alignLabel} · ${sphereLabel}${focusPart}`;
+}
+
 export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
-  const qube = await getExperienceQube(input.personaId);
+  const [qube, guide] = await Promise.all([
+    getExperienceQube(input.personaId),
+    getPersonalGuide(input.personaId),
+  ]);
 
   const activeCartridges =
     qube?.meta.activeCartridges ?? input.defaultActiveCartridges ?? ['metame'];
@@ -150,6 +183,19 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
   // disclosure once a brief leads to an action.
   using.push('IntentQube');
 
+  const personalGuideContext: BriefContext['personalGuide'] = guide
+    ? {
+        alignmentState: guide.alignmentState,
+        precedenceMode: guide.precedenceMode,
+        ...(guide.focusIntent ? { focusIntent: guide.focusIntent } : {}),
+        guidanceNote: buildGuidanceNote(
+          guide.alignmentState,
+          guide.precedenceMode,
+          guide.focusIntent,
+        ),
+      }
+    : undefined;
+
   return {
     briefType: input.briefType,
     generatedAt: new Date().toISOString(),
@@ -159,6 +205,7 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
       currentStage,
       experienceName,
       experienceConfigured,
+      ...(personalGuideContext ? { personalGuide: personalGuideContext } : {}),
     },
     topPriorities,
     nextBestActions,
@@ -195,7 +242,10 @@ export async function buildMoveForward(input: {
    */
   cartridge?: ActiveCartridgeSlug;
 }): Promise<MoveForwardShape> {
-  const qube = await getExperienceQube(input.personaId);
+  const [qube, guide] = await Promise.all([
+    getExperienceQube(input.personaId),
+    getPersonalGuide(input.personaId),
+  ]);
 
   const activeCartridges = qube?.meta.activeCartridges ?? (input.cartridge ? [input.cartridge] : ['metame']);
   const currentStage: ExperienceStage = qube?.meta.currentStage ?? 'setup';
@@ -242,6 +292,19 @@ export async function buildMoveForward(input: {
     suggestedArtifact: c.suggestedArtifact ?? null,
   });
 
+  const personalGuideContext: BriefContext['personalGuide'] = guide
+    ? {
+        alignmentState: guide.alignmentState,
+        precedenceMode: guide.precedenceMode,
+        ...(guide.focusIntent ? { focusIntent: guide.focusIntent } : {}),
+        guidanceNote: buildGuidanceNote(
+          guide.alignmentState,
+          guide.precedenceMode,
+          guide.focusIntent,
+        ),
+      }
+    : undefined;
+
   return {
     cartridge: resolvedCartridge,
     context: {
@@ -250,6 +313,7 @@ export async function buildMoveForward(input: {
       currentStage,
       experienceName,
       experienceConfigured,
+      ...(personalGuideContext ? { personalGuide: personalGuideContext } : {}),
     },
     topAction: topCandidate ? toAction(topCandidate) : null,
     alternates: altsRaw.slice(0, 2).map(toAction),
