@@ -16,6 +16,13 @@ import { getEntitlementService } from './entitlementService';
 import { getMultiRailPricing, PaymentRail, ContentType } from '../wallet/knyt/knytPricingService';
 import { verifyEvmKnytTransfer } from '../wallet/knyt/evmKnytService';
 import { BUNDLE_PRICING, KNYT_USD_RATE, KNYT_COYN_DISCOUNT, usdToKnyt } from '@/types/knyt-store';
+import { claimEditionForPurchase } from '@/services/content/claimEdition';
+import {
+  computeAliasCommitment,
+  getCurrentEpoch,
+  isAliasServiceConfigured,
+} from '@/services/identity/cohortAliasService';
+import type { ContentQubeRarity } from '@/types/contentQube';
 
 // =============================================================================
 // TYPES
@@ -297,7 +304,16 @@ export class PurchaseHandler {
         };
       }
       
-      // 5. Check for first paid purchase (Bring a Knight)
+      // 5a. Claim ContentQube editions for assets linked to content_qubes rows.
+      // Non-fatal — entitlement already granted above; edition claim is a
+      // Phase 9 registry record for the canonical pool / transfer receipt.
+      try {
+        await this.claimContentQubeEditions(personaId, assetsToGrant, purchase.id);
+      } catch (claimErr) {
+        console.warn('[PurchaseHandler] ContentQube edition batch claim failed (non-fatal):', claimErr);
+      }
+
+      // 5b. Check for first paid purchase (Bring a Knight)
       const isFirstPurchase = await this.checkFirstPaidPurchase(personaId, purchase.id);
       
       if (isFirstPurchase) {
@@ -339,6 +355,64 @@ export class PurchaseHandler {
     }
   }
   
+  /**
+   * After a successful entitlement grant, look up any content_qubes rows
+   * whose master_qube_id or media_asset_id matches one of the granted
+   * assetIds and fire claimEditionForPurchase for each. This records the
+   * edition claim in content_qube_editions and emits a transfer receipt.
+   *
+   * Fire-and-forget tolerant — errors are logged, never propagated.
+   */
+  private async claimContentQubeEditions(
+    personaId: string,
+    assetIds: string[],
+    purchaseId: string,
+  ): Promise<void> {
+    if (assetIds.length === 0) return;
+
+    // Build an OR filter: each assetId can match via master_qube_id or media_asset_id.
+    const orParts = assetIds.flatMap((id) => [
+      `master_qube_id.eq.${id}`,
+      `media_asset_id.eq.${id}`,
+    ]);
+    const { data: qubes, error } = await this.supabase
+      .from('content_qubes')
+      .select('id, rarity')
+      .or(orParts.join(','));
+
+    if (error) {
+      console.warn('[PurchaseHandler] content_qubes lookup failed:', error.message);
+      return;
+    }
+    if (!qubes || qubes.length === 0) return;
+
+    // Compute T2 alias commitment. Cohort memberships are not yet stored
+    // in the purchaseHandler context (Phase 3 backlog), so we use the
+    // same DEFAULT_COHORT_ID fallback that evaluateAccess uses.
+    let aliasCommitment: string | null = null;
+    if (isAliasServiceConfigured()) {
+      try {
+        aliasCommitment = computeAliasCommitment(personaId, 'default', getCurrentEpoch());
+      } catch {
+        // non-fatal
+      }
+    }
+
+    for (const qube of qubes) {
+      try {
+        await claimEditionForPurchase({
+          contentQubeId: qube.id as string,
+          personaId,
+          rarity: qube.rarity as ContentQubeRarity,
+          sourcePurchaseId: purchaseId,
+          aliasCommitment,
+        });
+      } catch (err) {
+        console.warn(`[PurchaseHandler] Edition claim failed qube=${qube.id}:`, err);
+      }
+    }
+  }
+
   /**
    * Check if this is the persona's first paid purchase
    */

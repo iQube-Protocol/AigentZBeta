@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { BookOpen, Lock, Unlock, Play, Film } from "lucide-react";
 import { useKnytThumbnails } from "./useKnytThumbnails";
+import { useContentQubeSeries } from "./useContentQubeSeries";
 import { EPISODE_PRICING, QRIPTO_RARITY_ORDER, type QriptoRarity } from "@/types/knyt-store";
 
 interface ScrollsTabProps {
@@ -36,10 +37,25 @@ const VARIANTS: QriptoRarity[] = ['legendary', 'epic', 'rare', 'black'];
 
 type ViewMode = 'grid' | 'by-episode';
 
-export function ScrollsTab({ theme = 'dark', density = 'wide', personaId: _personaId }: ScrollsTabProps) {
+export function ScrollsTab({ theme = 'dark', density = 'wide', personaId }: ScrollsTabProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('by-episode');
   const { covers, getCoverThumb, loading } = useKnytThumbnails();
+  const { qubes } = useContentQubeSeries('metaKnyts', {
+    contentKind: 'episode',
+    skip: !personaId,
+  });
   const isDark = theme === 'dark';
+
+  // Build a set of display_numbers the persona owns at least one edition of.
+  const ownedDisplayNumbers = useMemo(() => {
+    const set = new Set<number>();
+    for (const q of qubes) {
+      if (q.manifest.persona_owns && q.manifest.display_number != null) {
+        set.add(q.manifest.display_number);
+      }
+    }
+    return set;
+  }, [qubes]);
 
   if (loading) {
     return (
@@ -110,6 +126,7 @@ export function ScrollsTab({ theme = 'dark', density = 'wide', personaId: _perso
                   {VARIANTS.map((rarity) => {
                     const style = RARITY_STYLE[rarity];
                     const overlay = RARITY_OVERLAY[rarity] ?? '';
+                    const owned = ownedDisplayNumbers.has(ep.episodeNumber);
                     return (
                       <div
                         key={rarity}
@@ -132,11 +149,17 @@ export function ScrollsTab({ theme = 'dark', density = 'wide', personaId: _perso
                               {rarity === 'black' ? '⬛' : style.label.slice(0, 3).toUpperCase()}
                             </span>
                           </div>
-                          {/* Lock/unlock stub */}
+                          {/* Lock / unlock — resolved from ContentQube registry */}
                           <div className="absolute top-1 right-1">
-                            <div className="bg-red-500/20 border border-red-500/40 rounded-full p-0.5">
-                              <Lock className="w-2.5 h-2.5 text-red-400" />
-                            </div>
+                            {owned ? (
+                              <div className="bg-emerald-500/20 border border-emerald-500/40 rounded-full p-0.5">
+                                <Unlock className="w-2.5 h-2.5 text-emerald-400" />
+                              </div>
+                            ) : (
+                              <div className="bg-red-500/20 border border-red-500/40 rounded-full p-0.5">
+                                <Lock className="w-2.5 h-2.5 text-red-400" />
+                              </div>
+                            )}
                           </div>
                         </div>
                         <div className="px-1 py-1 text-center">
@@ -164,6 +187,7 @@ export function ScrollsTab({ theme = 'dark', density = 'wide', personaId: _perso
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                   {SCROLL_EPISODES.map((ep) => {
                     const coverUrl = getCoverThumb(ep.episodeNumber);
+                    const owned = ownedDisplayNumbers.has(ep.episodeNumber);
                     return (
                       <div
                         key={ep.episodeNumber}
@@ -176,9 +200,15 @@ export function ScrollsTab({ theme = 'dark', density = 'wide', personaId: _perso
                             <BookOpen className="w-8 h-8 text-slate-600" />
                           )}
                           <div className="absolute top-2 right-2">
-                            <div className="bg-red-500/20 border border-red-500 rounded-full p-1">
-                              <Lock className="w-3 h-3 text-red-400" />
-                            </div>
+                            {owned ? (
+                              <div className="bg-emerald-500/20 border border-emerald-500 rounded-full p-1">
+                                <Unlock className="w-3 h-3 text-emerald-400" />
+                              </div>
+                            ) : (
+                              <div className="bg-red-500/20 border border-red-500 rounded-full p-1">
+                                <Lock className="w-3 h-3 text-red-400" />
+                              </div>
+                            )}
                           </div>
                           <div className="absolute top-2 left-2">
                             <div className={`px-1.5 py-0.5 rounded border text-[9px] font-bold ${style.badge}`}>

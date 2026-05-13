@@ -101,6 +101,11 @@ const envVars = [
   'IQUBE_NFT_CHAIN_ID',
   'IQUBE_NFT_RPC_URL',
   'EVM_DEPLOYER_KEY',
+  // ContentQube Phase 7B — Base TokenQube minting
+  'BASE_MINTER_PRIVATE_KEY',
+  'CONTENT_QUBE_ERC1155_ADDRESS',
+  'CONTENT_QUBE_ERC721_ADDRESS',
+  'BASE_RPC_URL',
   // BTC / ICP custody
   'BTC_CUSTODY_ENABLED',
   'BTC_NETWORK',

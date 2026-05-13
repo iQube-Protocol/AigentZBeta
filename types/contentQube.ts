@@ -58,7 +58,28 @@ export type ContentQubeRelationshipType =
   | 'branch'
   | 'bundle_member';
 
-export type ContentQubeRarity = 'legendary' | 'epic' | 'rare' | 'secret_black_rare';
+/**
+ * ContentQube rarity classes.
+ *
+ * Canonical-mintable (limited, pre-seeded; eligible for Base TokenQube minting):
+ *   - legendary, epic, rare, secret_black_rare
+ *
+ * Streaming-access (unlimited, NOT pre-seeded; appended on each sale):
+ *   - common
+ *
+ * Commons share the canonical cyphertext payload (no per-holder mint), are
+ * served via the streaming decrypt proxy under remote custody, and have
+ * base_token_id / chain_minted_at permanently NULL. Editions ledger rows
+ * are still written per sale for audit and revenue tracking.
+ */
+export type ContentQubeRarity = 'common' | 'rare' | 'epic' | 'legendary' | 'secret_black_rare';
+
+/** Subset that participates in canonical non-fungible minting. */
+export type ContentQubeCanonicalRarity = Exclude<ContentQubeRarity, 'common'>;
+
+export function isCanonicalRarity(r: ContentQubeRarity): r is ContentQubeCanonicalRarity {
+  return r !== 'common';
+}
 
 export type ContentQubeDvnReceiptKind = 'creation' | 'access' | 'transfer' | 'mint' | 'burn';
 
@@ -68,6 +89,11 @@ export type ContentQubeContentState = 'A' | 'B' | 'C' | 'D' | 'E';
 // Rarity distribution constants (KNYT pilot: 1,860 editions)
 // ─────────────────────────────────────────────────────────────────────────
 
+/**
+ * Canonical-mintable rarity distribution per content_qube (1,860 total).
+ * Commons are unlimited and intentionally absent from this constant —
+ * they are appended on sale and tracked via common_count, not pre-seeded.
+ */
 export const CONTENT_QUBE_RARITY_COUNTS = {
   legendary: 18,
   epic: 186,
