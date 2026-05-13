@@ -1,6 +1,6 @@
 /**
  * Icon Mapping Utility
- * 
+ *
  * Maps icon names from codex configuration to Lucide React components
  */
 
@@ -26,6 +26,18 @@ import {
   Zap,
   Circle,
   BookMarked,
+  TrendingUp,
+  Megaphone,
+  Wand2,
+  Cpu,
+  Settings,
+  Layers,
+  Route,
+  Bitcoin,
+  Grid3x3,
+  BarChart3,
+  MessageSquare,
+  Package,
   type LucideIcon
 } from "lucide-react";
 
@@ -51,6 +63,19 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Zap,
   Circle,
   BookMarked,
+  TrendingUp,
+  Megaphone,
+  Wand2,
+  Cpu,
+  Settings,
+  Layers,
+  Route,
+  Bitcoin,
+  Grid3x3,
+  BarChart: BarChart3,
+  BarChart3,
+  MessageSquare,
+  Package,
 };
 
 /**
