@@ -1803,27 +1803,31 @@ function AigentMeWelcomeBody({
           </section>
         )}
 
-        {/* ── ACTIVITY RECEIPTS — compact collapsible ───────────────────────── */}
-        {/* Receipts render when there is something to show, or while loading. */}
-        {(receiptsLoading || receipts.length > 0) && (
-          <section className={`rounded-lg border ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
-            <div className="flex items-center justify-between px-3 py-2">
-              <span className={`text-xs uppercase tracking-wider ${mutedClass}`}>Activity receipts</span>
-              {receiptsLoading && <Loader2 className="w-3 h-3 animate-spin text-slate-600" />}
-            </div>
-            <div className={`px-3 pb-3 space-y-2 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
-              {receiptsLoading && receipts.length === 0 ? (
-                <p className={`text-sm pt-2 ${mutedClass}`}>Loading receipts…</p>
-              ) : (
-                <div className="pt-2 space-y-2">
-                  {receipts.map((r) => (
-                    <ActivityReceiptCard key={r.id} data={r} personaDisplayLabel={receiptsPersonaLabel} theme={theme} />
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
-        )}
+        {/* ── ACTIVITY RECEIPTS — always-visible panel ──────────────────────── */}
+        {/* The receipts panel anchors the welcome surface — it stays in
+            view even when the feed is empty so the user always knows the
+            audit trail lives here. */}
+        <section className={`rounded-lg border ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+          <div className="flex items-center justify-between px-3 py-2">
+            <span className={`text-xs uppercase tracking-wider ${mutedClass}`}>Activity receipts</span>
+            {receiptsLoading && <Loader2 className="w-3 h-3 animate-spin text-slate-600" />}
+          </div>
+          <div className={`px-3 pb-3 space-y-2 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+            {receiptsLoading && receipts.length === 0 ? (
+              <p className={`text-sm pt-2 ${mutedClass}`}>Loading receipts…</p>
+            ) : receipts.length === 0 ? (
+              <p className={`text-sm pt-2 ${mutedClass}`}>
+                No activity yet. Every action you take through aigentMe — brief, move-forward, specialist consult, artifact, approval — is receipted here as it happens.
+              </p>
+            ) : (
+              <div className="pt-2 space-y-2">
+                {receipts.map((r) => (
+                  <ActivityReceiptCard key={r.id} data={r} personaDisplayLabel={receiptsPersonaLabel} theme={theme} />
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
 
         {/* ── BELOW-FOLD: specialists, model, quick links, connections ─────────
             Separated visually — users set up / configure here, then act above.
