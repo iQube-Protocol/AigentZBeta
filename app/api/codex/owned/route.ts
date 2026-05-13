@@ -11,7 +11,7 @@
  * Phase B canonical taxonomy (2026-05-13):
  *   - GN is content_type='gn_still' with episode_number=-1 (its own slot)
  *   - Episodes are episode_number 0..12 across episode_still / motion / print
- *   - Characters are 0..12 in codex_media_assets asset_kind='character_poster'
+ *   - Characters are 0..13 in codex_media_assets asset_kind='character_poster' (ep 13 = display #12)
  *
  * Backward compatibility: the legacy `issues` / `characters` / `episodeCount`
  * / `characterCount` fields are kept so older callers don't break.
@@ -142,7 +142,7 @@ export async function GET(request: NextRequest) {
       // character_card slots handled below
     }
 
-    // Characters: rights for episodes 0..12 → match uploaded characters by episode_number.
+    // Characters: rights for episodes 0..13 → match uploaded characters by episode_number.
     const characterAvailable: OwnedCharacter[] = [];
     const characterComingSoon: OwnedCharacter[] = [];
     const expectedCharacterEps = new Set<number>();
