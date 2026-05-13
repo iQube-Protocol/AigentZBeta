@@ -38,7 +38,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Sparkles, Loader2, Mail, Calendar, FileText, Layout,
   Megaphone, Zap, BarChart3, Layers, Users, Plus,
-  Brain, Shield, Target,
+  Sheet, ChevronDown, ChevronUp,
 } from "lucide-react";
 import {
   usePersonaSpine,
@@ -78,14 +78,16 @@ import { GoogleConnectionsPanel } from "@/components/metame/connections/GoogleCo
 import { ComposeGmailDraftModal } from "@/components/metame/connections/ComposeGmailDraftModal";
 import { ComposeCalendarEventModal } from "@/components/metame/connections/ComposeCalendarEventModal";
 import { ComposeGoogleDocModal } from "@/components/metame/connections/ComposeGoogleDocModal";
+import { ComposeGoogleSheetModal } from "@/components/metame/connections/ComposeGoogleSheetModal";
 import { ComposeSlidesModal } from "@/components/metame/connections/ComposeSlidesModal";
 import { ComposeMarketaEmailModal } from "@/components/metame/connections/ComposeMarketaEmailModal";
 
 interface Specialist {
-  id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c' | 'aigent-nakamoto';
+  id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c' | 'aigent-nakamoto' | 'moneypenny' | 'metaye';
   label: string;
   description: string;
   homeCartridge: 'cross-cutting' | 'qriptopian' | 'knyt' | 'platform' | 'protocol';
+  canAsk: { enabled: boolean; status: 'available' | 'preview' };
 }
 
 interface PrimaryCta {
@@ -225,8 +227,15 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
   // staff pattern: drafter strip + form fields.
   const [composeCalendarOpen, setComposeCalendarOpen] = useState(false);
   const [composeDocOpen, setComposeDocOpen] = useState(false);
+  const [composeSheetOpen, setComposeSheetOpen] = useState(false);
   const [composeSlidesOpen, setComposeSlidesOpen] = useState(false);
   const [composeMarketaOpen, setComposeMarketaOpen] = useState(false);
+  // Per-specialist Ask state. Inline expanders on the specialist cards.
+  const [askSpecialistOpenId, setAskSpecialistOpenId] = useState<string | null>(null);
+  const [askSpecialistPrompt, setAskSpecialistPrompt] = useState("");
+  const [askSpecialistLoadingId, setAskSpecialistLoadingId] = useState<string | null>(null);
+  const [askSpecialistResponses, setAskSpecialistResponses] = useState<Record<string, SpecialistResponseData>>({});
+  const [askSpecialistErrors, setAskSpecialistErrors] = useState<Record<string, string>>({});
 
   // Phase 7 — activity receipts panel.
   const [receipts, setReceipts] = useState<ActivityReceiptData[]>([]);
@@ -800,6 +809,89 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     setArtifacts((prev) => [data, ...prev].slice(0, 10));
   }, [personaId]);
 
+  // Google Sheets drafter + compose.
+  const handleDraftSheet = useCallback(async (prompt: string) => {
+    const res = await personaFetch('/api/assistant/draft-sheet', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+      personaIdHint: personaId,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+      throw new Error(body?.detail || body?.error || `draft-sheet failed (${res.status})`);
+    }
+    return (await res.json()) as {
+      title: string;
+      sheetName: string;
+      rows: string[][];
+      rationale: string;
+      source: 'llm' | 'template';
+    };
+  }, [personaId]);
+
+  const handleComposeGoogleSheet = useCallback(async (input: {
+    title: string;
+    sheetName: string;
+    rows: string[][];
+  }) => {
+    const res = await personaFetch('/api/assistant/create-artifact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        artifactType: 'google-sheet',
+        destination: 'drive',
+        title: input.title,
+        connectorInput: input,
+      }),
+      personaIdHint: personaId,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as { error?: string; detail?: string; hint?: string }));
+      throw new Error(body?.detail || body?.hint || body?.error || `create-artifact failed (${res.status})`);
+    }
+    const data = (await res.json()) as ArtifactCardData;
+    setArtifacts((prev) => [data, ...prev].slice(0, 10));
+    void fetchReceipts();
+  }, [personaId, fetchReceipts]);
+
+  // Specialist ask — drives the per-card inline expander. Calls the
+  // existing /api/assistant/ask-agent route with just the specialist id
+  // and a freeform prompt; no IntentQube needed.
+  const handleAskSpecialist = useCallback(async (specialistId: string, prompt: string) => {
+    const key = specialistId;
+    setAskSpecialistLoadingId(key);
+    setAskSpecialistErrors((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    try {
+      const res = await personaFetch('/api/assistant/ask-agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          specialistId,
+          ...(prompt.trim() ? { prompt: prompt.trim() } : {}),
+        }),
+        personaIdHint: personaId,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+        throw new Error(body?.detail || body?.error || `ask-agent failed (${res.status})`);
+      }
+      const sp = (await res.json()) as SpecialistResponseData;
+      setAskSpecialistResponses((prev) => ({ ...prev, [key]: sp }));
+      setAskSpecialistPrompt("");
+      void fetchReceipts();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setAskSpecialistErrors((prev) => ({ ...prev, [key]: msg }));
+    } finally {
+      setAskSpecialistLoadingId(null);
+    }
+  }, [personaId, fetchReceipts]);
+
   // Phase 6.b Part 3 — Marketa email drafter + compose. Sends via Mailjet
   // through the existing /api/connectors/execute path (marketa.send-
   // transactional connector), gated by the SecondTierApprovalCard.
@@ -1081,6 +1173,18 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
           onComposeMarketaOpenChange={setComposeMarketaOpen}
           onComposeMarketa={handleComposeMarketa}
           onDraftMarketa={handleDraftMarketa}
+          composeSheetOpen={composeSheetOpen}
+          onComposeSheetOpenChange={setComposeSheetOpen}
+          onComposeGoogleSheet={handleComposeGoogleSheet}
+          onDraftSheet={handleDraftSheet}
+          askSpecialistOpenId={askSpecialistOpenId}
+          onAskSpecialistOpenChange={setAskSpecialistOpenId}
+          askSpecialistPrompt={askSpecialistPrompt}
+          onAskSpecialistPromptChange={setAskSpecialistPrompt}
+          askSpecialistLoadingId={askSpecialistLoadingId}
+          askSpecialistResponses={askSpecialistResponses}
+          askSpecialistErrors={askSpecialistErrors}
+          onAskSpecialist={handleAskSpecialist}
           receipts={receipts}
           receiptsLoading={receiptsLoading}
           receiptsPersonaLabel={receiptsPersonaLabel}
@@ -1207,6 +1311,25 @@ interface BodyProps {
     rationale: string;
     source: 'llm' | 'template';
   }>;
+  composeSheetOpen: boolean;
+  onComposeSheetOpenChange: (open: boolean) => void;
+  onComposeGoogleSheet: (input: { title: string; sheetName: string; rows: string[][] }) => Promise<void>;
+  onDraftSheet: (prompt: string) => Promise<{
+    title: string;
+    sheetName: string;
+    rows: string[][];
+    rationale: string;
+    source: 'llm' | 'template';
+  }>;
+  // Per-specialist Ask inline state
+  askSpecialistOpenId: string | null;
+  onAskSpecialistOpenChange: (id: string | null) => void;
+  askSpecialistPrompt: string;
+  onAskSpecialistPromptChange: (v: string) => void;
+  askSpecialistLoadingId: string | null;
+  askSpecialistResponses: Record<string, SpecialistResponseData>;
+  askSpecialistErrors: Record<string, string>;
+  onAskSpecialist: (specialistId: string, prompt: string) => void;
   composeDocOpen: boolean;
   onComposeDocOpenChange: (open: boolean) => void;
   onComposeGoogleDoc: (input: {
@@ -1328,6 +1451,18 @@ function AigentMeWelcomeBody({
   onComposeMarketaOpenChange,
   onComposeMarketa,
   onDraftMarketa,
+  composeSheetOpen,
+  onComposeSheetOpenChange,
+  onComposeGoogleSheet,
+  onDraftSheet,
+  askSpecialistOpenId,
+  onAskSpecialistOpenChange,
+  askSpecialistPrompt,
+  onAskSpecialistPromptChange,
+  askSpecialistLoadingId,
+  askSpecialistResponses,
+  askSpecialistErrors,
+  onAskSpecialist,
   receipts,
   receiptsLoading,
   receiptsPersonaLabel,
@@ -1360,10 +1495,6 @@ function AigentMeWelcomeBody({
     'review-venture-progress': BarChart3,
     'create-something': Plus,
     'coordinate-follow-ups': Users,
-    'ask-marketa': Megaphone,
-    'ask-kn0w1': Brain,
-    'ask-aigent-z': Shield,
-    'ask-aigent-c': Sparkles,
   };
 
   if (bootstrapLoading && !data) {
@@ -1437,7 +1568,9 @@ function AigentMeWelcomeBody({
         {/* ── PRIMARY ACTION GRID ─────────────────────────────────────────────── */}
         <section>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {data.primaryCtas.map((cta) => {
+            {data.primaryCtas
+              .filter((cta) => !cta.id.startsWith('ask-'))
+              .map((cta) => {
               const CtaIcon = CTA_ICON_MAP[cta.id] || Sparkles;
               const isPreview = cta.status === 'preview';
               return (
@@ -1478,6 +1611,7 @@ function AigentMeWelcomeBody({
             { label: 'Email',   Icon: Mail,      action: () => onComposeGmailOpenChange(true)    },
             { label: 'Event',   Icon: Calendar,  action: () => onComposeCalendarOpenChange(true) },
             { label: 'Doc',     Icon: FileText,  action: () => onComposeDocOpenChange(true)      },
+            { label: 'Sheet',   Icon: Sheet,     action: () => onComposeSheetOpenChange(true)    },
             { label: 'Slides',  Icon: Layout,    action: () => onComposeSlidesOpenChange(true)   },
             { label: 'Marketa', Icon: Megaphone, action: () => onComposeMarketaOpenChange(true)  },
           ] as Array<{ label: string; Icon: React.ComponentType<{ className?: string }>; action: () => void }>).map(({ label, Icon, action }) => (
@@ -1692,26 +1826,11 @@ function AigentMeWelcomeBody({
         )}
 
         {/* ── BELOW-FOLD: specialists, model, quick links, connections ─────────
-            Separated visually — users set up / configure here, then act above. */}
-        <div className={`pt-4 mt-2 border-t ${isDark ? 'border-slate-800/50' : 'border-slate-200'} space-y-4`}>
+            Separated visually — users set up / configure here, then act above.
+            Sections collapse to a tight summary line to keep the page calm. */}
+        <div className={`pt-4 mt-2 border-t ${isDark ? 'border-slate-800/50' : 'border-slate-200'} space-y-3`}>
 
-          {/* Specialists — compact 2-3 col grid */}
-          <section>
-            <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>Specialists</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {data.availableSpecialists.map((s) => (
-                <div key={s.id} className={`rounded-lg border p-2.5 ${surfaceClass}`}>
-                  <div className="font-medium text-sm leading-snug">{s.label}</div>
-                  <div className={`text-xs mt-0.5 ${mutedClass}`}>{s.description}</div>
-                  <div className={`text-[10px] mt-1.5 uppercase tracking-wider ${mutedClass} opacity-60`}>
-                    {s.homeCartridge}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* ExperienceModel card */}
+          {/* ExperienceModel card — always visible (anchors the strategy layer). */}
           <ExperienceModelCard
             data={expModel}
             loading={expModelLoading}
@@ -1719,15 +1838,149 @@ function AigentMeWelcomeBody({
             theme={theme}
           />
 
-          {/* Quick links */}
-          <QuickLinksCard personaId={personaId} theme={theme} />
+          {/* Specialists — collapsible. Each card includes an inline Ask. */}
+          <CollapsibleSection
+            title="Specialists"
+            summary={`${data.availableSpecialists.length} available · click a card to ask`}
+            defaultOpen={false}
+            isDark={isDark}
+            mutedClass={mutedClass}
+            accentClass={accentClass}
+          >
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {data.availableSpecialists.map((s) => {
+                const isOpen = askSpecialistOpenId === s.id;
+                const isLoading = askSpecialistLoadingId === s.id;
+                const response = askSpecialistResponses[s.id];
+                const errMsg = askSpecialistErrors[s.id];
+                const isPreview = s.canAsk.status === 'preview';
+                return (
+                  <div key={s.id} className={`rounded-lg border p-2.5 ${surfaceClass}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-medium text-sm leading-snug truncate">{s.label}</div>
+                        <div className={`text-xs mt-0.5 ${mutedClass}`}>{s.description}</div>
+                        <div className={`text-[10px] mt-1.5 uppercase tracking-wider ${mutedClass} opacity-60`}>
+                          {s.homeCartridge}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={!s.canAsk.enabled}
+                        onClick={() => onAskSpecialistOpenChange(isOpen ? null : s.id)}
+                        className={`text-[11px] px-2 py-1 rounded-md border transition ${
+                          s.canAsk.enabled
+                            ? isDark
+                              ? 'border-violet-500/40 text-violet-200 hover:bg-violet-500/10'
+                              : 'border-violet-400 text-violet-700 hover:bg-violet-50'
+                            : 'border-slate-700 text-slate-500 cursor-not-allowed'
+                        }`}
+                      >
+                        Ask {s.label.split(',')[0]}
+                      </button>
+                      {isPreview && (
+                        <span className={`text-[9px] uppercase tracking-wider ${mutedClass} opacity-60`}>soon</span>
+                      )}
+                    </div>
+                    {isOpen && s.canAsk.enabled && (
+                      <div className="mt-2 space-y-1.5">
+                        <textarea
+                          value={askSpecialistPrompt}
+                          onChange={(e) => onAskSpecialistPromptChange(e.target.value)}
+                          placeholder={`What do you want to ask ${s.label.split(',')[0]}?`}
+                          rows={2}
+                          disabled={isLoading}
+                          className={`w-full text-xs px-2 py-1.5 rounded ${
+                            isDark
+                              ? 'bg-slate-800 border border-slate-700 text-slate-100 placeholder:text-slate-500'
+                              : 'bg-white border border-slate-300 text-slate-900 placeholder:text-slate-400'
+                          }`}
+                        />
+                        <div className="flex items-center gap-2 justify-end">
+                          <button
+                            type="button"
+                            onClick={() => onAskSpecialistOpenChange(null)}
+                            className="text-[10px] px-2 py-1 rounded border border-slate-700 text-slate-400 hover:text-slate-200"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isLoading}
+                            onClick={() => onAskSpecialist(s.id, askSpecialistPrompt)}
+                            className={`text-[10px] px-2 py-1 rounded font-medium ${
+                              isDark ? 'bg-violet-500 hover:bg-violet-400 text-white' : 'bg-violet-600 hover:bg-violet-700 text-white'
+                            } disabled:opacity-50`}
+                          >
+                            {isLoading ? 'Asking…' : 'Send'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {errMsg && (
+                      <div className="text-[10px] mt-2 text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded px-2 py-1">
+                        {errMsg}
+                      </div>
+                    )}
+                    {response && (
+                      <div className={`text-[11px] mt-2 rounded border p-2 ${
+                        isDark ? 'border-violet-500/30 bg-violet-500/5' : 'border-violet-300 bg-violet-50'
+                      }`}>
+                        <p className="font-medium text-slate-100 leading-snug">{response.title}</p>
+                        <p className={`mt-1 ${mutedClass}`}>{response.summary}</p>
+                        {Array.isArray(response.recommendations) && response.recommendations.length > 0 && (
+                          <ul className="mt-1 space-y-0.5 list-disc pl-4">
+                            {response.recommendations.slice(0, 4).map((r, i) => (
+                              <li key={i} className={mutedClass}>{r}</li>
+                            ))}
+                          </ul>
+                        )}
+                        {response.source === 'template' && (
+                          <p className={`text-[9px] mt-1 opacity-60 ${mutedClass}`}>(template fallback)</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CollapsibleSection>
 
-          {/* Google Workspace connections */}
-          <GoogleConnectionsPanel isAdmin={!!data.cartridgeFlags?.isAdmin} theme={theme} />
+          {/* Open a cartridge (quick links) — collapsible. */}
+          <CollapsibleSection
+            title="Open a cartridge"
+            summary="Deep-link to KNYT, Marketa, AgentiQ, Venture Lab and more"
+            defaultOpen={false}
+            isDark={isDark}
+            mutedClass={mutedClass}
+            accentClass={accentClass}
+          >
+            <QuickLinksCard personaId={personaId} theme={theme} />
+          </CollapsibleSection>
 
-          {/* Context chips */}
-          <section>
-            <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>Active context</h2>
+          {/* Google Workspace connections — collapsible. */}
+          <CollapsibleSection
+            title="Google Workspace"
+            summary="Connect Gmail, Calendar, Drive, Docs, Sheets, Slides — opt-in per source"
+            defaultOpen={false}
+            isDark={isDark}
+            mutedClass={mutedClass}
+            accentClass={accentClass}
+          >
+            <GoogleConnectionsPanel isAdmin={!!data.cartridgeFlags?.isAdmin} theme={theme} />
+          </CollapsibleSection>
+
+          {/* Active context chips — collapsible. */}
+          <CollapsibleSection
+            title="Active context"
+            summary={CONTEXT_CHIPS.join(' · ')}
+            defaultOpen={false}
+            isDark={isDark}
+            mutedClass={mutedClass}
+            accentClass={accentClass}
+          >
             <div className="flex flex-wrap gap-1.5">
               {CONTEXT_CHIPS.map((chip) => (
                 <span key={chip} className={`px-2.5 py-1 text-xs rounded-full border ${chipClass}`}>
@@ -1735,7 +1988,7 @@ function AigentMeWelcomeBody({
                 </span>
               ))}
             </div>
-          </section>
+          </CollapsibleSection>
 
           {/* Footer */}
           <footer className={`text-xs ${mutedClass} pt-2 border-t ${isDark ? 'border-slate-800/60' : 'border-slate-200'}`}>
@@ -1782,12 +2035,68 @@ function AigentMeWelcomeBody({
           onDraftWithAigentMe={onDraftMarketa}
           theme={theme}
         />
+        <ComposeGoogleSheetModal
+          open={composeSheetOpen}
+          onClose={() => onComposeSheetOpenChange(false)}
+          onCreate={onComposeGoogleSheet}
+          onDraftWithAigentMe={onDraftSheet}
+          theme={theme}
+        />
       </div>
     </div>
   );
 }
 
 export default AigentMeWelcomeTab;
+
+// ─────────────────────────────────────────────────────────────────────────
+// CollapsibleSection — small expander used for the below-fold sections.
+// Renders a title row with a one-line summary; click toggles the body.
+// Defaults to collapsed so the welcome surface stays calm on first paint.
+// ─────────────────────────────────────────────────────────────────────────
+
+function CollapsibleSection({
+  title,
+  summary,
+  defaultOpen = false,
+  isDark,
+  mutedClass,
+  accentClass,
+  children,
+}: {
+  title: string;
+  summary?: string;
+  defaultOpen?: boolean;
+  isDark: boolean;
+  mutedClass: string;
+  accentClass: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const Chevron = open ? ChevronUp : ChevronDown;
+  return (
+    <section className={`rounded-lg border ${isDark ? 'border-slate-800/60 bg-slate-900/30' : 'border-slate-200 bg-white/40'}`}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between gap-3 px-3 py-2 text-left"
+      >
+        <div className="min-w-0 flex-1">
+          <div className={`text-xs uppercase tracking-wider ${accentClass}`}>{title}</div>
+          {summary && !open && (
+            <div className={`text-xs mt-0.5 truncate ${mutedClass}`}>{summary}</div>
+          )}
+        </div>
+        <Chevron className={`w-4 h-4 shrink-0 ${mutedClass}`} />
+      </button>
+      {open && (
+        <div className="px-3 pb-3">
+          {children}
+        </div>
+      )}
+    </section>
+  );
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 // PersonalGuideChip — runtime summary for the Personal ExperienceGuide.

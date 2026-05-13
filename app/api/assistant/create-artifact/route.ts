@@ -42,6 +42,7 @@ export const dynamic = 'force-dynamic';
 
 const VALID_ARTIFACT_TYPES = new Set<string>([
   'google-doc',
+  'google-sheet',
   'gmail-draft',
   'calendar-block',
   'brief',
@@ -403,9 +404,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     //   through the Drive surface.
     // ─────────────────────────────────────────────────────────────────
     if (destination === 'drive') {
-      if (body.artifactType !== 'google-doc' && body.artifactType !== 'slide-outline') {
+      if (
+        body.artifactType !== 'google-doc' &&
+        body.artifactType !== 'slide-outline' &&
+        body.artifactType !== 'google-sheet'
+      ) {
         return NextResponse.json(
-          { error: 'destination-mismatch', detail: `destination='drive' requires artifactType='google-doc' or 'slide-outline'.` },
+          { error: 'destination-mismatch', detail: `destination='drive' requires artifactType='google-doc', 'slide-outline', or 'google-sheet'.` },
           { status: 400, headers: { 'Cache-Control': 'no-store' } },
         );
       }
@@ -491,6 +496,72 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                 },
               }
             : {}),
+        };
+        return NextResponse.json(surface, { headers: { 'Cache-Control': 'no-store' } });
+      }
+
+      if (body.artifactType === 'google-sheet') {
+        const input = (body.connectorInput ?? {}) as {
+          title?: string;
+          sheetName?: string;
+          rows?: string[][];
+        };
+        if (!input.title) {
+          return NextResponse.json(
+            { error: 'invalid-connector-input', detail: 'title required' },
+            { status: 400, headers: { 'Cache-Control': 'no-store' } },
+          );
+        }
+        const sheets = getGoogleConnector('google.sheets.create');
+        if (!sheets) {
+          return NextResponse.json(
+            { error: 'connector-unavailable', detail: 'sheets.create not registered' },
+            { status: 500, headers: { 'Cache-Control': 'no-store' } },
+          );
+        }
+        const sheetsResult = await sheets.execute(
+          {
+            title: input.title,
+            ...(input.sheetName ? { sheetName: input.sheetName } : {}),
+            rows: Array.isArray(input.rows) ? input.rows : [],
+          },
+          { personaId: context.personaId, intentId: body.sourceIntentId ?? null, cartridge },
+        );
+        if (!sheetsResult.ok) {
+          return NextResponse.json(
+            { error: 'sheets-create-failed', code: sheetsResult.code, detail: sheetsResult.reason, hint: sheetsResult.hint },
+            { status: sheetsResult.code === 'not-connected' ? 409 : 502, headers: { 'Cache-Control': 'no-store' } },
+          );
+        }
+        const sheetsOut = sheetsResult.output as { spreadsheetId?: string; webViewLink?: string | null } | undefined;
+        const spreadsheetId = sheetsOut?.spreadsheetId ?? '';
+        const locationUrl = sheetsOut?.webViewLink ?? (spreadsheetId ? `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit` : null);
+
+        const receipt = await createActivityReceipt({
+          personaId: context.personaId,
+          intentId: body.sourceIntentId ?? null,
+          activeCartridge: cartridge,
+          actionType: 'artifact_created',
+          summary: `Created Google Sheet: ${input.title}`,
+          agentsInvoked: ['aigent-me', ...(body.specialistId ? [body.specialistId] : [])],
+          toolsUsed: ['google.sheets.create'],
+          iqubesUsed: ['PersonaQube', 'ExperienceQube', 'IntentQube'],
+          contextShared: ['intent-summary', 'experience-meta-slice'],
+          artifactsCreated: [`google-sheet:${spreadsheetId || input.title}`],
+          approvalsGranted: body.sourceIntentId ? [body.sourceIntentId] : [],
+        });
+
+        const surface: CreateArtifactSurface = {
+          artifactId,
+          artifactType: 'google-sheet',
+          title: input.title,
+          destination: 'drive',
+          status: 'draft',
+          receiptId: receipt?.id ?? null,
+          intentId: body.sourceIntentId ?? null,
+          message: 'Google Sheet created privately in your Drive.',
+          createdAt,
+          locationUrl,
         };
         return NextResponse.json(surface, { headers: { 'Cache-Control': 'no-store' } });
       }

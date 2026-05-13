@@ -51,11 +51,18 @@ interface ExperienceModelHint {
 }
 
 interface AssistantSpecialist {
-  id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c' | 'aigent-nakamoto';
+  id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c' | 'aigent-nakamoto' | 'moneypenny' | 'metaye';
   label: string;
   description: string;
   /** Where this specialist primarily operates from. */
   homeCartridge: 'cross-cutting' | 'qriptopian' | 'knyt' | 'platform' | 'protocol';
+  /**
+   * Whether this specialist can be invoked via the "Ask" affordance on the
+   * welcome surface. 'available' lights up the button; 'preview' renders a
+   * "soon" badge with the button disabled. Server-side enforcement still
+   * checks the specialist router itself.
+   */
+  canAsk: { enabled: boolean; status: 'available' | 'preview' };
 }
 
 interface AssistantCta {
@@ -65,10 +72,7 @@ interface AssistantCta {
     | 'move-this-forward'
     | 'review-venture-progress'
     | 'create-something'
-    | 'coordinate-follow-ups'
-    | 'ask-marketa'
-    | 'ask-quill'
-    | 'ask-kn0w1';
+    | 'coordinate-follow-ups';
   label: string;
   /** Phase at which the backend for this CTA lands. */
   enabled: boolean;
@@ -133,7 +137,7 @@ interface AssistantBootstrapSurface {
   naming: {
     productLabel: 'metaMe Personal Assistant, powered by Aigent Me';
     knytSpecialist: 'Kn0w1';
-    qriptopianSpecialist: 'Quill, editor of The Qriptopian, powered by Aigent Q';
+    qriptopianSpecialist: 'Quill';
     canonicalMediaBrand: 'Metayé Media';
   };
 }
@@ -156,36 +160,56 @@ const AVAILABLE_SPECIALISTS: AssistantSpecialist[] = [
     label: 'Marketa',
     description: 'Campaigns, partners, proposals',
     homeCartridge: 'cross-cutting',
+    canAsk: { enabled: true, status: 'available' },
   },
   {
     id: 'quill',
-    label: 'Quill, editor of The Qriptopian, powered by Aigent Q',
-    description: 'Editorial angle, article briefs, issue planning',
+    label: 'Quill',
+    description: 'Editorial, storytelling, article briefs, issue planning',
     homeCartridge: 'qriptopian',
+    canAsk: { enabled: true, status: 'available' },
   },
   {
     id: 'kn0w1',
     label: 'Kn0w1',
-    description: 'KNYT world, PCS, missions',
+    description: 'KNYT world, PCS, knowledge economics, missions',
     homeCartridge: 'knyt',
+    canAsk: { enabled: true, status: 'available' },
   },
   {
     id: 'aigent-z',
     label: 'Aigent Z',
     description: 'Platform / system guidance',
     homeCartridge: 'platform',
+    canAsk: { enabled: true, status: 'available' },
   },
   {
     id: 'aigent-c',
     label: 'Aigent C',
     description: 'Customer journey, AgentiQ OS builder context',
     homeCartridge: 'platform',
+    canAsk: { enabled: true, status: 'available' },
   },
   {
     id: 'aigent-nakamoto',
-    label: 'Aigent Nakamoto (Satoshi)',
-    description: 'Decentralisation, Bitcoin, iQube/Qripto protocols, ecosystem policy',
+    label: 'Nakamoto',
+    description: 'Decentralisation, Qripto protocols, ecosystem policy',
     homeCartridge: 'protocol',
+    canAsk: { enabled: true, status: 'available' },
+  },
+  {
+    id: 'moneypenny',
+    label: 'MoneyPenny',
+    description: 'Q¢ economics, micro-transactions, payment ops',
+    homeCartridge: 'cross-cutting',
+    canAsk: { enabled: true, status: 'available' },
+  },
+  {
+    id: 'metaye',
+    label: 'Metayé',
+    description: 'Sovereign Cybernetic Polity, governance, civic primitives',
+    homeCartridge: 'protocol',
+    canAsk: { enabled: true, status: 'available' },
   },
 ];
 
@@ -201,10 +225,6 @@ const PRIMARY_CTAS: AssistantCta[] = [
   { id: 'review-venture-progress', label: 'Review venture progress',   enabled: true,  status: 'available' },
   { id: 'create-something',        label: 'Create something',          enabled: false, status: 'preview' },
   { id: 'coordinate-follow-ups',   label: 'Coordinate follow-ups',     enabled: false, status: 'preview' },
-  { id: 'ask-marketa',             label: 'Ask Marketa',               enabled: false, status: 'preview' },
-  { id: 'ask-quill',               label: 'Ask Quill',                 enabled: false, status: 'preview' },
-  { id: 'ask-kn0w1',               label: 'Ask Kn0w1',                 enabled: false, status: 'preview' },
-  { id: 'ask-nakamoto',            label: 'Ask Nakamoto',              enabled: false, status: 'preview' },
 ];
 
 const ALLOWED_CARTRIDGE_SLUGS = new Set<string>(
@@ -341,7 +361,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     naming: {
       productLabel: 'metaMe Personal Assistant, powered by Aigent Me',
       knytSpecialist: 'Kn0w1',
-      qriptopianSpecialist: 'Quill, editor of The Qriptopian, powered by Aigent Q',
+      qriptopianSpecialist: 'Quill',
       canonicalMediaBrand: 'Metayé Media',
     },
     ...(displayLabel ? { displayLabel } : {}),

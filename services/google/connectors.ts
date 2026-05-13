@@ -47,7 +47,8 @@ export type GoogleConnectorId =
   | 'google.drive.share-doc'
   | 'google.drive.search'
   | 'google.docs.append'
-  | 'google.slides.create';
+  | 'google.slides.create'
+  | 'google.sheets.create';
 
 export interface ConnectorExecutionContext {
   personaId: string;
@@ -77,7 +78,7 @@ export interface GoogleConnector<I = unknown, O = unknown> {
   id: GoogleConnectorId;
   label: string;
   description: string;
-  category: 'communication' | 'scheduling' | 'storage' | 'document' | 'presentation';
+  category: 'communication' | 'scheduling' | 'storage' | 'document' | 'presentation' | 'spreadsheet';
   source: GoogleSource;
   requiredScopes: string[];
   /** PRD §10 FR11 — second-tier approval before external send/share/publish. */
@@ -1052,6 +1053,133 @@ const slidesCreate: GoogleConnector<SlidesCreateInput, SlidesCreateOutput> = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────
+// Connector — Sheets create.
+// ─────────────────────────────────────────────────────────────────────────
+
+interface SheetsCreateInput {
+  title: string;
+  /**
+   * Optional initial values. First row is treated as the header row.
+   * Each subsequent row is a string array of cell values.
+   */
+  rows?: string[][];
+  /** Optional sheet (tab) name. Defaults to "Sheet1". */
+  sheetName?: string;
+}
+interface SheetsCreateOutput {
+  spreadsheetId: string;
+  webViewLink: string | null;
+}
+
+const sheetsCreate: GoogleConnector<SheetsCreateInput, SheetsCreateOutput> = {
+  id: 'google.sheets.create',
+  label: 'Sheets · Create spreadsheet',
+  description: 'Create a new Google Sheets spreadsheet, optionally seeded with header + rows.',
+  category: 'spreadsheet',
+  source: 'sheets',
+  requiredScopes: GOOGLE_SCOPES.sheets,
+  requiresApproval: false,
+  inputSchema: {
+    title: { type: 'string', description: 'Spreadsheet title', required: true },
+    rows: { type: 'string[][]', description: 'Header row + data rows; first row is the header' },
+    sheetName: { type: 'string', description: 'Tab name (defaults to Sheet1)' },
+  },
+  outputSchema: {
+    spreadsheetId: { type: 'string', description: 'Sheets spreadsheet id' },
+    webViewLink: { type: 'string', description: 'Sheets web view URL' },
+  },
+  async execute(input, ctx) {
+    const t = await requireToken(ctx.personaId, 'sheets');
+    if (!t.ok) return t;
+    const title = (input.title ?? '').trim();
+    if (!title) return { ok: false, code: 'invalid-input', reason: 'title required' };
+    const sheetName = (input.sheetName ?? '').trim() || 'Sheet1';
+    try {
+      // Create the spreadsheet shell with the named tab.
+      const createRes = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${t.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          properties: { title },
+          sheets: [{ properties: { title: sheetName } }],
+        }),
+      });
+      if (!createRes.ok) {
+        const text = await createRes.text().catch(() => '');
+        return { ok: false, code: 'api-error', reason: `sheets create failed (${createRes.status}): ${text.slice(0, 200)}` };
+      }
+      const created = (await createRes.json()) as { spreadsheetId?: string };
+      const spreadsheetId = created.spreadsheetId ?? '';
+
+      // Seed with rows if provided. First row is treated as the header.
+      const rows = Array.isArray(input.rows)
+        ? input.rows
+            .filter((r): r is string[] => Array.isArray(r))
+            .map((r) => r.map((cell) => (typeof cell === 'string' ? cell : String(cell ?? ''))))
+        : [];
+      if (spreadsheetId && rows.length > 0) {
+        try {
+          const valuesRes = await fetch(
+            `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetName)}!A1:append?valueInputOption=USER_ENTERED`,
+            {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${t.token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ values: rows }),
+            },
+          );
+          if (!valuesRes.ok) {
+            const text = await valuesRes.text().catch(() => '');
+            return {
+              ok: false,
+              code: 'api-error',
+              reason: `sheets values append failed (${valuesRes.status}): ${text.slice(0, 200)}`,
+              hint: `Spreadsheet was created (id=${spreadsheetId}) but rows could not be appended.`,
+            };
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          return {
+            ok: false,
+            code: 'api-error',
+            reason: `sheets values append threw: ${msg}`,
+            hint: `Spreadsheet was created (id=${spreadsheetId}) but rows could not be appended.`,
+          };
+        }
+      }
+
+      // webViewLink via Drive — best-effort.
+      let webViewLink: string | null = null;
+      try {
+        const driveToken = await requireToken(ctx.personaId, 'drive');
+        if (driveToken.ok && spreadsheetId) {
+          const r = await fetch(
+            `https://www.googleapis.com/drive/v3/files/${spreadsheetId}?fields=webViewLink`,
+            { headers: { Authorization: `Bearer ${driveToken.token}` } },
+          );
+          if (r.ok) {
+            const j = (await r.json()) as { webViewLink?: string };
+            webViewLink = j.webViewLink ?? null;
+          }
+        }
+      } catch {
+        /* non-fatal */
+      }
+
+      return { ok: true, output: { spreadsheetId, webViewLink } };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { ok: false, code: 'api-error', reason: msg };
+    }
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────
 // Registry — exported map + lookup.
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -1065,6 +1193,7 @@ const GOOGLE_CONNECTORS: Record<GoogleConnectorId, GoogleConnector> = {
   'google.drive.search': driveSearch as unknown as GoogleConnector,
   'google.docs.append': docsAppend as unknown as GoogleConnector,
   'google.slides.create': slidesCreate as unknown as GoogleConnector,
+  'google.sheets.create': sheetsCreate as unknown as GoogleConnector,
 };
 
 export function getGoogleConnector(id: GoogleConnectorId): GoogleConnector | null {
