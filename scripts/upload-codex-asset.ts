@@ -9,8 +9,10 @@
  *
  * Setup (one-time):
  *   1. Make sure .env.local has AUTONOMYS_API_KEY, SUPABASE_SERVICE_ROLE_KEY,
- *      NEXT_PUBLIC_SUPABASE_URL, IQUBE_MASTER_KEY (or whatever key the
- *      encryptionService expects).
+ *      NEXT_PUBLIC_SUPABASE_URL, and CODEX_MASTER_KEY. CODEX_MASTER_KEY must
+ *      be the SAME value that's set in Amplify for dev — encryptionService
+ *      wraps every content key with it, and the prod /api/content/*
+ *      decryption routes will fail if a different key was used here.
  *   2. npm install tsx (or use npx tsx).
  *
  * Usage:
@@ -93,6 +95,22 @@ async function main() {
   const displayMode = getArg('displayMode') as 'pdf' | 'image' | 'video' | 'text_extract' | undefined;
   const recommendedTask = getArg('recommendedTask');
   const isShareable = getFlag('isShareable');
+
+  // Fail fast before doing 20MB of Autonomys upload work if the master key
+  // isn't loaded — otherwise encryptionService.wrapKeyWithMasterKey throws
+  // AFTER the upload completes, wasting bandwidth + leaving an orphan CID.
+  const requiredEnv = [
+    'CODEX_MASTER_KEY',
+    'AUTONOMYS_API_KEY',
+    'SUPABASE_SERVICE_ROLE_KEY',
+    'NEXT_PUBLIC_SUPABASE_URL',
+  ];
+  const missing = requiredEnv.filter((k) => !process.env[k]);
+  if (missing.length) {
+    console.error(`Missing required env vars in .env.local: ${missing.join(', ')}`);
+    console.error('CODEX_MASTER_KEY must match the value configured in Amplify for dev.');
+    process.exit(1);
+  }
 
   const absPath = path.resolve(filePath);
   if (!fs.existsSync(absPath)) {
