@@ -26,7 +26,7 @@
  *     experience_models catalogue) — Phase 4 AVL flow uses this.
  */
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -149,6 +149,29 @@ export function ExperienceModelSetupWizard({ open, onOpenChange, initial, onSave
     confidentialityDefault: initial?.confidentialityDefault ?? "private_by_default",
     progressModel: initial?.progressModel ?? "brief_decide_create_coordinate_record",
   });
+
+  // Re-hydrate form state from `initial` each time the wizard opens. The
+  // wizard mounts once at page load when `expModel` is still null, so the
+  // initial useState above can only ever see undefined. Without this sync,
+  // reopening the wizard after a save shows stale defaults and asks users
+  // to re-enter values they already saved.
+  const prevOpenRef = useRef(open);
+  useEffect(() => {
+    const justOpened = open && !prevOpenRef.current;
+    prevOpenRef.current = open;
+    if (!justOpened) return;
+    setForm({
+      experienceName: initial?.experienceName ?? "",
+      experienceType: initial?.experienceType ?? "venture_building",
+      primaryGoal: initial?.primaryGoal ?? "",
+      activeCartridges: initial?.activeCartridges ?? ["metame"],
+      currentStage: initial?.currentStage ?? "alpha_activation",
+      confidentialityDefault: initial?.confidentialityDefault ?? "private_by_default",
+      progressModel: initial?.progressModel ?? "brief_decide_create_coordinate_record",
+    });
+    setStep(0);
+    setError(null);
+  }, [open, initial]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));

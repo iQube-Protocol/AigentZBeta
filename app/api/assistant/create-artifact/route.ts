@@ -575,6 +575,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         cc?: string;
         bcc?: string;
         fromName?: string;
+        campaignId?: string;
+        cohortId?: string;
       };
       if (!input.to || !input.subject || !input.bodyText) {
         return NextResponse.json(
@@ -614,6 +616,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           ...(input.cc ? { cc: input.cc } : {}),
           ...(input.bcc ? { bcc: input.bcc } : {}),
           ...(input.fromName ? { fromName: input.fromName } : {}),
+          ...(input.campaignId ? { campaignId: input.campaignId } : {}),
+          ...(input.cohortId ? { cohortId: input.cohortId } : {}),
         },
       };
       return NextResponse.json(surface, { headers: { 'Cache-Control': 'no-store' } });

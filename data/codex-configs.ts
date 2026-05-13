@@ -1900,7 +1900,7 @@ export const METAME_CODEX: CodexConfig = {
       group: 'studio',
       order: 30,
       type: 'static',
-      config: { component: 'ComposerStudio', props: {} },
+      config: { component: 'MetaMeStudioTab', props: {} },
       metadata: { icon: 'Wand2', description: 'Build Experiences using guided templates, the Composer API and receipt pipeline.', color: 'violet' }
     },
 
