@@ -26,9 +26,9 @@ import { createActivityReceipt } from '@/services/receipts/activityReceiptServic
 // Public types.
 // ─────────────────────────────────────────────────────────────────────────
 
-export type GoogleSource = 'gmail' | 'calendar' | 'drive' | 'docs' | 'slides';
+export type GoogleSource = 'gmail' | 'calendar' | 'drive' | 'docs' | 'slides' | 'sheets';
 
-export const GOOGLE_SOURCES: GoogleSource[] = ['gmail', 'calendar', 'drive', 'docs', 'slides'];
+export const GOOGLE_SOURCES: GoogleSource[] = ['gmail', 'calendar', 'drive', 'docs', 'slides', 'sheets'];
 
 /** Per-source scope sets. Minimum-needed only. */
 export const GOOGLE_SCOPES: Record<GoogleSource, string[]> = {
@@ -37,6 +37,7 @@ export const GOOGLE_SCOPES: Record<GoogleSource, string[]> = {
   drive: ['https://www.googleapis.com/auth/drive.file'],
   docs: ['https://www.googleapis.com/auth/documents'],
   slides: ['https://www.googleapis.com/auth/presentations'],
+  sheets: ['https://www.googleapis.com/auth/spreadsheets'],
 };
 
 export interface GoogleConnectionStatus {

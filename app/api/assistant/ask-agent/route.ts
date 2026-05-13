@@ -36,7 +36,7 @@ import { createActivityReceipt } from '@/services/receipts/activityReceiptServic
 
 export const dynamic = 'force-dynamic';
 
-const VALID_SPECIALISTS: SpecialistId[] = ['marketa', 'quill', 'kn0w1', 'aigent-z', 'aigent-c', 'aigent-nakamoto'];
+const VALID_SPECIALISTS: SpecialistId[] = ['marketa', 'quill', 'kn0w1', 'aigent-z', 'aigent-c', 'aigent-nakamoto', 'moneypenny', 'metaye'];
 
 /**
  * Aliases that map short / alternate names back onto the canonical
@@ -47,6 +47,11 @@ const SPECIALIST_ALIASES: Record<string, SpecialistId> = {
   nakamoto: 'aigent-nakamoto',
   'aigent-satoshi': 'aigent-nakamoto',
   satoshi: 'aigent-nakamoto',
+  'money-penny': 'moneypenny',
+  'aigent-moneypenny': 'moneypenny',
+  metaye: 'metaye',
+  'metayé': 'metaye',
+  'aigent-metaye': 'metaye',
 };
 
 function resolveSpecialistId(value: unknown): SpecialistId | null {
@@ -83,7 +88,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const body = (raw && typeof raw === 'object' ? raw : {}) as PostBody;
-  const resolvedSpecialistId = resolveSpecialistId(resolvedSpecialistId);
+  const resolvedSpecialistId = resolveSpecialistId(body.specialistId);
   if (!resolvedSpecialistId) {
     return NextResponse.json(
       {

@@ -42,7 +42,9 @@ export type SpecialistId =
   | 'kn0w1'
   | 'aigent-z'
   | 'aigent-c'
-  | 'aigent-nakamoto';
+  | 'aigent-nakamoto'
+  | 'moneypenny'
+  | 'metaye';
 
 export type SpecialistRequestType =
   | 'proposal'
@@ -54,7 +56,9 @@ export type SpecialistRequestType =
   | 'campaign_brief'
   | 'article_brief'
   | 'decentralisation_brief'
-  | 'policy_brief';
+  | 'policy_brief'
+  | 'micro_economics_brief'
+  | 'sovereignty_brief';
 
 export interface SpecialistContext {
   /** Cartridge the specialist should treat as primary. */
@@ -107,15 +111,19 @@ const SPECIALIST_PERSONA_KEY: Record<SpecialistId, keyof typeof personas | null>
   'aigent-z': 'aigent-z',
   'aigent-c': 'aigent-c',
   'aigent-nakamoto': 'aigent-nakamoto',
+  moneypenny: 'aigent-moneypenny',
+  metaye: 'aigent-metaye',
 };
 
 const SPECIALIST_LABELS: Record<SpecialistId, string> = {
   marketa: 'Marketa',
-  quill: 'Quill, editor of The Qriptopian, powered by Aigent Q',
+  quill: 'Quill',
   kn0w1: 'Kn0w1',
   'aigent-z': 'Aigent Z',
   'aigent-c': 'Aigent C',
-  'aigent-nakamoto': 'Aigent Nakamoto (Satoshi)',
+  'aigent-nakamoto': 'Nakamoto',
+  moneypenny: 'MoneyPenny',
+  metaye: 'Metayé',
 };
 
 // Map specialist + cartridge → default request type so the prompt knows
@@ -127,6 +135,8 @@ function inferRequestType(specialistId: SpecialistId, cartridge: string): Specia
   if (specialistId === 'aigent-z') return 'system_guidance';
   if (specialistId === 'aigent-c') return 'customer_journey';
   if (specialistId === 'aigent-nakamoto') return 'decentralisation_brief';
+  if (specialistId === 'moneypenny') return 'micro_economics_brief';
+  if (specialistId === 'metaye') return 'sovereignty_brief';
   // Cartridge hint:
   if (cartridge === 'qriptopian') return 'editorial_angle';
   if (cartridge === 'knyt') return 'mission_recommendation';
@@ -458,21 +468,55 @@ function templateResponse(
       confidence: 'medium',
     };
   }
-  // aigent-nakamoto — decentralisation + Bitcoin + iQube/Qripto policy steward.
+  if (specialistId === 'aigent-nakamoto') {
+    return {
+      requestType,
+      title: `Decentralisation & policy framing for "${intent}"`,
+      summary:
+        `Nakamoto frames ${intent} through the lens of self-custody, censorship-resistance, and Qripto-protocol policy. Surface the protocol primitives at stake and any policy trade-offs before acting.`,
+      recommendations: [
+        `Name the Qripto primitives this action touches (DiD/DiDQube, blakQube, metaQube, tokenQube, cohort attestation).`,
+        `Identify which policy tier owns enforcement: platform (Aigent Z) / customer (Aigent C) / ecosystem (Qripto Protocol).`,
+        `If the action settles on-chain, name the settlement assurance you want (provenance, finality, censorship-resistance).`,
+        `Spell out the key-management implication for the persona — what they hold, what they delegate, what they should never expose.`,
+      ],
+      suggestedArtifacts: ['brief'],
+      requiresApproval: false,
+      confidence: 'high',
+    };
+  }
+  if (specialistId === 'moneypenny') {
+    return {
+      requestType,
+      title: `Q¢ economics framing for "${intent}"`,
+      summary:
+        `MoneyPenny frames ${intent} around Q¢ pricing, micro-transaction flows, and payment-ops integrity. The recommendation focuses on how value moves, where it settles, and how the user retains custody.`,
+      recommendations: [
+        `Spell out the Q¢ price (and USD parity) for any unit the user is metering.`,
+        `Identify the settlement rail — Q¢, KNYT, USDC, PayPal — and the receipt that will be emitted.`,
+        `Surface any approval thresholds and the second-tier approval flow that applies.`,
+        `Suggest one micro-billing improvement (batch, prepay, streaming) if traffic is high enough to warrant it.`,
+      ],
+      suggestedArtifacts: ['brief', 'google-doc'],
+      requiresApproval: true,
+      confidence: 'medium',
+    };
+  }
+  // metaye — Sovereign Cybernetic Polity / governance steward.
   return {
     requestType,
-    title: `Decentralisation & policy framing for "${intent}"`,
+    title: `Sovereignty framing for "${intent}"`,
     summary:
-      `Aigent Nakamoto frames ${intent} through the lens of Bitcoin-grade self-custody, censorship-resistance, and iQube/Qripto policy. Surface the protocol primitives at stake and any policy trade-offs before acting.`,
+      `Metayé frames ${intent} through the Sovereign Cybernetic Polity lens: governance primitives, civic surfaces, and what it means for the user's sovereignty over identity, data, and value.`,
     recommendations: [
-      `Name the iQube/Qripto primitives this action touches (DiD/DiDQube, blakQube, metaQube, tokenQube, cohort attestation).`,
-      `Identify which policy tier owns enforcement: platform (Aigent Z) / customer (Aigent C) / ecosystem (iQube Protocol).`,
-      `If the action settles on-chain, name the settlement assurance you want (provenance, finality, censorship-resistance).`,
-      `Spell out the key-management implication for the persona — what they hold, what they delegate, what they should never expose.`,
+      `Name the civic primitive at stake (cohort, council, registry, attestation, mandate).`,
+      `Identify the governance event this generates (proposal, vote, ratification, repair).`,
+      `Surface the sovereignty implication — what the user retains, delegates, or risks exposing.`,
+      `Recommend one civic next step that strengthens the polity rather than narrows it.`,
     ],
     suggestedArtifacts: ['brief'],
     requiresApproval: false,
-    confidence: 'high',
+    confidence: 'medium',
   };
 }
 
