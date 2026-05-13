@@ -51,6 +51,8 @@ import {
 } from "@/components/metame/cards/ExperienceModelCard";
 import { IqubeContextDisclosure } from "@/components/metame/cards/IqubeContextDisclosure";
 import { ExperienceModelSetupWizard } from "@/components/metame/setup/ExperienceModelSetupWizard";
+import { PersonalGuideSetupWizard } from "@/components/metame/setup/PersonalGuideSetupWizard";
+import { ALIGNMENT_LABEL, type AlignmentState, type PersonalGuideData } from "@/types/experienceGuide";
 import { BriefCard, type BriefCardData } from "@/components/metame/cards/BriefCard";
 import {
   VentureProgressCard,
@@ -1413,6 +1415,7 @@ function AigentMeWelcomeBody({
                 : 'Setup Experience Model'}
             </span>
           )}
+          <PersonalGuideChip personaId={personaId} />
           <div className="flex-1 min-w-[120px]" />
           <div className="shrink-0">
             <IqubeContextDisclosure using={usingIqubes} theme={theme} />
@@ -1785,3 +1788,71 @@ function AigentMeWelcomeBody({
 }
 
 export default AigentMeWelcomeTab;
+
+// ─────────────────────────────────────────────────────────────────────────
+// PersonalGuideChip — runtime summary for the Personal ExperienceGuide.
+// Colocated here so the welcome tab's Row 1 stays a single render block.
+// Fetches /api/assistant/experience-guide on mount; renders an alignment
+// badge when configured, or a "Set up" CTA that opens the guide wizard
+// when not.
+// ─────────────────────────────────────────────────────────────────────────
+
+const GUIDE_CHIP_BG: Record<AlignmentState, string> = {
+  aligned:  'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
+  drifting: 'bg-amber-500/10 border-amber-500/30 text-amber-300',
+  at_risk:  'bg-orange-500/10 border-orange-500/30 text-orange-300',
+  repair:   'bg-rose-500/10 border-rose-500/30 text-rose-300',
+};
+
+function PersonalGuideChip({ personaId }: { personaId?: string }) {
+  const [guide, setGuide] = useState<PersonalGuideData | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+
+  useEffect(() => {
+    if (!personaId) return;
+    let cancelled = false;
+    personaFetch('/api/assistant/experience-guide', { personaIdHint: personaId })
+      .then((res) => res.ok ? res.json() : null)
+      .then((data: { configured?: boolean; guide?: PersonalGuideData | null } | null) => {
+        if (cancelled) return;
+        setGuide(data?.guide ?? null);
+        setLoaded(true);
+      })
+      .catch(() => { if (!cancelled) setLoaded(true); });
+    return () => { cancelled = true; };
+  }, [personaId]);
+
+  if (!loaded) return null;
+
+  const onClick = () => setWizardOpen(true);
+
+  return (
+    <>
+      {guide ? (
+        <button
+          type="button"
+          onClick={onClick}
+          className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 hover:brightness-110 ${GUIDE_CHIP_BG[guide.alignmentState]}`}
+          title="Open ExperienceGuide alignment helper"
+        >
+          ExperienceGuide: {ALIGNMENT_LABEL[guide.alignmentState]}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={onClick}
+          className="text-xs px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 bg-violet-500/10 border-violet-500/30 text-violet-300 hover:bg-violet-500/20"
+        >
+          Set up ExperienceGuide
+        </button>
+      )}
+      <PersonalGuideSetupWizard
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        initial={guide}
+        onSaved={(g) => setGuide(g)}
+      />
+    </>
+  );
+}
