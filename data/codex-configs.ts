@@ -1735,59 +1735,19 @@ export const METAME_CODEX: CodexConfig = {
   },
   tabs: [
     {
-      id: 'aigent-me-welcome',
-      label: 'Aigent Me',
-      slug: 'aigent-me',
+      id: 'metame-cartridge-shell',
+      label: 'metaMe',
+      slug: 'metame',
       enabled: true,
       order: 0,
       type: 'static',
       config: {
-        component: 'AigentMeWelcomeTab',
+        component: 'MetaMeCartridgeTab',
         props: {}
       },
       metadata: {
         icon: 'Sparkles',
-        description: 'metaMe Personal Assistant — sovereign chief of staff for your active cartridges, goals, and venture work',
-        color: 'violet'
-      }
-    },
-    {
-      id: 'experience-framework',
-      label: 'Experience Framework',
-      slug: 'experience-framework',
-      enabled: true,
-      adminOnly: true,
-      order: 1,
-      type: 'static',
-      config: {
-        component: 'AgentiqCartridgeTab',
-        props: {
-          packId: 'metame',
-          collectionId: 'col_experience_framework',
-          defaultPath: 'items/METAME_EXPERIENCE_FRAMEWORK.md'
-        }
-      },
-      metadata: {
-        icon: 'Layers',
-        description: 'Canonical experience framework — strategy, model, matrix, ladder, governance',
-        color: 'violet'
-      }
-    },
-    {
-      id: 'experience-dashboard',
-      label: 'Journey Dashboard',
-      slug: 'experience-dashboard',
-      enabled: true,
-      adminOnly: true,
-      order: 2,
-      type: 'static',
-      config: {
-        component: 'ExperienceDashboardTab',
-        props: { tenantId: 'metame' }
-      },
-      metadata: {
-        icon: 'BarChart',
-        description: 'User journey states, progression, NBE opportunities',
+        description: 'metaMe Cartridge — aigentMe, Venture Lab, Marketa, Studio, AgentiQ OS, Qriptopia, Admin',
         color: 'violet'
       }
     }
