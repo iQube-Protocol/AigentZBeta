@@ -1760,18 +1760,15 @@ export const METAME_CODEX: CodexConfig = {
       }
     },
     {
-      id: 'aigentme-experience-model',
-      label: 'Experience Model',
-      slug: 'experience-model',
+      id: 'aigentme-strategy',
+      label: 'Strategy',
+      slug: 'strategy',
       enabled: true,
       group: 'aigentme',
       order: 1,
       type: 'static',
-      config: {
-        component: 'PlaceholderTab',
-        props: { title: 'Experience Model', description: 'Define what you are building, which cartridges matter, and what stays confidential. Coming soon.' }
-      },
-      metadata: { icon: 'Layers', description: 'Experience model definition', color: 'violet' }
+      config: { component: 'MetaMeStrategyTab', props: {} },
+      metadata: { icon: 'Layers', description: 'Strategic posture — venture + personal layer', color: 'violet' }
     },
     {
       id: 'aigentme-experience-matrix',
@@ -1794,6 +1791,39 @@ export const METAME_CODEX: CodexConfig = {
       type: 'static',
       config: { component: 'ExperienceAlignmentTab', props: {} },
       metadata: { icon: 'Target', description: 'Personal ExperienceGuide alignment helper — bars, repair risks, precedence', color: 'violet' }
+    },
+    {
+      id: 'aigentme-status',
+      label: 'Status',
+      slug: 'status',
+      enabled: true,
+      group: 'aigentme',
+      order: 4,
+      type: 'static',
+      config: { component: 'MetaMeStatusTab', props: {} },
+      metadata: { icon: 'Activity', description: 'Current operational status — alignment, repair risks, recent activity', color: 'violet' }
+    },
+    {
+      id: 'aigentme-nbe',
+      label: 'NBE',
+      slug: 'nbe',
+      enabled: true,
+      group: 'aigentme',
+      order: 5,
+      type: 'static',
+      config: { component: 'MetaMeNbeTab', props: {} },
+      metadata: { icon: 'Sparkles', description: 'Next Best Experiences — ranked actions across active cartridges', color: 'violet' }
+    },
+    {
+      id: 'aigentme-analysis',
+      label: 'Analysis',
+      slug: 'analysis',
+      enabled: true,
+      group: 'aigentme',
+      order: 6,
+      type: 'static',
+      config: { component: 'MetaMeAnalysisTab', props: {} },
+      metadata: { icon: 'BarChart3', description: 'Pattern analysis — action types, cartridges, daily rhythm', color: 'violet' }
     },
 
     // ── VL group (admin-gated) ───────────────────────────────────────────────
