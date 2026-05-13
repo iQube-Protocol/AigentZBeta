@@ -35,7 +35,11 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Sparkles, Loader2 } from "lucide-react";
+import {
+  Sparkles, Loader2, Mail, Calendar, FileText, Layout,
+  Megaphone, Zap, BarChart3, Layers, Users, Plus,
+  Brain, Shield, ChevronDown, ChevronUp, Target,
+} from "lucide-react";
 import {
   usePersonaSpine,
   personaFetch,
@@ -1336,6 +1340,20 @@ function AigentMeWelcomeBody({
     }
   }, [moveForwardCartridgeOpen]);
 
+  // CTA icon mapping for the console action grid
+  const CTA_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+    'set-up-experience-model': Layers,
+    'brief-me': FileText,
+    'move-this-forward': Zap,
+    'review-venture-progress': BarChart3,
+    'create-something': Plus,
+    'coordinate-follow-ups': Users,
+    'ask-marketa': Megaphone,
+    'ask-kn0w1': Brain,
+    'ask-aigent-z': Shield,
+    'ask-aigent-c': Sparkles,
+  };
+
   if (bootstrapLoading && !data) {
     return (
       <div className="p-10 flex items-center justify-center gap-3">
@@ -1358,466 +1376,393 @@ function AigentMeWelcomeBody({
 
   if (!data) return null;
 
-  // Prefer the spine's displayLabel (single source of truth across surfaces);
-  // fall back to the bootstrap copy if for some reason it differs.
   const greetingName = (spineDisplayLabel || data.displayLabel || '').trim();
   const usingIqubes: ('PersonaQube' | 'ExperienceQube' | 'IntentQube')[] =
     expModel?.configured ? ['PersonaQube', 'ExperienceQube'] : ['PersonaQube'];
 
   return (
-    <div className="p-6 lg:p-10 max-w-5xl mx-auto space-y-8">
-      {/* Header — product label + greeting */}
-      <header className="space-y-2">
-        <div className="flex items-center gap-2">
-          <Sparkles className={`w-5 h-5 ${accentClass}`} />
-          <span className={`text-xs uppercase tracking-wider ${mutedClass}`}>
-            {data.naming.productLabel}
-          </span>
-        </div>
-        <h1 className="text-3xl lg:text-4xl font-semibold leading-tight">
-          {greetingName ? `Welcome back, ${greetingName}.` : 'Welcome back.'}
-        </h1>
-        <p className={`max-w-2xl ${mutedClass}`}>
-          I can help you brief your day, guide your experience strategy, move
-          your cartridges forward, create artifacts, coordinate trusted
-          agents, and track progress.
-        </p>
-      </header>
+    <div className="h-full overflow-y-auto">
+      <div className="p-4 max-w-5xl mx-auto space-y-3">
 
-      {/* iQube context disclosure — what's being used right now */}
-      <IqubeContextDisclosure using={usingIqubes} theme={theme} />
-
-      {/* Pending approval (single slot) — appears whenever the user clicks
-          Act on any NBE. Approve creates an IntentQube row; the queued
-          state replaces the pending one inline. */}
-      {pendingApprovalNbe && (
-        <ApprovalCard
-          action={toApprovalAction(pendingApprovalNbe)}
-          submitting={submittingApproval}
-          queued={null}
-          error={approvalError}
-          onApprove={onApprovalApprove}
-          onCancel={onApprovalCancel}
-          onEdit={() => { /* Phase 6 */ }}
-          using={usingIqubes}
-          theme={theme}
-        />
-      )}
-
-      {/* Queued intents — chip-sized confirmations stack here until dismissed */}
-      {Object.keys(queuedIntents).length > 0 && (
-        <section className="space-y-2">
-          {Object.entries(queuedIntents).map(([nbeId, queued]) => (
-            <ApprovalCard
-              key={nbeId}
-              action={{
-                nbeId,
-                label: nbeId,
-                rationale: '',
-                cartridge: 'metame',
-                approvalRequired: false,
-                specialist: null,
-                suggestedArtifact: null,
-              }}
-              queued={queued}
-              onApprove={() => { /* not used in queued state */ }}
-              onCancel={() => onDismissQueued(nbeId)}
-              using={usingIqubes}
-              theme={theme}
-            />
-          ))}
-        </section>
-      )}
-
-      {/* Specialist responses — Phase 5. Cards render inline once a queued
-          NBE with a specialist returns from /api/assistant/ask-agent. */}
-      {(Object.keys(specialistResponses).length > 0 ||
-        Object.keys(specialistLoading).length > 0 ||
-        Object.keys(specialistErrors).length > 0) && (
-        <section className="space-y-2">
-          {Object.keys({ ...specialistResponses, ...specialistLoading, ...specialistErrors }).map((nbeId) => {
-            const sp = specialistResponses[nbeId] ?? null;
-            const isLoading = !!specialistLoading[nbeId];
-            const err = specialistErrors[nbeId] ?? null;
-            const intentId = queuedIntents[nbeId]?.intentId;
-            return (
-              <SpecialistResponseCard
-                key={nbeId}
-                data={sp}
-                loading={isLoading}
-                error={err}
-                using={usingIqubes}
-                onDismiss={() => onDismissSpecialist(nbeId)}
-                onCreateArtifact={
-                  sp
-                    ? (artifactType) =>
-                        onCreateArtifact(artifactType, {
-                          sourceIntentId: intentId,
-                          specialistId: sp.specialistId,
-                        })
-                    : undefined
-                }
-                theme={theme}
-              />
-            );
-          })}
-        </section>
-      )}
-
-      {/* Artifacts — Phase 6. Stack of recently-created runtime-destination
-          artifacts. Phase 6.b Part 2.5 — Gmail-destination artifacts carry
-          an externalisation button (Send) gated by SecondTierApprovalCard. */}
-      {artifacts.length > 0 && (
-        <section className="space-y-2">
-          <h2 className={`text-xs uppercase tracking-wider ${mutedClass}`}>
-            Artifacts
-          </h2>
-          {artifacts.map((a) => (
-            <React.Fragment key={a.artifactId}>
-              <ArtifactCard
-                data={a}
-                onDismiss={() => onDismissArtifact(a.artifactId)}
-                onAction={a.actionConnectorId ? () => onSendArtifact(a.artifactId) : undefined}
-                actionPending={actionPendingArtifactId === a.artifactId}
-                actionError={actionErrors[a.artifactId] ?? null}
-                theme={theme}
-              />
-              {secondTierApproval?.artifactId === a.artifactId && (
-                <SecondTierApprovalCard
-                  connectorLabel={secondTierApproval.connectorLabel}
-                  summary={secondTierApproval.summary}
-                  detail={secondTierApproval.detail}
-                  submitting={secondTierApproval.submitting}
-                  error={secondTierApproval.error}
-                  onApprove={onApproveSecondTier}
-                  onCancel={onCancelSecondTier}
-                  theme={theme}
-                />
-              )}
-            </React.Fragment>
-          ))}
-        </section>
-      )}
-
-      {/* Receipts panel — Phase 7. Collapsible. */}
-      <section>
-        <div className="flex items-center justify-between mb-2">
-          <h2 className={`text-xs uppercase tracking-wider ${mutedClass}`}>
-            Recent activity
-          </h2>
-          <button
-            onClick={onToggleReceipts}
-            className={`text-xs px-2 py-1 rounded border ${chipClass}`}
-          >
-            {receiptsOpen ? 'Hide receipts' : 'Show receipts'}
-          </button>
-        </div>
-        {receiptsOpen && (
-          <div className="space-y-2">
-            {receiptsLoading ? (
-              <p className={`text-sm ${mutedClass}`}>Loading receipts…</p>
-            ) : receipts.length === 0 ? (
-              <p className={`text-sm ${mutedClass}`}>
-                No receipts yet. Acting on any NBE will produce one.
-              </p>
-            ) : (
-              receipts.map((r) => (
-                <ActivityReceiptCard key={r.id} data={r} personaDisplayLabel={receiptsPersonaLabel} theme={theme} />
-              ))
-            )}
-          </div>
-        )}
-      </section>
-
-      {/* ExperienceModel card */}
-      <ExperienceModelCard
-        data={expModel}
-        loading={expModelLoading}
-        onEdit={() => onCtaClick('set-up-experience-model')}
-        theme={theme}
-      />
-
-      {/* Quick links — deep-link into the cartridges and tabs the user
-          works in most. PersonaId travels with every link via buildCodexUrl. */}
-      <QuickLinksCard personaId={personaId} theme={theme} />
-
-      {/* Google Workspace connections — Phase 6.b. Per-source opt-in.
-          Renders an operator-action diagnostic for admins when env vars
-          aren't set yet; a neutral "coming soon" notice for non-admins. */}
-      <GoogleConnectionsPanel
-        isAdmin={!!data.cartridgeFlags?.isAdmin}
-        theme={theme}
-      />
-
-      {/* Phase 6.b Part 2.5b — Compose Gmail draft entry point. The route
-          gates on persona connection state; clicking without a connected
-          Gmail account surfaces the connector's "not-connected" message
-          inline on the modal. */}
-      <div className="flex flex-wrap justify-end gap-2">
-        <button
-          type="button"
-          onClick={() => onComposeMarketaOpenChange(true)}
-          className="text-xs px-3 py-1.5 rounded-md border border-violet-500/40 text-violet-200 hover:border-violet-400 hover:text-violet-100 transition"
-        >
-          Compose Marketa email
-        </button>
-        <button
-          type="button"
-          onClick={() => onComposeSlidesOpenChange(true)}
-          className="text-xs px-3 py-1.5 rounded-md border border-violet-500/40 text-violet-200 hover:border-violet-400 hover:text-violet-100 transition"
-        >
-          Compose Slides deck
-        </button>
-        <button
-          type="button"
-          onClick={() => onComposeDocOpenChange(true)}
-          className="text-xs px-3 py-1.5 rounded-md border border-violet-500/40 text-violet-200 hover:border-violet-400 hover:text-violet-100 transition"
-        >
-          Compose Google Doc
-        </button>
-        <button
-          type="button"
-          onClick={() => onComposeCalendarOpenChange(true)}
-          className="text-xs px-3 py-1.5 rounded-md border border-violet-500/40 text-violet-200 hover:border-violet-400 hover:text-violet-100 transition"
-        >
-          Compose Calendar event
-        </button>
-        <button
-          type="button"
-          onClick={() => onComposeGmailOpenChange(true)}
-          className="text-xs px-3 py-1.5 rounded-md border border-violet-500/40 text-violet-200 hover:border-violet-400 hover:text-violet-100 transition"
-        >
-          Compose Gmail draft
-        </button>
-      </div>
-      <ComposeGmailDraftModal
-        open={composeGmailOpen}
-        onClose={() => onComposeGmailOpenChange(false)}
-        onCreate={onComposeGmailDraft}
-        onDraftWithAigentMe={onDraftEmail}
-        theme={theme}
-      />
-      <ComposeCalendarEventModal
-        open={composeCalendarOpen}
-        onClose={() => onComposeCalendarOpenChange(false)}
-        onCreate={onComposeCalendarEvent}
-        onDraftWithAigentMe={onDraftEvent}
-        theme={theme}
-      />
-      <ComposeGoogleDocModal
-        open={composeDocOpen}
-        onClose={() => onComposeDocOpenChange(false)}
-        onCreate={onComposeGoogleDoc}
-        onDraftWithAigentMe={onDraftDoc}
-        theme={theme}
-      />
-      <ComposeSlidesModal
-        open={composeSlidesOpen}
-        onClose={() => onComposeSlidesOpenChange(false)}
-        onCreate={onComposeSlides}
-        onDraftWithAigentMe={onDraftSlides}
-        theme={theme}
-      />
-      <ComposeMarketaEmailModal
-        open={composeMarketaOpen}
-        onClose={() => onComposeMarketaOpenChange(false)}
-        onCreate={onComposeMarketa}
-        onDraftWithAigentMe={onDraftMarketa}
-        theme={theme}
-      />
-
-      {/* Context chips */}
-      <section>
-        <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
-          Active context
-        </h2>
-        <div className="flex flex-wrap gap-2">
-          {CONTEXT_CHIPS.map((chip) => (
-            <span
-              key={chip}
-              className={`px-3 py-1 text-sm rounded-full border ${chipClass}`}
-            >
-              {chip}
+        {/* ── CONSOLE HEADER — compact identity + status row ─────────────────── */}
+        <div className="flex items-center gap-3 flex-wrap py-1">
+          <div className="flex items-center gap-2">
+            <Sparkles className={`w-4 h-4 ${accentClass}`} />
+            <span className="text-sm font-semibold text-slate-100">
+              {greetingName ? greetingName : data.naming.productLabel}
             </span>
-          ))}
+          </div>
+          {!expModelLoading && expModel && (
+            <span className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap ${
+              expModel.configured
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+            }`}>
+              {expModel.configured
+                ? (expModel.meta?.experienceName || 'ExperienceQube active')
+                : 'Setup Experience Model'}
+            </span>
+          )}
+          <div className="flex-1" />
+          <IqubeContextDisclosure using={usingIqubes} theme={theme} />
         </div>
-      </section>
 
-      {/* Primary CTAs */}
-      <section>
-        <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
-          What would you like to do?
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {data.primaryCtas.map((cta) => {
-            const isPreview = cta.status === 'preview';
-            const baseBtn =
-              'text-left px-4 py-3 rounded-lg border transition w-full';
-            const enabledBtn = isDark
-              ? 'bg-slate-800/60 border-slate-700 hover:bg-slate-800 hover:border-violet-500/40'
-              : 'bg-white border-slate-200 hover:bg-slate-50 hover:border-violet-400';
-            const disabledBtn = isDark
-              ? 'bg-slate-900/40 border-slate-800 cursor-not-allowed'
-              : 'bg-slate-50 border-slate-200 cursor-not-allowed';
-            return (
-              <button
-                key={cta.id}
-                disabled={!cta.enabled}
-                onClick={() => cta.enabled && onCtaClick(cta.id)}
-                className={`${baseBtn} ${cta.enabled ? enabledBtn : disabledBtn}`}
-                title={isPreview ? 'Coming in a later phase of the alpha' : undefined}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{cta.label}</span>
+        {/* ── PRIMARY ACTION GRID ─────────────────────────────────────────────── */}
+        <section>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {data.primaryCtas.map((cta) => {
+              const CtaIcon = CTA_ICON_MAP[cta.id] || Sparkles;
+              const isPreview = cta.status === 'preview';
+              return (
+                <button
+                  key={cta.id}
+                  disabled={!cta.enabled}
+                  onClick={() => cta.enabled && onCtaClick(cta.id)}
+                  title={isPreview ? 'Coming in a later phase of the alpha' : undefined}
+                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-left transition w-full ${
+                    cta.enabled
+                      ? isDark
+                        ? 'bg-slate-800/60 border-slate-700 hover:bg-slate-800 hover:border-violet-500/40 text-slate-100'
+                        : 'bg-white border-slate-200 hover:bg-slate-50 hover:border-violet-400 text-slate-900'
+                      : isDark
+                        ? 'bg-slate-900/40 border-slate-800 cursor-not-allowed text-slate-600'
+                        : 'bg-slate-50 border-slate-200 cursor-not-allowed text-slate-400'
+                  }`}
+                >
+                  <CtaIcon className={`w-4 h-4 flex-shrink-0 ${cta.enabled ? accentClass : mutedClass}`} />
+                  <span className="text-sm font-medium leading-snug">{cta.label}</span>
                   {isPreview && (
-                    <span className={`text-[10px] uppercase tracking-wider ${mutedClass}`}>
-                      preview
+                    <span className={`ml-auto text-[9px] uppercase tracking-wider ${mutedClass} opacity-60`}>
+                      soon
                     </span>
                   )}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Brief Card — appears once 'Brief me' is clicked */}
-      {(briefLoading || briefError || brief) && (
-        <section>
-          <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
-            Brief
-          </h2>
-          <BriefCard
-            data={brief}
-            loading={briefLoading}
-            error={briefError}
-            onActOnNbe={onNbeAct}
-            theme={theme}
-          />
+                </button>
+              );
+            })}
+          </div>
         </section>
-      )}
 
-      {/* Venture Progress — appears once 'Review venture progress' is clicked */}
-      {(ventureProgressLoading || ventureProgressError || ventureProgress) && (
-        <section>
-          <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
-            Venture Progress
-          </h2>
-          <VentureProgressCard
-            data={ventureProgress}
-            loading={ventureProgressLoading}
-            error={ventureProgressError}
-            onActOnNbe={onNbeAct}
-            theme={theme}
-          />
-        </section>
-      )}
-
-      {/* Move-forward — hero NBE first, then alternates, then 'switch cartridge' strip */}
-      {moveForwardCartridgeOpen && (
-        <section ref={moveForwardSectionRef}>
-          <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
-            Move this forward
-          </h2>
-
-          {moveForwardLoading && (
-            <p className={`text-sm ${mutedClass}`}>Looking for the strongest move…</p>
-          )}
-
-          {moveForwardResult && !moveForwardLoading && (
-            <div className="space-y-3">
-              {moveForwardResult.topAction ? (
-                <NextBestActionCard
-                  action={moveForwardResult.topAction}
-                  variant="hero"
-                  onAct={onNbeAct}
-                  theme={theme}
-                />
-              ) : (
-                <p className={`text-sm ${mutedClass}`}>
-                  No catalogue match at your current stage.
-                  Try setting up your ExperienceModel first.
-                </p>
-              )}
-              {moveForwardResult.alternates.length > 0 && (
-                <>
-                  <h3 className={`text-xs uppercase tracking-wider mt-4 mb-1 ${mutedClass}`}>
-                    Or instead
-                  </h3>
-                  <div className="space-y-2">
-                    {moveForwardResult.alternates.map((a) => (
-                      <NextBestActionCard
-                        key={a.id}
-                        action={a}
-                        onAct={onNbeAct}
-                        theme={theme}
-                      />
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {/* Steering strip — swap cartridge if the user wants a different angle */}
-              <div className="pt-3 mt-3 border-t border-slate-800/40">
-                <div className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
-                  Switch cartridge
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {data.availableCartridges.map((c) => {
-                    const selected = moveForwardResult.cartridge === c.slug;
-                    return (
-                      <button
-                        key={c.slug}
-                        onClick={() => onPickMoveForwardCartridge(c.slug)}
-                        className={`px-2.5 py-1 rounded-full border text-xs transition ${
-                          selected
-                            ? 'bg-violet-500/20 border-violet-500 text-violet-200'
-                            : isDark
-                              ? 'bg-slate-800/60 border-slate-700 text-slate-300 hover:border-slate-600'
-                              : 'bg-white border-slate-300 text-slate-700 hover:border-violet-400'
-                        }`}
-                      >
-                        {c.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* Specialist directory */}
-      <section>
-        <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
-          Specialists I can coordinate
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {data.availableSpecialists.map((s) => (
-            <div
-              key={s.id}
-              className={`rounded-lg border p-4 ${surfaceClass}`}
+        {/* ── COMPOSE STRIP — quick workspace action launchers ──────────────── */}
+        <div className="flex items-center gap-1.5 flex-wrap py-0.5">
+          <span className={`text-[10px] uppercase tracking-wider mr-0.5 ${mutedClass} opacity-70`}>
+            Compose
+          </span>
+          {([
+            { label: 'Email',   Icon: Mail,      action: () => onComposeGmailOpenChange(true)    },
+            { label: 'Event',   Icon: Calendar,  action: () => onComposeCalendarOpenChange(true) },
+            { label: 'Doc',     Icon: FileText,  action: () => onComposeDocOpenChange(true)      },
+            { label: 'Slides',  Icon: Layout,    action: () => onComposeSlidesOpenChange(true)   },
+            { label: 'Marketa', Icon: Megaphone, action: () => onComposeMarketaOpenChange(true)  },
+          ] as Array<{ label: string; Icon: React.ComponentType<{ className?: string }>; action: () => void }>).map(({ label, Icon, action }) => (
+            <button
+              key={label}
+              onClick={action}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs border border-violet-500/20 text-violet-300 hover:border-violet-400 hover:text-violet-200 transition"
             >
-              <div className="font-medium mb-1">{s.label}</div>
-              <div className={`text-sm ${mutedClass}`}>{s.description}</div>
-              <div className={`text-[11px] mt-2 uppercase tracking-wider ${mutedClass}`}>
-                {s.homeCartridge}
-              </div>
-            </div>
+              <Icon className="w-3 h-3" />
+              {label}
+            </button>
           ))}
         </div>
-      </section>
 
-      {/* Naming notice — locked decisions */}
-      <footer className={`text-xs ${mutedClass} pt-4 border-t border-slate-800/60`}>
-        <p>
-          Locked names: <strong>{data.naming.canonicalMediaBrand}</strong> ·
-          KNYT specialist <strong>{data.naming.knytSpecialist}</strong> ·
-          Qriptopian editorial <strong>Quill</strong>.
-          Workspace tools (Gmail, Calendar, Drive) are opt-in per source.
-        </p>
-      </footer>
+        {/* ── ACTIVE CONTENT — approvals, briefs, specialists, artifacts ───────
+            These appear inline as the user triggers them. */}
+
+        {pendingApprovalNbe && (
+          <ApprovalCard
+            action={toApprovalAction(pendingApprovalNbe)}
+            submitting={submittingApproval}
+            queued={null}
+            error={approvalError}
+            onApprove={onApprovalApprove}
+            onCancel={onApprovalCancel}
+            onEdit={() => { /* Phase 6 */ }}
+            using={usingIqubes}
+            theme={theme}
+          />
+        )}
+
+        {Object.keys(queuedIntents).length > 0 && (
+          <section className="space-y-2">
+            {Object.entries(queuedIntents).map(([nbeId, queued]) => (
+              <ApprovalCard
+                key={nbeId}
+                action={{
+                  nbeId,
+                  label: nbeId,
+                  rationale: '',
+                  cartridge: 'metame',
+                  approvalRequired: false,
+                  specialist: null,
+                  suggestedArtifact: null,
+                }}
+                queued={queued}
+                onApprove={() => { /* not used in queued state */ }}
+                onCancel={() => onDismissQueued(nbeId)}
+                using={usingIqubes}
+                theme={theme}
+              />
+            ))}
+          </section>
+        )}
+
+        {(Object.keys(specialistResponses).length > 0 ||
+          Object.keys(specialistLoading).length > 0 ||
+          Object.keys(specialistErrors).length > 0) && (
+          <section className="space-y-2">
+            {Object.keys({ ...specialistResponses, ...specialistLoading, ...specialistErrors }).map((nbeId) => {
+              const sp = specialistResponses[nbeId] ?? null;
+              const isLoading = !!specialistLoading[nbeId];
+              const err = specialistErrors[nbeId] ?? null;
+              const intentId = queuedIntents[nbeId]?.intentId;
+              return (
+                <SpecialistResponseCard
+                  key={nbeId}
+                  data={sp}
+                  loading={isLoading}
+                  error={err}
+                  using={usingIqubes}
+                  onDismiss={() => onDismissSpecialist(nbeId)}
+                  onCreateArtifact={
+                    sp
+                      ? (artifactType) =>
+                          onCreateArtifact(artifactType, {
+                            sourceIntentId: intentId,
+                            specialistId: sp.specialistId,
+                          })
+                      : undefined
+                  }
+                  theme={theme}
+                />
+              );
+            })}
+          </section>
+        )}
+
+        {artifacts.length > 0 && (
+          <section className="space-y-2">
+            <h2 className={`text-xs uppercase tracking-wider ${mutedClass}`}>Artifacts</h2>
+            {artifacts.map((a) => (
+              <React.Fragment key={a.artifactId}>
+                <ArtifactCard
+                  data={a}
+                  onDismiss={() => onDismissArtifact(a.artifactId)}
+                  onAction={a.actionConnectorId ? () => onSendArtifact(a.artifactId) : undefined}
+                  actionPending={actionPendingArtifactId === a.artifactId}
+                  actionError={actionErrors[a.artifactId] ?? null}
+                  theme={theme}
+                />
+                {secondTierApproval?.artifactId === a.artifactId && (
+                  <SecondTierApprovalCard
+                    connectorLabel={secondTierApproval.connectorLabel}
+                    summary={secondTierApproval.summary}
+                    detail={secondTierApproval.detail}
+                    submitting={secondTierApproval.submitting}
+                    error={secondTierApproval.error}
+                    onApprove={onApproveSecondTier}
+                    onCancel={onCancelSecondTier}
+                    theme={theme}
+                  />
+                )}
+              </React.Fragment>
+            ))}
+          </section>
+        )}
+
+        {(briefLoading || briefError || brief) && (
+          <section>
+            <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>Brief</h2>
+            <BriefCard data={brief} loading={briefLoading} error={briefError} onActOnNbe={onNbeAct} theme={theme} />
+          </section>
+        )}
+
+        {(ventureProgressLoading || ventureProgressError || ventureProgress) && (
+          <section>
+            <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>Venture Progress</h2>
+            <VentureProgressCard
+              data={ventureProgress}
+              loading={ventureProgressLoading}
+              error={ventureProgressError}
+              onActOnNbe={onNbeAct}
+              theme={theme}
+            />
+          </section>
+        )}
+
+        {moveForwardCartridgeOpen && (
+          <section ref={moveForwardSectionRef}>
+            <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>Move this forward</h2>
+            {moveForwardLoading && (
+              <p className={`text-sm ${mutedClass}`}>Looking for the strongest move…</p>
+            )}
+            {moveForwardResult && !moveForwardLoading && (
+              <div className="space-y-3">
+                {moveForwardResult.topAction ? (
+                  <NextBestActionCard action={moveForwardResult.topAction} variant="hero" onAct={onNbeAct} theme={theme} />
+                ) : (
+                  <p className={`text-sm ${mutedClass}`}>
+                    No catalogue match at your current stage. Try setting up your ExperienceModel first.
+                  </p>
+                )}
+                {moveForwardResult.alternates.length > 0 && (
+                  <>
+                    <h3 className={`text-xs uppercase tracking-wider mt-3 mb-1 ${mutedClass}`}>Or instead</h3>
+                    <div className="space-y-2">
+                      {moveForwardResult.alternates.map((a) => (
+                        <NextBestActionCard key={a.id} action={a} onAct={onNbeAct} theme={theme} />
+                      ))}
+                    </div>
+                  </>
+                )}
+                <div className="pt-3 mt-3 border-t border-slate-800/40">
+                  <div className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>Switch cartridge</div>
+                  <div className="flex flex-wrap gap-2">
+                    {data.availableCartridges.map((c) => {
+                      const selected = moveForwardResult.cartridge === c.slug;
+                      return (
+                        <button
+                          key={c.slug}
+                          onClick={() => onPickMoveForwardCartridge(c.slug)}
+                          className={`px-2.5 py-1 rounded-full border text-xs transition ${
+                            selected
+                              ? 'bg-violet-500/20 border-violet-500 text-violet-200'
+                              : isDark
+                                ? 'bg-slate-800/60 border-slate-700 text-slate-300 hover:border-slate-600'
+                                : 'bg-white border-slate-300 text-slate-700 hover:border-violet-400'
+                          }`}
+                        >
+                          {c.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ── ACTIVITY RECEIPTS — compact collapsible ───────────────────────── */}
+        <section className={`rounded-lg border ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+          <button
+            onClick={onToggleReceipts}
+            className="flex items-center justify-between w-full px-3 py-2 text-left"
+          >
+            <span className={`text-xs uppercase tracking-wider ${mutedClass}`}>Activity receipts</span>
+            {receiptsOpen
+              ? <ChevronUp className="w-3.5 h-3.5 text-slate-600" />
+              : <ChevronDown className="w-3.5 h-3.5 text-slate-600" />
+            }
+          </button>
+          {receiptsOpen && (
+            <div className={`px-3 pb-3 space-y-2 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+              {receiptsLoading ? (
+                <p className={`text-sm pt-2 ${mutedClass}`}>Loading receipts…</p>
+              ) : receipts.length === 0 ? (
+                <p className={`text-sm pt-2 ${mutedClass}`}>No receipts yet. Acting on any NBE will produce one.</p>
+              ) : (
+                <div className="pt-2 space-y-2">
+                  {receipts.map((r) => (
+                    <ActivityReceiptCard key={r.id} data={r} personaDisplayLabel={receiptsPersonaLabel} theme={theme} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* ── BELOW-FOLD: specialists, model, quick links, connections ─────────
+            Separated visually — users set up / configure here, then act above. */}
+        <div className={`pt-4 mt-2 border-t ${isDark ? 'border-slate-800/50' : 'border-slate-200'} space-y-4`}>
+
+          {/* Specialists — compact 2-3 col grid */}
+          <section>
+            <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>Specialists</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {data.availableSpecialists.map((s) => (
+                <div key={s.id} className={`rounded-lg border p-2.5 ${surfaceClass}`}>
+                  <div className="font-medium text-sm leading-snug">{s.label}</div>
+                  <div className={`text-xs mt-0.5 ${mutedClass}`}>{s.description}</div>
+                  <div className={`text-[10px] mt-1.5 uppercase tracking-wider ${mutedClass} opacity-60`}>
+                    {s.homeCartridge}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* ExperienceModel card */}
+          <ExperienceModelCard
+            data={expModel}
+            loading={expModelLoading}
+            onEdit={() => onCtaClick('set-up-experience-model')}
+            theme={theme}
+          />
+
+          {/* Quick links */}
+          <QuickLinksCard personaId={personaId} theme={theme} />
+
+          {/* Google Workspace connections */}
+          <GoogleConnectionsPanel isAdmin={!!data.cartridgeFlags?.isAdmin} theme={theme} />
+
+          {/* Context chips */}
+          <section>
+            <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>Active context</h2>
+            <div className="flex flex-wrap gap-1.5">
+              {CONTEXT_CHIPS.map((chip) => (
+                <span key={chip} className={`px-2.5 py-1 text-xs rounded-full border ${chipClass}`}>
+                  {chip}
+                </span>
+              ))}
+            </div>
+          </section>
+
+          {/* Footer */}
+          <footer className={`text-xs ${mutedClass} pt-2 border-t ${isDark ? 'border-slate-800/60' : 'border-slate-200'}`}>
+            Locked names: <strong>{data.naming.canonicalMediaBrand}</strong> ·
+            KNYT specialist <strong>{data.naming.knytSpecialist}</strong> ·
+            Qriptopian editorial <strong>Quill</strong>.
+            Workspace tools (Gmail, Calendar, Drive) are opt-in per source.
+          </footer>
+        </div>
+
+        {/* ── MODALS ────────────────────────────────────────────────────────── */}
+        <ComposeGmailDraftModal
+          open={composeGmailOpen}
+          onClose={() => onComposeGmailOpenChange(false)}
+          onCreate={onComposeGmailDraft}
+          onDraftWithAigentMe={onDraftEmail}
+          theme={theme}
+        />
+        <ComposeCalendarEventModal
+          open={composeCalendarOpen}
+          onClose={() => onComposeCalendarOpenChange(false)}
+          onCreate={onComposeCalendarEvent}
+          onDraftWithAigentMe={onDraftEvent}
+          theme={theme}
+        />
+        <ComposeGoogleDocModal
+          open={composeDocOpen}
+          onClose={() => onComposeDocOpenChange(false)}
+          onCreate={onComposeGoogleDoc}
+          onDraftWithAigentMe={onDraftDoc}
+          theme={theme}
+        />
+        <ComposeSlidesModal
+          open={composeSlidesOpen}
+          onClose={() => onComposeSlidesOpenChange(false)}
+          onCreate={onComposeSlides}
+          onDraftWithAigentMe={onDraftSlides}
+          theme={theme}
+        />
+        <ComposeMarketaEmailModal
+          open={composeMarketaOpen}
+          onClose={() => onComposeMarketaOpenChange(false)}
+          onCreate={onComposeMarketa}
+          onDraftWithAigentMe={onDraftMarketa}
+          theme={theme}
+        />
+      </div>
     </div>
   );
 }

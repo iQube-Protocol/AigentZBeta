@@ -38,6 +38,8 @@ import {
   BarChart3,
   MessageSquare,
   Package,
+  Hexagon,
+  Target,
   type LucideIcon
 } from "lucide-react";
 
@@ -76,6 +78,8 @@ const ICON_MAP: Record<string, LucideIcon> = {
   BarChart3,
   MessageSquare,
   Package,
+  Hexagon,
+  Target,
 };
 
 /**
