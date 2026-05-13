@@ -1810,7 +1810,7 @@ function PersonalGuideChip({ personaId }: { personaId?: string }) {
   const [wizardOpen, setWizardOpen] = useState(false);
 
   useEffect(() => {
-    if (!personaId) return;
+    if (!personaId) { setLoaded(true); return; }
     let cancelled = false;
     personaFetch('/api/assistant/experience-guide', { personaIdHint: personaId })
       .then((res) => res.ok ? res.json() : null)
