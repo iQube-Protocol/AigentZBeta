@@ -88,6 +88,56 @@ export async function emitContentQubeReceipt(input: EmitContentQubeReceiptInput)
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Transfer receipt — Phase 9 (first-issuance / edition claim)
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface EmitTransferReceiptInput {
+  contentQubeId: string;
+  editionId: string;
+  editionNumber: number;
+  rarity: ContentQubeRarity;
+  /** Optional reference to the purchase row that triggered the transfer. */
+  sourcePurchaseId?: string;
+  /** T2 alias commitment — the ONLY persona handle written to the receipt. */
+  aliasCommitment: string | null;
+}
+
+/**
+ * Write a 'transfer' receipt for an edition claim / first issuance.
+ * Fire-and-forget tolerant — never throws.
+ */
+export async function emitContentQubeTransferReceipt(input: EmitTransferReceiptInput): Promise<void> {
+  const supabase = getSupabaseServer();
+  if (!supabase) {
+    console.warn('[emitContentQubeTransferReceipt] Supabase unavailable; receipt dropped');
+    return;
+  }
+
+  const { contentQubeId, editionId, editionNumber, rarity, sourcePurchaseId, aliasCommitment } = input;
+
+  const receipt_payload: Record<string, unknown> = {
+    edition_id:     editionId,
+    edition_number: editionNumber,
+    rarity,
+  };
+  if (sourcePurchaseId) receipt_payload.source_purchase_id = sourcePurchaseId;
+
+  const { error } = await supabase.from('content_qube_dvn_receipts').insert({
+    content_qube_id:     contentQubeId,
+    receipt_kind:        'transfer' as ContentQubeDvnReceiptKind,
+    t2_alias_commitment: aliasCommitment,
+    receipt_payload,
+  });
+
+  if (error) {
+    console.warn(
+      `[emitContentQubeTransferReceipt] insert failed qube=${contentQubeId} ` +
+      `code=${error.code ?? '?'} msg=${error.message ?? '?'}`,
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Mint receipt
 // ─────────────────────────────────────────────────────────────────────────
 
