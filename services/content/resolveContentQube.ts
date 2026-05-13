@@ -27,6 +27,7 @@
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { getContentDescriptor } from '@/services/content/getContentDescriptor';
 import { evaluateAccess } from '@/services/access/evaluateAccess';
+import { emitContentQubeReceipt } from '@/services/access/contentQubeReceiptEmitter';
 import {
   buildDisplayManifest,
   buildEditionSummary,
@@ -123,6 +124,16 @@ export async function resolveContentQube(
   const descriptor = await resolveDescriptor(data);
   const decision = await evaluateAccess(persona, descriptor, 'read');
 
+  // Phase 5 — emit a ContentQube-scoped DVN receipt alongside the platform-
+  // wide orchestration_events row written by evaluateAccess. Skipped for
+  // free reads (receipt.mode === 'none') inside the emitter.
+  await emitContentQubeReceipt({
+    contentQubeId: contentQubeId,
+    descriptor,
+    action: 'read',
+    decision,
+  });
+
   return {
     manifest: buildDisplayManifest(data, decision.allow),
     editionSummary: buildEditionSummary(data),
@@ -188,6 +199,12 @@ export async function resolveContentQubesBySeries(
       }
       const descriptor = await resolveDescriptor(row);
       const decision = await evaluateAccess(persona, descriptor, 'read');
+      await emitContentQubeReceipt({
+        contentQubeId: row.id,
+        descriptor,
+        action: 'read',
+        decision,
+      });
       return {
         manifest: buildDisplayManifest(row, decision.allow),
         editionSummary: buildEditionSummary(row),
