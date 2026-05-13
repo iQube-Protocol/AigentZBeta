@@ -357,6 +357,9 @@ export async function getOwnedAssetIds(personaId: string, series: string = 'meta
 
   if (globalCats.has('character_card')) {
     // Character cards mirror episode numbering 0..12 (the 13 canonical slots).
+    // Note: codex_media_assets.character_poster.episode_number is 1-indexed
+    // in the DB (1..13) — the consumer (api/codex/owned) translates the
+    // 0..12 slot to the 1..13 DB row when matching uploaded characters.
     for (const n of CANONICAL_EPISODE_NUMBERS) {
       expectedSlots.push({ category: 'character_card', episodeNumber: n });
     }

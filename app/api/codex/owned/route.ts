@@ -152,13 +152,18 @@ export async function GET(request: NextRequest) {
       }
     }
     if (expectedCharacterEps.size > 0) {
-      // Index uploaded characters by episode_number (when set).
-      const uploadedByEp = new Map<number, { id: string; title: string | null }>();
+      // ── Convention bridge: characters use a DIFFERENT episode_number
+      //    convention than episodes.
+      //      master_content_qubes (episodes):   0-indexed — DB ep 0..12 = display #0..#12
+      //      codex_media_assets   (characters): 1-indexed — DB ep 1..13 = display #0..#12
+      //    expectedCharacterEps is in display convention (0..12). To look up
+      //    the uploaded character row, translate: DB ep = display ep + 1.
+      const uploadedByDbEp = new Map<number, { id: string; title: string | null }>();
       for (const c of uploadedCharacters) {
-        if (c.episodeNumber != null) uploadedByEp.set(c.episodeNumber, { id: c.id, title: c.title });
+        if (c.episodeNumber != null) uploadedByDbEp.set(c.episodeNumber, { id: c.id, title: c.title });
       }
       for (const ep of Array.from(expectedCharacterEps).sort((a, b) => a - b)) {
-        const hit = uploadedByEp.get(ep);
+        const hit = uploadedByDbEp.get(ep + 1);
         if (hit) {
           characterAvailable.push({ characterId: hit.id, owned: true, episodeNumber: ep });
         } else {
