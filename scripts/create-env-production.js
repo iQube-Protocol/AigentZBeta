@@ -24,6 +24,16 @@ const envVars = [
   'VENICE_IMAGE_MODEL',
   'ANTHROPIC_API_KEY',
   'ANTHROPIC_MODEL',
+  // ── Phase 6.b — Google Workspace OAuth (Aigent Me connectors) ────────
+  'GOOGLE_OAUTH_CLIENT_ID',
+  'GOOGLE_OAUTH_CLIENT_SECRET',
+  'GOOGLE_OAUTH_REDIRECT_URI',
+  'GOOGLE_OAUTH_STATE_HMAC_KEY',
+  'GOOGLE_OAUTH_RETURN_URL',
+  // ── Phase 5 — Aigent Me specialist router LLM model override ─────────
+  'SPECIALIST_LLM_MODEL',
+  // ── Phase 2 — ExperienceQube DB timeout tuning ──────────────────────
+  'EXPERIENCE_QUBE_DB_TIMEOUT_MS',
   'CHAINGPT_API_KEY',
   'CHAIN_GPT_API_KEY',
   'CHAINGPT_API_SECRET',

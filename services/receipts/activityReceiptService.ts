@@ -174,7 +174,27 @@ export async function createActivityReceipt(
     throw new Error(`createActivityReceipt failed: ${error.message}`);
   }
   if (!data) return null;
-  return rowToRecord(data as DbRow);
+  const record = rowToRecord(data as DbRow);
+
+  // Phase 6.b Part 4 — fire-and-forget DVN anchoring for high-value
+  // action types. The enqueue itself returns synchronously and runs the
+  // canister submission on a background promise; the receipt row is
+  // updated to dvn_pending (or dvn_failed) by that background task. When
+  // CROSS_CHAIN_SERVICE_CANISTER_ID is unset (dev / alpha) the enqueue
+  // is a no-op and the receipt stays 'local'. Wrapped in try/catch so a
+  // missing import or dynamic load failure never breaks the create path.
+  try {
+    // Dynamic import avoids a require-cycle between activityReceiptService
+    // and the DVN pipeline (which imports the record type from here).
+    void import('@/services/dvn/activityReceiptDvnPipeline')
+      .then(({ enqueueActivityReceiptAnchor }) =>
+        enqueueActivityReceiptAnchor(record, input.personaId),
+      )
+      .catch(() => undefined);
+  } catch {
+    // Ignore — receipt is already persisted; anchoring is best-effort.
+  }
+  return record;
 }
 
 // ─────────────────────────────────────────────────────────────────────────

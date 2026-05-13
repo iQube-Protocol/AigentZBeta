@@ -30,6 +30,7 @@
  */
 
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import type { PersonalGuideData } from '@/types/experienceGuide';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Types — meta (T1) vs blak (T0).
@@ -88,6 +89,12 @@ export interface ExperienceQubeBlak {
   unreleasedIp?: Record<string, unknown>;
   priorityPartners?: string[];
   activeCampaigns?: string[];
+  /**
+   * Personal ExperienceGuide layer — Sphere×Maturity lattice, alignment
+   * state, repair risks, precedence mode. Server-only; routes shape their
+   * own T1 response surfaces.
+   */
+  personalGuide?: PersonalGuideData;
 }
 
 export interface ExperienceQubeRecord {
@@ -333,6 +340,7 @@ const ALLOWED_BLAK_KEYS: Array<keyof ExperienceQubeBlak> = [
   'unreleasedIp',
   'priorityPartners',
   'activeCampaigns',
+  'personalGuide',
 ];
 
 function sanitiseBlak(
@@ -448,4 +456,37 @@ export async function upsertExperienceQube(
  */
 export function toMetaSlice(record: ExperienceQubeRecord): ExperienceQubeMeta {
   return record.meta;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Personal ExperienceGuide — convenience accessors over the same row.
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Read just the PersonalGuide payload from the persona's ExperienceQube.
+ * Returns null if the user has never completed the guide onboarding (or
+ * if the ExperienceQube row itself does not exist yet).
+ */
+export async function getPersonalGuide(
+  personaId: string,
+): Promise<PersonalGuideData | null> {
+  const record = await getExperienceQube(personaId);
+  if (!record) return null;
+  const guide = record.blak.personalGuide;
+  if (!guide || typeof guide !== 'object') return null;
+  return guide;
+}
+
+/**
+ * Upsert the PersonalGuide payload. Wraps upsertExperienceQube so the
+ * existing meta + other BlakQube keys are preserved untouched.
+ */
+export async function upsertPersonalGuide(
+  personaId: string,
+  data: PersonalGuideData,
+): Promise<PersonalGuideData> {
+  const record = await upsertExperienceQube(personaId, {
+    blak: { personalGuide: data },
+  });
+  return record.blak.personalGuide ?? data;
 }

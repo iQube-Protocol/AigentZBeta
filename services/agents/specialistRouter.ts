@@ -41,7 +41,8 @@ export type SpecialistId =
   | 'quill'
   | 'kn0w1'
   | 'aigent-z'
-  | 'aigent-c';
+  | 'aigent-c'
+  | 'aigent-nakamoto';
 
 export type SpecialistRequestType =
   | 'proposal'
@@ -51,7 +52,9 @@ export type SpecialistRequestType =
   | 'customer_journey'
   | 'partner_brief'
   | 'campaign_brief'
-  | 'article_brief';
+  | 'article_brief'
+  | 'decentralisation_brief'
+  | 'policy_brief';
 
 export interface SpecialistContext {
   /** Cartridge the specialist should treat as primary. */
@@ -99,10 +102,11 @@ export interface SpecialistResponse {
 
 const SPECIALIST_PERSONA_KEY: Record<SpecialistId, keyof typeof personas | null> = {
   marketa: 'aigent-marketa',
-  quill: null, // Quill persona registers in a follow-up commit; template path covers Phase 5.
+  quill: 'aigent-q', // Phase 5.b — Quill persona now registered as 'aigent-q'.
   kn0w1: 'aigent-kn0w1',
   'aigent-z': 'aigent-z',
   'aigent-c': 'aigent-c',
+  'aigent-nakamoto': 'aigent-nakamoto',
 };
 
 const SPECIALIST_LABELS: Record<SpecialistId, string> = {
@@ -111,6 +115,7 @@ const SPECIALIST_LABELS: Record<SpecialistId, string> = {
   kn0w1: 'Kn0w1',
   'aigent-z': 'Aigent Z',
   'aigent-c': 'Aigent C',
+  'aigent-nakamoto': 'Aigent Nakamoto (Satoshi)',
 };
 
 // Map specialist + cartridge → default request type so the prompt knows
@@ -121,6 +126,7 @@ function inferRequestType(specialistId: SpecialistId, cartridge: string): Specia
   if (specialistId === 'kn0w1') return 'mission_recommendation';
   if (specialistId === 'aigent-z') return 'system_guidance';
   if (specialistId === 'aigent-c') return 'customer_journey';
+  if (specialistId === 'aigent-nakamoto') return 'decentralisation_brief';
   // Cartridge hint:
   if (cartridge === 'qriptopian') return 'editorial_angle';
   if (cartridge === 'knyt') return 'mission_recommendation';
@@ -246,6 +252,115 @@ async function callOpenAi(systemPrompt: string, userPrompt: string): Promise<str
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Phase 5.b — Anthropic + Venice fallbacks. Each fires only if its key is
+// set. Both prepend a "Return JSON only" reminder to the system prompt
+// since neither exposes OpenAI's response_format=json_object guarantee;
+// we then strip ```json fences before handing back to the parser.
+// ─────────────────────────────────────────────────────────────────────────
+
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const ANTHROPIC_MODEL = process.env.SPECIALIST_LLM_MODEL_ANTHROPIC || 'claude-3-5-haiku-latest';
+
+const VENICE_API_KEY = process.env.VENICE_API_KEY;
+const VENICE_MODEL = process.env.SPECIALIST_LLM_MODEL_VENICE || 'llama-3.3-70b';
+const VENICE_BASE_URL = process.env.VENICE_BASE_URL || 'https://api.venice.ai/api/v1';
+
+function stripJsonFences(raw: string): string {
+  return raw
+    .replace(/^```(?:json)?\s*\n?/i, '')
+    .replace(/\n?```\s*$/i, '')
+    .trim();
+}
+
+async function callAnthropic(systemPrompt: string, userPrompt: string): Promise<string | null> {
+  if (!ANTHROPIC_API_KEY) return null;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 12_000);
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: ANTHROPIC_MODEL,
+        max_tokens: 800,
+        temperature: 0.5,
+        system: `${systemPrompt}\nReturn a single valid JSON object only. No prose, no Markdown fences.`,
+        messages: [{ role: 'user', content: userPrompt }],
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      console.warn(`[specialistRouter] Anthropic returned ${res.status}; falling through`);
+      return null;
+    }
+    const data = (await res.json()) as { content?: Array<{ type?: string; text?: string }> };
+    const block = data?.content?.find((b) => b?.type === 'text');
+    return block?.text ? stripJsonFences(block.text) : null;
+  } catch (err) {
+    console.warn(`[specialistRouter] Anthropic call failed: ${err instanceof Error ? err.message : err}`);
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function callVenice(systemPrompt: string, userPrompt: string): Promise<string | null> {
+  if (!VENICE_API_KEY) return null;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 12_000);
+  try {
+    // Venice exposes an OpenAI-compatible /chat/completions endpoint.
+    const res = await fetch(`${VENICE_BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${VENICE_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: VENICE_MODEL,
+        messages: [
+          { role: 'system', content: `${systemPrompt}\nReturn a single valid JSON object only.` },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.5,
+        max_tokens: 800,
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      console.warn(`[specialistRouter] Venice returned ${res.status}; falling through`);
+      return null;
+    }
+    const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+    const text = data?.choices?.[0]?.message?.content?.trim();
+    return text ? stripJsonFences(text) : null;
+  } catch (err) {
+    console.warn(`[specialistRouter] Venice call failed: ${err instanceof Error ? err.message : err}`);
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Try LLMs in order — OpenAI → Anthropic → Venice — returning the first
+ * non-null JSON-shaped response. Callers parse + validate the JSON
+ * themselves and fall back to the template if every provider fails.
+ */
+async function callLlmChain(systemPrompt: string, userPrompt: string): Promise<string | null> {
+  const openai = await callOpenAi(systemPrompt, userPrompt);
+  if (openai) return openai;
+  const anthropic = await callAnthropic(systemPrompt, userPrompt);
+  if (anthropic) return anthropic;
+  const venice = await callVenice(systemPrompt, userPrompt);
+  return venice;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Template fallback — deterministic responses keyed on specialist + cartridge.
 // Keeps the demo flow alive when no LLM key is present.
 // ─────────────────────────────────────────────────────────────────────────
@@ -326,21 +441,38 @@ function templateResponse(
       confidence: 'high',
     };
   }
-  // aigent-c
+  if (specialistId === 'aigent-c') {
+    return {
+      requestType,
+      title: `Customer-journey framing for "${intent}"`,
+      summary:
+        `Aigent C frames ${intent} from the user's current journey stage. The next step should fit their depth band and surface a single forward motion.`,
+      recommendations: [
+        `Confirm the user's current depth (pill / capsule / mini-runtime / codex).`,
+        `Offer one next-depth experience tied to the intent.`,
+        `Translate platform vocabulary into ordinary language.`,
+        `Route to the specialist whose territory the next step lands in.`,
+      ],
+      suggestedArtifacts: ['brief'],
+      requiresApproval: false,
+      confidence: 'medium',
+    };
+  }
+  // aigent-nakamoto — decentralisation + Bitcoin + iQube/Qripto policy steward.
   return {
     requestType,
-    title: `Customer-journey framing for "${intent}"`,
+    title: `Decentralisation & policy framing for "${intent}"`,
     summary:
-      `Aigent C frames ${intent} from the user's current journey stage. The next step should fit their depth band and surface a single forward motion.`,
+      `Aigent Nakamoto frames ${intent} through the lens of Bitcoin-grade self-custody, censorship-resistance, and iQube/Qripto policy. Surface the protocol primitives at stake and any policy trade-offs before acting.`,
     recommendations: [
-      `Confirm the user's current depth (pill / capsule / mini-runtime / codex).`,
-      `Offer one next-depth experience tied to the intent.`,
-      `Translate platform vocabulary into ordinary language.`,
-      `Route to the specialist whose territory the next step lands in.`,
+      `Name the iQube/Qripto primitives this action touches (DiD/DiDQube, blakQube, metaQube, tokenQube, cohort attestation).`,
+      `Identify which policy tier owns enforcement: platform (Aigent Z) / customer (Aigent C) / ecosystem (iQube Protocol).`,
+      `If the action settles on-chain, name the settlement assurance you want (provenance, finality, censorship-resistance).`,
+      `Spell out the key-management implication for the persona — what they hold, what they delegate, what they should never expose.`,
     ],
     suggestedArtifacts: ['brief'],
     requiresApproval: false,
-    confidence: 'medium',
+    confidence: 'high',
   };
 }
 
@@ -364,7 +496,7 @@ export async function askSpecialist(
   // Try live LLM first.
   const system = systemPromptFor(specialistId);
   const user = userPromptFor(context, requestType);
-  const raw = await callOpenAi(system, user);
+  const raw = await callLlmChain(system, user);
 
   if (raw) {
     try {

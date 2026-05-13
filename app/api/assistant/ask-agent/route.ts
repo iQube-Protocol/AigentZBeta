@@ -36,10 +36,28 @@ import { createActivityReceipt } from '@/services/receipts/activityReceiptServic
 
 export const dynamic = 'force-dynamic';
 
-const VALID_SPECIALISTS: SpecialistId[] = ['marketa', 'quill', 'kn0w1', 'aigent-z', 'aigent-c'];
+const VALID_SPECIALISTS: SpecialistId[] = ['marketa', 'quill', 'kn0w1', 'aigent-z', 'aigent-c', 'aigent-nakamoto'];
+
+/**
+ * Aliases that map short / alternate names back onto the canonical
+ * specialist id. Lets callers send 'nakamoto' or 'satoshi' for Aigent
+ * Nakamoto without changing the type union.
+ */
+const SPECIALIST_ALIASES: Record<string, SpecialistId> = {
+  nakamoto: 'aigent-nakamoto',
+  'aigent-satoshi': 'aigent-nakamoto',
+  satoshi: 'aigent-nakamoto',
+};
+
+function resolveSpecialistId(value: unknown): SpecialistId | null {
+  if (typeof value !== 'string') return null;
+  const lowered = value.toLowerCase();
+  if ((VALID_SPECIALISTS as string[]).includes(lowered)) return lowered as SpecialistId;
+  return SPECIALIST_ALIASES[lowered] ?? null;
+}
 
 interface PostBody {
-  specialistId?: SpecialistId;
+  specialistId?: string;
   intentId?: string;
   prompt?: string;
   cartridge?: string;
@@ -65,11 +83,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const body = (raw && typeof raw === 'object' ? raw : {}) as PostBody;
-  if (!body.specialistId || !VALID_SPECIALISTS.includes(body.specialistId)) {
+  const resolvedSpecialistId = resolveSpecialistId(resolvedSpecialistId);
+  if (!resolvedSpecialistId) {
     return NextResponse.json(
       {
         error: 'invalid-specialist',
-        detail: `specialistId must be one of: ${VALID_SPECIALISTS.join(', ')}`,
+        detail:
+          `specialistId must be one of: ${VALID_SPECIALISTS.join(', ')} ` +
+          `(aliases: ${Object.keys(SPECIALIST_ALIASES).join(', ')})`,
       },
       { status: 400, headers: { 'Cache-Control': 'no-store' } },
     );
@@ -105,7 +126,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     };
 
     const response = await askSpecialist({
-      specialistId: body.specialistId,
+      specialistId: resolvedSpecialistId,
       context: specialistContext,
     });
 
@@ -116,7 +137,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       activeCartridge,
       actionType: 'specialist_consulted',
       summary: `Consulted ${response.specialistLabel}: ${response.title}`,
-      agentsInvoked: ['aigent-me', body.specialistId],
+      agentsInvoked: ['aigent-me', resolvedSpecialistId],
       toolsUsed: [response.source === 'llm' ? 'openai' : 'template'],
       iqubesUsed: ['PersonaQube', 'ExperienceQube', 'IntentQube'],
       contextShared: ['intent-summary', 'experience-meta-slice'],

@@ -86,6 +86,10 @@ import { DevRegistryTab } from "./tabs/DevRegistryTab";
 import { RefRuntimeTab } from "./tabs/RefRuntimeTab";
 import { RefStudioTab } from "./tabs/RefStudioTab";
 import { RefAigentTab } from "./tabs/RefAigentTab";
+import { ComposerStudio } from "@/components/composer/ComposerStudio";
+import { MetaMeStudioTab } from "./tabs/MetaMeStudioTab";
+import { PersonalExperienceMatrixTab } from "./tabs/PersonalExperienceMatrixTab";
+import { ExperienceAlignmentTab } from "./tabs/ExperienceAlignmentTab";
 
 interface TabRendererProps {
   tab: CodexTab;
@@ -174,6 +178,10 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   RefRuntimeTab,
   RefStudioTab,
   RefAigentTab,
+  ComposerStudio,
+  MetaMeStudioTab,
+  PersonalExperienceMatrixTab,
+  ExperienceAlignmentTab,
   RewardsTab: PlaceholderTab,
   DocsTab: PlaceholderTab,
   APITab: PlaceholderTab,

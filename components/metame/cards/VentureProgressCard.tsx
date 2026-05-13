@@ -308,7 +308,7 @@ export function VentureProgressCard({
       {/* Footer */}
       <footer className={`text-xs ${mutedClass} pt-2 border-t border-slate-800/40 flex items-center gap-2`}>
         <Compass className="w-3 h-3" />
-        Aigent Me · venture progress generated{" "}
+        aigentMe · venture progress generated{" "}
         {new Date(data.generatedAt).toLocaleString()}
       </footer>
     </div>

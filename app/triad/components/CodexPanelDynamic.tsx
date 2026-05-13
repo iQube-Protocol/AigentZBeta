@@ -502,6 +502,8 @@ export default function CodexPanelDynamic({
           const standaloneTabs = enabledTabs.filter(t => !t.group);
           // Active leaf tab's group (if any)
           const activeGroup = enabledTabs.find(t => t.slug === activeTabSlug)?.group ?? null;
+          // Active group definition (for label display in right sub-header)
+          const activeGroupDef = activeGroup ? (groups.find(g => g.id === activeGroup) ?? null) : null;
           // Sub-tabs for the active group
           const activeGroupSubTabs = activeGroup
             ? enabledTabs.filter(t => t.group === activeGroup)
@@ -534,7 +536,7 @@ export default function CodexPanelDynamic({
                     >
                       {codex.metadata.icon && React.createElement(
                         getIconComponent(codex.metadata.icon),
-                        { className: `w-5 h-5 text-${accentColor}-400` }
+                        { className: `w-5 h-5 ${codex.id === 'metame-codex' ? 'text-rose-400' : `text-${accentColor}-400`}` }
                       )}
                       {displayCodexName}
                     </h2>
@@ -686,6 +688,12 @@ export default function CodexPanelDynamic({
                     </div>
                   )}
                   <ActiveTabIcon className={`h-3.5 w-3.5 flex-shrink-0 text-${activeTab?.metadata?.color || accentColor}-400`} />
+                  {activeGroupDef && (
+                    <span className={`hidden md:inline text-xs font-medium text-${accentColor}-400/70 whitespace-nowrap`}>
+                      {activeGroupDef.label}
+                    </span>
+                  )}
+                  {activeGroupDef && <span className="hidden md:inline text-xs text-slate-600">·</span>}
                   <span className="hidden md:inline text-xs font-semibold text-white whitespace-nowrap">{activeTabTitle}</span>
                   {activeTabDescription && (
                     <span className="hidden sm:block truncate text-xs text-slate-500 max-w-52" title={activeTabDescription}>
@@ -793,13 +801,13 @@ export default function CodexPanelDynamic({
           onOpen={() => setMetameCopilotOpen(true)}
           variant="floating"
           accentColor="emerald"
-          agent={{ id: 'aigent-me', name: 'Aigent Me' }}
+          agent={{ id: 'aigent-me', name: 'aigentMe' }}
           personaId={resolvedPersonaId ?? 'aigent-me'}
           enableInferenceRendering
           contextId={`metame-${activeTabSlug}`}
-          promptPlaceholder="Ask Aigent Me about your ExperienceModel, briefs, or next move..."
-          initialMessage="I'm Aigent Me — your sovereign chief of staff inside metaMe. I know your active ExperienceModel, your goals, the cartridges you're moving forward, and which specialists I can coordinate. Ask me anything."
-          quickPrompts={['Brief me', 'Move this forward', 'Review venture progress', 'Ask Marketa', 'Ask Quill', 'Ask Kn0w1']}
+          promptPlaceholder="Ask aigentMe about your ExperienceModel, briefs, or next move..."
+          initialMessage="I'm aigentMe — your sovereign chief of staff inside metaMe. I know your active ExperienceModel, your goals, the cartridges you're moving forward, and which specialists I can coordinate. Ask me anything."
+          quickPrompts={['Brief me', 'Move this forward', 'Review venture progress', 'Ask Marketa', 'Ask Quill', 'Ask Kn0w1', 'Ask Nakamoto']}
         />
       )}
     </SmartTriadProvider>

@@ -126,7 +126,7 @@ export function ExperienceModelCard({ data, loading, onEdit, theme = "dark" }: P
             <h3 className="text-lg font-semibold mb-1">Not yet set up</h3>
             <p className={`text-sm ${mutedClass}`}>
               Define what you&apos;re building, which cartridges matter, what
-              outcomes count, and what stays confidential. Aigent Me uses your
+              outcomes count, and what stays confidential. aigentMe uses your
               ExperienceModel for every brief and recommendation.
             </p>
           </div>

@@ -1728,23 +1728,31 @@ export const METAME_CODEX: CodexConfig = {
   owner: 'metame-guardian',
   metadata: {
     description: 'metaMe sovereignty layer: experience framework, progression model, PCS ladder, and next-best-pathway logic',
-    icon: 'User',
-    color: 'violet',
+    icon: 'Hexagon',
+    color: 'emerald',
     category: 'sovereignty',
     tags: ['metame', 'experience', 'pcs', 'sovereignty', 'progression', 'nbe']
   },
+  tabGroups: [
+    { id: 'aigentme',  label: 'aigentMe',      icon: 'Sparkles',   order: 0 },
+    { id: 'vl',        label: 'Venture Lab',   icon: 'TrendingUp', order: 1, adminOnly: true },
+    { id: 'marketa',   label: 'Marketa',       icon: 'Megaphone',  order: 2, adminOnly: true },
+    { id: 'studio',    label: 'metaMe Studio', icon: 'Wand2',      order: 3, adminOnly: true },
+    { id: 'agentiqos', label: 'AgentiQ OS',    icon: 'Cpu',        order: 4, adminOnly: true },
+    { id: 'qriptopia', label: 'Qriptopia',     icon: 'Globe',      order: 5 },
+    { id: 'admin',     label: 'Admin',         icon: 'Settings',   order: 6, adminOnly: true }
+  ],
   tabs: [
+    // ── aigentMe group ───────────────────────────────────────────────────────
     {
       id: 'aigent-me-welcome',
-      label: 'Aigent Me',
+      label: 'aigentMe',
       slug: 'aigent-me',
       enabled: true,
+      group: 'aigentme',
       order: 0,
       type: 'static',
-      config: {
-        component: 'AigentMeWelcomeTab',
-        props: {}
-      },
+      config: { component: 'AigentMeWelcomeTab', props: {} },
       metadata: {
         icon: 'Sparkles',
         description: 'metaMe Personal Assistant — sovereign chief of staff for your active cartridges, goals, and venture work',
@@ -1752,12 +1760,280 @@ export const METAME_CODEX: CodexConfig = {
       }
     },
     {
-      id: 'experience-framework',
+      id: 'aigentme-experience-model',
+      label: 'Experience Model',
+      slug: 'experience-model',
+      enabled: true,
+      group: 'aigentme',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: { title: 'Experience Model', description: 'Define what you are building, which cartridges matter, and what stays confidential. Coming soon.' }
+      },
+      metadata: { icon: 'Layers', description: 'Experience model definition', color: 'violet' }
+    },
+    {
+      id: 'aigentme-experience-matrix',
+      label: 'Experience Matrix',
+      slug: 'experience-matrix',
+      enabled: true,
+      group: 'aigentme',
+      order: 2,
+      type: 'static',
+      config: { component: 'PersonalExperienceMatrixTab', props: {} },
+      metadata: { icon: 'Grid3x3', description: 'Personal Experience Matrix — Sphere of Agency × Experience Maturity', color: 'violet' }
+    },
+    {
+      id: 'aigentme-experience-alignment',
+      label: 'Alignment Helper',
+      slug: 'experience-alignment',
+      enabled: true,
+      group: 'aigentme',
+      order: 3,
+      type: 'static',
+      config: { component: 'ExperienceAlignmentTab', props: {} },
+      metadata: { icon: 'Target', description: 'Personal ExperienceGuide alignment helper — bars, repair risks, precedence', color: 'violet' }
+    },
+
+    // ── VL group (admin-gated) ───────────────────────────────────────────────
+    {
+      id: 'vl-growth-matrix',
+      label: 'Growth Matrix',
+      slug: 'vl-growth-matrix',
+      enabled: true,
+      adminOnly: true,
+      group: 'vl',
+      order: 10,
+      type: 'static',
+      config: { component: 'VentureLabGrowthMatrixTab', props: {} },
+      metadata: { icon: 'Grid3x3', description: 'Venture Lab growth matrix', color: 'violet' }
+    },
+    {
+      id: 'vl-relationship-builder',
+      label: 'Relationship Builder',
+      slug: 'vl-relationship-builder',
+      enabled: true,
+      adminOnly: true,
+      group: 'vl',
+      order: 11,
+      type: 'static',
+      config: { component: 'RelationshipBuilderTab', props: {} },
+      metadata: { icon: 'Users', description: 'Partner / relationship builder', color: 'violet' }
+    },
+
+    // ── Marketa group (admin-gated; Partner sub-tabs) ────────────────────────
+    {
+      id: 'marketa-my-campaign',
+      label: 'My Campaign',
+      slug: 'marketa-my-campaign',
+      enabled: true,
+      adminOnly: true,
+      group: 'marketa',
+      order: 20,
+      type: 'static',
+      config: { component: 'MarketaMyCampaignTab', props: {} },
+      metadata: { icon: 'Megaphone', description: 'Active campaign view', color: 'violet' }
+    },
+    {
+      id: 'marketa-propose',
+      label: 'Propose',
+      slug: 'marketa-propose',
+      enabled: true,
+      adminOnly: true,
+      group: 'marketa',
+      order: 21,
+      type: 'static',
+      config: { component: 'MarketaProposeTab', props: {} },
+      metadata: { icon: 'Wand2', description: 'Propose a content pack or campaign', color: 'violet' }
+    },
+    {
+      id: 'marketa-my-packs',
+      label: 'My Packs',
+      slug: 'marketa-my-packs',
+      enabled: true,
+      adminOnly: true,
+      group: 'marketa',
+      order: 22,
+      type: 'static',
+      config: { component: 'MarketaMyPacksTab', props: {} },
+      metadata: { icon: 'Package', description: 'Your content packs', color: 'violet' }
+    },
+    {
+      id: 'marketa-reports',
+      label: 'Reports',
+      slug: 'marketa-reports',
+      enabled: true,
+      adminOnly: true,
+      group: 'marketa',
+      order: 23,
+      type: 'static',
+      config: { component: 'MarketaMyReportsTab', props: {} },
+      metadata: { icon: 'BarChart3', description: 'Campaign reports', color: 'violet' }
+    },
+    {
+      id: 'marketa-qubetalk',
+      label: 'QubeTalk',
+      slug: 'marketa-qubetalk',
+      enabled: true,
+      adminOnly: true,
+      group: 'marketa',
+      order: 24,
+      type: 'static',
+      config: { component: 'MarketaQubeTalk', props: {} },
+      metadata: { icon: 'MessageSquare', description: 'Marketa coordination channel', color: 'violet' }
+    },
+
+    // ── metaMe Studio group (admin-gated) ────────────────────────────────────
+    {
+      id: 'studio-composer',
+      label: 'metaMe Studio',
+      slug: 'studio',
+      enabled: true,
+      adminOnly: true,
+      group: 'studio',
+      order: 30,
+      type: 'static',
+      config: { component: 'MetaMeStudioTab', props: {} },
+      metadata: { icon: 'Wand2', description: 'Build Experiences using guided templates, the Composer API and receipt pipeline.', color: 'violet' }
+    },
+
+    // ── AgentiQ OS group (admin-gated) — mirrors AgentiQ OS cartridge top groups ──
+    {
+      id: 'agentiqos-home',
+      label: 'Home',
+      slug: 'agentiqos-home',
+      enabled: true,
+      adminOnly: true,
+      group: 'agentiqos',
+      order: 40,
+      type: 'static',
+      config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_start_here' } },
+      metadata: { icon: 'Home', description: 'AgentiQ OS — start here', color: 'emerald' }
+    },
+    {
+      id: 'agentiqos-docs',
+      label: 'Docs',
+      slug: 'agentiqos-docs',
+      enabled: true,
+      adminOnly: true,
+      group: 'agentiqos',
+      order: 41,
+      type: 'static',
+      config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_docs_kb' } },
+      metadata: { icon: 'BookOpen', description: 'Protocol reference and developer standards', color: 'emerald' }
+    },
+    {
+      id: 'agentiqos-build',
+      label: 'Build',
+      slug: 'agentiqos-build',
+      enabled: true,
+      adminOnly: true,
+      group: 'agentiqos',
+      order: 42,
+      type: 'static',
+      config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_sdk_api' } },
+      metadata: { icon: 'Code', description: 'SDK / API reference', color: 'emerald' }
+    },
+    {
+      id: 'agentiqos-bind',
+      label: 'Bind',
+      slug: 'agentiqos-bind',
+      enabled: true,
+      adminOnly: true,
+      group: 'agentiqos',
+      order: 43,
+      type: 'static',
+      config: { component: 'DevPersonaTab', props: {} },
+      metadata: { icon: 'User', description: 'Persona and bounded delegation', color: 'emerald' }
+    },
+    {
+      id: 'agentiqos-deploy',
+      label: 'Deploy',
+      slug: 'agentiqos-deploy',
+      enabled: true,
+      adminOnly: true,
+      group: 'agentiqos',
+      order: 44,
+      type: 'static',
+      config: { component: 'DevRegistryTab', props: {} },
+      metadata: { icon: 'Package', description: 'Ingestion factory and registry', color: 'emerald' }
+    },
+    {
+      id: 'agentiqos-missions',
+      label: 'Missions',
+      slug: 'agentiqos-missions',
+      enabled: true,
+      adminOnly: true,
+      group: 'agentiqos',
+      order: 45,
+      type: 'static',
+      config: { component: 'DevMissionBoardTab', props: { panel: 'your-missions' } },
+      metadata: { icon: 'Target', description: 'Dev missions and learning tracks', color: 'emerald' }
+    },
+    {
+      id: 'agentiqos-community',
+      label: 'Community',
+      slug: 'agentiqos-community',
+      enabled: true,
+      adminOnly: true,
+      group: 'agentiqos',
+      order: 46,
+      type: 'static',
+      config: { component: 'Kn0wdZTab', props: {} },
+      metadata: { icon: 'Users', description: 'Community resources and Kn0wdZ', color: 'emerald' }
+    },
+
+    // ── Qriptopia group ──────────────────────────────────────────────────────
+    {
+      id: 'qriptopia-features',
+      label: 'Features',
+      slug: 'qriptopia-features',
+      enabled: true,
+      group: 'qriptopia',
+      order: 50,
+      type: 'static',
+      config: { component: 'FeaturesTab', props: {} },
+      metadata: { icon: 'Star', description: 'Qriptopian featured content', color: 'violet' }
+    },
+    {
+      id: 'qriptopia-community',
+      label: 'Community',
+      slug: 'qriptopia-community',
+      enabled: true,
+      group: 'qriptopia',
+      order: 51,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: { title: 'Community', description: 'Qriptopia community surface. Coming soon.' }
+      },
+      metadata: { icon: 'Users', description: 'Qriptopia community', color: 'violet' }
+    },
+    {
+      id: 'qriptopia-21sats',
+      label: '21 Sats',
+      slug: 'qriptopia-21sats',
+      enabled: true,
+      group: 'qriptopia',
+      order: 52,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: { title: '21 Sats', description: 'Bitcoin-native rewards surface. Coming soon.' }
+      },
+      metadata: { icon: 'Bitcoin', description: '21 Sats rewards', color: 'violet' }
+    },
+
+    // ── Admin group (admin-gated) ────────────────────────────────────────────
+    {
+      id: 'admin-experience-framework',
       label: 'Experience Framework',
       slug: 'experience-framework',
       enabled: true,
       adminOnly: true,
-      order: 1,
+      group: 'admin',
+      order: 60,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -1774,22 +2050,16 @@ export const METAME_CODEX: CodexConfig = {
       }
     },
     {
-      id: 'experience-dashboard',
+      id: 'admin-journey-dashboard',
       label: 'Journey Dashboard',
       slug: 'experience-dashboard',
       enabled: true,
       adminOnly: true,
-      order: 2,
+      group: 'admin',
+      order: 61,
       type: 'static',
-      config: {
-        component: 'ExperienceDashboardTab',
-        props: { tenantId: 'metame' }
-      },
-      metadata: {
-        icon: 'BarChart',
-        description: 'User journey states, progression, NBE opportunities',
-        color: 'violet'
-      }
+      config: { component: 'ExperienceDashboardTab', props: { tenantId: 'metame' } },
+      metadata: { icon: 'BarChart3', description: 'User journey states, progression, NBE opportunities', color: 'violet' }
     }
   ],
   permissions: {

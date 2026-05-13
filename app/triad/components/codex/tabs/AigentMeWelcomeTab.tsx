@@ -35,7 +35,11 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Sparkles, Loader2 } from "lucide-react";
+import {
+  Sparkles, Loader2, Mail, Calendar, FileText, Layout,
+  Megaphone, Zap, BarChart3, Layers, Users, Plus,
+  Brain, Shield, Target,
+} from "lucide-react";
 import {
   usePersonaSpine,
   personaFetch,
@@ -47,6 +51,8 @@ import {
 } from "@/components/metame/cards/ExperienceModelCard";
 import { IqubeContextDisclosure } from "@/components/metame/cards/IqubeContextDisclosure";
 import { ExperienceModelSetupWizard } from "@/components/metame/setup/ExperienceModelSetupWizard";
+import { PersonalGuideSetupWizard } from "@/components/metame/setup/PersonalGuideSetupWizard";
+import { ALIGNMENT_LABEL, type AlignmentState, type PersonalGuideData } from "@/types/experienceGuide";
 import { BriefCard, type BriefCardData } from "@/components/metame/cards/BriefCard";
 import {
   VentureProgressCard,
@@ -65,14 +71,21 @@ import {
   type SpecialistResponseData,
 } from "@/components/metame/cards/SpecialistResponseCard";
 import { ArtifactCard, type ArtifactCardData } from "@/components/metame/cards/ArtifactCard";
+import { SecondTierApprovalCard } from "@/components/metame/cards/SecondTierApprovalCard";
 import { ActivityReceiptCard, type ActivityReceiptData } from "@/components/metame/cards/ActivityReceiptCard";
 import { QuickLinksCard } from "@/components/metame/cards/QuickLinksCard";
+import { GoogleConnectionsPanel } from "@/components/metame/connections/GoogleConnectionsPanel";
+import { ComposeGmailDraftModal } from "@/components/metame/connections/ComposeGmailDraftModal";
+import { ComposeCalendarEventModal } from "@/components/metame/connections/ComposeCalendarEventModal";
+import { ComposeGoogleDocModal } from "@/components/metame/connections/ComposeGoogleDocModal";
+import { ComposeSlidesModal } from "@/components/metame/connections/ComposeSlidesModal";
+import { ComposeMarketaEmailModal } from "@/components/metame/connections/ComposeMarketaEmailModal";
 
 interface Specialist {
-  id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c';
+  id: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c' | 'aigent-nakamoto';
   label: string;
   description: string;
-  homeCartridge: 'cross-cutting' | 'qriptopian' | 'knyt' | 'platform';
+  homeCartridge: 'cross-cutting' | 'qriptopian' | 'knyt' | 'platform' | 'protocol';
 }
 
 interface PrimaryCta {
@@ -156,12 +169,71 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
   const [specialistErrors, setSpecialistErrors] = useState<Record<string, string>>({});
 
   // Phase 6 — created artifacts (alpha: runtime-destination only).
-  const [artifacts, setArtifacts] = useState<ArtifactCardData[]>([]);
+  // Phase 6.b — Artifacts list is restored from sessionStorage on mount so
+  // the user keeps their working drafts when navigating away and back to
+  // the tab. Keyed by personaId so a persona switch doesn't bleed state.
+  // sessionStorage is intentional: clears on browser close (no stale
+  // drafts), survives tab navigation. Per the metaMe client protocol the
+  // only fields here are T1-safe (artifact ids, titles, action connector
+  // hints, public locationUrl) — no personaId, authProfileId, or rootDid.
+  const [artifacts, setArtifacts] = useState<ArtifactCardData[]>(() => {
+    if (typeof window === 'undefined' || !personaId) return [];
+    try {
+      const raw = window.sessionStorage.getItem(`aigentme:artifacts:${personaId}`);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? (parsed as ArtifactCardData[]) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Persist artifacts on every change. Cheap JSON write keyed by persona.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !personaId) return;
+    try {
+      window.sessionStorage.setItem(
+        `aigentme:artifacts:${personaId}`,
+        JSON.stringify(artifacts),
+      );
+    } catch {
+      // Quota exceeded or storage disabled — silently degrade.
+    }
+  }, [artifacts, personaId]);
+
+  // Phase 6.b Part 2.5 — externalisation state. One artifact at a time can
+  // be in flight (pending second-tier approval or running). Errors render
+  // inline on the artifact card.
+  const [actionPendingArtifactId, setActionPendingArtifactId] = useState<string | null>(null);
+  const [actionErrors, setActionErrors] = useState<Record<string, string>>({});
+  const [secondTierApproval, setSecondTierApproval] = useState<{
+    artifactId: string;
+    connectorId: string;
+    connectorLabel: string;
+    summary: string;
+    detail?: string;
+    submitting: boolean;
+    error: string | null;
+  } | null>(null);
+
+  // Phase 6.b Part 2.5b — Compose Gmail draft modal. Lets the user
+  // originate a Gmail-destination artifact from the welcome surface
+  // without a specialist round-trip or curl.
+  const [composeGmailOpen, setComposeGmailOpen] = useState(false);
+
+  // Phase 6.b Part 2.5c — Compose Calendar event modal. Same chief-of-
+  // staff pattern: drafter strip + form fields.
+  const [composeCalendarOpen, setComposeCalendarOpen] = useState(false);
+  const [composeDocOpen, setComposeDocOpen] = useState(false);
+  const [composeSlidesOpen, setComposeSlidesOpen] = useState(false);
+  const [composeMarketaOpen, setComposeMarketaOpen] = useState(false);
 
   // Phase 7 — activity receipts panel.
   const [receipts, setReceipts] = useState<ActivityReceiptData[]>([]);
   const [receiptsLoading, setReceiptsLoading] = useState(false);
-  const [receiptsOpen, setReceiptsOpen] = useState(false);
+  // Phase 6.b — T1-safe persona display label echoed by the receipts
+  // endpoint. Never personaId / authProfileId / rootDid.
+  const [receiptsPersonaLabel, setReceiptsPersonaLabel] = useState<string | null>(null);
 
   // Phase 3.5 — Approval + IntentQube state. Single pending-approval slot
   // at a time; queued intents are remembered per nbeId so the user can see
@@ -217,7 +289,7 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     };
   }, [spine.status, personaId]);
 
-  // Fetch ExperienceQube state in parallel with bootstrap.
+  // Fetch ExperienceQube state and initial receipts in parallel with bootstrap.
   useEffect(() => {
     if (spine.status !== 'ready' && spine.status !== 'refreshing') return;
     let cancelled = false;
@@ -230,6 +302,21 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
       .then((d) => { if (!cancelled) setExpModel(d); })
       .catch(() => { if (!cancelled) setExpModel({ configured: false, meta: null, blakSummary: null, updatedAt: null }); })
       .finally(() => { if (!cancelled) setExpModelLoading(false); });
+
+    // Auto-load receipts on mount so they're visible immediately.
+    setReceiptsLoading(true);
+    personaFetch('/api/assistant/receipts?limit=25', { personaIdHint: personaId })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const d = (await res.json()) as { receipts: ActivityReceiptData[]; personaDisplayLabel: string | null };
+        if (!cancelled) {
+          setReceipts(d.receipts ?? []);
+          setReceiptsPersonaLabel(d.personaDisplayLabel ?? null);
+        }
+      })
+      .catch(() => { /* best-effort */ })
+      .finally(() => { if (!cancelled) setReceiptsLoading(false); });
+
     return () => { cancelled = true; };
   }, [spine.status, personaId]);
 
@@ -343,9 +430,35 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     // creation paths.
   }, [fetchBrief, fetchMoveForward, fetchVentureProgress]);
 
+  // Phase 7 — receipts fetcher. Declared up here (before the action
+  // handlers) because several handlers reference it in their useCallback
+  // dep arrays — declaring it later would TDZ-trap on first render.
+  const fetchReceipts = useCallback(async () => {
+    setReceiptsLoading(true);
+    try {
+      const res = await personaFetch('/api/assistant/receipts?limit=25', {
+        personaIdHint: personaId,
+      });
+      if (!res.ok) throw new Error(`receipts fetch failed (${res.status})`);
+      const data = (await res.json()) as {
+        receipts: ActivityReceiptData[];
+        count: number;
+        personaDisplayLabel: string | null;
+      };
+      setReceipts(data.receipts ?? []);
+      setReceiptsPersonaLabel(data.personaDisplayLabel ?? null);
+    } catch {
+      setReceipts([]);
+      setReceiptsPersonaLabel(null);
+    } finally {
+      setReceiptsLoading(false);
+    }
+  }, [personaId]);
+
   const handleWizardSaved = useCallback((saved: ExperienceModelCardData) => {
     setExpModel(saved);
-  }, []);
+    void fetchReceipts();
+  }, [fetchReceipts]);
 
   // Phase 3.5 — clicking Act on any NBE opens the ApprovalCard.
   const handleNbeAct = useCallback((action: NextBestActionData) => {
@@ -395,6 +508,7 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
       }));
       // Clear the pending slot; the queued card will replace it inline.
       setPendingApprovalNbe(null);
+      void fetchReceipts();
 
       // Phase 5 — if the NBE names a specialist, auto-fire the specialist
       // consultation. The SpecialistResponseCard renders inline.
@@ -444,7 +558,7 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     } finally {
       setSubmittingApproval(false);
     }
-  }, [pendingApprovalNbe, personaId]);
+  }, [pendingApprovalNbe, personaId, fetchReceipts]);
 
   // Phase 6 — create an artifact from a specialist's suggested chip.
   const handleCreateArtifact = useCallback(async (
@@ -490,34 +604,387 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
     }
   }, [personaId]);
 
-  const handleDismissArtifact = useCallback((artifactId: string) => {
-    setArtifacts((prev) => prev.filter((a) => a.artifactId !== artifactId));
-  }, []);
-
-  // Phase 7 — receipts panel.
-  const fetchReceipts = useCallback(async () => {
-    setReceiptsLoading(true);
-    try {
-      const res = await personaFetch('/api/assistant/receipts?limit=25', {
-        personaIdHint: personaId,
-      });
-      if (!res.ok) throw new Error(`receipts fetch failed (${res.status})`);
-      const data = (await res.json()) as { receipts: ActivityReceiptData[]; count: number };
-      setReceipts(data.receipts ?? []);
-    } catch {
-      setReceipts([]);
-    } finally {
-      setReceiptsLoading(false);
+  // Phase 6.b Part 2.5b — Aigent Me drafts an email from a one-line prompt.
+  // The route assembles T1-safe context (ExperienceQube meta + intent
+  // name) and calls OpenAI live (or the deterministic template fallback).
+  const handleDraftEmail = useCallback(async (prompt: string) => {
+    const res = await personaFetch('/api/assistant/draft-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+      personaIdHint: personaId,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+      throw new Error(body?.detail || body?.error || `draft-email failed (${res.status})`);
     }
+    return (await res.json()) as {
+      to: string;
+      cc: string;
+      bcc: string;
+      subject: string;
+      bodyText: string;
+      rationale: string;
+      source: 'llm' | 'template';
+    };
   }, [personaId]);
 
-  const toggleReceipts = useCallback(() => {
-    setReceiptsOpen((open) => {
-      const next = !open;
-      if (next) void fetchReceipts();
+  // Phase 6.b Part 2.5b — Compose Gmail draft → POST create-artifact with
+  // destination='gmail'. The route eager-creates a real Gmail draft via
+  // the gmail.draft connector and returns an ArtifactCardData carrying
+  // the gmail.send connector binding for the Send button.
+  const handleComposeGmailDraft = useCallback(async (input: {
+    to: string;
+    subject: string;
+    bodyText: string;
+    cc?: string;
+    bcc?: string;
+  }) => {
+    const res = await personaFetch('/api/assistant/create-artifact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        artifactType: 'gmail-draft',
+        destination: 'gmail',
+        title: input.subject,
+        connectorInput: input,
+      }),
+      personaIdHint: personaId,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as { error?: string; detail?: string; hint?: string }));
+      throw new Error(body?.detail || body?.hint || body?.error || `create-artifact failed (${res.status})`);
+    }
+    const data = (await res.json()) as ArtifactCardData;
+    setArtifacts((prev) => [data, ...prev].slice(0, 10));
+  }, [personaId]);
+
+  // Phase 6.b Part 2.5c — Calendar event drafter + creator.
+  const handleDraftEvent = useCallback(async (prompt: string) => {
+    const res = await personaFetch('/api/assistant/draft-event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+      personaIdHint: personaId,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+      throw new Error(body?.detail || body?.error || `draft-event failed (${res.status})`);
+    }
+    return (await res.json()) as {
+      summary: string;
+      description: string;
+      startIso: string;
+      endIso: string;
+      timeZone: string;
+      attendeeEmails: string[];
+      rationale: string;
+      source: 'llm' | 'template';
+    };
+  }, [personaId]);
+
+  const handleComposeCalendarEvent = useCallback(async (input: {
+    summary: string;
+    description: string;
+    startIso: string;
+    endIso: string;
+    timeZone: string;
+    attendeeEmails: string[];
+  }) => {
+    const res = await personaFetch('/api/assistant/create-artifact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        artifactType: 'calendar-block',
+        destination: 'calendar',
+        title: input.summary,
+        connectorInput: input,
+      }),
+      personaIdHint: personaId,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as { error?: string; detail?: string; hint?: string }));
+      throw new Error(body?.detail || body?.hint || body?.error || `create-artifact failed (${res.status})`);
+    }
+    const data = (await res.json()) as ArtifactCardData;
+    setArtifacts((prev) => [data, ...prev].slice(0, 10));
+  }, [personaId]);
+
+  // Phase 6.b Part 2.5c — Google Doc drafter + creator.
+  const handleDraftDoc = useCallback(async (prompt: string) => {
+    const res = await personaFetch('/api/assistant/draft-doc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+      personaIdHint: personaId,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+      throw new Error(body?.detail || body?.error || `draft-doc failed (${res.status})`);
+    }
+    return (await res.json()) as {
+      title: string;
+      bodyText: string;
+      shareSuggestions: Array<{ email: string; role: 'reader' | 'commenter' | 'writer' }>;
+      rationale: string;
+      source: 'llm' | 'template';
+    };
+  }, [personaId]);
+
+  const handleComposeGoogleDoc = useCallback(async (input: {
+    title: string;
+    bodyText: string;
+    shareSuggestions: Array<{ email: string; role: 'reader' | 'commenter' | 'writer' }>;
+  }) => {
+    const res = await personaFetch('/api/assistant/create-artifact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        artifactType: 'google-doc',
+        destination: 'drive',
+        title: input.title,
+        connectorInput: input,
+      }),
+      personaIdHint: personaId,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as { error?: string; detail?: string; hint?: string }));
+      throw new Error(body?.detail || body?.hint || body?.error || `create-artifact failed (${res.status})`);
+    }
+    const data = (await res.json()) as ArtifactCardData;
+    setArtifacts((prev) => [data, ...prev].slice(0, 10));
+  }, [personaId]);
+
+  // Phase 6.b Part 2.5c — Slides drafter + creator.
+  const handleDraftSlides = useCallback(async (prompt: string) => {
+    const res = await personaFetch('/api/assistant/draft-slides', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+      personaIdHint: personaId,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+      throw new Error(body?.detail || body?.error || `draft-slides failed (${res.status})`);
+    }
+    return (await res.json()) as {
+      title: string;
+      outline: string[];
+      sections: Array<{ title: string; bullets: string[]; diagramConcept?: string }>;
+      rationale: string;
+      source: 'llm' | 'template';
+    };
+  }, [personaId]);
+
+  const handleComposeSlides = useCallback(async (input: {
+    title: string;
+    outline: string[];
+    sections?: Array<{ title: string; bullets: string[]; diagramConcept?: string }>;
+  }) => {
+    const res = await personaFetch('/api/assistant/create-artifact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        artifactType: 'slide-outline',
+        destination: 'drive',
+        title: input.title,
+        connectorInput: input,
+      }),
+      personaIdHint: personaId,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as { error?: string; detail?: string; hint?: string }));
+      throw new Error(body?.detail || body?.hint || body?.error || `create-artifact failed (${res.status})`);
+    }
+    const data = (await res.json()) as ArtifactCardData;
+    setArtifacts((prev) => [data, ...prev].slice(0, 10));
+  }, [personaId]);
+
+  // Phase 6.b Part 3 — Marketa email drafter + compose. Sends via Mailjet
+  // through the existing /api/connectors/execute path (marketa.send-
+  // transactional connector), gated by the SecondTierApprovalCard.
+  const handleDraftMarketa = useCallback(async (prompt: string) => {
+    const res = await personaFetch('/api/assistant/draft-marketa-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+      personaIdHint: personaId,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as { error?: string; detail?: string }));
+      throw new Error(body?.detail || body?.error || `draft-marketa-email failed (${res.status})`);
+    }
+    return (await res.json()) as {
+      to: string;
+      cc: string;
+      bcc: string;
+      subject: string;
+      bodyText: string;
+      rationale: string;
+      source: 'llm' | 'template';
+    };
+  }, [personaId]);
+
+  const handleComposeMarketa = useCallback(async (input: {
+    to: string;
+    subject: string;
+    bodyText: string;
+    cc?: string;
+    bcc?: string;
+    fromName?: string;
+    campaignId?: string;
+    cohortId?: string;
+  }) => {
+    const res = await personaFetch('/api/assistant/create-artifact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        artifactType: 'marketa-email',
+        destination: 'runtime',
+        title: input.subject,
+        connectorInput: input,
+      }),
+      personaIdHint: personaId,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as { error?: string; detail?: string; hint?: string }));
+      throw new Error(body?.detail || body?.hint || body?.error || `create-artifact failed (${res.status})`);
+    }
+    const data = (await res.json()) as ArtifactCardData;
+    setArtifacts((prev) => [data, ...prev].slice(0, 10));
+    void fetchReceipts();
+  }, [personaId, fetchReceipts]);
+
+  const handleDismissArtifact = useCallback((artifactId: string) => {
+    setArtifacts((prev) => prev.filter((a) => a.artifactId !== artifactId));
+    setActionErrors((prev) => {
+      if (!(artifactId in prev)) return prev;
+      const next = { ...prev };
+      delete next[artifactId];
       return next;
     });
-  }, [fetchReceipts]);
+  }, []);
+
+  // Phase 6.b Part 2.5 — externalise an artifact via its bound connector.
+  // Flow:
+  //   1. POST /api/connectors/execute with the artifact's actionConnectorId.
+  //   2. If the route returns code='requires-approval', surface the
+  //      SecondTierApprovalCard for this artifact and wait for the user.
+  //   3. On approve, retry execute with a fresh approvalToken (a UUID for
+  //      alpha; signed-receipt hardening lands with Part 4).
+  //   4. On success, flip the artifact status to 'sent' and dismiss the
+  //      approval card.
+  const executeArtifactAction = useCallback(async (
+    artifact: ArtifactCardData,
+    approvalToken?: string,
+  ): Promise<void> => {
+    if (!artifact.actionConnectorId) return;
+    setActionPendingArtifactId(artifact.artifactId);
+    setActionErrors((prev) => {
+      if (!(artifact.artifactId in prev)) return prev;
+      const next = { ...prev };
+      delete next[artifact.artifactId];
+      return next;
+    });
+    try {
+      const res = await personaFetch('/api/connectors/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          connectorId: artifact.actionConnectorId,
+          input: artifact.actionInput ?? {},
+          sourceIntentId: artifact.intentId ?? undefined,
+          cartridge: 'metame',
+          ...(approvalToken ? { approvalToken } : {}),
+        }),
+        personaIdHint: personaId,
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.status === 403 && body?.code === 'requires-approval') {
+        // Surface the second-tier approval card next to the artifact.
+        setSecondTierApproval({
+          artifactId: artifact.artifactId,
+          connectorId: artifact.actionConnectorId,
+          connectorLabel: artifact.actionConnectorLabel || 'Confirm external action',
+          summary: artifact.title,
+          detail: body.reason || undefined,
+          submitting: false,
+          error: null,
+        });
+        return;
+      }
+      if (!res.ok || body?.ok === false) {
+        const msg = body?.reason || body?.detail || body?.error || `execute failed (${res.status})`;
+        setActionErrors((prev) => ({ ...prev, [artifact.artifactId]: msg }));
+        if (secondTierApproval && secondTierApproval.artifactId === artifact.artifactId) {
+          setSecondTierApproval({ ...secondTierApproval, submitting: false, error: msg });
+        }
+        return;
+      }
+      // Success — flip status to sent and clear the second-tier card.
+      setArtifacts((prev) =>
+        prev.map((a) =>
+          a.artifactId === artifact.artifactId ? { ...a, status: 'sent' } : a,
+        ),
+      );
+      setSecondTierApproval((prev) =>
+        prev && prev.artifactId === artifact.artifactId ? null : prev,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setActionErrors((prev) => ({ ...prev, [artifact.artifactId]: msg }));
+      if (secondTierApproval && secondTierApproval.artifactId === artifact.artifactId) {
+        setSecondTierApproval({ ...secondTierApproval, submitting: false, error: msg });
+      }
+    } finally {
+      setActionPendingArtifactId(null);
+    }
+  }, [personaId, secondTierApproval]);
+
+  const handleSendArtifact = useCallback((artifactId: string) => {
+    const artifact = artifacts.find((a) => a.artifactId === artifactId);
+    if (!artifact) return;
+    void executeArtifactAction(artifact);
+  }, [artifacts, executeArtifactAction]);
+
+  const handleApproveSecondTier = useCallback(() => {
+    if (!secondTierApproval) return;
+    const artifact = artifacts.find((a) => a.artifactId === secondTierApproval.artifactId);
+    if (!artifact) return;
+    // Phase 6.b Part 4 — request a signed approvalToken from the server
+    // bound to (personaId, connectorId, 5-min expiry). The execute route
+    // verifies the HMAC + persona match + connector match before running.
+    setSecondTierApproval({ ...secondTierApproval, submitting: true, error: null });
+    void (async () => {
+      try {
+        const res = await personaFetch('/api/assistant/approve-action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            connectorId: secondTierApproval.connectorId,
+            sourceIntentId: artifact.intentId ?? undefined,
+            cartridge: 'metame',
+          }),
+          personaIdHint: personaId,
+        });
+        const json = await res.json().catch(() => ({} as { approvalToken?: string; detail?: string; error?: string }));
+        if (!res.ok || !json.approvalToken) {
+          const msg = json.detail || json.error || `approve-action failed (${res.status})`;
+          setSecondTierApproval({ ...secondTierApproval, submitting: false, error: msg });
+          return;
+        }
+        await executeArtifactAction(artifact, json.approvalToken);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setSecondTierApproval({ ...secondTierApproval, submitting: false, error: msg });
+      }
+    })();
+  }, [secondTierApproval, artifacts, executeArtifactAction, personaId]);
+
+  const handleCancelSecondTier = useCallback(() => {
+    setSecondTierApproval(null);
+  }, []);
+
 
   const handleDismissSpecialist = useCallback((nbeId: string) => {
     setSpecialistResponses((prev) => {
@@ -588,10 +1055,35 @@ export function AigentMeWelcomeTab({ theme = 'dark', personaId }: Props) {
           artifacts={artifacts}
           onCreateArtifact={handleCreateArtifact}
           onDismissArtifact={handleDismissArtifact}
+          actionPendingArtifactId={actionPendingArtifactId}
+          actionErrors={actionErrors}
+          secondTierApproval={secondTierApproval}
+          onSendArtifact={handleSendArtifact}
+          onApproveSecondTier={handleApproveSecondTier}
+          onCancelSecondTier={handleCancelSecondTier}
+          composeGmailOpen={composeGmailOpen}
+          onComposeGmailOpenChange={setComposeGmailOpen}
+          onComposeGmailDraft={handleComposeGmailDraft}
+          onDraftEmail={handleDraftEmail}
+          composeCalendarOpen={composeCalendarOpen}
+          onComposeCalendarOpenChange={setComposeCalendarOpen}
+          onComposeCalendarEvent={handleComposeCalendarEvent}
+          onDraftEvent={handleDraftEvent}
+          composeDocOpen={composeDocOpen}
+          onComposeDocOpenChange={setComposeDocOpen}
+          onComposeGoogleDoc={handleComposeGoogleDoc}
+          onDraftDoc={handleDraftDoc}
+          composeSlidesOpen={composeSlidesOpen}
+          onComposeSlidesOpenChange={setComposeSlidesOpen}
+          onComposeSlides={handleComposeSlides}
+          onDraftSlides={handleDraftSlides}
+          composeMarketaOpen={composeMarketaOpen}
+          onComposeMarketaOpenChange={setComposeMarketaOpen}
+          onComposeMarketa={handleComposeMarketa}
+          onDraftMarketa={handleDraftMarketa}
           receipts={receipts}
           receiptsLoading={receiptsLoading}
-          receiptsOpen={receiptsOpen}
-          onToggleReceipts={toggleReceipts}
+          receiptsPersonaLabel={receiptsPersonaLabel}
           theme={theme}
           surfaceClass={surfaceClass}
           mutedClass={mutedClass}
@@ -668,10 +1160,106 @@ interface BodyProps {
   artifacts: ArtifactCardData[];
   onCreateArtifact: (artifactType: string, opts?: { sourceIntentId?: string; specialistId?: string }) => void;
   onDismissArtifact: (artifactId: string) => void;
+  // Phase 6.b Part 2.5 — artifact externalisation.
+  actionPendingArtifactId: string | null;
+  actionErrors: Record<string, string>;
+  secondTierApproval: {
+    artifactId: string;
+    connectorId: string;
+    connectorLabel: string;
+    summary: string;
+    detail?: string;
+    submitting: boolean;
+    error: string | null;
+  } | null;
+  onSendArtifact: (artifactId: string) => void;
+  onApproveSecondTier: () => void;
+  onCancelSecondTier: () => void;
+  composeGmailOpen: boolean;
+  onComposeGmailOpenChange: (open: boolean) => void;
+  onComposeGmailDraft: (input: { to: string; subject: string; bodyText: string; cc?: string; bcc?: string }) => Promise<void>;
+  onDraftEmail: (prompt: string) => Promise<{
+    to: string;
+    cc: string;
+    bcc: string;
+    subject: string;
+    bodyText: string;
+    rationale: string;
+    source: 'llm' | 'template';
+  }>;
+  composeCalendarOpen: boolean;
+  onComposeCalendarOpenChange: (open: boolean) => void;
+  onComposeCalendarEvent: (input: {
+    summary: string;
+    description: string;
+    startIso: string;
+    endIso: string;
+    timeZone: string;
+    attendeeEmails: string[];
+  }) => Promise<void>;
+  onDraftEvent: (prompt: string) => Promise<{
+    summary: string;
+    description: string;
+    startIso: string;
+    endIso: string;
+    timeZone: string;
+    attendeeEmails: string[];
+    rationale: string;
+    source: 'llm' | 'template';
+  }>;
+  composeDocOpen: boolean;
+  onComposeDocOpenChange: (open: boolean) => void;
+  onComposeGoogleDoc: (input: {
+    title: string;
+    bodyText: string;
+    shareSuggestions: Array<{ email: string; role: 'reader' | 'commenter' | 'writer' }>;
+  }) => Promise<void>;
+  onDraftDoc: (prompt: string) => Promise<{
+    title: string;
+    bodyText: string;
+    shareSuggestions: Array<{ email: string; role: 'reader' | 'commenter' | 'writer' }>;
+    rationale: string;
+    source: 'llm' | 'template';
+  }>;
+  composeSlidesOpen: boolean;
+  onComposeSlidesOpenChange: (open: boolean) => void;
+  onComposeSlides: (input: {
+    title: string;
+    outline: string[];
+    sections?: Array<{ title: string; bullets: string[]; diagramConcept?: string }>;
+  }) => Promise<void>;
+  onDraftSlides: (prompt: string) => Promise<{
+    title: string;
+    outline: string[];
+    sections: Array<{ title: string; bullets: string[]; diagramConcept?: string }>;
+    rationale: string;
+    source: 'llm' | 'template';
+  }>;
+  composeMarketaOpen: boolean;
+  onComposeMarketaOpenChange: (open: boolean) => void;
+  onComposeMarketa: (input: {
+    to: string;
+    subject: string;
+    bodyText: string;
+    cc?: string;
+    bcc?: string;
+    fromName?: string;
+    campaignId?: string;
+    cohortId?: string;
+  }) => Promise<void>;
+  onDraftMarketa: (prompt: string) => Promise<{
+    to: string;
+    cc: string;
+    bcc: string;
+    subject: string;
+    bodyText: string;
+    rationale: string;
+    source: 'llm' | 'template';
+  }>;
   receipts: ActivityReceiptData[];
   receiptsLoading: boolean;
-  receiptsOpen: boolean;
-  onToggleReceipts: () => void;
+  /** T1-safe persona display label echoed by the receipts endpoint. */
+  receiptsPersonaLabel: string | null;
   theme: 'light' | 'dark';
   surfaceClass: string;
   mutedClass: string;
@@ -714,10 +1302,35 @@ function AigentMeWelcomeBody({
   artifacts,
   onCreateArtifact,
   onDismissArtifact,
+  actionPendingArtifactId,
+  actionErrors,
+  secondTierApproval,
+  onSendArtifact,
+  onApproveSecondTier,
+  onCancelSecondTier,
+  composeGmailOpen,
+  onComposeGmailOpenChange,
+  onComposeGmailDraft,
+  onDraftEmail,
+  composeCalendarOpen,
+  onComposeCalendarOpenChange,
+  onComposeCalendarEvent,
+  onDraftEvent,
+  composeDocOpen,
+  onComposeDocOpenChange,
+  onComposeGoogleDoc,
+  onDraftDoc,
+  composeSlidesOpen,
+  onComposeSlidesOpenChange,
+  onComposeSlides,
+  onDraftSlides,
+  composeMarketaOpen,
+  onComposeMarketaOpenChange,
+  onComposeMarketa,
+  onDraftMarketa,
   receipts,
   receiptsLoading,
-  receiptsOpen,
-  onToggleReceipts,
+  receiptsPersonaLabel,
   theme,
   surfaceClass,
   mutedClass,
@@ -739,11 +1352,25 @@ function AigentMeWelcomeBody({
     }
   }, [moveForwardCartridgeOpen]);
 
+  // CTA icon mapping for the console action grid
+  const CTA_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+    'set-up-experience-model': Layers,
+    'brief-me': FileText,
+    'move-this-forward': Zap,
+    'review-venture-progress': BarChart3,
+    'create-something': Plus,
+    'coordinate-follow-ups': Users,
+    'ask-marketa': Megaphone,
+    'ask-kn0w1': Brain,
+    'ask-aigent-z': Shield,
+    'ask-aigent-c': Sparkles,
+  };
+
   if (bootstrapLoading && !data) {
     return (
       <div className="p-10 flex items-center justify-center gap-3">
         <Loader2 className="w-5 h-5 animate-spin text-violet-400" />
-        <span className={mutedClass}>Bringing Aigent Me online…</span>
+        <span className={mutedClass}>Bringing aigentMe online…</span>
       </div>
     );
   }
@@ -752,7 +1379,7 @@ function AigentMeWelcomeBody({
     return (
       <div className="p-10 max-w-2xl mx-auto">
         <div className={`rounded-lg border p-6 ${surfaceClass}`}>
-          <h3 className="font-semibold mb-1">Aigent Me bootstrap failed</h3>
+          <h3 className="font-semibold mb-1">aigentMe bootstrap failed</h3>
           <p className={`text-sm ${mutedClass}`}>{bootstrapError}</p>
         </div>
       </div>
@@ -761,366 +1388,471 @@ function AigentMeWelcomeBody({
 
   if (!data) return null;
 
-  // Prefer the spine's displayLabel (single source of truth across surfaces);
-  // fall back to the bootstrap copy if for some reason it differs.
   const greetingName = (spineDisplayLabel || data.displayLabel || '').trim();
   const usingIqubes: ('PersonaQube' | 'ExperienceQube' | 'IntentQube')[] =
     expModel?.configured ? ['PersonaQube', 'ExperienceQube'] : ['PersonaQube'];
 
   return (
-    <div className="p-6 lg:p-10 max-w-5xl mx-auto space-y-8">
-      {/* Header — product label + greeting */}
-      <header className="space-y-2">
-        <div className="flex items-center gap-2">
-          <Sparkles className={`w-5 h-5 ${accentClass}`} />
-          <span className={`text-xs uppercase tracking-wider ${mutedClass}`}>
-            {data.naming.productLabel}
-          </span>
+    <div className="h-full overflow-y-auto">
+      <div className="px-6 py-4 w-full space-y-3">
+
+        {/* ── ROW 1 — identity badge + experience state + iQube context banner ── */}
+        <div className="flex items-center gap-3 flex-wrap py-1">
+          <div className="flex items-center gap-2 shrink-0">
+            <Sparkles className={`w-4 h-4 ${accentClass}`} />
+            <span className="text-sm font-semibold text-slate-100">
+              {greetingName ? greetingName : data.naming.productLabel}
+            </span>
+          </div>
+          {!expModelLoading && expModel && (
+            <span className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 ${
+              expModel.configured
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+            }`}>
+              {expModel.configured
+                ? (expModel.meta?.experienceName || 'ExperienceQube active')
+                : 'Setup Experience Model'}
+            </span>
+          )}
+          <PersonalGuideChip personaId={personaId} />
+          <div className="flex-1 min-w-[120px]" />
+          <div className="shrink-0">
+            <IqubeContextDisclosure using={usingIqubes} theme={theme} />
+          </div>
         </div>
-        <h1 className="text-3xl lg:text-4xl font-semibold leading-tight">
-          {greetingName ? `Welcome back, ${greetingName}.` : 'Welcome back.'}
-        </h1>
-        <p className={`max-w-2xl ${mutedClass}`}>
-          I can help you brief your day, guide your experience strategy, move
-          your cartridges forward, create artifacts, coordinate trusted
-          agents, and track progress.
-        </p>
-      </header>
 
-      {/* iQube context disclosure — what's being used right now */}
-      <IqubeContextDisclosure using={usingIqubes} theme={theme} />
-
-      {/* Pending approval (single slot) — appears whenever the user clicks
-          Act on any NBE. Approve creates an IntentQube row; the queued
-          state replaces the pending one inline. */}
-      {pendingApprovalNbe && (
-        <ApprovalCard
-          action={toApprovalAction(pendingApprovalNbe)}
-          submitting={submittingApproval}
-          queued={null}
-          error={approvalError}
-          onApprove={onApprovalApprove}
-          onCancel={onApprovalCancel}
-          onEdit={() => { /* Phase 6 */ }}
-          using={usingIqubes}
-          theme={theme}
-        />
-      )}
-
-      {/* Queued intents — chip-sized confirmations stack here until dismissed */}
-      {Object.keys(queuedIntents).length > 0 && (
-        <section className="space-y-2">
-          {Object.entries(queuedIntents).map(([nbeId, queued]) => (
-            <ApprovalCard
-              key={nbeId}
-              action={{
-                nbeId,
-                label: nbeId,
-                rationale: '',
-                cartridge: 'metame',
-                approvalRequired: false,
-                specialist: null,
-                suggestedArtifact: null,
-              }}
-              queued={queued}
-              onApprove={() => { /* not used in queued state */ }}
-              onCancel={() => onDismissQueued(nbeId)}
-              using={usingIqubes}
-              theme={theme}
-            />
-          ))}
-        </section>
-      )}
-
-      {/* Specialist responses — Phase 5. Cards render inline once a queued
-          NBE with a specialist returns from /api/assistant/ask-agent. */}
-      {(Object.keys(specialistResponses).length > 0 ||
-        Object.keys(specialistLoading).length > 0 ||
-        Object.keys(specialistErrors).length > 0) && (
-        <section className="space-y-2">
-          {Object.keys({ ...specialistResponses, ...specialistLoading, ...specialistErrors }).map((nbeId) => {
-            const sp = specialistResponses[nbeId] ?? null;
-            const isLoading = !!specialistLoading[nbeId];
-            const err = specialistErrors[nbeId] ?? null;
-            const intentId = queuedIntents[nbeId]?.intentId;
-            return (
-              <SpecialistResponseCard
-                key={nbeId}
-                data={sp}
-                loading={isLoading}
-                error={err}
-                using={usingIqubes}
-                onDismiss={() => onDismissSpecialist(nbeId)}
-                onCreateArtifact={
-                  sp
-                    ? (artifactType) =>
-                        onCreateArtifact(artifactType, {
-                          sourceIntentId: intentId,
-                          specialistId: sp.specialistId,
-                        })
-                    : undefined
-                }
-                theme={theme}
-              />
-            );
-          })}
-        </section>
-      )}
-
-      {/* Artifacts — Phase 6. Stack of recently-created runtime-destination
-          artifacts. */}
-      {artifacts.length > 0 && (
-        <section className="space-y-2">
-          <h2 className={`text-xs uppercase tracking-wider ${mutedClass}`}>
-            Artifacts
-          </h2>
-          {artifacts.map((a) => (
-            <ArtifactCard
-              key={a.artifactId}
-              data={a}
-              onDismiss={() => onDismissArtifact(a.artifactId)}
-              theme={theme}
-            />
-          ))}
-        </section>
-      )}
-
-      {/* Receipts panel — Phase 7. Collapsible. */}
-      <section>
-        <div className="flex items-center justify-between mb-2">
-          <h2 className={`text-xs uppercase tracking-wider ${mutedClass}`}>
-            Recent activity
-          </h2>
-          <button
-            onClick={onToggleReceipts}
-            className={`text-xs px-2 py-1 rounded border ${chipClass}`}
-          >
-            {receiptsOpen ? 'Hide receipts' : 'Show receipts'}
-          </button>
-        </div>
-        {receiptsOpen && (
-          <div className="space-y-2">
-            {receiptsLoading ? (
-              <p className={`text-sm ${mutedClass}`}>Loading receipts…</p>
-            ) : receipts.length === 0 ? (
-              <p className={`text-sm ${mutedClass}`}>
-                No receipts yet. Acting on any NBE will produce one.
-              </p>
-            ) : (
-              receipts.map((r) => (
-                <ActivityReceiptCard key={r.id} data={r} theme={theme} />
-              ))
-            )}
+        {/* ── ROW 2 — personal greeting + concise capability line ─────────────── */}
+        {greetingName && (
+          <div className="flex items-baseline gap-2 flex-wrap py-0.5">
+            <span className="text-sm font-medium text-slate-100">
+              Welcome back, {greetingName}.
+            </span>
+            <span className={`text-xs ${mutedClass}`}>
+              Brief your day, guide strategy, move cartridges forward, create artifacts, and track progress.
+            </span>
           </div>
         )}
-      </section>
 
-      {/* ExperienceModel card */}
-      <ExperienceModelCard
-        data={expModel}
-        loading={expModelLoading}
-        onEdit={() => onCtaClick('set-up-experience-model')}
-        theme={theme}
-      />
-
-      {/* Quick links — deep-link into the cartridges and tabs the user
-          works in most. PersonaId travels with every link via buildCodexUrl. */}
-      <QuickLinksCard personaId={personaId} theme={theme} />
-
-      {/* Context chips */}
-      <section>
-        <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
-          Active context
-        </h2>
-        <div className="flex flex-wrap gap-2">
-          {CONTEXT_CHIPS.map((chip) => (
-            <span
-              key={chip}
-              className={`px-3 py-1 text-sm rounded-full border ${chipClass}`}
-            >
-              {chip}
-            </span>
-          ))}
-        </div>
-      </section>
-
-      {/* Primary CTAs */}
-      <section>
-        <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
-          What would you like to do?
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {data.primaryCtas.map((cta) => {
-            const isPreview = cta.status === 'preview';
-            const baseBtn =
-              'text-left px-4 py-3 rounded-lg border transition w-full';
-            const enabledBtn = isDark
-              ? 'bg-slate-800/60 border-slate-700 hover:bg-slate-800 hover:border-violet-500/40'
-              : 'bg-white border-slate-200 hover:bg-slate-50 hover:border-violet-400';
-            const disabledBtn = isDark
-              ? 'bg-slate-900/40 border-slate-800 cursor-not-allowed'
-              : 'bg-slate-50 border-slate-200 cursor-not-allowed';
-            return (
-              <button
-                key={cta.id}
-                disabled={!cta.enabled}
-                onClick={() => cta.enabled && onCtaClick(cta.id)}
-                className={`${baseBtn} ${cta.enabled ? enabledBtn : disabledBtn}`}
-                title={isPreview ? 'Coming in a later phase of the alpha' : undefined}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{cta.label}</span>
+        {/* ── PRIMARY ACTION GRID ─────────────────────────────────────────────── */}
+        <section>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {data.primaryCtas.map((cta) => {
+              const CtaIcon = CTA_ICON_MAP[cta.id] || Sparkles;
+              const isPreview = cta.status === 'preview';
+              return (
+                <button
+                  key={cta.id}
+                  disabled={!cta.enabled}
+                  onClick={() => cta.enabled && onCtaClick(cta.id)}
+                  title={isPreview ? 'Coming in a later phase of the alpha' : undefined}
+                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-left transition w-full ${
+                    cta.enabled
+                      ? isDark
+                        ? 'bg-slate-800/60 border-slate-700 hover:bg-slate-800 hover:border-violet-500/40 text-slate-100'
+                        : 'bg-white border-slate-200 hover:bg-slate-50 hover:border-violet-400 text-slate-900'
+                      : isDark
+                        ? 'bg-slate-900/40 border-slate-800 cursor-not-allowed text-slate-600'
+                        : 'bg-slate-50 border-slate-200 cursor-not-allowed text-slate-400'
+                  }`}
+                >
+                  <CtaIcon className={`w-4 h-4 flex-shrink-0 ${cta.enabled ? accentClass : mutedClass}`} />
+                  <span className="text-sm font-medium leading-snug">{cta.label}</span>
                   {isPreview && (
-                    <span className={`text-[10px] uppercase tracking-wider ${mutedClass}`}>
-                      preview
+                    <span className={`ml-auto text-[9px] uppercase tracking-wider ${mutedClass} opacity-60`}>
+                      soon
                     </span>
                   )}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Brief Card — appears once 'Brief me' is clicked */}
-      {(briefLoading || briefError || brief) && (
-        <section>
-          <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
-            Brief
-          </h2>
-          <BriefCard
-            data={brief}
-            loading={briefLoading}
-            error={briefError}
-            onActOnNbe={onNbeAct}
-            theme={theme}
-          />
+                </button>
+              );
+            })}
+          </div>
         </section>
-      )}
 
-      {/* Venture Progress — appears once 'Review venture progress' is clicked */}
-      {(ventureProgressLoading || ventureProgressError || ventureProgress) && (
-        <section>
-          <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
-            Venture Progress
-          </h2>
-          <VentureProgressCard
-            data={ventureProgress}
-            loading={ventureProgressLoading}
-            error={ventureProgressError}
-            onActOnNbe={onNbeAct}
-            theme={theme}
-          />
-        </section>
-      )}
-
-      {/* Move-forward — hero NBE first, then alternates, then 'switch cartridge' strip */}
-      {moveForwardCartridgeOpen && (
-        <section ref={moveForwardSectionRef}>
-          <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
-            Move this forward
-          </h2>
-
-          {moveForwardLoading && (
-            <p className={`text-sm ${mutedClass}`}>Looking for the strongest move…</p>
-          )}
-
-          {moveForwardResult && !moveForwardLoading && (
-            <div className="space-y-3">
-              {moveForwardResult.topAction ? (
-                <NextBestActionCard
-                  action={moveForwardResult.topAction}
-                  variant="hero"
-                  onAct={onNbeAct}
-                  theme={theme}
-                />
-              ) : (
-                <p className={`text-sm ${mutedClass}`}>
-                  No catalogue match at your current stage.
-                  Try setting up your ExperienceModel first.
-                </p>
-              )}
-              {moveForwardResult.alternates.length > 0 && (
-                <>
-                  <h3 className={`text-xs uppercase tracking-wider mt-4 mb-1 ${mutedClass}`}>
-                    Or instead
-                  </h3>
-                  <div className="space-y-2">
-                    {moveForwardResult.alternates.map((a) => (
-                      <NextBestActionCard
-                        key={a.id}
-                        action={a}
-                        onAct={onNbeAct}
-                        theme={theme}
-                      />
-                    ))}
-                  </div>
-                </>
-              )}
-
-              {/* Steering strip — swap cartridge if the user wants a different angle */}
-              <div className="pt-3 mt-3 border-t border-slate-800/40">
-                <div className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
-                  Switch cartridge
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {data.availableCartridges.map((c) => {
-                    const selected = moveForwardResult.cartridge === c.slug;
-                    return (
-                      <button
-                        key={c.slug}
-                        onClick={() => onPickMoveForwardCartridge(c.slug)}
-                        className={`px-2.5 py-1 rounded-full border text-xs transition ${
-                          selected
-                            ? 'bg-violet-500/20 border-violet-500 text-violet-200'
-                            : isDark
-                              ? 'bg-slate-800/60 border-slate-700 text-slate-300 hover:border-slate-600'
-                              : 'bg-white border-slate-300 text-slate-700 hover:border-violet-400'
-                        }`}
-                      >
-                        {c.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* Specialist directory */}
-      <section>
-        <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
-          Specialists I can coordinate
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {data.availableSpecialists.map((s) => (
-            <div
-              key={s.id}
-              className={`rounded-lg border p-4 ${surfaceClass}`}
+        {/* ── COMPOSE STRIP — quick workspace action launchers ──────────────── */}
+        <div className="flex items-center gap-1.5 flex-wrap py-0.5">
+          <span className={`text-[10px] uppercase tracking-wider mr-0.5 ${mutedClass} opacity-70`}>
+            Compose
+          </span>
+          {([
+            { label: 'Email',   Icon: Mail,      action: () => onComposeGmailOpenChange(true)    },
+            { label: 'Event',   Icon: Calendar,  action: () => onComposeCalendarOpenChange(true) },
+            { label: 'Doc',     Icon: FileText,  action: () => onComposeDocOpenChange(true)      },
+            { label: 'Slides',  Icon: Layout,    action: () => onComposeSlidesOpenChange(true)   },
+            { label: 'Marketa', Icon: Megaphone, action: () => onComposeMarketaOpenChange(true)  },
+          ] as Array<{ label: string; Icon: React.ComponentType<{ className?: string }>; action: () => void }>).map(({ label, Icon, action }) => (
+            <button
+              key={label}
+              onClick={action}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs border border-violet-500/20 text-violet-300 hover:border-violet-400 hover:text-violet-200 transition"
             >
-              <div className="font-medium mb-1">{s.label}</div>
-              <div className={`text-sm ${mutedClass}`}>{s.description}</div>
-              <div className={`text-[11px] mt-2 uppercase tracking-wider ${mutedClass}`}>
-                {s.homeCartridge}
-              </div>
-            </div>
+              <Icon className="w-3 h-3" />
+              {label}
+            </button>
           ))}
         </div>
-      </section>
 
-      {/* Naming notice — locked decisions */}
-      <footer className={`text-xs ${mutedClass} pt-4 border-t border-slate-800/60`}>
-        <p>
-          Locked names: <strong>{data.naming.canonicalMediaBrand}</strong> ·
-          KNYT specialist <strong>{data.naming.knytSpecialist}</strong> ·
-          Qriptopian editorial <strong>Quill</strong>.
-          Workspace tools (Gmail, Calendar, Drive) are opt-in per source.
-        </p>
-      </footer>
+        {/* ── ACTIVE CONTENT — approvals, briefs, specialists, artifacts ───────
+            These appear inline as the user triggers them. */}
+
+        {pendingApprovalNbe && (
+          <ApprovalCard
+            action={toApprovalAction(pendingApprovalNbe)}
+            submitting={submittingApproval}
+            queued={null}
+            error={approvalError}
+            onApprove={onApprovalApprove}
+            onCancel={onApprovalCancel}
+            onEdit={() => { /* Phase 6 */ }}
+            using={usingIqubes}
+            theme={theme}
+          />
+        )}
+
+        {Object.keys(queuedIntents).length > 0 && (
+          <section className="space-y-2">
+            {Object.entries(queuedIntents).map(([nbeId, queued]) => (
+              <ApprovalCard
+                key={nbeId}
+                action={{
+                  nbeId,
+                  label: nbeId,
+                  rationale: '',
+                  cartridge: 'metame',
+                  approvalRequired: false,
+                  specialist: null,
+                  suggestedArtifact: null,
+                }}
+                queued={queued}
+                onApprove={() => { /* not used in queued state */ }}
+                onCancel={() => onDismissQueued(nbeId)}
+                using={usingIqubes}
+                theme={theme}
+              />
+            ))}
+          </section>
+        )}
+
+        {(Object.keys(specialistResponses).length > 0 ||
+          Object.keys(specialistLoading).length > 0 ||
+          Object.keys(specialistErrors).length > 0) && (
+          <section className="space-y-2">
+            {Object.keys({ ...specialistResponses, ...specialistLoading, ...specialistErrors }).map((nbeId) => {
+              const sp = specialistResponses[nbeId] ?? null;
+              const isLoading = !!specialistLoading[nbeId];
+              const err = specialistErrors[nbeId] ?? null;
+              const intentId = queuedIntents[nbeId]?.intentId;
+              return (
+                <SpecialistResponseCard
+                  key={nbeId}
+                  data={sp}
+                  loading={isLoading}
+                  error={err}
+                  using={usingIqubes}
+                  onDismiss={() => onDismissSpecialist(nbeId)}
+                  onCreateArtifact={
+                    sp
+                      ? (artifactType) =>
+                          onCreateArtifact(artifactType, {
+                            sourceIntentId: intentId,
+                            specialistId: sp.specialistId,
+                          })
+                      : undefined
+                  }
+                  theme={theme}
+                />
+              );
+            })}
+          </section>
+        )}
+
+        {artifacts.length > 0 && (
+          <section className="space-y-2">
+            <h2 className={`text-xs uppercase tracking-wider ${mutedClass}`}>Artifacts</h2>
+            {artifacts.map((a) => (
+              <React.Fragment key={a.artifactId}>
+                <ArtifactCard
+                  data={a}
+                  onDismiss={() => onDismissArtifact(a.artifactId)}
+                  onAction={a.actionConnectorId ? () => onSendArtifact(a.artifactId) : undefined}
+                  actionPending={actionPendingArtifactId === a.artifactId}
+                  actionError={actionErrors[a.artifactId] ?? null}
+                  theme={theme}
+                />
+                {secondTierApproval?.artifactId === a.artifactId && (
+                  <SecondTierApprovalCard
+                    connectorLabel={secondTierApproval.connectorLabel}
+                    summary={secondTierApproval.summary}
+                    detail={secondTierApproval.detail}
+                    submitting={secondTierApproval.submitting}
+                    error={secondTierApproval.error}
+                    onApprove={onApproveSecondTier}
+                    onCancel={onCancelSecondTier}
+                    theme={theme}
+                  />
+                )}
+              </React.Fragment>
+            ))}
+          </section>
+        )}
+
+        {(briefLoading || briefError || brief) && (
+          <section>
+            <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>Brief</h2>
+            <BriefCard data={brief} loading={briefLoading} error={briefError} onActOnNbe={onNbeAct} theme={theme} />
+          </section>
+        )}
+
+        {(ventureProgressLoading || ventureProgressError || ventureProgress) && (
+          <section>
+            <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>Venture Progress</h2>
+            <VentureProgressCard
+              data={ventureProgress}
+              loading={ventureProgressLoading}
+              error={ventureProgressError}
+              onActOnNbe={onNbeAct}
+              theme={theme}
+            />
+          </section>
+        )}
+
+        {moveForwardCartridgeOpen && (
+          <section ref={moveForwardSectionRef}>
+            <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>Move this forward</h2>
+            {moveForwardLoading && (
+              <p className={`text-sm ${mutedClass}`}>Looking for the strongest move…</p>
+            )}
+            {moveForwardResult && !moveForwardLoading && (
+              <div className="space-y-3">
+                {moveForwardResult.topAction ? (
+                  <NextBestActionCard action={moveForwardResult.topAction} variant="hero" onAct={onNbeAct} theme={theme} />
+                ) : (
+                  <p className={`text-sm ${mutedClass}`}>
+                    No catalogue match at your current stage. Try setting up your ExperienceModel first.
+                  </p>
+                )}
+                {moveForwardResult.alternates.length > 0 && (
+                  <>
+                    <h3 className={`text-xs uppercase tracking-wider mt-3 mb-1 ${mutedClass}`}>Or instead</h3>
+                    <div className="space-y-2">
+                      {moveForwardResult.alternates.map((a) => (
+                        <NextBestActionCard key={a.id} action={a} onAct={onNbeAct} theme={theme} />
+                      ))}
+                    </div>
+                  </>
+                )}
+                <div className="pt-3 mt-3 border-t border-slate-800/40">
+                  <div className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>Switch cartridge</div>
+                  <div className="flex flex-wrap gap-2">
+                    {data.availableCartridges.map((c) => {
+                      const selected = moveForwardResult.cartridge === c.slug;
+                      return (
+                        <button
+                          key={c.slug}
+                          onClick={() => onPickMoveForwardCartridge(c.slug)}
+                          className={`px-2.5 py-1 rounded-full border text-xs transition ${
+                            selected
+                              ? 'bg-violet-500/20 border-violet-500 text-violet-200'
+                              : isDark
+                                ? 'bg-slate-800/60 border-slate-700 text-slate-300 hover:border-slate-600'
+                                : 'bg-white border-slate-300 text-slate-700 hover:border-violet-400'
+                          }`}
+                        >
+                          {c.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ── ACTIVITY RECEIPTS — compact collapsible ───────────────────────── */}
+        {/* Receipts render when there is something to show, or while loading. */}
+        {(receiptsLoading || receipts.length > 0) && (
+          <section className={`rounded-lg border ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+            <div className="flex items-center justify-between px-3 py-2">
+              <span className={`text-xs uppercase tracking-wider ${mutedClass}`}>Activity receipts</span>
+              {receiptsLoading && <Loader2 className="w-3 h-3 animate-spin text-slate-600" />}
+            </div>
+            <div className={`px-3 pb-3 space-y-2 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
+              {receiptsLoading && receipts.length === 0 ? (
+                <p className={`text-sm pt-2 ${mutedClass}`}>Loading receipts…</p>
+              ) : (
+                <div className="pt-2 space-y-2">
+                  {receipts.map((r) => (
+                    <ActivityReceiptCard key={r.id} data={r} personaDisplayLabel={receiptsPersonaLabel} theme={theme} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* ── BELOW-FOLD: specialists, model, quick links, connections ─────────
+            Separated visually — users set up / configure here, then act above. */}
+        <div className={`pt-4 mt-2 border-t ${isDark ? 'border-slate-800/50' : 'border-slate-200'} space-y-4`}>
+
+          {/* Specialists — compact 2-3 col grid */}
+          <section>
+            <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>Specialists</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {data.availableSpecialists.map((s) => (
+                <div key={s.id} className={`rounded-lg border p-2.5 ${surfaceClass}`}>
+                  <div className="font-medium text-sm leading-snug">{s.label}</div>
+                  <div className={`text-xs mt-0.5 ${mutedClass}`}>{s.description}</div>
+                  <div className={`text-[10px] mt-1.5 uppercase tracking-wider ${mutedClass} opacity-60`}>
+                    {s.homeCartridge}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* ExperienceModel card */}
+          <ExperienceModelCard
+            data={expModel}
+            loading={expModelLoading}
+            onEdit={() => onCtaClick('set-up-experience-model')}
+            theme={theme}
+          />
+
+          {/* Quick links */}
+          <QuickLinksCard personaId={personaId} theme={theme} />
+
+          {/* Google Workspace connections */}
+          <GoogleConnectionsPanel isAdmin={!!data.cartridgeFlags?.isAdmin} theme={theme} />
+
+          {/* Context chips */}
+          <section>
+            <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>Active context</h2>
+            <div className="flex flex-wrap gap-1.5">
+              {CONTEXT_CHIPS.map((chip) => (
+                <span key={chip} className={`px-2.5 py-1 text-xs rounded-full border ${chipClass}`}>
+                  {chip}
+                </span>
+              ))}
+            </div>
+          </section>
+
+          {/* Footer */}
+          <footer className={`text-xs ${mutedClass} pt-2 border-t ${isDark ? 'border-slate-800/60' : 'border-slate-200'}`}>
+            Locked names: <strong>{data.naming.canonicalMediaBrand}</strong> ·
+            KNYT specialist <strong>{data.naming.knytSpecialist}</strong> ·
+            Qriptopian editorial <strong>Quill</strong>.
+            Workspace tools (Gmail, Calendar, Drive) are opt-in per source.
+          </footer>
+        </div>
+
+        {/* ── MODALS ────────────────────────────────────────────────────────── */}
+        <ComposeGmailDraftModal
+          open={composeGmailOpen}
+          onClose={() => onComposeGmailOpenChange(false)}
+          onCreate={onComposeGmailDraft}
+          onDraftWithAigentMe={onDraftEmail}
+          theme={theme}
+        />
+        <ComposeCalendarEventModal
+          open={composeCalendarOpen}
+          onClose={() => onComposeCalendarOpenChange(false)}
+          onCreate={onComposeCalendarEvent}
+          onDraftWithAigentMe={onDraftEvent}
+          theme={theme}
+        />
+        <ComposeGoogleDocModal
+          open={composeDocOpen}
+          onClose={() => onComposeDocOpenChange(false)}
+          onCreate={onComposeGoogleDoc}
+          onDraftWithAigentMe={onDraftDoc}
+          theme={theme}
+        />
+        <ComposeSlidesModal
+          open={composeSlidesOpen}
+          onClose={() => onComposeSlidesOpenChange(false)}
+          onCreate={onComposeSlides}
+          onDraftWithAigentMe={onDraftSlides}
+          theme={theme}
+        />
+        <ComposeMarketaEmailModal
+          open={composeMarketaOpen}
+          onClose={() => onComposeMarketaOpenChange(false)}
+          onCreate={onComposeMarketa}
+          onDraftWithAigentMe={onDraftMarketa}
+          theme={theme}
+        />
+      </div>
     </div>
   );
 }
 
 export default AigentMeWelcomeTab;
+
+// ─────────────────────────────────────────────────────────────────────────
+// PersonalGuideChip — runtime summary for the Personal ExperienceGuide.
+// Colocated here so the welcome tab's Row 1 stays a single render block.
+// Fetches /api/assistant/experience-guide on mount; renders an alignment
+// badge when configured, or a "Set up" CTA that opens the guide wizard
+// when not.
+// ─────────────────────────────────────────────────────────────────────────
+
+const GUIDE_CHIP_BG: Record<AlignmentState, string> = {
+  aligned:  'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
+  drifting: 'bg-amber-500/10 border-amber-500/30 text-amber-300',
+  at_risk:  'bg-orange-500/10 border-orange-500/30 text-orange-300',
+  repair:   'bg-rose-500/10 border-rose-500/30 text-rose-300',
+};
+
+function PersonalGuideChip({ personaId }: { personaId?: string }) {
+  const [guide, setGuide] = useState<PersonalGuideData | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+
+  useEffect(() => {
+    if (!personaId) { setLoaded(true); return; }
+    let cancelled = false;
+    personaFetch('/api/assistant/experience-guide', { personaIdHint: personaId })
+      .then((res) => res.ok ? res.json() : null)
+      .then((data: { configured?: boolean; guide?: PersonalGuideData | null } | null) => {
+        if (cancelled) return;
+        setGuide(data?.guide ?? null);
+        setLoaded(true);
+      })
+      .catch(() => { if (!cancelled) setLoaded(true); });
+    return () => { cancelled = true; };
+  }, [personaId]);
+
+  if (!loaded) return null;
+
+  const onClick = () => setWizardOpen(true);
+
+  return (
+    <>
+      {guide ? (
+        <button
+          type="button"
+          onClick={onClick}
+          className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 hover:brightness-110 ${GUIDE_CHIP_BG[guide.alignmentState]}`}
+          title="Open ExperienceGuide alignment helper"
+        >
+          ExperienceGuide: {ALIGNMENT_LABEL[guide.alignmentState]}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={onClick}
+          className="text-xs px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 bg-violet-500/10 border-violet-500/30 text-violet-300 hover:bg-violet-500/20"
+        >
+          Set up ExperienceGuide
+        </button>
+      )}
+      <PersonalGuideSetupWizard
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        initial={guide}
+        onSaved={(g) => setGuide(g)}
+      />
+    </>
+  );
+}

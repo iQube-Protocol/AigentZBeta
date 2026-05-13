@@ -34,7 +34,7 @@ export interface ApprovalCardAction {
   rationale: string;
   cartridge: string;
   approvalRequired: boolean;
-  specialist: "marketa" | "quill" | "kn0w1" | "aigent-z" | "aigent-c" | null;
+  specialist: "marketa" | "quill" | "kn0w1" | "aigent-z" | "aigent-c" | "aigent-nakamoto" | null;
   suggestedArtifact: string | null;
 }
 
@@ -66,6 +66,7 @@ const SPECIALIST_LABELS: Record<string, string> = {
   kn0w1: "Kn0w1",
   "aigent-z": "Aigent Z",
   "aigent-c": "Aigent C",
+  "aigent-nakamoto": "Aigent Nakamoto (Satoshi)",
 };
 
 const CARTRIDGE_LABELS: Record<string, string> = {
@@ -172,7 +173,7 @@ export function ApprovalCard({
           <dd>
             {action.approvalRequired
               ? "Approval gate before any send / share / publish"
-              : "No external action; queued for Aigent Me"}
+              : "No external action; queued for aigentMe"}
           </dd>
         </div>
       </dl>

@@ -20,6 +20,29 @@ import {
   listActivityReceiptsForPersona,
   type ActivityActionType,
 } from '@/services/receipts/activityReceiptService';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+
+/**
+ * T1-safe display label for the active persona. Never returns the
+ * persona id, root DiD, or any other T0 identifier. Mirrors the bootstrap
+ * route's readPersonaPresentation helper so the receipts surface can
+ * display "Acting persona: <displayLabel>" without leaking spine state.
+ */
+async function readPersonaDisplayLabel(personaId: string): Promise<string | null> {
+  try {
+    const admin = getSupabaseServer();
+    if (!admin) return null;
+    const { data } = await admin
+      .from('personas')
+      .select('display_name')
+      .eq('id', personaId)
+      .maybeSingle();
+    const label = (data as { display_name?: string } | null)?.display_name;
+    return typeof label === 'string' && label.trim().length > 0 ? label.trim() : null;
+  } catch {
+    return null;
+  }
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -64,13 +87,22 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     : undefined;
 
   try {
-    const receipts = await listActivityReceiptsForPersona(context.personaId, {
-      limit,
-      ...(cartridge ? { cartridge } : {}),
-      ...(actionTypes && actionTypes.length > 0 ? { actionTypes } : {}),
-    });
+    const [receipts, personaDisplayLabel] = await Promise.all([
+      listActivityReceiptsForPersona(context.personaId, {
+        limit,
+        ...(cartridge ? { cartridge } : {}),
+        ...(actionTypes && actionTypes.length > 0 ? { actionTypes } : {}),
+      }),
+      readPersonaDisplayLabel(context.personaId),
+    ]);
+    // personaDisplayLabel is T1 only. personaId, authProfileId, and any
+    // root DiD are never serialised by this endpoint.
     return NextResponse.json(
-      { receipts, count: receipts.length },
+      {
+        receipts,
+        count: receipts.length,
+        personaDisplayLabel,
+      },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (err) {

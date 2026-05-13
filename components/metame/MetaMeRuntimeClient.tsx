@@ -6118,7 +6118,32 @@ export default function MetaMeRuntimeClient() {
                   <Sparkles className="h-3 w-3 shrink-0" />
                   Explore metaMe
                 </button>
-                {/* View metaMe cartridge: stub — hidden until runtime tab is built */}
+                {/* Open Aigent Me — the metaMe cartridge welcome tab.
+                    Was a stub pre-Phase-2.b; activated now that the
+                    AigentMeWelcomeTab + ExperienceFramework + Journey
+                    Dashboard tabs ship as part of metame-codex. */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    signalRuntimeBusy("quick_link:aigent_me", { autoClearMs: 0 });
+                    setActiveCartridgeOverlay({ slug: 'metame-codex', title: 'aigentMe', initialTab: 'aigent-me' });
+                  }}
+                  className="flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[11px] text-emerald-200/80 hover:border-emerald-500/40 hover:text-emerald-100 transition-colors backdrop-blur-sm"
+                >
+                  <Compass className="h-3 w-3 shrink-0" />
+                  Open aigentMe
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    signalRuntimeBusy("quick_link:set_up_experience", { autoClearMs: 0 });
+                    setActiveCartridgeOverlay({ slug: 'metame-codex', title: 'Set up ExperienceModel', initialTab: 'aigent-me' });
+                  }}
+                  className="flex items-center gap-1.5 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1.5 text-[11px] text-violet-200/80 hover:border-violet-500/40 hover:text-violet-100 transition-colors backdrop-blur-sm"
+                >
+                  <Sparkles className="h-3 w-3 shrink-0" />
+                  Set up my ExperienceModel
+                </button>
                 <button
                   type="button"
                   onClick={() => {
