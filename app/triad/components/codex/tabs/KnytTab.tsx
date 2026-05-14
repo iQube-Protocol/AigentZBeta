@@ -2171,7 +2171,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       case 'video':
         return 'episode_motion';
       case 'comic_page_portrait':
-        return 'episode_print';
+        return 'episode_still'; // PDFs stored as episode_still in master_content_qubes; SKU grants still not print
       case 'comic_cover_portrait':
       case 'scroll_still':
         return 'episode_still';
