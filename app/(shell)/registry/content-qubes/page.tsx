@@ -14,6 +14,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
+import { getSupabaseBrowserClient } from '@/utils/supabaseBrowser';
 
 interface RegistryRow {
   id: string;
@@ -86,9 +87,23 @@ export default function ContentQubeRegistryPage() {
     if (series !== 'all')      params.set('series', series);
     if (contentKind !== 'all') params.set('contentKind', contentKind);
 
-    fetch(`/api/registry/content-qube/browse?${params.toString()}`)
-      .then((r) => r.json() as Promise<BrowseResponse>)
-      .then((json) => {
+    // Forward the Supabase access token explicitly — browser fetch() doesn't
+    // auto-attach it, and the route's getActivePersona() requires it. Same
+    // pattern as CodexUploadModal and other admin client surfaces.
+    (async () => {
+      try {
+        const supabase = getSupabaseBrowserClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token ?? null;
+        const headers: Record<string, string> = token
+          ? { Authorization: `Bearer ${token}` }
+          : {};
+
+        const r = await fetch(
+          `/api/registry/content-qube/browse?${params.toString()}`,
+          { headers },
+        );
+        const json = (await r.json()) as BrowseResponse;
         if (cancelled) return;
         if (!json.ok) {
           setError(json.error ?? 'request failed');
@@ -99,14 +114,13 @@ export default function ContentQubeRegistryPage() {
         }
         setRows(json.data?.rows ?? []);
         setSummary(json.data?.summary ?? null);
-      })
-      .catch((err: unknown) => {
+      } catch (err: unknown) {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : 'fetch failed');
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    })();
 
     return () => { cancelled = true; };
   }, [series, contentKind, refreshTick]);
