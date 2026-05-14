@@ -57,7 +57,7 @@ SELECT
       THEN 'semi_minted'
     ELSE 'draft'
   END,
-  m.id
+  m.id::text
 FROM public.master_content_qubes m
 WHERE m.series = 'metaKnyts'
   AND m.content_type IN ('gn_still', 'episode_still', 'episode_motion', 'episode_print')
@@ -94,7 +94,7 @@ SELECT
       THEN 'semi_minted'
     ELSE 'draft'
   END,
-  a.id
+  a.id::text
 FROM public.codex_media_assets a
 WHERE a.series = 'metaKnyts'
   AND a.asset_kind IN ('character_poster', 'powers_sheet')
@@ -129,7 +129,7 @@ SELECT
   COALESCE(m.content_state,
     CASE WHEN m.auto_drive_cid LIKE 'http%' THEN 'C' ELSE 'D' END)
 FROM public.master_content_qubes m
-JOIN public.content_qubes cq ON cq.master_qube_id = m.id
+JOIN public.content_qubes cq ON cq.master_qube_id = m.id::text
 WHERE m.series = 'metaKnyts'
   AND m.auto_drive_cid IS NOT NULL
 ON CONFLICT DO NOTHING;
@@ -156,7 +156,7 @@ SELECT
   COALESCE(a.content_state,
     CASE WHEN a.auto_drive_cid LIKE 'http%' THEN 'C' ELSE 'D' END)
 FROM public.codex_media_assets a
-JOIN public.content_qubes cq ON cq.media_asset_id = a.id
+JOIN public.content_qubes cq ON cq.media_asset_id = a.id::text
 WHERE a.series = 'metaKnyts'
   AND a.auto_drive_cid IS NOT NULL
 ON CONFLICT DO NOTHING;
@@ -166,36 +166,21 @@ ON CONFLICT DO NOTHING;
 --    payment → owned; credential → subscription; null/free → free
 -- ─────────────────────────────────────────────────────────────────────────
 
+-- Access policies — metaKnyts content is paid (gated via SKU entitlements);
+-- default every bridged row to gating_kind='owned'. The source tables
+-- (master_content_qubes, codex_media_assets) do not carry a gating_kind
+-- column, so there's no per-row override to read. Free / subscription
+-- policies can be set via a follow-up migration if individual rows need
+-- to differ from the series default.
 INSERT INTO public.content_qube_access_policies (
   content_qube_id,
   gating_kind
 )
 SELECT
   cq.id,
-  CASE
-    WHEN COALESCE(m.gating_kind, 'free') = 'payment'    THEN 'owned'
-    WHEN COALESCE(m.gating_kind, 'free') = 'credential' THEN 'subscription'
-    ELSE 'free'
-  END
-FROM public.master_content_qubes m
-JOIN public.content_qubes cq ON cq.master_qube_id = m.id
-WHERE m.series = 'metaKnyts'
-ON CONFLICT (content_qube_id) DO NOTHING;
-
-INSERT INTO public.content_qube_access_policies (
-  content_qube_id,
-  gating_kind
-)
-SELECT
-  cq.id,
-  CASE
-    WHEN COALESCE(a.gating_kind, 'free') = 'payment'    THEN 'owned'
-    WHEN COALESCE(a.gating_kind, 'free') = 'credential' THEN 'subscription'
-    ELSE 'free'
-  END
-FROM public.codex_media_assets a
-JOIN public.content_qubes cq ON cq.media_asset_id = a.id
-WHERE a.series = 'metaKnyts'
+  'owned'
+FROM public.content_qubes cq
+WHERE cq.series = 'metaKnyts'
 ON CONFLICT (content_qube_id) DO NOTHING;
 
 -- ─────────────────────────────────────────────────────────────────────────

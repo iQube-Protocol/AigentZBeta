@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from "react";
 import { BookOpen, Lock, Unlock, Play, Film } from "lucide-react";
 import { useKnytThumbnails } from "./useKnytThumbnails";
-import { useContentQubeSeries } from "./useContentQubeSeries";
+import { useContentQubeSeriesRights } from "./useContentQubeSeriesRights";
 import { EPISODE_PRICING, QRIPTO_RARITY_ORDER, type QriptoRarity } from "@/types/knyt-store";
 
 interface ScrollsTabProps {
@@ -40,13 +40,24 @@ type ViewMode = 'grid' | 'by-episode';
 export function ScrollsTab({ theme = 'dark', density = 'wide', personaId }: ScrollsTabProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('by-episode');
   const { covers, getCoverThumb, loading } = useKnytThumbnails();
-  const { qubes } = useContentQubeSeries('metaKnyts', {
+  // Phase B canonicalization (2026-05-14): the rights-aware endpoint returns
+  // BOTH real content_qubes rows (with persona_owns from evaluateAccess) and
+  // SKU-rights placeholders for slots the persona has rights to but where
+  // content hasn't been produced yet. This is what makes Episode 12 (and any
+  // other still-undelivered slot) badge as "Owned" when the persona's SKU
+  // covers it but a master_content_qubes row doesn't exist.
+  const { qubes } = useContentQubeSeriesRights('metaKnyts', {
     contentKind: 'episode',
+    personaId,
     skip: !personaId,
   });
   const isDark = theme === 'dark';
 
-  // Build a set of display_numbers the persona owns at least one edition of.
+  // Display-number set of episodes where the persona owns at least one
+  // edition of any variant. The 4 rarity columns (Legendary/Epic/Rare/Black)
+  // currently share this lock state — rarity-level ownership requires a
+  // per-edition persona lookup (Phase C backlog) since manifest.persona_owns
+  // is a single boolean rolled across all rarities.
   const ownedDisplayNumbers = useMemo(() => {
     const set = new Set<number>();
     for (const q of qubes) {

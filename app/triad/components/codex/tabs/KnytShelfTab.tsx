@@ -22,7 +22,7 @@ import {
   type OwnedCollectibleState,
   type ShelfItemSource,
 } from '@/types/knyt-store';
-import { useOwnedEntitlements, type OwnedEntitlement } from '@/app/hooks/useOwnedEntitlements';
+import { useContentQubeSeriesRights } from '@/app/triad/components/codex/tabs/useContentQubeSeriesRights';
 
 interface Props {
   personaId?: string;
@@ -171,105 +171,150 @@ function ShelfStats({ items }: { items: ShelfItem[] }) {
 
 export function KnytShelfTab({ personaId, theme }: Props) {
   const [view, setView] = useState<ShelfView>({ kind: 'overview' });
-  const { entitlements, expandedItems, loading } = useOwnedEntitlements(personaId);
 
-  // Phase B fix — Bug 4: render the SKU-expanded constituent items, not
-  // the raw entitlement rows. A Top KNYT Shelf bundle expands into 40
-  // tiles (1 GN + 13 stills + 13 motions + 13 characters), with each
-  // not-yet-uploaded slot rendered as an "Owned · Coming Soon" placeholder.
-  // Falls back to entitlements for personas with no expansion data.
+  // Phase B canonicalization (2026-05-14) — read inventory + ownership from
+  // the ContentQube registry's persona-rights view. Returns the union of
+  // real content_qubes rows (with persona_owns from evaluateAccess) and
+  // synthesized placeholders for SKU-granted-but-unproduced slots
+  // (manifest.is_placeholder = true, lifecycle_state = 'draft').
+  //
+  // Replaces the legacy useOwnedEntitlements → /api/codex/owned path so the
+  // shelf agrees with ScrollsTab / CharactersTab / KnytTab on what is owned.
+  const { qubes, loading } = useContentQubeSeriesRights('metaKnyts', {
+    personaId,
+    skip: !personaId,
+  });
+
+  // Build shelf items from registry qubes. Preserves the legacy semantic
+  // where episode_still + episode_print collapse into a single "still-comics"
+  // tile per episode (one tile per episode-and-motion-flag pairing), so the
+  // operator-expected 40-item total for a Top KNYT Shelf persona still holds:
+  //   13 still tiles + 13 motion tiles + 13 cards + 1 GN.
   const items = useMemo<ShelfItemExt[]>(() => {
     if (!personaId) return [];
 
-    // Build an asset-meta index from entitlements so expanded items can
-    // pick up thumbnails/titles when present.
-    const metaByAssetId = new Map<string, OwnedEntitlement['assetMeta']>();
-    for (const ent of entitlements) {
-      if (ent.assetId) metaByAssetId.set(ent.assetId, ent.assetMeta);
+    // Only render qubes the persona actually owns (real OR placeholder).
+    const owned = qubes.filter((q) => q.manifest.persona_owns);
+
+    // Two-pass merge for episodes: collapse all qubes for the same
+    // (episodeNumber, motion-flag) into one tile. Coming-soon wins only
+    // if EVERY underlying qube is coming-soon (i.e. all placeholders or
+    // all draft lifecycle).
+    type Bucket = {
+      tileKey: string;
+      qubeIds: string[];
+      titles: (string | null)[];
+      episodeNumber: number | null;
+      isMotion: boolean;
+      kind: 'episode' | 'character' | 'gn';
+      anyAvailable: boolean;
+      anyComingSoon: boolean;
+    };
+
+    const buckets = new Map<string, Bucket>();
+    for (const q of owned) {
+      const m = q.manifest;
+      const isMotion = m.content_type === 'episode_motion';
+      const isComingSoon = m.is_placeholder === true
+        || m.lifecycle_state === 'draft'
+        || m.lifecycle_state === 'semi_minted';
+      const isAvailable = !isComingSoon;
+
+      let kind: Bucket['kind'];
+      let tileKey: string;
+      switch (m.content_kind) {
+        case 'gn':
+          kind = 'gn';
+          tileKey = 'gn';
+          break;
+        case 'character':
+        case 'powers_sheet':
+          kind = 'character';
+          tileKey = `character:${m.display_number ?? 'unknown'}`;
+          break;
+        case 'episode':
+        default:
+          kind = 'episode';
+          tileKey = `episode:${m.display_number ?? 'unknown'}:${isMotion ? 'motion' : 'still'}`;
+          break;
+      }
+
+      let bucket = buckets.get(tileKey);
+      if (!bucket) {
+        bucket = {
+          tileKey,
+          qubeIds: [],
+          titles: [],
+          episodeNumber: m.display_number,
+          isMotion,
+          kind,
+          anyAvailable: false,
+          anyComingSoon: false,
+        };
+        buckets.set(tileKey, bucket);
+      }
+      bucket.qubeIds.push(m.id);
+      bucket.titles.push(m.title);
+      if (isAvailable)   bucket.anyAvailable = true;
+      if (isComingSoon)  bucket.anyComingSoon = true;
     }
 
-    if (expandedItems && expandedItems.length > 0) {
-      return expandedItems.map((it): ShelfItemExt => {
-        const meta = metaByAssetId.get(it.itemId);
-        const isMotion = (it.formats ?? []).some((f) => f === 'episode_motion' || f === 'motion');
+    const tiles: ShelfItemExt[] = [];
+    for (const b of buckets.values()) {
+      let family: AssetFamily;
+      let collectionGroup: string;
+      let label: string;
 
-        let family: AssetFamily;
-        let collectionGroup: string;
-        let label: string;
+      if (b.kind === 'gn') {
+        family = 'graphic-novel';
+        collectionGroup = 'graphic-novel';
+        label = b.titles.find((t) => !!t) || 'KNYT Graphic Novel';
+      } else if (b.kind === 'character') {
+        family = 'knyt-cards';
+        collectionGroup = 'cards';
+        label = b.titles.find((t) => !!t)
+          || (b.episodeNumber != null ? `Character — Episode ${b.episodeNumber}` : 'KNYT Character');
+      } else {
+        family = b.isMotion ? 'motion-comics' : 'still-comics';
+        collectionGroup = 'episodes';
+        label = b.titles.find((t) => !!t)
+          || (b.episodeNumber != null ? `Episode ${b.episodeNumber}` : 'Episode');
+      }
 
-        if (it.category === 'gn') {
-          family = 'graphic-novel';
-          collectionGroup = 'graphic-novel';
-          label = meta?.title || 'KNYT Graphic Novel';
-        } else if (it.category === 'character') {
-          family = 'knyt-cards';
-          collectionGroup = 'cards';
-          label = meta?.characterName
-            || meta?.title
-            || (it.episodeNumber != null ? `Character — Episode ${it.episodeNumber}` : 'KNYT Character');
-        } else {
-          family = isMotion ? 'motion-comics' : 'still-comics';
-          collectionGroup = 'episodes';
-          label = meta?.title || (it.episodeNumber != null ? `Episode ${it.episodeNumber}` : 'Episode');
-        }
-
-        const thumbnailUrl = meta?.coverUrl
-          || (meta?.coverCid ? `/api/content/cover/${encodeURIComponent(meta.coverCid)}?variant=thumb` : undefined);
-
-        return {
-          id: it.itemId,
-          personaId,
-          source: (it.category === 'character' ? 'cartridge' : 'codex') as ShelfItemSource,
-          family,
-          label,
-          thumbnailUrl,
-          state: 'owned' as OwnedCollectibleState,
-          isQripto: it.category === 'gn',
-          episodeNumber: it.episodeNumber,
-          collectionGroup,
-          progressionState: 'none',
-          comingSoon: !it.available,
-        };
+      tiles.push({
+        id: b.tileKey,
+        personaId,
+        source: (b.kind === 'character' ? 'cartridge' : 'codex') as ShelfItemSource,
+        family,
+        label,
+        thumbnailUrl: undefined,
+        state: 'owned' as OwnedCollectibleState,
+        isQripto: b.kind === 'gn',
+        episodeNumber: b.episodeNumber ?? undefined,
+        collectionGroup,
+        progressionState: 'none',
+        comingSoon: !b.anyAvailable && b.anyComingSoon,
       });
     }
 
-    return entitlements.map((ent): ShelfItemExt => {
-      const meta = ent.assetMeta;
-      const isGn    = meta.coverType === 'GN';
-      const isChar  = meta.coverType === 'CHARACTER';
-      const isMotion = meta.isMotion === true;
-      const isBundle = meta.coverType === 'BUNDLE';
-
-      const family: AssetFamily = isChar   ? 'knyt-cards'
-                                : isGn     ? 'graphic-novel'
-                                : isMotion ? 'motion-comics'
-                                           : 'still-comics';
-
-      const collectionGroup = isChar   ? 'cards'
-                            : isGn     ? 'graphic-novel'
-                            : isBundle ? 'bundles'
-                                       : 'episodes';
-
-      const label = meta.characterName || meta.title || ent.assetId;
-
-      const thumbnailUrl = meta.coverUrl
-        || (meta.coverCid ? `/api/content/cover/${encodeURIComponent(meta.coverCid)}?variant=thumb` : undefined);
-
-      return {
-        id: ent.id,
-        personaId,
-        source: (isChar ? 'cartridge' : 'codex') as ShelfItemSource,
-        family,
-        label,
-        thumbnailUrl,
-        state: 'owned' as OwnedCollectibleState,
-        isQripto: isGn,
-        episodeNumber: meta.episodeNumber,
-        collectionGroup,
-        progressionState: 'none',
-      };
+    // Stable sort: episodes by number, then characters by number, then GN.
+    return tiles.sort((a, b) => {
+      const groupRank = (g: string) =>
+        g === 'episodes' ? 0
+        : g === 'cards' ? 1
+        : g === 'graphic-novel' ? 2 : 3;
+      const ga = groupRank(a.collectionGroup ?? '');
+      const gb = groupRank(b.collectionGroup ?? '');
+      if (ga !== gb) return ga - gb;
+      // Within episodes: still tiles before motion, then by episode number.
+      if (a.collectionGroup === 'episodes' && b.collectionGroup === 'episodes') {
+        const aMotion = a.family === 'motion-comics' ? 1 : 0;
+        const bMotion = b.family === 'motion-comics' ? 1 : 0;
+        if (aMotion !== bMotion) return aMotion - bMotion;
+      }
+      return (a.episodeNumber ?? 0) - (b.episodeNumber ?? 0);
     });
-  }, [entitlements, expandedItems, personaId]);
+  }, [qubes, personaId]);
 
   // Group items by collectionGroup
   const groups = Array.from(

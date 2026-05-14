@@ -2,6 +2,22 @@
  * API Route: Get Owned Codex Issues
  * GET /api/codex/owned?personaId=xxx
  *
+ * @deprecated Phase B canonicalization (2026-05-14) — new shelf / KnytTab /
+ * ScrollsTab / CharactersTab surfaces consume `/api/registry/content-qube/
+ * series-rights` instead. That endpoint is backed by the ContentQube
+ * registry (v_content_qube_registry + evaluateAccess + SKU-rights
+ * placeholders) and is the single source of truth for inventory + ownership.
+ *
+ * This route remains in service for legacy admin / store / bundle-wizard
+ * paths (KnytStoreEpisodesTab, KnytStoreCardsTab) that haven't been migrated
+ * yet. Removal is a follow-up sweep.
+ *
+ * Phase A (2026-05-14) note: `OwnedIssue.contentTypes` was added so the
+ * remaining legacy variant-blind ownership checks (e.g. KnytTab's
+ * isEpisodeLocked) can correctly distinguish still/motion/print without
+ * fully migrating to the registry hook. Once all consumers are on the
+ * registry hook, this whole route can be retired.
+ *
  * Returns all codex issues + character cards the persona has rights to,
  * split into `available` (uploaded + accessible now) and `comingSoon`
  * (granted-by-SKU but not yet uploaded). The codex UI uses both arrays
@@ -28,6 +44,13 @@ interface OwnedIssue {
   /** True when the persona has rights via SKU but no master_content_qubes row
    *  exists yet (e.g. content not uploaded). Renders as "Owned · Coming Soon". */
   comingSoon?: boolean;
+  /** Per-variant breakdown: which formats the persona has rights to for this
+   *  episode. Values: 'episode_still' | 'episode_motion' | 'episode_print'.
+   *  Phase A canonicalization (2026-05-14): consumers MUST gate variant-
+   *  specific actions on this list, not on episodeNumber alone — the legacy
+   *  variant-blind check produces false-positive "owned" results when the
+   *  persona owns the print but clicks the motion variant. */
+  contentTypes?: string[];
 }
 
 interface OwnedCharacter {
@@ -198,17 +221,29 @@ export async function GET(request: NextRequest) {
     // under that key so the UI can render a dedicated GN tile.
     if (gnAvailable) issues.push({ episodeNumber: -1, owned: true });
     else if (gnComingSoon) issues.push({ episodeNumber: -1, owned: true, comingSoon: true });
-    for (const ep of Array.from(episodeAvailable.keys()).sort((a, b) => a - b)) {
-      issues.push({ episodeNumber: ep, owned: true });
-    }
-    for (const ep of Array.from(episodeComingSoon.keys()).sort((a, b) => a - b)) {
-      // If the same ep is ALSO in available (e.g. user owns the motion but
-      // not the still for ep 5), surface a single "available" entry (the
-      // user has access to at least one format). The granular per-format
-      // breakdown is surfaced separately under the formats[] field for
-      // surfaces that want to render it.
-      if (episodeAvailable.has(ep)) continue;
-      issues.push({ episodeNumber: ep, owned: true, comingSoon: true });
+    // Emit per-episode entries with the full variant breakdown (available +
+    // coming-soon formats merged). Variant-aware callers (KnytTab lock check,
+    // ScrollsTab, etc.) gate on `contentTypes`; legacy callers that only read
+    // `episodeNumber` continue to work unchanged.
+    const allEpisodeNumbers = new Set<number>([
+      ...Array.from(episodeAvailable.keys()),
+      ...Array.from(episodeComingSoon.keys()),
+    ]);
+    for (const ep of Array.from(allEpisodeNumbers).sort((a, b) => a - b)) {
+      const availFormats = episodeAvailable.get(ep)?.contentTypes ?? new Set<string>();
+      const csFormats = episodeComingSoon.get(ep)?.contentTypes ?? new Set<string>();
+      const contentTypes = Array.from(new Set<string>([...availFormats, ...csFormats]));
+      // If any format is available, the episode is "owned-available". If only
+      // coming-soon formats exist, it's "owned-coming-soon". (A persona who
+      // owns the motion-available variant but only has rights to a coming-soon
+      // print still gets one "available" issue — they CAN read motion now.)
+      const isAvailable = availFormats.size > 0;
+      issues.push({
+        episodeNumber: ep,
+        owned: true,
+        ...(isAvailable ? {} : { comingSoon: true }),
+        contentTypes,
+      });
     }
 
     const characters: OwnedCharacter[] = [...characterAvailable, ...characterComingSoon];

@@ -20,7 +20,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getActivePersona } from '@/services/identity/getActivePersona';
+import { resolveIframePersona } from '@/services/identity/resolveIframePersona';
 import { resolveContentQubesBySeries } from '@/services/content/resolveContentQube';
 
 export const runtime = 'nodejs';
@@ -36,7 +36,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const contentKind    = searchParams.get('contentKind')    ?? undefined;
   const lifecycleState = searchParams.get('lifecycleState') ?? undefined;
 
-  const persona = await getActivePersona(req).catch(() => null);
+  // resolveIframePersona prefers the spine (cookie / Authorization header) and
+  // falls back to ?personaId= URL param for codex iframe contexts where the
+  // browser doesn't auto-attach the Supabase Bearer token. Admin/partner
+  // flags are forced false in the fallback path; this is read-only persona-
+  // owns resolution only.
+  const persona = await resolveIframePersona(req);
 
   const resolved = await resolveContentQubesBySeries(series, persona, {
     contentKind,
