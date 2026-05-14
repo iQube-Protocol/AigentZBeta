@@ -13,6 +13,7 @@ interface CharactersTabProps {
 export function CharactersTab({ theme = 'dark', density = 'wide', personaId }: CharactersTabProps) {
   const { qubes, loading, error } = useContentQubeSeries('metaKnyts', {
     contentKind: 'character',
+    personaId,
   });
 
   if (loading) {

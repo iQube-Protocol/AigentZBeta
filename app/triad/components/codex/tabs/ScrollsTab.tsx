@@ -42,6 +42,7 @@ export function ScrollsTab({ theme = 'dark', density = 'wide', personaId }: Scro
   const { covers, getCoverThumb, loading } = useKnytThumbnails();
   const { qubes } = useContentQubeSeries('metaKnyts', {
     contentKind: 'episode',
+    personaId,
     skip: !personaId,
   });
   const isDark = theme === 'dark';

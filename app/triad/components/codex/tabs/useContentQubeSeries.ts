@@ -27,13 +27,26 @@ interface CacheEntry {
 const CACHE = new Map<string, CacheEntry>();
 const CACHE_TTL = 3 * 60 * 1000; // 3 min
 
-function cacheKey(series: string, contentKind?: string, lifecycleState?: string): string {
-  return `${series}:${contentKind ?? ''}:${lifecycleState ?? ''}`;
+function cacheKey(
+  series: string,
+  contentKind?: string,
+  lifecycleState?: string,
+  personaId?: string,
+): string {
+  return `${series}:${contentKind ?? ''}:${lifecycleState ?? ''}:${personaId ?? ''}`;
 }
 
 interface UseContentQubeSeriesOpts {
   contentKind?: string;
   lifecycleState?: string;
+  /**
+   * Persona id to forward in the API request. The codex iframe doesn't
+   * reliably carry session cookies, so this MUST be passed explicitly for
+   * persona_owns to resolve correctly — matches the pattern in
+   * useKnytPurchases. Without it, the server falls back to the caller's
+   * first owned persona (or null), which produces incorrect lock state.
+   */
+  personaId?: string;
   /** Skip the fetch entirely (e.g. when series is not yet known). */
   skip?: boolean;
 }
@@ -48,8 +61,8 @@ export function useContentQubeSeries(
   series: string,
   opts: UseContentQubeSeriesOpts = {},
 ): UseContentQubeSeriesResult {
-  const { contentKind, lifecycleState, skip = false } = opts;
-  const key = cacheKey(series, contentKind, lifecycleState);
+  const { contentKind, lifecycleState, personaId, skip = false } = opts;
+  const key = cacheKey(series, contentKind, lifecycleState, personaId);
 
   const [qubes, setQubes]     = useState<ContentQubeSeriesItem[]>([]);
   const [loading, setLoading] = useState(!skip);
@@ -75,6 +88,7 @@ export function useContentQubeSeries(
     const params = new URLSearchParams({ series });
     if (contentKind)    params.set('contentKind', contentKind);
     if (lifecycleState) params.set('lifecycleState', lifecycleState);
+    if (personaId)      params.set('personaId', personaId);
 
     fetch(`/api/registry/content-qube/series?${params.toString()}`)
       .then((r) => {
