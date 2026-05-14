@@ -248,6 +248,14 @@ export interface ContentQubeDisplayManifest {
   rarity_counts: typeof CONTENT_QUBE_RARITY_COUNTS | null;
   /** True when this persona owns at least one edition. Resolved server-side. */
   persona_owns: boolean;
+  /**
+   * True when this manifest is a synthesized rights-grant placeholder rather
+   * than a real `content_qubes` row. Surfaced by /api/registry/content-qube/
+   * series-rights for slots the persona has SKU rights to but where no
+   * underlying content has been produced yet. Renders as "Owned · Coming Soon"
+   * in the shelf.
+   */
+  is_placeholder?: boolean;
 }
 
 /**

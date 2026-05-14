@@ -1,3 +1,20 @@
+/**
+ * @deprecated Phase B canonicalization (2026-05-14).
+ *
+ * New surfaces should consume `useContentQubeSeriesRights` from
+ * `@/app/triad/components/codex/tabs/useContentQubeSeriesRights` instead.
+ * That hook is backed by the ContentQube registry (`v_content_qube_registry`
+ * + `evaluateAccess` for persona_owns + SKU-rights placeholders) and is the
+ * single source of truth for inventory + ownership going forward.
+ *
+ * This hook (and `/api/codex/owned` which backs it) remains in service for
+ * `KnytStoreEpisodesTab`, `KnytStoreCardsTab`, the bundle wizard, and admin
+ * tools that haven't been migrated yet. Removal is a follow-up sweep.
+ *
+ * See codexes/packs/agentiq/updates/2026-05-14_contentqube-registry-as-sot-
+ * shelf-tab-canonicalization.md for full context.
+ */
+
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getOwnedGnVariants, type GnVariant } from '@/types/knyt-store';
 

@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Loader2, Package, Lock, Unlock, Users } from "lucide-react";
-import { useContentQubeSeries } from "./useContentQubeSeries";
+import { useContentQubeSeriesRights } from "./useContentQubeSeriesRights";
 
 interface CharactersTabProps {
   theme?: 'light' | 'dark';
@@ -11,7 +11,10 @@ interface CharactersTabProps {
 }
 
 export function CharactersTab({ theme = 'dark', density = 'wide', personaId }: CharactersTabProps) {
-  const { qubes, loading, error } = useContentQubeSeries('metaKnyts', {
+  // Phase B canonicalization (2026-05-14) — rights-aware registry hook,
+  // surfaces SKU-granted placeholders for character slots whose master row
+  // hasn't been produced yet.
+  const { qubes, loading, error } = useContentQubeSeriesRights('metaKnyts', {
     contentKind: 'character',
     personaId,
   });

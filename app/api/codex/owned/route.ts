@@ -2,6 +2,22 @@
  * API Route: Get Owned Codex Issues
  * GET /api/codex/owned?personaId=xxx
  *
+ * @deprecated Phase B canonicalization (2026-05-14) — new shelf / KnytTab /
+ * ScrollsTab / CharactersTab surfaces consume `/api/registry/content-qube/
+ * series-rights` instead. That endpoint is backed by the ContentQube
+ * registry (v_content_qube_registry + evaluateAccess + SKU-rights
+ * placeholders) and is the single source of truth for inventory + ownership.
+ *
+ * This route remains in service for legacy admin / store / bundle-wizard
+ * paths (KnytStoreEpisodesTab, KnytStoreCardsTab) that haven't been migrated
+ * yet. Removal is a follow-up sweep.
+ *
+ * Phase A (2026-05-14) note: `OwnedIssue.contentTypes` was added so the
+ * remaining legacy variant-blind ownership checks (e.g. KnytTab's
+ * isEpisodeLocked) can correctly distinguish still/motion/print without
+ * fully migrating to the registry hook. Once all consumers are on the
+ * registry hook, this whole route can be retired.
+ *
  * Returns all codex issues + character cards the persona has rights to,
  * split into `available` (uploaded + accessible now) and `comingSoon`
  * (granted-by-SKU but not yet uploaded). The codex UI uses both arrays
