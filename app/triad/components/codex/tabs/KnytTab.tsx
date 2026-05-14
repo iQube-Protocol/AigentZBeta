@@ -1845,28 +1845,22 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     // Defence-in-depth gate: episodes are inherently locked. Even if a caller
     // forgot to check, refuse to open the player for an unowned episode.
     //
-    // Source of truth chain (Phase B canonicalization, 2026-05-14):
-    //   1. ContentQube registry (/series-rights) for the motion variant
-    //   2. Legacy /api/codex/owned with contentTypes filter — fallback only
-    //
-    // The player plays the MOTION variant; both signals must specifically
-    // include episode_motion ownership (not just any variant of this episode).
+    // Source of truth (Phase B canonicalization, 2026-05-14, corrected
+    // 2026-05-14b): registry can only CONFIRM ownership; it cannot deny it.
+    // If registry says persona_owns=true → allow. Otherwise consult the
+    // legacy variant-aware ownedIssues check (it's already SKU-aware and
+    // contentTypes-aware after Phase A).
     const epNum = episode.episodeNumber;
     if (typeof epNum === 'number' && epNum !== null) {
       const registryKey = `${epNum}:episode_motion`;
-      if (registryOwnership.has(registryKey)) {
-        const owned = registryOwnership.get(registryKey) === true;
-        if (!owned) {
-          openPurchaseForEpisode(episode, 'watch');
-          return;
-        }
-      } else {
+      const registryOwns = registryOwnership.get(registryKey) === true;
+      if (!registryOwns) {
         const matchingIssues = ownedIssues.filter((issue) => issue.episodeNumber === epNum);
         const hasVariantData = matchingIssues.some((issue) => Array.isArray(issue.contentTypes));
-        const owned = hasVariantData
+        const legacyOwns = hasVariantData
           ? matchingIssues.some((issue) => (issue.contentTypes ?? []).includes('episode_motion'))
           : matchingIssues.length > 0;
-        if (!owned) {
+        if (!legacyOwns) {
           openPurchaseForEpisode(episode, 'watch');
           return;
         }
@@ -2199,16 +2193,28 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
 
     const variant = resolveVariant(item);
 
-    // Phase B canonicalization (2026-05-14) — registry is the primary SOT.
-    // The /series-rights endpoint returns persona_owns resolved via
-    // evaluateAccess → userOwnsAsset (direct entitlement + SKU expansion),
-    // PLUS placeholders for SKU-granted-but-unproduced slots. Both surface
-    // as persona_owns=true, so a registry hit unlocks the tile.
+    // Phase B canonicalization (2026-05-14, corrected 2026-05-14b) — registry
+    // can only UNLOCK; it cannot LOCK. Locking is decided exclusively by the
+    // legacy variant-aware ownedIssues check below.
+    //
+    // The earlier version of this overlay returned !registryOwnership.get(key)
+    // whenever the key existed, which meant that a `false` value (from a stale
+    // registry-hook module cache, an initial empty load, or a placeholder that
+    // hasn't resolved persona_owns yet) was treated as a hard LOCK and
+    // short-circuited the legacy fallback. That's the root cause of "Owned
+    // badge appears but click routes to paywall" on KnytTab specifically.
+    //
+    // Registry as primary SOT remains the goal, but the semantics are:
+    //   - persona_owns === true in registry → unlock (skip legacy)
+    //   - anything else (false, missing key, hook still loading) → fall
+    //     through to legacy ownedIssues check
+    // Legacy ownedIssues is sourced from /api/codex/owned and is already
+    // variant-aware after Phase A, so this is a safe and correct fallback.
     if (variant !== null) {
       const registryVariant = variant === 'episode_still' ? 'episode_print' : variant;
       const registryKey = `${episodeNumber}:${registryVariant}`;
-      if (registryOwnership.has(registryKey)) {
-        return !(registryOwnership.get(registryKey) ?? false);
+      if (registryOwnership.get(registryKey) === true) {
+        return false;
       }
     }
 
