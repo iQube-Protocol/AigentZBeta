@@ -3054,7 +3054,16 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {episodesCatalog.map((episode) => {
                       const owned = getOwnedIssuesForEpisode(episode.episodeNumber);
-                      const isOwned = owned.length > 0;
+                      // Phase B canonicalization: registry-first ownership. The
+                      // legacy /api/codex/owned path can be empty in the iframe
+                      // context even when the persona owns the content (the
+                      // shelf + store work via the registry hook, which the
+                      // scrolls tab now also consults). Registry unlocks; legacy
+                      // is the fallback so unmigrated paths keep working.
+                      const registryOwnsEp =
+                        registryOwnership.get(`${episode.episodeNumber}:episode_print`) === true ||
+                        registryOwnership.get(`${episode.episodeNumber}:episode_motion`) === true;
+                      const isOwned = registryOwnsEp || owned.length > 0;
                       // Episode 0 = GN is free content — gating: free bypasses the payment gate
                       // without incorrectly stamping an "Owned" badge on free content.
                       const isGnFree = episode.episodeNumber === 0 &&
