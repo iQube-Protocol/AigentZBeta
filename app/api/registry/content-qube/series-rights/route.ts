@@ -30,7 +30,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getActivePersona } from '@/services/identity/getActivePersona';
+import { resolveIframePersona } from '@/services/identity/resolveIframePersona';
 import { resolveContentQubesBySeries } from '@/services/content/resolveContentQube';
 import { getOwnedAssetIds, type ExpectedSlot } from '@/services/rewards/assetOwnership';
 import type {
@@ -122,10 +122,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const contentKind = searchParams.get('contentKind') ?? undefined;
 
-  // Resolve persona via the spine. getActivePersona honours ?personaId in
-  // URL params as priority 3 (after session token + x-persona-id header),
-  // so passing it explicitly from the embed works the same as the cookie.
-  const persona = await getActivePersona(req).catch(() => null);
+  // Spine first; URL `?personaId=` fallback for codex iframe contexts where
+  // cookies/Authorization headers don't reach the route. Admin/partner flags
+  // forced false in the fallback path (resolveIframePersona enforces this).
+  const persona = await resolveIframePersona(req);
 
   // 1. Resolve real content_qubes rows with persona_owns set.
   const realResolved = await resolveContentQubesBySeries(series, persona, {
