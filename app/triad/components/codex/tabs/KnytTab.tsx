@@ -308,6 +308,13 @@ interface OwnedIssueFromAPI {
   editionMax?: number;
   custodyMode?: 'custodial' | 'canonical';
   mintedAt?: string;
+  /** Per-variant breakdown from /api/codex/owned: which formats the persona
+   *  has rights to for this episode ('episode_still' | 'episode_motion' |
+   *  'episode_print'). Phase A: variant-specific gates MUST filter on this. */
+  contentTypes?: string[];
+  /** True when the persona has rights but no content row exists yet. */
+  comingSoon?: boolean;
+  owned?: boolean;
 }
 
 interface CharacterFromAPI {
@@ -1795,9 +1802,17 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     // Defence-in-depth gate: episodes are inherently locked. Even if a caller
     // forgot to check, refuse to open the player for an unowned episode.
     // Source of truth: ownedIssues (SKU-aware via /api/codex/owned).
+    // Variant-aware (Phase A): the player plays the MOTION variant; require
+    // the persona to actually have rights to episode_motion, not just any
+    // variant of this episode. Falls back to episode-level check if the
+    // server response is still the legacy (pre-contentTypes) shape.
     const epNum = episode.episodeNumber;
     if (typeof epNum === 'number' && epNum !== null) {
-      const owned = ownedIssues.some((issue) => issue.episodeNumber === epNum);
+      const matchingIssues = ownedIssues.filter((issue) => issue.episodeNumber === epNum);
+      const hasVariantData = matchingIssues.some((issue) => Array.isArray(issue.contentTypes));
+      const owned = hasVariantData
+        ? matchingIssues.some((issue) => (issue.contentTypes ?? []).includes('episode_motion'))
+        : matchingIssues.length > 0;
       if (!owned) {
         openPurchaseForEpisode(episode, 'watch');
         return;
@@ -2094,6 +2109,24 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     return matched ? matched[0] : null;
   }, []);
 
+  // Map a KnytContentItem to its canonical variant string as used by
+  // /api/codex/owned#contentTypes. Returns null when the item isn't a
+  // gated episode variant (e.g. a character card).
+  const resolveVariant = useCallback((item: KnytContentItem): 'episode_still' | 'episode_motion' | 'episode_print' | null => {
+    switch (item.type) {
+      case 'motion_comic_landscape':
+      case 'video':
+        return 'episode_motion';
+      case 'comic_page_portrait':
+        return 'episode_print';
+      case 'comic_cover_portrait':
+      case 'scroll_still':
+        return 'episode_still';
+      default:
+        return null;
+    }
+  }, []);
+
   // Event handlers for Liquid UI content
   const isEpisodeLocked = useCallback((item: KnytContentItem) => {
     const episodeNumber = resolveEpisodeNumber(item);
@@ -2105,12 +2138,29 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       return false;
     }
 
-    // Source of truth for ownership: ownedIssues (SKU-aware, from /api/codex/owned).
+    // Variant-aware ownership gate. Phase A canonicalization (2026-05-14):
+    // the legacy episode-number-only check produced "Owned badge → payment
+    // modal" false-positives when the persona owned the print but clicked
+    // the motion variant. We now require contentTypes (from /api/codex/owned)
+    // to include the clicked item's variant.
+    const variant = resolveVariant(item);
     const ownedForEp = ownedIssues.filter((issue) => issue.episodeNumber === episodeNumber);
-    if (ownedForEp.length > 0) return false;
+    if (ownedForEp.length > 0) {
+      // Backwards-compat: if the server response is the legacy shape (no
+      // contentTypes field), fall back to episode-level ownership. After
+      // /api/codex/owned has fully rolled out with the new field, drop this.
+      const hasVariantData = ownedForEp.some((issue) => Array.isArray(issue.contentTypes));
+      if (!hasVariantData) return false;
+      if (variant === null) return false; // not a gateable variant
+      const ownsVariant = ownedForEp.some((issue) =>
+        (issue.contentTypes ?? []).includes(variant)
+      );
+      if (ownsVariant) return false;
+      // Has rights to the episode but NOT this specific variant — lock it.
+    }
     if (hasAccessRestriction(item.metadata as GatingMetadata | undefined)) return true;
     return true;
-  }, [resolveEpisodeNumber, ownedIssues, hasAccessRestriction]);
+  }, [resolveEpisodeNumber, ownedIssues, hasAccessRestriction, resolveVariant]);
 
   const openPurchaseForItem = useCallback((item: KnytContentItem, action: 'read' | 'watch' | 'default' = 'default') => {
     const episodeNumber = resolveEpisodeNumber(item);
