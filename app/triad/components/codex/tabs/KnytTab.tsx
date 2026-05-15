@@ -1856,15 +1856,11 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     // contentTypes-aware after Phase A).
     const epNum = episode.episodeNumber;
     if (typeof epNum === 'number' && epNum !== null) {
-      const registryKey = `${epNum}:episode_motion`;
-      const registryOwns = registryOwnership.get(registryKey) === true;
+      // Registry fast-path, then episode-number-only legacy fallback.
+      const registryOwns = registryOwnership.get(`${epNum}:episode_motion`) === true;
       if (!registryOwns) {
         const matchingIssues = ownedIssues.filter((issue) => issue.episodeNumber === epNum);
-        const hasVariantData = matchingIssues.some((issue) => Array.isArray(issue.contentTypes));
-        const legacyOwns = hasVariantData
-          ? matchingIssues.some((issue) => (issue.contentTypes ?? []).includes('episode_motion'))
-          : matchingIssues.length > 0;
-        if (!legacyOwns) {
+        if (matchingIssues.length === 0) {
           openPurchaseForEpisode(episode, 'watch');
           return;
         }
@@ -2195,25 +2191,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       return false;
     }
 
+    // Registry fast-path: if the registry says owned, unlock immediately.
+    // Only unlocks — never locks. Registry may be empty while loading.
     const variant = resolveVariant(item);
-
-    // Phase B canonicalization (2026-05-14, corrected 2026-05-14b) — registry
-    // can only UNLOCK; it cannot LOCK. Locking is decided exclusively by the
-    // legacy variant-aware ownedIssues check below.
-    //
-    // The earlier version of this overlay returned !registryOwnership.get(key)
-    // whenever the key existed, which meant that a `false` value (from a stale
-    // registry-hook module cache, an initial empty load, or a placeholder that
-    // hasn't resolved persona_owns yet) was treated as a hard LOCK and
-    // short-circuited the legacy fallback. That's the root cause of "Owned
-    // badge appears but click routes to paywall" on KnytTab specifically.
-    //
-    // Registry as primary SOT remains the goal, but the semantics are:
-    //   - persona_owns === true in registry → unlock (skip legacy)
-    //   - anything else (false, missing key, hook still loading) → fall
-    //     through to legacy ownedIssues check
-    // Legacy ownedIssues is sourced from /api/codex/owned and is already
-    // variant-aware after Phase A, so this is a safe and correct fallback.
     if (variant !== null) {
       const registryVariant = variant === 'episode_still' ? 'episode_print' : variant;
       const registryKey = `${episodeNumber}:${registryVariant}`;
@@ -2222,21 +2202,12 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       }
     }
 
-    // Legacy fallback (Phase A variant-aware): for variants the registry
-    // doesn't know about (or while qubes are still loading), consult the
-    // /api/codex/owned response. The legacy episode-number-only check was
-    // the source of "Owned badge → payment modal" false-positives, so we
-    // require contentTypes-aware matching here too.
+    // Legacy fallback: episode-number match against /api/codex/owned.
+    // This was the working logic on May 11th. Any owned issue for this
+    // episode number = unlocked. Simple, correct.
     const ownedForEp = ownedIssues.filter((issue) => issue.episodeNumber === episodeNumber);
-    if (ownedForEp.length > 0) {
-      const hasVariantData = ownedForEp.some((issue) => Array.isArray(issue.contentTypes));
-      if (!hasVariantData) return false;
-      if (variant === null) return false;
-      const ownsVariant = ownedForEp.some((issue) =>
-        (issue.contentTypes ?? []).includes(variant)
-      );
-      if (ownsVariant) return false;
-    }
+    if (ownedForEp.length > 0) return false;
+
     if (hasAccessRestriction(item.metadata as GatingMetadata | undefined)) return true;
     return true;
   }, [resolveEpisodeNumber, ownedIssues, hasAccessRestriction, resolveVariant, registryOwnership]);
