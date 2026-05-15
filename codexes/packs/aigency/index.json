@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-08T01:59:47.359Z",
+  "last_updated": "2026-05-14T23:35:12.596Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "10db221fa89fb080e0fcee2a4aa7ca514bfd461b",
-  "latest_commit_short": "10db221",
-  "latest_commit_title": "feat: thin-client active-persona integration — surface ownFioHandle + parent broadcast + integration doc",
+  "latest_commit": "6131ef306f8c69c2401b79f1bca20966577f2342",
+  "latest_commit_short": "6131ef3",
+  "latest_commit_title": "add aigentMe split-screen welcome tab with persistent CopilotKit AG-UI bridge",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "6131ef3",
+      "full_sha": "6131ef306f8c69c2401b79f1bca20966577f2342",
+      "title": "add aigentMe split-screen welcome tab with persistent CopilotKit AG-UI bridge",
+      "author": "Claude",
+      "timestamp": "2026-05-14T23:33:20Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-6131ef3.md"
+    },
     {
       "sha": "10db221",
       "full_sha": "10db221fa89fb080e0fcee2a4aa7ca514bfd461b",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-25T03:57:09Z",
       "type": "deploy",
       "brief": "items/build_/COMMITS/COMMIT-27d88f8.md"
-    },
-    {
-      "sha": "07c6010",
-      "full_sha": "07c601041e572bed7ad37779683ab8c2f58cf5d3",
-      "title": "fix experiences tab: check local fallbacks on empty Supabase result, fix cache race on handleComplete",
-      "author": "Claude",
-      "timestamp": "2026-03-25T03:57:03Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-07c6010.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -29,7 +29,7 @@ interface SmartTriadCopilotLayerProps {
   isOpen: boolean;
   onClose: () => void;
   onOpen?: () => void;
-  variant?: "floating" | "embedded";
+  variant?: "floating" | "embedded" | "panel";
   className?: string;
   hideAvatarToggle?: boolean;
   contextOptions?: Array<{ id: string; label: string }>;
@@ -339,9 +339,10 @@ export function SmartTriadCopilotLayer({
   if (!isOpen) return null;
   
   return (
-    <div className={`smarttriad-copilot-layer ${className}`}>
-      {variant === "floating" ? (
+    <div className={`smarttriad-copilot-layer ${variant === "panel" ? "h-full" : ""} ${className}`}>
+      {variant === "floating" || variant === "panel" ? (
         <FloatingCopilot
+          inlineMode={variant === "panel"}
           messages={messages}
           input={input}
           setInput={setInput}
@@ -447,6 +448,7 @@ function FloatingCopilot({
   agentId,
   selectedProvider,
   setSelectedProvider,
+  inlineMode = false,
 }: {
   messages: SmartTriadMessage[];
   input: string;
@@ -475,6 +477,7 @@ function FloatingCopilot({
   personaId?: string;
   agentName?: string;
   agentId?: string;
+  inlineMode?: boolean;
   selectedProvider: string;
   setSelectedProvider: (p: string) => void;
 }) {
@@ -520,18 +523,9 @@ function FloatingCopilot({
     );
   };
 
-  return (
-    <>
-      <div className="fixed inset-0 z-[200] flex">
-        {/* Backdrop */}
+  const innerPanel = (
         <div
-          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-          onClick={onClose}
-        />
-
-        {/* Copilot Panel */}
-        <div
-          className={`relative ml-auto h-full w-full max-w-md bg-black/30 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden ${panelBorder ? "ring-1 ring-white/10" : ""}`}
+          className={`relative h-full w-full bg-black/30 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden ${inlineMode ? "" : "ml-auto max-w-md"} ${panelBorder ? "ring-1 ring-white/10" : ""}`}
           style={darkCssOverrides}
         >
           {/* Header: agent name + trust/reliability dots + close */}
@@ -726,8 +720,19 @@ function FloatingCopilot({
             </div>
           )}
         </div>
-      </div>
+  );
 
+  if (inlineMode) return innerPanel;
+
+  return (
+    <>
+      <div className="fixed inset-0 z-[200] flex">
+        <div
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+          onClick={onClose}
+        />
+        {innerPanel}
+      </div>
     </>
   );
 }

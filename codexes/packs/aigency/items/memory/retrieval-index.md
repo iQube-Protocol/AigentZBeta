@@ -769,3 +769,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-10db221.md](../build_/COMMITS/COMMIT-10db221.md)
 - Message: feat: thin-client active-persona integration — surface ownFioHandle + parent broadcast + integration doc
+
+## Commit `6131ef3` — 2026-05-14T23:33:20Z
+- Type: `feat`
+- Brief: [COMMIT-6131ef3.md](../build_/COMMITS/COMMIT-6131ef3.md)
+- Message: add aigentMe split-screen welcome tab with persistent CopilotKit AG-UI bridge
