@@ -34,12 +34,9 @@ export function ComposeQuickActionsStrip({ onOpen, onWalletOpen, theme = "dark" 
   const baseBtn = isDark
     ? "bg-slate-800/60 border-slate-700/60 text-slate-200 hover:border-emerald-500/60 hover:bg-slate-800"
     : "bg-white border-slate-200 text-slate-800 hover:border-emerald-400 hover:bg-slate-50";
-  const iconBtn = isDark
-    ? "text-slate-400 hover:text-cyan-400 transition-colors"
-    : "text-slate-500 hover:text-cyan-600 transition-colors";
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 px-3 py-2">
+    <div className={`flex flex-wrap items-center gap-1.5 px-3 py-2 rounded-xl ${isDark ? "bg-slate-950/60 ring-1 ring-white/10" : "bg-white/70 ring-1 ring-slate-200"} backdrop-blur-md shadow-lg`}>
       <span className="text-[10px] uppercase tracking-wider mr-1 text-slate-500">
         Compose
       </span>
@@ -61,9 +58,10 @@ export function ComposeQuickActionsStrip({ onOpen, onWalletOpen, theme = "dark" 
             type="button"
             onClick={onWalletOpen}
             title="Open wallet"
-            className={`p-1.5 rounded-md ${iconBtn}`}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs transition ${baseBtn}`}
           >
             <Wallet className="w-3.5 h-3.5" />
+            <span>Wallet</span>
           </button>
         </>
       )}
