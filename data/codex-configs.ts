@@ -1783,14 +1783,13 @@ export const METAME_CODEX: CodexConfig = {
       label: 'aigentMe (split)',
       slug: 'aigent-me-split',
       enabled: true,
-      adminOnly: true,
       group: 'aigentme',
       order: 0.5,
       type: 'static',
       config: { component: 'AigentMeWelcomeSplitTab', props: {} },
       metadata: {
         icon: 'Sparkles',
-        description: 'Split-screen aigentMe — persistent copilot on the left, dynamic action surface on the right (admin preview)',
+        description: 'Split-screen aigentMe — persistent copilot on the left, dynamic action surface on the right',
         color: 'violet'
       }
     },
