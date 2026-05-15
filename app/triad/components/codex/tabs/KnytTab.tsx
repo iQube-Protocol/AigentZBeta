@@ -294,6 +294,9 @@ interface EpisodeFromAPI {
   printCommonLiteUrl?: string;
   motionMasterCid?: string;
   motionMasterId?: string;
+  stillMasterId?: string;
+  stillMasterCid?: string;
+  stillMasterLiteUrl?: string;
   availableCovers?: number;
   coverCount: number;
   characterCount: number;
@@ -1151,8 +1154,15 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       // the single AGN card injected below.
       if (episodeNumber < 0) continue;
       
-      const printCid = ep.printRareCid || ep.printEpicCid || ep.printLegendaryCid || ep.printCommonCid;
-      const printLiteUrl = ep.printRareLiteUrl || ep.printEpicLiteUrl || ep.printLegendaryLiteUrl || ep.printCommonLiteUrl;
+      // Print URLs win when present. When the episode has only a "still"
+      // master (legacy fixtures store the readable PDF under
+      // content_type='episode_still' rather than 'episode_print'), fall
+      // back to the stillMasterCid / stillMasterLiteUrl so the reader
+      // still opens. Without this, every episode with only a still master
+      // (i.e. every regular metaKnyts episode in the current dev DB) would
+      // render as a cover-only card with no readable surface.
+      const printCid = ep.printRareCid || ep.printEpicCid || ep.printLegendaryCid || ep.printCommonCid || ep.stillMasterCid;
+      const printLiteUrl = ep.printRareLiteUrl || ep.printEpicLiteUrl || ep.printLegendaryLiteUrl || ep.printCommonLiteUrl || ep.stillMasterLiteUrl;
       // pdf_lite_url = direct Supabase URL (fast, iframe-rendered via PDFLiteReaderModal)
       // pdf_cid      = Autonomys CID only (page-by-page via PDFPageViewer)
       // Never put a proxy URL in pdf_lite_url — that buffers the whole PDF through
@@ -2530,8 +2540,8 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         const matched = episodeNumber !== null
           ? episodesCatalog.find((e) => e.episodeNumber === episodeNumber)
           : undefined;
-        const printLiteUrl = matched?.printRareLiteUrl || matched?.printEpicLiteUrl || matched?.printLegendaryLiteUrl || matched?.printCommonLiteUrl;
-        const printCid = matched?.printRareCid || matched?.printEpicCid || matched?.printLegendaryCid || matched?.printCommonCid;
+        const printLiteUrl = matched?.printRareLiteUrl || matched?.printEpicLiteUrl || matched?.printLegendaryLiteUrl || matched?.printCommonLiteUrl || matched?.stillMasterLiteUrl;
+        const printCid = matched?.printRareCid || matched?.printEpicCid || matched?.printLegendaryCid || matched?.printCommonCid || matched?.stillMasterCid;
         // Motion fallback — if there's no print available but the persona
         // owns motion, open the motion viewer.
         const motionCid = matched?.motionMasterCid;
