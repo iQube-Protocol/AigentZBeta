@@ -1977,15 +1977,24 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     return contentItems.map((item) => {
       const episodeNumber = item.metadata?.episodeNumber;
       if (typeof episodeNumber !== 'number') return item;
+      // Merge ownership signals: registry (ContentQube) OR legacy
+      // /api/codex/owned. Either path being owned unlocks the card. This
+      // prevents ContentCard.canPurchase from showing a Buy button when
+      // the registry confirms ownership but the legacy endpoint is still
+      // loading / FIO-handle resolution missed / etc.
+      const registryOwns =
+        registryOwnership.get(`${episodeNumber}:episode_print`) === true ||
+        registryOwnership.get(`${episodeNumber}:episode_motion`) === true;
+      const legacyOwns = ownedEpisodeNumbers.has(episodeNumber);
       return {
         ...item,
         metadata: {
           ...item.metadata,
-          owned: ownedEpisodeNumbers.has(episodeNumber),
+          owned: registryOwns || legacyOwns,
         },
       };
     });
-  }, [contentItems, ownedEpisodeNumbers]);
+  }, [contentItems, ownedEpisodeNumbers, registryOwnership]);
 
   const derivedCharacterGroups = useMemo<EpisodeGroup[]>(() => {
     const characterItems = contentWithOwnership.filter((item) => item.type === 'character_portrait');
@@ -2299,6 +2308,14 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     const episodeNumber = resolveEpisodeNumber(item);
     const preorderVariantId = resolvePreorderVariantId(item, episodeNumber);
     const itemPrice = resolveAccessPrice(item.metadata?.price);
+    if (typeof window !== 'undefined') {
+      console.warn(
+        `[KnytTab:OPEN_PURCHASE_ITEM] itemId=${item.id} ep=${episodeNumber} action=${action} ` +
+        `type=${item.type} preorderVariant=${preorderVariantId} priceKnyt=${itemPrice} ` +
+        `effectivePersonaId=${effectivePersonaId ?? '<none>'} ` +
+        `stack=${new Error().stack?.split('\n').slice(1, 5).join(' | ')}`,
+      );
+    }
     if (!preorderVariantId && itemPrice === null) {
       return;
     }
@@ -2349,7 +2366,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       hideVersionSelector,
     });
     setPurchaseModalOpen(true);
-  }, [resolveEpisodeNumber, resolvePreorderVariantId, resolveAccessPrice, episodesCatalog]);
+  }, [resolveEpisodeNumber, resolvePreorderVariantId, resolveAccessPrice, episodesCatalog, effectivePersonaId]);
 
   const getOwnedIssuesForEpisode = useCallback((episodeNumber: number) => {
     if (ownedIssues.length > 0) {
@@ -2365,6 +2382,13 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   }, [ownedIssues, ownedEpisodeNumbers]);
 
   const openPurchaseForEpisode = useCallback((episode: EpisodeFromAPI, action: 'read' | 'watch' | 'default' = 'default') => {
+    if (typeof window !== 'undefined') {
+      console.warn(
+        `[KnytTab:OPEN_PURCHASE_EP] ep=${episode.episodeNumber} action=${action} ` +
+        `effectivePersonaId=${effectivePersonaId ?? '<none>'} ` +
+        `stack=${new Error().stack?.split('\n').slice(1, 5).join(' | ')}`,
+      );
+    }
     const epNum = Number(episode.episodeNumber);
     // Source of truth: EPISODE_PRICING (admin pricing table). Fall back to
     // the API price field if the SoT lookup misses. DB ep N → pricing ep N-1.
@@ -2403,7 +2427,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       hideVersionSelector: !episode.hasMotionMaster,
     });
     setPurchaseModalOpen(true);
-  }, [resolveAccessPrice]);
+  }, [resolveAccessPrice, effectivePersonaId]);
 
   const openPreorder = useCallback((variantId: string, priceUsd: number) => {
     setPurchaseContent({
@@ -2495,6 +2519,30 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     
     // Handle legacy KNYT-specific actions
     if (action === 'buy') {
+      // Defensive ownership check — never open the purchase modal for an
+      // episode the persona already owns. isEpisodeLocked merges registry
+      // ownership + /api/codex/owned + cached ownedEpisodeNumbers, so it
+      // catches the cases where item.metadata.owned hasn't been refreshed.
+      if (!isEpisodeLocked(item)) {
+        console.log('[KnytTab] buy action suppressed — item already owned:', item.id);
+        // Fall through to open the reader/viewer instead.
+        const episodeNumber = resolveEpisodeNumber(item);
+        if (episodeNumber !== null) {
+          const matched = episodesCatalog.find((e) => e.episodeNumber === episodeNumber);
+          if (matched) {
+            const printLiteUrl = matched.printRareLiteUrl || matched.printEpicLiteUrl || matched.printLegendaryLiteUrl || matched.printCommonLiteUrl;
+            const printCid = matched.printRareCid || matched.printEpicCid || matched.printLegendaryCid || matched.printCommonCid;
+            if (printLiteUrl || printCid) {
+              setCurrentPdfLiteUrl(printLiteUrl || null);
+              setCurrentPdfCid(printCid || null);
+              setCurrentPdfTitle(matched.title || `Episode ${matched.displayNumber}`);
+              setPdfViewerOpen(true);
+              return;
+            }
+          }
+        }
+        return;
+      }
       const resolvedItemPrice = resolveAccessPrice(item.metadata?.price);
       if (item.type === 'character_portrait') {
         if (resolvedItemPrice === null) {
@@ -3181,11 +3229,33 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                             isOwned ? 'ring-2 ring-cyan-400/50' : 'hover:ring-2 hover:ring-white/30'
                           }`}
                           onClick={() => {
-                            // Card body click — defers entirely to the unified
-                            // gate. If access isn't established, route to cart
-                            // (which itself routes to sign-in for anon users).
-                            // If access IS established, open the reader.
-                            if (cardAct.showShoppingCart) {
+                            // Self-diagnostic: log the gate decision so we can
+                            // see in the console which input made the cart fire.
+                            if (typeof window !== 'undefined') {
+                              console.warn(
+                                `[KnytTab:CARDCLICK] ep=${episode.episodeNumber} ` +
+                                `cardId=${cardId} ` +
+                                `isOwned=${isOwned} ` +
+                                `registryOwnsEp=${registryOwnsEp} ` +
+                                `ownedLen=${owned.length} ` +
+                                `cardAct.showShoppingCart=${cardAct.showShoppingCart} ` +
+                                `cardAct.showSmartActions=${cardAct.showSmartActions} ` +
+                                `cardAct.reason=${cardAct.reason} ` +
+                                `cardAct.cartCtaTarget=${cardAct.cartCtaTarget} ` +
+                                `registryMapSize=${registryOwnership.size} ` +
+                                `ownedEpsCount=${ownedEpisodeNumbers.size} ` +
+                                `effectivePersonaId=${effectivePersonaId ?? '<none>'}`,
+                              );
+                            }
+                            // Defensive override: if our local `isOwned` says
+                            // the persona owns this episode (via registry OR
+                            // /api/codex/owned OR cached ownedEpisodeNumbers),
+                            // open the reader immediately. This bypasses any
+                            // staleness in cardAct (which depends on a separate
+                            // useOwnedAssets resolver that may not yet have
+                            // populated). The cart only fires when we have NO
+                            // ownership evidence from any source.
+                            if (!isOwned && cardAct.showShoppingCart) {
                               cardAccess.handleCartClick(
                                 { id: cardId, source: 'codex', episodeNumber: episode.episodeNumber },
                                 cardAct,
@@ -3197,7 +3267,8 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                               );
                               return;
                             }
-                            if (!cardAct.showSmartActions) {
+                            // Owned (or smart-action allowed) — open the reader.
+                            if (!isOwned && !cardAct.showSmartActions) {
                               return; // Restricted (credential gate, no credential) — silent no-op
                             }
                             const printLiteUrl = episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || episode.printCommonLiteUrl;
