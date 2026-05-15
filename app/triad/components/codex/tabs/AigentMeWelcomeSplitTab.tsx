@@ -56,6 +56,7 @@ import { ComposeSlidesModal } from "@/components/metame/connections/ComposeSlide
 import { ComposeMarketaEmailModal } from "@/components/metame/connections/ComposeMarketaEmailModal";
 
 import { ComposeQuickActionsStrip, type ComposeKind } from "@/components/metame/copilot/ComposeQuickActionsStrip";
+import AgentWalletDrawer from "@/components/AgentWalletDrawer";
 import { WelcomeRightPane } from "@/components/metame/welcome/WelcomeRightPane";
 import {
   useAigentMeCopilotBridge,
@@ -169,6 +170,9 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     submitting: boolean;
     error: string | null;
   } | null>(null);
+
+  // Wallet drawer.
+  const [walletOpen, setWalletOpen] = useState(false);
 
   // Compose modal open/close booleans.
   const [composeGmailOpen, setComposeGmailOpen] = useState(false);
@@ -795,15 +799,11 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
           <div className="lg:w-[55%] w-full h-full min-h-0 flex flex-col">
             <SmartTriadCopilotLayer
               isOpen
-              variant="embedded"
-              hideAvatarToggle
-              disableActivationButton
-              panelBorder={false}
-              panelClassName="h-full w-full"
+              variant="panel"
               quickPrompts={copilotQuickPrompts}
               promptPlaceholder="Ask aigentMe — brief, move forward, draft an email…"
               agent={{ id: 'aigent-me', name: 'aigentMe' }}
-              footerContent={<ComposeQuickActionsStrip onOpen={openComposeByKind} theme={theme} />}
+              footerContent={<ComposeQuickActionsStrip onOpen={openComposeByKind} onWalletOpen={() => setWalletOpen(true)} theme={theme} />}
               onClose={() => undefined}
             />
           </div>
@@ -939,6 +939,11 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         onCreate={handleComposeGoogleSheet}
         onDraftWithAigentMe={handleDraftSheet}
         theme={theme}
+      />
+      <AgentWalletDrawer
+        open={walletOpen}
+        onClose={() => setWalletOpen(false)}
+        agent={{ id: 'aigent-me', name: 'aigentMe' }}
       />
     </>
   );
