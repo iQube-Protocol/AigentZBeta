@@ -1659,8 +1659,12 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         }
       }
       const ownedRes = await fetch(`${apiBase}/api/codex/owned?personaId=${effectivePersonaId}`);
-      if (!ownedRes.ok) return;
+      if (!ownedRes.ok) {
+        console.warn(`[KnytTab] /api/codex/owned returned ${ownedRes.status} for personaId=${effectivePersonaId}`);
+        return;
+      }
       const ownedData = await ownedRes.json();
+      console.log(`[KnytTab] /api/codex/owned → personaId=${effectivePersonaId} issueCount=${(ownedData.issues || []).length}`);
       setOwnedIssues(ownedData.issues || []);
       const ownedEpisodesArray = (ownedData.issues || [])
         .map((issue: { episodeNumber?: number }) => issue.episodeNumber)

@@ -64,10 +64,26 @@ interface PersonaRow {
 async function lookupPersonaFromUrl(req: NextRequest): Promise<PersonaRow | null> {
   const raw = req.nextUrl.searchParams.get('personaId')?.trim();
   if (!raw) return null;
-  if (!UUID_RE.test(raw)) return null;
 
   const supabase = getSupabaseServer();
   if (!supabase) return null;
+
+  // FIO handle (arkagent@knyt style) — same resolution path used by
+  // /api/codex/owned. The UUID-only guard was too strict: KnytTab's
+  // effectivePersonaId can be a FIO handle when activePersonaId from
+  // PersonaContext resolves before the UUID prop arrives.
+  if (raw.includes('@')) {
+    const { data, error } = await supabase
+      .from('personas')
+      .select('id, auth_profile_id, default_identity_state, fio_handle')
+      .eq('fio_handle', raw)
+      .eq('status', 'active')
+      .single();
+    if (error || !data) return null;
+    return data as PersonaRow;
+  }
+
+  if (!UUID_RE.test(raw)) return null;
 
   const { data, error } = await supabase
     .from('personas')
