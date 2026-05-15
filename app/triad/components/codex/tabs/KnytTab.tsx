@@ -1639,6 +1639,30 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   ]);
 
   // Fetch owned episodes
+  // Persist owned-issues to localStorage so they survive page reloads and
+  // pre-populate state before the async fetch completes (eliminates the
+  // blank window where all episodes appear locked on every fresh load).
+  const OWNED_LS_PREFIX = 'codex:knyt:owned:v2:';
+
+  // On personaId change: pre-populate from localStorage immediately so
+  // isEpisodeLocked has data even before fetchOwnedEpisodes completes.
+  useEffect(() => {
+    if (!effectivePersonaId) return;
+    try {
+      const stored = localStorage.getItem(OWNED_LS_PREFIX + effectivePersonaId);
+      if (!stored) return;
+      const lsIssues = JSON.parse(stored) as OwnedIssueFromAPI[];
+      if (!Array.isArray(lsIssues) || lsIssues.length === 0 || typeof lsIssues[0] !== 'object') return;
+      setOwnedIssues(lsIssues);
+      const nums = lsIssues
+        .map((i: OwnedIssueFromAPI) => i.episodeNumber)
+        .filter((n: number | undefined): n is number => typeof n === 'number');
+      setOwnedEpisodeNumbers(new Set(nums));
+    } catch { /* localStorage unavailable */ }
+  // OWNED_LS_PREFIX is a stable constant — only effectivePersonaId matters.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectivePersonaId]);
+
   const fetchOwnedEpisodes = useCallback(async (options?: { force?: boolean }) => {
     if (!effectivePersonaId) {
       setOwnedEpisodeNumbers(new Set());
@@ -1647,15 +1671,11 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     }
     try {
       const apiBase = API_BASE_URL;
-      // v2 cache stores full OwnedIssueFromAPI[] so ownedIssues can be
-      // pre-populated immediately on re-render, eliminating the blank window
-      // where all episodes appear locked while the fetch is in-flight.
       const cacheKey = `codex:knyt:owned:v2:${effectivePersonaId}`;
       if (!options?.force) {
+        // In-memory cache: fastest, same-session navigation
         const cached = getCachedValue<OwnedIssueFromAPI[]>(cacheKey);
         if (cached && Array.isArray(cached) && cached.length > 0 && typeof cached[0] === 'object') {
-          // Pre-populate from cache so isEpisodeLocked / owned badge work
-          // before the fresh fetch returns.
           setOwnedIssues(cached);
           const nums = cached
             .map((i: OwnedIssueFromAPI) => i.episodeNumber)
@@ -1677,6 +1697,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         .map((issue: OwnedIssueFromAPI) => issue.episodeNumber)
         .filter((n: number | undefined): n is number => typeof n === 'number');
       setCachedValue(cacheKey, freshIssues, 5 * 60 * 1000);
+      // Persist to localStorage so the next page load has data immediately.
+      try {
+        localStorage.setItem(OWNED_LS_PREFIX + effectivePersonaId, JSON.stringify(freshIssues));
+      } catch { /* localStorage full or unavailable */ }
       setOwnedEpisodeNumbers(new Set(ownedEpisodesArray));
     } catch (error) {
       console.warn('[KnytTab] Failed to load owned episodes:', error);
@@ -1867,8 +1891,8 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       const registryOwns = registryOwnership.get(`${epNum}:episode_motion`) === true;
       if (!registryOwns) {
         const matchingIssues = ownedIssues.filter((issue: OwnedIssueFromAPI) => issue.episodeNumber === epNum);
-        // Also check ownedEpisodeNumbers (populated from cache before full issues load).
-        const epNumsOwns = ownedIssues.length === 0 && ownedEpisodeNumbers.has(epNum);
+        // ownedEpisodeNumbers pre-populates from localStorage — always check it.
+        const epNumsOwns = ownedEpisodeNumbers.has(epNum);
         if (matchingIssues.length === 0 && !epNumsOwns) {
           openPurchaseForEpisode(episode, 'watch');
           return;
@@ -2217,10 +2241,11 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     const ownedForEp = ownedIssues.filter((issue: OwnedIssueFromAPI) => issue.episodeNumber === episodeNumber);
     if (ownedForEp.length > 0) return false;
 
-    // ownedEpisodeNumbers is pre-populated from cache before ownedIssues loads.
-    // Use it as a fallback so a returning user never sees a false lock during
-    // the async fetch window.
-    if (ownedIssues.length === 0 && ownedEpisodeNumbers.has(episodeNumber)) return false;
+    // ownedEpisodeNumbers mirrors ownedIssues but also pre-populates from
+    // localStorage before the async fetch completes. Always check it as a
+    // fallback — if the episode is in the set, the persona owns it regardless
+    // of whether ownedIssues has finished loading.
+    if (ownedEpisodeNumbers.has(episodeNumber)) return false;
 
     if (hasAccessRestriction(item.metadata as GatingMetadata | undefined)) return true;
     return true;
