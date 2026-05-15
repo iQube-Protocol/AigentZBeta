@@ -1731,6 +1731,13 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
   updatedAt: new Date().toISOString()
 };
 
+// Pull AgentiQ OS source tabs by group so the metaMe agentiqos tabs can
+// expose them as 3rd-tier sub-tabs without modifying the source cartridge.
+const aiqOsTabsByGroup = (groupId: string) =>
+  AGENTIQ_OS_CARTRIDGE.tabs
+    .filter((t) => t.group === groupId && t.enabled)
+    .sort((a, b) => a.order - b.order);
+
 export const METAME_CODEX: CodexConfig = {
   id: 'metame-codex',
   name: 'metaMe Cartridge',
@@ -1967,7 +1974,8 @@ export const METAME_CODEX: CodexConfig = {
       order: 40,
       type: 'static',
       config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_start_here' } },
-      metadata: { icon: 'Home', description: 'AgentiQ OS — start here', color: 'emerald' }
+      metadata: { icon: 'Home', description: 'AgentiQ OS — start here', color: 'emerald' },
+      subTabs: aiqOsTabsByGroup('home'),
     },
     {
       id: 'agentiqos-docs',
@@ -1979,7 +1987,8 @@ export const METAME_CODEX: CodexConfig = {
       order: 41,
       type: 'static',
       config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_docs_kb' } },
-      metadata: { icon: 'BookOpen', description: 'Protocol reference and developer standards', color: 'emerald' }
+      metadata: { icon: 'BookOpen', description: 'Protocol reference and developer standards', color: 'emerald' },
+      subTabs: aiqOsTabsByGroup('docs'),
     },
     {
       id: 'agentiqos-build',
@@ -1991,7 +2000,8 @@ export const METAME_CODEX: CodexConfig = {
       order: 42,
       type: 'static',
       config: { component: 'AgentiqCartridgeTab', props: { packId: 'agentiq-os', collectionId: 'col_sdk_api' } },
-      metadata: { icon: 'Code', description: 'SDK / API reference', color: 'emerald' }
+      metadata: { icon: 'Code', description: 'SDK / API reference', color: 'emerald' },
+      subTabs: aiqOsTabsByGroup('build'),
     },
     {
       id: 'agentiqos-bind',
@@ -2003,7 +2013,8 @@ export const METAME_CODEX: CodexConfig = {
       order: 43,
       type: 'static',
       config: { component: 'DevPersonaTab', props: {} },
-      metadata: { icon: 'User', description: 'Persona and bounded delegation', color: 'emerald' }
+      metadata: { icon: 'User', description: 'Persona and bounded delegation', color: 'emerald' },
+      subTabs: aiqOsTabsByGroup('bind'),
     },
     {
       id: 'agentiqos-deploy',
@@ -2015,7 +2026,8 @@ export const METAME_CODEX: CodexConfig = {
       order: 44,
       type: 'static',
       config: { component: 'DevRegistryTab', props: {} },
-      metadata: { icon: 'Package', description: 'Ingestion factory and registry', color: 'emerald' }
+      metadata: { icon: 'Package', description: 'Ingestion factory and registry', color: 'emerald' },
+      subTabs: aiqOsTabsByGroup('deploy'),
     },
     {
       id: 'agentiqos-missions',
@@ -2027,7 +2039,8 @@ export const METAME_CODEX: CodexConfig = {
       order: 45,
       type: 'static',
       config: { component: 'DevMissionBoardTab', props: { panel: 'your-missions' } },
-      metadata: { icon: 'Target', description: 'Dev missions and learning tracks', color: 'emerald' }
+      metadata: { icon: 'Target', description: 'Dev missions and learning tracks', color: 'emerald' },
+      subTabs: aiqOsTabsByGroup('missions'),
     },
     {
       id: 'agentiqos-community',
@@ -2039,7 +2052,8 @@ export const METAME_CODEX: CodexConfig = {
       order: 46,
       type: 'static',
       config: { component: 'Kn0wdZTab', props: {} },
-      metadata: { icon: 'Users', description: 'Community resources and Kn0wdZ', color: 'emerald' }
+      metadata: { icon: 'Users', description: 'Community resources and Kn0wdZ', color: 'emerald' },
+      subTabs: aiqOsTabsByGroup('community'),
     },
 
     // ── Qriptopia group ──────────────────────────────────────────────────────

@@ -558,13 +558,15 @@ function FloatingCopilot({
                 <span className="text-[10px] text-white/60">T</span>
                 {renderDots(8.3, "trust")}
               </div>
-              <button
-                onClick={onClose}
-                className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
-                aria-label="Close"
-              >
-                <PanelRightClose className="w-4 h-4" />
-              </button>
+              {!inlineMode && (
+                <button
+                  onClick={onClose}
+                  className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                  aria-label="Close"
+                >
+                  <PanelRightClose className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
 

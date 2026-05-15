@@ -794,7 +794,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   return (
     <>
       <PersonaSpineGate state={spine}>
-        <div className="h-[calc(100vh-96px)] flex flex-col lg:flex-row gap-2 overflow-hidden">
+        <div className="h-[calc(100vh-96px)] flex flex-col lg:flex-row gap-2 px-2 pr-3 overflow-hidden">
           {/* ── LEFT: persistent copilot ─────────────────────────── */}
           <div className="lg:w-[55%] w-full h-full min-h-0 flex flex-col">
             <SmartTriadCopilotLayer

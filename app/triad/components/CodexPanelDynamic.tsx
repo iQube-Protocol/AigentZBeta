@@ -293,10 +293,33 @@ export default function CodexPanelDynamic({
   // stays stable across loading / error / no-tabs / ready renders.
   const [subHeaderSlotEl, setSubHeaderSlotEl] = useState<HTMLDivElement | null>(null);
 
+  // Third-tier (sub-sub-tab) active slug, keyed by parent tab slug. Resets
+  // when the user navigates to a different parent tab.
+  const [activeSubSubTabSlug, setActiveSubSubTabSlug] = useState<string | null>(null);
+
   const activeTab = useMemo(
     () => enabledTabs.find(tab => tab.slug === activeTabSlug) || enabledTabs[0],
     [enabledTabs, activeTabSlug]
   );
+
+  // Resolve the third-tier active tab when the parent has subTabs.
+  const activeSubTabs = useMemo(
+    () => (activeTab?.subTabs ?? []).filter((t) => t.enabled && (!t.adminOnly || isAdmin)),
+    [activeTab, isAdmin]
+  );
+  const activeSubSubTab = useMemo(() => {
+    if (activeSubTabs.length === 0) return null;
+    return (
+      activeSubTabs.find((t) => t.slug === activeSubSubTabSlug) ||
+      activeSubTabs[0]
+    );
+  }, [activeSubTabs, activeSubSubTabSlug]);
+
+  // When the parent active tab changes, reset the third-tier slug so the
+  // next parent opens at its first subTab.
+  useEffect(() => {
+    setActiveSubSubTabSlug(null);
+  }, [activeTabSlug]);
 
   // Publish this codex into the CartridgePresenceRegistry so the wallet
   // + cross-cartridge callers can switch tabs in place (instead of a full
@@ -735,25 +758,54 @@ export default function CodexPanelDynamic({
           </div>
         )}
 
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          {activeTab && (
-            <SubHeaderSlotContext.Provider value={subHeaderSlotEl}>
-              <TabRenderer
-                tab={activeTab}
-                codexId={codexId}
-                theme={resolvedTheme}
-                density={density}
-                personaId={resolvedPersonaId}
-                isAdmin={isAdmin}
-                isPartner={effectiveIsPartner}
-                isInvestor={isInvestor}
-                partnerId={effectivePartnerId}
-                issueSlug={isQriptopian ? issueSlug : undefined}
-                previewDevice={previewDevice}
-                shell={shell}
-              />
-            </SubHeaderSlotContext.Provider>
-          )}
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          {activeTab && activeSubTabs.length > 0 && (() => {
+            const accentColor = codex.metadata.color || 'indigo';
+            const isDark = resolvedTheme === 'dark';
+            return (
+              <div className={`flex-shrink-0 border-b px-4 py-1 flex items-center gap-1 overflow-x-auto no-scrollbar ${isDark ? 'border-white/[0.04] bg-white/[0.01]' : 'border-slate-200 bg-slate-50/50'}`}>
+                {activeSubTabs.map((sub) => {
+                  const isActive = (activeSubSubTab?.slug ?? activeSubTabs[0].slug) === sub.slug;
+                  const Icon = getIconComponent(sub.metadata?.icon || 'Circle');
+                  return (
+                    <button
+                      key={sub.id}
+                      onClick={() => setActiveSubSubTabSlug(sub.slug)}
+                      className={`flex items-center gap-1 px-2.5 py-0.5 text-[10px] font-medium transition-all whitespace-nowrap rounded shrink-0 ${
+                        isActive
+                          ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/20 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
+                          : isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+                      }`}
+                      title={sub.metadata?.description}
+                    >
+                      <Icon className="w-3 h-3 flex-shrink-0" />
+                      {sub.label}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            {activeTab && (
+              <SubHeaderSlotContext.Provider value={subHeaderSlotEl}>
+                <TabRenderer
+                  tab={activeSubSubTab ?? activeTab}
+                  codexId={codexId}
+                  theme={resolvedTheme}
+                  density={density}
+                  personaId={resolvedPersonaId}
+                  isAdmin={isAdmin}
+                  isPartner={effectiveIsPartner}
+                  isInvestor={isInvestor}
+                  partnerId={effectivePartnerId}
+                  issueSlug={isQriptopian ? issueSlug : undefined}
+                  previewDevice={previewDevice}
+                  shell={shell}
+                />
+              </SubHeaderSlotContext.Provider>
+            )}
+          </div>
         </div>
       </div>
 
