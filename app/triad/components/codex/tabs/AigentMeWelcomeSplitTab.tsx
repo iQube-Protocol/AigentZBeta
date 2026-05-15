@@ -803,13 +803,13 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               quickPrompts={copilotQuickPrompts}
               promptPlaceholder="Ask aigentMe — brief, move forward, draft an email…"
               agent={{ id: 'aigent-me', name: 'aigentMe' }}
-              footerContent={<ComposeQuickActionsStrip onOpen={openComposeByKind} onWalletOpen={() => setWalletOpen(true)} theme={theme} />}
+              agentSubtitle="metaMe · personal assistant"
               onClose={() => undefined}
             />
           </div>
 
           {/* ── RIGHT: dynamic surface ───────────────────────────── */}
-          <div className="lg:w-[45%] w-full h-full min-h-0">
+          <div className="lg:w-[45%] w-full h-full min-h-0 relative">
             {bootstrapLoading && !data && (
               <div className="h-full flex items-center justify-center text-sm opacity-60">
                 Loading aigentMe…
@@ -879,6 +879,16 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 artifactRef={artifactRef}
               />
             )}
+            {/* Floating compose strip — pinned to bottom of right pane. */}
+            <div className="pointer-events-none absolute inset-x-0 bottom-3 px-3 z-30">
+              <div className="pointer-events-auto">
+                <ComposeQuickActionsStrip
+                  onOpen={openComposeByKind}
+                  onWalletOpen={() => setWalletOpen(true)}
+                  theme={theme}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </PersonaSpineGate>
