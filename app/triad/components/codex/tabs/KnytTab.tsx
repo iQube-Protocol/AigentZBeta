@@ -1647,15 +1647,21 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     }
     try {
       const apiBase = API_BASE_URL;
-      const cacheKey = `codex:knyt:owned:${effectivePersonaId}`;
-      // After a purchase the cached list is stale; force=true skips the cache
-      // and refetches so a new episode appears in ownedIssues immediately.
+      // v2 cache stores full OwnedIssueFromAPI[] so ownedIssues can be
+      // pre-populated immediately on re-render, eliminating the blank window
+      // where all episodes appear locked while the fetch is in-flight.
+      const cacheKey = `codex:knyt:owned:v2:${effectivePersonaId}`;
       if (!options?.force) {
-        const cached = getCachedValue<number[]>(cacheKey);
-        if (cached) {
-          setOwnedEpisodeNumbers(new Set(cached));
-          // NOTE: cache only stored episode numbers, not full issues. Fall through
-          // to fetch full issues so isEpisodeLocked / owned badge stay in sync.
+        const cached = getCachedValue<OwnedIssueFromAPI[]>(cacheKey);
+        if (cached && Array.isArray(cached) && cached.length > 0 && typeof cached[0] === 'object') {
+          // Pre-populate from cache so isEpisodeLocked / owned badge work
+          // before the fresh fetch returns.
+          setOwnedIssues(cached);
+          const nums = cached
+            .map((i: OwnedIssueFromAPI) => i.episodeNumber)
+            .filter((n: number | undefined): n is number => typeof n === 'number');
+          setOwnedEpisodeNumbers(new Set(nums));
+          // Fall through — always fetch fresh data to stay in sync.
         }
       }
       const ownedRes = await fetch(`${apiBase}/api/codex/owned?personaId=${effectivePersonaId}`);
@@ -1664,12 +1670,13 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         return;
       }
       const ownedData = await ownedRes.json();
-      console.log(`[KnytTab] /api/codex/owned → personaId=${effectivePersonaId} issueCount=${(ownedData.issues || []).length}`);
-      setOwnedIssues(ownedData.issues || []);
-      const ownedEpisodesArray = (ownedData.issues || [])
-        .map((issue: { episodeNumber?: number }) => issue.episodeNumber)
-        .filter((episodeNumber: number | undefined) => typeof episodeNumber === 'number');
-      setCachedValue(cacheKey, ownedEpisodesArray, 5 * 60 * 1000);
+      const freshIssues: OwnedIssueFromAPI[] = ownedData.issues || [];
+      console.log(`[KnytTab] /api/codex/owned → personaId=${effectivePersonaId} issueCount=${freshIssues.length} epNums=${freshIssues.map(i => i.episodeNumber).join(',')}`);
+      setOwnedIssues(freshIssues);
+      const ownedEpisodesArray = freshIssues
+        .map((issue: OwnedIssueFromAPI) => issue.episodeNumber)
+        .filter((n: number | undefined): n is number => typeof n === 'number');
+      setCachedValue(cacheKey, freshIssues, 5 * 60 * 1000);
       setOwnedEpisodeNumbers(new Set(ownedEpisodesArray));
     } catch (error) {
       console.warn('[KnytTab] Failed to load owned episodes:', error);
@@ -1859,8 +1866,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       // Registry fast-path, then episode-number-only legacy fallback.
       const registryOwns = registryOwnership.get(`${epNum}:episode_motion`) === true;
       if (!registryOwns) {
-        const matchingIssues = ownedIssues.filter((issue) => issue.episodeNumber === epNum);
-        if (matchingIssues.length === 0) {
+        const matchingIssues = ownedIssues.filter((issue: OwnedIssueFromAPI) => issue.episodeNumber === epNum);
+        // Also check ownedEpisodeNumbers (populated from cache before full issues load).
+        const epNumsOwns = ownedIssues.length === 0 && ownedEpisodeNumbers.has(epNum);
+        if (matchingIssues.length === 0 && !epNumsOwns) {
           openPurchaseForEpisode(episode, 'watch');
           return;
         }
@@ -2205,12 +2214,17 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     // Legacy fallback: episode-number match against /api/codex/owned.
     // This was the working logic on May 11th. Any owned issue for this
     // episode number = unlocked. Simple, correct.
-    const ownedForEp = ownedIssues.filter((issue) => issue.episodeNumber === episodeNumber);
+    const ownedForEp = ownedIssues.filter((issue: OwnedIssueFromAPI) => issue.episodeNumber === episodeNumber);
     if (ownedForEp.length > 0) return false;
+
+    // ownedEpisodeNumbers is pre-populated from cache before ownedIssues loads.
+    // Use it as a fallback so a returning user never sees a false lock during
+    // the async fetch window.
+    if (ownedIssues.length === 0 && ownedEpisodeNumbers.has(episodeNumber)) return false;
 
     if (hasAccessRestriction(item.metadata as GatingMetadata | undefined)) return true;
     return true;
-  }, [resolveEpisodeNumber, ownedIssues, hasAccessRestriction, resolveVariant, registryOwnership]);
+  }, [resolveEpisodeNumber, ownedIssues, ownedEpisodeNumbers, hasAccessRestriction, resolveVariant, registryOwnership]);
 
   const openPurchaseForItem = useCallback((item: KnytContentItem, action: 'read' | 'watch' | 'default' = 'default') => {
     const episodeNumber = resolveEpisodeNumber(item);
@@ -2269,8 +2283,17 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   }, [resolveEpisodeNumber, resolvePreorderVariantId, resolveAccessPrice, episodesCatalog]);
 
   const getOwnedIssuesForEpisode = useCallback((episodeNumber: number) => {
-    return ownedIssues.filter((issue) => issue.episodeNumber === episodeNumber);
-  }, [ownedIssues]);
+    if (ownedIssues.length > 0) {
+      return ownedIssues.filter((issue) => issue.episodeNumber === episodeNumber);
+    }
+    // Fallback: ownedEpisodeNumbers may be populated from cache before
+    // the full issues array loads. Synthesize a minimal entry so the UI
+    // shows "Owned" immediately rather than a false "locked" state.
+    if (ownedEpisodeNumbers.has(episodeNumber)) {
+      return [{ issueId: `cached:${episodeNumber}`, episodeNumber, owned: true }];
+    }
+    return [];
+  }, [ownedIssues, ownedEpisodeNumbers]);
 
   const openPurchaseForEpisode = useCallback((episode: EpisodeFromAPI, action: 'read' | 'watch' | 'default' = 'default') => {
     const epNum = Number(episode.episodeNumber);
