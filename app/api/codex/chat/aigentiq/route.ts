@@ -2,10 +2,11 @@
  * AgentiQ Codex Chat API — Aigent Z
  *
  * Serves the engineering intelligence copilot for the AgentiQ Codex viewer.
- * Unlike the content-domain codex chat route (which uses Supabase embeddings
- * for metaKnyts / Qriptopian), this route reads the AgentiQ Codex markdown
- * files directly from the filesystem and injects the most relevant excerpts
- * into the LLM context alongside the Aigent Z system prompt.
+ * Reads both the aigency engineering KB and the agentiq cartridge pack (items,
+ * updates, decisions, backlog) and injects relevant excerpts into LLM context.
+ *
+ * File references in responses are formatted as GitHub links so the cartridge
+ * doubles as a repo navigation tool.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -17,8 +18,12 @@ import { personas } from '@/app/data/personas';
 // Config
 // ============================================================================
 
-const CODEX_ROOT = path.join(process.cwd(), 'codexes/packs/aigency');
-const ITEMS_ROOT = path.join(CODEX_ROOT, 'items');
+// Engineering KB (architecture, API reference, commit history)
+const AIGENCY_ROOT = path.join(process.cwd(), 'codexes/packs/aigency');
+// Cartridge management pack (items, updates, decisions, backlog)
+const AGENTIQ_ROOT = path.join(process.cwd(), 'codexes/packs/agentiq');
+
+const GITHUB_BLOB_BASE = 'https://github.com/iQube-Protocol/AigentZBeta/blob/dev';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
@@ -36,50 +41,91 @@ interface ChatMessage {
   content: string;
 }
 
+type ItemStatus = 'SHIPPED' | 'BACKLOG' | 'PLANNED' | 'REFERENCE';
+
 interface SearchResult {
-  path: string;
+  /** Path relative to codexes/packs/ — used to build GitHub link */
+  packRelPath: string;
   excerpt: string;
   score: number;
+  status: ItemStatus;
+  githubUrl: string;
 }
 
 // ============================================================================
 // Filesystem helpers
 // ============================================================================
 
-function readCodexFile(relPath: string): string | null {
+function readFile(absPath: string): string | null {
   try {
-    const abs = path.join(CODEX_ROOT, relPath);
-    if (!abs.startsWith(CODEX_ROOT)) return null;
-    return fs.readFileSync(abs, 'utf8');
+    return fs.readFileSync(absPath, 'utf8');
   } catch {
     return null;
   }
 }
 
-function listMarkdownFiles(dir: string): string[] {
+function listMarkdownFiles(dir: string, root: string): string[] {
   const results: string[] = [];
   try {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
-        results.push(...listMarkdownFiles(full));
+        results.push(...listMarkdownFiles(full, root));
       } else if (entry.name.endsWith('.md') && !entry.name.startsWith('.')) {
-        results.push(path.relative(CODEX_ROOT, full));
+        results.push(path.relative(root, full));
       }
     }
   } catch {
-    // ignore
+    // ignore unreadable dirs
   }
   return results;
+}
+
+function classifyStatus(packRelPath: string, content: string): ItemStatus {
+  if (packRelPath.includes('/updates/')) {
+    if (/backlog/i.test(packRelPath)) return 'BACKLOG';
+    if (/plan|handover|handoff/i.test(packRelPath)) return 'PLANNED';
+    return 'SHIPPED';
+  }
+  if (/\|\s*Type\s*\|\s*`deploy`/.test(content)) return 'SHIPPED';
+  return 'REFERENCE';
 }
 
 function isDeployCommit(content: string): boolean {
   return /\|\s*Type\s*\|\s*`deploy`/.test(content);
 }
 
-/** Keyword search across the AgentiQ Codex markdown files. */
-function searchCodex(query: string, limit = 5): SearchResult[] {
+function buildGithubUrl(packName: string, relPath: string): string {
+  return `${GITHUB_BLOB_BASE}/codexes/packs/${packName}/${relPath}`;
+}
+
+/**
+ * Collect all markdown files from both packs, tagged with their pack name.
+ * Returns entries with packName, relPath, and the absolute path for reading.
+ */
+function collectAllFiles(): Array<{ packName: string; relPath: string; absPath: string }> {
+  const entries: Array<{ packName: string; relPath: string; absPath: string }> = [];
+
+  // aigency: scan items/ and its subdirs (architecture, knowledge, repos, build_, etc.)
+  const aigencyItems = path.join(AIGENCY_ROOT, 'items');
+  for (const rel of listMarkdownFiles(aigencyItems, AIGENCY_ROOT)) {
+    entries.push({ packName: 'aigency', relPath: rel, absPath: path.join(AIGENCY_ROOT, rel) });
+  }
+
+  // agentiq: scan items/ and updates/
+  for (const subdir of ['items', 'updates']) {
+    const dir = path.join(AGENTIQ_ROOT, subdir);
+    for (const rel of listMarkdownFiles(dir, AGENTIQ_ROOT)) {
+      entries.push({ packName: 'agentiq', relPath: rel, absPath: path.join(AGENTIQ_ROOT, rel) });
+    }
+  }
+
+  return entries;
+}
+
+/** Keyword search across both packs. */
+function searchCodex(query: string, limit = 6): SearchResult[] {
   const terms = query
     .toLowerCase()
     .split(/\s+/)
@@ -87,23 +133,23 @@ function searchCodex(query: string, limit = 5): SearchResult[] {
 
   if (terms.length === 0) return [];
 
-  // Prioritise architecture, knowledge, repos, build_ docs — not every commit brief
-  const priorityDirs = ['items/architecture', 'items/knowledge', 'items/repos', 'items/build_'];
-  const allFiles = listMarkdownFiles(ITEMS_ROOT).map((f) => `items/${f}`);
+  const allFiles = collectAllFiles();
 
-  // Sort: priority dirs first
+  // Priority: architecture/knowledge/repos/decisions docs before commit briefs and updates
+  const priorityPrefixes = ['items/architecture', 'items/knowledge', 'items/repos', 'items/build_'];
   const sorted = [
-    ...allFiles.filter((f) => priorityDirs.some((d) => f.startsWith(d) && !f.includes('/COMMITS/'))),
-    ...allFiles.filter((f) => f.includes('/COMMITS/')),
+    ...allFiles.filter((f) => priorityPrefixes.some((p) => f.relPath.startsWith(p)) && !f.relPath.includes('/COMMITS/')),
+    ...allFiles.filter((f) => f.relPath.startsWith('items/') && !priorityPrefixes.some((p) => f.relPath.startsWith(p))),
+    ...allFiles.filter((f) => f.relPath.startsWith('updates/')),
+    ...allFiles.filter((f) => f.relPath.includes('/COMMITS/')),
   ];
 
   const results: SearchResult[] = [];
 
-  for (const relPath of sorted) {
-    const content = readCodexFile(relPath);
+  for (const f of sorted) {
+    const content = readFile(f.absPath);
     if (!content) continue;
-    // Skip deploy-trigger commit briefs
-    if (relPath.includes('/COMMITS/') && isDeployCommit(content)) continue;
+    if (f.relPath.includes('/COMMITS/') && isDeployCommit(content)) continue;
 
     const lower = content.toLowerCase();
     const score = terms.reduce((acc, t) => acc + (lower.split(t).length - 1), 0);
@@ -111,20 +157,23 @@ function searchCodex(query: string, limit = 5): SearchResult[] {
 
     const lines = content.split('\n');
     const excerptLine = lines.find((l) => terms.some((t) => l.toLowerCase().includes(t)));
+    const packRelPath = `${f.packName}/${f.relPath}`;
     results.push({
-      path: relPath,
+      packRelPath,
       excerpt: (excerptLine || lines[0] || '').slice(0, 400).trim(),
       score,
+      status: classifyStatus(f.relPath, content),
+      githubUrl: buildGithubUrl(f.packName, f.relPath),
     });
   }
 
   return results.sort((a, b) => b.score - a.score).slice(0, limit);
 }
 
-/** Pull the most recent substantive commits from index.json. */
+/** Pull the most recent substantive commits from aigency index.json. */
 function getRecentCommits(limit = 10): Array<Record<string, string>> {
   try {
-    const raw = readCodexFile('index.json');
+    const raw = readFile(path.join(AIGENCY_ROOT, 'index.json'));
     if (!raw) return [];
     const idx = JSON.parse(raw);
     const history: Array<Record<string, string>> = idx.commit_history || [];
@@ -163,6 +212,30 @@ Rules:
 - If the user just wants a draft to review first, say so and ask for confirmation before including the write_doc block
 - After the write_doc block, briefly tell the user what you wrote and where it will appear in the codex`;
 
+const REPO_NAV_ADDENDUM = `
+## Repo Navigation — File Links
+
+You have access to two codex packs:
+- **aigency** (engineering KB): architecture, API reference, knowledge docs, commit history
+- **agentiq** (cartridge KB): overview docs, session updates, decisions, backlog items
+
+When referencing any file, ALWAYS format it as a clickable markdown link:
+[filename](${GITHUB_BLOB_BASE}/codexes/packs/<packName>/<relPath>)
+
+Example: [SYSTEM_MAP.md](${GITHUB_BLOB_BASE}/codexes/packs/agentiq/items/SYSTEM_MAP.md)
+
+The excerpts above show each file's GitHub link in the header — use those exact URLs.
+
+## Status Conventions
+
+Always indicate item status in your responses:
+- **[SHIPPED]** — session update docs without "backlog"/"plan" in name; deployed and in code
+- **[BACKLOG]** — update docs with "backlog" in name; work not yet started
+- **[PLANNED]** — update docs with "plan"/"handover" in name; scoped but not started
+- **[REFERENCE]** — items/ docs; canonical architecture and platform reference
+
+When asked "is X done?", check whether there is a SHIPPED session record for it. If only a BACKLOG doc exists, it is pending. If only REFERENCE docs exist, it is architectural intent only.`;
+
 function buildAigentZSystemPrompt(
   query: string,
   searchResults: SearchResult[],
@@ -176,20 +249,24 @@ function buildAigentZSystemPrompt(
   if (searchResults.length > 0) {
     const block = searchResults
       .map((r) => {
-        // For architecture/knowledge/repos files, include more content
         const isStructured =
-          r.path.includes('/architecture/') ||
-          r.path.includes('/knowledge/') ||
-          r.path.includes('/repos/') ||
-          r.path.includes('/build_/decisions') ||
-          r.path.includes('/build_/changelog');
+          r.packRelPath.includes('/architecture/') ||
+          r.packRelPath.includes('/knowledge/') ||
+          r.packRelPath.includes('/repos/') ||
+          r.packRelPath.includes('/build_/decisions') ||
+          r.packRelPath.includes('/build_/changelog');
 
+        // For structured docs, include full content up to 1200 chars
+        let body = r.excerpt;
         if (isStructured) {
-          const full = readCodexFile(r.path);
-          const snippet = full ? full.slice(0, 1200) : r.excerpt;
-          return `### ${r.path}\n${snippet}${full && full.length > 1200 ? '\n...[truncated]' : ''}`;
+          // derive absPath from packRelPath (packName/relPath)
+          const [packName, ...rest] = r.packRelPath.split('/');
+          const packRoot = packName === 'agentiq' ? AGENTIQ_ROOT : AIGENCY_ROOT;
+          const full = readFile(path.join(packRoot, rest.join('/')));
+          body = full ? full.slice(0, 1200) + (full.length > 1200 ? '\n...[truncated]' : '') : r.excerpt;
         }
-        return `### ${r.path}\n${r.excerpt}`;
+
+        return `### [${r.packRelPath}](${r.githubUrl}) \`[${r.status}]\`\n${body}`;
       })
       .join('\n\n');
 
@@ -203,11 +280,14 @@ function buildAigentZSystemPrompt(
     contextBlocks.push(`## Recent Dev Commits (last ${recentCommits.length}, excluding deploy triggers)\n\n${rows}`);
   }
 
+  const repoNav = REPO_NAV_ADDENDUM;
+
   if (contextBlocks.length === 0) {
-    return enableWrite ? `${base}${WRITE_DOC_SYSTEM_ADDENDUM}` : base;
+    const noCtx = `${base}${repoNav}`;
+    return enableWrite ? `${noCtx}${WRITE_DOC_SYSTEM_ADDENDUM}` : noCtx;
   }
 
-  const assembled = `${base}\n\n---\n\n${contextBlocks.join('\n\n')}`;
+  const assembled = `${base}${repoNav}\n\n---\n\n${contextBlocks.join('\n\n')}`;
   return enableWrite ? `${assembled}${WRITE_DOC_SYSTEM_ADDENDUM}` : assembled;
 }
 
@@ -433,7 +513,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       response: responseText,
       persona: 'aigent-z',
-      codex_sources: searchResults.map((r) => r.path),
+      codex_sources: searchResults.map((r) => ({
+        path: r.packRelPath,
+        status: r.status,
+        github_url: r.githubUrl,
+      })),
       write_result: writeResult ?? undefined,
     });
   } catch (err) {

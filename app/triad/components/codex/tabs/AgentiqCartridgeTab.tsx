@@ -39,9 +39,42 @@ function formatLabel(path: string): string {
   return name.replace(/\.md$/i, "").replace(/[_-]+/g, " ");
 }
 
+interface CodexSource {
+  path: string;
+  status: string;
+  github_url: string;
+}
+
 export function AgentiqCartridgeTab({ packId, collectionId, defaultPath, editable = false }: CartridgeTabProps) {
   const [copilotOpen, setCopilotOpen] = useState(false);
   const [copilotMessages, setCopilotMessages] = useState<CopilotMessage[]>([]);
+  const [lastSources, setLastSources] = useState<CodexSource[]>([]);
+
+  // Route copilot prompts through the AgentiQ-specific chat route so Aigent Z
+  // has full KB access (both packs) and returns proper GitHub file links.
+  const handleAigentZPrompt = async (prompt: string): Promise<string> => {
+    try {
+      const res = await fetch('/api/codex/chat/aigentiq', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: prompt,
+          chatHistory: copilotMessages
+            .filter((m) => m.role !== 'system')
+            .slice(-10)
+            .map((m) => ({ role: m.role, content: m.content })),
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (Array.isArray(data.codex_sources) && data.codex_sources.length > 0) {
+        setLastSources(data.codex_sources);
+      }
+      return data.response ?? 'No response from Aigent Z.';
+    } catch (err) {
+      return `Aigent Z error: ${err instanceof Error ? err.message : String(err)}`;
+    }
+  };
 
   const [collection, setCollection] = useState<CollectionEntry | null>(null);
   const [activePath, setActivePath] = useState<string | null>(null);
@@ -351,9 +384,33 @@ export function AgentiqCartridgeTab({ packId, collectionId, defaultPath, editabl
         onOpen={() => setCopilotOpen(true)}
         variant="floating"
         enableInferenceRendering
-        contextId="knyt-cartridge-doc"
+        contextId="agentiq-cartridge"
         messages={copilotMessages}
         onMessagesChange={setCopilotMessages}
+        onUserPrompt={handleAigentZPrompt}
+        footerContent={
+          lastSources.length > 0 ? (
+            <div className="px-3 py-2 border-t border-slate-800">
+              <p className="text-[10px] uppercase tracking-wide text-slate-500 mb-1.5">Sources</p>
+              <div className="flex flex-col gap-1">
+                {lastSources.map((s) => (
+                  <a
+                    key={s.path}
+                    href={s.github_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-[11px] text-cyan-400 hover:text-cyan-300 truncate"
+                  >
+                    <span className="shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold uppercase bg-slate-800 text-slate-400">
+                      {s.status}
+                    </span>
+                    <span className="truncate">{s.path.split('/').pop()}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          ) : null
+        }
       />
     </div>
   );
