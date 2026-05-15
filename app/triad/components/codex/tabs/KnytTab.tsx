@@ -2527,20 +2527,50 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
         console.log('[KnytTab] buy action suppressed — item already owned:', item.id);
         // Fall through to open the reader/viewer instead.
         const episodeNumber = resolveEpisodeNumber(item);
-        if (episodeNumber !== null) {
-          const matched = episodesCatalog.find((e) => e.episodeNumber === episodeNumber);
-          if (matched) {
-            const printLiteUrl = matched.printRareLiteUrl || matched.printEpicLiteUrl || matched.printLegendaryLiteUrl || matched.printCommonLiteUrl;
-            const printCid = matched.printRareCid || matched.printEpicCid || matched.printLegendaryCid || matched.printCommonCid;
-            if (printLiteUrl || printCid) {
-              setCurrentPdfLiteUrl(printLiteUrl || null);
-              setCurrentPdfCid(printCid || null);
-              setCurrentPdfTitle(matched.title || `Episode ${matched.displayNumber}`);
-              setPdfViewerOpen(true);
-              return;
-            }
-          }
+        const matched = episodeNumber !== null
+          ? episodesCatalog.find((e) => e.episodeNumber === episodeNumber)
+          : undefined;
+        const printLiteUrl = matched?.printRareLiteUrl || matched?.printEpicLiteUrl || matched?.printLegendaryLiteUrl || matched?.printCommonLiteUrl;
+        const printCid = matched?.printRareCid || matched?.printEpicCid || matched?.printLegendaryCid || matched?.printCommonCid;
+        // Motion fallback — if there's no print available but the persona
+        // owns motion, open the motion viewer.
+        const motionCid = matched?.motionMasterCid;
+        console.log('[KnytTab] owned-buy fallback:', {
+          itemId: item.id,
+          itemType: item.type,
+          episodeNumber,
+          matched: !!matched,
+          catalogSize: episodesCatalog.length,
+          printLiteUrl: !!printLiteUrl,
+          printCid: !!printCid,
+          motionCid: !!motionCid,
+          itemMediaPdfLite: !!item.media?.pdf_lite_url,
+          itemMediaPdfCid: !!item.media?.pdf_cid,
+        });
+        if (printLiteUrl || printCid) {
+          setCurrentPdfLiteUrl(printLiteUrl || null);
+          setCurrentPdfCid(printCid || null);
+          setCurrentPdfTitle(matched?.title || `Episode ${matched?.displayNumber ?? episodeNumber}`);
+          setPdfViewerOpen(true);
+          return;
         }
+        // Fallback to item's own media if catalog lookup didn't yield a URL
+        if (item.media?.pdf_lite_url || item.media?.pdf_cid) {
+          setCurrentPdfLiteUrl(item.media.pdf_lite_url || null);
+          setCurrentPdfCid(item.media.pdf_cid || null);
+          setCurrentPdfTitle(item.title);
+          setPdfViewerOpen(true);
+          return;
+        }
+        // Motion fallback for episodes where only motion is uploaded
+        if (motionCid && matched) {
+          void openEpisodeVideo(matched, motionCid, null);
+          return;
+        }
+        toast({
+          title: 'Content not yet available',
+          description: `You own ${matched?.title || `Episode ${episodeNumber}`}, but the content hasn't been published yet.`,
+        });
         return;
       }
       const resolvedItemPrice = resolveAccessPrice(item.metadata?.price);
