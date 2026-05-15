@@ -1764,6 +1764,22 @@ export const METAME_CODEX: CodexConfig = {
   tabs: [
     // ── aigentMe group ───────────────────────────────────────────────────────
     {
+      id: 'aigent-me-welcome-classic',
+      label: 'aigentMe (classic)',
+      slug: 'aigent-me-classic',
+      enabled: false,
+      adminOnly: true,
+      group: 'aigentme',
+      order: 0.1,
+      type: 'static',
+      config: { component: 'AigentMeWelcomeTab', props: {} },
+      metadata: {
+        icon: 'Sparkles',
+        description: 'Classic single-column aigentMe welcome (legacy, disabled)',
+        color: 'violet'
+      }
+    },
+    {
       id: 'aigent-me-welcome',
       label: 'aigentMe',
       slug: 'aigent-me',
@@ -1771,25 +1787,10 @@ export const METAME_CODEX: CodexConfig = {
       group: 'aigentme',
       order: 0,
       type: 'static',
-      config: { component: 'AigentMeWelcomeTab', props: {} },
-      metadata: {
-        icon: 'Sparkles',
-        description: 'metaMe Personal Assistant — sovereign chief of staff for your active cartridges, goals, and venture work',
-        color: 'violet'
-      }
-    },
-    {
-      id: 'aigent-me-split',
-      label: 'aigentMe (split)',
-      slug: 'aigent-me-split',
-      enabled: true,
-      group: 'aigentme',
-      order: 0.5,
-      type: 'static',
       config: { component: 'AigentMeWelcomeSplitTab', props: {} },
       metadata: {
         icon: 'Sparkles',
-        description: 'Split-screen aigentMe — persistent copilot on the left, dynamic action surface on the right',
+        description: 'metaMe Personal Assistant — persistent copilot on the left, dynamic action surface on the right',
         color: 'violet'
       }
     },
