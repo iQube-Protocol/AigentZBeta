@@ -23,11 +23,14 @@
  * The parent (split tab) owns all state; this component is a pure renderer.
  */
 
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Sparkles, Zap, Layers, BarChart3, Plus, Users,
-  ChevronDown, ChevronUp, Loader2,
+  ChevronDown, ChevronUp, Loader2, EyeOff,
 } from "lucide-react";
+import { personaFetch } from "@/utils/personaSpine";
+import { PersonalGuideSetupWizard } from "@/components/metame/setup/PersonalGuideSetupWizard";
+import { ALIGNMENT_LABEL, type AlignmentState, type PersonalGuideData } from "@/types/experienceGuide";
 import {
   ExperienceModelCard,
   type ExperienceModelCardData,
@@ -161,6 +164,82 @@ function toApprovalAction(nbe: NextBestActionData): ApprovalCardAction {
   };
 }
 
+const GUIDE_CHIP_BG: Record<AlignmentState, string> = {
+  aligned:  'bg-emerald-500/10 border-emerald-500/30 text-emerald-300',
+  drifting: 'bg-amber-500/10 border-amber-500/30 text-amber-300',
+  at_risk:  'bg-orange-500/10 border-orange-500/30 text-orange-300',
+  repair:   'bg-rose-500/10 border-rose-500/30 text-rose-300',
+};
+
+function PersonalGuideChip({ personaId }: { personaId?: string }) {
+  const [guide, setGuide] = useState<PersonalGuideData | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+
+  useEffect(() => {
+    if (!personaId) { setLoaded(true); return; }
+    let cancelled = false;
+    personaFetch('/api/assistant/experience-guide', { personaIdHint: personaId })
+      .then((res) => res.ok ? res.json() : null)
+      .then((data: { configured?: boolean; guide?: PersonalGuideData | null } | null) => {
+        if (cancelled) return;
+        setGuide(data?.guide ?? null);
+        setLoaded(true);
+      })
+      .catch(() => { if (!cancelled) setLoaded(true); });
+    return () => { cancelled = true; };
+  }, [personaId]);
+
+  if (!loaded) return null;
+
+  return (
+    <>
+      {guide ? (
+        <button
+          type="button"
+          onClick={() => setWizardOpen(true)}
+          className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 hover:brightness-110 ${GUIDE_CHIP_BG[guide.alignmentState]}`}
+          title="Open ExperienceGuide alignment helper"
+        >
+          ExperienceGuide: {ALIGNMENT_LABEL[guide.alignmentState]}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setWizardOpen(true)}
+          className="text-xs px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 bg-violet-500/10 border-violet-500/30 text-violet-300 hover:bg-violet-500/20"
+        >
+          Set up ExperienceGuide
+        </button>
+      )}
+      <PersonalGuideSetupWizard
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        initial={guide}
+        onSaved={(g) => setGuide(g)}
+      />
+    </>
+  );
+}
+
+function PersonaQubeBadge({ using, theme = "dark" }: { using: IqubeKind[]; theme?: "light" | "dark" }) {
+  const isDark = theme === "dark";
+  const surfaceClass = isDark
+    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+    : "bg-emerald-50 border-emerald-200 text-emerald-700";
+  const tooltip =
+    `Using: ${using.join(", ")} · Not shared: confidential strategy notes / private investor data / unreleased IP unless approved`;
+  return (
+    <span
+      title={tooltip}
+      className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 cursor-help ${surfaceClass}`}
+    >
+      <Layers className="w-3 h-3" />
+      <span>Using {using.join(" + ")}</span>
+    </span>
+  );
+}
+
 export function WelcomeRightPane(props: Props) {
   const {
     theme = "dark",
@@ -202,45 +281,63 @@ export function WelcomeRightPane(props: Props) {
   const alternates = moveForwardResult?.alternates ?? [];
 
   return (
-    <div className="h-full overflow-y-auto px-4 py-3 space-y-3">
-      {/* ── Identity row ─────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
+    <div className="h-full overflow-y-auto px-4 py-3 pb-24 space-y-3">
+      {/* ── Identity row + status badges ────────────────────────── */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 min-w-0 shrink-0">
           <Sparkles className={`w-4 h-4 shrink-0 ${accentClass}`} />
-          <div className="min-w-0">
-            <div className={`text-xs font-medium truncate ${isDark ? "text-slate-100" : "text-slate-900"}`}>
-              {displayLabel ? `Welcome, ${displayLabel}` : "aigentMe"}
-            </div>
-            <div className={`text-[10px] uppercase tracking-wider ${mutedClass}`}>metaMe · personal assistant</div>
+          <div className={`text-sm font-semibold truncate ${isDark ? "text-slate-100" : "text-slate-900"}`}>
+            {displayLabel ? `Welcome, ${displayLabel}` : "aigentMe"}
           </div>
         </div>
+        {expModel && (
+          <span
+            className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 ${
+              expModel.configured
+                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                : "bg-amber-500/10 border-amber-500/30 text-amber-300"
+            }`}
+          >
+            {expModel.configured
+              ? (expModel.meta?.experienceName || "ExperienceQube active")
+              : "Setup Experience Model"}
+          </span>
+        )}
+        <PersonalGuideChip personaId={personaId} />
+        <PersonaQubeBadge using={usingIqubes} theme={theme} />
       </div>
 
       {/* ── Primary CTA pills ────────────────────────────────────── */}
       {visibleCtas.length > 0 && (
-        <div className="grid grid-cols-2 gap-1.5">
+        <div className="grid grid-cols-2 gap-2">
           {visibleCtas.map((cta) => {
             const Icon = CTA_ICON_MAP[cta.id] ?? Sparkles;
             const isPreview = cta.status === "preview";
+            const violetAccent = isDark ? "text-violet-300" : "text-violet-600";
             return (
               <button
                 key={cta.id}
                 type="button"
                 onClick={() => onCtaClick(cta.id)}
                 disabled={!cta.enabled || isPreview}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs transition text-left ${
-                  isPreview
+                title={isPreview ? "Coming in a later phase of the alpha" : undefined}
+                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-left transition w-full ${
+                  isPreview || !cta.enabled
                     ? isDark
                       ? "bg-slate-900/40 border-slate-800 text-slate-500 cursor-not-allowed"
                       : "bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed"
                     : isDark
-                      ? "bg-slate-800/60 border-slate-700/60 text-slate-100 hover:border-violet-500/60 hover:bg-slate-800"
-                      : "bg-white border-slate-200 text-slate-900 hover:border-violet-400 hover:bg-slate-50"
+                      ? "bg-slate-800/60 border-slate-700 hover:bg-slate-800 hover:border-violet-500/40 text-slate-100"
+                      : "bg-white border-slate-200 hover:bg-slate-50 hover:border-violet-400 text-slate-900"
                 }`}
               >
-                <Icon className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate flex-1">{cta.label}</span>
-                {isPreview && <span className="text-[9px] uppercase opacity-60">soon</span>}
+                <Icon className={`w-4 h-4 flex-shrink-0 ${cta.enabled && !isPreview ? violetAccent : mutedClass}`} />
+                <span className="text-sm font-medium leading-snug truncate flex-1">{cta.label}</span>
+                {isPreview && (
+                  <span className={`ml-auto text-[9px] uppercase tracking-wider ${mutedClass} opacity-60`}>
+                    soon
+                  </span>
+                )}
               </button>
             );
           })}

@@ -68,6 +68,7 @@ interface SmartTriadCopilotLayerProps {
     fioHandle?: string;
     walletAddress?: string;
   };
+  agentSubtitle?: string;
   personaId?: string;
   // SmartTriad specific props
   tenantConfig?: {
@@ -126,6 +127,7 @@ export function SmartTriadCopilotLayer({
   visitCount = 1,
   panelBorder = true,
   agent,
+  agentSubtitle,
   personaId,
   tenantConfig,
   enableAdvancedRendering = true,
@@ -138,7 +140,10 @@ export function SmartTriadCopilotLayer({
   const [selectedProvider, setSelectedProvider] = useState<string>("anthropic");
   const [showQuickPrompts, setShowQuickPrompts] = useState(true);
   const [selectedContext, setSelectedContext] = useState(contextId || contextOptions[0]?.id);
-  const avatarContainer = variant === "embedded" ? "copilot" : "codexCopilot";
+  // "panel" inherits the XW-sized copilot container so the MetaAvatar renders
+  // at the same dimensions/position protocol as the embedded copilot (415x320
+  // at left=16, top=96). "floating" keeps the smaller codexCopilot footprint.
+  const avatarContainer = variant === "floating" ? "codexCopilot" : "copilot";
   
   // Avatar state
   const { requestAvatar, releaseAvatar, activeContainer } = useMetaAvatar();
@@ -370,6 +375,7 @@ export function SmartTriadCopilotLayer({
           personaId={personaId}
           agentName={agent?.name}
           agentId={agent?.id}
+          agentSubtitle={agentSubtitle}
           selectedProvider={selectedProvider}
           setSelectedProvider={setSelectedProvider}
         />
@@ -446,6 +452,7 @@ function FloatingCopilot({
   personaId,
   agentName,
   agentId,
+  agentSubtitle,
   selectedProvider,
   setSelectedProvider,
   inlineMode = false,
@@ -477,6 +484,7 @@ function FloatingCopilot({
   personaId?: string;
   agentName?: string;
   agentId?: string;
+  agentSubtitle?: string;
   inlineMode?: boolean;
   selectedProvider: string;
   setSelectedProvider: (p: string) => void;
@@ -525,16 +533,21 @@ function FloatingCopilot({
 
   const innerPanel = (
         <div
-          className={`relative h-full w-full bg-black/30 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden ${inlineMode ? "" : "ml-auto max-w-md"} ${panelBorder ? "ring-1 ring-white/10" : ""}`}
+          className={`relative h-full w-full bg-black/30 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden ${inlineMode ? "rounded-xl" : "ml-auto max-w-md"} ${panelBorder ? "ring-1 ring-white/10" : ""}`}
           style={darkCssOverrides}
         >
           {/* Header: agent name + trust/reliability dots + close */}
-          <div className="flex items-center justify-between px-3 pr-6 py-2 bg-slate-950 border-b border-white/10 flex-shrink-0">
-            <div className="flex items-center gap-2">
+          <div className={`flex items-center justify-between px-3 pr-6 py-2 bg-slate-950 border-b border-white/10 flex-shrink-0 ${inlineMode ? "rounded-t-xl" : ""}`}>
+            <div className="flex items-center gap-2 min-w-0">
               <Bot className="w-4 h-4 text-cyan-400 flex-shrink-0" />
               <span className="text-sm font-semibold text-white/90 leading-none truncate">
                 {agentName ?? "Aigent Copilot"}
               </span>
+              {agentSubtitle && (
+                <span className="text-[10px] uppercase tracking-wider text-white/50 leading-none truncate">
+                  {agentSubtitle}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
