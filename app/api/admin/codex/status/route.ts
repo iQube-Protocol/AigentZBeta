@@ -42,6 +42,13 @@ interface EpisodeStatus {
   hasPrintLegendary: boolean;
   hasPrintCommon: boolean;
   stillMasterId?: string;
+  // Still master CID / lite URL — exposes the episode_still content row's
+  // auto_drive_cid and pdf_lite_url so the frontend can render the readable
+  // version. In legacy fixtures the "still" master row carries the readable
+  // PDF for the episode (the printRare* fields are populated only for the
+  // explicit print-tier drops, not every readable episode).
+  stillMasterCid?: string;
+  stillMasterLiteUrl?: string;
   motionMasterId?: string;
   motionMasterCid?: string; // CID for motion comic video streaming
   printRareCid?: string;
@@ -457,6 +464,11 @@ if (series === 'metaKnyts') {
         if (master.content_type === 'episode_still') {
           status.hasStillMaster = true;
           status.stillMasterId = master.id;
+          const cid = master.auto_drive_cid as string | null | undefined;
+          const liteUrl = master.pdf_lite_url as string | null | undefined;
+          const isUrl = typeof cid === 'string' && (cid.startsWith('http://') || cid.startsWith('https://'));
+          if (cid && !isUrl) status.stillMasterCid = cid;
+          if (liteUrl) status.stillMasterLiteUrl = liteUrl;
         } else if (master.content_type === 'episode_motion') {
           status.hasMotionMaster = true;
           status.motionMasterId = master.id;
