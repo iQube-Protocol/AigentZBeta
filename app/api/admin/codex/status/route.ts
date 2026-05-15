@@ -467,8 +467,24 @@ if (series === 'metaKnyts') {
           const cid = master.auto_drive_cid as string | null | undefined;
           const liteUrl = master.pdf_lite_url as string | null | undefined;
           const isUrl = typeof cid === 'string' && (cid.startsWith('http://') || cid.startsWith('https://'));
+          // auto_drive_cid can hold either a real CID or a URL (legacy
+          // fixtures sometimes store the supabase storage URL directly
+          // here). When it's a URL and pdf_lite_url is empty, hoist it
+          // into stillMasterLiteUrl so the reader still resolves.
           if (cid && !isUrl) status.stillMasterCid = cid;
           if (liteUrl) status.stillMasterLiteUrl = liteUrl;
+          else if (cid && isUrl) status.stillMasterLiteUrl = cid;
+          // Server-side trace for the still-master surfacing — strip after
+          // we've confirmed the data path end-to-end.
+          console.log('[CodexStatus] still master:', {
+            id: master.id,
+            episode: master.episode_number,
+            hasCid: !!cid,
+            cidIsUrl: isUrl,
+            cidSample: typeof cid === 'string' ? cid.slice(0, 30) : null,
+            hasLiteUrl: !!liteUrl,
+            liteUrlSample: typeof liteUrl === 'string' ? liteUrl.slice(0, 60) : null,
+          });
         } else if (master.content_type === 'episode_motion') {
           status.hasMotionMaster = true;
           status.motionMasterId = master.id;
