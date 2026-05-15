@@ -1663,6 +1663,34 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectivePersonaId]);
 
+  // Expose a window-level inspector so the operator can dump current
+  // ownership state from the browser console without needing to click an
+  // episode. Usage: __knytDebug() in the console. Strip after root cause.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    (window as unknown as { __knytDebug?: () => void }).__knytDebug = () => {
+      const snapshot = {
+        effectivePersonaId,
+        ownedIssuesCount: ownedIssues.length,
+        ownedIssues: ownedIssues.slice(0, 5),
+        ownedEpisodeNumbers: Array.from(ownedEpisodeNumbers).sort((a, b) => a - b),
+        registryMapSize: registryOwnership.size,
+        registryKeys: Array.from(registryOwnership.entries()).slice(0, 10),
+        registryAnyOwned: Array.from(registryOwnership.values()).some(Boolean),
+        episodesCatalogCount: episodesCatalog.length,
+        contentItemsCount: contentItems.length,
+        sampleItemIds: contentItems.slice(0, 5).map((c) => ({ id: c.id, ep: c.metadata?.episodeNumber, type: c.type })),
+        localStorageKey: `${OWNED_LS_PREFIX}${effectivePersonaId ?? '<none>'}`,
+        localStorageBytes: effectivePersonaId
+          ? (localStorage.getItem(OWNED_LS_PREFIX + effectivePersonaId)?.length ?? 0)
+          : 0,
+      };
+      console.log('[__knytDebug]', JSON.stringify(snapshot, null, 2));
+      return snapshot;
+    };
+  // Stable refs are fine; we want the closure to capture latest values.
+  });
+
   const fetchOwnedEpisodes = useCallback(async (options?: { force?: boolean }) => {
     if (!effectivePersonaId) {
       setOwnedEpisodeNumbers(new Set());
@@ -2247,9 +2275,25 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     // of whether ownedIssues has finished loading.
     if (ownedEpisodeNumbers.has(episodeNumber)) return false;
 
+    // Self-diagnostic log: emit ONLY when we're about to lock, so the operator
+    // can see in the console exactly why this click triggered the paywall.
+    // Strip after the root cause is fixed.
+    if (typeof window !== 'undefined') {
+      console.warn(
+        `[KnytTab:LOCKED] itemId=${item.id} ep=${episodeNumber} variant=${variant} ` +
+        `effectivePersonaId=${effectivePersonaId ?? '<none>'} ` +
+        `registryMapSize=${registryOwnership.size} ` +
+        `registryKeyLooked=${variant ? `${episodeNumber}:${variant === 'episode_still' ? 'episode_print' : variant}` : '<n/a>'} ` +
+        `ownedIssuesCount=${ownedIssues.length} ` +
+        `ownedEpisodeNumbersSize=${ownedEpisodeNumbers.size} ` +
+        `ownedEpsList=[${Array.from(ownedEpisodeNumbers).sort((a, b) => a - b).join(',')}] ` +
+        `hasAccessRestriction=${hasAccessRestriction(item.metadata as GatingMetadata | undefined)}`,
+      );
+    }
+
     if (hasAccessRestriction(item.metadata as GatingMetadata | undefined)) return true;
     return true;
-  }, [resolveEpisodeNumber, ownedIssues, ownedEpisodeNumbers, hasAccessRestriction, resolveVariant, registryOwnership]);
+  }, [resolveEpisodeNumber, ownedIssues, ownedEpisodeNumbers, hasAccessRestriction, resolveVariant, registryOwnership, effectivePersonaId]);
 
   const openPurchaseForItem = useCallback((item: KnytContentItem, action: 'read' | 'watch' | 'default' = 'default') => {
     const episodeNumber = resolveEpisodeNumber(item);

@@ -80,17 +80,31 @@ export async function GET(request: NextRequest) {
     // If the caller passes a FIO handle (contains '@'), resolve it to UUID
     // first. Strictly additive: no-op for UUIDs.
     let resolvedPersonaId = personaId;
+    let fioResolutionFailed = false;
     if (personaId.includes('@')) {
-      const { data: personaRow } = await supabase
+      const { data: personaRow, error: personaErr } = await supabase
         .from('personas')
         .select('id')
         .eq('fio_handle', personaId)
         .single();
-      if (personaRow?.id) resolvedPersonaId = personaRow.id;
+      if (personaRow?.id) {
+        resolvedPersonaId = personaRow.id;
+      } else {
+        fioResolutionFailed = true;
+        console.warn(
+          `[codex/owned] FIO handle resolution FAILED for ${personaId} ` +
+          `err=${personaErr?.message ?? 'no row'}`,
+        );
+      }
     }
 
     const entitlementService = getEntitlementService();
     const entitlements = await entitlementService.getPersonaEntitlements(resolvedPersonaId);
+    console.log(
+      `[codex/owned] personaId=${personaId} resolvedPersonaId=${resolvedPersonaId} ` +
+      `fioResolutionFailed=${fioResolutionFailed} entitlementsCount=${entitlements.length} ` +
+      `assetIds=[${entitlements.map((e) => e.assetId).join(',')}]`,
+    );
 
     // ── SKU-expansion: enumerate everything the persona owns OR has
     //    rights to per their bundle SKUs. The new `expectedSlots` array
@@ -247,6 +261,12 @@ export async function GET(request: NextRequest) {
     }
 
     const characters: OwnedCharacter[] = [...characterAvailable, ...characterComingSoon];
+
+    console.log(
+      `[codex/owned] RESULT personaId=${personaId} issueCount=${issues.length} ` +
+      `epNums=[${issues.map((i) => i.episodeNumber).join(',')}] ` +
+      `uploadedSlotKeysCount=${uploadedSlotMap.size} expectedSlotsCount=${expanded.expectedSlots.length}`,
+    );
 
     return NextResponse.json({
       personaId,
