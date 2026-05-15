@@ -199,17 +199,18 @@ function PersonalGuideChip({ personaId }: { personaId?: string }) {
           type="button"
           onClick={() => setWizardOpen(true)}
           className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 hover:brightness-110 ${GUIDE_CHIP_BG[guide.alignmentState]}`}
-          title="Open ExperienceGuide alignment helper"
+          title={`ExperienceGuide alignment: ${ALIGNMENT_LABEL[guide.alignmentState]} — click to open`}
         >
-          ExperienceGuide: {ALIGNMENT_LABEL[guide.alignmentState]}
+          ExpGuide: {ALIGNMENT_LABEL[guide.alignmentState]}
         </button>
       ) : (
         <button
           type="button"
           onClick={() => setWizardOpen(true)}
+          title="Set up your personal ExperienceGuide"
           className="text-xs px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 bg-violet-500/10 border-violet-500/30 text-violet-300 hover:bg-violet-500/20"
         >
-          Set up ExperienceGuide
+          Set up ExpGuide
         </button>
       )}
       <PersonalGuideSetupWizard
@@ -283,7 +284,7 @@ export function WelcomeRightPane(props: Props) {
   return (
     <div className="h-full overflow-y-auto px-4 py-3 pb-24 space-y-3">
       {/* ── Identity row + status badges ────────────────────────── */}
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-2 flex-nowrap overflow-x-auto no-scrollbar">
         <div className="flex items-center gap-2 min-w-0 shrink-0">
           <Sparkles className={`w-4 h-4 shrink-0 ${accentClass}`} />
           <div className={`text-sm font-semibold truncate ${isDark ? "text-slate-100" : "text-slate-900"}`}>
@@ -292,6 +293,11 @@ export function WelcomeRightPane(props: Props) {
         </div>
         {expModel && (
           <span
+            title={
+              expModel.configured
+                ? `ExperienceQube active${expModel.meta?.experienceName ? ` — ${expModel.meta.experienceName}` : ""}`
+                : "Set up your Experience Model"
+            }
             className={`text-xs px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 ${
               expModel.configured
                 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
@@ -299,8 +305,8 @@ export function WelcomeRightPane(props: Props) {
             }`}
           >
             {expModel.configured
-              ? (expModel.meta?.experienceName || "ExperienceQube active")
-              : "Setup Experience Model"}
+              ? (expModel.meta?.experienceName || "ExpQube active")
+              : "Setup Exp Model"}
           </span>
         )}
         <PersonalGuideChip personaId={personaId} />

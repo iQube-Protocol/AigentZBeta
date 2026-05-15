@@ -67,6 +67,13 @@ export interface CodexTab {
   metadata?: CodexTabMetadata;
   /** If set, this tab is a sub-tab of the named TabGroup (references TabGroup.id). */
   group?: string;
+  /**
+   * Optional third-tier sub-tabs rendered as an additional nav row inside
+   * this tab. Lets a cartridge surface another cartridge's nested tabs
+   * without modifying the source. The first enabled subTab is rendered by
+   * default; selecting another swaps the rendered TabRenderer target.
+   */
+  subTabs?: CodexTab[];
 }
 
 export interface CodexConfig {

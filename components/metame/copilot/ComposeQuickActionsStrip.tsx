@@ -36,8 +36,8 @@ export function ComposeQuickActionsStrip({ onOpen, onWalletOpen, theme = "dark" 
     : "bg-white border-slate-200 text-slate-800 hover:border-emerald-400 hover:bg-slate-50";
 
   return (
-    <div className={`flex flex-wrap items-center gap-1.5 px-3 py-2 rounded-xl ${isDark ? "bg-slate-950/60 ring-1 ring-white/10" : "bg-white/70 ring-1 ring-slate-200"} backdrop-blur-md shadow-lg`}>
-      <span className="text-[10px] uppercase tracking-wider mr-1 text-slate-500">
+    <div className={`flex flex-nowrap items-center gap-1.5 px-3 py-2 rounded-xl overflow-x-auto no-scrollbar ${isDark ? "bg-slate-950/60 ring-1 ring-white/10" : "bg-white/70 ring-1 ring-slate-200"} backdrop-blur-md shadow-lg`}>
+      <span className="text-[10px] uppercase tracking-wider mr-1 text-slate-500 shrink-0">
         Compose
       </span>
       {ACTIONS.map(({ kind, label, Icon }) => (
@@ -45,7 +45,7 @@ export function ComposeQuickActionsStrip({ onOpen, onWalletOpen, theme = "dark" 
           key={kind}
           type="button"
           onClick={() => onOpen(kind)}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs transition ${baseBtn}`}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs transition shrink-0 ${baseBtn}`}
         >
           <Icon className="w-3.5 h-3.5" />
           <span>{label}</span>
@@ -53,15 +53,15 @@ export function ComposeQuickActionsStrip({ onOpen, onWalletOpen, theme = "dark" 
       ))}
       {onWalletOpen && (
         <>
-          <span className="mx-1 text-slate-600 select-none">|</span>
+          <span className="mx-1 text-slate-600 select-none shrink-0">|</span>
           <button
             type="button"
             onClick={onWalletOpen}
             title="Open wallet"
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs transition ${baseBtn}`}
+            aria-label="Open wallet"
+            className={`flex items-center justify-center p-1.5 rounded-md border transition shrink-0 ${baseBtn}`}
           >
             <Wallet className="w-3.5 h-3.5" />
-            <span>Wallet</span>
           </button>
         </>
       )}
