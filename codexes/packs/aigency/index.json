@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-16T22:20:29.870Z",
+  "last_updated": "2026-05-16T22:24:37.449Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "6d0f74d72a8a3dc5df59d933bf64e3ce18bfb72a",
-  "latest_commit_short": "6d0f74d",
-  "latest_commit_title": "codex GN: set maxDuration=60 on pdf-page-by-master route (Lambda's 10s default kills the 430MB fetch mid-flight)",
+  "latest_commit": "a6c2ee8fb211c24be9f511c666e1517f2ad5fa04",
+  "latest_commit_short": "a6c2ee8",
+  "latest_commit_title": "pdf viewer: surface page-load HTTP status + response body in the UI instead of forcing operator to dig through devtools",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a6c2ee8",
+      "full_sha": "a6c2ee8fb211c24be9f511c666e1517f2ad5fa04",
+      "title": "pdf viewer: surface page-load HTTP status + response body in the UI instead of forcing operator to dig through devtools",
+      "author": "Claude",
+      "timestamp": "2026-05-16T22:22:50Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-a6c2ee8.md"
+    },
     {
       "sha": "6d0f74d",
       "full_sha": "6d0f74d72a8a3dc5df59d933bf64e3ce18bfb72a",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-25T17:10:16Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-5b74303.md"
-    },
-    {
-      "sha": "d15d085",
-      "full_sha": "d15d08566ac08c3a0b472e7affa19aaecda57617",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-25T15:45:27Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-d15d085.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

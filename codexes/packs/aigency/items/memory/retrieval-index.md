@@ -784,3 +784,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-6d0f74d.md](../build_/COMMITS/COMMIT-6d0f74d.md)
 - Message: codex GN: set maxDuration=60 on pdf-page-by-master route (Lambda's 10s default kills the 430MB fetch mid-flight)
+
+## Commit `a6c2ee8` — 2026-05-16T22:22:50Z
+- Type: `push`
+- Brief: [COMMIT-a6c2ee8.md](../build_/COMMITS/COMMIT-a6c2ee8.md)
+- Message: pdf viewer: surface page-load HTTP status + response body in the UI instead of forcing operator to dig through devtools

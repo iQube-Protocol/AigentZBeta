@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`a6c2ee8`](https://github.com/iQube-Protocol/AigentZBeta/commit/a6c2ee8fb211c24be9f511c666e1517f2ad5fa04) [push] pdf viewer: surface page-load HTTP status + response body in the UI instead of forcing operator to dig through devtools (Claude, 2026-05-16T22:22:50Z)
 - [`6d0f74d`](https://github.com/iQube-Protocol/AigentZBeta/commit/6d0f74d72a8a3dc5df59d933bf64e3ce18bfb72a) [push] codex GN: set maxDuration=60 on pdf-page-by-master route (Lambda's 10s default kills the 430MB fetch mid-flight) (Claude, 2026-05-16T22:18:19Z)
 - [`af22afd`](https://github.com/iQube-Protocol/AigentZBeta/commit/af22afd4f904707339fbbe04f7ba04cc11ba5158) [push] codex GN: restore masterId-proxy page-by-page rendering (from 0feeb548) (Claude, 2026-05-16T22:06:10Z)
 - [`6131ef3`](https://github.com/iQube-Protocol/AigentZBeta/commit/6131ef306f8c69c2401b79f1bca20966577f2342) [feat] add aigentMe split-screen welcome tab with persistent CopilotKit AG-UI bridge (Claude, 2026-05-14T23:33:20Z)
