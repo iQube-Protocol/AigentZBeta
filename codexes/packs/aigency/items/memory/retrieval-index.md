@@ -774,3 +774,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-6131ef3.md](../build_/COMMITS/COMMIT-6131ef3.md)
 - Message: add aigentMe split-screen welcome tab with persistent CopilotKit AG-UI bridge
+
+## Commit `af22afd` — 2026-05-16T22:06:10Z
+- Type: `push`
+- Brief: [COMMIT-af22afd.md](../build_/COMMITS/COMMIT-af22afd.md)
+- Message: codex GN: restore masterId-proxy page-by-page rendering (from 0feeb548)

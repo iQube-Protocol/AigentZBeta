@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-14T23:35:12.596Z",
+  "last_updated": "2026-05-16T22:07:56.074Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "6131ef306f8c69c2401b79f1bca20966577f2342",
-  "latest_commit_short": "6131ef3",
-  "latest_commit_title": "add aigentMe split-screen welcome tab with persistent CopilotKit AG-UI bridge",
+  "latest_commit": "af22afd4f904707339fbbe04f7ba04cc11ba5158",
+  "latest_commit_short": "af22afd",
+  "latest_commit_title": "codex GN: restore masterId-proxy page-by-page rendering (from 0feeb548)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "af22afd",
+      "full_sha": "af22afd4f904707339fbbe04f7ba04cc11ba5158",
+      "title": "codex GN: restore masterId-proxy page-by-page rendering (from 0feeb548)",
+      "author": "Claude",
+      "timestamp": "2026-05-16T22:06:10Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-af22afd.md"
+    },
     {
       "sha": "6131ef3",
       "full_sha": "6131ef306f8c69c2401b79f1bca20966577f2342",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-25T15:45:22Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-f8bc5a7.md"
-    },
-    {
-      "sha": "27d88f8",
-      "full_sha": "27d88f8176c67e547f4251900642f4bc71593e23",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-25T03:57:09Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-27d88f8.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

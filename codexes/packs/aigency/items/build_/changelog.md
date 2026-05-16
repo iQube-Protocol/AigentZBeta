@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`af22afd`](https://github.com/iQube-Protocol/AigentZBeta/commit/af22afd4f904707339fbbe04f7ba04cc11ba5158) [push] codex GN: restore masterId-proxy page-by-page rendering (from 0feeb548) (Claude, 2026-05-16T22:06:10Z)
 - [`6131ef3`](https://github.com/iQube-Protocol/AigentZBeta/commit/6131ef306f8c69c2401b79f1bca20966577f2342) [feat] add aigentMe split-screen welcome tab with persistent CopilotKit AG-UI bridge (Claude, 2026-05-14T23:33:20Z)
 - [`10db221`](https://github.com/iQube-Protocol/AigentZBeta/commit/10db221fa89fb080e0fcee2a4aa7ca514bfd461b) [feat] feat: thin-client active-persona integration — surface ownFioHandle + parent broadcast + integration doc (Claude, 2026-05-08T01:45:25Z)
 - [`2d81f86`](https://github.com/iQube-Protocol/AigentZBeta/commit/2d81f86cc10342037812083f85683ee486ad1e15) [push] trigger amplify rebuild: sprint 3+4 investor dashboard + admin investments tab (Claude, 2026-05-08T00:24:54Z)
