@@ -27,8 +27,9 @@
 import { useEffect, useState } from 'react';
 
 const LOADED_URLS_KEY = 'codex:pdflite:loaded-urls:v1';
-const FIRST_LOAD_TIMEOUT_MS = 120000;       // 2 minutes for cold loads
-const REPEAT_LOAD_TIMEOUT_MS = 600000;      // 10 minutes when we expect a cache hit
+const FIRST_LOAD_TIMEOUT_MS = 600000;       // 10 minutes for cold loads — covers 430MB+ over slow links
+const REPEAT_LOAD_TIMEOUT_MS = 900000;      // 15 minutes when we expect a cache hit
+const SLOW_LOAD_HINT_MS = 30000;            // after 30s, swap "Loading PDF…" for a "this may take a while" message
 const LOADED_URL_TTL_MS = 7 * 24 * 60 * 60 * 1000; // remember a successful load for 7 days
 
 function getLoadedUrls(): Record<string, number> {
@@ -104,6 +105,7 @@ function useIsMobileViewport(): boolean {
 export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteReaderModalProps) {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState<string | null>(null);
+  const [slowHint, setSlowHint] = useState<boolean>(false);
   const safePdfUrl = buildSecureViewerUrl(pdfUrl);
   const isMobile = useIsMobileViewport();
 
@@ -111,6 +113,7 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
     if (!open) return;
     setLoading(true);
     setFailed(null);
+    setSlowHint(false);
   }, [open, pdfUrl]);
 
   useEffect(() => {
@@ -143,7 +146,11 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
       setLoading(false);
       setFailed('Preview timed out. Please close and retry.');
     }, wallMs);
-    return () => window.clearTimeout(timer);
+    const slowTimer = window.setTimeout(() => setSlowHint(true), SLOW_LOAD_HINT_MS);
+    return () => {
+      window.clearTimeout(timer);
+      window.clearTimeout(slowTimer);
+    };
   }, [open, loading, pdfUrl]);
 
   if (!open) return null;
@@ -181,7 +188,9 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
           {loading && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40 z-10">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-              <div className="text-xs text-white/80">Loading PDF...</div>
+              <div className="text-xs text-white/80">
+                {slowHint ? 'Loading large file — this may take a few minutes…' : 'Loading PDF…'}
+              </div>
             </div>
           )}
 
