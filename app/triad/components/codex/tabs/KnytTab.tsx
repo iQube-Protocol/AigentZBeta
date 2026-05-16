@@ -1140,17 +1140,17 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const transformEpisodesToContentItems = useCallback((episodes: EpisodeFromAPI[]): KnytContentItem[] => {
     const items: KnytContentItem[] = [];
     const preorderThumbCandidates: string[] = [];
-    // DB ep 0 = GN — capture before skipping so AGN card can wire the GN's
-    // print CID into media.pdf_cid + modalities.read.
+    // GN sits at DB ep -1 (content_type='gn_still'). Capture it so the AGN
+    // card can wire the GN's CID/lite URL into media.pdf_cid + modalities.read.
     let gnEp: EpisodeFromAPI | null = null;
 
     for (const ep of episodes) {
       const episodeNumber = Number(ep.episodeNumber);
       if (!Number.isFinite(episodeNumber)) continue;
-      // Capture GN (DB ep 0) data, but don't create a standalone episode card
+      // Capture GN (DB ep -1) data, but don't create a standalone episode card
       // for it — the AGN card is injected below.
-      if (episodeNumber === 0) { gnEp = ep; continue; }
-      // Skip the legacy preorder rarity drops (DB ep -1..-4) — replaced by
+      if (episodeNumber === -1) { gnEp = ep; continue; }
+      // Skip the legacy preorder rarity drops (DB ep -2..-4) — replaced by
       // the single AGN card injected below.
       if (episodeNumber < 0) continue;
       
