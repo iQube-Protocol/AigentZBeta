@@ -13,9 +13,58 @@
  * file. With a healthy file, <object> renders fine. The right fix for
  * NS_ERROR_WONT_HANDLE_CONTENT is to ensure the file exists at the URL,
  * not to switch the embed element.
+ *
+ * Timeout strategy: <object> onLoad fires inconsistently for cross-origin
+ * PDFs (often never fires even after the PDF is visibly rendering), so we
+ * use a wall-clock timer as the spinner-dismissal fallback. For first-time
+ * loads the wall is 120s (handles the 430MB GN over a typical link). For
+ * URLs already known to have loaded successfully on this device, the wall
+ * extends to 10 minutes — the browser HTTP cache will serve those near-
+ * instantly and we don't want to flash a spurious timeout message over
+ * an already-rendered PDF.
  */
 
 import { useEffect, useState } from 'react';
+
+const LOADED_URLS_KEY = 'codex:pdflite:loaded-urls:v1';
+const FIRST_LOAD_TIMEOUT_MS = 120000;       // 2 minutes for cold loads
+const REPEAT_LOAD_TIMEOUT_MS = 600000;      // 10 minutes when we expect a cache hit
+const LOADED_URL_TTL_MS = 7 * 24 * 60 * 60 * 1000; // remember a successful load for 7 days
+
+function getLoadedUrls(): Record<string, number> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(LOADED_URLS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return typeof parsed === 'object' && parsed !== null ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function markUrlLoaded(url: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const existing = getLoadedUrls();
+    const now = Date.now();
+    const cleaned: Record<string, number> = { [url]: now };
+    for (const [u, ts] of Object.entries(existing)) {
+      if (typeof ts === 'number' && now - ts < LOADED_URL_TTL_MS && u !== url) {
+        cleaned[u] = ts;
+      }
+    }
+    window.localStorage.setItem(LOADED_URLS_KEY, JSON.stringify(cleaned));
+  } catch {
+    // localStorage quota / disabled — non-fatal
+  }
+}
+
+function urlPreviouslyLoaded(url: string): boolean {
+  const existing = getLoadedUrls();
+  const ts = existing[url];
+  return typeof ts === 'number' && Date.now() - ts < LOADED_URL_TTL_MS;
+}
 
 interface PDFLiteReaderModalProps {
   open: boolean;
@@ -87,12 +136,15 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
 
   useEffect(() => {
     if (!open || !loading) return;
+    const wallMs = urlPreviouslyLoaded(pdfUrl)
+      ? REPEAT_LOAD_TIMEOUT_MS
+      : FIRST_LOAD_TIMEOUT_MS;
     const timer = window.setTimeout(() => {
       setLoading(false);
       setFailed('Preview timed out. Please close and retry.');
-    }, 24000);
+    }, wallMs);
     return () => window.clearTimeout(timer);
-  }, [open, loading]);
+  }, [open, loading, pdfUrl]);
 
   if (!open) return null;
 
@@ -151,6 +203,7 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
               onLoad={() => {
                 setLoading(false);
                 setFailed(null);
+                markUrlLoaded(pdfUrl);
               }}
             />
           ) : (
@@ -161,6 +214,7 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
               onLoad={() => {
                 setLoading(false);
                 setFailed(null);
+                markUrlLoaded(pdfUrl);
               }}
               aria-label={title || 'PDF preview'}
             >
