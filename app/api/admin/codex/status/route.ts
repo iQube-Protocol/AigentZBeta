@@ -468,7 +468,7 @@ if (series === 'metaKnyts') {
           });
         }
         const status = episodeMap.get(ep)!;
-        if (master.content_type === 'episode_still') {
+        if (master.content_type === 'episode_still' || master.content_type === 'gn_still') {
           status.hasStillMaster = true;
           status.stillMasterId = master.id;
           const cid = master.auto_drive_cid as string | null | undefined;
@@ -476,8 +476,10 @@ if (series === 'metaKnyts') {
           const isUrl = typeof cid === 'string' && (cid.startsWith('http://') || cid.startsWith('https://'));
           // auto_drive_cid can hold either a real CID or a URL (legacy
           // fixtures sometimes store the supabase storage URL directly
-          // here). When it's a URL and pdf_lite_url is empty, hoist it
-          // into stillMasterLiteUrl so the reader still resolves.
+          // here — and the GN row at episode_number=-1 stores a Supabase
+          // URL there by design). When it's a URL and pdf_lite_url is
+          // empty, hoist it into stillMasterLiteUrl so the reader still
+          // resolves.
           if (cid && !isUrl) status.stillMasterCid = cid;
           if (liteUrl) status.stillMasterLiteUrl = liteUrl;
           else if (cid && isUrl) status.stillMasterLiteUrl = cid;

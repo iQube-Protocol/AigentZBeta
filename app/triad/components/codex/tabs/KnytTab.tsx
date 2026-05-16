@@ -1281,11 +1281,14 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     // users can open the PDF reader. Read button is gated by
     // modalities.read.available (not by card type), so we keep the type as
     // comic_cover_portrait — same Liquid UI stage routing as before.
+    // The GN row is content_type='gn_still' (not a print tier), so its readable
+    // surface lives on stillMasterCid / stillMasterLiteUrl rather than the
+    // printRare* fields. Fall through to those when no print-tier CID is set.
     const gnPrintCid = gnEp
-      ? (gnEp.printRareCid || gnEp.printEpicCid || gnEp.printLegendaryCid || gnEp.printCommonCid)
+      ? (gnEp.printRareCid || gnEp.printEpicCid || gnEp.printLegendaryCid || gnEp.printCommonCid || gnEp.stillMasterCid)
       : undefined;
     const gnPrintLiteUrl = gnEp
-      ? (gnEp.printRareLiteUrl || gnEp.printEpicLiteUrl || gnEp.printLegendaryLiteUrl || gnEp.printCommonLiteUrl)
+      ? (gnEp.printRareLiteUrl || gnEp.printEpicLiteUrl || gnEp.printLegendaryLiteUrl || gnEp.printCommonLiteUrl || gnEp.stillMasterLiteUrl)
       : undefined;
     const gnHasReadable = !!(gnPrintCid || gnPrintLiteUrl);
 
