@@ -253,7 +253,10 @@ export async function GET(req: NextRequest) {
 
     if (codexEpisodes) {
       for (const ep of codexEpisodes) {
-        if (ep.episode_number && !metadataMap.has(ep.episode_number)) {
+        // Use != null (not truthy) so episode_number === 0 isn't silently
+        // skipped under the canonical convention where 0 is the first
+        // displayed episode.
+        if (ep.episode_number != null && !metadataMap.has(ep.episode_number)) {
           metadataMap.set(ep.episode_number, {
             // Canonical: episode_number IS the display number.
             displayNumber: `#${ep.episode_number}`,
