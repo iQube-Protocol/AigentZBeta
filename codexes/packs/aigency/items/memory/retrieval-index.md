@@ -789,3 +789,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-a6c2ee8.md](../build_/COMMITS/COMMIT-a6c2ee8.md)
 - Message: pdf viewer: surface page-load HTTP status + response body in the UI instead of forcing operator to dig through devtools
+
+## Commit `f0c3a42` — 2026-05-16T22:27:57Z
+- Type: `revert`
+- Brief: [COMMIT-f0c3a42.md](../build_/COMMITS/COMMIT-f0c3a42.md)
+- Message: revert: AGN card back to PDFLiteReader (masterId proxy approach fails on 430MB GN — Lambda OOM)
