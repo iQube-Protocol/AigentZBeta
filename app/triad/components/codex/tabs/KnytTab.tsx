@@ -1140,23 +1140,17 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const transformEpisodesToContentItems = useCallback((episodes: EpisodeFromAPI[]): KnytContentItem[] => {
     const items: KnytContentItem[] = [];
     const preorderThumbCandidates: string[] = [];
-    // Canonical convention (from /api/admin/codex/canonical):
-    //   master_content_qubes.episode_number = -1 → GN (content_type='gn_still')
-    //   master_content_qubes.episode_number =  0..12 → the 13 regular episodes
-    // The master IDs (mk_ep00..mk_ep13) are 1-indexed AutoDrive naming where
-    // mk_ep00 = GN and mk_ep0(N+1) = display #N — opaque, not used for math.
-    // We capture the GN row by episode_number === -1 (canonical) so DB ep 0
-    // (the actual first episode) is not absorbed into the AGN slot, which
-    // was causing every display #N card to render display #(N+1)'s content.
+    // DB ep 0 = GN — capture before skipping so AGN card can wire the GN's
+    // print CID into media.pdf_cid + modalities.read.
     let gnEp: EpisodeFromAPI | null = null;
 
     for (const ep of episodes) {
       const episodeNumber = Number(ep.episodeNumber);
       if (!Number.isFinite(episodeNumber)) continue;
-      // Capture GN (DB ep -1) data, but don't create a standalone episode card
+      // Capture GN (DB ep 0) data, but don't create a standalone episode card
       // for it — the AGN card is injected below.
-      if (episodeNumber === -1) { gnEp = ep; continue; }
-      // Skip the legacy preorder rarity drops (DB ep -2..-4) — replaced by
+      if (episodeNumber === 0) { gnEp = ep; continue; }
+      // Skip the legacy preorder rarity drops (DB ep -1..-4) — replaced by
       // the single AGN card injected below.
       if (episodeNumber < 0) continue;
       
