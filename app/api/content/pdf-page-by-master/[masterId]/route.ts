@@ -29,6 +29,11 @@ import { getCachedImage, setCachedImage } from '../../pdf-page/[cid]/cache';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+// 60s Lambda budget — fetching 430MB from Supabase + parsing + rendering
+// one page comfortably fits well under this. Default is 10s which would
+// kill the function mid-fetch for the GN. Mirrors d43d8473 which set the
+// same value on /api/content/pdf-meta and /api/content/pdf-page.
+export const maxDuration = 60;
 
 // CORS headers for cross-origin requests from thin client
 export async function OPTIONS() {
