@@ -70,7 +70,7 @@ const CONVENTIONS = {
     assetKinds: ['character_poster', 'powers_sheet'],
   },
   idNaming: {
-    note: 'master_content_qubes IDs use AutoDrive 1-indexed convention: mk_ep00 = GN, mk_epNN = display #(NN-1). The ID is opaque — never used for math; always read episode_number + content_type from the row.',
+    note: 'master_content_qubes.episode_number is canonical: 0..12 are the 13 displayed episodes (display # === episode_number); -1 reserved for GN (content_type=gn_still); -2..-4 are legacy preorder rarity drops. Row IDs (e.g. mk_epNN) are opaque — never used for math; always read episode_number + content_type from the row.',
   },
 } as const;
 

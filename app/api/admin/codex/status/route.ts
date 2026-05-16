@@ -236,7 +236,10 @@ export async function GET(req: NextRequest) {
     if (metadataList) {
       for (const meta of metadataList) {
         metadataMap.set(meta.episode_number, {
-          displayNumber: meta.display_number || `#${meta.episode_number - 1}`,
+          // Canonical: episode_number IS the display number. Ignore any
+          // persisted display_number to avoid surfacing stale 1-indexed
+          // values left over from the old convention.
+          displayNumber: `#${meta.episode_number}`,
           title: meta.title,
         });
       }
@@ -252,7 +255,8 @@ export async function GET(req: NextRequest) {
       for (const ep of codexEpisodes) {
         if (ep.episode_number && !metadataMap.has(ep.episode_number)) {
           metadataMap.set(ep.episode_number, {
-            displayNumber: ep.issue_number || `#${ep.episode_number - 1}`,
+            // Canonical: episode_number IS the display number.
+            displayNumber: `#${ep.episode_number}`,
             title: ep.title,
           });
         }
