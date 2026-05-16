@@ -84,13 +84,10 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
 
   useEffect(() => {
     if (!open || !loading) return;
-    // 48s gives Firefox's pdf.js enough time to call onLoad on the largest
-    // episode PDFs (the long ep 12 master). Doubled from the previous 24s
-    // baseline; the timeout is a UX safety net, not a security boundary.
     const timer = window.setTimeout(() => {
       setLoading(false);
       setFailed('Preview timed out. Please close and retry.');
-    }, 48000);
+    }, 24000);
     return () => window.clearTimeout(timer);
   }, [open, loading]);
 
