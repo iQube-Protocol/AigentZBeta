@@ -353,6 +353,7 @@ function PDFPageImage({
 }: PDFPageImageProps) {
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Resolve the per-page image URL. masterId mode goes through the gated
@@ -372,6 +373,35 @@ function PDFPageImage({
   } else {
     pageUrl = '';
   }
+
+  // When the <img> fails to load, fetch the same URL with HEAD so we can
+  // surface the actual HTTP status + body in the UI. Saves the operator
+  // from having to dig through DevTools to diagnose render failures.
+  const probeError = useCallback(async () => {
+    if (!pageUrl) {
+      setErrorDetail('No URL (missing cid and masterId)');
+      return;
+    }
+    const start = Date.now();
+    try {
+      const res = await fetch(pageUrl, { method: 'GET' });
+      const elapsed = Date.now() - start;
+      const ct = res.headers.get('content-type') || '';
+      let body = '';
+      try {
+        if (ct.includes('application/json') || ct.startsWith('text/')) {
+          body = (await res.text()).slice(0, 240);
+        } else {
+          body = `<${ct} ${(await res.arrayBuffer()).byteLength}B>`;
+        }
+      } catch {
+        body = '(could not read body)';
+      }
+      setErrorDetail(`HTTP ${res.status} in ${elapsed}ms — ${body || '(empty)'}`);
+    } catch (e) {
+      setErrorDetail(`fetch threw: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }, [pageUrl]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -410,19 +440,33 @@ function PDFPageImage({
       )}
 
       {isFailed && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center text-red-400">
-            <p className="text-sm">Failed to load page {pageNum}</p>
-            <button
-              onClick={() => {
-                onRetry();
-                setLoaded(false);
-                setLoading(true);
-              }}
-              className="text-xs text-cyan-400 hover:underline mt-2"
-            >
-              Retry
-            </button>
+        <div className="absolute inset-0 flex items-center justify-center p-4">
+          <div className="text-center max-w-md">
+            <p className="text-sm text-red-400 mb-2">Failed to load page {pageNum}</p>
+            {errorDetail && (
+              <div className="mt-2 mb-2 p-2 rounded bg-black/60 border border-red-500/30 text-left">
+                <p className="text-[10px] text-red-300 font-mono break-all whitespace-pre-wrap">{errorDetail}</p>
+              </div>
+            )}
+            <div className="flex flex-col items-center gap-1 mt-2">
+              <button
+                onClick={() => {
+                  onRetry();
+                  setLoaded(false);
+                  setLoading(true);
+                  setErrorDetail(null);
+                }}
+                className="text-xs text-cyan-400 hover:underline"
+              >
+                Retry
+              </button>
+              <button
+                onClick={probeError}
+                className="text-[10px] text-slate-400 hover:underline"
+              >
+                Show error detail
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -438,6 +482,8 @@ function PDFPageImage({
           onError={() => {
             setLoading(false);
             onError();
+            // Auto-probe so the in-UI detail is ready without an extra click.
+            probeError();
           }}
           className={`w-full h-auto select-none ${loaded ? "block" : "hidden"}`}
           draggable={false}
