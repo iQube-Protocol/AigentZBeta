@@ -779,3 +779,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-af22afd.md](../build_/COMMITS/COMMIT-af22afd.md)
 - Message: codex GN: restore masterId-proxy page-by-page rendering (from 0feeb548)
+
+## Commit `6d0f74d` — 2026-05-16T22:18:19Z
+- Type: `push`
+- Brief: [COMMIT-6d0f74d.md](../build_/COMMITS/COMMIT-6d0f74d.md)
+- Message: codex GN: set maxDuration=60 on pdf-page-by-master route (Lambda's 10s default kills the 430MB fetch mid-flight)

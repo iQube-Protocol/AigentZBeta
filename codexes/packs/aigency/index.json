@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-16T22:07:56.074Z",
+  "last_updated": "2026-05-16T22:20:29.870Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "af22afd4f904707339fbbe04f7ba04cc11ba5158",
-  "latest_commit_short": "af22afd",
-  "latest_commit_title": "codex GN: restore masterId-proxy page-by-page rendering (from 0feeb548)",
+  "latest_commit": "6d0f74d72a8a3dc5df59d933bf64e3ce18bfb72a",
+  "latest_commit_short": "6d0f74d",
+  "latest_commit_title": "codex GN: set maxDuration=60 on pdf-page-by-master route (Lambda's 10s default kills the 430MB fetch mid-flight)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "6d0f74d",
+      "full_sha": "6d0f74d72a8a3dc5df59d933bf64e3ce18bfb72a",
+      "title": "codex GN: set maxDuration=60 on pdf-page-by-master route (Lambda's 10s default kills the 430MB fetch mid-flight)",
+      "author": "Claude",
+      "timestamp": "2026-05-16T22:18:19Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-6d0f74d.md"
+    },
     {
       "sha": "af22afd",
       "full_sha": "af22afd4f904707339fbbe04f7ba04cc11ba5158",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-25T15:45:27Z",
       "type": "deploy",
       "brief": "items/build_/COMMITS/COMMIT-d15d085.md"
-    },
-    {
-      "sha": "f8bc5a7",
-      "full_sha": "f8bc5a79bc5b0f197c58bf12044455df567cab54",
-      "title": "fix experiences tab: prevent cache poisoning in refreshExperienceFromServer",
-      "author": "Claude",
-      "timestamp": "2026-03-25T15:45:22Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-f8bc5a7.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
