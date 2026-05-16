@@ -1,13 +1,18 @@
 /**
  * PDFLiteReaderModal - Lightweight PDF Reader Modal
  *
- * Desktop + Mobile: <iframe>. Per CLAUDE.md, <object type="application/pdf">
- * makes Firefox throw NS_ERROR_WONT_HANDLE_CONTENT and refuse to render
- * cross-origin PDFs inline (the response transfers as 0 bytes and the
- * embed never paints). <iframe> works on Firefox, Chromium, Safari
- * desktop, iOS Safari, and Android Chrome. The earlier <object>
- * desktop split (pre-2026-05-16) was an attempt to fix a different
- * Firefox regression but introduced a worse one.
+ * Desktop: <object type="application/pdf"> — renders cross-origin PDFs
+ * inline reliably in Firefox / Chromium / Safari when the file exists.
+ * Mobile:  <iframe> — iOS Safari + Android Chrome render PDFs inline
+ * from iframes; <object> historically did not on iOS.
+ *
+ * Why not <iframe> on desktop: Firefox often downloads cross-origin PDFs
+ * from <iframe> instead of rendering inline. The earlier CLAUDE.md note
+ * blamed <object> for NS_ERROR_WONT_HANDLE_CONTENT, but that error is
+ * actually <object>'s response when the URL returns 0 bytes / a missing
+ * file. With a healthy file, <object> renders fine. The right fix for
+ * NS_ERROR_WONT_HANDLE_CONTENT is to ensure the file exists at the URL,
+ * not to switch the embed element.
  */
 
 import { useEffect, useState } from 'react';
@@ -30,10 +35,28 @@ function buildSecureViewerUrl(rawUrl: string): string {
   return `${base}#${params.toString()}`;
 }
 
+function useIsMobileViewport(): boolean {
+  const [isMobile, setIsMobile] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(max-width: 767px)').matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(max-width: 767px)');
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  return isMobile;
+}
+
 export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteReaderModalProps) {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState<string | null>(null);
   const safePdfUrl = buildSecureViewerUrl(pdfUrl);
+  const isMobile = useIsMobileViewport();
 
   useEffect(() => {
     if (!open) return;
@@ -120,15 +143,32 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
             </div>
           )}
 
-          <iframe
-            src={safePdfUrl}
-            className="w-full h-full touch-pan-y"
-            title={title || 'PDF preview'}
-            onLoad={() => {
-              setLoading(false);
-              setFailed(null);
-            }}
-          />
+          {isMobile ? (
+            <iframe
+              src={safePdfUrl}
+              className="w-full h-full touch-pan-y"
+              title={title || 'PDF preview'}
+              onLoad={() => {
+                setLoading(false);
+                setFailed(null);
+              }}
+            />
+          ) : (
+            <object
+              data={safePdfUrl}
+              type="application/pdf"
+              className="w-full h-full touch-pan-y"
+              onLoad={() => {
+                setLoading(false);
+                setFailed(null);
+              }}
+              aria-label={title || 'PDF preview'}
+            >
+              <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+                <p className="text-white mb-4">PDF preview not supported in this browser.</p>
+              </div>
+            </object>
+          )}
           {/* Toolbar guard rail: hides and blocks top native controls when browser ignores toolbar=0 */}
           <div className="pointer-events-auto absolute top-0 left-0 right-0 h-11 bg-zinc-950/95" />
         </div>
