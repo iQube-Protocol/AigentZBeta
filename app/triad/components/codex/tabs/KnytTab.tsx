@@ -741,6 +741,11 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [currentPdfCid, setCurrentPdfCid] = useState<string | null>(null);
   const [currentPdfLiteUrl, setCurrentPdfLiteUrl] = useState<string | null>(null);
+  // Entitlement-gated master id for the GN path (Supabase-hosted, page-by-page
+  // proxy via /api/content/pdf-page-by-master). When set, routes to
+  // PDFPageViewer regardless of device — the GN file is too large for native
+  // <object> rendering on either desktop or mobile.
+  const [currentPdfMasterId, setCurrentPdfMasterId] = useState<string | null>(null);
   const [currentPdfTitle, setCurrentPdfTitle] = useState('');
   const [currentVideoCid, setCurrentVideoCid] = useState<string | null>(null);
   const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null);
@@ -2566,6 +2571,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
           itemMediaPdfCid: !!item.media?.pdf_cid,
         });
         if (printLiteUrl || printCid) {
+          setCurrentPdfMasterId(null);
           setCurrentPdfLiteUrl(printLiteUrl || null);
           setCurrentPdfCid(printCid || null);
           setCurrentPdfTitle(matched?.title || `Episode ${matched?.displayNumber ?? episodeNumber}`);
@@ -2798,13 +2804,25 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       return;
     }
     if (type === 'pdf' && (item.media?.pdf_lite_url || item.media?.pdf_cid)) {
+      // GN (AGN card, id pattern metaKnyts_preorder_*) routes to the gated
+      // master proxy regardless of device — 430MB native PDF render is
+      // unworkable in any browser <object>/<iframe>. Server renders pages.
+      const isAGN = item.id.startsWith('metaKnyts_preorder_');
       console.log('[KnytTab] Opening PDF viewer:', {
         pdf_lite_url: item.media.pdf_lite_url,
         pdf_cid: item.media.pdf_cid,
-        title: item.title
+        masterId: isAGN ? 'mk_ep00_print_common' : null,
+        title: item.title,
       });
-      setCurrentPdfLiteUrl(item.media.pdf_lite_url || null);
-      setCurrentPdfCid(item.media.pdf_cid || null);
+      if (isAGN) {
+        setCurrentPdfMasterId('mk_ep00_print_common');
+        setCurrentPdfLiteUrl(null);
+        setCurrentPdfCid(null);
+      } else {
+        setCurrentPdfMasterId(null);
+        setCurrentPdfLiteUrl(item.media.pdf_lite_url || null);
+        setCurrentPdfCid(item.media.pdf_cid || null);
+      }
       setCurrentPdfTitle(item.title);
       setPdfViewerOpen(true);
     } else if (type === 'video') {
@@ -3323,6 +3341,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                             const printLiteUrl = episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || episode.printCommonLiteUrl;
                             const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid || episode.printCommonCid;
                             if (printLiteUrl || printCid) {
+                              setCurrentPdfMasterId(null);
                               setCurrentPdfLiteUrl(printLiteUrl || null);
                               setCurrentPdfCid(printCid || null);
                               setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
@@ -3394,6 +3413,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                                   const printLiteUrl = episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || episode.printCommonLiteUrl;
                                   const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid || episode.printCommonCid;
                                   if (printLiteUrl || printCid) {
+                                    setCurrentPdfMasterId(null);
                                     setCurrentPdfLiteUrl(printLiteUrl || null);
                                     setCurrentPdfCid(printCid || null);
                                     setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
@@ -3579,15 +3599,35 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             </div>
           )}
 
-          {/* PDF viewer split — viewport-based per operator directive:
-              - Desktop / tablet: PDFLiteReaderModal (<object> renders the
-                Supabase pdf_lite_url inline; bypasses Lambda 6MB cap).
-              - Mobile: PDFPageViewer (page-by-page render via
-                /api/content/pdf-page; <object> historically fails on iOS).
-              For desktop, when pdf_lite_url is missing we cannot render
-              (operator must restore the Supabase upload OR we add a server
-              proxy for the Autonomys CID). */}
-          {pdfViewerOpen && device !== 'mobile' && currentPdfLiteUrl && (
+          {/* PDF viewer routing per operator directive:
+              - GN (currentPdfMasterId set, e.g. mk_ep00_print_common):
+                  PDFPageViewer via the gated /api/content/pdf-page-by-master
+                  proxy — regardless of device. The 430MB GN renders
+                  page-by-page; raw URL never reaches the client.
+              - Episodes 0..12 desktop: PDFLiteReaderModal (<object> renders
+                the Supabase pdf_lite_url inline; bypasses Lambda 6MB cap).
+              - Episodes 0..12 mobile: PDFPageViewer via /api/content/pdf-page
+                (cid mode). <object>/<iframe> handling for PDFs is unreliable
+                on iOS so we render page images server-side.
+              - Desktop fallback: if only cid is set (no pdf_lite_url), route
+                through PDFPageViewer. Keeps the card actionable. */}
+          {pdfViewerOpen && currentPdfMasterId && (
+            <PDFPageViewer
+              masterId={currentPdfMasterId}
+              personaId={effectivePersonaId ?? undefined}
+              title={currentPdfTitle}
+              onClose={() => {
+                setPdfViewerOpen(false);
+                setCurrentPdfMasterId(null);
+                setCurrentPdfLiteUrl(null);
+                setCurrentPdfCid(null);
+                setCurrentPdfTitle('');
+              }}
+              onComplete={() => fireEpisodeComplete(currentPdfMasterId)}
+            />
+          )}
+
+          {pdfViewerOpen && !currentPdfMasterId && device !== 'mobile' && currentPdfLiteUrl && (
             <PDFLiteReaderModal
               open={pdfViewerOpen}
               pdfUrl={currentPdfLiteUrl}
@@ -3601,7 +3641,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             />
           )}
 
-          {pdfViewerOpen && device === 'mobile' && currentPdfCid && (
+          {pdfViewerOpen && !currentPdfMasterId && device === 'mobile' && currentPdfCid && (
             <PDFPageViewer
               cid={currentPdfCid}
               title={currentPdfTitle}
@@ -3615,10 +3655,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             />
           )}
 
-          {/* Desktop fallback when a CID exists but no Supabase URL: route
-              through PDFPageViewer until the Supabase file is restored.
-              This keeps the card actionable instead of silently no-op'ing. */}
-          {pdfViewerOpen && device !== 'mobile' && !currentPdfLiteUrl && currentPdfCid && (
+          {pdfViewerOpen && !currentPdfMasterId && device !== 'mobile' && !currentPdfLiteUrl && currentPdfCid && (
             <PDFPageViewer
               cid={currentPdfCid}
               title={currentPdfTitle}

@@ -2,8 +2,13 @@
  * PDFPageViewer - Lazy-loading page-based PDF viewer
  *
  * Custody-safe page-image renderer.
- * Uses page manifests + page image streaming (/api/content/pdf-page) to avoid
- * exposing raw PDF URLs to clients.
+ * Two source modes:
+ *   cid      → /api/content/pdf-page/[cid]            (Autonomys-hosted, server-decrypts)
+ *   masterId → /api/content/pdf-page-by-master/[id]   (Supabase-hosted, entitlement-gated proxy)
+ *
+ * In either mode the raw PDF URL never reaches the browser. masterId mode
+ * is used for files too large for browser-native rendering (e.g. the 430MB
+ * GN) — pages stream as small WebP images regardless of source-PDF size.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -12,7 +17,12 @@ import { Button } from "@/components/ui/button";
 import { API_BASE_URL } from "@/app/config/api";
 
 interface PDFPageViewerProps {
-  cid: string;
+  /** Autonomys CID — use this for encrypted Autonomys-hosted PDFs */
+  cid?: string;
+  /** master_content_qubes TEXT pk (e.g. mk_ep00_print_common for the GN) — use for Supabase-hosted PDFs */
+  masterId?: string;
+  /** Required when masterId is provided — identifies the requesting persona for entitlement gate */
+  personaId?: string;
   title?: string;
   onClose: () => void;
   /**
@@ -37,7 +47,7 @@ interface PageManifest {
   cached?: boolean;
 }
 
-export function PDFPageViewer({ cid, title, onClose, onComplete }: PDFPageViewerProps) {
+export function PDFPageViewer({ cid, masterId, personaId, title, onClose, onComplete }: PDFPageViewerProps) {
   const [manifest, setManifest] = useState<PageManifest | null>(null);
   const [meta, setMeta] = useState<PageMeta | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -47,12 +57,15 @@ export function PDFPageViewer({ cid, title, onClose, onComplete }: PDFPageViewer
   const [failedPages, setFailedPages] = useState<Set<number>>(new Set());
   const completionFiredRef = useRef<boolean>(false);
 
+  // The source key — masterId takes precedence (gated path), falls back to cid.
+  const sourceKey = masterId || cid || '';
+
   // Phase 3.x — fire onComplete once when the user reaches the final page.
   // Idempotent via completionFiredRef so re-renders don't re-fire. Resets
-  // when cid changes (the caller is now showing a different episode).
+  // when the source changes (the caller is now showing a different episode).
   useEffect(() => {
     completionFiredRef.current = false;
-  }, [cid]);
+  }, [sourceKey]);
   useEffect(() => {
     if (!onComplete) return;
     if (!meta || meta.pages <= 0) return;
@@ -70,6 +83,24 @@ export function PDFPageViewer({ cid, title, onClose, onComplete }: PDFPageViewer
   useEffect(() => {
     const fetchPages = async () => {
       try {
+        if (masterId) {
+          // masterId mode: entitlement-gated proxy route. Per-page images are
+          // fetched from /api/content/pdf-page-by-master/[masterId]?page=N&...
+          // (handled per-image in PDFPageImage below). Here we just need the
+          // page count via ?meta=1.
+          const qs = new URLSearchParams({ meta: '1', ...(personaId ? { personaId } : {}) });
+          const metaRes = await fetch(`${apiBase}/api/content/pdf-page-by-master/${encodeURIComponent(masterId)}?${qs}`);
+          if (!metaRes.ok) throw new Error(`HTTP ${metaRes.status}`);
+          const data = await metaRes.json();
+          setMeta({ pages: data.pages ?? 1, suggestedWidth: data.suggestedWidth });
+          setLoadingMeta(false);
+          return;
+        }
+
+        if (!cid) {
+          throw new Error('No cid or masterId provided');
+        }
+
         const manifestRes = await fetch(`${apiBase}/api/content/pdf-pages/${cid}`);
         if (manifestRes.ok) {
           const data = await manifestRes.json();
@@ -90,7 +121,7 @@ export function PDFPageViewer({ cid, title, onClose, onComplete }: PDFPageViewer
       }
     };
     fetchPages();
-  }, [apiBase, cid]);
+  }, [apiBase, cid, masterId, personaId]);
 
   useEffect(() => {
     if (!meta) return;
@@ -222,6 +253,8 @@ export function PDFPageViewer({ cid, title, onClose, onComplete }: PDFPageViewer
             <PDFPageImage
               key={pageNum}
               cid={cid}
+              masterId={masterId}
+              personaId={personaId}
               pageNum={pageNum}
               width={width}
               apiBase={apiBase}
@@ -290,7 +323,9 @@ export function PDFPageViewer({ cid, title, onClose, onComplete }: PDFPageViewer
 }
 
 interface PDFPageImageProps {
-  cid: string;
+  cid?: string;
+  masterId?: string;
+  personaId?: string;
   pageNum: number;
   width: number;
   apiBase: string;
@@ -304,6 +339,8 @@ interface PDFPageImageProps {
 
 function PDFPageImage({
   cid,
+  masterId,
+  personaId,
   pageNum,
   width,
   apiBase,
@@ -317,7 +354,24 @@ function PDFPageImage({
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const pageUrl = prerenderedUrl || `${apiBase}/api/content/pdf-page/${cid}?page=${pageNum}&width=${width}`;
+
+  // Resolve the per-page image URL. masterId mode goes through the gated
+  // proxy; cid mode through the existing Autonomys page route.
+  let pageUrl: string;
+  if (prerenderedUrl) {
+    pageUrl = prerenderedUrl;
+  } else if (masterId) {
+    const qs = new URLSearchParams({
+      page: String(pageNum),
+      width: String(width),
+      ...(personaId ? { personaId } : {}),
+    });
+    pageUrl = `${apiBase}/api/content/pdf-page-by-master/${encodeURIComponent(masterId)}?${qs}`;
+  } else if (cid) {
+    pageUrl = `${apiBase}/api/content/pdf-page/${cid}?page=${pageNum}&width=${width}`;
+  } else {
+    pageUrl = '';
+  }
 
   useEffect(() => {
     if (!containerRef.current) return;
