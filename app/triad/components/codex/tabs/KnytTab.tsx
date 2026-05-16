@@ -2804,25 +2804,14 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       return;
     }
     if (type === 'pdf' && (item.media?.pdf_lite_url || item.media?.pdf_cid)) {
-      // GN (AGN card, id pattern metaKnyts_preorder_*) routes to the gated
-      // master proxy regardless of device — 430MB native PDF render is
-      // unworkable in any browser <object>/<iframe>. Server renders pages.
-      const isAGN = item.id.startsWith('metaKnyts_preorder_');
       console.log('[KnytTab] Opening PDF viewer:', {
         pdf_lite_url: item.media.pdf_lite_url,
         pdf_cid: item.media.pdf_cid,
-        masterId: isAGN ? 'mk_ep00_print_common' : null,
         title: item.title,
       });
-      if (isAGN) {
-        setCurrentPdfMasterId('mk_ep00_print_common');
-        setCurrentPdfLiteUrl(null);
-        setCurrentPdfCid(null);
-      } else {
-        setCurrentPdfMasterId(null);
-        setCurrentPdfLiteUrl(item.media.pdf_lite_url || null);
-        setCurrentPdfCid(item.media.pdf_cid || null);
-      }
+      setCurrentPdfMasterId(null);
+      setCurrentPdfLiteUrl(item.media.pdf_lite_url || null);
+      setCurrentPdfCid(item.media.pdf_cid || null);
       setCurrentPdfTitle(item.title);
       setPdfViewerOpen(true);
     } else if (type === 'video') {
