@@ -3579,13 +3579,15 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             </div>
           )}
 
-          {/* PDF viewer split:
-              - pdf_lite_url present (direct/Supabase URL): use PDFLiteReaderModal
-                (fast browser-native iframe — 302 redirect bypasses Lambda).
-              - Only pdf_cid (Autonomys): use PDFPageViewer (page-by-page render
-                via /api/content/pdf-page; full-PDF proxy hits Lambda's 6MB limit
-                and returns 413 for large files like episode PDFs). */}
-          {pdfViewerOpen && currentPdfLiteUrl && (
+          {/* PDF viewer split — viewport-based per operator directive:
+              - Desktop / tablet: PDFLiteReaderModal (<object> renders the
+                Supabase pdf_lite_url inline; bypasses Lambda 6MB cap).
+              - Mobile: PDFPageViewer (page-by-page render via
+                /api/content/pdf-page; <object> historically fails on iOS).
+              For desktop, when pdf_lite_url is missing we cannot render
+              (operator must restore the Supabase upload OR we add a server
+              proxy for the Autonomys CID). */}
+          {pdfViewerOpen && device !== 'mobile' && currentPdfLiteUrl && (
             <PDFLiteReaderModal
               open={pdfViewerOpen}
               pdfUrl={currentPdfLiteUrl}
@@ -3599,7 +3601,24 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             />
           )}
 
-          {pdfViewerOpen && !currentPdfLiteUrl && currentPdfCid && (
+          {pdfViewerOpen && device === 'mobile' && currentPdfCid && (
+            <PDFPageViewer
+              cid={currentPdfCid}
+              title={currentPdfTitle}
+              onClose={() => {
+                setPdfViewerOpen(false);
+                setCurrentPdfLiteUrl(null);
+                setCurrentPdfCid(null);
+                setCurrentPdfTitle('');
+              }}
+              onComplete={() => fireEpisodeComplete(currentPdfCid)}
+            />
+          )}
+
+          {/* Desktop fallback when a CID exists but no Supabase URL: route
+              through PDFPageViewer until the Supabase file is restored.
+              This keeps the card actionable instead of silently no-op'ing. */}
+          {pdfViewerOpen && device !== 'mobile' && !currentPdfLiteUrl && currentPdfCid && (
             <PDFPageViewer
               cid={currentPdfCid}
               title={currentPdfTitle}
