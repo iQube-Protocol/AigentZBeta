@@ -82,12 +82,8 @@ ON CONFLICT (sku_id) DO UPDATE SET
   grants_gn               = EXCLUDED.grants_gn,
   updated_at = NOW();
 
--- Episode_numbers scoping for public bundles (0-indexed; matches DB
--- master_content_qubes.episode_number convention 0..12). NOTE: an earlier
--- revision of this seed wrote 1-indexed arrays; migration
--- 20260516010000_store_skus_episode_numbers_zero_indexed.sql normalises
--- existing rows, and this block keeps fresh seeds aligned.
-UPDATE store_skus SET episode_numbers = ARRAY[0,1,2]              WHERE sku_id = 'bundle-0-2';
-UPDATE store_skus SET episode_numbers = ARRAY[3,4,5,6,7]          WHERE sku_id = 'bundle-3-7';
-UPDATE store_skus SET episode_numbers = ARRAY[8,9,10,11,12]       WHERE sku_id = 'bundle-8-12';
-UPDATE store_skus SET episode_numbers = ARRAY[0,1,2,3,4,5,6,7,8,9,10,11,12] WHERE sku_id = 'bundle-full';
+-- Episode_numbers scoping for public bundles (1-indexed in DB convention)
+UPDATE store_skus SET episode_numbers = ARRAY[1,2,3]              WHERE sku_id = 'bundle-0-2';
+UPDATE store_skus SET episode_numbers = ARRAY[4,5,6,7,8]          WHERE sku_id = 'bundle-3-7';
+UPDATE store_skus SET episode_numbers = ARRAY[9,10,11,12,13]      WHERE sku_id = 'bundle-8-12';
+UPDATE store_skus SET episode_numbers = ARRAY[1,2,3,4,5,6,7,8,9,10,11,12,13] WHERE sku_id = 'bundle-full';
