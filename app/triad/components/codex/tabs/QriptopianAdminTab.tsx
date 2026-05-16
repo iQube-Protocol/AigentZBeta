@@ -1226,10 +1226,13 @@ function CodexManager() {
 
 function renderEpisodeLabel(ep: number | null | undefined): string {
   if (ep === null || ep === undefined) return '—';
-  // DB convention: 0 = GN, 1 = Episode #0, 2 = Episode #1 … negative = preorder variants
-  if (ep === 0) return 'GN';
-  if (ep < 0)  return `Preorder ${ep}`;
-  return `Ep #${ep - 1}`;
+  // Canonical convention: master_content_qubes.episode_number IS the display
+  // number. GN sits at episode_number = -1 (with content_type='gn_still');
+  // ep -2..-4 are preorder rarity drops; 0..12 are the 13 episodes shown as
+  // "Ep #0" .. "Ep #12".
+  if (ep === -1) return 'GN';
+  if (ep < -1)   return `Preorder ${ep}`;
+  return `Ep #${ep}`;
 }
 
 function formatCid(cid: string | null): string {

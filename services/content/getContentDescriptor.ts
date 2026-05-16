@@ -88,8 +88,9 @@ interface MediaAssetRow {
 // ─────────────────────────────────────────────────────────────────────────
 
 function mapContentTypeToClass(value: string | null, episodeNumber: number | null): ContentClass {
-  // Episode 0 in the DB is the GN free preview / graphic novel.
-  if (episodeNumber === 0) return 'gn';
+  // Canonical convention: GN sits at episode_number = -1 (with
+  // content_type='gn_still'); 0..12 are the 13 displayed episodes.
+  if (episodeNumber === -1) return 'gn';
   switch (value) {
     case 'episode_still':  return 'episode_still';
     case 'episode_motion': return 'episode_motion';

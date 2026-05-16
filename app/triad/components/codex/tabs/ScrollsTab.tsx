@@ -129,9 +129,6 @@ export function ScrollsTab({ theme = 'dark', density = 'wide', personaId }: Scro
               <div key={ep.episodeNumber} className={`rounded-xl border ${isDark ? 'border-white/5 bg-slate-900/40' : 'border-slate-200 bg-slate-50'} p-2.5`}>
                 <p className="text-[10px] font-semibold text-slate-400 mb-2">
                   Episode {ep.episodeNumber}
-                  {ep.episodeNumber === 0 && !hasEpisodeCover && (
-                    <span className="ml-2 text-amber-500">(cover pending)</span>
-                  )}
                 </p>
                 <div className="grid grid-cols-4 gap-1.5">
                   {VARIANTS.map((rarity) => {

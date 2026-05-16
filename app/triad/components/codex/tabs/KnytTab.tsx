@@ -396,9 +396,9 @@ const PREORDER_VARIANT_EPISODE_NUMBER: Record<PreorderVariantId, number> = {
   common: -1,
 };
 
-const KNYT_CONTENT_CACHE_KEY = "codex:knyt:content:v8";
-const KNYT_EPISODES_CACHE_KEY = "codex:knyt:episodes:v6";
-const KNYT_SESSION_CACHE_KEY = "codex:knyt:session:v6";
+const KNYT_CONTENT_CACHE_KEY = "codex:knyt:content:v9";
+const KNYT_EPISODES_CACHE_KEY = "codex:knyt:episodes:v7";
+const KNYT_SESSION_CACHE_KEY = "codex:knyt:session:v7";
 const KNYT_SESSION_CACHE_TTL_MS = 30 * 60 * 1000;
 
 type KnytSessionSnapshot = {
@@ -1147,12 +1147,12 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     for (const ep of episodes) {
       const episodeNumber = Number(ep.episodeNumber);
       if (!Number.isFinite(episodeNumber)) continue;
-      // Capture GN (DB ep 0) data, but don't create a standalone episode card
-      // for it — the AGN card is injected below.
-      if (episodeNumber === 0) { gnEp = ep; continue; }
-      // Skip the legacy preorder rarity drops (DB ep -1..-4) — replaced by
+      // Capture GN (canonical: episode_number = -1) data, but don't create a
+      // standalone episode card for it — the AGN card is injected below.
+      if (episodeNumber === -1) { gnEp = ep; continue; }
+      // Skip the legacy preorder rarity drops (DB ep -2..-4) — replaced by
       // the single AGN card injected below.
-      if (episodeNumber < 0) continue;
+      if (episodeNumber < -1) continue;
       
       // Print URLs win when present. When the episode has only a "still"
       // master (legacy fixtures store the readable PDF under
@@ -1181,12 +1181,13 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       );
       const hasWatchable = ep.hasMotionMaster && Boolean(motionSource.cid || motionSource.url);
       // Episode pricing — single source of truth: EPISODE_PRICING (admin
-      // pricing table). DB→pricing convention: DB ep 1 = pricing #0, … DB ep
-      // 13 = pricing #12. We derive BOTH the KNYT-paid USD-equivalent
+      // pricing table). Canonical convention: EPISODE_PRICING.episodeNumber
+      // === master_content_qubes.episode_number === display number (0..12),
+      // with -1 reserved for GN. We derive BOTH the KNYT-paid USD-equivalent
       // (qriptoPrice × 0.8 — matches "$KNYT 62.4 ($78)" pattern the user
       // wants for the AGN) and the retail USD price for display alongside.
       const apiPriceKnyt = resolveAccessPrice(ep.priceKnyt);
-      const pricingEpNum = episodeNumber - 1;
+      const pricingEpNum = episodeNumber;
       const sot = EPISODE_PRICING.find((p) => p.episodeNumber === pricingEpNum);
       let resolvedPriceKnyt = apiPriceKnyt;
       let resolvedPriceUsd: number | null = null;
@@ -2041,6 +2042,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       .sort(([a], [b]) => a - b)
       .map(([episodeNumber, assets]) => ({
         episodeNumber,
+        // Characters in codex_media_assets remain 1-indexed (DB ep 1..13 =
+        // display #0..#12). Episode masters are 0-indexed. This map is built
+        // from character items, so the - 1 stays.
         displayNumber: `#${episodeNumber - 1}`,
         posters: assets.posters,
         sheets: assets.sheets,
@@ -2351,7 +2355,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       hideVersionSelector = true;
       purchaseId = 'gn-investor-qripto';
     } else if (typeof episodeNumber === 'number') {
-      const pricingEpNum = episodeNumber - 1;
+      const pricingEpNum = episodeNumber;
       const sot = EPISODE_PRICING.find((p) => p.episodeNumber === pricingEpNum);
       if (sot?.qriptoPrice && sot.qriptoPrice > 0) {
         priceUsd = sot.qriptoPrice;
@@ -2401,8 +2405,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     }
     const epNum = Number(episode.episodeNumber);
     // Source of truth: EPISODE_PRICING (admin pricing table). Fall back to
-    // the API price field if the SoT lookup misses. DB ep N → pricing ep N-1.
-    const pricingEpNum = epNum - 1;
+    // the API price field if the SoT lookup misses. Canonical convention:
+    // EPISODE_PRICING.episodeNumber === master.episode_number directly.
+    const pricingEpNum = epNum;
     const sot = EPISODE_PRICING.find((p) => p.episodeNumber === pricingEpNum);
     const apiPriceKnyt = resolveAccessPrice(episode.priceKnyt);
     let priceUsd: number | null = null;
@@ -3219,9 +3224,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                         registryOwnership.get(`${episode.episodeNumber}:episode_print`) === true ||
                         registryOwnership.get(`${episode.episodeNumber}:episode_motion`) === true;
                       const isOwned = registryOwnsEp || owned.length > 0;
-                      // Episode 0 = GN is free content — gating: free bypasses the payment gate
-                      // without incorrectly stamping an "Owned" badge on free content.
-                      const isGnFree = episode.episodeNumber === 0 &&
+                      // GN (canonical: episode_number = -1) is free content —
+                      // gating: free bypasses the payment gate without
+                      // incorrectly stamping an "Owned" badge on free content.
+                      const isGnFree = episode.episodeNumber === -1 &&
                         !!(episode.printCommonLiteUrl || episode.printCommonCid);
                       const cardId = episode.purchaseId || `mk_ep${String(episode.episodeNumber).padStart(2, '0')}`;
                       const cardAct = cardAccess.evaluate(
