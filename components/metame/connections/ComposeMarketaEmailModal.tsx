@@ -95,7 +95,7 @@ export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithA
   const activeCampaign = campaigns.find((c) => c.id === campaignId);
 
   const isDark = theme === "dark";
-  const overlayClass = "fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4";
+  const overlayClass = "fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4";
   const panelClass = isDark
     ? "bg-slate-900 border border-slate-700 text-slate-100"
     : "bg-white border border-slate-200 text-slate-900";
