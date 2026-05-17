@@ -284,10 +284,16 @@ export function WelcomeRightPane(props: Props) {
   return (
     <div className="h-full overflow-y-auto px-4 py-3 pb-24 space-y-3">
       {/* ── Identity row + status badges ────────────────────────── */}
-      <div className="flex items-center gap-2 flex-nowrap overflow-x-auto no-scrollbar">
-        <div className="flex items-center gap-2 min-w-0 shrink-0">
+      <div className="relative flex items-center gap-2 flex-nowrap overflow-x-auto no-scrollbar">
+        <div
+          className={`sticky left-0 z-10 flex items-center gap-2 shrink-0 pr-3 ${
+            isDark
+              ? "bg-gradient-to-r from-slate-900 via-slate-900/95 to-transparent"
+              : "bg-gradient-to-r from-white via-white/95 to-transparent"
+          }`}
+        >
           <Sparkles className={`w-4 h-4 shrink-0 ${accentClass}`} />
-          <div className={`text-sm font-semibold truncate ${isDark ? "text-slate-100" : "text-slate-900"}`}>
+          <div className={`text-sm font-semibold whitespace-nowrap ${isDark ? "text-slate-100" : "text-slate-900"}`}>
             {displayLabel ? `Welcome, ${displayLabel}` : "aigentMe"}
           </div>
         </div>
