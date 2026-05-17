@@ -337,7 +337,7 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
   const totalBalances = getTotalBalances();
 
   return (
-    <div className="fixed inset-0 z-[65]">
+    <div className="fixed inset-0 z-[200]">
       <div className="absolute inset-0 drawer-backdrop bg-indigo-950/60" onClick={onClose} />
       <div className="ml-auto h-full drawer-content animate-slide-in-left w-[21.6rem] bg-black/30 backdrop-blur-xl ring-1 ring-white/10 border-l border-white/10 overflow-y-auto">
         
