@@ -231,17 +231,12 @@ export function SmartTriadCopilotLayer({
   }, [contextId, selectedContext]);
 
   useEffect(() => {
-    // Panel variant keeps the MetaAvatar permanently mounted at the top-left
-    // copilot overlay position; chat & avatar coexist. Floating/embedded
-    // variants only mount the avatar when the user explicitly toggles to
-    // avatar mode (legacy behaviour).
-    const shouldMount = isOpen && (variant === "panel" || mode === "avatar");
-    if (shouldMount) {
+    if (mode === "avatar" && isOpen) {
       requestAvatar(avatarContainer, agent?.id || "aigent-z");
       return () => releaseAvatar(avatarContainer);
     }
     releaseAvatar(avatarContainer);
-  }, [mode, isOpen, variant, requestAvatar, releaseAvatar, avatarContainer, agent?.id]);
+  }, [mode, isOpen, requestAvatar, releaseAvatar, avatarContainer, agent?.id]);
   
   // Handle sending messages — calls the real /api/codex/chat inference endpoint
   const handleSend = useCallback(async () => {
