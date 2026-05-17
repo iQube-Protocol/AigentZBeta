@@ -353,7 +353,9 @@ export function SmartTriadCopilotLayer({
       ref={(node) => {
         if (variant !== "panel" || !node || typeof window === "undefined") return;
         const apply = () => {
-          const rect = node.getBoundingClientRect();
+          const body = node.querySelector<HTMLElement>("[data-copilot-body]");
+          const target = body ?? node;
+          const rect = target.getBoundingClientRect();
           const root = document.documentElement.style;
           root.setProperty("--metaavatar-copilot-x", `${Math.round(rect.left)}px`);
           root.setProperty("--metaavatar-copilot-y", `${Math.round(rect.top)}px`);
@@ -363,11 +365,16 @@ export function SmartTriadCopilotLayer({
         apply();
         const ro = new ResizeObserver(apply);
         ro.observe(node);
+        const body = node.querySelector("[data-copilot-body]");
+        if (body) ro.observe(body);
         window.addEventListener("resize", apply);
+        // re-measure shortly after mount in case layout settles
+        const t = window.setTimeout(apply, 50);
         (node as any).__metaavatarCleanup?.();
         (node as any).__metaavatarCleanup = () => {
           ro.disconnect();
           window.removeEventListener("resize", apply);
+          window.clearTimeout(t);
         };
       }}
       className={`smarttriad-copilot-layer ${variant === "panel" ? "h-full" : ""} ${className}`}
@@ -598,7 +605,7 @@ function FloatingCopilot({
           </div>
 
           {/* Messages */}
-          <div className="flex-1 relative overflow-hidden">
+          <div data-copilot-body className="flex-1 relative overflow-hidden">
             <div
               className="absolute inset-0 overflow-y-auto px-4 py-3 space-y-1 overscroll-contain"
             >
