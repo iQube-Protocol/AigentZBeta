@@ -347,9 +347,31 @@ export function SmartTriadCopilotLayer({
   
   // If not open, render nothing
   if (!isOpen) return null;
-  
+
   return (
-    <div className={`smarttriad-copilot-layer ${variant === "panel" ? "h-full" : ""} ${className}`}>
+    <div
+      ref={(node) => {
+        if (variant !== "panel" || !node || typeof window === "undefined") return;
+        const apply = () => {
+          const rect = node.getBoundingClientRect();
+          const root = document.documentElement.style;
+          root.setProperty("--metaavatar-copilot-x", `${Math.round(rect.left)}px`);
+          root.setProperty("--metaavatar-copilot-y", `${Math.round(rect.top)}px`);
+          root.setProperty("--metaavatar-copilot-w", `${Math.round(rect.width)}px`);
+          root.setProperty("--metaavatar-copilot-h", `${Math.round(rect.height)}px`);
+        };
+        apply();
+        const ro = new ResizeObserver(apply);
+        ro.observe(node);
+        window.addEventListener("resize", apply);
+        (node as any).__metaavatarCleanup?.();
+        (node as any).__metaavatarCleanup = () => {
+          ro.disconnect();
+          window.removeEventListener("resize", apply);
+        };
+      }}
+      className={`smarttriad-copilot-layer ${variant === "panel" ? "h-full" : ""} ${className}`}
+    >
       {variant === "floating" || variant === "panel" ? (
         <FloatingCopilot
           inlineMode={variant === "panel"}
