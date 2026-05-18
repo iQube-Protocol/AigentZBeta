@@ -794,3 +794,8 @@ Top-level retrieval anchors for this pack.
 - Type: `revert`
 - Brief: [COMMIT-f0c3a42.md](../build_/COMMITS/COMMIT-f0c3a42.md)
 - Message: revert: AGN card back to PDFLiteReader (masterId proxy approach fails on 430MB GN — Lambda OOM)
+
+## Commit `c753039` — 2026-05-18T23:35:09Z
+- Type: `push`
+- Brief: [COMMIT-c753039.md](../build_/COMMITS/COMMIT-c753039.md)
+- Message: knyt: gate GN + Ep #0 like every other episode; document PDF render pipeline

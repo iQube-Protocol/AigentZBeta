@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-16T22:29:30.386Z",
+  "last_updated": "2026-05-18T23:37:07.516Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "f0c3a422a8c9e4ce3e2bd9309c20895fe1f76cb9",
-  "latest_commit_short": "f0c3a42",
-  "latest_commit_title": "revert: AGN card back to PDFLiteReader (masterId proxy approach fails on 430MB GN — Lambda OOM)",
+  "latest_commit": "c753039de38ce5113b3a76764de26de1c5bdd780",
+  "latest_commit_short": "c753039",
+  "latest_commit_title": "knyt: gate GN + Ep #0 like every other episode; document PDF render pipeline",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c753039",
+      "full_sha": "c753039de38ce5113b3a76764de26de1c5bdd780",
+      "title": "knyt: gate GN + Ep #0 like every other episode; document PDF render pipeline",
+      "author": "Claude",
+      "timestamp": "2026-05-18T23:35:09Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c753039.md"
+    },
     {
       "sha": "f0c3a42",
       "full_sha": "f0c3a422a8c9e4ce3e2bd9309c20895fe1f76cb9",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-25T18:33:47Z",
       "type": "deploy",
       "brief": "items/build_/COMMITS/COMMIT-945174f.md"
-    },
-    {
-      "sha": "8961c88",
-      "full_sha": "8961c8800e6a6e68f270cbf6f421b966b6017262",
-      "title": "fix supabase timeout and query limit to prevent lambda hangs",
-      "author": "Claude",
-      "timestamp": "2026-03-25T18:33:44Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-8961c88.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

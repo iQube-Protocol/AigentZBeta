@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`c753039`](https://github.com/iQube-Protocol/AigentZBeta/commit/c753039de38ce5113b3a76764de26de1c5bdd780) [push] knyt: gate GN + Ep #0 like every other episode; document PDF render pipeline (Claude, 2026-05-18T23:35:09Z)
 - [`f0c3a42`](https://github.com/iQube-Protocol/AigentZBeta/commit/f0c3a422a8c9e4ce3e2bd9309c20895fe1f76cb9) [revert] revert: AGN card back to PDFLiteReader (masterId proxy approach fails on 430MB GN — Lambda OOM) (Claude, 2026-05-16T22:27:57Z)
 - [`a6c2ee8`](https://github.com/iQube-Protocol/AigentZBeta/commit/a6c2ee8fb211c24be9f511c666e1517f2ad5fa04) [push] pdf viewer: surface page-load HTTP status + response body in the UI instead of forcing operator to dig through devtools (Claude, 2026-05-16T22:22:50Z)
 - [`6d0f74d`](https://github.com/iQube-Protocol/AigentZBeta/commit/6d0f74d72a8a3dc5df59d933bf64e3ce18bfb72a) [push] codex GN: set maxDuration=60 on pdf-page-by-master route (Lambda's 10s default kills the 430MB fetch mid-flight) (Claude, 2026-05-16T22:18:19Z)
