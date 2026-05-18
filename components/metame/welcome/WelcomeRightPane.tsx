@@ -241,6 +241,22 @@ function PersonaQubeBadge({ using, theme = "dark" }: { using: IqubeKind[]; theme
   );
 }
 
+/**
+ * Surface-level relabels for primary CTAs so the copy reflects current
+ * persona state (e.g. "Update" when the ExperienceModel is already configured).
+ * The bootstrap API is the source of truth for `label`; this only overrides
+ * for known ids when we have local state to refine the wording.
+ */
+function labelForCta(cta: PrimaryCta, expModel: ExperienceModelCardData | null): string {
+  if (cta.id === "set-up-experience-model" && expModel?.configured) {
+    return "Update my ExperienceModel";
+  }
+  if (cta.id === "move-this-forward") {
+    return "Move goals forward";
+  }
+  return cta.label;
+}
+
 export function WelcomeRightPane(props: Props) {
   const {
     theme = "dark",
@@ -344,7 +360,7 @@ export function WelcomeRightPane(props: Props) {
                 }`}
               >
                 <Icon className={`w-4 h-4 flex-shrink-0 ${cta.enabled && !isPreview ? violetAccent : mutedClass}`} />
-                <span className="text-sm font-medium leading-snug truncate flex-1">{cta.label}</span>
+                <span className="text-sm font-medium leading-snug truncate flex-1">{labelForCta(cta, expModel)}</span>
                 {isPreview && (
                   <span className={`ml-auto text-[9px] uppercase tracking-wider ${mutedClass} opacity-60`}>
                     soon
