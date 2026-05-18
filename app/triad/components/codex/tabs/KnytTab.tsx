@@ -2277,11 +2277,13 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     const episodeNumber = resolveEpisodeNumber(item);
     if (episodeNumber === null) return false;
 
-    // GN (DB ep 0, represented as AGN preorder with ep -1) is free to read.
-    // pdf_lite_url being present indicates the free Supabase-hosted print.
-    if (typeof episodeNumber === 'number' && episodeNumber <= 0 && item.media?.pdf_lite_url) {
-      return false;
-    }
+    // NOTE: there was previously a `episodeNumber <= 0 && pdf_lite_url` bypass
+    // that treated the GN (ep -1) AND Episode #0 as free-readable. That was
+    // wrong on two counts: (a) under the canonical convention ep 0 is a real
+    // paid episode, not the GN; (b) the GN itself is now a paid ContentQube,
+    // not free preview content. All cards now go through the same ownership
+    // gate. Free content must opt in explicitly via gating: { kind: 'free' }
+    // at the card level (see scrolls grid for that path).
 
     // Registry fast-path: if the registry says owned, unlock immediately.
     // Only unlocks — never locks. Registry may be empty while loading.
@@ -3234,18 +3236,18 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                         registryOwnership.get(`${episode.episodeNumber}:episode_print`) === true ||
                         registryOwnership.get(`${episode.episodeNumber}:episode_motion`) === true;
                       const isOwned = registryOwnsEp || owned.length > 0;
-                      // GN (canonical: episode_number = -1) is free content —
-                      // gating: free bypasses the payment gate without
-                      // incorrectly stamping an "Owned" badge on free content.
-                      const isGnFree = episode.episodeNumber === -1 &&
-                        !!(episode.printCommonLiteUrl || episode.printCommonCid);
+                      // GN (episode_number = -1) used to be treated as free
+                      // preview content here. Under the current product
+                      // direction the GN is a paid ContentQube (same gating
+                      // as Episode #0..#12). All cards run through
+                      // cardAccess.evaluate with `manualOwned` only — the
+                      // payment gate fires for non-owners uniformly.
                       const cardId = episode.purchaseId || `mk_ep${String(episode.episodeNumber).padStart(2, '0')}`;
                       const cardAct = cardAccess.evaluate(
                         {
                           id: cardId,
                           source: 'codex',
                           episodeNumber: episode.episodeNumber,
-                          gating: isGnFree ? { kind: 'free' as const } : undefined,
                         },
                         { manualOwned: isOwned },
                       );
