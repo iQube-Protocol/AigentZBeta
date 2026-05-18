@@ -73,19 +73,17 @@ export function MetaAvatarProvider({
   const [avatarRefreshKey, setAvatarRefreshKey] = useState(0);
 
   const requestAvatar = useCallback((container: MetaAvatarContainer, agentId?: string) => {
-    console.log(`[MetaAvatar] requestAvatar: ${container}, agent: ${agentId || activeAgent}`);
-    
-    // Initialize on first request (lazy loading)
-    if (!avatarInitialized) {
-      setAvatarInitialized(true);
-    }
-    
+    console.log(`[MetaAvatar] requestAvatar: ${container}, agent: ${agentId || 'unchanged'}`);
+
+    // Initialize on first request (lazy loading) — use functional updaters so
+    // this callback stays stable across renders. If we depended on
+    // avatarInitialized / activeAgent here, requestAvatar's identity would
+    // flip on first invoke, retriggering any effect that depends on it and
+    // racing the cleanup against the setActiveContainer write.
+    setAvatarInitialized((prev) => prev || true);
     setActiveContainer(container);
-    
-    if (agentId) {
-      setActiveAgent(agentId);
-    }
-  }, [avatarInitialized, activeAgent]);
+    if (agentId) setActiveAgent(agentId);
+  }, []);
 
   const releaseAvatar = useCallback((container?: MetaAvatarContainer) => {
     setActiveContainer(current => {
