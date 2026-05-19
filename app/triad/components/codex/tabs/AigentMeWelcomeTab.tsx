@@ -50,6 +50,8 @@ import {
   type ExperienceModelCardData,
 } from "@/components/metame/cards/ExperienceModelCard";
 import { IqubeContextDisclosure } from "@/components/metame/cards/IqubeContextDisclosure";
+import { StageProgressionChip } from "@/components/metame/welcome/StageProgressionChip";
+import type { StageEvaluation } from "@/services/strategy/stageProgression";
 import { ExperienceModelSetupWizard } from "@/components/metame/setup/ExperienceModelSetupWizard";
 import { PersonalGuideSetupWizard } from "@/components/metame/setup/PersonalGuideSetupWizard";
 import { ALIGNMENT_LABEL, type AlignmentState, type PersonalGuideData } from "@/types/experienceGuide";
@@ -1552,6 +1554,7 @@ function AigentMeWelcomeBody({
             </span>
           )}
           <PersonalGuideChip personaId={personaId} />
+          <StageProgressionChipLoader personaId={personaId} />
           <div className="flex-1 min-w-[120px]" />
           <div className="shrink-0">
             <IqubeContextDisclosure using={usingIqubes} theme={theme} />
@@ -2119,6 +2122,25 @@ const GUIDE_CHIP_BG: Record<AlignmentState, string> = {
   at_risk:  'bg-orange-500/10 border-orange-500/30 text-orange-300',
   repair:   'bg-rose-500/10 border-rose-500/30 text-rose-300',
 };
+
+/**
+ * Tiny standalone loader for the StageProgressionChip — fetches the
+ * persona's stage evaluation on mount and renders the chip. Keeps the
+ * classic identity row independent (no parent prop threading required).
+ */
+function StageProgressionChipLoader({ personaId }: { personaId?: string }) {
+  const [evaluation, setEvaluation] = useState<StageEvaluation | null>(null);
+  useEffect(() => {
+    if (!personaId) return;
+    let cancelled = false;
+    personaFetch('/api/assistant/stage-progression', { personaIdHint: personaId })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled && d?.evaluation) setEvaluation(d.evaluation as StageEvaluation); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [personaId]);
+  return <StageProgressionChip evaluation={evaluation} />;
+}
 
 function PersonalGuideChip({ personaId }: { personaId?: string }) {
   const [guide, setGuide] = useState<PersonalGuideData | null>(null);

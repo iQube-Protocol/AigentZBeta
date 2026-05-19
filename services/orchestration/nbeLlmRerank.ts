@@ -25,7 +25,10 @@ const ANTHROPIC_MODEL =
 const SYSTEM_PROMPT = `You rerank an eligible Next-Best-Experience (NBE) candidate list against a persona's inferred strategy and stage.
 
 Return ONE JSON object exactly:
-{ "order": [ "<nbe id>", ... ] }
+{
+  "order": [ "<nbe id>", ... ],
+  "topReason": "<one short sentence — why the new #1 is the strongest move right now>"
+}
 
 Rules:
 - Use only ids present in the input list. Do not add, omit, or rename.
@@ -35,7 +38,7 @@ Rules:
   2. directly serves the inferred-strategy headline / primary goal, OR
   3. unlocks compounding moves (e.g. workspace draft → outreach).
 - Penalise candidates that duplicate work the persona has already done.
-- No prose, no markdown.`;
+- topReason: ≤ 140 chars, concrete (reference the actual blocker or goal). No markdown.`;
 
 interface RerankContext {
   currentStage: ExperienceStage;
@@ -119,6 +122,14 @@ function summariseForPrompt(
   );
 }
 
+export interface NbeRerankResult {
+  ranked: NbeCandidate[];
+  /** ≤140-char rationale for the new top pick. Null when no LLM pass ran. */
+  topReason: string | null;
+  /** True when the LLM call succeeded and produced a usable order. */
+  llmApplied: boolean;
+}
+
 /**
  * Reorder a deterministically-filtered candidate list using an LLM pass.
  * Returns the original list (unchanged order) on any failure path.
@@ -126,20 +137,22 @@ function summariseForPrompt(
 export async function llmRerankNbeCandidates(
   candidates: NbeCandidate[],
   ctx: RerankContext,
-): Promise<NbeCandidate[]> {
-  if (!ANTHROPIC_API_KEY) return candidates;
-  if (candidates.length < 2) return candidates;
+): Promise<NbeRerankResult> {
+  if (!ANTHROPIC_API_KEY) return { ranked: candidates, topReason: null, llmApplied: false };
+  if (candidates.length < 2) return { ranked: candidates, topReason: null, llmApplied: false };
 
   const raw = await callAnthropic(summariseForPrompt(candidates, ctx));
-  if (!raw) return candidates;
+  if (!raw) return { ranked: candidates, topReason: null, llmApplied: false };
 
-  let parsed: { order?: unknown };
+  let parsed: { order?: unknown; topReason?: unknown };
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return candidates;
+    return { ranked: candidates, topReason: null, llmApplied: false };
   }
-  if (!parsed || !Array.isArray(parsed.order)) return candidates;
+  if (!parsed || !Array.isArray(parsed.order)) {
+    return { ranked: candidates, topReason: null, llmApplied: false };
+  }
 
   const validIds = new Set(candidates.map((c) => c.id));
   const seen = new Set<string>();
@@ -156,5 +169,11 @@ export async function llmRerankNbeCandidates(
   for (const c of candidates) {
     if (!seen.has(c.id)) ranked.push(c);
   }
-  return ranked;
+
+  const topReason =
+    typeof parsed.topReason === 'string' && parsed.topReason.trim().length > 0
+      ? parsed.topReason.trim().slice(0, 200)
+      : null;
+
+  return { ranked, topReason, llmApplied: true };
 }

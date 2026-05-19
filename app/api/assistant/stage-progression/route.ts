@@ -59,7 +59,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
   try {
-    const result = await advanceStage(context.personaId);
+    // The split tab's NBE short-circuit posts here with `{ trigger: 'nbe' }`
+    // — mark the transition accordingly so the ledger differentiates an NBE
+    // action from a manual click on the Strategy tab's Advance button.
+    const trigger = (raw && typeof raw === 'object' && (raw as { trigger?: unknown }).trigger === 'nbe')
+      ? 'nbe' as const
+      : 'manual' as const;
+    const result = await advanceStage(context.personaId, { trigger });
     return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

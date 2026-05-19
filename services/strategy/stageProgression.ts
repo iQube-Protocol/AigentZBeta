@@ -281,15 +281,20 @@ export async function evaluateStageProgression(
   // persona forward without a manual click. The post-advance read returns
   // the NEW current stage so the UI reflects the change immediately.
   if (eligible && autoProgress && options?.runAutoAdvance !== false) {
-    const result = await advanceStage(personaId, { skipReEvaluate: true, evaluation: {
-      currentStage,
-      recommendedStage,
-      criteria,
-      eligible,
-      autoProgress,
-      progress,
-      evaluatedAt: new Date().toISOString(),
-    } });
+    const result = await advanceStage(personaId, {
+      skipReEvaluate: true,
+      trigger: 'auto',
+      reason: 'auto_progress opt-in fired on eligibility',
+      evaluation: {
+        currentStage,
+        recommendedStage,
+        criteria,
+        eligible,
+        autoProgress,
+        progress,
+        evaluatedAt: new Date().toISOString(),
+      },
+    });
     if (result.advanced) {
       // Re-evaluate from the new stage to surface what's next.
       return evaluateStageProgression(personaId, { runAutoAdvance: false });
@@ -315,9 +320,25 @@ export async function evaluateStageProgression(
  *   `updated_at` flips, which in turn invalidates the inferred-strategy cache).
  * - Emits an experience_model_updated receipt referencing the transition.
  */
+export type StageTransitionTrigger = 'manual' | 'auto' | 'nbe' | 'cron-sweep';
+
+export interface StageTransitionRecord {
+  id: string;
+  fromStage: ExperienceStage;
+  toStage: ExperienceStage;
+  trigger: StageTransitionTrigger;
+  reason: string | null;
+  createdAt: string;
+}
+
 export async function advanceStage(
   personaId: string,
-  options?: { skipReEvaluate?: boolean; evaluation?: StageEvaluation },
+  options?: {
+    skipReEvaluate?: boolean;
+    evaluation?: StageEvaluation;
+    trigger?: StageTransitionTrigger;
+    reason?: string;
+  },
 ): Promise<{ advanced: boolean; from: ExperienceStage; to: ExperienceStage; reason?: string }> {
   const evalNow = options?.skipReEvaluate && options.evaluation
     ? options.evaluation
@@ -334,9 +355,10 @@ export async function advanceStage(
     };
   }
   const target = evalNow.recommendedStage;
+  const trigger: StageTransitionTrigger = options?.trigger ?? 'manual';
   await upsertExperienceQube(personaId, { currentStage: target });
 
-  // Best-effort receipt — failure does not roll back the stage change.
+  // Best-effort receipt + ledger entry — failure does not roll back the stage change.
   await createActivityReceipt({
     personaId,
     activeCartridge: 'metame',
@@ -345,5 +367,136 @@ export async function advanceStage(
     iqubesUsed: ['ExperienceQube'],
   }).catch(() => undefined);
 
+  await writeStageTransition({
+    personaId,
+    from: evalNow.currentStage,
+    to: target,
+    trigger,
+    reason: options?.reason ?? null,
+    criteria: evalNow.criteria,
+    progress: evalNow.progress,
+  }).catch(() => undefined);
+
   return { advanced: true, from: evalNow.currentStage, to: target };
+}
+
+async function writeStageTransition(input: {
+  personaId: string;
+  from: ExperienceStage;
+  to: ExperienceStage;
+  trigger: StageTransitionTrigger;
+  reason: string | null;
+  criteria: StageCriterion[];
+  progress: StageEvaluation['progress'];
+}): Promise<void> {
+  const admin = getSupabaseServer();
+  if (!admin) return;
+  await admin.from('stage_transitions').insert({
+    persona_id: input.personaId,
+    from_stage: input.from,
+    to_stage: input.to,
+    trigger: input.trigger,
+    reason: input.reason,
+    criteria_snapshot: input.criteria,
+    progress_snapshot: input.progress,
+  });
+}
+
+/**
+ * Daily sweep — iterate every persona with auto_progress=true and advance
+ * any that have hit eligibility since the last evaluation. Designed to be
+ * called from `/api/cron/stage-progression-sweep` on a daily schedule.
+ *
+ * Returns counts so the cron caller (and operator) can verify the run.
+ */
+export async function runStageProgressionSweep(): Promise<{
+  scanned: number;
+  advanced: number;
+  errors: number;
+  transitions: Array<{ personaId: string; from: ExperienceStage; to: ExperienceStage }>;
+}> {
+  const admin = getSupabaseServer();
+  if (!admin) return { scanned: 0, advanced: 0, errors: 0, transitions: [] };
+
+  let scanned = 0;
+  let advanced = 0;
+  let errors = 0;
+  const transitions: Array<{ personaId: string; from: ExperienceStage; to: ExperienceStage }> = [];
+
+  try {
+    const { data } = await admin
+      .from('experience_qubes')
+      .select('persona_id')
+      .eq('auto_progress', true);
+    if (!Array.isArray(data)) return { scanned, advanced, errors, transitions };
+    for (const row of data as Array<{ persona_id: string }>) {
+      scanned++;
+      try {
+        // Evaluate without running auto-advance recursively — we control
+        // the trigger label here.
+        const evalNow = await evaluateStageProgression(row.persona_id, { runAutoAdvance: false });
+        if (!evalNow || !evalNow.eligible) continue;
+        const result = await advanceStage(row.persona_id, {
+          skipReEvaluate: true,
+          evaluation: evalNow,
+          trigger: 'cron-sweep',
+          reason: 'daily auto-progress sweep',
+        });
+        if (result.advanced) {
+          advanced++;
+          transitions.push({ personaId: row.persona_id, from: result.from, to: result.to });
+        }
+      } catch (err) {
+        errors++;
+        console.warn(`[stageProgressionSweep] persona ${row.persona_id} failed:`, err);
+      }
+    }
+  } catch (err) {
+    errors++;
+    console.warn('[stageProgressionSweep] scan failed:', err);
+  }
+  return { scanned, advanced, errors, transitions };
+}
+
+/**
+ * Read the persona's stage transition history (newest first). Surfaced
+ * on the Strategy tab as a timeline.
+ */
+export async function listStageTransitions(
+  personaId: string,
+  limit = 20,
+): Promise<StageTransitionRecord[]> {
+  const admin = getSupabaseServer();
+  if (!admin) return [];
+  try {
+    const { data } = await admin
+      .from('stage_transitions')
+      .select('id, from_stage, to_stage, trigger, reason, created_at')
+      .eq('persona_id', personaId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (!Array.isArray(data)) return [];
+    return data.map((row) => {
+      const r = row as {
+        id: string;
+        from_stage: string;
+        to_stage: string;
+        trigger: string;
+        reason: string | null;
+        created_at: string;
+      };
+      return {
+        id: r.id,
+        fromStage: r.from_stage as ExperienceStage,
+        toStage: r.to_stage as ExperienceStage,
+        trigger: (['manual', 'auto', 'nbe', 'cron-sweep'].includes(r.trigger)
+          ? r.trigger
+          : 'manual') as StageTransitionTrigger,
+        reason: r.reason ?? null,
+        createdAt: r.created_at,
+      };
+    });
+  } catch {
+    return [];
+  }
 }
