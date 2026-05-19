@@ -17,6 +17,7 @@
  */
 
 import type { ActiveCartridgeSlug, ExperienceStage } from '@/services/iqube/experienceQube';
+import type { GoogleSource } from '@/services/google/oauth';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Types.
@@ -57,6 +58,23 @@ export interface NbeCandidate {
   effort: NbeEffort;
   /** Impact level. */
   impact: NbeImpact;
+  /**
+   * Hard prerequisites. The candidate is hidden when not satisfied.
+   * - `workspaceConnected`: ALL listed Google sources must be connected.
+   * - `workspaceNotConnected`: hides the candidate once the user has
+   *   connected at least one of the listed sources (used to retire the
+   *   generic "connect workspace" suggestion once it's redundant).
+   */
+  requires?: {
+    workspaceConnected?: GoogleSource[];
+    workspaceNotConnected?: GoogleSource[];
+  };
+  /**
+   * Soft signals for goals-aware re-ranking. Case-insensitive substring
+   * match against the persona's `experienceGoals` adds a weight boost
+   * before sort. Deterministic baseline ahead of Phase 3.b LLM rerank.
+   */
+  goalKeywords?: string[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -85,6 +103,52 @@ export const NBE_CATALOGUE: NbeCandidate[] = [
     weight: 50,
     effort: 'light',
     impact: 'medium',
+    // Retire this prompt as soon as the user has linked any one source —
+    // the follow-on "use workspace to…" NBEs take over.
+    requires: { workspaceNotConnected: ['gmail', 'calendar', 'drive', 'docs', 'sheets', 'slides'] },
+  },
+  {
+    id: 'metame.use-workspace-gmail',
+    label: 'Draft a Gmail outreach via workspace',
+    rationale:
+      'You have Gmail connected — Aigent Me can draft a contextual outreach against your active goals and partner list.',
+    cartridge: 'metame',
+    specialist: 'marketa',
+    suggestedArtifact: 'gmail-draft',
+    approvalRequired: true,
+    weight: 70,
+    effort: 'light',
+    impact: 'medium',
+    requires: { workspaceConnected: ['gmail'] },
+    goalKeywords: ['email', 'outreach', 'partner', 'investor', 'follow up'],
+  },
+  {
+    id: 'metame.use-workspace-doc',
+    label: 'Create a working doc in Drive',
+    rationale:
+      'Drive is connected — spin up a goal-aligned doc Aigent Me can iterate on with you.',
+    cartridge: 'metame',
+    suggestedArtifact: 'google-doc',
+    approvalRequired: true,
+    weight: 65,
+    effort: 'light',
+    impact: 'medium',
+    requires: { workspaceConnected: ['drive', 'docs'] },
+    goalKeywords: ['brief', 'plan', 'spec', 'memo', 'narrative', 'doc'],
+  },
+  {
+    id: 'metame.use-workspace-event',
+    label: 'Block focus time on your calendar',
+    rationale:
+      'Calendar is connected — reserve a deep-work block for the strongest move on your current goals.',
+    cartridge: 'metame',
+    suggestedArtifact: 'calendar-block',
+    approvalRequired: true,
+    weight: 55,
+    effort: 'light',
+    impact: 'medium',
+    requires: { workspaceConnected: ['calendar'] },
+    goalKeywords: ['focus', 'deep work', 'review', 'sync', 'block'],
   },
 
   // ── KNYT ─────────────────────────────────────────────────────────────
@@ -101,6 +165,7 @@ export const NBE_CATALOGUE: NbeCandidate[] = [
     weight: 90,
     effort: 'standard',
     impact: 'high',
+    goalKeywords: ['investor', 'fundraise', 'capital', 'knyt', 'update'],
   },
   {
     id: 'knyt.kn0w1-mission-recommendation',
@@ -167,6 +232,7 @@ export const NBE_CATALOGUE: NbeCandidate[] = [
     weight: 80,
     effort: 'standard',
     impact: 'high',
+    goalKeywords: ['partner', 'partnership', 'campaign', 'go-to-market', 'gtm', 'distribution'],
   },
   {
     id: 'marketa.create-campaign-brief',
@@ -194,6 +260,7 @@ export const NBE_CATALOGUE: NbeCandidate[] = [
     weight: 70,
     effort: 'standard',
     impact: 'high',
+    goalKeywords: ['venture', 'progress', 'kpi', 'milestone', 'investor'],
   },
   {
     id: 'avl.schedule-review-block',
@@ -220,16 +287,64 @@ export interface NbeSelectionContext {
   scopedCartridge?: ActiveCartridgeSlug;
   /** How many candidates to return. Default 5. */
   limit?: number;
+  /** Google sources the persona has connected — drives workspace-aware gating. */
+  workspaceConnected?: GoogleSource[];
+  /** Persona's active ExperienceGoals — drives goal-keyword reranking. */
+  experienceGoals?: string[];
+}
+
+/** Goal-keyword boost applied per keyword match. Capped at 3 hits per candidate. */
+const GOAL_BOOST_PER_HIT = 12;
+const GOAL_BOOST_CAP = 3;
+
+function countGoalHits(candidate: NbeCandidate, goals: string[]): number {
+  if (!candidate.goalKeywords || candidate.goalKeywords.length === 0 || goals.length === 0) {
+    return 0;
+  }
+  const haystack = goals.join(' \n ').toLowerCase();
+  let hits = 0;
+  for (const kw of candidate.goalKeywords) {
+    if (kw && haystack.includes(kw.toLowerCase())) hits++;
+    if (hits >= GOAL_BOOST_CAP) break;
+  }
+  return hits;
+}
+
+function passesWorkspaceRequirement(
+  candidate: NbeCandidate,
+  connected: GoogleSource[],
+): boolean {
+  const r = candidate.requires;
+  if (!r) return true;
+  if (r.workspaceConnected && r.workspaceConnected.length > 0) {
+    for (const src of r.workspaceConnected) {
+      if (!connected.includes(src)) return false;
+    }
+  }
+  if (r.workspaceNotConnected && r.workspaceNotConnected.length > 0) {
+    // Hide if *any* of the listed sources is already connected.
+    for (const src of r.workspaceNotConnected) {
+      if (connected.includes(src)) return false;
+    }
+  }
+  return true;
 }
 
 /**
- * Deterministic selection: filter by active cartridges + stage match,
- * sort by static weight desc, take top N. Phase 3.b layers an LLM
- * re-ranking on top using the user's BlakQube; this baseline gives a
- * predictable, testable result.
+ * Deterministic selection: filter by active cartridges + stage match +
+ * workspace prerequisites, then sort by effective weight (static weight +
+ * goal-keyword boost). Phase 3.b layers an LLM re-rank on top using the
+ * user's BlakQube; this baseline gives a predictable, testable result.
  */
 export function selectNbeCandidates(ctx: NbeSelectionContext): NbeCandidate[] {
-  const { activeCartridges, currentStage, scopedCartridge, limit = 5 } = ctx;
+  const {
+    activeCartridges,
+    currentStage,
+    scopedCartridge,
+    limit = 5,
+    workspaceConnected = [],
+    experienceGoals = [],
+  } = ctx;
 
   const cartridgeSet = scopedCartridge
     ? new Set<ActiveCartridgeSlug>([scopedCartridge])
@@ -240,11 +355,17 @@ export function selectNbeCandidates(ctx: NbeSelectionContext): NbeCandidate[] {
     if (c.stages && c.stages.length > 0 && !c.stages.includes(currentStage)) {
       return false;
     }
+    if (!passesWorkspaceRequirement(c, workspaceConnected)) return false;
     return true;
   });
 
-  filtered.sort((a, b) => b.weight - a.weight);
-  return filtered.slice(0, limit);
+  const scored = filtered.map((c) => ({
+    candidate: c,
+    score: c.weight + countGoalHits(c, experienceGoals) * GOAL_BOOST_PER_HIT,
+  }));
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit).map((s) => s.candidate);
 }
 
 /**
@@ -254,12 +375,15 @@ export function selectNbeCandidates(ctx: NbeSelectionContext): NbeCandidate[] {
 export function selectTopNbeForCartridge(
   cartridge: ActiveCartridgeSlug,
   currentStage: ExperienceStage,
+  options?: { workspaceConnected?: GoogleSource[]; experienceGoals?: string[] },
 ): NbeCandidate | null {
   const candidates = selectNbeCandidates({
     activeCartridges: [cartridge],
     currentStage,
     scopedCartridge: cartridge,
     limit: 1,
+    workspaceConnected: options?.workspaceConnected ?? [],
+    experienceGoals: options?.experienceGoals ?? [],
   });
   return candidates[0] ?? null;
 }
