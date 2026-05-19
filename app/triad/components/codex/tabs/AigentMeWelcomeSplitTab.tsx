@@ -99,6 +99,26 @@ interface BootstrapSurface {
   };
 }
 
+/**
+ * Map an NBE's suggested artifact (or known workspace id) to the compose
+ * modal that should open right after approval. Returns null when no
+ * compose hand-off makes sense — those NBEs stay queued only.
+ */
+function composeKindForAction(action: NextBestActionData): ComposeKind | null {
+  // Explicit workspace NBEs.
+  if (action.id === 'metame.use-workspace-gmail') return 'gmail';
+  if (action.id === 'metame.use-workspace-doc') return 'doc';
+  if (action.id === 'metame.use-workspace-event') return 'event';
+  // Fallback by artifact type.
+  switch (action.suggestedArtifact) {
+    case 'gmail-draft':   return 'gmail';
+    case 'google-doc':    return 'doc';
+    case 'calendar-block':return 'event';
+    case 'slide-outline': return 'slides';
+    default:              return null;
+  }
+}
+
 interface Props {
   theme?: 'light' | 'dark';
   isAdmin?: boolean;
@@ -385,6 +405,11 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
     setApprovalError(null);
     setPendingApprovalNbe(action);
+    // Scroll the approval card into view — the right pane scrolls
+    // independently and the modal would otherwise appear above the fold.
+    window.requestAnimationFrame(() => {
+      approvalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   }, [queuedIntents]);
 
   const handleApprovalCancel = useCallback(() => {
@@ -415,6 +440,23 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       }));
       setPendingApprovalNbe(null);
       void fetchReceipts();
+
+      // Workspace-flavoured NBEs (gmail/doc/event/etc.) hand off to the
+      // corresponding compose modal so the user can actually do the action
+      // they just approved. Without this the queue grows but nothing happens.
+      const composeKind = composeKindForAction(action);
+      if (composeKind) {
+        openComposeByKind(composeKind);
+      } else {
+        // No compose hand-off — scroll the right pane to the freshly queued
+        // card so the state change is obvious. The approval card has just
+        // unmounted; without this scroll the user often misses the queue
+        // indicator (which renders in the queued-intents zone above).
+        window.setTimeout(() => {
+          const el = document.querySelector(`[data-queued-nbe-id="${action.id}"]`);
+          el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 50);
+      }
 
       if (action.specialist) {
         const nbeId = action.id;
