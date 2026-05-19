@@ -10,8 +10,8 @@
  * Read-only — edit CTAs route to the existing setup wizards.
  */
 
-import React, { useEffect, useState } from "react";
-import { Loader2, Layers, Compass, RefreshCw, AlertCircle } from "lucide-react";
+import React, { useEffect, useState, useCallback } from "react";
+import { Loader2, Layers, Compass, RefreshCw, AlertCircle, Sparkles, Link2 } from "lucide-react";
 
 import { personaFetch } from "@/utils/personaSpine";
 import { ExperienceModelSetupWizard } from "@/components/metame/setup/ExperienceModelSetupWizard";
@@ -22,6 +22,7 @@ import {
   type PersonalGuideData,
   type SphereAxis,
 } from "@/types/experienceGuide";
+import type { InferredStrategy } from "@/services/strategy/strategyInference";
 
 interface ExpModelShape {
   configured: boolean;
@@ -58,6 +59,8 @@ const CONFIDENTIALITY_LABEL: Record<string, string> = {
 export function MetaMeStrategyTab({ personaId }: { personaId?: string }) {
   const [model, setModel] = useState<ExpModelShape | null>(null);
   const [guide, setGuide] = useState<PersonalGuideData | null>(null);
+  const [strategy, setStrategy] = useState<InferredStrategy | null>(null);
+  const [strategyLoading, setStrategyLoading] = useState(false);
   const [loading, setLoading] = useState(!!personaId);
   const [modelWizardOpen, setModelWizardOpen] = useState(false);
   const [guideWizardOpen, setGuideWizardOpen] = useState(false);
@@ -69,15 +72,34 @@ export function MetaMeStrategyTab({ personaId }: { personaId?: string }) {
     Promise.all([
       personaFetch("/api/assistant/experience-model", { personaIdHint: personaId }).then((r) => r.json() as Promise<ExpModelShape>),
       personaFetch("/api/assistant/experience-guide", { personaIdHint: personaId }).then((r) => r.json() as Promise<GuideShape>),
+      personaFetch("/api/assistant/inferred-strategy", { personaIdHint: personaId }).then((r) => r.json() as Promise<{ strategy: InferredStrategy | null }>).catch(() => ({ strategy: null })),
     ])
-      .then(([m, g]) => {
+      .then(([m, g, s]) => {
         if (cancelled) return;
         setModel(m);
         setGuide(g.guide ?? null);
+        setStrategy(s.strategy ?? null);
       })
       .catch(() => { /* shape stays null, UI handles it */ })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
+  }, [personaId]);
+
+  const refreshStrategy = useCallback(async () => {
+    if (!personaId) return;
+    setStrategyLoading(true);
+    try {
+      const r = await personaFetch("/api/assistant/inferred-strategy", {
+        personaIdHint: personaId,
+        method: "POST",
+      });
+      const data = (await r.json()) as { strategy: InferredStrategy | null };
+      setStrategy(data.strategy ?? null);
+    } catch {
+      /* tolerated — keep previous */
+    } finally {
+      setStrategyLoading(false);
+    }
   }, [personaId]);
 
   if (loading) {
@@ -119,24 +141,66 @@ export function MetaMeStrategyTab({ personaId }: { personaId?: string }) {
           </button>
         </div>
         {hasModel && meta ? (
-          <dl className="grid grid-cols-[140px_1fr] gap-x-3 gap-y-2 text-sm">
-            <dt className="text-slate-400">Experience</dt>
-            <dd className="text-slate-100">{meta.experienceName ?? "(untitled)"}</dd>
-            <dt className="text-slate-400">Primary goal</dt>
-            <dd className="text-slate-100">{meta.primaryGoal ?? "—"}</dd>
-            <dt className="text-slate-400">Stage</dt>
-            <dd className="text-slate-100">{STAGE_LABEL[meta.currentStage] ?? meta.currentStage}</dd>
-            <dt className="text-slate-400">Active cartridges</dt>
-            <dd className="flex flex-wrap gap-1.5">
-              {meta.activeCartridges.length > 0
-                ? meta.activeCartridges.map((c) => (
-                    <span key={c} className="text-xs px-2 py-0.5 rounded-full bg-slate-700/60 text-slate-200">{c}</span>
-                  ))
-                : <span className="text-slate-500">none</span>}
-            </dd>
-            <dt className="text-slate-400">Confidentiality</dt>
-            <dd className="text-slate-100">{CONFIDENTIALITY_LABEL[meta.confidentialityDefault] ?? meta.confidentialityDefault}</dd>
-          </dl>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Left: structured metadata */}
+            <dl className="grid grid-cols-[140px_1fr] gap-x-3 gap-y-2 text-sm self-start">
+              <dt className="text-slate-400">Experience</dt>
+              <dd className="text-slate-100">{meta.experienceName ?? "(untitled)"}</dd>
+              <dt className="text-slate-400">Primary goal</dt>
+              <dd className="text-slate-100">{meta.primaryGoal ?? "—"}</dd>
+              <dt className="text-slate-400">Stage</dt>
+              <dd className="text-slate-100">{STAGE_LABEL[meta.currentStage] ?? meta.currentStage}</dd>
+              <dt className="text-slate-400">Active cartridges</dt>
+              <dd className="flex flex-wrap gap-1.5">
+                {meta.activeCartridges.length > 0
+                  ? meta.activeCartridges.map((c) => (
+                      <span key={c} className="text-xs px-2 py-0.5 rounded-full bg-slate-700/60 text-slate-200">{c}</span>
+                    ))
+                  : <span className="text-slate-500">none</span>}
+              </dd>
+              <dt className="text-slate-400">Confidentiality</dt>
+              <dd className="text-slate-100">{CONFIDENTIALITY_LABEL[meta.confidentialityDefault] ?? meta.confidentialityDefault}</dd>
+            </dl>
+            {/* Right: inferred prose */}
+            <div className="rounded border border-slate-700/60 bg-slate-900/40 p-3 text-sm space-y-2">
+              <div className="flex items-center justify-between text-xs text-slate-400">
+                <span className="flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-violet-400" />
+                  Inferred posture
+                  {strategy?.llmEnriched ? null : <span className="text-[10px] uppercase tracking-wider text-slate-500">baseline</span>}
+                </span>
+                <button
+                  type="button"
+                  onClick={refreshStrategy}
+                  disabled={strategyLoading}
+                  className="flex items-center gap-1 text-slate-400 hover:text-slate-200 disabled:opacity-50"
+                  title="Re-infer strategy"
+                >
+                  <RefreshCw className={`w-3 h-3 ${strategyLoading ? "animate-spin" : ""}`} />
+                  Refresh
+                </button>
+              </div>
+              {strategy ? (
+                <>
+                  <p className="text-slate-200 leading-relaxed">{strategy.venturePosture.paragraph}</p>
+                  {strategy.venturePosture.unlocks.length > 0 && (
+                    <p className="text-xs text-emerald-300">
+                      <span className="text-slate-400">Unlocks:</span> {strategy.venturePosture.unlocks.join(" · ")}
+                    </p>
+                  )}
+                  {strategy.venturePosture.blockers.length > 0 && (
+                    <p className="text-xs text-amber-300">
+                      <span className="text-slate-400">Blockers:</span> {strategy.venturePosture.blockers.join(" · ")}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="text-slate-400 text-xs">
+                  Strategy will be inferred once an ExperienceModel is set up.
+                </p>
+              )}
+            </div>
+          </div>
         ) : (
           <p className="text-sm text-slate-400">
             No ExperienceModel yet. Set one up to anchor your venture-level strategy.
@@ -161,22 +225,37 @@ export function MetaMeStrategyTab({ personaId }: { personaId?: string }) {
           </button>
         </div>
         {hasGuide && guide ? (
-          <dl className="grid grid-cols-[140px_1fr] gap-x-3 gap-y-2 text-sm">
-            <dt className="text-slate-400">Focus</dt>
-            <dd className="text-slate-100">{guide.focusIntent ?? "—"}</dd>
-            <dt className="text-slate-400">Alignment</dt>
-            <dd className="text-slate-100">{ALIGNMENT_LABEL[guide.alignmentState]}</dd>
-            <dt className="text-slate-400">Precedence</dt>
-            <dd className="text-slate-100">
-              {guide.precedenceMode === "auto"
-                ? "Auto"
-                : `${SPHERE_LABEL[guide.precedenceMode as SphereAxis]} first`}
-            </dd>
-            <dt className="text-slate-400">Repair risks</dt>
-            <dd className="text-slate-100">
-              {(guide.repairRisks ?? []).length === 0 ? "None" : `${guide.repairRisks.length} active`}
-            </dd>
-          </dl>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <dl className="grid grid-cols-[140px_1fr] gap-x-3 gap-y-2 text-sm self-start">
+              <dt className="text-slate-400">Focus</dt>
+              <dd className="text-slate-100">{guide.focusIntent ?? "—"}</dd>
+              <dt className="text-slate-400">Alignment</dt>
+              <dd className="text-slate-100">{ALIGNMENT_LABEL[guide.alignmentState]}</dd>
+              <dt className="text-slate-400">Precedence</dt>
+              <dd className="text-slate-100">
+                {guide.precedenceMode === "auto"
+                  ? "Auto"
+                  : `${SPHERE_LABEL[guide.precedenceMode as SphereAxis]} first`}
+              </dd>
+              <dt className="text-slate-400">Repair risks</dt>
+              <dd className="text-slate-100">
+                {(guide.repairRisks ?? []).length === 0 ? "None" : `${guide.repairRisks.length} active`}
+              </dd>
+            </dl>
+            <div className="rounded border border-slate-700/60 bg-slate-900/40 p-3 text-sm space-y-2">
+              <div className="text-xs text-slate-400 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-violet-400" />
+                Inferred drive
+              </div>
+              {strategy ? (
+                <p className="text-slate-200 leading-relaxed">{strategy.personalPosture.paragraph}</p>
+              ) : (
+                <p className="text-slate-400 text-xs">
+                  Inference will appear once the ExperienceGuide is set up.
+                </p>
+              )}
+            </div>
+          </div>
         ) : (
           <p className="text-sm text-slate-400">
             No ExperienceGuide yet. Seven short steps will set it up.
@@ -184,8 +263,38 @@ export function MetaMeStrategyTab({ personaId }: { personaId?: string }) {
         )}
       </section>
 
-      {/* Coherence hint */}
-      {hasModel && hasGuide && (
+      {/* Coherence + correlations */}
+      {strategy && (hasModel || hasGuide) && (
+        <section className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Link2 className="w-4 h-4 text-violet-400" />
+            <h3 className="text-sm font-semibold">Coherence &amp; correlations</h3>
+            <span className="ml-auto text-[10px] uppercase tracking-wider text-slate-400">
+              confidence: {strategy.confidence}
+            </span>
+          </div>
+          <p className="text-sm text-slate-200 leading-relaxed">{strategy.coherenceNote}</p>
+          {strategy.correlations.length > 0 && (
+            <ul className="space-y-1.5 text-xs">
+              {strategy.correlations.map((c, i) => (
+                <li key={i} className="flex items-start gap-2 text-slate-300">
+                  <span className="shrink-0 px-1.5 py-0.5 rounded bg-slate-800/60 text-slate-400 text-[10px] uppercase tracking-wider">
+                    {c.relation}
+                  </span>
+                  <span>
+                    <span className="text-slate-100">{c.from}</span>
+                    <span className="text-slate-500"> ↔ </span>
+                    <span className="text-slate-100">{c.to}</span>
+                    <span className="text-slate-400"> — {c.explanation}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
+      {hasModel && hasGuide && !strategy && (
         <div className="flex items-start gap-2 rounded border border-violet-500/30 bg-violet-500/5 p-3 text-xs text-slate-300">
           <AlertCircle className="w-4 h-4 text-violet-400 mt-0.5 shrink-0" />
           <span>
