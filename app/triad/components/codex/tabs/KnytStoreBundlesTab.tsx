@@ -195,10 +195,7 @@ function BundleGridCard({
         <div className="px-1.5 pt-1 pb-0.5">
           <p className="text-xs font-semibold text-white leading-tight">{bundle.label}</p>
           <div className="flex items-baseline gap-1 flex-wrap">
-            <p className="text-[13px] font-bold text-white">${bundle.digitalPrice}</p>
-            {bundle.retailPrice && bundle.retailPrice !== bundle.digitalPrice && (
-              <p className="text-[10px] text-slate-500 line-through">${bundle.retailPrice}</p>
-            )}
+            <p className="text-[13px] font-bold text-white">${bundle.retailPrice ?? bundle.digitalPrice}</p>
           </div>
         </div>
       </button>
@@ -298,9 +295,7 @@ function BundleDetail({
 
         <div className="space-y-2.5 min-w-0">
           <div>
-            <p className="text-[10px] text-slate-500 uppercase tracking-wide">
-              {bundle.isInvestorOnly ? 'Investor Bundle' : 'Episode Bundle'}
-            </p>
+            <p className="text-[10px] text-slate-500 uppercase tracking-wide">Episode Bundle</p>
             <p className="text-sm font-bold text-white">{bundle.label}</p>
             <div className="flex flex-wrap gap-1 mt-1">
               {bundle.badgeTier === 'qripto' && (
@@ -318,11 +313,6 @@ function BundleDetail({
                   Full Season
                 </span>
               )}
-              {bundle.isInvestorOnly && (
-                <span className="rounded-full bg-yellow-900/40 border border-yellow-700/40 px-1.5 py-0.5 text-[9px] font-semibold text-yellow-400">
-                  Investor Only
-                </span>
-              )}
               {bundle.isLimited && bundle.limitedSupply && (
                 <span className="rounded-full bg-red-900/40 border border-red-700/40 px-1.5 py-0.5 text-[9px] font-semibold text-red-400">
                   Limited {bundle.limitedSupply}
@@ -333,24 +323,13 @@ function BundleDetail({
 
           <div className="rounded-xl border border-white/5 bg-slate-900/60 p-3 space-y-1.5">
             <div className="flex items-baseline gap-2 flex-wrap">
-              <span className="text-2xl font-bold text-white">${bundle.digitalPrice}</span>
-              {bundle.retailPrice && bundle.retailPrice !== bundle.digitalPrice && (
-                <span className="text-sm text-slate-500 line-through">${bundle.retailPrice} retail</span>
-              )}
+              <span className="text-2xl font-bold text-white">${bundle.retailPrice ?? bundle.digitalPrice}</span>
               <span className="text-[11px] text-slate-400">USD</span>
             </div>
-            {bundle.isInvestorOnly && (
-              <p className="text-[10px] font-semibold text-yellow-400">Investor pricing</p>
-            )}
-            {bundle.memberPrice && (
+            <KnytPricePill basePrice={bundle.retailPrice ?? bundle.digitalPrice} />
+            {(bundle.retailPrice ?? bundle.digitalPrice) < individualTotal && (
               <p className="text-[10px] text-teal-400">
-                ${bundle.memberPrice} for {bundle.memberCohort} members
-              </p>
-            )}
-            <KnytPricePill basePrice={bundle.memberPrice ?? bundle.digitalPrice} />
-            {bundle.digitalPrice < individualTotal && (
-              <p className="text-[10px] text-teal-400">
-                Save ${(individualTotal - bundle.digitalPrice).toFixed(0)} vs individually
+                Save ${(individualTotal - (bundle.retailPrice ?? bundle.digitalPrice)).toFixed(0)} vs individually
               </p>
             )}
             <CartButton label="Buy Bundle" onClick={() => onBuy()} onAddToCart={onAddToCart} className="w-full justify-center mt-1" />
@@ -564,7 +543,7 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
       label:       bundle.label,
       modality:    'bundle',
       layer:       'digital',
-      priceUsd:    bundle.memberPrice ?? bundle.digitalPrice,
+      priceUsd:    bundle.retailPrice ?? bundle.digitalPrice,
       thumbUrl:    bundle.isInvestorOnly ? INVESTOR_SEAL : getCoverThumb(bundle.id === 'bundle-8-12' ? bundle.episodes[0] : bundle.episodes[bundle.episodes.length - 1]),
       contentType: getBundleContentType(bundle) as CartItem['contentType'],
     };
@@ -578,7 +557,7 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
       contentId:        bundle.id,
       contentTitle:     bundle.label,
       contentImage:     bundle.isInvestorOnly ? INVESTOR_SEAL : getCoverThumb(bundle.id === 'bundle-8-12' ? bundle.episodes[0] : bundle.episodes[bundle.episodes.length - 1]),
-      priceUsdOverride: bundle.memberPrice ?? bundle.digitalPrice,
+      priceUsdOverride: bundle.retailPrice ?? bundle.digitalPrice,
     });
   }
 
