@@ -2050,10 +2050,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       .sort(([a], [b]) => a - b)
       .map(([episodeNumber, assets]) => ({
         episodeNumber,
-        // Characters in codex_media_assets remain 1-indexed (DB ep 1..13 =
-        // display #0..#12). Episode masters are 0-indexed. This map is built
-        // from character items, so the - 1 stays.
-        displayNumber: `#${episodeNumber - 1}`,
+        // Characters in codex_media_assets are 0-indexed in the actual dev DB
+        // (confirmed 2026-05-18: DB ep 0 = Deji Ifada/Kn0w1, DB ep 12 = final
+        // Kn0w1). No subtraction.
+        displayNumber: `#${episodeNumber}`,
         posters: assets.posters,
         sheets: assets.sheets,
       }));

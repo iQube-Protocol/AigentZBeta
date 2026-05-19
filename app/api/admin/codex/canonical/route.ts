@@ -64,9 +64,9 @@ const CONVENTIONS = {
   },
   characters: {
     table: 'codex_media_assets',
-    indexing: '1-based',
-    range: '1..13 (the 13 characters)',
-    displayFormula: 'display # = episode_number - 1',
+    indexing: '0-based',
+    range: '0..12 (the 13 characters)',
+    displayFormula: 'display # = episode_number',
     assetKinds: ['character_poster', 'powers_sheet'],
   },
   idNaming: {
@@ -127,12 +127,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     else if (m.content_type === 'episode_print') printByEp.set(m.episode_number, m);
   }
 
-  // ── Characters: index by display # (= DB episode_number - 1)
+  // ── Characters: index by display # (= DB episode_number, 0-indexed
+  //    canonical, confirmed against live data 2026-05-18).
   const posterByDisplay = new Map<number, MediaRow>();
   const sheetByDisplay = new Map<number, MediaRow>();
   for (const a of media) {
-    if (a.episode_number == null || a.episode_number < 1) continue;
-    const display = a.episode_number - 1;
+    if (a.episode_number == null || a.episode_number < 0) continue;
+    const display = a.episode_number;
     if (a.asset_kind === 'character_poster') posterByDisplay.set(display, a);
     else if (a.asset_kind === 'powers_sheet') sheetByDisplay.set(display, a);
   }

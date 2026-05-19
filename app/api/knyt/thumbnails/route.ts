@@ -72,9 +72,12 @@ export async function GET(req: NextRequest) {
       const thumbUrl = resolveThumb(a);
       if (!thumbUrl) return null;
       return {
-        // Characters remain 1-indexed in codex_media_assets — translate to
-        // display by subtracting 1.
-        episodeNumber: (a.episode_number as number) - 1,
+        // codex_media_assets.character_poster rows are 0-indexed in the
+        // actual dev DB (ep 0 = first character, "Deji Ifada / Kn0w1"; ep 12 =
+        // last). The historical "characters are 1-indexed" comment in
+        // /api/codex/owned was stale — confirmed against live data 2026-05-18.
+        // No subtraction.
+        episodeNumber: a.episode_number as number,
         thumbUrl,
         title: a.title as string,
       };

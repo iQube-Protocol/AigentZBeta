@@ -164,24 +164,49 @@ export async function GET(request: NextRequest) {
       (knytCards || []).map(k => [k.character_id, k])
     );
 
-    // Transform assets and try to match with characters
-    const knytCardAssets: KnytCardAsset[] = (assets || []).map(asset => {
-      // Try to find matching character by title
-      const titleLower = asset.title.toLowerCase();
-      let matchedCharacter = null;
-      let matchedKnytCard = null;
+    // Per-episode "combined title" — join the front + back asset titles for a
+    // given episode_number so disambiguation can use both. Critical when
+    // codex_characters has multiple rows sharing a terra_name (e.g. two
+    // "Deji Ifada" rows whose digiterra_names differ: "The Courier" vs
+    // "Kn0w1"). The front title alone often doesn't carry the digiterra; the
+    // back title's powers/digiterra label does. Combining both lets us match
+    // on digiterra_name reliably.
+    const combinedByEp = new Map<number, string>();
+    for (const a of (assets || [])) {
+      if (a.episode_number == null) continue;
+      const prev = combinedByEp.get(a.episode_number) || '';
+      combinedByEp.set(a.episode_number, (prev + ' ' + (a.title || '')).toLowerCase());
+    }
 
-      for (const [charId, char] of characterMap) {
-        const terraLower = (char.terra_name || '').toLowerCase();
-        const digiterraLower = (char.digiterra_name || '').toLowerCase();
-        
-        if (titleLower.includes(terraLower) || titleLower.includes(digiterraLower) ||
-            terraLower.includes(titleLower) || digiterraLower.includes(titleLower)) {
-          matchedCharacter = char;
-          matchedKnytCard = knytCardMap.get(charId);
-          break;
+    // Score-based matcher: for each character row, count how many name tokens
+    // (terra + digiterra) appear in the combined per-episode title. Pick the
+    // row with the highest score; on tie, prefer the longer digiterra match
+    // (more specific). Falls back to the legacy single-title fuzzy match if
+    // nothing scores > 0 (preserves existing behaviour for unambiguous assets).
+    function pickCharacter(asset: { title: string; episode_number: number | null }) {
+      const combined = (
+        asset.episode_number != null ? (combinedByEp.get(asset.episode_number) || '') : ''
+      ) || (asset.title || '').toLowerCase();
+      let best: { char: any; score: number; digiterraLen: number } | null = null;
+      for (const [, char] of characterMap) {
+        const terraLower = (char.terra_name || '').toLowerCase().trim();
+        const digiterraLower = (char.digiterra_name || '').toLowerCase().trim();
+        let score = 0;
+        if (terraLower && combined.includes(terraLower)) score += 1;
+        if (digiterraLower && combined.includes(digiterraLower)) score += 2; // digiterra disambiguates; weight higher
+        if (score === 0) continue;
+        const digiterraLen = digiterraLower.length;
+        if (!best || score > best.score || (score === best.score && digiterraLen > best.digiterraLen)) {
+          best = { char, score, digiterraLen };
         }
       }
+      return best?.char ?? null;
+    }
+
+    // Transform assets and try to match with characters
+    const knytCardAssets: KnytCardAsset[] = (assets || []).map(asset => {
+      const matchedCharacter = pickCharacter(asset);
+      const matchedKnytCard = matchedCharacter ? knytCardMap.get(matchedCharacter.id) : null;
 
       return {
         id: asset.id,
@@ -215,12 +240,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Convert to sorted array
+    // Convert to sorted array. codex_media_assets.character_poster rows are
+    // 0-indexed in the actual dev DB (confirmed 2026-05-18). displayNumber
+    // equals episode_number directly — no subtraction.
     const episodeGroups = Array.from(byEpisode.entries())
       .sort(([a], [b]) => a - b)
       .map(([episodeNumber, assets]) => ({
         episodeNumber,
-        displayNumber: `#${episodeNumber - 1}`,
+        displayNumber: `#${episodeNumber}`,
         posters: assets.posters,
         sheets: assets.sheets,
         totalCards: assets.posters.length + assets.sheets.length,
