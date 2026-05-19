@@ -14,17 +14,18 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: NextRequest,
-  ctx: { params: { id: string } },
+  ctx: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
   const context = await getActivePersona(request);
   if (!context) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
-  const invites = await listInvites(context.personaId, ctx.params.id);
+  const { id } = await ctx.params;
+  const invites = await listInvites(context.personaId, id);
   return NextResponse.json({ invites }, { headers: { 'Cache-Control': 'no-store' } });
 }
 
 export async function POST(
   request: NextRequest,
-  ctx: { params: { id: string } },
+  ctx: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
   const context = await getActivePersona(request);
   if (!context) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
@@ -39,7 +40,8 @@ export async function POST(
     return NextResponse.json({ error: 'invitedPersonaId-required' }, { status: 400 });
   }
   const role = body.role === 'commenter' ? 'commenter' : 'viewer';
-  const invite = await inviteToEntry(context.personaId, ctx.params.id, invitedPersonaId, role);
+  const { id } = await ctx.params;
+  const invite = await inviteToEntry(context.personaId, id, invitedPersonaId, role);
   if (!invite) return NextResponse.json({ error: 'not-found-or-forbidden' }, { status: 404 });
   return NextResponse.json({ invite }, { headers: { 'Cache-Control': 'no-store' } });
 }
