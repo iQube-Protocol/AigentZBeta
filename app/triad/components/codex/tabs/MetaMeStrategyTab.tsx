@@ -11,7 +11,7 @@
  */
 
 import React, { useEffect, useState, useCallback } from "react";
-import { Loader2, Layers, Compass, RefreshCw, AlertCircle, Sparkles, Link2, Target } from "lucide-react";
+import { Loader2, Layers, Compass, RefreshCw, AlertCircle, Sparkles, Link2, Target, ChevronRight, CheckCircle2, Circle } from "lucide-react";
 
 import { personaFetch } from "@/utils/personaSpine";
 import { ExperienceModelSetupWizard } from "@/components/metame/setup/ExperienceModelSetupWizard";
@@ -24,6 +24,7 @@ import {
   type SphereAxis,
 } from "@/types/experienceGuide";
 import type { InferredStrategy } from "@/services/strategy/strategyInference";
+import type { StageEvaluation } from "@/services/strategy/stageProgression";
 
 interface ExpModelShape {
   configured: boolean;
@@ -62,6 +63,8 @@ export function MetaMeStrategyTab({ personaId }: { personaId?: string }) {
   const [guide, setGuide] = useState<PersonalGuideData | null>(null);
   const [strategy, setStrategy] = useState<InferredStrategy | null>(null);
   const [strategyLoading, setStrategyLoading] = useState(false);
+  const [stageEval, setStageEval] = useState<StageEvaluation | null>(null);
+  const [advancing, setAdvancing] = useState(false);
   const [loading, setLoading] = useState(!!personaId);
   const [modelWizardOpen, setModelWizardOpen] = useState(false);
   const [guideWizardOpen, setGuideWizardOpen] = useState(false);
@@ -75,17 +78,48 @@ export function MetaMeStrategyTab({ personaId }: { personaId?: string }) {
       personaFetch("/api/assistant/experience-model", { personaIdHint: personaId }).then((r) => r.json() as Promise<ExpModelShape>),
       personaFetch("/api/assistant/experience-guide", { personaIdHint: personaId }).then((r) => r.json() as Promise<GuideShape>),
       personaFetch("/api/assistant/inferred-strategy", { personaIdHint: personaId }).then((r) => r.json() as Promise<{ strategy: InferredStrategy | null }>).catch(() => ({ strategy: null })),
+      personaFetch("/api/assistant/stage-progression", { personaIdHint: personaId }).then((r) => r.json() as Promise<{ evaluation: StageEvaluation | null }>).catch(() => ({ evaluation: null })),
     ])
-      .then(([m, g, s]) => {
+      .then(([m, g, s, sp]) => {
         if (cancelled) return;
         setModel(m);
         setGuide(g.guide ?? null);
         setStrategy(s.strategy ?? null);
+        setStageEval(sp.evaluation ?? null);
       })
       .catch(() => { /* shape stays null, UI handles it */ })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [personaId]);
+
+  const refreshStageEval = useCallback(async () => {
+    if (!personaId) return;
+    try {
+      const r = await personaFetch("/api/assistant/stage-progression", { personaIdHint: personaId });
+      const data = (await r.json()) as { evaluation: StageEvaluation | null };
+      setStageEval(data.evaluation ?? null);
+    } catch { /* keep previous */ }
+  }, [personaId]);
+
+  const handleAdvanceStage = useCallback(async () => {
+    if (!personaId || !stageEval?.eligible) return;
+    setAdvancing(true);
+    try {
+      const r = await personaFetch("/api/assistant/stage-progression", {
+        personaIdHint: personaId,
+        method: "POST",
+      });
+      const data = (await r.json()) as { advanced: boolean; from: string; to: string };
+      if (data.advanced) {
+        // Refresh model + strategy + eval — the stage moved.
+        const m = await personaFetch("/api/assistant/experience-model", { personaIdHint: personaId }).then((rr) => rr.json() as Promise<ExpModelShape>);
+        setModel(m);
+        await refreshStageEval();
+      }
+    } catch { /* surfaced via stale state */ } finally {
+      setAdvancing(false);
+    }
+  }, [personaId, stageEval, refreshStageEval]);
 
   const refreshStrategy = useCallback(async () => {
     if (!personaId) return;
@@ -221,6 +255,53 @@ export function MetaMeStrategyTab({ personaId }: { personaId?: string }) {
           </p>
         )}
       </section>
+
+      {/* Stage progression */}
+      {hasModel && stageEval && stageEval.criteria.length > 0 && (
+        <section className={`rounded-lg border p-4 ${
+          stageEval.eligible
+            ? "border-emerald-500/40 bg-emerald-500/5"
+            : "border-slate-700 bg-slate-800/40"
+        }`}>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <ChevronRight className={`w-4 h-4 ${stageEval.eligible ? "text-emerald-400" : "text-violet-400"}`} />
+              <h3 className="text-sm font-semibold">
+                {stageEval.eligible
+                  ? `Ready to advance: ${STAGE_LABEL[stageEval.currentStage]} → ${STAGE_LABEL[stageEval.recommendedStage]}`
+                  : `Stage progression — next: ${STAGE_LABEL[stageEval.recommendedStage] ?? "—"}`}
+              </h3>
+            </div>
+            {stageEval.eligible && (
+              <button
+                type="button"
+                onClick={handleAdvanceStage}
+                disabled={advancing}
+                className="flex items-center gap-1 px-2.5 py-1 rounded border border-emerald-500/50 bg-emerald-500/10 hover:bg-emerald-500/20 text-xs text-emerald-100 disabled:opacity-50"
+              >
+                {advancing ? <Loader2 className="w-3 h-3 animate-spin" /> : <ChevronRight className="w-3 h-3" />}
+                Advance stage
+              </button>
+            )}
+          </div>
+          <ul className="space-y-1.5 text-xs">
+            {stageEval.criteria.map((c) => (
+              <li key={c.id} className="flex items-start gap-2 text-slate-200">
+                {c.met
+                  ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0" />
+                  : <Circle className="w-3.5 h-3.5 text-slate-500 mt-0.5 shrink-0" />}
+                <span className="flex-1">
+                  {c.label}
+                  <span className="ml-1.5 text-slate-400">({c.observed}/{c.required})</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 text-[11px] text-slate-500">
+            {stageEval.progress.receiptsTotal} total receipts · {stageEval.progress.receiptsLast30d} in last 30d · {stageEval.progress.artifactsSent} artifacts sent · {stageEval.progress.earliestReceiptDays}d tenure
+          </p>
+        </section>
+      )}
 
       {/* Personal guide posture */}
       <section className="rounded-lg border border-slate-700 bg-slate-800/40 p-4">
