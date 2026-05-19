@@ -21,6 +21,7 @@ const CodexCopilotLayer = dynamic(
 );
 import { SmartTriadProvider } from "@/app/components/content/SmartTriadProvider";
 import { SmartTriadSurfaces } from "@/app/components/content/SmartTriadSurfaces";
+import { personaFetch } from "@/utils/personaSpine";
 import { TabRenderer } from "./codex/TabRenderer";
 import { SubHeaderSlotContext } from "./codex/SubHeaderSlot";
 import { getIconComponent } from "./codex/iconMap";
@@ -191,12 +192,14 @@ export default function CodexPanelDynamic({
   // window event we listen for below).
   const [activeActivations, setActiveActivations] = useState<Set<string>>(new Set());
   useEffect(() => {
-    if (!personaId) return;
+    if (!resolvedPersonaId) return;
     let cancelled = false;
     const load = async () => {
       try {
-        const url = `/api/assistant/activations?personaId=${encodeURIComponent(personaId)}`;
-        const res = await fetch(url, { credentials: 'include' });
+        // personaFetch attaches the Supabase access token, which getActivePersona
+        // requires to resolve ownedPersonaIds. A plain fetch with credentials
+        // alone fails server-side and the activation set stays empty.
+        const res = await personaFetch('/api/assistant/activations', { personaIdHint: resolvedPersonaId });
         if (!res.ok) return;
         const data = (await res.json()) as { activations?: Array<{ id: string; status: string | null }> };
         if (cancelled || !Array.isArray(data.activations)) return;
@@ -216,7 +219,7 @@ export default function CodexPanelDynamic({
         window.removeEventListener('metame:activations-changed', onChange);
       }
     };
-  }, [personaId]);
+  }, [resolvedPersonaId]);
 
   const enabledTabs = useMemo(
     () => getEnabledTabs(codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
