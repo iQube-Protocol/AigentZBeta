@@ -100,6 +100,22 @@ interface BootstrapSurface {
 }
 
 /**
+ * Open the newly-created artifact in a new tab when its location is a real
+ * external URL (Google Doc / Slide / Sheet / Calendar event). Skipped for
+ * runtime-local artifacts (gmail draft, marketa email) where the link
+ * lives inside the app itself.
+ */
+function autoOpenArtifact(data: { locationUrl?: string | null; artifactType?: string }) {
+  if (typeof window === 'undefined') return;
+  if (!data.locationUrl) return;
+  // Gmail drafts live at https://mail.google.com/... which we DO want
+  // to open. Marketa lives at /metame/runtime — also fine. Filter only
+  // obviously-internal/blank URLs.
+  if (data.locationUrl.startsWith('#') || data.locationUrl === '/') return;
+  window.open(data.locationUrl, '_blank', 'noopener,noreferrer');
+}
+
+/**
  * Map an NBE's suggested artifact (or known workspace id) to the compose
  * modal that should open right after approval. Returns null when no
  * compose hand-off makes sense — those NBEs stay queued only.
@@ -514,7 +530,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       const body = await res.json().catch(() => ({}));
       throw new Error(body?.detail || body?.hint || body?.error || `create-artifact failed (${res.status})`);
     }
-    const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10));
+    const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10)); autoOpenArtifact(data);
     void fetchReceipts();
   }, [personaId, fetchReceipts]);
 
@@ -540,7 +556,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       const body = await res.json().catch(() => ({}));
       throw new Error(body?.detail || body?.hint || body?.error || `create-artifact failed (${res.status})`);
     }
-    const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10));
+    const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10)); autoOpenArtifact(data);
     void fetchReceipts();
   }, [personaId, fetchReceipts]);
 
@@ -566,7 +582,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       const body = await res.json().catch(() => ({}));
       throw new Error(body?.detail || body?.hint || body?.error || `create-artifact failed (${res.status})`);
     }
-    const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10));
+    const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10)); autoOpenArtifact(data);
     void fetchReceipts();
   }, [personaId, fetchReceipts]);
 
@@ -592,7 +608,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       const body = await res.json().catch(() => ({}));
       throw new Error(body?.detail || body?.hint || body?.error || `create-artifact failed (${res.status})`);
     }
-    const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10));
+    const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10)); autoOpenArtifact(data);
     void fetchReceipts();
   }, [personaId, fetchReceipts]);
 
@@ -618,7 +634,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       const body = await res.json().catch(() => ({}));
       throw new Error(body?.detail || body?.hint || body?.error || `create-artifact failed (${res.status})`);
     }
-    const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10));
+    const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10)); autoOpenArtifact(data);
     void fetchReceipts();
   }, [personaId, fetchReceipts]);
 
@@ -644,7 +660,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       const body = await res.json().catch(() => ({}));
       throw new Error(body?.detail || body?.hint || body?.error || `create-artifact failed (${res.status})`);
     }
-    const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10));
+    const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10)); autoOpenArtifact(data);
     void fetchReceipts();
   }, [personaId, fetchReceipts]);
 
