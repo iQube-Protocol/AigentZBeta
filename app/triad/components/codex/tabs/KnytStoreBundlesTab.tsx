@@ -513,8 +513,11 @@ function PackDetail({
 
 // ── Root ──────────────────────────────────────────────────────────────────────
 
-const publicBundles  = BUNDLE_PRICING.filter((b) => !b.isInvestorOnly);
-const investorBundles = BUNDLE_PRICING.filter((b) => b.isInvestorOnly);
+// Retail tab: real bundles only. Single non-bundled GN offers (episodes=[-1])
+// belong on the Investor tab where they're priced at a discount.
+const isSingleGn = (b: BundlePricing) => b.episodes.length === 1 && b.episodes[0] === -1;
+const publicBundles  = BUNDLE_PRICING.filter((b) => !b.isInvestorOnly && !isSingleGn(b));
+const investorBundles = BUNDLE_PRICING.filter((b) => b.isInvestorOnly && !isSingleGn(b));
 
 export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
   const [view, setView]         = useState<BundleView>({ kind: 'landing' });
@@ -616,11 +619,11 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
       <div className="flex-1 min-h-0 overflow-y-auto">
         {view.kind === 'landing' && (
           <div className="p-2.5 space-y-4">
-            {/* Graphic Novel, Episode & Character Bundles — investor bundles at top with retail prices */}
+            {/* Premium bundles (investor-tier offers shown to retail at full retail price) */}
             {investorBundles.length > 0 && (
               <div>
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide px-0.5 mb-2">
-                  Graphic Novel, Episode &amp; Character Bundles
+                  Premium Bundles
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
                   {investorBundles.map((bundle) => {

@@ -396,7 +396,7 @@ export const KNYT_CODEX: CodexConfig = {
     },
     {
       id: 'store-bundles',
-      label: 'Bundles & GN',
+      label: 'Bundles',
       slug: 'store-bundles',
       enabled: true,
       group: 'store',
