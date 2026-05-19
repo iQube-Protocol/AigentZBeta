@@ -187,18 +187,23 @@ export default function CodexPanelDynamic({
   const effectivePartnerId = partnerId || resolvedPartnerId;
 
   // Active activations — drives tab visibility for surfaces gated via the
-  // metaMe Activations tab. Fetched once per persona; refresh when the
-  // user toggles an activation in the Activations tab (which fires a
-  // window event we listen for below).
+  // metaMe Activations tab.
+  //
+  // To keep the top menu in lock-step with the Activations panel, we:
+  //   1. Do ONE initial fetch on mount (hydrates the set).
+  //   2. Listen for `metame:activations-changed` events whose detail
+  //      carries `activeIds` — the Activations panel publishes its
+  //      authoritative set (optimistic OR post-server) and we apply it
+  //      verbatim. No re-fetch race with the server write.
+  //   3. Fall back to a re-fetch only when the event has no payload
+  //      (e.g. external admin grant landed and someone fires the event
+  //      from another surface).
   const [activeActivations, setActiveActivations] = useState<Set<string>>(new Set());
   useEffect(() => {
     if (!resolvedPersonaId) return;
     let cancelled = false;
     const load = async () => {
       try {
-        // personaFetch attaches the Supabase access token, which getActivePersona
-        // requires to resolve ownedPersonaIds. A plain fetch with credentials
-        // alone fails server-side and the activation set stays empty.
         const res = await personaFetch('/api/assistant/activations', { personaIdHint: resolvedPersonaId });
         if (!res.ok) return;
         const data = (await res.json()) as { activations?: Array<{ id: string; status: string | null }> };
@@ -209,7 +214,15 @@ export default function CodexPanelDynamic({
       } catch { /* keep previous */ }
     };
     void load();
-    const onChange = () => { void load(); };
+    const onChange = (event: Event) => {
+      const detail = (event as CustomEvent<{ activeIds?: string[] }>).detail;
+      if (Array.isArray(detail?.activeIds)) {
+        // Authoritative payload from the Activations panel — apply directly.
+        setActiveActivations(new Set(detail.activeIds));
+      } else {
+        void load();
+      }
+    };
     if (typeof window !== 'undefined') {
       window.addEventListener('metame:activations-changed', onChange);
     }

@@ -66,38 +66,50 @@ export function ActivationsTab({ personaId, isAdmin = false, onOpenSurface, them
 
   useEffect(() => { void fetchSurfaces(); }, [fetchSurfaces]);
 
+  // Helper — publish the authoritative active-id set so CodexPanelDynamic's
+  // top menu mirrors this surface exactly. Same-window event, single source
+  // of truth, no re-fetch race against the server write.
+  const publishActiveIds = useCallback((list: ActivationSurface[]) => {
+    if (typeof window === "undefined") return;
+    const activeIds = list.filter((s) => s.status === "active").map((s) => s.id);
+    window.dispatchEvent(
+      new CustomEvent("metame:activations-changed", { detail: { activeIds } }),
+    );
+  }, []);
+
+  // Re-publish whenever local `surfaces` state changes — covers both initial
+  // fetch and any optimistic update so the top menu and panel stay locked.
+  useEffect(() => {
+    if (surfaces.length === 0) return;
+    publishActiveIds(surfaces);
+  }, [surfaces, publishActiveIds]);
+
   const mutate = useCallback(
     async (id: string, action: "activate" | "request" | "revoke") => {
       if (!personaId) return;
       setPendingId(id);
       setError(null);
 
-      // Optimistic update — flip the local card immediately so the UI
-      // feels responsive. We reconcile against the server when fetchSurfaces
-      // returns. If the server rejects we revert below.
+      // Optimistic update — flip the local card immediately. The useEffect
+      // above will republish the active set so the top menu follows in the
+      // same tick. If the server rejects we revert.
       const previousSurfaces = surfaces;
       const optimisticStatus =
-        action === 'activate' ? 'active'
-        : action === 'request' ? 'pending'
-        : 'revoked';
+        action === "activate" ? "active"
+        : action === "request" ? "pending"
+        : "revoked";
       setSurfaces((prev) =>
         prev.map((s) =>
           s.id === id
             ? {
                 ...s,
                 status: optimisticStatus,
-                grantedAt: action === 'activate' ? new Date().toISOString() : s.grantedAt,
-                revokedAt: action === 'revoke' ? new Date().toISOString() : s.revokedAt,
+                grantedAt: action === "activate" ? new Date().toISOString() : s.grantedAt,
+                revokedAt: action === "revoke" ? new Date().toISOString() : s.revokedAt,
               }
             : s,
         ),
       );
-
-      // Fire the same-window event NOW so CodexPanelDynamic refreshes its
-      // tab visibility immediately rather than waiting for the round-trip.
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("metame:activations-changed", { detail: { id, action } }));
-      }
 
       try {
         const res = await personaFetch(`/api/assistant/activations/${id}?action=${action}`, {
@@ -108,18 +120,12 @@ export function ActivationsTab({ personaId, isAdmin = false, onOpenSurface, them
           const body = await res.json().catch(() => ({}));
           throw new Error((body as { detail?: string }).detail ?? `activation mutation failed (${res.status})`);
         }
-        // Confirm against the server. Re-dispatch in case the read picked
-        // up a different state (e.g. admin grant landed in parallel).
+        // Reconcile with server truth — fetchSurfaces will update `surfaces`
+        // and the publish-on-change effect fires another event with the
+        // confirmed set.
         await fetchSurfaces();
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("metame:activations-changed", { detail: { id, action } }));
-        }
       } catch (err) {
-        // Server rejected — revert the optimistic write so the UI stays honest.
         setSurfaces(previousSurfaces);
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("metame:activations-changed", { detail: { id, action: 'revert' } }));
-        }
         setError(err instanceof Error ? err.message : String(err));
       } finally {
         setPendingId(null);
