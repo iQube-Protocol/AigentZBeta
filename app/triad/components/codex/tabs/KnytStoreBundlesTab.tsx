@@ -10,10 +10,12 @@ import {
   getKnytDiscountedPrice,
   getPrintFulfillmentMessage,
   KNYT_COYN_DISCOUNT,
+  KNYT_USD_RATE,
   usdToKnyt,
   type BundlePricing,
   type CardsPricing,
 } from '@/types/knyt-store';
+import { useEthPrice } from '@/app/hooks/useEthPrice';
 import { useKnytThumbnails } from './useKnytThumbnails';
 import { useBundleImages } from './useBundleImages';
 import { useKnytCart } from './useKnytCart';
@@ -540,6 +542,12 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
   const [purchase, setPurchase] = useState<PendingPurchase | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const { getCoverThumb, getCharacterThumb } = useKnytThumbnails();
+  // Live KNYT→USD rate (ethPriceUsd × 0.0005). Falls back to the static 1.40
+  // only on first paint before the ETH price fetches. Same source as the
+  // BuyKnytModal so the store's "Pay with KNYT" amount stays in lockstep
+  // with what the wallet actually debits.
+  const { knytPriceUsd } = useEthPrice();
+  const liveKnytRate = knytPriceUsd > 0 ? knytPriceUsd : KNYT_USD_RATE;
   const { getBundleImage } = useBundleImages();
   const cart = useKnytCart();
 
@@ -726,7 +734,8 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
           contentTitle={purchase.contentTitle}
           contentImage={purchase.contentImage}
           priceUsdOverride={purchase.priceUsdOverride}
-          baseKnytOverride={usdToKnyt(purchase.priceUsdOverride)}
+          baseKnytOverride={usdToKnyt(purchase.priceUsdOverride, liveKnytRate)}
+          knytUsdRate={liveKnytRate}
         />
       )}
 

@@ -1,5 +1,6 @@
 import { getSmartContentService } from "@/services/content";
 import type { PaymentCurrency, PricingKind } from "@/types/smartContent";
+import { getKnytUsdPrice } from "./knytPricingService";
 
 const QCT_PER_USD = 100;
 
@@ -112,7 +113,16 @@ export async function quoteSkuOffers(input: {
 }): Promise<SkuQuoteResult> {
   const service = getSmartContentService();
   const snapshot = await service.getPricingSnapshot(input.sku, input.personaId);
-  const knobs = getPhase1PricingKnobs();
+  // Replace the env-derived KNYT_USD_RATE fallback (1.4) with the live rate
+  // derived from ETH price. Same source the BuyKnytModal uses, so the wallet
+  // debit matches what the modal shows. Falls back to env/static only if
+  // the live price feed throws.
+  const baseKnobs = getPhase1PricingKnobs();
+  const liveKnytUsdRate = await getKnytUsdPrice().catch(() => baseKnobs.knytUsdRate);
+  const knobs = {
+    ...baseKnobs,
+    knytUsdRate: liveKnytUsdRate > 0 ? liveKnytUsdRate : baseKnobs.knytUsdRate,
+  };
 
   const offers: PricedOfferQuote[] = snapshot.allOffers.map((o) => {
     const base: PricedOfferQuote = {

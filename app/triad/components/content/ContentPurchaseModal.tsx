@@ -87,12 +87,19 @@ interface MultiRailPricing {
   };
 }
 
-function calculatePricing(baseKnyt: number, extraUsd: number = 0, usdOverride?: number): MultiRailPricing {
+function calculatePricing(
+  baseKnyt: number,
+  extraUsd: number = 0,
+  usdOverride?: number,
+  knytUsdRate: number = KNYT_USD_RATE,
+): MultiRailPricing {
   // When usdOverride is provided, lock the USD-rail prices to it (plus any
-  // extras like shipping). Otherwise fall back to the static USD/KNYT rate.
-  // Used for SKUs like the Satoshi KNYT Collection whose USD price has no
-  // discount vs retail and shouldn't be re-derived from the KNYT figure.
-  const usdBase = (usdOverride !== undefined ? usdOverride : baseKnyt * KNYT_USD_RATE) + extraUsd;
+  // extras like shipping). Otherwise derive USD from the KNYT base using the
+  // current live KNYT→USD rate (passed in from useEthPrice). Falls back to
+  // the static 1.40 ONLY when neither is supplied — every cart-checkout path
+  // should now pass the live rate.
+  const effectiveRate = knytUsdRate > 0 ? knytUsdRate : KNYT_USD_RATE;
+  const usdBase = (usdOverride !== undefined ? usdOverride : baseKnyt * effectiveRate) + extraUsd;
 
   return {
     baseKnyt,
@@ -165,6 +172,13 @@ interface ContentPurchaseModalProps {
   onAddToCart?: () => void;
   onPurchaseComplete?: (entitlementId: string) => void;
   onBalanceRefresh?: () => void;
+  /**
+   * Live KNYT→USD rate (ethPriceUsd × 0.0005). When omitted the modal falls
+   * back to the static KNYT_USD_RATE = $1.40, which will drift from the
+   * BuyKnytModal and the wallet's actual debit price. Every cart-driven
+   * caller should pass `knytPriceUsd` from useEthPrice.
+   */
+  knytUsdRate?: number;
 }
 
 export function ContentPurchaseModal({
@@ -188,6 +202,7 @@ export function ContentPurchaseModal({
   onAddToCart,
   onPurchaseComplete,
   onBalanceRefresh,
+  knytUsdRate,
 }: ContentPurchaseModalProps) {
   const router = useRouter();
   const effectiveSpendable = spendableKnyt ?? knytBalance;
@@ -239,10 +254,11 @@ export function ContentPurchaseModal({
   const isPreorder = contentId?.startsWith(PREORDER_ID_PREFIX);
   const shippingUsd = isPreorder ? PREORDER_SHIPPING_USD : 0;
 
-  const baseUsd = priceUsdOverride !== undefined ? priceUsdOverride : baseKnyt * KNYT_USD_RATE;
+  const effectiveKnytUsdRate = knytUsdRate && knytUsdRate > 0 ? knytUsdRate : KNYT_USD_RATE;
+  const baseUsd = priceUsdOverride !== undefined ? priceUsdOverride : baseKnyt * effectiveKnytUsdRate;
   const totalUsd = baseUsd + shippingUsd;
 
-  const pricing = calculatePricing(baseKnyt, shippingUsd, priceUsdOverride);
+  const pricing = calculatePricing(baseKnyt, shippingUsd, priceUsdOverride, effectiveKnytUsdRate);
 
   const canAffordKnyt = effectiveSpendable >= pricing.rails.knyt.amount;
   const canAffordEvmKnyt = evmKnyt >= pricing.rails.knyt.amount;
@@ -740,7 +756,7 @@ export function ContentPurchaseModal({
                   </div>
                   <div className="text-right">
                     <div className="text-amber-300 font-bold">{pricing.rails.knyt.amount.toFixed(2)} KNYT</div>
-                    <div className="text-xs text-white/50">(${(pricing.rails.knyt.amount * KNYT_USD_RATE).toFixed(2)} USD)</div>
+                    <div className="text-xs text-white/50">(${(pricing.rails.knyt.amount * effectiveKnytUsdRate).toFixed(2)} USD)</div>
                     <div className="text-xs text-white/40 line-through">{baseKnyt} KNYT</div>
                   </div>
                 </button>

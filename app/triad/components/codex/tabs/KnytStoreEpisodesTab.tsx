@@ -12,11 +12,13 @@ import {
   getEpisodePairPrice,
   getKnytDiscountedPrice,
   KNYT_COYN_DISCOUNT,
+  KNYT_USD_RATE,
   usdToKnyt,
   type CartItem,
   type EpisodePricing,
   type GnVariant,
 } from '@/types/knyt-store';
+import { useEthPrice } from '@/app/hooks/useEthPrice';
 
 type Modality = 'still' | 'motion' | 'bundle';
 import { useKnytThumbnails } from './useKnytThumbnails';
@@ -375,8 +377,8 @@ function EpisodeDetail({
               contentTitle: `${label} — Qripto ${modalLabel}`,
               contentImage: thumbUrl,
               priceUsdOverride: activeQriptoPrice,
-              stillPriceKnytOverride: usdToKnyt(ep.qriptoPrice),
-              motionPriceKnytOverride: usdToKnyt(ep.qriptoPrice),
+              stillPriceKnytOverride: usdToKnyt(ep.qriptoPrice, liveKnytRate),
+              motionPriceKnytOverride: usdToKnyt(ep.qriptoPrice, liveKnytRate),
             })}
             onAddToCart={onAddToCart && (() => onAddToCart({
               contentType: modality === 'bundle' ? 'bundle_3_still' : 'scroll_still',
@@ -384,8 +386,8 @@ function EpisodeDetail({
               contentTitle: `${label} — Qripto ${modalLabel}`,
               contentImage: thumbUrl,
               priceUsdOverride: activeQriptoPrice,
-              stillPriceKnytOverride: usdToKnyt(ep.qriptoPrice),
-              motionPriceKnytOverride: usdToKnyt(ep.qriptoPrice),
+              stillPriceKnytOverride: usdToKnyt(ep.qriptoPrice, liveKnytRate),
+              motionPriceKnytOverride: usdToKnyt(ep.qriptoPrice, liveKnytRate),
             }))}
             className="w-full justify-center"
           />
@@ -412,8 +414,8 @@ function EpisodeDetail({
               contentTitle: `${label} — Digital ${modalLabel}`,
               contentImage: thumbUrl,
               priceUsdOverride: activeDigitalPrice,
-              stillPriceKnytOverride: usdToKnyt(ep.digitalPrice),
-              motionPriceKnytOverride: usdToKnyt(ep.digitalPrice),
+              stillPriceKnytOverride: usdToKnyt(ep.digitalPrice, liveKnytRate),
+              motionPriceKnytOverride: usdToKnyt(ep.digitalPrice, liveKnytRate),
             })}
             onAddToCart={onAddToCart && (() => onAddToCart({
               contentType: modality === 'bundle' ? 'bundle_3_still' : 'scroll_still',
@@ -421,8 +423,8 @@ function EpisodeDetail({
               contentTitle: `${label} — Digital ${modalLabel}`,
               contentImage: thumbUrl,
               priceUsdOverride: activeDigitalPrice,
-              stillPriceKnytOverride: usdToKnyt(ep.digitalPrice),
-              motionPriceKnytOverride: usdToKnyt(ep.digitalPrice),
+              stillPriceKnytOverride: usdToKnyt(ep.digitalPrice, liveKnytRate),
+              motionPriceKnytOverride: usdToKnyt(ep.digitalPrice, liveKnytRate),
             }))}
             className="w-full justify-center"
           />
@@ -632,6 +634,8 @@ function GNSkuDetail({
 // ── Root component ────────────────────────────────────────────────────────────
 
 export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
+  const { knytPriceUsd } = useEthPrice();
+  const liveKnytRate = knytPriceUsd > 0 ? knytPriceUsd : KNYT_USD_RATE;
   const [view, setView]         = useState<EpisodesView>({ kind: 'list' });
   const [modality, setModality] = useState<Modality>('still');
   const [purchase, setPurchase] = useState<PendingPurchase | null>(null);
@@ -791,8 +795,8 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
                         contentTitle: `Episode ${ep.episodeNumber}`,
                         contentImage: thumb,
                         priceUsdOverride: ep.digitalPrice,
-                        stillPriceKnytOverride: usdToKnyt(ep.digitalPrice),
-                        motionPriceKnytOverride: usdToKnyt(ep.digitalPrice),
+                        stillPriceKnytOverride: usdToKnyt(ep.digitalPrice, liveKnytRate),
+                        motionPriceKnytOverride: usdToKnyt(ep.digitalPrice, liveKnytRate),
                       })}
                       onAddToCart={() => addPendingToCart({
                         contentType: 'scroll_still',
@@ -800,8 +804,8 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
                         contentTitle: `Episode ${ep.episodeNumber}`,
                         contentImage: thumb,
                         priceUsdOverride: ep.digitalPrice,
-                        stillPriceKnytOverride: usdToKnyt(ep.digitalPrice),
-                        motionPriceKnytOverride: usdToKnyt(ep.digitalPrice),
+                        stillPriceKnytOverride: usdToKnyt(ep.digitalPrice, liveKnytRate),
+                        motionPriceKnytOverride: usdToKnyt(ep.digitalPrice, liveKnytRate),
                       })}
                     />
                   );
@@ -851,7 +855,8 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
           contentTitle={purchase.contentTitle}
           contentImage={purchase.contentImage}
           priceUsdOverride={purchase.priceUsdOverride}
-          baseKnytOverride={usdToKnyt(purchase.priceUsdOverride)}
+          baseKnytOverride={usdToKnyt(purchase.priceUsdOverride, liveKnytRate)}
+          knytUsdRate={liveKnytRate}
           stillPriceKnytOverride={purchase.stillPriceKnytOverride}
           motionPriceKnytOverride={purchase.motionPriceKnytOverride}
           hideVersionSelector={purchase.hideVersionSelector}

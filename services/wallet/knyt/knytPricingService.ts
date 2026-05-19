@@ -175,21 +175,31 @@ export function getMultiRailPricing(
    * still applies as a flat 20% off the KNYT figure.
    */
   customUsdBasePrice?: number,
+  /**
+   * Live KNYT→USD rate (e.g. from getKnytUsdPrice() server-side or
+   * useEthPrice().knytPriceUsd client-side). When omitted, falls back to
+   * KNYT_USD_RATE = $1.40 — which will drift from the BuyKnytModal and the
+   * wallet's actual debit price.
+   */
+  knytUsdRate?: number,
 ): MultiRailPricing {
   const normalizedType = normalizeContentType(contentType);
   const baseKnytPrice = customBaseKnytPrice ?? BASE_PRICES[normalizedType];
-  const usdBasePrice = customUsdBasePrice ?? baseKnytPrice * KNYT_USD_RATE;
+  const effectiveKnytRate = knytUsdRate && knytUsdRate > 0 ? knytUsdRate : KNYT_USD_RATE;
+  const usdBasePrice = customUsdBasePrice ?? baseKnytPrice * effectiveKnytRate;
 
   // Q¢ (Base) - no fee, no premium
   const qcPrice = Math.round(usdBasePrice * 100) / 100;
 
   // KNYT - discounted as a flat percentage off the KNYT base. When a
   // customUsdBasePrice is provided we bypass the round-trip-via-USD path
-  // (which assumed USD = KNYT × $1.40) and just take 20% off the token
-  // figure directly. For unmodified callers this yields the same result.
+  // (which assumed USD = KNYT × static rate) and just take 20% off the
+  // token figure directly. For unmodified callers this yields the same
+  // result. When no override, we use the live (or fallback static) rate
+  // to compute KNYT tokens from USD so debit matches displayed price.
   const knytPriceTokens = customUsdBasePrice !== undefined
     ? Math.round(baseKnytPrice * (1 - RAIL_CONFIG.knytDiscountPercent) * 100) / 100
-    : Math.round((usdBasePrice * (1 - RAIL_CONFIG.knytDiscountPercent)) / KNYT_USD_RATE * 100) / 100;
+    : Math.round((usdBasePrice * (1 - RAIL_CONFIG.knytDiscountPercent)) / effectiveKnytRate * 100) / 100;
   
   // USDC - with fee + premium
   const usdcPrice = Math.round(usdBasePrice * (1 + RAIL_CONFIG.usdcFeePercent + RAIL_CONFIG.fiatPremiumPercent) * 100) / 100;

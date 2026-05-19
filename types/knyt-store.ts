@@ -96,10 +96,16 @@ export const PRINT_PROVENANCE_PRICE_KNYT  = 2;
 export const GN_PROVENANCE_PRICE_USD      = 38;
 export const GN_PROVENANCE_PRICE_KNYT     = 27;
 
-// USD → KNYT conversion rate (1 KNYT = $1.40)
+// USD → KNYT conversion. The static KNYT_USD_RATE = $1.40 is a legacy fallback;
+// every live UI path should pass the current live rate via the `rate` param
+// (e.g. `usdToKnyt(usd, knytPriceUsd)` where `knytPriceUsd` comes from
+// useEthPrice). The fallback exists so non-React contexts and legacy callers
+// still get a deterministic answer, but it will drift from the live KNYT
+// price (ethPriceUsd × 0.0005) and should not be relied on for cart math.
 export const KNYT_USD_RATE = 1.40;
-export function usdToKnyt(usd: number): number {
-  return Math.round((usd / KNYT_USD_RATE) * 100) / 100;
+export function usdToKnyt(usd: number, rate: number = KNYT_USD_RATE): number {
+  const effectiveRate = rate > 0 ? rate : KNYT_USD_RATE;
+  return Math.round((usd / effectiveRate) * 100) / 100;
 }
 
 /**

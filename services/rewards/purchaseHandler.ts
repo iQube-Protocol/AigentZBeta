@@ -13,7 +13,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getRewardService, RewardTaskType } from './rewardService';
 import { emitCampaignEvent } from '@/services/campaign/campaignService';
 import { getEntitlementService } from './entitlementService';
-import { getMultiRailPricing, PaymentRail, ContentType } from '../wallet/knyt/knytPricingService';
+import { getMultiRailPricing, getKnytUsdPrice, PaymentRail, ContentType } from '../wallet/knyt/knytPricingService';
 import { verifyEvmKnytTransfer } from '../wallet/knyt/evmKnytService';
 import { BUNDLE_PRICING, KNYT_USD_RATE, KNYT_COYN_DISCOUNT, usdToKnyt } from '@/types/knyt-store';
 import { claimEditionForPurchase } from '@/services/content/claimEdition';
@@ -114,9 +114,18 @@ export class PurchaseHandler {
         ? BUNDLE_PRICING.find((b) => b.id === assetIds[0])
         : null;
 
+      // Fetch the LIVE KNYT→USD rate so the server's debit matches what the
+      // BuyKnytModal and the live store UI show. Without this, the server
+      // computes KNYT amounts using the static $1.40 fallback while the UI
+      // uses the live rate (ethPriceUsd × 0.0005, currently ≈ $1.0643) — the
+      // mismatch surfaces as "Insufficient KNYT" errors even when the buyer
+      // has enough balance for the displayed price.
+      const liveKnytUsdRate = await getKnytUsdPrice().catch(() => KNYT_USD_RATE);
+      const effectiveKnytRate = liveKnytUsdRate > 0 ? liveKnytUsdRate : KNYT_USD_RATE;
+
       let pricing: ReturnType<typeof getMultiRailPricing>;
       if (bundleSku) {
-        const baseKnyt = bundleSku.baseKnytOverride ?? usdToKnyt(bundleSku.digitalPrice);
+        const baseKnyt = bundleSku.baseKnytOverride ?? usdToKnyt(bundleSku.digitalPrice, effectiveKnytRate);
         const usdBase = bundleSku.digitalPrice;
         // Mirror ContentPurchaseModal's calculatePricing fee structure
         // exactly so the server's debit matches the price the buyer saw.
@@ -135,7 +144,7 @@ export class PurchaseHandler {
           },
         };
       } else {
-        pricing = getMultiRailPricing('purchase', productType as ContentType);
+        pricing = getMultiRailPricing('purchase', productType as ContentType, undefined, effectiveKnytRate);
       }
 
       // knyt_evm uses the same KNYT pricing as the DVN knyt rail
