@@ -44,6 +44,7 @@ import { RegistrySupplyTab } from "./tabs/RegistrySupplyTab";
 import KnytRuntimeSurface from "./tabs/KnytRuntimeSurface";
 import { KnytRuntimeTab } from "./tabs/KnytRuntimeTab";
 import { KnytTreasuryTab } from "./tabs/KnytTreasuryTab";
+import { KnytQuestsTab } from "./tabs/KnytQuestsTab";
 import { KnytAlphaTab } from "./tabs/KnytAlphaTab";
 import { AgentiQOSTab } from "./tabs/AgentiQOSTab";
 import { RelationshipBuilderTab } from "./tabs/RelationshipBuilderTab";
@@ -142,6 +143,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   KnytRuntimeSurface,
   KnytRuntimeTab,
   KnytTreasuryTab,
+  KnytQuestsTab,
   KnytAlphaTab,
   AgentiQOSTab,
   RelationshipBuilderTab,

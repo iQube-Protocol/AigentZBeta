@@ -598,6 +598,22 @@ export const KNYT_CODEX: CodexConfig = {
       }
     },
 
+    // ── Quests (standalone — canonical task library) ──────────
+    {
+      id: 'quests',
+      label: 'Quests',
+      slug: 'quests',
+      enabled: true,
+      order: 3.5,
+      type: 'static',
+      config: { component: 'KnytQuestsTab' },
+      metadata: {
+        icon: 'Crown',
+        description: 'Canonical KNYT task library — Bring a Knight, Knight of Attention, Herald, and the Living Canon archetypes',
+        color: 'purple'
+      }
+    },
+
     // ── 21 Sats (standalone) ───────────────────────────────────
     {
       id: 'living-canon',
