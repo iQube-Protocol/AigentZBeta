@@ -226,8 +226,13 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     episodes: [-1,0,1,2,3,4,5,6,7,8,9,10,11,12],
     digitalPrice: 800,   // investor price
     retailPrice:  1000,  // retail
-    memberPrice:  600,   // existing Zero KNYTs
-    memberCohort: 'zero-knyt',
+    // memberPrice / memberCohort intentionally omitted (2026-05-18).
+    // The $600 "existing Zero KNYTs" discount was rendering for every
+    // visitor — both investor and retail surfaces — because there was no
+    // persona-cohort gate around it. Operator decision: drop the layered
+    // discount entirely and ship a dedicated cohort-gated ZeroKNYT offer
+    // separately when its rules are nailed down. Investor surface now
+    // shows $800; retail surface shows $1000.
     badgeTier: 'qripto',
     isFullSeason: false,
     isInvestorOnly: true,
