@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-18T23:37:07.516Z",
+  "last_updated": "2026-05-19T01:32:10.687Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c753039de38ce5113b3a76764de26de1c5bdd780",
-  "latest_commit_short": "c753039",
-  "latest_commit_title": "knyt: gate GN + Ep #0 like every other episode; document PDF render pipeline",
+  "latest_commit": "d5ca6b9bfead1c6656a83ee1f589786faadee208",
+  "latest_commit_short": "d5ca6b9",
+  "latest_commit_title": "knyt characters: align 0-indexed convention end-to-end + score-based character matching",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d5ca6b9",
+      "full_sha": "d5ca6b9bfead1c6656a83ee1f589786faadee208",
+      "title": "knyt characters: align 0-indexed convention end-to-end + score-based character matching",
+      "author": "Claude",
+      "timestamp": "2026-05-19T01:30:21Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d5ca6b9.md"
+    },
     {
       "sha": "c753039",
       "full_sha": "c753039de38ce5113b3a76764de26de1c5bdd780",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-25T19:52:53Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-5c756ed.md"
-    },
-    {
-      "sha": "945174f",
-      "full_sha": "945174f93f0b6731adc87b8933d33ba90d1f560a",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-25T18:33:47Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-945174f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

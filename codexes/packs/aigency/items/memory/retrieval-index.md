@@ -799,3 +799,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-c753039.md](../build_/COMMITS/COMMIT-c753039.md)
 - Message: knyt: gate GN + Ep #0 like every other episode; document PDF render pipeline
+
+## Commit `d5ca6b9` — 2026-05-19T01:30:21Z
+- Type: `push`
+- Brief: [COMMIT-d5ca6b9.md](../build_/COMMITS/COMMIT-d5ca6b9.md)
+- Message: knyt characters: align 0-indexed convention end-to-end + score-based character matching
