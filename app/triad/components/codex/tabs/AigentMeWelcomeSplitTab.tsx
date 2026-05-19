@@ -41,6 +41,7 @@ import {
   type ExperienceModelCardData,
 } from "@/components/metame/cards/ExperienceModelCard";
 import { ExperienceModelSetupWizard } from "@/components/metame/setup/ExperienceModelSetupWizard";
+import { ExperienceGoalsEditor } from "@/components/metame/setup/ExperienceGoalsEditor";
 import type { BriefCardData } from "@/components/metame/cards/BriefCard";
 import type { VentureProgressData } from "@/components/metame/cards/VentureProgressCard";
 import type { NextBestActionData } from "@/components/metame/cards/NextBestActionCard";
@@ -193,6 +194,9 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const [receipts, setReceipts] = useState<ActivityReceiptData[]>([]);
   const [receiptsLoading, setReceiptsLoading] = useState(false);
   const [receiptsPersonaLabel, setReceiptsPersonaLabel] = useState<string | null>(null);
+
+  // Goals editor (short-circuits the `metame.update-experience-goals` NBE).
+  const [goalsEditorOpen, setGoalsEditorOpen] = useState(false);
 
   // Approval + queued intents.
   const [pendingApprovalNbe, setPendingApprovalNbe] = useState<NextBestActionData | null>(null);
@@ -373,6 +377,12 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // ── Approval / NBE flow ────────────────────────────────────────────
   const handleNbeAct = useCallback((action: NextBestActionData) => {
     if (queuedIntents[action.id]) return;
+    // Short-circuit: the "update goals" NBE opens the goals editor directly
+    // rather than going through the generic approval → intent path.
+    if (action.id === 'metame.update-experience-goals') {
+      setGoalsEditorOpen(true);
+      return;
+    }
     setApprovalError(null);
     setPendingApprovalNbe(action);
   }, [queuedIntents]);
@@ -894,6 +904,15 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       </PersonaSpineGate>
 
       {/* ── Modals (mounted at root, single source of truth) ─────── */}
+      <ExperienceGoalsEditor
+        open={goalsEditorOpen}
+        onOpenChange={setGoalsEditorOpen}
+        personaId={personaId}
+        onSaved={() => {
+          // Re-fetch the bootstrap so the right pane reflects new goal count.
+          void fetchReceipts();
+        }}
+      />
       <ExperienceModelSetupWizard
         open={wizardOpen}
         onOpenChange={setWizardOpen}

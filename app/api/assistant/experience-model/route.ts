@@ -67,12 +67,18 @@ interface ExperienceQubeApiSurface {
     hasFranchiseProposition: boolean;
     hasConfidentialNotes: boolean;
   } | null;
+  /**
+   * Owner-only readable goal strings. The persona always sees their own
+   * goals — `getActivePersona` scopes this route to the caller, and goals
+   * carry no PII/IP. The goals editor in the UI consumes this slice.
+   */
+  experienceGoals: string[];
   updatedAt: string | null;
 }
 
 function shape(record: ExperienceQubeRecord | null): ExperienceQubeApiSurface {
   if (!record) {
-    return { configured: false, meta: null, blakSummary: null, updatedAt: null };
+    return { configured: false, meta: null, blakSummary: null, experienceGoals: [], updatedAt: null };
   }
   const blak = record.blak;
   return {
@@ -88,6 +94,7 @@ function shape(record: ExperienceQubeRecord | null): ExperienceQubeApiSurface {
         typeof blak.confidentialStrategyNotes === 'string' &&
         blak.confidentialStrategyNotes.trim().length > 0,
     },
+    experienceGoals: Array.isArray(blak.experienceGoals) ? blak.experienceGoals : [],
     updatedAt: record.updatedAt,
   };
 }

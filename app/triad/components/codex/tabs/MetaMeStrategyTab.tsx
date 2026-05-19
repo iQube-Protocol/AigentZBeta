@@ -11,11 +11,12 @@
  */
 
 import React, { useEffect, useState, useCallback } from "react";
-import { Loader2, Layers, Compass, RefreshCw, AlertCircle, Sparkles, Link2 } from "lucide-react";
+import { Loader2, Layers, Compass, RefreshCw, AlertCircle, Sparkles, Link2, Target } from "lucide-react";
 
 import { personaFetch } from "@/utils/personaSpine";
 import { ExperienceModelSetupWizard } from "@/components/metame/setup/ExperienceModelSetupWizard";
 import { PersonalGuideSetupWizard } from "@/components/metame/setup/PersonalGuideSetupWizard";
+import { ExperienceGoalsEditor } from "@/components/metame/setup/ExperienceGoalsEditor";
 import {
   ALIGNMENT_LABEL,
   SPHERE_LABEL,
@@ -64,6 +65,7 @@ export function MetaMeStrategyTab({ personaId }: { personaId?: string }) {
   const [loading, setLoading] = useState(!!personaId);
   const [modelWizardOpen, setModelWizardOpen] = useState(false);
   const [guideWizardOpen, setGuideWizardOpen] = useState(false);
+  const [goalsEditorOpen, setGoalsEditorOpen] = useState(false);
 
   useEffect(() => {
     if (!personaId) { setLoading(false); return; }
@@ -131,14 +133,26 @@ export function MetaMeStrategyTab({ personaId }: { personaId?: string }) {
             <Layers className="w-4 h-4 text-violet-400" />
             <h3 className="text-sm font-semibold">Venture posture (ExperienceModel)</h3>
           </div>
-          <button
-            type="button"
-            onClick={() => setModelWizardOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1 rounded border border-slate-700 hover:border-violet-500/60 text-xs text-slate-300"
-          >
-            <RefreshCw className="w-3 h-3" />
-            {hasModel ? "Edit" : "Set up"}
-          </button>
+          <div className="flex items-center gap-1.5">
+            {hasModel && (
+              <button
+                type="button"
+                onClick={() => setGoalsEditorOpen(true)}
+                className="flex items-center gap-1 px-2.5 py-1 rounded border border-slate-700 hover:border-violet-500/60 text-xs text-slate-300"
+              >
+                <Target className="w-3 h-3" />
+                Edit goals
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setModelWizardOpen(true)}
+              className="flex items-center gap-1 px-2.5 py-1 rounded border border-slate-700 hover:border-violet-500/60 text-xs text-slate-300"
+            >
+              <RefreshCw className="w-3 h-3" />
+              {hasModel ? "Edit" : "Set up"}
+            </button>
+          </div>
         </div>
         {hasModel && meta ? (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -322,6 +336,12 @@ export function MetaMeStrategyTab({ personaId }: { personaId?: string }) {
         onOpenChange={setGuideWizardOpen}
         initial={guide}
         onSaved={(g) => setGuide(g)}
+      />
+      <ExperienceGoalsEditor
+        open={goalsEditorOpen}
+        onOpenChange={setGoalsEditorOpen}
+        personaId={personaId}
+        onSaved={() => { void refreshStrategy(); }}
       />
     </div>
   );
