@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-19T05:52:06.653Z",
+  "last_updated": "2026-05-19T05:57:12.150Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "fdbd1b56697d84668a63347b44b136c0b28ad5c2",
-  "latest_commit_short": "fdbd1b5",
-  "latest_commit_title": "knyt store bundles tab: strip investor copy and show retail price on the retail surface (no 'Investor Bundle' header, no 'Investor Only' pill, no 'Investor pricing' label, no member-price line; KnytPricePill + savings + cart all key off retailPrice ?? digitalPrice — investor tab unchanged)",
+  "latest_commit": "813b74c4a3df932fd6453909257debe06b2bee3f",
+  "latest_commit_short": "813b74c",
+  "latest_commit_title": "knyt retail bundles tab: drop 4 single non-bundled GN offers (gn-investor-{qripto,digital,paperback,hardcover}) — they belong on the investor tab where they're discounted; rename tab 'Bundles & GN' → 'Bundles'; section header 'Graphic Novel, Episode & Character Bundles' → 'Premium Bundles' (investor tab unchanged)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "813b74c",
+      "full_sha": "813b74c4a3df932fd6453909257debe06b2bee3f",
+      "title": "knyt retail bundles tab: drop 4 single non-bundled GN offers (gn-investor-{qripto,digital,paperback,hardcover}) — they belong on the investor tab where they're discounted; rename tab 'Bundles & GN' → 'Bundles'; section header 'Graphic Novel, Episode & Character Bundles' → 'Premium Bundles' (investor tab unchanged)",
+      "author": "Claude",
+      "timestamp": "2026-05-19T05:55:17Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-813b74c.md"
+    },
     {
       "sha": "fdbd1b5",
       "full_sha": "fdbd1b56697d84668a63347b44b136c0b28ad5c2",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-25T20:58:03Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-a401002.md"
-    },
-    {
-      "sha": "0cf5822",
-      "full_sha": "0cf58225fb62acf61cd8e7f973ce5c29ecb5d181",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-25T20:37:37Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-0cf5822.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

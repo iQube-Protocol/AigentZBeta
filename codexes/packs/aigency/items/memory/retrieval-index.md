@@ -829,3 +829,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-fdbd1b5.md](../build_/COMMITS/COMMIT-fdbd1b5.md)
 - Message: knyt store bundles tab: strip investor copy and show retail price on the retail surface (no 'Investor Bundle' header, no 'Investor Only' pill, no 'Investor pricing' label, no member-price line; KnytPricePill + savings + cart all key off retailPrice ?? digitalPrice — investor tab unchanged)
+
+## Commit `813b74c` — 2026-05-19T05:55:17Z
+- Type: `refactor`
+- Brief: [COMMIT-813b74c.md](../build_/COMMITS/COMMIT-813b74c.md)
+- Message: knyt retail bundles tab: drop 4 single non-bundled GN offers (gn-investor-{qripto,digital,paperback,hardcover}) — they belong on the investor tab where they're discounted; rename tab 'Bundles & GN' → 'Bundles'; section header 'Graphic Novel, Episode & Character Bundles' → 'Premium Bundles' (investor tab unchanged)
