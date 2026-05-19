@@ -388,7 +388,16 @@ export async function resolveAccessToken(
   | { ok: true; token: string }
   | { ok: false; code: 'no-record' | 'no-refresh-token' | 'refresh-failed'; reason: string }
 > {
-  const record = await loadTokenRecord(personaId, source);
+  let record = await loadTokenRecord(personaId, source);
+  // Cross-source fallback: when Google grants scopes additively via
+  // include_granted_scopes=true, the user might have connected (say) the
+  // 'drive' source and Google attached the 'documents' scope to that row
+  // too. Rather than force the user to run a second OAuth round for the
+  // 'docs' source, look across sibling rows for a token whose granted
+  // scopes already include every required scope for the requested source.
+  if (!record) {
+    record = await findTokenWithScopes(personaId, GOOGLE_SCOPES[source] ?? []);
+  }
   if (!record) {
     return {
       ok: false,
@@ -417,6 +426,26 @@ export async function resolveAccessToken(
     };
   }
   return { ok: true, token: refreshed.record.accessToken };
+}
+
+/**
+ * Scan every source row for this persona and return the first whose
+ * granted scopes are a superset of `required`. Used by resolveAccessToken
+ * to satisfy a requested source via a sibling row when Google's additive
+ * scope grant has already attached the required scope elsewhere.
+ */
+async function findTokenWithScopes(
+  personaId: string,
+  required: string[],
+): Promise<GoogleTokenRecord | null> {
+  if (required.length === 0) return null;
+  for (const candidate of GOOGLE_SOURCES) {
+    const row = await loadTokenRecord(personaId, candidate).catch(() => null);
+    if (!row) continue;
+    const granted = new Set(row.scopes ?? []);
+    if (required.every((s) => granted.has(s))) return row;
+  }
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
