@@ -126,8 +126,21 @@ export function hasCodexPermission(
  * - adminOnly tabs: hidden unless isAdmin
  * - partnerOnly tabs: hidden unless isPartner or isAdmin
  * - investorOnly tabs: hidden unless isInvestor or isAdmin
+ * - activationId tabs: hidden unless that id is in `activeActivations`.
+ *   Admins are NOT bypassed — activation is per-persona regardless of
+ *   role (so admins can keep their own runtime tidy).
+ *
+ * `activeActivations` is the set of catalog ids that this persona has
+ * an `active` row for in `persona_activations`. Pass an empty Set (the
+ * default) to disable activation gating entirely.
  */
-export function getEnabledTabs(codex: CodexConfig | undefined, isAdmin = false, isPartner = false, isInvestor = false) {
+export function getEnabledTabs(
+  codex: CodexConfig | undefined,
+  isAdmin = false,
+  isPartner = false,
+  isInvestor = false,
+  activeActivations: Set<string> = new Set(),
+) {
   if (!codex) return [];
   return codex.tabs
     .filter(tab => {
@@ -135,6 +148,13 @@ export function getEnabledTabs(codex: CodexConfig | undefined, isAdmin = false, 
       if (tab.adminOnly && !isAdmin) return false;
       if (tab.partnerOnly && !isPartner && !isAdmin) return false;
       if (tab.investorOnly && !isInvestor && !isAdmin) return false;
+      // Activation gate — tab-level
+      if (tab.activationId && !activeActivations.has(tab.activationId)) return false;
+      // Activation gate — inherited from group when not explicitly set on the tab
+      if (!tab.activationId && tab.group) {
+        const group = (codex.tabGroups ?? []).find((g) => g.id === tab.group);
+        if (group?.activationId && !activeActivations.has(group.activationId)) return false;
+      }
       return true;
     })
     .sort((a, b) => a.order - b.order);

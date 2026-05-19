@@ -185,9 +185,42 @@ export default function CodexPanelDynamic({
   const effectiveIsPartner = isPartner || resolvedIsPartner;
   const effectivePartnerId = partnerId || resolvedPartnerId;
 
+  // Active activations — drives tab visibility for surfaces gated via the
+  // metaMe Activations tab. Fetched once per persona; refresh when the
+  // user toggles an activation in the Activations tab (which fires a
+  // window event we listen for below).
+  const [activeActivations, setActiveActivations] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!personaId) return;
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const url = `/api/assistant/activations?personaId=${encodeURIComponent(personaId)}`;
+        const res = await fetch(url, { credentials: 'include' });
+        if (!res.ok) return;
+        const data = (await res.json()) as { activations?: Array<{ id: string; status: string | null }> };
+        if (cancelled || !Array.isArray(data.activations)) return;
+        const active = new Set<string>();
+        for (const a of data.activations) if (a.status === 'active') active.add(a.id);
+        setActiveActivations(active);
+      } catch { /* keep previous */ }
+    };
+    void load();
+    const onChange = () => { void load(); };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('metame:activations-changed', onChange);
+    }
+    return () => {
+      cancelled = true;
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('metame:activations-changed', onChange);
+      }
+    };
+  }, [personaId]);
+
   const enabledTabs = useMemo(
-    () => getEnabledTabs(codex, isAdmin, effectiveIsPartner, isInvestor).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
-    [codex, isAdmin, effectiveIsPartner, isInvestor, hiddenTabSet]
+    () => getEnabledTabs(codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
+    [codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, hiddenTabSet]
   );
   
   const [activeTabSlug, setActiveTabSlug] = useState<string>(
@@ -519,8 +552,13 @@ export default function CodexPanelDynamic({
           const accentColor = codex.metadata.color || 'indigo';
           // ── Build top-level nav items (groups + standalone tabs) ──
           const groups: TabGroup[] = codex.tabGroups ?? [];
-          // Visible groups: admin-gated groups hidden when not admin
-          const visibleGroups = groups.filter(g => !g.adminOnly || isAdmin);
+          // Visible groups: admin-gated groups hidden when not admin,
+          // activation-gated groups hidden when activation isn't active.
+          const visibleGroups = groups.filter(g => {
+            if (g.adminOnly && !isAdmin) return false;
+            if (g.activationId && !activeActivations.has(g.activationId)) return false;
+            return true;
+          });
           // Standalone tabs: enabled tabs with no group, sorted by order
           const standaloneTabs = enabledTabs.filter(t => !t.group);
           // Active leaf tab's group (if any)

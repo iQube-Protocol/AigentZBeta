@@ -1738,6 +1738,14 @@ const aiqOsTabsByGroup = (groupId: string) =>
     .filter((t) => t.group === groupId && t.enabled)
     .sort((a, b) => a.order - b.order);
 
+// Pull KNYT codex Order-group tabs so metaMe can mirror the "Order of Metayé"
+// active surface without modifying the KNYT cartridge source. Same pattern
+// as aiqOsTabsByGroup.
+const knytOrderTabs = () =>
+  KNYT_CODEX.tabs
+    .filter((t) => t.group === 'order-group' && t.enabled)
+    .sort((a, b) => a.order - b.order);
+
 export const METAME_CODEX: CodexConfig = {
   id: 'metame-codex',
   name: 'metaMe Cartridge',
@@ -1753,13 +1761,16 @@ export const METAME_CODEX: CodexConfig = {
     tags: ['metame', 'experience', 'pcs', 'sovereignty', 'progression', 'nbe']
   },
   tabGroups: [
-    { id: 'aigentme',  label: 'aigentMe',      icon: 'Sparkles',   order: 0 },
-    { id: 'vl',        label: 'Venture Lab',   icon: 'TrendingUp', order: 1, adminOnly: true },
-    { id: 'marketa',   label: 'Marketa',       icon: 'Megaphone',  order: 2, adminOnly: true },
-    { id: 'studio',    label: 'metaMe Studio', icon: 'Wand2',      order: 3, adminOnly: true },
-    { id: 'agentiqos', label: 'AgentiQ OS',    icon: 'Cpu',        order: 4, adminOnly: true },
-    { id: 'qriptopia', label: 'Qriptopia',     icon: 'Globe',      order: 5 },
-    { id: 'admin',     label: 'Admin',         icon: 'Settings',   order: 6, adminOnly: true }
+    { id: 'aigentme',     label: 'aigentMe',         icon: 'Sparkles',   order: 0 },
+    { id: 'activations',  label: 'Activations',      icon: 'Zap',        order: 0.5 },
+    { id: 'mycanvas',     label: 'myCanvas',         icon: 'PenSquare',  order: 0.6, activationId: 'mycanvas' },
+    { id: 'order',        label: 'Order of Metayé',  icon: 'Shield',     order: 0.7, activationId: 'order-of-metaye' },
+    { id: 'vl',           label: 'Venture Lab',      icon: 'TrendingUp', order: 1,   activationId: 'venture-lab' },
+    { id: 'marketa',      label: 'Marketa',          icon: 'Megaphone',  order: 2,   activationId: 'marketa' },
+    { id: 'studio',       label: 'metaMe Studio',    icon: 'Wand2',      order: 3,   activationId: 'metame-studio' },
+    { id: 'agentiqos',    label: 'AgentiQ OS',       icon: 'Cpu',        order: 4,   activationId: 'agentiq-os' },
+    { id: 'qriptopia',    label: 'Qriptopia',        icon: 'Globe',      order: 5,   activationId: 'qriptopian' },
+    { id: 'admin',        label: 'Admin',            icon: 'Settings',   order: 6,   adminOnly: true },
   ],
   tabs: [
     // ── aigentMe group ───────────────────────────────────────────────────────
@@ -1861,13 +1872,68 @@ export const METAME_CODEX: CodexConfig = {
       metadata: { icon: 'BarChart3', description: 'Pattern analysis — action types, cartridges, daily rhythm', color: 'violet' }
     },
 
-    // ── VL group (admin-gated) ───────────────────────────────────────────────
+    // ── Activations group (always visible) ───────────────────────────────────
+    {
+      id: 'activations',
+      label: 'Activations',
+      slug: 'activations',
+      enabled: true,
+      group: 'activations',
+      order: 0,
+      type: 'static',
+      config: { component: 'ActivationsTab', props: {} },
+      metadata: {
+        icon: 'Zap',
+        description: 'Switch on the active surfaces you want in your metaMe runtime',
+        color: 'violet',
+      },
+    },
+
+    // ── myCanvas group (activation-gated; auto-granted) ──────────────────────
+    {
+      id: 'mycanvas',
+      label: 'myCanvas',
+      slug: 'mycanvas',
+      enabled: true,
+      activationId: 'mycanvas',
+      group: 'mycanvas',
+      order: 0,
+      type: 'static',
+      config: { component: 'MyCanvasTab', props: {} },
+      metadata: {
+        icon: 'PenSquare',
+        description: 'Personal publishing surface — drafts, ideas, works-in-progress',
+        color: 'violet',
+      },
+    },
+
+    // ── Order of Metayé group (activation-gated; auto-granted) ───────────────
+    // Mirrors the KNYT codex Order group + sub-tabs via the subTabs mechanism.
+    // Source KNYT cartridge is not modified.
+    {
+      id: 'order-of-metaye',
+      label: 'Order of Metayé',
+      slug: 'order-of-metaye',
+      enabled: true,
+      activationId: 'order-of-metaye',
+      group: 'order',
+      order: 0,
+      type: 'static',
+      config: { component: 'TabRendererFallback', props: {} },
+      metadata: {
+        icon: 'Shield',
+        description: 'Active surface of the KNYT world inside metaMe',
+        color: 'amber',
+      },
+      subTabs: knytOrderTabs(),
+    },
+
+    // ── VL group (activation-gated) ───────────────────────────────────────
     {
       id: 'vl-growth-matrix',
       label: 'Growth Matrix',
       slug: 'vl-growth-matrix',
       enabled: true,
-      adminOnly: true,
       group: 'vl',
       order: 10,
       type: 'static',
@@ -1879,7 +1945,6 @@ export const METAME_CODEX: CodexConfig = {
       label: 'Relationship Builder',
       slug: 'vl-relationship-builder',
       enabled: true,
-      adminOnly: true,
       group: 'vl',
       order: 11,
       type: 'static',
@@ -1893,7 +1958,6 @@ export const METAME_CODEX: CodexConfig = {
       label: 'My Campaign',
       slug: 'marketa-my-campaign',
       enabled: true,
-      adminOnly: true,
       group: 'marketa',
       order: 20,
       type: 'static',
@@ -1905,7 +1969,6 @@ export const METAME_CODEX: CodexConfig = {
       label: 'Propose',
       slug: 'marketa-propose',
       enabled: true,
-      adminOnly: true,
       group: 'marketa',
       order: 21,
       type: 'static',
@@ -1917,7 +1980,6 @@ export const METAME_CODEX: CodexConfig = {
       label: 'My Packs',
       slug: 'marketa-my-packs',
       enabled: true,
-      adminOnly: true,
       group: 'marketa',
       order: 22,
       type: 'static',
@@ -1929,7 +1991,6 @@ export const METAME_CODEX: CodexConfig = {
       label: 'Reports',
       slug: 'marketa-reports',
       enabled: true,
-      adminOnly: true,
       group: 'marketa',
       order: 23,
       type: 'static',
@@ -1941,7 +2002,6 @@ export const METAME_CODEX: CodexConfig = {
       label: 'QubeTalk',
       slug: 'marketa-qubetalk',
       enabled: true,
-      adminOnly: true,
       group: 'marketa',
       order: 24,
       type: 'static',
@@ -1955,7 +2015,6 @@ export const METAME_CODEX: CodexConfig = {
       label: 'metaMe Studio',
       slug: 'studio',
       enabled: true,
-      adminOnly: true,
       group: 'studio',
       order: 30,
       type: 'static',
@@ -1969,7 +2028,6 @@ export const METAME_CODEX: CodexConfig = {
       label: 'Home',
       slug: 'agentiqos-home',
       enabled: true,
-      adminOnly: true,
       group: 'agentiqos',
       order: 40,
       type: 'static',
@@ -1982,7 +2040,6 @@ export const METAME_CODEX: CodexConfig = {
       label: 'Docs',
       slug: 'agentiqos-docs',
       enabled: true,
-      adminOnly: true,
       group: 'agentiqos',
       order: 41,
       type: 'static',
@@ -1995,7 +2052,6 @@ export const METAME_CODEX: CodexConfig = {
       label: 'Build',
       slug: 'agentiqos-build',
       enabled: true,
-      adminOnly: true,
       group: 'agentiqos',
       order: 42,
       type: 'static',
@@ -2008,7 +2064,6 @@ export const METAME_CODEX: CodexConfig = {
       label: 'Bind',
       slug: 'agentiqos-bind',
       enabled: true,
-      adminOnly: true,
       group: 'agentiqos',
       order: 43,
       type: 'static',
@@ -2021,7 +2076,6 @@ export const METAME_CODEX: CodexConfig = {
       label: 'Deploy',
       slug: 'agentiqos-deploy',
       enabled: true,
-      adminOnly: true,
       group: 'agentiqos',
       order: 44,
       type: 'static',
@@ -2034,7 +2088,6 @@ export const METAME_CODEX: CodexConfig = {
       label: 'Missions',
       slug: 'agentiqos-missions',
       enabled: true,
-      adminOnly: true,
       group: 'agentiqos',
       order: 45,
       type: 'static',
@@ -2047,7 +2100,6 @@ export const METAME_CODEX: CodexConfig = {
       label: 'Community',
       slug: 'agentiqos-community',
       enabled: true,
-      adminOnly: true,
       group: 'agentiqos',
       order: 46,
       type: 'static',
@@ -2103,7 +2155,6 @@ export const METAME_CODEX: CodexConfig = {
       label: 'Experience Framework',
       slug: 'experience-framework',
       enabled: true,
-      adminOnly: true,
       group: 'admin',
       order: 60,
       type: 'static',
