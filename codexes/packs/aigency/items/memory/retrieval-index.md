@@ -824,3 +824,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-21de6d9.md](../build_/COMMITS/COMMIT-21de6d9.md)
 - Message: knyt store: drop $600 ZeroKNYT memberPrice (was leaking to all visitors); investor stays $800, retail stays $1000 — cohort-gated ZeroKNYT offer to ship separately
+
+## Commit `fdbd1b5` — 2026-05-19T05:50:08Z
+- Type: `push`
+- Brief: [COMMIT-fdbd1b5.md](../build_/COMMITS/COMMIT-fdbd1b5.md)
+- Message: knyt store bundles tab: strip investor copy and show retail price on the retail surface (no 'Investor Bundle' header, no 'Investor Only' pill, no 'Investor pricing' label, no member-price line; KnytPricePill + savings + cart all key off retailPrice ?? digitalPrice — investor tab unchanged)
