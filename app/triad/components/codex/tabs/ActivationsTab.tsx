@@ -70,6 +70,35 @@ export function ActivationsTab({ personaId, isAdmin = false, onOpenSurface, them
     async (id: string, action: "activate" | "request" | "revoke") => {
       if (!personaId) return;
       setPendingId(id);
+      setError(null);
+
+      // Optimistic update — flip the local card immediately so the UI
+      // feels responsive. We reconcile against the server when fetchSurfaces
+      // returns. If the server rejects we revert below.
+      const previousSurfaces = surfaces;
+      const optimisticStatus =
+        action === 'activate' ? 'active'
+        : action === 'request' ? 'pending'
+        : 'revoked';
+      setSurfaces((prev) =>
+        prev.map((s) =>
+          s.id === id
+            ? {
+                ...s,
+                status: optimisticStatus,
+                grantedAt: action === 'activate' ? new Date().toISOString() : s.grantedAt,
+                revokedAt: action === 'revoke' ? new Date().toISOString() : s.revokedAt,
+              }
+            : s,
+        ),
+      );
+
+      // Fire the same-window event NOW so CodexPanelDynamic refreshes its
+      // tab visibility immediately rather than waiting for the round-trip.
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("metame:activations-changed", { detail: { id, action } }));
+      }
+
       try {
         const res = await personaFetch(`/api/assistant/activations/${id}?action=${action}`, {
           personaIdHint: personaId,
@@ -79,17 +108,24 @@ export function ActivationsTab({ personaId, isAdmin = false, onOpenSurface, them
           const body = await res.json().catch(() => ({}));
           throw new Error((body as { detail?: string }).detail ?? `activation mutation failed (${res.status})`);
         }
+        // Confirm against the server. Re-dispatch in case the read picked
+        // up a different state (e.g. admin grant landed in parallel).
         await fetchSurfaces();
         if (typeof window !== "undefined") {
           window.dispatchEvent(new CustomEvent("metame:activations-changed", { detail: { id, action } }));
         }
       } catch (err) {
+        // Server rejected — revert the optimistic write so the UI stays honest.
+        setSurfaces(previousSurfaces);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("metame:activations-changed", { detail: { id, action: 'revert' } }));
+        }
         setError(err instanceof Error ? err.message : String(err));
       } finally {
         setPendingId(null);
       }
     },
-    [personaId, fetchSurfaces],
+    [personaId, fetchSurfaces, surfaces],
   );
 
   const isDark = theme === "dark";

@@ -84,6 +84,17 @@ async function readRows(personaId: string): Promise<Map<string, PersonaActivatio
  * yet. Best-effort — if the DB write fails the caller still gets a usable
  * surface (status="active") so the UI doesn't degrade.
  */
+/**
+ * Auto-grant the catalog's `autoGrant: true` entries — but ONLY when no
+ * row already exists for the persona. A pre-existing row (active OR
+ * revoked) is always respected; the user's deactivation choice wins.
+ *
+ * Plain INSERT, no upsert with ignoreDuplicates — that flag's exact
+ * Supabase semantics turned out unreliable when chained with rapid
+ * deactivate / re-activate cycles. We've already pre-filtered against
+ * `existing`, so a unique-constraint violation here is a transient race
+ * we can safely swallow.
+ */
 async function ensureAutoGrants(
   personaId: string,
   existing: Map<string, PersonaActivationRow>,
@@ -91,41 +102,30 @@ async function ensureAutoGrants(
   const admin = getSupabaseServer();
   if (!admin) return;
   const ids = listAutoGrantActivationIds();
-  const rowsToInsert = ids
-    .filter((id) => !existing.has(id))
-    .map((id) => ({
-      persona_id: personaId,
-      activation_id: id,
-      status: 'active' as const,
-      granted_via: 'auto' as const,
-    }));
-  if (rowsToInsert.length === 0) return;
-  try {
-    const { data } = await admin
-      .from('persona_activations')
-      .upsert(rowsToInsert, { onConflict: 'persona_id,activation_id', ignoreDuplicates: true })
-      .select('*');
-    if (Array.isArray(data)) {
-      for (const r of data as PersonaActivationRow[]) {
-        existing.set(r.activation_id, r);
-      }
-    }
-  } catch {
-    // Synthesise an in-memory active row so the surface renders consistently.
-    for (const id of ids) {
-      if (!existing.has(id)) {
-        existing.set(id, {
+  const missingIds = ids.filter((id) => !existing.has(id));
+  if (missingIds.length === 0) return;
+  for (const id of missingIds) {
+    try {
+      const { data, error } = await admin
+        .from('persona_activations')
+        .insert({
           persona_id: personaId,
           activation_id: id,
           status: 'active',
           granted_via: 'auto',
-          cohort_id: null,
-          inviter_persona_id: null,
-          granted_at: new Date().toISOString(),
-          revoked_at: null,
-          updated_at: new Date().toISOString(),
-        });
+        })
+        .select('*')
+        .maybeSingle();
+      if (data) {
+        existing.set(id, data as PersonaActivationRow);
+      } else if (error && !/duplicate key|unique constraint/i.test(error.message)) {
+        console.warn(`[personaActivations.ensureAutoGrants] insert ${id} failed:`, error.message);
       }
+    } catch (err) {
+      console.warn(
+        `[personaActivations.ensureAutoGrants] insert ${id} threw:`,
+        err instanceof Error ? err.message : err,
+      );
     }
   }
 }
@@ -190,6 +190,19 @@ export async function getActiveActivationIds(
 // Writes.
 // ─────────────────────────────────────────────────────────────────────────
 
+/**
+ * Robust update-or-insert: an explicit UPDATE first, falling back to
+ * INSERT when no row exists.
+ *
+ * Why not Supabase `.upsert(..., { onConflict })`?
+ *   - PostgREST's upsert with partial fields silently overwrites un-listed
+ *     columns to their DEFAULTs in the EXCLUDED clause — that flipped
+ *     `granted_via` from 'auto' to 'self' on every revoke and produced
+ *     intermittent state-loss when consecutive writes raced.
+ *   - This two-step (UPDATE → fallback INSERT) keeps existing metadata
+ *     intact (granted_via, granted_at, cohort_id, inviter_persona_id)
+ *     and only touches the fields the caller explicitly supplied.
+ */
 async function upsertRow(
   personaId: string,
   activationId: string,
@@ -197,17 +210,44 @@ async function upsertRow(
 ): Promise<PersonaActivationRow | null> {
   const admin = getSupabaseServer();
   if (!admin) return null;
+
+  const updateFields = { ...fields, updated_at: new Date().toISOString() };
   try {
-    const { data } = await admin
+    // 1) UPDATE — only listed columns are touched.
+    const { data: updated, error: updateErr } = await admin
       .from('persona_activations')
-      .upsert(
-        { persona_id: personaId, activation_id: activationId, ...fields, updated_at: new Date().toISOString() },
-        { onConflict: 'persona_id,activation_id' },
-      )
+      .update(updateFields)
+      .eq('persona_id', personaId)
+      .eq('activation_id', activationId)
       .select('*')
       .maybeSingle();
-    return (data as PersonaActivationRow) ?? null;
-  } catch {
+    if (updateErr) {
+      console.warn('[personaActivations.upsertRow] update failed:', updateErr.message);
+    }
+    if (updated) return updated as PersonaActivationRow;
+
+    // 2) INSERT — no existing row.
+    const insertRow = {
+      persona_id: personaId,
+      activation_id: activationId,
+      status: fields.status ?? 'active',
+      granted_via: fields.granted_via ?? 'self',
+      cohort_id: fields.cohort_id ?? null,
+      inviter_persona_id: fields.inviter_persona_id ?? null,
+      revoked_at: fields.revoked_at ?? null,
+    };
+    const { data: inserted, error: insertErr } = await admin
+      .from('persona_activations')
+      .insert(insertRow)
+      .select('*')
+      .maybeSingle();
+    if (insertErr) {
+      console.warn('[personaActivations.upsertRow] insert failed:', insertErr.message);
+      return null;
+    }
+    return (inserted as PersonaActivationRow) ?? null;
+  } catch (err) {
+    console.warn('[personaActivations.upsertRow] threw:', err instanceof Error ? err.message : err);
     return null;
   }
 }
