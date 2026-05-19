@@ -25,6 +25,8 @@ import {
 } from '@/services/orchestration/nbeCatalog';
 import { getConnectionStatuses, type GoogleSource } from '@/services/google/oauth';
 import { inferStrategy } from '@/services/strategy/strategyInference';
+import { evaluateStageProgression } from '@/services/strategy/stageProgression';
+import { llmRerankNbeCandidates } from '@/services/orchestration/nbeLlmRerank';
 import {
   ALIGNMENT_LABEL,
   SPHERE_LABEL,
@@ -145,11 +147,12 @@ function buildGuidanceNote(
 }
 
 export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
-  const [qube, guide, workspaceConnected, strategy] = await Promise.all([
+  const [qube, guide, workspaceConnected, strategy, stageEval] = await Promise.all([
     getExperienceQube(input.personaId),
     getPersonalGuide(input.personaId),
     readConnectedWorkspaceSources(input.personaId),
     inferStrategy(input.personaId).catch(() => null),
+    evaluateStageProgression(input.personaId, { runAutoAdvance: false }).catch(() => null),
   ]);
 
   const activeCartridges =
@@ -158,6 +161,7 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
   const experienceName = qube?.meta.experienceName ?? null;
   const primaryGoal = qube?.meta.primaryGoal ?? null;
   const experienceConfigured = !!qube;
+  const stageAdvanceEligible = !!stageEval?.eligible;
   // Merge raw goal strings with the inference keyword hints — gives the
   // NBE rerank a richer signal than the goal strings alone.
   const experienceGoals = [
@@ -177,17 +181,16 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
     cartridge: c,
   }));
 
-  // ── Next-best actions — deterministic, weighted, capped at 5.
-  const nbeCandidates = input.scopedCartridge
-    ? // Cartridge brief: pick the strongest NBE for that cartridge plus
-      // its next 2 alternates.
-      selectNbeCandidates({
+  // ── Next-best actions — deterministic filter, then optional LLM rerank.
+  let nbeCandidates = input.scopedCartridge
+    ? selectNbeCandidates({
         activeCartridges,
         currentStage,
         scopedCartridge: input.scopedCartridge,
         limit: 3,
         workspaceConnected,
         experienceGoals,
+        stageAdvanceEligible,
       })
     : selectNbeCandidates({
         activeCartridges,
@@ -195,7 +198,16 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
         limit: 5,
         workspaceConnected,
         experienceGoals,
+        stageAdvanceEligible,
       });
+
+  nbeCandidates = await llmRerankNbeCandidates(nbeCandidates, {
+    currentStage,
+    activeCartridges,
+    primaryGoal,
+    experienceGoals,
+    strategy,
+  });
 
   const nextBestActions: BriefNextBestAction[] = nbeCandidates.map((c) => ({
     id: c.id,
@@ -275,11 +287,12 @@ export async function buildMoveForward(input: {
    */
   cartridge?: ActiveCartridgeSlug;
 }): Promise<MoveForwardShape> {
-  const [qube, guide, workspaceConnected, strategy] = await Promise.all([
+  const [qube, guide, workspaceConnected, strategy, stageEval] = await Promise.all([
     getExperienceQube(input.personaId),
     getPersonalGuide(input.personaId),
     readConnectedWorkspaceSources(input.personaId),
     inferStrategy(input.personaId).catch(() => null),
+    evaluateStageProgression(input.personaId, { runAutoAdvance: false }).catch(() => null),
   ]);
 
   const activeCartridges = qube?.meta.activeCartridges ?? (input.cartridge ? [input.cartridge] : ['metame']);
@@ -287,6 +300,7 @@ export async function buildMoveForward(input: {
   const experienceName = qube?.meta.experienceName ?? null;
   const primaryGoal = qube?.meta.primaryGoal ?? null;
   const experienceConfigured = !!qube;
+  const stageAdvanceEligible = !!stageEval?.eligible;
   const experienceGoals = [
     ...(qube?.blak.experienceGoals ?? []),
     ...(strategy?.nbeHints.keywords ?? []),
@@ -302,6 +316,7 @@ export async function buildMoveForward(input: {
     topCandidate = selectTopNbeForCartridge(input.cartridge, currentStage, {
       workspaceConnected,
       experienceGoals,
+      stageAdvanceEligible,
     });
     altsRaw = selectNbeCandidates({
       activeCartridges,
@@ -310,14 +325,23 @@ export async function buildMoveForward(input: {
       limit: 3,
       workspaceConnected,
       experienceGoals,
+      stageAdvanceEligible,
     }).filter((c) => c.id !== topCandidate?.id);
   } else {
-    const ranked = selectNbeCandidates({
+    let ranked = selectNbeCandidates({
       activeCartridges,
       currentStage,
       limit: 5,
       workspaceConnected,
       experienceGoals,
+      stageAdvanceEligible,
+    });
+    ranked = await llmRerankNbeCandidates(ranked, {
+      currentStage,
+      activeCartridges,
+      primaryGoal,
+      experienceGoals,
+      strategy,
     });
     topCandidate = ranked[0] ?? null;
     altsRaw = ranked.slice(1);

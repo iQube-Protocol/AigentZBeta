@@ -9,6 +9,7 @@ import { getActivePersona } from '@/services/identity/getActivePersona';
 import {
   advanceStage,
   evaluateStageProgression,
+  setAutoProgress,
 } from '@/services/strategy/stageProgression';
 
 export const dynamic = 'force-dynamic';
@@ -43,6 +44,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       { error: 'unauthenticated' },
       { status: 401, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
+  // Optional body: `{ autoProgress: boolean }` toggles the opt-in instead
+  // of advancing. Empty / non-object body falls through to the advance path.
+  let raw: unknown = null;
+  try { raw = await request.json(); } catch { /* no body — fall through to advance */ }
+  if (raw && typeof raw === 'object' && 'autoProgress' in (raw as Record<string, unknown>)) {
+    const value = !!(raw as { autoProgress?: unknown }).autoProgress;
+    const ok = await setAutoProgress(context.personaId, value);
+    return NextResponse.json(
+      { ok, autoProgress: value },
+      { headers: { 'Cache-Control': 'no-store' } },
     );
   }
   try {

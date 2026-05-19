@@ -101,6 +101,19 @@ export function MetaMeStrategyTab({ personaId }: { personaId?: string }) {
     } catch { /* keep previous */ }
   }, [personaId]);
 
+  const handleAutoProgressToggle = useCallback(async (value: boolean) => {
+    if (!personaId) return;
+    try {
+      await personaFetch("/api/assistant/stage-progression", {
+        personaIdHint: personaId,
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ autoProgress: value }),
+      });
+      await refreshStageEval();
+    } catch { /* keep previous */ }
+  }, [personaId, refreshStageEval]);
+
   const handleAdvanceStage = useCallback(async () => {
     if (!personaId || !stageEval?.eligible) return;
     setAdvancing(true);
@@ -300,6 +313,15 @@ export function MetaMeStrategyTab({ personaId }: { personaId?: string }) {
           <p className="mt-3 text-[11px] text-slate-500">
             {stageEval.progress.receiptsTotal} total receipts · {stageEval.progress.receiptsLast30d} in last 30d · {stageEval.progress.artifactsSent} artifacts sent · {stageEval.progress.earliestReceiptDays}d tenure
           </p>
+          <label className="mt-3 flex items-center gap-2 text-[11px] text-slate-400 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={!!stageEval.autoProgress}
+              onChange={(e) => { void handleAutoProgressToggle(e.target.checked); }}
+              className="accent-violet-500"
+            />
+            Auto-advance when criteria are met
+          </label>
         </section>
       )}
 

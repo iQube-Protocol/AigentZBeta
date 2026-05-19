@@ -68,6 +68,8 @@ export interface NbeCandidate {
   requires?: {
     workspaceConnected?: GoogleSource[];
     workspaceNotConnected?: GoogleSource[];
+    /** Only surface when the persona is eligible to advance their ExperienceStage. */
+    stageAdvanceEligible?: boolean;
   };
   /**
    * Soft signals for goals-aware re-ranking. Case-insensitive substring
@@ -106,6 +108,19 @@ export const NBE_CATALOGUE: NbeCandidate[] = [
     // Retire this prompt as soon as the user has linked any one source —
     // the follow-on "use workspace to…" NBEs take over.
     requires: { workspaceNotConnected: ['gmail', 'calendar', 'drive', 'docs', 'sheets', 'slides'] },
+  },
+  {
+    id: 'metame.advance-stage',
+    label: 'Advance to the next ExperienceStage',
+    rationale:
+      'You have hit every criterion for the next stage. Advancing locks in progress and re-targets briefs and NBEs to the new posture.',
+    cartridge: 'metame',
+    approvalRequired: false,
+    weight: 95,
+    effort: 'light',
+    impact: 'high',
+    requires: { stageAdvanceEligible: true },
+    goalKeywords: ['progress', 'advance', 'milestone'],
   },
   {
     id: 'metame.use-workspace-gmail',
@@ -291,6 +306,8 @@ export interface NbeSelectionContext {
   workspaceConnected?: GoogleSource[];
   /** Persona's active ExperienceGoals — drives goal-keyword reranking. */
   experienceGoals?: string[];
+  /** True when the persona meets every criterion for the next stage. */
+  stageAdvanceEligible?: boolean;
 }
 
 /** Goal-keyword boost applied per keyword match. Capped at 3 hits per candidate. */
@@ -310,23 +327,23 @@ function countGoalHits(candidate: NbeCandidate, goals: string[]): number {
   return hits;
 }
 
-function passesWorkspaceRequirement(
+function passesRequires(
   candidate: NbeCandidate,
-  connected: GoogleSource[],
+  ctx: { connected: GoogleSource[]; stageAdvanceEligible: boolean },
 ): boolean {
   const r = candidate.requires;
   if (!r) return true;
   if (r.workspaceConnected && r.workspaceConnected.length > 0) {
     for (const src of r.workspaceConnected) {
-      if (!connected.includes(src)) return false;
+      if (!ctx.connected.includes(src)) return false;
     }
   }
   if (r.workspaceNotConnected && r.workspaceNotConnected.length > 0) {
-    // Hide if *any* of the listed sources is already connected.
     for (const src of r.workspaceNotConnected) {
-      if (connected.includes(src)) return false;
+      if (ctx.connected.includes(src)) return false;
     }
   }
+  if (r.stageAdvanceEligible === true && !ctx.stageAdvanceEligible) return false;
   return true;
 }
 
@@ -344,6 +361,7 @@ export function selectNbeCandidates(ctx: NbeSelectionContext): NbeCandidate[] {
     limit = 5,
     workspaceConnected = [],
     experienceGoals = [],
+    stageAdvanceEligible = false,
   } = ctx;
 
   const cartridgeSet = scopedCartridge
@@ -355,7 +373,7 @@ export function selectNbeCandidates(ctx: NbeSelectionContext): NbeCandidate[] {
     if (c.stages && c.stages.length > 0 && !c.stages.includes(currentStage)) {
       return false;
     }
-    if (!passesWorkspaceRequirement(c, workspaceConnected)) return false;
+    if (!passesRequires(c, { connected: workspaceConnected, stageAdvanceEligible })) return false;
     return true;
   });
 
@@ -375,7 +393,11 @@ export function selectNbeCandidates(ctx: NbeSelectionContext): NbeCandidate[] {
 export function selectTopNbeForCartridge(
   cartridge: ActiveCartridgeSlug,
   currentStage: ExperienceStage,
-  options?: { workspaceConnected?: GoogleSource[]; experienceGoals?: string[] },
+  options?: {
+    workspaceConnected?: GoogleSource[];
+    experienceGoals?: string[];
+    stageAdvanceEligible?: boolean;
+  },
 ): NbeCandidate | null {
   const candidates = selectNbeCandidates({
     activeCartridges: [cartridge],
@@ -384,6 +406,7 @@ export function selectTopNbeForCartridge(
     limit: 1,
     workspaceConnected: options?.workspaceConnected ?? [],
     experienceGoals: options?.experienceGoals ?? [],
+    stageAdvanceEligible: options?.stageAdvanceEligible ?? false,
   });
   return candidates[0] ?? null;
 }

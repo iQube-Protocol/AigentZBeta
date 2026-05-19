@@ -48,6 +48,7 @@ import type { NextBestActionData } from "@/components/metame/cards/NextBestActio
 import type { SpecialistResponseData } from "@/components/metame/cards/SpecialistResponseCard";
 import type { ArtifactCardData } from "@/components/metame/cards/ArtifactCard";
 import type { ActivityReceiptData } from "@/components/metame/cards/ActivityReceiptCard";
+import type { StageEvaluation } from "@/services/strategy/stageProgression";
 
 import { ComposeGmailDraftModal } from "@/components/metame/connections/ComposeGmailDraftModal";
 import { ComposeCalendarEventModal } from "@/components/metame/connections/ComposeCalendarEventModal";
@@ -154,6 +155,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const [expModel, setExpModel] = useState<ExperienceModelCardData | null>(null);
   const [expModelLoading, setExpModelLoading] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [stageEval, setStageEval] = useState<StageEvaluation | null>(null);
 
   const [brief, setBrief] = useState<BriefCardData | null>(null);
   const [briefLoading, setBriefLoading] = useState(false);
@@ -297,6 +299,15 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       .catch(() => { if (!cancelled) setExpModel({ configured: false, meta: null, blakSummary: null, updatedAt: null }); })
       .finally(() => { if (!cancelled) setExpModelLoading(false); });
 
+    // Stage progression — drives the chip in the right-pane identity row.
+    personaFetch('/api/assistant/stage-progression', { personaIdHint: personaId })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const d = (await res.json()) as { evaluation: StageEvaluation | null };
+        if (!cancelled) setStageEval(d.evaluation ?? null);
+      })
+      .catch(() => undefined);
+
     setReceiptsLoading(true);
     personaFetch('/api/assistant/receipts?limit=25', { personaIdHint: personaId })
       .then(async (res) => {
@@ -419,6 +430,19 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       setGoalsEditorOpen(true);
       return;
     }
+    // Stage-advance NBE → POST /api/assistant/stage-progression directly.
+    if (action.id === 'metame.advance-stage') {
+      void (async () => {
+        try {
+          await personaFetch('/api/assistant/stage-progression', {
+            personaIdHint: personaId,
+            method: 'POST',
+          });
+          void fetchReceipts();
+        } catch { /* surfaced through stale state */ }
+      })();
+      return;
+    }
     setApprovalError(null);
     setPendingApprovalNbe(action);
     // Scroll the approval card into view — the right pane scrolls
@@ -426,7 +450,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     window.requestAnimationFrame(() => {
       approvalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
-  }, [queuedIntents]);
+  }, [queuedIntents, personaId, fetchReceipts]);
 
   const handleApprovalCancel = useCallback(() => {
     setPendingApprovalNbe(null);
@@ -917,6 +941,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 queuedIntents={queuedIntents}
                 expModel={expModel}
                 expModelLoading={expModelLoading}
+                stageEval={stageEval}
                 receipts={receipts}
                 receiptsLoading={receiptsLoading}
                 receiptsPersonaLabel={receiptsPersonaLabel}
