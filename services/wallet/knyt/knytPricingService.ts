@@ -309,10 +309,52 @@ async function fetchEthPrice(): Promise<number> {
 /**
  * Calculate KNYT price in USD based on live ETH price
  * 1 KNYT = 0.0005 ETH
+ *
+ * Caches the last successful live rate at module scope. On a failed live
+ * fetch the function returns the last successful rate to minimise drift
+ * — falling back to the static \$1.40 only if no successful fetch has
+ * ever landed in this Lambda instance.
  */
+let _lastLiveKnytUsdPrice: { rate: number; fetchedAt: number } | null = null;
+const STALE_AFTER_MS = 60 * 60 * 1000; // 1 hour
+
 export async function getKnytUsdPrice(): Promise<number> {
-  const ethPrice = await fetchEthPrice();
-  return ethPrice * KNYT_ETH_RATE;
+  try {
+    const ethPrice = await fetchEthPrice();
+    const rate = ethPrice * KNYT_ETH_RATE;
+    if (rate > 0 && Number.isFinite(rate)) {
+      _lastLiveKnytUsdPrice = { rate, fetchedAt: Date.now() };
+      return rate;
+    }
+    throw new Error('Invalid live rate');
+  } catch {
+    if (_lastLiveKnytUsdPrice) return _lastLiveKnytUsdPrice.rate;
+    return KNYT_USD_RATE;
+  }
+}
+
+/**
+ * Read-only accessor for the server-side cache state. Returns the last
+ * known live rate, when it was fetched, and whether the value is "stale"
+ * (older than STALE_AFTER_MS or never fetched). Use this to decide
+ * whether to show an "Indicative pricing" badge.
+ */
+export function getKnytUsdPriceMeta(): {
+  rate: number;
+  fetchedAt: number | null;
+  stale: boolean;
+  source: 'live' | 'cached' | 'static';
+} {
+  if (!_lastLiveKnytUsdPrice) {
+    return { rate: KNYT_USD_RATE, fetchedAt: null, stale: true, source: 'static' };
+  }
+  const age = Date.now() - _lastLiveKnytUsdPrice.fetchedAt;
+  return {
+    rate: _lastLiveKnytUsdPrice.rate,
+    fetchedAt: _lastLiveKnytUsdPrice.fetchedAt,
+    stale: age > STALE_AFTER_MS,
+    source: age > STALE_AFTER_MS ? 'cached' : 'live',
+  };
 }
 
 /**

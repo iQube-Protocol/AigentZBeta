@@ -278,13 +278,13 @@ function CharacterCardDetail({
 
 // ── Root ──────────────────────────────────────────────────────────────────────
 
-function useLiveKnytRate(): number {
-  const { knytPriceUsd } = useEthPrice();
-  return knytPriceUsd > 0 ? knytPriceUsd : KNYT_USD_RATE;
+function useLiveKnytRate(): { rate: number; stale: boolean } {
+  const { knytPriceUsd, stale } = useEthPrice();
+  return { rate: knytPriceUsd > 0 ? knytPriceUsd : KNYT_USD_RATE, stale };
 }
 
 export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
-  const liveKnytRate = useLiveKnytRate();
+  const { rate: liveKnytRate, stale: knytRateStale } = useLiveKnytRate();
   const [view, setView]         = useState<CardsView>({ kind: 'landing' });
   const [variant, setVariant]   = useState<CardVariant>('still');
   const [purchase, setPurchase] = useState<PendingPurchase | null>(null);
@@ -463,6 +463,7 @@ export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
           priceUsdOverride={purchase.priceUsdOverride}
           baseKnytOverride={usdToKnyt(purchase.priceUsdOverride, liveKnytRate)}
           knytUsdRate={liveKnytRate}
+          knytUsdRateIsStale={knytRateStale}
           stillPriceKnytOverride={purchase.stillPriceKnytOverride}
           motionPriceKnytOverride={purchase.motionPriceKnytOverride}
         />

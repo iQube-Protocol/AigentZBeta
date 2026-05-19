@@ -384,7 +384,7 @@ const gnInvestorBundles         = BUNDLE_PRICING.filter((b) => b.isInvestorOnly 
 const collectionInvestorBundles = BUNDLE_PRICING.filter((b) => b.isInvestorOnly && !(b.episodes.length === 1 && b.episodes[0] === -1));
 
 export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
-  const { knytPriceUsd } = useEthPrice();
+  const { knytPriceUsd, stale: knytRateStale } = useEthPrice();
   const liveKnytRate = knytPriceUsd > 0 ? knytPriceUsd : KNYT_USD_RATE;
   // DVN KNYT balance for the active persona — feeds the ContentPurchaseModal's
   // Pay-with-KNYT affordance. Without this prop the modal renders "No KNYT
@@ -585,6 +585,7 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
           priceUsdOverride={purchase.priceUsdOverride}
           baseKnytOverride={purchase.baseKnytOverride ?? usdToKnyt(purchase.priceUsdOverride, liveKnytRate)}
           knytUsdRate={liveKnytRate}
+          knytUsdRateIsStale={knytRateStale}
           knytBalance={balance?.dvnKnyt ?? 0}
           spendableKnyt={spendableBalance ?? 0}
           evmKnyt={balance?.evmKnyt ?? 0}

@@ -634,7 +634,7 @@ function GNSkuDetail({
 // ── Root component ────────────────────────────────────────────────────────────
 
 export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
-  const { knytPriceUsd } = useEthPrice();
+  const { knytPriceUsd, stale: knytRateStale } = useEthPrice();
   const liveKnytRate = knytPriceUsd > 0 ? knytPriceUsd : KNYT_USD_RATE;
   const [view, setView]         = useState<EpisodesView>({ kind: 'list' });
   const [modality, setModality] = useState<Modality>('still');
@@ -857,6 +857,7 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
           priceUsdOverride={purchase.priceUsdOverride}
           baseKnytOverride={usdToKnyt(purchase.priceUsdOverride, liveKnytRate)}
           knytUsdRate={liveKnytRate}
+          knytUsdRateIsStale={knytRateStale}
           stillPriceKnytOverride={purchase.stillPriceKnytOverride}
           motionPriceKnytOverride={purchase.motionPriceKnytOverride}
           hideVersionSelector={purchase.hideVersionSelector}

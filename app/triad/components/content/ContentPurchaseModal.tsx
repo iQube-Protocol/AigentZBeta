@@ -179,6 +179,13 @@ interface ContentPurchaseModalProps {
    * caller should pass `knytPriceUsd` from useEthPrice.
    */
   knytUsdRate?: number;
+  /**
+   * Set to true when `knytUsdRate` is sourced from a cached/static fallback
+   * (i.e. the live CoinGecko fetch hasn't completed or failed this session).
+   * Renders an "Indicative pricing" badge near the Base Price so buyers can
+   * see they're not seeing a fully-live rate. Passed from useEthPrice.stale.
+   */
+  knytUsdRateIsStale?: boolean;
 }
 
 export function ContentPurchaseModal({
@@ -203,6 +210,7 @@ export function ContentPurchaseModal({
   onPurchaseComplete,
   onBalanceRefresh,
   knytUsdRate,
+  knytUsdRateIsStale,
 }: ContentPurchaseModalProps) {
   const router = useRouter();
   const effectiveSpendable = spendableKnyt ?? knytBalance;
@@ -685,6 +693,30 @@ export function ContentPurchaseModal({
                     <span className="text-white/40 text-sm ml-2">(${baseUsd.toFixed(2)})</span>
                   </div>
                 </div>
+
+                {knytUsdRateIsStale && (
+                  <div className="mt-2 flex items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="w-3 h-3 text-amber-300 shrink-0"
+                      aria-hidden="true"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    <span className="text-[10px] text-amber-200 leading-snug">
+                      Indicative pricing — KNYT/USD rate is from cache (live ETH feed unavailable).
+                      KNYT amount may shift slightly when the live rate refreshes.
+                    </span>
+                  </div>
+                )}
 
                 {isPreorder && (
                   <>

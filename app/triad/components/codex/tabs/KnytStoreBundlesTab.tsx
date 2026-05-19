@@ -546,7 +546,7 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
   // only on first paint before the ETH price fetches. Same source as the
   // BuyKnytModal so the store's "Pay with KNYT" amount stays in lockstep
   // with what the wallet actually debits.
-  const { knytPriceUsd } = useEthPrice();
+  const { knytPriceUsd, stale: knytRateStale } = useEthPrice();
   const liveKnytRate = knytPriceUsd > 0 ? knytPriceUsd : KNYT_USD_RATE;
   const { getBundleImage } = useBundleImages();
   const cart = useKnytCart();
@@ -736,6 +736,7 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
           priceUsdOverride={purchase.priceUsdOverride}
           baseKnytOverride={usdToKnyt(purchase.priceUsdOverride, liveKnytRate)}
           knytUsdRate={liveKnytRate}
+          knytUsdRateIsStale={knytRateStale}
         />
       )}
 
