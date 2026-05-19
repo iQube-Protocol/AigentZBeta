@@ -139,6 +139,52 @@ interface GmailDraftOutput {
   messageId: string | null;
 }
 
+function sanitiseRecipientList(value: string | undefined): { ok: true; value: string } | { ok: false; reason: string } {
+  if (value == null) return { ok: true, value: '' };
+  // Strip CR/LF first — these are the #1 cause of "Invalid To header"
+  // because LLM-drafted addresses often carry trailing newlines and
+  // Gmail treats embedded CRLF as an attempt to inject a new header.
+  const cleaned = String(value).replace(/[\r\n]+/g, ' ').trim();
+  if (cleaned.length === 0) return { ok: true, value: '' };
+  // Accept comma- or semicolon-separated lists. Each entry must contain
+  // an "@" and at least one dot in the domain. Allow "Name <addr@host>".
+  const entries = cleaned.split(/[,;]/).map((s) => s.trim()).filter(Boolean);
+  if (entries.length === 0) return { ok: false, reason: 'empty after sanitisation' };
+  for (const entry of entries) {
+    // Extract the bare address from "Name <addr@host>" if present.
+    const bare = entry.match(/<([^>]+)>/)?.[1]?.trim() ?? entry;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bare)) {
+      return { ok: false, reason: `invalid email address: ${entry}` };
+    }
+  }
+  return { ok: true, value: entries.join(', ') };
+}
+
+function buildGmailHeader(
+  fields: { to: string; cc?: string; bcc?: string; subject: string; bodyText: string },
+): { ok: true; raw: string } | { ok: false; reason: string } {
+  const to = sanitiseRecipientList(fields.to);
+  if (!to.ok) return { ok: false, reason: `To: ${to.reason}` };
+  if (!to.value) return { ok: false, reason: 'To: required (was empty after sanitisation)' };
+  const cc = sanitiseRecipientList(fields.cc);
+  if (!cc.ok) return { ok: false, reason: `Cc: ${cc.reason}` };
+  const bcc = sanitiseRecipientList(fields.bcc);
+  if (!bcc.ok) return { ok: false, reason: `Bcc: ${bcc.reason}` };
+  // Subject can't carry CRLF either.
+  const subject = String(fields.subject).replace(/[\r\n]+/g, ' ').trim();
+  if (!subject) return { ok: false, reason: 'subject required' };
+  const headerLines = [
+    `To: ${to.value}`,
+    cc.value ? `Cc: ${cc.value}` : null,
+    bcc.value ? `Bcc: ${bcc.value}` : null,
+    `Subject: ${subject}`,
+    'Content-Type: text/plain; charset="UTF-8"',
+    '',
+    fields.bodyText,
+  ].filter(Boolean).join('\r\n');
+  return { ok: true, raw: base64UrlEncode(headerLines) };
+}
+
 const gmailDraft: GoogleConnector<GmailDraftInput, GmailDraftOutput> = {
   id: 'google.gmail.draft',
   label: 'Gmail · Create draft',
@@ -165,16 +211,17 @@ const gmailDraft: GoogleConnector<GmailDraftInput, GmailDraftOutput> = {
     if (!input.to || !input.subject) {
       return { ok: false, code: 'invalid-input', reason: 'to + subject required' };
     }
-    const headerLines = [
-      `To: ${input.to}`,
-      input.cc ? `Cc: ${input.cc}` : null,
-      input.bcc ? `Bcc: ${input.bcc}` : null,
-      `Subject: ${input.subject}`,
-      'Content-Type: text/plain; charset="UTF-8"',
-      '',
-      input.bodyText,
-    ].filter(Boolean).join('\r\n');
-    const raw = base64UrlEncode(headerLines);
+    const built = buildGmailHeader({
+      to: input.to,
+      cc: input.cc,
+      bcc: input.bcc,
+      subject: input.subject,
+      bodyText: input.bodyText,
+    });
+    if (!built.ok) {
+      return { ok: false, code: 'invalid-input', reason: built.reason };
+    }
+    const raw = built.raw;
     try {
       const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/drafts', {
         method: 'POST',
@@ -267,16 +314,17 @@ const gmailSend: GoogleConnector<GmailSendInput, GmailSendOutput> = {
     if (!input.to || !input.subject) {
       return { ok: false, code: 'invalid-input', reason: 'to + subject required when fromDraftId absent' };
     }
-    const headerLines = [
-      `To: ${input.to}`,
-      input.cc ? `Cc: ${input.cc}` : null,
-      input.bcc ? `Bcc: ${input.bcc}` : null,
-      `Subject: ${input.subject}`,
-      'Content-Type: text/plain; charset="UTF-8"',
-      '',
-      input.bodyText,
-    ].filter(Boolean).join('\r\n');
-    const raw = base64UrlEncode(headerLines);
+    const builtSend = buildGmailHeader({
+      to: input.to,
+      cc: input.cc,
+      bcc: input.bcc,
+      subject: input.subject,
+      bodyText: input.bodyText ?? '',
+    });
+    if (!builtSend.ok) {
+      return { ok: false, code: 'invalid-input', reason: builtSend.reason };
+    }
+    const raw = builtSend.raw;
     try {
       const res = await fetch(
         'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
