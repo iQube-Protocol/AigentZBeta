@@ -1458,11 +1458,19 @@ export default function SmartWalletDrawer({
     // spine's getActivePersona — no query-param personaId. The `pid` guard
     // above prevents spinning up the fetch before the wallet has any
     // persona context, but the server is the source of truth.
-    fetch(`/api/wallet/tasks`, { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: WalletTasksPayload | null) => { if (!cancelled) setWalletTasksData(data); })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setWalletTasksLoading(false); });
+    (async () => {
+      try {
+        const { data: sessionData } = await getSupabaseBrowserClient().auth.getSession();
+        const token = sessionData.session?.access_token;
+        const r = await fetch(`/api/wallet/tasks`, {
+          credentials: 'include',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        const data: WalletTasksPayload | null = r.ok ? await r.json() : null;
+        if (!cancelled) setWalletTasksData(data);
+      } catch { /* non-fatal */ }
+      finally { if (!cancelled) setWalletTasksLoading(false); }
+    })();
     return () => { cancelled = true; };
   }, [personaId, localPersonaId]);
 
@@ -1491,8 +1499,11 @@ export default function SmartWalletDrawer({
   const openInviteShare = useCallback(async (source: 'bring-a-knight' | 'herald') => {
     setInviteShareLoading(source);
     try {
+      const { data: sessionData } = await getSupabaseBrowserClient().auth.getSession();
+      const token = sessionData.session?.access_token;
       const res = await fetch(`/api/wallet/tasks/share-link?source=${source}`, {
         credentials: 'include',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.url) return;
@@ -1580,7 +1591,12 @@ export default function SmartWalletDrawer({
       const pid = personaId || localPersonaId;
       if (pid) {
         try {
-          const r = await fetch('/api/wallet/tasks', { credentials: 'include' });
+          const { data: sessionData } = await getSupabaseBrowserClient().auth.getSession();
+          const token = sessionData.session?.access_token;
+          const r = await fetch('/api/wallet/tasks', {
+            credentials: 'include',
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
           if (r.ok) {
             const data = await r.json();
             setWalletTasksData(data);
@@ -4328,17 +4344,24 @@ export default function SmartWalletDrawer({
             url: inviteShare.url,
           }}
           onShare={(platform) => {
-            try {
-              fetch('/api/wallet/tasks/track-click', {
-                method: 'POST',
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  refCode: inviteShare.refCode,
-                  source: `${inviteShare.source}:${platform}`,
-                }),
-              }).catch(() => {});
-            } catch { /* non-fatal */ }
+            (async () => {
+              try {
+                const { data: sessionData } = await getSupabaseBrowserClient().auth.getSession();
+                const token = sessionData.session?.access_token;
+                await fetch('/api/wallet/tasks/track-click', {
+                  method: 'POST',
+                  credentials: 'include',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                  },
+                  body: JSON.stringify({
+                    refCode: inviteShare.refCode,
+                    source: `${inviteShare.source}:${platform}`,
+                  }),
+                });
+              } catch { /* non-fatal */ }
+            })();
           }}
         />
       )}

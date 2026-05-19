@@ -41,6 +41,7 @@ import {
 } from "@/services/wallet/personaService";
 import { usePersonaSafe } from "@/app/contexts/PersonaContext";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
+import { getSupabaseBrowserClient } from "@/utils/supabaseBrowser";
 import type { KnytCardAsset, EpisodeGroup } from "@/app/hooks/useKnytCards";
 import type { PersonaQube } from "@/types/persona";
 import { EPISODE_PRICING, KNYT_COYN_DISCOUNT, usdToKnyt } from "@/types/knyt-store";
@@ -2873,9 +2874,16 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   // in place. Refreshes on persona change + after a successful redemption.
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/wallet/tasks', { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((payload) => {
+    (async () => {
+      try {
+        const { data: sessionData } = await getSupabaseBrowserClient().auth.getSession();
+        const token = sessionData.session?.access_token;
+        const r = await fetch('/api/wallet/tasks', {
+          credentials: 'include',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!r.ok) return;
+        const payload = await r.json();
         if (cancelled || !payload) return;
         setTaskData({
           activeTask: payload.questRail?.activeTask ?? null,
@@ -2888,8 +2896,8 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
           summary: payload.summary ?? undefined,
           reputation: payload.reputation ?? null,
         });
-      })
-      .catch(() => { /* non-fatal — leaves the static defaults in place */ });
+      } catch { /* non-fatal — leaves the static defaults in place */ }
+    })();
     return () => { cancelled = true; };
   }, [effectivePersonaId]);
 
@@ -2917,7 +2925,12 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       // immediately. Tasks payload re-fetch is below.
       refreshBalance?.();
       try {
-        const r = await fetch('/api/wallet/tasks', { credentials: 'include' });
+        const { data: sessionData } = await getSupabaseBrowserClient().auth.getSession();
+        const token = sessionData.session?.access_token;
+        const r = await fetch('/api/wallet/tasks', {
+          credentials: 'include',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         if (r.ok) {
           const payload = await r.json();
           setTaskData({
