@@ -50,6 +50,13 @@ export interface TabGroup {
   label: string;       // Display name shown in the primary tab bar
   icon?: string;       // Optional icon key from iconMap
   adminOnly?: boolean; // Hide the whole group from non-admins
+  /**
+   * When set, the whole group is visible only when the persona has an
+   * `active` row in persona_activations for this activation id. Used by
+   * the Activations system to switch entire surfaces (Venture Lab,
+   * Marketa, AgentiQ OS, …) on/off from the Activations tab.
+   */
+  activationId?: string;
   order: number;       // Position in the primary tab bar (interleaved with standalone tabs)
 }
 
@@ -61,6 +68,14 @@ export interface CodexTab {
   adminOnly?: boolean;     // When true, tab is invisible to non-admin users
   partnerOnly?: boolean;   // When true, tab is only visible to partner users (admins also see it)
   investorOnly?: boolean;  // When true, tab is only visible to verified investors (admins also see it)
+  /**
+   * When set, tab is visible only when the persona has an `active` row in
+   * `persona_activations` for this activation id (catalog id from
+   * data/activation-catalog.ts). Admins are not implicitly bypassed — they
+   * activate/deactivate just like users. The Admin tab itself stays
+   * controlled by `adminOnly: true`, not an activation.
+   */
+  activationId?: string;
   order: number;
   type: CodexTabType;
   config: CodexTabConfig;

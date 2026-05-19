@@ -1,0 +1,81 @@
+/**
+ * POST /api/assistant/activations/[id]?action=activate|request|revoke
+ *
+ * Single route that handles all three persona-driven mutations. Keeps
+ * surface area small while letting the UI hit one URL.
+ *
+ * - `activate` — only for `open` activations OR admins on `gated` rows.
+ * - `request`  — for `gated` activations; creates a `pending` row.
+ * - `revoke`   — any persona can deactivate their own surface.
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getActivePersona } from '@/services/identity/getActivePersona';
+import {
+  activate,
+  requestAccess,
+  revoke,
+} from '@/services/activations/personaActivations';
+
+export const dynamic = 'force-dynamic';
+
+export async function POST(
+  request: NextRequest,
+  ctx: { params: { id: string } },
+): Promise<NextResponse> {
+  const context = await getActivePersona(request);
+  if (!context) {
+    return NextResponse.json(
+      { error: 'unauthenticated' },
+      { status: 401, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
+  const activationId = ctx.params.id;
+  const url = new URL(request.url);
+  const action = url.searchParams.get('action') ?? 'activate';
+  const isAdmin = !!context.cartridgeFlags?.isAdmin;
+
+  try {
+    if (action === 'activate') {
+      const result = await activate(context.personaId, activationId, { isAdmin });
+      if (!result.ok) {
+        return NextResponse.json(
+          { error: 'activate-failed', detail: result.reason },
+          { status: 400, headers: { 'Cache-Control': 'no-store' } },
+        );
+      }
+      return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+    if (action === 'request') {
+      const result = await requestAccess(context.personaId, activationId);
+      if (!result.ok) {
+        return NextResponse.json(
+          { error: 'request-failed', detail: result.reason },
+          { status: 400, headers: { 'Cache-Control': 'no-store' } },
+        );
+      }
+      return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+    if (action === 'revoke') {
+      const result = await revoke(context.personaId, activationId);
+      if (!result.ok) {
+        return NextResponse.json(
+          { error: 'revoke-failed', detail: result.reason },
+          { status: 400, headers: { 'Cache-Control': 'no-store' } },
+        );
+      }
+      return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+    return NextResponse.json(
+      { error: 'invalid-action', detail: `action must be activate|request|revoke (got '${action}')` },
+      { status: 400, headers: { 'Cache-Control': 'no-store' } },
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[assistant/activations/[id]] failed:', msg);
+    return NextResponse.json(
+      { error: 'activation-mutation-failed', detail: msg },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
+}
