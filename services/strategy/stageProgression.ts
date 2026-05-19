@@ -47,6 +47,8 @@ export interface StageEvaluation {
   criteria: StageCriterion[];
   /** All criteria met → can advance now. */
   eligible: boolean;
+  /** When true, the user opted in to auto-advance on eligibility. */
+  autoProgress: boolean;
   /** Counts surfaced for context in the UI. */
   progress: {
     receiptsTotal: number;
@@ -229,8 +231,39 @@ function criteriaForTransition(
 // Public API.
 // ─────────────────────────────────────────────────────────────────────────
 
+async function readAutoProgress(personaId: string): Promise<boolean> {
+  const admin = getSupabaseServer();
+  if (!admin) return false;
+  try {
+    const { data } = await admin
+      .from('experience_qubes')
+      .select('auto_progress')
+      .eq('persona_id', personaId)
+      .maybeSingle();
+    const row = data as { auto_progress?: boolean } | null;
+    return !!row?.auto_progress;
+  } catch {
+    return false;
+  }
+}
+
+export async function setAutoProgress(personaId: string, value: boolean): Promise<boolean> {
+  const admin = getSupabaseServer();
+  if (!admin) return false;
+  try {
+    await admin
+      .from('experience_qubes')
+      .update({ auto_progress: !!value })
+      .eq('persona_id', personaId);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function evaluateStageProgression(
   personaId: string,
+  options?: { runAutoAdvance?: boolean },
 ): Promise<StageEvaluation | null> {
   const qube = await getExperienceQube(personaId);
   if (!qube) return null;
@@ -241,12 +274,34 @@ export async function evaluateStageProgression(
   const progress = summariseReceipts(rows);
   const criteria = criteriaForTransition(currentStage, goalsCount, cartridgesCount, progress);
   const eligible = criteria.length > 0 && criteria.every((c) => c.met);
-  const recommendedStage = eligible ? nextStage(currentStage) ?? currentStage : currentStage;
+  const autoProgress = await readAutoProgress(personaId);
+  let recommendedStage = eligible ? nextStage(currentStage) ?? currentStage : currentStage;
+
+  // Auto-advance opt-in: when set, satisfying the criteria moves the
+  // persona forward without a manual click. The post-advance read returns
+  // the NEW current stage so the UI reflects the change immediately.
+  if (eligible && autoProgress && options?.runAutoAdvance !== false) {
+    const result = await advanceStage(personaId, { skipReEvaluate: true, evaluation: {
+      currentStage,
+      recommendedStage,
+      criteria,
+      eligible,
+      autoProgress,
+      progress,
+      evaluatedAt: new Date().toISOString(),
+    } });
+    if (result.advanced) {
+      // Re-evaluate from the new stage to surface what's next.
+      return evaluateStageProgression(personaId, { runAutoAdvance: false });
+    }
+  }
+
   return {
     currentStage,
     recommendedStage,
     criteria,
     eligible,
+    autoProgress,
     progress,
     evaluatedAt: new Date().toISOString(),
   };
@@ -262,8 +317,11 @@ export async function evaluateStageProgression(
  */
 export async function advanceStage(
   personaId: string,
+  options?: { skipReEvaluate?: boolean; evaluation?: StageEvaluation },
 ): Promise<{ advanced: boolean; from: ExperienceStage; to: ExperienceStage; reason?: string }> {
-  const evalNow = await evaluateStageProgression(personaId);
+  const evalNow = options?.skipReEvaluate && options.evaluation
+    ? options.evaluation
+    : await evaluateStageProgression(personaId, { runAutoAdvance: false });
   if (!evalNow) {
     return { advanced: false, from: 'setup', to: 'setup', reason: 'no-experience-qube' };
   }

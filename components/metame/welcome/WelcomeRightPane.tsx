@@ -41,6 +41,7 @@ import { NextBestActionCard, type NextBestActionData } from "@/components/metame
 import { ApprovalCard, type ApprovalCardAction, type ApprovalQueuedState } from "@/components/metame/cards/ApprovalCard";
 import { ArtifactCard, type ArtifactCardData } from "@/components/metame/cards/ArtifactCard";
 import type { IqubeKind } from "@/components/metame/cards/IqubeContextDisclosure";
+import type { StageEvaluation } from "@/services/strategy/stageProgression";
 import { SecondTierApprovalCard } from "@/components/metame/cards/SecondTierApprovalCard";
 import { SpecialistResponseCard, type SpecialistResponseData } from "@/components/metame/cards/SpecialistResponseCard";
 import { ActivityReceiptCard, type ActivityReceiptData } from "@/components/metame/cards/ActivityReceiptCard";
@@ -114,6 +115,8 @@ interface Props {
   /** Below-fold sections. */
   expModel: ExperienceModelCardData | null;
   expModelLoading: boolean;
+  /** Stage progression — drives the compact chip in the identity row. */
+  stageEval?: StageEvaluation | null;
   receipts: ActivityReceiptData[];
   receiptsLoading: boolean;
   receiptsPersonaLabel: string | null;
@@ -170,6 +173,43 @@ const GUIDE_CHIP_BG: Record<AlignmentState, string> = {
   at_risk:  'bg-orange-500/10 border-orange-500/30 text-orange-300',
   repair:   'bg-rose-500/10 border-rose-500/30 text-rose-300',
 };
+
+const STAGE_SHORT: Record<string, string> = {
+  setup: 'Setup',
+  alpha_activation: 'Alpha',
+  launch: 'Launch',
+  growth: 'Growth',
+  scale: 'Scale',
+};
+
+function StageProgressionChip({ evaluation }: { evaluation: StageEvaluation | null }) {
+  if (!evaluation) return null;
+  const stageLabel = STAGE_SHORT[evaluation.currentStage] ?? evaluation.currentStage;
+  if (evaluation.eligible && evaluation.recommendedStage !== evaluation.currentStage) {
+    const nextLabel = STAGE_SHORT[evaluation.recommendedStage] ?? evaluation.recommendedStage;
+    return (
+      <span
+        title={`Eligible to advance: ${evaluation.currentStage} → ${evaluation.recommendedStage}. Open the Strategy tab to confirm.`}
+        className="text-xs px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 bg-emerald-500/10 border-emerald-500/40 text-emerald-200"
+      >
+        Stage: {stageLabel} → {nextLabel}
+      </span>
+    );
+  }
+  const totalCriteria = evaluation.criteria.length || 0;
+  const metCount = evaluation.criteria.filter((c) => c.met).length;
+  return (
+    <span
+      title={`Current stage: ${evaluation.currentStage}. ${
+        totalCriteria > 0 ? `${metCount}/${totalCriteria} criteria met for next stage.` : 'No further stages.'
+      }`}
+      className="text-xs px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 bg-slate-500/10 border-slate-500/30 text-slate-200"
+    >
+      Stage: {stageLabel}
+      {totalCriteria > 0 ? ` · ${metCount}/${totalCriteria}` : ''}
+    </span>
+  );
+}
 
 function PersonalGuideChip({ personaId }: { personaId?: string }) {
   const [guide, setGuide] = useState<PersonalGuideData | null>(null);
@@ -271,7 +311,7 @@ export function WelcomeRightPane(props: Props) {
     pendingApproval, submittingApproval, approvalError,
     artifacts, actionPendingArtifactId, actionErrors, secondTierApproval,
     specialistResponses, specialistLoading, specialistErrors, queuedIntents,
-    expModel, expModelLoading,
+    expModel, expModelLoading, stageEval,
     receipts, receiptsLoading, receiptsPersonaLabel,
     expandedSectionId, setExpandedSectionId,
     usingIqubes,
@@ -333,6 +373,7 @@ export function WelcomeRightPane(props: Props) {
         )}
         <PersonalGuideChip personaId={personaId} />
         <PersonaQubeBadge using={usingIqubes} theme={theme} />
+        <StageProgressionChip evaluation={stageEval ?? null} />
       </div>
 
       {/* ── Primary CTA pills ────────────────────────────────────── */}
