@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`621ec0c`](https://github.com/iQube-Protocol/AigentZBeta/commit/621ec0cc4e332123ea5f71b957661cd52fd20325) [push] knyt pricing: align store UI + server debit with live KNYT→USD rate (Claude, 2026-05-19T03:58:27Z)
 - [`7228c5c`](https://github.com/iQube-Protocol/AigentZBeta/commit/7228c5c2be8364260fec7f9922427a818ac96100) [push] knyt characters: per-asset digiterra label — use terra when digiterra doesn't appear in title (fixes Deji Ifada/Kn0w1 first-card label) (Claude, 2026-05-19T03:11:40Z)
 - [`d5ca6b9`](https://github.com/iQube-Protocol/AigentZBeta/commit/d5ca6b9bfead1c6656a83ee1f589786faadee208) [push] knyt characters: align 0-indexed convention end-to-end + score-based character matching (Claude, 2026-05-19T01:30:21Z)
 - [`c753039`](https://github.com/iQube-Protocol/AigentZBeta/commit/c753039de38ce5113b3a76764de26de1c5bdd780) [push] knyt: gate GN + Ep #0 like every other episode; document PDF render pipeline (Claude, 2026-05-18T23:35:09Z)

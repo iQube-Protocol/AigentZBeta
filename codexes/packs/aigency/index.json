@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-19T03:13:42.950Z",
+  "last_updated": "2026-05-19T04:00:18.784Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "7228c5c2be8364260fec7f9922427a818ac96100",
-  "latest_commit_short": "7228c5c",
-  "latest_commit_title": "knyt characters: per-asset digiterra label — use terra when digiterra doesn't appear in title (fixes Deji Ifada/Kn0w1 first-card label)",
+  "latest_commit": "621ec0cc4e332123ea5f71b957661cd52fd20325",
+  "latest_commit_short": "621ec0c",
+  "latest_commit_title": "knyt pricing: align store UI + server debit with live KNYT→USD rate",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "621ec0c",
+      "full_sha": "621ec0cc4e332123ea5f71b957661cd52fd20325",
+      "title": "knyt pricing: align store UI + server debit with live KNYT→USD rate",
+      "author": "Claude",
+      "timestamp": "2026-05-19T03:58:27Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-621ec0c.md"
+    },
     {
       "sha": "7228c5c",
       "full_sha": "7228c5c2be8364260fec7f9922427a818ac96100",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-25T20:18:56Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-1cfa403.md"
-    },
-    {
-      "sha": "9696f86",
-      "full_sha": "9696f86c4495aac4b60fa8e99fadab0a450c5a27",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-25T19:53:14Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-9696f86.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

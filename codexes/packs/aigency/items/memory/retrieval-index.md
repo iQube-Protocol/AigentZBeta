@@ -809,3 +809,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-7228c5c.md](../build_/COMMITS/COMMIT-7228c5c.md)
 - Message: knyt characters: per-asset digiterra label — use terra when digiterra doesn't appear in title (fixes Deji Ifada/Kn0w1 first-card label)
+
+## Commit `621ec0c` — 2026-05-19T03:58:27Z
+- Type: `push`
+- Brief: [COMMIT-621ec0c.md](../build_/COMMITS/COMMIT-621ec0c.md)
+- Message: knyt pricing: align store UI + server debit with live KNYT→USD rate
