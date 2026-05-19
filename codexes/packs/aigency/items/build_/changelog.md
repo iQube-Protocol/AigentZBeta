@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`21de6d9`](https://github.com/iQube-Protocol/AigentZBeta/commit/21de6d9abd7ff5f4233678b563826d9627f37998) [push] knyt store: drop $600 ZeroKNYT memberPrice (was leaking to all visitors); investor stays $800, retail stays $1000 — cohort-gated ZeroKNYT offer to ship separately (Claude, 2026-05-19T05:41:20Z)
 - [`3e039bb`](https://github.com/iQube-Protocol/AigentZBeta/commit/3e039bb94a2780120b670cbcb1c6240ce0e72d53) [push] knyt pricing: last-derived fallback + indicative-pricing badge (Claude, 2026-05-19T04:16:20Z)
 - [`621ec0c`](https://github.com/iQube-Protocol/AigentZBeta/commit/621ec0cc4e332123ea5f71b957661cd52fd20325) [push] knyt pricing: align store UI + server debit with live KNYT→USD rate (Claude, 2026-05-19T03:58:27Z)
 - [`7228c5c`](https://github.com/iQube-Protocol/AigentZBeta/commit/7228c5c2be8364260fec7f9922427a818ac96100) [push] knyt characters: per-asset digiterra label — use terra when digiterra doesn't appear in title (fixes Deji Ifada/Kn0w1 first-card label) (Claude, 2026-05-19T03:11:40Z)

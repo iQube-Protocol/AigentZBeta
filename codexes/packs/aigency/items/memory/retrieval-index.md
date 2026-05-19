@@ -819,3 +819,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-3e039bb.md](../build_/COMMITS/COMMIT-3e039bb.md)
 - Message: knyt pricing: last-derived fallback + indicative-pricing badge
+
+## Commit `21de6d9` — 2026-05-19T05:41:20Z
+- Type: `push`
+- Brief: [COMMIT-21de6d9.md](../build_/COMMITS/COMMIT-21de6d9.md)
+- Message: knyt store: drop $600 ZeroKNYT memberPrice (was leaking to all visitors); investor stays $800, retail stays $1000 — cohort-gated ZeroKNYT offer to ship separately

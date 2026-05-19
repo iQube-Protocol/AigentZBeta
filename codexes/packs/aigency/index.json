@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-19T04:18:26.982Z",
+  "last_updated": "2026-05-19T05:43:08.755Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "3e039bb94a2780120b670cbcb1c6240ce0e72d53",
-  "latest_commit_short": "3e039bb",
-  "latest_commit_title": "knyt pricing: last-derived fallback + indicative-pricing badge",
+  "latest_commit": "21de6d9abd7ff5f4233678b563826d9627f37998",
+  "latest_commit_short": "21de6d9",
+  "latest_commit_title": "knyt store: drop $600 ZeroKNYT memberPrice (was leaking to all visitors); investor stays $800, retail stays $1000 — cohort-gated ZeroKNYT offer to ship separately",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "21de6d9",
+      "full_sha": "21de6d9abd7ff5f4233678b563826d9627f37998",
+      "title": "knyt store: drop $600 ZeroKNYT memberPrice (was leaking to all visitors); investor stays $800, retail stays $1000 — cohort-gated ZeroKNYT offer to ship separately",
+      "author": "Claude",
+      "timestamp": "2026-05-19T05:41:20Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-21de6d9.md"
+    },
     {
       "sha": "3e039bb",
       "full_sha": "3e039bb94a2780120b670cbcb1c6240ce0e72d53",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-25T20:37:37Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-eb87e0e.md"
-    },
-    {
-      "sha": "72c80ae",
-      "full_sha": "72c80aea1004ce368336b24b74491495153d2706",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-25T20:18:56Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-72c80ae.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
