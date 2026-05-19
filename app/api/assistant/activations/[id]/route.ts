@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(
   request: NextRequest,
-  ctx: { params: { id: string } },
+  ctx: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
   const context = await getActivePersona(request);
   if (!context) {
@@ -30,7 +30,7 @@ export async function POST(
       { status: 401, headers: { 'Cache-Control': 'no-store' } },
     );
   }
-  const activationId = ctx.params.id;
+  const { id: activationId } = await ctx.params;
   const url = new URL(request.url);
   const action = url.searchParams.get('action') ?? 'activate';
   const isAdmin = !!context.cartridgeFlags?.isAdmin;

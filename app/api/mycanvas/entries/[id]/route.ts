@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 
 export async function PATCH(
   request: NextRequest,
-  ctx: { params: { id: string } },
+  ctx: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
   const context = await getActivePersona(request);
   if (!context) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
@@ -21,7 +21,8 @@ export async function PATCH(
   } catch {
     return NextResponse.json({ error: 'invalid-json' }, { status: 400 });
   }
-  const entry = await updateEntry(context.personaId, ctx.params.id, {
+  const { id } = await ctx.params;
+  const entry = await updateEntry(context.personaId, id, {
     title: typeof body.title === 'string' ? body.title : undefined,
     bodyMd: typeof body.bodyMd === 'string' ? body.bodyMd : undefined,
     tags: Array.isArray(body.tags)
@@ -36,11 +37,12 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  ctx: { params: { id: string } },
+  ctx: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
   const context = await getActivePersona(request);
   if (!context) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
-  const ok = await deleteEntry(context.personaId, ctx.params.id);
+  const { id } = await ctx.params;
+  const ok = await deleteEntry(context.personaId, id);
   if (!ok) return NextResponse.json({ error: 'not-found-or-forbidden' }, { status: 404 });
   return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
 }
