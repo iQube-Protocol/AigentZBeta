@@ -24,7 +24,7 @@ import {
   type SphereAxis,
 } from "@/types/experienceGuide";
 import type { InferredStrategy } from "@/services/strategy/strategyInference";
-import type { StageEvaluation } from "@/services/strategy/stageProgression";
+import type { StageEvaluation, StageTransitionRecord } from "@/services/strategy/stageProgression";
 
 interface ExpModelShape {
   configured: boolean;
@@ -64,6 +64,7 @@ export function MetaMeStrategyTab({ personaId }: { personaId?: string }) {
   const [strategy, setStrategy] = useState<InferredStrategy | null>(null);
   const [strategyLoading, setStrategyLoading] = useState(false);
   const [stageEval, setStageEval] = useState<StageEvaluation | null>(null);
+  const [stageHistory, setStageHistory] = useState<StageTransitionRecord[]>([]);
   const [advancing, setAdvancing] = useState(false);
   const [loading, setLoading] = useState(!!personaId);
   const [modelWizardOpen, setModelWizardOpen] = useState(false);
@@ -79,13 +80,15 @@ export function MetaMeStrategyTab({ personaId }: { personaId?: string }) {
       personaFetch("/api/assistant/experience-guide", { personaIdHint: personaId }).then((r) => r.json() as Promise<GuideShape>),
       personaFetch("/api/assistant/inferred-strategy", { personaIdHint: personaId }).then((r) => r.json() as Promise<{ strategy: InferredStrategy | null }>).catch(() => ({ strategy: null })),
       personaFetch("/api/assistant/stage-progression", { personaIdHint: personaId }).then((r) => r.json() as Promise<{ evaluation: StageEvaluation | null }>).catch(() => ({ evaluation: null })),
+      personaFetch("/api/assistant/stage-transitions", { personaIdHint: personaId }).then((r) => r.json() as Promise<{ transitions: StageTransitionRecord[] }>).catch(() => ({ transitions: [] })),
     ])
-      .then(([m, g, s, sp]) => {
+      .then(([m, g, s, sp, st]) => {
         if (cancelled) return;
         setModel(m);
         setGuide(g.guide ?? null);
         setStrategy(s.strategy ?? null);
         setStageEval(sp.evaluation ?? null);
+        setStageHistory(st.transitions ?? []);
       })
       .catch(() => { /* shape stays null, UI handles it */ })
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -124,10 +127,15 @@ export function MetaMeStrategyTab({ personaId }: { personaId?: string }) {
       });
       const data = (await r.json()) as { advanced: boolean; from: string; to: string };
       if (data.advanced) {
-        // Refresh model + strategy + eval — the stage moved.
+        // Refresh model + strategy + eval + history — the stage moved.
         const m = await personaFetch("/api/assistant/experience-model", { personaIdHint: personaId }).then((rr) => rr.json() as Promise<ExpModelShape>);
         setModel(m);
         await refreshStageEval();
+        try {
+          const h = await personaFetch("/api/assistant/stage-transitions", { personaIdHint: personaId });
+          const hd = (await h.json()) as { transitions: StageTransitionRecord[] };
+          setStageHistory(hd.transitions ?? []);
+        } catch { /* keep previous */ }
       }
     } catch { /* surfaced via stale state */ } finally {
       setAdvancing(false);
@@ -322,6 +330,32 @@ export function MetaMeStrategyTab({ personaId }: { personaId?: string }) {
             />
             Auto-advance when criteria are met
           </label>
+        </section>
+      )}
+
+      {/* Stage history timeline */}
+      {stageHistory.length > 0 && (
+        <section className="rounded-lg border border-slate-700 bg-slate-800/40 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <ChevronRight className="w-4 h-4 text-slate-400" />
+            <h3 className="text-sm font-semibold">Stage history</h3>
+          </div>
+          <ol className="space-y-1.5 text-xs">
+            {stageHistory.map((t) => (
+              <li key={t.id} className="flex items-center gap-2 text-slate-300">
+                <span className="text-slate-500 tabular-nums shrink-0">
+                  {new Date(t.createdAt).toLocaleDateString()}
+                </span>
+                <span className="text-slate-100">{STAGE_LABEL[t.fromStage] ?? t.fromStage}</span>
+                <ChevronRight className="w-3 h-3 text-slate-500 shrink-0" />
+                <span className="text-emerald-300">{STAGE_LABEL[t.toStage] ?? t.toStage}</span>
+                <span className="ml-2 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-800/60 text-slate-400 shrink-0">
+                  {t.trigger}
+                </span>
+                {t.reason && <span className="text-slate-500 truncate">— {t.reason}</span>}
+              </li>
+            ))}
+          </ol>
         </section>
       )}
 

@@ -42,6 +42,7 @@ import { ApprovalCard, type ApprovalCardAction, type ApprovalQueuedState } from 
 import { ArtifactCard, type ArtifactCardData } from "@/components/metame/cards/ArtifactCard";
 import type { IqubeKind } from "@/components/metame/cards/IqubeContextDisclosure";
 import type { StageEvaluation } from "@/services/strategy/stageProgression";
+import { StageProgressionChip } from "@/components/metame/welcome/StageProgressionChip";
 import { SecondTierApprovalCard } from "@/components/metame/cards/SecondTierApprovalCard";
 import { SpecialistResponseCard, type SpecialistResponseData } from "@/components/metame/cards/SpecialistResponseCard";
 import { ActivityReceiptCard, type ActivityReceiptData } from "@/components/metame/cards/ActivityReceiptCard";
@@ -90,7 +91,12 @@ interface Props {
   ventureProgress: VentureProgressData | null;
   ventureProgressLoading: boolean;
   ventureProgressError: string | null;
-  moveForwardResult: { cartridge: string; topAction: NextBestActionData | null; alternates: NextBestActionData[] } | null;
+  moveForwardResult: {
+    cartridge: string;
+    topAction: NextBestActionData | null;
+    alternates: NextBestActionData[];
+    topActionReason?: string | null;
+  } | null;
   moveForwardLoading: boolean;
   pendingApproval: NextBestActionData | null;
   submittingApproval: boolean;
@@ -173,43 +179,6 @@ const GUIDE_CHIP_BG: Record<AlignmentState, string> = {
   at_risk:  'bg-orange-500/10 border-orange-500/30 text-orange-300',
   repair:   'bg-rose-500/10 border-rose-500/30 text-rose-300',
 };
-
-const STAGE_SHORT: Record<string, string> = {
-  setup: 'Setup',
-  alpha_activation: 'Alpha',
-  launch: 'Launch',
-  growth: 'Growth',
-  scale: 'Scale',
-};
-
-function StageProgressionChip({ evaluation }: { evaluation: StageEvaluation | null }) {
-  if (!evaluation) return null;
-  const stageLabel = STAGE_SHORT[evaluation.currentStage] ?? evaluation.currentStage;
-  if (evaluation.eligible && evaluation.recommendedStage !== evaluation.currentStage) {
-    const nextLabel = STAGE_SHORT[evaluation.recommendedStage] ?? evaluation.recommendedStage;
-    return (
-      <span
-        title={`Eligible to advance: ${evaluation.currentStage} → ${evaluation.recommendedStage}. Open the Strategy tab to confirm.`}
-        className="text-xs px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 bg-emerald-500/10 border-emerald-500/40 text-emerald-200"
-      >
-        Stage: {stageLabel} → {nextLabel}
-      </span>
-    );
-  }
-  const totalCriteria = evaluation.criteria.length || 0;
-  const metCount = evaluation.criteria.filter((c) => c.met).length;
-  return (
-    <span
-      title={`Current stage: ${evaluation.currentStage}. ${
-        totalCriteria > 0 ? `${metCount}/${totalCriteria} criteria met for next stage.` : 'No further stages.'
-      }`}
-      className="text-xs px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 bg-slate-500/10 border-slate-500/30 text-slate-200"
-    >
-      Stage: {stageLabel}
-      {totalCriteria > 0 ? ` · ${metCount}/${totalCriteria}` : ''}
-    </span>
-  );
-}
 
 function PersonalGuideChip({ personaId }: { personaId?: string }) {
   const [guide, setGuide] = useState<PersonalGuideData | null>(null);
@@ -471,6 +440,12 @@ export function WelcomeRightPane(props: Props) {
 
       {topAction && !queuedIntents[topAction.id] && (
         <div ref={nbeRef}>
+          {moveForwardResult?.topActionReason && (
+            <div className="mb-1.5 px-3 py-1.5 rounded-md border border-violet-500/30 bg-violet-500/5 text-[11px] text-violet-200 flex items-start gap-1.5">
+              <Sparkles className="w-3 h-3 mt-0.5 shrink-0" />
+              <span><span className="text-slate-400">Why this:</span> {moveForwardResult.topActionReason}</span>
+            </div>
+          )}
           <NextBestActionCard
             action={topAction}
             onAct={onNbeAct}

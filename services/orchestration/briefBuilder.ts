@@ -100,6 +100,12 @@ export interface BriefShape {
   topPriorities: BriefPriority[];
   /** 3-5 next-best actions, deterministically ranked. */
   nextBestActions: BriefNextBestAction[];
+  /**
+   * Optional ≤140-char rationale for why nextBestActions[0] is the top
+   * pick — produced by the Phase 3.b LLM rerank pass. Null when no LLM
+   * call ran or the call failed.
+   */
+  topNbeReason?: string | null;
   /** Counts of pending approvals. Surfaced in the brief header. */
   pendingApprovalsCount: number;
   /** iQube usage disclosure for the calling surface to render. */
@@ -201,13 +207,15 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
         stageAdvanceEligible,
       });
 
-  nbeCandidates = await llmRerankNbeCandidates(nbeCandidates, {
+  const rerank = await llmRerankNbeCandidates(nbeCandidates, {
     currentStage,
     activeCartridges,
     primaryGoal,
     experienceGoals,
     strategy,
   });
+  nbeCandidates = rerank.ranked;
+  const topNbeReason = rerank.topReason;
 
   const nextBestActions: BriefNextBestAction[] = nbeCandidates.map((c) => ({
     id: c.id,
@@ -254,6 +262,7 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
     },
     topPriorities,
     nextBestActions,
+    topNbeReason,
     pendingApprovalsCount: 0, // Phase 6 wires this.
     using,
     notShared: [
@@ -274,6 +283,8 @@ export interface MoveForwardShape {
   context: BriefContext;
   topAction: BriefNextBestAction | null;
   alternates: BriefNextBestAction[];
+  /** ≤140-char rationale for the top pick from the LLM rerank pass. */
+  topActionReason?: string | null;
   using: BriefShape['using'];
   notShared: string[];
 }
@@ -311,6 +322,7 @@ export async function buildMoveForward(input: {
   // honour the cartridge scope the caller requested.
   let topCandidate: NbeCandidate | null;
   let altsRaw: NbeCandidate[];
+  let topActionReason: string | null = null;
 
   if (input.cartridge) {
     topCandidate = selectTopNbeForCartridge(input.cartridge, currentStage, {
@@ -328,7 +340,7 @@ export async function buildMoveForward(input: {
       stageAdvanceEligible,
     }).filter((c) => c.id !== topCandidate?.id);
   } else {
-    let ranked = selectNbeCandidates({
+    const baseline = selectNbeCandidates({
       activeCartridges,
       currentStage,
       limit: 5,
@@ -336,15 +348,16 @@ export async function buildMoveForward(input: {
       experienceGoals,
       stageAdvanceEligible,
     });
-    ranked = await llmRerankNbeCandidates(ranked, {
+    const rerank = await llmRerankNbeCandidates(baseline, {
       currentStage,
       activeCartridges,
       primaryGoal,
       experienceGoals,
       strategy,
     });
-    topCandidate = ranked[0] ?? null;
-    altsRaw = ranked.slice(1);
+    topCandidate = rerank.ranked[0] ?? null;
+    altsRaw = rerank.ranked.slice(1);
+    topActionReason = rerank.topReason;
   }
 
   const resolvedCartridge: ActiveCartridgeSlug =
@@ -387,6 +400,7 @@ export async function buildMoveForward(input: {
     },
     topAction: topCandidate ? toAction(topCandidate) : null,
     alternates: altsRaw.slice(0, 2).map(toAction),
+    topActionReason,
     using: experienceConfigured
       ? ['PersonaQube', 'ExperienceQube', 'IntentQube']
       : ['PersonaQube', 'IntentQube'],

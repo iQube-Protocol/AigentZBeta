@@ -165,6 +165,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     cartridge: string;
     topAction: NextBestActionData | null;
     alternates: NextBestActionData[];
+    topActionReason?: string | null;
   } | null>(null);
   const [moveForwardLoading, setMoveForwardLoading] = useState(false);
 
@@ -362,7 +363,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.detail || body?.error || `move-forward failed (${res.status})`);
       }
-      setMoveForwardResult((await res.json()) as { cartridge: string; topAction: NextBestActionData | null; alternates: NextBestActionData[] });
+      setMoveForwardResult((await res.json()) as { cartridge: string; topAction: NextBestActionData | null; alternates: NextBestActionData[]; topActionReason?: string | null });
     } catch {
       setMoveForwardResult({ cartridge: cartridge ?? 'metame', topAction: null, alternates: [] });
     } finally {
@@ -437,6 +438,8 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
           await personaFetch('/api/assistant/stage-progression', {
             personaIdHint: personaId,
             method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ trigger: 'nbe' }),
           });
           void fetchReceipts();
         } catch { /* surfaced through stale state */ }
