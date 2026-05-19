@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-19T01:32:10.687Z",
+  "last_updated": "2026-05-19T03:13:42.950Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d5ca6b9bfead1c6656a83ee1f589786faadee208",
-  "latest_commit_short": "d5ca6b9",
-  "latest_commit_title": "knyt characters: align 0-indexed convention end-to-end + score-based character matching",
+  "latest_commit": "7228c5c2be8364260fec7f9922427a818ac96100",
+  "latest_commit_short": "7228c5c",
+  "latest_commit_title": "knyt characters: per-asset digiterra label — use terra when digiterra doesn't appear in title (fixes Deji Ifada/Kn0w1 first-card label)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "7228c5c",
+      "full_sha": "7228c5c2be8364260fec7f9922427a818ac96100",
+      "title": "knyt characters: per-asset digiterra label — use terra when digiterra doesn't appear in title (fixes Deji Ifada/Kn0w1 first-card label)",
+      "author": "Claude",
+      "timestamp": "2026-05-19T03:11:40Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7228c5c.md"
+    },
     {
       "sha": "d5ca6b9",
       "full_sha": "d5ca6b9bfead1c6656a83ee1f589786faadee208",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-25T19:53:14Z",
       "type": "deploy",
       "brief": "items/build_/COMMITS/COMMIT-9696f86.md"
-    },
-    {
-      "sha": "5c756ed",
-      "full_sha": "5c756ed348ae85d7bd816dc566608d5da4dd1e20",
-      "title": "fix 413 on experience list by excluding blak_qube from select",
-      "author": "Claude",
-      "timestamp": "2026-03-25T19:52:53Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-5c756ed.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`7228c5c`](https://github.com/iQube-Protocol/AigentZBeta/commit/7228c5c2be8364260fec7f9922427a818ac96100) [push] knyt characters: per-asset digiterra label — use terra when digiterra doesn't appear in title (fixes Deji Ifada/Kn0w1 first-card label) (Claude, 2026-05-19T03:11:40Z)
 - [`d5ca6b9`](https://github.com/iQube-Protocol/AigentZBeta/commit/d5ca6b9bfead1c6656a83ee1f589786faadee208) [push] knyt characters: align 0-indexed convention end-to-end + score-based character matching (Claude, 2026-05-19T01:30:21Z)
 - [`c753039`](https://github.com/iQube-Protocol/AigentZBeta/commit/c753039de38ce5113b3a76764de26de1c5bdd780) [push] knyt: gate GN + Ep #0 like every other episode; document PDF render pipeline (Claude, 2026-05-18T23:35:09Z)
 - [`f0c3a42`](https://github.com/iQube-Protocol/AigentZBeta/commit/f0c3a422a8c9e4ce3e2bd9309c20895fe1f76cb9) [revert] revert: AGN card back to PDFLiteReader (masterId proxy approach fails on 430MB GN — Lambda OOM) (Claude, 2026-05-16T22:27:57Z)

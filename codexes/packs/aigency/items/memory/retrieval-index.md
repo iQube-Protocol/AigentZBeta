@@ -804,3 +804,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-d5ca6b9.md](../build_/COMMITS/COMMIT-d5ca6b9.md)
 - Message: knyt characters: align 0-indexed convention end-to-end + score-based character matching
+
+## Commit `7228c5c` — 2026-05-19T03:11:40Z
+- Type: `push`
+- Brief: [COMMIT-7228c5c.md](../build_/COMMITS/COMMIT-7228c5c.md)
+- Message: knyt characters: per-asset digiterra label — use terra when digiterra doesn't appear in title (fixes Deji Ifada/Kn0w1 first-card label)
