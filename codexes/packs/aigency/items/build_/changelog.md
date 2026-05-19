@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`3e039bb`](https://github.com/iQube-Protocol/AigentZBeta/commit/3e039bb94a2780120b670cbcb1c6240ce0e72d53) [push] knyt pricing: last-derived fallback + indicative-pricing badge (Claude, 2026-05-19T04:16:20Z)
 - [`621ec0c`](https://github.com/iQube-Protocol/AigentZBeta/commit/621ec0cc4e332123ea5f71b957661cd52fd20325) [push] knyt pricing: align store UI + server debit with live KNYT→USD rate (Claude, 2026-05-19T03:58:27Z)
 - [`7228c5c`](https://github.com/iQube-Protocol/AigentZBeta/commit/7228c5c2be8364260fec7f9922427a818ac96100) [push] knyt characters: per-asset digiterra label — use terra when digiterra doesn't appear in title (fixes Deji Ifada/Kn0w1 first-card label) (Claude, 2026-05-19T03:11:40Z)
 - [`d5ca6b9`](https://github.com/iQube-Protocol/AigentZBeta/commit/d5ca6b9bfead1c6656a83ee1f589786faadee208) [push] knyt characters: align 0-indexed convention end-to-end + score-based character matching (Claude, 2026-05-19T01:30:21Z)

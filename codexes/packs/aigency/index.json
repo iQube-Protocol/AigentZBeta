@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-19T04:00:18.784Z",
+  "last_updated": "2026-05-19T04:18:26.982Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "621ec0cc4e332123ea5f71b957661cd52fd20325",
-  "latest_commit_short": "621ec0c",
-  "latest_commit_title": "knyt pricing: align store UI + server debit with live KNYT→USD rate",
+  "latest_commit": "3e039bb94a2780120b670cbcb1c6240ce0e72d53",
+  "latest_commit_short": "3e039bb",
+  "latest_commit_title": "knyt pricing: last-derived fallback + indicative-pricing badge",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "3e039bb",
+      "full_sha": "3e039bb94a2780120b670cbcb1c6240ce0e72d53",
+      "title": "knyt pricing: last-derived fallback + indicative-pricing badge",
+      "author": "Claude",
+      "timestamp": "2026-05-19T04:16:20Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-3e039bb.md"
+    },
     {
       "sha": "621ec0c",
       "full_sha": "621ec0cc4e332123ea5f71b957661cd52fd20325",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-25T20:18:56Z",
       "type": "deploy",
       "brief": "items/build_/COMMITS/COMMIT-72c80ae.md"
-    },
-    {
-      "sha": "1cfa403",
-      "full_sha": "1cfa403c2186b22bc2f5390882cfe8891ad41f94",
-      "title": "ignore typescript build errors during amplify build",
-      "author": "Claude",
-      "timestamp": "2026-03-25T20:18:56Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1cfa403.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

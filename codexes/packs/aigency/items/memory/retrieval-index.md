@@ -814,3 +814,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-621ec0c.md](../build_/COMMITS/COMMIT-621ec0c.md)
 - Message: knyt pricing: align store UI + server debit with live KNYT→USD rate
+
+## Commit `3e039bb` — 2026-05-19T04:16:20Z
+- Type: `push`
+- Brief: [COMMIT-3e039bb.md](../build_/COMMITS/COMMIT-3e039bb.md)
+- Message: knyt pricing: last-derived fallback + indicative-pricing badge
