@@ -208,6 +208,28 @@ export async function GET(request: NextRequest) {
       const matchedCharacter = pickCharacter(asset);
       const matchedKnytCard = matchedCharacter ? knytCardMap.get(matchedCharacter.id) : null;
 
+      // Per-asset effective digiterra: when the matched character's digiterra
+      // doesn't actually appear in this asset's title (which happens for
+      // pre-transformation art — e.g. ep 0 front "Deji (Deji Ifada) front"
+      // doesn't say "Kn0w1" yet, even though the character row records
+      // Kn0w1 as the eventual digiterra), substitute the terra so the modal
+      // label reads "Deji Ifada" instead of "Kn0w1". Keeps the digiterra
+      // label for assets whose title actually references the digiterra
+      // (e.g. ep 0 back "Deji Kn0w1 back", ep 12 "Kn0w1 front").
+      let effectiveDigiterra = matchedCharacter?.digiterra_name ?? null;
+      if (matchedCharacter && effectiveDigiterra) {
+        const titleLower = (asset.title || '').toLowerCase();
+        const digiterraLower = effectiveDigiterra.toLowerCase();
+        const digiterraWords = digiterraLower.split(/\s+/).filter((w) => w.length >= 3);
+        const titleHasAnyDigiterraWord =
+          digiterraWords.length === 0
+            ? titleLower.includes(digiterraLower)
+            : digiterraWords.some((w) => titleLower.includes(w));
+        if (!titleHasAnyDigiterraWord && matchedCharacter.terra_name) {
+          effectiveDigiterra = matchedCharacter.terra_name;
+        }
+      }
+
       return {
         id: asset.id,
         title: asset.title,
@@ -217,7 +239,7 @@ export async function GET(request: NextRequest) {
         mimeType: asset.mime_type,
         characterId: matchedCharacter?.id,
         characterName: matchedCharacter?.terra_name,
-        digiterraName: matchedCharacter?.digiterra_name,
+        digiterraName: effectiveDigiterra,
         affiliation: matchedCharacter?.affiliation,
         powers: matchedKnytCard?.powers,
         primaryWeapon: matchedKnytCard?.primary_weapon,
