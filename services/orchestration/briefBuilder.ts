@@ -23,6 +23,7 @@ import {
   selectTopNbeForCartridge,
   type NbeCandidate,
 } from '@/services/orchestration/nbeCatalog';
+import { getConnectionStatuses, type GoogleSource } from '@/services/google/oauth';
 import {
   ALIGNMENT_LABEL,
   SPHERE_LABEL,
@@ -30,6 +31,21 @@ import {
   type PrecedenceMode,
   type SphereAxis,
 } from '@/types/experienceGuide';
+
+/**
+ * Helper: list the Google sources this persona has linked. Tolerant — if
+ * the OAuth status query fails (env not configured, table missing) we
+ * return an empty array and the NBE filter degrades to its pre-workspace
+ * baseline rather than failing the brief.
+ */
+async function readConnectedWorkspaceSources(personaId: string): Promise<GoogleSource[]> {
+  try {
+    const statuses = await getConnectionStatuses(personaId);
+    return statuses.filter((s) => s.connected).map((s) => s.source);
+  } catch {
+    return [];
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────
 // Public types — match the Brief Card render contract.
@@ -128,9 +144,10 @@ function buildGuidanceNote(
 }
 
 export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
-  const [qube, guide] = await Promise.all([
+  const [qube, guide, workspaceConnected] = await Promise.all([
     getExperienceQube(input.personaId),
     getPersonalGuide(input.personaId),
+    readConnectedWorkspaceSources(input.personaId),
   ]);
 
   const activeCartridges =
@@ -139,6 +156,7 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
   const experienceName = qube?.meta.experienceName ?? null;
   const primaryGoal = qube?.meta.primaryGoal ?? null;
   const experienceConfigured = !!qube;
+  const experienceGoals = qube?.blak.experienceGoals ?? [];
 
   // ── Top priorities — derived from active cartridges + primary goal.
   // Cartridge-shaped first; if scopedCartridge is set, that one wins.
@@ -161,8 +179,16 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
         currentStage,
         scopedCartridge: input.scopedCartridge,
         limit: 3,
+        workspaceConnected,
+        experienceGoals,
       })
-    : selectNbeCandidates({ activeCartridges, currentStage, limit: 5 });
+    : selectNbeCandidates({
+        activeCartridges,
+        currentStage,
+        limit: 5,
+        workspaceConnected,
+        experienceGoals,
+      });
 
   const nextBestActions: BriefNextBestAction[] = nbeCandidates.map((c) => ({
     id: c.id,
@@ -242,9 +268,10 @@ export async function buildMoveForward(input: {
    */
   cartridge?: ActiveCartridgeSlug;
 }): Promise<MoveForwardShape> {
-  const [qube, guide] = await Promise.all([
+  const [qube, guide, workspaceConnected] = await Promise.all([
     getExperienceQube(input.personaId),
     getPersonalGuide(input.personaId),
+    readConnectedWorkspaceSources(input.personaId),
   ]);
 
   const activeCartridges = qube?.meta.activeCartridges ?? (input.cartridge ? [input.cartridge] : ['metame']);
@@ -252,6 +279,7 @@ export async function buildMoveForward(input: {
   const experienceName = qube?.meta.experienceName ?? null;
   const primaryGoal = qube?.meta.primaryGoal ?? null;
   const experienceConfigured = !!qube;
+  const experienceGoals = qube?.blak.experienceGoals ?? [];
 
   // Auto-pick mode: select the strongest NBE across all active cartridges,
   // then return its sibling 2 (highest-weighted) as alternates. Otherwise
@@ -260,18 +288,25 @@ export async function buildMoveForward(input: {
   let altsRaw: NbeCandidate[];
 
   if (input.cartridge) {
-    topCandidate = selectTopNbeForCartridge(input.cartridge, currentStage);
+    topCandidate = selectTopNbeForCartridge(input.cartridge, currentStage, {
+      workspaceConnected,
+      experienceGoals,
+    });
     altsRaw = selectNbeCandidates({
       activeCartridges,
       currentStage,
       scopedCartridge: input.cartridge,
       limit: 3,
+      workspaceConnected,
+      experienceGoals,
     }).filter((c) => c.id !== topCandidate?.id);
   } else {
     const ranked = selectNbeCandidates({
       activeCartridges,
       currentStage,
       limit: 5,
+      workspaceConnected,
+      experienceGoals,
     });
     topCandidate = ranked[0] ?? null;
     altsRaw = ranked.slice(1);
