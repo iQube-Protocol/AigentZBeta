@@ -24,6 +24,7 @@ import {
   type NbeCandidate,
 } from '@/services/orchestration/nbeCatalog';
 import { getConnectionStatuses, type GoogleSource } from '@/services/google/oauth';
+import { inferStrategy } from '@/services/strategy/strategyInference';
 import {
   ALIGNMENT_LABEL,
   SPHERE_LABEL,
@@ -144,10 +145,11 @@ function buildGuidanceNote(
 }
 
 export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
-  const [qube, guide, workspaceConnected] = await Promise.all([
+  const [qube, guide, workspaceConnected, strategy] = await Promise.all([
     getExperienceQube(input.personaId),
     getPersonalGuide(input.personaId),
     readConnectedWorkspaceSources(input.personaId),
+    inferStrategy(input.personaId).catch(() => null),
   ]);
 
   const activeCartridges =
@@ -156,7 +158,12 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
   const experienceName = qube?.meta.experienceName ?? null;
   const primaryGoal = qube?.meta.primaryGoal ?? null;
   const experienceConfigured = !!qube;
-  const experienceGoals = qube?.blak.experienceGoals ?? [];
+  // Merge raw goal strings with the inference keyword hints — gives the
+  // NBE rerank a richer signal than the goal strings alone.
+  const experienceGoals = [
+    ...(qube?.blak.experienceGoals ?? []),
+    ...(strategy?.nbeHints.keywords ?? []),
+  ];
 
   // ── Top priorities — derived from active cartridges + primary goal.
   // Cartridge-shaped first; if scopedCartridge is set, that one wins.
@@ -268,10 +275,11 @@ export async function buildMoveForward(input: {
    */
   cartridge?: ActiveCartridgeSlug;
 }): Promise<MoveForwardShape> {
-  const [qube, guide, workspaceConnected] = await Promise.all([
+  const [qube, guide, workspaceConnected, strategy] = await Promise.all([
     getExperienceQube(input.personaId),
     getPersonalGuide(input.personaId),
     readConnectedWorkspaceSources(input.personaId),
+    inferStrategy(input.personaId).catch(() => null),
   ]);
 
   const activeCartridges = qube?.meta.activeCartridges ?? (input.cartridge ? [input.cartridge] : ['metame']);
@@ -279,7 +287,10 @@ export async function buildMoveForward(input: {
   const experienceName = qube?.meta.experienceName ?? null;
   const primaryGoal = qube?.meta.primaryGoal ?? null;
   const experienceConfigured = !!qube;
-  const experienceGoals = qube?.blak.experienceGoals ?? [];
+  const experienceGoals = [
+    ...(qube?.blak.experienceGoals ?? []),
+    ...(strategy?.nbeHints.keywords ?? []),
+  ];
 
   // Auto-pick mode: select the strongest NBE across all active cartridges,
   // then return its sibling 2 (highest-weighted) as alternates. Otherwise
