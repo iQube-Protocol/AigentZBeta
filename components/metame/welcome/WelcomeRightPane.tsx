@@ -394,15 +394,16 @@ export function WelcomeRightPane(props: Props) {
           : moveForwardResult?.alternates.find((a) => a.id === nbeId)) ?? null;
         if (!nbe) return null;
         return (
-          <ApprovalCard
-            key={`queued-${nbeId}`}
-            action={toApprovalAction(nbe)}
-            onApprove={() => undefined}
-            onCancel={() => onDismissQueued(nbeId)}
-            queued={queued as ApprovalQueuedState}
-            using={usingIqubes}
-            theme={theme}
-          />
+          <div key={`queued-${nbeId}`} data-queued-nbe-id={nbeId}>
+            <ApprovalCard
+              action={toApprovalAction(nbe)}
+              onApprove={() => undefined}
+              onCancel={() => onDismissQueued(nbeId)}
+              queued={queued as ApprovalQueuedState}
+              using={usingIqubes}
+              theme={theme}
+            />
+          </div>
         );
       })}
 
