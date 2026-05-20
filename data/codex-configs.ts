@@ -598,13 +598,14 @@ export const KNYT_CODEX: CodexConfig = {
       }
     },
 
-    // ── Quests (standalone — canonical task library) ──────────
+    // ── Quests (sub-tab under Order — task library, canonical home) ──
     {
       id: 'quests',
       label: 'Quests',
       slug: 'quests',
       enabled: true,
-      order: 3.5,
+      group: 'order-group',
+      order: 2.5,
       type: 'static',
       config: { component: 'KnytQuestsTab' },
       metadata: {
