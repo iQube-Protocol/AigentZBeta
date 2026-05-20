@@ -156,6 +156,21 @@ export function ActivationsTab({ personaId, isAdmin = false, onOpenSurface, them
         </p>
       </header>
 
+      {error && (
+        <div className="mb-3 px-3 py-2 rounded border border-rose-500/50 bg-rose-500/10 text-sm text-rose-200 flex items-start gap-2">
+          <span className="font-semibold">Activation failed:</span>
+          <span className="flex-1">{error}</span>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="text-rose-300 hover:text-rose-100 text-xs"
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center text-sm text-slate-400">
           <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading activations…
@@ -261,9 +276,6 @@ export function ActivationsTab({ personaId, isAdmin = false, onOpenSurface, them
         </div>
       )}
 
-      {error && (
-        <p className="mt-3 text-xs text-rose-300">{error}</p>
-      )}
     </div>
   );
 }

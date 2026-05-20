@@ -35,36 +35,43 @@ export async function POST(
   const action = url.searchParams.get('action') ?? 'activate';
   const isAdmin = !!context.cartridgeFlags?.isAdmin;
 
+  console.log(`[activations] ${action} persona=${context.personaId.slice(0, 8)}… activation=${activationId} isAdmin=${isAdmin}`);
+
   try {
     if (action === 'activate') {
       const result = await activate(context.personaId, activationId, { isAdmin });
       if (!result.ok) {
+        console.warn(`[activations] activate FAILED: ${result.reason}`);
         return NextResponse.json(
           { error: 'activate-failed', detail: result.reason },
           { status: 400, headers: { 'Cache-Control': 'no-store' } },
         );
       }
-      return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
+      // Return the persisted row so the client can verify (and surface
+      // `granted_via` / `granted_at` in the diagnostic surface).
+      return NextResponse.json({ ok: true, row: result.row }, { headers: { 'Cache-Control': 'no-store' } });
     }
     if (action === 'request') {
       const result = await requestAccess(context.personaId, activationId);
       if (!result.ok) {
+        console.warn(`[activations] request FAILED: ${result.reason}`);
         return NextResponse.json(
           { error: 'request-failed', detail: result.reason },
           { status: 400, headers: { 'Cache-Control': 'no-store' } },
         );
       }
-      return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json({ ok: true, row: result.row }, { headers: { 'Cache-Control': 'no-store' } });
     }
     if (action === 'revoke') {
       const result = await revoke(context.personaId, activationId);
       if (!result.ok) {
+        console.warn(`[activations] revoke FAILED: ${result.reason}`);
         return NextResponse.json(
           { error: 'revoke-failed', detail: result.reason },
           { status: 400, headers: { 'Cache-Control': 'no-store' } },
         );
       }
-      return NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json({ ok: true, row: result.row }, { headers: { 'Cache-Control': 'no-store' } });
     }
     return NextResponse.json(
       { error: 'invalid-action', detail: `action must be activate|request|revoke (got '${action}')` },

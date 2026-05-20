@@ -64,17 +64,25 @@ interface PersonaActivationRow {
 
 async function readRows(personaId: string): Promise<Map<string, PersonaActivationRow>> {
   const admin = getSupabaseServer();
-  if (!admin) return new Map();
+  if (!admin) {
+    console.warn('[personaActivations.readRows] supabase admin client unavailable');
+    return new Map();
+  }
   try {
     const { data, error } = await admin
       .from('persona_activations')
       .select('*')
       .eq('persona_id', personaId);
-    if (error || !Array.isArray(data)) return new Map();
+    if (error) {
+      console.warn(`[personaActivations.readRows] read failed for persona=${personaId.slice(0, 8)}…:`, error.message);
+      return new Map();
+    }
+    if (!Array.isArray(data)) return new Map();
     const map = new Map<string, PersonaActivationRow>();
     for (const r of data as PersonaActivationRow[]) map.set(r.activation_id, r);
     return map;
-  } catch {
+  } catch (err) {
+    console.warn(`[personaActivations.readRows] threw for persona=${personaId.slice(0, 8)}…:`, err instanceof Error ? err.message : err);
     return new Map();
   }
 }
@@ -209,24 +217,31 @@ async function upsertRow(
   fields: Partial<Omit<PersonaActivationRow, 'persona_id' | 'activation_id'>>,
 ): Promise<PersonaActivationRow | null> {
   const admin = getSupabaseServer();
-  if (!admin) return null;
+  if (!admin) {
+    console.warn('[personaActivations.upsertRow] supabase admin unavailable');
+    return null;
+  }
 
+  const personaPrefix = personaId.slice(0, 8) + '…';
   const updateFields = { ...fields, updated_at: new Date().toISOString() };
+
   try {
-    // 1) UPDATE — only listed columns are touched.
+    // 1) UPDATE — array form (no .maybeSingle) so that empty results are
+    //    distinguishable from RLS / null-coercion issues.
     const { data: updated, error: updateErr } = await admin
       .from('persona_activations')
       .update(updateFields)
       .eq('persona_id', personaId)
       .eq('activation_id', activationId)
-      .select('*')
-      .maybeSingle();
+      .select('*');
     if (updateErr) {
-      console.warn('[personaActivations.upsertRow] update failed:', updateErr.message);
+      console.warn(`[personaActivations.upsertRow] UPDATE error persona=${personaPrefix} activation=${activationId}:`, updateErr.message);
     }
-    if (updated) return updated as PersonaActivationRow;
+    if (Array.isArray(updated) && updated.length > 0) {
+      return updated[0] as PersonaActivationRow;
+    }
 
-    // 2) INSERT — no existing row.
+    // 2) INSERT — no existing row matched.
     const insertRow = {
       persona_id: personaId,
       activation_id: activationId,
@@ -239,15 +254,32 @@ async function upsertRow(
     const { data: inserted, error: insertErr } = await admin
       .from('persona_activations')
       .insert(insertRow)
-      .select('*')
-      .maybeSingle();
+      .select('*');
     if (insertErr) {
-      console.warn('[personaActivations.upsertRow] insert failed:', insertErr.message);
+      // Race: a parallel writer beat us to the INSERT (unique key). Re-read
+      // the row so the caller gets a successful result instead of a false
+      // 'persistence-failed'.
+      if (/duplicate key|unique constraint/i.test(insertErr.message)) {
+        const { data: refetched } = await admin
+          .from('persona_activations')
+          .update(updateFields)
+          .eq('persona_id', personaId)
+          .eq('activation_id', activationId)
+          .select('*');
+        if (Array.isArray(refetched) && refetched.length > 0) {
+          return refetched[0] as PersonaActivationRow;
+        }
+      }
+      console.warn(`[personaActivations.upsertRow] INSERT error persona=${personaPrefix} activation=${activationId}:`, insertErr.message);
       return null;
     }
-    return (inserted as PersonaActivationRow) ?? null;
+    if (Array.isArray(inserted) && inserted.length > 0) {
+      return inserted[0] as PersonaActivationRow;
+    }
+    console.warn(`[personaActivations.upsertRow] UPDATE+INSERT both returned no rows persona=${personaPrefix} activation=${activationId} — likely RLS blocking SELECT after write. Check SUPABASE_SERVICE_ROLE_KEY is set.`);
+    return null;
   } catch (err) {
-    console.warn('[personaActivations.upsertRow] threw:', err instanceof Error ? err.message : err);
+    console.warn(`[personaActivations.upsertRow] threw persona=${personaPrefix} activation=${activationId}:`, err instanceof Error ? err.message : err);
     return null;
   }
 }
