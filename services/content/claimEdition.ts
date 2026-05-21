@@ -175,21 +175,24 @@ async function appendCommon(
 ): Promise<ClaimEditionResult> {
   const supabase = getSupabaseServer()!;
 
-  // Re-activate path — if this persona has a previously-released common
-  // edition on this qube, just clear its released_at and re-issue. This
-  // is essential for activation_tab semantics (toggle on/off without
-  // appending fresh editions every cycle) AND idempotent for any caller
-  // that wants "claim regardless of prior state".
+  // Re-activate path — if this persona has any common edition on this qube,
+  // toggle it on. Idempotent for already-active rows; clears released_at on
+  // a released row. Selects the LATEST edition (highest edition_number) so
+  // historical duplicates from before this fix get collapsed onto one
+  // canonical row.
   {
-    const { data: prior } = await supabase
+    const { data: priorRows, error: priorErr } = await supabase
       .from('content_qube_editions')
       .select('id, edition_number, released_at')
       .eq('content_qube_id', contentQubeId)
       .eq('persona_id', personaId)
       .eq('rarity', 'common')
-      .order('edition_number', { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      .order('edition_number', { ascending: false })
+      .limit(1);
+    if (priorErr) {
+      console.warn(`[appendCommon] reactivate-lookup failed qube=${contentQubeId}: ${priorErr.message}`);
+    }
+    const prior = Array.isArray(priorRows) && priorRows.length > 0 ? priorRows[0] : null;
     if (prior) {
       const priorRow = prior as { id: string; edition_number: number; released_at: string | null };
       if (priorRow.released_at === null) {
@@ -359,19 +362,33 @@ export async function releaseEdition(
   // 2. Soft-release each held edition + emit a burn receipt.
   const releasedAt = new Date().toISOString();
   let releasedCount = 0;
+  const failures: string[] = [];
   for (const row of held) {
     const editionId = (row as { id: string }).id;
     const editionNumber = (row as { edition_number: number }).edition_number;
     const rarity = (row as { rarity: ContentQubeRarity }).rarity;
 
-    const { error: updErr } = await supabase
+    const { data: updated, error: updErr } = await supabase
       .from('content_qube_editions')
       .update({ released_at: releasedAt })
       .eq('id', editionId)
-      .is('released_at', null);
+      .is('released_at', null)
+      .select('id, released_at');
 
     if (updErr) {
-      console.warn(`[releaseEdition] update failed qube=${contentQubeId} edition=${editionId} msg=${updErr.message}`);
+      // Do NOT silently continue — propagate up. The most common failure
+      // here is PostgREST's schema cache being stale after the released_at
+      // ALTER TABLE; if we swallow that, deactivations look like they
+      // worked but rows stay active and the UI bounces back on next read.
+      const msg = `update failed qube=${contentQubeId} edition=${editionId}: ${updErr.message}`;
+      console.warn(`[releaseEdition] ${msg}`);
+      failures.push(msg);
+      continue;
+    }
+    if (!Array.isArray(updated) || updated.length === 0) {
+      const msg = `update matched no rows qube=${contentQubeId} edition=${editionId} — column may be missing from PostgREST schema cache (run: NOTIFY pgrst, 'reload schema')`;
+      console.warn(`[releaseEdition] ${msg}`);
+      failures.push(msg);
       continue;
     }
 
@@ -384,6 +401,10 @@ export async function releaseEdition(
       aliasCommitment: aliasCommitment ?? null,
       reason: reason ?? null,
     });
+  }
+
+  if (failures.length > 0 && releasedCount === 0) {
+    return { ok: false, error: failures.join(' | ') };
   }
 
   return { ok: true, released: releasedCount };
