@@ -107,22 +107,25 @@ export function ActivationsProvider({ personaId: explicitPersonaId, children }: 
   const refresh = useCallback(async () => {
     const pid = personaRef.current;
     if (!pid) {
-      // Don't wipe `surfaces` here — if PersonaContext blips to null
-      // mid-mutation we'd lose the optimistic state. Just no-op.
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const res = await personaFetch("/api/assistant/activations", { personaIdHint: pid });
+      // Cache-bust the URL: identical-URL GETs in rapid succession can
+      // dedupe at the browser/edge layer despite `Cache-Control: no-store`.
+      // A per-call `_t` query param guarantees a unique URL → unique request.
+      const url = `/api/assistant/activations?_t=${Date.now()}`;
+      const res = await personaFetch(url, {
+        personaIdHint: pid,
+        cache: 'no-store',
+      });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error((body as { detail?: string }).detail ?? `activations fetch failed (${res.status})`);
       }
       const data = (await res.json()) as { activations: ActivationSurface[] };
       if (Array.isArray(data.activations)) {
-        // Replace by id rather than swap the whole array so any in-flight
-        // optimistic updates on OTHER rows aren't clobbered by stale data.
         setSurfaces(() => data.activations);
       }
     } catch (err) {
