@@ -7802,6 +7802,7 @@ export const ComposerStudio = () => {
                 <div className="flex items-center gap-2">
                   <Bot className="h-4 w-4 text-cyan-300" />
                   <h2 className="text-lg font-semibold text-white">Composer Copilot</h2>
+                  <span className="rounded-full bg-fuchsia-600 px-1.5 py-0.5 text-[9px] font-bold text-white">v2</span>
                 </div>
               </div>
             </div>
