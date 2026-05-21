@@ -39,7 +39,7 @@ import { usePersonaSafe } from "@/app/contexts/PersonaContext";
 import type {
   ActivationSurface,
   ActivationStatus,
-} from "@/services/activations/personaActivations";
+} from "@/services/activations/spineActivations";
 
 export type ActivationAction = "activate" | "request" | "revoke";
 

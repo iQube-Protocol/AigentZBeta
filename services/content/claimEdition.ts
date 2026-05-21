@@ -231,3 +231,138 @@ async function appendCommon(
 
   return { ok: false, error: 'common_insert_contention' };
 }
+
+// ─── Release (= burn) ─────────────────────────────────────────────────────────
+//
+// Inverse of claim. Currently supports common-rarity editions (which are the
+// only kind used by activation_tab ContentQubes). For commons we DELETE the
+// row since each common edition is a fresh append on claim — there's no
+// pool to return it to. A 'burn' DVN receipt is emitted regardless so the
+// burn is recorded in the canonical audit trail.
+//
+// Canonical-rarity release is intentionally NOT implemented here yet —
+// when needed (e.g. an admin reclaiming a canonical edition), this is the
+// place to add the persona_id=NULL "return-to-pool" branch.
+
+export interface ReleaseEditionInput {
+  contentQubeId: string;
+  /** Persona whose edition is being released. Server-internal (T0). */
+  personaId: string;
+  /** T2 alias commitment for the DVN burn receipt. */
+  aliasCommitment?: string | null;
+  /** Free-text reason ('deactivate', 'admin-revoke', etc.). Persisted in the receipt payload. */
+  reason?: string;
+}
+
+export interface ReleaseEditionResult {
+  ok: boolean;
+  /** Number of edition rows released. 0 when the persona didn't hold one. */
+  released?: number;
+  error?: string;
+}
+
+/**
+ * Release every edition this persona holds on the given ContentQube. For
+ * common-rarity editions (activation_tab + streaming-access), this DELETEs
+ * the row(s) and emits a 'burn' DVN receipt per deletion.
+ *
+ * Idempotent — releasing twice is a no-op the second time (released: 0).
+ */
+export async function releaseEdition(
+  input: ReleaseEditionInput,
+): Promise<ReleaseEditionResult> {
+  const supabase = getSupabaseServer();
+  if (!supabase) {
+    return { ok: false, error: 'supabase_unavailable' };
+  }
+
+  const { contentQubeId, personaId, aliasCommitment, reason } = input;
+
+  // 1. Find the persona's editions on this qube. Common rarity only (canonical
+  //    release is out-of-scope until an explicit operator flow needs it).
+  const { data: held, error: selErr } = await supabase
+    .from('content_qube_editions')
+    .select('id, edition_number, rarity')
+    .eq('content_qube_id', contentQubeId)
+    .eq('persona_id', personaId)
+    .eq('rarity', 'common');
+
+  if (selErr) {
+    return { ok: false, error: `select failed: ${selErr.message}` };
+  }
+  if (!Array.isArray(held) || held.length === 0) {
+    return { ok: true, released: 0 };
+  }
+
+  // 2. Delete each held edition + emit a burn receipt.
+  let releasedCount = 0;
+  for (const row of held) {
+    const editionId = (row as { id: string }).id;
+    const editionNumber = (row as { edition_number: number }).edition_number;
+    const rarity = (row as { rarity: ContentQubeRarity }).rarity;
+
+    const { error: delErr } = await supabase
+      .from('content_qube_editions')
+      .delete()
+      .eq('id', editionId);
+
+    if (delErr) {
+      console.warn(`[releaseEdition] delete failed qube=${contentQubeId} edition=${editionId} msg=${delErr.message}`);
+      continue;
+    }
+
+    releasedCount++;
+    await emitEditionBurnReceipt({
+      contentQubeId,
+      editionId,
+      editionNumber,
+      rarity,
+      aliasCommitment: aliasCommitment ?? null,
+      reason: reason ?? null,
+    });
+  }
+
+  return { ok: true, released: releasedCount };
+}
+
+interface EmitBurnReceiptInput {
+  contentQubeId: string;
+  editionId: string;
+  editionNumber: number;
+  rarity: ContentQubeRarity;
+  aliasCommitment: string | null;
+  reason: string | null;
+}
+
+/**
+ * Write a 'burn' DVN receipt — the inverse of emitContentQubeTransferReceipt.
+ * Fire-and-forget tolerant; never throws.
+ */
+async function emitEditionBurnReceipt(input: EmitBurnReceiptInput): Promise<void> {
+  const supabase = getSupabaseServer();
+  if (!supabase) {
+    console.warn('[emitEditionBurnReceipt] Supabase unavailable; receipt dropped');
+    return;
+  }
+  const { contentQubeId, editionId, editionNumber, rarity, aliasCommitment, reason } = input;
+  const receipt_payload: Record<string, unknown> = {
+    edition_id: editionId,
+    edition_number: editionNumber,
+    rarity,
+  };
+  if (reason) receipt_payload.reason = reason;
+
+  const { error } = await supabase.from('content_qube_dvn_receipts').insert({
+    content_qube_id: contentQubeId,
+    receipt_kind: 'burn',
+    t2_alias_commitment: aliasCommitment,
+    receipt_payload,
+  });
+
+  if (error) {
+    console.warn(
+      `[emitEditionBurnReceipt] insert failed qube=${contentQubeId} ` +
+      `code=${error.code ?? '?'} msg=${error.message ?? '?'}`,
+    );
+  }
+}
