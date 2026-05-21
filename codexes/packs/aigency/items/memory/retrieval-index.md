@@ -854,3 +854,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-4dabf9f.md](../build_/COMMITS/COMMIT-4dabf9f.md)
 - Message: trigger deploy to dev: re-trigger activations soft-release fix (45fe2a8 already on dev)
+
+## Commit `d507119` — 2026-05-21T20:53:14Z
+- Type: `push`
+- Brief: [COMMIT-d507119.md](../build_/COMMITS/COMMIT-d507119.md)
+- Message: activations: prefer ACTIVE row when multiple editions exist (fixes stale revokedAt timestamp on display)
