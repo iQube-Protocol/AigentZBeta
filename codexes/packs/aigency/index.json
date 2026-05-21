@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-19T05:57:12.150Z",
+  "last_updated": "2026-05-21T18:27:05.919Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "813b74c4a3df932fd6453909257debe06b2bee3f",
-  "latest_commit_short": "813b74c",
-  "latest_commit_title": "knyt retail bundles tab: drop 4 single non-bundled GN offers (gn-investor-{qripto,digital,paperback,hardcover}) — they belong on the investor tab where they're discounted; rename tab 'Bundles & GN' → 'Bundles'; section header 'Graphic Novel, Episode & Character Bundles' → 'Premium Bundles' (investor tab unchanged)",
+  "latest_commit": "78a2cda8c5c62167d2ff7f88726e7bceb98ac39c",
+  "latest_commit_short": "78a2cda",
+  "latest_commit_title": "backlog: generalise claimEdition to iqube-universal claim primitive (post-comic expansion)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,51 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "78a2cda",
+      "full_sha": "78a2cda8c5c62167d2ff7f88726e7bceb98ac39c",
+      "title": "backlog: generalise claimEdition to iqube-universal claim primitive (post-comic expansion)",
+      "author": "Claude",
+      "timestamp": "2026-05-21T17:13:10Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-78a2cda.md"
+    },
+    {
+      "sha": "d273247",
+      "full_sha": "d27324754d70ee3936b07b244c7450e2776ea67a",
+      "title": "fix activation bounce: soft-release editions (released_at) so auto-grant doesn't resurrect deactivated tabs",
+      "author": "Claude",
+      "timestamp": "2026-05-21T17:34:24Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-d273247.md"
+    },
+    {
+      "sha": "b0659f1",
+      "full_sha": "b0659f1c43270cd92bce7ce0a00e68e4096a2356",
+      "title": "diag: surface edition rows + released_at column presence (catches missing migration)",
+      "author": "Claude",
+      "timestamp": "2026-05-21T17:51:51Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b0659f1.md"
+    },
+    {
+      "sha": "1dcc609",
+      "full_sha": "1dcc60979d580738ec47450486e18cf1d1804edf",
+      "title": "releaseEdition surfaces schema-cache failures + appendCommon collapses dup rows onto latest edition",
+      "author": "Claude",
+      "timestamp": "2026-05-21T18:16:49Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1dcc609.md"
+    },
+    {
+      "sha": "e4352e4",
+      "full_sha": "e4352e4f11615851da616cd284f67bbc588e0886",
+      "title": "trigger deploy: activations soft-release fix (d273247..1dcc609)",
+      "author": "Claude",
+      "timestamp": "2026-05-21T18:24:56Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-e4352e4.md"
+    },
     {
       "sha": "813b74c",
       "full_sha": "813b74c4a3df932fd6453909257debe06b2bee3f",
@@ -1207,51 +1252,6 @@
       "timestamp": "2026-03-26T00:05:14Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-4b2a9a9.md"
-    },
-    {
-      "sha": "57baa5e",
-      "full_sha": "57baa5e48e76ee27e345cad32480f414ff4463ce",
-      "title": "add workflow foundation phase 1 scaffolding",
-      "author": "Claude",
-      "timestamp": "2026-03-26T00:05:05Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-57baa5e.md"
-    },
-    {
-      "sha": "8cb70b9",
-      "full_sha": "8cb70b98bdf3b65c34b7c84a87bac3c9dcf37435",
-      "title": "add pipeline control plane schema migration",
-      "author": "Claude",
-      "timestamp": "2026-03-26T00:04:56Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-8cb70b9.md"
-    },
-    {
-      "sha": "01da0cf",
-      "full_sha": "01da0cf22f300b197c6bb66c89caa49c9767b5d4",
-      "title": "add workflow orchestration schema migration",
-      "author": "Claude",
-      "timestamp": "2026-03-26T00:04:46Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-01da0cf.md"
-    },
-    {
-      "sha": "1f9c5bc",
-      "full_sha": "1f9c5bc86b20e4cb076947ab3c1a99e5c997bc1d",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-25T21:28:28Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-1f9c5bc.md"
-    },
-    {
-      "sha": "a401002",
-      "full_sha": "a4010029cf008c5dd6deaab8f85ab7916411617d",
-      "title": "add experience qube 413 post-mortem to docs",
-      "author": "Claude",
-      "timestamp": "2026-03-25T20:58:03Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-a401002.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
