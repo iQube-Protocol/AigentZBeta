@@ -1,1 +1,1 @@
-Deploy trigger Thu May 21 22:45:45 UTC 2026 - activations: SELECT-then-INSERT/UPDATE (PostgREST upsert can't use partial unique)
+Deploy trigger Thu May 21 22:45:58 UTC 2026 - activations SELECT-INSERT-UPDATE
