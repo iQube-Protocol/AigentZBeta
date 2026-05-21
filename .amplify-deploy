@@ -1,1 +1,1 @@
-Deploy trigger Thu May 21 22:30:59 UTC 2026 - activation toggle: dedicated rarity='activation' + partial unique index + direct UPSERT
+Deploy trigger Thu May 21 22:45:45 UTC 2026 - activations: SELECT-then-INSERT/UPDATE (PostgREST upsert can't use partial unique)

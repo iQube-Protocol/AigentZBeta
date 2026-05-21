@@ -234,75 +234,90 @@ async function setActivationState(
   const now = new Date().toISOString();
   const personaPrefix = personaId.slice(0, 8) + '…';
 
-  if (active) {
-    // UPSERT — ON CONFLICT (persona_id, content_qube_id) WHERE rarity='activation'
-    // clears released_at + bumps issued_at on an existing row, or inserts
-    // a fresh row if none exists. Atomic.
-    const editionNumber = await nextEditionNumberFor(qubeId);
-    const { data, error } = await admin
-      .from('content_qube_editions')
-      .upsert(
-        {
-          persona_id: personaId,
-          content_qube_id: qubeId,
-          rarity: ACTIVATION_RARITY,
-          edition_number: editionNumber,
-          issued_at: now,
-          released_at: null,
-        },
-        { onConflict: 'persona_id,content_qube_id' },
-      )
-      .select('id, content_qube_id, persona_id, issued_at, released_at')
-      .maybeSingle();
-    if (error) {
-      console.warn(`[spineActivations.setActivationState] upsert error persona=${personaPrefix} qube=${qubeId}: ${error.message}`);
-      return { ok: false, reason: error.message };
-    }
-    if (!data) {
-      return { ok: false, reason: 'upsert returned no row (PostgREST schema cache may be stale — NOTIFY pgrst, \'reload schema\')' };
-    }
-    return { ok: true, row: data as EditionRow };
-  }
-
-  // Deactivate — UPDATE on the unique key. Sets released_at=now whether
-  // the row was previously active or already released (idempotent).
-  const { data, error } = await admin
+  // 1. Look up the existing activation row for (persona, qube).
+  //    The partial unique index `idx_cq_edition_activation_unique`
+  //    guarantees this returns at most one row.
+  const { data: existing, error: readErr } = await admin
     .from('content_qube_editions')
-    .update({ released_at: now })
+    .select('id, content_qube_id, persona_id, issued_at, released_at')
     .eq('persona_id', personaId)
     .eq('content_qube_id', qubeId)
     .eq('rarity', ACTIVATION_RARITY)
-    .select('id, content_qube_id, persona_id, issued_at, released_at');
-  if (error) {
-    console.warn(`[spineActivations.setActivationState] update error persona=${personaPrefix} qube=${qubeId}: ${error.message}`);
-    return { ok: false, reason: error.message };
+    .maybeSingle();
+
+  if (readErr) {
+    console.warn(`[spineActivations.setActivationState] read error persona=${personaPrefix} qube=${qubeId}: ${readErr.message}`);
+    return { ok: false, reason: readErr.message };
   }
-  if (!Array.isArray(data) || data.length === 0) {
-    // No row to release means the persona never activated. Insert a row
-    // already-released so subsequent reads honour the user's intent.
-    const editionNumber = await nextEditionNumberFor(qubeId);
-    const { data: inserted, error: insertErr } = await admin
+
+  if (existing) {
+    // Row exists — UPDATE.
+    const patch = active
+      ? { released_at: null, issued_at: now }
+      : { released_at: now };
+    const { data: updated, error: updErr } = await admin
       .from('content_qube_editions')
-      .insert({
-        persona_id: personaId,
-        content_qube_id: qubeId,
-        rarity: ACTIVATION_RARITY,
-        edition_number: editionNumber,
-        issued_at: now,
-        released_at: now,
-      })
+      .update(patch)
+      .eq('id', (existing as { id: string }).id)
       .select('id, content_qube_id, persona_id, issued_at, released_at')
       .maybeSingle();
-    if (insertErr) {
-      console.warn(`[spineActivations.setActivationState] revoke-insert error persona=${personaPrefix} qube=${qubeId}: ${insertErr.message}`);
-      return { ok: false, reason: insertErr.message };
+    if (updErr) {
+      console.warn(`[spineActivations.setActivationState] update error persona=${personaPrefix} qube=${qubeId}: ${updErr.message}`);
+      return { ok: false, reason: updErr.message };
     }
-    if (!inserted) {
-      return { ok: false, reason: 'revoke-insert returned no row' };
+    if (!updated) {
+      return { ok: false, reason: 'update returned no row (schema cache may be stale)' };
     }
-    return { ok: true, row: inserted as EditionRow };
+    return { ok: true, row: updated as EditionRow };
   }
-  return { ok: true, row: (data[0] as EditionRow) };
+
+  // No row — INSERT. For activate, fresh active row. For deactivate,
+  // insert already-released so subsequent reads honour the user's intent.
+  const editionNumber = await nextEditionNumberFor(qubeId);
+  const insertRow = {
+    persona_id: personaId,
+    content_qube_id: qubeId,
+    rarity: ACTIVATION_RARITY,
+    edition_number: editionNumber,
+    issued_at: now,
+    released_at: active ? null : now,
+  };
+  const { data: inserted, error: insertErr } = await admin
+    .from('content_qube_editions')
+    .insert(insertRow)
+    .select('id, content_qube_id, persona_id, issued_at, released_at')
+    .maybeSingle();
+  if (insertErr) {
+    // Race: a parallel writer inserted between our read and write.
+    // Re-read and update.
+    if (/duplicate key|unique constraint/i.test(insertErr.message)) {
+      const { data: refreshed } = await admin
+        .from('content_qube_editions')
+        .select('id, content_qube_id, persona_id, issued_at, released_at')
+        .eq('persona_id', personaId)
+        .eq('content_qube_id', qubeId)
+        .eq('rarity', ACTIVATION_RARITY)
+        .maybeSingle();
+      if (refreshed) {
+        const patch = active
+          ? { released_at: null, issued_at: now }
+          : { released_at: now };
+        const { data: updated2 } = await admin
+          .from('content_qube_editions')
+          .update(patch)
+          .eq('id', (refreshed as { id: string }).id)
+          .select('id, content_qube_id, persona_id, issued_at, released_at')
+          .maybeSingle();
+        if (updated2) return { ok: true, row: updated2 as EditionRow };
+      }
+    }
+    console.warn(`[spineActivations.setActivationState] insert error persona=${personaPrefix} qube=${qubeId}: ${insertErr.message}`);
+    return { ok: false, reason: insertErr.message };
+  }
+  if (!inserted) {
+    return { ok: false, reason: 'insert returned no row' };
+  }
+  return { ok: true, row: inserted as EditionRow };
 }
 
 // ─────────────────────────────────────────────────────────────────────────
