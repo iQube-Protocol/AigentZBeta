@@ -8,7 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
-import { listActivations } from '@/services/activations/personaActivations';
+import { listActivations } from '@/services/activations/spineActivations';
 
 export const dynamic = 'force-dynamic';
 

@@ -15,7 +15,7 @@ import {
   activate,
   requestAccess,
   revoke,
-} from '@/services/activations/personaActivations';
+} from '@/services/activations/spineActivations';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,7 +49,7 @@ export async function POST(
       }
       // Return the persisted row so the client can verify (and surface
       // `granted_via` / `granted_at` in the diagnostic surface).
-      return NextResponse.json({ ok: true, row: result.row }, { headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json({ ok: true, activationId: result.activationId }, { headers: { 'Cache-Control': 'no-store' } });
     }
     if (action === 'request') {
       const result = await requestAccess(context.personaId, activationId);
@@ -60,7 +60,7 @@ export async function POST(
           { status: 400, headers: { 'Cache-Control': 'no-store' } },
         );
       }
-      return NextResponse.json({ ok: true, row: result.row }, { headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json({ ok: true, activationId: result.activationId }, { headers: { 'Cache-Control': 'no-store' } });
     }
     if (action === 'revoke') {
       const result = await revoke(context.personaId, activationId);
@@ -71,7 +71,7 @@ export async function POST(
           { status: 400, headers: { 'Cache-Control': 'no-store' } },
         );
       }
-      return NextResponse.json({ ok: true, row: result.row }, { headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json({ ok: true, activationId: result.activationId }, { headers: { 'Cache-Control': 'no-store' } });
     }
     return NextResponse.json(
       { error: 'invalid-action', detail: `action must be activate|request|revoke (got '${action}')` },
