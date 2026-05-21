@@ -874,3 +874,8 @@ Top-level retrieval anchors for this pack.
 - Type: `chore`
 - Brief: [COMMIT-0e8264f.md](../build_/COMMITS/COMMIT-0e8264f.md)
 - Message: activation toggle: dedicated rarity='activation' + partial unique index + atomic UPSERT/UPDATE
+
+## Commit `bbaff66` — 2026-05-21T22:45:45Z
+- Type: `fix`
+- Brief: [COMMIT-bbaff66.md](../build_/COMMITS/COMMIT-bbaff66.md)
+- Message: fix activation toggle: explicit SELECT→INSERT/UPDATE (PostgREST upsert can't target partial unique index)

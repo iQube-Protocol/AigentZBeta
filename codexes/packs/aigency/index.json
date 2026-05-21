@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-21T22:32:49.963Z",
+  "last_updated": "2026-05-21T22:47:36.169Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "0e8264f66ad3d431630fdfe45d871349cde8b9e7",
-  "latest_commit_short": "0e8264f",
-  "latest_commit_title": "activation toggle: dedicated rarity='activation' + partial unique index + atomic UPSERT/UPDATE",
+  "latest_commit": "bbaff669de9a0ff92090011f6632a5bd69379f8e",
+  "latest_commit_short": "bbaff66",
+  "latest_commit_title": "fix activation toggle: explicit SELECT→INSERT/UPDATE (PostgREST upsert can't target partial unique index)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "bbaff66",
+      "full_sha": "bbaff669de9a0ff92090011f6632a5bd69379f8e",
+      "title": "fix activation toggle: explicit SELECT→INSERT/UPDATE (PostgREST upsert can't target partial unique index)",
+      "author": "Claude",
+      "timestamp": "2026-05-21T22:45:45Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-bbaff66.md"
+    },
     {
       "sha": "0e8264f",
       "full_sha": "0e8264f66ad3d431630fdfe45d871349cde8b9e7",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-26T00:35:04Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-12088cb.md"
-    },
-    {
-      "sha": "ca3435c",
-      "full_sha": "ca3435c1fda9670f5ed4b68c3da9815d7604e02f",
-      "title": "route marketa campaign deploy and sequence dispatch through pipeline orchestrator",
-      "author": "Claude",
-      "timestamp": "2026-03-26T00:34:58Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-ca3435c.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
