@@ -323,7 +323,7 @@ export function CodexCopilotLayer({
   const [inputPanelHover, setInputPanelHover] = useState(false);
 
   // ── Marketa voice (Vapi) ────────────────────────────────────────────────────
-  type VapiState = "idle" | "connecting" | "active" | "speaking";
+  type VapiState = "idle" | "connecting" | "active" | "speaking" | "error";
   const [vapiState, setVapiState] = useState<VapiState>("idle");
   const [vapiPaused, setVapiPaused] = useState(false);
   const vapiPausedRef = useRef(false);
@@ -343,6 +343,7 @@ export function CodexCopilotLayer({
       instance.on("call-end", () => setVapiState("idle"));
       instance.on("speech-start", () => setVapiState("speaking"));
       instance.on("speech-end", () => setVapiState("active"));
+      instance.on("error", () => { setVapiState("error"); setVapiPaused(false); vapiPausedRef.current = false; });
       instance.on("message", (msg: unknown) => {
         const m = msg as Record<string, unknown>;
         if (m.type === "transcript" && m.transcriptType === "final" && typeof m.transcript === "string") {
@@ -359,7 +360,7 @@ export function CodexCopilotLayer({
 
   const toggleMarketa = useCallback(async () => {
     if (!vapiRef.current) return;
-    if (vapiState !== "idle") {
+    if (vapiState !== "idle" && vapiState !== "error") {
       vapiRef.current.stop();
       setVapiState("idle");
       setVapiPaused(false);
@@ -390,8 +391,6 @@ export function CodexCopilotLayer({
             },
           ],
         },
-        endCallFunctionEnabled: false,
-        maxDurationSeconds: 600,
       });
     } catch {
       setVapiState("idle");
@@ -1468,22 +1467,33 @@ export function CodexCopilotLayer({
                             )}
                             <button
                               type="button"
-                              onClick={() => void toggleMarketa()}
-                              title={vapiState === "idle" ? "Talk to Marketa" : "Stop Marketa"}
+                              onClick={() => {
+                                if (vapiState === "error") { setVapiState("idle"); return; }
+                                void toggleMarketa();
+                              }}
+                              title={
+                                vapiState === "idle" ? "Talk to Marketa"
+                                  : vapiState === "error" ? "Voice unavailable — tap to dismiss"
+                                  : "Stop Marketa"
+                              }
                               className={`p-1.5 rounded-lg transition-colors ${
                                 vapiState === "idle"
                                   ? "text-slate-400 hover:text-fuchsia-300 hover:bg-fuchsia-500/10"
                                   : vapiState === "connecting"
                                     ? "animate-pulse text-amber-300 bg-amber-500/10"
-                                    : vapiState === "speaking"
-                                      ? "animate-pulse text-green-300 bg-green-500/10"
-                                      : "text-fuchsia-300 bg-fuchsia-500/15"
+                                    : vapiState === "error"
+                                      ? "text-rose-400 bg-rose-500/10"
+                                      : vapiState === "speaking"
+                                        ? "animate-pulse text-green-300 bg-green-500/10"
+                                        : "text-fuchsia-300 bg-fuchsia-500/15"
                               }`}
                             >
                               {vapiState === "idle" ? (
                                 <Mic className="w-4 h-4" />
                               ) : vapiState === "connecting" ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : vapiState === "error" ? (
+                                <MicOff className="w-4 h-4" />
                               ) : vapiState === "speaking" ? (
                                 <Volume2 className="w-4 h-4" />
                               ) : (

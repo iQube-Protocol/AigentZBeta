@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Activity, AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Globe, Hexagon, Layers, LayoutGrid, List, Loader2, Mic, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, StopCircle, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type, X } from "lucide-react";
+import { Activity, AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Globe, Hexagon, Layers, LayoutGrid, List, Loader2, Mic, MicOff, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, StopCircle, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type, X } from "lucide-react";
 import { useCopilotAction } from "@copilotkit/react-core";
 import { createShellMessage } from "@metame/iframe-bridge";
 import { Button } from "@/components/ui/button";
@@ -2874,7 +2874,7 @@ export const ComposerStudio = () => {
   const [mcpResult, setMcpResult] = useState<any>(null);
 
   // ── Marketa voice (VAPI + Cartesia) ────────────────────────────────────────
-  type VapiState = "idle" | "connecting" | "active" | "speaking";
+  type VapiState = "idle" | "connecting" | "active" | "speaking" | "error";
   const [vapiState, setVapiState] = useState<VapiState>("idle");
   const [pendingVoicePrompt, setPendingVoicePrompt] = useState<string | null>(null);
   const vapiRef = useRef<{ start: (cfg: unknown) => Promise<unknown>; stop: () => void } | null>(null);
@@ -2894,6 +2894,7 @@ export const ComposerStudio = () => {
       instance.on("call-end", () => setVapiState("idle"));
       instance.on("speech-start", () => setVapiState("speaking"));
       instance.on("speech-end", () => setVapiState("active"));
+      instance.on("error", () => setVapiState("error"));
       instance.on("message", (msg: unknown) => {
         const m = msg as Record<string, unknown>;
         if (m.type === "transcript" && m.transcriptType === "final" && typeof m.transcript === "string") {
@@ -2910,7 +2911,7 @@ export const ComposerStudio = () => {
 
   // Starts a fresh recording session — does NOT stop; use stopMarketa() to end.
   const toggleMarketa = useCallback(async () => {
-    if (!vapiRef.current || vapiState !== "idle") return;
+    if (!vapiRef.current || (vapiState !== "idle" && vapiState !== "error")) return;
     voiceTranscriptAccumRef.current = [];
     setVapiState("connecting");
     try {
@@ -12707,23 +12708,34 @@ export const ComposerStudio = () => {
                       {/* Mic button — starts Marketa, disabled while active */}
                       <button
                         type="button"
-                        onClick={() => void toggleMarketa()}
-                        disabled={vapiState !== "idle"}
-                        title="Start voice with Marketa"
+                        onClick={() => {
+                          if (vapiState === "error") { setVapiState("idle"); return; }
+                          void toggleMarketa();
+                        }}
+                        disabled={vapiState !== "idle" && vapiState !== "error"}
+                        title={
+                          vapiState === "error" ? "Voice unavailable — tap to dismiss"
+                            : vapiState === "idle" ? "Start voice with Marketa"
+                            : "Marketa active"
+                        }
                         className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all disabled:cursor-not-allowed ${
                           vapiState === "idle"
                             ? "border-slate-700 bg-slate-800/60 text-slate-400 hover:border-fuchsia-500/60 hover:text-fuchsia-300"
                             : vapiState === "connecting"
                               ? "animate-pulse border-amber-500/60 bg-amber-500/10 text-amber-300"
-                              : vapiState === "speaking"
-                                ? "animate-pulse border-green-500/60 bg-green-500/15 text-green-300"
-                                : "border-fuchsia-500/60 bg-fuchsia-500/15 text-fuchsia-300"
+                              : vapiState === "error"
+                                ? "border-rose-500/60 bg-rose-500/10 text-rose-300"
+                                : vapiState === "speaking"
+                                  ? "animate-pulse border-green-500/60 bg-green-500/15 text-green-300"
+                                  : "border-fuchsia-500/60 bg-fuchsia-500/15 text-fuchsia-300"
                         }`}
                       >
                         {vapiState === "idle" ? (
                           <><Mic className="h-3 w-3" /><span>Marketa</span></>
                         ) : vapiState === "connecting" ? (
                           <><Loader2 className="h-3 w-3 animate-spin" /><span>Connecting…</span></>
+                        ) : vapiState === "error" ? (
+                          <><MicOff className="h-3 w-3" /><span>Unavailable</span></>
                         ) : vapiState === "speaking" ? (
                           <><Volume2 className="h-3 w-3" /><span>Speaking…</span></>
                         ) : (
@@ -12731,7 +12743,7 @@ export const ComposerStudio = () => {
                         )}
                       </button>
                       {/* Deterministic STOP button — only visible while active */}
-                      {vapiState !== "idle" && (
+                      {vapiState !== "idle" && vapiState !== "error" && (
                         <button
                           type="button"
                           onClick={stopMarketa}
