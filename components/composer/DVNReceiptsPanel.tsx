@@ -55,6 +55,14 @@ const RECEIPT_TYPE_COLORS: Record<string, string> = {
   "artifact.minted": "bg-cyan-500/10 text-cyan-400 border-cyan-500/30",
   "artifact.versioned": "bg-indigo-500/10 text-indigo-400 border-indigo-500/30",
   "capsule.published": "bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/30",
+  // SmartTriad / DPR receipts
+  "design_parity_pipeline_run": "bg-violet-500/10 text-violet-400 border-violet-500/30",
+  "design_parity_pipeline_error": "bg-red-500/10 text-red-400 border-red-500/30",
+  "design_parity_remedy_proposed": "bg-amber-500/10 text-amber-400 border-amber-500/30",
+  "design_parity_remedy_applied": "bg-green-500/10 text-green-400 border-green-500/30",
+  "design_parity_remedy_rejected": "bg-orange-500/10 text-orange-400 border-orange-500/30",
+  "create_experience_qube": "bg-cyan-500/10 text-cyan-400 border-cyan-500/30",
+  "delete_experience_qube": "bg-red-500/10 text-red-400 border-red-500/30",
 };
 
 const RECEIPT_TYPE_ICONS: Record<string, React.ComponentType<any>> = {
@@ -78,16 +86,39 @@ function isReceiptShape(value: unknown): value is DVNReceipt {
   );
 }
 
+// Normalize a SmartTriadReceipt / BaseReceipt (camelCase) to the DVNReceipt wire format.
+function normalizeToReceiptShape(value: unknown): DVNReceipt | null {
+  if (!value || typeof value !== "object") return null;
+  // Already in DVN wire format
+  if (isReceiptShape(value)) return value as DVNReceipt;
+  // SmartTriadReceipt / BaseReceipt (camelCase)
+  const src = value as Record<string, any>;
+  const receiptId = src.receiptId ?? src.receipt_id;
+  if (!receiptId) return null;
+  return {
+    receipt_id: String(receiptId),
+    tenant_id: String(src.tenantId ?? src.tenant_id ?? ""),
+    timestamp: String(src.createdAt ?? src.timestamp ?? new Date().toISOString()),
+    receipt_type: String(src.action ?? src.receipt_type ?? src.type?.subType ?? "unknown"),
+    payload: {
+      experience_id: src.result?.experienceId ?? src.metadata?.experienceId ?? undefined,
+      request_id: src.result?.requestId ?? undefined,
+      provider: src.component ?? undefined,
+      tool_id: src.action ?? undefined,
+      iqube_id: src.result?.iQubeId ?? undefined,
+      artifact_type: src.result?.artifactType ?? undefined,
+      content_hash: src.result?.contentHash ?? undefined,
+    },
+  };
+}
+
 function parseReceiptFromMessage(message: any): DVNReceipt | null {
   if (!message?.content || typeof message.content !== "string") {
     return null;
   }
   try {
     const parsed = JSON.parse(message.content);
-    if (!isReceiptShape(parsed)) {
-      return null;
-    }
-    return parsed;
+    return normalizeToReceiptShape(parsed);
   } catch {
     return null;
   }
@@ -157,7 +188,8 @@ export default function DVNReceiptsPanel({
                 ? Object.values(metadata.generated_receipts)
                 : [];
               return [...dprReceipts, ...generatedReceipts]
-                .filter((item): item is DVNReceipt => isReceiptShape(item));
+                .map(normalizeToReceiptShape)
+                .filter((item): item is DVNReceipt => item !== null);
             })
             .catch(() => [] as DVNReceipt[])
         : Promise.resolve([] as DVNReceipt[]);
