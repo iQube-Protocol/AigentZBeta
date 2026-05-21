@@ -834,3 +834,18 @@ Top-level retrieval anchors for this pack.
 - Type: `refactor`
 - Brief: [COMMIT-813b74c.md](../build_/COMMITS/COMMIT-813b74c.md)
 - Message: knyt retail bundles tab: drop 4 single non-bundled GN offers (gn-investor-{qripto,digital,paperback,hardcover}) — they belong on the investor tab where they're discounted; rename tab 'Bundles & GN' → 'Bundles'; section header 'Graphic Novel, Episode & Character Bundles' → 'Premium Bundles' (investor tab unchanged)
+
+## Commit `e4352e4` — 2026-05-21T18:24:56Z
+- Type: `fix`
+- Brief: [COMMIT-e4352e4.md](../build_/COMMITS/COMMIT-e4352e4.md)
+- Message: trigger deploy: activations soft-release fix (d273247..1dcc609)
+
+## Commit `b0659f1` — 2026-05-21T17:51:51Z
+- Type: `push`
+- Brief: [COMMIT-b0659f1.md](../build_/COMMITS/COMMIT-b0659f1.md)
+- Message: diag: surface edition rows + released_at column presence (catches missing migration)
+
+## Commit `78a2cda` — 2026-05-21T17:13:10Z
+- Type: `push`
+- Brief: [COMMIT-78a2cda.md](../build_/COMMITS/COMMIT-78a2cda.md)
+- Message: backlog: generalise claimEdition to iqube-universal claim primitive (post-comic expansion)
