@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-21T18:44:16.873Z",
+  "last_updated": "2026-05-21T20:54:57.871Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "4dabf9f3dfee569f40a318f5a9494fa1c262a2f0",
-  "latest_commit_short": "4dabf9f",
-  "latest_commit_title": "trigger deploy to dev: re-trigger activations soft-release fix (45fe2a8 already on dev)",
+  "latest_commit": "d5071196afea61e558740caf1695f87c3a2e8a39",
+  "latest_commit_short": "d507119",
+  "latest_commit_title": "activations: prefer ACTIVE row when multiple editions exist (fixes stale revokedAt timestamp on display)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d507119",
+      "full_sha": "d5071196afea61e558740caf1695f87c3a2e8a39",
+      "title": "activations: prefer ACTIVE row when multiple editions exist (fixes stale revokedAt timestamp on display)",
+      "author": "Claude",
+      "timestamp": "2026-05-21T20:53:14Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d507119.md"
+    },
     {
       "sha": "4dabf9f",
       "full_sha": "4dabf9f3dfee569f40a318f5a9494fa1c262a2f0",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-26T00:05:28Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-d265903.md"
-    },
-    {
-      "sha": "d13a550",
-      "full_sha": "d13a5500c4e18e9f10eef96214bfd60476e2efa7",
-      "title": "add pipeline health and run-trace API routes",
-      "author": "Claude",
-      "timestamp": "2026-03-26T00:05:21Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-d13a550.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
