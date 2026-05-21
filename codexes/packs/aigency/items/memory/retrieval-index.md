@@ -869,3 +869,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-6e1f210.md](../build_/COMMITS/COMMIT-6e1f210.md)
 - Message: remove all auto-grant logic. Activations are simple toggles: no row=off, row+null=on, row+timestamp=off
+
+## Commit `0e8264f` — 2026-05-21T22:30:59Z
+- Type: `chore`
+- Brief: [COMMIT-0e8264f.md](../build_/COMMITS/COMMIT-0e8264f.md)
+- Message: activation toggle: dedicated rarity='activation' + partial unique index + atomic UPSERT/UPDATE

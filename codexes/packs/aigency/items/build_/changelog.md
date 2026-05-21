@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`0e8264f`](https://github.com/iQube-Protocol/AigentZBeta/commit/0e8264f66ad3d431630fdfe45d871349cde8b9e7) [chore] activation toggle: dedicated rarity='activation' + partial unique index + atomic UPSERT/UPDATE (Claude, 2026-05-21T22:30:59Z)
 - [`6e1f210`](https://github.com/iQube-Protocol/AigentZBeta/commit/6e1f210a03bcaa30d19e0628390afec8d1855bb7) [push] remove all auto-grant logic. Activations are simple toggles: no row=off, row+null=on, row+timestamp=off (Claude, 2026-05-21T21:49:36Z)
 - [`c4fcf0b`](https://github.com/iQube-Protocol/AigentZBeta/commit/c4fcf0b2e518b61eaae7a9eca7558cae5b0fa134) [push] remove read-side auto-grant: virtual via rowToSurface; revoke persists deactivation for autoGrant entries (Claude, 2026-05-21T21:42:53Z)
 - [`d507119`](https://github.com/iQube-Protocol/AigentZBeta/commit/d5071196afea61e558740caf1695f87c3a2e8a39) [push] activations: prefer ACTIVE row when multiple editions exist (fixes stale revokedAt timestamp on display) (Claude, 2026-05-21T20:53:14Z)
