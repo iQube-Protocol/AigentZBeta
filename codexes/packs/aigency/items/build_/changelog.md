@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`4dabf9f`](https://github.com/iQube-Protocol/AigentZBeta/commit/4dabf9f3dfee569f40a318f5a9494fa1c262a2f0) [fix] trigger deploy to dev: re-trigger activations soft-release fix (45fe2a8 already on dev) (Claude, 2026-05-21T18:42:22Z)
 - [`78a2cda`](https://github.com/iQube-Protocol/AigentZBeta/commit/78a2cda8c5c62167d2ff7f88726e7bceb98ac39c) [push] backlog: generalise claimEdition to iqube-universal claim primitive (post-comic expansion) (Claude, 2026-05-21T17:13:10Z)
 - [`b0659f1`](https://github.com/iQube-Protocol/AigentZBeta/commit/b0659f1c43270cd92bce7ce0a00e68e4096a2356) [push] diag: surface edition rows + released_at column presence (catches missing migration) (Claude, 2026-05-21T17:51:51Z)
 - [`e4352e4`](https://github.com/iQube-Protocol/AigentZBeta/commit/e4352e4f11615851da616cd284f67bbc588e0886) [fix] trigger deploy: activations soft-release fix (d273247..1dcc609) (Claude, 2026-05-21T18:24:56Z)
