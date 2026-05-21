@@ -390,6 +390,8 @@ export function CodexCopilotLayer({
             },
           ],
         },
+        endCallFunctionEnabled: false,
+        maxDurationSeconds: 600,
       });
     } catch {
       setVapiState("idle");

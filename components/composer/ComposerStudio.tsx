@@ -2917,7 +2917,7 @@ export const ComposerStudio = () => {
       await vapiRef.current.start({
         name: "Marketa",
         firstMessage: "Ready — tell me your vision.",
-        transcriber: { provider: "deepgram", model: "nova-2", language: "en-US", endpointing: 1500 },
+        transcriber: { provider: "deepgram", model: "nova-2", language: "en-US" },
         voice: {
           provider: "cartesia",
           voiceId: "694f9389-aac1-45b6-b726-9d9369183238",
@@ -2934,7 +2934,6 @@ export const ComposerStudio = () => {
             },
           ],
         },
-        silenceTimeoutSeconds: 120,
         endCallFunctionEnabled: false,
         maxDurationSeconds: 600,
       });
