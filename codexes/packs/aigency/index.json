@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-21T20:54:57.871Z",
+  "last_updated": "2026-05-21T21:44:43.765Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d5071196afea61e558740caf1695f87c3a2e8a39",
-  "latest_commit_short": "d507119",
-  "latest_commit_title": "activations: prefer ACTIVE row when multiple editions exist (fixes stale revokedAt timestamp on display)",
+  "latest_commit": "c4fcf0b2e518b61eaae7a9eca7558cae5b0fa134",
+  "latest_commit_short": "c4fcf0b",
+  "latest_commit_title": "remove read-side auto-grant: virtual via rowToSurface; revoke persists deactivation for autoGrant entries",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c4fcf0b",
+      "full_sha": "c4fcf0b2e518b61eaae7a9eca7558cae5b0fa134",
+      "title": "remove read-side auto-grant: virtual via rowToSurface; revoke persists deactivation for autoGrant entries",
+      "author": "Claude",
+      "timestamp": "2026-05-21T21:42:53Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c4fcf0b.md"
+    },
     {
       "sha": "d507119",
       "full_sha": "d5071196afea61e558740caf1695f87c3a2e8a39",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-26T00:05:35Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-5c504ef.md"
-    },
-    {
-      "sha": "d265903",
-      "full_sha": "d265903813e06f522630ee85535fc8a361464e1e",
-      "title": "route composer session completion through pipeline orchestrator",
-      "author": "Claude",
-      "timestamp": "2026-03-26T00:05:28Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d265903.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

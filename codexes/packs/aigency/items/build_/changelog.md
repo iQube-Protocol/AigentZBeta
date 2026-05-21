@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`c4fcf0b`](https://github.com/iQube-Protocol/AigentZBeta/commit/c4fcf0b2e518b61eaae7a9eca7558cae5b0fa134) [push] remove read-side auto-grant: virtual via rowToSurface; revoke persists deactivation for autoGrant entries (Claude, 2026-05-21T21:42:53Z)
 - [`d507119`](https://github.com/iQube-Protocol/AigentZBeta/commit/d5071196afea61e558740caf1695f87c3a2e8a39) [push] activations: prefer ACTIVE row when multiple editions exist (fixes stale revokedAt timestamp on display) (Claude, 2026-05-21T20:53:14Z)
 - [`4dabf9f`](https://github.com/iQube-Protocol/AigentZBeta/commit/4dabf9f3dfee569f40a318f5a9494fa1c262a2f0) [fix] trigger deploy to dev: re-trigger activations soft-release fix (45fe2a8 already on dev) (Claude, 2026-05-21T18:42:22Z)
 - [`78a2cda`](https://github.com/iQube-Protocol/AigentZBeta/commit/78a2cda8c5c62167d2ff7f88726e7bceb98ac39c) [push] backlog: generalise claimEdition to iqube-universal claim primitive (post-comic expansion) (Claude, 2026-05-21T17:13:10Z)
