@@ -4442,7 +4442,7 @@ export const ComposerStudio = () => {
         const experienceName = deriveExperienceNameFromPrompt(effectivePrompt, "Qriptopian Image Experience");
 
         setTemplateIntent("article");
-        setSelectedTemplateId("qripto-feature-article");
+        setSelectedTemplateId("qriptopian_reading_sprint_v0");
         setTemplateQuery(`${contextLabel}: ${effectivePrompt} article hero image portrait landscape`);
 
         const seedData = {
@@ -7901,57 +7901,58 @@ export const ComposerStudio = () => {
                           const briefTitle = pendingBriefSelectedTitle || pendingBrief.titleSuggestions[0] || "";
                           const briefGoal = pendingBrief.goal || pendingBriefEdited.slice(0, 200);
 
-                          if (pendingProductionConfig) {
-                            // Augment an existing routing config with the brief data; the
-                            // confirmation dialog will call startSeededSessionForTemplate.
-                            setPendingProductionConfig({
-                              ...pendingProductionConfig,
-                              seedData: {
-                                ...pendingProductionConfig.seedData,
-                                intent_timebox: {
-                                  ...(typeof pendingProductionConfig.seedData.intent_timebox === "object"
-                                    ? pendingProductionConfig.seedData.intent_timebox as Record<string, unknown>
-                                    : {}),
-                                  experience_name: briefTitle,
-                                  goal: briefGoal,
-                                  brief: pendingBriefEdited,
-                                },
-                                ...(pendingBrief.articlePrompt ? {
-                                  article_draft: { prompt: pendingBrief.articlePrompt },
-                                } : {}),
-                                ...(pendingBrief.visualPrompt ? {
-                                  image_generation: {
-                                    ...(typeof (pendingProductionConfig.seedData.image_generation ?? {}) === "object"
-                                      ? pendingProductionConfig.seedData.image_generation as Record<string, unknown>
-                                      : {}),
-                                    portrait_prompt: pendingBrief.visualPrompt,
-                                    landscape_prompt: pendingBrief.visualPrompt,
-                                  },
-                                } : {}),
+                          // Build the augmented seedData — brief fields layered on top of whatever
+                          // the routing already computed (mirrors the confirmation dialog handler).
+                          const baseSeedData = pendingProductionConfig?.seedData || {};
+                          const augmentedSeedData = {
+                            ...baseSeedData,
+                            intent_timebox: {
+                              ...(typeof baseSeedData.intent_timebox === "object" ? baseSeedData.intent_timebox as Record<string, unknown> : {}),
+                              experience_name: briefTitle,
+                              goal: briefGoal,
+                              brief: pendingBriefEdited,
+                            },
+                            ...(pendingBrief.articlePrompt ? {
+                              article_draft: {
+                                ...(typeof baseSeedData.article_draft === "object" ? baseSeedData.article_draft as Record<string, unknown> : {}),
+                                prompt: pendingBrief.articlePrompt,
                               },
-                            });
+                            } : {}),
+                            ...(pendingBrief.visualPrompt ? {
+                              image_generation: {
+                                ...(typeof baseSeedData.image_generation === "object" ? baseSeedData.image_generation as Record<string, unknown> : {}),
+                                portrait_prompt: pendingBrief.visualPrompt,
+                                landscape_prompt: pendingBrief.visualPrompt,
+                              },
+                            } : {}),
+                          };
+
+                          if (pendingProductionConfig) {
+                            // Use the templateKey already resolved by the routing logic — same as
+                            // the "Yes, send to production" confirmation dialog handler.
+                            void startSeededSessionForTemplate(
+                              pendingProductionConfig.templateKey,
+                              augmentedSeedData,
+                              pendingProductionConfig.options as any,
+                            );
+                            setPendingProductionConfig(null);
                           } else {
-                            // SEND_TRIGGER path: no prior routing config — infer template from
-                            // brief content and navigate to the Customizer directly.
-                            let templateId = selectedTemplateId || "";
-                            const seedData: Record<string, any> = {
-                              intent_timebox: { experience_name: briefTitle, goal: briefGoal, brief: pendingBriefEdited },
-                            };
-                            if (pendingBrief.visualPrompt && pendingBrief.articlePrompt) {
-                              if (!templateId) templateId = "qripto-feature-article";
-                              seedData.image_generation = { portrait_prompt: pendingBrief.visualPrompt, landscape_prompt: pendingBrief.visualPrompt, provider_id: "openai" };
-                              seedData.article_draft = { prompt: pendingBrief.articlePrompt, title: briefTitle };
-                            } else if (pendingBrief.visualPrompt) {
-                              if (!templateId) templateId = "ai-image-generation";
-                              seedData.image_generation = { portrait_prompt: pendingBrief.visualPrompt, landscape_prompt: pendingBrief.visualPrompt, provider_id: "openai" };
-                              seedData.skill_selection = { skill_id: "openai_image_gen" };
-                            } else if (pendingBrief.articlePrompt) {
-                              if (!templateId) templateId = "ai-article-draft";
-                              seedData.article_draft = { prompt: pendingBrief.articlePrompt, title: briefTitle };
-                            } else {
-                              if (!templateId) templateId = "ai-image-generation";
+                            // No prior routing (pure SEND_TRIGGER) — infer template from brief.
+                            const VALID_TEMPLATE_IDS = [
+                              "qriptopian_reading_sprint_v0",
+                              "sora-video-generation",
+                              "ai-image-generation",
+                              "ai-article-draft",
+                            ];
+                            const validSelected = VALID_TEMPLATE_IDS.includes(selectedTemplateId || "") ? (selectedTemplateId || "") : "";
+                            let templateId = validSelected;
+                            if (!templateId) {
+                              if (pendingBrief.visualPrompt && pendingBrief.articlePrompt) templateId = "qriptopian_reading_sprint_v0";
+                              else if (pendingBrief.visualPrompt) templateId = "ai-image-generation";
+                              else if (pendingBrief.articlePrompt) templateId = "ai-article-draft";
+                              else templateId = "ai-image-generation";
                             }
-                            void startSeededSessionForTemplate(templateId, seedData, { currentStep: 1 });
+                            void startSeededSessionForTemplate(templateId, augmentedSeedData, { currentStep: 1 });
                           }
                           setPendingBrief(null);
                           setPendingBriefEdited("");
