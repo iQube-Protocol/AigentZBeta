@@ -4104,24 +4104,32 @@ export const ComposerStudio = () => {
       if (SEND_TRIGGER.test(prompt)) {
         setConsolidating(true);
         void (async () => {
+          const conversation = copilotConversationRef.current
+            .map((m) => `${m.role === "user" ? "User" : "Marketa"}: ${typeof m.content === "string" ? m.content : ""}`)
+            .filter((line) => line.split(": ")[1]?.trim())
+            .join("\n\n");
+          const rawText = conversation || prompt;
+          // Always show the panel — use raw conversation as fallback if API fails.
+          const fallbackBrief: ConsolidatedBrief = {
+            brief: rawText,
+            titleSuggestions: [],
+            goal: "",
+          };
           try {
-            const conversation = copilotConversationRef.current
-              .map((m) => `${m.role === "user" ? "User" : "Marketa"}: ${typeof m.content === "string" ? m.content : ""}`)
-              .filter((line) => line.split(": ")[1]?.trim())
-              .join("\n\n");
             const res = await fetch("/api/composer/consolidate-brief", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                conversation: conversation || prompt,
+                conversation: rawText,
                 templateName: sessionTemplate?.name || selectedTemplate?.name || "",
               }),
             });
-            if (res.ok) {
-              const data = (await res.json()) as ConsolidatedBrief;
-              setPendingBrief(data);
-              setPendingBriefEdited(data.brief);
-            }
+            const data = res.ok ? (await res.json()) as ConsolidatedBrief : fallbackBrief;
+            setPendingBrief(data);
+            setPendingBriefEdited(data.brief);
+          } catch {
+            setPendingBrief(fallbackBrief);
+            setPendingBriefEdited(rawText);
           } finally {
             setConsolidating(false);
           }
