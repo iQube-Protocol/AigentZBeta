@@ -318,23 +318,26 @@ export function PackBrowserTab({ packId, collectionId, defaultPath, theme = "dar
                     code: ({ className, children, ...props }) => {
                       const inline = (props as { inline?: boolean }).inline === true;
                       if (inline) {
-                        // Auto-link inline-code refs that match a known pack
-                        // item basename (e.g. `KNYT_CAMPAIGN_OPERATOR_BRIEF.md`).
-                        // Children is normally a single string; coerce defensively.
                         const text = React.Children.toArray(children)
                           .map((c) => (typeof c === "string" ? c : ""))
                           .join("")
                           .trim();
-                        if (text && itemIndex.has(text)) {
+                        if (text && text.endsWith(".md")) {
+                          const hit = itemIndex.get(text);
+                          const filePath = hit
+                            ? `codexes/packs/${packId}/${hit.path}`
+                            : `codexes/packs/${packId}/items/${text}`;
+                          const githubUrl = `https://github.com/iqube-protocol/aigentzbeta/blob/dev/${filePath}`;
                           return (
-                            <button
-                              type="button"
-                              onClick={() => openItemByBasename(text)}
-                              className="rounded bg-slate-800 px-1 py-0.5 text-[12px] font-mono text-cyan-300 hover:text-cyan-200 hover:bg-slate-700 underline underline-offset-2 decoration-cyan-500/40 cursor-pointer"
-                              title={`Open ${text}`}
+                            <a
+                              href={githubUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="rounded bg-slate-800 px-1 py-0.5 text-[12px] font-mono text-cyan-300 hover:text-cyan-200 hover:bg-slate-700 underline underline-offset-2 decoration-cyan-500/40"
+                              title={`View ${text} on GitHub`}
                             >
                               {children}
-                            </button>
+                            </a>
                           );
                         }
                         return <code className="rounded bg-slate-800 px-1 py-0.5 text-[12px] font-mono text-violet-300">{children}</code>;
