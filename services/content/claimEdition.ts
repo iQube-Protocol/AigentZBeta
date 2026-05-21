@@ -176,10 +176,10 @@ async function appendCommon(
   const supabase = getSupabaseServer()!;
 
   // Re-activate path — if this persona has any common edition on this qube,
-  // toggle it on. Idempotent for already-active rows; clears released_at on
-  // a released row. Selects the LATEST edition (highest edition_number) so
-  // historical duplicates from before this fix get collapsed onto one
-  // canonical row.
+  // toggle it on. Prefer the ACTIVE row over a released row (in case
+  // multiple rows exist from historical inserts); among same-status rows
+  // pick the latest by edition_number. This guards against past pollution
+  // where one (persona, qube) ended up with multiple rows.
   {
     const { data: priorRows, error: priorErr } = await supabase
       .from('content_qube_editions')
@@ -187,12 +187,14 @@ async function appendCommon(
       .eq('content_qube_id', contentQubeId)
       .eq('persona_id', personaId)
       .eq('rarity', 'common')
-      .order('edition_number', { ascending: false })
-      .limit(1);
+      .order('edition_number', { ascending: false });
     if (priorErr) {
       console.warn(`[appendCommon] reactivate-lookup failed qube=${contentQubeId}: ${priorErr.message}`);
     }
-    const prior = Array.isArray(priorRows) && priorRows.length > 0 ? priorRows[0] : null;
+    const priorList = Array.isArray(priorRows) ? priorRows : [];
+    const prior = priorList.find((r) => (r as { released_at: string | null }).released_at === null)
+               ?? priorList[0]
+               ?? null;
     if (prior) {
       const priorRow = prior as { id: string; edition_number: number; released_at: string | null };
       if (priorRow.released_at === null) {

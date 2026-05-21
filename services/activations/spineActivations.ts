@@ -119,8 +119,33 @@ async function readPersonaEditions(
       if (error) console.warn('[spineActivations.readPersonaEditions] read failed:', error.message);
       return new Map();
     }
+    // CRITICAL — when multiple rows exist for the same (persona, qube),
+    // pick the canonical one: any ACTIVE row (released_at IS NULL) wins
+    // over released rows; among same-status rows, the most-recently issued
+    // wins. Without this preference order, Map.set order is determined by
+    // PostgREST's row order — which is undefined — and we'd flip-flop
+    // between showing the user's released row vs their active row on each
+    // GET. Symptom: deactivate succeeds in DB but surface still shows old
+    // released_at timestamp (or vice versa).
     const map = new Map<string, EditionRow>();
-    for (const row of data as EditionRow[]) map.set(row.content_qube_id, row);
+    for (const r of data as EditionRow[]) {
+      const existing = map.get(r.content_qube_id);
+      if (!existing) {
+        map.set(r.content_qube_id, r);
+        continue;
+      }
+      const existingActive = existing.released_at === null;
+      const incomingActive = r.released_at === null;
+      if (incomingActive && !existingActive) {
+        map.set(r.content_qube_id, r);
+        continue;
+      }
+      if (!incomingActive && existingActive) continue;
+      // Both same status — keep the newer one by issued_at.
+      const existingTs = existing.issued_at ? Date.parse(existing.issued_at) : 0;
+      const incomingTs = r.issued_at ? Date.parse(r.issued_at) : 0;
+      if (incomingTs > existingTs) map.set(r.content_qube_id, r);
+    }
     return map;
   } catch (err) {
     console.warn('[spineActivations.readPersonaEditions] threw:', err instanceof Error ? err.message : err);
