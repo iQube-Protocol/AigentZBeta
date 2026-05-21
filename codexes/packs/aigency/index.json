@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-21T18:27:05.919Z",
+  "last_updated": "2026-05-21T18:44:16.873Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "78a2cda8c5c62167d2ff7f88726e7bceb98ac39c",
-  "latest_commit_short": "78a2cda",
-  "latest_commit_title": "backlog: generalise claimEdition to iqube-universal claim primitive (post-comic expansion)",
+  "latest_commit": "4dabf9f3dfee569f40a318f5a9494fa1c262a2f0",
+  "latest_commit_short": "4dabf9f",
+  "latest_commit_title": "trigger deploy to dev: re-trigger activations soft-release fix (45fe2a8 already on dev)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "4dabf9f",
+      "full_sha": "4dabf9f3dfee569f40a318f5a9494fa1c262a2f0",
+      "title": "trigger deploy to dev: re-trigger activations soft-release fix (45fe2a8 already on dev)",
+      "author": "Claude",
+      "timestamp": "2026-05-21T18:42:22Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-4dabf9f.md"
+    },
     {
       "sha": "78a2cda",
       "full_sha": "78a2cda8c5c62167d2ff7f88726e7bceb98ac39c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-26T00:05:21Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-d13a550.md"
-    },
-    {
-      "sha": "4b2a9a9",
-      "full_sha": "4b2a9a9d48a87709a7078152a2ff1fe573e9767a",
-      "title": "add experience pipeline control plane service layer",
-      "author": "Claude",
-      "timestamp": "2026-03-26T00:05:14Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-4b2a9a9.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

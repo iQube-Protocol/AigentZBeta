@@ -849,3 +849,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-78a2cda.md](../build_/COMMITS/COMMIT-78a2cda.md)
 - Message: backlog: generalise claimEdition to iqube-universal claim primitive (post-comic expansion)
+
+## Commit `4dabf9f` — 2026-05-21T18:42:22Z
+- Type: `fix`
+- Brief: [COMMIT-4dabf9f.md](../build_/COMMITS/COMMIT-4dabf9f.md)
+- Message: trigger deploy to dev: re-trigger activations soft-release fix (45fe2a8 already on dev)
