@@ -4828,6 +4828,33 @@ export const ComposerStudio = () => {
     try {
       setIsCompleting(true);
       setSessionError(null);
+
+      // Flush any stepData overrides that weren't saved during normal step navigation
+      // (e.g. experience_name / goal edited in the Experience Snapshot panel while on
+      // the Customizer step — those live in stepData["intent_timebox"] but updateSession
+      // only saves stepData[currentStep.id]).
+      const crossStepOverrides = Object.fromEntries(
+        Object.entries(stepData).filter(([key, val]) =>
+          key !== (currentStep?.id ?? "") && Object.keys(val || {}).length > 0
+        )
+      );
+      if (Object.keys(crossStepOverrides).length > 0) {
+        const flushData = {
+          ...sessionData,
+          ...(currentStep ? { [currentStep.id]: stepValues } : {}),
+          ...crossStepOverrides,
+        };
+        await fetch(`/api/composer/sessions/${session.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            current_step: session.current_step ?? 0,
+            data: flushData,
+            status: session.status,
+          }),
+        });
+      }
+
       const res = await fetch(`/api/composer/sessions/${session.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -13,6 +13,19 @@ import {
   resolveExperienceBundleSequencingState,
 } from "@/services/composer/experienceBundlePresets";
 
+// When a prompt signals the creator wants a clean image (no copy / minimal text),
+// append an explicit DALL-E directive to prevent rendered typography.
+const NO_TEXT_SIGNAL = /\b(no|very\s+little|minimal|avoid|without)\s+(text|copy|words?|typography|caption|title)\b/i;
+const NO_TEXT_DIRECTIVE = " No text, words, or typographic elements in the image.";
+
+function withNoTextDirective(prompt: string): string {
+  if (!prompt) return prompt;
+  if (NO_TEXT_SIGNAL.test(prompt) && !/ no text\b/i.test(prompt)) {
+    return prompt.trimEnd() + NO_TEXT_DIRECTIVE;
+  }
+  return prompt;
+}
+
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
@@ -724,8 +737,8 @@ function buildImagePacket(experience: any, personaLibraryAssets: any[] = []) {
     context: {
       working_set: {
         provider_id: providerId,
-        portrait_prompt: imageGeneration.portrait_prompt || null,
-        landscape_prompt: imageGeneration.landscape_prompt || null,
+        portrait_prompt: withNoTextDirective(imageGeneration.portrait_prompt || "") || null,
+        landscape_prompt: withNoTextDirective(imageGeneration.landscape_prompt || "") || null,
       },
     },
     composition: compositionBundle
@@ -738,8 +751,8 @@ function buildImagePacket(experience: any, personaLibraryAssets: any[] = []) {
     article_draft: articleDraft,
     image_generation: {
       provider_id: providerId,
-      portrait_prompt: imageGeneration.portrait_prompt || "",
-      landscape_prompt: imageGeneration.landscape_prompt || "",
+      portrait_prompt: withNoTextDirective(imageGeneration.portrait_prompt || ""),
+      landscape_prompt: withNoTextDirective(imageGeneration.landscape_prompt || ""),
       visual_style: imageGeneration.visual_style || "editorial",
       auto_invoke: false,
       initial_images: initialImages,
@@ -767,8 +780,8 @@ function buildImagePacket(experience: any, personaLibraryAssets: any[] = []) {
           binding: { source: "skill", path: `generate/${providerId}` },
           props: {
             provider_id: providerId,
-            portrait_prompt: imageGeneration.portrait_prompt || "",
-            landscape_prompt: imageGeneration.landscape_prompt || "",
+            portrait_prompt: withNoTextDirective(imageGeneration.portrait_prompt || ""),
+            landscape_prompt: withNoTextDirective(imageGeneration.landscape_prompt || ""),
             visual_style: imageGeneration.visual_style || "editorial",
             autoInvoke: false,
             initial_images: initialImages,
