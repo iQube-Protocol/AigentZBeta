@@ -58,6 +58,33 @@ function findFirstLeaf(nodes: PackCollectionNode[] | undefined): PackCollectionN
   return null;
 }
 
+// Walk every collection in the pack and build a lookup from a filename's
+// basename (e.g. "KNYT_CAMPAIGN_OPERATOR_BRIEF.md") to its full item path
+// (e.g. "items/KNYT_CAMPAIGN_OPERATOR_BRIEF.md") and owning collection id.
+// Powers auto-linking of inline-code doc references in the markdown body.
+function buildPackItemIndex(
+  nodes: PackCollectionNode[] | undefined,
+): Map<string, { path: string; collectionId: string }> {
+  const index = new Map<string, { path: string; collectionId: string }>();
+  function walk(list: PackCollectionNode[] | undefined) {
+    if (!list) return;
+    for (const node of list) {
+      for (const item of node.items ?? []) {
+        const basename = item.split("/").pop() || item;
+        // First-wins: if the same basename appears in multiple collections,
+        // keep the earliest registration. Docs typically reference a single
+        // canonical home, so collisions are rare.
+        if (!index.has(basename)) {
+          index.set(basename, { path: item, collectionId: node.id });
+        }
+      }
+      walk(node.collections);
+    }
+  }
+  walk(nodes);
+  return index;
+}
+
 export function PackBrowserTab({ packId, collectionId, defaultPath, theme = "dark" }: PackBrowserTabProps) {
   const [root, setRoot] = useState<PackCollectionsFile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -118,6 +145,22 @@ export function PackBrowserTab({ packId, collectionId, defaultPath, theme = "dar
   }, [root, activeCollectionId]);
 
   const activeItems = useMemo(() => activeCollection?.items ?? [], [activeCollection]);
+
+  // basename → { path, collectionId } across the entire pack. Recomputed
+  // when the collections tree changes (i.e. once after the initial fetch).
+  const itemIndex = useMemo(() => buildPackItemIndex(root?.collections), [root]);
+
+  // Click-through handler for an auto-linked inline-code doc reference.
+  // Switches both the active collection (if different) and the active path
+  // to the referenced item — keeps the left-panel selection in sync.
+  const openItemByBasename = React.useCallback((basename: string) => {
+    const hit = itemIndex.get(basename);
+    if (!hit) return;
+    if (hit.collectionId !== activeCollectionId) {
+      setActiveCollectionId(hit.collectionId);
+    }
+    setActivePath(hit.path);
+  }, [itemIndex, activeCollectionId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -274,7 +317,28 @@ export function PackBrowserTab({ packId, collectionId, defaultPath, theme = "dar
                     hr: () => <hr className="border-slate-700 my-4" />,
                     code: ({ className, children, ...props }) => {
                       const inline = (props as { inline?: boolean }).inline === true;
-                      if (inline) return <code className="rounded bg-slate-800 px-1 py-0.5 text-[12px] font-mono text-violet-300">{children}</code>;
+                      if (inline) {
+                        // Auto-link inline-code refs that match a known pack
+                        // item basename (e.g. `KNYT_CAMPAIGN_OPERATOR_BRIEF.md`).
+                        // Children is normally a single string; coerce defensively.
+                        const text = React.Children.toArray(children)
+                          .map((c) => (typeof c === "string" ? c : ""))
+                          .join("")
+                          .trim();
+                        if (text && itemIndex.has(text)) {
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => openItemByBasename(text)}
+                              className="rounded bg-slate-800 px-1 py-0.5 text-[12px] font-mono text-cyan-300 hover:text-cyan-200 hover:bg-slate-700 underline underline-offset-2 decoration-cyan-500/40 cursor-pointer"
+                              title={`Open ${text}`}
+                            >
+                              {children}
+                            </button>
+                          );
+                        }
+                        return <code className="rounded bg-slate-800 px-1 py-0.5 text-[12px] font-mono text-violet-300">{children}</code>;
+                      }
                       return <pre className="rounded-lg bg-slate-900 border border-slate-800 p-3 overflow-x-auto text-[12px] font-mono text-slate-300 my-2"><code>{children}</code></pre>;
                     },
                   }}
