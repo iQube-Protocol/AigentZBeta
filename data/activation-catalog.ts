@@ -32,11 +32,6 @@ export interface ActivationCatalogEntry {
   /** Gate type — drives the activation flow on the Activations tab. */
   gate: ActivationGate;
   /**
-   * When true, the activation is auto-granted on first read of the
-   * activations endpoint for this persona. The user can still revoke.
-   */
-  autoGrant?: boolean;
-  /**
    * Slug of the metaMe codex tab/group that becomes visible when this
    * activation is `active`. Drives CodexPanelDynamic gating.
    */
@@ -50,7 +45,6 @@ export interface ActivationCatalogEntry {
 }
 
 export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
-  // ── Auto-granted, open ───────────────────────────────────────────────
   {
     id: 'mycanvas',
     label: 'myCanvas',
@@ -58,7 +52,6 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
     longDescription:
       'A personal surface to publish drafts, half-formed thoughts, and works-in-progress that aigentMe or the Studio produces with you. Private by default — invite specific people, or later republish into a community surface or social platform.',
     gate: 'open',
-    autoGrant: true,
     tabSlug: 'mycanvas',
     sourceCartridge: 'metame',
     icon: 'PenSquare',
@@ -69,16 +62,13 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
     label: 'Order of Metayé',
     description: 'Active surface of the KNYT world — Order rituals, missions, and standing.',
     longDescription:
-      'The participation layer of the KNYT cartridge. Surfaces the Order tab and its sub-tabs (rituals, standing, and missions) directly inside metaMe. Default-on — deactivate any time to remove the KNYT motion from your runtime.',
+      'The participation layer of the KNYT cartridge. Surfaces the Order tab and its sub-tabs (rituals, standing, and missions) directly inside metaMe.',
     gate: 'open',
-    autoGrant: true,
     tabSlug: 'order-of-metaye',
     sourceCartridge: 'knyt',
     icon: 'Shield',
     color: 'amber',
   },
-
-  // ── Open self-activations ────────────────────────────────────────────
   {
     id: 'agentiq-os',
     label: 'AgentiQ OS',
@@ -103,8 +93,6 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
     icon: 'Globe',
     color: 'slate',
   },
-
-  // ── Gated (invite / cohort / payment / admin) ────────────────────────
   {
     id: 'venture-lab',
     label: 'Venture Lab',
@@ -145,10 +133,6 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
 
 export function getActivationEntry(id: string): ActivationCatalogEntry | null {
   return ACTIVATION_CATALOG.find((e) => e.id === id) ?? null;
-}
-
-export function listAutoGrantActivationIds(): string[] {
-  return ACTIVATION_CATALOG.filter((e) => e.autoGrant).map((e) => e.id);
 }
 
 export function activationIdForTabSlug(slug: string): string | null {

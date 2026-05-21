@@ -26,7 +26,6 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { claimEditionForPurchase, releaseEdition } from '@/services/content/claimEdition';
 import {
   ACTIVATION_CATALOG,
-  listAutoGrantActivationIds,
   type ActivationCatalogEntry,
   type ActivationGate,
 } from '@/data/activation-catalog';
@@ -166,23 +165,17 @@ function rowToSurface(
   const gateFromPolicy: ActivationGate =
     qube?.gating_kind === 'free' ? 'open' : 'gated';
   const gate: ActivationGate = entry.gate ?? gateFromPolicy;
-
-  // Status resolution — order matters:
-  //   1. Edition exists, released_at NULL → active.
-  //   2. Edition exists, released_at SET → revoked (user explicitly deactivated).
-  //   3. No edition exists + autoGrant catalog flag → VIRTUAL active.
-  //      No INSERT on read — the first explicit click creates the row.
-  //      This eliminates the resurrection-on-every-GET behavior that
-  //      previously made deactivated auto-grant tabs reappear.
-  //   4. No edition + not autoGrant → null (never activated).
-  const isReleased = !!edition?.released_at;
-  let status: ActivationStatus | null;
-  if (edition && !isReleased) status = 'active';
-  else if (edition && isReleased) status = 'revoked';
-  else if (!edition && entry.autoGrant) status = 'active';
-  else status = null;
-
   const canSelfActivate = gate === 'open' || isAdmin || !!edition;
+
+  // The world's simplest truth table:
+  //   row present, released_at NULL    → active
+  //   row present, released_at NOT NULL → revoked
+  //   no row                            → null  (never activated)
+  // That's it. No magic, no auto-grant, no virtual states.
+  const status: ActivationStatus | null =
+    edition && !edition.released_at ? 'active'
+    : edition && edition.released_at ? 'revoked'
+    : null;
 
   return {
     id: entry.id,
@@ -195,7 +188,7 @@ function rowToSurface(
     icon: entry.icon,
     color: entry.color,
     status,
-    grantedVia: edition ? 'self' : (status === 'active' && !edition ? 'auto' : null),
+    grantedVia: edition ? 'self' : null,
     grantedAt: edition?.issued_at ?? null,
     revokedAt: edition?.released_at ?? null,
     canSelfActivate,
@@ -337,49 +330,7 @@ export async function revoke(
   if (!result.ok) {
     return { ok: false, reason: result.error ?? 'release-failed' };
   }
-
-  // Auto-grant entry being deactivated for the first time — there's no
-  // row to release because the prior "active" was virtual. Persist a
-  // released-from-the-start row so subsequent reads honour the user's
-  // deactivation (otherwise rowToSurface would virtually-active it again).
-  if (result.released === 0 && entry.autoGrant) {
-    const admin = getSupabaseServer();
-    if (admin) {
-      const { error } = await admin.from('content_qube_editions').insert({
-        content_qube_id: qube.qube_id,
-        persona_id: personaId,
-        rarity: 'common',
-        edition_number: await nextEditionNumber(qube.qube_id),
-        issued_at: new Date().toISOString(),
-        released_at: new Date().toISOString(),
-      });
-      if (error && !/duplicate key|unique constraint/i.test(error.message)) {
-        console.warn(`[spineActivations.revoke] auto-grant placeholder insert failed: ${error.message}`);
-        return { ok: false, reason: error.message };
-      }
-    }
-  }
-
   return { ok: true, activationId };
-}
-
-/**
- * Compute the next edition_number for a given qube. Used by the
- * autoGrant-deactivation placeholder INSERT so it satisfies the
- * (content_qube_id, edition_number) UNIQUE constraint.
- */
-async function nextEditionNumber(qubeId: string): Promise<number> {
-  const admin = getSupabaseServer();
-  if (!admin) return 1;
-  const { data } = await admin
-    .from('content_qube_editions')
-    .select('edition_number')
-    .eq('content_qube_id', qubeId)
-    .order('edition_number', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const row = data as { edition_number?: number } | null;
-  return (row?.edition_number ?? 0) + 1;
 }
 
 export async function adminGrant(
