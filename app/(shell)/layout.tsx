@@ -14,6 +14,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 // Global SmartContent provider
 import { SmartContentActionProvider } from "../contexts/SmartContentActionContext";
 import { PersonaProvider } from "../contexts/PersonaContext";
+import { ActivationsProvider } from "@/services/activations/ActivationsContext";
 
 function ShellLayoutContent({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
@@ -151,9 +152,11 @@ function ShellLayoutContent({ children }: { children: React.ReactNode }) {
 export default function ShellLayout({ children }: { children: React.ReactNode }) {
   return (
     <PersonaProvider>
-      <MetaAvatarProvider>
-        <ShellLayoutContent>{children}</ShellLayoutContent>
-      </MetaAvatarProvider>
+      <ActivationsProvider>
+        <MetaAvatarProvider>
+          <ShellLayoutContent>{children}</ShellLayoutContent>
+        </MetaAvatarProvider>
+      </ActivationsProvider>
     </PersonaProvider>
   );
 }
