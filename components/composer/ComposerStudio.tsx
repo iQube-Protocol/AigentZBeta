@@ -8574,7 +8574,7 @@ export const ComposerStudio = () => {
                                 <span className="text-xs text-slate-400">{item.label}</span>
                                 {item.fieldId === "goal" ? (
                                   <textarea
-                                    value={mergedData?.intent_timebox?.[item.fieldId] ?? item.value}
+                                    value={stepData?.intent_timebox?.[item.fieldId] ?? mergedData?.intent_timebox?.[item.fieldId] ?? item.value}
                                     onChange={(e) => updateField(item.stepId!, item.fieldId!, e.target.value)}
                                     rows={3}
                                     className="w-full resize-none rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-fuchsia-500/60"
@@ -8582,7 +8582,7 @@ export const ComposerStudio = () => {
                                 ) : (
                                   <input
                                     type="text"
-                                    value={mergedData?.intent_timebox?.[item.fieldId] ?? item.value}
+                                    value={stepData?.intent_timebox?.[item.fieldId] ?? mergedData?.intent_timebox?.[item.fieldId] ?? item.value}
                                     onChange={(e) => updateField(item.stepId!, item.fieldId!, e.target.value)}
                                     className="w-full rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-fuchsia-500/60"
                                   />
