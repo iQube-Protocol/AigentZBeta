@@ -107,7 +107,8 @@ export function ActivationsProvider({ personaId: explicitPersonaId, children }: 
   const refresh = useCallback(async () => {
     const pid = personaRef.current;
     if (!pid) {
-      setSurfaces([]);
+      // Don't wipe `surfaces` here — if PersonaContext blips to null
+      // mid-mutation we'd lose the optimistic state. Just no-op.
       setLoading(false);
       return;
     }
@@ -119,7 +120,11 @@ export function ActivationsProvider({ personaId: explicitPersonaId, children }: 
         throw new Error((body as { detail?: string }).detail ?? `activations fetch failed (${res.status})`);
       }
       const data = (await res.json()) as { activations: ActivationSurface[] };
-      setSurfaces(Array.isArray(data.activations) ? data.activations : []);
+      if (Array.isArray(data.activations)) {
+        // Replace by id rather than swap the whole array so any in-flight
+        // optimistic updates on OTHER rows aren't clobbered by stale data.
+        setSurfaces(() => data.activations);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
