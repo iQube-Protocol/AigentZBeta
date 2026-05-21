@@ -864,3 +864,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-c4fcf0b.md](../build_/COMMITS/COMMIT-c4fcf0b.md)
 - Message: remove read-side auto-grant: virtual via rowToSurface; revoke persists deactivation for autoGrant entries
+
+## Commit `6e1f210` — 2026-05-21T21:49:36Z
+- Type: `push`
+- Brief: [COMMIT-6e1f210.md](../build_/COMMITS/COMMIT-6e1f210.md)
+- Message: remove all auto-grant logic. Activations are simple toggles: no row=off, row+null=on, row+timestamp=off

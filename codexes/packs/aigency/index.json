@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-21T21:44:43.765Z",
+  "last_updated": "2026-05-21T21:51:27.285Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c4fcf0b2e518b61eaae7a9eca7558cae5b0fa134",
-  "latest_commit_short": "c4fcf0b",
-  "latest_commit_title": "remove read-side auto-grant: virtual via rowToSurface; revoke persists deactivation for autoGrant entries",
+  "latest_commit": "6e1f210a03bcaa30d19e0628390afec8d1855bb7",
+  "latest_commit_short": "6e1f210",
+  "latest_commit_title": "remove all auto-grant logic. Activations are simple toggles: no row=off, row+null=on, row+timestamp=off",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "6e1f210",
+      "full_sha": "6e1f210a03bcaa30d19e0628390afec8d1855bb7",
+      "title": "remove all auto-grant logic. Activations are simple toggles: no row=off, row+null=on, row+timestamp=off",
+      "author": "Claude",
+      "timestamp": "2026-05-21T21:49:36Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-6e1f210.md"
+    },
     {
       "sha": "c4fcf0b",
       "full_sha": "c4fcf0b2e518b61eaae7a9eca7558cae5b0fa134",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-26T00:19:03Z",
       "type": "deploy",
       "brief": "items/build_/COMMITS/COMMIT-8cc1239.md"
-    },
-    {
-      "sha": "5c504ef",
-      "full_sha": "5c504efc3b2aa7bc722f22f98f1dc389715648e9",
-      "title": "add pipeline control plane phase 0 architecture doc",
-      "author": "Claude",
-      "timestamp": "2026-03-26T00:05:35Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-5c504ef.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
