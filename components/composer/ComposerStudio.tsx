@@ -1884,6 +1884,7 @@ export const ComposerStudio = () => {
   const [consolidating, setConsolidating] = useState(false);
   const [pendingBrief, setPendingBrief] = useState<ConsolidatedBrief | null>(null);
   const [pendingBriefEdited, setPendingBriefEdited] = useState("");
+  const [pendingBriefSelectedTitle, setPendingBriefSelectedTitle] = useState<string>("");
   // Tracks full conversation for consolidation — ref avoids re-render cost
   const copilotConversationRef = useRef<CopilotMessage[]>([]);
   const isStudioExpanded = true;
@@ -7853,7 +7854,7 @@ export const ComposerStudio = () => {
                       </p>
                       <button
                         type="button"
-                        onClick={() => { setPendingBrief(null); setPendingBriefEdited(""); }}
+                        onClick={() => { setPendingBrief(null); setPendingBriefEdited(""); setPendingBriefSelectedTitle(""); }}
                         className="text-slate-500 hover:text-slate-300 transition flex-shrink-0"
                         title="Dismiss"
                       >
@@ -7875,10 +7876,15 @@ export const ComposerStudio = () => {
                               key={t}
                               type="button"
                               onClick={() => {
+                                setPendingBriefSelectedTitle(t);
                                 updateField("intent_timebox", "experience_name", t);
                                 updateField("intent_timebox", "goal", pendingBrief.goal || pendingBriefEdited.slice(0, 120));
                               }}
-                              className="rounded-full border border-fuchsia-500/30 bg-fuchsia-500/10 px-2.5 py-0.5 text-[10px] text-fuchsia-300 hover:bg-fuchsia-500/20 transition"
+                              className={`rounded-full border px-2.5 py-0.5 text-[10px] transition ${
+                                t === pendingBriefSelectedTitle
+                                  ? "border-fuchsia-400 bg-fuchsia-500/30 text-fuchsia-100 ring-1 ring-fuchsia-400/40"
+                                  : "border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300 hover:bg-fuchsia-500/20"
+                              }`}
                               title="Use as experience name"
                             >
                               {t}
@@ -7892,16 +7898,12 @@ export const ComposerStudio = () => {
                         type="button"
                         className="rounded-lg bg-violet-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-violet-500 transition"
                         onClick={() => {
-                          // Seed the experience_name and goal from the brief before dispatching
-                          if (pendingBrief.titleSuggestions[0]) {
-                            updateField("intent_timebox", "experience_name", pendingBrief.titleSuggestions[0]);
-                          }
-                          if (pendingBrief.goal) {
-                            updateField("intent_timebox", "goal", pendingBrief.goal);
-                          }
-                          // If there's already a pendingProductionConfig from earlier routing,
-                          // augment its seedData with the consolidated brief
+                          const briefTitle = pendingBriefSelectedTitle || pendingBrief.titleSuggestions[0] || "";
+                          const briefGoal = pendingBrief.goal || pendingBriefEdited.slice(0, 200);
+
                           if (pendingProductionConfig) {
+                            // Augment an existing routing config with the brief data; the
+                            // confirmation dialog will call startSeededSessionForTemplate.
                             setPendingProductionConfig({
                               ...pendingProductionConfig,
                               seedData: {
@@ -7910,8 +7912,8 @@ export const ComposerStudio = () => {
                                   ...(typeof pendingProductionConfig.seedData.intent_timebox === "object"
                                     ? pendingProductionConfig.seedData.intent_timebox as Record<string, unknown>
                                     : {}),
-                                  experience_name: pendingBrief.titleSuggestions[0] || "",
-                                  goal: pendingBrief.goal || "",
+                                  experience_name: briefTitle,
+                                  goal: briefGoal,
                                   brief: pendingBriefEdited,
                                 },
                                 ...(pendingBrief.articlePrompt ? {
@@ -7922,14 +7924,38 @@ export const ComposerStudio = () => {
                                     ...(typeof (pendingProductionConfig.seedData.image_generation ?? {}) === "object"
                                       ? pendingProductionConfig.seedData.image_generation as Record<string, unknown>
                                       : {}),
-                                    prompt: pendingBrief.visualPrompt,
+                                    portrait_prompt: pendingBrief.visualPrompt,
+                                    landscape_prompt: pendingBrief.visualPrompt,
                                   },
                                 } : {}),
                               },
                             });
+                          } else {
+                            // SEND_TRIGGER path: no prior routing config — infer template from
+                            // brief content and navigate to the Customizer directly.
+                            let templateId = selectedTemplateId || "";
+                            const seedData: Record<string, any> = {
+                              intent_timebox: { experience_name: briefTitle, goal: briefGoal, brief: pendingBriefEdited },
+                            };
+                            if (pendingBrief.visualPrompt && pendingBrief.articlePrompt) {
+                              if (!templateId) templateId = "qripto-feature-article";
+                              seedData.image_generation = { portrait_prompt: pendingBrief.visualPrompt, landscape_prompt: pendingBrief.visualPrompt, provider_id: "openai" };
+                              seedData.article_draft = { prompt: pendingBrief.articlePrompt, title: briefTitle };
+                            } else if (pendingBrief.visualPrompt) {
+                              if (!templateId) templateId = "ai-image-generation";
+                              seedData.image_generation = { portrait_prompt: pendingBrief.visualPrompt, landscape_prompt: pendingBrief.visualPrompt, provider_id: "openai" };
+                              seedData.skill_selection = { skill_id: "openai_image_gen" };
+                            } else if (pendingBrief.articlePrompt) {
+                              if (!templateId) templateId = "ai-article-draft";
+                              seedData.article_draft = { prompt: pendingBrief.articlePrompt, title: briefTitle };
+                            } else {
+                              if (!templateId) templateId = "ai-image-generation";
+                            }
+                            void startSeededSessionForTemplate(templateId, seedData, { currentStep: 1 });
                           }
                           setPendingBrief(null);
                           setPendingBriefEdited("");
+                          setPendingBriefSelectedTitle("");
                         }}
                       >
                         Send to production
@@ -7937,7 +7963,7 @@ export const ComposerStudio = () => {
                       <button
                         type="button"
                         className="rounded-lg border border-slate-700 px-3 py-1.5 text-[11px] text-slate-300 hover:bg-slate-800 transition"
-                        onClick={() => { setPendingBrief(null); setPendingBriefEdited(""); }}
+                        onClick={() => { setPendingBrief(null); setPendingBriefEdited(""); setPendingBriefSelectedTitle(""); }}
                       >
                         Keep editing with Marketa
                       </button>
