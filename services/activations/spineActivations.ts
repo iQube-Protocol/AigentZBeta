@@ -1,34 +1,45 @@
 /**
- * spineActivations — Aigent Me Phase 4.b
+ * spineActivations — Aigent Me Phase 4.b (toggle model)
  *
- * Activation state resolved through the canonical ContentQube spine:
+ * One canonical row per (persona, activation_tab qube) in
+ * `content_qube_editions` with `rarity='activation'`. Writes go through a
+ * single atomic UPSERT / UPDATE in `setActivationState` — no append-only
+ * common-rarity dance, no SELECT-then-write race window. The partial
+ * unique index `idx_cq_edition_activation_unique` enforces the one-row
+ * invariant in Postgres.
  *
- *   - Catalog of activations = `content_qubes` rows where `content_kind =
- *     'activation_tab'` (seeded by migration 20260524000000).
- *   - Per-persona activation state = `content_qube_editions` rows holding
- *     a common-rarity edition for that persona. Activate → claim; Revoke
- *     → release. All writes flow through `claimEditionForPurchase` and
- *     `releaseEdition` in services/content/claimEdition.ts so there is
- *     exactly ONE write path for persona ↔ content state.
- *   - Auto-grant (myCanvas, Order of Metayé) = on first read, automatically
- *     claim an edition for the persona if their access policy permits and
- *     they don't already hold one.
+ *   activate(...)   → setActivationState(persona, qube, true)
+ *   revoke(...)     → setActivationState(persona, qube, false)
+ *   adminGrant(...) → setActivationState(target, qube, true)
  *
- * This replaces services/activations/personaActivations.ts. The legacy
- * persona_activations table is left in place for one release as a backstop;
- * nothing in this file reads from it.
+ * Reads filter strictly on rarity='activation' so there's no overlap with
+ * the comic-edition pool. DVN transfer receipt is emitted on activate for
+ * audit-trail symmetry with the spine; burn receipt for revoke can be
+ * added when the schema confirms `released_at` is the canonical signal.
  *
- * Privacy: persona_id is T0 — never serialised. All exported shapes carry
- * only the activation_id, label, gate, status, and timestamps.
+ * Privacy: persona_id is T0 — never serialised. Exported shapes carry
+ * only the activation id, label, gate, status, and timestamps.
  */
 
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
-import { claimEditionForPurchase, releaseEdition } from '@/services/content/claimEdition';
+import {
+  emitContentQubeTransferReceipt,
+} from '@/services/access/contentQubeReceiptEmitter';
 import {
   ACTIVATION_CATALOG,
   type ActivationCatalogEntry,
   type ActivationGate,
 } from '@/data/activation-catalog';
+
+/**
+ * Activations use a dedicated rarity sentinel — 'activation' — that's
+ * isolated from the comic-edition pool ('common', 'rare', 'epic', etc.).
+ * The DB has a partial unique index on (persona_id, content_qube_id)
+ * WHERE rarity='activation' so UPSERT lands deterministically on the
+ * single canonical row per (persona, activation_tab qube). See
+ * supabase/migrations/20260524020000_activation_toggle_unique_index.sql.
+ */
+const ACTIVATION_RARITY = 'activation';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Public shapes — T1-safe.
@@ -108,43 +119,20 @@ async function readPersonaEditions(
   const admin = getSupabaseServer();
   if (!admin || qubeIds.length === 0) return new Map();
   try {
+    // Filter on rarity='activation' — the partial unique index guarantees
+    // at most one row per (persona, qube). No tiebreaker needed.
     const { data, error } = await admin
       .from('content_qube_editions')
       .select('id, content_qube_id, persona_id, issued_at, released_at')
       .eq('persona_id', personaId)
-      .eq('rarity', 'common')
+      .eq('rarity', ACTIVATION_RARITY)
       .in('content_qube_id', qubeIds);
     if (error || !Array.isArray(data)) {
       if (error) console.warn('[spineActivations.readPersonaEditions] read failed:', error.message);
       return new Map();
     }
-    // CRITICAL — when multiple rows exist for the same (persona, qube),
-    // pick the canonical one: any ACTIVE row (released_at IS NULL) wins
-    // over released rows; among same-status rows, the most-recently issued
-    // wins. Without this preference order, Map.set order is determined by
-    // PostgREST's row order — which is undefined — and we'd flip-flop
-    // between showing the user's released row vs their active row on each
-    // GET. Symptom: deactivate succeeds in DB but surface still shows old
-    // released_at timestamp (or vice versa).
     const map = new Map<string, EditionRow>();
-    for (const r of data as EditionRow[]) {
-      const existing = map.get(r.content_qube_id);
-      if (!existing) {
-        map.set(r.content_qube_id, r);
-        continue;
-      }
-      const existingActive = existing.released_at === null;
-      const incomingActive = r.released_at === null;
-      if (incomingActive && !existingActive) {
-        map.set(r.content_qube_id, r);
-        continue;
-      }
-      if (!incomingActive && existingActive) continue;
-      // Both same status — keep the newer one by issued_at.
-      const existingTs = existing.issued_at ? Date.parse(existing.issued_at) : 0;
-      const incomingTs = r.issued_at ? Date.parse(r.issued_at) : 0;
-      if (incomingTs > existingTs) map.set(r.content_qube_id, r);
-    }
+    for (const r of data as EditionRow[]) map.set(r.content_qube_id, r);
     return map;
   } catch (err) {
     console.warn('[spineActivations.readPersonaEditions] threw:', err instanceof Error ? err.message : err);
@@ -199,40 +187,122 @@ function rowToSurface(
 // Auto-grant — runs on every list; idempotent (claim returns alreadyOwned).
 // ─────────────────────────────────────────────────────────────────────────
 
-async function ensureAutoGrants(
+/**
+ * Compute the next edition_number for a qube. content_qube_editions has a
+ * UNIQUE (content_qube_id, edition_number) constraint left over from the
+ * comic-edition pool, so we still need a unique number per qube even
+ * though for activations the persona+qube uniqueness comes from the
+ * partial index. We grab MAX+1 across ALL rarities so we never collide
+ * with KNYT purchase commons on the same qube id.
+ */
+async function nextEditionNumberFor(qubeId: string): Promise<number> {
+  const admin = getSupabaseServer();
+  if (!admin) return 1;
+  const { data } = await admin
+    .from('content_qube_editions')
+    .select('edition_number')
+    .eq('content_qube_id', qubeId)
+    .order('edition_number', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const row = data as { edition_number?: number } | null;
+  return (row?.edition_number ?? 0) + 1;
+}
+
+/**
+ * The single-call toggle. Writes the activation row deterministically:
+ *
+ *   active=true  → UPSERT (persona, qube, rarity='activation', released_at=null, issued_at=now)
+ *   active=false → UPDATE released_at=now WHERE (persona, qube, rarity='activation')
+ *
+ * Bypasses claimEditionForPurchase/releaseEdition entirely — those were
+ * built for comic-edition pools (append-only commons, canonical claims),
+ * and forcing them through the activation toggle caused the bouncing.
+ *
+ * On UPSERT we let Postgres' ON CONFLICT clause find the existing row
+ * via the partial unique index `idx_cq_edition_activation_unique`. No
+ * SELECT-then-write dance, no .maybeSingle() trust issues.
+ */
+async function setActivationState(
   personaId: string,
-  qubeIndex: Map<string, ActivationQubeRow>,
-  heldEditions: Map<string, EditionRow>,
-): Promise<void> {
-  const autoIds = listAutoGrantActivationIds();
-  for (const activationId of autoIds) {
-    const qube = qubeIndex.get(activationId);
-    if (!qube) continue;
-    // CRITICAL: skip auto-grant if the persona has EVER held an edition on
-    // this qube — released_at being set means they explicitly deactivated
-    // it. Re-claiming would resurrect deactivated tabs on every read, which
-    // is the bug "deactivates then reactivates immediately."
-    if (heldEditions.has(qube.qube_id)) continue;
-    const result = await claimEditionForPurchase({
-      contentQubeId: qube.qube_id,
-      personaId,
-      rarity: 'common',
-      aliasCommitment: null,
-    });
-    if (!result.ok) {
-      console.warn(`[spineActivations.ensureAutoGrants] auto-claim failed for ${activationId}: ${result.error}`);
-      continue;
+  qubeId: string,
+  active: boolean,
+): Promise<{ ok: true; row: EditionRow } | { ok: false; reason: string }> {
+  const admin = getSupabaseServer();
+  if (!admin) return { ok: false, reason: 'supabase_unavailable' };
+
+  const now = new Date().toISOString();
+  const personaPrefix = personaId.slice(0, 8) + '…';
+
+  if (active) {
+    // UPSERT — ON CONFLICT (persona_id, content_qube_id) WHERE rarity='activation'
+    // clears released_at + bumps issued_at on an existing row, or inserts
+    // a fresh row if none exists. Atomic.
+    const editionNumber = await nextEditionNumberFor(qubeId);
+    const { data, error } = await admin
+      .from('content_qube_editions')
+      .upsert(
+        {
+          persona_id: personaId,
+          content_qube_id: qubeId,
+          rarity: ACTIVATION_RARITY,
+          edition_number: editionNumber,
+          issued_at: now,
+          released_at: null,
+        },
+        { onConflict: 'persona_id,content_qube_id' },
+      )
+      .select('id, content_qube_id, persona_id, issued_at, released_at')
+      .maybeSingle();
+    if (error) {
+      console.warn(`[spineActivations.setActivationState] upsert error persona=${personaPrefix} qube=${qubeId}: ${error.message}`);
+      return { ok: false, reason: error.message };
     }
-    if (result.editionId) {
-      heldEditions.set(qube.qube_id, {
-        id: result.editionId,
-        content_qube_id: qube.qube_id,
-        persona_id: personaId,
-        issued_at: new Date().toISOString(),
-        released_at: null,
-      });
+    if (!data) {
+      return { ok: false, reason: 'upsert returned no row (PostgREST schema cache may be stale — NOTIFY pgrst, \'reload schema\')' };
     }
+    return { ok: true, row: data as EditionRow };
   }
+
+  // Deactivate — UPDATE on the unique key. Sets released_at=now whether
+  // the row was previously active or already released (idempotent).
+  const { data, error } = await admin
+    .from('content_qube_editions')
+    .update({ released_at: now })
+    .eq('persona_id', personaId)
+    .eq('content_qube_id', qubeId)
+    .eq('rarity', ACTIVATION_RARITY)
+    .select('id, content_qube_id, persona_id, issued_at, released_at');
+  if (error) {
+    console.warn(`[spineActivations.setActivationState] update error persona=${personaPrefix} qube=${qubeId}: ${error.message}`);
+    return { ok: false, reason: error.message };
+  }
+  if (!Array.isArray(data) || data.length === 0) {
+    // No row to release means the persona never activated. Insert a row
+    // already-released so subsequent reads honour the user's intent.
+    const editionNumber = await nextEditionNumberFor(qubeId);
+    const { data: inserted, error: insertErr } = await admin
+      .from('content_qube_editions')
+      .insert({
+        persona_id: personaId,
+        content_qube_id: qubeId,
+        rarity: ACTIVATION_RARITY,
+        edition_number: editionNumber,
+        issued_at: now,
+        released_at: now,
+      })
+      .select('id, content_qube_id, persona_id, issued_at, released_at')
+      .maybeSingle();
+    if (insertErr) {
+      console.warn(`[spineActivations.setActivationState] revoke-insert error persona=${personaPrefix} qube=${qubeId}: ${insertErr.message}`);
+      return { ok: false, reason: insertErr.message };
+    }
+    if (!inserted) {
+      return { ok: false, reason: 'revoke-insert returned no row' };
+    }
+    return { ok: true, row: inserted as EditionRow };
+  }
+  return { ok: true, row: (data[0] as EditionRow) };
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -243,9 +313,8 @@ export async function listActivations(
   personaId: string,
   options?: { isAdmin?: boolean },
 ): Promise<ActivationSurface[]> {
-  // Reads NEVER write — auto-grant is a virtual status in rowToSurface.
-  // The previous ensureAutoGrants-on-read pattern was the root cause of
-  // every "deactivates then reactivates" / "click X and Y activates" bug.
+  // Reads NEVER write. Auto-grant is gone. One row per (persona, qube)
+  // is guaranteed by the partial unique index → no tiebreaker needed.
   const qubeIndex = await readActivationQubes();
   const heldEditions = await readPersonaEditions(
     personaId,
@@ -282,15 +351,18 @@ export async function activate(
   const qube = qubeIndex.get(activationId);
   if (!qube) return { ok: false, reason: 'content_qube-missing — migration not applied?' };
 
-  const result = await claimEditionForPurchase({
+  const result = await setActivationState(personaId, qube.qube_id, true);
+  if (!result.ok) return { ok: false, reason: result.reason };
+
+  // Fire-and-forget DVN transfer receipt for audit trail.
+  void emitContentQubeTransferReceipt({
     contentQubeId: qube.qube_id,
-    personaId,
-    rarity: 'common',
+    editionId: result.row.id,
+    editionNumber: 0, // not meaningful for activation rarity
+    rarity: 'common' as never, // receipt schema requires this; activation rarity is internal
     aliasCommitment: null,
   });
-  if (!result.ok) {
-    return { ok: false, reason: result.error ?? 'claim-failed' };
-  }
+
   return { ok: true, activationId };
 }
 
@@ -321,15 +393,9 @@ export async function revoke(
   const qube = qubeIndex.get(activationId);
   if (!qube) return { ok: false, reason: 'content_qube-missing' };
 
-  const result = await releaseEdition({
-    contentQubeId: qube.qube_id,
-    personaId,
-    aliasCommitment: null,
-    reason: 'persona-deactivation',
-  });
-  if (!result.ok) {
-    return { ok: false, reason: result.error ?? 'release-failed' };
-  }
+  const result = await setActivationState(personaId, qube.qube_id, false);
+  if (!result.ok) return { ok: false, reason: result.reason };
+
   return { ok: true, activationId };
 }
 
@@ -345,14 +411,8 @@ export async function adminGrant(
   const qube = qubeIndex.get(activationId);
   if (!qube) return { ok: false, reason: 'content_qube-missing' };
 
-  const result = await claimEditionForPurchase({
-    contentQubeId: qube.qube_id,
-    personaId: targetPersonaId,
-    rarity: 'common',
-    aliasCommitment: null,
-  });
-  if (!result.ok) {
-    return { ok: false, reason: result.error ?? 'claim-failed' };
-  }
+  const result = await setActivationState(targetPersonaId, qube.qube_id, true);
+  if (!result.ok) return { ok: false, reason: result.reason };
+
   return { ok: true, activationId };
 }
