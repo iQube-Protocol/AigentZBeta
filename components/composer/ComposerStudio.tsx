@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Activity, AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Globe, Hexagon, Layers, LayoutGrid, List, Loader2, Mic, MicOff, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type, X } from "lucide-react";
+import { Activity, AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Globe, Hexagon, Layers, LayoutGrid, List, Loader2, Mic, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, StopCircle, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type, X } from "lucide-react";
 import { useCopilotAction } from "@copilotkit/react-core";
 import { createShellMessage } from "@metame/iframe-bridge";
 import { Button } from "@/components/ui/button";
@@ -2862,7 +2862,9 @@ export const ComposerStudio = () => {
   // ── Marketa voice (VAPI + Cartesia) ────────────────────────────────────────
   type VapiState = "idle" | "connecting" | "active" | "speaking";
   const [vapiState, setVapiState] = useState<VapiState>("idle");
+  const [pendingVoicePrompt, setPendingVoicePrompt] = useState<string | null>(null);
   const vapiRef = useRef<{ start: (cfg: unknown) => Promise<unknown>; stop: () => void } | null>(null);
+  const voiceTranscriptAccumRef = useRef<string[]>([]);
 
   useEffect(() => {
     let vapi: typeof vapiRef.current = null;
@@ -2881,7 +2883,9 @@ export const ComposerStudio = () => {
       instance.on("message", (msg: unknown) => {
         const m = msg as Record<string, unknown>;
         if (m.type === "transcript" && m.transcriptType === "final" && typeof m.transcript === "string") {
-          setMcpMessage((prev) => (prev ? `${prev} ${m.transcript as string}` : (m.transcript as string)));
+          const t = m.transcript as string;
+          voiceTranscriptAccumRef.current.push(t);
+          setMcpMessage((prev) => (prev ? `${prev} ${t}` : t));
         }
       });
       vapi = instance;
@@ -2890,19 +2894,16 @@ export const ComposerStudio = () => {
     return () => { vapi?.stop(); };
   }, []);
 
+  // Starts a fresh recording session — does NOT stop; use stopMarketa() to end.
   const toggleMarketa = useCallback(async () => {
-    if (!vapiRef.current) return;
-    if (vapiState !== "idle") {
-      vapiRef.current.stop();
-      setVapiState("idle");
-      return;
-    }
+    if (!vapiRef.current || vapiState !== "idle") return;
+    voiceTranscriptAccumRef.current = [];
     setVapiState("connecting");
     try {
       await vapiRef.current.start({
         name: "Marketa",
-        firstMessage: "Hey! I'm Marketa, your voice co-pilot. What are we creating today?",
-        transcriber: { provider: "deepgram", model: "nova-2", language: "en-US" },
+        firstMessage: "Ready — tell me your vision.",
+        transcriber: { provider: "deepgram", model: "nova-2", language: "en-US", endpointing: 1500 },
         voice: {
           provider: "cartesia",
           voiceId: "694f9389-aac1-45b6-b726-9d9369183238",
@@ -2915,15 +2916,33 @@ export const ComposerStudio = () => {
             {
               role: "system",
               content:
-                "You are Marketa, a creative AI co-pilot in the iQube ComposerStudio. Help users articulate their vision for experiences, content, and campaigns. Be concise, inspiring, and creative. Keep responses to 2-3 sentences max.",
+                "You are Marketa, a creative AI co-pilot in the iQube ComposerStudio. Listen to the user's vision and respond with one short encouraging sentence only. Never end the call — always stay listening for more input.",
             },
           ],
         },
+        silenceTimeoutSeconds: 120,
+        endCallFunctionEnabled: false,
+        maxDurationSeconds: 600,
       });
     } catch {
       setVapiState("idle");
     }
   }, [vapiState]);
+
+  // Deterministic stop: halts the call, consolidates the transcript into a pending approval prompt.
+  const stopMarketa = useCallback(() => {
+    if (!vapiRef.current) return;
+    vapiRef.current.stop();
+    setVapiState("idle");
+    const accumulated = voiceTranscriptAccumRef.current;
+    voiceTranscriptAccumRef.current = [];
+    if (accumulated.length === 0) return;
+    const full = accumulated.join(" ").trim();
+    // Keep the last 3 sentences as the clearest recent intent
+    const sentences = full.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
+    const consolidated = sentences.length > 3 ? sentences.slice(-3).join(" ") : full;
+    setPendingVoicePrompt(consolidated || full);
+  }, []);
   // ── end Marketa voice ───────────────────────────────────────────────────────
   const [deploymentResultsByTarget, setDeploymentResultsByTarget] = useState<
     Partial<Record<ComposerDeploymentTarget, ComposerDeploymentResult>>
@@ -12509,31 +12528,73 @@ export const ComposerStudio = () => {
                 <div>
                   <div className="mb-1 flex items-center justify-between">
                     <label className="text-xs text-slate-400">Intent / Message</label>
-                    <button
-                      type="button"
-                      onClick={() => void toggleMarketa()}
-                      title={vapiState === "idle" ? "Start voice with Marketa" : "Stop Marketa"}
-                      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all ${
-                        vapiState === "idle"
-                          ? "border-slate-700 bg-slate-800/60 text-slate-400 hover:border-fuchsia-500/60 hover:text-fuchsia-300"
-                          : vapiState === "connecting"
-                            ? "animate-pulse border-amber-500/60 bg-amber-500/10 text-amber-300"
-                            : vapiState === "speaking"
-                              ? "animate-pulse border-green-500/60 bg-green-500/15 text-green-300"
-                              : "border-fuchsia-500/60 bg-fuchsia-500/15 text-fuchsia-300"
-                      }`}
-                    >
-                      {vapiState === "idle" ? (
-                        <><Mic className="h-3 w-3" /><span>Marketa</span></>
-                      ) : vapiState === "connecting" ? (
-                        <><Loader2 className="h-3 w-3 animate-spin" /><span>Connecting…</span></>
-                      ) : vapiState === "speaking" ? (
-                        <><Volume2 className="h-3 w-3" /><span>Speaking…</span></>
-                      ) : (
-                        <><MicOff className="h-3 w-3" /><span>Listening</span></>
+                    <div className="flex items-center gap-1.5">
+                      {/* Mic button — starts Marketa, disabled while active */}
+                      <button
+                        type="button"
+                        onClick={() => void toggleMarketa()}
+                        disabled={vapiState !== "idle"}
+                        title="Start voice with Marketa"
+                        className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all disabled:cursor-not-allowed ${
+                          vapiState === "idle"
+                            ? "border-slate-700 bg-slate-800/60 text-slate-400 hover:border-fuchsia-500/60 hover:text-fuchsia-300"
+                            : vapiState === "connecting"
+                              ? "animate-pulse border-amber-500/60 bg-amber-500/10 text-amber-300"
+                              : vapiState === "speaking"
+                                ? "animate-pulse border-green-500/60 bg-green-500/15 text-green-300"
+                                : "border-fuchsia-500/60 bg-fuchsia-500/15 text-fuchsia-300"
+                        }`}
+                      >
+                        {vapiState === "idle" ? (
+                          <><Mic className="h-3 w-3" /><span>Marketa</span></>
+                        ) : vapiState === "connecting" ? (
+                          <><Loader2 className="h-3 w-3 animate-spin" /><span>Connecting…</span></>
+                        ) : vapiState === "speaking" ? (
+                          <><Volume2 className="h-3 w-3" /><span>Speaking…</span></>
+                        ) : (
+                          <><Mic className="h-3 w-3 animate-pulse" /><span>Listening</span></>
+                        )}
+                      </button>
+                      {/* Deterministic STOP button — only visible while active */}
+                      {vapiState !== "idle" && (
+                        <button
+                          type="button"
+                          onClick={stopMarketa}
+                          title="Stop recording and consolidate intent"
+                          className="flex items-center gap-1.5 rounded-full border border-red-500/60 bg-red-500/15 px-2.5 py-1 text-xs font-medium text-red-300 transition-all hover:bg-red-500/25"
+                        >
+                          <StopCircle className="h-3 w-3" /><span>Stop</span>
+                        </button>
                       )}
-                    </button>
+                    </div>
                   </div>
+                  {/* Pending intent approval panel */}
+                  {pendingVoicePrompt !== null && (
+                    <div className="mb-2 space-y-2 rounded-lg border border-fuchsia-500/30 bg-fuchsia-500/10 p-3">
+                      <p className="text-[10px] uppercase tracking-wider text-fuchsia-400/70">Consolidated intent — review before sending</p>
+                      <textarea
+                        value={pendingVoicePrompt}
+                        onChange={(e) => setPendingVoicePrompt(e.target.value)}
+                        className="h-20 w-full resize-none rounded-md border border-fuchsia-500/20 bg-slate-900/70 px-3 py-2 text-sm text-white"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => { setMcpMessage(pendingVoicePrompt); setPendingVoicePrompt(null); }}
+                          className="flex items-center gap-1 rounded-lg border border-fuchsia-500/40 bg-fuchsia-500/15 px-3 py-1 text-xs font-semibold text-fuchsia-200 transition hover:bg-fuchsia-500/25"
+                        >
+                          <CheckCircle2 className="h-3 w-3" />Use as prompt
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPendingVoicePrompt(null)}
+                          className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1 text-xs font-semibold text-slate-400 transition hover:text-white"
+                        >
+                          <X className="h-3 w-3" />Discard
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   <textarea
                     value={mcpMessage}
                     onChange={(e) => setMcpMessage(e.target.value)}
