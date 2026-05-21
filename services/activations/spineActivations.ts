@@ -99,6 +99,7 @@ interface EditionRow {
   content_qube_id: string;
   persona_id: string | null;
   issued_at: string | null;
+  released_at: string | null;
 }
 
 async function readPersonaEditions(
@@ -110,7 +111,7 @@ async function readPersonaEditions(
   try {
     const { data, error } = await admin
       .from('content_qube_editions')
-      .select('id, content_qube_id, persona_id, issued_at')
+      .select('id, content_qube_id, persona_id, issued_at, released_at')
       .eq('persona_id', personaId)
       .eq('rarity', 'common')
       .in('content_qube_id', qubeIds);
@@ -137,15 +138,16 @@ function rowToSurface(
   qube: ActivationQubeRow | undefined,
   isAdmin: boolean,
 ): ActivationSurface {
-  // `free` gating in the access-policy table maps to the catalog's `open`
-  // gate; everything else (sku_required, subscription, owned) is `gated`.
   const gateFromPolicy: ActivationGate =
     qube?.gating_kind === 'free' ? 'open' : 'gated';
-  // Catalog override wins so the source-of-truth for human framing stays
-  // in code; DB controls write-side enforcement only.
   const gate: ActivationGate = entry.gate ?? gateFromPolicy;
   const canSelfActivate = gate === 'open' || isAdmin || !!edition;
-  const status: ActivationStatus | null = edition?.issued_at ? 'active' : null;
+  // Active = edition row exists AND has not been released.
+  const isReleased = !!edition?.released_at;
+  const status: ActivationStatus | null =
+    edition && !isReleased ? 'active'
+    : edition && isReleased ? 'revoked'
+    : null;
 
   return {
     id: entry.id,
@@ -160,7 +162,7 @@ function rowToSurface(
     status,
     grantedVia: edition ? 'self' : null,
     grantedAt: edition?.issued_at ?? null,
-    revokedAt: null,
+    revokedAt: edition?.released_at ?? null,
     canSelfActivate,
   };
 }
@@ -178,6 +180,10 @@ async function ensureAutoGrants(
   for (const activationId of autoIds) {
     const qube = qubeIndex.get(activationId);
     if (!qube) continue;
+    // CRITICAL: skip auto-grant if the persona has EVER held an edition on
+    // this qube — released_at being set means they explicitly deactivated
+    // it. Re-claiming would resurrect deactivated tabs on every read, which
+    // is the bug "deactivates then reactivates immediately."
     if (heldEditions.has(qube.qube_id)) continue;
     const result = await claimEditionForPurchase({
       contentQubeId: qube.qube_id,
@@ -189,14 +195,13 @@ async function ensureAutoGrants(
       console.warn(`[spineActivations.ensureAutoGrants] auto-claim failed for ${activationId}: ${result.error}`);
       continue;
     }
-    // Reflect the freshly-claimed edition in the held map so the caller's
-    // single read returns the up-to-date surface without an extra round-trip.
     if (result.editionId) {
       heldEditions.set(qube.qube_id, {
         id: result.editionId,
         content_qube_id: qube.qube_id,
         persona_id: personaId,
         issued_at: new Date().toISOString(),
+        released_at: null,
       });
     }
   }

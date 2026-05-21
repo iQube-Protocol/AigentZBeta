@@ -175,6 +175,61 @@ async function appendCommon(
 ): Promise<ClaimEditionResult> {
   const supabase = getSupabaseServer()!;
 
+  // Re-activate path — if this persona has a previously-released common
+  // edition on this qube, just clear its released_at and re-issue. This
+  // is essential for activation_tab semantics (toggle on/off without
+  // appending fresh editions every cycle) AND idempotent for any caller
+  // that wants "claim regardless of prior state".
+  {
+    const { data: prior } = await supabase
+      .from('content_qube_editions')
+      .select('id, edition_number, released_at')
+      .eq('content_qube_id', contentQubeId)
+      .eq('persona_id', personaId)
+      .eq('rarity', 'common')
+      .order('edition_number', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (prior) {
+      const priorRow = prior as { id: string; edition_number: number; released_at: string | null };
+      if (priorRow.released_at === null) {
+        // Already active — idempotent return.
+        return {
+          ok: true,
+          editionId: priorRow.id,
+          editionNumber: priorRow.edition_number,
+          rarity: 'common',
+          alreadyOwned: true,
+        };
+      }
+      // Re-activate by clearing released_at + bumping issued_at.
+      const { data: reactivated, error: reErr } = await supabase
+        .from('content_qube_editions')
+        .update({ released_at: null, issued_at: new Date().toISOString() })
+        .eq('id', priorRow.id)
+        .select('id, edition_number')
+        .maybeSingle();
+      if (reErr || !reactivated) {
+        return { ok: false, error: `reactivate failed: ${reErr?.message ?? 'no row'}` };
+      }
+      const reRow = reactivated as { id: string; edition_number: number };
+      await emitContentQubeTransferReceipt({
+        contentQubeId,
+        editionId: reRow.id,
+        editionNumber: reRow.edition_number,
+        rarity: 'common',
+        sourcePurchaseId,
+        aliasCommitment: aliasCommitment ?? null,
+      });
+      return {
+        ok: true,
+        editionId: reRow.id,
+        editionNumber: reRow.edition_number,
+        rarity: 'common',
+      };
+    }
+  }
+
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     // Lookup current MAX(edition_number) across ALL rarities for this qube,
     // because commons share the global edition_number sequence (canonical
@@ -262,11 +317,18 @@ export interface ReleaseEditionResult {
 }
 
 /**
- * Release every edition this persona holds on the given ContentQube. For
- * common-rarity editions (activation_tab + streaming-access), this DELETEs
- * the row(s) and emits a 'burn' DVN receipt per deletion.
+ * Release every edition this persona holds on the given ContentQube.
  *
- * Idempotent — releasing twice is a no-op the second time (released: 0).
+ * Soft-release: SETs `released_at = now()` on the held common-rarity row(s)
+ * and emits a 'burn' DVN receipt per row. The row is NOT deleted —
+ * keeping it lets `claimEditionForPurchase` recognise a re-activation as
+ * an idempotent UPDATE (clear released_at) instead of appending a new
+ * edition, AND lets auto-grant logic distinguish "persona never claimed"
+ * (no row at all) from "persona claimed then released" (row with
+ * released_at set). Critical for ActivationTab surfaces where auto-grant
+ * defaults would otherwise resurrect deactivated tabs on the next read.
+ *
+ * Idempotent — releasing an already-released edition is a no-op.
  */
 export async function releaseEdition(
   input: ReleaseEditionInput,
@@ -278,14 +340,14 @@ export async function releaseEdition(
 
   const { contentQubeId, personaId, aliasCommitment, reason } = input;
 
-  // 1. Find the persona's editions on this qube. Common rarity only (canonical
-  //    release is out-of-scope until an explicit operator flow needs it).
+  // 1. Find this persona's ACTIVE editions (released_at IS NULL).
   const { data: held, error: selErr } = await supabase
     .from('content_qube_editions')
     .select('id, edition_number, rarity')
     .eq('content_qube_id', contentQubeId)
     .eq('persona_id', personaId)
-    .eq('rarity', 'common');
+    .eq('rarity', 'common')
+    .is('released_at', null);
 
   if (selErr) {
     return { ok: false, error: `select failed: ${selErr.message}` };
@@ -294,20 +356,22 @@ export async function releaseEdition(
     return { ok: true, released: 0 };
   }
 
-  // 2. Delete each held edition + emit a burn receipt.
+  // 2. Soft-release each held edition + emit a burn receipt.
+  const releasedAt = new Date().toISOString();
   let releasedCount = 0;
   for (const row of held) {
     const editionId = (row as { id: string }).id;
     const editionNumber = (row as { edition_number: number }).edition_number;
     const rarity = (row as { rarity: ContentQubeRarity }).rarity;
 
-    const { error: delErr } = await supabase
+    const { error: updErr } = await supabase
       .from('content_qube_editions')
-      .delete()
-      .eq('id', editionId);
+      .update({ released_at: releasedAt })
+      .eq('id', editionId)
+      .is('released_at', null);
 
-    if (delErr) {
-      console.warn(`[releaseEdition] delete failed qube=${contentQubeId} edition=${editionId} msg=${delErr.message}`);
+    if (updErr) {
+      console.warn(`[releaseEdition] update failed qube=${contentQubeId} edition=${editionId} msg=${updErr.message}`);
       continue;
     }
 
