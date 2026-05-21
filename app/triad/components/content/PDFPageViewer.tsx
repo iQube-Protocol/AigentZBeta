@@ -2,8 +2,13 @@
  * PDFPageViewer - Lazy-loading page-based PDF viewer
  *
  * Custody-safe page-image renderer.
- * Uses page manifests + page image streaming (/api/content/pdf-page) to avoid
- * exposing raw PDF URLs to clients.
+ * Two source modes:
+ *   cid      → /api/content/pdf-page/[cid]            (Autonomys-hosted, server-decrypts)
+ *   masterId → /api/content/pdf-page-by-master/[id]   (Supabase-hosted, entitlement-gated proxy)
+ *
+ * In either mode the raw PDF URL never reaches the browser. masterId mode
+ * is used for files too large for browser-native rendering (e.g. the 430MB
+ * GN) — pages stream as small WebP images regardless of source-PDF size.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -12,7 +17,12 @@ import { Button } from "@/components/ui/button";
 import { API_BASE_URL } from "@/app/config/api";
 
 interface PDFPageViewerProps {
-  cid: string;
+  /** Autonomys CID — use this for encrypted Autonomys-hosted PDFs */
+  cid?: string;
+  /** master_content_qubes TEXT pk (e.g. mk_ep00_print_common for the GN) — use for Supabase-hosted PDFs */
+  masterId?: string;
+  /** Required when masterId is provided — identifies the requesting persona for entitlement gate */
+  personaId?: string;
   title?: string;
   onClose: () => void;
   /**
@@ -37,7 +47,7 @@ interface PageManifest {
   cached?: boolean;
 }
 
-export function PDFPageViewer({ cid, title, onClose, onComplete }: PDFPageViewerProps) {
+export function PDFPageViewer({ cid, masterId, personaId, title, onClose, onComplete }: PDFPageViewerProps) {
   const [manifest, setManifest] = useState<PageManifest | null>(null);
   const [meta, setMeta] = useState<PageMeta | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -47,12 +57,15 @@ export function PDFPageViewer({ cid, title, onClose, onComplete }: PDFPageViewer
   const [failedPages, setFailedPages] = useState<Set<number>>(new Set());
   const completionFiredRef = useRef<boolean>(false);
 
+  // The source key — masterId takes precedence (gated path), falls back to cid.
+  const sourceKey = masterId || cid || '';
+
   // Phase 3.x — fire onComplete once when the user reaches the final page.
   // Idempotent via completionFiredRef so re-renders don't re-fire. Resets
-  // when cid changes (the caller is now showing a different episode).
+  // when the source changes (the caller is now showing a different episode).
   useEffect(() => {
     completionFiredRef.current = false;
-  }, [cid]);
+  }, [sourceKey]);
   useEffect(() => {
     if (!onComplete) return;
     if (!meta || meta.pages <= 0) return;
@@ -70,6 +83,24 @@ export function PDFPageViewer({ cid, title, onClose, onComplete }: PDFPageViewer
   useEffect(() => {
     const fetchPages = async () => {
       try {
+        if (masterId) {
+          // masterId mode: entitlement-gated proxy route. Per-page images are
+          // fetched from /api/content/pdf-page-by-master/[masterId]?page=N&...
+          // (handled per-image in PDFPageImage below). Here we just need the
+          // page count via ?meta=1.
+          const qs = new URLSearchParams({ meta: '1', ...(personaId ? { personaId } : {}) });
+          const metaRes = await fetch(`${apiBase}/api/content/pdf-page-by-master/${encodeURIComponent(masterId)}?${qs}`);
+          if (!metaRes.ok) throw new Error(`HTTP ${metaRes.status}`);
+          const data = await metaRes.json();
+          setMeta({ pages: data.pages ?? 1, suggestedWidth: data.suggestedWidth });
+          setLoadingMeta(false);
+          return;
+        }
+
+        if (!cid) {
+          throw new Error('No cid or masterId provided');
+        }
+
         const manifestRes = await fetch(`${apiBase}/api/content/pdf-pages/${cid}`);
         if (manifestRes.ok) {
           const data = await manifestRes.json();
@@ -90,7 +121,7 @@ export function PDFPageViewer({ cid, title, onClose, onComplete }: PDFPageViewer
       }
     };
     fetchPages();
-  }, [apiBase, cid]);
+  }, [apiBase, cid, masterId, personaId]);
 
   useEffect(() => {
     if (!meta) return;
@@ -222,6 +253,8 @@ export function PDFPageViewer({ cid, title, onClose, onComplete }: PDFPageViewer
             <PDFPageImage
               key={pageNum}
               cid={cid}
+              masterId={masterId}
+              personaId={personaId}
               pageNum={pageNum}
               width={width}
               apiBase={apiBase}
@@ -290,7 +323,9 @@ export function PDFPageViewer({ cid, title, onClose, onComplete }: PDFPageViewer
 }
 
 interface PDFPageImageProps {
-  cid: string;
+  cid?: string;
+  masterId?: string;
+  personaId?: string;
   pageNum: number;
   width: number;
   apiBase: string;
@@ -304,6 +339,8 @@ interface PDFPageImageProps {
 
 function PDFPageImage({
   cid,
+  masterId,
+  personaId,
   pageNum,
   width,
   apiBase,
@@ -316,8 +353,55 @@ function PDFPageImage({
 }: PDFPageImageProps) {
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const pageUrl = prerenderedUrl || `${apiBase}/api/content/pdf-page/${cid}?page=${pageNum}&width=${width}`;
+
+  // Resolve the per-page image URL. masterId mode goes through the gated
+  // proxy; cid mode through the existing Autonomys page route.
+  let pageUrl: string;
+  if (prerenderedUrl) {
+    pageUrl = prerenderedUrl;
+  } else if (masterId) {
+    const qs = new URLSearchParams({
+      page: String(pageNum),
+      width: String(width),
+      ...(personaId ? { personaId } : {}),
+    });
+    pageUrl = `${apiBase}/api/content/pdf-page-by-master/${encodeURIComponent(masterId)}?${qs}`;
+  } else if (cid) {
+    pageUrl = `${apiBase}/api/content/pdf-page/${cid}?page=${pageNum}&width=${width}`;
+  } else {
+    pageUrl = '';
+  }
+
+  // When the <img> fails to load, fetch the same URL with HEAD so we can
+  // surface the actual HTTP status + body in the UI. Saves the operator
+  // from having to dig through DevTools to diagnose render failures.
+  const probeError = useCallback(async () => {
+    if (!pageUrl) {
+      setErrorDetail('No URL (missing cid and masterId)');
+      return;
+    }
+    const start = Date.now();
+    try {
+      const res = await fetch(pageUrl, { method: 'GET' });
+      const elapsed = Date.now() - start;
+      const ct = res.headers.get('content-type') || '';
+      let body = '';
+      try {
+        if (ct.includes('application/json') || ct.startsWith('text/')) {
+          body = (await res.text()).slice(0, 240);
+        } else {
+          body = `<${ct} ${(await res.arrayBuffer()).byteLength}B>`;
+        }
+      } catch {
+        body = '(could not read body)';
+      }
+      setErrorDetail(`HTTP ${res.status} in ${elapsed}ms — ${body || '(empty)'}`);
+    } catch (e) {
+      setErrorDetail(`fetch threw: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }, [pageUrl]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -356,19 +440,33 @@ function PDFPageImage({
       )}
 
       {isFailed && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center text-red-400">
-            <p className="text-sm">Failed to load page {pageNum}</p>
-            <button
-              onClick={() => {
-                onRetry();
-                setLoaded(false);
-                setLoading(true);
-              }}
-              className="text-xs text-cyan-400 hover:underline mt-2"
-            >
-              Retry
-            </button>
+        <div className="absolute inset-0 flex items-center justify-center p-4">
+          <div className="text-center max-w-md">
+            <p className="text-sm text-red-400 mb-2">Failed to load page {pageNum}</p>
+            {errorDetail && (
+              <div className="mt-2 mb-2 p-2 rounded bg-black/60 border border-red-500/30 text-left">
+                <p className="text-[10px] text-red-300 font-mono break-all whitespace-pre-wrap">{errorDetail}</p>
+              </div>
+            )}
+            <div className="flex flex-col items-center gap-1 mt-2">
+              <button
+                onClick={() => {
+                  onRetry();
+                  setLoaded(false);
+                  setLoading(true);
+                  setErrorDetail(null);
+                }}
+                className="text-xs text-cyan-400 hover:underline"
+              >
+                Retry
+              </button>
+              <button
+                onClick={probeError}
+                className="text-[10px] text-slate-400 hover:underline"
+              >
+                Show error detail
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -384,6 +482,8 @@ function PDFPageImage({
           onError={() => {
             setLoading(false);
             onError();
+            // Auto-probe so the in-UI detail is ready without an extra click.
+            probeError();
           }}
           className={`w-full h-auto select-none ${loaded ? "block" : "hidden"}`}
           draggable={false}

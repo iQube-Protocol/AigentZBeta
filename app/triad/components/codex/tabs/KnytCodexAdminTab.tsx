@@ -97,7 +97,17 @@ export function KnytCodexAdminTab({ isAdmin }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/admin/codex/canonical', { cache: 'no-store' });
+      // Forward the Supabase access token explicitly — browser fetch() doesn't
+      // auto-attach it in iframe contexts, and /api/admin/codex/canonical's
+      // getActivePersona() requires it. Same pattern as the /registry page.
+      const { getSupabaseBrowserClient } = await import('@/utils/supabaseBrowser');
+      const supabase = getSupabaseBrowserClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? null;
+      const headers: Record<string, string> = token
+        ? { Authorization: `Bearer ${token}` }
+        : {};
+      const res = await fetch('/api/admin/codex/canonical', { cache: 'no-store', headers });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
         throw new Error(json.error || `HTTP ${res.status}`);

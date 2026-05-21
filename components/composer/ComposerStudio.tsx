@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Activity, AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Globe, Hexagon, Layers, LayoutGrid, List, Loader2, Mic, MicOff, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type, X } from "lucide-react";
+import { Activity, AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Globe, Hexagon, Layers, LayoutGrid, List, Loader2, Mic, MicOff, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, StopCircle, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type, X } from "lucide-react";
 import { useCopilotAction } from "@copilotkit/react-core";
 import { createShellMessage } from "@metame/iframe-bridge";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,7 @@ import { useDesignQubeTheme } from "@/components/metame/useDesignQubeTheme";
 import { useCodexList } from "@/app/hooks/useCodexConfig";
 import type { CodexListItem } from "@/types/codex";
 import type { DesignQube, DesignQubeThemeMode } from "@/types/designQube";
-import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
+import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 import { AgenticDesignParityPanel } from "@/components/composer/AgenticDesignParityPanel";
 import SurfacePlanningPanel from "@/components/composer/SurfacePlanningPanel";
 import DVNReceiptsPanel from "@/components/composer/DVNReceiptsPanel";
@@ -1872,6 +1872,21 @@ export const ComposerStudio = () => {
     options?: Record<string, unknown>;
     label: string;
   } | null>(null);
+
+  // Brief consolidation state — populated when user signals "send to production"
+  type ConsolidatedBrief = {
+    brief: string;
+    titleSuggestions: string[];
+    goal: string;
+    articlePrompt?: string;
+    visualPrompt?: string;
+  };
+  const [consolidating, setConsolidating] = useState(false);
+  const [pendingBrief, setPendingBrief] = useState<ConsolidatedBrief | null>(null);
+  const [pendingBriefEdited, setPendingBriefEdited] = useState("");
+  const [pendingBriefSelectedTitle, setPendingBriefSelectedTitle] = useState<string>("");
+  // Tracks full conversation for consolidation — ref avoids re-render cost
+  const copilotConversationRef = useRef<CopilotMessage[]>([]);
   const isStudioExpanded = true;
   const [experiencePanelTab, setExperiencePanelTab] = useState("template");
   const [resourcesPanelTab, setResourcesPanelTab] = useState("experience");
@@ -2860,9 +2875,11 @@ export const ComposerStudio = () => {
   const [mcpResult, setMcpResult] = useState<any>(null);
 
   // ── Marketa voice (VAPI + Cartesia) ────────────────────────────────────────
-  type VapiState = "idle" | "connecting" | "active" | "speaking";
+  type VapiState = "idle" | "connecting" | "active" | "speaking" | "error";
   const [vapiState, setVapiState] = useState<VapiState>("idle");
+  const [pendingVoicePrompt, setPendingVoicePrompt] = useState<string | null>(null);
   const vapiRef = useRef<{ start: (cfg: unknown) => Promise<unknown>; stop: () => void } | null>(null);
+  const voiceTranscriptAccumRef = useRef<string[]>([]);
 
   useEffect(() => {
     let vapi: typeof vapiRef.current = null;
@@ -2878,10 +2895,13 @@ export const ComposerStudio = () => {
       instance.on("call-end", () => setVapiState("idle"));
       instance.on("speech-start", () => setVapiState("speaking"));
       instance.on("speech-end", () => setVapiState("active"));
+      instance.on("error", () => setVapiState("error"));
       instance.on("message", (msg: unknown) => {
         const m = msg as Record<string, unknown>;
         if (m.type === "transcript" && m.transcriptType === "final" && typeof m.transcript === "string") {
-          setMcpMessage((prev) => (prev ? `${prev} ${m.transcript as string}` : (m.transcript as string)));
+          const t = m.transcript as string;
+          voiceTranscriptAccumRef.current.push(t);
+          setMcpMessage((prev) => (prev ? `${prev} ${t}` : t));
         }
       });
       vapi = instance;
@@ -2890,18 +2910,15 @@ export const ComposerStudio = () => {
     return () => { vapi?.stop(); };
   }, []);
 
+  // Starts a fresh recording session — does NOT stop; use stopMarketa() to end.
   const toggleMarketa = useCallback(async () => {
-    if (!vapiRef.current) return;
-    if (vapiState !== "idle") {
-      vapiRef.current.stop();
-      setVapiState("idle");
-      return;
-    }
+    if (!vapiRef.current || (vapiState !== "idle" && vapiState !== "error")) return;
+    voiceTranscriptAccumRef.current = [];
     setVapiState("connecting");
     try {
       await vapiRef.current.start({
         name: "Marketa",
-        firstMessage: "Hey! I'm Marketa, your voice co-pilot. What are we creating today?",
+        firstMessage: "Ready — tell me your vision.",
         transcriber: { provider: "deepgram", model: "nova-2", language: "en-US" },
         voice: {
           provider: "cartesia",
@@ -2915,15 +2932,32 @@ export const ComposerStudio = () => {
             {
               role: "system",
               content:
-                "You are Marketa, a creative AI co-pilot in the iQube ComposerStudio. Help users articulate their vision for experiences, content, and campaigns. Be concise, inspiring, and creative. Keep responses to 2-3 sentences max.",
+                "You are Marketa, a creative AI co-pilot in the iQube ComposerStudio. Listen to the user's vision and respond with one short encouraging sentence only. Never end the call — always stay listening for more input.",
             },
           ],
         },
+        endCallFunctionEnabled: false,
+        maxDurationSeconds: 600,
       });
     } catch {
       setVapiState("idle");
     }
   }, [vapiState]);
+
+  // Deterministic stop: halts the call, consolidates the transcript into a pending approval prompt.
+  const stopMarketa = useCallback(() => {
+    if (!vapiRef.current) return;
+    vapiRef.current.stop();
+    setVapiState("idle");
+    const accumulated = voiceTranscriptAccumRef.current;
+    voiceTranscriptAccumRef.current = [];
+    if (accumulated.length === 0) return;
+    const full = accumulated.join(" ").trim();
+    // Keep the last 3 sentences as the clearest recent intent
+    const sentences = full.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
+    const consolidated = sentences.length > 3 ? sentences.slice(-3).join(" ") : full;
+    setPendingVoicePrompt(consolidated || full);
+  }, []);
   // ── end Marketa voice ───────────────────────────────────────────────────────
   const [deploymentResultsByTarget, setDeploymentResultsByTarget] = useState<
     Partial<Record<ComposerDeploymentTarget, ComposerDeploymentResult>>
@@ -4065,6 +4099,36 @@ export const ComposerStudio = () => {
 
   const handleComposerUserPrompt = useCallback(
     async (prompt: string) => {
+      // Detect "send to production" intent — consolidate full conversation before routing.
+      const SEND_TRIGGER = /\b(send|push|ship|go|let'?s go|proceed|approve|done|happy|ready)\b.*\b(to\s+)?(production|studio|compositor|live|generate)\b|\bsend\s+it\b|\bproduction\s+ready\b|\bship\s+it\b/i;
+      if (SEND_TRIGGER.test(prompt)) {
+        setConsolidating(true);
+        void (async () => {
+          try {
+            const conversation = copilotConversationRef.current
+              .map((m) => `${m.role === "user" ? "User" : "Marketa"}: ${typeof m.content === "string" ? m.content : ""}`)
+              .filter((line) => line.split(": ")[1]?.trim())
+              .join("\n\n");
+            const res = await fetch("/api/composer/consolidate-brief", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                conversation: conversation || prompt,
+                templateName: sessionTemplate?.name || selectedTemplate?.name || "",
+              }),
+            });
+            if (res.ok) {
+              const data = (await res.json()) as ConsolidatedBrief;
+              setPendingBrief(data);
+              setPendingBriefEdited(data.brief);
+            }
+          } finally {
+            setConsolidating(false);
+          }
+        })();
+        return "On it — I'm consolidating everything we've discussed into a production brief. I'll show it to you above in a moment. Once you're happy with it, hit **Send to production**.";
+      }
+
       // Long transcripts from Vapi voice sessions contain the full conversation history.
       // Use only the last 350 chars as the intent signal — the production intent is
       // always stated at the end, and earlier words trip the early-return guards.
@@ -4765,6 +4829,33 @@ export const ComposerStudio = () => {
     try {
       setIsCompleting(true);
       setSessionError(null);
+
+      // Flush any stepData overrides that weren't saved during normal step navigation
+      // (e.g. experience_name / goal edited in the Experience Snapshot panel while on
+      // the Customizer step — those live in stepData["intent_timebox"] but updateSession
+      // only saves stepData[currentStep.id]).
+      const crossStepOverrides = Object.fromEntries(
+        Object.entries(stepData).filter(([key, val]) =>
+          key !== (currentStep?.id ?? "") && Object.keys(val || {}).length > 0
+        )
+      );
+      if (Object.keys(crossStepOverrides).length > 0) {
+        const flushData = {
+          ...sessionData,
+          ...(currentStep ? { [currentStep.id]: stepValues } : {}),
+          ...crossStepOverrides,
+        };
+        await fetch(`/api/composer/sessions/${session.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            current_step: session.current_step ?? 0,
+            data: flushData,
+            status: session.status,
+          }),
+        });
+      }
+
       const res = await fetch(`/api/composer/sessions/${session.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -6239,10 +6330,10 @@ export const ComposerStudio = () => {
       return field?.name || fieldId;
     };
 
-    const list: Array<{ label: string; value: string }> = [];
+    const list: Array<{ label: string; value: string; stepId?: string; fieldId?: string }> = [];
     const intentStep = mergedData.intent_timebox || {};
-    if (intentStep.experience_name) list.push({ label: getLabel("intent_timebox", "experience_name"), value: intentStep.experience_name });
-    if (intentStep.goal) list.push({ label: getLabel("intent_timebox", "goal"), value: intentStep.goal });
+    if (intentStep.experience_name) list.push({ label: getLabel("intent_timebox", "experience_name"), value: intentStep.experience_name, stepId: "intent_timebox", fieldId: "experience_name" });
+    if (intentStep.goal) list.push({ label: getLabel("intent_timebox", "goal"), value: intentStep.goal, stepId: "intent_timebox", fieldId: "goal" });
     if (intentStep.time_available) list.push({ label: getLabel("intent_timebox", "time_available"), value: `${intentStep.time_available} min` });
     if (intentStep.depth) list.push({ label: getLabel("intent_timebox", "depth"), value: intentStep.depth });
 
@@ -7745,6 +7836,141 @@ export const ComposerStudio = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Brief consolidation: loading indicator */}
+                {consolidating && (
+                  <div className="mx-2 mt-2 flex items-center gap-2 rounded-lg border border-fuchsia-500/30 bg-fuchsia-950/40 px-3 py-2 flex-shrink-0">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-fuchsia-400" />
+                    <span className="text-[11px] text-fuchsia-300">Marketa is consolidating your brief…</span>
+                  </div>
+                )}
+
+                {/* Brief consolidation: review panel */}
+                {pendingBrief && !consolidating && (
+                  <div className="mx-2 mt-2 flex-shrink-0 rounded-lg border border-fuchsia-500/40 bg-fuchsia-950/40 p-3 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-[11px] font-semibold text-fuchsia-200">
+                        Brief ready — review before sending to production
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => { setPendingBrief(null); setPendingBriefEdited(""); setPendingBriefSelectedTitle(""); }}
+                        className="text-slate-500 hover:text-slate-300 transition flex-shrink-0"
+                        title="Dismiss"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <textarea
+                      value={pendingBriefEdited}
+                      onChange={(e) => setPendingBriefEdited(e.target.value)}
+                      rows={5}
+                      className="w-full resize-none rounded-md border border-fuchsia-500/20 bg-slate-900/70 px-2.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-fuchsia-400/50"
+                    />
+                    {pendingBrief.titleSuggestions.length > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] uppercase tracking-wider text-fuchsia-400/60">Suggested titles</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {pendingBrief.titleSuggestions.map((t) => (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={() => {
+                                setPendingBriefSelectedTitle(t);
+                                updateField("intent_timebox", "experience_name", t);
+                                updateField("intent_timebox", "goal", pendingBrief.goal || pendingBriefEdited.slice(0, 120));
+                              }}
+                              className={`rounded-full border px-2.5 py-0.5 text-[10px] transition ${
+                                t === pendingBriefSelectedTitle
+                                  ? "border-fuchsia-400 bg-fuchsia-500/30 text-fuchsia-100 ring-1 ring-fuchsia-400/40"
+                                  : "border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300 hover:bg-fuchsia-500/20"
+                              }`}
+                              title="Use as experience name"
+                            >
+                              {t}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        className="rounded-lg bg-violet-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-violet-500 transition"
+                        onClick={() => {
+                          const briefTitle = pendingBriefSelectedTitle || pendingBrief.titleSuggestions[0] || "";
+                          const briefGoal = pendingBrief.goal || pendingBriefEdited.slice(0, 200);
+
+                          if (pendingProductionConfig) {
+                            // Augment an existing routing config with the brief data; the
+                            // confirmation dialog will call startSeededSessionForTemplate.
+                            setPendingProductionConfig({
+                              ...pendingProductionConfig,
+                              seedData: {
+                                ...pendingProductionConfig.seedData,
+                                intent_timebox: {
+                                  ...(typeof pendingProductionConfig.seedData.intent_timebox === "object"
+                                    ? pendingProductionConfig.seedData.intent_timebox as Record<string, unknown>
+                                    : {}),
+                                  experience_name: briefTitle,
+                                  goal: briefGoal,
+                                  brief: pendingBriefEdited,
+                                },
+                                ...(pendingBrief.articlePrompt ? {
+                                  article_draft: { prompt: pendingBrief.articlePrompt },
+                                } : {}),
+                                ...(pendingBrief.visualPrompt ? {
+                                  image_generation: {
+                                    ...(typeof (pendingProductionConfig.seedData.image_generation ?? {}) === "object"
+                                      ? pendingProductionConfig.seedData.image_generation as Record<string, unknown>
+                                      : {}),
+                                    portrait_prompt: pendingBrief.visualPrompt,
+                                    landscape_prompt: pendingBrief.visualPrompt,
+                                  },
+                                } : {}),
+                              },
+                            });
+                          } else {
+                            // SEND_TRIGGER path: no prior routing config — infer template from
+                            // brief content and navigate to the Customizer directly.
+                            let templateId = selectedTemplateId || "";
+                            const seedData: Record<string, any> = {
+                              intent_timebox: { experience_name: briefTitle, goal: briefGoal, brief: pendingBriefEdited },
+                            };
+                            if (pendingBrief.visualPrompt && pendingBrief.articlePrompt) {
+                              if (!templateId) templateId = "qripto-feature-article";
+                              seedData.image_generation = { portrait_prompt: pendingBrief.visualPrompt, landscape_prompt: pendingBrief.visualPrompt, provider_id: "openai" };
+                              seedData.article_draft = { prompt: pendingBrief.articlePrompt, title: briefTitle };
+                            } else if (pendingBrief.visualPrompt) {
+                              if (!templateId) templateId = "ai-image-generation";
+                              seedData.image_generation = { portrait_prompt: pendingBrief.visualPrompt, landscape_prompt: pendingBrief.visualPrompt, provider_id: "openai" };
+                              seedData.skill_selection = { skill_id: "openai_image_gen" };
+                            } else if (pendingBrief.articlePrompt) {
+                              if (!templateId) templateId = "ai-article-draft";
+                              seedData.article_draft = { prompt: pendingBrief.articlePrompt, title: briefTitle };
+                            } else {
+                              if (!templateId) templateId = "ai-image-generation";
+                            }
+                            void startSeededSessionForTemplate(templateId, seedData, { currentStep: 1 });
+                          }
+                          setPendingBrief(null);
+                          setPendingBriefEdited("");
+                          setPendingBriefSelectedTitle("");
+                        }}
+                      >
+                        Send to production
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-lg border border-slate-700 px-3 py-1.5 text-[11px] text-slate-300 hover:bg-slate-800 transition"
+                        onClick={() => { setPendingBrief(null); setPendingBriefEdited(""); setPendingBriefSelectedTitle(""); }}
+                      >
+                        Keep editing with Marketa
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex-1 min-h-0 overflow-hidden">
                   <CodexCopilotLayer
                     isOpen
@@ -7773,6 +7999,7 @@ export const ComposerStudio = () => {
                     ]}
                     onPrompt={handleCopilotPrompt}
                     onUserPrompt={handleComposerUserPrompt}
+                    onMessagesChange={(msgs) => { copilotConversationRef.current = msgs; }}
                     getChatRequestContext={buildComposerChatRequestContext}
                     agent={{
                       id: composerAgent.id,
@@ -8394,12 +8621,33 @@ export const ComposerStudio = () => {
                       <div className={summaryCardClass}>
                         <div className="mb-2 text-xs uppercase tracking-widest text-slate-400">Experience Snapshot</div>
                         <div className="grid gap-2 text-sm text-slate-200">
-                          {summary.map((item) => (
-                            <div key={item.label} className="flex items-center justify-between gap-3">
-                              <span className="text-slate-400">{item.label}</span>
-                              <span className="text-right text-slate-200">{item.value}</span>
-                            </div>
-                          ))}
+                          {summary.map((item) =>
+                            item.stepId && item.fieldId ? (
+                              <div key={item.label} className="flex flex-col gap-1">
+                                <span className="text-xs text-slate-400">{item.label}</span>
+                                {item.fieldId === "goal" ? (
+                                  <textarea
+                                    value={stepData?.intent_timebox?.[item.fieldId] ?? mergedData?.intent_timebox?.[item.fieldId] ?? item.value}
+                                    onChange={(e) => updateField(item.stepId!, item.fieldId!, e.target.value)}
+                                    rows={3}
+                                    className="w-full resize-none rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-fuchsia-500/60"
+                                  />
+                                ) : (
+                                  <input
+                                    type="text"
+                                    value={stepData?.intent_timebox?.[item.fieldId] ?? mergedData?.intent_timebox?.[item.fieldId] ?? item.value}
+                                    onChange={(e) => updateField(item.stepId!, item.fieldId!, e.target.value)}
+                                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-fuchsia-500/60"
+                                  />
+                                )}
+                              </div>
+                            ) : (
+                              <div key={item.label} className="flex items-center justify-between gap-3">
+                                <span className="text-slate-400">{item.label}</span>
+                                <span className="text-right text-slate-200">{item.value}</span>
+                              </div>
+                            )
+                          )}
                         </div>
                       </div>
                     )}
@@ -12509,31 +12757,84 @@ export const ComposerStudio = () => {
                 <div>
                   <div className="mb-1 flex items-center justify-between">
                     <label className="text-xs text-slate-400">Intent / Message</label>
-                    <button
-                      type="button"
-                      onClick={() => void toggleMarketa()}
-                      title={vapiState === "idle" ? "Start voice with Marketa" : "Stop Marketa"}
-                      className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all ${
-                        vapiState === "idle"
-                          ? "border-slate-700 bg-slate-800/60 text-slate-400 hover:border-fuchsia-500/60 hover:text-fuchsia-300"
-                          : vapiState === "connecting"
-                            ? "animate-pulse border-amber-500/60 bg-amber-500/10 text-amber-300"
-                            : vapiState === "speaking"
-                              ? "animate-pulse border-green-500/60 bg-green-500/15 text-green-300"
-                              : "border-fuchsia-500/60 bg-fuchsia-500/15 text-fuchsia-300"
-                      }`}
-                    >
-                      {vapiState === "idle" ? (
-                        <><Mic className="h-3 w-3" /><span>Marketa</span></>
-                      ) : vapiState === "connecting" ? (
-                        <><Loader2 className="h-3 w-3 animate-spin" /><span>Connecting…</span></>
-                      ) : vapiState === "speaking" ? (
-                        <><Volume2 className="h-3 w-3" /><span>Speaking…</span></>
-                      ) : (
-                        <><MicOff className="h-3 w-3" /><span>Listening</span></>
+                    <div className="flex items-center gap-1.5">
+                      {/* Mic button — starts Marketa, disabled while active */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (vapiState === "error") { setVapiState("idle"); return; }
+                          void toggleMarketa();
+                        }}
+                        disabled={vapiState !== "idle" && vapiState !== "error"}
+                        title={
+                          vapiState === "error" ? "Voice unavailable — tap to dismiss"
+                            : vapiState === "idle" ? "Start voice with Marketa"
+                            : "Marketa active"
+                        }
+                        className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all disabled:cursor-not-allowed ${
+                          vapiState === "idle"
+                            ? "border-slate-700 bg-slate-800/60 text-slate-400 hover:border-fuchsia-500/60 hover:text-fuchsia-300"
+                            : vapiState === "connecting"
+                              ? "animate-pulse border-amber-500/60 bg-amber-500/10 text-amber-300"
+                              : vapiState === "error"
+                                ? "border-rose-500/60 bg-rose-500/10 text-rose-300"
+                                : vapiState === "speaking"
+                                  ? "animate-pulse border-green-500/60 bg-green-500/15 text-green-300"
+                                  : "border-fuchsia-500/60 bg-fuchsia-500/15 text-fuchsia-300"
+                        }`}
+                      >
+                        {vapiState === "idle" ? (
+                          <><Mic className="h-3 w-3" /><span>Marketa</span></>
+                        ) : vapiState === "connecting" ? (
+                          <><Loader2 className="h-3 w-3 animate-spin" /><span>Connecting…</span></>
+                        ) : vapiState === "error" ? (
+                          <><MicOff className="h-3 w-3" /><span>Unavailable</span></>
+                        ) : vapiState === "speaking" ? (
+                          <><Volume2 className="h-3 w-3" /><span>Speaking…</span></>
+                        ) : (
+                          <><Mic className="h-3 w-3 animate-pulse" /><span>Listening</span></>
+                        )}
+                      </button>
+                      {/* Deterministic STOP button — only visible while active */}
+                      {vapiState !== "idle" && vapiState !== "error" && (
+                        <button
+                          type="button"
+                          onClick={stopMarketa}
+                          title="Stop recording and consolidate intent"
+                          className="flex items-center gap-1.5 rounded-full border border-red-500/60 bg-red-500/15 px-2.5 py-1 text-xs font-medium text-red-300 transition-all hover:bg-red-500/25"
+                        >
+                          <StopCircle className="h-3 w-3" /><span>Stop</span>
+                        </button>
                       )}
-                    </button>
+                    </div>
                   </div>
+                  {/* Pending intent approval panel */}
+                  {pendingVoicePrompt !== null && (
+                    <div className="mb-2 space-y-2 rounded-lg border border-fuchsia-500/30 bg-fuchsia-500/10 p-3">
+                      <p className="text-[10px] uppercase tracking-wider text-fuchsia-400/70">Consolidated intent — review before sending</p>
+                      <textarea
+                        value={pendingVoicePrompt}
+                        onChange={(e) => setPendingVoicePrompt(e.target.value)}
+                        className="h-20 w-full resize-none rounded-md border border-fuchsia-500/20 bg-slate-900/70 px-3 py-2 text-sm text-white"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => { setMcpMessage(pendingVoicePrompt); setPendingVoicePrompt(null); }}
+                          className="flex items-center gap-1 rounded-lg border border-fuchsia-500/40 bg-fuchsia-500/15 px-3 py-1 text-xs font-semibold text-fuchsia-200 transition hover:bg-fuchsia-500/25"
+                        >
+                          <CheckCircle2 className="h-3 w-3" />Use as prompt
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPendingVoicePrompt(null)}
+                          className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1 text-xs font-semibold text-slate-400 transition hover:text-white"
+                        >
+                          <X className="h-3 w-3" />Discard
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   <textarea
                     value={mcpMessage}
                     onChange={(e) => setMcpMessage(e.target.value)}

@@ -49,16 +49,17 @@ export async function GET(req: NextRequest) {
     return `/api/content/cover/${encodeURIComponent(cid)}`;
   }
 
-  // DB episode_number convention: 0 = GN, 1 = Episode #0, 2 = Episode #1 ... 13 = Episode #12
-  // Pricing episodeNumber convention:    -1 = GN, 0 = Episode #0, 1 = Episode #1 ... 12 = Episode #12
-  // Offset: pricingEpisodeNumber = dbEpisodeNumber - 1
+  // Canonical convention (2026-05-16): DB episode_number IS the display number.
+  //   codex_media_assets covers:  episode_number ∈ {-1 (GN), 0..12 (episodes)}
+  //   codex_media_assets characters: 1-indexed (DB ep 1..13 = display #0..#12)
+  // so covers no longer subtract 1, but characters still do.
   const covers = assets
     .filter((a) => a.asset_kind === 'cover_image' || a.asset_kind === 'cover_pdf')
     .map((a) => {
       const thumbUrl = resolveThumb(a);
       if (!thumbUrl) return null;
       return {
-        episodeNumber: (a.episode_number as number) - 1,
+        episodeNumber: a.episode_number as number,
         thumbUrl,
         rarityTier: a.rarity_tier as string | null,
       };
@@ -71,7 +72,12 @@ export async function GET(req: NextRequest) {
       const thumbUrl = resolveThumb(a);
       if (!thumbUrl) return null;
       return {
-        episodeNumber: (a.episode_number as number) - 1,
+        // codex_media_assets.character_poster rows are 0-indexed in the
+        // actual dev DB (ep 0 = first character, "Deji Ifada / Kn0w1"; ep 12 =
+        // last). The historical "characters are 1-indexed" comment in
+        // /api/codex/owned was stale — confirmed against live data 2026-05-18.
+        // No subtraction.
+        episodeNumber: a.episode_number as number,
         thumbUrl,
         title: a.title as string,
       };

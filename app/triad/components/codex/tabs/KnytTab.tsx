@@ -41,6 +41,7 @@ import {
 } from "@/services/wallet/personaService";
 import { usePersonaSafe } from "@/app/contexts/PersonaContext";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
+import { getSupabaseBrowserClient } from "@/utils/supabaseBrowser";
 import type { KnytCardAsset, EpisodeGroup } from "@/app/hooks/useKnytCards";
 import type { PersonaQube } from "@/types/persona";
 import { EPISODE_PRICING, KNYT_COYN_DISCOUNT, usdToKnyt } from "@/types/knyt-store";
@@ -294,6 +295,9 @@ interface EpisodeFromAPI {
   printCommonLiteUrl?: string;
   motionMasterCid?: string;
   motionMasterId?: string;
+  stillMasterId?: string;
+  stillMasterCid?: string;
+  stillMasterLiteUrl?: string;
   availableCovers?: number;
   coverCount: number;
   characterCount: number;
@@ -393,9 +397,9 @@ const PREORDER_VARIANT_EPISODE_NUMBER: Record<PreorderVariantId, number> = {
   common: -1,
 };
 
-const KNYT_CONTENT_CACHE_KEY = "codex:knyt:content:v8";
-const KNYT_EPISODES_CACHE_KEY = "codex:knyt:episodes:v6";
-const KNYT_SESSION_CACHE_KEY = "codex:knyt:session:v6";
+const KNYT_CONTENT_CACHE_KEY = "codex:knyt:content:v11";
+const KNYT_EPISODES_CACHE_KEY = "codex:knyt:episodes:v9";
+const KNYT_SESSION_CACHE_KEY = "codex:knyt:session:v9";
 const KNYT_SESSION_CACHE_TTL_MS = 30 * 60 * 1000;
 
 type KnytSessionSnapshot = {
@@ -738,6 +742,11 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [currentPdfCid, setCurrentPdfCid] = useState<string | null>(null);
   const [currentPdfLiteUrl, setCurrentPdfLiteUrl] = useState<string | null>(null);
+  // Entitlement-gated master id for the GN path (Supabase-hosted, page-by-page
+  // proxy via /api/content/pdf-page-by-master). When set, routes to
+  // PDFPageViewer regardless of device — the GN file is too large for native
+  // <object> rendering on either desktop or mobile.
+  const [currentPdfMasterId, setCurrentPdfMasterId] = useState<string | null>(null);
   const [currentPdfTitle, setCurrentPdfTitle] = useState('');
   const [currentVideoCid, setCurrentVideoCid] = useState<string | null>(null);
   const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null);
@@ -1144,15 +1153,22 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     for (const ep of episodes) {
       const episodeNumber = Number(ep.episodeNumber);
       if (!Number.isFinite(episodeNumber)) continue;
-      // Capture GN (DB ep 0) data, but don't create a standalone episode card
-      // for it — the AGN card is injected below.
-      if (episodeNumber === 0) { gnEp = ep; continue; }
-      // Skip the legacy preorder rarity drops (DB ep -1..-4) — replaced by
+      // Capture GN (canonical: episode_number = -1) data, but don't create a
+      // standalone episode card for it — the AGN card is injected below.
+      if (episodeNumber === -1) { gnEp = ep; continue; }
+      // Skip the legacy preorder rarity drops (DB ep -2..-4) — replaced by
       // the single AGN card injected below.
-      if (episodeNumber < 0) continue;
+      if (episodeNumber < -1) continue;
       
-      const printCid = ep.printRareCid || ep.printEpicCid || ep.printLegendaryCid || ep.printCommonCid;
-      const printLiteUrl = ep.printRareLiteUrl || ep.printEpicLiteUrl || ep.printLegendaryLiteUrl || ep.printCommonLiteUrl;
+      // Print URLs win when present. When the episode has only a "still"
+      // master (legacy fixtures store the readable PDF under
+      // content_type='episode_still' rather than 'episode_print'), fall
+      // back to the stillMasterCid / stillMasterLiteUrl so the reader
+      // still opens. Without this, every episode with only a still master
+      // (i.e. every regular metaKnyts episode in the current dev DB) would
+      // render as a cover-only card with no readable surface.
+      const printCid = ep.printRareCid || ep.printEpicCid || ep.printLegendaryCid || ep.printCommonCid || ep.stillMasterCid;
+      const printLiteUrl = ep.printRareLiteUrl || ep.printEpicLiteUrl || ep.printLegendaryLiteUrl || ep.printCommonLiteUrl || ep.stillMasterLiteUrl;
       // pdf_lite_url = direct Supabase URL (fast, iframe-rendered via PDFLiteReaderModal)
       // pdf_cid      = Autonomys CID only (page-by-page via PDFPageViewer)
       // Never put a proxy URL in pdf_lite_url — that buffers the whole PDF through
@@ -1171,12 +1187,13 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       );
       const hasWatchable = ep.hasMotionMaster && Boolean(motionSource.cid || motionSource.url);
       // Episode pricing — single source of truth: EPISODE_PRICING (admin
-      // pricing table). DB→pricing convention: DB ep 1 = pricing #0, … DB ep
-      // 13 = pricing #12. We derive BOTH the KNYT-paid USD-equivalent
+      // pricing table). Canonical convention: EPISODE_PRICING.episodeNumber
+      // === master_content_qubes.episode_number === display number (0..12),
+      // with -1 reserved for GN. We derive BOTH the KNYT-paid USD-equivalent
       // (qriptoPrice × 0.8 — matches "$KNYT 62.4 ($78)" pattern the user
       // wants for the AGN) and the retail USD price for display alongside.
       const apiPriceKnyt = resolveAccessPrice(ep.priceKnyt);
-      const pricingEpNum = episodeNumber - 1;
+      const pricingEpNum = episodeNumber;
       const sot = EPISODE_PRICING.find((p) => p.episodeNumber === pricingEpNum);
       let resolvedPriceKnyt = apiPriceKnyt;
       let resolvedPriceUsd: number | null = null;
@@ -1270,11 +1287,14 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     // users can open the PDF reader. Read button is gated by
     // modalities.read.available (not by card type), so we keep the type as
     // comic_cover_portrait — same Liquid UI stage routing as before.
+    // The GN row is content_type='gn_still' (not a print tier), so its readable
+    // surface lives on stillMasterCid / stillMasterLiteUrl rather than the
+    // printRare* fields. Fall through to those when no print-tier CID is set.
     const gnPrintCid = gnEp
-      ? (gnEp.printRareCid || gnEp.printEpicCid || gnEp.printLegendaryCid || gnEp.printCommonCid)
+      ? (gnEp.printRareCid || gnEp.printEpicCid || gnEp.printLegendaryCid || gnEp.printCommonCid || gnEp.stillMasterCid)
       : undefined;
     const gnPrintLiteUrl = gnEp
-      ? (gnEp.printRareLiteUrl || gnEp.printEpicLiteUrl || gnEp.printLegendaryLiteUrl || gnEp.printCommonLiteUrl)
+      ? (gnEp.printRareLiteUrl || gnEp.printEpicLiteUrl || gnEp.printLegendaryLiteUrl || gnEp.printCommonLiteUrl || gnEp.stillMasterLiteUrl)
       : undefined;
     const gnHasReadable = !!(gnPrintCid || gnPrintLiteUrl);
 
@@ -1639,6 +1659,58 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   ]);
 
   // Fetch owned episodes
+  // Persist owned-issues to localStorage so they survive page reloads and
+  // pre-populate state before the async fetch completes (eliminates the
+  // blank window where all episodes appear locked on every fresh load).
+  const OWNED_LS_PREFIX = 'codex:knyt:owned:v2:';
+
+  // On personaId change: pre-populate from localStorage immediately so
+  // isEpisodeLocked has data even before fetchOwnedEpisodes completes.
+  useEffect(() => {
+    if (!effectivePersonaId) return;
+    try {
+      const stored = localStorage.getItem(OWNED_LS_PREFIX + effectivePersonaId);
+      if (!stored) return;
+      const lsIssues = JSON.parse(stored) as OwnedIssueFromAPI[];
+      if (!Array.isArray(lsIssues) || lsIssues.length === 0 || typeof lsIssues[0] !== 'object') return;
+      setOwnedIssues(lsIssues);
+      const nums = lsIssues
+        .map((i: OwnedIssueFromAPI) => i.episodeNumber)
+        .filter((n: number | undefined): n is number => typeof n === 'number');
+      setOwnedEpisodeNumbers(new Set(nums));
+    } catch { /* localStorage unavailable */ }
+  // OWNED_LS_PREFIX is a stable constant — only effectivePersonaId matters.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectivePersonaId]);
+
+  // Expose a window-level inspector so the operator can dump current
+  // ownership state from the browser console without needing to click an
+  // episode. Usage: __knytDebug() in the console. Strip after root cause.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    (window as unknown as { __knytDebug?: () => void }).__knytDebug = () => {
+      const snapshot = {
+        effectivePersonaId,
+        ownedIssuesCount: ownedIssues.length,
+        ownedIssues: ownedIssues.slice(0, 5),
+        ownedEpisodeNumbers: Array.from(ownedEpisodeNumbers).sort((a, b) => a - b),
+        registryMapSize: registryOwnership.size,
+        registryKeys: Array.from(registryOwnership.entries()).slice(0, 10),
+        registryAnyOwned: Array.from(registryOwnership.values()).some(Boolean),
+        episodesCatalogCount: episodesCatalog.length,
+        contentItemsCount: contentItems.length,
+        sampleItemIds: contentItems.slice(0, 5).map((c) => ({ id: c.id, ep: c.metadata?.episodeNumber, type: c.type })),
+        localStorageKey: `${OWNED_LS_PREFIX}${effectivePersonaId ?? '<none>'}`,
+        localStorageBytes: effectivePersonaId
+          ? (localStorage.getItem(OWNED_LS_PREFIX + effectivePersonaId)?.length ?? 0)
+          : 0,
+      };
+      console.log('[__knytDebug]', JSON.stringify(snapshot, null, 2));
+      return snapshot;
+    };
+  // Stable refs are fine; we want the closure to capture latest values.
+  });
+
   const fetchOwnedEpisodes = useCallback(async (options?: { force?: boolean }) => {
     if (!effectivePersonaId) {
       setOwnedEpisodeNumbers(new Set());
@@ -1647,25 +1719,36 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     }
     try {
       const apiBase = API_BASE_URL;
-      const cacheKey = `codex:knyt:owned:${effectivePersonaId}`;
-      // After a purchase the cached list is stale; force=true skips the cache
-      // and refetches so a new episode appears in ownedIssues immediately.
+      const cacheKey = `codex:knyt:owned:v2:${effectivePersonaId}`;
       if (!options?.force) {
-        const cached = getCachedValue<number[]>(cacheKey);
-        if (cached) {
-          setOwnedEpisodeNumbers(new Set(cached));
-          // NOTE: cache only stored episode numbers, not full issues. Fall through
-          // to fetch full issues so isEpisodeLocked / owned badge stay in sync.
+        // In-memory cache: fastest, same-session navigation
+        const cached = getCachedValue<OwnedIssueFromAPI[]>(cacheKey);
+        if (cached && Array.isArray(cached) && cached.length > 0 && typeof cached[0] === 'object') {
+          setOwnedIssues(cached);
+          const nums = cached
+            .map((i: OwnedIssueFromAPI) => i.episodeNumber)
+            .filter((n: number | undefined): n is number => typeof n === 'number');
+          setOwnedEpisodeNumbers(new Set(nums));
+          // Fall through — always fetch fresh data to stay in sync.
         }
       }
       const ownedRes = await fetch(`${apiBase}/api/codex/owned?personaId=${effectivePersonaId}`);
-      if (!ownedRes.ok) return;
+      if (!ownedRes.ok) {
+        console.warn(`[KnytTab] /api/codex/owned returned ${ownedRes.status} for personaId=${effectivePersonaId}`);
+        return;
+      }
       const ownedData = await ownedRes.json();
-      setOwnedIssues(ownedData.issues || []);
-      const ownedEpisodesArray = (ownedData.issues || [])
-        .map((issue: { episodeNumber?: number }) => issue.episodeNumber)
-        .filter((episodeNumber: number | undefined) => typeof episodeNumber === 'number');
-      setCachedValue(cacheKey, ownedEpisodesArray, 5 * 60 * 1000);
+      const freshIssues: OwnedIssueFromAPI[] = ownedData.issues || [];
+      console.log(`[KnytTab] /api/codex/owned → personaId=${effectivePersonaId} issueCount=${freshIssues.length} epNums=${freshIssues.map(i => i.episodeNumber).join(',')}`);
+      setOwnedIssues(freshIssues);
+      const ownedEpisodesArray = freshIssues
+        .map((issue: OwnedIssueFromAPI) => issue.episodeNumber)
+        .filter((n: number | undefined): n is number => typeof n === 'number');
+      setCachedValue(cacheKey, freshIssues, 5 * 60 * 1000);
+      // Persist to localStorage so the next page load has data immediately.
+      try {
+        localStorage.setItem(OWNED_LS_PREFIX + effectivePersonaId, JSON.stringify(freshIssues));
+      } catch { /* localStorage full or unavailable */ }
       setOwnedEpisodeNumbers(new Set(ownedEpisodesArray));
     } catch (error) {
       console.warn('[KnytTab] Failed to load owned episodes:', error);
@@ -1852,15 +1935,13 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     // contentTypes-aware after Phase A).
     const epNum = episode.episodeNumber;
     if (typeof epNum === 'number' && epNum !== null) {
-      const registryKey = `${epNum}:episode_motion`;
-      const registryOwns = registryOwnership.get(registryKey) === true;
+      // Registry fast-path, then episode-number-only legacy fallback.
+      const registryOwns = registryOwnership.get(`${epNum}:episode_motion`) === true;
       if (!registryOwns) {
-        const matchingIssues = ownedIssues.filter((issue) => issue.episodeNumber === epNum);
-        const hasVariantData = matchingIssues.some((issue) => Array.isArray(issue.contentTypes));
-        const legacyOwns = hasVariantData
-          ? matchingIssues.some((issue) => (issue.contentTypes ?? []).includes('episode_motion'))
-          : matchingIssues.length > 0;
-        if (!legacyOwns) {
+        const matchingIssues = ownedIssues.filter((issue: OwnedIssueFromAPI) => issue.episodeNumber === epNum);
+        // ownedEpisodeNumbers pre-populates from localStorage — always check it.
+        const epNumsOwns = ownedEpisodeNumbers.has(epNum);
+        if (matchingIssues.length === 0 && !epNumsOwns) {
           openPurchaseForEpisode(episode, 'watch');
           return;
         }
@@ -1916,15 +1997,24 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     return contentItems.map((item) => {
       const episodeNumber = item.metadata?.episodeNumber;
       if (typeof episodeNumber !== 'number') return item;
+      // Merge ownership signals: registry (ContentQube) OR legacy
+      // /api/codex/owned. Either path being owned unlocks the card. This
+      // prevents ContentCard.canPurchase from showing a Buy button when
+      // the registry confirms ownership but the legacy endpoint is still
+      // loading / FIO-handle resolution missed / etc.
+      const registryOwns =
+        registryOwnership.get(`${episodeNumber}:episode_print`) === true ||
+        registryOwnership.get(`${episodeNumber}:episode_motion`) === true;
+      const legacyOwns = ownedEpisodeNumbers.has(episodeNumber);
       return {
         ...item,
         metadata: {
           ...item.metadata,
-          owned: ownedEpisodeNumbers.has(episodeNumber),
+          owned: registryOwns || legacyOwns,
         },
       };
     });
-  }, [contentItems, ownedEpisodeNumbers]);
+  }, [contentItems, ownedEpisodeNumbers, registryOwnership]);
 
   const derivedCharacterGroups = useMemo<EpisodeGroup[]>(() => {
     const characterItems = contentWithOwnership.filter((item) => item.type === 'character_portrait');
@@ -1961,7 +2051,10 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       .sort(([a], [b]) => a - b)
       .map(([episodeNumber, assets]) => ({
         episodeNumber,
-        displayNumber: `#${episodeNumber - 1}`,
+        // Characters in codex_media_assets are 0-indexed in the actual dev DB
+        // (confirmed 2026-05-18: DB ep 0 = Deji Ifada/Kn0w1, DB ep 12 = final
+        // Kn0w1). No subtraction.
+        displayNumber: `#${episodeNumber}`,
         posters: assets.posters,
         sheets: assets.sheets,
       }));
@@ -2185,31 +2278,17 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     const episodeNumber = resolveEpisodeNumber(item);
     if (episodeNumber === null) return false;
 
-    // GN (DB ep 0, represented as AGN preorder with ep -1) is free to read.
-    // pdf_lite_url being present indicates the free Supabase-hosted print.
-    if (typeof episodeNumber === 'number' && episodeNumber <= 0 && item.media?.pdf_lite_url) {
-      return false;
-    }
+    // NOTE: there was previously a `episodeNumber <= 0 && pdf_lite_url` bypass
+    // that treated the GN (ep -1) AND Episode #0 as free-readable. That was
+    // wrong on two counts: (a) under the canonical convention ep 0 is a real
+    // paid episode, not the GN; (b) the GN itself is now a paid ContentQube,
+    // not free preview content. All cards now go through the same ownership
+    // gate. Free content must opt in explicitly via gating: { kind: 'free' }
+    // at the card level (see scrolls grid for that path).
 
+    // Registry fast-path: if the registry says owned, unlock immediately.
+    // Only unlocks — never locks. Registry may be empty while loading.
     const variant = resolveVariant(item);
-
-    // Phase B canonicalization (2026-05-14, corrected 2026-05-14b) — registry
-    // can only UNLOCK; it cannot LOCK. Locking is decided exclusively by the
-    // legacy variant-aware ownedIssues check below.
-    //
-    // The earlier version of this overlay returned !registryOwnership.get(key)
-    // whenever the key existed, which meant that a `false` value (from a stale
-    // registry-hook module cache, an initial empty load, or a placeholder that
-    // hasn't resolved persona_owns yet) was treated as a hard LOCK and
-    // short-circuited the legacy fallback. That's the root cause of "Owned
-    // badge appears but click routes to paywall" on KnytTab specifically.
-    //
-    // Registry as primary SOT remains the goal, but the semantics are:
-    //   - persona_owns === true in registry → unlock (skip legacy)
-    //   - anything else (false, missing key, hook still loading) → fall
-    //     through to legacy ownedIssues check
-    // Legacy ownedIssues is sourced from /api/codex/owned and is already
-    // variant-aware after Phase A, so this is a safe and correct fallback.
     if (variant !== null) {
       const registryVariant = variant === 'episode_still' ? 'episode_print' : variant;
       const registryKey = `${episodeNumber}:${registryVariant}`;
@@ -2218,29 +2297,50 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       }
     }
 
-    // Legacy fallback (Phase A variant-aware): for variants the registry
-    // doesn't know about (or while qubes are still loading), consult the
-    // /api/codex/owned response. The legacy episode-number-only check was
-    // the source of "Owned badge → payment modal" false-positives, so we
-    // require contentTypes-aware matching here too.
-    const ownedForEp = ownedIssues.filter((issue) => issue.episodeNumber === episodeNumber);
-    if (ownedForEp.length > 0) {
-      const hasVariantData = ownedForEp.some((issue) => Array.isArray(issue.contentTypes));
-      if (!hasVariantData) return false;
-      if (variant === null) return false;
-      const ownsVariant = ownedForEp.some((issue) =>
-        (issue.contentTypes ?? []).includes(variant)
+    // Legacy fallback: episode-number match against /api/codex/owned.
+    // This was the working logic on May 11th. Any owned issue for this
+    // episode number = unlocked. Simple, correct.
+    const ownedForEp = ownedIssues.filter((issue: OwnedIssueFromAPI) => issue.episodeNumber === episodeNumber);
+    if (ownedForEp.length > 0) return false;
+
+    // ownedEpisodeNumbers mirrors ownedIssues but also pre-populates from
+    // localStorage before the async fetch completes. Always check it as a
+    // fallback — if the episode is in the set, the persona owns it regardless
+    // of whether ownedIssues has finished loading.
+    if (ownedEpisodeNumbers.has(episodeNumber)) return false;
+
+    // Self-diagnostic log: emit ONLY when we're about to lock, so the operator
+    // can see in the console exactly why this click triggered the paywall.
+    // Strip after the root cause is fixed.
+    if (typeof window !== 'undefined') {
+      console.warn(
+        `[KnytTab:LOCKED] itemId=${item.id} ep=${episodeNumber} variant=${variant} ` +
+        `effectivePersonaId=${effectivePersonaId ?? '<none>'} ` +
+        `registryMapSize=${registryOwnership.size} ` +
+        `registryKeyLooked=${variant ? `${episodeNumber}:${variant === 'episode_still' ? 'episode_print' : variant}` : '<n/a>'} ` +
+        `ownedIssuesCount=${ownedIssues.length} ` +
+        `ownedEpisodeNumbersSize=${ownedEpisodeNumbers.size} ` +
+        `ownedEpsList=[${Array.from(ownedEpisodeNumbers).sort((a, b) => a - b).join(',')}] ` +
+        `hasAccessRestriction=${hasAccessRestriction(item.metadata as GatingMetadata | undefined)}`,
       );
-      if (ownsVariant) return false;
     }
+
     if (hasAccessRestriction(item.metadata as GatingMetadata | undefined)) return true;
     return true;
-  }, [resolveEpisodeNumber, ownedIssues, hasAccessRestriction, resolveVariant, registryOwnership]);
+  }, [resolveEpisodeNumber, ownedIssues, ownedEpisodeNumbers, hasAccessRestriction, resolveVariant, registryOwnership, effectivePersonaId]);
 
   const openPurchaseForItem = useCallback((item: KnytContentItem, action: 'read' | 'watch' | 'default' = 'default') => {
     const episodeNumber = resolveEpisodeNumber(item);
     const preorderVariantId = resolvePreorderVariantId(item, episodeNumber);
     const itemPrice = resolveAccessPrice(item.metadata?.price);
+    if (typeof window !== 'undefined') {
+      console.warn(
+        `[KnytTab:OPEN_PURCHASE_ITEM] itemId=${item.id} ep=${episodeNumber} action=${action} ` +
+        `type=${item.type} preorderVariant=${preorderVariantId} priceKnyt=${itemPrice} ` +
+        `effectivePersonaId=${effectivePersonaId ?? '<none>'} ` +
+        `stack=${new Error().stack?.split('\n').slice(1, 5).join(' | ')}`,
+      );
+    }
     if (!preorderVariantId && itemPrice === null) {
       return;
     }
@@ -2266,7 +2366,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       hideVersionSelector = true;
       purchaseId = 'gn-investor-qripto';
     } else if (typeof episodeNumber === 'number') {
-      const pricingEpNum = episodeNumber - 1;
+      const pricingEpNum = episodeNumber;
       const sot = EPISODE_PRICING.find((p) => p.episodeNumber === pricingEpNum);
       if (sot?.qriptoPrice && sot.qriptoPrice > 0) {
         priceUsd = sot.qriptoPrice;
@@ -2291,17 +2391,34 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       hideVersionSelector,
     });
     setPurchaseModalOpen(true);
-  }, [resolveEpisodeNumber, resolvePreorderVariantId, resolveAccessPrice, episodesCatalog]);
+  }, [resolveEpisodeNumber, resolvePreorderVariantId, resolveAccessPrice, episodesCatalog, effectivePersonaId]);
 
   const getOwnedIssuesForEpisode = useCallback((episodeNumber: number) => {
-    return ownedIssues.filter((issue) => issue.episodeNumber === episodeNumber);
-  }, [ownedIssues]);
+    if (ownedIssues.length > 0) {
+      return ownedIssues.filter((issue) => issue.episodeNumber === episodeNumber);
+    }
+    // Fallback: ownedEpisodeNumbers may be populated from cache before
+    // the full issues array loads. Synthesize a minimal entry so the UI
+    // shows "Owned" immediately rather than a false "locked" state.
+    if (ownedEpisodeNumbers.has(episodeNumber)) {
+      return [{ issueId: `cached:${episodeNumber}`, episodeNumber, owned: true }];
+    }
+    return [];
+  }, [ownedIssues, ownedEpisodeNumbers]);
 
   const openPurchaseForEpisode = useCallback((episode: EpisodeFromAPI, action: 'read' | 'watch' | 'default' = 'default') => {
+    if (typeof window !== 'undefined') {
+      console.warn(
+        `[KnytTab:OPEN_PURCHASE_EP] ep=${episode.episodeNumber} action=${action} ` +
+        `effectivePersonaId=${effectivePersonaId ?? '<none>'} ` +
+        `stack=${new Error().stack?.split('\n').slice(1, 5).join(' | ')}`,
+      );
+    }
     const epNum = Number(episode.episodeNumber);
     // Source of truth: EPISODE_PRICING (admin pricing table). Fall back to
-    // the API price field if the SoT lookup misses. DB ep N → pricing ep N-1.
-    const pricingEpNum = epNum - 1;
+    // the API price field if the SoT lookup misses. Canonical convention:
+    // EPISODE_PRICING.episodeNumber === master.episode_number directly.
+    const pricingEpNum = epNum;
     const sot = EPISODE_PRICING.find((p) => p.episodeNumber === pricingEpNum);
     const apiPriceKnyt = resolveAccessPrice(episode.priceKnyt);
     let priceUsd: number | null = null;
@@ -2336,7 +2453,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       hideVersionSelector: !episode.hasMotionMaster,
     });
     setPurchaseModalOpen(true);
-  }, [resolveAccessPrice]);
+  }, [resolveAccessPrice, effectivePersonaId]);
 
   const openPreorder = useCallback((variantId: string, priceUsd: number) => {
     setPurchaseContent({
@@ -2428,6 +2545,61 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
     
     // Handle legacy KNYT-specific actions
     if (action === 'buy') {
+      // Defensive ownership check — never open the purchase modal for an
+      // episode the persona already owns. isEpisodeLocked merges registry
+      // ownership + /api/codex/owned + cached ownedEpisodeNumbers, so it
+      // catches the cases where item.metadata.owned hasn't been refreshed.
+      if (!isEpisodeLocked(item)) {
+        console.log('[KnytTab] buy action suppressed — item already owned:', item.id);
+        // Fall through to open the reader/viewer instead.
+        const episodeNumber = resolveEpisodeNumber(item);
+        const matched = episodeNumber !== null
+          ? episodesCatalog.find((e) => e.episodeNumber === episodeNumber)
+          : undefined;
+        const printLiteUrl = matched?.printRareLiteUrl || matched?.printEpicLiteUrl || matched?.printLegendaryLiteUrl || matched?.printCommonLiteUrl || matched?.stillMasterLiteUrl;
+        const printCid = matched?.printRareCid || matched?.printEpicCid || matched?.printLegendaryCid || matched?.printCommonCid || matched?.stillMasterCid;
+        // Motion fallback — if there's no print available but the persona
+        // owns motion, open the motion viewer.
+        const motionCid = matched?.motionMasterCid;
+        console.log('[KnytTab] owned-buy fallback:', {
+          itemId: item.id,
+          itemType: item.type,
+          episodeNumber,
+          matched: !!matched,
+          catalogSize: episodesCatalog.length,
+          printLiteUrl: !!printLiteUrl,
+          printCid: !!printCid,
+          motionCid: !!motionCid,
+          itemMediaPdfLite: !!item.media?.pdf_lite_url,
+          itemMediaPdfCid: !!item.media?.pdf_cid,
+        });
+        if (printLiteUrl || printCid) {
+          setCurrentPdfMasterId(null);
+          setCurrentPdfLiteUrl(printLiteUrl || null);
+          setCurrentPdfCid(printCid || null);
+          setCurrentPdfTitle(matched?.title || `Episode ${matched?.displayNumber ?? episodeNumber}`);
+          setPdfViewerOpen(true);
+          return;
+        }
+        // Fallback to item's own media if catalog lookup didn't yield a URL
+        if (item.media?.pdf_lite_url || item.media?.pdf_cid) {
+          setCurrentPdfLiteUrl(item.media.pdf_lite_url || null);
+          setCurrentPdfCid(item.media.pdf_cid || null);
+          setCurrentPdfTitle(item.title);
+          setPdfViewerOpen(true);
+          return;
+        }
+        // Motion fallback for episodes where only motion is uploaded
+        if (motionCid && matched) {
+          void openEpisodeVideo(matched, motionCid, null);
+          return;
+        }
+        toast({
+          title: 'Content not yet available',
+          description: `You own ${matched?.title || `Episode ${episodeNumber}`}, but the content hasn't been published yet.`,
+        });
+        return;
+      }
       const resolvedItemPrice = resolveAccessPrice(item.metadata?.price);
       if (item.type === 'character_portrait') {
         if (resolvedItemPrice === null) {
@@ -2638,8 +2810,9 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       console.log('[KnytTab] Opening PDF viewer:', {
         pdf_lite_url: item.media.pdf_lite_url,
         pdf_cid: item.media.pdf_cid,
-        title: item.title
+        title: item.title,
       });
+      setCurrentPdfMasterId(null);
       setCurrentPdfLiteUrl(item.media.pdf_lite_url || null);
       setCurrentPdfCid(item.media.pdf_cid || null);
       setCurrentPdfTitle(item.title);
@@ -2701,9 +2874,16 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
   // in place. Refreshes on persona change + after a successful redemption.
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/wallet/tasks', { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((payload) => {
+    (async () => {
+      try {
+        const { data: sessionData } = await getSupabaseBrowserClient().auth.getSession();
+        const token = sessionData.session?.access_token;
+        const r = await fetch('/api/wallet/tasks', {
+          credentials: 'include',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!r.ok) return;
+        const payload = await r.json();
         if (cancelled || !payload) return;
         setTaskData({
           activeTask: payload.questRail?.activeTask ?? null,
@@ -2716,8 +2896,8 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
           summary: payload.summary ?? undefined,
           reputation: payload.reputation ?? null,
         });
-      })
-      .catch(() => { /* non-fatal — leaves the static defaults in place */ });
+      } catch { /* non-fatal — leaves the static defaults in place */ }
+    })();
     return () => { cancelled = true; };
   }, [effectivePersonaId]);
 
@@ -2745,7 +2925,12 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
       // immediately. Tasks payload re-fetch is below.
       refreshBalance?.();
       try {
-        const r = await fetch('/api/wallet/tasks', { credentials: 'include' });
+        const { data: sessionData } = await getSupabaseBrowserClient().auth.getSession();
+        const token = sessionData.session?.access_token;
+        const r = await fetch('/api/wallet/tasks', {
+          credentials: 'include',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         if (r.ok) {
           const payload = await r.json();
           setTaskData({
@@ -3064,17 +3249,18 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                         registryOwnership.get(`${episode.episodeNumber}:episode_print`) === true ||
                         registryOwnership.get(`${episode.episodeNumber}:episode_motion`) === true;
                       const isOwned = registryOwnsEp || owned.length > 0;
-                      // Episode 0 = GN is free content — gating: free bypasses the payment gate
-                      // without incorrectly stamping an "Owned" badge on free content.
-                      const isGnFree = episode.episodeNumber === 0 &&
-                        !!(episode.printCommonLiteUrl || episode.printCommonCid);
+                      // GN (episode_number = -1) used to be treated as free
+                      // preview content here. Under the current product
+                      // direction the GN is a paid ContentQube (same gating
+                      // as Episode #0..#12). All cards run through
+                      // cardAccess.evaluate with `manualOwned` only — the
+                      // payment gate fires for non-owners uniformly.
                       const cardId = episode.purchaseId || `mk_ep${String(episode.episodeNumber).padStart(2, '0')}`;
                       const cardAct = cardAccess.evaluate(
                         {
                           id: cardId,
                           source: 'codex',
                           episodeNumber: episode.episodeNumber,
-                          gating: isGnFree ? { kind: 'free' as const } : undefined,
                         },
                         { manualOwned: isOwned },
                       );
@@ -3114,11 +3300,33 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                             isOwned ? 'ring-2 ring-cyan-400/50' : 'hover:ring-2 hover:ring-white/30'
                           }`}
                           onClick={() => {
-                            // Card body click — defers entirely to the unified
-                            // gate. If access isn't established, route to cart
-                            // (which itself routes to sign-in for anon users).
-                            // If access IS established, open the reader.
-                            if (cardAct.showShoppingCart) {
+                            // Self-diagnostic: log the gate decision so we can
+                            // see in the console which input made the cart fire.
+                            if (typeof window !== 'undefined') {
+                              console.warn(
+                                `[KnytTab:CARDCLICK] ep=${episode.episodeNumber} ` +
+                                `cardId=${cardId} ` +
+                                `isOwned=${isOwned} ` +
+                                `registryOwnsEp=${registryOwnsEp} ` +
+                                `ownedLen=${owned.length} ` +
+                                `cardAct.showShoppingCart=${cardAct.showShoppingCart} ` +
+                                `cardAct.showSmartActions=${cardAct.showSmartActions} ` +
+                                `cardAct.reason=${cardAct.reason} ` +
+                                `cardAct.cartCtaTarget=${cardAct.cartCtaTarget} ` +
+                                `registryMapSize=${registryOwnership.size} ` +
+                                `ownedEpsCount=${ownedEpisodeNumbers.size} ` +
+                                `effectivePersonaId=${effectivePersonaId ?? '<none>'}`,
+                              );
+                            }
+                            // Defensive override: if our local `isOwned` says
+                            // the persona owns this episode (via registry OR
+                            // /api/codex/owned OR cached ownedEpisodeNumbers),
+                            // open the reader immediately. This bypasses any
+                            // staleness in cardAct (which depends on a separate
+                            // useOwnedAssets resolver that may not yet have
+                            // populated). The cart only fires when we have NO
+                            // ownership evidence from any source.
+                            if (!isOwned && cardAct.showShoppingCart) {
                               cardAccess.handleCartClick(
                                 { id: cardId, source: 'codex', episodeNumber: episode.episodeNumber },
                                 cardAct,
@@ -3130,12 +3338,14 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                               );
                               return;
                             }
-                            if (!cardAct.showSmartActions) {
+                            // Owned (or smart-action allowed) — open the reader.
+                            if (!isOwned && !cardAct.showSmartActions) {
                               return; // Restricted (credential gate, no credential) — silent no-op
                             }
                             const printLiteUrl = episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || episode.printCommonLiteUrl;
                             const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid || episode.printCommonCid;
                             if (printLiteUrl || printCid) {
+                              setCurrentPdfMasterId(null);
                               setCurrentPdfLiteUrl(printLiteUrl || null);
                               setCurrentPdfCid(printCid || null);
                               setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
@@ -3207,6 +3417,7 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
                                   const printLiteUrl = episode.printRareLiteUrl || episode.printEpicLiteUrl || episode.printLegendaryLiteUrl || episode.printCommonLiteUrl;
                                   const printCid = episode.printRareCid || episode.printEpicCid || episode.printLegendaryCid || episode.printCommonCid;
                                   if (printLiteUrl || printCid) {
+                                    setCurrentPdfMasterId(null);
                                     setCurrentPdfLiteUrl(printLiteUrl || null);
                                     setCurrentPdfCid(printCid || null);
                                     setCurrentPdfTitle(episode.title || `Episode ${episode.displayNumber}`);
@@ -3392,13 +3603,35 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             </div>
           )}
 
-          {/* PDF viewer split:
-              - pdf_lite_url present (direct/Supabase URL): use PDFLiteReaderModal
-                (fast browser-native iframe — 302 redirect bypasses Lambda).
-              - Only pdf_cid (Autonomys): use PDFPageViewer (page-by-page render
-                via /api/content/pdf-page; full-PDF proxy hits Lambda's 6MB limit
-                and returns 413 for large files like episode PDFs). */}
-          {pdfViewerOpen && currentPdfLiteUrl && (
+          {/* PDF viewer routing per operator directive:
+              - GN (currentPdfMasterId set, e.g. mk_ep00_print_common):
+                  PDFPageViewer via the gated /api/content/pdf-page-by-master
+                  proxy — regardless of device. The 430MB GN renders
+                  page-by-page; raw URL never reaches the client.
+              - Episodes 0..12 desktop: PDFLiteReaderModal (<object> renders
+                the Supabase pdf_lite_url inline; bypasses Lambda 6MB cap).
+              - Episodes 0..12 mobile: PDFPageViewer via /api/content/pdf-page
+                (cid mode). <object>/<iframe> handling for PDFs is unreliable
+                on iOS so we render page images server-side.
+              - Desktop fallback: if only cid is set (no pdf_lite_url), route
+                through PDFPageViewer. Keeps the card actionable. */}
+          {pdfViewerOpen && currentPdfMasterId && (
+            <PDFPageViewer
+              masterId={currentPdfMasterId}
+              personaId={effectivePersonaId ?? undefined}
+              title={currentPdfTitle}
+              onClose={() => {
+                setPdfViewerOpen(false);
+                setCurrentPdfMasterId(null);
+                setCurrentPdfLiteUrl(null);
+                setCurrentPdfCid(null);
+                setCurrentPdfTitle('');
+              }}
+              onComplete={() => fireEpisodeComplete(currentPdfMasterId)}
+            />
+          )}
+
+          {pdfViewerOpen && !currentPdfMasterId && device !== 'mobile' && currentPdfLiteUrl && (
             <PDFLiteReaderModal
               open={pdfViewerOpen}
               pdfUrl={currentPdfLiteUrl}
@@ -3412,7 +3645,21 @@ export function KnytTab({ theme = 'dark', density = 'wide', personaId, tabSlug, 
             />
           )}
 
-          {pdfViewerOpen && !currentPdfLiteUrl && currentPdfCid && (
+          {pdfViewerOpen && !currentPdfMasterId && device === 'mobile' && currentPdfCid && (
+            <PDFPageViewer
+              cid={currentPdfCid}
+              title={currentPdfTitle}
+              onClose={() => {
+                setPdfViewerOpen(false);
+                setCurrentPdfLiteUrl(null);
+                setCurrentPdfCid(null);
+                setCurrentPdfTitle('');
+              }}
+              onComplete={() => fireEpisodeComplete(currentPdfCid)}
+            />
+          )}
+
+          {pdfViewerOpen && !currentPdfMasterId && device !== 'mobile' && !currentPdfLiteUrl && currentPdfCid && (
             <PDFPageViewer
               cid={currentPdfCid}
               title={currentPdfTitle}

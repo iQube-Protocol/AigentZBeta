@@ -396,7 +396,7 @@ export const KNYT_CODEX: CodexConfig = {
     },
     {
       id: 'store-bundles',
-      label: 'Bundles & GN',
+      label: 'Bundles',
       slug: 'store-bundles',
       enabled: true,
       group: 'store',
@@ -595,6 +595,23 @@ export const KNYT_CODEX: CodexConfig = {
         icon: 'ShieldCheck',
         description: 'Admin: per-investor capital events, document upload, and visibility toggle',
         color: 'amber'
+      }
+    },
+
+    // ── Quests (sub-tab under Order — task library, canonical home) ──
+    {
+      id: 'quests',
+      label: 'Quests',
+      slug: 'quests',
+      enabled: true,
+      group: 'order-group',
+      order: 2.5,
+      type: 'static',
+      config: { component: 'KnytQuestsTab' },
+      metadata: {
+        icon: 'Crown',
+        description: 'Canonical KNYT task library — Bring a Knight, Knight of Attention, Herald, and the Living Canon archetypes',
+        color: 'purple'
       }
     },
 

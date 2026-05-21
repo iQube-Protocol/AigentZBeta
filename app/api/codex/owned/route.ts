@@ -80,17 +80,31 @@ export async function GET(request: NextRequest) {
     // If the caller passes a FIO handle (contains '@'), resolve it to UUID
     // first. Strictly additive: no-op for UUIDs.
     let resolvedPersonaId = personaId;
+    let fioResolutionFailed = false;
     if (personaId.includes('@')) {
-      const { data: personaRow } = await supabase
+      const { data: personaRow, error: personaErr } = await supabase
         .from('personas')
         .select('id')
         .eq('fio_handle', personaId)
         .single();
-      if (personaRow?.id) resolvedPersonaId = personaRow.id;
+      if (personaRow?.id) {
+        resolvedPersonaId = personaRow.id;
+      } else {
+        fioResolutionFailed = true;
+        console.warn(
+          `[codex/owned] FIO handle resolution FAILED for ${personaId} ` +
+          `err=${personaErr?.message ?? 'no row'}`,
+        );
+      }
     }
 
     const entitlementService = getEntitlementService();
     const entitlements = await entitlementService.getPersonaEntitlements(resolvedPersonaId);
+    console.log(
+      `[codex/owned] personaId=${personaId} resolvedPersonaId=${resolvedPersonaId} ` +
+      `fioResolutionFailed=${fioResolutionFailed} entitlementsCount=${entitlements.length} ` +
+      `assetIds=[${entitlements.map((e) => e.assetId).join(',')}]`,
+    );
 
     // ── SKU-expansion: enumerate everything the persona owns OR has
     //    rights to per their bundle SKUs. The new `expectedSlots` array
@@ -188,18 +202,18 @@ export async function GET(request: NextRequest) {
       }
     }
     if (expectedCharacterEps.size > 0) {
-      // ── Convention bridge: characters use a DIFFERENT episode_number
-      //    convention than episodes.
-      //      master_content_qubes (episodes):   0-indexed — DB ep 0..12 = display #0..#12
-      //      codex_media_assets   (characters): 1-indexed — DB ep 1..13 = display #0..#12
-      //    expectedCharacterEps is in display convention (0..12). To look up
-      //    the uploaded character row, translate: DB ep = display ep + 1.
+      // ── Convention bridge: characters use the SAME 0-indexed convention
+      //    as episodes today (DB ep 0..12 = display #0..#12). The historical
+      //    "characters are 1-indexed" comment was stale — confirmed against
+      //    live data 2026-05-18 (DB ep 0 = Deji Ifada/Kn0w1, DB ep 12 = the
+      //    final Kn0w1). expectedCharacterEps is in display convention; the
+      //    DB ep is the same number. No +1 translation.
       const uploadedByDbEp = new Map<number, { id: string; title: string | null }>();
       for (const c of uploadedCharacters) {
         if (c.episodeNumber != null) uploadedByDbEp.set(c.episodeNumber, { id: c.id, title: c.title });
       }
       for (const ep of Array.from(expectedCharacterEps).sort((a, b) => a - b)) {
-        const hit = uploadedByDbEp.get(ep + 1);
+        const hit = uploadedByDbEp.get(ep);
         if (hit) {
           characterAvailable.push({ characterId: hit.id, owned: true, episodeNumber: ep });
         } else {
@@ -247,6 +261,12 @@ export async function GET(request: NextRequest) {
     }
 
     const characters: OwnedCharacter[] = [...characterAvailable, ...characterComingSoon];
+
+    console.log(
+      `[codex/owned] RESULT personaId=${personaId} issueCount=${issues.length} ` +
+      `epNums=[${issues.map((i) => i.episodeNumber).join(',')}] ` +
+      `uploadedSlotKeysCount=${uploadedSlotMap.size} expectedSlotsCount=${expanded.expectedSlots.length}`,
+    );
 
     return NextResponse.json({
       personaId,

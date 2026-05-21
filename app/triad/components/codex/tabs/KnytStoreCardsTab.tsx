@@ -6,9 +6,11 @@ import {
   QRIPTO_SUPPLY,
   getKnytDiscountedPrice,
   KNYT_COYN_DISCOUNT,
+  KNYT_USD_RATE,
   usdToKnyt,
   type CartItem,
 } from '@/types/knyt-store';
+import { useEthPrice } from '@/app/hooks/useEthPrice';
 import { useKnytThumbnails } from './useKnytThumbnails';
 import { useKnytCart } from './useKnytCart';
 import { useOwnedEntitlements } from '@/app/hooks/useOwnedEntitlements';
@@ -276,7 +278,13 @@ function CharacterCardDetail({
 
 // ── Root ──────────────────────────────────────────────────────────────────────
 
+function useLiveKnytRate(): { rate: number; stale: boolean } {
+  const { knytPriceUsd, stale } = useEthPrice();
+  return { rate: knytPriceUsd > 0 ? knytPriceUsd : KNYT_USD_RATE, stale };
+}
+
 export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
+  const { rate: liveKnytRate, stale: knytRateStale } = useLiveKnytRate();
   const [view, setView]         = useState<CardsView>({ kind: 'landing' });
   const [variant, setVariant]   = useState<CardVariant>('still');
   const [purchase, setPurchase] = useState<PendingPurchase | null>(null);
@@ -453,7 +461,9 @@ export function KnytStoreCardsTab({ personaId, theme: _theme }: Props) {
           contentTitle={purchase.contentTitle}
           contentImage={purchase.contentImage}
           priceUsdOverride={purchase.priceUsdOverride}
-          baseKnytOverride={usdToKnyt(purchase.priceUsdOverride)}
+          baseKnytOverride={usdToKnyt(purchase.priceUsdOverride, liveKnytRate)}
+          knytUsdRate={liveKnytRate}
+          knytUsdRateIsStale={knytRateStale}
           stillPriceKnytOverride={purchase.stillPriceKnytOverride}
           motionPriceKnytOverride={purchase.motionPriceKnytOverride}
         />

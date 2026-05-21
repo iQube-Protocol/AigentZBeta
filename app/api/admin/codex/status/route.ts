@@ -42,6 +42,13 @@ interface EpisodeStatus {
   hasPrintLegendary: boolean;
   hasPrintCommon: boolean;
   stillMasterId?: string;
+  // Still master CID / lite URL — exposes the episode_still content row's
+  // auto_drive_cid and pdf_lite_url so the frontend can render the readable
+  // version. In legacy fixtures the "still" master row carries the readable
+  // PDF for the episode (the printRare* fields are populated only for the
+  // explicit print-tier drops, not every readable episode).
+  stillMasterCid?: string;
+  stillMasterLiteUrl?: string;
   motionMasterId?: string;
   motionMasterCid?: string; // CID for motion comic video streaming
   printRareCid?: string;
@@ -229,7 +236,10 @@ export async function GET(req: NextRequest) {
     if (metadataList) {
       for (const meta of metadataList) {
         metadataMap.set(meta.episode_number, {
-          displayNumber: meta.display_number || `#${meta.episode_number - 1}`,
+          // Canonical: episode_number IS the display number. Ignore any
+          // persisted display_number to avoid surfacing stale 1-indexed
+          // values left over from the old convention.
+          displayNumber: `#${meta.episode_number}`,
           title: meta.title,
         });
       }
@@ -243,9 +253,13 @@ export async function GET(req: NextRequest) {
 
     if (codexEpisodes) {
       for (const ep of codexEpisodes) {
-        if (ep.episode_number && !metadataMap.has(ep.episode_number)) {
+        // Use != null (not truthy) so episode_number === 0 isn't silently
+        // skipped under the canonical convention where 0 is the first
+        // displayed episode.
+        if (ep.episode_number != null && !metadataMap.has(ep.episode_number)) {
           metadataMap.set(ep.episode_number, {
-            displayNumber: ep.issue_number || `#${ep.episode_number - 1}`,
+            // Canonical: episode_number IS the display number.
+            displayNumber: `#${ep.episode_number}`,
             title: ep.title,
           });
         }
@@ -454,9 +468,32 @@ if (series === 'metaKnyts') {
           });
         }
         const status = episodeMap.get(ep)!;
-        if (master.content_type === 'episode_still') {
+        if (master.content_type === 'episode_still' || master.content_type === 'gn_still') {
           status.hasStillMaster = true;
           status.stillMasterId = master.id;
+          const cid = master.auto_drive_cid as string | null | undefined;
+          const liteUrl = master.pdf_lite_url as string | null | undefined;
+          const isUrl = typeof cid === 'string' && (cid.startsWith('http://') || cid.startsWith('https://'));
+          // auto_drive_cid can hold either a real CID or a URL (legacy
+          // fixtures sometimes store the supabase storage URL directly
+          // here — and the GN row at episode_number=-1 stores a Supabase
+          // URL there by design). When it's a URL and pdf_lite_url is
+          // empty, hoist it into stillMasterLiteUrl so the reader still
+          // resolves.
+          if (cid && !isUrl) status.stillMasterCid = cid;
+          if (liteUrl) status.stillMasterLiteUrl = liteUrl;
+          else if (cid && isUrl) status.stillMasterLiteUrl = cid;
+          // Server-side trace for the still-master surfacing — strip after
+          // we've confirmed the data path end-to-end.
+          console.log('[CodexStatus] still master:', {
+            id: master.id,
+            episode: master.episode_number,
+            hasCid: !!cid,
+            cidIsUrl: isUrl,
+            cidSample: typeof cid === 'string' ? cid.slice(0, 30) : null,
+            hasLiteUrl: !!liteUrl,
+            liteUrlSample: typeof liteUrl === 'string' ? liteUrl.slice(0, 60) : null,
+          });
         } else if (master.content_type === 'episode_motion') {
           status.hasMotionMaster = true;
           status.motionMasterId = master.id;

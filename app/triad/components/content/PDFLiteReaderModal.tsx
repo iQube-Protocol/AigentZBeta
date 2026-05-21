@@ -1,18 +1,62 @@
 /**
  * PDFLiteReaderModal - Lightweight PDF Reader Modal
  *
- * Desktop: <object type="application/pdf"> — historically the only render
- * mode that works inline in Firefox. Chromium/Safari desktop also render
- * <object> PDFs inline.
- * Mobile: <iframe> — iOS Safari + Android Chrome currently render PDFs
- * inline from iframes; <object> historically did not on iOS.
+ * Desktop: <object type="application/pdf"> — renders cross-origin PDFs
+ * inline reliably in Firefox / Chromium / Safari when the file exists.
+ * Mobile:  <iframe> — iOS Safari + Android Chrome render PDFs inline
+ * from iframes; <object> historically did not on iOS.
  *
- * This restores the pre-`a8f1f69a` desktop/mobile split. Switching the
- * desktop render from <iframe> back to <object> is what fixes the Firefox
- * download regression while preserving the mobile inline render.
+ * Spinner-dismissal strategy (critical detail): <object>.onLoad fires
+ * inconsistently or never for cross-origin PDFs in Brave / Chromium.
+ * Treating it as a wall and showing a "Preview timed out" overlay used
+ * to obscure a successfully-rendered PDF behind a fake error message.
+ * Instead we use a short fixed delay (5s for first loads, 1.5s for URLs
+ * the device has loaded before) to hide the spinner, then let the
+ * <object> itself paint whatever it can — either the PDF (success) or
+ * the browser's own error UI underneath. No "timed out" message ever.
  */
 
 import { useEffect, useState } from 'react';
+
+const LOADED_URLS_KEY = 'codex:pdflite:loaded-urls:v1';
+const FIRST_LOAD_SPINNER_MS = 5000;         // hide spinner after 5s on first load
+const REPEAT_LOAD_SPINNER_MS = 1500;        // hide spinner after 1.5s when cache-hit is likely
+const LOADED_URL_TTL_MS = 7 * 24 * 60 * 60 * 1000; // remember a successful load for 7 days
+
+function getLoadedUrls(): Record<string, number> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(LOADED_URLS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return typeof parsed === 'object' && parsed !== null ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function markUrlLoaded(url: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const existing = getLoadedUrls();
+    const now = Date.now();
+    const cleaned: Record<string, number> = { [url]: now };
+    for (const [u, ts] of Object.entries(existing)) {
+      if (typeof ts === 'number' && now - ts < LOADED_URL_TTL_MS && u !== url) {
+        cleaned[u] = ts;
+      }
+    }
+    window.localStorage.setItem(LOADED_URLS_KEY, JSON.stringify(cleaned));
+  } catch {
+    // localStorage quota / disabled — non-fatal
+  }
+}
+
+function urlPreviouslyLoaded(url: string): boolean {
+  const existing = getLoadedUrls();
+  const ts = existing[url];
+  return typeof ts === 'number' && Date.now() - ts < LOADED_URL_TTL_MS;
+}
 
 interface PDFLiteReaderModalProps {
   open: boolean;
@@ -51,14 +95,12 @@ function useIsMobileViewport(): boolean {
 
 export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteReaderModalProps) {
   const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState<string | null>(null);
   const safePdfUrl = buildSecureViewerUrl(pdfUrl);
   const isMobile = useIsMobileViewport();
 
   useEffect(() => {
     if (!open) return;
     setLoading(true);
-    setFailed(null);
   }, [open, pdfUrl]);
 
   useEffect(() => {
@@ -84,12 +126,19 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
 
   useEffect(() => {
     if (!open || !loading) return;
+    // Spinner-dismissal delay — short, because <object>.onLoad is unreliable
+    // for cross-origin PDFs and the timer is purely visual. The actual PDF
+    // either paints in the <object> below or doesn't; we never claim it
+    // timed out.
+    const delayMs = urlPreviouslyLoaded(pdfUrl)
+      ? REPEAT_LOAD_SPINNER_MS
+      : FIRST_LOAD_SPINNER_MS;
     const timer = window.setTimeout(() => {
       setLoading(false);
-      setFailed('Preview timed out. Please close and retry.');
-    }, 24000);
+      markUrlLoaded(pdfUrl);
+    }, delayMs);
     return () => window.clearTimeout(timer);
-  }, [open, loading]);
+  }, [open, loading, pdfUrl]);
 
   if (!open) return null;
 
@@ -124,19 +173,9 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
 
         <div className="relative w-full h-[calc(100%-60px)]">
           {loading && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40 z-10">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40 z-10 pointer-events-none">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-              <div className="text-xs text-white/80">Loading PDF...</div>
-            </div>
-          )}
-
-          {failed && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/60 z-10 p-6 text-center">
-              <div className="text-sm text-white">Could not load the PDF preview.</div>
-              <div className="text-xs text-white/70 max-w-[60ch]">{failed}</div>
-              <button className="text-xs px-3 py-1.5 rounded-md bg-white/10 text-white" onClick={onClose}>
-                Close
-              </button>
+              <div className="text-xs text-white/80">Loading PDF…</div>
             </div>
           )}
 
@@ -147,7 +186,7 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
               title={title || 'PDF preview'}
               onLoad={() => {
                 setLoading(false);
-                setFailed(null);
+                markUrlLoaded(pdfUrl);
               }}
             />
           ) : (
@@ -157,7 +196,7 @@ export function PDFLiteReaderModal({ open, pdfUrl, title, onClose }: PDFLiteRead
               className="w-full h-full touch-pan-y"
               onLoad={() => {
                 setLoading(false);
-                setFailed(null);
+                markUrlLoaded(pdfUrl);
               }}
               aria-label={title || 'PDF preview'}
             >

@@ -75,7 +75,9 @@ async function getAssetMeta(assetId: string): Promise<AssetMeta | null> {
   if (master) {
     const ep = master.episode_number as number | null;
     let category: AssetCategory = 'other';
-    if (ep === 0) {
+    // Canonical: GN is content_type='gn_still' (episode_number=-1).
+    // 0..12 are the 13 displayed episodes; map by content_type only.
+    if (master.content_type === 'gn_still') {
       category = 'gn';
     } else if (master.content_type === 'episode_still') {
       category = 'episode_still';

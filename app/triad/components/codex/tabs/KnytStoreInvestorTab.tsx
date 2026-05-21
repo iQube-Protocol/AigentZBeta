@@ -7,10 +7,12 @@ import {
   EPISODE_PRICING,
   getKnytDiscountedPrice,
   KNYT_COYN_DISCOUNT,
+  KNYT_USD_RATE,
   usdToKnyt,
   type BundlePricing,
   type CartItem,
 } from '@/types/knyt-store';
+import { useEthPrice } from '@/app/hooks/useEthPrice';
 import { useKnytThumbnails } from './useKnytThumbnails';
 import { useBundleImages } from './useBundleImages';
 import { useKnytCart } from './useKnytCart';
@@ -382,6 +384,8 @@ const gnInvestorBundles         = BUNDLE_PRICING.filter((b) => b.isInvestorOnly 
 const collectionInvestorBundles = BUNDLE_PRICING.filter((b) => b.isInvestorOnly && !(b.episodes.length === 1 && b.episodes[0] === -1));
 
 export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
+  const { knytPriceUsd, stale: knytRateStale } = useEthPrice();
+  const liveKnytRate = knytPriceUsd > 0 ? knytPriceUsd : KNYT_USD_RATE;
   // DVN KNYT balance for the active persona — feeds the ContentPurchaseModal's
   // Pay-with-KNYT affordance. Without this prop the modal renders "No KNYT
   // balance" disabled, even when the persona has a credited DVN balance.
@@ -579,7 +583,9 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
           contentTitle={purchase.contentTitle}
           contentImage={purchase.contentImage}
           priceUsdOverride={purchase.priceUsdOverride}
-          baseKnytOverride={purchase.baseKnytOverride ?? usdToKnyt(purchase.priceUsdOverride)}
+          baseKnytOverride={purchase.baseKnytOverride ?? usdToKnyt(purchase.priceUsdOverride, liveKnytRate)}
+          knytUsdRate={liveKnytRate}
+          knytUsdRateIsStale={knytRateStale}
           knytBalance={balance?.dvnKnyt ?? 0}
           spendableKnyt={spendableBalance ?? 0}
           evmKnyt={balance?.evmKnyt ?? 0}

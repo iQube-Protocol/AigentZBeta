@@ -10,10 +10,12 @@ import {
   getKnytDiscountedPrice,
   getPrintFulfillmentMessage,
   KNYT_COYN_DISCOUNT,
+  KNYT_USD_RATE,
   usdToKnyt,
   type BundlePricing,
   type CardsPricing,
 } from '@/types/knyt-store';
+import { useEthPrice } from '@/app/hooks/useEthPrice';
 import { useKnytThumbnails } from './useKnytThumbnails';
 import { useBundleImages } from './useBundleImages';
 import { useKnytCart } from './useKnytCart';
@@ -193,10 +195,7 @@ function BundleGridCard({
         <div className="px-1.5 pt-1 pb-0.5">
           <p className="text-xs font-semibold text-white leading-tight">{bundle.label}</p>
           <div className="flex items-baseline gap-1 flex-wrap">
-            <p className="text-[13px] font-bold text-white">${bundle.digitalPrice}</p>
-            {bundle.retailPrice && bundle.retailPrice !== bundle.digitalPrice && (
-              <p className="text-[10px] text-slate-500 line-through">${bundle.retailPrice}</p>
-            )}
+            <p className="text-[13px] font-bold text-white">${bundle.retailPrice ?? bundle.digitalPrice}</p>
           </div>
         </div>
       </button>
@@ -296,9 +295,7 @@ function BundleDetail({
 
         <div className="space-y-2.5 min-w-0">
           <div>
-            <p className="text-[10px] text-slate-500 uppercase tracking-wide">
-              {bundle.isInvestorOnly ? 'Investor Bundle' : 'Episode Bundle'}
-            </p>
+            <p className="text-[10px] text-slate-500 uppercase tracking-wide">Episode Bundle</p>
             <p className="text-sm font-bold text-white">{bundle.label}</p>
             <div className="flex flex-wrap gap-1 mt-1">
               {bundle.badgeTier === 'qripto' && (
@@ -316,11 +313,6 @@ function BundleDetail({
                   Full Season
                 </span>
               )}
-              {bundle.isInvestorOnly && (
-                <span className="rounded-full bg-yellow-900/40 border border-yellow-700/40 px-1.5 py-0.5 text-[9px] font-semibold text-yellow-400">
-                  Investor Only
-                </span>
-              )}
               {bundle.isLimited && bundle.limitedSupply && (
                 <span className="rounded-full bg-red-900/40 border border-red-700/40 px-1.5 py-0.5 text-[9px] font-semibold text-red-400">
                   Limited {bundle.limitedSupply}
@@ -331,24 +323,13 @@ function BundleDetail({
 
           <div className="rounded-xl border border-white/5 bg-slate-900/60 p-3 space-y-1.5">
             <div className="flex items-baseline gap-2 flex-wrap">
-              <span className="text-2xl font-bold text-white">${bundle.digitalPrice}</span>
-              {bundle.retailPrice && bundle.retailPrice !== bundle.digitalPrice && (
-                <span className="text-sm text-slate-500 line-through">${bundle.retailPrice} retail</span>
-              )}
+              <span className="text-2xl font-bold text-white">${bundle.retailPrice ?? bundle.digitalPrice}</span>
               <span className="text-[11px] text-slate-400">USD</span>
             </div>
-            {bundle.isInvestorOnly && (
-              <p className="text-[10px] font-semibold text-yellow-400">Investor pricing</p>
-            )}
-            {bundle.memberPrice && (
+            <KnytPricePill basePrice={bundle.retailPrice ?? bundle.digitalPrice} />
+            {(bundle.retailPrice ?? bundle.digitalPrice) < individualTotal && (
               <p className="text-[10px] text-teal-400">
-                ${bundle.memberPrice} for {bundle.memberCohort} members
-              </p>
-            )}
-            <KnytPricePill basePrice={bundle.memberPrice ?? bundle.digitalPrice} />
-            {bundle.digitalPrice < individualTotal && (
-              <p className="text-[10px] text-teal-400">
-                Save ${(individualTotal - bundle.digitalPrice).toFixed(0)} vs individually
+                Save ${(individualTotal - (bundle.retailPrice ?? bundle.digitalPrice)).toFixed(0)} vs individually
               </p>
             )}
             <CartButton label="Buy Bundle" onClick={() => onBuy()} onAddToCart={onAddToCart} className="w-full justify-center mt-1" />
@@ -532,14 +513,23 @@ function PackDetail({
 
 // ── Root ──────────────────────────────────────────────────────────────────────
 
-const publicBundles  = BUNDLE_PRICING.filter((b) => !b.isInvestorOnly);
-const investorBundles = BUNDLE_PRICING.filter((b) => b.isInvestorOnly);
+// Retail tab: real bundles only. Single non-bundled GN offers (episodes=[-1])
+// belong on the Investor tab where they're priced at a discount.
+const isSingleGn = (b: BundlePricing) => b.episodes.length === 1 && b.episodes[0] === -1;
+const publicBundles  = BUNDLE_PRICING.filter((b) => !b.isInvestorOnly && !isSingleGn(b));
+const investorBundles = BUNDLE_PRICING.filter((b) => b.isInvestorOnly && !isSingleGn(b));
 
 export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
   const [view, setView]         = useState<BundleView>({ kind: 'landing' });
   const [purchase, setPurchase] = useState<PendingPurchase | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const { getCoverThumb, getCharacterThumb } = useKnytThumbnails();
+  // Live KNYT→USD rate (ethPriceUsd × 0.0005). Falls back to the static 1.40
+  // only on first paint before the ETH price fetches. Same source as the
+  // BuyKnytModal so the store's "Pay with KNYT" amount stays in lockstep
+  // with what the wallet actually debits.
+  const { knytPriceUsd, stale: knytRateStale } = useEthPrice();
+  const liveKnytRate = knytPriceUsd > 0 ? knytPriceUsd : KNYT_USD_RATE;
   const { getBundleImage } = useBundleImages();
   const cart = useKnytCart();
 
@@ -556,7 +546,7 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
       label:       bundle.label,
       modality:    'bundle',
       layer:       'digital',
-      priceUsd:    bundle.memberPrice ?? bundle.digitalPrice,
+      priceUsd:    bundle.retailPrice ?? bundle.digitalPrice,
       thumbUrl:    bundle.isInvestorOnly ? INVESTOR_SEAL : getCoverThumb(bundle.id === 'bundle-8-12' ? bundle.episodes[0] : bundle.episodes[bundle.episodes.length - 1]),
       contentType: getBundleContentType(bundle) as CartItem['contentType'],
     };
@@ -570,7 +560,7 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
       contentId:        bundle.id,
       contentTitle:     bundle.label,
       contentImage:     bundle.isInvestorOnly ? INVESTOR_SEAL : getCoverThumb(bundle.id === 'bundle-8-12' ? bundle.episodes[0] : bundle.episodes[bundle.episodes.length - 1]),
-      priceUsdOverride: bundle.memberPrice ?? bundle.digitalPrice,
+      priceUsdOverride: bundle.retailPrice ?? bundle.digitalPrice,
     });
   }
 
@@ -629,11 +619,11 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
       <div className="flex-1 min-h-0 overflow-y-auto">
         {view.kind === 'landing' && (
           <div className="p-2.5 space-y-4">
-            {/* Graphic Novel, Episode & Character Bundles — investor bundles at top with retail prices */}
+            {/* Premium bundles (investor-tier offers shown to retail at full retail price) */}
             {investorBundles.length > 0 && (
               <div>
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide px-0.5 mb-2">
-                  Graphic Novel, Episode &amp; Character Bundles
+                  Premium Bundles
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
                   {investorBundles.map((bundle) => {
@@ -726,7 +716,9 @@ export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
           contentTitle={purchase.contentTitle}
           contentImage={purchase.contentImage}
           priceUsdOverride={purchase.priceUsdOverride}
-          baseKnytOverride={usdToKnyt(purchase.priceUsdOverride)}
+          baseKnytOverride={usdToKnyt(purchase.priceUsdOverride, liveKnytRate)}
+          knytUsdRate={liveKnytRate}
+          knytUsdRateIsStale={knytRateStale}
         />
       )}
 

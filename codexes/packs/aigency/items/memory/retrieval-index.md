@@ -769,3 +769,68 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-10db221.md](../build_/COMMITS/COMMIT-10db221.md)
 - Message: feat: thin-client active-persona integration — surface ownFioHandle + parent broadcast + integration doc
+
+## Commit `6131ef3` — 2026-05-14T23:33:20Z
+- Type: `feat`
+- Brief: [COMMIT-6131ef3.md](../build_/COMMITS/COMMIT-6131ef3.md)
+- Message: add aigentMe split-screen welcome tab with persistent CopilotKit AG-UI bridge
+
+## Commit `af22afd` — 2026-05-16T22:06:10Z
+- Type: `push`
+- Brief: [COMMIT-af22afd.md](../build_/COMMITS/COMMIT-af22afd.md)
+- Message: codex GN: restore masterId-proxy page-by-page rendering (from 0feeb548)
+
+## Commit `6d0f74d` — 2026-05-16T22:18:19Z
+- Type: `push`
+- Brief: [COMMIT-6d0f74d.md](../build_/COMMITS/COMMIT-6d0f74d.md)
+- Message: codex GN: set maxDuration=60 on pdf-page-by-master route (Lambda's 10s default kills the 430MB fetch mid-flight)
+
+## Commit `a6c2ee8` — 2026-05-16T22:22:50Z
+- Type: `push`
+- Brief: [COMMIT-a6c2ee8.md](../build_/COMMITS/COMMIT-a6c2ee8.md)
+- Message: pdf viewer: surface page-load HTTP status + response body in the UI instead of forcing operator to dig through devtools
+
+## Commit `f0c3a42` — 2026-05-16T22:27:57Z
+- Type: `revert`
+- Brief: [COMMIT-f0c3a42.md](../build_/COMMITS/COMMIT-f0c3a42.md)
+- Message: revert: AGN card back to PDFLiteReader (masterId proxy approach fails on 430MB GN — Lambda OOM)
+
+## Commit `c753039` — 2026-05-18T23:35:09Z
+- Type: `push`
+- Brief: [COMMIT-c753039.md](../build_/COMMITS/COMMIT-c753039.md)
+- Message: knyt: gate GN + Ep #0 like every other episode; document PDF render pipeline
+
+## Commit `d5ca6b9` — 2026-05-19T01:30:21Z
+- Type: `push`
+- Brief: [COMMIT-d5ca6b9.md](../build_/COMMITS/COMMIT-d5ca6b9.md)
+- Message: knyt characters: align 0-indexed convention end-to-end + score-based character matching
+
+## Commit `7228c5c` — 2026-05-19T03:11:40Z
+- Type: `push`
+- Brief: [COMMIT-7228c5c.md](../build_/COMMITS/COMMIT-7228c5c.md)
+- Message: knyt characters: per-asset digiterra label — use terra when digiterra doesn't appear in title (fixes Deji Ifada/Kn0w1 first-card label)
+
+## Commit `621ec0c` — 2026-05-19T03:58:27Z
+- Type: `push`
+- Brief: [COMMIT-621ec0c.md](../build_/COMMITS/COMMIT-621ec0c.md)
+- Message: knyt pricing: align store UI + server debit with live KNYT→USD rate
+
+## Commit `3e039bb` — 2026-05-19T04:16:20Z
+- Type: `push`
+- Brief: [COMMIT-3e039bb.md](../build_/COMMITS/COMMIT-3e039bb.md)
+- Message: knyt pricing: last-derived fallback + indicative-pricing badge
+
+## Commit `21de6d9` — 2026-05-19T05:41:20Z
+- Type: `push`
+- Brief: [COMMIT-21de6d9.md](../build_/COMMITS/COMMIT-21de6d9.md)
+- Message: knyt store: drop $600 ZeroKNYT memberPrice (was leaking to all visitors); investor stays $800, retail stays $1000 — cohort-gated ZeroKNYT offer to ship separately
+
+## Commit `fdbd1b5` — 2026-05-19T05:50:08Z
+- Type: `push`
+- Brief: [COMMIT-fdbd1b5.md](../build_/COMMITS/COMMIT-fdbd1b5.md)
+- Message: knyt store bundles tab: strip investor copy and show retail price on the retail surface (no 'Investor Bundle' header, no 'Investor Only' pill, no 'Investor pricing' label, no member-price line; KnytPricePill + savings + cart all key off retailPrice ?? digitalPrice — investor tab unchanged)
+
+## Commit `813b74c` — 2026-05-19T05:55:17Z
+- Type: `refactor`
+- Brief: [COMMIT-813b74c.md](../build_/COMMITS/COMMIT-813b74c.md)
+- Message: knyt retail bundles tab: drop 4 single non-bundled GN offers (gn-investor-{qripto,digital,paperback,hardcover}) — they belong on the investor tab where they're discounted; rename tab 'Bundles & GN' → 'Bundles'; section header 'Graphic Novel, Episode & Character Bundles' → 'Premium Bundles' (investor tab unchanged)

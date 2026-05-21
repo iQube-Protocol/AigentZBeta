@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-08T01:59:47.359Z",
+  "last_updated": "2026-05-19T05:57:12.150Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "10db221fa89fb080e0fcee2a4aa7ca514bfd461b",
-  "latest_commit_short": "10db221",
-  "latest_commit_title": "feat: thin-client active-persona integration — surface ownFioHandle + parent broadcast + integration doc",
+  "latest_commit": "813b74c4a3df932fd6453909257debe06b2bee3f",
+  "latest_commit_short": "813b74c",
+  "latest_commit_title": "knyt retail bundles tab: drop 4 single non-bundled GN offers (gn-investor-{qripto,digital,paperback,hardcover}) — they belong on the investor tab where they're discounted; rename tab 'Bundles & GN' → 'Bundles'; section header 'Graphic Novel, Episode & Character Bundles' → 'Premium Bundles' (investor tab unchanged)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,123 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "813b74c",
+      "full_sha": "813b74c4a3df932fd6453909257debe06b2bee3f",
+      "title": "knyt retail bundles tab: drop 4 single non-bundled GN offers (gn-investor-{qripto,digital,paperback,hardcover}) — they belong on the investor tab where they're discounted; rename tab 'Bundles & GN' → 'Bundles'; section header 'Graphic Novel, Episode & Character Bundles' → 'Premium Bundles' (investor tab unchanged)",
+      "author": "Claude",
+      "timestamp": "2026-05-19T05:55:17Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-813b74c.md"
+    },
+    {
+      "sha": "fdbd1b5",
+      "full_sha": "fdbd1b56697d84668a63347b44b136c0b28ad5c2",
+      "title": "knyt store bundles tab: strip investor copy and show retail price on the retail surface (no 'Investor Bundle' header, no 'Investor Only' pill, no 'Investor pricing' label, no member-price line; KnytPricePill + savings + cart all key off retailPrice ?? digitalPrice — investor tab unchanged)",
+      "author": "Claude",
+      "timestamp": "2026-05-19T05:50:08Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-fdbd1b5.md"
+    },
+    {
+      "sha": "21de6d9",
+      "full_sha": "21de6d9abd7ff5f4233678b563826d9627f37998",
+      "title": "knyt store: drop $600 ZeroKNYT memberPrice (was leaking to all visitors); investor stays $800, retail stays $1000 — cohort-gated ZeroKNYT offer to ship separately",
+      "author": "Claude",
+      "timestamp": "2026-05-19T05:41:20Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-21de6d9.md"
+    },
+    {
+      "sha": "3e039bb",
+      "full_sha": "3e039bb94a2780120b670cbcb1c6240ce0e72d53",
+      "title": "knyt pricing: last-derived fallback + indicative-pricing badge",
+      "author": "Claude",
+      "timestamp": "2026-05-19T04:16:20Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-3e039bb.md"
+    },
+    {
+      "sha": "621ec0c",
+      "full_sha": "621ec0cc4e332123ea5f71b957661cd52fd20325",
+      "title": "knyt pricing: align store UI + server debit with live KNYT→USD rate",
+      "author": "Claude",
+      "timestamp": "2026-05-19T03:58:27Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-621ec0c.md"
+    },
+    {
+      "sha": "7228c5c",
+      "full_sha": "7228c5c2be8364260fec7f9922427a818ac96100",
+      "title": "knyt characters: per-asset digiterra label — use terra when digiterra doesn't appear in title (fixes Deji Ifada/Kn0w1 first-card label)",
+      "author": "Claude",
+      "timestamp": "2026-05-19T03:11:40Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7228c5c.md"
+    },
+    {
+      "sha": "d5ca6b9",
+      "full_sha": "d5ca6b9bfead1c6656a83ee1f589786faadee208",
+      "title": "knyt characters: align 0-indexed convention end-to-end + score-based character matching",
+      "author": "Claude",
+      "timestamp": "2026-05-19T01:30:21Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d5ca6b9.md"
+    },
+    {
+      "sha": "c753039",
+      "full_sha": "c753039de38ce5113b3a76764de26de1c5bdd780",
+      "title": "knyt: gate GN + Ep #0 like every other episode; document PDF render pipeline",
+      "author": "Claude",
+      "timestamp": "2026-05-18T23:35:09Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c753039.md"
+    },
+    {
+      "sha": "f0c3a42",
+      "full_sha": "f0c3a422a8c9e4ce3e2bd9309c20895fe1f76cb9",
+      "title": "revert: AGN card back to PDFLiteReader (masterId proxy approach fails on 430MB GN — Lambda OOM)",
+      "author": "Claude",
+      "timestamp": "2026-05-16T22:27:57Z",
+      "type": "revert",
+      "brief": "items/build_/COMMITS/COMMIT-f0c3a42.md"
+    },
+    {
+      "sha": "a6c2ee8",
+      "full_sha": "a6c2ee8fb211c24be9f511c666e1517f2ad5fa04",
+      "title": "pdf viewer: surface page-load HTTP status + response body in the UI instead of forcing operator to dig through devtools",
+      "author": "Claude",
+      "timestamp": "2026-05-16T22:22:50Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-a6c2ee8.md"
+    },
+    {
+      "sha": "6d0f74d",
+      "full_sha": "6d0f74d72a8a3dc5df59d933bf64e3ce18bfb72a",
+      "title": "codex GN: set maxDuration=60 on pdf-page-by-master route (Lambda's 10s default kills the 430MB fetch mid-flight)",
+      "author": "Claude",
+      "timestamp": "2026-05-16T22:18:19Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-6d0f74d.md"
+    },
+    {
+      "sha": "af22afd",
+      "full_sha": "af22afd4f904707339fbbe04f7ba04cc11ba5158",
+      "title": "codex GN: restore masterId-proxy page-by-page rendering (from 0feeb548)",
+      "author": "Claude",
+      "timestamp": "2026-05-16T22:06:10Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-af22afd.md"
+    },
+    {
+      "sha": "6131ef3",
+      "full_sha": "6131ef306f8c69c2401b79f1bca20966577f2342",
+      "title": "add aigentMe split-screen welcome tab with persistent CopilotKit AG-UI bridge",
+      "author": "Claude",
+      "timestamp": "2026-05-14T23:33:20Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-6131ef3.md"
+    },
     {
       "sha": "10db221",
       "full_sha": "10db221fa89fb080e0fcee2a4aa7ca514bfd461b",
@@ -1135,123 +1252,6 @@
       "timestamp": "2026-03-25T20:58:03Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-a401002.md"
-    },
-    {
-      "sha": "0cf5822",
-      "full_sha": "0cf58225fb62acf61cd8e7f973ce5c29ecb5d181",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-25T20:37:37Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-0cf5822.md"
-    },
-    {
-      "sha": "eb87e0e",
-      "full_sha": "eb87e0e6a9f3add69dc72a793bee28bd2a9d83cb",
-      "title": "strip large metadata from experience list response to fix 413",
-      "author": "Claude",
-      "timestamp": "2026-03-25T20:37:37Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-eb87e0e.md"
-    },
-    {
-      "sha": "72c80ae",
-      "full_sha": "72c80aea1004ce368336b24b74491495153d2706",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-25T20:18:56Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-72c80ae.md"
-    },
-    {
-      "sha": "1cfa403",
-      "full_sha": "1cfa403c2186b22bc2f5390882cfe8891ad41f94",
-      "title": "ignore typescript build errors during amplify build",
-      "author": "Claude",
-      "timestamp": "2026-03-25T20:18:56Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1cfa403.md"
-    },
-    {
-      "sha": "9696f86",
-      "full_sha": "9696f86c4495aac4b60fa8e99fadab0a450c5a27",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-25T19:53:14Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-9696f86.md"
-    },
-    {
-      "sha": "5c756ed",
-      "full_sha": "5c756ed348ae85d7bd816dc566608d5da4dd1e20",
-      "title": "fix 413 on experience list by excluding blak_qube from select",
-      "author": "Claude",
-      "timestamp": "2026-03-25T19:52:53Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-5c756ed.md"
-    },
-    {
-      "sha": "945174f",
-      "full_sha": "945174f93f0b6731adc87b8933d33ba90d1f560a",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-25T18:33:47Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-945174f.md"
-    },
-    {
-      "sha": "8961c88",
-      "full_sha": "8961c8800e6a6e68f270cbf6f421b966b6017262",
-      "title": "fix supabase timeout and query limit to prevent lambda hangs",
-      "author": "Claude",
-      "timestamp": "2026-03-25T18:33:44Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-8961c88.md"
-    },
-    {
-      "sha": "5b74303",
-      "full_sha": "5b74303d1bad06581e2c7715c11bb2dfba6af4e6",
-      "title": "diagnose and fix experience fetch: log supabase key type, parallel queries",
-      "author": "Claude",
-      "timestamp": "2026-03-25T17:10:16Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-5b74303.md"
-    },
-    {
-      "sha": "d15d085",
-      "full_sha": "d15d08566ac08c3a0b472e7affa19aaecda57617",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-25T15:45:27Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-d15d085.md"
-    },
-    {
-      "sha": "f8bc5a7",
-      "full_sha": "f8bc5a79bc5b0f197c58bf12044455df567cab54",
-      "title": "fix experiences tab: prevent cache poisoning in refreshExperienceFromServer",
-      "author": "Claude",
-      "timestamp": "2026-03-25T15:45:22Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-f8bc5a7.md"
-    },
-    {
-      "sha": "27d88f8",
-      "full_sha": "27d88f8176c67e547f4251900642f4bc71593e23",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-25T03:57:09Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-27d88f8.md"
-    },
-    {
-      "sha": "07c6010",
-      "full_sha": "07c601041e572bed7ad37779683ab8c2f58cf5d3",
-      "title": "fix experiences tab: check local fallbacks on empty Supabase result, fix cache race on handleComplete",
-      "author": "Claude",
-      "timestamp": "2026-03-25T03:57:03Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-07c6010.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

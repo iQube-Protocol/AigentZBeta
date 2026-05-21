@@ -264,7 +264,7 @@ function UploadQueueItem({ item, category, onUpdate, onRemove }: QueueItemProps)
 
           <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-gray-400">
             <span>{(item.file.size / 1024 / 1024).toFixed(2)} MB</span>
-            <span>{item.episodeNumber != null ? `Ep. #${item.episodeNumber - 1}` : 'Series'}</span>
+            <span>{item.episodeNumber == null ? 'Series' : item.episodeNumber === -1 ? 'GN' : `Ep. #${item.episodeNumber}`}</span>
 
             {item.status === 'pending' && !isPrint && (
               <select

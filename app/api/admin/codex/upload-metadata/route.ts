@@ -147,8 +147,9 @@ export async function POST(req: NextRequest) {
           throw new Error('Either episode_number or doc_number is required');
         }
 
-        // Determine display number
-        const displayNumber = episode.display_number || `#${episodeNumber - 1}`;
+        // Determine display number — canonical: episode_number IS the
+        // display number.
+        const displayNumber = episode.display_number || `#${episodeNumber}`;
 
         if (!episode.title) {
           throw new Error('Title is required');

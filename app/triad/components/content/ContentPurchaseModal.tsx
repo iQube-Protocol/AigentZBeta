@@ -87,12 +87,19 @@ interface MultiRailPricing {
   };
 }
 
-function calculatePricing(baseKnyt: number, extraUsd: number = 0, usdOverride?: number): MultiRailPricing {
+function calculatePricing(
+  baseKnyt: number,
+  extraUsd: number = 0,
+  usdOverride?: number,
+  knytUsdRate: number = KNYT_USD_RATE,
+): MultiRailPricing {
   // When usdOverride is provided, lock the USD-rail prices to it (plus any
-  // extras like shipping). Otherwise fall back to the static USD/KNYT rate.
-  // Used for SKUs like the Satoshi KNYT Collection whose USD price has no
-  // discount vs retail and shouldn't be re-derived from the KNYT figure.
-  const usdBase = (usdOverride !== undefined ? usdOverride : baseKnyt * KNYT_USD_RATE) + extraUsd;
+  // extras like shipping). Otherwise derive USD from the KNYT base using the
+  // current live KNYT→USD rate (passed in from useEthPrice). Falls back to
+  // the static 1.40 ONLY when neither is supplied — every cart-checkout path
+  // should now pass the live rate.
+  const effectiveRate = knytUsdRate > 0 ? knytUsdRate : KNYT_USD_RATE;
+  const usdBase = (usdOverride !== undefined ? usdOverride : baseKnyt * effectiveRate) + extraUsd;
 
   return {
     baseKnyt,
@@ -165,6 +172,20 @@ interface ContentPurchaseModalProps {
   onAddToCart?: () => void;
   onPurchaseComplete?: (entitlementId: string) => void;
   onBalanceRefresh?: () => void;
+  /**
+   * Live KNYT→USD rate (ethPriceUsd × 0.0005). When omitted the modal falls
+   * back to the static KNYT_USD_RATE = $1.40, which will drift from the
+   * BuyKnytModal and the wallet's actual debit price. Every cart-driven
+   * caller should pass `knytPriceUsd` from useEthPrice.
+   */
+  knytUsdRate?: number;
+  /**
+   * Set to true when `knytUsdRate` is sourced from a cached/static fallback
+   * (i.e. the live CoinGecko fetch hasn't completed or failed this session).
+   * Renders an "Indicative pricing" badge near the Base Price so buyers can
+   * see they're not seeing a fully-live rate. Passed from useEthPrice.stale.
+   */
+  knytUsdRateIsStale?: boolean;
 }
 
 export function ContentPurchaseModal({
@@ -188,6 +209,8 @@ export function ContentPurchaseModal({
   onAddToCart,
   onPurchaseComplete,
   onBalanceRefresh,
+  knytUsdRate,
+  knytUsdRateIsStale,
 }: ContentPurchaseModalProps) {
   const router = useRouter();
   const effectiveSpendable = spendableKnyt ?? knytBalance;
@@ -239,10 +262,11 @@ export function ContentPurchaseModal({
   const isPreorder = contentId?.startsWith(PREORDER_ID_PREFIX);
   const shippingUsd = isPreorder ? PREORDER_SHIPPING_USD : 0;
 
-  const baseUsd = priceUsdOverride !== undefined ? priceUsdOverride : baseKnyt * KNYT_USD_RATE;
+  const effectiveKnytUsdRate = knytUsdRate && knytUsdRate > 0 ? knytUsdRate : KNYT_USD_RATE;
+  const baseUsd = priceUsdOverride !== undefined ? priceUsdOverride : baseKnyt * effectiveKnytUsdRate;
   const totalUsd = baseUsd + shippingUsd;
 
-  const pricing = calculatePricing(baseKnyt, shippingUsd, priceUsdOverride);
+  const pricing = calculatePricing(baseKnyt, shippingUsd, priceUsdOverride, effectiveKnytUsdRate);
 
   const canAffordKnyt = effectiveSpendable >= pricing.rails.knyt.amount;
   const canAffordEvmKnyt = evmKnyt >= pricing.rails.knyt.amount;
@@ -670,6 +694,30 @@ export function ContentPurchaseModal({
                   </div>
                 </div>
 
+                {knytUsdRateIsStale && (
+                  <div className="mt-2 flex items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="w-3 h-3 text-amber-300 shrink-0"
+                      aria-hidden="true"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    <span className="text-[10px] text-amber-200 leading-snug">
+                      Indicative pricing — KNYT/USD rate is from cache (live ETH feed unavailable).
+                      KNYT amount may shift slightly when the live rate refreshes.
+                    </span>
+                  </div>
+                )}
+
                 {isPreorder && (
                   <>
                     <div className="flex items-center justify-between mt-2">
@@ -740,7 +788,7 @@ export function ContentPurchaseModal({
                   </div>
                   <div className="text-right">
                     <div className="text-amber-300 font-bold">{pricing.rails.knyt.amount.toFixed(2)} KNYT</div>
-                    <div className="text-xs text-white/50">(${(pricing.rails.knyt.amount * KNYT_USD_RATE).toFixed(2)} USD)</div>
+                    <div className="text-xs text-white/50">(${(pricing.rails.knyt.amount * effectiveKnytUsdRate).toFixed(2)} USD)</div>
                     <div className="text-xs text-white/40 line-through">{baseKnyt} KNYT</div>
                   </div>
                 </button>

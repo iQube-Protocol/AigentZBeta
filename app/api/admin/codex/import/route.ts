@@ -281,7 +281,8 @@ export async function POST(req: NextRequest) {
 
         // Keep import + upload pricing workflows aligned by storing import pricing in episode_metadata.
         if (pricing && episodeNumber !== null) {
-          const displayNumber = ep.issue_number || `#${episodeNumber - 1}`;
+          // Canonical: episode_number IS the display number.
+          const displayNumber = ep.issue_number || `#${episodeNumber}`;
           const { error: metadataError } = await supabase.rpc('upsert_episode_metadata', {
             p_episode_number: episodeNumber,
             p_series: series,

@@ -175,21 +175,31 @@ export function getMultiRailPricing(
    * still applies as a flat 20% off the KNYT figure.
    */
   customUsdBasePrice?: number,
+  /**
+   * Live KNYT→USD rate (e.g. from getKnytUsdPrice() server-side or
+   * useEthPrice().knytPriceUsd client-side). When omitted, falls back to
+   * KNYT_USD_RATE = $1.40 — which will drift from the BuyKnytModal and the
+   * wallet's actual debit price.
+   */
+  knytUsdRate?: number,
 ): MultiRailPricing {
   const normalizedType = normalizeContentType(contentType);
   const baseKnytPrice = customBaseKnytPrice ?? BASE_PRICES[normalizedType];
-  const usdBasePrice = customUsdBasePrice ?? baseKnytPrice * KNYT_USD_RATE;
+  const effectiveKnytRate = knytUsdRate && knytUsdRate > 0 ? knytUsdRate : KNYT_USD_RATE;
+  const usdBasePrice = customUsdBasePrice ?? baseKnytPrice * effectiveKnytRate;
 
   // Q¢ (Base) - no fee, no premium
   const qcPrice = Math.round(usdBasePrice * 100) / 100;
 
   // KNYT - discounted as a flat percentage off the KNYT base. When a
   // customUsdBasePrice is provided we bypass the round-trip-via-USD path
-  // (which assumed USD = KNYT × $1.40) and just take 20% off the token
-  // figure directly. For unmodified callers this yields the same result.
+  // (which assumed USD = KNYT × static rate) and just take 20% off the
+  // token figure directly. For unmodified callers this yields the same
+  // result. When no override, we use the live (or fallback static) rate
+  // to compute KNYT tokens from USD so debit matches displayed price.
   const knytPriceTokens = customUsdBasePrice !== undefined
     ? Math.round(baseKnytPrice * (1 - RAIL_CONFIG.knytDiscountPercent) * 100) / 100
-    : Math.round((usdBasePrice * (1 - RAIL_CONFIG.knytDiscountPercent)) / KNYT_USD_RATE * 100) / 100;
+    : Math.round((usdBasePrice * (1 - RAIL_CONFIG.knytDiscountPercent)) / effectiveKnytRate * 100) / 100;
   
   // USDC - with fee + premium
   const usdcPrice = Math.round(usdBasePrice * (1 + RAIL_CONFIG.usdcFeePercent + RAIL_CONFIG.fiatPremiumPercent) * 100) / 100;
@@ -299,10 +309,52 @@ async function fetchEthPrice(): Promise<number> {
 /**
  * Calculate KNYT price in USD based on live ETH price
  * 1 KNYT = 0.0005 ETH
+ *
+ * Caches the last successful live rate at module scope. On a failed live
+ * fetch the function returns the last successful rate to minimise drift
+ * — falling back to the static \$1.40 only if no successful fetch has
+ * ever landed in this Lambda instance.
  */
+let _lastLiveKnytUsdPrice: { rate: number; fetchedAt: number } | null = null;
+const STALE_AFTER_MS = 60 * 60 * 1000; // 1 hour
+
 export async function getKnytUsdPrice(): Promise<number> {
-  const ethPrice = await fetchEthPrice();
-  return ethPrice * KNYT_ETH_RATE;
+  try {
+    const ethPrice = await fetchEthPrice();
+    const rate = ethPrice * KNYT_ETH_RATE;
+    if (rate > 0 && Number.isFinite(rate)) {
+      _lastLiveKnytUsdPrice = { rate, fetchedAt: Date.now() };
+      return rate;
+    }
+    throw new Error('Invalid live rate');
+  } catch {
+    if (_lastLiveKnytUsdPrice) return _lastLiveKnytUsdPrice.rate;
+    return KNYT_USD_RATE;
+  }
+}
+
+/**
+ * Read-only accessor for the server-side cache state. Returns the last
+ * known live rate, when it was fetched, and whether the value is "stale"
+ * (older than STALE_AFTER_MS or never fetched). Use this to decide
+ * whether to show an "Indicative pricing" badge.
+ */
+export function getKnytUsdPriceMeta(): {
+  rate: number;
+  fetchedAt: number | null;
+  stale: boolean;
+  source: 'live' | 'cached' | 'static';
+} {
+  if (!_lastLiveKnytUsdPrice) {
+    return { rate: KNYT_USD_RATE, fetchedAt: null, stale: true, source: 'static' };
+  }
+  const age = Date.now() - _lastLiveKnytUsdPrice.fetchedAt;
+  return {
+    rate: _lastLiveKnytUsdPrice.rate,
+    fetchedAt: _lastLiveKnytUsdPrice.fetchedAt,
+    stale: age > STALE_AFTER_MS,
+    source: age > STALE_AFTER_MS ? 'cached' : 'live',
+  };
 }
 
 /**
