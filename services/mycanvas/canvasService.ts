@@ -71,14 +71,32 @@ function entryRowToShape(row: DbEntryRow): CanvasEntry {
 export async function listEntries(personaId: string): Promise<CanvasEntry[]> {
   const admin = getSupabaseServer();
   if (!admin) return [];
+  // IMPORTANT: don't select body_md here. Derived experience entries store
+  // full article bodies (600–900 words each); cumulatively the response
+  // exceeds AWS Lambda's 6 MB response payload limit (413). The detail
+  // panel reads the full body via GET /api/mycanvas/entries/[id].
   const { data } = await admin
     .from('mycanvas_entries')
-    .select('*')
+    .select('id, persona_id, title, tags, visibility, entry_type, meta_json, created_at, updated_at')
     .eq('persona_id', personaId)
     .order('updated_at', { ascending: false })
     .limit(100);
   if (!Array.isArray(data)) return [];
-  return (data as DbEntryRow[]).map(entryRowToShape);
+  return (data as Array<Omit<DbEntryRow, 'body_md'>>).map((row) =>
+    entryRowToShape({ ...row, body_md: '' }),
+  );
+}
+
+export async function getEntry(personaId: string, entryId: string): Promise<CanvasEntry | null> {
+  const admin = getSupabaseServer();
+  if (!admin) return null;
+  const { data } = await admin
+    .from('mycanvas_entries')
+    .select('*')
+    .eq('id', entryId)
+    .eq('persona_id', personaId)
+    .maybeSingle();
+  return data ? entryRowToShape(data as DbEntryRow) : null;
 }
 
 export async function createEntry(

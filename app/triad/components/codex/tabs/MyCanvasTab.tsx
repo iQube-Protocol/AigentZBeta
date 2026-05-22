@@ -71,6 +71,24 @@ export function MyCanvasTab({ personaId, theme = "dark" }: Props) {
     setEditorBody(selected.bodyMd);
   }, [selectedId, selected]);
 
+  // The list endpoint omits body_md to stay under Lambda's 6 MB payload
+  // limit (derived entries store full article bodies). Hydrate the full
+  // body when an entry is first selected and merge it back into the list.
+  useEffect(() => {
+    if (!personaId || !selected || selected.bodyMd) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await personaFetch(`/api/mycanvas/entries/${selected.id}`, { personaIdHint: personaId });
+        if (!res.ok) return;
+        const data = (await res.json()) as { entry: CanvasEntry };
+        if (cancelled || !data?.entry) return;
+        setEntries((prev) => prev.map((e) => (e.id === data.entry.id ? data.entry : e)));
+      } catch { /* non-fatal */ }
+    })();
+    return () => { cancelled = true; };
+  }, [personaId, selected]);
+
   const handleCreate = useCallback(async () => {
     if (!personaId) return;
     setCreating(true);

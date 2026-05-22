@@ -354,8 +354,15 @@ export function RemixDialog({
         );
       }
       const results = await Promise.all(saves);
-      if (!results.every((r) => r.ok)) {
-        setError("Couldn't save to myCanvas");
+      const failed = results.find((r) => !r.ok);
+      if (failed) {
+        const reason = await failed
+          .json()
+          .then((j) => (j && typeof j.error === "string" ? j.error : null))
+          .catch(() => null);
+        const msg = `Couldn't save to myCanvas (${failed.status}${reason ? `: ${reason}` : ""})`;
+        console.error("[RemixDialog] save to canvas failed", { status: failed.status, reason });
+        setError(msg);
         return;
       }
       setSavedToCanvas(true);
