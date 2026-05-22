@@ -20,6 +20,8 @@
 
 import React, { useState, useCallback } from "react";
 import { Loader2, X, Mail, Sparkles } from "lucide-react";
+import { MicButton } from "@/components/ui/MicButton";
+import { transformEmailDictation } from "@/hooks/useSpeechRecognition";
 
 interface Props {
   open: boolean;
@@ -202,6 +204,14 @@ export function ComposeGmailDraftModal({
                     void handleDraft();
                   }
                 }}
+              />
+              <MicButton
+                onTranscript={(text) =>
+                  setAiPrompt((prev) => (prev ? `${prev.trimEnd()} ${text}` : text))
+                }
+                transform={transformEmailDictation}
+                disabled={aiDrafting || submitting}
+                theme={theme}
               />
               <button
                 type="button"

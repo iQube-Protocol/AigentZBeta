@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
+import { MicButton } from "@/components/ui/MicButton";
 import {
   ALIGNMENT_LABEL,
   MATURITY_LABEL,
@@ -180,13 +181,27 @@ export function PersonalGuideSetupWizard({ open, onOpenChange, initial, onSaved 
         <div className="space-y-4 py-2 min-h-[300px]">
           {step === 0 && (
             <Field label="What are you tending right now?">
-              <textarea
-                value={form.focusIntent}
-                onChange={(e) => setForm((f) => ({ ...f, focusIntent: e.target.value }))}
-                placeholder="A sentence about what feels most alive in your life right now — what you're growing, stewarding, or repairing."
-                className="w-full px-3 py-2 rounded-md bg-slate-800/60 border border-slate-700 text-sm focus:outline-none focus:border-violet-500 min-h-[100px]"
-                maxLength={1000}
-              />
+              <div className="relative">
+                <textarea
+                  value={form.focusIntent}
+                  onChange={(e) => setForm((f) => ({ ...f, focusIntent: e.target.value }))}
+                  placeholder="A sentence about what feels most alive in your life right now — what you're growing, stewarding, or repairing."
+                  className="w-full px-3 py-2 pr-12 rounded-md bg-slate-800/60 border border-slate-700 text-sm focus:outline-none focus:border-violet-500 min-h-[100px]"
+                  maxLength={1000}
+                />
+                <div className="absolute top-2 right-2">
+                  <MicButton
+                    onTranscript={(text) =>
+                      setForm((f) => ({
+                        ...f,
+                        focusIntent: f.focusIntent ? `${f.focusIntent.trimEnd()} ${text}` : text,
+                      }))
+                    }
+                    size="sm"
+                    theme="dark"
+                  />
+                </div>
+              </div>
               <p className="text-xs text-slate-500 mt-2">
                 aigentMe uses this to frame every guide nudge. You can change it any time.
               </p>

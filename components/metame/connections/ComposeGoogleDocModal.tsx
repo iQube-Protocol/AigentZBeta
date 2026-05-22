@@ -12,6 +12,8 @@
 
 import React, { useState, useCallback } from "react";
 import { Loader2, X, FileText, Sparkles } from "lucide-react";
+import { MicButton } from "@/components/ui/MicButton";
+import { transformEmailDictation } from "@/hooks/useSpeechRecognition";
 
 interface ShareSuggestion {
   email: string;
@@ -144,6 +146,14 @@ export function ComposeGoogleDocModal({ open, onClose, onCreate, onDraftWithAige
                 className={`flex-1 px-3 py-2 rounded ${inputClass}`}
                 disabled={aiDrafting || submitting}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void handleDraft(); } }}
+              />
+              <MicButton
+                onTranscript={(text) =>
+                  setAiPrompt((prev) => (prev ? `${prev.trimEnd()} ${text}` : text))
+                }
+                transform={transformEmailDictation}
+                disabled={aiDrafting || submitting}
+                theme={theme}
               />
               <button
                 type="button"

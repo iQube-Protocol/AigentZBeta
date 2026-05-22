@@ -28,6 +28,7 @@ import {
   Sparkles, Zap, Layers, BarChart3, Plus, Users,
   ChevronDown, ChevronUp, Loader2, EyeOff,
 } from "lucide-react";
+import { MicButton } from "@/components/ui/MicButton";
 import { personaFetch } from "@/utils/personaSpine";
 import { PersonalGuideSetupWizard } from "@/components/metame/setup/PersonalGuideSetupWizard";
 import { ALIGNMENT_LABEL, type AlignmentState, type PersonalGuideData } from "@/types/experienceGuide";
@@ -698,13 +699,24 @@ function SpecialistsGrid({
             </div>
             {isOpen && !isPreview && (
               <div className={`px-2 py-1.5 border-t ${isDark ? "border-slate-700/60" : "border-slate-200"} space-y-1.5`}>
-                <textarea
-                  value={askPrompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  placeholder={`Ask ${s.label}…`}
-                  rows={2}
-                  className={`w-full text-[11px] rounded p-1.5 border ${isDark ? "bg-slate-900/60 border-slate-700 text-slate-100" : "bg-white border-slate-300 text-slate-900"}`}
-                />
+                <div className="relative">
+                  <textarea
+                    value={askPrompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    placeholder={`Ask ${s.label}…`}
+                    rows={2}
+                    className={`w-full text-[11px] rounded p-1.5 pr-9 border ${isDark ? "bg-slate-900/60 border-slate-700 text-slate-100" : "bg-white border-slate-300 text-slate-900"}`}
+                  />
+                  <div className="absolute top-0.5 right-0.5">
+                    <MicButton
+                      onTranscript={(text) =>
+                        setPrompt(askPrompt ? `${askPrompt.trimEnd()} ${text}` : text)
+                      }
+                      size="sm"
+                      theme={isDark ? "dark" : "light"}
+                    />
+                  </div>
+                </div>
                 <button
                   type="button"
                   disabled={isLoading}
