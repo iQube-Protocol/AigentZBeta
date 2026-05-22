@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`bd16c01`](https://github.com/iQube-Protocol/AigentZBeta/commit/bd16c017ef32ff6e42b869765d40813587783ead) [push] remix drafter (idea → title/article/image) + mic on remixer, customizer, aigentMe copilot (Claude, 2026-05-22T22:04:21Z)
 - [`cb8bfb4`](https://github.com/iQube-Protocol/AigentZBeta/commit/cb8bfb4449baeb94be5e066ece6f57ebbcdca72d) [push] opt embed routes in to microphone via Permissions-Policy + bridge to Lovable (Claude, 2026-05-22T20:55:54Z)
 - [`1ea306c`](https://github.com/iQube-Protocol/AigentZBeta/commit/1ea306cf7ecf513323d05ec7f1add9b671da3e07) [push] switch mic STT from Web Speech API to MediaRecorder + Whisper (Claude, 2026-05-22T19:54:09Z)
 - [`290ddbf`](https://github.com/iQube-Protocol/AigentZBeta/commit/290ddbf6c839a5c4290c148867f72467e8a47c6d) [push] disable Safari email AutoFill on aigentMe compose prompt inputs (Claude, 2026-05-22T17:54:40Z)

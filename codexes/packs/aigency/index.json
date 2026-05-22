@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-22T20:57:53.320Z",
+  "last_updated": "2026-05-22T22:06:26.874Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "cb8bfb4449baeb94be5e066ece6f57ebbcdca72d",
-  "latest_commit_short": "cb8bfb4",
-  "latest_commit_title": "opt embed routes in to microphone via Permissions-Policy + bridge to Lovable",
+  "latest_commit": "bd16c017ef32ff6e42b869765d40813587783ead",
+  "latest_commit_short": "bd16c01",
+  "latest_commit_title": "remix drafter (idea → title/article/image) + mic on remixer, customizer, aigentMe copilot",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "bd16c01",
+      "full_sha": "bd16c017ef32ff6e42b869765d40813587783ead",
+      "title": "remix drafter (idea → title/article/image) + mic on remixer, customizer, aigentMe copilot",
+      "author": "Claude",
+      "timestamp": "2026-05-22T22:04:21Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-bd16c01.md"
+    },
     {
       "sha": "cb8bfb4",
       "full_sha": "cb8bfb4449baeb94be5e066ece6f57ebbcdca72d",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-26T01:10:32Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-3ad1e43.md"
-    },
-    {
-      "sha": "8680dca",
-      "full_sha": "8680dcae1698ed9e2be46ce1699a34617d84ccb3",
-      "title": "add InputManifestQube + OutputManifestQube — manifests, validation, normalization",
-      "author": "Claude",
-      "timestamp": "2026-03-26T01:10:26Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-8680dca.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
