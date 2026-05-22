@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
+import { MicButton } from "@/components/ui/MicButton";
 import type { ExperienceModelCardData } from "@/components/metame/cards/ExperienceModelCard";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -273,13 +274,24 @@ export function ExperienceModelSetupWizard({ open, onOpenChange, initial, onSave
               </Field>
 
               <Field label="What outcome matters most right now?" required>
-                <textarea
-                  value={form.primaryGoal}
-                  onChange={(e) => update("primaryGoal", e.target.value)}
-                  placeholder="Launch readiness · Investor activation · Partner proposals · Content publication · Revenue validation"
-                  className="w-full px-3 py-2 rounded-md bg-slate-800/60 border border-slate-700 text-sm focus:outline-none focus:border-violet-500 min-h-[80px]"
-                  maxLength={1000}
-                />
+                <div className="relative">
+                  <textarea
+                    value={form.primaryGoal}
+                    onChange={(e) => update("primaryGoal", e.target.value)}
+                    placeholder="Launch readiness · Investor activation · Partner proposals · Content publication · Revenue validation"
+                    className="w-full px-3 py-2 pr-12 rounded-md bg-slate-800/60 border border-slate-700 text-sm focus:outline-none focus:border-violet-500 min-h-[80px]"
+                    maxLength={1000}
+                  />
+                  <div className="absolute top-2 right-2">
+                    <MicButton
+                      onTranscript={(text) =>
+                        update("primaryGoal", form.primaryGoal ? `${form.primaryGoal.trimEnd()} ${text}` : text)
+                      }
+                      size="sm"
+                      theme="dark"
+                    />
+                  </div>
+                </div>
               </Field>
             </>
           )}

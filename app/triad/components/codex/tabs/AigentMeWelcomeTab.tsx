@@ -50,6 +50,7 @@ import {
   type ExperienceModelCardData,
 } from "@/components/metame/cards/ExperienceModelCard";
 import { IqubeContextDisclosure } from "@/components/metame/cards/IqubeContextDisclosure";
+import { MicButton } from "@/components/ui/MicButton";
 import { StageProgressionChip } from "@/components/metame/welcome/StageProgressionChip";
 import type { StageEvaluation } from "@/services/strategy/stageProgression";
 import { ExperienceModelSetupWizard } from "@/components/metame/setup/ExperienceModelSetupWizard";
@@ -1872,18 +1873,32 @@ function AigentMeWelcomeBody({
                     </div>
                     {isOpen && s.canAsk.enabled && (
                       <div className="mt-2 space-y-1.5">
-                        <textarea
-                          value={askSpecialistPrompt}
-                          onChange={(e) => onAskSpecialistPromptChange(e.target.value)}
-                          placeholder={`What do you want to ask ${s.label.split(',')[0]}?`}
-                          rows={2}
-                          disabled={isLoading}
-                          className={`w-full text-xs px-2 py-1.5 rounded ${
-                            isDark
-                              ? 'bg-slate-800 border border-slate-700 text-slate-100 placeholder:text-slate-500'
-                              : 'bg-white border border-slate-300 text-slate-900 placeholder:text-slate-400'
-                          }`}
-                        />
+                        <div className="relative">
+                          <textarea
+                            value={askSpecialistPrompt}
+                            onChange={(e) => onAskSpecialistPromptChange(e.target.value)}
+                            placeholder={`What do you want to ask ${s.label.split(',')[0]}?`}
+                            rows={2}
+                            disabled={isLoading}
+                            className={`w-full text-xs px-2 py-1.5 pr-10 rounded ${
+                              isDark
+                                ? 'bg-slate-800 border border-slate-700 text-slate-100 placeholder:text-slate-500'
+                                : 'bg-white border border-slate-300 text-slate-900 placeholder:text-slate-400'
+                            }`}
+                          />
+                          <div className="absolute top-1 right-1">
+                            <MicButton
+                              onTranscript={(text) =>
+                                onAskSpecialistPromptChange(
+                                  askSpecialistPrompt ? `${askSpecialistPrompt.trimEnd()} ${text}` : text,
+                                )
+                              }
+                              size="sm"
+                              theme={isDark ? 'dark' : 'light'}
+                              disabled={isLoading}
+                            />
+                          </div>
+                        </div>
                         <div className="flex items-center gap-2 justify-end">
                           <button
                             type="button"
