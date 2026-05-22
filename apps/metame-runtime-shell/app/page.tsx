@@ -47,6 +47,20 @@ const RUNTIME_ORIGIN_ENV = process.env.NEXT_PUBLIC_RUNTIME_IFRAME_ORIGIN ?? "";
 const RUNTIME_URL_ENV = process.env.NEXT_PUBLIC_RUNTIME_IFRAME_URL ?? "";
 const BROWSER_MVP_ENABLED = process.env.NEXT_PUBLIC_BROWSER_MVP_ENABLED === "true";
 
+// Menu actions that render as overlay drawers in the runtime — opening them
+// is a pure UI side-effect and must NOT mutate runtime state or trigger LLM
+// inference. Mirrors DRAWER_ACTION_HANDLERS in MetaMeRuntimeClient so the
+// runtime's early-return path is the only thing that fires when these are
+// dispatched from the shell.
+const DRAWER_ONLY_MENU_ACTIONS = new Set([
+  "wallet",
+  "settings",
+  "connections",
+  "memory",
+  "identity",
+  "persona",
+]);
+
 type BrowserShellEntry = {
   mountPayload?: BrowserMountPayload;
   surfaceState?: BrowserSurfaceState;
@@ -723,6 +737,16 @@ export default function RuntimeShellHomePage() {
   const handleMenuAction = useCallback(
     async (item: RuntimeMenuItem, payload: Record<string, unknown> = {}) => {
       if (!config || !aaClient) return;
+
+      // Drawer-only actions render as overlays in the runtime — opening them
+      // must NOT mutate runtime state. Skip the AA roundtrip (which can
+      // return a menu_event.prompt) and the prompt/intent fields entirely;
+      // post a clean MENU_ACTION so the runtime's DRAWER_ACTION_HANDLERS
+      // early-return path is the only thing that fires.
+      if (DRAWER_ONLY_MENU_ACTIONS.has(item.id)) {
+        postShellEvent("MENU_ACTION", { action_id: item.id, payload });
+        return;
+      }
 
       // Keep shell-side context toggle in sync with the play-knyt menu item
       if (item.id === "play-knyt") {
