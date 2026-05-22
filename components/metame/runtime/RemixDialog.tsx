@@ -23,6 +23,15 @@ import { checkSpineDecision, type SpineDecision } from "@/services/access/spineG
 
 type Skill = "article" | "story";
 
+// ─── Interim sign-in gating flag ──────────────────────────────────────────────
+// The client-side sign-in gate (banner, "Sign in required" copy, disabled
+// Generate button) is disabled while the spine-based remix access policy is
+// being re-wired. The backend remains the source of truth for auth/quota/
+// policy decisions; the dialog now lets the user attempt generation and
+// surfaces any server error via the existing error pathway. Flip back to
+// `true` to restore the original UI gate.
+const SIGNIN_GATING_ENABLED = false;
+
 interface QuotaCosts {
   article: { baseQc: number; surchargedQc: number; currentQc: number };
   story:   { baseQc: number; surchargedQc: number; currentQc: number };
@@ -173,7 +182,7 @@ export function RemixDialog({
   }, [generated]);
 
   const submit = useCallback(async () => {
-    if (!personaId) { setError("Sign in to remix"); return; }
+    if (SIGNIN_GATING_ENABLED && !personaId) { setError("Sign in to remix"); return; }
     if (!prompt.trim()) { setError("Prompt is required"); return; }
     setGenerating(true);
     setError(null);
@@ -210,11 +219,15 @@ export function RemixDialog({
         qcCost: j.qcCost,
         refundableUntil: j.refundableUntil,
       });
-      // Refresh quota so the next attempt's cost label is accurate.
-      void fetch(`/api/community-content/quota?personaId=${encodeURIComponent(personaId)}`)
-        .then((r) => r.json())
-        .then((q) => { if (q.ok) setQuota(q as QuotaState); })
-        .catch(() => { /* ignore */ });
+      // Refresh quota so the next attempt's cost label is accurate. With
+      // SIGNIN_GATING_ENABLED off, submit can run without a personaId; skip
+      // the refresh in that case since the quota endpoint requires one.
+      if (personaId) {
+        void fetch(`/api/community-content/quota?personaId=${encodeURIComponent(personaId)}`)
+          .then((r) => r.json())
+          .then((q) => { if (q.ok) setQuota(q as QuotaState); })
+          .catch(() => { /* ignore */ });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Generation failed");
     } finally {
@@ -287,7 +300,7 @@ export function RemixDialog({
     return (
       <div className="space-y-3 px-1 pb-1">
         {/* Sign-in banner — only once persona resolution is confirmed failed */}
-        {!personaId && !personaResolving && !generated && (
+        {SIGNIN_GATING_ENABLED && !personaId && !personaResolving && !generated && (
           <SignInBanner onSignIn={onSignInRequest} />
         )}
 
@@ -308,7 +321,7 @@ export function RemixDialog({
             prompt={prompt} setPrompt={setPrompt}
             quota={quota} quotaError={quotaError} hasPersona={!!personaId || personaResolving}
             skillCost={skillCost ?? null} isFree={isFree} showCostBadge={!!showCostBadge}
-            disabled={generating || (!personaId && !personaResolving)}
+            disabled={generating || (SIGNIN_GATING_ENABLED && !personaId && !personaResolving)}
           />
         ) : (
           <PreviewView generated={generated} />
@@ -328,7 +341,7 @@ export function RemixDialog({
               <div className="text-[10px] text-slate-400 min-w-0 truncate">
                 {personaResolving && !personaId
                   ? <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Checking session…</span>
-                  : !personaId
+                  : SIGNIN_GATING_ENABLED && !personaId
                   ? <span className="text-amber-300/80">Sign in required</span>
                   : !quota && !quotaError
                   ? <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Loading quota…</span>
@@ -353,7 +366,7 @@ export function RemixDialog({
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   Loading…
                 </button>
-              ) : !personaId ? (
+              ) : SIGNIN_GATING_ENABLED && !personaId ? (
                 <button
                   type="button"
                   onClick={() => onSignInRequest?.()}
@@ -451,7 +464,7 @@ export function RemixDialog({
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-4 py-3">
           {/* Sign-in banner — only once persona resolution is confirmed failed */}
-          {!personaId && !personaResolving && !generated && (
+          {SIGNIN_GATING_ENABLED && !personaId && !personaResolving && !generated && (
             <SignInBanner onSignIn={onSignInRequest} />
           )}
 
@@ -479,7 +492,7 @@ export function RemixDialog({
               skillCost={skillCost ?? null}
               isFree={isFree}
               showCostBadge={!!showCostBadge}
-              disabled={generating || (!personaId && !personaResolving)}
+              disabled={generating || (SIGNIN_GATING_ENABLED && !personaId && !personaResolving)}
             />
           ) : (
             <PreviewView generated={generated} />
@@ -499,7 +512,7 @@ export function RemixDialog({
               <div className="text-[10px] text-slate-400 min-w-0 truncate">
                 {personaResolving && !personaId
                   ? <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Checking session…</span>
-                  : !personaId
+                  : SIGNIN_GATING_ENABLED && !personaId
                   ? <span className="text-amber-300/80">Sign in required</span>
                   : !quota && !quotaError
                   ? <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Loading quota…</span>
@@ -524,7 +537,7 @@ export function RemixDialog({
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   Loading…
                 </button>
-              ) : !personaId ? (
+              ) : SIGNIN_GATING_ENABLED && !personaId ? (
                 <button
                   type="button"
                   onClick={() => onSignInRequest?.()}
@@ -698,12 +711,11 @@ function ComposeView({
         <div className="text-right text-[10px] text-slate-600 mt-0.5">{prompt.length}/2000</div>
       </div>
 
-      {/* Cost summary — three states: signed-out, loading, loaded */}
-      {!hasPersona ? (
-        <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[11px] text-slate-400">
-          Sign in to see your daily free quota and Q¢ pricing.
-        </div>
-      ) : showCostBadge && skillCost ? (
+      {/* Cost summary — three states: signed-out (hidden during interim
+          gating-disabled window), loading, loaded. When SIGNIN_GATING_ENABLED
+          is flipped back on this branch will surface the sign-in prompt
+          again. */}
+      {!hasPersona ? null : showCostBadge && skillCost ? (
         <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <Coins className="h-3.5 w-3.5 text-amber-400 shrink-0" />
