@@ -175,9 +175,18 @@ export async function debitQc(
   amount: number,
   reason: string,
   referenceId: string,
+  /** Mode override for client-driven fallback:
+        'auto' (default) — try custodial atomic settlement, then return
+                           402 with payment intent so client can decide
+                           between external wallet and DVN-only
+        'dvn'            — skip all atomic paths; debit DVN directly. If
+                           DVN is insufficient, return 402 with a
+                           `needsBuyQc: true` envelope so the client can
+                           surface a top-up CTA. */
+  paymentMode: 'auto' | 'dvn' = 'auto',
 ): Promise<
   | { ok: true; txId: string }
-  | { ok: false; error: string; status: number; payment?: QcPaymentIntent }
+  | { ok: false; error: string; status: number; payment?: QcPaymentIntent; needsBuyQc?: boolean }
 > {
   if (amount <= 0) return { ok: true, txId: 'zero-cost' };
 
@@ -201,6 +210,18 @@ export async function debitQc(
   if (fetchError) return { ok: false, error: fetchError, status: 500 };
 
   if (total < amount) {
+    // ── DVN-only mode (client explicitly chose "Pay from DVN") ─────
+    // Skip all atomic paths. If DVN can't cover, return a buy-Q¢ signal.
+    if (paymentMode === 'dvn') {
+      return {
+        ok: false,
+        error: `DVN balance ${total} below cost ${amount}. Top up Q¢ to continue.`,
+        status: 402,
+        needsBuyQc: true,
+      };
+    }
+
+    // ── Auto mode (default) ────────────────────────────────────────
     // DVN can't cover. The CANONICAL/ATOMIC path is to settle the
     // shortfall from the persona's custodial wallet (agent_keys.evm_address)
     // — server signs, no user prompt, DVN credited, debit proceeds. Falls
@@ -226,8 +247,9 @@ export async function debitQc(
       total = refetched.total;
       // Fall through to the standard DVN debit loop below.
     } else if (settled.reason === 'no_custodial' || settled.reason === 'insufficient_custodial') {
-      // External-wallet fallback (x402). Emit the payment-intent envelope
-      // so RemixDialog surfaces the "Pay via Base" prompt.
+      // External-wallet fallback (x402). The intent carries dvnAvailable
+      // so the client can offer "Pay from DVN" when DVN can cover the
+      // full amount even though atomic-on-chain wasn't available.
       const payment = await createQcPaymentIntent(
         supabase,
         personaId,

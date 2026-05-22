@@ -44,6 +44,10 @@ interface Body {
   title?: string;
   sourceExperienceId?: string;
   parentId?: string;
+  /** 'auto' (default) | 'dvn' — client picks 'dvn' when the user
+      explicitly chose "Pay from DVN balance" instead of going through
+      the on-chain wallet flow. */
+  paymentMode?: 'auto' | 'dvn';
 }
 
 interface Settings {
@@ -120,18 +124,26 @@ export async function POST(req: NextRequest) {
 
   // 2. Debit Q¢ first — fail fast if user can't afford
   const referenceId = `cgc-pending-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const paymentMode: 'auto' | 'dvn' = body.paymentMode === 'dvn' ? 'dvn' : 'auto';
   if (qcCost > 0) {
-    const debit = await debitQc(supabase, personaId, qcCost, `community_content_${skill}`, referenceId);
+    const debit = await debitQc(
+      supabase,
+      personaId,
+      qcCost,
+      `community_content_${skill}`,
+      referenceId,
+      paymentMode,
+    );
     if (!debit.ok) {
-      // Forward the x402 payment envelope to the client when DVN was
-      // insufficient. RemixDialog uses this to surface a "Pay via Base"
-      // CTA that calls /api/community-content/settle after the user's
-      // wallet signs the QCT transfer.
+      // Forward the x402 payment envelope + buy-Q¢ signal to the client.
+      // RemixDialog uses these to drive the user-facing fallback chain:
+      // external wallet → DVN → buy Q¢.
       return NextResponse.json(
         {
           ok: false,
           error: debit.error,
           ...(debit.payment ? { payment: debit.payment } : {}),
+          ...(debit.needsBuyQc ? { needsBuyQc: true } : {}),
         },
         { status: debit.status },
       );

@@ -30,6 +30,10 @@ interface Props {
   /** Called when an unauthenticated user clicks the sign-in CTA. Host should
       open the wallet drawer (or whatever sign-in surface is appropriate). */
   onSignInRequest?: () => void;
+  /** Called when the payment panel needs the user to connect a wallet or
+      top up Q¢. Host should open the wallet drawer to the connections
+      surface where ExternalWalletConnect lives. */
+  onConnectWallet?: () => void;
 }
 
 export function RuntimeCapsuleRemixEditor({
@@ -41,6 +45,7 @@ export function RuntimeCapsuleRemixEditor({
   sourceImageUrl,
   sourceDescription,
   onSignInRequest,
+  onConnectWallet,
 }: Props) {
   const [open, setOpen] = useState(false);
 
@@ -93,6 +98,7 @@ export function RuntimeCapsuleRemixEditor({
             sourceDescription={sourceDescription}
             onClose={() => setOpen(false)}
             onSignInRequest={onSignInRequest}
+            onConnectWallet={onConnectWallet}
           />
         </div>
       ) : null}
