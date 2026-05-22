@@ -191,10 +191,13 @@ export async function debitQc(
 
   const total = (rows ?? []).reduce((sum, r) => sum + Number((r as { balance: number }).balance), 0);
   if (total < amount) {
-    // DVN balance can't cover — emit an x402-shaped on-chain payment
-    // intent so the client can settle via the user's external wallet
-    // (Base Sepolia QCT transfer to MoneyPenny treasury). The settle
-    // endpoint will verify the on-chain receipt and credit DVN.
+    // DVN Q¢ balance (ICP-anchored ledger) can't cover — emit an
+    // x402-shaped Mainnet Q¢ payment intent so the client can settle
+    // via the user's external wallet (Base Sepolia QCT transfer to
+    // MoneyPenny treasury). The settle endpoint will verify the
+    // Mainnet receipt and credit DVN. NB: DVN is NOT off-chain — it's
+    // an ICP-anchored ledger that should eventually run in 1:1 parity
+    // with Mainnet via deferred minting / batch reconciliation.
     const payment = await createQcPaymentIntent(supabase, personaId, amount, reason, referenceId);
     return {
       ok: false,

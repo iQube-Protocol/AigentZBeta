@@ -3,16 +3,22 @@
  *
  * Body: { intentId: string, txHash: string }
  *
- * Verifies an on-chain QCT transfer (Base Sepolia by default) against a
+ * Verifies a Mainnet QCT transfer (Base Sepolia by default) against a
  * pending payment intent that was issued by /generate's 402 response,
  * then credits the user's DVN Q¢ balance by the intent amount so a
  * follow-up /generate call can debit DVN normally.
  *
- * Reuses the existing `/api/a2a/facilitator/verify` pipe for tx receipt
- * verification — no new RPC plumbing. The facilitator decodes the ERC20
- * Transfer log and confirms { tokenAddress, payTo, amount } match the
- * intent's expected values, so the client cannot tamper with the
- * settlement amount.
+ * Ledger model: DVN Q¢ (ICP-anchored) and Mainnet Q¢ (EVM ERC20) are
+ * two on-chain ledgers that should remain in 1:1 parity. This endpoint
+ * is one half of the bridge: Mainnet → DVN (verify Mainnet receipt,
+ * credit DVN). The DVN → Mainnet half is deferred minting handled by
+ * a separate batch reconciliation job (see agentiq/updates backlog).
+ *
+ * Reuses the existing `/api/a2a/facilitator/verify` pipe for receipt
+ * verification — no new RPC plumbing. The facilitator decodes the
+ * ERC20 Transfer log and confirms { tokenAddress, payTo, amount }
+ * match the intent's expected values, so the client cannot tamper
+ * with the settlement amount.
  *
  * Identity: getActivePersona(req) must resolve to the same personaId
  * that opened the intent — prevents one persona from settling another

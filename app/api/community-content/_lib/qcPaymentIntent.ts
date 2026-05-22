@@ -3,13 +3,20 @@
  * 402 responses when a persona's DVN Q¢ balance is insufficient for a
  * community-content remix. Mirrors `/api/a2a/facilitator/pay-intent`
  * shape so the existing facilitator verify endpoint can validate the
- * on-chain settlement without any new RPC plumbing.
+ * Mainnet (Base Sepolia / Base) settlement without any new RPC plumbing.
  *
- * Production-grade switch to mainnet: flip the three env vars
+ * Ledger terminology: DVN Q¢ (ICP-anchored) ⇄ Mainnet Q¢ (EVM ERC20).
+ * Both are on-chain; DVN is anchored to ICP via deferred verification,
+ * Mainnet is anchored to Base / Ethereum / etc via canonical token
+ * contracts. Treat them as two ledgers in (eventual) 1:1 parity, NOT
+ * as "off-chain vs on-chain". See the agentiq/updates/2026-05-22 brief
+ * for the DVN ⇄ Mainnet parity / deferred-minting design direction.
+ *
+ * Production-grade switch to Base Mainnet: flip the three env vars
  *   QCT_CHAIN_ID
  *   QCT_TOKEN_ADDRESS
  *   TREASURY_ADDRESS
- * and the same code path serves Base mainnet payments.
+ * and the same code path serves Mainnet Q¢ payments.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
