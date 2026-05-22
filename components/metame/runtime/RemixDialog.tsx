@@ -212,9 +212,15 @@ export function RemixDialog({
         }),
         personaIdHint: personaId ?? undefined,
       });
-      const j = await res.json();
+      let j: Record<string, unknown>;
+      try {
+        j = (await res.json()) as Record<string, unknown>;
+      } catch {
+        setError(`Generation failed (${res.status || "server error"}) — please try again`);
+        return;
+      }
       if (!res.ok || !j.ok) {
-        setError(j.error || `Generation failed (${res.status})`);
+        setError(typeof j.error === "string" ? j.error : `Generation failed (${res.status})`);
         return;
       }
       setGenerated({

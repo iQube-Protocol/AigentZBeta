@@ -80,8 +80,12 @@ export async function POST(req: NextRequest) {
   // Authorization: Bearer token per CLAUDE.md § Identity & Access Spine.
   let personaId = body.personaId?.trim();
   if (!personaId) {
-    const activePersona = await getActivePersona(req);
-    personaId = activePersona?.personaId;
+    try {
+      const activePersona = await getActivePersona(req);
+      personaId = activePersona?.personaId;
+    } catch {
+      // spine resolution failed — fall through to 401 below
+    }
   }
   const prompt = body.prompt?.trim();
   const skill: Skill = body.skill === 'story' ? 'story' : 'article';
