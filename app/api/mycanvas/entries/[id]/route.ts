@@ -1,13 +1,29 @@
 /**
+ * GET    /api/mycanvas/entries/[id]      — fetch full entry (incl. body_md + meta_json)
  * PATCH  /api/mycanvas/entries/[id]      — update
  * DELETE /api/mycanvas/entries/[id]      — delete
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
-import { deleteEntry, updateEntry } from '@/services/mycanvas/canvasService';
+import { deleteEntry, getEntry, updateEntry } from '@/services/mycanvas/canvasService';
 
 export const dynamic = 'force-dynamic';
+
+// PIECE 3 of the 413 fix — paired with the body_md/meta_json strip in
+// listEntries. Returns one full entry (with body + meta) on demand so
+// the client can render the selected entry without inflating the list.
+export async function GET(
+  request: NextRequest,
+  ctx: { params: Promise<{ id: string }> },
+): Promise<NextResponse> {
+  const context = await getActivePersona(request);
+  if (!context) return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  const { id } = await ctx.params;
+  const entry = await getEntry(context.personaId, id);
+  if (!entry) return NextResponse.json({ error: 'not-found-or-forbidden' }, { status: 404 });
+  return NextResponse.json({ entry }, { headers: { 'Cache-Control': 'no-store' } });
+}
 
 export async function PATCH(
   request: NextRequest,

@@ -8,7 +8,7 @@
  * invites table; acceptance flow lands later.
  */
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Cpu, Loader2, Plus, PenSquare, Share2, Sparkles, Trash2, Save, X, UserPlus } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { RemixDialog } from "@/components/metame/runtime/RemixDialog";
@@ -44,6 +44,16 @@ export function MyCanvasTab({ personaId, theme = "dark" }: Props) {
   const [inviteOpenForId, setInviteOpenForId] = useState<string | null>(null);
   const [inviteInput, setInviteInput] = useState("");
   const [remixSource, setRemixSource] = useState<CanvasEntry | null>(null);
+  // PIECE 4 of the 413 fix — tracks which entry IDs have been hydrated
+  // via GET /[id]. Without this, a note entry (legitimate bodyMd='' +
+  // metaJson={}) would re-trigger the hydration effect on every
+  // setEntries call because the GET response equals the list shape →
+  // setEntries replaces the object → `selected` reference changes →
+  // effect re-fires → infinite GET loop hammering Lambda. The ref is
+  // cleared on personaId change so the next persona's stripped list
+  // re-hydrates from a clean slate.
+  const hydratedRef = useRef<Set<string>>(new Set());
+  useEffect(() => { hydratedRef.current = new Set(); }, [personaId]);
 
   const fetchEntries = useCallback(async () => {
     if (!personaId) { setLoading(false); return; }
@@ -70,6 +80,32 @@ export function MyCanvasTab({ personaId, theme = "dark" }: Props) {
     setEditorTitle(selected.title);
     setEditorBody(selected.bodyMd);
   }, [selectedId, selected]);
+
+  // PIECE 5 of the 413 fix — hydrate the full entry the first time it's
+  // selected and merge body_md + meta_json back into the list state.
+  // Each entry is fetched at most once per persona thanks to hydratedRef.
+  useEffect(() => {
+    if (!personaId || !selected) return;
+    if (hydratedRef.current.has(selected.id)) return;
+    hydratedRef.current.add(selected.id);
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await personaFetch(`/api/mycanvas/entries/${selected.id}`, { personaIdHint: personaId });
+        if (!res.ok) {
+          // Allow a retry next time the user selects this entry.
+          hydratedRef.current.delete(selected.id);
+          return;
+        }
+        const data = (await res.json()) as { entry: CanvasEntry };
+        if (cancelled || !data?.entry) return;
+        setEntries((prev) => prev.map((e) => (e.id === data.entry.id ? data.entry : e)));
+      } catch {
+        hydratedRef.current.delete(selected.id);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [personaId, selected]);
 
   const handleCreate = useCallback(async () => {
     if (!personaId) return;
