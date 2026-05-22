@@ -69,6 +69,56 @@ export async function GET(req: NextRequest) {
         // continue to next table
       }
     }
+
+    // ── agent_keys fallback — resolves any persona the platform custodies
+    // a wallet for, even when no nakamoto_*_personas row exists. Same
+    // flexible lookup the A2A signer endpoint uses (agent_id, fio_handle,
+    // persona_id UUID, evm_address, or did:iq:<hex> → persona UUID with
+    // hyphens reinserted). Without this, sending to a bare persona name
+    // like 'devagent' falls through to a 404 and ethers.js then tries
+    // ENS resolution on Arbitrum Sepolia and explodes with
+    // 'network does not support ENS'.
+    try {
+      // did:iq:<32 hex chars> → reinsert hyphens to form a UUID
+      let didUuid: string | null = null;
+      const didMatch = /^did:iq:([0-9a-f]{32})$/i.exec(q);
+      if (didMatch) {
+        const h = didMatch[1];
+        didUuid = `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+      }
+      const uuidMatch = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(normalised);
+      const candidatePersonaId = didUuid ?? (uuidMatch ? normalised : null);
+
+      // Try agent_id, then fio_handle (case-insensitive), then persona_id (if UUID).
+      let row: Record<string, unknown> | null = null;
+      {
+        const r = await sb.from('agent_keys').select('*').eq('agent_id', normalised).maybeSingle();
+        if (r.data) row = r.data as Record<string, unknown>;
+      }
+      if (!row) {
+        const r = await sb.from('agent_keys').select('*').ilike('fio_handle', normalised).maybeSingle();
+        if (r.data) row = r.data as Record<string, unknown>;
+      }
+      if (!row && candidatePersonaId) {
+        const r = await sb.from('agent_keys').select('*').eq('persona_id', candidatePersonaId).maybeSingle();
+        if (r.data) row = r.data as Record<string, unknown>;
+      }
+
+      if (row) {
+        const evmAddress = (row['evm_address'] as string | null | undefined) ?? null;
+        const fioHandle = (row['fio_handle'] as string | null | undefined) ?? null;
+        if (evmAddress && isEvmAddress(evmAddress)) {
+          return NextResponse.json({
+            resolvedAddress: evmAddress,
+            type: 'agent_keys',
+            display: fioHandle ? `@${fioHandle}` : (row['agent_id'] as string) || normalised,
+            fioHandle,
+          });
+        }
+      }
+    } catch {
+      // fall through to FIO lookup
+    }
   }
 
   // ── FIO handle (name@domain) — resolve via FIO service ─────────────────────

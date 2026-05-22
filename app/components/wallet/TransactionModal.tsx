@@ -434,15 +434,38 @@ export function TransactionModal({
         return;
       }
 
-      // Resolve recipient (FIO handle or wallet address)
-      let resolvedRecipient = recipient;
-      if (recipient.includes('@') || recipient.endsWith('.fio')) {
-        // FIO handle - resolve to address
-        const resolveRes = await fetch(`/api/identity/resolve?handle=${encodeURIComponent(recipient)}`);
-        if (resolveRes.ok) {
-          const resolved = await resolveRes.json();
-          resolvedRecipient = resolved.evmAddress || resolved.address || recipient;
+      // Resolve recipient via /api/identity/resolve-recipient — handles
+      //   • 0x EVM addresses (pass-through)
+      //   • @persona handles (nakamoto_knyt/qripto tables)
+      //   • bare persona names like 'devagent' (agent_keys table)
+      //   • did:iq:<hex> (resolves to persona_id then to agent_keys)
+      //   • name@domain (FIO handle resolution)
+      // Refusing to send to a non-resolvable input here prevents the
+      // ethers.js ENS-lookup explosion that hit non-mainnet chains.
+      const trimmedRecipient = recipient.trim();
+      const looksLikeEvmAddress = /^0x[0-9a-fA-F]{40}$/.test(trimmedRecipient);
+      let resolvedRecipient = trimmedRecipient;
+      if (!looksLikeEvmAddress) {
+        try {
+          const resolveRes = await fetch(
+            `/api/identity/resolve-recipient?q=${encodeURIComponent(trimmedRecipient)}`,
+          );
+          const resolved = await resolveRes.json().catch(() => ({}));
+          if (!resolveRes.ok || !resolved?.resolvedAddress) {
+            throw new Error(
+              resolved?.error ||
+              `Couldn't resolve "${trimmedRecipient}" to a wallet address — enter a 0x address, @persona handle, FIO handle, or did:iq:<id>.`,
+            );
+          }
+          resolvedRecipient = resolved.resolvedAddress;
+        } catch (err) {
+          throw err instanceof Error ? err : new Error(String(err));
         }
+      }
+      // Defensive — even after resolve we MUST end up with a 0x address,
+      // otherwise ethers will try ENS and fail on non-mainnet chains.
+      if (!/^0x[0-9a-fA-F]{40}$/.test(resolvedRecipient)) {
+        throw new Error(`Resolved recipient "${resolvedRecipient}" is not a valid EVM address.`);
       }
 
       // Get chain config
@@ -1007,19 +1030,27 @@ export function TransactionModal({
                     />
                   </div>
 
-                  {/* Hidden: Chain Selection - using token dropdown instead
+                  {/* Network selector — restored to mirror the A2A wallet's
+                      assetKey dropdown. Without this, sends defaulted to
+                      Arbitrum Sepolia regardless of where the user's QCT
+                      actually lived. */}
                   <div>
                     <label className="block text-sm font-medium text-white/70 mb-2">Network</label>
-                    <div className={`grid ${enableCustody ? 'grid-cols-3' : 'grid-cols-2'} gap-2`}>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {activeChains.map((chain) => (
-                        <button key={chain.id} onClick={() => setSelectedChain(chain.id)}
-                          className={`p-2 rounded-lg text-center transition-colors ${selectedChain === chain.id ? 'bg-cyan-500/20 ring-1 ring-cyan-500/50 text-cyan-300' : 'bg-white/5 ring-1 ring-white/10 text-white/60 hover:bg-white/10'}`}>
+                        <button
+                          key={chain.id}
+                          type="button"
+                          onClick={() => setSelectedChain(chain.id)}
+                          className={`p-2 rounded-lg text-center transition-colors ${selectedChain === chain.id ? 'bg-cyan-500/20 ring-1 ring-cyan-500/50 text-cyan-300' : 'bg-white/5 ring-1 ring-white/10 text-white/60 hover:bg-white/10'}`}
+                          title={chain.name}
+                        >
                           <div className={`text-xs font-bold ${chain.color}`}>{chain.ticker}</div>
+                          <div className="text-[9px] text-white/40 mt-0.5 truncate">{chain.name}</div>
                         </button>
                       ))}
                     </div>
                   </div>
-                  */}
 
                   {/* Delivery Mode */}
                   <div>
