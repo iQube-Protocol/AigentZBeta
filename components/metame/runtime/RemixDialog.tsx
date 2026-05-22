@@ -20,6 +20,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Coins, FileText, Image as ImageIcon, Loader2, LogIn, RotateCw, Send, Share2, Sparkles, Trash2, X } from "lucide-react";
 import { checkSpineDecision, type SpineDecision } from "@/services/access/spineGateClient";
+import { personaFetch } from "@/utils/personaSpine";
 
 type Skill = "article" | "story";
 
@@ -150,7 +151,7 @@ export function RemixDialog({
       return;
     }
     let cancelled = false;
-    fetch(`/api/community-content/quota?personaId=${encodeURIComponent(personaId)}`)
+    personaFetch(`/api/community-content/quota?personaId=${encodeURIComponent(personaId)}`, { personaIdHint: personaId })
       .then((r) => r.json())
       .then((j) => {
         if (cancelled) return;
@@ -195,7 +196,7 @@ export function RemixDialog({
     const stepTimer3 = setTimeout(() => setGenerationStep("saving"),    18000);
 
     try {
-      const res = await fetch("/api/community-content/generate", {
+      const res = await personaFetch("/api/community-content/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -205,6 +206,7 @@ export function RemixDialog({
           title: title.trim() || null,
           sourceExperienceId: sourceExperienceId || null,
         }),
+        personaIdHint: personaId ?? undefined,
       });
       const j = await res.json();
       if (!res.ok || !j.ok) {
@@ -223,7 +225,7 @@ export function RemixDialog({
       // SIGNIN_GATING_ENABLED off, submit can run without a personaId; skip
       // the refresh in that case since the quota endpoint requires one.
       if (personaId) {
-        void fetch(`/api/community-content/quota?personaId=${encodeURIComponent(personaId)}`)
+        void personaFetch(`/api/community-content/quota?personaId=${encodeURIComponent(personaId)}`, { personaIdHint: personaId })
           .then((r) => r.json())
           .then((q) => { if (q.ok) setQuota(q as QuotaState); })
           .catch(() => { /* ignore */ });
@@ -244,10 +246,11 @@ export function RemixDialog({
     setActionPending("discard");
     setError(null);
     try {
-      const res = await fetch(`/api/community-content/${generated.id}/discard`, {
+      const res = await personaFetch(`/api/community-content/${generated.id}/discard`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ personaId }),
+        personaIdHint: personaId,
       });
       const j = await res.json();
       if (!res.ok || !j.ok) {
@@ -268,10 +271,11 @@ export function RemixDialog({
     setActionPending("publish");
     setError(null);
     try {
-      const res = await fetch(`/api/community-content/${generated.id}/publish`, {
+      const res = await personaFetch(`/api/community-content/${generated.id}/publish`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ personaId }),
+        personaIdHint: personaId,
       });
       const j = await res.json();
       if (!res.ok || !j.ok) {

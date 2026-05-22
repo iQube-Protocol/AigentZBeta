@@ -32,6 +32,7 @@ import {
   generateImage,
   debitQc,
 } from '../_lib/generate';
+import { getActivePersona } from '@/services/identity/getActivePersona';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -73,11 +74,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const personaId = body.personaId?.trim();
+  // Resolve persona via the canonical spine when the body doesn't carry one.
+  // Client surfaces (e.g. RemixDialog) may post without personaId once the
+  // client-side sign-in gate is disabled; identity then flows from the
+  // Authorization: Bearer token per CLAUDE.md § Identity & Access Spine.
+  let personaId = body.personaId?.trim();
+  if (!personaId) {
+    const activePersona = await getActivePersona(req);
+    personaId = activePersona?.personaId;
+  }
   const prompt = body.prompt?.trim();
   const skill: Skill = body.skill === 'story' ? 'story' : 'article';
 
-  if (!personaId) return NextResponse.json({ ok: false, error: 'personaId required' }, { status: 400 });
+  if (!personaId) return NextResponse.json({ ok: false, error: 'sign-in required' }, { status: 401 });
   if (!prompt)    return NextResponse.json({ ok: false, error: 'prompt required' },    { status: 400 });
   if (prompt.length > 2000) return NextResponse.json({ ok: false, error: 'prompt too long (max 2000 chars)' }, { status: 400 });
 
