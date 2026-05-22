@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`8c31614`](https://github.com/iQube-Protocol/AigentZBeta/commit/8c3161468b4264bed3ac9e64413197db46ca1042) [feat] add microphone to runtime iframe allow attr + log persona-stream errors (Claude, 2026-05-22T17:50:40Z)
 - [`5b8f9fb`](https://github.com/iQube-Protocol/AigentZBeta/commit/5b8f9fb2c5efd69f53aa5ea040b2bfdfc4cbdd1f) [feat] add STT mic affordance to compose modals and expGuide textareas (Claude, 2026-05-22T16:48:23Z)
 - [`bbaff66`](https://github.com/iQube-Protocol/AigentZBeta/commit/bbaff669de9a0ff92090011f6632a5bd69379f8e) [fix] fix activation toggle: explicit SELECT→INSERT/UPDATE (PostgREST upsert can't target partial unique index) (Claude, 2026-05-21T22:45:45Z)
 - [`0e8264f`](https://github.com/iQube-Protocol/AigentZBeta/commit/0e8264f66ad3d431630fdfe45d871349cde8b9e7) [chore] activation toggle: dedicated rarity='activation' + partial unique index + atomic UPSERT/UPDATE (Claude, 2026-05-21T22:30:59Z)
