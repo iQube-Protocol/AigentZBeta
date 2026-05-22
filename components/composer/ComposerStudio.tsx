@@ -19,7 +19,7 @@ import { useDesignQubeTheme } from "@/components/metame/useDesignQubeTheme";
 import { useCodexList } from "@/app/hooks/useCodexConfig";
 import type { CodexListItem } from "@/types/codex";
 import type { DesignQube, DesignQubeThemeMode } from "@/types/designQube";
-import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
+import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
 import { AgenticDesignParityPanel } from "@/components/composer/AgenticDesignParityPanel";
 import SurfacePlanningPanel from "@/components/composer/SurfacePlanningPanel";
 import DVNReceiptsPanel from "@/components/composer/DVNReceiptsPanel";
@@ -1873,7 +1873,6 @@ export const ComposerStudio = () => {
     label: string;
   } | null>(null);
 
-  // Brief consolidation state — populated when user signals "send to production"
   type ConsolidatedBrief = {
     brief: string;
     titleSuggestions: string[];
@@ -1885,8 +1884,7 @@ export const ComposerStudio = () => {
   const [pendingBrief, setPendingBrief] = useState<ConsolidatedBrief | null>(null);
   const [pendingBriefEdited, setPendingBriefEdited] = useState("");
   const [pendingBriefSelectedTitle, setPendingBriefSelectedTitle] = useState<string>("");
-  // Tracks full conversation for consolidation — ref avoids re-render cost
-  const copilotConversationRef = useRef<CopilotMessage[]>([]);
+  const copilotConversationRef = useRef<{ role: string; content: unknown }[]>([]);
   const isStudioExpanded = true;
   const [experiencePanelTab, setExperiencePanelTab] = useState("template");
   const [resourcesPanelTab, setResourcesPanelTab] = useState("experience");
@@ -2910,9 +2908,9 @@ export const ComposerStudio = () => {
     return () => { vapi?.stop(); };
   }, []);
 
-  // Starts a fresh recording session — does NOT stop; use stopMarketa() to end.
   const toggleMarketa = useCallback(async () => {
     if (!vapiRef.current || (vapiState !== "idle" && vapiState !== "error")) return;
+    if (vapiState === "error") { setVapiState("idle"); return; }
     voiceTranscriptAccumRef.current = [];
     setVapiState("connecting");
     try {
@@ -2944,7 +2942,7 @@ export const ComposerStudio = () => {
     }
   }, [vapiState]);
 
-  // Deterministic stop: halts the call, consolidates the transcript into a pending approval prompt.
+  // Deterministic stop: halts the call and surfaces transcript for user approval.
   const stopMarketa = useCallback(() => {
     if (!vapiRef.current) return;
     vapiRef.current.stop();
@@ -2953,10 +2951,9 @@ export const ComposerStudio = () => {
     voiceTranscriptAccumRef.current = [];
     if (accumulated.length === 0) return;
     const full = accumulated.join(" ").trim();
-    // Keep the last 3 sentences as the clearest recent intent
     const sentences = full.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
     const consolidated = sentences.length > 3 ? sentences.slice(-3).join(" ") : full;
-    setPendingVoicePrompt(consolidated || full);
+    setPendingVoicePrompt(consolidated);
   }, []);
   // ── end Marketa voice ───────────────────────────────────────────────────────
   const [deploymentResultsByTarget, setDeploymentResultsByTarget] = useState<
@@ -4109,20 +4106,12 @@ export const ComposerStudio = () => {
             .filter((line) => line.split(": ")[1]?.trim())
             .join("\n\n");
           const rawText = conversation || prompt;
-          // Always show the panel — use raw conversation as fallback if API fails.
-          const fallbackBrief: ConsolidatedBrief = {
-            brief: rawText,
-            titleSuggestions: [],
-            goal: "",
-          };
+          const fallbackBrief: ConsolidatedBrief = { brief: rawText, titleSuggestions: [], goal: "" };
           try {
             const res = await fetch("/api/composer/consolidate-brief", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                conversation: rawText,
-                templateName: sessionTemplate?.name || selectedTemplate?.name || "",
-              }),
+              body: JSON.stringify({ conversation: rawText, templateName: sessionTemplate?.name || selectedTemplate?.name || "" }),
             });
             const data = res.ok ? (await res.json()) as ConsolidatedBrief : fallbackBrief;
             setPendingBrief(data);
@@ -4134,7 +4123,7 @@ export const ComposerStudio = () => {
             setConsolidating(false);
           }
         })();
-        return "On it — I'm consolidating everything we've discussed into a production brief. I'll show it to you above in a moment. Once you're happy with it, hit **Send to production**.";
+        return "On it — consolidating your brief now. Review it above and hit **Send to production** when ready.";
       }
 
       // Long transcripts from Vapi voice sessions contain the full conversation history.
@@ -4837,33 +4826,6 @@ export const ComposerStudio = () => {
     try {
       setIsCompleting(true);
       setSessionError(null);
-
-      // Flush any stepData overrides that weren't saved during normal step navigation
-      // (e.g. experience_name / goal edited in the Experience Snapshot panel while on
-      // the Customizer step — those live in stepData["intent_timebox"] but updateSession
-      // only saves stepData[currentStep.id]).
-      const crossStepOverrides = Object.fromEntries(
-        Object.entries(stepData).filter(([key, val]) =>
-          key !== (currentStep?.id ?? "") && Object.keys(val || {}).length > 0
-        )
-      );
-      if (Object.keys(crossStepOverrides).length > 0) {
-        const flushData = {
-          ...sessionData,
-          ...(currentStep ? { [currentStep.id]: stepValues } : {}),
-          ...crossStepOverrides,
-        };
-        await fetch(`/api/composer/sessions/${session.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            current_step: session.current_step ?? 0,
-            data: flushData,
-            status: session.status,
-          }),
-        });
-      }
-
       const res = await fetch(`/api/composer/sessions/${session.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -6338,10 +6300,10 @@ export const ComposerStudio = () => {
       return field?.name || fieldId;
     };
 
-    const list: Array<{ label: string; value: string; stepId?: string; fieldId?: string }> = [];
+    const list: Array<{ label: string; value: string }> = [];
     const intentStep = mergedData.intent_timebox || {};
-    if (intentStep.experience_name) list.push({ label: getLabel("intent_timebox", "experience_name"), value: intentStep.experience_name, stepId: "intent_timebox", fieldId: "experience_name" });
-    if (intentStep.goal) list.push({ label: getLabel("intent_timebox", "goal"), value: intentStep.goal, stepId: "intent_timebox", fieldId: "goal" });
+    if (intentStep.experience_name) list.push({ label: getLabel("intent_timebox", "experience_name"), value: intentStep.experience_name });
+    if (intentStep.goal) list.push({ label: getLabel("intent_timebox", "goal"), value: intentStep.goal });
     if (intentStep.time_available) list.push({ label: getLabel("intent_timebox", "time_available"), value: `${intentStep.time_available} min` });
     if (intentStep.depth) list.push({ label: getLabel("intent_timebox", "depth"), value: intentStep.depth });
 
@@ -7810,7 +7772,6 @@ export const ComposerStudio = () => {
                 <div className="flex items-center gap-2">
                   <Bot className="h-4 w-4 text-cyan-300" />
                   <h2 className="text-lg font-semibold text-white">Composer Copilot</h2>
-                  <span className="rounded-full bg-fuchsia-600 px-1.5 py-0.5 text-[9px] font-bold text-white">v2</span>
                 </div>
               </div>
             </div>
@@ -7858,14 +7819,11 @@ export const ComposerStudio = () => {
                 {pendingBrief && !consolidating && (
                   <div className="mx-2 mt-2 flex-shrink-0 rounded-lg border border-fuchsia-500/40 bg-fuchsia-950/40 p-3 space-y-3">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-[11px] font-semibold text-fuchsia-200">
-                        Brief ready — review before sending to production
-                      </p>
+                      <p className="text-[11px] font-semibold text-fuchsia-200">Brief ready — review before sending to production</p>
                       <button
                         type="button"
                         onClick={() => { setPendingBrief(null); setPendingBriefEdited(""); setPendingBriefSelectedTitle(""); }}
                         className="text-slate-500 hover:text-slate-300 transition flex-shrink-0"
-                        title="Dismiss"
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>
@@ -7884,17 +7842,12 @@ export const ComposerStudio = () => {
                             <button
                               key={t}
                               type="button"
-                              onClick={() => {
-                                setPendingBriefSelectedTitle(t);
-                                updateField("intent_timebox", "experience_name", t);
-                                updateField("intent_timebox", "goal", pendingBrief.goal || pendingBriefEdited.slice(0, 120));
-                              }}
+                              onClick={() => { setPendingBriefSelectedTitle(t); }}
                               className={`rounded-full border px-2.5 py-0.5 text-[10px] transition ${
                                 t === pendingBriefSelectedTitle
                                   ? "border-fuchsia-400 bg-fuchsia-500/30 text-fuchsia-100 ring-1 ring-fuchsia-400/40"
                                   : "border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300 hover:bg-fuchsia-500/20"
                               }`}
-                              title="Use as experience name"
                             >
                               {t}
                             </button>
@@ -7909,9 +7862,6 @@ export const ComposerStudio = () => {
                         onClick={() => {
                           const briefTitle = pendingBriefSelectedTitle || pendingBrief.titleSuggestions[0] || "";
                           const briefGoal = pendingBrief.goal || pendingBriefEdited.slice(0, 200);
-
-                          // Build the augmented seedData — brief fields layered on top of whatever
-                          // the routing already computed (mirrors the confirmation dialog handler).
                           const baseSeedData = pendingProductionConfig?.seedData || {};
                           const augmentedSeedData = {
                             ...baseSeedData,
@@ -7921,47 +7871,21 @@ export const ComposerStudio = () => {
                               goal: briefGoal,
                               brief: pendingBriefEdited,
                             },
-                            ...(pendingBrief.articlePrompt ? {
-                              article_draft: {
-                                ...(typeof baseSeedData.article_draft === "object" ? baseSeedData.article_draft as Record<string, unknown> : {}),
-                                prompt: pendingBrief.articlePrompt,
-                              },
-                            } : {}),
-                            ...(pendingBrief.visualPrompt ? {
-                              image_generation: {
-                                ...(typeof baseSeedData.image_generation === "object" ? baseSeedData.image_generation as Record<string, unknown> : {}),
-                                portrait_prompt: pendingBrief.visualPrompt,
-                                landscape_prompt: pendingBrief.visualPrompt,
-                              },
-                            } : {}),
+                            ...(pendingBrief.articlePrompt ? { article_draft: { ...(typeof baseSeedData.article_draft === "object" ? baseSeedData.article_draft as Record<string, unknown> : {}), prompt: pendingBrief.articlePrompt } } : {}),
+                            ...(pendingBrief.visualPrompt ? { image_generation: { ...(typeof baseSeedData.image_generation === "object" ? baseSeedData.image_generation as Record<string, unknown> : {}), portrait_prompt: pendingBrief.visualPrompt, landscape_prompt: pendingBrief.visualPrompt } } : {}),
                           };
-
                           if (pendingProductionConfig) {
-                            // Use the templateKey already resolved by the routing logic — same as
-                            // the "Yes, send to production" confirmation dialog handler.
-                            void startSeededSessionForTemplate(
-                              pendingProductionConfig.templateKey,
-                              augmentedSeedData,
-                              pendingProductionConfig.options as any,
-                            );
+                            void startSeededSessionForTemplate(pendingProductionConfig.templateKey, augmentedSeedData, pendingProductionConfig.options as any);
                             setPendingProductionConfig(null);
                           } else {
-                            // No prior routing (pure SEND_TRIGGER) — infer template from brief.
-                            const VALID_TEMPLATE_IDS = [
-                              "qriptopian_reading_sprint_v0",
-                              "sora-video-generation",
-                              "ai-image-generation",
-                              "ai-article-draft",
-                            ];
-                            const validSelected = VALID_TEMPLATE_IDS.includes(selectedTemplateId || "") ? (selectedTemplateId || "") : "";
-                            let templateId = validSelected;
-                            if (!templateId) {
-                              if (pendingBrief.visualPrompt && pendingBrief.articlePrompt) templateId = "qriptopian_reading_sprint_v0";
-                              else if (pendingBrief.visualPrompt) templateId = "ai-image-generation";
-                              else if (pendingBrief.articlePrompt) templateId = "ai-article-draft";
-                              else templateId = "ai-image-generation";
+                            const VALID = ["qriptopian_reading_sprint_v0", "sora-video-generation", "ai-image-generation", "ai-article-draft"];
+                            let tplId = VALID.includes(selectedTemplateId || "") ? (selectedTemplateId || "") : "";
+                            if (!tplId) {
+                              if (pendingBrief.visualPrompt && pendingBrief.articlePrompt) tplId = "qriptopian_reading_sprint_v0";
+                              else if (pendingBrief.articlePrompt) tplId = "ai-article-draft";
+                              else tplId = "ai-image-generation";
                             }
-                            void startSeededSessionForTemplate(templateId, augmentedSeedData, { currentStep: 1 });
+                            void startSeededSessionForTemplate(tplId, augmentedSeedData, { currentStep: 1 });
                           }
                           setPendingBrief(null);
                           setPendingBriefEdited("");
@@ -7975,7 +7899,7 @@ export const ComposerStudio = () => {
                         className="rounded-lg border border-slate-700 px-3 py-1.5 text-[11px] text-slate-300 hover:bg-slate-800 transition"
                         onClick={() => { setPendingBrief(null); setPendingBriefEdited(""); setPendingBriefSelectedTitle(""); }}
                       >
-                        Keep editing with Marketa
+                        Keep editing
                       </button>
                     </div>
                   </div>
@@ -8631,33 +8555,12 @@ export const ComposerStudio = () => {
                       <div className={summaryCardClass}>
                         <div className="mb-2 text-xs uppercase tracking-widest text-slate-400">Experience Snapshot</div>
                         <div className="grid gap-2 text-sm text-slate-200">
-                          {summary.map((item) =>
-                            item.stepId && item.fieldId ? (
-                              <div key={item.label} className="flex flex-col gap-1">
-                                <span className="text-xs text-slate-400">{item.label}</span>
-                                {item.fieldId === "goal" ? (
-                                  <textarea
-                                    value={stepData?.intent_timebox?.[item.fieldId] ?? mergedData?.intent_timebox?.[item.fieldId] ?? item.value}
-                                    onChange={(e) => updateField(item.stepId!, item.fieldId!, e.target.value)}
-                                    rows={3}
-                                    className="w-full resize-none rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-fuchsia-500/60"
-                                  />
-                                ) : (
-                                  <input
-                                    type="text"
-                                    value={stepData?.intent_timebox?.[item.fieldId] ?? mergedData?.intent_timebox?.[item.fieldId] ?? item.value}
-                                    onChange={(e) => updateField(item.stepId!, item.fieldId!, e.target.value)}
-                                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-fuchsia-500/60"
-                                  />
-                                )}
-                              </div>
-                            ) : (
-                              <div key={item.label} className="flex items-center justify-between gap-3">
-                                <span className="text-slate-400">{item.label}</span>
-                                <span className="text-right text-slate-200">{item.value}</span>
-                              </div>
-                            )
-                          )}
+                          {summary.map((item) => (
+                            <div key={item.label} className="flex items-center justify-between gap-3">
+                              <span className="text-slate-400">{item.label}</span>
+                              <span className="text-right text-slate-200">{item.value}</span>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     )}
@@ -12768,7 +12671,6 @@ export const ComposerStudio = () => {
                   <div className="mb-1 flex items-center justify-between">
                     <label className="text-xs text-slate-400">Intent / Message</label>
                     <div className="flex items-center gap-1.5">
-                      {/* Mic button — starts Marketa, disabled while active */}
                       <button
                         type="button"
                         onClick={() => {
@@ -12776,11 +12678,7 @@ export const ComposerStudio = () => {
                           void toggleMarketa();
                         }}
                         disabled={vapiState !== "idle" && vapiState !== "error"}
-                        title={
-                          vapiState === "error" ? "Voice unavailable — tap to dismiss"
-                            : vapiState === "idle" ? "Start voice with Marketa"
-                            : "Marketa active"
-                        }
+                        title={vapiState === "error" ? "Voice unavailable — tap to dismiss" : vapiState === "idle" ? "Start voice with Marketa" : "Marketa active"}
                         className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all disabled:cursor-not-allowed ${
                           vapiState === "idle"
                             ? "border-slate-700 bg-slate-800/60 text-slate-400 hover:border-fuchsia-500/60 hover:text-fuchsia-300"
@@ -12805,7 +12703,6 @@ export const ComposerStudio = () => {
                           <><Mic className="h-3 w-3 animate-pulse" /><span>Listening</span></>
                         )}
                       </button>
-                      {/* Deterministic STOP button — only visible while active */}
                       {vapiState !== "idle" && vapiState !== "error" && (
                         <button
                           type="button"
@@ -12818,7 +12715,6 @@ export const ComposerStudio = () => {
                       )}
                     </div>
                   </div>
-                  {/* Pending intent approval panel */}
                   {pendingVoicePrompt !== null && (
                     <div className="mb-2 space-y-2 rounded-lg border border-fuchsia-500/30 bg-fuchsia-500/10 p-3">
                       <p className="text-[10px] uppercase tracking-wider text-fuchsia-400/70">Consolidated intent — review before sending</p>
