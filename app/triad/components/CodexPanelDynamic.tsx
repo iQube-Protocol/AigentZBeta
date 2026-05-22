@@ -625,6 +625,22 @@ export default function CodexPanelDynamic({
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    {/* Welcome <persona> — pinned to the cartridge header row,
+                        always visible above all tabs, sits immediately to
+                        the left of the theme toggle. Falls back to nothing
+                        when no active persona is resolved. */}
+                    {activePersonaLabel && (
+                      <div
+                        className={`hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-medium whitespace-nowrap ${
+                          isDark
+                            ? `border-${accentColor}-500/30 bg-${accentColor}-500/10 text-${accentColor}-200`
+                            : `border-${accentColor}-300 bg-${accentColor}-50 text-${accentColor}-700`
+                        }`}
+                        title={`Active persona: ${activePersonaLabel}`}
+                      >
+                        Welcome, {activePersonaLabel}
+                      </div>
+                    )}
                     {/* Theme toggle */}
                     <button
                       type="button"
@@ -701,6 +717,32 @@ export default function CodexPanelDynamic({
                       );
                     })}
                   </div>
+                ) : activeSubTabs.length > 0 ? (
+                  /* Single-tab group with subTabs (e.g. Order of Metayé) —
+                     render the sub-sub-tabs here on the same row as the
+                     breadcrumb instead of in a separate row below, so the
+                     layout matches multi-sibling groups like aigentMe. */
+                  <div className="flex gap-1 flex-1 min-w-0 overflow-x-auto no-scrollbar">
+                    {activeSubTabs.map((sub) => {
+                      const isActive = (activeSubSubTab?.slug ?? activeSubTabs[0].slug) === sub.slug;
+                      const Icon = getIconComponent(sub.metadata?.icon || 'Circle');
+                      return (
+                        <button
+                          key={sub.id}
+                          onClick={() => setActiveSubSubTabSlug(sub.slug)}
+                          className={`flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium transition-all whitespace-nowrap rounded-md flex-shrink-0 ${
+                            isActive
+                              ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/25 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
+                              : isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+                          }`}
+                          title={sub.metadata?.description}
+                        >
+                          <Icon className="w-3 h-3 flex-shrink-0" />
+                          {sub.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 ) : (
                   <div ref={setSubHeaderSlotEl} className="flex gap-1 flex-1 min-w-0 overflow-x-auto no-scrollbar items-center" />
                 )}
@@ -772,33 +814,11 @@ export default function CodexPanelDynamic({
         )}
 
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-          {activeTab && activeSubTabs.length > 0 && (() => {
-            const accentColor = codex.metadata.color || 'indigo';
-            const isDark = resolvedTheme === 'dark';
-            return (
-              <div className={`flex-shrink-0 border-b px-4 py-1 flex items-center gap-1 overflow-x-auto no-scrollbar ${isDark ? 'border-white/[0.04] bg-white/[0.01]' : 'border-slate-200 bg-slate-50/50'}`}>
-                {activeSubTabs.map((sub) => {
-                  const isActive = (activeSubSubTab?.slug ?? activeSubTabs[0].slug) === sub.slug;
-                  const Icon = getIconComponent(sub.metadata?.icon || 'Circle');
-                  return (
-                    <button
-                      key={sub.id}
-                      onClick={() => setActiveSubSubTabSlug(sub.slug)}
-                      className={`flex items-center gap-1 px-2.5 py-0.5 text-[10px] font-medium transition-all whitespace-nowrap rounded shrink-0 ${
-                        isActive
-                          ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/20 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
-                          : isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
-                      }`}
-                      title={sub.metadata?.description}
-                    >
-                      <Icon className="w-3 h-3 flex-shrink-0" />
-                      {sub.label}
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })()}
+          {/* Sub-sub-tabs row removed — sub-tabs now render inline on the
+              sub-header row above (next to the breadcrumb) to match the
+              aigentMe layout convention. The render path is conditional on
+              `activeGroup && activeGroupSubTabs.length > 1` (siblings) or
+              `activeSubTabs.length > 0` (single-tab group with subTabs). */}
           <div className="flex-1 min-h-0 overflow-y-auto">
             {activeTab && (
               <SubHeaderSlotContext.Provider value={subHeaderSlotEl}>
