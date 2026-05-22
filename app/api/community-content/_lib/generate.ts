@@ -167,6 +167,7 @@ export async function generateImage(prompt: string): Promise<string | null> {
 // ── Q¢ ledger helpers ────────────────────────────────────────────────────────
 
 import { createQcPaymentIntent, type QcPaymentIntent } from './qcPaymentIntent';
+import { attemptCustodialSettlement } from './custodialSettlement';
 
 export async function debitQc(
   supabase: SupabaseClient,
@@ -180,31 +181,74 @@ export async function debitQc(
 > {
   if (amount <= 0) return { ok: true, txId: 'zero-cost' };
 
-  const { data: rows, error: fetchError } = await supabase
-    .from('qc_balances')
-    .select('id, balance')
-    .eq('persona_id', personaId)
-    .eq('currency', 'base_qc')
-    .order('balance', { ascending: false });
+  const fetchBalance = async () => {
+    const { data, error } = await supabase
+      .from('qc_balances')
+      .select('id, balance')
+      .eq('persona_id', personaId)
+      .eq('currency', 'base_qc')
+      .order('balance', { ascending: false });
+    if (error) return { error: error.message, rows: [], total: 0 };
+    const rows = data ?? [];
+    const total = rows.reduce(
+      (sum, r) => sum + Number((r as { balance: number }).balance),
+      0,
+    );
+    return { rows, total, error: null as string | null };
+  };
 
-  if (fetchError) return { ok: false, error: fetchError.message, status: 500 };
+  let { rows, total, error: fetchError } = await fetchBalance();
+  if (fetchError) return { ok: false, error: fetchError, status: 500 };
 
-  const total = (rows ?? []).reduce((sum, r) => sum + Number((r as { balance: number }).balance), 0);
   if (total < amount) {
-    // DVN Q¢ balance (ICP-anchored ledger) can't cover — emit an
-    // x402-shaped Mainnet Q¢ payment intent so the client can settle
-    // via the user's external wallet (Base Sepolia QCT transfer to
-    // MoneyPenny treasury). The settle endpoint will verify the
-    // Mainnet receipt and credit DVN. NB: DVN is NOT off-chain — it's
-    // an ICP-anchored ledger that should eventually run in 1:1 parity
-    // with Mainnet via deferred minting / batch reconciliation.
-    const payment = await createQcPaymentIntent(supabase, personaId, amount, reason, referenceId);
-    return {
-      ok: false,
-      error: `Insufficient Q¢ balance. Have ${total}, need ${amount}.`,
-      status: 402,
-      payment,
-    };
+    // DVN can't cover. The CANONICAL/ATOMIC path is to settle the
+    // shortfall from the persona's custodial wallet (agent_keys.evm_address)
+    // — server signs, no user prompt, DVN credited, debit proceeds. Falls
+    // back to the x402 external-wallet flow only when:
+    //   • the persona has no custodial row in agent_keys, OR
+    //   • the custodial wallet itself doesn't have enough QCT.
+    const shortfall = amount - total;
+    const settled = await attemptCustodialSettlement(
+      supabase,
+      personaId,
+      shortfall,
+      reason,
+      referenceId,
+    );
+
+    if (settled.ok) {
+      // Re-fetch — DVN was just credited by the settlement helper.
+      const refetched = await fetchBalance();
+      if (refetched.error) {
+        return { ok: false, error: refetched.error, status: 500 };
+      }
+      rows = refetched.rows;
+      total = refetched.total;
+      // Fall through to the standard DVN debit loop below.
+    } else if (settled.reason === 'no_custodial' || settled.reason === 'insufficient_custodial') {
+      // External-wallet fallback (x402). Emit the payment-intent envelope
+      // so RemixDialog surfaces the "Pay via Base" prompt.
+      const payment = await createQcPaymentIntent(
+        supabase,
+        personaId,
+        amount,
+        reason,
+        referenceId,
+      );
+      return {
+        ok: false,
+        error: `Insufficient Q¢ balance. Have ${total}, need ${amount}.`,
+        status: 402,
+        payment,
+      };
+    } else {
+      // Genuine system error during custodial settlement — surface 500.
+      return {
+        ok: false,
+        error: settled.error || 'custodial settlement failed',
+        status: 500,
+      };
+    }
   }
 
   let remaining = amount;
