@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-21T22:47:36.169Z",
+  "last_updated": "2026-05-22T17:30:08.352Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "bbaff669de9a0ff92090011f6632a5bd69379f8e",
-  "latest_commit_short": "bbaff66",
-  "latest_commit_title": "fix activation toggle: explicit SELECT→INSERT/UPDATE (PostgREST upsert can't target partial unique index)",
+  "latest_commit": "5b8f9fb2c5efd69f53aa5ea040b2bfdfc4cbdd1f",
+  "latest_commit_short": "5b8f9fb",
+  "latest_commit_title": "add STT mic affordance to compose modals and expGuide textareas",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5b8f9fb",
+      "full_sha": "5b8f9fb2c5efd69f53aa5ea040b2bfdfc4cbdd1f",
+      "title": "add STT mic affordance to compose modals and expGuide textareas",
+      "author": "Claude",
+      "timestamp": "2026-05-22T16:48:23Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-5b8f9fb.md"
+    },
     {
       "sha": "bbaff66",
       "full_sha": "bbaff669de9a0ff92090011f6632a5bd69379f8e",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-26T00:35:14Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-e621d27.md"
-    },
-    {
-      "sha": "12088cb",
-      "full_sha": "12088cb4183fbf587378e975cfc55fe7440c9d47",
-      "title": "add pipeline diagnostics tab to composer studio analysis panel",
-      "author": "Claude",
-      "timestamp": "2026-03-26T00:35:04Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-12088cb.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

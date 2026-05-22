@@ -41,6 +41,10 @@ export interface QcPaymentIntent {
   amountQc: number;
   currency: 'QCT';
   deadline: number;
+  /** Current DVN Q¢ balance for the persona — drives the client-side
+      fallback chain (external wallet → DVN → buy Q¢). When dvnAvailable
+      >= amountQc the client can offer a "Pay from DVN" alternative. */
+  dvnAvailable: number;
 }
 
 function tokenAddress(): string {
@@ -77,6 +81,20 @@ export async function createQcPaymentIntent(
   referenceId: string,
 ): Promise<QcPaymentIntent> {
   const intentId = `qc-intent-${Date.now()}-${randomBytes(6).toString('hex')}`;
+
+  // Read the persona's current DVN balance so the client knows whether
+  // a DVN-fallback is viable when the external wallet path can't be
+  // used (no wallet, insufficient EVM balance, network fail).
+  const { data: balRows } = await supabase
+    .from('qc_balances')
+    .select('balance')
+    .eq('persona_id', personaId)
+    .eq('currency', 'base_qc');
+  const dvnAvailable = (balRows ?? []).reduce(
+    (sum, r) => sum + Number((r as { balance: number }).balance),
+    0,
+  );
+
   const intent: QcPaymentIntent = {
     intentId,
     asset: 'QCT',
@@ -87,6 +105,7 @@ export async function createQcPaymentIntent(
     amountQc: qcAmount,
     currency: 'QCT',
     deadline: Math.floor(Date.now() / 1000) + DEADLINE_SECONDS,
+    dvnAvailable,
   };
 
   // Persist as a pending row so the /settle endpoint can recover the

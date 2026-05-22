@@ -71,6 +71,9 @@ interface QcPaymentIntent {
   amountQc: number;     // user-facing Q¢ cents
   currency: 'QCT';
   deadline: number;
+  /** Current DVN balance — when this is >= amountQc the client offers a
+      "Pay from DVN balance" alternative to the external-wallet flow. */
+  dvnAvailable: number;
 }
 
 interface Props {
@@ -95,6 +98,10 @@ interface Props {
   onPublished?: (content: GeneratedContent) => void;
   /** Called when an unauthenticated user clicks the sign-in CTA. */
   onSignInRequest?: () => void;
+  /** Called when the user clicks "Connect wallet" or "Buy Q¢" in the
+      payment-intent panel. Host should open the wallet drawer to the
+      Connections tab (where the user can connect or top up). */
+  onConnectWallet?: () => void;
   /**
    * 'modal' (default): renders as a fixed-position overlay dialog.
    * 'inline': renders just the body in-flow — host provides the surrounding
@@ -118,6 +125,7 @@ export function RemixDialog({
   onClose,
   onPublished,
   onSignInRequest,
+  onConnectWallet,
   variant = 'modal',
 }: Props) {
   const [skill, setSkill] = useState<Skill>("article");
@@ -148,7 +156,21 @@ export function RemixDialog({
   const [paymentIntent, setPaymentIntent] = useState<QcPaymentIntent | null>(null);
   const [paymentPending, setPaymentPending] = useState<null | "sending" | "verifying">(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  /** Set when /generate returned needsBuyQc — user explicitly chose DVN
+      payment but their DVN balance also can't cover. Drives the
+      "Buy more Q¢" CTA in the panel. */
+  const [needsBuyQc, setNeedsBuyQc] = useState(false);
   const wallet = useExternalWallet();
+  // After the user connects a wallet from the drawer, the dialog's
+  // own useExternalWallet instance doesn't auto-pick up the session
+  // until it polls. When the payment panel is showing AND no wallet
+  // is connected yet, refresh on a short interval so we adopt the
+  // session within ~1s of the user returning to the dialog.
+  useEffect(() => {
+    if (!paymentIntent || wallet.address) return;
+    const id = setInterval(() => { wallet.refresh(); }, 1000);
+    return () => clearInterval(id);
+  }, [paymentIntent, wallet]);
 
   // Hydrate state from props on open
   useEffect(() => {
@@ -167,6 +189,7 @@ export function RemixDialog({
     setPaymentIntent(null);
     setPaymentPending(null);
     setPaymentError(null);
+    setNeedsBuyQc(false);
   }, [open, initialTitle, initialPrompt]);
 
   // Fetch source ownership state when dialog opens with a sourceExperienceId.
@@ -222,7 +245,7 @@ export function RemixDialog({
     return () => clearInterval(id);
   }, [generated]);
 
-  const submit = useCallback(async () => {
+  const submit = useCallback(async (paymentMode: 'auto' | 'dvn' = 'auto') => {
     if (SIGNIN_GATING_ENABLED && !personaId) { setError("Sign in to remix"); return; }
     if (!prompt.trim()) { setError("Prompt is required"); return; }
     setGenerating(true);
@@ -245,6 +268,7 @@ export function RemixDialog({
           prompt: prompt.trim(),
           title: title.trim() || null,
           sourceExperienceId: sourceExperienceId || null,
+          paymentMode,
         }),
         personaIdHint: personaId ?? undefined,
       });
@@ -256,13 +280,22 @@ export function RemixDialog({
         return;
       }
       if (!res.ok || !j.ok) {
-        // 402 with a payment envelope → DVN was insufficient. Stash the
-        // intent so the PaymentIntentPanel can drive the on-chain flow.
-        // Suppress the raw "Insufficient Q¢" string — the payment UI is
-        // the explanation.
+        // 402 with `needsBuyQc` → user picked "Pay from DVN" but DVN
+        // can't cover. Flip the panel into buy-Q¢ mode by clearing the
+        // intent payment object and setting a top-up signal.
+        if (res.status === 402 && j.needsBuyQc) {
+          setPaymentIntent(null);
+          setNeedsBuyQc(true);
+          setPaymentError(typeof j.error === "string" ? j.error : "Top up Q¢ to continue.");
+          return;
+        }
+        // 402 with a payment envelope → DVN was insufficient AND custodial
+        // settlement wasn't available. Stash the intent so the panel can
+        // drive the user-facing fallback chain (external wallet → DVN → buy Q¢).
         if (res.status === 402 && j.payment && typeof j.payment === "object") {
           setPaymentIntent(j.payment as unknown as QcPaymentIntent);
           setPaymentError(null);
+          setNeedsBuyQc(false);
           return;
         }
         setError(typeof j.error === "string" ? j.error : `Generation failed (${res.status})`);
@@ -526,7 +559,18 @@ export function RemixDialog({
             pending={paymentPending}
             error={paymentError}
             onPay={payWithWallet}
-            onCancel={() => { setPaymentIntent(null); setPaymentError(null); setPaymentPending(null); }}
+            onPayFromDvn={() => { setPaymentIntent(null); setPaymentError(null); void submit('dvn'); }}
+            onConnectWallet={onConnectWallet}
+            onCancel={() => { setPaymentIntent(null); setPaymentError(null); setPaymentPending(null); setNeedsBuyQc(false); }}
+          />
+        )}
+
+        {/* DVN can't cover either — surface a Buy Q¢ CTA */}
+        {needsBuyQc && !paymentIntent && !generated && (
+          <BuyQcPanel
+            error={paymentError}
+            onBuyQc={onConnectWallet}
+            onCancel={() => { setNeedsBuyQc(false); setPaymentError(null); }}
           />
         )}
 
@@ -595,7 +639,7 @@ export function RemixDialog({
               ) : (
                 <button
                   type="button"
-                  onClick={submit}
+                  onClick={() => void submit()}
                   disabled={generating || !prompt.trim()}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-500/25 disabled:opacity-40"
                 >
@@ -715,7 +759,17 @@ export function RemixDialog({
               pending={paymentPending}
               error={paymentError}
               onPay={payWithWallet}
-              onCancel={() => { setPaymentIntent(null); setPaymentError(null); setPaymentPending(null); }}
+              onPayFromDvn={() => { setPaymentIntent(null); setPaymentError(null); void submit('dvn'); }}
+              onConnectWallet={onConnectWallet}
+              onCancel={() => { setPaymentIntent(null); setPaymentError(null); setPaymentPending(null); setNeedsBuyQc(false); }}
+            />
+          )}
+
+          {needsBuyQc && !paymentIntent && !generated && (
+            <BuyQcPanel
+              error={paymentError}
+              onBuyQc={onConnectWallet}
+              onCancel={() => { setNeedsBuyQc(false); setPaymentError(null); }}
             />
           )}
 
@@ -791,7 +845,7 @@ export function RemixDialog({
               ) : (
                 <button
                   type="button"
-                  onClick={submit}
+                  onClick={() => void submit()}
                   disabled={generating || !prompt.trim()}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-500/25 disabled:opacity-40"
                 >
@@ -1143,6 +1197,8 @@ function PaymentIntentPanel({
   pending,
   error,
   onPay,
+  onPayFromDvn,
+  onConnectWallet,
   onCancel,
 }: {
   intent: QcPaymentIntent;
@@ -1150,6 +1206,8 @@ function PaymentIntentPanel({
   pending: null | "sending" | "verifying";
   error: string | null;
   onPay: () => void;
+  onPayFromDvn: () => void;
+  onConnectWallet?: () => void;
   onCancel: () => void;
 }) {
   const chainName =
@@ -1161,6 +1219,7 @@ function PaymentIntentPanel({
     `Chain ${intent.chainId}`;
   const connected = !!wallet.address;
   const wrongChain = connected && wallet.chainId !== intent.chainId;
+  const dvnCanCover = intent.dvnAvailable >= intent.amountQc;
 
   return (
     <div className="mb-3 rounded-xl border border-indigo-500/30 bg-indigo-950/30 p-3 space-y-2.5">
@@ -1168,19 +1227,29 @@ function PaymentIntentPanel({
         <Coins className="h-4 w-4 text-indigo-400 shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-indigo-200">
-            Pay {intent.amountQc} Q¢ on {chainName}
+            Payment required — {intent.amountQc} Q¢
           </p>
           <p className="text-[11px] text-indigo-200/70 leading-snug mt-0.5">
-            Your DVN balance is short. Sign a {intent.amountQc} QCT transfer
-            from your wallet to the treasury and we'll credit your Q¢ balance
-            instantly.
+            Choose how to pay: sign a {intent.amountQc} QCT transfer on
+            {' '}{chainName} from your connected wallet, or pay from your
+            DVN Q¢ balance ({intent.dvnAvailable.toLocaleString()} Q¢
+            {dvnCanCover ? ' — sufficient' : ' — insufficient'}).
           </p>
         </div>
       </div>
 
       {!connected ? (
-        <div className="text-[11px] text-amber-200 bg-amber-500/10 border border-amber-500/25 rounded px-2.5 py-1.5">
-          Connect an EVM wallet from the wallet drawer, then return here.
+        <div className="rounded border border-amber-500/25 bg-amber-500/10 px-2.5 py-1.5 flex items-center justify-between gap-2 flex-wrap">
+          <span className="text-[11px] text-amber-200">No EVM wallet connected.</span>
+          {onConnectWallet && (
+            <button
+              type="button"
+              onClick={onConnectWallet}
+              className="text-[11px] font-semibold text-amber-100 hover:text-white underline underline-offset-2"
+            >
+              Open wallet drawer →
+            </button>
+          )}
         </div>
       ) : wrongChain ? (
         <div className="text-[11px] text-amber-200 bg-amber-500/10 border border-amber-500/25 rounded px-2.5 py-1.5">
@@ -1194,7 +1263,7 @@ function PaymentIntentPanel({
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-2 pt-1">
+      <div className="flex items-center justify-between gap-2 pt-1 flex-wrap">
         <button
           type="button"
           onClick={onCancel}
@@ -1203,24 +1272,94 @@ function PaymentIntentPanel({
         >
           Cancel
         </button>
-        <button
-          type="button"
-          onClick={onPay}
-          disabled={pending !== null || !connected}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/15 px-3 py-1.5 text-xs font-semibold text-indigo-100 hover:bg-indigo-500/25 disabled:opacity-40"
-        >
-          {pending === "sending" ? (
-            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Awaiting wallet…</>
-          ) : pending === "verifying" ? (
-            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Verifying tx…</>
-          ) : (
-            <><Coins className="h-3.5 w-3.5" /> Pay {intent.amountQc} Q¢</>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* DVN fallback — primary CTA when no wallet OR when DVN can
+              cover the full cost. Always offered as an alternative even
+              if wallet is connected. */}
+          {dvnCanCover && (
+            <button
+              type="button"
+              onClick={onPayFromDvn}
+              disabled={pending !== null}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-100 hover:bg-emerald-500/20 disabled:opacity-40"
+              title={`Use ${intent.amountQc} Q¢ from your DVN balance`}
+            >
+              <Coins className="h-3.5 w-3.5" />
+              Pay {intent.amountQc} Q¢ from DVN
+            </button>
           )}
-        </button>
+          {/* External wallet — atomic Mainnet path. Disabled until wallet
+              is connected; clicking 'Open wallet drawer' above resolves it. */}
+          <button
+            type="button"
+            onClick={onPay}
+            disabled={pending !== null || !connected}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/15 px-3 py-1.5 text-xs font-semibold text-indigo-100 hover:bg-indigo-500/25 disabled:opacity-40"
+            title={!connected ? 'Connect a wallet to enable Mainnet payment' : undefined}
+          >
+            {pending === "sending" ? (
+              <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Awaiting wallet…</>
+            ) : pending === "verifying" ? (
+              <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Verifying tx…</>
+            ) : (
+              <><Coins className="h-3.5 w-3.5" /> Pay {intent.amountQc} Q¢ on {chainName}</>
+            )}
+          </button>
+        </div>
       </div>
       <p className="text-[10px] text-slate-500 font-mono break-all">
         Treasury: {intent.payTo.slice(0, 10)}…{intent.payTo.slice(-6)} · Token: {intent.tokenAddress.slice(0, 10)}…
       </p>
+    </div>
+  );
+}
+
+// ─── Buy Q¢ panel — terminal state of the fallback chain ────────────────────
+
+function BuyQcPanel({
+  error,
+  onBuyQc,
+  onCancel,
+}: {
+  error: string | null;
+  onBuyQc?: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="mb-3 rounded-xl border border-amber-500/30 bg-amber-950/30 p-3 space-y-2.5">
+      <div className="flex items-start gap-2.5">
+        <Coins className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-amber-200">Not enough Q¢ to continue</p>
+          <p className="text-[11px] text-amber-200/70 leading-snug mt-0.5">
+            Your DVN balance is too low and no Mainnet payment was made.
+            Top up your Q¢ to keep remixing.
+          </p>
+        </div>
+      </div>
+
+      {error && (
+        <div className="text-[11px] text-amber-200/70 leading-snug">{error}</div>
+      )}
+
+      <div className="flex items-center justify-between gap-2 pt-1">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="text-[11px] text-slate-400 hover:text-slate-200"
+        >
+          Cancel
+        </button>
+        {onBuyQc && (
+          <button
+            type="button"
+            onClick={onBuyQc}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-100 hover:bg-amber-500/25"
+          >
+            <Coins className="h-3.5 w-3.5" /> Buy more Q¢
+          </button>
+        )}
+      </div>
     </div>
   );
 }

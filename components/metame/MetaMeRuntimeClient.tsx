@@ -3197,6 +3197,7 @@ export default function MetaMeRuntimeClient() {
                   sourceImageUrl={resolveCapsuleCoverImage(content) || null}
                   sourceDescription={content.description || null}
                   onSignInRequest={() => setWalletDrawerOpen(true)}
+                  onConnectWallet={() => { setWalletInitialTab("wallet"); setWalletDrawerOpen(true); }}
                 />
               );
             })()}
