@@ -19,7 +19,7 @@ import { useDesignQubeTheme } from "@/components/metame/useDesignQubeTheme";
 import { useCodexList } from "@/app/hooks/useCodexConfig";
 import type { CodexListItem } from "@/types/codex";
 import type { DesignQube, DesignQubeThemeMode } from "@/types/designQube";
-import { CodexCopilotLayer } from "@/app/components/codex/CodexCopilotLayer";
+import { CodexCopilotLayer, type CopilotMessage } from "@/app/components/codex/CodexCopilotLayer";
 import { AgenticDesignParityPanel } from "@/components/composer/AgenticDesignParityPanel";
 import SurfacePlanningPanel from "@/components/composer/SurfacePlanningPanel";
 import DVNReceiptsPanel from "@/components/composer/DVNReceiptsPanel";
@@ -1884,7 +1884,7 @@ export const ComposerStudio = () => {
   const [pendingBrief, setPendingBrief] = useState<ConsolidatedBrief | null>(null);
   const [pendingBriefEdited, setPendingBriefEdited] = useState("");
   const [pendingBriefSelectedTitle, setPendingBriefSelectedTitle] = useState<string>("");
-  const copilotConversationRef = useRef<{ role: string; content: unknown }[]>([]);
+  const copilotConversationRef = useRef<CopilotMessage[]>([]);
   const isStudioExpanded = true;
   const [experiencePanelTab, setExperiencePanelTab] = useState("template");
   const [resourcesPanelTab, setResourcesPanelTab] = useState("experience");
