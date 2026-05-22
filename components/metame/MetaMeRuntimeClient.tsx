@@ -2975,6 +2975,7 @@ export default function MetaMeRuntimeClient() {
               className="w-full border-0"
               style={{ height: frameHeight }}
               loading="lazy"
+              allow="microphone; clipboard-read; clipboard-write"
             />
           </div>
           <p className="text-[11px] text-slate-400">
@@ -6230,6 +6231,7 @@ export default function MetaMeRuntimeClient() {
             src={`/triad/embed/codex/${activeCartridgeOverlay.slug}?theme=dark&closable=0${activeCartridgeOverlay.initialTab ? `&tab=${encodeURIComponent(activeCartridgeOverlay.initialTab)}` : ''}`}
             title={`${activeCartridgeOverlay.title} Cartridge`}
             className="h-full w-full border-0"
+            allow="microphone; clipboard-read; clipboard-write"
           />
         </div>
       )}

@@ -25,44 +25,56 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const encoder = new TextEncoder();
-  const stateManager = getStateManager();
+  try {
+    const encoder = new TextEncoder();
+    const stateManager = getStateManager();
 
-  const stream = new ReadableStream({
-    start(controller) {
-      // Send initial ready event
-      controller.enqueue(encoder.encode(`event: READY\ndata: {"personaId":"${personaId}"}\n\n`));
-
-      const unsubscribe = stateManager.addPersonaActionListener(personaId, (event) => {
+    const stream = new ReadableStream({
+      start(controller) {
         try {
-          const line = `event: ACTION\ndata: ${JSON.stringify(event.data)}\n\n`;
-          controller.enqueue(encoder.encode(line));
-        } catch {
-          // ignore closed stream
+          controller.enqueue(encoder.encode(`event: READY\ndata: {"personaId":"${personaId}"}\n\n`));
+        } catch (err) {
+          console.error('[persona-stream] initial enqueue failed:', err);
         }
-      });
 
-      const heartbeat = setInterval(() => {
-        try {
-          controller.enqueue(encoder.encode(`event: HEARTBEAT\ndata: {}\n\n`));
-        } catch {
+        const unsubscribe = stateManager.addPersonaActionListener(personaId, (event) => {
+          try {
+            const line = `event: ACTION\ndata: ${JSON.stringify(event.data)}\n\n`;
+            controller.enqueue(encoder.encode(line));
+          } catch {
+            // ignore closed stream
+          }
+        });
+
+        const heartbeat = setInterval(() => {
+          try {
+            controller.enqueue(encoder.encode(`event: HEARTBEAT\ndata: {}\n\n`));
+          } catch {
+            clearInterval(heartbeat);
+          }
+        }, 25000);
+
+        req.signal.addEventListener('abort', () => {
           clearInterval(heartbeat);
-        }
-      }, 25000);
+          unsubscribe();
+        });
+      },
+    });
 
-      req.signal.addEventListener('abort', () => {
-        clearInterval(heartbeat);
-        unsubscribe();
-      });
-    },
-  });
-
-  return new Response(stream, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
-      Connection: 'keep-alive',
-      'X-Accel-Buffering': 'no',
-    },
-  });
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+        'X-Accel-Buffering': 'no',
+      },
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[persona-stream] route failed for', personaId, msg);
+    return new Response(
+      JSON.stringify({ error: 'persona-stream-failed', detail: msg }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
 }

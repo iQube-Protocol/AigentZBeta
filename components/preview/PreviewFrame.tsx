@@ -153,6 +153,7 @@ export function PreviewFrame({
                 src={resolvedSrc}
                 className="w-full h-full min-h-[600px] border-0"
                 title="Preview"
+                allow="microphone; clipboard-read; clipboard-write"
                 onLoad={() => setIframeLoaded(true)}
                 onError={(e) => {
                   console.error("Preview iframe load error", e);
