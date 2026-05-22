@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-22T17:52:57.315Z",
+  "last_updated": "2026-05-22T17:56:53.023Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "8c3161468b4264bed3ac9e64413197db46ca1042",
-  "latest_commit_short": "8c31614",
-  "latest_commit_title": "add microphone to runtime iframe allow attr + log persona-stream errors",
+  "latest_commit": "290ddbf6c839a5c4290c148867f72467e8a47c6d",
+  "latest_commit_short": "290ddbf",
+  "latest_commit_title": "disable Safari email AutoFill on aigentMe compose prompt inputs",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "290ddbf",
+      "full_sha": "290ddbf6c839a5c4290c148867f72467e8a47c6d",
+      "title": "disable Safari email AutoFill on aigentMe compose prompt inputs",
+      "author": "Claude",
+      "timestamp": "2026-05-22T17:54:40Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-290ddbf.md"
+    },
     {
       "sha": "8c31614",
       "full_sha": "8c3161468b4264bed3ac9e64413197db46ca1042",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-26T00:35:23Z",
       "type": "deploy",
       "brief": "items/build_/COMMITS/COMMIT-e81d583.md"
-    },
-    {
-      "sha": "c82e621",
-      "full_sha": "c82e6210a9f88fe88d8170cf0139e77316d6d15e",
-      "title": "submit DVN receipt on pipeline completion via qubetalkReceiptPipeline",
-      "author": "Claude",
-      "timestamp": "2026-03-26T00:35:19Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c82e621.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

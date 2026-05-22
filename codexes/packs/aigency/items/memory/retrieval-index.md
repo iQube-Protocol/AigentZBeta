@@ -889,3 +889,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-8c31614.md](../build_/COMMITS/COMMIT-8c31614.md)
 - Message: add microphone to runtime iframe allow attr + log persona-stream errors
+
+## Commit `290ddbf` — 2026-05-22T17:54:40Z
+- Type: `push`
+- Brief: [COMMIT-290ddbf.md](../build_/COMMITS/COMMIT-290ddbf.md)
+- Message: disable Safari email AutoFill on aigentMe compose prompt inputs
