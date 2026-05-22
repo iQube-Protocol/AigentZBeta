@@ -71,11 +71,15 @@ export function MyCanvasTab({ personaId, theme = "dark" }: Props) {
     setEditorBody(selected.bodyMd);
   }, [selectedId, selected]);
 
-  // The list endpoint omits body_md to stay under Lambda's 6 MB payload
-  // limit (derived entries store full article bodies). Hydrate the full
-  // body when an entry is first selected and merge it back into the list.
+  // The list endpoint omits body_md and meta_json to stay under Lambda's
+  // 6 MB payload limit (derived entries store article bodies + base64
+  // image data URLs). Hydrate the full entry the first time it's selected
+  // and merge it back into the list state.
   useEffect(() => {
-    if (!personaId || !selected || selected.bodyMd) return;
+    if (!personaId || !selected) return;
+    const needsHydration =
+      !selected.bodyMd && Object.keys(selected.metaJson ?? {}).length === 0;
+    if (!needsHydration) return;
     let cancelled = false;
     (async () => {
       try {
