@@ -904,3 +904,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-cb8bfb4.md](../build_/COMMITS/COMMIT-cb8bfb4.md)
 - Message: opt embed routes in to microphone via Permissions-Policy + bridge to Lovable
+
+## Commit `bd16c01` — 2026-05-22T22:04:21Z
+- Type: `push`
+- Brief: [COMMIT-bd16c01.md](../build_/COMMITS/COMMIT-bd16c01.md)
+- Message: remix drafter (idea → title/article/image) + mic on remixer, customizer, aigentMe copilot
