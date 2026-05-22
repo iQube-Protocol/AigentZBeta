@@ -71,34 +71,14 @@ function entryRowToShape(row: DbEntryRow): CanvasEntry {
 export async function listEntries(personaId: string): Promise<CanvasEntry[]> {
   const admin = getSupabaseServer();
   if (!admin) return [];
-  // IMPORTANT: don't select body_md OR meta_json here. Derived experience
-  // entries store full article bodies (600–900 words) in body_md AND
-  // base64-encoded images (data:image/png;base64,...) in meta_json.imageUrl.
-  // A handful of remixes is enough to push the cumulative response past
-  // AWS Lambda's 6 MB payload limit (413). The detail panel reads the
-  // full entry via GET /api/mycanvas/entries/[id].
   const { data } = await admin
     .from('mycanvas_entries')
-    .select('id, persona_id, title, tags, visibility, entry_type, created_at, updated_at')
+    .select('*')
     .eq('persona_id', personaId)
     .order('updated_at', { ascending: false })
     .limit(100);
   if (!Array.isArray(data)) return [];
-  return (data as Array<Omit<DbEntryRow, 'body_md' | 'meta_json'>>).map((row) =>
-    entryRowToShape({ ...row, body_md: '', meta_json: {} }),
-  );
-}
-
-export async function getEntry(personaId: string, entryId: string): Promise<CanvasEntry | null> {
-  const admin = getSupabaseServer();
-  if (!admin) return null;
-  const { data } = await admin
-    .from('mycanvas_entries')
-    .select('*')
-    .eq('id', entryId)
-    .eq('persona_id', personaId)
-    .maybeSingle();
-  return data ? entryRowToShape(data as DbEntryRow) : null;
+  return (data as DbEntryRow[]).map(entryRowToShape);
 }
 
 export async function createEntry(
