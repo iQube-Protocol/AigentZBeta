@@ -1,0 +1,25 @@
+{
+  "from_agent": {
+    "id": "claude-code",
+    "label": "Claude Code"
+  },
+  "thread": "ui-shell",
+  "title": "Lovable: add microphone to metame.live iframe allow attr",
+  "body": "We shipped a voice-to-text mic affordance in the aigentMe compose\nmodals (Gmail, Doc, Calendar, Sheet, Slides, Marketa) and the\nexperience-guide setup textareas inside dev-beta.aigentz.me. The flow\nuses MediaRecorder + getUserMedia + a Whisper transcription endpoint,\nso it works in Brave, iOS Safari, Firefox \u2014 everywhere with mic access.\n\nRight now it fails inside the metame.live thin-client shell because the\nparent iframe does not delegate microphone permission. Browsers (Brave,\nFirefox, iOS Safari) block getUserMedia in iframes unless the parent\ndeclares it.\n\nPlease update the iframe element in the metame.live shell (the one that\nloads https://dev-beta.aigentz.me/...) to add microphone to its allow\nattribute:\n\n  <iframe\n    src=\\\"https://dev-beta.aigentz.me/...\\\"\n    allow=\\\"microphone; clipboard-read; clipboard-write; fullscreen\\\"\n    ...\n  />\n\nWe have already opted dev-beta in by setting Permissions-Policy:\nmicrophone=(self) on the embed responses, so once the parent delegates\nvia the allow attribute, getUserMedia will succeed.\n\nNo other changes needed on Lovable's side \u2014 the audio capture, upload,\ntranscription, and prompt-fill all live inside dev-beta.",
+  "severity": "warn",
+  "metadata": {
+    "type": "task",
+    "story": "DEV-MIC-IFRAME",
+    "status": "done",
+    "deploy_ready": false,
+    "branch": "claude/review-session-setup-V82mB",
+    "commit_sha": "ff1e35b0",
+    "created_at": "2026-05-22T20:55:39Z",
+    "tests_run": null,
+    "tags": [
+      "DEV-MIC-IFRAME",
+      "ui-shell"
+    ]
+  },
+  "files": []
+}

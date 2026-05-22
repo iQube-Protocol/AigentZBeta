@@ -91,6 +91,12 @@ export function middleware(request: NextRequest) {
     response.headers.delete('x-frame-options');
     response.headers.set('Content-Security-Policy', EMBED_CSP);
 
+    // Opt embed routes in to microphone access. When the parent iframe
+    // delegates via allow="microphone", the browser still needs the
+    // embedded page to declare it accepts the permission. Without this
+    // header, Brave/Firefox block getUserMedia even when delegated.
+    response.headers.set('Permissions-Policy', 'microphone=(self)');
+
     return response;
   }
 
