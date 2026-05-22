@@ -12,12 +12,14 @@ function isEvmAddress(val: string): boolean {
 /**
  * GET /api/identity/resolve-recipient?q=<input>
  *
- * Resolves a recipient string to an EVM address for iQube minting.
+ * Resolves a recipient string to an EVM address.
  * Accepts:
- *   - 0x…          EVM address (pass-through, validated)
- *   - @knyt         Persona shorthand — looks up knyt_handle in persona tables
- *   - @qripto       Persona shorthand — looks up knyt_handle in qripto persona table
- *   - name@domain   Full FIO handle — resolves via FIO service
+ *   - 0x…                       EVM address (pass-through, validated)
+ *   - @knyt / @qripto / @name   Persona shorthand — looks up knyt_handle / fio_handle
+ *   - name@domain               Full FIO handle (any domain)
+ *   - <name> (bare)             Looks up agent_keys.agent_id / fio_handle
+ *   - did:iq:<32 hex>           Reinserts hyphens → persona_id → agent_keys
+ *   - <persona-uuid>            agent_keys.persona_id lookup
  *
  * Returns: { resolvedAddress, type, display }
  */
@@ -35,6 +37,14 @@ export async function GET(req: NextRequest) {
 
   // Normalise: strip leading @
   const normalised = q.startsWith("@") ? q.slice(1) : q;
+  // Local-part of a name@domain handle — useful when persona tables
+  // store the handle without the @domain suffix (e.g. fio_handle is
+  // 'devagent', input is 'devagent@qripto').
+  const localPart = normalised.includes("@") ? normalised.split("@")[0] : normalised;
+
+  // Operator diagnostic — surfaces in CloudWatch when a recipient
+  // fails to resolve, so we can see which forms were tried.
+  console.info('[resolve-recipient] looking up', { q, normalised, localPart });
 
   // ── Persona table lookup (for @knyt, @qripto, or any knyt_handle / fio_handle) ─
   const supabaseUrl = process.env.SUPABASE_URL;
@@ -43,30 +53,37 @@ export async function GET(req: NextRequest) {
   if (supabaseUrl && serviceKey) {
     const sb = createClient(supabaseUrl, serviceKey);
 
+    // Try the input three ways across both persona tables — exact full
+    // input, exact local-part (strips @domain), then loose %name% match
+    // — so 'devagent@qripto' hits a row whose handle is stored as just
+    // 'devagent', and vice versa.
+    const variants = Array.from(new Set([normalised, localPart, `%${localPart}%`]));
     for (const table of ["nakamoto_knyt_personas", "nakamoto_qripto_personas"] as const) {
-      try {
-        const { data } = await sb
-          .from(table)
-          .select("*")
-          .or(`knyt_handle.ilike.${normalised},fio_handle.ilike.${normalised}`)
-          .limit(1)
-          .maybeSingle();
+      for (const variant of variants) {
+        try {
+          const { data } = await sb
+            .from(table)
+            .select("*")
+            .or(`knyt_handle.ilike.${variant},fio_handle.ilike.${variant}`)
+            .limit(1)
+            .maybeSingle();
 
-        if (data) {
-          const row = data as Record<string, unknown>;
-          const evmAddress = row["EVM-Public-Key"] as string | null | undefined;
-          const fioHandle = row["fio_handle"] as string | null | undefined;
-          if (evmAddress && isEvmAddress(evmAddress)) {
-            return NextResponse.json({
-              resolvedAddress: evmAddress,
-              type: "persona",
-              display: `@${normalised}`,
-              fioHandle: fioHandle ?? null,
-            });
+          if (data) {
+            const row = data as Record<string, unknown>;
+            const evmAddress = row["EVM-Public-Key"] as string | null | undefined;
+            const fioHandle = row["fio_handle"] as string | null | undefined;
+            if (evmAddress && isEvmAddress(evmAddress)) {
+              return NextResponse.json({
+                resolvedAddress: evmAddress,
+                type: "persona",
+                display: `@${normalised}`,
+                fioHandle: fioHandle ?? null,
+              });
+            }
           }
+        } catch {
+          // continue to next variant / table
         }
-      } catch {
-        // continue to next table
       }
     }
 
@@ -89,14 +106,23 @@ export async function GET(req: NextRequest) {
       const uuidMatch = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(normalised);
       const candidatePersonaId = didUuid ?? (uuidMatch ? normalised : null);
 
-      // Try agent_id, then fio_handle (case-insensitive), then persona_id (if UUID).
+      // Try agent_id, then fio_handle (case-insensitive — full & local-
+      // part variants), then persona_id (if UUID or DID).
       let row: Record<string, unknown> | null = null;
-      {
-        const r = await sb.from('agent_keys').select('*').eq('agent_id', normalised).maybeSingle();
-        if (r.data) row = r.data as Record<string, unknown>;
+      const ids = Array.from(new Set([normalised, localPart]));
+      for (const id of ids) {
+        const r = await sb.from('agent_keys').select('*').eq('agent_id', id).maybeSingle();
+        if (r.data) { row = r.data as Record<string, unknown>; break; }
       }
       if (!row) {
-        const r = await sb.from('agent_keys').select('*').ilike('fio_handle', normalised).maybeSingle();
+        for (const id of ids) {
+          const r = await sb.from('agent_keys').select('*').ilike('fio_handle', id).maybeSingle();
+          if (r.data) { row = r.data as Record<string, unknown>; break; }
+        }
+      }
+      if (!row) {
+        // Loose %name% match — covers handles stored with extra suffixes.
+        const r = await sb.from('agent_keys').select('*').ilike('fio_handle', `%${localPart}%`).maybeSingle();
         if (r.data) row = r.data as Record<string, unknown>;
       }
       if (!row && candidatePersonaId) {
@@ -140,9 +166,10 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  console.warn('[resolve-recipient] no match', { q, normalised, localPart });
   return NextResponse.json(
     {
-      error: `Cannot resolve "${q}" — enter a 0x EVM address, FIO handle (name@domain), or persona handle (@knyt, @qripto)`,
+      error: `Cannot resolve "${q}" — accepted: 0x EVM address, @persona handle, name@fio-domain, did:iq:<id>, or persona UUID.`,
     },
     { status: 404 },
   );
