@@ -23,6 +23,7 @@ import { SmartTriadProvider } from "@/app/components/content/SmartTriadProvider"
 import { SmartTriadSurfaces } from "@/app/components/content/SmartTriadSurfaces";
 import { personaFetch } from "@/utils/personaSpine";
 import { useActivations } from "@/services/activations/ActivationsContext";
+import { useActivePersona } from "@/app/hooks/useActivePersona";
 import { TabRenderer } from "./codex/TabRenderer";
 import { SubHeaderSlotContext } from "./codex/SubHeaderSlot";
 import { getIconComponent } from "./codex/iconMap";
@@ -130,6 +131,16 @@ export default function CodexPanelDynamic({
     acceptSwitch: acceptPersonaSwitch,
     dismiss: dismissPersonaGuard,
   } = useCartridgePersonaGuard(codexId);
+  // Canonical T1 surface for the header Welcome badge — gives us the
+  // user-chosen displayLabel or their own FIO handle, never a UUID
+  // fallback like personaDisplayNames does when the registry hasn't
+  // populated yet.
+  const { surface: activePersonaSurface } = useActivePersona();
+  type SurfaceWithFio = typeof activePersonaSurface & { ownFioHandle?: string };
+  const headerPersonaLabel =
+    activePersonaSurface?.displayLabel ??
+    (activePersonaSurface as SurfaceWithFio | null)?.ownFioHandle ??
+    null;
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(theme === 'light' ? 'light' : 'dark');
   const [marketaCopilotOpen, setMarketaCopilotOpen] = useState(false);
   const [knytCopilotOpen, setKnytCopilotOpen] = useState(false);
@@ -627,18 +638,20 @@ export default function CodexPanelDynamic({
                   <div className="flex items-center gap-2">
                     {/* Welcome <persona> — pinned to the cartridge header row,
                         always visible above all tabs, sits immediately to
-                        the left of the theme toggle. Falls back to nothing
-                        when no active persona is resolved. */}
-                    {activePersonaLabel && (
+                        the left of the theme toggle. Reads from the
+                        canonical T1 surface (displayLabel or ownFioHandle)
+                        so we never render a UUID fallback. Hidden when
+                        no active persona is resolved. */}
+                    {headerPersonaLabel && (
                       <div
                         className={`hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-medium whitespace-nowrap ${
                           isDark
                             ? `border-${accentColor}-500/30 bg-${accentColor}-500/10 text-${accentColor}-200`
                             : `border-${accentColor}-300 bg-${accentColor}-50 text-${accentColor}-700`
                         }`}
-                        title={`Active persona: ${activePersonaLabel}`}
+                        title={`Active persona: ${headerPersonaLabel}`}
                       >
-                        Welcome, {activePersonaLabel}
+                        Welcome, {headerPersonaLabel}
                       </div>
                     )}
                     {/* Theme toggle */}
