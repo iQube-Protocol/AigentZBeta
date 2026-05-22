@@ -4826,6 +4826,33 @@ export const ComposerStudio = () => {
     try {
       setIsCompleting(true);
       setSessionError(null);
+
+      // Flush any stepData overrides that weren't saved during normal step navigation
+      // (e.g. experience_name / goal edited in the Experience Snapshot panel while on
+      // the Customizer step — those live in stepData["intent_timebox"] but updateSession
+      // only saves stepData[currentStep.id]).
+      const crossStepOverrides = Object.fromEntries(
+        Object.entries(stepData).filter(([key, val]) =>
+          key !== (currentStep?.id ?? "") && Object.keys(val || {}).length > 0
+        )
+      );
+      if (Object.keys(crossStepOverrides).length > 0) {
+        const flushData = {
+          ...sessionData,
+          ...(currentStep ? { [currentStep.id]: stepValues } : {}),
+          ...crossStepOverrides,
+        };
+        await fetch(`/api/composer/sessions/${session.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            current_step: session.current_step ?? 0,
+            data: flushData,
+            status: session.status,
+          }),
+        });
+      }
+
       const res = await fetch(`/api/composer/sessions/${session.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -6300,10 +6327,10 @@ export const ComposerStudio = () => {
       return field?.name || fieldId;
     };
 
-    const list: Array<{ label: string; value: string }> = [];
+    const list: Array<{ label: string; value: string; stepId?: string; fieldId?: string }> = [];
     const intentStep = mergedData.intent_timebox || {};
-    if (intentStep.experience_name) list.push({ label: getLabel("intent_timebox", "experience_name"), value: intentStep.experience_name });
-    if (intentStep.goal) list.push({ label: getLabel("intent_timebox", "goal"), value: intentStep.goal });
+    if (intentStep.experience_name) list.push({ label: getLabel("intent_timebox", "experience_name"), value: intentStep.experience_name, stepId: "intent_timebox", fieldId: "experience_name" });
+    if (intentStep.goal) list.push({ label: getLabel("intent_timebox", "goal"), value: intentStep.goal, stepId: "intent_timebox", fieldId: "goal" });
     if (intentStep.time_available) list.push({ label: getLabel("intent_timebox", "time_available"), value: `${intentStep.time_available} min` });
     if (intentStep.depth) list.push({ label: getLabel("intent_timebox", "depth"), value: intentStep.depth });
 
@@ -8555,12 +8582,33 @@ export const ComposerStudio = () => {
                       <div className={summaryCardClass}>
                         <div className="mb-2 text-xs uppercase tracking-widest text-slate-400">Experience Snapshot</div>
                         <div className="grid gap-2 text-sm text-slate-200">
-                          {summary.map((item) => (
-                            <div key={item.label} className="flex items-center justify-between gap-3">
-                              <span className="text-slate-400">{item.label}</span>
-                              <span className="text-right text-slate-200">{item.value}</span>
-                            </div>
-                          ))}
+                          {summary.map((item) =>
+                            item.stepId && item.fieldId ? (
+                              <div key={item.label} className="flex flex-col gap-1">
+                                <span className="text-xs text-slate-400">{item.label}</span>
+                                {item.fieldId === "goal" ? (
+                                  <textarea
+                                    value={stepData?.intent_timebox?.[item.fieldId] ?? mergedData?.intent_timebox?.[item.fieldId] ?? item.value}
+                                    onChange={(e) => updateField(item.stepId!, item.fieldId!, e.target.value)}
+                                    rows={3}
+                                    className="w-full resize-none rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-fuchsia-500/60"
+                                  />
+                                ) : (
+                                  <input
+                                    type="text"
+                                    value={stepData?.intent_timebox?.[item.fieldId] ?? mergedData?.intent_timebox?.[item.fieldId] ?? item.value}
+                                    onChange={(e) => updateField(item.stepId!, item.fieldId!, e.target.value)}
+                                    className="w-full rounded-md border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-fuchsia-500/60"
+                                  />
+                                )}
+                              </div>
+                            ) : (
+                              <div key={item.label} className="flex items-center justify-between gap-3">
+                                <span className="text-slate-400">{item.label}</span>
+                                <span className="text-right text-slate-200">{item.value}</span>
+                              </div>
+                            )
+                          )}
                         </div>
                       </div>
                     )}
