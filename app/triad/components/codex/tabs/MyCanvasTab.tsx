@@ -54,6 +54,11 @@ export function MyCanvasTab({ personaId, theme = "dark" }: Props) {
   // re-hydrates from a clean slate.
   const hydratedRef = useRef<Set<string>>(new Set());
   useEffect(() => { hydratedRef.current = new Set(); }, [personaId]);
+  // Per-entry hydration state for visible diagnostics. Lets the right
+  // panel show whether a fetch is in flight, errored, or finished
+  // empty — so we can tell at a glance whether missing body content
+  // is "fetch never fired", "fetch failed", or "entry truly empty".
+  const [hydrationState, setHydrationState] = useState<Record<string, { status: "loading" | "ok" | "error"; code?: number }>>({});
 
   const fetchEntries = useCallback(async () => {
     if (!personaId) { setLoading(false); return; }
@@ -88,20 +93,31 @@ export function MyCanvasTab({ personaId, theme = "dark" }: Props) {
     if (!personaId || !selected) return;
     if (hydratedRef.current.has(selected.id)) return;
     hydratedRef.current.add(selected.id);
+    const targetId = selected.id;
+    setHydrationState((prev) => ({ ...prev, [targetId]: { status: "loading" } }));
     let cancelled = false;
     (async () => {
       try {
-        const res = await personaFetch(`/api/mycanvas/entries/${selected.id}`, { personaIdHint: personaId });
+        const res = await personaFetch(`/api/mycanvas/entries/${targetId}`, { personaIdHint: personaId });
         if (!res.ok) {
+          console.error("[MyCanvas] hydration failed", { entryId: targetId, status: res.status });
+          if (!cancelled) {
+            setHydrationState((prev) => ({ ...prev, [targetId]: { status: "error", code: res.status } }));
+          }
           // Allow a retry next time the user selects this entry.
-          hydratedRef.current.delete(selected.id);
+          hydratedRef.current.delete(targetId);
           return;
         }
         const data = (await res.json()) as { entry: CanvasEntry };
         if (cancelled || !data?.entry) return;
         setEntries((prev) => prev.map((e) => (e.id === data.entry.id ? data.entry : e)));
-      } catch {
-        hydratedRef.current.delete(selected.id);
+        setHydrationState((prev) => ({ ...prev, [targetId]: { status: "ok" } }));
+      } catch (err) {
+        console.error("[MyCanvas] hydration threw", { entryId: targetId, err });
+        if (!cancelled) {
+          setHydrationState((prev) => ({ ...prev, [targetId]: { status: "error" } }));
+        }
+        hydratedRef.current.delete(targetId);
       }
     })();
     return () => { cancelled = true; };
@@ -305,6 +321,7 @@ export function MyCanvasTab({ personaId, theme = "dark" }: Props) {
             <ExperienceDerivedPanel
               entry={selected}
               personaId={personaId ?? null}
+              hydration={hydrationState[selected.id] ?? null}
               inviteOpen={inviteOpenForId === selected.id}
               inviteInput={inviteInput}
               onInviteToggle={() => setInviteOpenForId(inviteOpenForId === selected.id ? null : selected.id)}
@@ -319,6 +336,7 @@ export function MyCanvasTab({ personaId, theme = "dark" }: Props) {
           ) : selected.entryType === "experience_origin" ? (
             <ExperienceOriginPanel
               entry={selected}
+              hydration={hydrationState[selected.id] ?? null}
               inviteOpen={inviteOpenForId === selected.id}
               inviteInput={inviteInput}
               onInviteToggle={() => setInviteOpenForId(inviteOpenForId === selected.id ? null : selected.id)}
@@ -532,6 +550,7 @@ function InviteBar({
 
 function ExperienceOriginPanel({
   entry,
+  hydration,
   inviteOpen,
   inviteInput,
   onInviteToggle,
@@ -541,7 +560,7 @@ function ExperienceOriginPanel({
   onDelete,
   onShare,
   onRemix,
-}: { entry: CanvasEntry } & ExperiencePanelActions) {
+}: { entry: CanvasEntry; hydration: { status: "loading" | "ok" | "error"; code?: number } | null } & ExperiencePanelActions) {
   const experienceId =
     typeof entry.metaJson.experienceId === "string" ? entry.metaJson.experienceId : null;
   const imageUrl =
@@ -573,6 +592,7 @@ function ExperienceOriginPanel({
       )}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         <h2 className="text-base font-semibold text-slate-100 leading-tight">{entry.title}</h2>
+        <HydrationIndicator hydration={hydration} />
         {imageUrl && (
           <img
             src={imageUrl}
@@ -585,11 +605,11 @@ function ExperienceOriginPanel({
           <article className="prose prose-invert prose-sm max-w-none text-slate-200 whitespace-pre-wrap text-sm leading-relaxed">
             {entry.bodyMd}
           </article>
-        ) : (
+        ) : hydration?.status !== "loading" ? (
           <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-[12px] text-amber-200/80 leading-relaxed">
             This is the source Experience Qube you remixed from. Visit the runtime to re-experience it.
           </div>
-        )}
+        ) : null}
         {experienceId && (
           <div className="text-[10px] text-slate-600 font-mono break-all">
             ref: {experienceId}
@@ -603,6 +623,7 @@ function ExperienceOriginPanel({
 function ExperienceDerivedPanel({
   entry,
   personaId,
+  hydration,
   inviteOpen,
   inviteInput,
   onInviteToggle,
@@ -616,6 +637,7 @@ function ExperienceDerivedPanel({
 }: {
   entry: CanvasEntry;
   personaId: string | null;
+  hydration: { status: "loading" | "ok" | "error"; code?: number } | null;
   onPublish: () => Promise<{ ok: boolean; error?: string }>;
 } & ExperiencePanelActions) {
   const imageUrl =
@@ -693,6 +715,7 @@ function ExperienceDerivedPanel({
           </div>
         )}
         <h2 className="text-base font-semibold text-slate-100 leading-tight">{entry.title}</h2>
+        <HydrationIndicator hydration={hydration} />
         {imageUrl && (
           <img
             src={imageUrl}
@@ -707,6 +730,33 @@ function ExperienceDerivedPanel({
       </div>
     </div>
   );
+}
+
+function HydrationIndicator({
+  hydration,
+}: {
+  hydration: { status: "loading" | "ok" | "error"; code?: number } | null;
+}) {
+  if (!hydration) {
+    return (
+      <div className="text-[10px] text-slate-600 italic">no hydration attempted</div>
+    );
+  }
+  if (hydration.status === "loading") {
+    return (
+      <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+        <Loader2 className="w-3 h-3 animate-spin" /> Loading full entry…
+      </div>
+    );
+  }
+  if (hydration.status === "error") {
+    return (
+      <div className="text-[11px] text-rose-300">
+        Hydration failed{hydration.code ? ` (HTTP ${hydration.code})` : ""}. Check the Network tab for the GET response.
+      </div>
+    );
+  }
+  return null;
 }
 
 export default MyCanvasTab;
