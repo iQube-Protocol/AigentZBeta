@@ -8,6 +8,7 @@ import { useCopilotAction } from "@copilotkit/react-core";
 import { createShellMessage } from "@metame/iframe-bridge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { MicButton } from "@/components/ui/MicButton";
 import { DevicePreviewSwitcher } from "@/components/preview/DevicePreviewSwitcher";
 import type { DeviceType } from "@/components/preview/DevicePreviewSwitcher";
 import { SmartTriadProvider } from "@/app/components/content";
@@ -8687,23 +8688,41 @@ export const ComposerStudio = () => {
                             <div className="space-y-4">
                               <div className="space-y-2">
                                 <label className="text-xs uppercase tracking-widest text-slate-400">Portrait prompt</label>
-                                <Textarea
-                                  value={editableImagePortraitPrompt}
-                                  onChange={(event) => setEditableImagePortraitPrompt(event.target.value)}
-                                  rows={6}
-                                  className="min-h-[144px] border-slate-700 bg-slate-900/70 text-white"
-                                  placeholder="Portrait image prompt"
-                                />
+                                <div className="relative">
+                                  <Textarea
+                                    value={editableImagePortraitPrompt}
+                                    onChange={(event) => setEditableImagePortraitPrompt(event.target.value)}
+                                    rows={6}
+                                    className="min-h-[144px] border-slate-700 bg-slate-900/70 text-white pr-12"
+                                    placeholder="Portrait image prompt"
+                                  />
+                                  <div className="absolute top-2 right-2">
+                                    <MicButton
+                                      onTranscript={(text) => setEditableImagePortraitPrompt(editableImagePortraitPrompt ? `${editableImagePortraitPrompt.trimEnd()} ${text}` : text)}
+                                      size="sm"
+                                      theme="dark"
+                                    />
+                                  </div>
+                                </div>
                               </div>
                               <div className="space-y-2">
                                 <label className="text-xs uppercase tracking-widest text-slate-400">Landscape prompt</label>
-                                <Textarea
-                                  value={editableImageLandscapePrompt}
-                                  onChange={(event) => setEditableImageLandscapePrompt(event.target.value)}
-                                  rows={6}
-                                  className="min-h-[144px] border-slate-700 bg-slate-900/70 text-white"
-                                  placeholder="Landscape image prompt"
-                                />
+                                <div className="relative">
+                                  <Textarea
+                                    value={editableImageLandscapePrompt}
+                                    onChange={(event) => setEditableImageLandscapePrompt(event.target.value)}
+                                    rows={6}
+                                    className="min-h-[144px] border-slate-700 bg-slate-900/70 text-white pr-12"
+                                    placeholder="Landscape image prompt"
+                                  />
+                                  <div className="absolute top-2 right-2">
+                                    <MicButton
+                                      onTranscript={(text) => setEditableImageLandscapePrompt(editableImageLandscapePrompt ? `${editableImageLandscapePrompt.trimEnd()} ${text}` : text)}
+                                      size="sm"
+                                      theme="dark"
+                                    />
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           )}
@@ -8711,13 +8730,22 @@ export const ComposerStudio = () => {
                           {editableVideoPrompt && (
                             <div className="space-y-2">
                               <label className="text-xs uppercase tracking-widest text-slate-400">Video prompt</label>
-                              <Textarea
-                                value={editableVideoPrompt}
-                                onChange={(event) => setEditableVideoPrompt(event.target.value)}
-                                rows={6}
-                                className="min-h-[144px] border-slate-700 bg-slate-900/70 text-white"
-                                placeholder="Video generation prompt"
-                              />
+                              <div className="relative">
+                                <Textarea
+                                  value={editableVideoPrompt}
+                                  onChange={(event) => setEditableVideoPrompt(event.target.value)}
+                                  rows={6}
+                                  className="min-h-[144px] border-slate-700 bg-slate-900/70 text-white pr-12"
+                                  placeholder="Video generation prompt"
+                                />
+                                <div className="absolute top-2 right-2">
+                                  <MicButton
+                                    onTranscript={(text) => setEditableVideoPrompt(editableVideoPrompt ? `${editableVideoPrompt.trimEnd()} ${text}` : text)}
+                                    size="sm"
+                                    theme="dark"
+                                  />
+                                </div>
+                              </div>
                             </div>
                           )}
 

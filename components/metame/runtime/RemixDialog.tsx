@@ -23,6 +23,7 @@ import { checkSpineDecision, type SpineDecision } from "@/services/access/spineG
 import { personaFetch } from "@/utils/personaSpine";
 import { useExternalWallet } from "@/app/components/wallet/useExternalWallet";
 import { useActivePersona } from "@/app/hooks/useActivePersona";
+import { MicButton } from "@/components/ui/MicButton";
 
 type Skill = "article" | "story";
 
@@ -132,6 +133,12 @@ export function RemixDialog({
   const [skill, setSkill] = useState<Skill>("article");
   const [title, setTitle] = useState(initialTitle ?? "");
   const [prompt, setPrompt] = useState(initialPrompt ?? "");
+  // Drafter strip — one-liner idea → LLM-drafted title/article/image prompts.
+  const [idea, setIdea] = useState("");
+  const [imagePrompt, setImagePrompt] = useState("");
+  const [drafting, setDrafting] = useState(false);
+  const [draftRationale, setDraftRationale] = useState<string | null>(null);
+  const [draftSource, setDraftSource] = useState<"llm" | "template" | null>(null);
   const [quota, setQuota] = useState<QuotaState | null>(null);
   const [quotaError, setQuotaError] = useState<string | null>(null);
   // Phase 1.4 spine consumer migration #2 — INFORMATIONAL ONLY for now.
@@ -255,6 +262,49 @@ export function RemixDialog({
     return () => clearInterval(id);
   }, [generated]);
 
+  const draft = useCallback(async () => {
+    setError(null);
+    if (!idea.trim()) {
+      setError("Tell aigentMe what the remix is about (one sentence).");
+      return;
+    }
+    setDrafting(true);
+    try {
+      const res = await personaFetch("/api/composer/remix-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          idea: idea.trim(),
+          skill,
+          sourceExperienceId: sourceExperienceId || null,
+        }),
+        personaIdHint: personaId ?? undefined,
+      });
+      const j = (await res.json()) as {
+        ok?: boolean;
+        title?: string;
+        articlePrompt?: string;
+        imagePrompt?: string;
+        rationale?: string;
+        source?: "llm" | "template";
+        error?: string;
+      };
+      if (!res.ok || !j.ok) {
+        setError(j.error || `Draft failed (${res.status})`);
+        return;
+      }
+      setTitle(j.title ?? "");
+      setPrompt(j.articlePrompt ?? "");
+      setImagePrompt(j.imagePrompt ?? "");
+      setDraftRationale(j.rationale ?? null);
+      setDraftSource(j.source ?? null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDrafting(false);
+    }
+  }, [idea, skill, sourceExperienceId, personaId]);
+
   const submit = useCallback(async (paymentMode: 'auto' | 'dvn' = 'auto') => {
     if (SIGNIN_GATING_ENABLED && !personaId) { setError("Sign in to remix"); return; }
     if (!prompt.trim()) { setError("Prompt is required"); return; }
@@ -308,6 +358,7 @@ export function RemixDialog({
           skill,
           prompt: prompt.trim(),
           title: title.trim() || null,
+          imagePrompt: imagePrompt.trim() || null,
           sourceExperienceId: sourceExperienceId || null,
           paymentMode,
         }),
@@ -368,7 +419,7 @@ export function RemixDialog({
       setGenerating(false);
       setGenerationStep("idle");
     }
-  }, [personaId, skill, prompt, title, sourceExperienceId, dialogPersonaLabel, activePersonaSurface]);
+  }, [personaId, skill, prompt, title, imagePrompt, sourceExperienceId, dialogPersonaLabel, activePersonaSurface]);
 
   // ── x402 on-chain payment execution ────────────────────────────────────
   // Prompts the user's already-connected EVM wallet to sign a QCT
@@ -622,6 +673,10 @@ export function RemixDialog({
             skill={skill} setSkill={setSkill}
             title={title} setTitle={setTitle}
             prompt={prompt} setPrompt={setPrompt}
+            imagePrompt={imagePrompt} setImagePrompt={setImagePrompt}
+            idea={idea} setIdea={setIdea}
+            onDraft={draft} drafting={drafting}
+            draftRationale={draftRationale} draftSource={draftSource}
             quota={quota} quotaError={quotaError} hasPersona={!!personaId || personaResolving}
             skillCost={skillCost ?? null} isFree={isFree} showCostBadge={!!showCostBadge}
             disabled={generating || (SIGNIN_GATING_ENABLED && !personaId && !personaResolving)}
@@ -826,6 +881,14 @@ export function RemixDialog({
               setTitle={setTitle}
               prompt={prompt}
               setPrompt={setPrompt}
+              imagePrompt={imagePrompt}
+              setImagePrompt={setImagePrompt}
+              idea={idea}
+              setIdea={setIdea}
+              onDraft={draft}
+              drafting={drafting}
+              draftRationale={draftRationale}
+              draftSource={draftSource}
               quota={quota}
               quotaError={quotaError}
               hasPersona={!!personaId}
@@ -972,6 +1035,10 @@ function ComposeView({
   skill, setSkill,
   title, setTitle,
   prompt, setPrompt,
+  imagePrompt, setImagePrompt,
+  idea, setIdea,
+  onDraft, drafting,
+  draftRationale, draftSource,
   quota, quotaError, hasPersona,
   skillCost, isFree, showCostBadge,
   disabled,
@@ -982,6 +1049,14 @@ function ComposeView({
   setTitle: (s: string) => void;
   prompt: string;
   setPrompt: (s: string) => void;
+  imagePrompt: string;
+  setImagePrompt: (s: string) => void;
+  idea: string;
+  setIdea: (s: string) => void;
+  onDraft: () => void;
+  drafting: boolean;
+  draftRationale: string | null;
+  draftSource: "llm" | "template" | null;
   quota: QuotaState | null;
   quotaError: string | null;
   hasPersona: boolean;
@@ -1028,41 +1103,133 @@ function ComposeView({
           : "Editorial article (~600–900 words) plus a generated image. Connect to your KNYT context where it fits."}
       </div>
 
+      {/* Drafter strip — one-liner idea → LLM drafts title + article + image */}
+      <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-3">
+        <label className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">
+          What's this remix about? <span className="text-slate-600">(aigentMe will draft it)</span>
+        </label>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            name="aigentme-remix-idea"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            value={idea}
+            onChange={(e) => setIdea(e.target.value)}
+            placeholder={skill === "story"
+              ? 'e.g. "Kn0w1 hunting a rogue guardian on the chrome plains, cinematic"'
+              : 'e.g. "Why the 21 Sats Stewards matter — three concrete takeaways"'}
+            disabled={drafting || disabled}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { e.preventDefault(); onDraft(); }
+            }}
+            className="flex-1 rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:border-violet-400/40 focus:outline-none disabled:opacity-60"
+          />
+          <MicButton
+            onTranscript={(text) => setIdea((idea ? `${idea.trimEnd()} ${text}` : text))}
+            disabled={drafting || disabled}
+            theme="dark"
+          />
+          <button
+            type="button"
+            onClick={onDraft}
+            disabled={drafting || disabled || !idea.trim()}
+            className="flex items-center gap-1.5 rounded-md bg-violet-500 hover:bg-violet-400 px-3 py-2 text-xs font-medium text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {drafting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            {drafting ? 'Drafting…' : 'Draft for me'}
+          </button>
+        </div>
+        {draftRationale && (
+          <p className="text-[10px] text-slate-400 mt-2">
+            <span className="font-medium">aigentMe:</span> {draftRationale}
+            {draftSource === 'template' && <span className="opacity-60"> (template fallback)</span>}
+          </p>
+        )}
+      </div>
+
       {/* Title (optional) */}
       <div>
         <label className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">
           Title <span className="text-slate-600">(optional)</span>
         </label>
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          maxLength={120}
-          disabled={disabled}
-          placeholder="Auto-generated if blank"
-          className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:border-amber-400/40 focus:outline-none disabled:opacity-60"
-        />
+        <div className="flex gap-2">
+          <input
+            type="text"
+            name="aigentme-remix-title"
+            autoComplete="off"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            maxLength={120}
+            disabled={disabled}
+            placeholder="Auto-generated if blank"
+            className="flex-1 rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:border-amber-400/40 focus:outline-none disabled:opacity-60"
+          />
+          <MicButton
+            onTranscript={(text) => setTitle((title ? `${title.trimEnd()} ${text}` : text))}
+            disabled={disabled}
+            theme="dark"
+          />
+        </div>
       </div>
 
       {/* Prompt */}
       <div>
         <label className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">
-          Prompt
+          Article prompt
         </label>
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          maxLength={2000}
-          rows={5}
-          disabled={disabled}
-          placeholder={
-            skill === "story"
-              ? 'e.g. "Kn0w1 confronts a rogue protocol guardian on the chrome plains."'
-              : 'e.g. "Why the 21 Sats Stewards matter for the protocol\'s future."'
-          }
-          className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:border-amber-400/40 focus:outline-none resize-none disabled:opacity-60"
-        />
+        <div className="relative">
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            maxLength={2000}
+            rows={5}
+            disabled={disabled}
+            placeholder={
+              skill === "story"
+                ? 'e.g. "Kn0w1 confronts a rogue protocol guardian on the chrome plains."'
+                : 'e.g. "Why the 21 Sats Stewards matter for the protocol\'s future."'
+            }
+            className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 pr-12 text-sm text-slate-100 placeholder-slate-600 focus:border-amber-400/40 focus:outline-none resize-none disabled:opacity-60"
+          />
+          <div className="absolute top-2 right-2">
+            <MicButton
+              onTranscript={(text) => setPrompt((prompt ? `${prompt.trimEnd()} ${text}` : text))}
+              size="sm"
+              disabled={disabled}
+              theme="dark"
+            />
+          </div>
+        </div>
         <div className="text-right text-[10px] text-slate-600 mt-0.5">{prompt.length}/2000</div>
+      </div>
+
+      {/* Image prompt */}
+      <div>
+        <label className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">
+          Image prompt <span className="text-slate-600">(optional — inferred from article if blank)</span>
+        </label>
+        <div className="relative">
+          <textarea
+            value={imagePrompt}
+            onChange={(e) => setImagePrompt(e.target.value)}
+            maxLength={1000}
+            rows={3}
+            disabled={disabled}
+            placeholder='e.g. "Editorial illustration of the 21 Sats Stewards, soft chiaroscuro."'
+            className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-3 py-2 pr-12 text-sm text-slate-100 placeholder-slate-600 focus:border-amber-400/40 focus:outline-none resize-none disabled:opacity-60"
+          />
+          <div className="absolute top-2 right-2">
+            <MicButton
+              onTranscript={(text) => setImagePrompt((imagePrompt ? `${imagePrompt.trimEnd()} ${text}` : text))}
+              size="sm"
+              disabled={disabled}
+              theme="dark"
+            />
+          </div>
+        </div>
+        <div className="text-right text-[10px] text-slate-600 mt-0.5">{imagePrompt.length}/1000</div>
       </div>
 
       {/* Cost summary — three states: signed-out (hidden during interim

@@ -42,6 +42,12 @@ interface Body {
   skill?: Skill;
   prompt?: string;
   title?: string;
+  /** Explicit image generation prompt — when present, used verbatim
+      instead of reusing the article/story prompt for image gen. The
+      RemixDialog drafter (POST /api/composer/remix-draft) populates
+      this from the user's idea so image framing is independent of
+      article framing. */
+  imagePrompt?: string;
   sourceExperienceId?: string;
   parentId?: string;
   /** 'auto' (default) | 'dvn' — client picks 'dvn' when the user
@@ -154,12 +160,13 @@ export async function POST(req: NextRequest) {
   const personaContext = await loadKnytPersonaContext(supabase, personaId);
 
   // 4. Generate text + image in parallel — image gen often slower but doesn't block text
+  const imagePromptForGen = body.imagePrompt?.trim() || prompt;
   const [textResult, imageUrl] = await Promise.all([
     generateText({ prompt, skill, title: body.title ?? null, personaContext }).catch((err) => {
       console.error('[community-content/generate] text gen failed', err);
       return null;
     }),
-    generateImage(prompt).catch((err) => {
+    generateImage(imagePromptForGen).catch((err) => {
       console.error('[community-content/generate] image gen failed', err);
       return null;
     }),
