@@ -127,3 +127,81 @@ sweep needed).
 - Cross-cartridge Q¢ accounting (separate KNYT/Qriptopian)
 - ICP-side DVN ledger contract changes (the table-backed shim today is
   fine for the build; the canonical ICP canister is a follow-on)
+
+---
+
+## Server-side default-persona fix (PATH B — server-side persona override)
+
+**Status:** backlog. Path A (client-side defense) shipped 2026-05-22 —
+RemixDialog now refuses to submit without an explicit persona signal AND
+attaches the persona-session-token so the server's getActivePersona
+priority 1 fires reliably. Path B closes the silent "first owned" hole
+durably for every consumer of getActivePersona, not just RemixDialog.
+
+**Problem observed.** For dele@metame.com (and any user with multiple
+owned personas), `getActivePersona()` priority chain runs:
+1. PST                          (skipped when no header sent)
+2. `x-persona-id` header        (skipped when not set)
+3. `?personaId=` URL param      (skipped when not set)
+4. **DEFAULT: first owned by `created_at ASC`** ← silent fallback fires
+
+When step 4 fires it picks whichever persona has the oldest `created_at`
+for that auth profile. Empirically this resolves to "devagent" — note
+that the user reports devagent was actually their most-recently created
+persona, so either the timestamps were back-filled at migration time,
+or the ASC sort is somehow inverted to DESC for this auth profile.
+Either way, the silent fallback is the bug — the platform should never
+guess at the user's intent.
+
+**Schema addition.**
+
+```sql
+ALTER TABLE auth_profiles
+  ADD COLUMN default_persona_id text REFERENCES personas(id);
+
+CREATE INDEX IF NOT EXISTS idx_auth_profiles_default_persona
+  ON auth_profiles(default_persona_id);
+```
+
+Set the default on persona create (first persona becomes default), and
+let the wallet drawer's persona-switch action update it whenever the
+user explicitly switches.
+
+**Resolver change** (services/identity/getActivePersona.ts — needs
+operator approval, file is in CLAUDE.md protected list).
+
+```ts
+// New step 3.5 — auth_profiles.default_persona_id (if owned)
+const profileDefault = await readAuthProfileDefault(authProfileId);
+if (profileDefault && ownedPersonaIds.includes(profileDefault)) {
+  return { personaId: profileDefault, source: 'session-cookie' };
+}
+
+// Step 4 stays but now only fires when no default has ever been set
+// (brand-new accounts) — and even then ORDER BY created_at DESC so the
+// MOST recent persona wins, not the oldest. New users typically create
+// their "real" persona last after experimenting.
+```
+
+**Migration for existing users.**
+- Set `auth_profiles.default_persona_id` to the user's most-recently
+  used persona (look at `qc_transactions.persona_id` or
+  `orchestration_events.persona_id` last activity).
+- Fall back to most-recently-created persona for inactive accounts.
+
+**Wallet drawer wiring.** When the user changes persona via
+`setActivePersonaId()` in PersonaContext, also PUT to a new
+`/api/wallet/persona/set-default` route that updates
+`auth_profiles.default_persona_id` server-side. This persists the
+choice across sessions and devices.
+
+**Rollout.**
+- Phase 1: add column + migration, default to most-recently-active
+- Phase 2: deploy resolver change, gated by a feature flag
+- Phase 3: turn on flag for one user (dele), verify, then ramp
+- Phase 4: remove flag, deprecate the `created_at ASC` fallback
+
+Once Path B is in place, Path A's client-side guard becomes a belt-and-
+braces safety net (still useful — it catches genuinely missing personas
+rather than silently defaulting), but the primary fix moves to the
+resolver where it belongs.

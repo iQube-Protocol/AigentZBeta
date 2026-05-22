@@ -22,6 +22,7 @@ import { BookMarked, Check, Coins, FileText, Image as ImageIcon, Loader2, LogIn,
 import { checkSpineDecision, type SpineDecision } from "@/services/access/spineGateClient";
 import { personaFetch } from "@/utils/personaSpine";
 import { useExternalWallet } from "@/app/components/wallet/useExternalWallet";
+import { useActivePersona } from "@/app/hooks/useActivePersona";
 
 type Skill = "article" | "story";
 
@@ -161,6 +162,15 @@ export function RemixDialog({
       "Buy more Q¢" CTA in the panel. */
   const [needsBuyQc, setNeedsBuyQc] = useState(false);
   const wallet = useExternalWallet();
+  // Surface the active persona alongside the dialog's prop-passed
+  // personaId so we can spot mismatches — a stale prop will debit a
+  // different ledger row than the wallet UI is displaying.
+  const { surface: activePersonaSurface } = useActivePersona();
+  type SurfaceWithFio = typeof activePersonaSurface & { ownFioHandle?: string };
+  const dialogPersonaLabel =
+    activePersonaSurface?.displayLabel ??
+    (activePersonaSurface as SurfaceWithFio | null)?.ownFioHandle ??
+    null;
   // After the user connects a wallet from the drawer, the dialog's
   // own useExternalWallet instance doesn't auto-pick up the session
   // until it polls. When the payment panel is showing AND no wallet
@@ -248,6 +258,27 @@ export function RemixDialog({
   const submit = useCallback(async (paymentMode: 'auto' | 'dvn' = 'auto') => {
     if (SIGNIN_GATING_ENABLED && !personaId) { setError("Sign in to remix"); return; }
     if (!prompt.trim()) { setError("Prompt is required"); return; }
+    // PATH A persona-resolution defense — refuse to submit when we have
+    // no explicit persona signal. Without this guard the server's
+    // getActivePersona() falls back to "first owned by created_at ASC",
+    // which for dele@metame.com resolves to devagent and debits the
+    // wrong DVN ledger row. The user must explicitly pick a persona in
+    // the wallet drawer before remixing.
+    const hasPst = !!activePersonaSurface?.personaSessionToken;
+    if (!personaId && !hasPst) {
+      setError(
+        'No active persona resolved — please pick a persona in the wallet drawer and retry.',
+      );
+      return;
+    }
+    console.info('[RemixDialog] submit', {
+      personaId,
+      paymentMode,
+      activePersonaLabel: dialogPersonaLabel,
+      surfacePersonaIdToken: activePersonaSurface?.personaSessionToken
+        ? activePersonaSurface.personaSessionToken.slice(0, 12) + '…'
+        : null,
+    });
     setGenerating(true);
     setError(null);
     setGenerationStep("charging");
@@ -259,9 +290,19 @@ export function RemixDialog({
     const stepTimer3 = setTimeout(() => setGenerationStep("saving"),    18000);
 
     try {
+      // Attach the persona-session-token (PST) so the server's
+      // getActivePersona() resolves via priority 1 (PST bound to the
+      // exact persona the user picked) instead of priority 4 (silent
+      // "first owned" fallback). This is Path A of the persona-override
+      // fix — Path B (server-side default_persona_id schema) is in the
+      // 2026-05-22 backlog brief.
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (activePersonaSurface?.personaSessionToken) {
+        headers['x-persona-session-token'] = activePersonaSurface.personaSessionToken;
+      }
       const res = await personaFetch("/api/community-content/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           personaId,
           skill,
@@ -327,7 +368,7 @@ export function RemixDialog({
       setGenerating(false);
       setGenerationStep("idle");
     }
-  }, [personaId, skill, prompt, title, sourceExperienceId]);
+  }, [personaId, skill, prompt, title, sourceExperienceId, dialogPersonaLabel, activePersonaSurface]);
 
   // ── x402 on-chain payment execution ────────────────────────────────────
   // Prompts the user's already-connected EVM wallet to sign a QCT
@@ -561,6 +602,8 @@ export function RemixDialog({
             onPay={payWithWallet}
             onPayFromDvn={() => { setPaymentIntent(null); setPaymentError(null); void submit('dvn'); }}
             onConnectWallet={onConnectWallet}
+            personaLabel={dialogPersonaLabel}
+            onRetry={() => { setPaymentIntent(null); setPaymentError(null); void submit(); }}
             onCancel={() => { setPaymentIntent(null); setPaymentError(null); setPaymentPending(null); setNeedsBuyQc(false); }}
           />
         )}
@@ -761,6 +804,8 @@ export function RemixDialog({
               onPay={payWithWallet}
               onPayFromDvn={() => { setPaymentIntent(null); setPaymentError(null); void submit('dvn'); }}
               onConnectWallet={onConnectWallet}
+              personaLabel={dialogPersonaLabel}
+              onRetry={() => { setPaymentIntent(null); setPaymentError(null); void submit(); }}
               onCancel={() => { setPaymentIntent(null); setPaymentError(null); setPaymentPending(null); setNeedsBuyQc(false); }}
             />
           )}
@@ -1196,18 +1241,27 @@ function PaymentIntentPanel({
   wallet,
   pending,
   error,
+  personaLabel,
   onPay,
   onPayFromDvn,
   onConnectWallet,
+  onRetry,
   onCancel,
 }: {
   intent: QcPaymentIntent;
   wallet: ReturnType<typeof useExternalWallet>;
   pending: null | "sending" | "verifying";
   error: string | null;
+  /** Active persona display label — surfaced so the user can spot a
+      persona mismatch (e.g. dialog debiting persona A while the wallet
+      drawer is displaying persona B's balance). */
+  personaLabel: string | null;
   onPay: () => void;
   onPayFromDvn: () => void;
   onConnectWallet?: () => void;
+  /** Re-runs submit() — useful if the user switched persona in the
+      drawer and wants to recompute the DVN balance check. */
+  onRetry: () => void;
   onCancel: () => void;
 }) {
   const chainName =
@@ -1236,6 +1290,30 @@ function PaymentIntentPanel({
             {dvnCanCover ? ' — sufficient' : ' — insufficient'}).
           </p>
         </div>
+      </div>
+
+      {/* Persona + balance diagnostic strip — when the server thinks DVN
+          is insufficient but the user expects it to be, the most likely
+          cause is a persona mismatch (dialog debiting a different
+          persona than the wallet UI is displaying). Surface the label
+          + a Retry so the user can switch persona and re-check. */}
+      <div className="rounded border border-white/[0.06] bg-white/[0.02] px-2.5 py-1.5 flex items-center justify-between gap-2 flex-wrap">
+        <div className="text-[10px] text-slate-400 min-w-0 truncate">
+          Charging persona: <span className="text-slate-200 font-medium">{personaLabel ?? '(no active persona)'}</span>
+          {' · '}
+          DVN: <span className={dvnCanCover ? 'text-emerald-300 font-medium' : 'text-amber-300 font-medium'}>
+            {intent.dvnAvailable.toLocaleString()} Q¢
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onRetry}
+          disabled={pending !== null}
+          className="text-[10px] font-medium text-slate-300 hover:text-white underline underline-offset-2 disabled:opacity-40"
+          title="Re-run the check — useful after switching persona"
+        >
+          Re-check
+        </button>
       </div>
 
       {!connected ? (
