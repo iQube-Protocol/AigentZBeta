@@ -909,3 +909,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-bd16c01.md](../build_/COMMITS/COMMIT-bd16c01.md)
 - Message: remix drafter (idea → title/article/image) + mic on remixer, customizer, aigentMe copilot
+
+## Commit `f4fd3b4` — 2026-05-22T22:41:01Z
+- Type: `push`
+- Brief: [COMMIT-f4fd3b4.md](../build_/COMMITS/COMMIT-f4fd3b4.md)
+- Message: land at top of capsule/article panel on open, not bottom of chat

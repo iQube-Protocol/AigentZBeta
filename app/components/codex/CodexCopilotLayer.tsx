@@ -421,6 +421,23 @@ export function CodexCopilotLayer({
     });
   };
 
+  // Scroll the most recently added capsule/article panel into view at its
+  // top so the user lands on the hero, not the bottom of the article.
+  // Used in place of scrollChatToBottom whenever the newest message is a
+  // panel — chat-style messages still auto-scroll to bottom below.
+  const scrollPanelToTop = (panelId: string) => {
+    if (!chatContainerRef.current) return;
+    requestAnimationFrame(() => {
+      const container = chatContainerRef.current;
+      if (!container) return;
+      const panel = container.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(panelId)}"]`);
+      if (!panel) return;
+      const containerTop = container.getBoundingClientRect().top;
+      const panelTop = panel.getBoundingClientRect().top;
+      container.scrollTop += panelTop - containerTop;
+    });
+  };
+
   useEffect(() => {
     if (messages) return;
     if (seededRef.current) return;
@@ -569,7 +586,16 @@ export function CodexCopilotLayer({
   }, [copilotMode]);
 
   useEffect(() => {
-    scrollChatToBottom();
+    // When the latest message is a capsule/article panel, land the user
+    // at the top of it (the hero/article opening) instead of the bottom
+    // of the chat. Otherwise (chat-style assistant/user messages) keep
+    // the normal scroll-to-bottom behaviour.
+    const last = displayMessages[displayMessages.length - 1];
+    if (last?.variant === "panel") {
+      scrollPanelToTop(last.id);
+    } else {
+      scrollChatToBottom();
+    }
   }, [displayMessages]);
 
   const updateMessages = (updater: (prev: CopilotMessage[]) => CopilotMessage[]) => {
@@ -1081,7 +1107,7 @@ export function CodexCopilotLayer({
                           const isPanel = msg.variant === "panel";
                           if (isPanel) {
                             return (
-                              <div key={msg.id} className="w-full">
+                              <div key={msg.id} data-message-id={msg.id} data-message-variant="panel" className="w-full">
                                 {msg.content}
                               </div>
                             );
