@@ -894,3 +894,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-290ddbf.md](../build_/COMMITS/COMMIT-290ddbf.md)
 - Message: disable Safari email AutoFill on aigentMe compose prompt inputs
+
+## Commit `1ea306c` — 2026-05-22T19:54:09Z
+- Type: `push`
+- Brief: [COMMIT-1ea306c.md](../build_/COMMITS/COMMIT-1ea306c.md)
+- Message: switch mic STT from Web Speech API to MediaRecorder + Whisper
