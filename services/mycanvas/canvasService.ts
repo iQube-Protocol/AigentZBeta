@@ -13,6 +13,7 @@
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
 export type CanvasVisibility = 'private' | 'invited';
+export type CanvasEntryType = 'note' | 'experience_origin' | 'experience_derived';
 
 export interface CanvasEntry {
   id: string;
@@ -20,6 +21,8 @@ export interface CanvasEntry {
   bodyMd: string;
   tags: string[];
   visibility: CanvasVisibility;
+  entryType: CanvasEntryType;
+  metaJson: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }
@@ -40,17 +43,26 @@ interface DbEntryRow {
   body_md: string;
   tags: string[] | null;
   visibility: CanvasVisibility;
+  entry_type: string | null;
+  meta_json: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }
 
 function entryRowToShape(row: DbEntryRow): CanvasEntry {
+  const rawType = row.entry_type;
+  const entryType: CanvasEntryType =
+    rawType === 'experience_origin' || rawType === 'experience_derived'
+      ? rawType
+      : 'note';
   return {
     id: row.id,
     title: row.title,
     bodyMd: row.body_md ?? '',
     tags: row.tags ?? [],
     visibility: row.visibility,
+    entryType,
+    metaJson: row.meta_json ?? {},
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -71,12 +83,23 @@ export async function listEntries(personaId: string): Promise<CanvasEntry[]> {
 
 export async function createEntry(
   personaId: string,
-  input: { title: string; bodyMd?: string; tags?: string[]; visibility?: CanvasVisibility },
+  input: {
+    title: string;
+    bodyMd?: string;
+    tags?: string[];
+    visibility?: CanvasVisibility;
+    entryType?: CanvasEntryType;
+    metaJson?: Record<string, unknown>;
+  },
 ): Promise<CanvasEntry | null> {
   const admin = getSupabaseServer();
   if (!admin) return null;
   const title = input.title.trim().slice(0, 240);
   if (!title) return null;
+  const entryType: CanvasEntryType =
+    input.entryType === 'experience_origin' || input.entryType === 'experience_derived'
+      ? input.entryType
+      : 'note';
   const { data } = await admin
     .from('mycanvas_entries')
     .insert({
@@ -85,6 +108,8 @@ export async function createEntry(
       body_md: (input.bodyMd ?? '').slice(0, 200_000),
       tags: Array.isArray(input.tags) ? input.tags.slice(0, 16) : [],
       visibility: input.visibility === 'invited' ? 'invited' : 'private',
+      entry_type: entryType,
+      meta_json: input.metaJson ?? {},
     })
     .select('*')
     .maybeSingle();

@@ -18,7 +18,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Coins, FileText, Image as ImageIcon, Loader2, LogIn, RotateCw, Send, Share2, Sparkles, Trash2, X } from "lucide-react";
+import { BookMarked, Check, Coins, FileText, Image as ImageIcon, Loader2, LogIn, RotateCw, Send, Share2, Sparkles, Trash2, X } from "lucide-react";
 import { checkSpineDecision, type SpineDecision } from "@/services/access/spineGateClient";
 import { personaFetch } from "@/utils/personaSpine";
 
@@ -114,6 +114,8 @@ export function RemixDialog({
   const [error, setError] = useState<string | null>(null);
   const [actionPending, setActionPending] = useState<"discard" | "publish" | null>(null);
   const [discardCountdown, setDiscardCountdown] = useState<number | null>(null);
+  const [savingToCanvas, setSavingToCanvas] = useState(false);
+  const [savedToCanvas, setSavedToCanvas] = useState(false);
 
   // Hydrate state from props on open
   useEffect(() => {
@@ -127,6 +129,8 @@ export function RemixDialog({
     setDiscardCountdown(null);
     setGenerationStep("idle");
     setQuotaError(null);
+    setSavedToCanvas(false);
+    setSavingToCanvas(false);
   }, [open, initialTitle, initialPrompt]);
 
   // Fetch source ownership state when dialog opens with a sourceExperienceId.
@@ -291,6 +295,57 @@ export function RemixDialog({
     }
   }, [generated, personaId, onPublished, onClose]);
 
+  const saveToCanvas = useCallback(async () => {
+    if (!generated || !personaId) return;
+    setSavingToCanvas(true);
+    setError(null);
+    try {
+      const saves: Promise<Response>[] = [
+        personaFetch("/api/mycanvas/entries", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: generated.title,
+            bodyMd: generated.articleBody,
+            entryType: "experience_derived",
+            metaJson: {
+              contentId: generated.id,
+              sourceExperienceId: sourceExperienceId ?? null,
+              imageUrl: generated.imageUrl,
+              skill,
+            },
+          }),
+          personaIdHint: personaId,
+        }),
+      ];
+      if (sourceExperienceId) {
+        saves.push(
+          personaFetch("/api/mycanvas/entries", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: initialTitle ?? "Origin Experience",
+              bodyMd: "",
+              entryType: "experience_origin",
+              metaJson: { experienceId: sourceExperienceId },
+            }),
+            personaIdHint: personaId,
+          }),
+        );
+      }
+      const results = await Promise.all(saves);
+      if (!results.every((r) => r.ok)) {
+        setError("Couldn't save to myCanvas");
+        return;
+      }
+      setSavedToCanvas(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't save to myCanvas");
+    } finally {
+      setSavingToCanvas(false);
+    }
+  }, [generated, personaId, skill, sourceExperienceId, initialTitle]);
+
   if (!open) return null;
 
   const skillCost = quota?.costs[skill];
@@ -417,12 +472,26 @@ export function RemixDialog({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => { setGenerated(null); setError(null); }}
+                  onClick={() => { setGenerated(null); setError(null); setSavedToCanvas(false); }}
                   disabled={actionPending !== null}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10 disabled:opacity-30"
                 >
                   <RotateCw className="h-3.5 w-3.5" />
                   Redo
+                </button>
+                <button
+                  type="button"
+                  onClick={saveToCanvas}
+                  disabled={actionPending !== null || savingToCanvas || savedToCanvas || !personaId}
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold disabled:opacity-40 transition ${
+                    savedToCanvas
+                      ? "border-violet-500/40 bg-violet-500/15 text-violet-200"
+                      : "border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20 text-violet-100"
+                  }`}
+                  title={!personaId ? "Sign in to save to myCanvas" : undefined}
+                >
+                  {savingToCanvas ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : savedToCanvas ? <Check className="h-3.5 w-3.5" /> : <BookMarked className="h-3.5 w-3.5" />}
+                  {savedToCanvas ? "Saved" : "Save"}
                 </button>
                 <button
                   type="button"
@@ -591,12 +660,27 @@ export function RemixDialog({
                   onClick={() => {
                     setGenerated(null);
                     setError(null);
+                    setSavedToCanvas(false);
                   }}
                   disabled={actionPending !== null}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10 disabled:opacity-30"
                 >
                   <RotateCw className="h-3.5 w-3.5" />
                   Redo
+                </button>
+                <button
+                  type="button"
+                  onClick={saveToCanvas}
+                  disabled={actionPending !== null || savingToCanvas || savedToCanvas || !personaId}
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold disabled:opacity-40 transition ${
+                    savedToCanvas
+                      ? "border-violet-500/40 bg-violet-500/15 text-violet-200"
+                      : "border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20 text-violet-100"
+                  }`}
+                  title={!personaId ? "Sign in to save to myCanvas" : undefined}
+                >
+                  {savingToCanvas ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : savedToCanvas ? <Check className="h-3.5 w-3.5" /> : <BookMarked className="h-3.5 w-3.5" />}
+                  {savedToCanvas ? "Saved" : "Save to myCanvas"}
                 </button>
                 <button
                   type="button"
