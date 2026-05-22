@@ -22,6 +22,8 @@ const CodexCopilotLayer = dynamic(
 import { SmartTriadProvider } from "@/app/components/content/SmartTriadProvider";
 import { SmartTriadSurfaces } from "@/app/components/content/SmartTriadSurfaces";
 import { personaFetch } from "@/utils/personaSpine";
+import { useActivations } from "@/services/activations/ActivationsContext";
+import { useActivePersona } from "@/app/hooks/useActivePersona";
 import { TabRenderer } from "./codex/TabRenderer";
 import { SubHeaderSlotContext } from "./codex/SubHeaderSlot";
 import { getIconComponent } from "./codex/iconMap";
@@ -129,6 +131,16 @@ export default function CodexPanelDynamic({
     acceptSwitch: acceptPersonaSwitch,
     dismiss: dismissPersonaGuard,
   } = useCartridgePersonaGuard(codexId);
+  // Canonical T1 surface for the header Welcome badge — gives us the
+  // user-chosen displayLabel or their own FIO handle, never a UUID
+  // fallback like personaDisplayNames does when the registry hasn't
+  // populated yet.
+  const { surface: activePersonaSurface } = useActivePersona();
+  type SurfaceWithFio = typeof activePersonaSurface & { ownFioHandle?: string };
+  const headerPersonaLabel =
+    activePersonaSurface?.displayLabel ??
+    (activePersonaSurface as SurfaceWithFio | null)?.ownFioHandle ??
+    null;
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(theme === 'light' ? 'light' : 'dark');
   const [marketaCopilotOpen, setMarketaCopilotOpen] = useState(false);
   const [knytCopilotOpen, setKnytCopilotOpen] = useState(false);
@@ -186,53 +198,11 @@ export default function CodexPanelDynamic({
   const effectiveIsPartner = isPartner || resolvedIsPartner;
   const effectivePartnerId = partnerId || resolvedPartnerId;
 
-  // Active activations — drives tab visibility for surfaces gated via the
-  // metaMe Activations tab.
-  //
-  // To keep the top menu in lock-step with the Activations panel, we:
-  //   1. Do ONE initial fetch on mount (hydrates the set).
-  //   2. Listen for `metame:activations-changed` events whose detail
-  //      carries `activeIds` — the Activations panel publishes its
-  //      authoritative set (optimistic OR post-server) and we apply it
-  //      verbatim. No re-fetch race with the server write.
-  //   3. Fall back to a re-fetch only when the event has no payload
-  //      (e.g. external admin grant landed and someone fires the event
-  //      from another surface).
-  const [activeActivations, setActiveActivations] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    if (!resolvedPersonaId) return;
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const res = await personaFetch('/api/assistant/activations', { personaIdHint: resolvedPersonaId });
-        if (!res.ok) return;
-        const data = (await res.json()) as { activations?: Array<{ id: string; status: string | null }> };
-        if (cancelled || !Array.isArray(data.activations)) return;
-        const active = new Set<string>();
-        for (const a of data.activations) if (a.status === 'active') active.add(a.id);
-        setActiveActivations(active);
-      } catch { /* keep previous */ }
-    };
-    void load();
-    const onChange = (event: Event) => {
-      const detail = (event as CustomEvent<{ activeIds?: string[] }>).detail;
-      if (Array.isArray(detail?.activeIds)) {
-        // Authoritative payload from the Activations panel — apply directly.
-        setActiveActivations(new Set(detail.activeIds));
-      } else {
-        void load();
-      }
-    };
-    if (typeof window !== 'undefined') {
-      window.addEventListener('metame:activations-changed', onChange);
-    }
-    return () => {
-      cancelled = true;
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('metame:activations-changed', onChange);
-      }
-    };
-  }, [resolvedPersonaId]);
+  // Active activations — driven by the canonical ActivationsProvider that
+  // wraps the embed/shell layouts. Single source of truth — the Activations
+  // panel mutates via the same context, so optimistic updates propagate
+  // through React's render cycle (no window events, no fetch race).
+  const { activeIds: activeActivations } = useActivations();
 
   const enabledTabs = useMemo(
     () => getEnabledTabs(codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
@@ -666,6 +636,24 @@ export default function CodexPanelDynamic({
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    {/* Welcome <persona> — pinned to the cartridge header row,
+                        always visible above all tabs, sits immediately to
+                        the left of the theme toggle. Reads from the
+                        canonical T1 surface (displayLabel or ownFioHandle)
+                        so we never render a UUID fallback. Hidden when
+                        no active persona is resolved. */}
+                    {headerPersonaLabel && (
+                      <div
+                        className={`hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-medium whitespace-nowrap ${
+                          isDark
+                            ? `border-${accentColor}-500/30 bg-${accentColor}-500/10 text-${accentColor}-200`
+                            : `border-${accentColor}-300 bg-${accentColor}-50 text-${accentColor}-700`
+                        }`}
+                        title={`Active persona: ${headerPersonaLabel}`}
+                      >
+                        Welcome, {headerPersonaLabel}
+                      </div>
+                    )}
                     {/* Theme toggle */}
                     <button
                       type="button"
@@ -742,6 +730,32 @@ export default function CodexPanelDynamic({
                       );
                     })}
                   </div>
+                ) : activeSubTabs.length > 0 ? (
+                  /* Single-tab group with subTabs (e.g. Order of Metayé) —
+                     render the sub-sub-tabs here on the same row as the
+                     breadcrumb instead of in a separate row below, so the
+                     layout matches multi-sibling groups like aigentMe. */
+                  <div className="flex gap-1 flex-1 min-w-0 overflow-x-auto no-scrollbar">
+                    {activeSubTabs.map((sub) => {
+                      const isActive = (activeSubSubTab?.slug ?? activeSubTabs[0].slug) === sub.slug;
+                      const Icon = getIconComponent(sub.metadata?.icon || 'Circle');
+                      return (
+                        <button
+                          key={sub.id}
+                          onClick={() => setActiveSubSubTabSlug(sub.slug)}
+                          className={`flex items-center gap-1.5 px-3 py-1 text-[11px] font-medium transition-all whitespace-nowrap rounded-md flex-shrink-0 ${
+                            isActive
+                              ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/25 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
+                              : isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+                          }`}
+                          title={sub.metadata?.description}
+                        >
+                          <Icon className="w-3 h-3 flex-shrink-0" />
+                          {sub.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 ) : (
                   <div ref={setSubHeaderSlotEl} className="flex gap-1 flex-1 min-w-0 overflow-x-auto no-scrollbar items-center" />
                 )}
@@ -813,33 +827,11 @@ export default function CodexPanelDynamic({
         )}
 
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-          {activeTab && activeSubTabs.length > 0 && (() => {
-            const accentColor = codex.metadata.color || 'indigo';
-            const isDark = resolvedTheme === 'dark';
-            return (
-              <div className={`flex-shrink-0 border-b px-4 py-1 flex items-center gap-1 overflow-x-auto no-scrollbar ${isDark ? 'border-white/[0.04] bg-white/[0.01]' : 'border-slate-200 bg-slate-50/50'}`}>
-                {activeSubTabs.map((sub) => {
-                  const isActive = (activeSubSubTab?.slug ?? activeSubTabs[0].slug) === sub.slug;
-                  const Icon = getIconComponent(sub.metadata?.icon || 'Circle');
-                  return (
-                    <button
-                      key={sub.id}
-                      onClick={() => setActiveSubSubTabSlug(sub.slug)}
-                      className={`flex items-center gap-1 px-2.5 py-0.5 text-[10px] font-medium transition-all whitespace-nowrap rounded shrink-0 ${
-                        isActive
-                          ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/20 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
-                          : isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
-                      }`}
-                      title={sub.metadata?.description}
-                    >
-                      <Icon className="w-3 h-3 flex-shrink-0" />
-                      {sub.label}
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })()}
+          {/* Sub-sub-tabs row removed — sub-tabs now render inline on the
+              sub-header row above (next to the breadcrumb) to match the
+              aigentMe layout convention. The render path is conditional on
+              `activeGroup && activeGroupSubTabs.length > 1` (siblings) or
+              `activeSubTabs.length > 0` (single-tab group with subTabs). */}
           <div className="flex-1 min-h-0 overflow-y-auto">
             {activeTab && (
               <SubHeaderSlotContext.Provider value={subHeaderSlotEl}>

@@ -64,17 +64,25 @@ interface PersonaActivationRow {
 
 async function readRows(personaId: string): Promise<Map<string, PersonaActivationRow>> {
   const admin = getSupabaseServer();
-  if (!admin) return new Map();
+  if (!admin) {
+    console.warn('[personaActivations.readRows] supabase admin client unavailable');
+    return new Map();
+  }
   try {
     const { data, error } = await admin
       .from('persona_activations')
       .select('*')
       .eq('persona_id', personaId);
-    if (error || !Array.isArray(data)) return new Map();
+    if (error) {
+      console.warn(`[personaActivations.readRows] read failed for persona=${personaId.slice(0, 8)}…:`, error.message);
+      return new Map();
+    }
+    if (!Array.isArray(data)) return new Map();
     const map = new Map<string, PersonaActivationRow>();
     for (const r of data as PersonaActivationRow[]) map.set(r.activation_id, r);
     return map;
-  } catch {
+  } catch (err) {
+    console.warn(`[personaActivations.readRows] threw for persona=${personaId.slice(0, 8)}…:`, err instanceof Error ? err.message : err);
     return new Map();
   }
 }
@@ -209,47 +217,79 @@ async function upsertRow(
   fields: Partial<Omit<PersonaActivationRow, 'persona_id' | 'activation_id'>>,
 ): Promise<PersonaActivationRow | null> {
   const admin = getSupabaseServer();
-  if (!admin) return null;
+  if (!admin) {
+    console.warn('[personaActivations.upsertRow] supabase admin unavailable');
+    return null;
+  }
 
+  const personaPrefix = personaId.slice(0, 8) + '…';
   const updateFields = { ...fields, updated_at: new Date().toISOString() };
-  try {
-    // 1) UPDATE — only listed columns are touched.
+
+  // Step 1 — explicit existence check. Removes every ambiguity about
+  // whether UPDATE matched nothing because the row was absent vs because
+  // RLS filtered it out vs because of a Supabase quirk.
+  const { data: existing, error: readErr } = await admin
+    .from('persona_activations')
+    .select('*')
+    .eq('persona_id', personaId)
+    .eq('activation_id', activationId)
+    .maybeSingle();
+
+  if (readErr) {
+    console.warn(`[personaActivations.upsertRow] PRE-READ error persona=${personaPrefix} activation=${activationId}:`, readErr.message);
+    return null;
+  }
+
+  if (existing) {
+    // Step 2a — explicit UPDATE on the known row.
     const { data: updated, error: updateErr } = await admin
       .from('persona_activations')
       .update(updateFields)
       .eq('persona_id', personaId)
       .eq('activation_id', activationId)
-      .select('*')
-      .maybeSingle();
+      .select('*');
     if (updateErr) {
-      console.warn('[personaActivations.upsertRow] update failed:', updateErr.message);
-    }
-    if (updated) return updated as PersonaActivationRow;
-
-    // 2) INSERT — no existing row.
-    const insertRow = {
-      persona_id: personaId,
-      activation_id: activationId,
-      status: fields.status ?? 'active',
-      granted_via: fields.granted_via ?? 'self',
-      cohort_id: fields.cohort_id ?? null,
-      inviter_persona_id: fields.inviter_persona_id ?? null,
-      revoked_at: fields.revoked_at ?? null,
-    };
-    const { data: inserted, error: insertErr } = await admin
-      .from('persona_activations')
-      .insert(insertRow)
-      .select('*')
-      .maybeSingle();
-    if (insertErr) {
-      console.warn('[personaActivations.upsertRow] insert failed:', insertErr.message);
+      console.warn(`[personaActivations.upsertRow] UPDATE error persona=${personaPrefix} activation=${activationId}:`, updateErr.message);
       return null;
     }
-    return (inserted as PersonaActivationRow) ?? null;
-  } catch (err) {
-    console.warn('[personaActivations.upsertRow] threw:', err instanceof Error ? err.message : err);
+    const row = Array.isArray(updated) && updated.length > 0 ? (updated[0] as PersonaActivationRow) : null;
+    if (!row) {
+      console.warn(`[personaActivations.upsertRow] UPDATE returned no rows persona=${personaPrefix} activation=${activationId} — RLS may be filtering SELECT-after-update.`);
+    }
+    return row;
+  }
+
+  // Step 2b — INSERT the new row.
+  const insertRow = {
+    persona_id: personaId,
+    activation_id: activationId,
+    status: fields.status ?? 'active',
+    granted_via: fields.granted_via ?? 'self',
+    cohort_id: fields.cohort_id ?? null,
+    inviter_persona_id: fields.inviter_persona_id ?? null,
+    revoked_at: fields.revoked_at ?? null,
+  };
+  const { data: inserted, error: insertErr } = await admin
+    .from('persona_activations')
+    .insert(insertRow)
+    .select('*');
+  if (insertErr) {
+    // Tolerate a parallel-writer race (UNIQUE violation) by retrying as UPDATE.
+    if (/duplicate key|unique constraint/i.test(insertErr.message)) {
+      const { data: refetched } = await admin
+        .from('persona_activations')
+        .update(updateFields)
+        .eq('persona_id', personaId)
+        .eq('activation_id', activationId)
+        .select('*');
+      if (Array.isArray(refetched) && refetched.length > 0) {
+        return refetched[0] as PersonaActivationRow;
+      }
+    }
+    console.warn(`[personaActivations.upsertRow] INSERT error persona=${personaPrefix} activation=${activationId}:`, insertErr.message);
     return null;
   }
+  return Array.isArray(inserted) && inserted.length > 0 ? (inserted[0] as PersonaActivationRow) : null;
 }
 
 export async function activate(

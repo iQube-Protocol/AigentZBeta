@@ -32,6 +32,7 @@ import {
   generateImage,
   debitQc,
 } from '../_lib/generate';
+import { getActivePersona } from '@/services/identity/getActivePersona';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -73,11 +74,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const personaId = body.personaId?.trim();
+  // Resolve persona via the canonical spine when the body doesn't carry one.
+  // Client surfaces (e.g. RemixDialog) may post without personaId once the
+  // client-side sign-in gate is disabled; identity then flows from the
+  // Authorization: Bearer token per CLAUDE.md § Identity & Access Spine.
+  let personaId = body.personaId?.trim();
+  if (!personaId) {
+    try {
+      const activePersona = await getActivePersona(req);
+      personaId = activePersona?.personaId;
+    } catch {
+      // spine resolution failed — fall through to 401 below
+    }
+  }
   const prompt = body.prompt?.trim();
   const skill: Skill = body.skill === 'story' ? 'story' : 'article';
 
-  if (!personaId) return NextResponse.json({ ok: false, error: 'personaId required' }, { status: 400 });
+  if (!personaId) return NextResponse.json({ ok: false, error: 'sign-in required' }, { status: 401 });
   if (!prompt)    return NextResponse.json({ ok: false, error: 'prompt required' },    { status: 400 });
   if (prompt.length > 2000) return NextResponse.json({ ok: false, error: 'prompt too long (max 2000 chars)' }, { status: 400 });
 
@@ -109,7 +122,20 @@ export async function POST(req: NextRequest) {
   const referenceId = `cgc-pending-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (qcCost > 0) {
     const debit = await debitQc(supabase, personaId, qcCost, `community_content_${skill}`, referenceId);
-    if (!debit.ok) return NextResponse.json({ ok: false, error: debit.error }, { status: debit.status });
+    if (!debit.ok) {
+      // Forward the x402 payment envelope to the client when DVN was
+      // insufficient. RemixDialog uses this to surface a "Pay via Base"
+      // CTA that calls /api/community-content/settle after the user's
+      // wallet signs the QCT transfer.
+      return NextResponse.json(
+        {
+          ok: false,
+          error: debit.error,
+          ...(debit.payment ? { payment: debit.payment } : {}),
+        },
+        { status: debit.status },
+      );
+    }
   }
 
   // 3. Persona context

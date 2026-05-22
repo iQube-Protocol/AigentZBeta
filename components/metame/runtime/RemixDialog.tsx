@@ -18,10 +18,21 @@
  */
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Coins, FileText, Image as ImageIcon, Loader2, LogIn, RotateCw, Send, Share2, Sparkles, Trash2, X } from "lucide-react";
+import { BookMarked, Check, Coins, FileText, Image as ImageIcon, Loader2, LogIn, RotateCw, Send, Share2, Sparkles, Trash2, X } from "lucide-react";
 import { checkSpineDecision, type SpineDecision } from "@/services/access/spineGateClient";
+import { personaFetch } from "@/utils/personaSpine";
+import { useExternalWallet } from "@/app/components/wallet/useExternalWallet";
 
 type Skill = "article" | "story";
+
+// ─── Interim sign-in gating flag ──────────────────────────────────────────────
+// The client-side sign-in gate (banner, "Sign in required" copy, disabled
+// Generate button) is disabled while the spine-based remix access policy is
+// being re-wired. The backend remains the source of truth for auth/quota/
+// policy decisions; the dialog now lets the user attempt generation and
+// surfaces any server error via the existing error pathway. Flip back to
+// `true` to restore the original UI gate.
+const SIGNIN_GATING_ENABLED = false;
 
 interface QuotaCosts {
   article: { baseQc: number; surchargedQc: number; currentQc: number };
@@ -49,6 +60,19 @@ interface GeneratedContent {
   refundableUntil: string;
 }
 
+/** x402-style payment envelope returned by /generate on insufficient DVN. */
+interface QcPaymentIntent {
+  intentId: string;
+  asset: 'QCT';
+  chainId: number;
+  tokenAddress: string;
+  payTo: string;
+  amount: string;       // ERC20 base units (18 decimals)
+  amountQc: number;     // user-facing Q¢ cents
+  currency: 'QCT';
+  deadline: number;
+}
+
 interface Props {
   open: boolean;
   personaId: string | null;
@@ -59,6 +83,14 @@ interface Props {
   sourceExperienceId?: string | null;
   initialTitle?: string;
   initialPrompt?: string;
+  /** Full source-experience cover image — saved alongside the origin entry
+      when the user saves the remix to myCanvas so the canvas can render
+      the original capsule, not just an ID reference. */
+  sourceImageUrl?: string | null;
+  /** Description / synopsis of the source experience — saved into the
+      origin entry's bodyMd so the canvas reader sees the source's content,
+      not an empty card. */
+  sourceDescription?: string | null;
   onClose: () => void;
   onPublished?: (content: GeneratedContent) => void;
   /** Called when an unauthenticated user clicks the sign-in CTA. */
@@ -81,6 +113,8 @@ export function RemixDialog({
   sourceExperienceId,
   initialTitle,
   initialPrompt,
+  sourceImageUrl,
+  sourceDescription,
   onClose,
   onPublished,
   onSignInRequest,
@@ -104,6 +138,17 @@ export function RemixDialog({
   const [error, setError] = useState<string | null>(null);
   const [actionPending, setActionPending] = useState<"discard" | "publish" | null>(null);
   const [discardCountdown, setDiscardCountdown] = useState<number | null>(null);
+  const [savingToCanvas, setSavingToCanvas] = useState(false);
+  const [savedToCanvas, setSavedToCanvas] = useState(false);
+  // x402 payment-intent state — populated when /generate returns 402
+  // with a `payment` envelope. The PaymentIntentPanel surfaces a
+  // "Pay via Base" CTA that prompts the user's external wallet to
+  // sign the QCT transfer, then settles via /api/community-content/settle
+  // and re-runs submit() on success.
+  const [paymentIntent, setPaymentIntent] = useState<QcPaymentIntent | null>(null);
+  const [paymentPending, setPaymentPending] = useState<null | "sending" | "verifying">(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const wallet = useExternalWallet();
 
   // Hydrate state from props on open
   useEffect(() => {
@@ -117,6 +162,11 @@ export function RemixDialog({
     setDiscardCountdown(null);
     setGenerationStep("idle");
     setQuotaError(null);
+    setSavedToCanvas(false);
+    setSavingToCanvas(false);
+    setPaymentIntent(null);
+    setPaymentPending(null);
+    setPaymentError(null);
   }, [open, initialTitle, initialPrompt]);
 
   // Fetch source ownership state when dialog opens with a sourceExperienceId.
@@ -141,7 +191,7 @@ export function RemixDialog({
       return;
     }
     let cancelled = false;
-    fetch(`/api/community-content/quota?personaId=${encodeURIComponent(personaId)}`)
+    personaFetch(`/api/community-content/quota?personaId=${encodeURIComponent(personaId)}`, { personaIdHint: personaId })
       .then((r) => r.json())
       .then((j) => {
         if (cancelled) return;
@@ -173,7 +223,7 @@ export function RemixDialog({
   }, [generated]);
 
   const submit = useCallback(async () => {
-    if (!personaId) { setError("Sign in to remix"); return; }
+    if (SIGNIN_GATING_ENABLED && !personaId) { setError("Sign in to remix"); return; }
     if (!prompt.trim()) { setError("Prompt is required"); return; }
     setGenerating(true);
     setError(null);
@@ -186,7 +236,7 @@ export function RemixDialog({
     const stepTimer3 = setTimeout(() => setGenerationStep("saving"),    18000);
 
     try {
-      const res = await fetch("/api/community-content/generate", {
+      const res = await personaFetch("/api/community-content/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -196,25 +246,45 @@ export function RemixDialog({
           title: title.trim() || null,
           sourceExperienceId: sourceExperienceId || null,
         }),
+        personaIdHint: personaId ?? undefined,
       });
-      const j = await res.json();
+      let j: Record<string, unknown>;
+      try {
+        j = (await res.json()) as Record<string, unknown>;
+      } catch {
+        setError(`Generation failed (${res.status || "server error"}) — please try again`);
+        return;
+      }
       if (!res.ok || !j.ok) {
-        setError(j.error || `Generation failed (${res.status})`);
+        // 402 with a payment envelope → DVN was insufficient. Stash the
+        // intent so the PaymentIntentPanel can drive the on-chain flow.
+        // Suppress the raw "Insufficient Q¢" string — the payment UI is
+        // the explanation.
+        if (res.status === 402 && j.payment && typeof j.payment === "object") {
+          setPaymentIntent(j.payment as unknown as QcPaymentIntent);
+          setPaymentError(null);
+          return;
+        }
+        setError(typeof j.error === "string" ? j.error : `Generation failed (${res.status})`);
         return;
       }
       setGenerated({
-        id: j.id,
-        title: j.title,
-        articleBody: j.articleBody,
-        imageUrl: j.imageUrl ?? null,
-        qcCost: j.qcCost,
-        refundableUntil: j.refundableUntil,
+        id: String(j.id ?? ""),
+        title: String(j.title ?? ""),
+        articleBody: String(j.articleBody ?? ""),
+        imageUrl: typeof j.imageUrl === "string" ? j.imageUrl : null,
+        qcCost: typeof j.qcCost === "number" ? j.qcCost : 0,
+        refundableUntil: String(j.refundableUntil ?? ""),
       });
-      // Refresh quota so the next attempt's cost label is accurate.
-      void fetch(`/api/community-content/quota?personaId=${encodeURIComponent(personaId)}`)
-        .then((r) => r.json())
-        .then((q) => { if (q.ok) setQuota(q as QuotaState); })
-        .catch(() => { /* ignore */ });
+      // Refresh quota so the next attempt's cost label is accurate. With
+      // SIGNIN_GATING_ENABLED off, submit can run without a personaId; skip
+      // the refresh in that case since the quota endpoint requires one.
+      if (personaId) {
+        void personaFetch(`/api/community-content/quota?personaId=${encodeURIComponent(personaId)}`, { personaIdHint: personaId })
+          .then((r) => r.json())
+          .then((q) => { if (q.ok) setQuota(q as QuotaState); })
+          .catch(() => { /* ignore */ });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Generation failed");
     } finally {
@@ -226,15 +296,103 @@ export function RemixDialog({
     }
   }, [personaId, skill, prompt, title, sourceExperienceId]);
 
+  // ── x402 on-chain payment execution ────────────────────────────────────
+  // Prompts the user's already-connected EVM wallet to sign a QCT
+  // transfer for the intent.amount to intent.payTo on intent.chainId,
+  // then POSTs the txHash to /api/community-content/settle which credits
+  // DVN with the verified amount. On success we re-run submit() so the
+  // remix can debit DVN normally.
+  const payWithWallet = useCallback(async () => {
+    if (!paymentIntent) return;
+    setPaymentError(null);
+
+    if (!wallet.provider || !wallet.address) {
+      setPaymentError("Connect an EVM wallet (Wallet drawer → Connect) and try again.");
+      return;
+    }
+
+    // Switch to the intent's chain if the wallet isn't already there.
+    const wantChainHex = `0x${paymentIntent.chainId.toString(16)}`;
+    if (wallet.chainId !== paymentIntent.chainId) {
+      try {
+        await wallet.switchToChain(wantChainHex);
+      } catch (err) {
+        setPaymentError(err instanceof Error ? err.message : "Couldn't switch chain");
+        return;
+      }
+    }
+
+    // Encode ERC20 transfer(address,uint256) call data without pulling
+    // an ABI lib — selector + 32-byte padded args is tiny and stable.
+    const TRANSFER_SELECTOR = "0xa9059cbb";
+    const padHexAddress = (addr: string) =>
+      addr.toLowerCase().replace(/^0x/, "").padStart(64, "0");
+    const padHexUint = (decimal: string) => {
+      const hex = BigInt(decimal).toString(16);
+      return hex.padStart(64, "0");
+    };
+    const data = `${TRANSFER_SELECTOR}${padHexAddress(paymentIntent.payTo)}${padHexUint(paymentIntent.amount)}`;
+
+    setPaymentPending("sending");
+    let txHash: string;
+    try {
+      txHash = (await wallet.provider.request({
+        method: "eth_sendTransaction",
+        params: [{
+          from: wallet.address,
+          to: paymentIntent.tokenAddress,
+          data,
+          value: "0x0",
+        }],
+      })) as string;
+    } catch (err) {
+      setPaymentPending(null);
+      const msg = err instanceof Error ? err.message : "Wallet transaction rejected";
+      // Don't surface "user rejected" as an error — it's expected when
+      // the user dismisses the wallet prompt.
+      if (msg.toLowerCase().includes("rejected") || msg.toLowerCase().includes("denied")) {
+        return;
+      }
+      setPaymentError(msg);
+      return;
+    }
+
+    setPaymentPending("verifying");
+    try {
+      const settleRes = await personaFetch("/api/community-content/settle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intentId: paymentIntent.intentId, txHash }),
+        personaIdHint: personaId ?? undefined,
+      });
+      const settleJson = (await settleRes.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!settleRes.ok || !settleJson.ok) {
+        setPaymentPending(null);
+        setPaymentError(settleJson.error ?? `Settlement failed (${settleRes.status})`);
+        return;
+      }
+      // Settlement complete — DVN credited. Clear the intent and retry
+      // the original generation. submit() will hit /generate again and
+      // debitQc will now find sufficient DVN.
+      setPaymentIntent(null);
+      setPaymentPending(null);
+      void submit();
+    } catch (err) {
+      setPaymentPending(null);
+      setPaymentError(err instanceof Error ? err.message : "Settlement failed");
+    }
+  }, [paymentIntent, personaId, wallet, submit]);
+
   const discard = useCallback(async () => {
     if (!generated || !personaId) return;
     setActionPending("discard");
     setError(null);
     try {
-      const res = await fetch(`/api/community-content/${generated.id}/discard`, {
+      const res = await personaFetch(`/api/community-content/${generated.id}/discard`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ personaId }),
+        personaIdHint: personaId,
       });
       const j = await res.json();
       if (!res.ok || !j.ok) {
@@ -255,10 +413,11 @@ export function RemixDialog({
     setActionPending("publish");
     setError(null);
     try {
-      const res = await fetch(`/api/community-content/${generated.id}/publish`, {
+      const res = await personaFetch(`/api/community-content/${generated.id}/publish`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ personaId }),
+        personaIdHint: personaId,
       });
       const j = await res.json();
       if (!res.ok || !j.ok) {
@@ -274,6 +433,61 @@ export function RemixDialog({
     }
   }, [generated, personaId, onPublished, onClose]);
 
+  const saveToCanvas = useCallback(async () => {
+    if (!generated) return;
+    setSavingToCanvas(true);
+    setError(null);
+    try {
+      const saves: Promise<Response>[] = [
+        personaFetch("/api/mycanvas/entries", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: generated.title,
+            bodyMd: generated.articleBody,
+            entryType: "experience_derived",
+            metaJson: {
+              contentId: generated.id,
+              sourceExperienceId: sourceExperienceId ?? null,
+              imageUrl: generated.imageUrl,
+              skill,
+            },
+          }),
+          personaIdHint: personaId ?? undefined,
+        }),
+      ];
+      if (sourceExperienceId) {
+        saves.push(
+          personaFetch("/api/mycanvas/entries", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: initialTitle ?? "Origin Experience",
+              bodyMd: sourceDescription ?? "",
+              entryType: "experience_origin",
+              metaJson: {
+                experienceId: sourceExperienceId,
+                imageUrl: sourceImageUrl ?? null,
+                description: sourceDescription ?? null,
+              },
+            }),
+            personaIdHint: personaId ?? undefined,
+          }),
+        );
+      }
+      const results = await Promise.all(saves);
+      if (!results.every((r) => r.ok)) {
+        setError("Couldn't save to myCanvas");
+        return;
+      }
+      setSavedToCanvas(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't save to myCanvas");
+    } finally {
+      setSavingToCanvas(false);
+    }
+  }, [generated, personaId, skill, sourceExperienceId, initialTitle, sourceImageUrl, sourceDescription]);
+
   if (!open) return null;
 
   const skillCost = quota?.costs[skill];
@@ -287,7 +501,7 @@ export function RemixDialog({
     return (
       <div className="space-y-3 px-1 pb-1">
         {/* Sign-in banner — only once persona resolution is confirmed failed */}
-        {!personaId && !personaResolving && !generated && (
+        {SIGNIN_GATING_ENABLED && !personaId && !personaResolving && !generated && (
           <SignInBanner onSignIn={onSignInRequest} />
         )}
 
@@ -301,6 +515,21 @@ export function RemixDialog({
           <GenerationProgress step={generationStep} skill={skill} />
         )}
 
+        {/* x402 on-chain payment intent — surfaces when /generate returns
+            402 because DVN was insufficient. User signs a QCT transfer
+            with their EVM wallet; we settle via /settle which credits
+            DVN; then submit() re-runs and debits DVN normally. */}
+        {paymentIntent && !generated && (
+          <PaymentIntentPanel
+            intent={paymentIntent}
+            wallet={wallet}
+            pending={paymentPending}
+            error={paymentError}
+            onPay={payWithWallet}
+            onCancel={() => { setPaymentIntent(null); setPaymentError(null); setPaymentPending(null); }}
+          />
+        )}
+
         {!generated ? (
           <ComposeView
             skill={skill} setSkill={setSkill}
@@ -308,7 +537,7 @@ export function RemixDialog({
             prompt={prompt} setPrompt={setPrompt}
             quota={quota} quotaError={quotaError} hasPersona={!!personaId || personaResolving}
             skillCost={skillCost ?? null} isFree={isFree} showCostBadge={!!showCostBadge}
-            disabled={generating || (!personaId && !personaResolving)}
+            disabled={generating || (SIGNIN_GATING_ENABLED && !personaId && !personaResolving)}
           />
         ) : (
           <PreviewView generated={generated} />
@@ -328,7 +557,7 @@ export function RemixDialog({
               <div className="text-[10px] text-slate-400 min-w-0 truncate">
                 {personaResolving && !personaId
                   ? <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Checking session…</span>
-                  : !personaId
+                  : SIGNIN_GATING_ENABLED && !personaId
                   ? <span className="text-amber-300/80">Sign in required</span>
                   : !quota && !quotaError
                   ? <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Loading quota…</span>
@@ -353,7 +582,7 @@ export function RemixDialog({
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   Loading…
                 </button>
-              ) : !personaId ? (
+              ) : SIGNIN_GATING_ENABLED && !personaId ? (
                 <button
                   type="button"
                   onClick={() => onSignInRequest?.()}
@@ -400,12 +629,25 @@ export function RemixDialog({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => { setGenerated(null); setError(null); }}
+                  onClick={() => { setGenerated(null); setError(null); setSavedToCanvas(false); }}
                   disabled={actionPending !== null}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10 disabled:opacity-30"
                 >
                   <RotateCw className="h-3.5 w-3.5" />
                   Redo
+                </button>
+                <button
+                  type="button"
+                  onClick={saveToCanvas}
+                  disabled={actionPending !== null || savingToCanvas || savedToCanvas}
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold disabled:opacity-40 transition ${
+                    savedToCanvas
+                      ? "border-violet-500/40 bg-violet-500/15 text-violet-200"
+                      : "border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20 text-violet-100"
+                  }`}
+                >
+                  {savingToCanvas ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : savedToCanvas ? <Check className="h-3.5 w-3.5" /> : <BookMarked className="h-3.5 w-3.5" />}
+                  {savedToCanvas ? "Saved" : "Save"}
                 </button>
                 <button
                   type="button"
@@ -451,7 +693,7 @@ export function RemixDialog({
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-4 py-3">
           {/* Sign-in banner — only once persona resolution is confirmed failed */}
-          {!personaId && !personaResolving && !generated && (
+          {SIGNIN_GATING_ENABLED && !personaId && !personaResolving && !generated && (
             <SignInBanner onSignIn={onSignInRequest} />
           )}
 
@@ -463,6 +705,18 @@ export function RemixDialog({
           {/* Generation progress strip — shows above the form while charging/generating */}
           {generating && (
             <GenerationProgress step={generationStep} skill={skill} />
+          )}
+
+          {/* x402 on-chain payment intent (see inline-variant comment) */}
+          {paymentIntent && !generated && (
+            <PaymentIntentPanel
+              intent={paymentIntent}
+              wallet={wallet}
+              pending={paymentPending}
+              error={paymentError}
+              onPay={payWithWallet}
+              onCancel={() => { setPaymentIntent(null); setPaymentError(null); setPaymentPending(null); }}
+            />
           )}
 
           {!generated ? (
@@ -479,7 +733,7 @@ export function RemixDialog({
               skillCost={skillCost ?? null}
               isFree={isFree}
               showCostBadge={!!showCostBadge}
-              disabled={generating || (!personaId && !personaResolving)}
+              disabled={generating || (SIGNIN_GATING_ENABLED && !personaId && !personaResolving)}
             />
           ) : (
             <PreviewView generated={generated} />
@@ -499,7 +753,7 @@ export function RemixDialog({
               <div className="text-[10px] text-slate-400 min-w-0 truncate">
                 {personaResolving && !personaId
                   ? <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Checking session…</span>
-                  : !personaId
+                  : SIGNIN_GATING_ENABLED && !personaId
                   ? <span className="text-amber-300/80">Sign in required</span>
                   : !quota && !quotaError
                   ? <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Loading quota…</span>
@@ -524,7 +778,7 @@ export function RemixDialog({
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   Loading…
                 </button>
-              ) : !personaId ? (
+              ) : SIGNIN_GATING_ENABLED && !personaId ? (
                 <button
                   type="button"
                   onClick={() => onSignInRequest?.()}
@@ -574,12 +828,26 @@ export function RemixDialog({
                   onClick={() => {
                     setGenerated(null);
                     setError(null);
+                    setSavedToCanvas(false);
                   }}
                   disabled={actionPending !== null}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10 disabled:opacity-30"
                 >
                   <RotateCw className="h-3.5 w-3.5" />
                   Redo
+                </button>
+                <button
+                  type="button"
+                  onClick={saveToCanvas}
+                  disabled={actionPending !== null || savingToCanvas || savedToCanvas}
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold disabled:opacity-40 transition ${
+                    savedToCanvas
+                      ? "border-violet-500/40 bg-violet-500/15 text-violet-200"
+                      : "border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20 text-violet-100"
+                  }`}
+                >
+                  {savingToCanvas ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : savedToCanvas ? <Check className="h-3.5 w-3.5" /> : <BookMarked className="h-3.5 w-3.5" />}
+                  {savedToCanvas ? "Saved" : "Save to myCanvas"}
                 </button>
                 <button
                   type="button"
@@ -698,12 +966,11 @@ function ComposeView({
         <div className="text-right text-[10px] text-slate-600 mt-0.5">{prompt.length}/2000</div>
       </div>
 
-      {/* Cost summary — three states: signed-out, loading, loaded */}
-      {!hasPersona ? (
-        <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[11px] text-slate-400">
-          Sign in to see your daily free quota and Q¢ pricing.
-        </div>
-      ) : showCostBadge && skillCost ? (
+      {/* Cost summary — three states: signed-out (hidden during interim
+          gating-disabled window), loading, loaded. When SIGNIN_GATING_ENABLED
+          is flipped back on this branch will surface the sign-in prompt
+          again. */}
+      {!hasPersona ? null : showCostBadge && skillCost ? (
         <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <Coins className="h-3.5 w-3.5 text-amber-400 shrink-0" />
@@ -864,6 +1131,96 @@ function PreviewView({ generated }: { generated: GeneratedContent }) {
       <div className="text-[10px] text-slate-500">
         Charged: {generated.qcCost} Q¢
       </div>
+    </div>
+  );
+}
+
+// ─── Payment intent panel (x402 on-chain Q¢ settlement) ─────────────────────
+
+function PaymentIntentPanel({
+  intent,
+  wallet,
+  pending,
+  error,
+  onPay,
+  onCancel,
+}: {
+  intent: QcPaymentIntent;
+  wallet: ReturnType<typeof useExternalWallet>;
+  pending: null | "sending" | "verifying";
+  error: string | null;
+  onPay: () => void;
+  onCancel: () => void;
+}) {
+  const chainName =
+    intent.chainId === 84532  ? "Base Sepolia" :
+    intent.chainId === 421614 ? "Arbitrum Sepolia" :
+    intent.chainId === 11155111 ? "Ethereum Sepolia" :
+    intent.chainId === 11155420 ? "Optimism Sepolia" :
+    intent.chainId === 80002 ? "Polygon Amoy" :
+    `Chain ${intent.chainId}`;
+  const connected = !!wallet.address;
+  const wrongChain = connected && wallet.chainId !== intent.chainId;
+
+  return (
+    <div className="mb-3 rounded-xl border border-indigo-500/30 bg-indigo-950/30 p-3 space-y-2.5">
+      <div className="flex items-start gap-2.5">
+        <Coins className="h-4 w-4 text-indigo-400 shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-indigo-200">
+            Pay {intent.amountQc} Q¢ on {chainName}
+          </p>
+          <p className="text-[11px] text-indigo-200/70 leading-snug mt-0.5">
+            Your DVN balance is short. Sign a {intent.amountQc} QCT transfer
+            from your wallet to the treasury and we'll credit your Q¢ balance
+            instantly.
+          </p>
+        </div>
+      </div>
+
+      {!connected ? (
+        <div className="text-[11px] text-amber-200 bg-amber-500/10 border border-amber-500/25 rounded px-2.5 py-1.5">
+          Connect an EVM wallet from the wallet drawer, then return here.
+        </div>
+      ) : wrongChain ? (
+        <div className="text-[11px] text-amber-200 bg-amber-500/10 border border-amber-500/25 rounded px-2.5 py-1.5">
+          Wallet is on chain {wallet.chainId}. We'll prompt you to switch to {chainName} when you pay.
+        </div>
+      ) : null}
+
+      {error && (
+        <div className="text-[11px] text-red-300 bg-red-500/10 border border-red-500/25 rounded px-2.5 py-1.5">
+          {error}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-2 pt-1">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={pending !== null}
+          className="text-[11px] text-slate-400 hover:text-slate-200 disabled:opacity-40"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={onPay}
+          disabled={pending !== null || !connected}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/15 px-3 py-1.5 text-xs font-semibold text-indigo-100 hover:bg-indigo-500/25 disabled:opacity-40"
+        >
+          {pending === "sending" ? (
+            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Awaiting wallet…</>
+          ) : pending === "verifying" ? (
+            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Verifying tx…</>
+          ) : (
+            <><Coins className="h-3.5 w-3.5" /> Pay {intent.amountQc} Q¢</>
+          )}
+        </button>
+      </div>
+      <p className="text-[10px] text-slate-500 font-mono break-all">
+        Treasury: {intent.payTo.slice(0, 10)}…{intent.payTo.slice(-6)} · Token: {intent.tokenAddress.slice(0, 10)}…
+      </p>
     </div>
   );
 }

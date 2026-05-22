@@ -834,3 +834,48 @@ Top-level retrieval anchors for this pack.
 - Type: `refactor`
 - Brief: [COMMIT-813b74c.md](../build_/COMMITS/COMMIT-813b74c.md)
 - Message: knyt retail bundles tab: drop 4 single non-bundled GN offers (gn-investor-{qripto,digital,paperback,hardcover}) — they belong on the investor tab where they're discounted; rename tab 'Bundles & GN' → 'Bundles'; section header 'Graphic Novel, Episode & Character Bundles' → 'Premium Bundles' (investor tab unchanged)
+
+## Commit `e4352e4` — 2026-05-21T18:24:56Z
+- Type: `fix`
+- Brief: [COMMIT-e4352e4.md](../build_/COMMITS/COMMIT-e4352e4.md)
+- Message: trigger deploy: activations soft-release fix (d273247..1dcc609)
+
+## Commit `b0659f1` — 2026-05-21T17:51:51Z
+- Type: `push`
+- Brief: [COMMIT-b0659f1.md](../build_/COMMITS/COMMIT-b0659f1.md)
+- Message: diag: surface edition rows + released_at column presence (catches missing migration)
+
+## Commit `78a2cda` — 2026-05-21T17:13:10Z
+- Type: `push`
+- Brief: [COMMIT-78a2cda.md](../build_/COMMITS/COMMIT-78a2cda.md)
+- Message: backlog: generalise claimEdition to iqube-universal claim primitive (post-comic expansion)
+
+## Commit `4dabf9f` — 2026-05-21T18:42:22Z
+- Type: `fix`
+- Brief: [COMMIT-4dabf9f.md](../build_/COMMITS/COMMIT-4dabf9f.md)
+- Message: trigger deploy to dev: re-trigger activations soft-release fix (45fe2a8 already on dev)
+
+## Commit `d507119` — 2026-05-21T20:53:14Z
+- Type: `push`
+- Brief: [COMMIT-d507119.md](../build_/COMMITS/COMMIT-d507119.md)
+- Message: activations: prefer ACTIVE row when multiple editions exist (fixes stale revokedAt timestamp on display)
+
+## Commit `c4fcf0b` — 2026-05-21T21:42:53Z
+- Type: `push`
+- Brief: [COMMIT-c4fcf0b.md](../build_/COMMITS/COMMIT-c4fcf0b.md)
+- Message: remove read-side auto-grant: virtual via rowToSurface; revoke persists deactivation for autoGrant entries
+
+## Commit `6e1f210` — 2026-05-21T21:49:36Z
+- Type: `push`
+- Brief: [COMMIT-6e1f210.md](../build_/COMMITS/COMMIT-6e1f210.md)
+- Message: remove all auto-grant logic. Activations are simple toggles: no row=off, row+null=on, row+timestamp=off
+
+## Commit `0e8264f` — 2026-05-21T22:30:59Z
+- Type: `chore`
+- Brief: [COMMIT-0e8264f.md](../build_/COMMITS/COMMIT-0e8264f.md)
+- Message: activation toggle: dedicated rarity='activation' + partial unique index + atomic UPSERT/UPDATE
+
+## Commit `bbaff66` — 2026-05-21T22:45:45Z
+- Type: `fix`
+- Brief: [COMMIT-bbaff66.md](../build_/COMMITS/COMMIT-bbaff66.md)
+- Message: fix activation toggle: explicit SELECT→INSERT/UPDATE (PostgREST upsert can't target partial unique index)

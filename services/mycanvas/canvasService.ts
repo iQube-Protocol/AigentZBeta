@@ -13,6 +13,7 @@
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
 export type CanvasVisibility = 'private' | 'invited';
+export type CanvasEntryType = 'note' | 'experience_origin' | 'experience_derived';
 
 export interface CanvasEntry {
   id: string;
@@ -20,6 +21,8 @@ export interface CanvasEntry {
   bodyMd: string;
   tags: string[];
   visibility: CanvasVisibility;
+  entryType: CanvasEntryType;
+  metaJson: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }
@@ -40,17 +43,26 @@ interface DbEntryRow {
   body_md: string;
   tags: string[] | null;
   visibility: CanvasVisibility;
+  entry_type: string | null;
+  meta_json: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }
 
 function entryRowToShape(row: DbEntryRow): CanvasEntry {
+  const rawType = row.entry_type;
+  const entryType: CanvasEntryType =
+    rawType === 'experience_origin' || rawType === 'experience_derived'
+      ? rawType
+      : 'note';
   return {
     id: row.id,
     title: row.title,
     bodyMd: row.body_md ?? '',
     tags: row.tags ?? [],
     visibility: row.visibility,
+    entryType,
+    metaJson: row.meta_json ?? {},
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -59,24 +71,59 @@ function entryRowToShape(row: DbEntryRow): CanvasEntry {
 export async function listEntries(personaId: string): Promise<CanvasEntry[]> {
   const admin = getSupabaseServer();
   if (!admin) return [];
+  // PIECE 1 of the 413 fix — don't select body_md OR meta_json here.
+  // Derived experience entries store full article bodies (600–900 words)
+  // in body_md AND base64-encoded images (data:image/png;base64,...) in
+  // meta_json.imageUrl. With a handful of saved remixes the cumulative
+  // list response exceeds AWS Lambda's 6 MB payload limit (413) and
+  // eventually 504s on retry. The detail panel reads the full row via
+  // GET /api/mycanvas/entries/[id] (see PIECE 2).
   const { data } = await admin
     .from('mycanvas_entries')
-    .select('*')
+    .select('id, persona_id, title, tags, visibility, entry_type, created_at, updated_at')
     .eq('persona_id', personaId)
     .order('updated_at', { ascending: false })
     .limit(100);
   if (!Array.isArray(data)) return [];
-  return (data as DbEntryRow[]).map(entryRowToShape);
+  return (data as Array<Omit<DbEntryRow, 'body_md' | 'meta_json'>>).map((row) =>
+    entryRowToShape({ ...row, body_md: '', meta_json: {} }),
+  );
+}
+
+// PIECE 2 of the 413 fix — full-entry fetcher used by GET /[id]. The
+// returned row contains body_md and meta_json; a single entry is well
+// under Lambda's 6 MB ceiling even with a ~1 MB base64 image attached.
+export async function getEntry(personaId: string, entryId: string): Promise<CanvasEntry | null> {
+  const admin = getSupabaseServer();
+  if (!admin) return null;
+  const { data } = await admin
+    .from('mycanvas_entries')
+    .select('*')
+    .eq('id', entryId)
+    .eq('persona_id', personaId)
+    .maybeSingle();
+  return data ? entryRowToShape(data as DbEntryRow) : null;
 }
 
 export async function createEntry(
   personaId: string,
-  input: { title: string; bodyMd?: string; tags?: string[]; visibility?: CanvasVisibility },
+  input: {
+    title: string;
+    bodyMd?: string;
+    tags?: string[];
+    visibility?: CanvasVisibility;
+    entryType?: CanvasEntryType;
+    metaJson?: Record<string, unknown>;
+  },
 ): Promise<CanvasEntry | null> {
   const admin = getSupabaseServer();
   if (!admin) return null;
   const title = input.title.trim().slice(0, 240);
   if (!title) return null;
+  const entryType: CanvasEntryType =
+    input.entryType === 'experience_origin' || input.entryType === 'experience_derived'
+      ? input.entryType
+      : 'note';
   const { data } = await admin
     .from('mycanvas_entries')
     .insert({
@@ -85,6 +132,8 @@ export async function createEntry(
       body_md: (input.bodyMd ?? '').slice(0, 200_000),
       tags: Array.isArray(input.tags) ? input.tags.slice(0, 16) : [],
       visibility: input.visibility === 'invited' ? 'invited' : 'private',
+      entry_type: entryType,
+      meta_json: input.metaJson ?? {},
     })
     .select('*')
     .maybeSingle();

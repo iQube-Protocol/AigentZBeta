@@ -47,6 +47,20 @@ const RUNTIME_ORIGIN_ENV = process.env.NEXT_PUBLIC_RUNTIME_IFRAME_ORIGIN ?? "";
 const RUNTIME_URL_ENV = process.env.NEXT_PUBLIC_RUNTIME_IFRAME_URL ?? "";
 const BROWSER_MVP_ENABLED = process.env.NEXT_PUBLIC_BROWSER_MVP_ENABLED === "true";
 
+// Menu actions that render as overlay drawers in the runtime — opening them
+// is a pure UI side-effect and must NOT mutate runtime state or trigger LLM
+// inference. Mirrors DRAWER_ACTION_HANDLERS in MetaMeRuntimeClient so the
+// runtime's early-return path is the only thing that fires when these are
+// dispatched from the shell.
+const DRAWER_ONLY_MENU_ACTIONS = new Set([
+  "wallet",
+  "settings",
+  "connections",
+  "memory",
+  "identity",
+  "persona",
+]);
+
 type BrowserShellEntry = {
   mountPayload?: BrowserMountPayload;
   surfaceState?: BrowserSurfaceState;
@@ -285,6 +299,7 @@ export default function RuntimeShellHomePage() {
   const [runtimeReady, setRuntimeReady] = useState(false);
   const [handoffSent, setHandoffSent] = useState(false);
   const [runtimeFrameLayout, setRuntimeFrameLayout] = useState<"default" | "narrow" | "wide">("default");
+  const [activePersonaLabel, setActivePersonaLabel] = useState<string | null>(null);
   const [browserStore, setBrowserStore] = useState<BrowserShellStore>(INITIAL_BROWSER_STORE);
   const [browserDrawerOpen, setBrowserDrawerOpen] = useState(false);
   const [browserDrawerData, setBrowserDrawerData] = useState<BrowserDrawerData>({
@@ -642,6 +657,42 @@ export default function RuntimeShellHomePage() {
     return () => window.removeEventListener("message", onMessage);
   }, [refreshConfig, router, runtimeOrigin]);
 
+  // Listen for active-persona broadcasts from the runtime iframe so the
+  // Be menu can render the persona's display name instead of the generic
+  // "Be" label. PersonaContext broadcasts two envelopes (canonical
+  // `metame:persona-changed` + legacy `aa-persona-change-v1`) on initial
+  // load and on every switch; we accept either and prefer `displayLabel`
+  // over `ownFioHandle`. No fetch from the shell — the runtime owns the
+  // spine integration and surfaces the T1 fields inline.
+  useEffect(() => {
+    function onPersonaMessage(event: MessageEvent) {
+      const data = event.data as
+        | {
+            type?: string;
+            displayLabel?: string;
+            ownFioHandle?: string;
+            surface?: { displayLabel?: string; ownFioHandle?: string };
+          }
+        | null;
+      if (!data || typeof data !== "object") return;
+      if (
+        data.type !== "metame:persona-changed" &&
+        data.type !== "aa-persona-change-v1"
+      ) {
+        return;
+      }
+      const label =
+        data.displayLabel ??
+        data.surface?.displayLabel ??
+        data.ownFioHandle ??
+        data.surface?.ownFioHandle ??
+        null;
+      if (label) setActivePersonaLabel(label);
+    }
+    window.addEventListener("message", onPersonaMessage);
+    return () => window.removeEventListener("message", onPersonaMessage);
+  }, []);
+
   useEffect(() => {
     if (!runtimeOrigin || !iframeLoaded) return;
 
@@ -723,6 +774,16 @@ export default function RuntimeShellHomePage() {
   const handleMenuAction = useCallback(
     async (item: RuntimeMenuItem, payload: Record<string, unknown> = {}) => {
       if (!config || !aaClient) return;
+
+      // Drawer-only actions render as overlays in the runtime — opening them
+      // must NOT mutate runtime state. Skip the AA roundtrip (which can
+      // return a menu_event.prompt) and the prompt/intent fields entirely;
+      // post a clean MENU_ACTION so the runtime's DRAWER_ACTION_HANDLERS
+      // early-return path is the only thing that fires.
+      if (DRAWER_ONLY_MENU_ACTIONS.has(item.id)) {
+        postShellEvent("MENU_ACTION", { action_id: item.id, payload });
+        return;
+      }
 
       // Keep shell-side context toggle in sync with the play-knyt menu item
       if (item.id === "play-knyt") {
@@ -1092,6 +1153,7 @@ export default function RuntimeShellHomePage() {
         browserEnabled={BROWSER_MVP_ENABLED}
         browserActive={Boolean(browserStore.activeSessionId)}
         onBrowserLaunch={handleBrowserLaunch}
+        beLabelOverride={activePersonaLabel}
       />
     </main>
   );

@@ -635,13 +635,15 @@ export const KNYT_CODEX: CodexConfig = {
       }
     },
 
-    // ── Community Generated Content (standalone) ───────────────
+    // ── Community Generated Content (under Order — surfaces in metaMe's
+    // Order of Metayé via knytOrderTabs() mirror) ──────────────────────
     {
       id: 'community-content',
       label: 'Community',
       slug: 'community-content',
       enabled: true,
-      order: 5,
+      group: 'order-group',
+      order: 6,
       type: 'static',
       config: { component: 'KnytCommunityContentTab' },
       metadata: {

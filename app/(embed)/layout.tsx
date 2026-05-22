@@ -7,6 +7,7 @@ import MetaAvatar from '../components/metaVatar/MetaAvatar';
 import { useMetaAvatar } from '../contexts/MetaAvatarContext';
 import { AGUIProvider } from '../components/AGUIProvider';
 import { PersonaProvider } from '../contexts/PersonaContext';
+import { ActivationsProvider } from '@/services/activations/ActivationsContext';
 
 function EmbedLayoutContent({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
@@ -78,11 +79,13 @@ function EmbedLayoutContent({ children }: { children: React.ReactNode }) {
 export default function EmbedLayout({ children }: { children: React.ReactNode }) {
   return (
     <PersonaProvider>
-      <AGUIProvider>
-        <MetaAvatarProvider>
-          <EmbedLayoutContent>{children}</EmbedLayoutContent>
-        </MetaAvatarProvider>
-      </AGUIProvider>
+      <ActivationsProvider>
+        <AGUIProvider>
+          <MetaAvatarProvider>
+            <EmbedLayoutContent>{children}</EmbedLayoutContent>
+          </MetaAvatarProvider>
+        </AGUIProvider>
+      </ActivationsProvider>
     </PersonaProvider>
   );
 }

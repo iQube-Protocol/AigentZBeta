@@ -4,35 +4,14 @@
  * ActivationsTab — top-level metaMe surface that controls which active
  * surfaces are switched on in the persona's runtime.
  *
- * Per-row state machine:
- *   - active   → "Open" link + "Deactivate"
- *   - revoked  → "Activate" (open) | "Request access" (gated, non-admin) |
- *                "Activate" (gated, admin self-eligible)
- *   - pending  → "Request submitted — admin will review"
- *
- * Auto-grants on first load: myCanvas + Order of Metayé (catalog-driven).
+ * Reads + mutates via the canonical `useActivations()` hook so this panel
+ * and `CodexPanelDynamic`'s top menu share a single store. No window
+ * events, no per-component fetches.
  */
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback } from "react";
 import { Loader2, Sparkles, ChevronRight, Lock, CheckCircle2, X, Hourglass } from "lucide-react";
-import { personaFetch } from "@/utils/personaSpine";
-
-interface ActivationSurface {
-  id: string;
-  label: string;
-  description: string;
-  longDescription: string;
-  gate: "open" | "gated";
-  tabSlug: string;
-  sourceCartridge: string;
-  icon?: string;
-  color?: string;
-  status: "active" | "pending" | "revoked" | null;
-  grantedVia: string | null;
-  grantedAt: string | null;
-  revokedAt: string | null;
-  canSelfActivate: boolean;
-}
+import { useActivations } from "@/services/activations/ActivationsContext";
 
 interface Props {
   personaId?: string;
@@ -42,96 +21,25 @@ interface Props {
   theme?: "light" | "dark";
 }
 
-export function ActivationsTab({ personaId, isAdmin = false, onOpenSurface, theme = "dark" }: Props) {
-  const [surfaces, setSurfaces] = useState<ActivationSurface[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [pendingId, setPendingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+export function ActivationsTab({ isAdmin = false, onOpenSurface, theme = "dark" }: Props) {
+  const {
+    surfaces,
+    loading,
+    error,
+    isMutating,
+    activate,
+    requestAccess,
+    revoke,
+    clearError,
+  } = useActivations();
 
-  const fetchSurfaces = useCallback(async () => {
-    if (!personaId) { setLoading(false); return; }
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await personaFetch("/api/assistant/activations", { personaIdHint: personaId });
-      if (!res.ok) throw new Error(`activations fetch failed (${res.status})`);
-      const data = (await res.json()) as { activations: ActivationSurface[] };
-      setSurfaces(data.activations ?? []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [personaId]);
-
-  useEffect(() => { void fetchSurfaces(); }, [fetchSurfaces]);
-
-  // Helper — publish the authoritative active-id set so CodexPanelDynamic's
-  // top menu mirrors this surface exactly. Same-window event, single source
-  // of truth, no re-fetch race against the server write.
-  const publishActiveIds = useCallback((list: ActivationSurface[]) => {
-    if (typeof window === "undefined") return;
-    const activeIds = list.filter((s) => s.status === "active").map((s) => s.id);
-    window.dispatchEvent(
-      new CustomEvent("metame:activations-changed", { detail: { activeIds } }),
-    );
-  }, []);
-
-  // Re-publish whenever local `surfaces` state changes — covers both initial
-  // fetch and any optimistic update so the top menu and panel stay locked.
-  useEffect(() => {
-    if (surfaces.length === 0) return;
-    publishActiveIds(surfaces);
-  }, [surfaces, publishActiveIds]);
-
-  const mutate = useCallback(
-    async (id: string, action: "activate" | "request" | "revoke") => {
-      if (!personaId) return;
-      setPendingId(id);
-      setError(null);
-
-      // Optimistic update — flip the local card immediately. The useEffect
-      // above will republish the active set so the top menu follows in the
-      // same tick. If the server rejects we revert.
-      const previousSurfaces = surfaces;
-      const optimisticStatus =
-        action === "activate" ? "active"
-        : action === "request" ? "pending"
-        : "revoked";
-      setSurfaces((prev) =>
-        prev.map((s) =>
-          s.id === id
-            ? {
-                ...s,
-                status: optimisticStatus,
-                grantedAt: action === "activate" ? new Date().toISOString() : s.grantedAt,
-                revokedAt: action === "revoke" ? new Date().toISOString() : s.revokedAt,
-              }
-            : s,
-        ),
-      );
-
-      try {
-        const res = await personaFetch(`/api/assistant/activations/${id}?action=${action}`, {
-          personaIdHint: personaId,
-          method: "POST",
-        });
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error((body as { detail?: string }).detail ?? `activation mutation failed (${res.status})`);
-        }
-        // Reconcile with server truth — fetchSurfaces will update `surfaces`
-        // and the publish-on-change effect fires another event with the
-        // confirmed set.
-        await fetchSurfaces();
-      } catch (err) {
-        setSurfaces(previousSurfaces);
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setPendingId(null);
-      }
+  const handleClick = useCallback(
+    (id: string, action: "activate" | "request" | "revoke") => {
+      if (action === "activate") return void activate(id);
+      if (action === "request") return void requestAccess(id);
+      if (action === "revoke") return void revoke(id);
     },
-    [personaId, fetchSurfaces, surfaces],
+    [activate, requestAccess, revoke],
   );
 
   const isDark = theme === "dark";
@@ -156,7 +64,22 @@ export function ActivationsTab({ personaId, isAdmin = false, onOpenSurface, them
         </p>
       </header>
 
-      {loading ? (
+      {error && (
+        <div className="mb-3 px-3 py-2 rounded border border-rose-500/50 bg-rose-500/10 text-sm text-rose-200 flex items-start gap-2">
+          <span className="font-semibold">Activation failed:</span>
+          <span className="flex-1">{error}</span>
+          <button
+            type="button"
+            onClick={clearError}
+            className="text-rose-300 hover:text-rose-100 text-xs"
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {loading && surfaces.length === 0 ? (
         <div className="flex items-center text-sm text-slate-400">
           <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading activations…
         </div>
@@ -165,7 +88,7 @@ export function ActivationsTab({ personaId, isAdmin = false, onOpenSurface, them
           {surfaces.map((s) => {
             const isActive = s.status === "active";
             const isPending = s.status === "pending";
-            const inFlight = pendingId === s.id;
+            const inFlight = isMutating(s.id);
             const stateRing = isActive
               ? "border-emerald-500/40 bg-emerald-500/5"
               : isPending
@@ -215,7 +138,7 @@ export function ActivationsTab({ personaId, isAdmin = false, onOpenSurface, them
                       )}
                       <button
                         type="button"
-                        onClick={() => void mutate(s.id, "revoke")}
+                        onClick={() => handleClick(s.id, "revoke")}
                         disabled={inFlight}
                         className="flex items-center gap-1 px-2.5 py-1 rounded border border-slate-600 hover:border-rose-500/50 text-xs text-slate-300 hover:text-rose-200 disabled:opacity-50"
                       >
@@ -227,7 +150,7 @@ export function ActivationsTab({ personaId, isAdmin = false, onOpenSurface, them
                   {!isActive && !isPending && s.canSelfActivate && (
                     <button
                       type="button"
-                      onClick={() => void mutate(s.id, "activate")}
+                      onClick={() => handleClick(s.id, "activate")}
                       disabled={inFlight}
                       className="flex items-center gap-1 px-2.5 py-1 rounded border border-violet-500/40 bg-violet-500/10 hover:bg-violet-500/20 text-violet-100 text-xs disabled:opacity-50"
                     >
@@ -238,7 +161,7 @@ export function ActivationsTab({ personaId, isAdmin = false, onOpenSurface, them
                   {!isActive && !isPending && !s.canSelfActivate && (
                     <button
                       type="button"
-                      onClick={() => void mutate(s.id, "request")}
+                      onClick={() => handleClick(s.id, "request")}
                       disabled={inFlight}
                       className="flex items-center gap-1 px-2.5 py-1 rounded border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-100 text-xs disabled:opacity-50"
                     >
@@ -259,10 +182,6 @@ export function ActivationsTab({ personaId, isAdmin = false, onOpenSurface, them
             );
           })}
         </div>
-      )}
-
-      {error && (
-        <p className="mt-3 text-xs text-rose-300">{error}</p>
       )}
     </div>
   );
