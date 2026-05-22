@@ -884,3 +884,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-5b8f9fb.md](../build_/COMMITS/COMMIT-5b8f9fb.md)
 - Message: add STT mic affordance to compose modals and expGuide textareas
+
+## Commit `8c31614` — 2026-05-22T17:50:40Z
+- Type: `feat`
+- Brief: [COMMIT-8c31614.md](../build_/COMMITS/COMMIT-8c31614.md)
+- Message: add microphone to runtime iframe allow attr + log persona-stream errors
