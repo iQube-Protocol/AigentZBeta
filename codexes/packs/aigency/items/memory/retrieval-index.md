@@ -884,3 +884,18 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-5b8f9fb.md](../build_/COMMITS/COMMIT-5b8f9fb.md)
 - Message: add STT mic affordance to compose modals and expGuide textareas
+
+## Commit `8c31614` — 2026-05-22T17:50:40Z
+- Type: `feat`
+- Brief: [COMMIT-8c31614.md](../build_/COMMITS/COMMIT-8c31614.md)
+- Message: add microphone to runtime iframe allow attr + log persona-stream errors
+
+## Commit `290ddbf` — 2026-05-22T17:54:40Z
+- Type: `push`
+- Brief: [COMMIT-290ddbf.md](../build_/COMMITS/COMMIT-290ddbf.md)
+- Message: disable Safari email AutoFill on aigentMe compose prompt inputs
+
+## Commit `1ea306c` — 2026-05-22T19:54:09Z
+- Type: `push`
+- Brief: [COMMIT-1ea306c.md](../build_/COMMITS/COMMIT-1ea306c.md)
+- Message: switch mic STT from Web Speech API to MediaRecorder + Whisper

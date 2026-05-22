@@ -1,4 +1,7 @@
 # Build — Changelog
+- [`1ea306c`](https://github.com/iQube-Protocol/AigentZBeta/commit/1ea306cf7ecf513323d05ec7f1add9b671da3e07) [push] switch mic STT from Web Speech API to MediaRecorder + Whisper (Claude, 2026-05-22T19:54:09Z)
+- [`290ddbf`](https://github.com/iQube-Protocol/AigentZBeta/commit/290ddbf6c839a5c4290c148867f72467e8a47c6d) [push] disable Safari email AutoFill on aigentMe compose prompt inputs (Claude, 2026-05-22T17:54:40Z)
+- [`8c31614`](https://github.com/iQube-Protocol/AigentZBeta/commit/8c3161468b4264bed3ac9e64413197db46ca1042) [feat] add microphone to runtime iframe allow attr + log persona-stream errors (Claude, 2026-05-22T17:50:40Z)
 - [`5b8f9fb`](https://github.com/iQube-Protocol/AigentZBeta/commit/5b8f9fb2c5efd69f53aa5ea040b2bfdfc4cbdd1f) [feat] add STT mic affordance to compose modals and expGuide textareas (Claude, 2026-05-22T16:48:23Z)
 - [`bbaff66`](https://github.com/iQube-Protocol/AigentZBeta/commit/bbaff669de9a0ff92090011f6632a5bd69379f8e) [fix] fix activation toggle: explicit SELECT→INSERT/UPDATE (PostgREST upsert can't target partial unique index) (Claude, 2026-05-21T22:45:45Z)
 - [`0e8264f`](https://github.com/iQube-Protocol/AigentZBeta/commit/0e8264f66ad3d431630fdfe45d871349cde8b9e7) [chore] activation toggle: dedicated rarity='activation' + partial unique index + atomic UPSERT/UPDATE (Claude, 2026-05-21T22:30:59Z)

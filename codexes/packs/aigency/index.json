@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-22T17:30:08.352Z",
+  "last_updated": "2026-05-22T19:56:07.451Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "5b8f9fb2c5efd69f53aa5ea040b2bfdfc4cbdd1f",
-  "latest_commit_short": "5b8f9fb",
-  "latest_commit_title": "add STT mic affordance to compose modals and expGuide textareas",
+  "latest_commit": "1ea306cf7ecf513323d05ec7f1add9b671da3e07",
+  "latest_commit_short": "1ea306c",
+  "latest_commit_title": "switch mic STT from Web Speech API to MediaRecorder + Whisper",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,33 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "1ea306c",
+      "full_sha": "1ea306cf7ecf513323d05ec7f1add9b671da3e07",
+      "title": "switch mic STT from Web Speech API to MediaRecorder + Whisper",
+      "author": "Claude",
+      "timestamp": "2026-05-22T19:54:09Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1ea306c.md"
+    },
+    {
+      "sha": "290ddbf",
+      "full_sha": "290ddbf6c839a5c4290c148867f72467e8a47c6d",
+      "title": "disable Safari email AutoFill on aigentMe compose prompt inputs",
+      "author": "Claude",
+      "timestamp": "2026-05-22T17:54:40Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-290ddbf.md"
+    },
+    {
+      "sha": "8c31614",
+      "full_sha": "8c3161468b4264bed3ac9e64413197db46ca1042",
+      "title": "add microphone to runtime iframe allow attr + log persona-stream errors",
+      "author": "Claude",
+      "timestamp": "2026-05-22T17:50:40Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-8c31614.md"
+    },
     {
       "sha": "5b8f9fb",
       "full_sha": "5b8f9fb2c5efd69f53aa5ea040b2bfdfc4cbdd1f",
@@ -1225,33 +1252,6 @@
       "timestamp": "2026-03-26T01:10:16Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-021c173.md"
-    },
-    {
-      "sha": "e81d583",
-      "full_sha": "e81d583ab8c4c2c54ec14586082deabc700f4d76",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-26T00:35:23Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-e81d583.md"
-    },
-    {
-      "sha": "c82e621",
-      "full_sha": "c82e6210a9f88fe88d8170cf0139e77316d6d15e",
-      "title": "submit DVN receipt on pipeline completion via qubetalkReceiptPipeline",
-      "author": "Claude",
-      "timestamp": "2026-03-26T00:35:19Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c82e621.md"
-    },
-    {
-      "sha": "e621d27",
-      "full_sha": "e621d276e10817677f29c4971cfb36c1d136947a",
-      "title": "add WorkflowEngineBinding phase 1: schema, store, make adapter, bindings and invoke API",
-      "author": "Claude",
-      "timestamp": "2026-03-26T00:35:14Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-e621d27.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

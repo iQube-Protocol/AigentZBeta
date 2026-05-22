@@ -175,6 +175,10 @@ export function ComposeGoogleSheetModal({ open, onClose, onCreate, onDraftWithAi
             <div className="flex gap-2">
               <input
                 type="text"
+                name="aigentme-prompt"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
                 placeholder="e.g. a tracker for Q1 partner outreach with name, status, last contact, next step"

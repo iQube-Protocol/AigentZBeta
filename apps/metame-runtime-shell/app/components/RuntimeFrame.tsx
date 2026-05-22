@@ -20,7 +20,7 @@ export function RuntimeFrame({ iframeRef, src, runtimeReady, onLoad, layoutMode 
         src={src}
         className="runtime-frame"
         onLoad={onLoad}
-        allow="clipboard-read; clipboard-write; fullscreen"
+        allow="clipboard-read; clipboard-write; fullscreen; microphone"
       />
     </div>
   );

@@ -193,6 +193,10 @@ export function ComposeGmailDraftModal({
             <div className="flex gap-2">
               <input
                 type="text"
+                name="aigentme-prompt"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
                 placeholder="e.g. thank Alice (alice@example.com) for yesterday's call and propose a follow-up next week"

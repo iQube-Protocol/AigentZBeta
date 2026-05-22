@@ -146,6 +146,10 @@ export function ComposeSlidesModal({ open, onClose, onCreate, onDraftWithAigentM
             <div className="flex gap-2">
               <input
                 type="text"
+                name="aigentme-prompt"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
                 placeholder="e.g. a 5-slide investor update on the metaMe Q1 alpha launch"

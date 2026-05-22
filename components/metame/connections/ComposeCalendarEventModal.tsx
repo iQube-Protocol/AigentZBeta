@@ -192,6 +192,10 @@ export function ComposeCalendarEventModal({
             <div className="flex gap-2">
               <input
                 type="text"
+                name="aigentme-prompt"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
                 placeholder="e.g. 30-min intro call with alice@example.com next Tuesday afternoon about the metaMe alpha"
