@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`cb8bfb4`](https://github.com/iQube-Protocol/AigentZBeta/commit/cb8bfb4449baeb94be5e066ece6f57ebbcdca72d) [push] opt embed routes in to microphone via Permissions-Policy + bridge to Lovable (Claude, 2026-05-22T20:55:54Z)
 - [`1ea306c`](https://github.com/iQube-Protocol/AigentZBeta/commit/1ea306cf7ecf513323d05ec7f1add9b671da3e07) [push] switch mic STT from Web Speech API to MediaRecorder + Whisper (Claude, 2026-05-22T19:54:09Z)
 - [`290ddbf`](https://github.com/iQube-Protocol/AigentZBeta/commit/290ddbf6c839a5c4290c148867f72467e8a47c6d) [push] disable Safari email AutoFill on aigentMe compose prompt inputs (Claude, 2026-05-22T17:54:40Z)
 - [`8c31614`](https://github.com/iQube-Protocol/AigentZBeta/commit/8c3161468b4264bed3ac9e64413197db46ca1042) [feat] add microphone to runtime iframe allow attr + log persona-stream errors (Claude, 2026-05-22T17:50:40Z)
