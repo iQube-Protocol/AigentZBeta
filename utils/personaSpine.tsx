@@ -377,6 +377,27 @@ export async function personaFetch(
     headers.set('Accept', 'application/json');
   }
 
+  // ── Persona override header — Path B fix for the devagent default ─────
+  // Server-side getActivePersona() defaults to "first owned by created_at
+  // ASC" when no explicit signal is provided (PST, x-persona-id, or
+  // ?personaId=). For dele@metame.com this picks devagent because its
+  // row was inserted ~1 minute before aigentz@aigent during initial
+  // seeding. The 'switch persona' action in the wallet drawer writes
+  // the user's chosen persona to localStorage['currentPersonaId'] via
+  // PersonaContext.setActivePersonaId — read it here and forward as
+  // x-persona-id on every request. The resolver's priority 2 honours
+  // this header iff the persona is owned by the caller, so it's
+  // ownership-safe AND it routes around the silent step-4 default.
+  // Callers can override with personaIdHint or explicit init.headers.
+  if (!headers.has('x-persona-id') && typeof window !== 'undefined') {
+    try {
+      const chosen =
+        window.localStorage.getItem('currentPersonaId') ||
+        window.sessionStorage.getItem('currentPersonaId');
+      if (chosen) headers.set('x-persona-id', chosen);
+    } catch { /* localStorage unavailable — fall through */ }
+  }
+
   // Append the personaId hint to the URL when caller provided one and the
   // URL didn't already carry it. We never overwrite an explicit ?personaId=.
   let finalInput: RequestInfo | URL = input;
