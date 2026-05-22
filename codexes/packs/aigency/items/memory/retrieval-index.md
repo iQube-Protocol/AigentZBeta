@@ -879,3 +879,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-bbaff66.md](../build_/COMMITS/COMMIT-bbaff66.md)
 - Message: fix activation toggle: explicit SELECT→INSERT/UPDATE (PostgREST upsert can't target partial unique index)
+
+## Commit `5b8f9fb` — 2026-05-22T16:48:23Z
+- Type: `feat`
+- Brief: [COMMIT-5b8f9fb.md](../build_/COMMITS/COMMIT-5b8f9fb.md)
+- Message: add STT mic affordance to compose modals and expGuide textareas
