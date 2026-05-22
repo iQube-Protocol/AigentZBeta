@@ -899,3 +899,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-1ea306c.md](../build_/COMMITS/COMMIT-1ea306c.md)
 - Message: switch mic STT from Web Speech API to MediaRecorder + Whisper
+
+## Commit `cb8bfb4` — 2026-05-22T20:55:54Z
+- Type: `push`
+- Brief: [COMMIT-cb8bfb4.md](../build_/COMMITS/COMMIT-cb8bfb4.md)
+- Message: opt embed routes in to microphone via Permissions-Policy + bridge to Lovable
