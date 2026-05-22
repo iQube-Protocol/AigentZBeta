@@ -2,10 +2,11 @@
 
 /**
  * MicButton — voice-to-text affordance for prompt inputs and free-form
- * textareas. Wraps useSpeechRecognition: click toggles listening, each
- * finalised utterance is appended to the parent value via `onTranscript`.
+ * textareas. Records a short clip with MediaRecorder and POSTs it to
+ * /api/skills/stt for Whisper transcription. Each finished utterance is
+ * appended to the parent value via `onTranscript`.
  *
- * If the browser does not support the Web Speech API (Firefox), the
+ * If the browser does not support MediaRecorder / getUserMedia, the
  * button is not rendered.
  *
  * Used by:
@@ -14,19 +15,18 @@
  */
 
 import React, { useCallback } from "react";
-import { Mic, MicOff } from "lucide-react";
+import { Loader2, Mic, MicOff } from "lucide-react";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 
 interface MicButtonProps {
-  /** Receives each finalised utterance (post-transform). */
+  /** Receives the transcribed utterance (post-transform). */
   onTranscript: (text: string) => void;
-  /** Optional post-process applied to each utterance before onTranscript. */
+  /** Optional post-process applied to the transcript before onTranscript. */
   transform?: (text: string) => string;
   disabled?: boolean;
   size?: "sm" | "md";
   theme?: "light" | "dark";
   className?: string;
-  /** Accessible label override. */
   title?: string;
 }
 
@@ -48,7 +48,7 @@ export function MicButton({
     [onTranscript, transform],
   );
 
-  const { isSupported, isListening, toggle, error } = useSpeechRecognition({
+  const { isSupported, isListening, isProcessing, toggle, error } = useSpeechRecognition({
     onFinalResult: handleFinal,
   });
 
@@ -62,28 +62,44 @@ export function MicButton({
     ? "border border-slate-700 text-slate-300 hover:border-slate-500 hover:text-slate-100 bg-slate-800/40"
     : "border border-slate-300 text-slate-600 hover:border-slate-500 hover:text-slate-900 bg-white";
   const active = "border border-red-500/60 text-red-400 bg-red-500/10 animate-pulse";
+  const processing = isDark
+    ? "border border-slate-700 text-violet-300 bg-slate-800/40"
+    : "border border-slate-300 text-violet-600 bg-white";
 
   const computedTitle =
     title ??
-    (error
-      ? `Voice input error: ${error}`
-      : isListening
-        ? "Stop listening"
-        : "Dictate (speech-to-text)");
+    (error === "microphone-permission-denied"
+      ? "Microphone permission denied — enable it in browser settings"
+      : error === "no-microphone-found"
+        ? "No microphone detected"
+        : error
+          ? `Voice input error: ${error}`
+          : isProcessing
+            ? "Transcribing…"
+            : isListening
+              ? "Stop recording"
+              : "Dictate (speech-to-text)");
+
+  const classes = isListening ? active : isProcessing ? processing : idle;
 
   return (
     <button
       type="button"
       onClick={toggle}
-      disabled={disabled}
+      disabled={disabled || isProcessing}
       title={computedTitle}
       aria-label={computedTitle}
       aria-pressed={isListening}
-      className={`rounded-md ${pad} transition disabled:opacity-50 disabled:cursor-not-allowed ${
-        isListening ? active : idle
-      } ${className ?? ""}`}
+      aria-busy={isProcessing}
+      className={`rounded-md ${pad} transition disabled:opacity-50 disabled:cursor-not-allowed ${classes} ${className ?? ""}`}
     >
-      {isListening ? <MicOff className={icon} /> : <Mic className={icon} />}
+      {isProcessing ? (
+        <Loader2 className={`${icon} animate-spin`} />
+      ) : isListening ? (
+        <MicOff className={icon} />
+      ) : (
+        <Mic className={icon} />
+      )}
     </button>
   );
 }
