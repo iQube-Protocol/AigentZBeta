@@ -10,6 +10,13 @@ type SmartMenuProps = {
   browserEnabled?: boolean;
   browserActive?: boolean;
   onBrowserLaunch?: () => void;
+  /**
+   * Optional override for the left-edge "Be" menu item label. When the
+   * shell receives a `metame:persona-changed` broadcast from the runtime
+   * iframe, it passes the persona's displayLabel here so the menu shows
+   * the active persona's name instead of the generic "Be" fallback.
+   */
+  beLabelOverride?: string | null;
 };
 
 function selectEdgeItems(items: RuntimeMenuItem[]): { left: RuntimeMenuItem | null; right: RuntimeMenuItem | null } {
@@ -26,10 +33,12 @@ function MenuActionButton({
   item,
   busyActionId,
   onAction,
+  labelOverride,
 }: {
   item: RuntimeMenuItem;
   busyActionId: string | null;
   onAction: (item: RuntimeMenuItem) => void;
+  labelOverride?: string | null;
 }) {
   const isBusy = busyActionId === item.id;
   return (
@@ -41,12 +50,12 @@ function MenuActionButton({
       onClick={() => onAction(item)}
       aria-busy={isBusy}
     >
-      {item.label}
+      {labelOverride ?? item.label}
     </button>
   );
 }
 
-export function SmartMenu({ menu, busyActionId, onAction, browserEnabled = false, browserActive = false, onBrowserLaunch }: SmartMenuProps) {
+export function SmartMenu({ menu, busyActionId, onAction, browserEnabled = false, browserActive = false, onBrowserLaunch, beLabelOverride = null }: SmartMenuProps) {
   const coreItems = menu.items.filter(isCore);
   const { left: leftEdge, right: rightEdge } = selectEdgeItems(menu.items);
   const edgeEnabled = !!(leftEdge?.enabled || rightEdge?.enabled);
@@ -79,10 +88,15 @@ export function SmartMenu({ menu, busyActionId, onAction, browserEnabled = false
         ) : null}
         <div className="menu-row-collapsed">
           {leftEdge ? (
-            <MenuActionButton item={leftEdge} busyActionId={busyActionId} onAction={(item) => onAction(item)} />
+            <MenuActionButton
+              item={leftEdge}
+              busyActionId={busyActionId}
+              onAction={(item) => onAction(item)}
+              labelOverride={leftEdge.id === "be" ? beLabelOverride : null}
+            />
           ) : (
             <button type="button" className="menu-button" disabled>
-              Be
+              {beLabelOverride ?? "Be"}
             </button>
           )}
 
@@ -127,7 +141,13 @@ export function SmartMenu({ menu, busyActionId, onAction, browserEnabled = false
       ) : null}
       <div className="menu-row" style={{ gridTemplateColumns: `repeat(${displayItems.length}, minmax(0, 1fr))` }}>
         {displayItems.map((item) => (
-          <MenuActionButton key={item.id} item={item} busyActionId={busyActionId} onAction={(next) => onAction(next)} />
+          <MenuActionButton
+            key={item.id}
+            item={item}
+            busyActionId={busyActionId}
+            onAction={(next) => onAction(next)}
+            labelOverride={item.id === "be" ? beLabelOverride : null}
+          />
         ))}
       </div>
     </nav>

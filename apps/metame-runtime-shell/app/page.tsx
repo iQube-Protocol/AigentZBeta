@@ -299,6 +299,7 @@ export default function RuntimeShellHomePage() {
   const [runtimeReady, setRuntimeReady] = useState(false);
   const [handoffSent, setHandoffSent] = useState(false);
   const [runtimeFrameLayout, setRuntimeFrameLayout] = useState<"default" | "narrow" | "wide">("default");
+  const [activePersonaLabel, setActivePersonaLabel] = useState<string | null>(null);
   const [browserStore, setBrowserStore] = useState<BrowserShellStore>(INITIAL_BROWSER_STORE);
   const [browserDrawerOpen, setBrowserDrawerOpen] = useState(false);
   const [browserDrawerData, setBrowserDrawerData] = useState<BrowserDrawerData>({
@@ -655,6 +656,42 @@ export default function RuntimeShellHomePage() {
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
   }, [refreshConfig, router, runtimeOrigin]);
+
+  // Listen for active-persona broadcasts from the runtime iframe so the
+  // Be menu can render the persona's display name instead of the generic
+  // "Be" label. PersonaContext broadcasts two envelopes (canonical
+  // `metame:persona-changed` + legacy `aa-persona-change-v1`) on initial
+  // load and on every switch; we accept either and prefer `displayLabel`
+  // over `ownFioHandle`. No fetch from the shell — the runtime owns the
+  // spine integration and surfaces the T1 fields inline.
+  useEffect(() => {
+    function onPersonaMessage(event: MessageEvent) {
+      const data = event.data as
+        | {
+            type?: string;
+            displayLabel?: string;
+            ownFioHandle?: string;
+            surface?: { displayLabel?: string; ownFioHandle?: string };
+          }
+        | null;
+      if (!data || typeof data !== "object") return;
+      if (
+        data.type !== "metame:persona-changed" &&
+        data.type !== "aa-persona-change-v1"
+      ) {
+        return;
+      }
+      const label =
+        data.displayLabel ??
+        data.surface?.displayLabel ??
+        data.ownFioHandle ??
+        data.surface?.ownFioHandle ??
+        null;
+      if (label) setActivePersonaLabel(label);
+    }
+    window.addEventListener("message", onPersonaMessage);
+    return () => window.removeEventListener("message", onPersonaMessage);
+  }, []);
 
   useEffect(() => {
     if (!runtimeOrigin || !iframeLoaded) return;
@@ -1116,6 +1153,7 @@ export default function RuntimeShellHomePage() {
         browserEnabled={BROWSER_MVP_ENABLED}
         browserActive={Boolean(browserStore.activeSessionId)}
         onBrowserLaunch={handleBrowserLaunch}
+        beLabelOverride={activePersonaLabel}
       />
     </main>
   );
