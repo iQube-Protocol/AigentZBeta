@@ -166,13 +166,18 @@ export async function generateImage(prompt: string): Promise<string | null> {
 
 // ── Q¢ ledger helpers ────────────────────────────────────────────────────────
 
+import { createQcPaymentIntent, type QcPaymentIntent } from './qcPaymentIntent';
+
 export async function debitQc(
   supabase: SupabaseClient,
   personaId: string,
   amount: number,
   reason: string,
   referenceId: string,
-): Promise<{ ok: true; txId: string } | { ok: false; error: string; status: number }> {
+): Promise<
+  | { ok: true; txId: string }
+  | { ok: false; error: string; status: number; payment?: QcPaymentIntent }
+> {
   if (amount <= 0) return { ok: true, txId: 'zero-cost' };
 
   const { data: rows, error: fetchError } = await supabase
@@ -186,7 +191,17 @@ export async function debitQc(
 
   const total = (rows ?? []).reduce((sum, r) => sum + Number((r as { balance: number }).balance), 0);
   if (total < amount) {
-    return { ok: false, error: `Insufficient Q¢ balance. Have ${total}, need ${amount}.`, status: 402 };
+    // DVN balance can't cover — emit an x402-shaped on-chain payment
+    // intent so the client can settle via the user's external wallet
+    // (Base Sepolia QCT transfer to MoneyPenny treasury). The settle
+    // endpoint will verify the on-chain receipt and credit DVN.
+    const payment = await createQcPaymentIntent(supabase, personaId, amount, reason, referenceId);
+    return {
+      ok: false,
+      error: `Insufficient Q¢ balance. Have ${total}, need ${amount}.`,
+      status: 402,
+      payment,
+    };
   }
 
   let remaining = amount;

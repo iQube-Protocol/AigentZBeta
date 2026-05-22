@@ -122,7 +122,20 @@ export async function POST(req: NextRequest) {
   const referenceId = `cgc-pending-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (qcCost > 0) {
     const debit = await debitQc(supabase, personaId, qcCost, `community_content_${skill}`, referenceId);
-    if (!debit.ok) return NextResponse.json({ ok: false, error: debit.error }, { status: debit.status });
+    if (!debit.ok) {
+      // Forward the x402 payment envelope to the client when DVN was
+      // insufficient. RemixDialog uses this to surface a "Pay via Base"
+      // CTA that calls /api/community-content/settle after the user's
+      // wallet signs the QCT transfer.
+      return NextResponse.json(
+        {
+          ok: false,
+          error: debit.error,
+          ...(debit.payment ? { payment: debit.payment } : {}),
+        },
+        { status: debit.status },
+      );
+    }
   }
 
   // 3. Persona context

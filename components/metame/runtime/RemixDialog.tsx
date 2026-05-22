@@ -21,6 +21,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { BookMarked, Check, Coins, FileText, Image as ImageIcon, Loader2, LogIn, RotateCw, Send, Share2, Sparkles, Trash2, X } from "lucide-react";
 import { checkSpineDecision, type SpineDecision } from "@/services/access/spineGateClient";
 import { personaFetch } from "@/utils/personaSpine";
+import { useExternalWallet } from "@/app/components/wallet/useExternalWallet";
 
 type Skill = "article" | "story";
 
@@ -57,6 +58,19 @@ interface GeneratedContent {
   imageUrl: string | null;
   qcCost: number;
   refundableUntil: string;
+}
+
+/** x402-style payment envelope returned by /generate on insufficient DVN. */
+interface QcPaymentIntent {
+  intentId: string;
+  asset: 'QCT';
+  chainId: number;
+  tokenAddress: string;
+  payTo: string;
+  amount: string;       // ERC20 base units (18 decimals)
+  amountQc: number;     // user-facing Q¢ cents
+  currency: 'QCT';
+  deadline: number;
 }
 
 interface Props {
@@ -126,6 +140,15 @@ export function RemixDialog({
   const [discardCountdown, setDiscardCountdown] = useState<number | null>(null);
   const [savingToCanvas, setSavingToCanvas] = useState(false);
   const [savedToCanvas, setSavedToCanvas] = useState(false);
+  // x402 payment-intent state — populated when /generate returns 402
+  // with a `payment` envelope. The PaymentIntentPanel surfaces a
+  // "Pay via Base" CTA that prompts the user's external wallet to
+  // sign the QCT transfer, then settles via /api/community-content/settle
+  // and re-runs submit() on success.
+  const [paymentIntent, setPaymentIntent] = useState<QcPaymentIntent | null>(null);
+  const [paymentPending, setPaymentPending] = useState<null | "sending" | "verifying">(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const wallet = useExternalWallet();
 
   // Hydrate state from props on open
   useEffect(() => {
@@ -141,6 +164,9 @@ export function RemixDialog({
     setQuotaError(null);
     setSavedToCanvas(false);
     setSavingToCanvas(false);
+    setPaymentIntent(null);
+    setPaymentPending(null);
+    setPaymentError(null);
   }, [open, initialTitle, initialPrompt]);
 
   // Fetch source ownership state when dialog opens with a sourceExperienceId.
@@ -230,6 +256,15 @@ export function RemixDialog({
         return;
       }
       if (!res.ok || !j.ok) {
+        // 402 with a payment envelope → DVN was insufficient. Stash the
+        // intent so the PaymentIntentPanel can drive the on-chain flow.
+        // Suppress the raw "Insufficient Q¢" string — the payment UI is
+        // the explanation.
+        if (res.status === 402 && j.payment && typeof j.payment === "object") {
+          setPaymentIntent(j.payment as unknown as QcPaymentIntent);
+          setPaymentError(null);
+          return;
+        }
         setError(typeof j.error === "string" ? j.error : `Generation failed (${res.status})`);
         return;
       }
@@ -260,6 +295,93 @@ export function RemixDialog({
       setGenerationStep("idle");
     }
   }, [personaId, skill, prompt, title, sourceExperienceId]);
+
+  // ── x402 on-chain payment execution ────────────────────────────────────
+  // Prompts the user's already-connected EVM wallet to sign a QCT
+  // transfer for the intent.amount to intent.payTo on intent.chainId,
+  // then POSTs the txHash to /api/community-content/settle which credits
+  // DVN with the verified amount. On success we re-run submit() so the
+  // remix can debit DVN normally.
+  const payWithWallet = useCallback(async () => {
+    if (!paymentIntent) return;
+    setPaymentError(null);
+
+    if (!wallet.provider || !wallet.address) {
+      setPaymentError("Connect an EVM wallet (Wallet drawer → Connect) and try again.");
+      return;
+    }
+
+    // Switch to the intent's chain if the wallet isn't already there.
+    const wantChainHex = `0x${paymentIntent.chainId.toString(16)}`;
+    if (wallet.chainId !== paymentIntent.chainId) {
+      try {
+        await wallet.switchToChain(wantChainHex);
+      } catch (err) {
+        setPaymentError(err instanceof Error ? err.message : "Couldn't switch chain");
+        return;
+      }
+    }
+
+    // Encode ERC20 transfer(address,uint256) call data without pulling
+    // an ABI lib — selector + 32-byte padded args is tiny and stable.
+    const TRANSFER_SELECTOR = "0xa9059cbb";
+    const padHexAddress = (addr: string) =>
+      addr.toLowerCase().replace(/^0x/, "").padStart(64, "0");
+    const padHexUint = (decimal: string) => {
+      const hex = BigInt(decimal).toString(16);
+      return hex.padStart(64, "0");
+    };
+    const data = `${TRANSFER_SELECTOR}${padHexAddress(paymentIntent.payTo)}${padHexUint(paymentIntent.amount)}`;
+
+    setPaymentPending("sending");
+    let txHash: string;
+    try {
+      txHash = (await wallet.provider.request({
+        method: "eth_sendTransaction",
+        params: [{
+          from: wallet.address,
+          to: paymentIntent.tokenAddress,
+          data,
+          value: "0x0",
+        }],
+      })) as string;
+    } catch (err) {
+      setPaymentPending(null);
+      const msg = err instanceof Error ? err.message : "Wallet transaction rejected";
+      // Don't surface "user rejected" as an error — it's expected when
+      // the user dismisses the wallet prompt.
+      if (msg.toLowerCase().includes("rejected") || msg.toLowerCase().includes("denied")) {
+        return;
+      }
+      setPaymentError(msg);
+      return;
+    }
+
+    setPaymentPending("verifying");
+    try {
+      const settleRes = await personaFetch("/api/community-content/settle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ intentId: paymentIntent.intentId, txHash }),
+        personaIdHint: personaId ?? undefined,
+      });
+      const settleJson = (await settleRes.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!settleRes.ok || !settleJson.ok) {
+        setPaymentPending(null);
+        setPaymentError(settleJson.error ?? `Settlement failed (${settleRes.status})`);
+        return;
+      }
+      // Settlement complete — DVN credited. Clear the intent and retry
+      // the original generation. submit() will hit /generate again and
+      // debitQc will now find sufficient DVN.
+      setPaymentIntent(null);
+      setPaymentPending(null);
+      void submit();
+    } catch (err) {
+      setPaymentPending(null);
+      setPaymentError(err instanceof Error ? err.message : "Settlement failed");
+    }
+  }, [paymentIntent, personaId, wallet, submit]);
 
   const discard = useCallback(async () => {
     if (!generated || !personaId) return;
@@ -391,6 +513,21 @@ export function RemixDialog({
         {/* Generation progress strip */}
         {generating && (
           <GenerationProgress step={generationStep} skill={skill} />
+        )}
+
+        {/* x402 on-chain payment intent — surfaces when /generate returns
+            402 because DVN was insufficient. User signs a QCT transfer
+            with their EVM wallet; we settle via /settle which credits
+            DVN; then submit() re-runs and debits DVN normally. */}
+        {paymentIntent && !generated && (
+          <PaymentIntentPanel
+            intent={paymentIntent}
+            wallet={wallet}
+            pending={paymentPending}
+            error={paymentError}
+            onPay={payWithWallet}
+            onCancel={() => { setPaymentIntent(null); setPaymentError(null); setPaymentPending(null); }}
+          />
         )}
 
         {!generated ? (
@@ -568,6 +705,18 @@ export function RemixDialog({
           {/* Generation progress strip — shows above the form while charging/generating */}
           {generating && (
             <GenerationProgress step={generationStep} skill={skill} />
+          )}
+
+          {/* x402 on-chain payment intent (see inline-variant comment) */}
+          {paymentIntent && !generated && (
+            <PaymentIntentPanel
+              intent={paymentIntent}
+              wallet={wallet}
+              pending={paymentPending}
+              error={paymentError}
+              onPay={payWithWallet}
+              onCancel={() => { setPaymentIntent(null); setPaymentError(null); setPaymentPending(null); }}
+            />
           )}
 
           {!generated ? (
@@ -982,6 +1131,96 @@ function PreviewView({ generated }: { generated: GeneratedContent }) {
       <div className="text-[10px] text-slate-500">
         Charged: {generated.qcCost} Q¢
       </div>
+    </div>
+  );
+}
+
+// ─── Payment intent panel (x402 on-chain Q¢ settlement) ─────────────────────
+
+function PaymentIntentPanel({
+  intent,
+  wallet,
+  pending,
+  error,
+  onPay,
+  onCancel,
+}: {
+  intent: QcPaymentIntent;
+  wallet: ReturnType<typeof useExternalWallet>;
+  pending: null | "sending" | "verifying";
+  error: string | null;
+  onPay: () => void;
+  onCancel: () => void;
+}) {
+  const chainName =
+    intent.chainId === 84532  ? "Base Sepolia" :
+    intent.chainId === 421614 ? "Arbitrum Sepolia" :
+    intent.chainId === 11155111 ? "Ethereum Sepolia" :
+    intent.chainId === 11155420 ? "Optimism Sepolia" :
+    intent.chainId === 80002 ? "Polygon Amoy" :
+    `Chain ${intent.chainId}`;
+  const connected = !!wallet.address;
+  const wrongChain = connected && wallet.chainId !== intent.chainId;
+
+  return (
+    <div className="mb-3 rounded-xl border border-indigo-500/30 bg-indigo-950/30 p-3 space-y-2.5">
+      <div className="flex items-start gap-2.5">
+        <Coins className="h-4 w-4 text-indigo-400 shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-indigo-200">
+            Pay {intent.amountQc} Q¢ on {chainName}
+          </p>
+          <p className="text-[11px] text-indigo-200/70 leading-snug mt-0.5">
+            Your DVN balance is short. Sign a {intent.amountQc} QCT transfer
+            from your wallet to the treasury and we'll credit your Q¢ balance
+            instantly.
+          </p>
+        </div>
+      </div>
+
+      {!connected ? (
+        <div className="text-[11px] text-amber-200 bg-amber-500/10 border border-amber-500/25 rounded px-2.5 py-1.5">
+          Connect an EVM wallet from the wallet drawer, then return here.
+        </div>
+      ) : wrongChain ? (
+        <div className="text-[11px] text-amber-200 bg-amber-500/10 border border-amber-500/25 rounded px-2.5 py-1.5">
+          Wallet is on chain {wallet.chainId}. We'll prompt you to switch to {chainName} when you pay.
+        </div>
+      ) : null}
+
+      {error && (
+        <div className="text-[11px] text-red-300 bg-red-500/10 border border-red-500/25 rounded px-2.5 py-1.5">
+          {error}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-2 pt-1">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={pending !== null}
+          className="text-[11px] text-slate-400 hover:text-slate-200 disabled:opacity-40"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={onPay}
+          disabled={pending !== null || !connected}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/15 px-3 py-1.5 text-xs font-semibold text-indigo-100 hover:bg-indigo-500/25 disabled:opacity-40"
+        >
+          {pending === "sending" ? (
+            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Awaiting wallet…</>
+          ) : pending === "verifying" ? (
+            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Verifying tx…</>
+          ) : (
+            <><Coins className="h-3.5 w-3.5" /> Pay {intent.amountQc} Q¢</>
+          )}
+        </button>
+      </div>
+      <p className="text-[10px] text-slate-500 font-mono break-all">
+        Treasury: {intent.payTo.slice(0, 10)}…{intent.payTo.slice(-6)} · Token: {intent.tokenAddress.slice(0, 10)}…
+      </p>
     </div>
   );
 }
