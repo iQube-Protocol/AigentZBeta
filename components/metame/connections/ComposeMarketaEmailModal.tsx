@@ -193,6 +193,10 @@ export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithA
             <div className="flex gap-2">
               <input
                 type="text"
+                name="aigentme-prompt"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
                 placeholder="e.g. invite alice@example.com to partner on the Q1 metaMe activation; tone: warm, value-led"

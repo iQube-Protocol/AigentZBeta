@@ -140,6 +140,10 @@ export function ComposeGoogleDocModal({ open, onClose, onCreate, onDraftWithAige
             <div className="flex gap-2">
               <input
                 type="text"
+                name="aigentme-prompt"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
                 placeholder="e.g. a one-page brief on the metaMe Q1 alpha for the partner team, share with alice@example.com as commenter"
