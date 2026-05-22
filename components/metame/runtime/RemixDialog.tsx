@@ -258,8 +258,19 @@ export function RemixDialog({
   const submit = useCallback(async (paymentMode: 'auto' | 'dvn' = 'auto') => {
     if (SIGNIN_GATING_ENABLED && !personaId) { setError("Sign in to remix"); return; }
     if (!prompt.trim()) { setError("Prompt is required"); return; }
-    // Operator diagnostic: helps spot persona-mismatch bugs (dialog
-    // debiting persona A while the wallet UI shows persona B's balance).
+    // PATH A persona-resolution defense — refuse to submit when we have
+    // no explicit persona signal. Without this guard the server's
+    // getActivePersona() falls back to "first owned by created_at ASC",
+    // which for dele@metame.com resolves to devagent and debits the
+    // wrong DVN ledger row. The user must explicitly pick a persona in
+    // the wallet drawer before remixing.
+    const hasPst = !!activePersonaSurface?.personaSessionToken;
+    if (!personaId && !hasPst) {
+      setError(
+        'No active persona resolved — please pick a persona in the wallet drawer and retry.',
+      );
+      return;
+    }
     console.info('[RemixDialog] submit', {
       personaId,
       paymentMode,
@@ -279,9 +290,19 @@ export function RemixDialog({
     const stepTimer3 = setTimeout(() => setGenerationStep("saving"),    18000);
 
     try {
+      // Attach the persona-session-token (PST) so the server's
+      // getActivePersona() resolves via priority 1 (PST bound to the
+      // exact persona the user picked) instead of priority 4 (silent
+      // "first owned" fallback). This is Path A of the persona-override
+      // fix — Path B (server-side default_persona_id schema) is in the
+      // 2026-05-22 backlog brief.
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (activePersonaSurface?.personaSessionToken) {
+        headers['x-persona-session-token'] = activePersonaSurface.personaSessionToken;
+      }
       const res = await personaFetch("/api/community-content/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           personaId,
           skill,
