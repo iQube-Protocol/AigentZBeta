@@ -69,6 +69,14 @@ interface Props {
   sourceExperienceId?: string | null;
   initialTitle?: string;
   initialPrompt?: string;
+  /** Full source-experience cover image — saved alongside the origin entry
+      when the user saves the remix to myCanvas so the canvas can render
+      the original capsule, not just an ID reference. */
+  sourceImageUrl?: string | null;
+  /** Description / synopsis of the source experience — saved into the
+      origin entry's bodyMd so the canvas reader sees the source's content,
+      not an empty card. */
+  sourceDescription?: string | null;
   onClose: () => void;
   onPublished?: (content: GeneratedContent) => void;
   /** Called when an unauthenticated user clicks the sign-in CTA. */
@@ -91,6 +99,8 @@ export function RemixDialog({
   sourceExperienceId,
   initialTitle,
   initialPrompt,
+  sourceImageUrl,
+  sourceDescription,
   onClose,
   onPublished,
   onSignInRequest,
@@ -224,12 +234,12 @@ export function RemixDialog({
         return;
       }
       setGenerated({
-        id: j.id,
-        title: j.title,
-        articleBody: j.articleBody,
-        imageUrl: j.imageUrl ?? null,
-        qcCost: j.qcCost,
-        refundableUntil: j.refundableUntil,
+        id: String(j.id ?? ""),
+        title: String(j.title ?? ""),
+        articleBody: String(j.articleBody ?? ""),
+        imageUrl: typeof j.imageUrl === "string" ? j.imageUrl : null,
+        qcCost: typeof j.qcCost === "number" ? j.qcCost : 0,
+        refundableUntil: String(j.refundableUntil ?? ""),
       });
       // Refresh quota so the next attempt's cost label is accurate. With
       // SIGNIN_GATING_ENABLED off, submit can run without a personaId; skip
@@ -331,9 +341,13 @@ export function RemixDialog({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               title: initialTitle ?? "Origin Experience",
-              bodyMd: "",
+              bodyMd: sourceDescription ?? "",
               entryType: "experience_origin",
-              metaJson: { experienceId: sourceExperienceId },
+              metaJson: {
+                experienceId: sourceExperienceId,
+                imageUrl: sourceImageUrl ?? null,
+                description: sourceDescription ?? null,
+              },
             }),
             personaIdHint: personaId ?? undefined,
           }),
@@ -350,7 +364,7 @@ export function RemixDialog({
     } finally {
       setSavingToCanvas(false);
     }
-  }, [generated, personaId, skill, sourceExperienceId, initialTitle]);
+  }, [generated, personaId, skill, sourceExperienceId, initialTitle, sourceImageUrl, sourceDescription]);
 
   if (!open) return null;
 

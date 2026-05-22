@@ -21,6 +21,12 @@ interface Props {
   sourceExperienceId: string;
   initialTitle: string;
   initialPrompt: string;
+  /** Cover image of the source experience — forwarded so the origin canvas
+      entry renders the full capsule, not an empty reference. */
+  sourceImageUrl?: string | null;
+  /** Description / synopsis of the source experience — forwarded for the
+      same reason as sourceImageUrl. */
+  sourceDescription?: string | null;
   /** Called when an unauthenticated user clicks the sign-in CTA. Host should
       open the wallet drawer (or whatever sign-in surface is appropriate). */
   onSignInRequest?: () => void;
@@ -32,6 +38,8 @@ export function RuntimeCapsuleRemixEditor({
   sourceExperienceId,
   initialTitle,
   initialPrompt,
+  sourceImageUrl,
+  sourceDescription,
   onSignInRequest,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -81,6 +89,8 @@ export function RuntimeCapsuleRemixEditor({
             sourceExperienceId={sourceExperienceId}
             initialTitle={initialTitle}
             initialPrompt={initialPrompt}
+            sourceImageUrl={sourceImageUrl}
+            sourceDescription={sourceDescription}
             onClose={() => setOpen(false)}
             onSignInRequest={onSignInRequest}
           />

@@ -3193,6 +3193,8 @@ export default function MetaMeRuntimeClient() {
                   sourceExperienceId={resolveRuntimeExperienceId(content) ?? content.id}
                   initialTitle={content.title || ""}
                   initialPrompt={articleDraft?.prompt || content.description || ""}
+                  sourceImageUrl={resolveCapsuleCoverImage(content) || null}
+                  sourceDescription={content.description || null}
                   onSignInRequest={() => setWalletDrawerOpen(true)}
                 />
               );
