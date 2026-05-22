@@ -302,7 +302,7 @@ export function RemixDialog({
   }, [generated, personaId, onPublished, onClose]);
 
   const saveToCanvas = useCallback(async () => {
-    if (!generated || !personaId) return;
+    if (!generated) return;
     setSavingToCanvas(true);
     setError(null);
     try {
@@ -321,7 +321,7 @@ export function RemixDialog({
               skill,
             },
           }),
-          personaIdHint: personaId,
+          personaIdHint: personaId ?? undefined,
         }),
       ];
       if (sourceExperienceId) {
@@ -335,7 +335,7 @@ export function RemixDialog({
               entryType: "experience_origin",
               metaJson: { experienceId: sourceExperienceId },
             }),
-            personaIdHint: personaId,
+            personaIdHint: personaId ?? undefined,
           }),
         );
       }
@@ -488,13 +488,12 @@ export function RemixDialog({
                 <button
                   type="button"
                   onClick={saveToCanvas}
-                  disabled={actionPending !== null || savingToCanvas || savedToCanvas || !personaId}
+                  disabled={actionPending !== null || savingToCanvas || savedToCanvas}
                   className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold disabled:opacity-40 transition ${
                     savedToCanvas
                       ? "border-violet-500/40 bg-violet-500/15 text-violet-200"
                       : "border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20 text-violet-100"
                   }`}
-                  title={!personaId ? "Sign in to save to myCanvas" : undefined}
                 >
                   {savingToCanvas ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : savedToCanvas ? <Check className="h-3.5 w-3.5" /> : <BookMarked className="h-3.5 w-3.5" />}
                   {savedToCanvas ? "Saved" : "Save"}
@@ -677,13 +676,12 @@ export function RemixDialog({
                 <button
                   type="button"
                   onClick={saveToCanvas}
-                  disabled={actionPending !== null || savingToCanvas || savedToCanvas || !personaId}
+                  disabled={actionPending !== null || savingToCanvas || savedToCanvas}
                   className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold disabled:opacity-40 transition ${
                     savedToCanvas
                       ? "border-violet-500/40 bg-violet-500/15 text-violet-200"
                       : "border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20 text-violet-100"
                   }`}
-                  title={!personaId ? "Sign in to save to myCanvas" : undefined}
                 >
                   {savingToCanvas ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : savedToCanvas ? <Check className="h-3.5 w-3.5" /> : <BookMarked className="h-3.5 w-3.5" />}
                   {savedToCanvas ? "Saved" : "Save to myCanvas"}
