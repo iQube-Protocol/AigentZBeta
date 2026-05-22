@@ -28,6 +28,9 @@ import {
   Zap,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useNbePlan } from "@/app/hooks/useNbePlan";
+import { emitClientOrchestrationEvent } from "@/services/orchestration/emitClientEvent";
+import { buildCodexUrl } from "@/utils/codex-nav";
 
 // ─── KNYT axis config ─────────────────────────────────────────────────────────
 const PATRONAGE_AXIS = [
@@ -201,6 +204,12 @@ export function KnytRuntimeTab({ personaId, theme, density, codexId }: KnytRunti
     typeof navigator === "undefined" ? true : navigator.onLine,
   );
 
+  // ── Canonical NBE plan (SoT — /api/runtime/nbe) ────────────────────────────
+  // Cartridge-shaped state (apiState.nbe) is rendered as a fallback while the
+  // canonical plan loads; once loaded we render fields from the persisted
+  // NBEPlan row, which carries id + expires_at for downstream events.
+  const { plan: nbePlan, refetch: refetchNbe } = useNbePlan(personaId);
+
   // ── Derived values ─────────────────────────────────────────────────────────
   const currentStage = apiState?.journey?.stage ?? PATRONAGE_AXIS[0];
   const currentDepth = apiState?.journey?.depth ?? PCS_AXIS[0];
@@ -302,7 +311,30 @@ const availableActions = defaultActions(stageIdx);
             title: ACTION_META[actionId]?.label ?? actionId,
             description: reward ?? "Signal recorded.",
           });
+          if (personaId) {
+            void emitClientOrchestrationEvent({
+              event_type: "specialist_invoked",
+              persona_id: personaId,
+              // journey_stage left null — KNYT axis labels do not map to the
+              // canonical JourneyStage union. Server can backfill from
+              // journey_states if/when needed for indexing.
+              journey_stage: null,
+              active_cartridge: "knyt",
+              active_codex: codexId ?? "knyt-codex",
+              from_role: "cartridge-lead",
+              to_role: "specialist",
+              reason: `signal_emitted:${actionId}`,
+              metadata: {
+                signal_action: actionId,
+                endpoint,
+                reward: reward ?? null,
+                knyt_axis_stage: currentStage,
+              },
+            });
+          }
           refetchState();
+          // Signal may advance stage/depth server-side; pull fresh NBE.
+          void refetchNbe();
         } else {
           toast({ title: "Signal failed", description: "Please try again.", variant: "destructive" });
         }
@@ -312,7 +344,7 @@ const availableActions = defaultActions(stageIdx);
         setSubmittingAction(null);
       }
     },
-    [submittingAction, personaId, codexId, toast, refetchState],
+    [submittingAction, personaId, codexId, currentStage, toast, refetchState, refetchNbe],
   );
 
   // ── Copilot QA2AGU ────────────────────────────────────────────────────────
@@ -344,13 +376,49 @@ const availableActions = defaultActions(stageIdx);
   const handleNBELaunch = useCallback(() => {
     const action = capsule?.cta_action ?? apiState?.next_best_step?.action;
     if (!action) { setCopilotOpen(true); return; }
-    const next = capsule?.next_depth ?? apiState?.nbe?.next_experience_depth;
-    const dest = next === "L3 codex" ? "/triad/embed/codex/knyt-codex" : "/runtime";
+    const next =
+      capsule?.next_depth ??
+      nbePlan?.next_experience_depth ??
+      apiState?.nbe?.next_experience_depth;
+
+    // Emit orchestration event so the launch joins the audit trail.
+    if (personaId) {
+      void emitClientOrchestrationEvent({
+        event_type: "cartridge_lead_active",
+        persona_id: personaId,
+        journey_stage: null,
+        active_cartridge: "knyt",
+        active_codex: codexId ?? "knyt-codex",
+        from_role: "aigent-z",
+        to_role: "cartridge-lead",
+        reason: "nbe_launched",
+        metadata: {
+          action,
+          nbe_id: nbePlan?.id ?? null,
+          next_experience_depth: next ?? null,
+          source_surface: "knyt-runtime",
+          knyt_axis_stage: currentStage,
+        },
+      });
+    }
+
+    // L3 codex depth → navigate into the KNYT codex via buildCodexUrl so
+    // personaId travels with the link. Other depths stay on the runtime
+    // surface (the depth ladder transition is handled in-tab).
+    if (next === "L3 codex" || next === "codex") {
+      router.push(
+        buildCodexUrl("knyt-codex", {
+          personaId,
+          from: "knyt-runtime",
+        }),
+      );
+      return;
+    }
     const params = new URLSearchParams();
     if (personaId) params.set("personaId", personaId);
     if (next) params.set("depth", next);
-    router.push(`${dest}?${params.toString()}`);
-  }, [capsule, apiState, personaId, router]);
+    router.push(`/runtime?${params.toString()}`);
+  }, [capsule, apiState, nbePlan, personaId, codexId, currentStage, router]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -478,25 +546,33 @@ const availableActions = defaultActions(stageIdx);
       </Card>
 
       {/* ── NBE disposition card ── */}
-      {apiState?.nbe && (
-        <Card className="rounded-xl border border-slate-700/60 bg-slate-900/80 backdrop-blur-sm">
-          <CardContent className="p-4 space-y-2">
-            <div className="flex items-center gap-2">
-              <Compass className="h-4 w-4 text-amber-400" />
-              <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500">Aigent Disposition</p>
-            </div>
-            <p className="text-xs text-slate-300">{apiState.nbe.rationale}</p>
-            <div className="flex flex-wrap gap-1 pt-1">
-              <Badge className={`text-[10px] ${A.badge}`}>{apiState.nbe.disposition}</Badge>
-              {apiState.nbe.next_experience_depth && (
-                <Badge className="text-[10px] border-slate-600 bg-slate-800 text-slate-300">
-                  Next: {apiState.nbe.next_experience_depth}
-                </Badge>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {(() => {
+        // Prefer the canonical NBEPlan row; fall back to cartridge state
+        // while the plan loads on first paint.
+        const disposition = nbePlan?.disposition ?? apiState?.nbe?.disposition;
+        const rationale = nbePlan?.rationale ?? apiState?.nbe?.rationale;
+        const nextDepth = nbePlan?.next_experience_depth ?? apiState?.nbe?.next_experience_depth;
+        if (!disposition && !rationale) return null;
+        return (
+          <Card className="rounded-xl border border-slate-700/60 bg-slate-900/80 backdrop-blur-sm">
+            <CardContent className="p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <Compass className="h-4 w-4 text-amber-400" />
+                <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500">Aigent Disposition</p>
+              </div>
+              {rationale && <p className="text-xs text-slate-300">{rationale}</p>}
+              <div className="flex flex-wrap gap-1 pt-1">
+                {disposition && <Badge className={`text-[10px] ${A.badge}`}>{disposition}</Badge>}
+                {nextDepth && (
+                  <Badge className="text-[10px] border-slate-600 bg-slate-800 text-slate-300">
+                    Next: {nextDepth}
+                  </Badge>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* ── Agent handoffs ── */}
       {apiState?.handoffs && Object.values(apiState.handoffs).some(Boolean) && (
