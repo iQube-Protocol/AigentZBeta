@@ -193,24 +193,59 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
     }
   };
 
-  // Helper function to resolve agent ID to address
-  const resolveRecipientAddress = (recipient: string): string => {
-    // Check if it's an agent ID (starts with @aigent or aigent-)
-    if (recipient.startsWith('@aigent-') || recipient.startsWith('aigent-')) {
-      const agentId = recipient.replace('@', '');
+  // Resolve a recipient string to a 0x EVM address.
+  //
+  // Accepts the full identifier zoo so an agent can pay a user, a user
+  // can pay an agent, and personas can transact across cohorts without
+  // anyone having to copy-paste a hex address:
+  //   • 0x… EVM address                  (pass-through, validated)
+  //   • @aigent-moneypenny etc.          (local agent registry, fastest)
+  //   • aigent-moneypenny (no @ prefix)  (same)
+  //   • name@knyt / name@qripto / name@anything   (FIO handles, any domain)
+  //   • did:iq:<32-hex>                  (resolves via /api/identity/resolve-recipient)
+  //   • <persona-uuid>                   (any persona_id UUID with hyphens)
+  //
+  // Everything that isn't an exact 0x address or a local-registry agent
+  // is sent to /api/identity/resolve-recipient which queries
+  // nakamoto_knyt_personas, nakamoto_qripto_personas, agent_keys, and
+  // the FIO service in turn. Without this the drawer rejected anything
+  // that wasn't an @aigent-* handle, including legitimate FIO handles
+  // and persona DIDs.
+  const resolveRecipientAddress = async (recipient: string): Promise<string> => {
+    const trimmed = recipient.trim();
+
+    // Fast path 1: already a 0x address
+    if (/^0x[a-fA-F0-9]{40}$/.test(trimmed)) {
+      return trimmed;
+    }
+
+    // Fast path 2: local agent registry — only when it matches the
+    // @aigent-* / aigent-* shape we used to hardcode.
+    if (trimmed.startsWith('@aigent-') || trimmed.startsWith('aigent-')) {
+      const agentId = trimmed.replace(/^@/, '');
       const recipientConfig = getAgentConfig(agentId);
-      if (recipientConfig) {
+      if (recipientConfig?.walletAddresses?.evmAddress) {
         return recipientConfig.walletAddresses.evmAddress;
       }
-      throw new Error(`Agent ${recipient} not found`);
+      // Fall through to the canonical resolver in case it's an aigent-
+      // we don't have locally configured but exists in agent_keys.
     }
-    
-    // Check if it's a valid Ethereum address
-    if (recipient.match(/^0x[a-fA-F0-9]{40}$/)) {
-      return recipient;
+
+    // Canonical resolver — handles every other format.
+    try {
+      const res = await fetch(`/api/identity/resolve-recipient?q=${encodeURIComponent(trimmed)}`);
+      const data = (await res.json().catch(() => ({}))) as { resolvedAddress?: string; error?: string };
+      if (res.ok && data.resolvedAddress && /^0x[a-fA-F0-9]{40}$/.test(data.resolvedAddress)) {
+        return data.resolvedAddress;
+      }
+      throw new Error(
+        data.error ||
+        `Couldn't resolve "${trimmed}" — use 0x address, @agent handle, name@fio-domain, or did:iq:<id>.`,
+      );
+    } catch (err) {
+      if (err instanceof Error) throw err;
+      throw new Error(String(err));
     }
-    
-    throw new Error("Invalid recipient. Use agent ID (@aigent-name) or Ethereum address (0x...)");
   };
 
   const handleTransaction = useCallback(async (type: "request" | "send" | "verify") => {
@@ -226,8 +261,9 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
       if (type === "send") {
         const chainConfig = chainConfigs[txState.chain as keyof typeof chainConfigs];
         
-        // Resolve recipient address (agent ID or direct address)
-        const recipientAddress = resolveRecipientAddress(txState.recipient);
+        // Resolve recipient address — async to accommodate FIO / persona /
+        // DID / agent_keys lookups via /api/identity/resolve-recipient.
+        const recipientAddress = await resolveRecipientAddress(txState.recipient);
         
         // For EVM chains, use the signer/transfer API
         if (chainConfig && 'qctTokenAddress' in chainConfig) {
@@ -563,7 +599,7 @@ export default function AgentWalletDrawer({ open, onClose, agent }: AgentWalletD
                         ...prev, 
                         [txState.type === "verify" ? "txHash" : "recipient"]: e.target.value 
                       }))}
-                      placeholder={txState.type === "verify" ? "0x..." : "@aigent-moneypenny or 0x..."}
+                      placeholder={txState.type === "verify" ? "0x..." : "@agent · name@fio-domain · did:iq:… · 0x…"}
                       className="flex-1 bg-white/5 ring-1 ring-white/10 rounded px-2 py-1 text-xs text-slate-200"
                     />
                     {(txState.txHash || txState.recipient) && (
