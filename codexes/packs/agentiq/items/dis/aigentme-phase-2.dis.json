@@ -169,27 +169,31 @@
         "columns": {
           "mobile": 1,
           "tablet": 1,
-          "desktop": 2
+          "desktop": 1
         },
+        "rationale": "Right pane is ~45% viewport on desktop, ~500-700px. Multi-column splits each card to 200-300px, which is too cramped for hero+alternate comparison. Vertical-stack with full pane-width cards uses the available rhythm; alternates read as 'or instead' choices below the hero.",
         "hero": {
-          "desktop": "1 of 2",
+          "desktop": "full",
           "mobile": "full"
         },
         "alternates": {
-          "desktop": "1 of 2",
-          "mobile": "below-hero-swipeable"
+          "desktop": "stacked-below-hero",
+          "mobile": "stacked-below-hero"
         }
       },
       "ventureCockpit": {
         "columns": {
           "mobile": 1,
-          "tablet": 2,
-          "desktop": 3
+          "tablet": 1,
+          "desktop": 1
         },
-        "topStrip": "full-width-stage-blockers",
-        "kpis": "left",
-        "goals": "center",
-        "pendingNbes": "right"
+        "rationale": "Same width constraint as decisionBoard. 3-column body cramps each section. Vertical 3-row layout (KPIs / Active Work / Recommended) reads naturally top-to-bottom; KPIs + Active Work use horizontal carousels for their chip-like items so width isn't wasted on labels.",
+        "rows": {
+          "row1": "kpis (horizontal carousel of stat chips)",
+          "row2": "active-work (horizontal carousel of activity chips)",
+          "row3": "recommended (vertical stack of NextBestActionCards)"
+        },
+        "topStrip": "full-width-stage-blockers"
       }
     }
   },
@@ -264,16 +268,14 @@
         "stickyControls": "bottom-tab-strip"
       },
       "decision-board-layout-v1": {
-        "kind": "horizontal-swipe",
-        "description": "Hero NBE on screen 1, swipe horizontally to compare alternates. Page-dot indicator at the bottom. Rationale trace expands inline within the hero pane.",
-        "primaryGesture": "horizontal-swipe",
-        "indicator": "page-dots-bottom"
+        "kind": "vertical-stack",
+        "description": "Hero recommended card at top, alternates stacked below as 'or instead' choices. Each card is full pane-width. Rationale trace lives in the footer. Mobile is the same shape — natural vertical scroll.",
+        "primaryGesture": "vertical-scroll"
       },
       "venture-cockpit-layout-v1": {
-        "kind": "tabbed-sections",
-        "description": "Top strip (stage + blockers) stays sticky. Sections (KPIs / Active goals / Pending NBEs) become a sticky tab strip directly under the strip. Body shows one section at a time.",
-        "primaryGesture": "tab-tap",
-        "stickyControls": "top-strip + section-tabs"
+        "kind": "stacked-rows-with-carousels",
+        "description": "Sticky top strip (stage + blockers). Body is 3 stacked rows: (1) KPIs as a horizontal carousel of stat chips; (2) Active Work as a horizontal carousel of activity chips; (3) Recommended as a vertical stack of NextBestActionCards. Same shape across breakpoints — width-constrained right pane uses carousels instead of columns.",
+        "primaryGesture": "vertical-scroll + horizontal-scroll-in-rows"
       },
       "composer-layout-v1": {
         "kind": "full-screen-editor",
