@@ -249,89 +249,100 @@ export function SocialSharingModal({
   // Portal to document.body so the modal escapes any transformed/clipping
   // parent (e.g. the embedded wallet drawer inside the copilot layer
   // applies CSS transforms, which would clip a child `position: fixed`).
+  // Chrome aligned with RemixDialog / InviteModal: slate-950/80 backdrop +
+  // backdrop-blur-sm, rounded-2xl border-white/10 bg-slate-900/95 card,
+  // border-white/[0.08] section dividers, slate-400 close icon on hover-white,
+  // cyan/violet accents for the primary CTAs.
   const modal = (
-    <div className="fixed inset-0 bg-black/95 backdrop-blur-2xl flex items-center justify-center z-[9999] p-4">
-      <div className="bg-[#050f1f] border border-[#1e2b40] rounded-none md:rounded-xl w-full h-full md:h-auto md:max-w-[896px] md:max-h-[90vh] overflow-y-auto">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="relative w-full max-w-lg max-h-[90vh] overflow-hidden rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl flex flex-col">
         {/* Header */}
-        <div className="p-4 md:p-6 border-b border-[#1e2b40]">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-bold">Q</span>
-              </div>
-              <h2 className="text-xl font-bold text-white">Share Article</h2>
+        <div className="flex items-center justify-between gap-2 border-b border-white/[0.08] px-4 py-2.5">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-6 h-6 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 flex items-center justify-center shrink-0">
+              <span className="text-white text-[10px] font-bold">Q</span>
             </div>
-            <button
-              onClick={onClose}
-              className="w-10 h-10 rounded-full bg-black/50 border border-white/20 text-gray-300 hover:text-white hover:bg-black/70 transition-colors flex items-center justify-center"
-              aria-label="Close sharing modal"
-            >
-              ×
-            </button>
+            <span className="text-sm font-semibold text-slate-100 truncate">Share</span>
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded p-1 text-slate-400 hover:bg-white/5 hover:text-white"
+            aria-label="Close"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
-        {/* Article Preview */}
-        <div className="p-4 md:p-6 border-b border-[#1e2b40]">
-          <h3 className="font-medium text-white mb-2">{article.title}</h3>
-          {article.description && (
-            <p className="text-sm text-gray-300 line-clamp-2">{article.description}</p>
-          )}
-          {displayBadge && (
-            <div className="mt-2">
-              <span className="inline-block bg-cyan-500/20 text-cyan-400 text-xs px-2 py-1 rounded border border-cyan-500/30">
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+          {/* Article preview */}
+          <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
+            <h3 className="text-sm font-semibold text-slate-100 leading-tight">{article.title}</h3>
+            {article.description && (
+              <p className="text-[11px] text-slate-400 line-clamp-2 mt-1">{article.description}</p>
+            )}
+            {displayBadge && (
+              <span className="inline-block mt-2 bg-cyan-500/10 text-cyan-300 text-[10px] px-2 py-0.5 rounded-full border border-cyan-500/25">
                 Shared by {displayBadge}
               </span>
-            </div>
-          )}
-        </div>
-
-        {/* Social Platforms */}
-        <div className="p-4 md:p-6">
-          <div className="grid grid-cols-3 gap-2 mb-6">
-            {socialPlatforms.map((platform) => (
-              <button
-                key={platform.name}
-                onClick={() => handleShare(platform.name, platform.getUrl())}
-                className={`${platform.color} text-white p-3 rounded-lg flex flex-col items-center space-y-1 transition-all transform hover:scale-105 hover:shadow-lg`}
-              >
-                <div className="w-8 h-8 flex items-center justify-center">
-                  {platform.logo}
-                </div>
-                <span className="text-xs font-medium">{platform.name}</span>
-              </button>
-            ))}
+            )}
           </div>
 
-          {/* Copy Link and Native Share */}
-          <div className="flex gap-2">
+          {/* Social platforms grid */}
+          <div>
+            <label className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1.5">Networks</label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {socialPlatforms.map((platform) => (
+                <button
+                  key={platform.name}
+                  type="button"
+                  onClick={() => handleShare(platform.name, platform.getUrl())}
+                  className={`${platform.color} text-white py-2 rounded-lg flex flex-col items-center gap-0.5 transition hover:opacity-90`}
+                >
+                  <div className="w-5 h-5 flex items-center justify-center">{platform.logo}</div>
+                  <span className="text-[10px] font-medium">{platform.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Copy link + native share row */}
+          <div className="flex gap-1.5">
             <button
-              className="flex-1 bg-[#071327] border border-[#1e2b40] p-3 rounded-lg flex items-center justify-center space-x-2 hover:bg-[#0a1a2f] transition-colors"
+              type="button"
               onClick={handleCopyLink}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
               </svg>
-              <span className="text-sm text-gray-300">{copied ? 'Copied!' : 'Copy Link'}</span>
+              {copied ? 'Copied!' : 'Copy link'}
             </button>
-            
-            {typeof navigator.share === 'function' && (
+            {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
               <button
-                className="bg-[#071327] border border-[#1e2b40] p-3 rounded-lg flex items-center justify-center hover:bg-[#0a1a2f] transition-colors"
+                type="button"
                 onClick={handleNativeShare}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10"
+                aria-label="Native share"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                 </svg>
               </button>
             )}
           </div>
 
-          {/* Deep Link Preview */}
-          <div className="mt-4 p-3 bg-[#071327] border border-[#1e2b40] rounded-lg">
-            <p className="text-xs text-gray-400 mb-1">Deep Link:</p>
-            <p className="text-xs text-gray-300 break-all">{deepLink}</p>
-          </div>
+          {/* Deep link preview */}
+          <details className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[10px] text-slate-500">
+            <summary className="cursor-pointer text-slate-400 hover:text-slate-300 select-none">Deep link</summary>
+            <p className="mt-1.5 break-all font-mono text-slate-500">{deepLink}</p>
+          </details>
         </div>
       </div>
     </div>
