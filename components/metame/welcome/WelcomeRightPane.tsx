@@ -533,18 +533,12 @@ export function WelcomeRightPane(props: Props) {
         </div>
       )}
 
-      {secondTierApproval && (
-        <SecondTierApprovalCard
-          connectorLabel={secondTierApproval.connectorLabel}
-          summary={secondTierApproval.summary}
-          detail={secondTierApproval.detail}
-          submitting={secondTierApproval.submitting}
-          error={secondTierApproval.error}
-          onApprove={onApproveSecondTier}
-          onCancel={onCancelSecondTier}
-          theme={theme}
-        />
-      )}
+      {/* Phase 2 Slice 5b: second-tier external-action approval is
+          rendered through the Phase 2 ApprovalLayout overlay instead
+          of inline here. Keeps the operator's flow in one place — no
+          inline confirm + overlay confirm collision. The overlay is
+          mounted by AigentMeWelcomeSplitTab when
+          `secondTierApproval` is set. */}
 
       {/* ── Below-fold accordion ─────────────────────────────────── */}
       <div className={`pt-2 mt-1 border-t ${isDark ? "border-slate-800/50" : "border-slate-200"} space-y-2`}>

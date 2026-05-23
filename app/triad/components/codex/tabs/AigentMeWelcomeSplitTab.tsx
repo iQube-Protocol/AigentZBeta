@@ -977,7 +977,13 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               // foreground stays mounted underneath, preserving context.
               const foreground = getLayout(activeLayoutId);
               const ForegroundLayout = foreground.component;
-              const ApprovalOverlayLayout = pendingApprovalNbe
+              // Overlay mounts for EITHER pending approval shape:
+              //   - pendingApprovalNbe → NBE that requires approval
+              //   - secondTierApproval → external-action confirm
+              // Phase 2 Slice 5b: second-tier is no longer rendered
+              // inline in the stack; it lives in this same overlay so
+              // the operator's flow stays in-app for every gate.
+              const ApprovalOverlayLayout = (pendingApprovalNbe || secondTierApproval)
                 ? getLayout('approval-interrupt').component
                 : null;
               // Single source of truth for layout inputs — passed identically

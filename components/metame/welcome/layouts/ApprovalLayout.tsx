@@ -33,8 +33,11 @@ function ApprovalLayoutComponent(props: RightPaneLayoutProps) {
     submittingApproval,
     approvalError,
     usingIqubes,
+    secondTierApproval,
     onApprovalApprove,
     onApprovalCancel,
+    onApproveSecondTier,
+    onCancelSecondTier,
     onRequestLayout,
   } = props;
 
@@ -53,24 +56,69 @@ function ApprovalLayoutComponent(props: RightPaneLayoutProps) {
     ? "border-slate-700/60 text-slate-300 hover:bg-slate-800/40"
     : "border-slate-200 text-slate-600 hover:bg-slate-100";
 
+  // Two approval shapes converge here:
+  //   - `secondTierApproval`  → external-action confirm (Send email, Create
+  //                              event, Share doc, etc). Takes precedence
+  //                              because it's the concrete user-facing gate.
+  //   - `pendingApproval`     → an NBE that requires approval before queue.
+  //
+  // Both render through the same bottom-sheet/centered overlay so the
+  // operator's flow stays in-app, regardless of which gate fired.
+  const variant: "second-tier" | "nbe" | null = secondTierApproval
+    ? "second-tier"
+    : pendingApproval
+      ? "nbe"
+      : null;
+
   const handleDismiss = useCallback(() => {
-    onApprovalCancel?.();
+    if (variant === "second-tier") onCancelSecondTier?.();
+    else if (variant === "nbe") onApprovalCancel?.();
     onRequestLayout?.("stack");
-  }, [onApprovalCancel, onRequestLayout]);
+  }, [variant, onApprovalCancel, onCancelSecondTier, onRequestLayout]);
 
   const handleApprove = useCallback(() => {
-    onApprovalApprove?.();
-  }, [onApprovalApprove]);
+    if (variant === "second-tier") onApproveSecondTier?.();
+    else if (variant === "nbe") onApprovalApprove?.();
+  }, [variant, onApprovalApprove, onApproveSecondTier]);
 
-  if (!pendingApproval) {
+  if (!variant) {
     // Safety: nothing to approve — bounce back to stack.
     return null;
   }
+
+  // ── Variant-specific surface text ─────────────────────────────────
+  // Two shapes converge on the same overlay; pull the right strings
+  // out once so the JSX stays flat.
+  const eyebrow =
+    variant === "second-tier"
+      ? secondTierApproval?.connectorLabel || "Confirm external action"
+      : "Approval required";
+  const title =
+    variant === "second-tier"
+      ? secondTierApproval?.summary || "Confirm send"
+      : pendingApproval?.label || "Approve action";
+  const body =
+    variant === "second-tier"
+      ? secondTierApproval?.detail ||
+        "This will leave your account. Confirm to send."
+      : pendingApproval?.rationale || "";
+  const submitting =
+    variant === "second-tier"
+      ? !!secondTierApproval?.submitting
+      : !!submittingApproval;
+  const errorText =
+    variant === "second-tier" ? secondTierApproval?.error ?? null : approvalError ?? null;
+  const approveLabel =
+    variant === "second-tier"
+      ? submitting ? "Sending…" : "Approve & send"
+      : submitting ? "Approving…" : "Approve";
+  const cancelLabel = variant === "second-tier" ? "Cancel" : "Decline";
 
   return (
     <div
       data-aigentme-right-pane="approval-interrupt"
       data-aigentme-layout="approval-interrupt-layout-v1"
+      data-aigentme-approval-variant={variant}
       className="absolute inset-0 z-40 flex md:items-center md:justify-center"
     >
       {/* Backdrop */}
@@ -106,10 +154,10 @@ function ApprovalLayoutComponent(props: RightPaneLayoutProps) {
           </span>
           <div className="flex-1 min-w-0">
             <div className={`text-[10px] uppercase tracking-[0.16em] ${mutedClass}`}>
-              Approval required
+              {eyebrow}
             </div>
             <div id="approval-title" className="text-sm font-semibold leading-tight">
-              {pendingApproval.label}
+              {title}
             </div>
           </div>
           <button
@@ -128,11 +176,12 @@ function ApprovalLayoutComponent(props: RightPaneLayoutProps) {
 
         {/* Body */}
         <div className="px-5 py-3 space-y-3">
-          <p className={`text-xs leading-relaxed ${mutedClass}`}>
-            {pendingApproval.rationale}
-          </p>
+          {body && (
+            <p className={`text-xs leading-relaxed ${mutedClass}`}>{body}</p>
+          )}
 
-          {usingIqubes && usingIqubes.length > 0 && (
+          {/* NBE variant only — using iQubes + specialist routing */}
+          {variant === "nbe" && usingIqubes && usingIqubes.length > 0 && (
             <div>
               <div className={`text-[10px] uppercase tracking-[0.16em] mb-1 ${mutedClass}`}>
                 Using
@@ -154,13 +203,13 @@ function ApprovalLayoutComponent(props: RightPaneLayoutProps) {
             </div>
           )}
 
-          {pendingApproval.specialist && (
+          {variant === "nbe" && pendingApproval?.specialist && (
             <div className={`text-[11px] ${mutedClass}`}>
               Will route to <span className="font-medium">{pendingApproval.specialist}</span>.
             </div>
           )}
 
-          {approvalError && (
+          {errorText && (
             <div className={`rounded-lg border px-3 py-2 text-xs ${
               isDark ? "border-rose-500/40 bg-rose-500/10 text-rose-200" : "border-rose-200 bg-rose-50 text-rose-700"
             }`}>
@@ -176,19 +225,19 @@ function ApprovalLayoutComponent(props: RightPaneLayoutProps) {
           <button
             type="button"
             onClick={handleDismiss}
-            disabled={submittingApproval}
+            disabled={submitting}
             className={`inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium ${cancelBtn} disabled:opacity-50`}
           >
-            Decline
+            {cancelLabel}
           </button>
           <button
             type="button"
             onClick={handleApprove}
-            disabled={submittingApproval}
+            disabled={submitting}
             className={`inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium ${primaryBtn} disabled:opacity-50`}
           >
-            {submittingApproval ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-            {submittingApproval ? "Approving…" : "Approve"}
+            {submitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+            {approveLabel}
           </button>
         </footer>
       </div>
