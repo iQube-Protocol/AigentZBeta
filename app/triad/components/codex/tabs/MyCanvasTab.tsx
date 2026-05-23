@@ -12,6 +12,9 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Cpu, Loader2, Plus, PenSquare, Share2, Sparkles, Trash2, Save, X, UserPlus } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { RemixDialog } from "@/components/metame/runtime/RemixDialog";
+import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal";
+import { InviteModal } from "@/components/shared/InviteModal";
+import { useActivePersona } from "@/app/hooks/useActivePersona";
 
 type CanvasEntryType = "note" | "experience_origin" | "experience_derived";
 
@@ -200,23 +203,27 @@ export function MyCanvasTab({ personaId, theme = "dark" }: Props) {
     }
   }, [personaId, inviteInput, fetchEntries]);
 
-  // Share via native share API + clipboard fallback. We don't have a per-entry
-  // public URL yet (the canvas is private), so share copies the entry title.
-  // When public canvas URLs ship, plug them in here.
-  const handleShare = useCallback(async (entry: CanvasEntry) => {
-    const text = entry.title;
-    try {
-      if (typeof navigator !== "undefined" && navigator.share) {
-        await navigator.share({ title: entry.title, text });
-        return;
-      }
-      if (typeof navigator !== "undefined" && navigator.clipboard) {
-        await navigator.clipboard.writeText(text);
-      }
-    } catch {
-      // user cancelled or permissions denied — non-fatal
-    }
+  // Share now opens the canonical Qriptopian SocialSharingModal —
+  // same modal the runtime + community surfaces use. Persona attribution
+  // flows through shareId server-side, not in the URL.
+  const [shareEntry, setShareEntry] = useState<CanvasEntry | null>(null);
+  const handleShare = useCallback((entry: CanvasEntry) => {
+    setShareEntry(entry);
   }, []);
+
+  // Invite now opens the shared InviteModal. Same surface as the
+  // SmartContentActionContext 'invite' action — server-side resolution
+  // of handle → persona_id, no T0 leak.
+  const [inviteEntry, setInviteEntry] = useState<CanvasEntry | null>(null);
+
+  // T1 label for the share modal's 'Shared by' badge — pulled from
+  // useActivePersona's canonical surface, never a UUID fallback.
+  const { surface: activePersonaSurface } = useActivePersona();
+  type SurfaceWithFio = typeof activePersonaSurface & { ownFioHandle?: string };
+  const personaLabel =
+    activePersonaSurface?.displayLabel ??
+    (activePersonaSurface as SurfaceWithFio | null)?.ownFioHandle ??
+    undefined;
 
   // Publish a saved derived-experience entry to the community surface. The
   // entry's metaJson.contentId points at the original community_generated_content
@@ -324,12 +331,12 @@ export function MyCanvasTab({ personaId, theme = "dark" }: Props) {
               hydration={hydrationState[selected.id] ?? null}
               inviteOpen={inviteOpenForId === selected.id}
               inviteInput={inviteInput}
-              onInviteToggle={() => setInviteOpenForId(inviteOpenForId === selected.id ? null : selected.id)}
+              onInviteToggle={() => setInviteEntry(selected)}
               onInviteInputChange={setInviteInput}
               onInviteSubmit={() => void handleInvite(selected.id)}
               onInviteCancel={() => { setInviteOpenForId(null); setInviteInput(""); }}
               onDelete={(id) => void handleDelete(id)}
-              onShare={() => void handleShare(selected)}
+              onShare={() => handleShare(selected)}
               onRemix={() => setRemixSource(selected)}
               onPublish={() => handlePublishToCommunity(selected)}
             />
@@ -339,12 +346,12 @@ export function MyCanvasTab({ personaId, theme = "dark" }: Props) {
               hydration={hydrationState[selected.id] ?? null}
               inviteOpen={inviteOpenForId === selected.id}
               inviteInput={inviteInput}
-              onInviteToggle={() => setInviteOpenForId(inviteOpenForId === selected.id ? null : selected.id)}
+              onInviteToggle={() => setInviteEntry(selected)}
               onInviteInputChange={setInviteInput}
               onInviteSubmit={() => void handleInvite(selected.id)}
               onInviteCancel={() => { setInviteOpenForId(null); setInviteInput(""); }}
               onDelete={(id) => void handleDelete(id)}
-              onShare={() => void handleShare(selected)}
+              onShare={() => handleShare(selected)}
               onRemix={() => setRemixSource(selected)}
             />
           ) : (
@@ -443,6 +450,35 @@ export function MyCanvasTab({ personaId, theme = "dark" }: Props) {
           onClose={() => { setRemixSource(null); void fetchEntries(); }}
         />
       )}
+      {/* Canonical share modal — Qriptopian SocialSharingModal. Persona
+          attribution flows through shareId server-side. */}
+      <SocialSharingModal
+        isOpen={!!shareEntry}
+        onClose={() => setShareEntry(null)}
+        article={
+          shareEntry
+            ? {
+                id: shareEntry.id,
+                title: shareEntry.title,
+                description: shareEntry.bodyMd?.slice(0, 200) || undefined,
+                section: shareEntry.entryType,
+                type: 'text',
+              }
+            : { id: '', title: '' }
+        }
+        personaId={personaId}
+        personaLabel={personaLabel}
+      />
+      {/* Canonical invite modal — same component used everywhere via
+          SmartContentActionContext.executeAction('invite'). */}
+      <InviteModal
+        isOpen={!!inviteEntry}
+        onClose={() => setInviteEntry(null)}
+        entity={inviteEntry ? { id: inviteEntry.id, title: inviteEntry.title, kind: inviteEntry.entryType } : { id: '', title: '' }}
+        endpointPath={inviteEntry ? `/api/mycanvas/entries/${inviteEntry.id}/invite` : ''}
+        personaId={personaId ?? null}
+        onInvited={() => void fetchEntries()}
+      />
     </div>
   );
 }
