@@ -26,6 +26,8 @@ import {
   Zap,
 } from "lucide-react";
 import { KnytReactionBar } from "@/components/metame/KnytReactionBar";
+import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal";
+import { useActivePersona } from "@/app/hooks/useActivePersona";
 
 interface CommunityContentItem {
   id: string;
@@ -291,6 +293,15 @@ function ContentDetail({ item, personaId }: { item: CommunityContentItem; person
   // pulls from the browser cache instantly.
   const detailImgSrc = `/api/community-content/${item.id}/image`;
   const [detailImgOk, setDetailImgOk] = React.useState(true);
+
+  // T1 label for the share modal's 'Shared by <label>' badge. Comes
+  // from useActivePersona's canonical surface so it's never a UUID.
+  const { surface: activePersonaSurface } = useActivePersona();
+  type SurfaceWithFio = typeof activePersonaSurface & { ownFioHandle?: string };
+  const personaLabel =
+    activePersonaSurface?.displayLabel ??
+    (activePersonaSurface as SurfaceWithFio | null)?.ownFioHandle ??
+    undefined;
   // List endpoint strips articleBody to avoid 413 (base64 images +
   // 600-900 word bodies blow Lambda's 6 MB ceiling). Hydrate the full
   // body from GET /[id] when the detail opens so we don't show just
@@ -333,7 +344,7 @@ function ContentDetail({ item, personaId }: { item: CommunityContentItem; person
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <ShareMenu item={item} />
+          <ShareMenu item={item} personaId={personaId} personaLabel={personaLabel} />
         </div>
       </div>
 
@@ -354,69 +365,50 @@ function ContentDetail({ item, personaId }: { item: CommunityContentItem; person
 
 // ─── Share menu ──────────────────────────────────────────────────────────────
 
-function ShareMenu({ item }: { item: CommunityContentItem }) {
+/**
+ * Community Share button — replaces the legacy 3-option dropdown
+ * (Copy / X / Email) with the canonical Qriptopian SocialSharingModal.
+ * Persona attribution flows through the shareId server-side via
+ * /api/social/track; raw personaId no longer travels in URLs (Step 1
+ * of the share/invite consolidation).
+ */
+function ShareMenu({ item, personaId, personaLabel }: {
+  item: CommunityContentItem;
+  personaId?: string;
+  personaLabel?: string;
+}) {
   const [open, setOpen] = useState(false);
-  const shareUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/community-content/${item.id}`
-      : `/community-content/${item.id}`;
-  const shareText = `${item.title} — read on the KNYT Cartridge`;
-
-  function copy() {
-    if (typeof navigator !== "undefined" && navigator.clipboard) {
-      void navigator.clipboard.writeText(shareUrl);
-      setOpen(false);
-    }
-  }
-
-  function shareToX() {
-    const url = `https://x.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
-    if (typeof window !== "undefined") window.open(url, "_blank", "noopener,noreferrer");
-    setOpen(false);
-  }
-
-  function shareEmail() {
-    const url = `mailto:?subject=${encodeURIComponent(shareText)}&body=${encodeURIComponent(`${shareText}\n\n${shareUrl}`)}`;
-    if (typeof window !== "undefined") window.location.href = url;
-    setOpen(false);
-  }
-
   return (
-    <div className="relative">
+    <>
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpen(true)}
         className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10"
       >
         <Share2 className="h-3.5 w-3.5" />
         Share
       </button>
-      {open && (
-        <div className="absolute right-0 top-full mt-1 w-40 rounded-lg border border-white/10 bg-slate-900 shadow-2xl z-10 overflow-hidden">
-          <button
-            type="button"
-            onClick={copy}
-            className="block w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/5"
-          >
-            Copy link
-          </button>
-          <button
-            type="button"
-            onClick={shareToX}
-            className="block w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/5"
-          >
-            Share to X
-          </button>
-          <button
-            type="button"
-            onClick={shareEmail}
-            className="block w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/5"
-          >
-            Email
-          </button>
-        </div>
-      )}
-    </div>
+      <SocialSharingModal
+        isOpen={open}
+        onClose={() => setOpen(false)}
+        article={{
+          id: item.id,
+          title: item.title,
+          description: undefined,
+          section: item.skill,
+          type: item.skill === 'story' ? 'text' : 'text',
+          // Community item URL — clicks resolve back to the published
+          // detail view via /community-content/<id>. shareId-based
+          // attribution still works; we pass `url` so the deep link
+          // points at the actual published surface.
+          url: typeof window !== 'undefined'
+            ? `${window.location.origin}/community-content/${item.id}`
+            : `/community-content/${item.id}`,
+        }}
+        personaId={personaId}
+        personaLabel={personaLabel}
+      />
+    </>
   );
 }
 

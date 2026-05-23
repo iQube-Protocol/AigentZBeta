@@ -4995,7 +4995,25 @@ export default function MetaMeRuntimeClient() {
           "make-remix":         () => setActiveCartridgeOverlay({ slug: 'aigentiq', title: 'iQube Registry', initialTab: 'registry-supply' }),
           // Play sub-actions
           "play-knyt": () => { setRuntimeContext('knyt'); refreshTakeover("toggle"); },
-          // Share sub-actions — native share (no prompt, side-effect only)
+          // Share — opens the canonical Qriptopian SocialSharingModal,
+          // pre-populated with the active capsule (if any) or a generic
+          // 'metaMe' share. Falls back to the active runtime context
+          // when there's no specific capsule.
+          "share": () => {
+            const active = (activeCapsuleId && capsuleContents.find((c) => c.id === activeCapsuleId))
+              || capsuleContents[0]
+              || null;
+            setRuntimeShareItem({
+              id: active?.id || 'metame',
+              title: active?.title || 'metaMe',
+              description: active?.description || undefined,
+              section: active?.runtimeContentKind || undefined,
+              type: active?.runtimeContentKind === 'article' ? 'text' : undefined,
+            });
+          },
+          // Share-refer keeps the native-share / clipboard fallback for
+          // the 'invite a friend' refer flow — that's a different
+          // intent from sharing a content item.
           "share-refer": () => {
             const url = typeof window !== 'undefined' ? window.location.href : '';
             if (navigator.share) { void navigator.share({ title: 'Join me on metaMe', text: 'Explore your metaMe journey', url }); }
