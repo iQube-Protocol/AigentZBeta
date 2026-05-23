@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-23T00:46:15.894Z",
+  "last_updated": "2026-05-23T13:15:47.191Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "adee0c3e7b3f63220a2bb730e63ff7460945e54f",
-  "latest_commit_short": "adee0c3",
-  "latest_commit_title": "remove redundant mic from aigentMe copilot input — Marketa already handles voice there",
+  "latest_commit": "7e623588967fd109c4129b5edf89a98415406ada",
+  "latest_commit_short": "7e62358",
+  "latest_commit_title": "mic on remaining free-form inputs in metaMe setup + alignment surfaces",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "7e62358",
+      "full_sha": "7e623588967fd109c4129b5edf89a98415406ada",
+      "title": "mic on remaining free-form inputs in metaMe setup + alignment surfaces",
+      "author": "Claude",
+      "timestamp": "2026-05-23T13:13:40Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7e62358.md"
+    },
     {
       "sha": "adee0c3",
       "full_sha": "adee0c3e7b3f63220a2bb730e63ff7460945e54f",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-26T01:21:47Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-afb9a24.md"
-    },
-    {
-      "sha": "2bdd662",
-      "full_sha": "2bdd6627ebe3fe65c2e26e2038cadefd52d74a0c",
-      "title": "add runtime observability — WorkflowRun tracking, runs API, cancel, health",
-      "author": "Claude",
-      "timestamp": "2026-03-26T01:21:38Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-2bdd662.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

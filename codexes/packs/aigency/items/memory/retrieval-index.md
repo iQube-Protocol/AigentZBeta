@@ -919,3 +919,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-adee0c3.md](../build_/COMMITS/COMMIT-adee0c3.md)
 - Message: remove redundant mic from aigentMe copilot input — Marketa already handles voice there
+
+## Commit `7e62358` — 2026-05-23T13:13:40Z
+- Type: `push`
+- Brief: [COMMIT-7e62358.md](../build_/COMMITS/COMMIT-7e62358.md)
+- Message: mic on remaining free-form inputs in metaMe setup + alignment surfaces
