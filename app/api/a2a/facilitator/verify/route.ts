@@ -19,8 +19,16 @@ export async function POST(req: Request) {
     if (!assetKey || !txHashOrId) {
       return new Response(JSON.stringify({ ok: false, error: "assetKey and txHashOrId required" }), { status: 400 });
     }
-    // EVM verification supported for all testnet chains
-    if (assetKey === "ETH_QCENT" || assetKey === "ARB_QCENT" || assetKey === "BASE_QCENT" || assetKey === "OP_QCENT" || assetKey === "POLY_QCENT") {
+    // EVM verification supported for all testnet chains. Generic
+    // ERC20 verification (BASE_USDC etc) shares the same path — only
+    // assetKey gating differs so non-EVM rails (BTC/SOL) can branch
+    // separately further down.
+    if (
+      assetKey === "ETH_QCENT" || assetKey === "ARB_QCENT" || assetKey === "BASE_QCENT" ||
+      assetKey === "OP_QCENT" || assetKey === "POLY_QCENT" ||
+      assetKey === "BASE_USDC" || assetKey === "ETH_USDC" || assetKey === "ARB_USDC" ||
+      assetKey === "OP_USDC" || assetKey === "POLY_USDC"
+    ) {
       const { ethers } = await import("ethers");
       const rpc = (cid: number) => {
         switch (cid) {
