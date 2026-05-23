@@ -112,12 +112,15 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
               </div>
             </div>
 
-            {/* Row 1 — KPIs (horizontal carousel) */}
-            <Row title="KPIs" mutedClass={mutedClass}>
+            {/* Row 1 — KPIs (cyan accent) */}
+            <Row
+              title="KPIs"
+              accentClass={isDark ? "text-cyan-300/90" : "text-cyan-700"}
+            >
               <Carousel>
-                <StatChip label="Active KPIs" value={data.kpiSummary.activeKpisCount} isDark={isDark} />
-                <StatChip label="Operational goals" value={data.operationalGoalsCount} isDark={isDark} />
-                <StatChip label="Commercial goals" value={data.commercialGoalsCount} isDark={isDark} />
+                <StatChip label="Active KPIs" value={data.kpiSummary.activeKpisCount} isDark={isDark} accent="cyan" />
+                <StatChip label="Operational goals" value={data.operationalGoalsCount} isDark={isDark} accent="cyan" />
+                <StatChip label="Commercial goals" value={data.commercialGoalsCount} isDark={isDark} accent="cyan" />
                 {data.kpiSummary.hasFranchiseProposition && (
                   <PillChip label="Franchise proposition" isDark={isDark} accent="emerald" />
                 )}
@@ -127,21 +130,28 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
               </Carousel>
             </Row>
 
-            {/* Row 2 — Active Work (horizontal carousel) */}
-            <Row title="Active work" mutedClass={mutedClass}>
+            {/* Row 2 — Active Work (emerald accent) */}
+            <Row
+              title="Active work"
+              accentClass={isDark ? "text-emerald-300/90" : "text-emerald-700"}
+            >
               {data.recentActivity.length === 0 ? (
                 <EmptyLine isDark={isDark} text="No recent activity — fire an intent to see it land here." />
               ) : (
                 <Carousel>
                   {data.recentActivity.slice(0, 12).map((a) => (
-                    <ActivityChip key={a.intentId} activity={a} isDark={isDark} mutedClass={mutedClass} />
+                    <ActivityChip key={a.intentId} activity={a} isDark={isDark} />
                   ))}
                 </Carousel>
               )}
             </Row>
 
-            {/* Row 3 — Recommended (vertical stack) */}
-            <Row title="Recommended" mutedClass={mutedClass}>
+            {/* Row 3 — Recommended (violet primary — strongest emphasis,
+                action-bearing) */}
+            <Row
+              title="Recommended"
+              accentClass={isDark ? "text-violet-300" : "text-violet-700"}
+            >
               {data.recommendedActions.length === 0 ? (
                 <EmptyLine isDark={isDark} text="Nothing recommended right now." />
               ) : (
@@ -166,16 +176,20 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
 
 function Row({
   title,
-  mutedClass,
+  accentClass,
   children,
 }: {
   title: string;
-  mutedClass: string;
+  /** Per-section accent (violet / cyan / emerald). Adds enough color
+   *  distinction between rows that the eye can scan section → section
+   *  without re-reading the labels — without breaking the glass /
+   *  translucent style guide. */
+  accentClass: string;
   children: React.ReactNode;
 }) {
   return (
     <section>
-      <h3 className={`text-[10px] uppercase tracking-[0.16em] mb-2 ${mutedClass}`}>
+      <h3 className={`text-[10px] uppercase tracking-[0.16em] mb-2 font-medium ${accentClass}`}>
         {title}
       </h3>
       {children}
@@ -184,10 +198,11 @@ function Row({
 }
 
 function Carousel({ children }: { children: React.ReactNode }) {
-  // Horizontal scroll strip that bleeds slightly to indicate scrollability.
-  // -mx-4 px-4 keeps consistent gutters with the LayoutShell body padding.
+  // Horizontal scroll strip stays inside the body padding so the row's
+  // first + last chips align vertically with KPI/Recommended cards above
+  // and below. No edge-bleed — the pane reads as a coherent column.
   return (
-    <div className="flex items-stretch gap-2 overflow-x-auto snap-x snap-mandatory -mx-4 md:-mx-5 lg:-mx-6 px-4 md:px-5 lg:px-6 pb-1">
+    <div className="flex items-stretch gap-2 overflow-x-auto snap-x snap-mandatory pb-1 pr-0.5">
       {React.Children.map(children, (child, i) => (
         <div key={i} className="snap-start shrink-0">{child}</div>
       ))}
@@ -195,15 +210,50 @@ function Carousel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function StatChip({ label, value, isDark }: { label: string; value: number; isDark: boolean }) {
-  const box = isDark ? "border-slate-700/60 bg-slate-900/40" : "border-slate-200 bg-white";
+function StatChip({
+  label,
+  value,
+  isDark,
+  accent,
+}: {
+  label: string;
+  value: number;
+  isDark: boolean;
+  accent: "cyan" | "emerald" | "violet";
+}) {
+  // Tinted glass fill — translucent surface + soft border in the
+  // section's accent color. Non-zero values get a slightly stronger
+  // tint so "active" KPIs read at a glance.
+  const tint = ACCENT_TOKENS[accent][isDark ? "dark" : "light"];
+  const hasValue = value > 0;
+  const box = `${tint.border} ${hasValue ? tint.fillStrong : tint.fillSoft} backdrop-blur-sm`;
+  const valueClass = hasValue ? tint.text : isDark ? "text-slate-200" : "text-slate-700";
   return (
     <div className={`rounded-lg border p-2.5 min-w-[7.5rem] ${box}`}>
-      <div className="text-xs leading-tight">{label}</div>
-      <div className="text-lg font-semibold leading-tight mt-0.5">{value}</div>
+      <div className={`text-xs leading-tight ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+        {label}
+      </div>
+      <div className={`text-lg font-semibold leading-tight mt-0.5 ${valueClass}`}>{value}</div>
     </div>
   );
 }
+
+// Per-accent token map — keeps the glass-fill recipe in one place so
+// adding a new accent later is trivial.
+const ACCENT_TOKENS = {
+  cyan: {
+    dark:  { border: "border-cyan-500/30",   fillSoft: "bg-cyan-500/5",   fillStrong: "bg-cyan-500/10",   text: "text-cyan-200" },
+    light: { border: "border-cyan-300",      fillSoft: "bg-cyan-50",      fillStrong: "bg-cyan-100/70",   text: "text-cyan-800" },
+  },
+  emerald: {
+    dark:  { border: "border-emerald-500/30", fillSoft: "bg-emerald-500/5", fillStrong: "bg-emerald-500/10", text: "text-emerald-200" },
+    light: { border: "border-emerald-300",    fillSoft: "bg-emerald-50",    fillStrong: "bg-emerald-100/70", text: "text-emerald-800" },
+  },
+  violet: {
+    dark:  { border: "border-violet-500/40",  fillSoft: "bg-violet-500/5",  fillStrong: "bg-violet-500/10",  text: "text-violet-200" },
+    light: { border: "border-violet-300",     fillSoft: "bg-violet-50",     fillStrong: "bg-violet-100/70",  text: "text-violet-800" },
+  },
+} as const;
 
 function PillChip({ label, isDark, accent }: { label: string; isDark: boolean; accent: "emerald" | "slate" }) {
   const cls =
@@ -224,20 +274,33 @@ function PillChip({ label, isDark, accent }: { label: string; isDark: boolean; a
 function ActivityChip({
   activity,
   isDark,
-  mutedClass,
 }: {
   activity: { intentId: string; intentName: string; cartridge: string; status: string };
   isDark: boolean;
-  mutedClass: string;
 }) {
-  const box = isDark ? "border-slate-700/60 bg-slate-900/40" : "border-slate-200 bg-white";
+  // Glass-fill emerald (Active Work accent). Status colors the bottom
+  // line so the eye can scan completed / in-progress / failed without
+  // re-reading.
+  const tint = ACCENT_TOKENS.emerald[isDark ? "dark" : "light"];
+  const status = activity.status.toLowerCase();
+  const statusClass =
+    status.includes("done") || status.includes("complete") || status.includes("succeed")
+      ? isDark ? "text-emerald-300" : "text-emerald-700"
+      : status.includes("fail") || status.includes("error")
+        ? isDark ? "text-rose-300" : "text-rose-700"
+        : status.includes("progress") || status.includes("running")
+          ? isDark ? "text-amber-300" : "text-amber-700"
+          : isDark ? "text-slate-400" : "text-slate-500";
+  const cartridgeClass = isDark ? "text-slate-400" : "text-slate-600";
   return (
-    <div className={`rounded-lg border p-2.5 min-w-[12rem] max-w-[16rem] ${box}`}>
-      <div className="text-xs font-medium truncate">{activity.intentName}</div>
-      <div className={`text-[10px] mt-0.5 truncate ${mutedClass}`}>
+    <div className={`rounded-lg border p-2.5 min-w-[12rem] max-w-[16rem] backdrop-blur-sm ${tint.border} ${tint.fillSoft}`}>
+      <div className={`text-xs font-medium truncate ${isDark ? "text-slate-100" : "text-slate-900"}`}>
+        {activity.intentName}
+      </div>
+      <div className={`text-[10px] mt-0.5 truncate ${cartridgeClass}`}>
         {activity.cartridge}
       </div>
-      <div className={`text-[10px] uppercase tracking-[0.16em] mt-1 ${mutedClass}`}>
+      <div className={`text-[10px] uppercase tracking-[0.16em] mt-1 font-medium ${statusClass}`}>
         {activity.status}
       </div>
     </div>

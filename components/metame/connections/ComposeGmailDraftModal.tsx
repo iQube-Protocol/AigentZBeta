@@ -116,8 +116,19 @@ export function ComposeGmailDraftModal({
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!to.trim() || !subject.trim() || !bodyText.trim()) {
-      setError("To, Subject and Body are all required.");
+    // Specific error per missing field — the previous one-message-for-all
+    // confused users when they'd drafted Subject + Body but only To was
+    // empty (or vice versa). Lists exactly what's missing.
+    const missing: string[] = [];
+    if (!to.trim())       missing.push("To");
+    if (!subject.trim())  missing.push("Subject");
+    if (!bodyText.trim()) missing.push("Body");
+    if (missing.length > 0) {
+      setError(
+        missing.length === 1
+          ? `${missing[0]} is required.`
+          : `${missing.slice(0, -1).join(", ")} and ${missing[missing.length - 1]} are required.`,
+      );
       return;
     }
     setSubmitting(true);

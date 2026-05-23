@@ -71,7 +71,7 @@ function ApprovalLayoutComponent(props: RightPaneLayoutProps) {
     <div
       data-aigentme-right-pane="approval-interrupt"
       data-aigentme-layout="approval-interrupt-layout-v1"
-      className="absolute inset-0 z-30 flex md:items-center md:justify-center"
+      className="absolute inset-0 z-40 flex md:items-center md:justify-center"
     >
       {/* Backdrop */}
       <button

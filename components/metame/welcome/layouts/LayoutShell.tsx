@@ -102,13 +102,17 @@ export function LayoutShell({
         )}
       </header>
 
-      {/* Body — scrollable, padded, reserves space for mobile sticky strip */}
+      {/* Body — scrollable, padded. Always reserves bottom clearance so
+          the last card's content scrolls above the floating compose
+          strip pinned at the bottom of the right pane (`bottom-3`,
+          ~64px of chrome). Mobile sticky strip + safe-area inset
+          stack on top when present. */}
       <div
         className="flex-1 min-h-0 overflow-y-auto p-4 md:p-5 lg:p-6"
         style={{
           paddingBottom: mobileStickyStrip
-            ? "calc(env(safe-area-inset-bottom, 0px) + 4rem)"
-            : undefined,
+            ? "calc(env(safe-area-inset-bottom, 0px) + 4rem + 5rem)"
+            : "calc(env(safe-area-inset-bottom, 0px) + 5rem)",
         }}
       >
         {body}
