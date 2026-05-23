@@ -964,3 +964,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-5b08bfe.md](../build_/COMMITS/COMMIT-5b08bfe.md)
 - Message: Strategy: actionable blockers — clickable chips open Partners + KPIs editors that close the declared-fields gap
+
+## Commit `d1698e5` — 2026-05-23T18:24:59Z
+- Type: `push`
+- Brief: [COMMIT-d1698e5.md](../build_/COMMITS/COMMIT-d1698e5.md)
+- Message: personas: close OPERATIONAL_HANDBOOK template literal (was escaped backtick — broke Amplify build)
