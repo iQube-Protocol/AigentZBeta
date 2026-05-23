@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-23T18:26:58.353Z",
+  "last_updated": "2026-05-23T19:18:06.863Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d1698e5c1c59d15fa0f2d561939c95fef4af180b",
-  "latest_commit_short": "d1698e5",
-  "latest_commit_title": "personas: close OPERATIONAL_HANDBOOK template literal (was escaped backtick — broke Amplify build)",
+  "latest_commit": "d08e1128ba4aea31596dc00351e3b0d91872e8ef",
+  "latest_commit_short": "d08e112",
+  "latest_commit_title": "DecisionBoard + VentureCockpit: vertical stack (no columns) — right pane too narrow for multi-column; cockpit uses 3 rows with carousels for KPIs and Active Work",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d08e112",
+      "full_sha": "d08e1128ba4aea31596dc00351e3b0d91872e8ef",
+      "title": "DecisionBoard + VentureCockpit: vertical stack (no columns) — right pane too narrow for multi-column; cockpit uses 3 rows with carousels for KPIs and Active Work",
+      "author": "Claude",
+      "timestamp": "2026-05-23T19:16:09Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d08e112.md"
+    },
     {
       "sha": "d1698e5",
       "full_sha": "d1698e5c1c59d15fa0f2d561939c95fef4af180b",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-27T02:14:07Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-f3ff549.md"
-    },
-    {
-      "sha": "c89234f",
-      "full_sha": "c89234fbd3df7c7201ca11f9f3b2463ab7c47e11",
-      "title": "wire autonomys auto-drive sync for agentiq codex",
-      "author": "Claude",
-      "timestamp": "2026-03-27T01:57:57Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-c89234f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

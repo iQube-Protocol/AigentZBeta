@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`d08e112`](https://github.com/iQube-Protocol/AigentZBeta/commit/d08e1128ba4aea31596dc00351e3b0d91872e8ef) [push] DecisionBoard + VentureCockpit: vertical stack (no columns) — right pane too narrow for multi-column; cockpit uses 3 rows with carousels for KPIs and Active Work (Claude, 2026-05-23T19:16:09Z)
 - [`d1698e5`](https://github.com/iQube-Protocol/AigentZBeta/commit/d1698e5c1c59d15fa0f2d561939c95fef4af180b) [push] personas: close OPERATIONAL_HANDBOOK template literal (was escaped backtick — broke Amplify build) (Claude, 2026-05-23T18:24:59Z)
 - [`5b08bfe`](https://github.com/iQube-Protocol/AigentZBeta/commit/5b08bfe0ce5af234fef9092c1b03c95ae1559e99) [push] Strategy: actionable blockers — clickable chips open Partners + KPIs editors that close the declared-fields gap (Claude, 2026-05-23T13:25:59Z)
 - [`d67b080`](https://github.com/iQube-Protocol/AigentZBeta/commit/d67b080893384c5b5a6474a4bf803f0cc5bb0f7c) [push] Operators Handbook v1: canonical surface inventory + privacy seams + change impact checklist (AgentiQ → Operators Manual tab) (Claude, 2026-05-23T13:51:44Z)

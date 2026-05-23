@@ -969,3 +969,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-d1698e5.md](../build_/COMMITS/COMMIT-d1698e5.md)
 - Message: personas: close OPERATIONAL_HANDBOOK template literal (was escaped backtick — broke Amplify build)
+
+## Commit `d08e112` — 2026-05-23T19:16:09Z
+- Type: `push`
+- Brief: [COMMIT-d08e112.md](../build_/COMMITS/COMMIT-d08e112.md)
+- Message: DecisionBoard + VentureCockpit: vertical stack (no columns) — right pane too narrow for multi-column; cockpit uses 3 rows with carousels for KPIs and Active Work
