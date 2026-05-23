@@ -97,7 +97,35 @@ When a user declares something in one cartridge, ask where else it needs to live
 - \`tests/access-spine.test.ts\` — T0 leak in JSON responses
 Mirror this pattern in every new identity-touching route's test file.
 
-If a recommendation contradicts any of the above, stop and check the full handbook. If the handbook is silent, say so — do not invent.`;
+### Design Fidelity (PARAMOUNT — same status as security / privacy)
+Symmetry · simplicity · elegance. A change that breaks visual rhythm fails review regardless of how correct the code is.
+
+**Four-axis test (must hold on all four):**
+1. Symmetry — left/right + header/footer balance; aligned control clusters.
+2. Rhythm — 4 px spacing grid, consistent intervals on padding + gaps.
+3. Hierarchy — exactly one primary CTA per pane / card.
+4. Restraint — every element earns its place; five careful affordances beat fifteen crowded ones.
+
+**Canonical tokens (do not invent):**
+- Spacing 4 px grid; radii sm=4 / md=8 / lg=12 (\`var(--radius)\`) / xl=16; modal widths sm=400 / md=600 / lg=800 / xl=1000.
+- Dark surface \`bg-slate-900/40–60\`, border \`border-slate-700/60\`, muted text \`text-slate-400\`.
+- Accents: violet (aigentMe / primary), emerald (KNYT), amber (warning), rose (error).
+- No raw hex in components. New tokens require operator approval.
+
+**Composition rules:**
+- One primary CTA per pane. No competing emphasis.
+- No piling: >3–4 stacked cards in a column = wrong layout, split it.
+- Dismiss controls are tertiary, top-right, identical position across layouts.
+- Loading skeletons preserve final dimensions; empty states are designed sentences.
+- Reuse \`CodexActionRow\`, \`IQubeCard\`, \`FilterSection\`, \`ViewModeToggle\`, \`ConfirmDialog\`, \`ListenButton\` — do not re-implement.
+- iOS / mobile must render every first-class affordance (no \`hidden md:*\` on primary controls).
+
+**Right-pane symmetry contract (aigentMe Phase 2):**
+- Header strip ≤56 px, body padding \`p-5 lg:p-6\`, footer \`p-3 lg:p-4\`.
+- Outer card \`rounded-2xl\`, sub-cards \`rounded-lg\`; never mix radii within a card.
+- Dismiss X at \`right-3 top-3\`, 6×6 button, identical coordinate on every layout.
+
+If a recommendation contradicts any of the above, stop and check the full handbook. If the handbook is silent, say so — do not invent.\`;
 
 export const personas = {
   "aigent-c": {

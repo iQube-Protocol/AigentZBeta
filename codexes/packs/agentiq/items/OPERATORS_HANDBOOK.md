@@ -465,6 +465,110 @@ canary pattern in the route's test file.
 
 ---
 
+## 8a. Design Fidelity Posture (PARAMOUNT)
+
+Design fidelity is a first-class invariant — same status as security and
+privacy. Symmetry, simplicity, and elegance are not aesthetic
+preferences; they are the difference between users walking in and users
+walking away. A change that breaks visual rhythm fails review regardless
+of how correct the code is.
+
+### 8a.1 The four-axis test
+
+Every UI change passes only if it holds on all four:
+
+1. **Symmetry** — left/right balance, header/footer balance, button
+   pairs aligned, control clusters mirrored. Off-axis elements break
+   the eye's resting line.
+2. **Rhythm** — consistent spacing scale (4 px grid; tokens below).
+   Cards, sections, modal padding all snap to the same intervals.
+3. **Hierarchy** — one primary action per surface, exactly. Secondary
+   actions secondary. Tertiary muted. Never three buttons fighting for
+   the same emphasis.
+4. **Restraint** — every element earns its place. Add nothing
+   speculatively. Five carefully placed affordances beat fifteen
+   crowded ones.
+
+### 8a.2 Canonical tokens (do not invent new ones)
+
+| Token | Value | Source |
+|---|---|---|
+| Spacing grid | 4 px (Tailwind default scale: 1=4, 2=8, 3=12, 4=16, 5=20, 6=24) | tailwind.config.js |
+| Border radius | sm=4 px, md=8 px, lg=12 px (`var(--radius)`), xl=16 px | app/globals.css `--radius: 0.5rem` |
+| Modal width | sm=400 / md=600 / lg=800 / xl=1000 (px) | metaproof-core.md §8 |
+| Breakpoints | sm=640, md=768, lg=1024, xl=1280, 2xl=1536 | Tailwind defaults |
+| Typography | base=14 px, ratio 1.25 | globals.css |
+| Surface bg (dark) | `bg-slate-900/40` to `bg-slate-900/60` | composer + cards |
+| Border (dark) | `border-slate-700/60` | composer + cards |
+| Accent (primary) | violet — `text-violet-300`, `bg-violet-500/10`, `border-violet-500/40` | aigentMe |
+| Accent (KNYT) | emerald — `text-emerald-300`, `bg-emerald-500/10` | KNYT cartridge |
+| Accent (warning) | amber — `text-amber-300`, `border-amber-500/40` | blockers, payment |
+| Accent (error) | rose — `text-rose-300`, `border-rose-500/30` | error states |
+| Muted text | `text-slate-400` (dark), `text-slate-600` (light) | universal |
+
+**No raw hex in components.** If you reach for `#1a2a3c`, stop and use a
+token. New tokens are added to globals.css + tailwind.config.js with
+explicit operator approval.
+
+### 8a.3 Composition rules
+
+- **One primary CTA per pane.** If a layout needs two equally weighted
+  actions, redesign — they're not equally weighted.
+- **Pair buttons symmetrically.** Cancel/Confirm always right-aligned;
+  primary on the right, secondary on the left (or vice versa
+  cartridge-wide — pick one and hold).
+- **Close affordances are tertiary.** Top-right X with muted hover.
+  Never a "Close" button that competes with primary actions.
+- **No piling.** Stacks of cards in a single column accumulate visual
+  debt. If a layout needs more than 3–4 cards simultaneously, it's the
+  wrong layout — split into a different right-pane intent (Phase 2
+  pattern).
+- **Loading states match the resting state.** Skeletons preserve the
+  same dimensions and shape as the loaded content. No content jump.
+- **Empty states are designed, not stubbed.** "No goals yet — add your
+  first below" is a deliberate sentence with deliberate placement, not
+  an afterthought.
+- **Animation is restraint.** Fades and slides only at 150–200ms;
+  spinners only on actions >300ms. Never animate decoration.
+
+### 8a.4 Symmetry contract (right-pane specifically)
+
+For every aigentMe right-pane layout (Phase 2):
+
+- Header strip = ≤56 px, one icon-left / title-center / actions-right
+  pattern.
+- Body padding = `p-5 lg:p-6` (20/24 px). Same on every layout.
+- Footer (if present) = `p-3 lg:p-4` (12/16 px), right-aligned actions,
+  never split across edges.
+- Outer radius = `rounded-2xl` (16 px) on cards; `rounded-lg` (8 px) on
+  sub-cards. Never mix radii within a card.
+- Dismiss control (top-right X) sits at the same coordinate on every
+  layout — 6×6 button, `right-3 top-3` from the card edge.
+
+### 8a.5 Review checklist (before any UI PR)
+
+- [ ] No raw hex; only design tokens / Tailwind classes from the table above.
+- [ ] Spacing snaps to the 4 px grid.
+- [ ] Border radii consistent within the surface.
+- [ ] One primary CTA on the pane / card.
+- [ ] Loading state preserves layout dimensions.
+- [ ] Empty state written, not stubbed.
+- [ ] Dismiss / close affordance follows the symmetry contract.
+- [ ] Component is reused (`CodexActionRow`, `IQubeCard`, `FilterSection`,
+      `ViewModeToggle`, `ConfirmDialog`) — not re-implemented.
+- [ ] iOS / mobile rendered (no `hidden md:*` on first-class
+      affordances unless explicitly designed to be desktop-only).
+- [ ] Theme honored (dark/light variant for every new component).
+
+When in doubt, defer to the existing reference patterns
+(`BriefCard`, `VentureProgressCard`, `RemixDialog`, `ExperienceGoalsEditor`)
+and ask if a change extends or breaks them.
+
+The `ui-parity-reviewer` subagent (`.claude/agents/ui-parity-reviewer.md`)
+runs this checklist on demand.
+
+---
+
 ## 9. Change Impact Checklist
 
 Use this before opening a PR.
