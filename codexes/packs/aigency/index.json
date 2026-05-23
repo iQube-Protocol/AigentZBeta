@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-23T22:27:57.102Z",
+  "last_updated": "2026-05-23T22:54:04.002Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "754ae53d3703a40351ce8fcd9f32aefbc8046382",
-  "latest_commit_short": "754ae53",
-  "latest_commit_title": "AigentMe: kill auto-open-Gmail-tab on artifact creation — broke HITL flow by popping the external tab BEFORE the in-app approval card appeared. Restores Phase 1 'approve in app, view post-send' contract",
+  "latest_commit": "5d91086380fadf1b4b9919c47731db9c013339c6",
+  "latest_commit_short": "5d91086",
+  "latest_commit_title": "ApprovalLayout: drop inline NBE ApprovalCard from stack (was rendering behind the Phase-2 overlay) + amber surface/border/primary CTA matching Phase-1 authorization treatment",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5d91086",
+      "full_sha": "5d91086380fadf1b4b9919c47731db9c013339c6",
+      "title": "ApprovalLayout: drop inline NBE ApprovalCard from stack (was rendering behind the Phase-2 overlay) + amber surface/border/primary CTA matching Phase-1 authorization treatment",
+      "author": "Claude",
+      "timestamp": "2026-05-23T22:52:19Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5d91086.md"
+    },
     {
       "sha": "754ae53",
       "full_sha": "754ae53d3703a40351ce8fcd9f32aefbc8046382",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-04-29T20:43:04Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-516b95d.md"
-    },
-    {
-      "sha": "c25d66a",
-      "full_sha": "c25d66abc658e13b580f9dff525e1498a8fdb6c1",
-      "title": "add public viewer page for community-generated content",
-      "author": "Claude",
-      "timestamp": "2026-04-29T20:44:01Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-c25d66a.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

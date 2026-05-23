@@ -1004,3 +1004,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-754ae53.md](../build_/COMMITS/COMMIT-754ae53.md)
 - Message: AigentMe: kill auto-open-Gmail-tab on artifact creation — broke HITL flow by popping the external tab BEFORE the in-app approval card appeared. Restores Phase 1 'approve in app, view post-send' contract
+
+## Commit `5d91086` — 2026-05-23T22:52:19Z
+- Type: `push`
+- Brief: [COMMIT-5d91086.md](../build_/COMMITS/COMMIT-5d91086.md)
+- Message: ApprovalLayout: drop inline NBE ApprovalCard from stack (was rendering behind the Phase-2 overlay) + amber surface/border/primary CTA matching Phase-1 authorization treatment
