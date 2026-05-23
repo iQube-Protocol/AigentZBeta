@@ -16,6 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCommunityContentSupabase } from '../../_lib/personaContext';
 import { creditQc } from '../../_lib/generate';
+import { getActivePersona } from '@/services/identity/getActivePersona';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -49,8 +50,20 @@ export async function POST(
     return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const personaId = body.personaId?.trim();
-  if (!personaId) return NextResponse.json({ ok: false, error: 'personaId required' }, { status: 400 });
+  // Spine fallback — accept implicit identity via Bearer + x-persona-id
+  // header (same pattern as /generate and /publish).
+  let personaId = body.personaId?.trim();
+  if (!personaId) {
+    try {
+      const active = await getActivePersona(req);
+      personaId = active?.personaId;
+    } catch {
+      // spine resolution failed — fall through to 401 below
+    }
+  }
+  if (!personaId) {
+    return NextResponse.json({ ok: false, error: 'sign-in required' }, { status: 401 });
+  }
 
   const supabase = getCommunityContentSupabase();
 
