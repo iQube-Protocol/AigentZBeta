@@ -569,6 +569,86 @@ runs this checklist on demand.
 
 ---
 
+## 8b. Design Intent System & Parity Framework (Studio dog-food)
+
+> **The platform's own Studio already ships the framework we need. We use it
+> on ourselves.** This section codifies the operating model.
+
+### 8b.1 What's available in Studio today
+
+| File | Role |
+|---|---|
+| `app/services/designParity/DesignIntentSpec.ts` | DIS schema + `DISGenerator.generateFromDesignQube()` |
+| `app/services/designParity/ConstraintManifest.ts` | Hard constraints (a11y, perf, breakpoint rules) |
+| `app/services/designParity/ParityChecker.ts` | Generates `DesignParityReport` — structural + visual scores per breakpoint |
+| `app/services/designParity/DesignGapCheck.ts` | Surface-level gap audits |
+| `app/services/designParity/DesignQubeImporters.ts` | Figma / XD / code / freeform ingestion |
+| `components/composer/AgenticDesignParityPanel.tsx` | UI for running the framework, viewing reports, merging across experiences |
+| DVN receipt events | `design_parity_pipeline_run`, `design_parity_pipeline_error`, `design_parity_remedy_proposed`, `design_parity_remedy_applied`, `design_parity_remedy_rejected` |
+
+### 8b.2 The dog-food protocol (mandatory for every UI workstream)
+
+Any UI project of size — Phase 2 right-pane layouts is the first canonical
+case — passes through these gates in order:
+
+1. **Author DIS** as the work begins. The DIS captures the design contract
+   *before* code lands. File location:
+   `codexes/packs/agentiq/items/dis/<workstream>.dis.json`.
+2. **Register sources** inside the DIS `metadata.sources` array — point at
+   the handbook section, Tailwind config, parity-reviewer agent, any
+   Figma / Lovable spec, so the spec is traceable.
+3. **Land code in slices.** Each slice is small, design-preserving, and
+   merged behind a layout-registry seam where possible (Phase 2 pattern).
+4. **Run `ParityChecker` after each slice deploys.** Reports go to the
+   composer's `AgenticDesignParityPanel`. Receipts emit on DVN
+   (`design_parity_pipeline_run` etc.) so the audit trail is durable.
+5. **Block on critical violations.** `copilotHints.violationSeverity` in
+   the DIS lists what counts as critical (raw hex, off-grid spacing,
+   mixed radii in a card, hidden-mobile on first-class affordances).
+   Anything red blocks the slice from promoting beyond dev.
+6. **Propose remedies via the framework.** When violations exist, the
+   panel proposes minimal-diff remedies (`remedyPreference:
+   "minimal-diff"`). Operator accepts or rejects each — both decisions
+   emit DVN receipts.
+7. **Update the DIS when intent legitimately shifts.** Don't paper over
+   drift; if a slice taught us the original DIS was wrong, version the
+   DIS up and link the decision in `codexes/packs/agentiq/updates/`.
+
+### 8b.3 Phase 2 DIS (canonical example)
+
+`codexes/packs/agentiq/items/dis/aigentme-phase-2.dis.json` is the live
+specification for the right-pane layouts project. It:
+
+- Locks tokens (colors, typography, spacing, radii, shadows) to the
+  handbook §8a tables.
+- Declares each layout by id (`stack`, `brief`, `decision-board`,
+  `venture-cockpit`, `composer`, `approval-interrupt`, `ledger`) with
+  per-modality and per-density routing.
+- Specifies responsive collapse rules (mobile / tablet / desktop) and the
+  "no `hidden md:*` on primary controls" invariant.
+- Carries `layoutRules` that the Parity Checker treats as structural
+  constraints — header strip = 56 px, dismiss X at `right-3 top-3`,
+  outer radius `rounded-2xl`, body padding `p-5 lg:p-6`, footer
+  `p-3 lg:p-4`, one primary CTA per pane.
+
+When we start a slice, the spec is the contract. When we end a slice,
+the parity report is the receipt.
+
+### 8b.4 Eating our own dog food — the meta-objective
+
+The point isn't just to govern the UI. The point is for the operator to
+**inhabit** the platform — use Studio as a real user does, feel its rough
+edges, capture them in the spec, watch the gap-check and remedy loop
+close. Every friction point we hit becomes a candidate for the platform's
+next improvement. The Studio's DIS framework was built for customers
+authoring experiences; using it to govern *our own* aigentMe upgrade is
+the first real-world load test.
+
+This is recorded as a worked case study at:
+`codexes/packs/agentiq/updates/2026-05-23_aigentme-phase-2-end-to-end-dogfood.md`
+
+---
+
 ## 9. Change Impact Checklist
 
 Use this before opening a PR.

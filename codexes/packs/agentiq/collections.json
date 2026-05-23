@@ -116,7 +116,8 @@
                 "updates/2026-05-18_pdf-contentqube-large-file-render-pipeline.md",
                 "updates/2026-05-21_claim-edition-generalisation-backlog.md",
                 "updates/2026-05-22_qc-dvn-mainnet-parity-backlog.md",
-                "updates/2026-05-22_qc-payment-modes-control-framework-backlog.md"
+                "updates/2026-05-22_qc-payment-modes-control-framework-backlog.md",
+                "updates/2026-05-23_aigentme-phase-2-end-to-end-dogfood.md"
       ]
     },
     {
@@ -182,6 +183,7 @@
       "title": "Operators Manual",
       "items": [
         "items/OPERATORS_HANDBOOK.md",
+        "items/dis/aigentme-phase-2.dis.json",
         "items/REGISTRY_TRUST_SCORING.md"
       ]
     },
