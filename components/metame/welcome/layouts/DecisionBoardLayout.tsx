@@ -20,6 +20,7 @@ import {
   NextBestActionCard,
 } from "@/components/metame/cards/NextBestActionCard";
 import { LayoutShell } from "./LayoutShell";
+import { accent } from "./accentTokens";
 import type {
   RightPaneLayoutDefinition,
   RightPaneLayoutProps,
@@ -74,22 +75,33 @@ function DecisionBoardLayoutComponent(props: RightPaneLayoutProps) {
         ) : !topAction ? (
           <DecisionEmptyState isDark={isDark} />
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-5">
+            {/* Recommended — violet primary, the action-bearing card */}
             <section>
-              <h3 className={`text-[10px] uppercase tracking-[0.16em] mb-2 ${mutedClass}`}>
+              <h3 className={`text-[10px] uppercase tracking-[0.16em] mb-2 font-medium ${
+                isDark ? "text-violet-300" : "text-violet-700"
+              }`}>
                 Recommended
               </h3>
-              <NextBestActionCard
-                action={topAction}
-                variant="hero"
-                onAct={onNbeAct}
-                theme={theme}
-              />
+              <div className={`rounded-2xl border backdrop-blur-sm ${
+                accent("violet", isDark ? "dark" : "light").border
+              } ${
+                accent("violet", isDark ? "dark" : "light").fillSoft
+              }`}>
+                <NextBestActionCard
+                  action={topAction}
+                  variant="hero"
+                  onAct={onNbeAct}
+                  theme={theme}
+                />
+              </div>
             </section>
 
             {alternates.length > 0 && (
               <section>
-                <h3 className={`text-[10px] uppercase tracking-[0.16em] mb-2 ${mutedClass}`}>
+                <h3 className={`text-[10px] uppercase tracking-[0.16em] mb-2 font-medium ${
+                  isDark ? "text-slate-300" : "text-slate-600"
+                }`}>
                   Or instead ({alternates.length})
                 </h3>
                 <div className="space-y-2">

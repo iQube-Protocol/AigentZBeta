@@ -245,13 +245,46 @@ export async function loadTokenRecord(
   source: GoogleSource,
 ): Promise<GoogleTokenRecord | null> {
   const admin = getAdminClient();
-  const { data, error } = await admin
+  // 1) Direct lookup under the active personaId — the happy path.
+  const direct = await admin
     .from('persona_google_tokens')
     .select('*')
     .eq('persona_id', personaId)
     .eq('source', source)
     .maybeSingle();
-  if (error || !data) return null;
+  if (!direct.error && direct.data) return rowToRecord(direct.data);
+
+  // 2) Cross-persona fallback. The Google account belongs to the human
+  //    (auth profile), not to one persona. When a user connects Google
+  //    while persona A is active and later switches to persona B (or
+  //    the resolver picks a different default), the token was saved
+  //    under A but B's lookup misses it. Resolve the active persona's
+  //    auth profile, enumerate every persona under that profile + any
+  //    multi-email-merged sibling profile, and look the token up by
+  //    `in (...)`. Tokens persist their original `persona_id` so the
+  //    audit trail of who connected is intact, but read access spans
+  //    the human's owned personas.
+  try {
+    const siblings = await listSiblingPersonaIds(personaId);
+    if (siblings.length > 0) {
+      const fallback = await admin
+        .from('persona_google_tokens')
+        .select('*')
+        .in('persona_id', siblings)
+        .eq('source', source)
+        .order('expires_at', { ascending: false, nullsFirst: false })
+        .limit(1);
+      if (!fallback.error && Array.isArray(fallback.data) && fallback.data.length > 0) {
+        return rowToRecord(fallback.data[0]);
+      }
+    }
+  } catch {
+    // Sibling-lookup is best-effort; never throw from a token resolver.
+  }
+  return null;
+}
+
+function rowToRecord(data: unknown): GoogleTokenRecord {
   const row = data as {
     persona_id: string;
     source: GoogleSource;
@@ -270,6 +303,46 @@ export async function loadTokenRecord(
     expiresAt: row.expires_at,
     accountEmail: row.google_account_email,
   };
+}
+
+/**
+ * List every persona id owned by the same auth profile as `personaId`
+ * (and any multi-email-merged linked profile). Used by token lookups so
+ * a Google connection made under one persona is reachable when the
+ * resolver picks another persona under the same human.
+ *
+ * Returns an empty array on any error rather than throwing — callers
+ * fall back to "no token" semantics, which surfaces the existing
+ * "reconnect" CTA path.
+ */
+async function listSiblingPersonaIds(personaId: string): Promise<string[]> {
+  const admin = getAdminClient();
+  // Walk persona → auth_profile_id
+  const personaRow = await admin
+    .from('personas')
+    .select('auth_profile_id')
+    .eq('id', personaId)
+    .maybeSingle();
+  const authProfileId =
+    (personaRow.data as { auth_profile_id?: string } | null)?.auth_profile_id ?? null;
+  if (!authProfileId) return [personaId];
+
+  // Lazy-load the multi-email helper so this file doesn't pull the
+  // spine into the OAuth callback's bundle eagerly.
+  const { getMergedLinkedAuthProfileIds } = await import('@/services/wallet/multiEmailIdentity');
+  const linked = await getMergedLinkedAuthProfileIds(authProfileId).catch(() => []);
+  const profileIds = Array.from(new Set([authProfileId, ...linked]));
+
+  const personas = await admin
+    .from('personas')
+    .select('id')
+    .in('auth_profile_id', profileIds);
+  if (personas.error || !personas.data) return [personaId];
+  const ids = (personas.data as Array<{ id: string }>).map((r) => r.id);
+  // Always include the requested personaId so the direct path stays
+  // testable even if the relational walk is empty.
+  if (!ids.includes(personaId)) ids.push(personaId);
+  return ids;
 }
 
 export async function disconnectSource(input: {

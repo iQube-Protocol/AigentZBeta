@@ -24,6 +24,7 @@ import {
   ActivityReceiptCard,
 } from "@/components/metame/cards/ActivityReceiptCard";
 import { LayoutShell } from "./LayoutShell";
+import { accent, type Accent } from "./accentTokens";
 import type {
   RightPaneLayoutDefinition,
   RightPaneLayoutProps,
@@ -31,12 +32,15 @@ import type {
 
 type LedgerFilterId = "all" | "receipt" | "approval" | "brief" | "composer";
 
-const FILTERS: { id: LedgerFilterId; label: string }[] = [
-  { id: "all",      label: "All" },
-  { id: "receipt",  label: "Receipts" },
-  { id: "approval", label: "Approvals" },
-  { id: "brief",    label: "Briefs" },
-  { id: "composer", label: "Composer" },
+// Each filter carries an accent so the active state inherits a meaningful
+// color (Receipts=slate/neutral, Approvals=amber/pending,
+// Briefs=violet/primary, Composer=cyan/composition).
+const FILTERS: { id: LedgerFilterId; label: string; accent: Accent }[] = [
+  { id: "all",      label: "All",       accent: "violet"  },
+  { id: "receipt",  label: "Receipts",  accent: "slate"   },
+  { id: "approval", label: "Approvals", accent: "amber"   },
+  { id: "brief",    label: "Briefs",    accent: "violet"  },
+  { id: "composer", label: "Composer",  accent: "cyan"    },
 ];
 
 function LedgerLayoutComponent(props: RightPaneLayoutProps) {
@@ -70,25 +74,28 @@ function LedgerLayoutComponent(props: RightPaneLayoutProps) {
   const baseChip = isDark
     ? "border-slate-700/60 text-slate-300 hover:bg-slate-800/40"
     : "border-slate-200 text-slate-600 hover:bg-slate-100";
-  const activeChip = isDark
-    ? "border-violet-500/50 bg-violet-500/10 text-violet-100"
-    : "border-violet-300 bg-violet-50 text-violet-800";
 
   const filterStrip = (
-    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
-      {FILTERS.map((f) => (
-        <button
-          key={f.id}
-          type="button"
-          aria-pressed={filter === f.id}
-          onClick={() => setFilter(f.id)}
-          className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
-            filter === f.id ? activeChip : baseChip
-          }`}
-        >
-          {f.label}
-        </button>
-      ))}
+    <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+      {FILTERS.map((f) => {
+        const tint = accent(f.accent, isDark ? "dark" : "light");
+        const isActive = filter === f.id;
+        return (
+          <button
+            key={f.id}
+            type="button"
+            aria-pressed={isActive}
+            onClick={() => setFilter(f.id)}
+            className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors backdrop-blur-sm ${
+              isActive
+                ? `${tint.border} ${tint.fillStrong} ${tint.text}`
+                : baseChip
+            }`}
+          >
+            {f.label}
+          </button>
+        );
+      })}
     </div>
   );
 

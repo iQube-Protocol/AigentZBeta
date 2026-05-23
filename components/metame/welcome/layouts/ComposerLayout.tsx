@@ -22,6 +22,7 @@
 import React, { useCallback } from "react";
 import { Pencil, Send, Save, ArrowRight } from "lucide-react";
 import { LayoutShell } from "./LayoutShell";
+import { accent } from "./accentTokens";
 import type {
   RightPaneLayoutDefinition,
   RightPaneLayoutProps,
@@ -97,32 +98,38 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
           <ComposerEmptyState isDark={isDark} mutedClass={mutedClass} />
         ) : (
           <div className="space-y-3">
-            {/* Thread context chip — collapses to a single line; tap to expand
-                (future slice). For v1 the chip surfaces the artifact kind and
-                cartridge so the operator knows what they're sending. */}
-            <div
-              className={`rounded-lg border px-3 py-2 text-xs flex items-center justify-between ${surfaceClass}`}
-            >
-              <div className="min-w-0">
-                <span className={`uppercase tracking-[0.16em] text-[10px] ${mutedClass}`}>
-                  {String((draft as { kind?: string }).kind ?? "draft")}
-                </span>
-                <span className="mx-2 text-slate-500">·</span>
-                <span className="truncate">
-                  {String((draft as { cartridge?: string }).cartridge ?? "metame")}
-                </span>
-              </div>
-              {(draft as { specialist?: string }).specialist && (
-                <span className={`inline-flex items-center gap-1 ${mutedClass}`}>
-                  <ArrowRight className="h-3 w-3" />
-                  {String((draft as { specialist?: string }).specialist)}
-                </span>
-              )}
-            </div>
+            {/* Thread context chip (cyan — composition context). Collapses
+                to a single line; tap to expand (future slice). Surfaces
+                artifact kind + cartridge so the operator knows what's
+                going where. */}
+            {(() => {
+              const ctx = accent("cyan", isDark ? "dark" : "light");
+              return (
+                <div
+                  className={`rounded-lg border px-3 py-2 text-xs flex items-center justify-between backdrop-blur-sm ${ctx.border} ${ctx.fillSoft}`}
+                >
+                  <div className="min-w-0">
+                    <span className={`uppercase tracking-[0.16em] text-[10px] font-medium ${ctx.eyebrow}`}>
+                      {String((draft as { kind?: string }).kind ?? "draft")}
+                    </span>
+                    <span className="mx-2 text-slate-500">·</span>
+                    <span className="truncate">
+                      {String((draft as { cartridge?: string }).cartridge ?? "metame")}
+                    </span>
+                  </div>
+                  {(draft as { specialist?: string }).specialist && (
+                    <span className={`inline-flex items-center gap-1 ${mutedClass}`}>
+                      <ArrowRight className="h-3 w-3" />
+                      {String((draft as { specialist?: string }).specialist)}
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
 
-            {/* Draft body */}
+            {/* Draft body (violet eyebrow — action-bearing surface) */}
             <div className={`rounded-lg border p-4 ${surfaceClass}`}>
-              <div className={`text-[10px] uppercase tracking-[0.16em] mb-2 ${mutedClass}`}>
+              <div className={`text-[10px] uppercase tracking-[0.16em] mb-2 font-medium ${isDark ? "text-violet-300" : "text-violet-700"}`}>
                 Draft
               </div>
               <div className="text-sm leading-relaxed whitespace-pre-wrap">

@@ -23,6 +23,7 @@ import {
   NextBestActionCard,
 } from "@/components/metame/cards/NextBestActionCard";
 import { LayoutShell } from "./LayoutShell";
+import { accent, type Accent } from "./accentTokens";
 import type {
   RightPaneLayoutDefinition,
   RightPaneLayoutProps,
@@ -118,14 +119,14 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
               accentClass={isDark ? "text-cyan-300/90" : "text-cyan-700"}
             >
               <Carousel>
-                <StatChip label="Active KPIs" value={data.kpiSummary.activeKpisCount} isDark={isDark} accent="cyan" />
-                <StatChip label="Operational goals" value={data.operationalGoalsCount} isDark={isDark} accent="cyan" />
-                <StatChip label="Commercial goals" value={data.commercialGoalsCount} isDark={isDark} accent="cyan" />
+                <StatChip label="Active KPIs" value={data.kpiSummary.activeKpisCount} isDark={isDark} accentId="cyan" />
+                <StatChip label="Operational goals" value={data.operationalGoalsCount} isDark={isDark} accentId="cyan" />
+                <StatChip label="Commercial goals" value={data.commercialGoalsCount} isDark={isDark} accentId="cyan" />
                 {data.kpiSummary.hasFranchiseProposition && (
-                  <PillChip label="Franchise proposition" isDark={isDark} accent="emerald" />
+                  <PillChip label="Franchise proposition" isDark={isDark} accentId="emerald" />
                 )}
                 {data.kpiSummary.hasConfidentialNotes && (
-                  <PillChip label="Confidential notes" isDark={isDark} accent="slate" />
+                  <PillChip label="Confidential notes" isDark={isDark} accentId="slate" />
                 )}
               </Carousel>
             </Row>
@@ -214,17 +215,17 @@ function StatChip({
   label,
   value,
   isDark,
-  accent,
+  accentId,
 }: {
   label: string;
   value: number;
   isDark: boolean;
-  accent: "cyan" | "emerald" | "violet";
+  accentId: Accent;
 }) {
   // Tinted glass fill — translucent surface + soft border in the
   // section's accent color. Non-zero values get a slightly stronger
   // tint so "active" KPIs read at a glance.
-  const tint = ACCENT_TOKENS[accent][isDark ? "dark" : "light"];
+  const tint = accent(accentId, isDark ? "dark" : "light");
   const hasValue = value > 0;
   const box = `${tint.border} ${hasValue ? tint.fillStrong : tint.fillSoft} backdrop-blur-sm`;
   const valueClass = hasValue ? tint.text : isDark ? "text-slate-200" : "text-slate-700";
@@ -238,34 +239,10 @@ function StatChip({
   );
 }
 
-// Per-accent token map — keeps the glass-fill recipe in one place so
-// adding a new accent later is trivial.
-const ACCENT_TOKENS = {
-  cyan: {
-    dark:  { border: "border-cyan-500/30",   fillSoft: "bg-cyan-500/5",   fillStrong: "bg-cyan-500/10",   text: "text-cyan-200" },
-    light: { border: "border-cyan-300",      fillSoft: "bg-cyan-50",      fillStrong: "bg-cyan-100/70",   text: "text-cyan-800" },
-  },
-  emerald: {
-    dark:  { border: "border-emerald-500/30", fillSoft: "bg-emerald-500/5", fillStrong: "bg-emerald-500/10", text: "text-emerald-200" },
-    light: { border: "border-emerald-300",    fillSoft: "bg-emerald-50",    fillStrong: "bg-emerald-100/70", text: "text-emerald-800" },
-  },
-  violet: {
-    dark:  { border: "border-violet-500/40",  fillSoft: "bg-violet-500/5",  fillStrong: "bg-violet-500/10",  text: "text-violet-200" },
-    light: { border: "border-violet-300",     fillSoft: "bg-violet-50",     fillStrong: "bg-violet-100/70",  text: "text-violet-800" },
-  },
-} as const;
-
-function PillChip({ label, isDark, accent }: { label: string; isDark: boolean; accent: "emerald" | "slate" }) {
-  const cls =
-    accent === "emerald"
-      ? isDark
-        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
-        : "border-emerald-300 bg-emerald-50 text-emerald-700"
-      : isDark
-        ? "border-slate-700/60 bg-slate-900/40 text-slate-300"
-        : "border-slate-200 bg-slate-50 text-slate-600";
+function PillChip({ label, isDark, accentId }: { label: string; isDark: boolean; accentId: Accent }) {
+  const tint = accent(accentId, isDark ? "dark" : "light");
   return (
-    <div className={`rounded-lg border p-2.5 text-[11px] flex items-center min-w-[10rem] ${cls}`}>
+    <div className={`rounded-lg border p-2.5 text-[11px] flex items-center min-w-[10rem] backdrop-blur-sm ${tint.border} ${tint.fillStrong} ${tint.text}`}>
       {label}
     </div>
   );
@@ -281,7 +258,7 @@ function ActivityChip({
   // Glass-fill emerald (Active Work accent). Status colors the bottom
   // line so the eye can scan completed / in-progress / failed without
   // re-reading.
-  const tint = ACCENT_TOKENS.emerald[isDark ? "dark" : "light"];
+  const tint = accent("emerald", isDark ? "dark" : "light");
   const status = activity.status.toLowerCase();
   const statusClass =
     status.includes("done") || status.includes("complete") || status.includes("succeed")
