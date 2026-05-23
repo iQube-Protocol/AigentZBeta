@@ -88,6 +88,8 @@ import {
 import { MetaMeSettingsPanel, loadMetaMeSettings, type LeadAgent } from "@/components/metame/MetaMeSettingsPanel";
 import { RuntimeTakeoverBanner } from "@/components/metame/RuntimeTakeoverBanner";
 import { RuntimeCapsuleRemixEditor } from "@/components/metame/runtime/RuntimeCapsuleRemixEditor";
+import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal";
+import { useActivePersona } from "@/app/hooks/useActivePersona";
 import { useRuntimeTakeover } from "@/app/hooks/useRuntimeTakeover";
 import { CODEX_DEFINITIONS } from "@/data/codex-configs";
 import type { ScreenFraction, SmartContentQube } from "@/types/smartContent";
@@ -2254,6 +2256,25 @@ export default function MetaMeRuntimeClient() {
   const [walletInitialTab, setWalletInitialTab] = useState<"wallet" | "tasks" | "rewards" | "payments">("wallet");
   const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
 
+  // Runtime social-sharing modal state. Smart-action 'Share' button on
+  // each capsule now opens the canonical Qriptopian SocialSharingModal
+  // (rich social grid + copy link + deep-link attribution via shareId)
+  // instead of the inline QubeTalk channel-list panel. QubeTalk lives on
+  // for the upcoming messaging flow per operator direction.
+  const [runtimeShareItem, setRuntimeShareItem] = useState<{
+    id: string;
+    title: string;
+    description?: string;
+    section?: string;
+    type?: 'text' | 'video';
+  } | null>(null);
+  const { surface: runtimeActivePersonaSurface } = useActivePersona();
+  type RuntimeSurfaceWithFio = typeof runtimeActivePersonaSurface & { ownFioHandle?: string };
+  const runtimeSharePersonaLabel =
+    runtimeActivePersonaSurface?.displayLabel ??
+    (runtimeActivePersonaSurface as RuntimeSurfaceWithFio | null)?.ownFioHandle ??
+    null;
+
   // LAUNCH OVERRIDE (KNYT activation campaign): default lead agent on arrival
   // is Kn0w1 (KNYT-aligned), not Aigent Z. Reverts to RUNTIME_AGENTS[0]
   // (Aigent Z / metaMe) post-launch.
@@ -3373,18 +3394,16 @@ export default function MetaMeRuntimeClient() {
                     <button
                       key={`${content.id}-${action.kind}`}
                       type="button"
-                      onClick={() =>
-                        setMessages((prev) => [
-                          ...prev,
-                          {
-                            id: `share-panel-${Date.now()}`,
-                            role: "assistant",
-                            content: buildSharePanel(content.title),
-                            timestamp: new Date(),
-                            variant: "panel",
-                          },
-                        ])
-                      }
+                      // Smart-action 'Share' opens the Qriptopian
+                      // SocialSharingModal instead of pushing the legacy
+                      // QubeTalk channel-list panel into the chat.
+                      onClick={() => setRuntimeShareItem({
+                        id: content.id,
+                        title: content.title,
+                        description: content.description || undefined,
+                        section: content.runtimeContentKind || undefined,
+                        type: content.runtimeContentKind === 'article' ? 'text' : undefined,
+                      })}
                       className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs text-slate-100 transition hover:bg-white/10"
                     >
                       <Share2 className="h-4 w-4" />
@@ -3951,16 +3970,15 @@ export default function MetaMeRuntimeClient() {
                             onClick={(event) => {
                               event.stopPropagation();
                               if (action.kind === "share") {
-                                setMessages((prev) => [
-                                  ...prev,
-                                  {
-                                    id: `share-panel-${Date.now()}`,
-                                    role: "assistant",
-                                    content: buildSharePanel(content.title),
-                                    timestamp: new Date(),
-                                    variant: "panel",
-                                  },
-                                ]);
+                                // Open SocialSharingModal (Qriptopian)
+                                // instead of the legacy QubeTalk panel.
+                                setRuntimeShareItem({
+                                  id: content.id,
+                                  title: content.title,
+                                  description: content.description || undefined,
+                                  section: content.runtimeContentKind || undefined,
+                                  type: content.runtimeContentKind === 'article' ? 'text' : undefined,
+                                });
                               } else {
                                 launchCapsule(content);
                               }
@@ -6182,6 +6200,23 @@ export default function MetaMeRuntimeClient() {
         agent={{ id: activePersonaId || selectedAgent.id, name: selectedAgent.label }}
         personaId={activePersonaId || undefined}
         initialTab={walletInitialTab}
+      />
+      <SocialSharingModal
+        isOpen={!!runtimeShareItem}
+        onClose={() => setRuntimeShareItem(null)}
+        article={
+          runtimeShareItem
+            ? {
+                id: runtimeShareItem.id,
+                title: runtimeShareItem.title,
+                description: runtimeShareItem.description,
+                section: runtimeShareItem.section,
+                type: runtimeShareItem.type,
+              }
+            : { id: '', title: '' }
+        }
+        personaId={activePersonaId || undefined}
+        personaLabel={runtimeSharePersonaLabel || undefined}
       />
       {settingsDrawerOpen ? (
         <div
