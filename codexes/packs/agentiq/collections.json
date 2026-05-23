@@ -181,6 +181,7 @@
       "id": "col_operators",
       "title": "Operators Manual",
       "items": [
+        "items/OPERATORS_HANDBOOK.md",
         "items/REGISTRY_TRUST_SCORING.md"
       ]
     },
