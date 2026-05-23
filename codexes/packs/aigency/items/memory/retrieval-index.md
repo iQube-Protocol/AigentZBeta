@@ -979,3 +979,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-3aea78f.md](../build_/COMMITS/COMMIT-3aea78f.md)
 - Message: ActivityReceiptCard: click header to expand inline JSON drawer (T1-safe payload + copy button)
+
+## Commit `cfa0696` — 2026-05-23T19:57:06Z
+- Type: `push`
+- Brief: [COMMIT-cfa0696.md](../build_/COMMITS/COMMIT-cfa0696.md)
+- Message: VentureCockpit: glass-fill accents (cyan/emerald/violet per row), carousel within body padding (no edge bleed), ApprovalLayout z-40 (above floating compose), body clearance for floating compose strip, compose-modal specific-field error
