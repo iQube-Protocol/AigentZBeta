@@ -108,19 +108,27 @@ interface BootstrapSurface {
 }
 
 /**
- * Open the newly-created artifact in a new tab when its location is a real
- * external URL (Google Doc / Slide / Sheet / Calendar event). Skipped for
- * runtime-local artifacts (gmail draft, marketa email) where the link
- * lives inside the app itself.
+ * Phase 2 Slice 5b: no-op.
+ *
+ * Previously this auto-opened the newly-created artifact's locationUrl
+ * (Gmail draft / Drive doc / Calendar event) in a new tab as soon as
+ * the artifact landed. That broke the in-app HITL flow: operators
+ * clicked "draft an email", the system created the draft in Gmail,
+ * then a new tab popped open BEFORE the user even saw the in-app
+ * approval card — by the time the approval sheet appeared, the
+ * operator had already context-switched to Gmail.
+ *
+ * The Phase 1 contract (now restored) is: approve in app → execute
+ * via API → ArtifactCard surfaces the `View in Gmail` link in its
+ * post-send state. The user clicks the link when they want, not
+ * before.
+ *
+ * Kept as a no-op (instead of deleted) so the six call sites in this
+ * file don't need to change — they already do `setArtifacts([...])`
+ * inline alongside this call, which is the only behavior we need.
  */
-function autoOpenArtifact(data: { locationUrl?: string | null; artifactType?: string }) {
-  if (typeof window === 'undefined') return;
-  if (!data.locationUrl) return;
-  // Gmail drafts live at https://mail.google.com/... which we DO want
-  // to open. Marketa lives at /metame/runtime — also fine. Filter only
-  // obviously-internal/blank URLs.
-  if (data.locationUrl.startsWith('#') || data.locationUrl === '/') return;
-  window.open(data.locationUrl, '_blank', 'noopener,noreferrer');
+function autoOpenArtifact(_data: { locationUrl?: string | null; artifactType?: string }) {
+  return;
 }
 
 /**
