@@ -291,6 +291,26 @@ function ContentDetail({ item, personaId }: { item: CommunityContentItem; person
   // pulls from the browser cache instantly.
   const detailImgSrc = `/api/community-content/${item.id}/image`;
   const [detailImgOk, setDetailImgOk] = React.useState(true);
+  // List endpoint strips articleBody to avoid 413 (base64 images +
+  // 600-900 word bodies blow Lambda's 6 MB ceiling). Hydrate the full
+  // body from GET /[id] when the detail opens so we don't show just
+  // the short prompt as a placeholder.
+  const [fullBody, setFullBody] = React.useState<string | null>(item.articleBody);
+  const [hydrating, setHydrating] = React.useState(false);
+  React.useEffect(() => {
+    if (fullBody) return;
+    let cancelled = false;
+    setHydrating(true);
+    fetch(`/api/community-content/${item.id}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j: { ok?: boolean; item?: { articleBody?: string | null } }) => {
+        if (cancelled) return;
+        if (j?.ok && j.item?.articleBody) setFullBody(j.item.articleBody);
+      })
+      .catch(() => { /* fall back to prompt below */ })
+      .finally(() => { if (!cancelled) setHydrating(false); });
+    return () => { cancelled = true; };
+  }, [item.id, fullBody]);
   return (
     <div className="space-y-4 max-w-3xl mx-auto">
       {detailImgOk && (
@@ -318,7 +338,11 @@ function ContentDetail({ item, personaId }: { item: CommunityContentItem; person
       </div>
 
       <article className="prose prose-invert prose-sm max-w-none text-slate-200 whitespace-pre-wrap leading-relaxed">
-        {item.articleBody || item.prompt}
+        {hydrating && !fullBody ? (
+          <span className="text-slate-500 italic">Loading full article…</span>
+        ) : (
+          fullBody || item.prompt
+        )}
       </article>
 
       <div className="pt-3 border-t border-white/[0.06]">
