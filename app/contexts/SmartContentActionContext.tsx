@@ -27,6 +27,7 @@ import { checkSpineDecision } from '@/services/access/spineGateClient';
 // Import agentiQ-specific components
 import { VideoModal } from '@/packages/smarttriad/src/VideoModal';
 import { SocialSharingModal } from '@/packages/smarttriad/src/SocialSharingModal';
+import { InviteModal } from '@/components/shared/InviteModal';
 import { PDFLiteReaderModal } from '@/app/triad/components/content/PDFLiteReaderModal';
 import { PDFPageViewer } from '@/app/triad/components/content/PDFPageViewer';
 
@@ -68,6 +69,14 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
   // Social sharing modal state
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareItem, setShareItem] = useState<SmartContentItem | null>(null);
+
+  // Invite modal state — canonical 'invite a persona to this item'
+  // surface. Wired via executeAction('invite', item). Endpoint defaults
+  // to the mycanvas invite route since that's the only one with an
+  // invites table today; future entity types (content, capsules) can
+  // be routed through a future inviteEndpointFor(item) resolver.
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [inviteItem, setInviteItem] = useState<SmartContentItem | null>(null);
   
   // TODO: Add audio player state when implemented
   // const [audioItem, setAudioItem] = useState<SmartContentItem | null>(null);
@@ -207,6 +216,16 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
       case 'share':
         setShareItem(item);
         setShareModalOpen(true);
+        break;
+
+      case 'invite':
+        // Canonical invite surface — opens the shared InviteModal.
+        // Endpoint resolution is keyed on item.id today via the
+        // mycanvas/entries/[id]/invite route; broader entity-type
+        // routing lands when other surfaces (content qubes, etc) get
+        // their own invite tables.
+        setInviteItem(item);
+        setInviteModalOpen(true);
         break;
         
       case 'buy': {
@@ -412,6 +431,26 @@ export function SmartContentActionProvider({ children }: ProviderProps) {
         } : { id: '', title: '', section: '' }}
         personaId={getCurrentPersonaId() || undefined}
         onShare={handleShareTracking}
+      />
+
+      {/* Invite Modal — global mount for executeAction('invite', item).
+          Endpoint targets mycanvas/entries/[id]/invite today since
+          that's the only invite-bearing table; broader routing
+          (content qube invites, capsule invites) is wired by extending
+          the inviteEndpointFor mapping when those tables land. */}
+      <InviteModal
+        isOpen={inviteModalOpen}
+        onClose={() => {
+          setInviteModalOpen(false);
+          setInviteItem(null);
+        }}
+        entity={
+          inviteItem
+            ? { id: inviteItem.id, title: inviteItem.title, kind: inviteItem.section }
+            : { id: '', title: '' }
+        }
+        endpointPath={inviteItem ? `/api/mycanvas/entries/${inviteItem.id}/invite` : ''}
+        personaId={getCurrentPersonaId() || undefined}
       />
 
       {/* TODO: Global AudioPlayer */}

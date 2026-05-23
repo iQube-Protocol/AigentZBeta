@@ -109,7 +109,7 @@ export interface ContentModalities {
   };
 }
 
-export type ActionType = 'read' | 'watch' | 'listen' | 'link' | 'view' | 'expand' | 'share' | 'buy';
+export type ActionType = 'read' | 'watch' | 'listen' | 'link' | 'view' | 'expand' | 'share' | 'invite' | 'buy';
 
 /**
  * ContentContext - Determines which actions are contextually appropriate
