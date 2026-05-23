@@ -89,6 +89,7 @@ import { MetaMeSettingsPanel, loadMetaMeSettings, type LeadAgent } from "@/compo
 import { RuntimeTakeoverBanner } from "@/components/metame/RuntimeTakeoverBanner";
 import { RuntimeCapsuleRemixEditor } from "@/components/metame/runtime/RuntimeCapsuleRemixEditor";
 import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal";
+import { InviteModal } from "@/components/shared/InviteModal";
 import { useActivePersona } from "@/app/hooks/useActivePersona";
 import { useRuntimeTakeover } from "@/app/hooks/useRuntimeTakeover";
 import { CODEX_DEFINITIONS } from "@/data/codex-configs";
@@ -2267,6 +2268,15 @@ export default function MetaMeRuntimeClient() {
     description?: string;
     section?: string;
     type?: 'text' | 'video';
+  } | null>(null);
+  // Mirrors share — invite is dispatched from the Lovable thin-client
+  // menu via MENU_ACTION { action_id: 'invite' }. Opens the canonical
+  // InviteModal pointed at the active capsule (or the runtime as a
+  // generic entity when there's no capsule).
+  const [runtimeInviteItem, setRuntimeInviteItem] = useState<{
+    id: string;
+    title: string;
+    section?: string;
   } | null>(null);
   const { surface: runtimeActivePersonaSurface } = useActivePersona();
   type RuntimeSurfaceWithFio = typeof runtimeActivePersonaSurface & { ownFioHandle?: string };
@@ -5011,6 +5021,19 @@ export default function MetaMeRuntimeClient() {
               type: active?.runtimeContentKind === 'article' ? 'text' : undefined,
             });
           },
+          // Invite — opens the canonical InviteModal. The thin-client
+          // menu dispatches MENU_ACTION { action_id: 'invite' }; the
+          // active capsule (or 'metame' fallback) is the entity scope.
+          "invite": () => {
+            const active = (activeCapsuleId && capsuleContents.find((c) => c.id === activeCapsuleId))
+              || capsuleContents[0]
+              || null;
+            setRuntimeInviteItem({
+              id: active?.id || 'metame',
+              title: active?.title || 'metaMe',
+              section: active?.runtimeContentKind || undefined,
+            });
+          },
           // Share-refer keeps the native-share / clipboard fallback for
           // the 'invite a friend' refer flow — that's a different
           // intent from sharing a content item.
@@ -6235,6 +6258,21 @@ export default function MetaMeRuntimeClient() {
         }
         personaId={activePersonaId || undefined}
         personaLabel={runtimeSharePersonaLabel || undefined}
+      />
+      <InviteModal
+        isOpen={!!runtimeInviteItem}
+        onClose={() => setRuntimeInviteItem(null)}
+        entity={
+          runtimeInviteItem
+            ? {
+                id: runtimeInviteItem.id,
+                title: runtimeInviteItem.title,
+                kind: runtimeInviteItem.section,
+              }
+            : { id: '', title: '' }
+        }
+        endpointPath={runtimeInviteItem ? `/api/mycanvas/entries/${runtimeInviteItem.id}/invite` : ''}
+        personaId={activePersonaId || undefined}
       />
       {settingsDrawerOpen ? (
         <div
