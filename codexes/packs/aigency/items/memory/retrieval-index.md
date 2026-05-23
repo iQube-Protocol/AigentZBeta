@@ -914,3 +914,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-f4fd3b4.md](../build_/COMMITS/COMMIT-f4fd3b4.md)
 - Message: land at top of capsule/article panel on open, not bottom of chat
+
+## Commit `adee0c3` — 2026-05-23T00:44:27Z
+- Type: `push`
+- Brief: [COMMIT-adee0c3.md](../build_/COMMITS/COMMIT-adee0c3.md)
+- Message: remove redundant mic from aigentMe copilot input — Marketa already handles voice there
