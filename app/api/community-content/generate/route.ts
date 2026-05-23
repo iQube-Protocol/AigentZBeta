@@ -220,6 +220,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: insertError.message }, { status: 500 });
   }
 
+  // Persist any base64 image bytes to Supabase Storage and replace the
+  // image_url with the public HTTPS URL. Keeps list endpoints under the
+  // Lambda 6 MB ceiling. Hosted-URL responses pass through unchanged.
+  if (imageUrl && imageUrl.startsWith('data:')) {
+    const { persistGeneratedImage } = await import('../_lib/generate');
+    const persistedUrl = await persistGeneratedImage(supabase, inserted.id, imageUrl);
+    if (persistedUrl && persistedUrl !== imageUrl) {
+      const { error: updateError } = await supabase
+        .from('community_generated_content')
+        .update({ image_url: persistedUrl })
+        .eq('id', inserted.id);
+      if (!updateError) inserted.image_url = persistedUrl;
+    }
+  }
+
   // 6. Bump quota counters
   // When REMIX_TESTING_FREE is on, keep daily_free_used at its current
   // value — we don't want testing runs to burn through a counter that

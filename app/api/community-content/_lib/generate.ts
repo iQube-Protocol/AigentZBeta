@@ -106,6 +106,65 @@ export async function generateText(input: GenerationInput): Promise<GeneratedTex
   return { title, body, provider: 'openai' };
 }
 
+/**
+ * Persist a generated image to Supabase Storage and return its public HTTPS URL.
+ *
+ * generateImage() can return one of two shapes depending on the provider:
+ *   • A hosted URL (Venice / OpenAI URL-mode) — passed through unchanged.
+ *   • A `data:image/png;base64,...` data URI — decoded to bytes and
+ *     uploaded to the `content-media` bucket, then replaced with the
+ *     public HTTPS URL.
+ *
+ * Embedding base64 image bytes in `community_generated_content.image_url`
+ * blows past the Lambda 6 MB response ceiling once list endpoints return
+ * multiple rows; uploading to storage and storing the HTTPS URL is the
+ * canonical fix.
+ */
+export async function persistGeneratedImage(
+  supabase: SupabaseClient,
+  contentId: string,
+  imageUrlOrDataUri: string | null,
+): Promise<string | null> {
+  if (!imageUrlOrDataUri) return null;
+  if (!imageUrlOrDataUri.startsWith('data:')) return imageUrlOrDataUri;
+
+  const match = imageUrlOrDataUri.match(/^data:(image\/[a-z+]+);base64,(.+)$/i);
+  if (!match) return imageUrlOrDataUri;
+
+  const contentType = match[1];
+  const base64 = match[2];
+  const ext =
+    contentType === 'image/png'  ? 'png'  :
+    contentType === 'image/jpeg' ? 'jpg'  :
+    contentType === 'image/webp' ? 'webp' :
+    contentType === 'image/gif'  ? 'gif'  :
+    'bin';
+
+  let buffer: Buffer;
+  try {
+    buffer = Buffer.from(base64, 'base64');
+  } catch {
+    return imageUrlOrDataUri;
+  }
+  if (buffer.length === 0) return imageUrlOrDataUri;
+
+  const objectPath = `community-content/${contentId}.${ext}`;
+  const { error: uploadError } = await supabase.storage
+    .from('content-media')
+    .upload(objectPath, buffer, {
+      contentType,
+      upsert: true,
+      cacheControl: '604800',
+    });
+  if (uploadError) {
+    console.warn('[community-content/generate] image upload failed; keeping data URI', uploadError.message);
+    return imageUrlOrDataUri;
+  }
+
+  const { data: urlData } = supabase.storage.from('content-media').getPublicUrl(objectPath);
+  return urlData?.publicUrl || imageUrlOrDataUri;
+}
+
 export async function generateImage(prompt: string): Promise<string | null> {
   // Defer to existing /api/skills/image/generate via direct provider call.
   // We replicate the same prompt-to-image plumbing inline here so we don't
