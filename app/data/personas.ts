@@ -125,7 +125,7 @@ Symmetry · simplicity · elegance. A change that breaks visual rhythm fails rev
 - Outer card \`rounded-2xl\`, sub-cards \`rounded-lg\`; never mix radii within a card.
 - Dismiss X at \`right-3 top-3\`, 6×6 button, identical coordinate on every layout.
 
-If a recommendation contradicts any of the above, stop and check the full handbook. If the handbook is silent, say so — do not invent.\`;
+If a recommendation contradicts any of the above, stop and check the full handbook. If the handbook is silent, say so — do not invent.`;
 
 export const personas = {
   "aigent-c": {
