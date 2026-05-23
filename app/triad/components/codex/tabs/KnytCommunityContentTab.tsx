@@ -215,12 +215,27 @@ function ContentCard({
   const SkillIcon = item.skill === "story" ? Sparkles : FileText;
   const skillColor = item.skill === "story" ? "text-violet-300" : "text-cyan-300";
 
+  // Image source — community list is stripped of base64 image_url
+  // (Lambda 6MB cap). Fetch images individually via the proxy endpoint
+  // which decodes the data URL and serves bytes with a 24h cache.
+  // Only shared/runtime_promoted are publicly viewable; for drafts/mine
+  // we still hit the proxy (it 403s and the <img> shows the alt/icon
+  // fallback via onError).
+  const imageSrc = `/api/community-content/${item.id}/image`;
+  const [imageOk, setImageOk] = React.useState(true);
+
   return (
     <div className="flex flex-col rounded-xl border border-white/10 bg-slate-900/60 overflow-hidden hover:border-white/20 transition-colors">
       <button type="button" onClick={onOpen} className="text-left">
-        {item.imageUrl ? (
+        {imageOk ? (
           <div className="relative aspect-[4/3] bg-slate-950 overflow-hidden">
-            <img src={item.imageUrl} alt={item.title} className="h-full w-full object-cover" loading="lazy" />
+            <img
+              src={imageSrc}
+              alt={item.title}
+              className="h-full w-full object-cover"
+              loading="lazy"
+              onError={() => setImageOk(false)}
+            />
             {item.promotedToRuntime && (
               <span className="absolute top-1 right-1 rounded-full border border-amber-400/40 bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-bold text-amber-200 backdrop-blur-sm">
                 Runtime
@@ -271,13 +286,19 @@ function ContentCard({
 // ─── Detail view ─────────────────────────────────────────────────────────────
 
 function ContentDetail({ item, personaId }: { item: CommunityContentItem; personaId?: string }) {
+  // Detail view also goes through the proxy. The 24h cache header on
+  // the proxy means re-opening the detail after seeing the card thumb
+  // pulls from the browser cache instantly.
+  const detailImgSrc = `/api/community-content/${item.id}/image`;
+  const [detailImgOk, setDetailImgOk] = React.useState(true);
   return (
     <div className="space-y-4 max-w-3xl mx-auto">
-      {item.imageUrl && (
+      {detailImgOk && (
         <img
-          src={item.imageUrl}
+          src={detailImgSrc}
           alt={item.title}
           className="w-full rounded-2xl border border-white/10 object-cover max-h-96"
+          onError={() => setDetailImgOk(false)}
         />
       )}
       <div className="flex items-start justify-between gap-3 flex-wrap">
