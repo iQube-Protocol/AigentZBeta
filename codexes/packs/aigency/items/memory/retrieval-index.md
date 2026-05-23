@@ -999,3 +999,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-1c01f6c.md](../build_/COMMITS/COMMIT-1c01f6c.md)
 - Message: ArtifactCard: hide Gmail/Drive 'Open' link pre-approval (only show after status approved|sent|published) — fixes flow-interruption where Open was clicked instead of Send draft
+
+## Commit `754ae53` — 2026-05-23T22:26:08Z
+- Type: `push`
+- Brief: [COMMIT-754ae53.md](../build_/COMMITS/COMMIT-754ae53.md)
+- Message: AigentMe: kill auto-open-Gmail-tab on artifact creation — broke HITL flow by popping the external tab BEFORE the in-app approval card appeared. Restores Phase 1 'approve in app, view post-send' contract

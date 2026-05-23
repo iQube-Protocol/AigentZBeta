@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-23T22:13:13.120Z",
+  "last_updated": "2026-05-23T22:27:57.102Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1c01f6c28891503e3bbfb267a9463e2696feb9e6",
-  "latest_commit_short": "1c01f6c",
-  "latest_commit_title": "ArtifactCard: hide Gmail/Drive 'Open' link pre-approval (only show after status approved|sent|published) — fixes flow-interruption where Open was clicked instead of Send draft",
+  "latest_commit": "754ae53d3703a40351ce8fcd9f32aefbc8046382",
+  "latest_commit_short": "754ae53",
+  "latest_commit_title": "AigentMe: kill auto-open-Gmail-tab on artifact creation — broke HITL flow by popping the external tab BEFORE the in-app approval card appeared. Restores Phase 1 'approve in app, view post-send' contract",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "754ae53",
+      "full_sha": "754ae53d3703a40351ce8fcd9f32aefbc8046382",
+      "title": "AigentMe: kill auto-open-Gmail-tab on artifact creation — broke HITL flow by popping the external tab BEFORE the in-app approval card appeared. Restores Phase 1 'approve in app, view post-send' contract",
+      "author": "Claude",
+      "timestamp": "2026-05-23T22:26:08Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-754ae53.md"
+    },
     {
       "sha": "1c01f6c",
       "full_sha": "1c01f6c28891503e3bbfb267a9463e2696feb9e6",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-04-29T20:44:01Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-c25d66a.md"
-    },
-    {
-      "sha": "fc82cb7",
-      "full_sha": "fc82cb789744c104d38217c0af9b284099a60611",
-      "title": "remix expands inline like Customize banner — no popout dialog",
-      "author": "Claude",
-      "timestamp": "2026-04-29T20:48:53Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-fc82cb7.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
