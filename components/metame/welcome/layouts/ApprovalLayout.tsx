@@ -42,16 +42,23 @@ function ApprovalLayoutComponent(props: RightPaneLayoutProps) {
   } = props;
 
   const isDark = theme === "dark";
+  // Sheet surface picks up a soft amber tint so the authorization
+  // intent reads at a glance — mirrors the Phase-1 amber card the
+  // operator was used to. Border stays amber-tinted; backdrop dim is
+  // still neutral so the foreground layout reads underneath.
   const surfaceClass = isDark
-    ? "border-slate-700/60 bg-slate-900/95"
-    : "border-slate-200 bg-white";
+    ? "border-amber-500/40 bg-slate-900/95"
+    : "border-amber-300 bg-white";
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
   const iconBg = isDark
     ? "bg-amber-500/15 text-amber-300"
     : "bg-amber-100 text-amber-700";
+  // Primary CTA carries the authorization intent in amber as well,
+  // matching the Phase-1 "Approve & send" button so the operator's
+  // muscle memory transfers unchanged.
   const primaryBtn = isDark
-    ? "bg-violet-500/20 hover:bg-violet-500/30 border-violet-500/40 text-violet-100"
-    : "bg-violet-100 hover:bg-violet-200 border-violet-300 text-violet-800";
+    ? "bg-amber-500/20 hover:bg-amber-500/30 border-amber-500/50 text-amber-100"
+    : "bg-amber-100 hover:bg-amber-200 border-amber-300 text-amber-900";
   const cancelBtn = isDark
     ? "border-slate-700/60 text-slate-300 hover:bg-slate-800/40"
     : "border-slate-200 text-slate-600 hover:bg-slate-100";

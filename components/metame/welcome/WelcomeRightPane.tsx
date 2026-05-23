@@ -402,19 +402,15 @@ export function WelcomeRightPane(props: Props) {
       )}
 
       {/* ── Live cards: brief / venture / NBE / approval / artifacts ── */}
-      {pendingApproval && (
-        <div ref={approvalRef}>
-          <ApprovalCard
-            action={toApprovalAction(pendingApproval)}
-            onApprove={onApprovalApprove}
-            onCancel={onApprovalCancel}
-            submitting={submittingApproval}
-            error={approvalError}
-            using={usingIqubes}
-            theme={theme}
-          />
-        </div>
-      )}
+      {/* Phase 2 Slice 5b: the NBE-level approval card (pendingApproval)
+          previously rendered inline here in the stack. It now renders
+          exclusively through the ApprovalLayout overlay so the operator
+          sees a single approval surface — not the Phase 2 overlay AND a
+          duplicate Phase 1 inline card that required dismissing the
+          overlay first to approve. Both NBE approvals AND second-tier
+          external-action confirms route through ApprovalLayout. The
+          overlay is mounted by AigentMeWelcomeSplitTab when either
+          `pendingApprovalNbe` or `secondTierApproval` is set. */}
 
       {/* Queued intents — re-render ApprovalCard in confirmed state. */}
       {Object.entries(queuedIntents).map(([nbeId, queued]) => {
