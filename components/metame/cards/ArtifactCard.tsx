@@ -135,14 +135,33 @@ export function ArtifactCard({
             <span className={`px-2 py-0.5 rounded-full border ${statusMeta.ring}`}>
               {statusMeta.label}
             </span>
-            {data.locationUrl && (
+            {/*
+              Gmail / Drive / Calendar location link.
+              Visible ONLY after the artifact has been approved + sent
+              (status: approved | sent | published). While the artifact
+              is still a draft awaiting send-approval, showing this
+              link side-by-side with the "Send draft" button was a UX
+              trap — operators clicked `Open` thinking it was the next
+              step, got dropped into Gmail in a new tab, and the
+              in-app approval never ran. Per the Phase-1 flow contract:
+              approve in app → send via API → link to view post-send.
+            */}
+            {data.locationUrl &&
+              (data.status === "approved" ||
+                data.status === "sent" ||
+                data.status === "published") && (
               <a
                 href={data.locationUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`flex items-center gap-1 underline ${accentClass}`}
               >
-                Open <ExternalLink className="w-3 h-3" />
+                {data.destination === "gmail"
+                  ? "View in Gmail"
+                  : data.destination === "drive"
+                    ? "View in Drive"
+                    : "Open"}{" "}
+                <ExternalLink className="w-3 h-3" />
               </a>
             )}
             {data.receiptId && (
