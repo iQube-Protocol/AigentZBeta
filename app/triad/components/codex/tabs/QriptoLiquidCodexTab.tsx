@@ -206,6 +206,17 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
     });
   };
 
+  const openInviteModal = (item: SectionItem) => {
+    actions.openInvite({
+      id: item.id,
+      title: item.title,
+      description: item.excerpt,
+      section: item.badge || 'Qriptopian',
+      type: item.modalities?.watch ? 'video' : 'text',
+      url: item.modalities?.link?.url,
+    });
+  };
+
   return (
     <div className="p-4 space-y-6">
       {error && (
@@ -225,6 +236,7 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
           return openInViewer(item, eventType);
         }}
         onShare={openShareModal}
+        onInvite={openInviteModal}
         isOwned={(id) => actions.checkOwnership(id)}
       />
 
@@ -288,11 +300,11 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
                   variant="amber"
                   showRead={!!item.modalities?.read}
                   showWatch={!!item.modalities?.watch}
-                  showShare
                   onRead={() => openInViewer(item, 'content.read')}
                   onWatch={() => openInViewer(item, 'content.watch')}
                   onView={() => openInViewer(item, 'content.view')}
                   onShare={() => openShareModal(item)}
+                  onInvite={() => openInviteModal(item)}
                 />
               </div>
             </div>
@@ -342,11 +354,11 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
                   variant="indigo"
                   showRead={!!item.modalities?.read}
                   showWatch={!!item.modalities?.watch}
-                  showShare
                   onRead={() => openInViewer(item, 'content.read')}
                   onWatch={() => openInViewer(item, 'content.watch')}
                   onView={() => openInViewer(item, 'content.view')}
                   onShare={() => openShareModal(item)}
+                  onInvite={() => openInviteModal(item)}
                 />
                 <button
                   onClick={async (e) => {
@@ -413,11 +425,11 @@ export function QriptoLiquidCodexTab({ theme = 'dark', personaId, issueSlug, dat
                   variant="indigo"
                   showRead={!!item.modalities?.read}
                   showWatch={!!item.modalities?.watch}
-                  showShare
                   onRead={() => openInViewer(item, 'content.read')}
                   onWatch={() => openInViewer(item, 'content.watch')}
                   onView={() => openInViewer(item, 'content.view')}
                   onShare={() => openShareModal(item)}
+                  onInvite={() => openInviteModal(item)}
                 />
               </div>
             </div>

@@ -24,6 +24,7 @@ import {
   Users,
   Zap,
   ShieldAlert,
+  X,
 } from "lucide-react";
 
 export interface NextBestActionData {
@@ -43,6 +44,10 @@ interface Props {
   variant?: "compact" | "hero";
   /** Click handler for the "Act" button. Phase 6 wires execution. */
   onAct?: (action: NextBestActionData) => void;
+  /** Hero variant only — renders an inline X that lets the user clear
+   *  the whole move-forward bundle (topAction + alternates) so the
+   *  right pane doesn't pile up. Re-firing the chip re-opens it. */
+  onDismiss?: () => void;
   theme?: "light" | "dark";
 }
 
@@ -79,6 +84,7 @@ export function NextBestActionCard({
   action,
   variant = "compact",
   onAct,
+  onDismiss,
   theme = "dark",
 }: Props) {
   const isDark = theme === "dark";
@@ -149,15 +155,32 @@ export function NextBestActionCard({
           </div>
         </div>
 
-        {onAct && (
-          <button
-            onClick={() => onAct(action)}
-            className={`shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-md border text-xs font-medium transition ${buttonClass}`}
-          >
-            Act
-            <ArrowRight className="w-3 h-3" />
-          </button>
-        )}
+        <div className="flex items-start gap-2 shrink-0">
+          {onAct && (
+            <button
+              onClick={() => onAct(action)}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-md border text-xs font-medium transition ${buttonClass}`}
+            >
+              Act
+              <ArrowRight className="w-3 h-3" />
+            </button>
+          )}
+          {isHero && onDismiss && (
+            <button
+              type="button"
+              onClick={onDismiss}
+              aria-label="Dismiss next best action"
+              title="Close move-forward bundle"
+              className={`inline-flex items-center justify-center h-6 w-6 rounded-md transition-colors ${
+                isDark
+                  ? "text-slate-500 hover:text-slate-200 hover:bg-slate-800/60"
+                  : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

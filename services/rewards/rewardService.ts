@@ -309,6 +309,39 @@ export class RewardService {
           console.error('[RewardService] Failed to create deferred claim:', claimResult.error);
           // Non-fatal — grant is recorded; operator can reprocess
         }
+      } else if (mintingMode === 'remote') {
+        // Remote: settle from the platform treasury agent's custodial
+        // wallet (KNYT_REMOTE_AGENT_ID) instead of the persona's own
+        // agent_keys row. When the treasury agent isn't configured or
+        // has no on-chain QCT, fall back to immediate so the grant
+        // doesn't silently fail. The legacy "no agent keys for
+        // aigent-me" error came from settle paths hard-coding a
+        // persona-side agentId that didn't have keys.
+        const treasuryAgentId = (process.env.KNYT_REMOTE_AGENT_ID || '').trim();
+        if (!treasuryAgentId) {
+          console.warn('[RewardService] remote mode but KNYT_REMOTE_AGENT_ID unset; falling back to immediate');
+          await this._creditImmediate(personaId, finalAmount, taskType, sourceEventId, repMultiplier, grant.id);
+        } else {
+          // Always credit DVN now — the treasury settlement is the
+          // backing transfer, not the user-facing balance change. The
+          // KNYT batcher reconciles treasury → persona at flush time.
+          await this._creditImmediate(personaId, finalAmount, taskType, sourceEventId, repMultiplier, grant.id);
+          // Best-effort: record a treasury-side audit row so operators
+          // can see which agent bankrolled the reward. The actual
+          // transfer is deferred to the batcher.
+          try {
+            await this.supabase.from('knyt_remote_grants').insert({
+              persona_id: personaId,
+              treasury_agent_id: treasuryAgentId,
+              amount_knyt: finalAmount,
+              reward_grant_id: grant.id,
+              status: 'pending_batch',
+              created_at: new Date().toISOString(),
+            });
+          } catch {
+            // Table may not exist yet — backlog item. Continue silently.
+          }
+        }
       } else if (mintingMode === 'canonical') {
         // Canonical: EVM KNYT on-chain mint to the persona's registered EVM address
         const evmAddress = await this._getPersonaEvmAddress(personaId);

@@ -7,6 +7,8 @@ import { CopilotWalletDrawer } from "@/app/triad/components/codex/wallet/Copilot
 import { useSmartTriad } from "./SmartTriadProvider";
 import { useAGUIActionBridge } from "./useAGUIActionBridge";
 import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal";
+import { InviteModal } from "@/components/shared/InviteModal";
+import { useActivePersona } from "@/app/hooks/useActivePersona";
 import { agentConfigs } from "@/app/data/agentConfig";
 import { MoneyPennyChat } from "@/app/(shell)/moneypenny/components/MoneyPennyChat";
 import { PortfolioAnalytics } from "@/app/(shell)/moneypenny/components/PortfolioAnalytics";
@@ -33,6 +35,14 @@ interface SmartTriadSurfacesProps {
 
 export function SmartTriadSurfaces({ personaId, onPersonaChange, cartridgeSlug }: SmartTriadSurfacesProps) {
   const { state, actions } = useSmartTriad();
+  // T1 label for the Shared-by / Invite-by surfaces. Comes from
+  // useActivePersona's canonical surface so it's never a UUID.
+  const { surface: activePersonaSurface } = useActivePersona();
+  type SurfaceWithFio = typeof activePersonaSurface & { ownFioHandle?: string };
+  const personaLabel =
+    activePersonaSurface?.displayLabel ??
+    (activePersonaSurface as SurfaceWithFio | null)?.ownFioHandle ??
+    undefined;
 
   // Bridge: thin-client AG-UI actions → platform SmartTriad state
   useAGUIActionBridge(personaId, {
@@ -220,6 +230,25 @@ export function SmartTriadSurfaces({ personaId, onPersonaChange, cartridgeSlug }
           onClose={() => actions.closeShare()}
           article={state.shareItem}
           personaId={personaId ?? undefined}
+          personaLabel={personaLabel}
+        />
+      )}
+
+      {/* SmartActions — Invite modal (parallels share). Any surface that
+          calls actions.openInvite(item) gets the canonical InviteModal
+          targeting /api/mycanvas/entries/<id>/invite (today's only
+          invite-bearing table). */}
+      {state.inviteItem && (
+        <InviteModal
+          isOpen
+          onClose={() => actions.closeInvite()}
+          entity={{
+            id: state.inviteItem.id,
+            title: state.inviteItem.title,
+            kind: state.inviteItem.section,
+          }}
+          endpointPath={`/api/mycanvas/entries/${state.inviteItem.id}/invite`}
+          personaId={personaId ?? null}
         />
       )}
 

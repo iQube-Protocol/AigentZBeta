@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`adee0c3`](https://github.com/iQube-Protocol/AigentZBeta/commit/adee0c3e7b3f63220a2bb730e63ff7460945e54f) [push] remove redundant mic from aigentMe copilot input — Marketa already handles voice there (Claude, 2026-05-23T00:44:27Z)
 - [`f4fd3b4`](https://github.com/iQube-Protocol/AigentZBeta/commit/f4fd3b4e2869308637103e729cd700e23b22a508) [push] land at top of capsule/article panel on open, not bottom of chat (Claude, 2026-05-22T22:41:01Z)
 - [`bd16c01`](https://github.com/iQube-Protocol/AigentZBeta/commit/bd16c017ef32ff6e42b869765d40813587783ead) [push] remix drafter (idea → title/article/image) + mic on remixer, customizer, aigentMe copilot (Claude, 2026-05-22T22:04:21Z)
 - [`cb8bfb4`](https://github.com/iQube-Protocol/AigentZBeta/commit/cb8bfb4449baeb94be5e066ece6f57ebbcdca72d) [push] opt embed routes in to microphone via Permissions-Policy + bridge to Lovable (Claude, 2026-05-22T20:55:54Z)

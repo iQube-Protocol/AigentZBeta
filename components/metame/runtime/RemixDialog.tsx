@@ -24,6 +24,7 @@ import { personaFetch } from "@/utils/personaSpine";
 import { useExternalWallet } from "@/app/components/wallet/useExternalWallet";
 import { useActivePersona } from "@/app/hooks/useActivePersona";
 import { MicButton } from "@/components/ui/MicButton";
+import { ListenButton } from "@/components/shared/ListenButton";
 
 type Skill = "article" | "story";
 
@@ -1378,7 +1379,12 @@ function GenerationProgress({ step, skill }: { step: GenerationStep; skill: Skil
 function PreviewView({ generated }: { generated: GeneratedContent }) {
   return (
     <div className="space-y-3">
-      <h2 className="text-base font-semibold text-slate-100 leading-tight">{generated.title}</h2>
+      <div className="flex items-start justify-between gap-3">
+        <h2 className="text-base font-semibold text-slate-100 leading-tight">{generated.title}</h2>
+        <ListenButton
+          getText={() => `${generated.title}. ${generated.articleBody}`}
+        />
+      </div>
       {generated.imageUrl ? (
         <img
           src={generated.imageUrl}

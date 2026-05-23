@@ -1742,7 +1742,18 @@ function AigentMeWelcomeBody({
         {(briefLoading || briefError || brief) && (
           <section>
             <h2 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>Brief</h2>
-            <BriefCard data={brief} loading={briefLoading} error={briefError} onActOnNbe={onNbeAct} theme={theme} />
+            <BriefCard
+              data={brief}
+              loading={briefLoading}
+              error={briefError}
+              onActOnNbe={onNbeAct}
+              onDismiss={() => {
+                setBrief(null);
+                setBriefError(null);
+                setBriefLoading(false);
+              }}
+              theme={theme}
+            />
           </section>
         )}
 
@@ -1754,6 +1765,11 @@ function AigentMeWelcomeBody({
               loading={ventureProgressLoading}
               error={ventureProgressError}
               onActOnNbe={onNbeAct}
+              onDismiss={() => {
+                setVentureProgress(null);
+                setVentureProgressError(null);
+                setVentureProgressLoading(false);
+              }}
               theme={theme}
             />
           </section>
@@ -1768,7 +1784,16 @@ function AigentMeWelcomeBody({
             {moveForwardResult && !moveForwardLoading && (
               <div className="space-y-3">
                 {moveForwardResult.topAction ? (
-                  <NextBestActionCard action={moveForwardResult.topAction} variant="hero" onAct={onNbeAct} theme={theme} />
+                  <NextBestActionCard
+                    action={moveForwardResult.topAction}
+                    variant="hero"
+                    onAct={onNbeAct}
+                    onDismiss={() => {
+                      setMoveForwardResult(null);
+                      setMoveForwardCartridgeOpen(false);
+                    }}
+                    theme={theme}
+                  />
                 ) : (
                   <p className={`text-sm ${mutedClass}`}>
                     No catalogue match at your current stage. Try setting up your ExperienceModel first.

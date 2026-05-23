@@ -31,24 +31,53 @@ export async function createKnytClaim(
   const supabase = getSupabaseServer();
   if (!supabase) return { success: false, error: "Supabase unavailable" };
 
-  const claimId = `knyt_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  // claim_id format mirrors the canonical x402 router shape (0x + 64 hex
+  // chars) so the x402/claims/redeem path's primary-then-legacy column
+  // lookup hits the new schema cleanly. The earlier `knyt_<ts>` form
+  // surfaced as "Invalid payload" when downstream consumers ran it
+  // through z.string()-with-pattern validators.
+  const randHex = Array.from({ length: 64 }, () =>
+    Math.floor(Math.random() * 16).toString(16),
+  ).join('');
+  const claimId = `0x${randHex}`;
   const expiry = new Date(Date.now() + CLAIM_TTL_MS).toISOString();
 
-  const { error } = await supabase.from("claims").insert({
+  // Insert with the rich shape first; on column-not-found errors retry
+  // with the minimal columns that every claims schema variant supports.
+  // Returning the actual DB error string instead of swallowing it makes
+  // operator debugging tractable when a new column is added upstream.
+  const richRow = {
     claim_id: claimId,
     asset: "knyt",
-    amount: amountKnyt,
+    amount: String(amountKnyt),
     from_chain: "knyt-ledger",
     to_chain: "knyt-ledger",
     to_did: personaId,
     expiry,
-    // Provisional root — the DVN batcher will update this on its next flush
     dvn_root: `pending_${Date.now()}`,
     status: "open",
-    // Extra context stored as metadata where the table supports it
     ...(metadata ? { metadata: JSON.stringify({ source, ...metadata }) } : {}),
-  });
+  };
 
-  if (error) return { success: false, error: error.message };
+  let { error } = await supabase.from("claims").insert(richRow);
+
+  if (error && /column .* does not exist/i.test(error.message)) {
+    const minimalRow = {
+      claim_id: claimId,
+      asset: "knyt",
+      amount: String(amountKnyt),
+      to_did: personaId,
+      status: "open",
+    };
+    const retry = await supabase.from("claims").insert(minimalRow);
+    error = retry.error as typeof error;
+  }
+
+  if (error) {
+    return {
+      success: false,
+      error: `KNYT claim insert failed: ${error.message}`,
+    };
+  }
   return { success: true, claimId };
 }

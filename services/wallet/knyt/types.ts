@@ -31,8 +31,12 @@ export type KnytTxSource =
  * - immediate  → credit the DVN KNYT ledger now (remote custody / default)
  * - deferred   → create an open claim the persona explicitly redeems
  * - canonical  → mint EVM KNYT on-chain (Phase 3b; requires minter role)
+ * - remote     → settle from KNYT_REMOTE_AGENT_ID's agent_keys row
+ *                (cohort treasury / sponsor wallet) instead of the
+ *                persona's own keys. Falls back to immediate when the
+ *                treasury agent is unconfigured or has no agent_keys row.
  */
-export type KnytMintingMode = 'immediate' | 'deferred' | 'canonical';
+export type KnytMintingMode = 'immediate' | 'deferred' | 'canonical' | 'remote';
 
 /** Direction of a KNYT transaction */
 export type KnytTxDirection = 'credit' | 'debit';

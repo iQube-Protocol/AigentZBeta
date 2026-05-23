@@ -11,9 +11,43 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getCommunityContentSupabase } from '../../_lib/personaContext';
+import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getCallerIdentityContext } from '@/services/wallet/personaRepo';
+import { getMergedLinkedAuthProfileIds } from '@/services/wallet/multiEmailIdentity';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+/**
+ * Returns true when the caller's auth profile (and its merged links)
+ * owns the persona that created the row. Lets a user publish their own
+ * content even when their active persona at publish time differs from
+ * the persona at creation time — common when persona-switching mid-
+ * session or when an earlier remix was created under a default persona
+ * (devagent) before the resolution fix landed. Strict-equality check
+ * was rejecting legitimate authors.
+ */
+async function callerOwnsCreator(
+  req: NextRequest,
+  creatorPersonaId: string,
+): Promise<boolean> {
+  try {
+    const caller = await getCallerIdentityContext(req);
+    if (!caller) return false;
+    const supabase = getCommunityContentSupabase();
+    const linked = await getMergedLinkedAuthProfileIds(caller.authProfileId).catch(() => []);
+    const visible = Array.from(new Set([caller.authProfileId, ...linked]));
+    const { data } = await supabase
+      .from('personas')
+      .select('id')
+      .in('auth_profile_id', visible)
+      .eq('id', creatorPersonaId)
+      .maybeSingle();
+    return !!data;
+  } catch {
+    return false;
+  }
+}
 
 export async function POST(
   req: NextRequest,
@@ -30,8 +64,22 @@ export async function POST(
     return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const personaId = body.personaId?.trim();
-  if (!personaId) return NextResponse.json({ ok: false, error: 'personaId required' }, { status: 400 });
+  // Resolve persona via the canonical spine when the body doesn't carry
+  // one. Same pattern as /api/community-content/generate — clients can
+  // call without body.personaId and the spine (Bearer JWT + x-persona-id
+  // header set by personaFetch) resolves to the active persona.
+  let personaId = body.personaId?.trim();
+  if (!personaId) {
+    try {
+      const active = await getActivePersona(req);
+      personaId = active?.personaId;
+    } catch {
+      // spine resolution failed — fall through to 401 below
+    }
+  }
+  if (!personaId) {
+    return NextResponse.json({ ok: false, error: 'sign-in required' }, { status: 401 });
+  }
 
   const supabase = getCommunityContentSupabase();
 
@@ -45,8 +93,15 @@ export async function POST(
   if (!content) return NextResponse.json({ ok: false, error: 'Not found' }, { status: 404 });
 
   const row = content as { id: string; creator_persona_id: string; status: string };
+  // Auth-profile-level ownership — accept any persona the caller's
+  // auth profile owns (covers multi-persona users + content created
+  // under stale defaults). Strict personaId equality used to reject
+  // legitimate authors.
   if (row.creator_persona_id !== personaId) {
-    return NextResponse.json({ ok: false, error: 'Not your content' }, { status: 403 });
+    const ok = await callerOwnsCreator(req, row.creator_persona_id);
+    if (!ok) {
+      return NextResponse.json({ ok: false, error: 'Not your content' }, { status: 403 });
+    }
   }
 
   // Already shared / promoted — idempotent

@@ -26,6 +26,9 @@ import {
   Zap,
 } from "lucide-react";
 import { KnytReactionBar } from "@/components/metame/KnytReactionBar";
+import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal";
+import { ListenButton } from "@/components/shared/ListenButton";
+import { useActivePersona } from "@/app/hooks/useActivePersona";
 
 interface CommunityContentItem {
   id: string;
@@ -76,7 +79,16 @@ export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin }: Props)
         params.set("status", "shared,runtime_promoted");
       }
       const res = await fetch(`/api/community-content/list?${params}`, { cache: "no-store" });
-      const json = await res.json();
+      let json: { ok?: boolean; items?: CommunityContentItem[]; error?: string };
+      try {
+        json = await res.json();
+      } catch {
+        // Empty body (e.g. Lambda payload limit, network drop) — keep
+        // the error message readable instead of letting the raw
+        // 'JSON.parse: unexpected end of data' through.
+        setError(`Community list failed (${res.status || 'server error'}) — try again`);
+        return;
+      }
       if (!res.ok || !json.ok) {
         setError(json.error || `Failed to load (${res.status})`);
         return;
@@ -206,12 +218,27 @@ function ContentCard({
   const SkillIcon = item.skill === "story" ? Sparkles : FileText;
   const skillColor = item.skill === "story" ? "text-violet-300" : "text-cyan-300";
 
+  // Image source — community list is stripped of base64 image_url
+  // (Lambda 6MB cap). Fetch images individually via the proxy endpoint
+  // which decodes the data URL and serves bytes with a 24h cache.
+  // Only shared/runtime_promoted are publicly viewable; for drafts/mine
+  // we still hit the proxy (it 403s and the <img> shows the alt/icon
+  // fallback via onError).
+  const imageSrc = `/api/community-content/${item.id}/image`;
+  const [imageOk, setImageOk] = React.useState(true);
+
   return (
     <div className="flex flex-col rounded-xl border border-white/10 bg-slate-900/60 overflow-hidden hover:border-white/20 transition-colors">
       <button type="button" onClick={onOpen} className="text-left">
-        {item.imageUrl ? (
+        {imageOk ? (
           <div className="relative aspect-[4/3] bg-slate-950 overflow-hidden">
-            <img src={item.imageUrl} alt={item.title} className="h-full w-full object-cover" loading="lazy" />
+            <img
+              src={imageSrc}
+              alt={item.title}
+              className="h-full w-full object-cover"
+              loading="lazy"
+              onError={() => setImageOk(false)}
+            />
             {item.promotedToRuntime && (
               <span className="absolute top-1 right-1 rounded-full border border-amber-400/40 bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-bold text-amber-200 backdrop-blur-sm">
                 Runtime
@@ -262,13 +289,48 @@ function ContentCard({
 // ─── Detail view ─────────────────────────────────────────────────────────────
 
 function ContentDetail({ item, personaId }: { item: CommunityContentItem; personaId?: string }) {
+  // Detail view also goes through the proxy. The 24h cache header on
+  // the proxy means re-opening the detail after seeing the card thumb
+  // pulls from the browser cache instantly.
+  const detailImgSrc = `/api/community-content/${item.id}/image`;
+  const [detailImgOk, setDetailImgOk] = React.useState(true);
+
+  // T1 label for the share modal's 'Shared by <label>' badge. Comes
+  // from useActivePersona's canonical surface so it's never a UUID.
+  const { surface: activePersonaSurface } = useActivePersona();
+  type SurfaceWithFio = typeof activePersonaSurface & { ownFioHandle?: string };
+  const personaLabel =
+    activePersonaSurface?.displayLabel ??
+    (activePersonaSurface as SurfaceWithFio | null)?.ownFioHandle ??
+    undefined;
+  // List endpoint strips articleBody to avoid 413 (base64 images +
+  // 600-900 word bodies blow Lambda's 6 MB ceiling). Hydrate the full
+  // body from GET /[id] when the detail opens so we don't show just
+  // the short prompt as a placeholder.
+  const [fullBody, setFullBody] = React.useState<string | null>(item.articleBody);
+  const [hydrating, setHydrating] = React.useState(false);
+  React.useEffect(() => {
+    if (fullBody) return;
+    let cancelled = false;
+    setHydrating(true);
+    fetch(`/api/community-content/${item.id}`, { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((j: { ok?: boolean; item?: { articleBody?: string | null } }) => {
+        if (cancelled) return;
+        if (j?.ok && j.item?.articleBody) setFullBody(j.item.articleBody);
+      })
+      .catch(() => { /* fall back to prompt below */ })
+      .finally(() => { if (!cancelled) setHydrating(false); });
+    return () => { cancelled = true; };
+  }, [item.id, fullBody]);
   return (
     <div className="space-y-4 max-w-3xl mx-auto">
-      {item.imageUrl && (
+      {detailImgOk && (
         <img
-          src={item.imageUrl}
+          src={detailImgSrc}
           alt={item.title}
           className="w-full rounded-2xl border border-white/10 object-cover max-h-96"
+          onError={() => setDetailImgOk(false)}
         />
       )}
       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -283,12 +345,21 @@ function ContentDetail({ item, personaId }: { item: CommunityContentItem; person
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <ShareMenu item={item} />
+          {(fullBody || item.prompt) ? (
+            <ListenButton
+              getText={() => `${item.title}. ${fullBody || item.prompt || ""}`}
+            />
+          ) : null}
+          <ShareMenu item={item} personaId={personaId} personaLabel={personaLabel} />
         </div>
       </div>
 
       <article className="prose prose-invert prose-sm max-w-none text-slate-200 whitespace-pre-wrap leading-relaxed">
-        {item.articleBody || item.prompt}
+        {hydrating && !fullBody ? (
+          <span className="text-slate-500 italic">Loading full article…</span>
+        ) : (
+          fullBody || item.prompt
+        )}
       </article>
 
       <div className="pt-3 border-t border-white/[0.06]">
@@ -300,69 +371,50 @@ function ContentDetail({ item, personaId }: { item: CommunityContentItem; person
 
 // ─── Share menu ──────────────────────────────────────────────────────────────
 
-function ShareMenu({ item }: { item: CommunityContentItem }) {
+/**
+ * Community Share button — replaces the legacy 3-option dropdown
+ * (Copy / X / Email) with the canonical Qriptopian SocialSharingModal.
+ * Persona attribution flows through the shareId server-side via
+ * /api/social/track; raw personaId no longer travels in URLs (Step 1
+ * of the share/invite consolidation).
+ */
+function ShareMenu({ item, personaId, personaLabel }: {
+  item: CommunityContentItem;
+  personaId?: string;
+  personaLabel?: string;
+}) {
   const [open, setOpen] = useState(false);
-  const shareUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/community-content/${item.id}`
-      : `/community-content/${item.id}`;
-  const shareText = `${item.title} — read on the KNYT Cartridge`;
-
-  function copy() {
-    if (typeof navigator !== "undefined" && navigator.clipboard) {
-      void navigator.clipboard.writeText(shareUrl);
-      setOpen(false);
-    }
-  }
-
-  function shareToX() {
-    const url = `https://x.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
-    if (typeof window !== "undefined") window.open(url, "_blank", "noopener,noreferrer");
-    setOpen(false);
-  }
-
-  function shareEmail() {
-    const url = `mailto:?subject=${encodeURIComponent(shareText)}&body=${encodeURIComponent(`${shareText}\n\n${shareUrl}`)}`;
-    if (typeof window !== "undefined") window.location.href = url;
-    setOpen(false);
-  }
-
   return (
-    <div className="relative">
+    <>
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => setOpen(true)}
         className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10"
       >
         <Share2 className="h-3.5 w-3.5" />
         Share
       </button>
-      {open && (
-        <div className="absolute right-0 top-full mt-1 w-40 rounded-lg border border-white/10 bg-slate-900 shadow-2xl z-10 overflow-hidden">
-          <button
-            type="button"
-            onClick={copy}
-            className="block w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/5"
-          >
-            Copy link
-          </button>
-          <button
-            type="button"
-            onClick={shareToX}
-            className="block w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/5"
-          >
-            Share to X
-          </button>
-          <button
-            type="button"
-            onClick={shareEmail}
-            className="block w-full text-left px-3 py-2 text-xs text-slate-200 hover:bg-white/5"
-          >
-            Email
-          </button>
-        </div>
-      )}
-    </div>
+      <SocialSharingModal
+        isOpen={open}
+        onClose={() => setOpen(false)}
+        article={{
+          id: item.id,
+          title: item.title,
+          description: undefined,
+          section: item.skill,
+          type: item.skill === 'story' ? 'text' : 'text',
+          // Community item URL — clicks resolve back to the published
+          // detail view via /community-content/<id>. shareId-based
+          // attribution still works; we pass `url` so the deep link
+          // points at the actual published surface.
+          url: typeof window !== 'undefined'
+            ? `${window.location.origin}/community-content/${item.id}`
+            : `/community-content/${item.id}`,
+        }}
+        personaId={personaId}
+        personaLabel={personaLabel}
+      />
+    </>
   );
 }
 

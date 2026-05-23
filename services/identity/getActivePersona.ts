@@ -64,8 +64,41 @@ function getAdminClient() {
  *   2. x-persona-id header — existing platform convention
  *   3. ?personaId= URL parameter — LEGACY; accepted with deprecation
  *      warning during the Phase 1 backward-compat window
+ *   3.5. crm_auth_profiles.default_persona_id — caller's explicit
+ *      preferred persona. Set when a user picks "make this my default"
+ *      or when onboarding mints their first owned persona. Resolved
+ *      against the caller AND every multi-email-merged linked profile.
  *   4. Default: first owned persona for the caller (deterministic order)
  */
+async function resolveDefaultPersonaIdFromProfile(
+  callerAuthProfileId: string,
+  linkedAuthProfileIds: string[],
+  ownedPersonaIds: string[],
+): Promise<string | null> {
+  try {
+    const admin = getAdminClient();
+    const candidates = Array.from(new Set([callerAuthProfileId, ...linkedAuthProfileIds]));
+    if (candidates.length === 0) return null;
+    const { data } = await admin
+      .from('crm_auth_profiles')
+      .select('id,default_persona_id')
+      .in('id', candidates);
+    const rows = (data || []) as Array<{ id: string; default_persona_id: string | null }>;
+    // Prefer the caller's own row first, then merged profiles by listed order.
+    const ordered = [
+      ...rows.filter((r) => r.id === callerAuthProfileId),
+      ...rows.filter((r) => r.id !== callerAuthProfileId),
+    ];
+    for (const row of ordered) {
+      const candidate = row.default_persona_id;
+      if (candidate && ownedPersonaIds.includes(candidate)) return candidate;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 async function resolveActivePersonaId(
   request: NextRequest,
   ownedPersonaIds: string[],
@@ -113,6 +146,19 @@ async function resolveActivePersonaId(
   })();
   if (urlPersonaId && ownedPersonaIds.includes(urlPersonaId)) {
     return { personaId: urlPersonaId, source: 'session-token' };
+  }
+
+  // 3.5) crm_auth_profiles.default_persona_id — caller's explicit
+  //      preferred persona. Beats the oldest-by-created_at fallback so
+  //      brand-new users don't inherit a shared agent persona on first
+  //      load. Resolved across caller + multi-email-merged profiles.
+  const defaultPersonaId = await resolveDefaultPersonaIdFromProfile(
+    callerAuthProfileId,
+    linkedAuthProfileIds,
+    ownedPersonaIds,
+  );
+  if (defaultPersonaId) {
+    return { personaId: defaultPersonaId, source: 'session-cookie' };
   }
 
   // 4) Default: first owned persona (deterministic — sorted at the query layer)

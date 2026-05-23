@@ -81,9 +81,31 @@ export function useActivePersona(): UseActivePersonaResult {
         }
       } catch { /* unauthenticated browsing; the route will return 401 */ }
 
+      // Mirror the x-persona-id behaviour personaFetch added — without
+      // this, /api/wallet/active-persona resolves via getActivePersona's
+      // step 4 (default first-owned by created_at ASC), which for
+      // dele@metame.com returns devagent. The resulting surface then
+      // becomes the source of truth for cartridge greetings, balances,
+      // etc — making the user's wallet-side persona switch invisible
+      // server-side. Reading localStorage['currentPersonaId'] and
+      // attaching it as x-persona-id trips priority 2 of the resolver
+      // (ownership-validated) and the surface reflects the chosen
+      // persona.
+      let chosenPersonaId: string | null = null;
+      try {
+        if (typeof window !== 'undefined') {
+          chosenPersonaId =
+            window.localStorage.getItem('currentPersonaId') ||
+            window.sessionStorage.getItem('currentPersonaId');
+        }
+      } catch { /* ignore */ }
+      const extraHeaders: Record<string, string> = chosenPersonaId
+        ? { 'x-persona-id': chosenPersonaId }
+        : {};
+
       const res = await fetch(ACTIVE_PERSONA_ENDPOINT, {
         credentials: "include",
-        headers: { Accept: "application/json", ...authHeaders },
+        headers: { Accept: "application/json", ...authHeaders, ...extraHeaders },
         signal,
       });
       if (signal?.aborted) return;

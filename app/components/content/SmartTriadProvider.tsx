@@ -126,6 +126,12 @@ export interface TriadState {
   // SmartActions — share
   shareItem: ShareItem | null;
 
+  // SmartActions — invite (parallels share). When set, SmartTriadSurfaces
+  // mounts the canonical InviteModal. Same item shape as share so any
+  // surface that calls openShare can also call openInvite without
+  // shape-conversion gymnastics.
+  inviteItem: ShareItem | null;
+
   // Access granted by tab-level gate evaluation (authoritative for free content)
   contentAccessGranted: boolean;
 
@@ -161,6 +167,8 @@ export interface TriadActions {
   // SmartActions — share
   openShare: (item: ShareItem) => void;
   closeShare: () => void;
+  openInvite: (item: ShareItem) => void;
+  closeInvite: () => void;
 
   // Access granted by tab-level gate evaluation
   setContentAccessGranted: (granted: boolean) => void;
@@ -224,6 +232,7 @@ export function SmartTriadProvider({
     credentials: new Set(),
     credentialsLoading: false,
     shareItem: null,
+    inviteItem: null,
     contentAccessGranted: false,
     devGatingOverride: false,
   });
@@ -577,6 +586,14 @@ export function SmartTriadProvider({
     setState(prev => ({ ...prev, shareItem: null }));
   }, []);
 
+  const openInvite = useCallback((item: ShareItem) => {
+    setState(prev => ({ ...prev, inviteItem: item }));
+  }, []);
+
+  const closeInvite = useCallback(() => {
+    setState(prev => ({ ...prev, inviteItem: null }));
+  }, []);
+
   const setDevGatingOverride = useCallback((enabled: boolean) => {
     setState(prev => ({ ...prev, devGatingOverride: enabled }));
     if (typeof window !== "undefined") {
@@ -721,6 +738,8 @@ export function SmartTriadProvider({
       hasCredential,
       openShare,
       closeShare,
+      openInvite,
+      closeInvite,
       setContentAccessGranted,
       setDevGatingOverride,
       executeTriadAction,
@@ -798,9 +817,12 @@ export function useTriadShare() {
   const { state, actions, personaId } = useSmartTriad();
   return {
     shareItem: state.shareItem,
+    inviteItem: state.inviteItem,
     personaId,
     openShare: actions.openShare,
     closeShare: actions.closeShare,
+    openInvite: actions.openInvite,
+    closeInvite: actions.closeInvite,
   };
 }
 

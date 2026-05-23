@@ -92,28 +92,17 @@ function ContentCard({
     if (shareState !== "idle") return;
     setShareState("sharing");
 
-    const shareUrl =
-      item.socialUrl ??
-      (typeof window !== "undefined" ? window.location.href : "");
-
-    const hasNativeShare = typeof navigator !== "undefined" && "share" in navigator;
-    if (hasNativeShare) {
-      try {
-        await navigator.share({
-          title: item.title,
-          text: item.description ?? item.title,
-          url: shareUrl,
-        });
-      } catch {
-        // cancelled or unsupported — still log the intent
-      }
-    } else if (typeof navigator !== "undefined") {
-      await navigator.clipboard.writeText(shareUrl).catch(() => null);
-    }
+    actions.openShare({
+      id: item.id,
+      title: item.title,
+      description: item.description,
+      section: "Terra",
+      type: item.hasWatch ? "video" : "text",
+    });
 
     const reward = await emitSignal(item.id, "share", {
       personaId,
-      platform: hasNativeShare ? "native_share" : "clipboard",
+      platform: "modal",
     });
 
     if (reward.granted && reward.amount) {
@@ -123,7 +112,7 @@ function ContentCard({
 
     setShareState("done");
     setTimeout(() => setShareState("idle"), 2500);
-  }, [item, personaId, shareState]);
+  }, [actions, item, personaId, shareState]);
 
   const handleLike = useCallback(async () => {
     if (liked) return;
@@ -223,11 +212,13 @@ function ContentCard({
           </div>
         )}
 
-        {/* Smart content access buttons (Watch / Read / View) */}
+        {/* Smart content access buttons (Watch / Read / View / Listen) */}
         <CodexActionRow
           showWatch={item.hasWatch}
           showRead={item.hasRead}
           showView={!item.hasWatch && !item.hasRead}
+          showListen={item.hasListen}
+          getListenText={() => `${item.title}. ${item.description ?? ""}`}
           variant="indigo"
           onWatch={() => openContent("watch")}
           onRead={() => openContent("read")}

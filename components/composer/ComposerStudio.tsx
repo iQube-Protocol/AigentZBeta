@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Activity, AlertTriangle, BarChart, Book, BookOpen, Bot, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Globe, Hexagon, Layers, LayoutGrid, List, Loader2, Mic, MicOff, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, StopCircle, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type, X } from "lucide-react";
+import { Activity, AlertTriangle, BarChart, Book, BookMarked, BookOpen, Bot, Check, CheckCircle2, ChevronDown, ChevronUp, Circle, Code, Edit, Eye, FileText, Globe, Hexagon, Layers, LayoutGrid, List, Loader2, Mic, MicOff, Monitor, MonitorIcon, Moon, Palette, Play, PlayCircle, RefreshCw, Share2, Shield, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, StopCircle, Sun, Target, Tablet, Trash2, Tv, Upload, Users, Volume2, Type, X } from "lucide-react";
 import { useCopilotAction } from "@copilotkit/react-core";
 import { createShellMessage } from "@metame/iframe-bridge";
 import { Button } from "@/components/ui/button";
@@ -2154,6 +2154,45 @@ export const ComposerStudio = () => {
       router.push(`/studio/composer/experience/${encodeURIComponent(experienceId)}`);
     } catch {
       openRuntimePreviewForExperience(exp, "Launch fallback");
+    }
+  };
+
+  const [savingExperienceId, setSavingExperienceId] = useState<string | null>(null);
+  const [savedExperienceId, setSavedExperienceId] = useState<string | null>(null);
+
+  const saveExperienceToMyCanvas = async (exp: ExperienceQube | null) => {
+    if (!exp?.id || savingExperienceId === exp.id) return;
+    setSavingExperienceId(exp.id);
+    try {
+      const meta = (exp.configuration ?? {}) as Record<string, unknown>;
+      const coverImageUrl =
+        typeof meta.cover_image_url === "string"
+          ? meta.cover_image_url
+          : typeof meta.coverImageUrl === "string"
+            ? meta.coverImageUrl
+            : null;
+      const res = await fetch("/api/mycanvas/entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: exp.name || "Untitled Experience",
+          bodyMd: "",
+          entryType: "experience_origin",
+          metaJson: {
+            experienceId: exp.id,
+            description: exp.description || "",
+            ...(coverImageUrl ? { imageUrl: coverImageUrl } : {}),
+          },
+        }),
+      });
+      if (res.ok) {
+        setSavedExperienceId(exp.id);
+        setTimeout(() => setSavedExperienceId((id) => (id === exp.id ? null : id)), 2500);
+      }
+    } catch {
+      // swallow — UI stays in idle state
+    } finally {
+      setSavingExperienceId((id) => (id === exp.id ? null : id));
     }
   };
 
@@ -9908,6 +9947,27 @@ export const ComposerStudio = () => {
                             </button>
                           </div>
                           <div className="flex items-center gap-2">
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void saveExperienceToMyCanvas(exp);
+                              }}
+                              disabled={savingExperienceId === exp.id}
+                              className={`rounded-lg border p-2 ${
+                                savedExperienceId === exp.id
+                                  ? "border-emerald-400/60 bg-emerald-400/10 text-emerald-200"
+                                  : "border-cyan-400/60 bg-cyan-400/10 text-cyan-200 hover:bg-cyan-400/20"
+                              }`}
+                              title={savedExperienceId === exp.id ? "Saved to myCanvas" : "Save to myCanvas"}
+                            >
+                              {savingExperienceId === exp.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : savedExperienceId === exp.id ? (
+                                <Check className="h-3 w-3" />
+                              ) : (
+                                <BookMarked className="h-3 w-3" />
+                              )}
+                            </button>
                             <button
                               onClick={(event) => {
                                 event.stopPropagation();

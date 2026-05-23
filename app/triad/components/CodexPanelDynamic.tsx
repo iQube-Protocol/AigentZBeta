@@ -637,21 +637,23 @@ export default function CodexPanelDynamic({
                   </div>
                   <div className="flex items-center gap-2">
                     {/* Welcome <persona> — pinned to the cartridge header row,
-                        always visible above all tabs, sits immediately to
-                        the left of the theme toggle. Reads from the
-                        canonical T1 surface (displayLabel or ownFioHandle)
-                        so we never render a UUID fallback. Hidden when
-                        no active persona is resolved. */}
+                        always visible above all tabs (including iOS / mobile),
+                        sits immediately to the left of the theme toggle.
+                        Reads from the canonical T1 surface (displayLabel or
+                        ownFioHandle) so we never render a UUID fallback.
+                        Hidden when no active persona is resolved.
+                        On narrow screens the label truncates with an ellipsis
+                        so a long FIO handle can't push the theme toggle off. */}
                     {headerPersonaLabel && (
                       <div
-                        className={`hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-medium whitespace-nowrap ${
+                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] md:text-xs font-medium max-w-[55vw] md:max-w-none ${
                           isDark
                             ? `border-${accentColor}-500/30 bg-${accentColor}-500/10 text-${accentColor}-200`
                             : `border-${accentColor}-300 bg-${accentColor}-50 text-${accentColor}-700`
                         }`}
                         title={`Active persona: ${headerPersonaLabel}`}
                       >
-                        Welcome, {headerPersonaLabel}
+                        <span className="truncate">Welcome, {headerPersonaLabel}</span>
                       </div>
                     )}
                     {/* Theme toggle */}

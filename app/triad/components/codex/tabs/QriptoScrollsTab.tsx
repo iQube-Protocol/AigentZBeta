@@ -179,6 +179,17 @@ export function QriptoScrollsTab({ theme = 'dark', personaId, issueSlug }: Qript
     });
   };
 
+  const openInviteModal = (item: ScrollItem) => {
+    actions.openInvite({
+      id: item.id,
+      title: item.title,
+      description: item.excerpt,
+      section: item.badge || activeTab,
+      type: item.modalities?.watch ? 'video' : 'text',
+      url: item.modalities?.link?.url,
+    });
+  };
+
   const tabs = [
     { id: 'metaknyts', label: 'metaKnyts' },
     { id: 'synthsims', label: 'The SynthSims' },
@@ -274,11 +285,11 @@ export function QriptoScrollsTab({ theme = 'dark', personaId, issueSlug }: Qript
                       variant="indigo"
                       showRead={!!item.modalities?.read}
                       showWatch={!!item.modalities?.watch}
-                      showShare
                       onRead={() => openViaTriad(item, 'read')}
                       onWatch={() => openViaTriad(item, 'watch')}
                       onView={() => openViaTriad(item, null)}
                       onShare={() => openShareModal(item)}
+                      onInvite={() => openInviteModal(item)}
                     />
                   </div>
                 </button>

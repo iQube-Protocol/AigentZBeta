@@ -189,6 +189,17 @@ export function PennyDropsTab({ theme = 'dark', personaId, issueSlug, dataSource
     });
   };
 
+  const openInviteModal = (item: PennyDropItem) => {
+    actions.openInvite({
+      id: item.id,
+      title: item.title,
+      description: item.excerpt,
+      section: item.badge || 'PennyDrops',
+      type: item.modalities?.watch ? 'video' : 'text',
+      url: item.modalities?.link?.url,
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -265,11 +276,11 @@ export function PennyDropsTab({ theme = 'dark', personaId, issueSlug, dataSource
                       variant="amber"
                       showRead={!!selectedItem.modalities?.read}
                       showWatch={!!selectedItem.modalities?.watch}
-                      showShare
                       onRead={() => openItem(selectedItem, 'read')}
                       onWatch={() => openItem(selectedItem, 'watch')}
                       onView={() => openItem(selectedItem, null)}
                       onShare={() => openShareModal(selectedItem)}
+                      onInvite={() => openInviteModal(selectedItem)}
                     />
                   </div>
                 </div>

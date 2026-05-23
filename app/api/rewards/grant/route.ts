@@ -24,10 +24,10 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    if (mintingMode && !['immediate', 'deferred', 'canonical'].includes(mintingMode)) {
+    if (mintingMode && !['immediate', 'deferred', 'canonical', 'remote'].includes(mintingMode)) {
       return NextResponse.json({
         error: 'Invalid mintingMode',
-        validModes: ['immediate', 'deferred', 'canonical'],
+        validModes: ['immediate', 'deferred', 'canonical', 'remote'],
       }, { status: 400 });
     }
 
