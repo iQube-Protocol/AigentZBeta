@@ -212,11 +212,13 @@ function ContentCard({
           </div>
         )}
 
-        {/* Smart content access buttons (Watch / Read / View) */}
+        {/* Smart content access buttons (Watch / Read / View / Listen) */}
         <CodexActionRow
           showWatch={item.hasWatch}
           showRead={item.hasRead}
           showView={!item.hasWatch && !item.hasRead}
+          showListen={item.hasListen}
+          getListenText={() => `${item.title}. ${item.description ?? ""}`}
           variant="indigo"
           onWatch={() => openContent("watch")}
           onRead={() => openContent("read")}

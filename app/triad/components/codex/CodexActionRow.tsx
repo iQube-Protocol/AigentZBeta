@@ -1,8 +1,9 @@
 'use client';
 
-import { BookOpen, Eye, Play, Share2 } from 'lucide-react';
+import { BookOpen, Eye, Headphones, Loader2, Play, Share2, Square } from 'lucide-react';
 import { CodexBadge } from './CodexBadge';
 import { getContentPrice } from './utils/contentFlags';
+import { useTTSPlayer } from '@/app/hooks/useTTSPlayer';
 
 type Variant = 'indigo' | 'amber' | 'slate';
 
@@ -11,10 +12,18 @@ interface CodexActionRowProps {
   showWatch?: boolean;
   showView?: boolean;
   showShare?: boolean;
+  showListen?: boolean;
   onRead?: () => void;
   onWatch?: () => void;
   onView?: () => void;
   onShare?: () => void;
+  /**
+   * TTS text resolver. When provided alongside showListen, the row renders a
+   * first-class Listen action that streams audio via /api/skills/tts. New
+   * cartridge tabs inherit TTS automatically by passing this prop.
+   */
+  getListenText?: () => string;
+  listenVoice?: string;
   variant?: Variant;
   className?: string;
   /** Pass the content item to auto-render a Q¢ price badge when price > 0. */
@@ -48,10 +57,13 @@ export function CodexActionRow({
   showWatch,
   showView = true,
   showShare = false,
+  showListen = false,
   onRead,
   onWatch,
   onView,
   onShare,
+  getListenText,
+  listenVoice,
   variant = 'indigo',
   className,
   item,
@@ -66,9 +78,17 @@ export function CodexActionRow({
     handler?.();
   };
 
+  // First-class TTS: any tab can pass `showListen` + `getListenText` and
+  // inherit consistent audio playback without re-implementing the hook.
+  const { ttsState, handleListen } = useTTSPlayer({
+    getText: () => (getListenText ? getListenText() : ''),
+    voice: listenVoice,
+  });
+  const listenEnabled = showListen && typeof getListenText === 'function';
+
   const price = item ? getContentPrice(item as any) : null;
 
-  if (!showRead && !showWatch && !showView && !showShare && price === null) return null;
+  if (!showRead && !showWatch && !showView && !showShare && !listenEnabled && price === null) return null;
 
   return (
     <div className={`flex items-center gap-2 flex-wrap ${className || ''}`}>
@@ -117,6 +137,30 @@ export function CodexActionRow({
         >
           <Share2 className="h-3 w-3" />
           Share
+        </button>
+      )}
+      {listenEnabled && (
+        <button
+          type="button"
+          onClick={stop(() => void handleListen())}
+          aria-label="Listen"
+          disabled={ttsState === 'loading'}
+          className={`${base} ${
+            ttsState === 'playing'
+              ? 'border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-200'
+              : ttsState === 'error'
+              ? 'border-red-500/40 bg-red-500/10 text-red-300'
+              : styles.secondary
+          }`}
+        >
+          {ttsState === 'loading' ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : ttsState === 'playing' ? (
+            <Square className="h-3 w-3" />
+          ) : (
+            <Headphones className="h-3 w-3" />
+          )}
+          {ttsState === 'playing' ? 'Stop' : ttsState === 'loading' ? '…' : ttsState === 'error' ? 'Error' : 'Listen'}
         </button>
       )}
     </div>
