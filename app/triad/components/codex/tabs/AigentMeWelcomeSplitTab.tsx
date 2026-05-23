@@ -263,6 +263,12 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // DIS: codexes/packs/agentiq/items/dis/aigentme-phase-2.dis.json
   const [activeLayoutId, setActiveLayoutId] = useState<RightPaneLayoutId>(DEFAULT_LAYOUT_ID);
 
+  // Phase 2 Slice 5: ApprovalLayout is INTERRUPT class — when a pending
+  // approval arrives it overlays whatever layout is foreground. The
+  // foreground layout stays mounted underneath so user context is
+  // preserved. Driven by `pendingApprovalNbe !== null` directly; no
+  // activeLayoutId swap needed.
+
   // Refs for the copilot to scroll cards into view.
   const briefRef = useRef<HTMLDivElement>(null);
   const nbeRef = useRef<HTMLDivElement>(null);
@@ -341,7 +347,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   }, [spine.status, personaId]);
 
   // ── Fetchers ────────────────────────────────────────────────────────
-  const fetchBrief = useCallback(async () => {
+  const fetchBrief = useCallback(async (briefType: 'daily' | 'project' | 'cartridge' = 'daily') => {
     setBriefLoading(true);
     setBriefError(null);
     setBrief(null);
@@ -349,7 +355,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       const res = await personaFetch('/api/assistant/brief', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ briefType: 'daily' }),
+        body: JSON.stringify({ briefType }),
         personaIdHint: personaId,
       });
       if (!res.ok) {
@@ -427,9 +433,28 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
 
   const handleCtaClick = useCallback((ctaId: string) => {
     if (ctaId === 'set-up-experience-model') { setWizardOpen(true); return; }
-    if (ctaId === 'brief-me') { void fetchBrief(); return; }
-    if (ctaId === 'move-this-forward') { void fetchMoveForward(); return; }
-    if (ctaId === 'review-venture-progress') { void fetchVentureProgress(); return; }
+    // Phase 2 Slice 1: 'brief-me' now selects the BriefLayout AND fires
+    // the fetch. The layout owns the rendering; the stack no longer
+    // accumulates a brief card.
+    if (ctaId === 'brief-me') {
+      setActiveLayoutId('brief');
+      void fetchBrief();
+      return;
+    }
+    // Move-forward + venture-progress request their intent-layouts.
+    // Until Slices 2 + 3 land, the registry falls back to StackLayout
+    // so the cards still render in the stack; once the layouts ship,
+    // these calls activate them automatically.
+    if (ctaId === 'move-this-forward') {
+      setActiveLayoutId('decision-board');
+      void fetchMoveForward();
+      return;
+    }
+    if (ctaId === 'review-venture-progress') {
+      setActiveLayoutId('venture-cockpit');
+      void fetchVentureProgress();
+      return;
+    }
   }, [fetchBrief, fetchMoveForward, fetchVentureProgress]);
 
   const handleWizardSaved = useCallback((saved: ExperienceModelCardData) => {
@@ -463,6 +488,9 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
     setApprovalError(null);
     setPendingApprovalNbe(action);
+    // Phase 2 Slice 5: ApprovalLayout overlays the current layout
+    // automatically via the render — see the right-pane wrapper below.
+    // We don't swap `activeLayoutId` so the foreground stays mounted.
     // Scroll the approval card into view — the right pane scrolls
     // independently and the modal would otherwise appear above the fold.
     window.requestAnimationFrame(() => {
@@ -473,6 +501,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const handleApprovalCancel = useCallback(() => {
     setPendingApprovalNbe(null);
     setApprovalError(null);
+    // Foreground layout remains as-is; the approval overlay unmounts.
   }, []);
 
   const handleApprovalApprove = useCallback(async () => {
@@ -497,6 +526,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         [action.id]: { intentId: intentData.intentId, status: intentData.status, queueMessage: intentData.queueMessage },
       }));
       setPendingApprovalNbe(null);
+      // Foreground layout remains as-is; approval overlay unmounts.
       void fetchReceipts();
 
       // Workspace-flavoured NBEs (gmail/doc/event/etc.) hand off to the
@@ -870,7 +900,17 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   useAigentMeCopilotBridge({
     openCompose: openComposeByKind,
     fireCta: handleCtaClick,
-    expandSection: setExpandedSectionId,
+    // Phase 2 Slice 6: expanding the receipts section requests the
+    // LedgerLayout. Other section expansions still toggle the
+    // accordion in StackLayout (they're config sub-sections, not
+    // intent layouts).
+    expandSection: (id) => {
+      if (id === 'receipts') {
+        setActiveLayoutId('ledger');
+        return;
+      }
+      setExpandedSectionId(id);
+    },
     focusCard,
     readable: {
       activeBrief: { hasBrief: !!brief, summary: brief?.summary ?? null },
@@ -931,86 +971,100 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               </div>
             )}
             {data && (() => {
-              // Phase 2 Slice 0: route the pane through the layout registry.
-              // Defaults to StackLayout, which wraps WelcomeRightPane
-              // verbatim — zero visual change. Future slices select other
-              // layouts via setActiveLayoutId().
-              const layout = getLayout(activeLayoutId);
-              const LayoutComponent = layout.component;
-              return (
-              <LayoutComponent
-                onRequestLayout={setActiveLayoutId}
-                theme={theme}
-                personaId={personaId}
-                displayLabel={spine.displayLabel ?? data.displayLabel}
-                ctas={data.primaryCtas}
-                specialists={data.availableSpecialists}
-                isAdmin={isAdmin ?? data.cartridgeFlags?.isAdmin}
-                brief={brief}
-                briefLoading={briefLoading}
-                briefError={briefError}
-                ventureProgress={ventureProgress}
-                ventureProgressLoading={ventureProgressLoading}
-                ventureProgressError={ventureProgressError}
-                moveForwardResult={moveForwardResult}
-                moveForwardLoading={moveForwardLoading}
-                pendingApproval={pendingApprovalNbe}
-                submittingApproval={submittingApproval}
-                approvalError={approvalError}
-                artifacts={artifacts}
-                actionPendingArtifactId={actionPendingArtifactId}
-                actionErrors={actionErrors}
-                secondTierApproval={secondTierApproval}
-                specialistResponses={specialistResponses}
-                specialistLoading={specialistLoading}
-                specialistErrors={specialistErrors}
-                queuedIntents={queuedIntents}
-                expModel={expModel}
-                expModelLoading={expModelLoading}
-                stageEval={stageEval}
-                receipts={receipts}
-                receiptsLoading={receiptsLoading}
-                receiptsPersonaLabel={receiptsPersonaLabel}
-                expandedSectionId={expandedSectionId}
-                setExpandedSectionId={setExpandedSectionId}
-                usingIqubes={usingIqubes}
-                onCtaClick={handleCtaClick}
-                onNbeAct={handleNbeAct}
-                onApprovalApprove={handleApprovalApprove}
-                onApprovalCancel={handleApprovalCancel}
-                onSendArtifact={handleSendArtifact}
-                onDismissArtifact={handleDismissArtifact}
-                onApproveSecondTier={handleApproveSecondTier}
-                onCancelSecondTier={handleCancelSecondTier}
-                onDismissSpecialist={handleDismissSpecialist}
-                onDismissQueued={handleDismissQueued}
-                onDismissBrief={() => {
+              // Phase 2: route the foreground pane through the layout registry.
+              // ApprovalLayout (interrupt class) overlays the foreground when a
+              // pending approval exists — it absolute-positions itself so the
+              // foreground stays mounted underneath, preserving context.
+              const foreground = getLayout(activeLayoutId);
+              const ForegroundLayout = foreground.component;
+              const ApprovalOverlayLayout = pendingApprovalNbe
+                ? getLayout('approval-interrupt').component
+                : null;
+              // Single source of truth for layout inputs — passed identically
+              // to foreground and overlay.
+              const layoutProps = {
+                onRequestLayout: setActiveLayoutId,
+                theme,
+                personaId,
+                displayLabel: spine.displayLabel ?? data.displayLabel,
+                ctas: data.primaryCtas,
+                specialists: data.availableSpecialists,
+                isAdmin: isAdmin ?? data.cartridgeFlags?.isAdmin,
+                brief,
+                briefLoading,
+                briefError,
+                ventureProgress,
+                ventureProgressLoading,
+                ventureProgressError,
+                moveForwardResult,
+                moveForwardLoading,
+                pendingApproval: pendingApprovalNbe,
+                submittingApproval,
+                approvalError,
+                artifacts,
+                actionPendingArtifactId,
+                actionErrors,
+                secondTierApproval,
+                specialistResponses,
+                specialistLoading,
+                specialistErrors,
+                queuedIntents,
+                expModel,
+                expModelLoading,
+                stageEval,
+                receipts,
+                receiptsLoading,
+                receiptsPersonaLabel,
+                expandedSectionId,
+                setExpandedSectionId,
+                usingIqubes,
+                onCtaClick: handleCtaClick,
+                onNbeAct: handleNbeAct,
+                onApprovalApprove: handleApprovalApprove,
+                onApprovalCancel: handleApprovalCancel,
+                onSendArtifact: handleSendArtifact,
+                onDismissArtifact: handleDismissArtifact,
+                onApproveSecondTier: handleApproveSecondTier,
+                onCancelSecondTier: handleCancelSecondTier,
+                onDismissSpecialist: handleDismissSpecialist,
+                onDismissQueued: handleDismissQueued,
+                onDismissBrief: () => {
                   setBrief(null);
                   setBriefError(null);
                   setBriefLoading(false);
-                }}
-                onDismissVenture={() => {
+                  // Phase 2 Slice 1: dismissing the brief returns the
+                  // pane to the default stack layout so the operator
+                  // doesn't sit on an empty BriefLayout.
+                  setActiveLayoutId('stack');
+                },
+                onBriefVariantChange: (briefType) => { void fetchBrief(briefType); },
+                onDismissVenture: () => {
                   setVentureProgress(null);
                   setVentureProgressError(null);
                   setVentureProgressLoading(false);
-                }}
-                onDismissMoveForward={() => {
+                },
+                onDismissMoveForward: () => {
                   setMoveForwardResult(null);
                   setMoveForwardLoading(false);
-                }}
-                onAskSpecialist={handleAskSpecialist}
-                askSpecialistOpenId={askSpecialistOpenId}
-                askSpecialistPrompt={askSpecialistPrompt}
-                askSpecialistLoadingId={askSpecialistLoadingId}
-                askSpecialistResponses={askSpecialistResponses}
-                askSpecialistErrors={askSpecialistErrors}
-                setAskSpecialistOpenId={setAskSpecialistOpenId}
-                setAskSpecialistPrompt={setAskSpecialistPrompt}
-                briefRef={briefRef}
-                nbeRef={nbeRef}
-                approvalRef={approvalRef}
-                artifactRef={artifactRef}
-              />
+                },
+                onAskSpecialist: handleAskSpecialist,
+                askSpecialistOpenId,
+                askSpecialistPrompt,
+                askSpecialistLoadingId,
+                askSpecialistResponses,
+                askSpecialistErrors,
+                setAskSpecialistOpenId,
+                setAskSpecialistPrompt,
+                briefRef,
+                nbeRef,
+                approvalRef,
+                artifactRef,
+              };
+              return (
+              <>
+              <ForegroundLayout {...layoutProps} />
+              {ApprovalOverlayLayout && <ApprovalOverlayLayout {...layoutProps} />}
+              </>
               );
             })()}
             {/* Floating compose strip — pinned to bottom of right pane. */}

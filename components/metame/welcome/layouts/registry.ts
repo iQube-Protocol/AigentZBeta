@@ -12,18 +12,22 @@
  */
 
 import { StackLayout } from "./StackLayout";
+import { BriefLayout } from "./BriefLayout";
+import { DecisionBoardLayout } from "./DecisionBoardLayout";
+import { VentureCockpitLayout } from "./VentureCockpitLayout";
+import { ComposerLayout } from "./ComposerLayout";
+import { ApprovalLayout } from "./ApprovalLayout";
+import { LedgerLayout } from "./LedgerLayout";
 import type { RightPaneLayoutDefinition, RightPaneLayoutId } from "./types";
 
 const REGISTRY: Record<RightPaneLayoutId, RightPaneLayoutDefinition> = {
-  "stack": StackLayout,
-  // Phase 2 slices land their layouts here. Until then, every id below
-  // resolves to the stack fallback via getLayout()'s default branch.
-  "brief":              StackLayout,
-  "decision-board":     StackLayout,
-  "venture-cockpit":    StackLayout,
-  "composer":           StackLayout,
-  "approval-interrupt": StackLayout,
-  "ledger":             StackLayout,
+  "stack":              StackLayout,
+  "brief":              BriefLayout,
+  "decision-board":     DecisionBoardLayout,
+  "venture-cockpit":    VentureCockpitLayout,
+  "composer":           ComposerLayout,
+  "approval-interrupt": ApprovalLayout,
+  "ledger":             LedgerLayout,
 };
 
 export function getLayout(id: RightPaneLayoutId | string | null | undefined): RightPaneLayoutDefinition {

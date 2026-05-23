@@ -158,6 +158,12 @@ interface Props {
    *  move-forward state so the action space doesn't pile up. Re-firing
    *  the chip re-issues the request and re-renders the bundle. */
   onDismissBrief?: () => void;
+  /**
+   * Phase 2 Slice 1: BriefLayout's variant switcher (Today / Project /
+   * Cartridge) calls this to re-fetch the brief in the selected scope.
+   * StackLayout ignores it. Optional so non-brief callers don't break.
+   */
+  onBriefVariantChange?: (briefType: "daily" | "project" | "cartridge") => void;
   onDismissVenture?: () => void;
   onDismissMoveForward?: () => void;
   onAskSpecialist: (specialistId: string, prompt: string) => void;
@@ -323,7 +329,11 @@ export function WelcomeRightPane(props: Props) {
   const alternates = moveForwardResult?.alternates ?? [];
 
   return (
-    <div className="h-full overflow-y-auto px-4 py-3 pb-24 space-y-3">
+    <div
+      data-aigentme-right-pane="stack"
+      data-aigentme-layout="stack-layout-v1"
+      className="h-full overflow-y-auto px-4 py-3 pb-24 space-y-3"
+    >
       {/* ── Operational badges carousel ────────────────────────────
           The 'Welcome, <persona>' label was moved up to the cartridge
           header (CodexPanelDynamic right cluster) so it's pinned and

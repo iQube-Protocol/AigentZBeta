@@ -112,7 +112,64 @@ with a follow-on issue or PR linked.
   swipe for DecisionBoard; tabbed sections for VentureCockpit;
   bottom-sheet for Approval interrupts; filter-collapsed list for
   Ledger; full-screen editor for Composer).
-- Slice 1 (BriefLayout) ships next; receipt + parity report attached.
+- Slice 1 (BriefLayout) shipped 2026-05-23 — `components/metame/welcome/layouts/BriefLayout.tsx`.
+  - DIS template id: `brief-layout-v1`. Conforms to the symmetry
+    contract (header 56 px, body `p-5 lg:p-6`, footer `p-3 lg:p-4`,
+    dismiss X at `right-3 top-3`, outer `rounded-2xl`).
+  - Desktop: Today / Project / Cartridge switcher in header strip.
+    Mobile: switcher moves to a sticky bottom tab strip with iOS
+    safe-area inset respected — the full-screen-reader shape declared
+    in DIS `mobileShapes.brief-layout-v1`.
+  - Loading skeleton preserves final dimensions; designed empty state
+    instead of raw "no data".
+  - Activator: clicking the Brief chip now sets
+    `activeLayoutId = 'brief'` and fires the fetch. Dismiss returns to
+    `'stack'` and clears brief state.
+  - Other chips (`move-this-forward`, `review-venture-progress`) also
+    request their intent-layouts; until Slices 2 + 3 land the registry
+    falls back to `StackLayout` so behavior stays correct.
+  - Surface markers added: every right-pane root carries
+    `data-aigentme-right-pane="<id>"` and
+    `data-aigentme-layout="<dis-template-id>"` so the in-browser
+    ParityChecker can target it cleanly.
+
+### 5.2 Known trade-offs (after the full Slice 1-6 batch)
+
+- **Intent-owns-the-pane:** while a layout other than `stack` is mounted,
+  the other stack cards (specialists, cartridges, Google connectors)
+  are not visible in the right pane. Their handlers still fire — they
+  re-appear once the user returns to `StackLayout` via dismiss.
+- **Composer activator:** v1 surfaces the most recent draft from
+  `artifacts[0]`. There is no chip yet to enter Composer directly —
+  it's reachable by `setActiveLayoutId('composer')` and renders the
+  designed empty state when no draft is present. A "Compose" chip
+  lands in a follow-on slice (or via Phase 7 server-driven chips).
+- **Contextual chip strip (Slice 7) deferred:** the chip set is still
+  static today. Adding the server-side `quickChips` envelope is a
+  one-prop API change; tracked as a follow-on so it doesn't block the
+  visual review of Slices 0-6.
+
+## 6. Slice 2-6 shipped 2026-05-23
+
+- **`LayoutShell`** — shared chrome that locks the symmetry contract
+  (header 56 px, body `p-5 lg:p-6`, footer `p-3 lg:p-4`, dismiss X
+  at `right-3 top-3`, outer `rounded-2xl`, mobile sticky strip slot).
+  Every layout composes through it; design fidelity violations are
+  flagged at one location.
+- **DecisionBoardLayout** — desktop 2-column hero + alternates;
+  mobile horizontal-swipe with page-dot indicator; rationale trace in
+  the footer.
+- **VentureCockpitLayout** — desktop sticky top strip + 3-column
+  body (KPIs / Active work / Recommended); mobile sticky section tabs
+  showing one column at a time.
+- **ComposerLayout** — single-pane editor with thread-context chip,
+  draft body, send/discard footer. v1 renders the most recent artifact.
+- **ApprovalLayout (interrupt)** — overlays the foreground layout;
+  desktop centered card with backdrop dim, mobile bottom-sheet with
+  drag handle and safe-area inset. Foreground stays mounted underneath.
+- **LedgerLayout** — chronological view of activity receipts with
+  filter chips (All / Receipts / Approvals / Briefs / Composer).
+  Activated by expanding the receipts section.
 - After each slice: parity report → handbook drift check → if intent
   shifted, version the DIS up and link the decision.
 - After Phase 2 completes: a closing doc captures (a) what shipped,
