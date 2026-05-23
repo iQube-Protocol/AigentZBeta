@@ -17,7 +17,7 @@
  */
 
 import React from "react";
-import { Sparkles, Compass, ChevronRight, Loader2 } from "lucide-react";
+import { Sparkles, Compass, ChevronRight, Loader2, X } from "lucide-react";
 import {
   NextBestActionCard,
   type NextBestActionData,
@@ -52,6 +52,10 @@ interface Props {
   loading?: boolean;
   error?: string | null;
   onActOnNbe?: (action: NextBestActionData) => void;
+  /** When provided, renders a close (X) control in the header so the
+   *  user can dismiss the brief instead of scrolling past it. The chip
+   *  that triggered the brief can re-open it. */
+  onDismiss?: () => void;
   theme?: "light" | "dark";
 }
 
@@ -63,22 +67,39 @@ const STAGE_LABELS: Record<string, string> = {
   scale: "Scale",
 };
 
-export function BriefCard({ data, loading, error, onActOnNbe, theme = "dark" }: Props) {
+export function BriefCard({ data, loading, error, onActOnNbe, onDismiss, theme = "dark" }: Props) {
   const isDark = theme === "dark";
   const surfaceClass = isDark
     ? "bg-slate-900/50 border-slate-700/60 text-slate-100"
     : "bg-white border-slate-200 text-slate-900";
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
   const accentClass = isDark ? "text-violet-300" : "text-violet-700";
+  const dismissBtnClass = isDark
+    ? "text-slate-500 hover:text-slate-200 hover:bg-slate-800/60"
+    : "text-slate-400 hover:text-slate-700 hover:bg-slate-100";
+  const dismissButton = onDismiss ? (
+    <button
+      type="button"
+      onClick={onDismiss}
+      aria-label="Dismiss brief"
+      title="Close brief"
+      className={`shrink-0 inline-flex items-center justify-center h-6 w-6 rounded-md transition-colors ${dismissBtnClass}`}
+    >
+      <X className="w-3.5 h-3.5" />
+    </button>
+  ) : null;
 
   if (loading) {
     return (
       <div className={`rounded-lg border p-6 ${surfaceClass}`}>
-        <div className="flex items-center gap-3">
-          <Loader2 className="w-5 h-5 animate-spin text-violet-400" />
-          <span className={`text-sm ${mutedClass}`}>
-            Composing your brief…
-          </span>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Loader2 className="w-5 h-5 animate-spin text-violet-400" />
+            <span className={`text-sm ${mutedClass}`}>
+              Composing your brief…
+            </span>
+          </div>
+          {dismissButton}
         </div>
       </div>
     );
@@ -87,8 +108,13 @@ export function BriefCard({ data, loading, error, onActOnNbe, theme = "dark" }: 
   if (error) {
     return (
       <div className={`rounded-lg border p-6 ${surfaceClass}`}>
-        <h3 className="font-semibold mb-1">Brief unavailable</h3>
-        <p className={`text-sm ${mutedClass}`}>{error}</p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="font-semibold mb-1">Brief unavailable</h3>
+            <p className={`text-sm ${mutedClass}`}>{error}</p>
+          </div>
+          {dismissButton}
+        </div>
       </div>
     );
   }
@@ -128,16 +154,19 @@ export function BriefCard({ data, loading, error, onActOnNbe, theme = "dark" }: 
             </p>
           )}
         </div>
-        <div className="text-right">
-          <div className={`text-xs ${mutedClass}`}>
-            Stage · {STAGE_LABELS[data.context.currentStage] ?? data.context.currentStage}
-          </div>
-          {data.pendingApprovalsCount > 0 && (
-            <div className="text-xs text-amber-300 mt-1">
-              {data.pendingApprovalsCount} pending approval
-              {data.pendingApprovalsCount === 1 ? "" : "s"}
+        <div className="flex items-start gap-2">
+          <div className="text-right">
+            <div className={`text-xs ${mutedClass}`}>
+              Stage · {STAGE_LABELS[data.context.currentStage] ?? data.context.currentStage}
             </div>
-          )}
+            {data.pendingApprovalsCount > 0 && (
+              <div className="text-xs text-amber-300 mt-1">
+                {data.pendingApprovalsCount} pending approval
+                {data.pendingApprovalsCount === 1 ? "" : "s"}
+              </div>
+            )}
+          </div>
+          {dismissButton}
         </div>
       </div>
 

@@ -961,6 +961,20 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 onCancelSecondTier={handleCancelSecondTier}
                 onDismissSpecialist={handleDismissSpecialist}
                 onDismissQueued={handleDismissQueued}
+                onDismissBrief={() => {
+                  setBrief(null);
+                  setBriefError(null);
+                  setBriefLoading(false);
+                }}
+                onDismissVenture={() => {
+                  setVentureProgress(null);
+                  setVentureProgressError(null);
+                  setVentureProgressLoading(false);
+                }}
+                onDismissMoveForward={() => {
+                  setMoveForwardResult(null);
+                  setMoveForwardLoading(false);
+                }}
                 onAskSpecialist={handleAskSpecialist}
                 askSpecialistOpenId={askSpecialistOpenId}
                 askSpecialistPrompt={askSpecialistPrompt}

@@ -24,6 +24,7 @@ import {
   ChevronRight,
   Compass,
   AlertCircle,
+  X,
 } from "lucide-react";
 import {
   NextBestActionCard,
@@ -70,6 +71,10 @@ interface Props {
   loading?: boolean;
   error?: string | null;
   onActOnNbe?: (action: NextBestActionData) => void;
+  /** When provided, renders a close (X) control in the header so the
+   *  user can dismiss the venture-progress card. The chip that opened
+   *  it (Venture progress) can re-open it. */
+  onDismiss?: () => void;
   theme?: "light" | "dark";
 }
 
@@ -94,6 +99,7 @@ export function VentureProgressCard({
   loading,
   error,
   onActOnNbe,
+  onDismiss,
   theme = "dark",
 }: Props) {
   const isDark = theme === "dark";
@@ -108,15 +114,32 @@ export function VentureProgressCard({
   const statClass = isDark
     ? "bg-slate-800/40 border-slate-700/60"
     : "bg-slate-50 border-slate-200";
+  const dismissBtnClass = isDark
+    ? "text-slate-500 hover:text-slate-200 hover:bg-slate-800/60"
+    : "text-slate-400 hover:text-slate-700 hover:bg-slate-100";
+  const dismissButton = onDismiss ? (
+    <button
+      type="button"
+      onClick={onDismiss}
+      aria-label="Dismiss venture progress"
+      title="Close venture progress"
+      className={`shrink-0 inline-flex items-center justify-center h-6 w-6 rounded-md transition-colors ${dismissBtnClass}`}
+    >
+      <X className="w-3.5 h-3.5" />
+    </button>
+  ) : null;
 
   if (loading) {
     return (
       <div className={`rounded-lg border p-6 ${surfaceClass}`}>
-        <div className="flex items-center gap-3">
-          <Loader2 className="w-5 h-5 animate-spin text-violet-400" />
-          <span className={`text-sm ${mutedClass}`}>
-            Assembling venture progress…
-          </span>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Loader2 className="w-5 h-5 animate-spin text-violet-400" />
+            <span className={`text-sm ${mutedClass}`}>
+              Assembling venture progress…
+            </span>
+          </div>
+          {dismissButton}
         </div>
       </div>
     );
@@ -125,8 +148,13 @@ export function VentureProgressCard({
   if (error) {
     return (
       <div className={`rounded-lg border p-6 ${surfaceClass}`}>
-        <h3 className="font-semibold mb-1">Venture progress unavailable</h3>
-        <p className={`text-sm ${mutedClass}`}>{error}</p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="font-semibold mb-1">Venture progress unavailable</h3>
+            <p className={`text-sm ${mutedClass}`}>{error}</p>
+          </div>
+          {dismissButton}
+        </div>
       </div>
     );
   }
@@ -154,16 +182,19 @@ export function VentureProgressCard({
             </p>
           )}
         </div>
-        <div className="text-right">
-          <div className={`text-xs ${mutedClass}`}>
-            Stage · {STAGE_LABELS[data.currentStage] ?? data.currentStage}
-          </div>
-          {data.blockersCount > 0 && (
-            <div className="flex items-center gap-1 justify-end text-xs text-amber-300 mt-1">
-              <AlertCircle className="w-3 h-3" />
-              {data.blockersCount} blocker{data.blockersCount === 1 ? "" : "s"}
+        <div className="flex items-start gap-2">
+          <div className="text-right">
+            <div className={`text-xs ${mutedClass}`}>
+              Stage · {STAGE_LABELS[data.currentStage] ?? data.currentStage}
             </div>
-          )}
+            {data.blockersCount > 0 && (
+              <div className="flex items-center gap-1 justify-end text-xs text-amber-300 mt-1">
+                <AlertCircle className="w-3 h-3" />
+                {data.blockersCount} blocker{data.blockersCount === 1 ? "" : "s"}
+              </div>
+            )}
+          </div>
+          {dismissButton}
         </div>
       </div>
 

@@ -146,6 +146,12 @@ interface Props {
   onCancelSecondTier: () => void;
   onDismissSpecialist: (nbeId: string) => void;
   onDismissQueued: (nbeId: string) => void;
+  /** Per-bundle dismiss handlers — clear the loaded brief / venture /
+   *  move-forward state so the action space doesn't pile up. Re-firing
+   *  the chip re-issues the request and re-renders the bundle. */
+  onDismissBrief?: () => void;
+  onDismissVenture?: () => void;
+  onDismissMoveForward?: () => void;
   onAskSpecialist: (specialistId: string, prompt: string) => void;
   askSpecialistOpenId: string | null;
   askSpecialistPrompt: string;
@@ -288,6 +294,7 @@ export function WelcomeRightPane(props: Props) {
     onCtaClick, onNbeAct, onApprovalApprove, onApprovalCancel,
     onSendArtifact, onDismissArtifact, onApproveSecondTier, onCancelSecondTier,
     onDismissSpecialist, onDismissQueued,
+    onDismissBrief, onDismissVenture, onDismissMoveForward,
     onAskSpecialist, askSpecialistOpenId, askSpecialistPrompt, askSpecialistLoadingId,
     askSpecialistResponses, askSpecialistErrors,
     setAskSpecialistOpenId, setAskSpecialistPrompt,
@@ -418,6 +425,7 @@ export function WelcomeRightPane(props: Props) {
             loading={briefLoading}
             error={briefError}
             onActOnNbe={onNbeAct}
+            onDismiss={onDismissBrief}
             theme={theme}
           />
         </div>
@@ -428,6 +436,7 @@ export function WelcomeRightPane(props: Props) {
           data={ventureProgress}
           loading={ventureProgressLoading}
           error={ventureProgressError}
+          onDismiss={onDismissVenture}
           theme={theme}
         />
       )}
@@ -443,6 +452,7 @@ export function WelcomeRightPane(props: Props) {
           <NextBestActionCard
             action={topAction}
             onAct={onNbeAct}
+            onDismiss={onDismissMoveForward}
             theme={theme}
             variant="hero"
           />
