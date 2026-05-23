@@ -251,6 +251,49 @@
         ]
       }
     },
+    "mobileShapes": {
+      "stack-layout-v1": {
+        "kind": "scrolled-stack",
+        "description": "Single-column scroll, identical to Phase 1. Cards stack with consistent gap.",
+        "primaryGesture": "vertical-scroll"
+      },
+      "brief-layout-v1": {
+        "kind": "full-screen-reader",
+        "description": "Full-screen reading mode. The Today | Project | Cartridge switcher moves to a sticky bottom strip. Dismiss X returns to stack.",
+        "primaryGesture": "vertical-scroll",
+        "stickyControls": "bottom-tab-strip"
+      },
+      "decision-board-layout-v1": {
+        "kind": "horizontal-swipe",
+        "description": "Hero NBE on screen 1, swipe horizontally to compare alternates. Page-dot indicator at the bottom. Rationale trace expands inline within the hero pane.",
+        "primaryGesture": "horizontal-swipe",
+        "indicator": "page-dots-bottom"
+      },
+      "venture-cockpit-layout-v1": {
+        "kind": "tabbed-sections",
+        "description": "Top strip (stage + blockers) stays sticky. Sections (KPIs / Active goals / Pending NBEs) become a sticky tab strip directly under the strip. Body shows one section at a time.",
+        "primaryGesture": "tab-tap",
+        "stickyControls": "top-strip + section-tabs"
+      },
+      "composer-layout-v1": {
+        "kind": "full-screen-editor",
+        "description": "Full-screen editor. Thread context collapses to a single-line chip at top (tap to expand). Send / Save / Route appear in a sticky bottom action bar.",
+        "primaryGesture": "vertical-scroll",
+        "stickyControls": "bottom-action-bar"
+      },
+      "approval-interrupt-layout-v1": {
+        "kind": "bottom-sheet",
+        "description": "Slides up from the bottom as a sheet (not a center modal). Drag handle at top; tap-out or swipe-down dismisses. Underlying layout dims but remains visible at the top of the screen for context.",
+        "primaryGesture": "swipe-down-dismiss",
+        "indicator": "drag-handle-top"
+      },
+      "ledger-layout-v1": {
+        "kind": "filter-collapsed-list",
+        "description": "Filter chips collapse to a single 'Filter (n)' button that opens a bottom sheet. List below is full-width, items expand inline to reveal receipt detail.",
+        "primaryGesture": "vertical-scroll + tap-to-expand",
+        "stickyControls": "top-filter-button"
+      }
+    },
     "breakpoints": {
       "mobile": { "maxWidth": 767, "columns": 1 },
       "tablet": { "minWidth": 768, "maxWidth": 1023, "columns": 2 },
@@ -266,7 +309,9 @@
       "One primary CTA per pane. Secondary actions visually subordinate.",
       "Loading skeletons preserve final-state dimensions — no content jump on hydration.",
       "Empty states are designed sentences with deliberate placement, never raw 'No data'.",
-      "Interrupt layouts (Approval) overlay foreground; on dismiss, return to previous activeLayoutId."
+      "Interrupt layouts (Approval) overlay foreground; on dismiss, return to previous activeLayoutId.",
+      "Mobile shapes are first-class, not column-collapse fallbacks. Each layout declares its mobile shape explicitly in `mobileShapes`.",
+      "Sticky controls (bottom strips, action bars, filter buttons) respect safe-area insets on iOS — use env(safe-area-inset-bottom)."
     ]
   },
   "metadata": {

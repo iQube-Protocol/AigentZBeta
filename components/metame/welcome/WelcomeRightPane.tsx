@@ -75,6 +75,14 @@ const CTA_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> 
   "coordinate-follow-ups": Users,
 };
 
+/**
+ * Public prop type — exported so the layout registry (Phase 2, Slice 0+)
+ * can compose-route through this component without re-declaring the shape.
+ * Kept in lock-step with the local `Props` interface; alias is intentional
+ * so a future per-layout narrowing doesn't ripple back into this file.
+ */
+export type WelcomeRightPaneProps = Props;
+
 interface Props {
   theme?: "light" | "dark";
   personaId?: string;

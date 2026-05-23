@@ -59,7 +59,14 @@ import { ComposeMarketaEmailModal } from "@/components/metame/connections/Compos
 
 import { ComposeQuickActionsStrip, type ComposeKind } from "@/components/metame/copilot/ComposeQuickActionsStrip";
 import AgentWalletDrawer from "@/components/AgentWalletDrawer";
-import { WelcomeRightPane } from "@/components/metame/welcome/WelcomeRightPane";
+// WelcomeRightPane is composed by the layout registry now — `StackLayout`
+// wraps it identically so Phase 1 behavior is preserved while Phase 2
+// slices add intent-specific layouts alongside.
+import {
+  getLayout,
+  DEFAULT_LAYOUT_ID,
+  type RightPaneLayoutId,
+} from "@/components/metame/welcome/layouts/registry";
 import {
   useAigentMeCopilotBridge,
   type SectionId,
@@ -247,6 +254,14 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
 
   // Accordion: which right-pane config section is expanded.
   const [expandedSectionId, setExpandedSectionId] = useState<SectionId | null>(null);
+
+  // Phase 2 Slice 0: right-pane layout selector. Defaults to 'stack' so
+  // behavior is identical to Phase 1 — `StackLayout` wraps the existing
+  // WelcomeRightPane verbatim. Slices 1+ add intent-specific layouts
+  // (brief, decision-board, venture-cockpit, composer, approval, ledger)
+  // and the activator chips set this state to route the pane.
+  // DIS: codexes/packs/agentiq/items/dis/aigentme-phase-2.dis.json
+  const [activeLayoutId, setActiveLayoutId] = useState<RightPaneLayoutId>(DEFAULT_LAYOUT_ID);
 
   // Refs for the copilot to scroll cards into view.
   const briefRef = useRef<HTMLDivElement>(null);
@@ -915,8 +930,16 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 {bootstrapError}
               </div>
             )}
-            {data && (
-              <WelcomeRightPane
+            {data && (() => {
+              // Phase 2 Slice 0: route the pane through the layout registry.
+              // Defaults to StackLayout, which wraps WelcomeRightPane
+              // verbatim — zero visual change. Future slices select other
+              // layouts via setActiveLayoutId().
+              const layout = getLayout(activeLayoutId);
+              const LayoutComponent = layout.component;
+              return (
+              <LayoutComponent
+                onRequestLayout={setActiveLayoutId}
                 theme={theme}
                 personaId={personaId}
                 displayLabel={spine.displayLabel ?? data.displayLabel}
@@ -988,7 +1011,8 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 approvalRef={approvalRef}
                 artifactRef={artifactRef}
               />
-            )}
+              );
+            })()}
             {/* Floating compose strip — pinned to bottom of right pane. */}
             <div className="pointer-events-none absolute inset-x-0 bottom-3 px-3 z-30">
               <div className="pointer-events-auto">

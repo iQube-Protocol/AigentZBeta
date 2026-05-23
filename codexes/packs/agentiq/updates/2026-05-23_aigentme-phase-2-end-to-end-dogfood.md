@@ -99,12 +99,51 @@ with a follow-on issue or PR linked.
 ## 5. Operating cadence
 
 - DIS authored before any code (✓ done 2026-05-23 — `dis/aigentme-phase-2.dis.json`).
-- Slice 0 ships next; receipt + parity report attached.
+- Slice 0 shipped 2026-05-23 — layout registry scaffold, zero visual
+  change. Files: `components/metame/welcome/layouts/{types.ts,
+  StackLayout.tsx, registry.ts}` + `WelcomeRightPaneProps` exported +
+  `AigentMeWelcomeSplitTab` now routes via `getLayout(activeLayoutId)`.
+- DIS fetch endpoint shipped 2026-05-23 — `GET /api/design-parity/dis/[workstreamId]`
+  serves DIS JSON from the pack so any in-browser surface can load it
+  for the ParityChecker without bundling. Pattern:
+  `fetch('/api/design-parity/dis/aigentme-phase-2').then(r => r.json())`.
+- DIS amended 2026-05-23 — added `structure.mobileShapes` declaring
+  dedicated mobile shapes (full-screen reader for Brief; horizontal
+  swipe for DecisionBoard; tabbed sections for VentureCockpit;
+  bottom-sheet for Approval interrupts; filter-collapsed list for
+  Ledger; full-screen editor for Composer).
+- Slice 1 (BriefLayout) ships next; receipt + parity report attached.
 - After each slice: parity report → handbook drift check → if intent
   shifted, version the DIS up and link the decision.
 - After Phase 2 completes: a closing doc captures (a) what shipped,
   (b) what the operator learned by inhabiting the system, (c) Studio
   platform improvements the workstream identified.
+
+### 5.1 Parity-run path (current, minimal)
+
+The full panel-side wiring lands as a follow-on so it doesn't block dev.
+For now, the loop runs as follows:
+
+1. Browse to aigentMe on dev. Mount is unchanged (Slice 0 = no visual diff).
+2. Fetch the DIS in DevTools:
+   ```js
+   const { dis } = await fetch('/api/design-parity/dis/aigentme-phase-2').then(r => r.json());
+   ```
+3. Import the checker and run it against the right pane:
+   ```js
+   const { ParityChecker } = await import('/app/services/designParity/ParityChecker.ts');
+   const cm = { /* default ConstraintManifest stub */ };
+   const el = document.querySelector('[data-aigentme-right-pane]');
+   const report = await ParityChecker.generateReport(el, dis, cm);
+   ```
+4. Inspect the report; structural violations + visual-difference scores
+   per breakpoint. Anything flagged `critical` blocks the slice from
+   promoting beyond dev (manual gate for now; automated CI gate in a
+   follow-on).
+
+The Studio `AgenticDesignParityPanel` integration that surfaces this
+report inside the composer is tracked as a Phase 2 follow-on. The
+minimal endpoint shipped today is the seam that wiring will use.
 
 ## 6. References
 
