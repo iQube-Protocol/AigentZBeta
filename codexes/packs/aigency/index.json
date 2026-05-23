@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-23T19:18:06.863Z",
+  "last_updated": "2026-05-23T19:20:45.418Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d08e1128ba4aea31596dc00351e3b0d91872e8ef",
-  "latest_commit_short": "d08e112",
-  "latest_commit_title": "DecisionBoard + VentureCockpit: vertical stack (no columns) — right pane too narrow for multi-column; cockpit uses 3 rows with carousels for KPIs and Active Work",
+  "latest_commit": "3aea78f241e540b42009a8c4780762b8cc4d809f",
+  "latest_commit_short": "3aea78f",
+  "latest_commit_title": "ActivityReceiptCard: click header to expand inline JSON drawer (T1-safe payload + copy button)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "3aea78f",
+      "full_sha": "3aea78f241e540b42009a8c4780762b8cc4d809f",
+      "title": "ActivityReceiptCard: click header to expand inline JSON drawer (T1-safe payload + copy button)",
+      "author": "Claude",
+      "timestamp": "2026-05-23T19:18:47Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-3aea78f.md"
+    },
     {
       "sha": "d08e112",
       "full_sha": "d08e1128ba4aea31596dc00351e3b0d91872e8ef",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-27T02:24:05Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-e7f9717.md"
-    },
-    {
-      "sha": "f3ff549",
-      "full_sha": "f3ff549d51bf21658b84a9c23354e11c5273e379",
-      "title": "backfill agentiq codex with all 38 historical merged prs",
-      "author": "Claude",
-      "timestamp": "2026-03-27T02:14:07Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f3ff549.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
