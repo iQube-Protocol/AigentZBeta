@@ -1,11 +1,22 @@
 /**
- * Social Sharing Modal - Simple version without UI dependencies
- * Provides platform-specific sharing URLs and functionality
+ * Social Sharing Modal — Qriptopian rich share surface.
+ *
+ * Privacy contract (CLAUDE.md § Identity & Access Spine):
+ *   • personaId is T0 server-internal — NEVER appears in deep-link
+ *     URLs OR in user-visible UI. We only use it server-side via
+ *     /api/social/track to register the share intent.
+ *   • Attribution to the sharing persona is handled by an opaque
+ *     shareId that maps to persona_id in the social_share_analytics
+ *     table. The deep link carries only ?s=<shareId>; nothing about
+ *     the persona's UUID, FIO handle, or auth profile ever travels
+ *     in the share payload.
+ *   • Visible badge uses the persona's T1 displayLabel / ownFioHandle
+ *     (caller's own handle is browser-safe).
  */
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 interface SocialSharingModalProps {
@@ -19,16 +30,23 @@ interface SocialSharingModalProps {
     type?: 'text' | 'video';
     url?: string;
   };
+  /** T0 — used server-side ONLY for share-intent registration via
+   *  /api/social/track. Never embedded in URLs or rendered in UI. */
   personaId?: string;
+  /** T1 — displayed in the "Shared by <label>" badge. Falls back to
+   *  the active-persona surface's displayLabel/ownFioHandle when not
+   *  supplied. */
+  personaLabel?: string;
   onShare?: (platform: string) => void;
 }
 
-export function SocialSharingModal({ 
-  isOpen, 
-  onClose, 
-  article, 
-  personaId, 
-  onShare 
+export function SocialSharingModal({
+  isOpen,
+  onClose,
+  article,
+  personaId,
+  personaLabel,
+  onShare,
 }: SocialSharingModalProps) {
   const [copied, setCopied] = useState(false);
   const [shareId] = useState(() => {
@@ -38,11 +56,32 @@ export function SocialSharingModal({
     return `share_${Date.now()}_${Math.random().toString(16).slice(2)}`;
   });
 
+  // Register the share intent server-side on first open so the
+  // shareId → persona_id mapping exists before the link is shared.
+  // /api/social/track upserts a social_share_analytics row keyed by
+  // shareId. Idempotent + best-effort — failure doesn't block the
+  // modal because the link still works (clicks just won't attribute).
+  const registeredRef = useRef(false);
+  useEffect(() => {
+    if (!isOpen) return;
+    if (registeredRef.current) return;
+    registeredRef.current = true;
+    void fetch('/api/social/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        shareId,
+        personaId,                 // server-side only
+        contentId: article.id,
+        eventType: 'create',
+      }),
+    }).catch(() => { /* non-fatal — link still works */ });
+  }, [isOpen, shareId, personaId, article.id]);
+
   if (!isOpen) return null;
 
-  // If the caller supplies article.url, treat it as the canonical share
-  // target (e.g. wallet invite links pointing at metame.live with an
-  // embedded ref code). Otherwise build the in-app /article landing URL.
+  // Deep link is built around shareId only. personaId is NEVER added
+  // to the URL — the server-side mapping does the attribution.
   let deepLink: string;
   if (article.url) {
     deepLink = article.url;
@@ -52,16 +91,19 @@ export function SocialSharingModal({
     contentUrl.searchParams.set('title', article.title);
     if (article.section) contentUrl.searchParams.set('section', article.section);
     if (article.type) contentUrl.searchParams.set('type', article.type);
-    if (personaId) contentUrl.searchParams.set('persona', personaId);
-    if (shareId) contentUrl.searchParams.set('shareId', shareId);
+    contentUrl.searchParams.set('shareId', shareId);
 
     const trackUrl = new URL(`${window.location.origin}/api/social/track`);
     trackUrl.searchParams.set('s', shareId);
     trackUrl.searchParams.set('r', contentUrl.toString());
     deepLink = trackUrl.toString();
   }
-  
+
   const shareText = `Check out this article: ${article.title}${article.description ? ` - ${article.description}` : ''}`;
+
+  // T1-safe display label for the "Shared by …" badge. Falls back to
+  // nothing rather than ever rendering personaId.
+  const displayBadge = personaLabel?.trim() || null;
 
   // Social platforms configuration with SVG logos
   const socialPlatforms = [
@@ -235,10 +277,10 @@ export function SocialSharingModal({
           {article.description && (
             <p className="text-sm text-gray-300 line-clamp-2">{article.description}</p>
           )}
-          {personaId && (
+          {displayBadge && (
             <div className="mt-2">
               <span className="inline-block bg-cyan-500/20 text-cyan-400 text-xs px-2 py-1 rounded border border-cyan-500/30">
-                Shared via persona: {personaId}
+                Shared by {displayBadge}
               </span>
             </div>
           )}
