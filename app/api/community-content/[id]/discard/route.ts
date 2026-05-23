@@ -117,6 +117,27 @@ export async function POST(
   }
   if (content.status !== 'draft') return NextResponse.json({ ok: false, error: `Cannot discard once ${content.status}` }, { status: 409 });
 
+  // IMPORTANT: financial side-effects belong to the CREATOR persona,
+  // not the caller. Otherwise discarding marketa's draft as devagent
+  // would refund the Q¢ into devagent's wallet and stamp devagent's
+  // daily-refund quota — leaking value between personas. The
+  // ownership check above only relaxes WHO can trigger the discard;
+  // it doesn't change WHO bears the financial outcome.
+  const financialPersonaId = content.creator_persona_id;
+
+  // The quota check needs to be against the CREATOR's quota row, not
+  // the caller's (which we pre-fetched). Re-fetch the creator's quota
+  // when caller != creator so we apply the right daily-refund limit.
+  let creatorQuota = quota;
+  if (financialPersonaId !== personaId) {
+    const { data: refetched } = await supabase
+      .from('community_content_quotas')
+      .select('daily_refund_used_date')
+      .eq('persona_id', financialPersonaId)
+      .maybeSingle();
+    creatorQuota = refetched as { daily_refund_used_date: string | null } | null;
+  }
+
   const ageSeconds = (Date.now() - new Date(content.created_at).getTime()) / 1000;
   if (ageSeconds > settings.discard_window_seconds) {
     return NextResponse.json(
@@ -126,16 +147,16 @@ export async function POST(
   }
 
   const today = todayISO();
-  if (quota?.daily_refund_used_date === today && settings.daily_discard_refund <= 1) {
+  if (creatorQuota?.daily_refund_used_date === today && settings.daily_discard_refund <= 1) {
     return NextResponse.json(
       { ok: false, error: 'Daily discard refund already used' },
       { status: 429 },
     );
   }
 
-  // Refund (only if there was a charge)
+  // Refund — to the CREATOR's qc_balances (only if there was a charge)
   if (content.qc_cost > 0) {
-    await creditQc(supabase, personaId, content.qc_cost, 'community_content_discard_refund', id);
+    await creditQc(supabase, financialPersonaId, content.qc_cost, 'community_content_discard_refund', id);
   }
 
   // Delete the content row
@@ -147,12 +168,12 @@ export async function POST(
     return NextResponse.json({ ok: false, error: deleteError.message }, { status: 500 });
   }
 
-  // Stamp the daily refund date
+  // Stamp the daily refund date on the CREATOR's quota row
   await supabase
     .from('community_content_quotas')
     .upsert(
       {
-        persona_id:             personaId,
+        persona_id:             financialPersonaId,
         daily_refund_used_date: today,
         last_discard_refund_at: new Date().toISOString(),
         updated_at:             new Date().toISOString(),
