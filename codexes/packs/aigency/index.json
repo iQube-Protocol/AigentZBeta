@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-22T22:43:00.961Z",
+  "last_updated": "2026-05-23T00:46:15.894Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "f4fd3b4e2869308637103e729cd700e23b22a508",
-  "latest_commit_short": "f4fd3b4",
-  "latest_commit_title": "land at top of capsule/article panel on open, not bottom of chat",
+  "latest_commit": "adee0c3e7b3f63220a2bb730e63ff7460945e54f",
+  "latest_commit_short": "adee0c3",
+  "latest_commit_title": "remove redundant mic from aigentMe copilot input — Marketa already handles voice there",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "adee0c3",
+      "full_sha": "adee0c3e7b3f63220a2bb730e63ff7460945e54f",
+      "title": "remove redundant mic from aigentMe copilot input — Marketa already handles voice there",
+      "author": "Claude",
+      "timestamp": "2026-05-23T00:44:27Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-adee0c3.md"
+    },
     {
       "sha": "f4fd3b4",
       "full_sha": "f4fd3b4e2869308637103e729cd700e23b22a508",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-26T01:21:38Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-2bdd662.md"
-    },
-    {
-      "sha": "6a9e02b",
-      "full_sha": "6a9e02bf99dd3298288b4c6df167096fc5e62800",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-26T01:10:37Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-6a9e02b.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
