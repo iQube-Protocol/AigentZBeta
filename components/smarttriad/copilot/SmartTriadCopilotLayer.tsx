@@ -9,7 +9,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import { useIsMobile } from "@/app/hooks/use-mobile";
-import { MicButton } from "@/components/ui/MicButton";
 import { SmartTriadInferenceRenderer, type SmartTriadMessage } from "./SmartTriadInferenceRenderer";
 import {
   Bot,
@@ -665,11 +664,6 @@ function FloatingCopilot({
                   className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-white/40 focus:outline-none focus:ring-1 focus:ring-cyan-500/60 focus:border-cyan-500/40 transition-colors"
                   disabled={isProcessing}
                 />
-                <MicButton
-                  onTranscript={(text) => setInput((input ? `${input.trimEnd()} ${text}` : text))}
-                  disabled={isProcessing}
-                  theme="dark"
-                />
                 <button
                   onClick={onSend}
                   disabled={!input.trim() || isProcessing}
@@ -897,11 +891,6 @@ function EmbeddedCopilot({
               placeholder={promptPlaceholder}
               className={`flex-1 px-3 py-2 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm ${inputPanelInputClassName}`}
               disabled={isProcessing}
-            />
-            <MicButton
-              onTranscript={(text) => setInput((input ? `${input.trimEnd()} ${text}` : text))}
-              disabled={isProcessing}
-              theme="dark"
             />
             <button
               onClick={onSend}
