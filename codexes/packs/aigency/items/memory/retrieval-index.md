@@ -924,3 +924,43 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-7e62358.md](../build_/COMMITS/COMMIT-7e62358.md)
 - Message: mic on remaining free-form inputs in metaMe setup + alignment surfaces
+
+## Commit `d2f4b9d` — 2026-05-23T17:34:19Z
+- Type: `push`
+- Brief: [COMMIT-d2f4b9d.md](../build_/COMMITS/COMMIT-d2f4b9d.md)
+- Message: Phase 2 Slices 1-6: BriefLayout + DecisionBoard + VentureCockpit + Composer + ApprovalLayout (interrupt) + LedgerLayout + shared LayoutShell + consolidated layoutProps spread
+
+## Commit `c5a8aba` — 2026-05-23T16:49:00Z
+- Type: `push`
+- Brief: [COMMIT-c5a8aba.md](../build_/COMMITS/COMMIT-c5a8aba.md)
+- Message: Phase 2 Slice 0: layout registry scaffold (zero visual change) + dedicated mobile shapes in DIS + /api/design-parity/dis fetch endpoint for dog-food loop
+
+## Commit `f8bf182` — 2026-05-23T15:01:18Z
+- Type: `push`
+- Brief: [COMMIT-f8bf182.md](../build_/COMMITS/COMMIT-f8bf182.md)
+- Message: Phase 2 dog-food: DIS for aigentMe right-pane layouts + handbook §8b (Studio Design Intent / Parity framework as governing contract) + case-study doc
+
+## Commit `8d27fc5` — 2026-05-23T14:40:33Z
+- Type: `push`
+- Brief: [COMMIT-8d27fc5.md](../build_/COMMITS/COMMIT-8d27fc5.md)
+- Message: Handbook + agent KB: Design Fidelity posture (PARAMOUNT) — four-axis test, canonical tokens, composition + right-pane symmetry rules
+
+## Commit `5fcf602` — 2026-05-23T14:27:59Z
+- Type: `push`
+- Brief: [COMMIT-5fcf602.md](../build_/COMMITS/COMMIT-5fcf602.md)
+- Message: personas: inject OPERATIONAL_HANDBOOK into all 7 operational agent system prompts (architectural ground truth, not confidential)
+
+## Commit `b0a428a` — 2026-05-23T14:20:35Z
+- Type: `feat`
+- Brief: [COMMIT-b0a428a.md](../build_/COMMITS/COMMIT-b0a428a.md)
+- Message: facilitator/verify: add mainnet RPC cases (Base 8453, Eth 1, Arb 42161, OP 10, Polygon 137) so USDC mainnet credit can verify
+
+## Commit `d67b080` — 2026-05-23T13:51:44Z
+- Type: `push`
+- Brief: [COMMIT-d67b080.md](../build_/COMMITS/COMMIT-d67b080.md)
+- Message: Operators Handbook v1: canonical surface inventory + privacy seams + change impact checklist (AgentiQ → Operators Manual tab)
+
+## Commit `5b08bfe` — 2026-05-23T13:25:59Z
+- Type: `push`
+- Brief: [COMMIT-5b08bfe.md](../build_/COMMITS/COMMIT-5b08bfe.md)
+- Message: Strategy: actionable blockers — clickable chips open Partners + KPIs editors that close the declared-fields gap

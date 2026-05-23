@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-23T13:15:47.191Z",
+  "last_updated": "2026-05-23T18:12:20.678Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "7e623588967fd109c4129b5edf89a98415406ada",
-  "latest_commit_short": "7e62358",
-  "latest_commit_title": "mic on remaining free-form inputs in metaMe setup + alignment surfaces",
+  "latest_commit": "5b08bfe0ce5af234fef9092c1b03c95ae1559e99",
+  "latest_commit_short": "5b08bfe",
+  "latest_commit_title": "Strategy: actionable blockers — clickable chips open Partners + KPIs editors that close the declared-fields gap",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,78 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5b08bfe",
+      "full_sha": "5b08bfe0ce5af234fef9092c1b03c95ae1559e99",
+      "title": "Strategy: actionable blockers — clickable chips open Partners + KPIs editors that close the declared-fields gap",
+      "author": "Claude",
+      "timestamp": "2026-05-23T13:25:59Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5b08bfe.md"
+    },
+    {
+      "sha": "d67b080",
+      "full_sha": "d67b080893384c5b5a6474a4bf803f0cc5bb0f7c",
+      "title": "Operators Handbook v1: canonical surface inventory + privacy seams + change impact checklist (AgentiQ → Operators Manual tab)",
+      "author": "Claude",
+      "timestamp": "2026-05-23T13:51:44Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d67b080.md"
+    },
+    {
+      "sha": "b0a428a",
+      "full_sha": "b0a428a847b91565848cb5a9b69404bb1a56c8b2",
+      "title": "facilitator/verify: add mainnet RPC cases (Base 8453, Eth 1, Arb 42161, OP 10, Polygon 137) so USDC mainnet credit can verify",
+      "author": "Claude",
+      "timestamp": "2026-05-23T14:20:35Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-b0a428a.md"
+    },
+    {
+      "sha": "5fcf602",
+      "full_sha": "5fcf602ed6fc69a02134e64ac9f1ed7642a51905",
+      "title": "personas: inject OPERATIONAL_HANDBOOK into all 7 operational agent system prompts (architectural ground truth, not confidential)",
+      "author": "Claude",
+      "timestamp": "2026-05-23T14:27:59Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5fcf602.md"
+    },
+    {
+      "sha": "8d27fc5",
+      "full_sha": "8d27fc562df1dea4b82d62cdca19718769a522ff",
+      "title": "Handbook + agent KB: Design Fidelity posture (PARAMOUNT) — four-axis test, canonical tokens, composition + right-pane symmetry rules",
+      "author": "Claude",
+      "timestamp": "2026-05-23T14:40:33Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-8d27fc5.md"
+    },
+    {
+      "sha": "f8bf182",
+      "full_sha": "f8bf182f4c79e9bb220e88ec8d97f86cc3b520e8",
+      "title": "Phase 2 dog-food: DIS for aigentMe right-pane layouts + handbook §8b (Studio Design Intent / Parity framework as governing contract) + case-study doc",
+      "author": "Claude",
+      "timestamp": "2026-05-23T15:01:18Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f8bf182.md"
+    },
+    {
+      "sha": "c5a8aba",
+      "full_sha": "c5a8aba4dd4011c0ab5e552d861378ef10ecb408",
+      "title": "Phase 2 Slice 0: layout registry scaffold (zero visual change) + dedicated mobile shapes in DIS + /api/design-parity/dis fetch endpoint for dog-food loop",
+      "author": "Claude",
+      "timestamp": "2026-05-23T16:49:00Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c5a8aba.md"
+    },
+    {
+      "sha": "d2f4b9d",
+      "full_sha": "d2f4b9d4c162113d907db0e414d3506f2609e0c2",
+      "title": "Phase 2 Slices 1-6: BriefLayout + DecisionBoard + VentureCockpit + Composer + ApprovalLayout (interrupt) + LedgerLayout + shared LayoutShell + consolidated layoutProps spread",
+      "author": "Claude",
+      "timestamp": "2026-05-23T17:34:19Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d2f4b9d.md"
+    },
     {
       "sha": "7e62358",
       "full_sha": "7e623588967fd109c4129b5edf89a98415406ada",
@@ -1180,78 +1252,6 @@
       "timestamp": "2026-03-27T01:38:55Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-703a027.md"
-    },
-    {
-      "sha": "6e4931f",
-      "full_sha": "6e4931f4ebba407b48cff3cd16c56560f39d97d1",
-      "title": "add deploy_experience and check_discord_status tools to Marketa",
-      "author": "Claude",
-      "timestamp": "2026-03-27T00:43:57Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-6e4931f.md"
-    },
-    {
-      "sha": "832dfd7",
-      "full_sha": "832dfd7bf2ece7540969319d15cc236511600edd",
-      "title": "add content generation tools to Marketa: image, video, article, and bundles",
-      "author": "Claude",
-      "timestamp": "2026-03-26T04:15:06Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-832dfd7.md"
-    },
-    {
-      "sha": "9ac363d",
-      "full_sha": "9ac363d09dd17ee71a5d78b1937fcaae822a11c0",
-      "title": "add Make scenario browser and Marketa tool calling",
-      "author": "Claude",
-      "timestamp": "2026-03-26T03:15:42Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-9ac363d.md"
-    },
-    {
-      "sha": "f37a298",
-      "full_sha": "f37a298a993236aac21cf9beb59da336da4b3a2e",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-26T02:10:32Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-f37a298.md"
-    },
-    {
-      "sha": "c2d643f",
-      "full_sha": "c2d643f364254a153594eda9054d387450d54401",
-      "title": "add workflow run polling, history, manifest display, QubeTalk invoke lane, env var health flags",
-      "author": "Claude",
-      "timestamp": "2026-03-26T02:10:27Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-c2d643f.md"
-    },
-    {
-      "sha": "caf9461",
-      "full_sha": "caf94610a4a07493dbe9b5a3ea5a2a2bc132db56",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-26T01:22:01Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-caf9461.md"
-    },
-    {
-      "sha": "9a0bf7d",
-      "full_sha": "9a0bf7dc8e52f22dcb830ec8cee602c8d1d07a59",
-      "title": "add Workflows tab to Composer Studio analysis panel",
-      "author": "Claude",
-      "timestamp": "2026-03-26T01:21:53Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-9a0bf7d.md"
-    },
-    {
-      "sha": "afb9a24",
-      "full_sha": "afb9a24520a0a76786221cfd4ed1d4e7f7c5defc",
-      "title": "add n8n + ACI adapters and shared adapter registry",
-      "author": "Claude",
-      "timestamp": "2026-03-26T01:21:47Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-afb9a24.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
