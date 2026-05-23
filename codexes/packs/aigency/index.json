@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-23T18:12:20.678Z",
+  "last_updated": "2026-05-23T18:26:58.353Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "5b08bfe0ce5af234fef9092c1b03c95ae1559e99",
-  "latest_commit_short": "5b08bfe",
-  "latest_commit_title": "Strategy: actionable blockers — clickable chips open Partners + KPIs editors that close the declared-fields gap",
+  "latest_commit": "d1698e5c1c59d15fa0f2d561939c95fef4af180b",
+  "latest_commit_short": "d1698e5",
+  "latest_commit_title": "personas: close OPERATIONAL_HANDBOOK template literal (was escaped backtick — broke Amplify build)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d1698e5",
+      "full_sha": "d1698e5c1c59d15fa0f2d561939c95fef4af180b",
+      "title": "personas: close OPERATIONAL_HANDBOOK template literal (was escaped backtick — broke Amplify build)",
+      "author": "Claude",
+      "timestamp": "2026-05-23T18:24:59Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d1698e5.md"
+    },
     {
       "sha": "5b08bfe",
       "full_sha": "5b08bfe0ce5af234fef9092c1b03c95ae1559e99",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-27T01:57:57Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-c89234f.md"
-    },
-    {
-      "sha": "703a027",
-      "full_sha": "703a0276b6f78bbbf4bdfb990becd26024c982fd",
-      "title": "implement agentiq codex pipeline + aigent z system ai",
-      "author": "Claude",
-      "timestamp": "2026-03-27T01:38:55Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-703a027.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
