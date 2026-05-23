@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-22T22:06:26.874Z",
+  "last_updated": "2026-05-22T22:43:00.961Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "bd16c017ef32ff6e42b869765d40813587783ead",
-  "latest_commit_short": "bd16c01",
-  "latest_commit_title": "remix drafter (idea → title/article/image) + mic on remixer, customizer, aigentMe copilot",
+  "latest_commit": "f4fd3b4e2869308637103e729cd700e23b22a508",
+  "latest_commit_short": "f4fd3b4",
+  "latest_commit_title": "land at top of capsule/article panel on open, not bottom of chat",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "f4fd3b4",
+      "full_sha": "f4fd3b4e2869308637103e729cd700e23b22a508",
+      "title": "land at top of capsule/article panel on open, not bottom of chat",
+      "author": "Claude",
+      "timestamp": "2026-05-22T22:41:01Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f4fd3b4.md"
+    },
     {
       "sha": "bd16c01",
       "full_sha": "bd16c017ef32ff6e42b869765d40813587783ead",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-03-26T01:10:37Z",
       "type": "deploy",
       "brief": "items/build_/COMMITS/COMMIT-6a9e02b.md"
-    },
-    {
-      "sha": "3ad1e43",
-      "full_sha": "3ad1e4318d564e9b46cef6919735872c290a674d",
-      "title": "add ChannelQube — migration, store, channel API, wire invoke to QubeTalk",
-      "author": "Claude",
-      "timestamp": "2026-03-26T01:10:32Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-3ad1e43.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
