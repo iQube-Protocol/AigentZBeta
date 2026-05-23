@@ -1,6 +1,6 @@
 'use client';
 
-import { BookOpen, Eye, Headphones, Loader2, Play, Share2, Square } from 'lucide-react';
+import { BookOpen, Eye, Headphones, Loader2, Play, Share2, Square, UserPlus } from 'lucide-react';
 import { CodexBadge } from './CodexBadge';
 import { getContentPrice } from './utils/contentFlags';
 import { useTTSPlayer } from '@/app/hooks/useTTSPlayer';
@@ -10,13 +10,22 @@ type Variant = 'indigo' | 'amber' | 'slate';
 interface CodexActionRowProps {
   showRead?: boolean;
   showWatch?: boolean;
+  /**
+   * `showView` defaults to `true` ONLY when no other primary modality
+   * (Read/Watch/Listen) is shown. This prevents the redundant View+Watch
+   * pairing that previously opened the same content viewer. Pass an
+   * explicit boolean when Watch and View point at genuinely different
+   * media (e.g. Watch=video, View=image preview).
+   */
   showView?: boolean;
   showShare?: boolean;
+  showInvite?: boolean;
   showListen?: boolean;
   onRead?: () => void;
   onWatch?: () => void;
   onView?: () => void;
   onShare?: () => void;
+  onInvite?: () => void;
   /**
    * TTS text resolver. When provided alongside showListen, the row renders a
    * first-class Listen action that streams audio via /api/skills/tts. New
@@ -55,13 +64,15 @@ const VARIANTS: Record<Variant, { primary: string; secondary: string }> = {
 export function CodexActionRow({
   showRead,
   showWatch,
-  showView = true,
-  showShare = false,
+  showView,
+  showShare,
+  showInvite,
   showListen = false,
   onRead,
   onWatch,
   onView,
   onShare,
+  onInvite,
   getListenText,
   listenVoice,
   variant = 'indigo',
@@ -69,6 +80,16 @@ export function CodexActionRow({
   item,
   isOwned = false,
 }: CodexActionRowProps) {
+  // Auto-dedup: only render View when no other primary modality is present.
+  // Cards can still force View on by passing showView={true} explicitly.
+  const resolvedShowView =
+    typeof showView === 'boolean'
+      ? showView
+      : !(showRead || showWatch || showListen);
+  // Share + Invite default to true when a handler is provided — gives
+  // every thumbnail social affordances without each tab opting in.
+  const resolvedShowShare = showShare ?? !!onShare;
+  const resolvedShowInvite = showInvite ?? !!onInvite;
   const styles = VARIANTS[variant];
   const base =
     'flex items-center justify-center gap-1 rounded-md px-2 py-1 text-xs font-semibold transition-colors border';
@@ -88,7 +109,7 @@ export function CodexActionRow({
 
   const price = item ? getContentPrice(item as any) : null;
 
-  if (!showRead && !showWatch && !showView && !showShare && !listenEnabled && price === null) return null;
+  if (!showRead && !showWatch && !resolvedShowView && !resolvedShowShare && !resolvedShowInvite && !listenEnabled && price === null) return null;
 
   return (
     <div className={`flex items-center gap-2 flex-wrap ${className || ''}`}>
@@ -117,7 +138,7 @@ export function CodexActionRow({
           Watch
         </button>
       )}
-      {showView && (
+      {resolvedShowView && (
         <button
           type="button"
           onClick={stop(onView)}
@@ -128,7 +149,7 @@ export function CodexActionRow({
           View
         </button>
       )}
-      {showShare && (
+      {resolvedShowShare && (
         <button
           type="button"
           onClick={stop(onShare)}
@@ -137,6 +158,17 @@ export function CodexActionRow({
         >
           <Share2 className="h-3 w-3" />
           Share
+        </button>
+      )}
+      {resolvedShowInvite && (
+        <button
+          type="button"
+          onClick={stop(onInvite)}
+          aria-label="Invite"
+          className={`${base} ${styles.secondary}`}
+        >
+          <UserPlus className="h-3 w-3" />
+          Invite
         </button>
       )}
       {listenEnabled && (
