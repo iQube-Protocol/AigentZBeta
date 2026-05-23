@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
-const VALID_MODES = ['immediate', 'deferred', 'canonical'] as const;
+const VALID_MODES = ['immediate', 'deferred', 'canonical', 'remote'] as const;
 type MintingMode = (typeof VALID_MODES)[number];
 
 export async function GET() {
