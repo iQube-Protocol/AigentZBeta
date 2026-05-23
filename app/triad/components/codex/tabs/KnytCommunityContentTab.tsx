@@ -76,7 +76,16 @@ export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin }: Props)
         params.set("status", "shared,runtime_promoted");
       }
       const res = await fetch(`/api/community-content/list?${params}`, { cache: "no-store" });
-      const json = await res.json();
+      let json: { ok?: boolean; items?: CommunityContentItem[]; error?: string };
+      try {
+        json = await res.json();
+      } catch {
+        // Empty body (e.g. Lambda payload limit, network drop) — keep
+        // the error message readable instead of letting the raw
+        // 'JSON.parse: unexpected end of data' through.
+        setError(`Community list failed (${res.status || 'server error'}) — try again`);
+        return;
+      }
       if (!res.ok || !json.ok) {
         setError(json.error || `Failed to load (${res.status})`);
         return;

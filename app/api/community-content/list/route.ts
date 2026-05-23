@@ -65,7 +65,15 @@ export async function GET(req: NextRequest) {
 
     let query = supabase
       .from('community_generated_content')
-      .select('id, creator_persona_id, source_experience_id, parent_id, skill, title, prompt, article_body, image_url, status, qc_cost, generation_index, runtime_promoted_at, created_at, updated_at')
+      // IMPORTANT: don't select article_body or image_url here. Articles
+      // run 600–900 words and image_url is a base64 data URL (~100KB–1MB)
+      // — cumulative response exceeds AWS Lambda's 6 MB ceiling and the
+      // route returns 413 with an empty body, which the client surfaces
+      // as 'JSON.parse: unexpected end of data'. Card thumbnails are
+      // looked up separately (see imagePreview hydration on the client)
+      // and the full article body is fetched on-demand when the user
+      // opens an item.
+      .select('id, creator_persona_id, source_experience_id, parent_id, skill, title, prompt, status, qc_cost, generation_index, runtime_promoted_at, created_at, updated_at')
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -106,8 +114,10 @@ export async function GET(req: NextRequest) {
       title:               r.title,
       prompt:              r.prompt,
       skill:               r.skill,
-      articleBody:         r.article_body,
-      imageUrl:            r.image_url,
+      // articleBody + imageUrl intentionally omitted — fetch full item
+      // via /api/community-content/<id> when the user opens it.
+      articleBody:         null as string | null,
+      imageUrl:            null as string | null,
       status:              r.status,
       qcCost:              r.qc_cost,
       generationIndex:     r.generation_index,

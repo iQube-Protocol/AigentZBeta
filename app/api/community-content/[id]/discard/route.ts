@@ -17,9 +17,36 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCommunityContentSupabase } from '../../_lib/personaContext';
 import { creditQc } from '../../_lib/generate';
 import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getCallerIdentityContext } from '@/services/wallet/personaRepo';
+import { getMergedLinkedAuthProfileIds } from '@/services/wallet/multiEmailIdentity';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+// See publish/route.ts callerOwnsCreator for rationale — relaxes
+// strict personaId equality so users with multiple personas can
+// discard any of their own draft remixes.
+async function callerOwnsCreator(
+  req: NextRequest,
+  creatorPersonaId: string,
+): Promise<boolean> {
+  try {
+    const caller = await getCallerIdentityContext(req);
+    if (!caller) return false;
+    const supabase = getCommunityContentSupabase();
+    const linked = await getMergedLinkedAuthProfileIds(caller.authProfileId).catch(() => []);
+    const visible = Array.from(new Set([caller.authProfileId, ...linked]));
+    const { data } = await supabase
+      .from('personas')
+      .select('id')
+      .in('auth_profile_id', visible)
+      .eq('id', creatorPersonaId)
+      .maybeSingle();
+    return !!data;
+  } catch {
+    return false;
+  }
+}
 
 interface Settings {
   discard_window_seconds: number;
@@ -84,7 +111,10 @@ export async function POST(
   const quota = quotaResult.data as { daily_refund_used_date: string | null } | null;
 
   if (!content) return NextResponse.json({ ok: false, error: 'Not found' }, { status: 404 });
-  if (content.creator_persona_id !== personaId) return NextResponse.json({ ok: false, error: 'Not your content' }, { status: 403 });
+  if (content.creator_persona_id !== personaId) {
+    const ok = await callerOwnsCreator(req, content.creator_persona_id);
+    if (!ok) return NextResponse.json({ ok: false, error: 'Not your content' }, { status: 403 });
+  }
   if (content.status !== 'draft') return NextResponse.json({ ok: false, error: `Cannot discard once ${content.status}` }, { status: 409 });
 
   const ageSeconds = (Date.now() - new Date(content.created_at).getTime()) / 1000;
