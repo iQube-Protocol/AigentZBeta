@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Loader2, Plus, X, ArrowUp, ArrowDown, Target } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
+import { MicButton } from "@/components/ui/MicButton";
 
 interface Props {
   open: boolean;
@@ -187,6 +188,8 @@ export function ExperienceGoalsEditor({ open, onOpenChange, personaId, onSaved }
               <div className="flex items-center gap-2">
                 <input
                   type="text"
+                  name="experience-goal"
+                  autoComplete="off"
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={(e) => {
@@ -198,6 +201,11 @@ export function ExperienceGoalsEditor({ open, onOpenChange, personaId, onSaved }
                   placeholder="Add a goal Aigent Me should keep moving forward…"
                   maxLength={MAX_LEN}
                   className="flex-1 px-3 py-2 text-sm rounded border border-slate-700 bg-slate-900 text-slate-100 placeholder-slate-500 focus:border-violet-500/60 focus:outline-none"
+                />
+                <MicButton
+                  onTranscript={(text) => setDraft(draft ? `${draft.trimEnd()} ${text}` : text)}
+                  size="sm"
+                  theme="dark"
                 />
                 <button
                   type="button"

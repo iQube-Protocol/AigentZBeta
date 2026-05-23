@@ -255,14 +255,25 @@ export function ExperienceModelSetupWizard({ open, onOpenChange, initial, onSave
           {step === 0 && (
             <>
               <Field label="What are you building or progressing?" required>
-                <input
-                  type="text"
-                  value={form.experienceName}
-                  onChange={(e) => update("experienceName", e.target.value)}
-                  placeholder="KNYT Wheel · metaMe Alpha · Qriptopian launch · Partner campaign"
-                  className="w-full px-3 py-2 rounded-md bg-slate-800/60 border border-slate-700 text-sm focus:outline-none focus:border-violet-500"
-                  maxLength={500}
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    name="experience-name"
+                    autoComplete="off"
+                    value={form.experienceName}
+                    onChange={(e) => update("experienceName", e.target.value)}
+                    placeholder="KNYT Wheel · metaMe Alpha · Qriptopian launch · Partner campaign"
+                    className="flex-1 px-3 py-2 rounded-md bg-slate-800/60 border border-slate-700 text-sm focus:outline-none focus:border-violet-500"
+                    maxLength={500}
+                  />
+                  <MicButton
+                    onTranscript={(text) =>
+                      update("experienceName", form.experienceName ? `${form.experienceName.trimEnd()} ${text}` : text)
+                    }
+                    size="sm"
+                    theme="dark"
+                  />
+                </div>
               </Field>
 
               <Field label="Experience type">

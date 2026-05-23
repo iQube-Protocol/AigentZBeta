@@ -32,6 +32,7 @@ import {
   type SphereAxis,
 } from "@/types/experienceGuide";
 import { PersonalGuideSetupWizard } from "@/components/metame/setup/PersonalGuideSetupWizard";
+import { MicButton } from "@/components/ui/MicButton";
 
 const ALIGNMENT_BG: Record<AlignmentState, string> = {
   aligned:  "border-emerald-500/40 bg-emerald-500/10",
@@ -286,21 +287,35 @@ function ExperienceAlignmentInner({ personaId }: { personaId: string }) {
             </select>
             <input
               type="text"
+              name="repair-risk-signal"
+              autoComplete="off"
               value={newRiskSignal}
               onChange={(e) => setNewRiskSignal(e.target.value)}
               placeholder="What is pulling this sphere out of alignment?"
               className="flex-1 min-w-[200px] px-3 py-1.5 rounded bg-slate-800 border border-slate-700 text-xs text-slate-100"
               maxLength={500}
             />
+            <MicButton
+              onTranscript={(text) => setNewRiskSignal(newRiskSignal ? `${newRiskSignal.trimEnd()} ${text}` : text)}
+              size="sm"
+              theme="dark"
+            />
           </div>
           <div className="flex flex-wrap gap-2 items-center">
             <input
               type="text"
+              name="repair-risk-remedy"
+              autoComplete="off"
               value={newRiskSuggestion}
               onChange={(e) => setNewRiskSuggestion(e.target.value)}
               placeholder="Suggested remedy (optional)"
               className="flex-1 min-w-[200px] px-3 py-1.5 rounded bg-slate-800 border border-slate-700 text-xs text-slate-100"
               maxLength={500}
+            />
+            <MicButton
+              onTranscript={(text) => setNewRiskSuggestion(newRiskSuggestion ? `${newRiskSuggestion.trimEnd()} ${text}` : text)}
+              size="sm"
+              theme="dark"
             />
             <button
               type="button"
