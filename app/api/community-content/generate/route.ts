@@ -126,7 +126,16 @@ export async function POST(req: NextRequest) {
 
   const baseCost = skill === 'story' ? settings.cost_qc_story : settings.cost_qc_article;
   const surchargedCost = Math.round(baseCost * (1 + settings.surcharge_pct / 100));
-  const qcCost = freeRemaining > 0 ? 0 : surchargedCost;
+
+  // ── TEMPORARY testing override — unlimited free remixes ─────────────────
+  // Set REMIX_TESTING_FREE=true in Amplify env to bypass the daily-quota
+  // gate AND the Q¢ debit entirely so we can keep iterating on remix UX
+  // while the wallet / persona-resolution / payments workstreams settle
+  // separately. Reverse by removing the env var. Quota counters are NOT
+  // incremented while this flag is on so users don't burn through a
+  // counter that doesn't matter.
+  const REMIX_TESTING_FREE = process.env.REMIX_TESTING_FREE === 'true';
+  const qcCost = REMIX_TESTING_FREE ? 0 : (freeRemaining > 0 ? 0 : surchargedCost);
 
   // 2. Debit Q¢ first — fail fast if user can't afford
   const referenceId = `cgc-pending-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -212,9 +221,15 @@ export async function POST(req: NextRequest) {
   }
 
   // 6. Bump quota counters
+  // When REMIX_TESTING_FREE is on, keep daily_free_used at its current
+  // value — we don't want testing runs to burn through a counter that
+  // doesn't gate anything while the flag is set. total_generations
+  // still increments so we have a sane audit trail.
   const newQuotaPayload = {
     persona_id:           personaId,
-    daily_free_used:      freeRemaining > 0 ? usedFreeToday + 1 : usedFreeToday,
+    daily_free_used:      REMIX_TESTING_FREE
+      ? usedFreeToday
+      : (freeRemaining > 0 ? usedFreeToday + 1 : usedFreeToday),
     daily_free_used_date: today,
     total_generations:    generationIndex,
     total_qc_spent:       (quota?.total_qc_spent ?? 0) + qcCost,
