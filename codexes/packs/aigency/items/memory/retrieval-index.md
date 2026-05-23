@@ -994,3 +994,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-63d8621.md](../build_/COMMITS/COMMIT-63d8621.md)
 - Message: ApprovalLayout: unify second-tier external-action confirm + NBE approval through one Phase-2 overlay; drop inline SecondTierApprovalCard from stack
+
+## Commit `1c01f6c` — 2026-05-23T22:11:27Z
+- Type: `push`
+- Brief: [COMMIT-1c01f6c.md](../build_/COMMITS/COMMIT-1c01f6c.md)
+- Message: ArtifactCard: hide Gmail/Drive 'Open' link pre-approval (only show after status approved|sent|published) — fixes flow-interruption where Open was clicked instead of Send draft
