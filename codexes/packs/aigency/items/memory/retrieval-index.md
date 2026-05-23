@@ -989,3 +989,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-8f7942f.md](../build_/COMMITS/COMMIT-8f7942f.md)
 - Message: Phase 2 color pass: shared accentTokens + glass-fill across Brief / Decision / Venture / Composer / Ledger; Google Drive token cross-persona fallback (auth-profile siblings)
+
+## Commit `63d8621` — 2026-05-23T21:35:13Z
+- Type: `push`
+- Brief: [COMMIT-63d8621.md](../build_/COMMITS/COMMIT-63d8621.md)
+- Message: ApprovalLayout: unify second-tier external-action confirm + NBE approval through one Phase-2 overlay; drop inline SecondTierApprovalCard from stack

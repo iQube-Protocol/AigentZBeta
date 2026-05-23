@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-23T20:55:09.792Z",
+  "last_updated": "2026-05-23T21:36:58.378Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "8f7942f14a7c38c33cfbaa6bbca2521ce2361870",
-  "latest_commit_short": "8f7942f",
-  "latest_commit_title": "Phase 2 color pass: shared accentTokens + glass-fill across Brief / Decision / Venture / Composer / Ledger; Google Drive token cross-persona fallback (auth-profile siblings)",
+  "latest_commit": "63d8621e0e1387eb18e68ed471952988e840984d",
+  "latest_commit_short": "63d8621",
+  "latest_commit_title": "ApprovalLayout: unify second-tier external-action confirm + NBE approval through one Phase-2 overlay; drop inline SecondTierApprovalCard from stack",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "63d8621",
+      "full_sha": "63d8621e0e1387eb18e68ed471952988e840984d",
+      "title": "ApprovalLayout: unify second-tier external-action confirm + NBE approval through one Phase-2 overlay; drop inline SecondTierApprovalCard from stack",
+      "author": "Claude",
+      "timestamp": "2026-05-23T21:35:13Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-63d8621.md"
+    },
     {
       "sha": "8f7942f",
       "full_sha": "8f7942f14a7c38c33cfbaa6bbca2521ce2361870",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-04-29T01:02:15Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-aa70e7d.md"
-    },
-    {
-      "sha": "7d6dbfa",
-      "full_sha": "7d6dbfa7bc11bfc4be31a8928ca5f5be710c6297",
-      "title": "fix React #130 SSR error in connections tab; switch $KNYT chain to Ethereum mainnet (chainId 1)",
-      "author": "Claude",
-      "timestamp": "2026-04-29T00:45:11Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-7d6dbfa.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
