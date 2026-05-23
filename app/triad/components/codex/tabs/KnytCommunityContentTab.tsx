@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { KnytReactionBar } from "@/components/metame/KnytReactionBar";
 import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal";
+import { ListenButton } from "@/components/shared/ListenButton";
 import { useActivePersona } from "@/app/hooks/useActivePersona";
 
 interface CommunityContentItem {
@@ -344,6 +345,11 @@ function ContentDetail({ item, personaId }: { item: CommunityContentItem; person
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {(fullBody || item.prompt) ? (
+            <ListenButton
+              getText={() => `${item.title}. ${fullBody || item.prompt || ""}`}
+            />
+          ) : null}
           <ShareMenu item={item} personaId={personaId} personaLabel={personaLabel} />
         </div>
       </div>

@@ -14,6 +14,7 @@ import { personaFetch } from "@/utils/personaSpine";
 import { RemixDialog } from "@/components/metame/runtime/RemixDialog";
 import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal";
 import { InviteModal } from "@/components/shared/InviteModal";
+import { ListenButton } from "@/components/shared/ListenButton";
 import { useActivePersona } from "@/app/hooks/useActivePersona";
 
 type CanvasEntryType = "note" | "experience_origin" | "experience_derived";
@@ -627,7 +628,12 @@ function ExperienceOriginPanel({
         />
       )}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-        <h2 className="text-base font-semibold text-slate-100 leading-tight">{entry.title}</h2>
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="text-base font-semibold text-slate-100 leading-tight">{entry.title}</h2>
+          {entry.bodyMd ? (
+            <ListenButton getText={() => `${entry.title}. ${entry.bodyMd}`} />
+          ) : null}
+        </div>
         <HydrationIndicator hydration={hydration} />
         {imageUrl && (
           <img
@@ -750,7 +756,12 @@ function ExperienceDerivedPanel({
             {publishError}
           </div>
         )}
-        <h2 className="text-base font-semibold text-slate-100 leading-tight">{entry.title}</h2>
+        <div className="flex items-start justify-between gap-3">
+          <h2 className="text-base font-semibold text-slate-100 leading-tight">{entry.title}</h2>
+          {entry.bodyMd ? (
+            <ListenButton getText={() => `${entry.title}. ${entry.bodyMd}`} />
+          ) : null}
+        </div>
         <HydrationIndicator hydration={hydration} />
         {imageUrl && (
           <img
