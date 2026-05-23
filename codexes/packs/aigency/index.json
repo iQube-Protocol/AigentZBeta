@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-23T19:58:52.537Z",
+  "last_updated": "2026-05-23T20:55:09.792Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "cfa06962c512ec496189d86ae8c45216fd910061",
-  "latest_commit_short": "cfa0696",
-  "latest_commit_title": "VentureCockpit: glass-fill accents (cyan/emerald/violet per row), carousel within body padding (no edge bleed), ApprovalLayout z-40 (above floating compose), body clearance for floating compose strip, compose-modal specific-field error",
+  "latest_commit": "8f7942f14a7c38c33cfbaa6bbca2521ce2361870",
+  "latest_commit_short": "8f7942f",
+  "latest_commit_title": "Phase 2 color pass: shared accentTokens + glass-fill across Brief / Decision / Venture / Composer / Ledger; Google Drive token cross-persona fallback (auth-profile siblings)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "8f7942f",
+      "full_sha": "8f7942f14a7c38c33cfbaa6bbca2521ce2361870",
+      "title": "Phase 2 color pass: shared accentTokens + glass-fill across Brief / Decision / Venture / Composer / Ledger; Google Drive token cross-persona fallback (auth-profile siblings)",
+      "author": "Claude",
+      "timestamp": "2026-05-23T20:53:17Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-8f7942f.md"
+    },
     {
       "sha": "cfa0696",
       "full_sha": "cfa06962c512ec496189d86ae8c45216fd910061",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-04-29T00:45:11Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-7d6dbfa.md"
-    },
-    {
-      "sha": "8422f70",
-      "full_sha": "8422f70bda7f2d0620a644f18da3745e393860d7",
-      "title": "add WalletConnect external wallet to SmartWallet Connections tab with EVM $KNYT balance and treasury send flow",
-      "author": "Claude",
-      "timestamp": "2026-04-28T23:26:03Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-8422f70.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

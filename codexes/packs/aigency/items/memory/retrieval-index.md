@@ -984,3 +984,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-cfa0696.md](../build_/COMMITS/COMMIT-cfa0696.md)
 - Message: VentureCockpit: glass-fill accents (cyan/emerald/violet per row), carousel within body padding (no edge bleed), ApprovalLayout z-40 (above floating compose), body clearance for floating compose strip, compose-modal specific-field error
+
+## Commit `8f7942f` — 2026-05-23T20:53:17Z
+- Type: `push`
+- Brief: [COMMIT-8f7942f.md](../build_/COMMITS/COMMIT-8f7942f.md)
+- Message: Phase 2 color pass: shared accentTokens + glass-fill across Brief / Decision / Venture / Composer / Ledger; Google Drive token cross-persona fallback (auth-profile siblings)
