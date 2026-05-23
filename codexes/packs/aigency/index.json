@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-23T19:20:45.418Z",
+  "last_updated": "2026-05-23T19:58:52.537Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "3aea78f241e540b42009a8c4780762b8cc4d809f",
-  "latest_commit_short": "3aea78f",
-  "latest_commit_title": "ActivityReceiptCard: click header to expand inline JSON drawer (T1-safe payload + copy button)",
+  "latest_commit": "cfa06962c512ec496189d86ae8c45216fd910061",
+  "latest_commit_short": "cfa0696",
+  "latest_commit_title": "VentureCockpit: glass-fill accents (cyan/emerald/violet per row), carousel within body padding (no edge bleed), ApprovalLayout z-40 (above floating compose), body clearance for floating compose strip, compose-modal specific-field error",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "cfa0696",
+      "full_sha": "cfa06962c512ec496189d86ae8c45216fd910061",
+      "title": "VentureCockpit: glass-fill accents (cyan/emerald/violet per row), carousel within body padding (no edge bleed), ApprovalLayout z-40 (above floating compose), body clearance for floating compose strip, compose-modal specific-field error",
+      "author": "Claude",
+      "timestamp": "2026-05-23T19:57:06Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-cfa0696.md"
+    },
     {
       "sha": "3aea78f",
       "full_sha": "3aea78f241e540b42009a8c4780762b8cc4d809f",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-04-28T23:26:03Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-8422f70.md"
-    },
-    {
-      "sha": "e7f9717",
-      "full_sha": "e7f9717d0dacb5973bddd2ea1c6f7c8228cd1b2e",
-      "title": "populate agentiq codex architecture and knowledge docs from deep codebase analysis",
-      "author": "Claude",
-      "timestamp": "2026-03-27T02:24:05Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-e7f9717.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
