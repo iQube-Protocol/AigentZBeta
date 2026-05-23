@@ -95,6 +95,14 @@ function shape(record: ExperienceQubeRecord | null): ExperienceQubeApiSurface {
         blak.confidentialStrategyNotes.trim().length > 0,
     },
     experienceGoals: Array.isArray(blak.experienceGoals) ? blak.experienceGoals : [],
+    // Mirror priorityPartners + activeKpis so the strategy editors can
+    // preload current state. Same shape as on POST so the round-trip
+    // through PriorityPartnersEditor / ActiveKpisEditor is symmetric.
+    priorityPartners: Array.isArray(blak.priorityPartners) ? blak.priorityPartners : [],
+    activeKpis:
+      blak.activeKpis && typeof blak.activeKpis === 'object' && !Array.isArray(blak.activeKpis)
+        ? (blak.activeKpis as Record<string, unknown>)
+        : {},
     updatedAt: record.updatedAt,
   };
 }
