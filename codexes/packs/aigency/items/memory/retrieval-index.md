@@ -1049,3 +1049,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-0e40380.md](../build_/COMMITS/COMMIT-0e40380.md)
 - Message: Phase 2 B.1 (2/3): ActiveKpisEditor refactored — source picker reads metricsForActiveActivations(persona), grouped by activation with inactive sources marked; rich KpiRecord shape persists; KpiDetailLayout (new layout, kpi-detail) opens on chip click with hero value + source provenance + manual-value editor
+
+## Commit `77ab0a6` — 2026-05-24T03:34:06Z
+- Type: `push`
+- Brief: [COMMIT-77ab0a6.md](../build_/COMMITS/COMMIT-77ab0a6.md)
+- Message: Phase 2 B.1 (3/3): copilot tools aigentme_add_kpi / set_kpi_value / remove_kpi / open_kpi_detail + readables activeKpis + availableKpiSources (filtered to persona's active activations); copilot refuses bindings to inactive activations and refuses to manually overwrite activation-bound KPIs
