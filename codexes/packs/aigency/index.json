@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-24T09:53:08.025Z",
+  "last_updated": "2026-05-24T10:00:51.242Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1c86daee23d5cdb2554a749569dcaf2093e1a173",
-  "latest_commit_short": "1c86dae",
-  "latest_commit_title": "aigentMe: surface Capability Gateway preflight + add Ask specialists chip",
+  "latest_commit": "ac27250d378be9ff5e4fbed564ff81c5758e20d0",
+  "latest_commit_short": "ac27250",
+  "latest_commit_title": "capability gateway phase 2b — openclawCore extract, real web-search + owned-content-scan",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "ac27250",
+      "full_sha": "ac27250d378be9ff5e4fbed564ff81c5758e20d0",
+      "title": "capability gateway phase 2b — openclawCore extract, real web-search + owned-content-scan",
+      "author": "Claude",
+      "timestamp": "2026-05-24T09:58:46Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-ac27250.md"
+    },
     {
       "sha": "1c86dae",
       "full_sha": "1c86daee23d5cdb2554a749569dcaf2093e1a173",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-01T14:17:25Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-37757fa.md"
-    },
-    {
-      "sha": "a3536fd",
-      "full_sha": "a3536fd94e1a1ad8508b9539317d46b2808222d6",
-      "title": "add asset detail drilldown to Codex Manager dashboard",
-      "author": "Claude",
-      "timestamp": "2026-05-01T14:06:19Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-a3536fd.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

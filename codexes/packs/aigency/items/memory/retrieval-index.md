@@ -1109,3 +1109,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-1c86dae.md](../build_/COMMITS/COMMIT-1c86dae.md)
 - Message: aigentMe: surface Capability Gateway preflight + add Ask specialists chip
+
+## Commit `ac27250` — 2026-05-24T09:58:46Z
+- Type: `push`
+- Brief: [COMMIT-ac27250.md](../build_/COMMITS/COMMIT-ac27250.md)
+- Message: capability gateway phase 2b — openclawCore extract, real web-search + owned-content-scan
