@@ -18,7 +18,7 @@
  */
 
 import React, { useCallback } from "react";
-import { Briefcase, AlertCircle, Loader2, RefreshCw } from "lucide-react";
+import { Briefcase, AlertCircle, Loader2, RefreshCw, SlidersHorizontal, ChevronRight, Plus } from "lucide-react";
 import {
   NextBestActionCard,
 } from "@/components/metame/cards/NextBestActionCard";
@@ -80,6 +80,22 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
         onForceSync={props.onForceSync}
         isDark={isDark}
       />
+      {props.onEditKpis && (
+        <button
+          type="button"
+          onClick={props.onEditKpis}
+          aria-label="Edit KPIs"
+          title="Edit KPIs"
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] transition-colors ${
+            isDark
+              ? "border-slate-700/70 text-slate-300 hover:text-slate-100 hover:bg-slate-800/60"
+              : "border-slate-300 text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+          }`}
+        >
+          <SlidersHorizontal className="h-3 w-3" />
+          Edit KPIs
+        </button>
+      )}
     </div>
   );
 
@@ -146,6 +162,9 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
                   ))
                 ) : (
                   <>
+                    {props.onEditKpis && (
+                      <AddKpisChip isDark={isDark} onClick={props.onEditKpis} />
+                    )}
                     <StatChip label="Active KPIs" value={data.kpiSummary.activeKpisCount} isDark={isDark} accentId="cyan" />
                     <StatChip label="Operational goals" value={data.operationalGoalsCount} isDark={isDark} accentId="cyan" />
                     <StatChip label="Commercial goals" value={data.commercialGoalsCount} isDark={isDark} accentId="cyan" />
@@ -318,6 +337,7 @@ function KpiChip({
         <div className={`text-xs truncate ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
           {kpi.name}
         </div>
+        <ChevronRight className={`h-3 w-3 ml-auto shrink-0 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} aria-hidden />
       </div>
       <div className="flex items-baseline gap-1 mt-0.5">
         <div className={`text-lg font-semibold leading-tight ${hasValue ? tint.text : (isDark ? 'text-slate-400' : 'text-slate-500')}`}>
@@ -382,6 +402,29 @@ function StatChip({
       </div>
       <div className={`text-lg font-semibold leading-tight mt-0.5 ${valueClass}`}>{value}</div>
     </div>
+  );
+}
+
+function AddKpisChip({ isDark, onClick }: { isDark: boolean; onClick: () => void }) {
+  // Empty-state CTA in the KPIs row. Mirrors StatChip footprint so the
+  // row reads as a coherent strip — but uses violet (the "actionable"
+  // accent in this surface) + a dashed border to signal "do this to
+  // populate the row".
+  const tint = accent('violet', isDark ? 'dark' : 'light');
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`text-left rounded-lg border border-dashed p-2.5 min-w-[10rem] backdrop-blur-sm transition-colors hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-violet-500/40 ${tint.border} ${tint.fillSoft}`}
+    >
+      <div className={`flex items-center gap-1.5 text-xs ${tint.text}`}>
+        <Plus className="h-3.5 w-3.5" />
+        Add KPIs
+      </div>
+      <div className={`text-[10px] leading-snug mt-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+        Bind outcomes to your active cartridges.
+      </div>
+    </button>
   );
 }
 

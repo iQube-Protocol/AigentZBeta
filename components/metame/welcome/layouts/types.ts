@@ -97,6 +97,8 @@ export type RightPaneLayoutProps = WelcomeRightPaneProps & {
    */
   ventureLastSyncedAt?: Date | null;
   onForceSync?: () => void;
+  /** Open the ActiveKpisEditor (modal). Cockpit's "Edit KPIs" button + empty-state CTA fire this. */
+  onEditKpis?: () => void;
 };
 
 export interface RightPaneLayoutDefinition {

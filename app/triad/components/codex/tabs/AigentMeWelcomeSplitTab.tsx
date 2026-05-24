@@ -35,6 +35,7 @@ import {
   type KpiSource,
 } from "@/services/strategy/kpiTypes";
 import { ACTIVATION_CATALOG } from "@/data/activation-catalog";
+import { ActiveKpisEditor } from "@/components/metame/setup/ActiveKpisEditor";
 import {
   usePersonaSpine,
   personaFetch,
@@ -964,6 +965,11 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // ActivityChip onClick sets this + activates 'active-work-detail'.
   const [selectedIntentId, setSelectedIntentId] = useState<string | null>(null);
 
+  // Phase 2 B.1 polish: KPI editor mounted on the aigentMe tab so it
+  // can be opened directly from the cockpit's "Edit KPIs" affordance,
+  // not just from the Strategy tab. Same component, same persistence.
+  const [kpisEditorOpen, setKpisEditorOpen] = useState(false);
+
   // ── AG-UI bridge: copilot → right pane ─────────────────────────────
   // Compose footer / copilot bridge now routes ALL compose intents
   // through the Phase 2 ComposerLayout — no popup modals over the
@@ -1503,6 +1509,8 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 // Phase 2 B.3 — live sync header indicator + manual force.
                 ventureLastSyncedAt,
                 onForceSync: () => { void fetchVentureProgress({ silent: true }); },
+                // KPI editor entry point — header button + empty-state CTA.
+                onEditKpis: () => setKpisEditorOpen(true),
                 composerHandlers: {
                   onCreateGmail: async (input) => {
                     await handleComposeGmailDraft(input);
@@ -1580,6 +1588,16 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
           progressModel: expModel.meta.progressModel,
         } : undefined}
         onSaved={handleWizardSaved}
+      />
+      {/* Phase 2 B.1 polish: KPI editor mount. Opened from the cockpit
+          header "Edit KPIs" button + the empty-state CTA when the
+          persona has no rich KPIs declared yet. Save triggers a silent
+          venture-progress refetch so the cockpit picks up the change. */}
+      <ActiveKpisEditor
+        open={kpisEditorOpen}
+        onOpenChange={setKpisEditorOpen}
+        personaId={personaId}
+        onSaved={() => { void fetchVentureProgress({ silent: true }); }}
       />
       {/* Phase 2 Slice 4: Compose popups removed. All six compose
           surfaces (Email / Event / Doc / Sheet / Slides / Marketa)
