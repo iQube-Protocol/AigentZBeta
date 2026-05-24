@@ -63,6 +63,27 @@ function resolveSpecialistId(value: unknown): SpecialistId | null {
   return SPECIALIST_ALIASES[lowered] ?? null;
 }
 
+/**
+ * Is the Capability Gateway pre-flight gather enabled for this
+ * specialist? Reads CAPABILITY_GATEWAY_PREFLIGHT:
+ *   - unset / 'off' / 'false' / '' → false (default — disabled in prod)
+ *   - 'all' / 'true'               → true for every specialist
+ *   - 'kn0w1,marketa,quill'        → comma-separated allowlist
+ *
+ * Tokens are matched after a `toLowerCase().trim()` so 'KN0W1' and
+ * ' kn0w1 ' both work. Unknown tokens are ignored.
+ */
+function isPreflightEnabledFor(specialistId: SpecialistId): boolean {
+  const raw = process.env.CAPABILITY_GATEWAY_PREFLIGHT?.trim().toLowerCase();
+  if (!raw || raw === 'off' || raw === 'false') return false;
+  if (raw === 'all' || raw === 'true') return true;
+  return raw
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .includes(specialistId);
+}
+
 interface PostBody {
   specialistId?: string;
   intentId?: string;
@@ -121,18 +142,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // ── Capability Gateway — Pattern A pre-flight gather ──────────────
-    // Phase 2 wiring: gated behind CAPABILITY_GATEWAY_PREFLIGHT=true
-    // and limited to `kn0w1` so a regression here can't take down the
-    // other seven specialists. When the gateway returns a result, we
-    // prepend a short context block to intentRationale; on any failure
-    // (deny, adapter error, timeout) we fall through silently — gather
-    // is enrichment, not a hard dependency.
+    // Phase 2 wiring: gated behind the CAPABILITY_GATEWAY_PREFLIGHT env.
+    //   - unset / 'off' / 'false' / ''      → disabled (default)
+    //   - 'all' / 'true'                     → enabled for ALL specialists
+    //   - 'kn0w1,marketa,…' (comma list)    → enabled for the listed ids
+    //
+    // The result summary is prepended to intentRationale before the
+    // specialist call. Any deny / adapter failure / throw falls through
+    // silently — gather enriches, never blocks.
     let enrichedRationale = intentRationale;
-    if (
-      process.env.CAPABILITY_GATEWAY_PREFLIGHT === 'true' &&
-      resolvedSpecialistId === 'kn0w1' &&
-      intentName
-    ) {
+    if (isPreflightEnabledFor(resolvedSpecialistId) && intentName) {
       const envelope: PolicyEnvelope = {
         tenant_id: 'default',
         persona_id: context.personaId,
