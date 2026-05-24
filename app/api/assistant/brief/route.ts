@@ -30,6 +30,7 @@ import {
   buildBrief,
   type BriefType,
 } from '@/services/orchestration/briefBuilder';
+import { runPreflightGather } from '@/services/capabilities/preflight';
 import type { ActiveCartridgeSlug } from '@/services/iqube/experienceQube';
 
 export const dynamic = 'force-dynamic';
@@ -84,14 +85,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const { briefType, scopedCartridge } = sanitiseBody(raw);
 
   try {
+    // Capability Gateway — Pattern A pre-flight gather. Surface id is
+    // 'brief' so the env allowlist can target this independently. The
+    // query reflects which brief variant the user asked for so a future
+    // search tool can return audience-appropriate context.
+    const preflight = await runPreflightGather({
+      persona: context,
+      surfaceId: 'brief',
+      query: `aigentMe ${briefType} brief${scopedCartridge ? ` for ${scopedCartridge}` : ''}`,
+      cartridge: scopedCartridge ?? 'metame',
+    });
+
     const brief = await buildBrief({
       personaId: context.personaId,
       briefType,
       scopedCartridge,
     });
-    return NextResponse.json(brief, {
-      headers: { 'Cache-Control': 'no-store' },
-    });
+    return NextResponse.json(
+      preflight ? { ...brief, preflightContext: preflight } : brief,
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[assistant/brief] build failed: ${msg}`);

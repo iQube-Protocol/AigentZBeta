@@ -24,6 +24,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { buildMoveForward } from '@/services/orchestration/briefBuilder';
+import { runPreflightGather } from '@/services/capabilities/preflight';
 import type { ActiveCartridgeSlug } from '@/services/iqube/experienceQube';
 
 export const dynamic = 'force-dynamic';
@@ -65,13 +66,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       : undefined;
 
   try {
+    // Capability Gateway — Pattern A pre-flight gather. Surface id is
+    // 'move-forward' so the env allowlist can target this independently.
+    const preflight = await runPreflightGather({
+      persona: context,
+      surfaceId: 'move-forward',
+      query: `next best action${scoped ? ` for ${scoped} cartridge` : ' across active cartridges'}`,
+      cartridge: scoped ?? 'metame',
+    });
+
     const result = await buildMoveForward({
       personaId: context.personaId,
       ...(scoped ? { cartridge: scoped } : {}),
     });
-    return NextResponse.json(result, {
-      headers: { 'Cache-Control': 'no-store' },
-    });
+    return NextResponse.json(
+      preflight ? { ...result, preflightContext: preflight } : result,
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[assistant/move-forward] build failed: ${msg}`);
