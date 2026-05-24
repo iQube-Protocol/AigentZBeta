@@ -16,12 +16,14 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
-  findActivationMetric,
   type KpiRecord,
   type KpiTrend,
   type KpiUnresolvedReason,
-  type ActivationMetricQuery,
 } from './kpiTypes';
+import {
+  findActivationMetric,
+  type ActivationMetricQuery,
+} from '@/data/activation-catalog';
 import { getActiveActivationIds } from '@/services/activations/spineActivations';
 
 export interface ResolveKpisInput {

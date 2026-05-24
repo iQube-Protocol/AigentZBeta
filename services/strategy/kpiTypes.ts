@@ -121,83 +121,20 @@ export function legacyIdFromName(name: string): string {
 
 // ── Activation metric registry ────────────────────────────────────────
 //
-// Each activation that wants to expose KPIs declares its metrics here.
-// The KPI editor's source picker only shows metrics from activations
-// the persona currently has in 'active' status. Adding a new metric
-// is a one-row append; no schema migration required.
+// The metric registry lives on the activation catalog itself
+// (`data/activation-catalog.ts`). Each entry declares its own
+// `metrics: ActivationMetric[]`. The KPI editor + resolver read from
+// there, filtered to the persona's `active` activations.
 //
-// `query` describes how the resolver pulls the value. Today we ship
-// two query kinds:
-//   - { kind: 'receipts'; eventType }      — DVN receipt count for persona
-//   - { kind: 'sql'; table; where? }       — server-side row count from a
-//                                            cartridge-specific table
-//
-// Both run inside `kpiResolver.ts`. Adding richer query shapes (HTTP
-// fetch against a cartridge metric endpoint, time-bucketed aggregation,
-// etc.) is a follow-on — the registry shape supports it via a new
-// discriminant.
+// Re-exported here for backward compatibility with callers that
+// imported from `kpiTypes` during B.1's first draft.
 
-export type ActivationMetricQuery =
-  | { kind: 'receipts'; eventType: string }
-  | { kind: 'sql'; table: string; where?: Record<string, string> };
+export type {
+  ActivationMetric,
+  ActivationMetricQuery,
+} from '@/data/activation-catalog';
 
-export interface ActivationMetric {
-  /** Metric key — globally unique per activationId (`weekly_actives`). */
-  metric: string;
-  /** Display label for the source picker. */
-  label: string;
-  /** Optional default unit (overridable on the KPI record). */
-  defaultUnit?: string;
-  query: ActivationMetricQuery;
-}
-
-export interface ActivationMetricCatalogEntry {
-  /** activationId from services/activations/spineActivations. */
-  activationId: string;
-  cartridge: string;
-  metrics: ActivationMetric[];
-}
-
-export const ACTIVATION_METRIC_CATALOG: ActivationMetricCatalogEntry[] = [
-  {
-    activationId: 'knyt-codex',
-    cartridge: 'knyt',
-    metrics: [
-      { metric: 'episodes_unlocked', label: 'Episodes unlocked', defaultUnit: 'episodes', query: { kind: 'receipts', eventType: 'knyt.episode.unlocked' } },
-      { metric: 'cards_purchased',   label: 'Cards purchased',   defaultUnit: 'cards',    query: { kind: 'receipts', eventType: 'knyt.card.purchased' } },
-      { metric: 'rewards_earned',    label: 'KNYT rewards earned', defaultUnit: '$KNYT',  query: { kind: 'receipts', eventType: 'reward.granted' } },
-    ],
-  },
-  {
-    activationId: 'marketa-console',
-    cartridge: 'marketa',
-    metrics: [
-      { metric: 'campaigns_active',  label: 'Active campaigns',  defaultUnit: 'campaigns', query: { kind: 'sql', table: 'crm_campaigns', where: { status: 'active' } } },
-      { metric: 'emails_sent',       label: 'Emails sent',       defaultUnit: 'emails',    query: { kind: 'receipts', eventType: 'marketa.email.sent' } },
-      { metric: 'partners_declared', label: 'Priority partners', defaultUnit: 'partners',  query: { kind: 'sql', table: 'crm_investors', where: { status: 'active' } } },
-    ],
-  },
-  {
-    activationId: 'agentiq-os',
-    cartridge: 'agentiq',
-    metrics: [
-      { metric: 'intents_queued',    label: 'Intents queued',    defaultUnit: 'intents', query: { kind: 'receipts', eventType: 'intent.created' } },
-      { metric: 'artifacts_created', label: 'Artifacts created', defaultUnit: 'artifacts', query: { kind: 'receipts', eventType: 'artifact.created' } },
-    ],
-  },
-  {
-    activationId: 'alpha-knyt',
-    cartridge: 'avl',
-    metrics: [
-      { metric: 'workstreams_in_progress', label: 'Workstreams in progress', defaultUnit: 'workstreams', query: { kind: 'receipts', eventType: 'workstream.advanced' } },
-    ],
-  },
-];
-
-export function getActivationMetrics(activationId: string): ActivationMetric[] {
-  return ACTIVATION_METRIC_CATALOG.find((e) => e.activationId === activationId)?.metrics ?? [];
-}
-
-export function findActivationMetric(activationId: string, metric: string): ActivationMetric | null {
-  return getActivationMetrics(activationId).find((m) => m.metric === metric) ?? null;
-}
+export {
+  findActivationMetric,
+  metricsForActiveActivations,
+} from '@/data/activation-catalog';
