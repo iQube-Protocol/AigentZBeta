@@ -1074,3 +1074,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-24a86f3.md](../build_/COMMITS/COMMIT-24a86f3.md)
 - Message: intent route: accept activation-driven nbeIds — resolveCandidate parses 'activation:<id>:<action>' from ACTIVATION_CATALOG so the cockpit's Recommended NBAs (Phase 2 B.2 1/2) can queue intents; static NBE_CATALOGUE entries unchanged. Fixes 'unknown-nbeId' error when acting on activation-sourced rows in venture progress
+
+## Commit `fdfa189` — 2026-05-24T08:15:26Z
+- Type: `push`
+- Brief: [COMMIT-fdfa189.md](../build_/COMMITS/COMMIT-fdfa189.md)
+- Message: VentureCockpit: surface KPI editor from cockpit chips + header

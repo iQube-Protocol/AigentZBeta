@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-24T07:08:31.095Z",
+  "last_updated": "2026-05-24T08:17:23.360Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "24a86f3c321960a95036a8e1ef898c1345973129",
-  "latest_commit_short": "24a86f3",
-  "latest_commit_title": "intent route: accept activation-driven nbeIds — resolveCandidate parses 'activation:<id>:<action>' from ACTIVATION_CATALOG so the cockpit's Recommended NBAs (Phase 2 B.2 1/2) can queue intents; static NBE_CATALOGUE entries unchanged. Fixes 'unknown-nbeId' error when acting on activation-sourced rows in venture progress",
+  "latest_commit": "fdfa189ed53b94ff096128b60de5effd9e6be081",
+  "latest_commit_short": "fdfa189",
+  "latest_commit_title": "VentureCockpit: surface KPI editor from cockpit chips + header",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "fdfa189",
+      "full_sha": "fdfa189ed53b94ff096128b60de5effd9e6be081",
+      "title": "VentureCockpit: surface KPI editor from cockpit chips + header",
+      "author": "Claude",
+      "timestamp": "2026-05-24T08:15:26Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-fdfa189.md"
+    },
     {
       "sha": "24a86f3",
       "full_sha": "24a86f3c321960a95036a8e1ef898c1345973129",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-04-30T23:01:48Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-73f4581.md"
-    },
-    {
-      "sha": "0008bf6",
-      "full_sha": "0008bf684abd7b1416590185a3586f9fb45ec4bf",
-      "title": "KNYT cart Phase 2c — multi-item KnytCartCheckoutModal replaces per-item iteration",
-      "author": "Claude",
-      "timestamp": "2026-04-30T22:51:53Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0008bf6.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
