@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-24T02:33:48.654Z",
+  "last_updated": "2026-05-24T02:54:02.361Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "4bdd99c7cf0b9f41808d55702eda9146cb66b071",
-  "latest_commit_short": "4bdd99c",
-  "latest_commit_title": "B.1 (1.5/3): metrics + actions move onto ACTIVATION_CATALOG entries — KPIs/NBAs now dynamically driven by the persona's Activations tab; declared all 7 catalog activations with their metrics + actions; metric registry is now a one-row edit per activation, no separate file",
+  "latest_commit": "498c09a9ebdf67d15efbf6119d8e5bfe56099405",
+  "latest_commit_short": "498c09a",
+  "latest_commit_title": "Activation catalog: add metric class (activity/outcome/standing) + expand each activation with outcome-oriented KPIs — myCanvas likes/sparks/remixes, Order missions-completed/votes/contributions, AgentiQ OS referrals/SDK/forks, Venture Lab milestones/conversions/runway, Marketa meetings/proposals/closes, Qriptopian readership/pickups, Studio launched/remixed/completed-by-users; cockpit chip highlights outcomes with violet+dot",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "498c09a",
+      "full_sha": "498c09a9ebdf67d15efbf6119d8e5bfe56099405",
+      "title": "Activation catalog: add metric class (activity/outcome/standing) + expand each activation with outcome-oriented KPIs — myCanvas likes/sparks/remixes, Order missions-completed/votes/contributions, AgentiQ OS referrals/SDK/forks, Venture Lab milestones/conversions/runway, Marketa meetings/proposals/closes, Qriptopian readership/pickups, Studio launched/remixed/completed-by-users; cockpit chip highlights outcomes with violet+dot",
+      "author": "Claude",
+      "timestamp": "2026-05-24T02:52:20Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-498c09a.md"
+    },
     {
       "sha": "4bdd99c",
       "full_sha": "4bdd99c7cf0b9f41808d55702eda9146cb66b071",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-04-30T18:08:16Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-e62ebcc.md"
-    },
-    {
-      "sha": "c4329b0",
-      "full_sha": "c4329b06a94b51f88f6c521f24d28eb39d253897",
-      "title": "allow metame.live + metame.dev to embed; mandate descriptive merge messages",
-      "author": "Claude",
-      "timestamp": "2026-04-30T17:36:56Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c4329b0.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
