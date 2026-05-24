@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-24T08:44:00.254Z",
+  "last_updated": "2026-05-24T08:58:24.154Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "828d5b8fa6f8bca76fd9203b02ca5129b68da572",
-  "latest_commit_short": "828d5b8",
-  "latest_commit_title": "capability gateway phase 1 — types, policy compiler, gateway, receipt wrapper",
+  "latest_commit": "ddff517c77f1cc59efe42aaf604ad3e23d441dbf",
+  "latest_commit_short": "ddff517",
+  "latest_commit_title": "capability gateway — add CapabilityIntent axis + log B/C backlog",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "ddff517",
+      "full_sha": "ddff517c77f1cc59efe42aaf604ad3e23d441dbf",
+      "title": "capability gateway — add CapabilityIntent axis + log B/C backlog",
+      "author": "Claude",
+      "timestamp": "2026-05-24T08:56:28Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-ddff517.md"
+    },
     {
       "sha": "828d5b8",
       "full_sha": "828d5b8fa6f8bca76fd9203b02ca5129b68da572",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-01T03:17:09Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-4aade85.md"
-    },
-    {
-      "sha": "59216d8",
-      "full_sha": "59216d8665642b76d5df47f402d19fea18c6a4f6",
-      "title": "chore: update next-env.d.ts — remove stale navigation compat reference",
-      "author": "Claude",
-      "timestamp": "2026-05-01T02:56:02Z",
-      "type": "chore",
-      "brief": "items/build_/COMMITS/COMMIT-59216d8.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
