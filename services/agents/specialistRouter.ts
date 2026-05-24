@@ -31,6 +31,7 @@
  */
 
 import { personas } from '@/app/data/personas';
+import type { PreflightContext } from '@/services/capabilities/preflight';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Types — public surface.
@@ -98,6 +99,14 @@ export interface SpecialistResponse {
   source: 'llm' | 'template';
   /** When the response was generated. */
   generatedAt: string;
+  /**
+   * Capability Gateway pre-flight result. Present only when
+   * CAPABILITY_GATEWAY_PREFLIGHT covers the specialist and the gather
+   * succeeded. The aigentMe response surface today also prepends the
+   * summary into the rationale; this field lets the UI render it as a
+   * dedicated byline going forward.
+   */
+  preflightContext?: PreflightContext;
 }
 
 // ─────────────────────────────────────────────────────────────────────────

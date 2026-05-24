@@ -26,6 +26,8 @@ import {
   ShieldAlert,
   X,
 } from "lucide-react";
+import { PreflightByline, PreflightChip } from "@/components/metame/cards/PreflightByline";
+import type { PreflightContext } from "@/services/capabilities/preflight";
 
 export interface NextBestActionData {
   id: string;
@@ -48,6 +50,14 @@ interface Props {
    *  the whole move-forward bundle (topAction + alternates) so the
    *  right pane doesn't pile up. Re-firing the chip re-opens it. */
   onDismiss?: () => void;
+  /**
+   * Hero variant only — Capability Gateway pre-flight result for the
+   * move-forward bundle that contains this NBA. Surfaces as a
+   * "🔍 researched" chip in the header + a small byline under the title.
+   * Lives on the move-forward parent shape, not on the per-NBA shape,
+   * so callers thread it explicitly to the hero card.
+   */
+  preflightContext?: PreflightContext | null;
   theme?: "light" | "dark";
 }
 
@@ -85,6 +95,7 @@ export function NextBestActionCard({
   variant = "compact",
   onAct,
   onDismiss,
+  preflightContext,
   theme = "dark",
 }: Props) {
   const isDark = theme === "dark";
@@ -109,7 +120,7 @@ export function NextBestActionCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <Sparkles className={`w-3.5 h-3.5 ${accentClass}`} />
             <span className={`text-xs uppercase tracking-wider ${mutedClass}`}>
               {CARTRIDGE_LABELS[action.cartridge] ?? action.cartridge}
@@ -124,10 +135,12 @@ export function NextBestActionCard({
                 </span>
               </>
             )}
+            {isHero && <PreflightChip preflight={preflightContext} theme={theme} />}
           </div>
           <h4 className={`${isHero ? "text-lg" : "text-base"} font-semibold leading-tight`}>
             {action.label}
           </h4>
+          {isHero && <PreflightByline preflight={preflightContext} theme={theme} />}
           <p className={`text-sm mt-1 ${mutedClass}`}>{action.rationale}</p>
 
           <div className="flex flex-wrap items-center gap-2 mt-3">

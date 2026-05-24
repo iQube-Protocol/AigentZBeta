@@ -36,6 +36,7 @@ import {
   type NbeCandidate,
 } from '@/services/orchestration/nbeCatalog';
 import type { BriefNextBestAction } from '@/services/orchestration/briefBuilder';
+import type { PreflightContext } from '@/services/capabilities/preflight';
 import { coerceKpisToRichShape, type KpiRecord } from '@/services/strategy/kpiTypes';
 import { resolveKpis } from '@/services/strategy/kpiResolver';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
@@ -116,6 +117,8 @@ export interface VentureProgressShape {
   using: ('PersonaQube' | 'ExperienceQube' | 'IntentQube')[];
   /** Categories explicitly not shared. */
   notShared: string[];
+  /** See `BriefShape.preflightContext` — same shape, same meaning. */
+  preflightContext?: PreflightContext;
 }
 
 // ─────────────────────────────────────────────────────────────────────────

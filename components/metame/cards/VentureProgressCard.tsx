@@ -31,6 +31,8 @@ import {
   type NextBestActionData,
 } from "@/components/metame/cards/NextBestActionCard";
 import { IqubeContextDisclosure } from "@/components/metame/cards/IqubeContextDisclosure";
+import { PreflightByline, PreflightChip } from "@/components/metame/cards/PreflightByline";
+import type { PreflightContext } from "@/services/capabilities/preflight";
 
 export interface VentureProgressKpiSummary {
   activeKpisCount: number;
@@ -73,6 +75,7 @@ export interface VentureProgressData {
   suggestedArtifacts: string[];
   using: ("PersonaQube" | "ExperienceQube" | "IntentQube")[];
   notShared: string[];
+  preflightContext?: PreflightContext;
 }
 
 interface Props {
@@ -180,10 +183,12 @@ export function VentureProgressCard({
             <span className={`text-xs uppercase tracking-wider ${mutedClass}`}>
               Venture Progress · AgentiQ Venture Lab
             </span>
+            <PreflightChip preflight={data.preflightContext} theme={theme} />
           </div>
           <h3 className="text-xl font-semibold leading-tight">
             {data.ventureName || "Your active venture"}
           </h3>
+          <PreflightByline preflight={data.preflightContext} theme={theme} />
           {data.primaryGoal && (
             <p className={`text-sm mt-1 ${mutedClass}`}>
               <span className={accentClass}>Primary goal:</span>{" "}

@@ -27,6 +27,7 @@ import { getConnectionStatuses, type GoogleSource } from '@/services/google/oaut
 import { inferStrategy } from '@/services/strategy/strategyInference';
 import { evaluateStageProgression } from '@/services/strategy/stageProgression';
 import { llmRerankNbeCandidates } from '@/services/orchestration/nbeLlmRerank';
+import type { PreflightContext } from '@/services/capabilities/preflight';
 import {
   ALIGNMENT_LABEL,
   SPHERE_LABEL,
@@ -112,6 +113,14 @@ export interface BriefShape {
   using: ('PersonaQube' | 'ExperienceQube' | 'IntentQube')[];
   /** Categories explicitly NOT shared. */
   notShared: string[];
+  /**
+   * Capability Gateway pre-flight result. Present only when
+   * CAPABILITY_GATEWAY_PREFLIGHT is enabled for the `brief` surface and
+   * the gather succeeded. Cards render `summary` as a small
+   * "aigentMe researched: …" byline; `workOrderId` is for receipt
+   * correlation, never displayed as a primary identifier.
+   */
+  preflightContext?: PreflightContext;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -287,6 +296,8 @@ export interface MoveForwardShape {
   topActionReason?: string | null;
   using: BriefShape['using'];
   notShared: string[];
+  /** See `BriefShape.preflightContext` — same shape, same meaning. */
+  preflightContext?: PreflightContext;
 }
 
 export async function buildMoveForward(input: {

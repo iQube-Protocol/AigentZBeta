@@ -189,6 +189,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     topAction: NextBestActionData | null;
     alternates: NextBestActionData[];
     topActionReason?: string | null;
+    preflightContext?: import("@/services/capabilities/preflight").PreflightContext;
   } | null>(null);
   const [moveForwardLoading, setMoveForwardLoading] = useState(false);
 
@@ -443,6 +444,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         topAction: NextBestActionData | null;
         alternates: NextBestActionData[];
         topActionReason?: string | null;
+        preflightContext?: import("@/services/capabilities/preflight").PreflightContext;
         quickChips?: NbeQuickChip[];
       };
       setMoveForwardResult(payload);
@@ -1362,6 +1364,19 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         onSelect: () => {
           setActiveLayoutId('venture-cockpit');
           void fetchVentureProgress();
+        },
+      },
+      {
+        id: 'ask-specialists',
+        label: 'Ask specialists',
+        // The copilot prompt frames the specialist roster so the LLM
+        // knows what's available; the right pane simultaneously expands
+        // the Specialists accordion so the operator can fire an
+        // individual ask in the same gesture.
+        prompt: 'Which specialist should I consult right now — Marketa, Quill, Kn0w1, Aigent Z, Aigent C, Aigent Nakamoto, Moneypenny, or metaYe — and why?',
+        onSelect: () => {
+          setActiveLayoutId('stack');
+          setExpandedSectionId('specialists');
         },
       },
     ];
