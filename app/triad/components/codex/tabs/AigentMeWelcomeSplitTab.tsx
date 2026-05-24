@@ -35,6 +35,10 @@ import {
   type KpiSource,
 } from "@/services/strategy/kpiTypes";
 import { ACTIVATION_CATALOG } from "@/data/activation-catalog";
+import {
+  getActiveCartridge,
+  tryOpenInMountedCartridge,
+} from "@/services/cartridge/CartridgePresenceRegistry";
 import { ActiveKpisEditor } from "@/components/metame/setup/ActiveKpisEditor";
 import {
   usePersonaSpine,
@@ -1068,10 +1072,22 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   }, [selectedSpecialistId, askSpecialistResponses, askSpecialistPrompt, fetchSpecialistThread, handleAskSpecialist]);
 
   const handleOpenActivationsForSpecialist = useCallback((_activationId: string) => {
-    // Phase 2 hand-wave: surface the Specialists section of the stack
-    // layout where the activations editor already lives. A direct deep
-    // link into the ActivationsEditor row for `_activationId` is the
-    // fast-follow once the editor exposes a per-row anchor.
+    // Deep-link the operator to the cartridge's Activations top-nav
+    // tab via the canonical CartridgePresenceRegistry. The mounted
+    // cartridge's setTab callback (registered by CodexPanelDynamic
+    // through useCartridgePresence) switches the surface directly,
+    // no URL navigation required.
+    const active = getActiveCartridge();
+    if (active) {
+      const switched = tryOpenInMountedCartridge({
+        cartridgeId: active.cartridgeId,
+        tab: 'activations',
+      });
+      if (switched) return;
+    }
+    // Fallback: if the registry has no active cartridge (mount race or
+    // standalone embed), surface the Experience accordion in the
+    // stack layout so the operator still lands on something coherent.
     setActiveLayoutId('stack');
     setExpandedSectionId('experience');
   }, []);
@@ -1507,8 +1523,13 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     <>
       <PersonaSpineGate state={spine}>
         <div className="h-[calc(100vh-96px)] flex flex-col lg:flex-row gap-2 px-2 pr-3 overflow-hidden">
-          {/* ── LEFT: persistent copilot ─────────────────────────── */}
-          <div className="lg:w-[55%] w-full h-full min-h-0 flex flex-col">
+          {/* ── LEFT: persistent copilot (50/50 with the right pane —
+              the right pane is the busier surface and deserves
+              equal width; the metaVatar rendering layer reads the
+              copilot's getBoundingClientRect via the
+              --metaavatar-copilot-w CSS variable so it rescales
+              automatically when this changes). ─────────────────── */}
+          <div className="lg:w-1/2 w-full h-full min-h-0 flex flex-col">
             <SmartTriadCopilotLayer
               isOpen
               variant="panel"
@@ -1520,8 +1541,8 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
             />
           </div>
 
-          {/* ── RIGHT: dynamic surface ───────────────────────────── */}
-          <div className="lg:w-[45%] w-full h-full min-h-0 relative">
+          {/* ── RIGHT: dynamic surface (50/50 with the copilot). ── */}
+          <div className="lg:w-1/2 w-full h-full min-h-0 relative">
             {bootstrapLoading && !data && (
               <div className="h-full flex items-center justify-center text-sm opacity-60">
                 Loading aigentMe…

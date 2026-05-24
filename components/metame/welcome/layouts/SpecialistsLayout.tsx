@@ -175,28 +175,22 @@ function SpecialistsLayoutComponent(props: RightPaneLayoutProps) {
             />
           )}
 
-          {/* 4 — Composer */}
-          {selectedSpecialist && selectedSpecialist.availability.status !== "needs-activation" && (
-            <Composer
-              specialist={selectedSpecialist}
-              prompt={state.askPrompt}
-              loading={state.askLoadingId === selectedSpecialist.id}
-              error={state.askError}
-              isDark={isDark}
-              onChangePrompt={(p) => props.onSetSpecialistPrompt?.(p)}
-              onSend={() => props.onAskSelectedSpecialist?.(state.askPrompt)}
-            />
+          {/* 4 — Current reply (or in-flight placeholder). Rendered
+              ABOVE the composer so the operator sees the response
+              land directly under the focus card after hitting Send,
+              with the empty composer immediately below ready for the
+              next ask. */}
+          {selectedSpecialist && state.askLoadingId === selectedSpecialist.id && (
+            <AskingPlaceholder specialistLabel={selectedSpecialist.label} isDark={isDark} />
           )}
-
-          {/* 5a — Current session response (rich card) */}
-          {activeSpecialistResponse && (
+          {activeSpecialistResponse && state.askLoadingId !== selectedSpecialist?.id && (
             <section>
               <h4
                 className={`text-[10px] uppercase tracking-[0.16em] mb-2 font-medium ${
-                  isDark ? "text-violet-300" : "text-violet-700"
+                  isDark ? "text-emerald-300/90" : "text-emerald-700"
                 }`}
               >
-                Current reply
+                Reply
               </h4>
               <SpecialistResponseCard
                 data={activeSpecialistResponse}
@@ -212,7 +206,21 @@ function SpecialistsLayoutComponent(props: RightPaneLayoutProps) {
             </section>
           )}
 
-          {/* 5b — Prior consultations (receipts) */}
+          {/* 5 — Composer (always under the reply so the conversation
+              reads top-down: focus → reply → next ask). */}
+          {selectedSpecialist && selectedSpecialist.availability.status !== "needs-activation" && (
+            <Composer
+              specialist={selectedSpecialist}
+              prompt={state.askPrompt}
+              loading={state.askLoadingId === selectedSpecialist.id}
+              error={state.askError}
+              isDark={isDark}
+              onChangePrompt={(p) => props.onSetSpecialistPrompt?.(p)}
+              onSend={() => props.onAskSelectedSpecialist?.(state.askPrompt)}
+            />
+          )}
+
+          {/* 6 — Prior consultations (receipts) */}
           {selectedSpecialist && (
             <PriorConsultations
               thread={state.thread}
@@ -277,9 +285,10 @@ function RecommendationCard({
   const isSelected = selectedId === top.id;
 
   return (
-    <div className={`rounded-lg border p-3 ${tint.border} ${tint.fillSoft}`}>
-      <div className="flex items-center gap-2 mb-1">
-        <Sparkles className={`h-3.5 w-3.5 ${tint.text}`} />
+    <div className={`rounded-lg border px-3 py-2 ${tint.border} ${tint.fillSoft}`}>
+      {/* Row 1 — eyebrow (left) + actions (right-justified) */}
+      <div className="flex items-center gap-2">
+        <Sparkles className={`h-3.5 w-3.5 ${tint.text} shrink-0`} />
         <span className={`text-[10px] uppercase tracking-[0.16em] ${tint.text}`}>
           aigentMe suggests
         </span>
@@ -288,49 +297,57 @@ function RecommendationCard({
             · llm-ranked
           </span>
         )}
+        <div className="ml-auto flex items-center gap-2 flex-wrap justify-end">
+          <button
+            type="button"
+            onClick={() => onSelect(top.id)}
+            className={`text-[11px] px-2.5 py-0.5 rounded-md border transition-colors ${
+              isSelected
+                ? isDark
+                  ? "border-violet-400 bg-violet-500/30 text-violet-100"
+                  : "border-violet-500 bg-violet-100 text-violet-800"
+                : isDark
+                  ? "border-violet-500/40 text-violet-200 hover:bg-violet-500/10"
+                  : "border-violet-300 text-violet-700 hover:bg-violet-50"
+            }`}
+          >
+            {isSelected ? "Selected" : `Consult ${top.label}`}
+          </button>
+          {recommendation.alternates.length > 0 && (
+            <span className={`text-[10px] ${mutedClass} whitespace-nowrap`}>
+              or:{" "}
+              {recommendation.alternates.map((a, i) => (
+                <React.Fragment key={a.specialistId}>
+                  {i > 0 && ", "}
+                  <button
+                    type="button"
+                    onClick={() => onSelect(a.specialistId)}
+                    className={`underline-offset-2 hover:underline ${
+                      isDark ? "text-slate-300" : "text-slate-700"
+                    }`}
+                    title={a.reason}
+                  >
+                    {recommendation.roster.find((r) => r.id === a.specialistId)?.label ?? a.specialistId}
+                  </button>
+                </React.Fragment>
+              ))}
+            </span>
+          )}
+        </div>
       </div>
-      <div className={`text-sm font-semibold leading-snug ${isDark ? "text-slate-100" : "text-slate-900"}`}>
-        {top.label}
-      </div>
-      <p className={`text-xs leading-relaxed mt-1 ${mutedClass}`}>{recommendation.reason}</p>
-      <PreflightByline preflight={preflight} theme={isDark ? "dark" : "light"} />
-      <div className="flex items-center gap-2 mt-2 flex-wrap">
-        <button
-          type="button"
-          onClick={() => onSelect(top.id)}
-          className={`text-[11px] px-2.5 py-1 rounded-md border transition-colors ${
-            isSelected
-              ? isDark
-                ? "border-violet-400 bg-violet-500/30 text-violet-100"
-                : "border-violet-500 bg-violet-100 text-violet-800"
-              : isDark
-                ? "border-violet-500/40 text-violet-200 hover:bg-violet-500/10"
-                : "border-violet-300 text-violet-700 hover:bg-violet-50"
-          }`}
+      {/* Row 2 — specialist name + reason inline (truncated, tooltip) */}
+      <div className="flex items-baseline gap-2 mt-0.5 min-w-0">
+        <span className={`text-sm font-semibold shrink-0 ${isDark ? "text-slate-100" : "text-slate-900"}`}>
+          {top.label}
+        </span>
+        <span
+          className={`text-xs truncate ${mutedClass}`}
+          title={recommendation.reason}
         >
-          {isSelected ? "Selected" : `Consult ${top.label}`}
-        </button>
-        {recommendation.alternates.length > 0 && (
-          <span className={`text-[10px] ${mutedClass}`}>
-            or:{" "}
-            {recommendation.alternates.map((a, i) => (
-              <React.Fragment key={a.specialistId}>
-                {i > 0 && ", "}
-                <button
-                  type="button"
-                  onClick={() => onSelect(a.specialistId)}
-                  className={`underline-offset-2 hover:underline ${
-                    isDark ? "text-slate-300" : "text-slate-700"
-                  }`}
-                  title={a.reason}
-                >
-                  {recommendation.roster.find((r) => r.id === a.specialistId)?.label ?? a.specialistId}
-                </button>
-              </React.Fragment>
-            ))}
-          </span>
-        )}
+          {recommendation.reason}
+        </span>
       </div>
+      <PreflightByline preflight={preflight} theme={isDark ? "dark" : "light"} />
     </div>
   );
 }
@@ -401,16 +418,21 @@ function RosterChip({
       ? "ring-2 ring-violet-400"
       : "ring-2 ring-violet-500"
     : "";
+  const availability = entry.availability;
+  const isNeedsActivation = availability.status === "needs-activation";
   return (
     <button
       type="button"
       onClick={onSelect}
-      className={`text-left rounded-lg border p-2.5 min-w-[11rem] max-w-[14rem] backdrop-blur-sm transition-colors hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-violet-500/40 ${tint.border} ${tint.fillSoft} ${ring}`}
-      title={entry.description}
+      className={`text-left rounded-lg border p-2 min-w-[11rem] max-w-[14rem] backdrop-blur-sm transition-colors hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-violet-500/40 ${tint.border} ${tint.fillSoft} ${ring}`}
+      title={availability.status === "needs-activation"
+        ? `${entry.description} · Needs ${availability.activationLabel}`
+        : entry.description}
     >
+      {/* Row 1 — dot + label + optional locked badge */}
       <div className="flex items-center gap-1.5">
         <span
-          className={`inline-block h-1.5 w-1.5 rounded-full ${
+          className={`inline-block h-1.5 w-1.5 rounded-full shrink-0 ${
             entry.availability.status === "active"
               ? isDark ? "bg-cyan-300" : "bg-cyan-600"
               : entry.availability.status === "always-available"
@@ -421,15 +443,21 @@ function RosterChip({
         <div className={`text-xs font-medium truncate ${isDark ? "text-slate-100" : "text-slate-900"}`}>
           {entry.label}
         </div>
+        {availability.status === "needs-activation" && (
+          <span
+            className={`ml-auto text-[9px] uppercase tracking-wider shrink-0 ${
+              isDark ? "text-amber-300/90" : "text-amber-700"
+            }`}
+            title={`Needs ${availability.activationLabel}`}
+          >
+            Locked
+          </span>
+        )}
       </div>
-      <p className={`text-[10px] leading-snug mt-1 line-clamp-2 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+      {/* Rows 2-3 — description clamp-2 */}
+      <p className={`text-[10px] leading-snug mt-0.5 line-clamp-2 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
         {entry.description}
       </p>
-      {entry.availability.status === "needs-activation" && (
-        <p className={`text-[10px] mt-1 ${isDark ? "text-amber-300/80" : "text-amber-700"}`}>
-          Needs {entry.availability.activationLabel}
-        </p>
-      )}
     </button>
   );
 }
@@ -445,7 +473,11 @@ function FocusCard({
 }) {
   const availability = entry.availability;
   const isLocked = availability.status === "needs-activation";
-  const tint = accent(isLocked ? "amber" : "violet", isDark ? "dark" : "light");
+  // Active-agent banner uses emerald so it's visually distinct from
+  // the violet "aigentMe suggests" recommendation card sitting above
+  // it. Locked specialists still surface in amber so the activation
+  // gate reads urgent.
+  const tint = accent(isLocked ? "amber" : "emerald", isDark ? "dark" : "light");
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
   return (
     <div className={`rounded-lg border p-3 ${tint.border} ${tint.fillSoft}`}>
@@ -627,6 +659,38 @@ function HandoffStrip({
         </button>
       ))}
     </div>
+  );
+}
+
+function AskingPlaceholder({
+  specialistLabel,
+  isDark,
+}: {
+  specialistLabel: string;
+  isDark: boolean;
+}) {
+  // In-flight feedback: the moment the operator hits Send, the
+  // composer prompt clears and this placeholder lands in the reply
+  // slot so they see *something* responding to the click. Replaced by
+  // the real SpecialistResponseCard the instant the request resolves.
+  const tint = accent("emerald", isDark ? "dark" : "light");
+  const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
+  return (
+    <section>
+      <h4
+        className={`text-[10px] uppercase tracking-[0.16em] mb-2 font-medium ${
+          isDark ? "text-emerald-300/90" : "text-emerald-700"
+        }`}
+      >
+        Reply
+      </h4>
+      <div className={`rounded-lg border p-4 ${tint.border} ${tint.fillSoft}`}>
+        <div className={`flex items-center gap-2 text-sm ${mutedClass}`}>
+          <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
+          <span>Asking {specialistLabel}…</span>
+        </div>
+      </div>
+    </section>
   );
 }
 
