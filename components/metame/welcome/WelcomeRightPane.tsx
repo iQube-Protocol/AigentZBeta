@@ -75,6 +75,14 @@ const CTA_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> 
   "coordinate-follow-ups": Users,
 };
 
+/**
+ * Public prop type — exported so the layout registry (Phase 2, Slice 0+)
+ * can compose-route through this component without re-declaring the shape.
+ * Kept in lock-step with the local `Props` interface; alias is intentional
+ * so a future per-layout narrowing doesn't ripple back into this file.
+ */
+export type WelcomeRightPaneProps = Props;
+
 interface Props {
   theme?: "light" | "dark";
   personaId?: string;
@@ -150,6 +158,12 @@ interface Props {
    *  move-forward state so the action space doesn't pile up. Re-firing
    *  the chip re-issues the request and re-renders the bundle. */
   onDismissBrief?: () => void;
+  /**
+   * Phase 2 Slice 1: BriefLayout's variant switcher (Today / Project /
+   * Cartridge) calls this to re-fetch the brief in the selected scope.
+   * StackLayout ignores it. Optional so non-brief callers don't break.
+   */
+  onBriefVariantChange?: (briefType: "daily" | "project" | "cartridge") => void;
   onDismissVenture?: () => void;
   onDismissMoveForward?: () => void;
   onAskSpecialist: (specialistId: string, prompt: string) => void;
@@ -315,7 +329,11 @@ export function WelcomeRightPane(props: Props) {
   const alternates = moveForwardResult?.alternates ?? [];
 
   return (
-    <div className="h-full overflow-y-auto px-4 py-3 pb-24 space-y-3">
+    <div
+      data-aigentme-right-pane="stack"
+      data-aigentme-layout="stack-layout-v1"
+      className="h-full overflow-y-auto px-4 py-3 pb-24 space-y-3"
+    >
       {/* ── Operational badges carousel ────────────────────────────
           The 'Welcome, <persona>' label was moved up to the cartridge
           header (CodexPanelDynamic right cluster) so it's pinned and
@@ -384,19 +402,15 @@ export function WelcomeRightPane(props: Props) {
       )}
 
       {/* ── Live cards: brief / venture / NBE / approval / artifacts ── */}
-      {pendingApproval && (
-        <div ref={approvalRef}>
-          <ApprovalCard
-            action={toApprovalAction(pendingApproval)}
-            onApprove={onApprovalApprove}
-            onCancel={onApprovalCancel}
-            submitting={submittingApproval}
-            error={approvalError}
-            using={usingIqubes}
-            theme={theme}
-          />
-        </div>
-      )}
+      {/* Phase 2 Slice 5b: the NBE-level approval card (pendingApproval)
+          previously rendered inline here in the stack. It now renders
+          exclusively through the ApprovalLayout overlay so the operator
+          sees a single approval surface — not the Phase 2 overlay AND a
+          duplicate Phase 1 inline card that required dismissing the
+          overlay first to approve. Both NBE approvals AND second-tier
+          external-action confirms route through ApprovalLayout. The
+          overlay is mounted by AigentMeWelcomeSplitTab when either
+          `pendingApprovalNbe` or `secondTierApproval` is set. */}
 
       {/* Queued intents — re-render ApprovalCard in confirmed state. */}
       {Object.entries(queuedIntents).map(([nbeId, queued]) => {
@@ -515,18 +529,12 @@ export function WelcomeRightPane(props: Props) {
         </div>
       )}
 
-      {secondTierApproval && (
-        <SecondTierApprovalCard
-          connectorLabel={secondTierApproval.connectorLabel}
-          summary={secondTierApproval.summary}
-          detail={secondTierApproval.detail}
-          submitting={secondTierApproval.submitting}
-          error={secondTierApproval.error}
-          onApprove={onApproveSecondTier}
-          onCancel={onCancelSecondTier}
-          theme={theme}
-        />
-      )}
+      {/* Phase 2 Slice 5b: second-tier external-action approval is
+          rendered through the Phase 2 ApprovalLayout overlay instead
+          of inline here. Keeps the operator's flow in one place — no
+          inline confirm + overlay confirm collision. The overlay is
+          mounted by AigentMeWelcomeSplitTab when
+          `secondTierApproval` is set. */}
 
       {/* ── Below-fold accordion ─────────────────────────────────── */}
       <div className={`pt-2 mt-1 border-t ${isDark ? "border-slate-800/50" : "border-slate-200"} space-y-2`}>

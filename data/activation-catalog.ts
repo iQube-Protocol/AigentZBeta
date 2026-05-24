@@ -20,28 +20,74 @@ import type { ActiveCartridgeSlug } from '@/services/iqube/experienceQube';
 
 export type ActivationGate = 'open' | 'gated';
 
+// ── Activation-exposed metrics + actions (Phase 2 B.1 / B.2) ───────────
+//
+// Each activation entry below optionally declares the KPIs and NBAs it
+// makes available. The KPI editor and NBA catalogue read these directly
+// from the catalog at runtime, filtered to the activations the persona
+// has in `active` status. Adding a new activation (or a new metric /
+// action on an existing one) is a one-row edit here — no other code
+// change needed in the KPI / NBA layers.
+//
+// This is what makes the cockpit dynamically driven by the persona's
+// own Activations tab configuration: framework lives in code, content
+// is whatever the persona has plugged in.
+
+export type ActivationMetricQuery =
+  | { kind: 'receipts'; eventType: string }
+  | { kind: 'sql'; table: string; where?: Record<string, string> };
+
+/**
+ * Metric class — distinguishes activity volume (what the operator
+ * is doing) from outcome signal (what's actually being achieved).
+ * The UI renders outcomes with stronger emphasis so the operator
+ * can see lagging value at a glance, not just leading effort.
+ *
+ *   - 'activity' — counts of actions taken (default; leading indicator)
+ *   - 'outcome'  — counts of value-bearing events that an outside party
+ *                  responded to (replies, accepts, remixes, conversions)
+ *   - 'standing' — accumulated reputation / position metrics
+ */
+export type ActivationMetricClass = 'activity' | 'outcome' | 'standing';
+
+export interface ActivationMetric {
+  /** Metric key — unique per activationId (`weekly_actives`). */
+  metric: string;
+  label: string;
+  /** Default unit (overridable on the KPI record). */
+  defaultUnit?: string;
+  /** Activity / outcome / standing. Default 'activity'. */
+  class?: ActivationMetricClass;
+  query: ActivationMetricQuery;
+}
+
+export interface ActivationAction {
+  /** Action key — unique per activationId (`draft-outreach`). */
+  action: string;
+  label: string;
+  /** One-line rationale displayed on the action card. */
+  rationale: string;
+  /** Which specialist takes the hand-off (when present). */
+  specialist?: 'marketa' | 'quill' | 'kn0w1' | 'aigent-z' | 'aigent-c' | 'aigent-nakamoto';
+  /** Approval required before queueing. */
+  approvalRequired?: boolean;
+}
+
 export interface ActivationCatalogEntry {
   /** Stable id — persisted in persona_activations.activation_id. */
   id: string;
-  /** User-facing label. */
   label: string;
-  /** Short one-line description shown in the Activations grid. */
   description: string;
-  /** Slightly longer copy for the activation card body. */
   longDescription: string;
-  /** Gate type — drives the activation flow on the Activations tab. */
   gate: ActivationGate;
-  /**
-   * Slug of the metaMe codex tab/group that becomes visible when this
-   * activation is `active`. Drives CodexPanelDynamic gating.
-   */
   tabSlug: string;
-  /** Source cartridge the surface ultimately came from. */
   sourceCartridge: ActiveCartridgeSlug | 'metame';
-  /** Optional icon key from the metaMe icon map. */
   icon?: string;
-  /** Optional accent color. */
   color?: string;
+  /** KPI metrics this activation exposes. Empty / undefined = none. */
+  metrics?: ActivationMetric[];
+  /** NBAs this activation exposes. Empty / undefined = none. */
+  actions?: ActivationAction[];
 }
 
 export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
@@ -56,6 +102,18 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
     sourceCartridge: 'metame',
     icon: 'PenSquare',
     color: 'violet',
+    metrics: [
+      // Activity — what the operator is doing in canvas
+      { metric: 'entries_published', class: 'activity', label: 'Entries published', defaultUnit: 'entries', query: { kind: 'receipts', eventType: 'mycanvas.entry.published' } },
+      { metric: 'invites_sent',      class: 'activity', label: 'Invites sent',      defaultUnit: 'invites', query: { kind: 'receipts', eventType: 'mycanvas.invite.sent' } },
+      // Outcome — what others did with the canvas (the real signal)
+      { metric: 'entries_liked',     class: 'outcome',  label: 'Entries liked',     defaultUnit: 'likes',   query: { kind: 'receipts', eventType: 'mycanvas.entry.liked' } },
+      { metric: 'entries_sparked',   class: 'outcome',  label: 'Entries sparked',   defaultUnit: 'sparks',  query: { kind: 'receipts', eventType: 'mycanvas.entry.sparked' } },
+      { metric: 'entries_remixed',   class: 'outcome',  label: 'Entries remixed',   defaultUnit: 'remixes', query: { kind: 'receipts', eventType: 'mycanvas.entry.remixed' } },
+    ],
+    actions: [
+      { action: 'draft-canvas-entry', label: 'Draft a new canvas entry', rationale: 'Capture a thought before it slips. Aigent C drafts the canvas entry; you publish when ready.', specialist: 'aigent-c' },
+    ],
   },
   {
     id: 'order-of-metaye',
@@ -68,6 +126,21 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
     sourceCartridge: 'knyt',
     icon: 'Shield',
     color: 'amber',
+    metrics: [
+      // Activity — participation volume
+      { metric: 'rituals_completed', class: 'activity', label: 'Rituals completed', defaultUnit: 'rituals',  query: { kind: 'receipts', eventType: 'knyt.ritual.completed' } },
+      { metric: 'missions_active',   class: 'activity', label: 'Active missions',   defaultUnit: 'missions', query: { kind: 'receipts', eventType: 'knyt.mission.advanced' } },
+      { metric: 'votes_cast',        class: 'activity', label: 'Votes cast',        defaultUnit: 'votes',    query: { kind: 'receipts', eventType: 'knyt.vote.cast' } },
+      { metric: 'contributions_made',class: 'activity', label: 'Contributions',     defaultUnit: 'contribs', query: { kind: 'receipts', eventType: 'knyt.contribution.recorded' } },
+      // Outcome — value the Order acknowledged
+      { metric: 'missions_completed',class: 'outcome',  label: 'Missions completed',defaultUnit: 'missions', query: { kind: 'receipts', eventType: 'knyt.mission.completed' } },
+      // Standing — accumulated position
+      { metric: 'standing_score',    class: 'standing', label: 'Standing score',    defaultUnit: 'pts',      query: { kind: 'receipts', eventType: 'knyt.standing.granted' } },
+    ],
+    actions: [
+      { action: 'advance-mission',   label: 'Advance the next mission', rationale: 'Aigent Kn0w1 surfaces the next Order mission you can act on.', specialist: 'kn0w1' },
+      { action: 'claim-standing',    label: 'Claim earned standing', rationale: 'Convert eligible work into Order standing.', specialist: 'kn0w1', approvalRequired: true },
+    ],
   },
   {
     id: 'agentiq-os',
@@ -80,6 +153,19 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
     sourceCartridge: 'metame',
     icon: 'Cpu',
     color: 'cyan',
+    metrics: [
+      // Activity — builder work
+      { metric: 'intents_queued',    class: 'activity', label: 'Intents queued',    defaultUnit: 'intents',   query: { kind: 'receipts', eventType: 'intent.created' } },
+      { metric: 'artifacts_created', class: 'activity', label: 'Artifacts created', defaultUnit: 'artifacts', query: { kind: 'receipts', eventType: 'artifact.created' } },
+      // Outcome — developer adoption signal
+      { metric: 'agents_deployed',     class: 'outcome',  label: 'Agents deployed',     defaultUnit: 'agents',    query: { kind: 'receipts', eventType: 'agent.deployed' } },
+      { metric: 'referrals_instigated',class: 'outcome',  label: 'Referrals instigated',defaultUnit: 'referrals', query: { kind: 'receipts', eventType: 'agentiqos.referral.sent' } },
+      { metric: 'sdk_downloads',       class: 'outcome',  label: 'SDK downloads',       defaultUnit: 'downloads', query: { kind: 'receipts', eventType: 'agentiqos.sdk.downloaded' } },
+      { metric: 'repo_forks',          class: 'outcome',  label: 'Repo forks',          defaultUnit: 'forks',     query: { kind: 'receipts', eventType: 'agentiqos.repo.forked' } },
+    ],
+    actions: [
+      { action: 'build-agent',       label: 'Build a new agent', rationale: 'Spin up a custom agent and bind it to iQubes you own.', specialist: 'aigent-z' },
+    ],
   },
   {
     id: 'qriptopian',
@@ -92,6 +178,18 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
     sourceCartridge: 'qriptopian',
     icon: 'Globe',
     color: 'slate',
+    metrics: [
+      // Activity — editorial work
+      { metric: 'briefs_published', class: 'activity', label: 'Briefs published', defaultUnit: 'briefs', query: { kind: 'receipts', eventType: 'qriptopian.brief.published' } },
+      { metric: 'angles_drafted',   class: 'activity', label: 'Angles drafted',   defaultUnit: 'angles', query: { kind: 'receipts', eventType: 'qriptopian.angle.drafted' } },
+      // Outcome — editorial pickup
+      { metric: 'brief_readership', class: 'outcome',  label: 'Brief reads',      defaultUnit: 'reads',  query: { kind: 'receipts', eventType: 'qriptopian.brief.read' } },
+      { metric: 'angles_picked_up', class: 'outcome',  label: 'Angles picked up', defaultUnit: 'pickups',query: { kind: 'receipts', eventType: 'qriptopian.angle.picked_up' } },
+    ],
+    actions: [
+      { action: 'draft-angle', label: 'Draft an editorial angle', rationale: 'Quill drafts an angle on a moment you want to frame.', specialist: 'quill' },
+      { action: 'publish-brief', label: 'Publish a brief', rationale: 'Move a drafted brief through review and into the feed.', specialist: 'quill', approvalRequired: true },
+    ],
   },
   {
     id: 'venture-lab',
@@ -104,6 +202,23 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
     sourceCartridge: 'avl',
     icon: 'TrendingUp',
     color: 'emerald',
+    metrics: [
+      // Activity — venture motion
+      { metric: 'workstreams_in_progress', class: 'activity', label: 'Workstreams in progress', defaultUnit: 'workstreams', query: { kind: 'receipts', eventType: 'workstream.advanced' } },
+      { metric: 'partners_declared',       class: 'activity', label: 'Partners declared',       defaultUnit: 'partners',    query: { kind: 'sql',      table: 'crm_investors', where: { status: 'active' } } },
+      { metric: 'progress_reports',        class: 'activity', label: 'Progress reports',        defaultUnit: 'reports',     query: { kind: 'receipts', eventType: 'venture.progress_report' } },
+      // Outcome — venture growth + development markers
+      { metric: 'workstreams_completed',   class: 'outcome',  label: 'Workstreams completed',   defaultUnit: 'workstreams', query: { kind: 'receipts', eventType: 'workstream.completed' } },
+      { metric: 'milestones_hit',          class: 'outcome',  label: 'Milestones hit',          defaultUnit: 'milestones',  query: { kind: 'receipts', eventType: 'venture.milestone.hit' } },
+      { metric: 'partner_conversions',     class: 'outcome',  label: 'Partner conversions',     defaultUnit: 'partners',    query: { kind: 'receipts', eventType: 'venture.partner.converted' } },
+      { metric: 'runway_extended_events',  class: 'outcome',  label: 'Runway-extending events', defaultUnit: 'events',      query: { kind: 'receipts', eventType: 'venture.runway.extended' } },
+      // Standing — stage position
+      { metric: 'stage_advances',          class: 'standing', label: 'Stage advances',          defaultUnit: 'stages',      query: { kind: 'receipts', eventType: 'stage.advanced' } },
+    ],
+    actions: [
+      { action: 'generate-venture-report', label: 'Generate venture progress report', rationale: 'Snapshot operational + commercial KPI movement, blockers, and the next moves.', specialist: 'aigent-z' },
+      { action: 'advance-stage',           label: 'Advance to the next stage', rationale: 'Check stage criteria and promote when ready.', specialist: 'aigent-z', approvalRequired: true },
+    ],
   },
   {
     id: 'marketa',
@@ -116,6 +231,20 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
     sourceCartridge: 'marketa',
     icon: 'Megaphone',
     color: 'rose',
+    metrics: [
+      // Activity — outbound motion
+      { metric: 'campaigns_active', class: 'activity', label: 'Active campaigns', defaultUnit: 'campaigns', query: { kind: 'sql',      table: 'crm_campaigns', where: { status: 'active' } } },
+      { metric: 'emails_sent',      class: 'activity', label: 'Emails sent',      defaultUnit: 'emails',    query: { kind: 'receipts', eventType: 'marketa.email.sent' } },
+      // Outcome — campaign result signals
+      { metric: 'partner_replies',     class: 'outcome', label: 'Partner replies',     defaultUnit: 'replies',     query: { kind: 'receipts', eventType: 'marketa.reply.received' } },
+      { metric: 'meetings_booked',     class: 'outcome', label: 'Meetings booked',     defaultUnit: 'meetings',    query: { kind: 'receipts', eventType: 'marketa.meeting.booked' } },
+      { metric: 'proposals_accepted',  class: 'outcome', label: 'Proposals accepted',  defaultUnit: 'proposals',   query: { kind: 'receipts', eventType: 'marketa.proposal.accepted' } },
+      { metric: 'partnerships_closed', class: 'outcome', label: 'Partnerships closed', defaultUnit: 'partnerships',query: { kind: 'receipts', eventType: 'marketa.partnership.closed' } },
+    ],
+    actions: [
+      { action: 'draft-outreach',    label: 'Draft partner outreach',     rationale: 'Marketa drafts an outreach email to a priority partner.', specialist: 'marketa' },
+      { action: 'launch-sequence',   label: 'Launch a campaign sequence', rationale: 'Activate the next campaign sequence; gated by approval.', specialist: 'marketa', approvalRequired: true },
+    ],
   },
   {
     id: 'metame-studio',
@@ -128,6 +257,18 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
     sourceCartridge: 'metame',
     icon: 'PenTool',
     color: 'indigo',
+    metrics: [
+      // Activity — authorship work
+      { metric: 'experiences_authored', class: 'activity', label: 'Experiences authored', defaultUnit: 'experiences', query: { kind: 'receipts', eventType: 'experience.authored' } },
+      { metric: 'studio_artifacts',     class: 'activity', label: 'Studio artifacts',     defaultUnit: 'artifacts',   query: { kind: 'receipts', eventType: 'studio.artifact.created' } },
+      // Outcome — experiences that landed
+      { metric: 'experiences_launched',     class: 'outcome', label: 'Experiences launched',     defaultUnit: 'experiences', query: { kind: 'receipts', eventType: 'experience.launched' } },
+      { metric: 'experiences_remixed',      class: 'outcome', label: 'Experiences remixed',      defaultUnit: 'remixes',     query: { kind: 'receipts', eventType: 'experience.remixed' } },
+      { metric: 'experiences_completed_by', class: 'outcome', label: 'Experiences completed by users', defaultUnit: 'completions', query: { kind: 'receipts', eventType: 'experience.completed' } },
+    ],
+    actions: [
+      { action: 'author-experience', label: 'Author a new experience', rationale: 'Open the Studio composer and start an ExperienceQube.', specialist: 'aigent-z' },
+    ],
   },
 ];
 
@@ -138,4 +279,49 @@ export function getActivationEntry(id: string): ActivationCatalogEntry | null {
 export function activationIdForTabSlug(slug: string): string | null {
   const hit = ACTIVATION_CATALOG.find((e) => e.tabSlug === slug);
   return hit?.id ?? null;
+}
+
+/**
+ * Return every metric exposed by activations the persona has in `active`
+ * status. Used by the KPI editor's source picker and the resolver.
+ */
+export function metricsForActiveActivations(
+  activeIds: Iterable<string>,
+): Array<{ activationId: string; activationLabel: string; metric: ActivationMetric }> {
+  const set = new Set(activeIds);
+  const out: Array<{ activationId: string; activationLabel: string; metric: ActivationMetric }> = [];
+  for (const entry of ACTIVATION_CATALOG) {
+    if (!set.has(entry.id)) continue;
+    for (const m of entry.metrics ?? []) {
+      out.push({ activationId: entry.id, activationLabel: entry.label, metric: m });
+    }
+  }
+  return out;
+}
+
+/**
+ * Return every action exposed by activations the persona has in `active`
+ * status. Used by the NBA catalogue and the Active Work surface.
+ */
+export function actionsForActiveActivations(
+  activeIds: Iterable<string>,
+): Array<{ activationId: string; activationLabel: string; cartridge: ActiveCartridgeSlug | 'metame'; action: ActivationAction }> {
+  const set = new Set(activeIds);
+  const out: Array<{ activationId: string; activationLabel: string; cartridge: ActiveCartridgeSlug | 'metame'; action: ActivationAction }> = [];
+  for (const entry of ACTIVATION_CATALOG) {
+    if (!set.has(entry.id)) continue;
+    for (const a of entry.actions ?? []) {
+      out.push({ activationId: entry.id, activationLabel: entry.label, cartridge: entry.sourceCartridge, action: a });
+    }
+  }
+  return out;
+}
+
+/**
+ * Lookup helpers used by the KPI resolver.
+ */
+export function findActivationMetric(activationId: string, metric: string): ActivationMetric | null {
+  const entry = getActivationEntry(activationId);
+  if (!entry) return null;
+  return (entry.metrics ?? []).find((m) => m.metric === metric) ?? null;
 }

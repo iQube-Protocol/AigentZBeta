@@ -177,10 +177,10 @@ export function BriefCard({ data, loading, error, onActOnNbe, onDismiss, theme =
         theme={theme}
       />
 
-      {/* Top priorities */}
+      {/* Top priorities (amber — pending / what-needs-attention semantic) */}
       {data.topPriorities.length > 0 && (
         <section>
-          <h4 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
+          <h4 className={`text-xs uppercase tracking-wider mb-2 font-medium ${isDark ? "text-amber-300/90" : "text-amber-700"}`}>
             Top priorities
           </h4>
           <ul className="space-y-1.5">
@@ -197,9 +197,9 @@ export function BriefCard({ data, loading, error, onActOnNbe, onDismiss, theme =
         </section>
       )}
 
-      {/* Next best actions */}
+      {/* Next best actions (violet — action-bearing, strongest emphasis) */}
       <section>
-        <h4 className={`text-xs uppercase tracking-wider mb-2 ${mutedClass}`}>
+        <h4 className={`text-xs uppercase tracking-wider mb-2 font-medium ${isDark ? "text-violet-300" : "text-violet-700"}`}>
           Suggested next moves
         </h4>
         <div className="space-y-2">

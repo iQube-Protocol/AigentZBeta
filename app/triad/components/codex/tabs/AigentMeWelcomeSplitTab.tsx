@@ -30,6 +30,13 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  coerceKpisToRichShape,
+  type KpiRecord,
+  type KpiSource,
+} from "@/services/strategy/kpiTypes";
+import { ACTIVATION_CATALOG } from "@/data/activation-catalog";
+import { ActiveKpisEditor } from "@/components/metame/setup/ActiveKpisEditor";
+import {
   usePersonaSpine,
   personaFetch,
   PersonaSpineGate,
@@ -50,16 +57,24 @@ import type { ArtifactCardData } from "@/components/metame/cards/ArtifactCard";
 import type { ActivityReceiptData } from "@/components/metame/cards/ActivityReceiptCard";
 import type { StageEvaluation } from "@/services/strategy/stageProgression";
 
-import { ComposeGmailDraftModal } from "@/components/metame/connections/ComposeGmailDraftModal";
-import { ComposeCalendarEventModal } from "@/components/metame/connections/ComposeCalendarEventModal";
-import { ComposeGoogleDocModal } from "@/components/metame/connections/ComposeGoogleDocModal";
-import { ComposeGoogleSheetModal } from "@/components/metame/connections/ComposeGoogleSheetModal";
-import { ComposeSlidesModal } from "@/components/metame/connections/ComposeSlidesModal";
-import { ComposeMarketaEmailModal } from "@/components/metame/connections/ComposeMarketaEmailModal";
+// ComposeGmailDraftModal + sibling compose modals are now mounted
+// inline by ComposerLayout (Phase 2 Slice 4). The tab no longer
+// imports or mounts them directly.
+// ComposeGoogleDocModal / ComposeGoogleSheetModal / ComposeSlidesModal /
+// ComposeMarketaEmailModal — see comment on the Gmail import above.
+// All six now mounted inline by ComposerLayout, not by this tab.
 
 import { ComposeQuickActionsStrip, type ComposeKind } from "@/components/metame/copilot/ComposeQuickActionsStrip";
 import AgentWalletDrawer from "@/components/AgentWalletDrawer";
-import { WelcomeRightPane } from "@/components/metame/welcome/WelcomeRightPane";
+// WelcomeRightPane is composed by the layout registry now — `StackLayout`
+// wraps it identically so Phase 1 behavior is preserved while Phase 2
+// slices add intent-specific layouts alongside.
+import {
+  getLayout,
+  DEFAULT_LAYOUT_ID,
+  type RightPaneLayoutId,
+} from "@/components/metame/welcome/layouts/registry";
+import type { NbeQuickChip } from "@/types/orchestration";
 import {
   useAigentMeCopilotBridge,
   type SectionId,
@@ -101,19 +116,27 @@ interface BootstrapSurface {
 }
 
 /**
- * Open the newly-created artifact in a new tab when its location is a real
- * external URL (Google Doc / Slide / Sheet / Calendar event). Skipped for
- * runtime-local artifacts (gmail draft, marketa email) where the link
- * lives inside the app itself.
+ * Phase 2 Slice 5b: no-op.
+ *
+ * Previously this auto-opened the newly-created artifact's locationUrl
+ * (Gmail draft / Drive doc / Calendar event) in a new tab as soon as
+ * the artifact landed. That broke the in-app HITL flow: operators
+ * clicked "draft an email", the system created the draft in Gmail,
+ * then a new tab popped open BEFORE the user even saw the in-app
+ * approval card — by the time the approval sheet appeared, the
+ * operator had already context-switched to Gmail.
+ *
+ * The Phase 1 contract (now restored) is: approve in app → execute
+ * via API → ArtifactCard surfaces the `View in Gmail` link in its
+ * post-send state. The user clicks the link when they want, not
+ * before.
+ *
+ * Kept as a no-op (instead of deleted) so the six call sites in this
+ * file don't need to change — they already do `setArtifacts([...])`
+ * inline alongside this call, which is the only behavior we need.
  */
-function autoOpenArtifact(data: { locationUrl?: string | null; artifactType?: string }) {
-  if (typeof window === 'undefined') return;
-  if (!data.locationUrl) return;
-  // Gmail drafts live at https://mail.google.com/... which we DO want
-  // to open. Marketa lives at /metame/runtime — also fine. Filter only
-  // obviously-internal/blank URLs.
-  if (data.locationUrl.startsWith('#') || data.locationUrl === '/') return;
-  window.open(data.locationUrl, '_blank', 'noopener,noreferrer');
+function autoOpenArtifact(_data: { locationUrl?: string | null; artifactType?: string }) {
+  return;
 }
 
 /**
@@ -171,6 +194,10 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
 
   const [ventureProgress, setVentureProgress] = useState<VentureProgressData | null>(null);
   const [ventureProgressLoading, setVentureProgressLoading] = useState(false);
+  // Phase 2 B.3 — timestamp of the most recent successful venture
+  // progress fetch. Surfaced in the cockpit header as "Synced Ns ago"
+  // so the operator can see freshness at a glance.
+  const [ventureLastSyncedAt, setVentureLastSyncedAt] = useState<Date | null>(null);
   const [ventureProgressError, setVentureProgressError] = useState<string | null>(null);
 
   const [specialistResponses, setSpecialistResponses] = useState<Record<string, SpecialistResponseData>>({});
@@ -215,12 +242,9 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const [walletOpen, setWalletOpen] = useState(false);
 
   // Compose modal open/close booleans.
-  const [composeGmailOpen, setComposeGmailOpen] = useState(false);
-  const [composeCalendarOpen, setComposeCalendarOpen] = useState(false);
-  const [composeDocOpen, setComposeDocOpen] = useState(false);
-  const [composeSheetOpen, setComposeSheetOpen] = useState(false);
-  const [composeSlidesOpen, setComposeSlidesOpen] = useState(false);
-  const [composeMarketaOpen, setComposeMarketaOpen] = useState(false);
+  // Phase 2 Slice 4: compose-modal open booleans removed. The single
+  // composerKind state below drives ComposerLayout's inline form host
+  // — no separate popup-modal open flags needed.
 
   // Per-specialist inline Ask state.
   const [askSpecialistOpenId, setAskSpecialistOpenId] = useState<string | null>(null);
@@ -248,11 +272,58 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // Accordion: which right-pane config section is expanded.
   const [expandedSectionId, setExpandedSectionId] = useState<SectionId | null>(null);
 
+  // Phase 2 Slice 0: right-pane layout selector. Defaults to 'stack' so
+  // behavior is identical to Phase 1 — `StackLayout` wraps the existing
+  // WelcomeRightPane verbatim. Slices 1+ add intent-specific layouts
+  // (brief, decision-board, venture-cockpit, composer, approval, ledger)
+  // and the activator chips set this state to route the pane.
+  // DIS: codexes/packs/agentiq/items/dis/aigentme-phase-2.dis.json
+  const [activeLayoutId, setActiveLayoutId] = useState<RightPaneLayoutId>(DEFAULT_LAYOUT_ID);
+
+  // Phase 2 Slice 7 — server-driven chip set.
+  // Null = use the cold-open static fallback below. Each /api/assistant/*
+  // response may carry a `quickChips: NbeQuickChip[]` envelope; when it
+  // does, the strip swaps to that set for the next turn. The fetch
+  // helpers (fetchBrief / fetchMoveForward / fetchVentureProgress) read
+  // the envelope and call setServerChips(). Server emission is the
+  // follow-on slice — this slot makes the swap point ready.
+  const [serverChips, setServerChips] = useState<NbeQuickChip[] | null>(null);
+
+  // Phase 2 Slice 5: ApprovalLayout is INTERRUPT class — when a pending
+  // approval arrives it overlays whatever layout is foreground. The
+  // foreground layout stays mounted underneath so user context is
+  // preserved. Driven by `pendingApprovalNbe !== null` directly; no
+  // activeLayoutId swap needed.
+
   // Refs for the copilot to scroll cards into view.
   const briefRef = useRef<HTMLDivElement>(null);
   const nbeRef = useRef<HTMLDivElement>(null);
   const approvalRef = useRef<HTMLDivElement>(null);
   const artifactRef = useRef<HTMLDivElement>(null);
+
+  // Phase 2 Slice 4 polish: wrap setActiveLayoutId so that a transition
+  // back to 'stack' from any non-stack layout — most importantly the
+  // composer — auto-scrolls the just-created artifact into view. The
+  // ArtifactCard with the `Send draft` button can otherwise sit below
+  // the fold in a long stack and the operator misses the approval gate.
+  const requestLayout = useCallback(
+    (next: RightPaneLayoutId) => {
+      setActiveLayoutId((prev) => {
+        if (prev !== 'stack' && next === 'stack' && artifactRef.current) {
+          // Two RAFs: first lets React commit the layout swap, second
+          // lets the stack paint so the artifact section has a real
+          // bounding box before we scroll into view.
+          window.requestAnimationFrame(() => {
+            window.requestAnimationFrame(() => {
+              artifactRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+          });
+        }
+        return next;
+      });
+    },
+    [],
+  );
 
   // ── Bootstrap fetch ─────────────────────────────────────────────────
   useEffect(() => {
@@ -326,7 +397,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   }, [spine.status, personaId]);
 
   // ── Fetchers ────────────────────────────────────────────────────────
-  const fetchBrief = useCallback(async () => {
+  const fetchBrief = useCallback(async (briefType: 'daily' | 'project' | 'cartridge' = 'daily') => {
     setBriefLoading(true);
     setBriefError(null);
     setBrief(null);
@@ -334,14 +405,18 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       const res = await personaFetch('/api/assistant/brief', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ briefType: 'daily' }),
+        body: JSON.stringify({ briefType }),
         personaIdHint: personaId,
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.detail || body?.error || `brief failed (${res.status})`);
       }
-      setBrief((await res.json()) as BriefCardData);
+      const payload = (await res.json()) as BriefCardData & { quickChips?: NbeQuickChip[] };
+      setBrief(payload);
+      // Phase 2 Slice 7: server-driven chip set. When the response
+      // carries a quickChips envelope, swap the strip for the next turn.
+      if (Array.isArray(payload.quickChips)) setServerChips(payload.quickChips);
     } catch (err) {
       setBriefError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -363,7 +438,15 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.detail || body?.error || `move-forward failed (${res.status})`);
       }
-      setMoveForwardResult((await res.json()) as { cartridge: string; topAction: NextBestActionData | null; alternates: NextBestActionData[]; topActionReason?: string | null });
+      const payload = (await res.json()) as {
+        cartridge: string;
+        topAction: NextBestActionData | null;
+        alternates: NextBestActionData[];
+        topActionReason?: string | null;
+        quickChips?: NbeQuickChip[];
+      };
+      setMoveForwardResult(payload);
+      if (Array.isArray(payload.quickChips)) setServerChips(payload.quickChips);
     } catch {
       setMoveForwardResult({ cartridge: cartridge ?? 'metame', topAction: null, alternates: [] });
     } finally {
@@ -371,10 +454,17 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
   }, [personaId]);
 
-  const fetchVentureProgress = useCallback(async () => {
-    setVentureProgressLoading(true);
-    setVentureProgressError(null);
-    setVentureProgress(null);
+  const fetchVentureProgress = useCallback(async (opts?: { silent?: boolean }) => {
+    // Phase 2 B.3 — silent mode lets background polls + post-mutation
+    // refreshes update in place without flashing the loading skeleton.
+    // Chip-driven fetches still set loading so the operator sees the
+    // surface acknowledge their click.
+    const silent = !!opts?.silent;
+    if (!silent) {
+      setVentureProgressLoading(true);
+      setVentureProgressError(null);
+      setVentureProgress(null);
+    }
     try {
       const res = await personaFetch('/api/assistant/venture-progress', {
         method: 'POST',
@@ -386,11 +476,19 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.detail || body?.error || `venture-progress failed (${res.status})`);
       }
-      setVentureProgress((await res.json()) as VentureProgressData);
+      const payload = (await res.json()) as VentureProgressData & { quickChips?: NbeQuickChip[] };
+      setVentureProgress(payload);
+      setVentureLastSyncedAt(new Date());
+      if (Array.isArray(payload.quickChips)) setServerChips(payload.quickChips);
     } catch (err) {
-      setVentureProgressError(err instanceof Error ? err.message : String(err));
+      if (!silent) {
+        setVentureProgressError(err instanceof Error ? err.message : String(err));
+      }
+      // Silent polls swallow errors — the operator already has the
+      // last good snapshot on screen and a transient error shouldn't
+      // wipe the cockpit.
     } finally {
-      setVentureProgressLoading(false);
+      if (!silent) setVentureProgressLoading(false);
     }
   }, [personaId]);
 
@@ -412,9 +510,28 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
 
   const handleCtaClick = useCallback((ctaId: string) => {
     if (ctaId === 'set-up-experience-model') { setWizardOpen(true); return; }
-    if (ctaId === 'brief-me') { void fetchBrief(); return; }
-    if (ctaId === 'move-this-forward') { void fetchMoveForward(); return; }
-    if (ctaId === 'review-venture-progress') { void fetchVentureProgress(); return; }
+    // Phase 2 Slice 1: 'brief-me' now selects the BriefLayout AND fires
+    // the fetch. The layout owns the rendering; the stack no longer
+    // accumulates a brief card.
+    if (ctaId === 'brief-me') {
+      setActiveLayoutId('brief');
+      void fetchBrief();
+      return;
+    }
+    // Move-forward + venture-progress request their intent-layouts.
+    // Until Slices 2 + 3 land, the registry falls back to StackLayout
+    // so the cards still render in the stack; once the layouts ship,
+    // these calls activate them automatically.
+    if (ctaId === 'move-this-forward') {
+      setActiveLayoutId('decision-board');
+      void fetchMoveForward();
+      return;
+    }
+    if (ctaId === 'review-venture-progress') {
+      setActiveLayoutId('venture-cockpit');
+      void fetchVentureProgress();
+      return;
+    }
   }, [fetchBrief, fetchMoveForward, fetchVentureProgress]);
 
   const handleWizardSaved = useCallback((saved: ExperienceModelCardData) => {
@@ -448,6 +565,9 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
     setApprovalError(null);
     setPendingApprovalNbe(action);
+    // Phase 2 Slice 5: ApprovalLayout overlays the current layout
+    // automatically via the render — see the right-pane wrapper below.
+    // We don't swap `activeLayoutId` so the foreground stays mounted.
     // Scroll the approval card into view — the right pane scrolls
     // independently and the modal would otherwise appear above the fold.
     window.requestAnimationFrame(() => {
@@ -458,6 +578,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const handleApprovalCancel = useCallback(() => {
     setPendingApprovalNbe(null);
     setApprovalError(null);
+    // Foreground layout remains as-is; the approval overlay unmounts.
   }, []);
 
   const handleApprovalApprove = useCallback(async () => {
@@ -482,7 +603,13 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         [action.id]: { intentId: intentData.intentId, status: intentData.status, queueMessage: intentData.queueMessage },
       }));
       setPendingApprovalNbe(null);
+      // Foreground layout remains as-is; approval overlay unmounts.
       void fetchReceipts();
+      // Phase 2 B.3 — also refresh the cockpit so the just-queued
+      // intent appears in Active Work without the operator needing
+      // to wait for the next 20s poll. Silent mode keeps the
+      // existing surface mounted.
+      void fetchVentureProgress({ silent: true });
 
       // Workspace-flavoured NBEs (gmail/doc/event/etc.) hand off to the
       // corresponding compose modal so the user can actually do the action
@@ -826,16 +953,33 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
   }, [personaId, fetchReceipts]);
 
+  // Phase 2 Slice 4: which compose form ComposerLayout should render
+  // inline. Null when the layout is preview-only.
+  const [composerKind, setComposerKind] = useState<ComposeKind | null>(null);
+
+  // Phase 2 B.1: selected KPI for KpiDetailLayout. The cockpit chip's
+  // onClick sets this + activates 'kpi-detail'.
+  const [selectedKpiId, setSelectedKpiId] = useState<string | null>(null);
+
+  // Phase 2 B.2 (2/2): selected intent for ActiveWorkDetailLayout.
+  // ActivityChip onClick sets this + activates 'active-work-detail'.
+  const [selectedIntentId, setSelectedIntentId] = useState<string | null>(null);
+
+  // Phase 2 B.1 polish: KPI editor mounted on the aigentMe tab so it
+  // can be opened directly from the cockpit's "Edit KPIs" affordance,
+  // not just from the Strategy tab. Same component, same persistence.
+  const [kpisEditorOpen, setKpisEditorOpen] = useState(false);
+
   // ── AG-UI bridge: copilot → right pane ─────────────────────────────
+  // Compose footer / copilot bridge now routes ALL compose intents
+  // through the Phase 2 ComposerLayout — no popup modals over the
+  // right pane. The compose form hosts inline in the layout's body;
+  // submit creates the artifact + clears composerKind so the same
+  // surface flips to the draft preview with Send draft → Phase 2
+  // ApprovalLayout overlay (the unified HITL gate).
   const openComposeByKind = useCallback((kind: ComposeKind) => {
-    switch (kind) {
-      case "gmail":   setComposeGmailOpen(true); break;
-      case "event":   setComposeCalendarOpen(true); break;
-      case "doc":     setComposeDocOpen(true); break;
-      case "sheet":   setComposeSheetOpen(true); break;
-      case "slides":  setComposeSlidesOpen(true); break;
-      case "marketa": setComposeMarketaOpen(true); break;
-    }
+    setComposerKind(kind);
+    setActiveLayoutId('composer');
   }, []);
 
   const focusCard = useCallback((kind: CardKind) => {
@@ -852,11 +996,279 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const latestArtifact = artifacts[0] ?? null;
   const activeCartridges = (data?.availableCartridges ?? []).map((c) => c.slug);
 
+  // Phase 2 B.1 3/3 — load the persona's active activation ids so the
+  // copilot bridge can expose the available KPI sources filtered to
+  // what's currently switched on.
+  const [activeActivationIds, setActiveActivationIds] = useState<string[]>([]);
+  useEffect(() => {
+    if (!personaId) return;
+    let cancelled = false;
+    void personaFetch('/api/assistant/activations', { personaIdHint: personaId })
+      .then((r) => r.json())
+      .then((d: { activations?: Array<{ id: string; status: string }> }) => {
+        if (cancelled) return;
+        const ids = (d.activations ?? [])
+          .filter((a) => a.status === 'active')
+          .map((a) => a.id);
+        setActiveActivationIds(ids);
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [personaId]);
+
+  // Phase 2 B.3 — live cockpit sync.
+  //
+  // Background polls `fetchVentureProgress({ silent: true })` on a 20s
+  // cadence while the operator is on a cockpit-related layout AND the
+  // tab is visible. Pauses immediately on `document.hidden`; resumes
+  // on the next visibility-change event. Silent mode means the
+  // skeleton never flashes — the cockpit updates in place.
+  //
+  // Mutation paths (KPI edit, intent action, NBE approval) already
+  // call `fetchVentureProgress()` synchronously after their writes;
+  // this polling layer covers everything else (cartridge-side events
+  // that wrote a receipt without going through the cockpit). Phase 3
+  // replaces polling with a Supabase realtime subscription on
+  // `dvn_receipt_events` filtered to the persona.
+  useEffect(() => {
+    if (!personaId) return;
+    const isCockpitLayout =
+      activeLayoutId === 'venture-cockpit' ||
+      activeLayoutId === 'kpi-detail' ||
+      activeLayoutId === 'active-work-detail';
+    if (!isCockpitLayout) return;
+    if (typeof document !== 'undefined' && document.hidden) return;
+
+    const interval = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      void fetchVentureProgress({ silent: true });
+    }, 20_000);
+
+    const onVisibility = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        void fetchVentureProgress({ silent: true });
+      }
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onVisibility);
+    }
+    return () => {
+      window.clearInterval(interval);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', onVisibility);
+      }
+    };
+  }, [personaId, activeLayoutId, fetchVentureProgress]);
+
+  // Phase 2 B.1 3/3 — KPI mutation handlers passed to the copilot
+  // bridge. Reuse the same /api/assistant/experience-model path the
+  // editor uses; refresh venture-progress after each save so the
+  // cockpit picks up the change.
+  const handleAddKpi = useCallback(
+    async (input: { name: string; target: string; source: KpiSource; unit?: string }): Promise<{ ok: true; id: string } | { ok: false; reason: string }> => {
+      if (!personaId) return { ok: false, reason: 'No active persona' };
+      try {
+        const modelRes = await personaFetch('/api/assistant/experience-model', { personaIdHint: personaId });
+        const model = await modelRes.json();
+        const current = coerceKpisToRichShape(model?.activeKpis);
+        const id = `kpi_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+        // Pull metric label from catalog when activation-bound.
+        let unit = input.unit;
+        let metricClass: 'activity' | 'outcome' | 'standing' = 'activity';
+        if (input.source.kind === 'activation' && input.source.activationId && input.source.metric) {
+          const entry = ACTIVATION_CATALOG.find((e) => e.id === input.source.activationId);
+          const metric = entry?.metrics?.find((m) => m.metric === input.source.metric);
+          if (metric) {
+            unit = unit ?? metric.defaultUnit;
+            metricClass = metric.class ?? 'activity';
+          }
+        }
+        const record: KpiRecord = {
+          id,
+          name: input.name,
+          target: input.target,
+          current: null,
+          unit,
+          trend: 'unknown',
+          lastUpdatedAt: null,
+          source: input.source,
+          class: metricClass,
+        };
+        const next = { ...current, [id]: record };
+        const saveRes = await personaFetch('/api/assistant/experience-model', {
+          personaIdHint: personaId,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ blak: { activeKpis: next } }),
+        });
+        if (!saveRes.ok) {
+          const body = await saveRes.json().catch(() => ({}));
+          return { ok: false, reason: body?.detail || body?.error || `save failed (${saveRes.status})` };
+        }
+        void fetchVentureProgress();
+        return { ok: true, id };
+      } catch (err) {
+        return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+      }
+    },
+    [personaId, fetchVentureProgress],
+  );
+
+  const handleSetKpiValue = useCallback(
+    async (input: { kpiId: string; current: number }): Promise<{ ok: true } | { ok: false; reason: string }> => {
+      if (!personaId) return { ok: false, reason: 'No active persona' };
+      try {
+        const modelRes = await personaFetch('/api/assistant/experience-model', { personaIdHint: personaId });
+        const model = await modelRes.json();
+        const current = coerceKpisToRichShape(model?.activeKpis);
+        const existing = current[input.kpiId];
+        if (!existing) return { ok: false, reason: `KPI '${input.kpiId}' not found.` };
+        if (existing.source.kind !== 'manual') {
+          return { ok: false, reason: `KPI '${existing.name}' has a non-manual source; values resolve automatically.` };
+        }
+        const next = {
+          ...current,
+          [input.kpiId]: {
+            ...existing,
+            current: input.current,
+            lastUpdatedAt: new Date().toISOString(),
+          },
+        };
+        const saveRes = await personaFetch('/api/assistant/experience-model', {
+          personaIdHint: personaId,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ blak: { activeKpis: next } }),
+        });
+        if (!saveRes.ok) {
+          const body = await saveRes.json().catch(() => ({}));
+          return { ok: false, reason: body?.detail || body?.error || `save failed (${saveRes.status})` };
+        }
+        void fetchVentureProgress();
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+      }
+    },
+    [personaId, fetchVentureProgress],
+  );
+
+  const handleRemoveKpi = useCallback(
+    async (kpiId: string): Promise<{ ok: true } | { ok: false; reason: string }> => {
+      if (!personaId) return { ok: false, reason: 'No active persona' };
+      try {
+        const modelRes = await personaFetch('/api/assistant/experience-model', { personaIdHint: personaId });
+        const model = await modelRes.json();
+        const current = coerceKpisToRichShape(model?.activeKpis);
+        if (!current[kpiId]) return { ok: false, reason: `KPI '${kpiId}' not found.` };
+        const next = { ...current };
+        delete next[kpiId];
+        const saveRes = await personaFetch('/api/assistant/experience-model', {
+          personaIdHint: personaId,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ blak: { activeKpis: next } }),
+        });
+        if (!saveRes.ok) {
+          const body = await saveRes.json().catch(() => ({}));
+          return { ok: false, reason: body?.detail || body?.error || `save failed (${saveRes.status})` };
+        }
+        void fetchVentureProgress();
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+      }
+    },
+    [personaId, fetchVentureProgress],
+  );
+
+  const handleOpenKpiDetail = useCallback((kpiId: string) => {
+    setSelectedKpiId(kpiId);
+    setActiveLayoutId('kpi-detail');
+  }, []);
+
+  // Phase 2 B.2 (2/2) — ActiveWork chip click handler.
+  const handleSelectActiveWork = useCallback((intentId: string) => {
+    setSelectedIntentId(intentId);
+    setActiveLayoutId('active-work-detail');
+  }, []);
+
+  // T1-safe KPI snapshot for the copilot readable.
+  const copilotActiveKpis = useMemo(() => {
+    const rows = ventureProgress?.activeKpis ?? [];
+    return rows.map((kpi) => {
+      const entry = kpi.source.kind === 'activation' && kpi.source.activationId
+        ? ACTIVATION_CATALOG.find((e) => e.id === kpi.source.activationId)
+        : null;
+      const sourceLabel =
+        kpi.source.kind === 'manual'
+          ? 'Manual'
+          : entry
+            ? `${entry.label} → ${kpi.source.metric ?? '—'}`
+            : 'Unknown';
+      return {
+        id: kpi.id,
+        name: kpi.name,
+        target: kpi.target,
+        current: kpi.current,
+        unit: kpi.unit,
+        trend: kpi.trend,
+        class: kpi.class,
+        sourceKind: kpi.source.kind,
+        sourceLabel,
+        unresolvedReason: kpi.unresolvedReason ?? null,
+      };
+    });
+  }, [ventureProgress?.activeKpis]);
+
+  // Available KPI sources — union of metrics across the persona's
+  // ACTIVE activations. Inactive activations are omitted so the
+  // copilot only sees options that will resolve.
+  const copilotAvailableKpiSources = useMemo(() => {
+    const set = new Set(activeActivationIds);
+    const out: Array<{
+      activationId: string;
+      activationLabel: string;
+      metric: string;
+      metricLabel: string;
+      metricClass: 'activity' | 'outcome' | 'standing';
+      defaultUnit?: string;
+    }> = [];
+    for (const entry of ACTIVATION_CATALOG) {
+      if (!set.has(entry.id)) continue;
+      for (const m of entry.metrics ?? []) {
+        out.push({
+          activationId: entry.id,
+          activationLabel: entry.label,
+          metric: m.metric,
+          metricLabel: m.label,
+          metricClass: m.class ?? 'activity',
+          defaultUnit: m.defaultUnit,
+        });
+      }
+    }
+    return out;
+  }, [activeActivationIds]);
+
   useAigentMeCopilotBridge({
     openCompose: openComposeByKind,
     fireCta: handleCtaClick,
-    expandSection: setExpandedSectionId,
+    // Phase 2 Slice 6: expanding the receipts section requests the
+    // LedgerLayout. Other section expansions still toggle the
+    // accordion in StackLayout (they're config sub-sections, not
+    // intent layouts).
+    expandSection: (id) => {
+      if (id === 'receipts') {
+        setActiveLayoutId('ledger');
+        return;
+      }
+      setExpandedSectionId(id);
+    },
     focusCard,
+    addKpi: handleAddKpi,
+    setKpiValue: handleSetKpiValue,
+    removeKpi: handleRemoveKpi,
+    openKpiDetail: handleOpenKpiDetail,
     readable: {
       activeBrief: { hasBrief: !!brief, summary: brief?.summary ?? null },
       pendingApproval: { has: !!pendingApprovalNbe, cartridge: pendingApprovalNbe?.cartridge ?? null },
@@ -873,6 +1285,8 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       nextBestActionsCount: (moveForwardResult?.alternates.length ?? 0) + (moveForwardResult?.topAction ? 1 : 0),
       expandedSectionId,
       receiptsCount: receipts.length,
+      activeKpis: copilotActiveKpis,
+      availableKpiSources: copilotAvailableKpiSources,
     },
   });
 
@@ -880,11 +1294,78 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // Static seed prompts for the copilot (the right pane's CTAs are
   // still the canonical entry point; these just teach the copilot what
   // it can do on this surface).
-  const copilotQuickPrompts = useMemo(() => [
-    { id: 'brief', label: 'Brief me', prompt: 'Give me my daily brief.' },
-    { id: 'move', label: 'Move forward', prompt: 'What is the next best action I should take right now?' },
-    { id: 'venture', label: 'Venture progress', prompt: 'Where am I on my venture progress?' },
-  ], []);
+  // Phase 2 Slice 7 — dual-dispatch chip strip.
+  //
+  // Each chip carries TWO surfaces of intent:
+  //   1) the copilot — `prompt` is submitted as a user turn so the
+  //      narrative continues in chat (existing behavior).
+  //   2) the right pane — `onSelect` switches the active layout AND
+  //      fires the matching data fetch so the workbench is ready by
+  //      the time the copilot's response lands.
+  //
+  // Cold-open static set below. When the server returns a
+  // `quickChips: NbeQuickChip[]` envelope on a `/api/assistant/*`
+  // response, the strip swaps to that set (via setServerChips). The
+  // mapper below converts an NbeQuickChip's `layoutDispatch` into the
+  // local onSelect closure so the right-pane dispatch stays generic
+  // on the server side.
+  const copilotQuickPrompts = useMemo(() => {
+    const dispatchFor = (chip: NbeQuickChip) => () => {
+      if (!chip.layoutDispatch) return;
+      const { activate, fetch: fetchKind } = chip.layoutDispatch;
+      setActiveLayoutId(activate);
+      switch (fetchKind) {
+        case 'brief':            void fetchBrief(); break;
+        case 'move-forward':     void fetchMoveForward(); break;
+        case 'venture-progress': void fetchVentureProgress(); break;
+        case 'receipts':         void fetchReceipts(); break;
+        case null: case undefined: /* no fetch */ break;
+      }
+      if (chip.layoutDispatch.composerKind) {
+        setComposerKind(chip.layoutDispatch.composerKind);
+      }
+    };
+
+    if (serverChips && serverChips.length > 0) {
+      return serverChips.map((chip) => ({
+        id: chip.id,
+        label: chip.label,
+        prompt: chip.copilotPrompt ?? "",
+        skipInference: !chip.copilotPrompt,
+        onSelect: dispatchFor(chip),
+      }));
+    }
+
+    return [
+      {
+        id: 'brief',
+        label: 'Brief me',
+        prompt: 'Give me my daily brief.',
+        onSelect: () => {
+          setActiveLayoutId('brief');
+          void fetchBrief();
+        },
+      },
+      {
+        id: 'move',
+        label: 'Move forward',
+        prompt: 'What is the next best action I should take right now?',
+        onSelect: () => {
+          setActiveLayoutId('decision-board');
+          void fetchMoveForward();
+        },
+      },
+      {
+        id: 'venture',
+        label: 'Venture progress',
+        prompt: 'Where am I on my venture progress?',
+        onSelect: () => {
+          setActiveLayoutId('venture-cockpit');
+          void fetchVentureProgress();
+        },
+      },
+    ];
+  }, [serverChips, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts]);
 
   return (
     <>
@@ -915,80 +1396,161 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 {bootstrapError}
               </div>
             )}
-            {data && (
-              <WelcomeRightPane
-                theme={theme}
-                personaId={personaId}
-                displayLabel={spine.displayLabel ?? data.displayLabel}
-                ctas={data.primaryCtas}
-                specialists={data.availableSpecialists}
-                isAdmin={isAdmin ?? data.cartridgeFlags?.isAdmin}
-                brief={brief}
-                briefLoading={briefLoading}
-                briefError={briefError}
-                ventureProgress={ventureProgress}
-                ventureProgressLoading={ventureProgressLoading}
-                ventureProgressError={ventureProgressError}
-                moveForwardResult={moveForwardResult}
-                moveForwardLoading={moveForwardLoading}
-                pendingApproval={pendingApprovalNbe}
-                submittingApproval={submittingApproval}
-                approvalError={approvalError}
-                artifacts={artifacts}
-                actionPendingArtifactId={actionPendingArtifactId}
-                actionErrors={actionErrors}
-                secondTierApproval={secondTierApproval}
-                specialistResponses={specialistResponses}
-                specialistLoading={specialistLoading}
-                specialistErrors={specialistErrors}
-                queuedIntents={queuedIntents}
-                expModel={expModel}
-                expModelLoading={expModelLoading}
-                stageEval={stageEval}
-                receipts={receipts}
-                receiptsLoading={receiptsLoading}
-                receiptsPersonaLabel={receiptsPersonaLabel}
-                expandedSectionId={expandedSectionId}
-                setExpandedSectionId={setExpandedSectionId}
-                usingIqubes={usingIqubes}
-                onCtaClick={handleCtaClick}
-                onNbeAct={handleNbeAct}
-                onApprovalApprove={handleApprovalApprove}
-                onApprovalCancel={handleApprovalCancel}
-                onSendArtifact={handleSendArtifact}
-                onDismissArtifact={handleDismissArtifact}
-                onApproveSecondTier={handleApproveSecondTier}
-                onCancelSecondTier={handleCancelSecondTier}
-                onDismissSpecialist={handleDismissSpecialist}
-                onDismissQueued={handleDismissQueued}
-                onDismissBrief={() => {
+            {data && (() => {
+              // Phase 2: route the foreground pane through the layout registry.
+              // ApprovalLayout (interrupt class) overlays the foreground when a
+              // pending approval exists — it absolute-positions itself so the
+              // foreground stays mounted underneath, preserving context.
+              const foreground = getLayout(activeLayoutId);
+              const ForegroundLayout = foreground.component;
+              // Overlay mounts for EITHER pending approval shape:
+              //   - pendingApprovalNbe → NBE that requires approval
+              //   - secondTierApproval → external-action confirm
+              // Phase 2 Slice 5b: second-tier is no longer rendered
+              // inline in the stack; it lives in this same overlay so
+              // the operator's flow stays in-app for every gate.
+              const ApprovalOverlayLayout = (pendingApprovalNbe || secondTierApproval)
+                ? getLayout('approval-interrupt').component
+                : null;
+              // Single source of truth for layout inputs — passed identically
+              // to foreground and overlay.
+              const layoutProps = {
+                onRequestLayout: requestLayout,
+                theme,
+                personaId,
+                displayLabel: spine.displayLabel ?? data.displayLabel,
+                ctas: data.primaryCtas,
+                specialists: data.availableSpecialists,
+                isAdmin: isAdmin ?? data.cartridgeFlags?.isAdmin,
+                brief,
+                briefLoading,
+                briefError,
+                ventureProgress,
+                ventureProgressLoading,
+                ventureProgressError,
+                moveForwardResult,
+                moveForwardLoading,
+                pendingApproval: pendingApprovalNbe,
+                submittingApproval,
+                approvalError,
+                artifacts,
+                actionPendingArtifactId,
+                actionErrors,
+                secondTierApproval,
+                specialistResponses,
+                specialistLoading,
+                specialistErrors,
+                queuedIntents,
+                expModel,
+                expModelLoading,
+                stageEval,
+                receipts,
+                receiptsLoading,
+                receiptsPersonaLabel,
+                expandedSectionId,
+                setExpandedSectionId,
+                usingIqubes,
+                onCtaClick: handleCtaClick,
+                onNbeAct: handleNbeAct,
+                onApprovalApprove: handleApprovalApprove,
+                onApprovalCancel: handleApprovalCancel,
+                onSendArtifact: handleSendArtifact,
+                onDismissArtifact: handleDismissArtifact,
+                onApproveSecondTier: handleApproveSecondTier,
+                onCancelSecondTier: handleCancelSecondTier,
+                onDismissSpecialist: handleDismissSpecialist,
+                onDismissQueued: handleDismissQueued,
+                onDismissBrief: () => {
                   setBrief(null);
                   setBriefError(null);
                   setBriefLoading(false);
-                }}
-                onDismissVenture={() => {
+                  // Phase 2 Slice 1: dismissing the brief returns the
+                  // pane to the default stack layout so the operator
+                  // doesn't sit on an empty BriefLayout.
+                  setActiveLayoutId('stack');
+                },
+                onBriefVariantChange: (briefType) => { void fetchBrief(briefType); },
+                onDismissVenture: () => {
                   setVentureProgress(null);
                   setVentureProgressError(null);
                   setVentureProgressLoading(false);
-                }}
-                onDismissMoveForward={() => {
+                },
+                onDismissMoveForward: () => {
                   setMoveForwardResult(null);
                   setMoveForwardLoading(false);
-                }}
-                onAskSpecialist={handleAskSpecialist}
-                askSpecialistOpenId={askSpecialistOpenId}
-                askSpecialistPrompt={askSpecialistPrompt}
-                askSpecialistLoadingId={askSpecialistLoadingId}
-                askSpecialistResponses={askSpecialistResponses}
-                askSpecialistErrors={askSpecialistErrors}
-                setAskSpecialistOpenId={setAskSpecialistOpenId}
-                setAskSpecialistPrompt={setAskSpecialistPrompt}
-                briefRef={briefRef}
-                nbeRef={nbeRef}
-                approvalRef={approvalRef}
-                artifactRef={artifactRef}
-              />
-            )}
+                },
+                onAskSpecialist: handleAskSpecialist,
+                askSpecialistOpenId,
+                askSpecialistPrompt,
+                askSpecialistLoadingId,
+                askSpecialistResponses,
+                askSpecialistErrors,
+                setAskSpecialistOpenId,
+                setAskSpecialistPrompt,
+                briefRef,
+                nbeRef,
+                approvalRef,
+                artifactRef,
+                // Phase 2 Slice 4: ComposerLayout reads composerKind
+                // to decide whether to render the inline compose form.
+                // After a successful create the wrapped handlers flip
+                // composerKind → null so the layout transitions to
+                // draft-preview without surface switching.
+                composerKind,
+                selectedKpiId,
+                selectedIntentId,
+                onSelectKpi: (kpiId: string) => {
+                  setSelectedKpiId(kpiId);
+                  setActiveLayoutId('kpi-detail');
+                },
+                onSelectActiveWork: handleSelectActiveWork,
+                onKpiEdited: () => { void fetchVentureProgress({ silent: true }); },
+                onIntentEdited: () => { void fetchVentureProgress({ silent: true }); },
+                // Phase 2 B.3 — live sync header indicator + manual force.
+                ventureLastSyncedAt,
+                onForceSync: () => { void fetchVentureProgress({ silent: true }); },
+                // KPI editor entry point — header button + empty-state CTA.
+                onEditKpis: () => setKpisEditorOpen(true),
+                composerHandlers: {
+                  onCreateGmail: async (input) => {
+                    await handleComposeGmailDraft(input);
+                    setComposerKind(null);
+                  },
+                  onDraftGmail: handleDraftEmail,
+                  onCreateCalendar: async (input) => {
+                    await handleComposeCalendarEvent(input as Parameters<typeof handleComposeCalendarEvent>[0]);
+                    setComposerKind(null);
+                  },
+                  onDraftCalendar: handleDraftEvent,
+                  onCreateDoc: async (input) => {
+                    await handleComposeGoogleDoc(input as Parameters<typeof handleComposeGoogleDoc>[0]);
+                    setComposerKind(null);
+                  },
+                  onDraftDoc: handleDraftDoc,
+                  onCreateSheet: async (input) => {
+                    await handleComposeGoogleSheet(input as Parameters<typeof handleComposeGoogleSheet>[0]);
+                    setComposerKind(null);
+                  },
+                  onDraftSheet: handleDraftSheet,
+                  onCreateSlides: async (input) => {
+                    await handleComposeSlides(input as Parameters<typeof handleComposeSlides>[0]);
+                    setComposerKind(null);
+                  },
+                  onDraftSlides: handleDraftSlides,
+                  onCreateMarketa: async (input) => {
+                    await handleComposeMarketa(input as Parameters<typeof handleComposeMarketa>[0]);
+                    setComposerKind(null);
+                  },
+                  onDraftMarketa: handleDraftMarketa,
+                },
+              };
+              return (
+              <>
+              <ForegroundLayout {...layoutProps} />
+              {ApprovalOverlayLayout && <ApprovalOverlayLayout {...layoutProps} />}
+              </>
+              );
+            })()}
             {/* Floating compose strip — pinned to bottom of right pane. */}
             <div className="pointer-events-none absolute inset-x-0 bottom-3 px-3 z-30">
               <div className="pointer-events-auto">
@@ -1027,48 +1589,24 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         } : undefined}
         onSaved={handleWizardSaved}
       />
-      <ComposeGmailDraftModal
-        open={composeGmailOpen}
-        onClose={() => setComposeGmailOpen(false)}
-        onCreate={handleComposeGmailDraft}
-        onDraftWithAigentMe={handleDraftEmail}
-        theme={theme}
+      {/* Phase 2 B.1 polish: KPI editor mount. Opened from the cockpit
+          header "Edit KPIs" button + the empty-state CTA when the
+          persona has no rich KPIs declared yet. Save triggers a silent
+          venture-progress refetch so the cockpit picks up the change. */}
+      <ActiveKpisEditor
+        open={kpisEditorOpen}
+        onOpenChange={setKpisEditorOpen}
+        personaId={personaId}
+        onSaved={() => { void fetchVentureProgress({ silent: true }); }}
       />
-      <ComposeCalendarEventModal
-        open={composeCalendarOpen}
-        onClose={() => setComposeCalendarOpen(false)}
-        onCreate={handleComposeCalendarEvent}
-        onDraftWithAigentMe={handleDraftEvent}
-        theme={theme}
-      />
-      <ComposeGoogleDocModal
-        open={composeDocOpen}
-        onClose={() => setComposeDocOpen(false)}
-        onCreate={handleComposeGoogleDoc}
-        onDraftWithAigentMe={handleDraftDoc}
-        theme={theme}
-      />
-      <ComposeSlidesModal
-        open={composeSlidesOpen}
-        onClose={() => setComposeSlidesOpen(false)}
-        onCreate={handleComposeSlides}
-        onDraftWithAigentMe={handleDraftSlides}
-        theme={theme}
-      />
-      <ComposeMarketaEmailModal
-        open={composeMarketaOpen}
-        onClose={() => setComposeMarketaOpen(false)}
-        onCreate={handleComposeMarketa}
-        onDraftWithAigentMe={handleDraftMarketa}
-        theme={theme}
-      />
-      <ComposeGoogleSheetModal
-        open={composeSheetOpen}
-        onClose={() => setComposeSheetOpen(false)}
-        onCreate={handleComposeGoogleSheet}
-        onDraftWithAigentMe={handleDraftSheet}
-        theme={theme}
-      />
+      {/* Phase 2 Slice 4: Compose popups removed. All six compose
+          surfaces (Email / Event / Doc / Sheet / Slides / Marketa)
+          now render INLINE inside ComposerLayout via its `inline=true`
+          host mode. Activator: openComposeByKind(kind) sets
+          activeLayoutId='composer' + composerKind, the layout mounts
+          the matching form, submit creates the artifact then flips
+          composerKind→null so the same layout shows the draft
+          preview with Send draft → unified ApprovalLayout overlay. */}
       <AgentWalletDrawer
         open={walletOpen}
         onClose={() => setWalletOpen(false)}

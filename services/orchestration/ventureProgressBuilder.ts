@@ -36,6 +36,14 @@ import {
   type NbeCandidate,
 } from '@/services/orchestration/nbeCatalog';
 import type { BriefNextBestAction } from '@/services/orchestration/briefBuilder';
+import { coerceKpisToRichShape, type KpiRecord } from '@/services/strategy/kpiTypes';
+import { resolveKpis } from '@/services/strategy/kpiResolver';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { getActiveActivationIds } from '@/services/activations/spineActivations';
+import {
+  actionsForActiveActivations,
+  type ActivationAction,
+} from '@/data/activation-catalog';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Public shape — matches the Venture Progress Card render contract.
@@ -60,6 +68,15 @@ export interface VentureProgressRecentActivity {
   cartridge: string;
   status: IntentStatus;
   createdAt: string;
+  // Phase 2 B.2 (2/2) — derived action capabilities so the cockpit's
+  // Active Work card can render an actionable context menu. All
+  // derived from status + targetAgents; no schema change in IntentQube.
+  canResume: boolean;
+  canHandOff: boolean;
+  canCancel: boolean;
+  specialist: string | null;
+  nextActionHint: string | null;
+  blockers: string[];
 }
 
 export interface VentureProgressShape {
@@ -71,6 +88,12 @@ export interface VentureProgressShape {
   linkedCartridges: ActiveCartridgeSlug[];
 
   kpiSummary: VentureProgressKpiSummary;
+  /**
+   * Phase 2 B.1 — rich KPI records (id / name / target / current /
+   * unit / trend / source / lastUpdatedAt). Resolved per-source by
+   * `services/strategy/kpiResolver.ts`. Empty when no KPIs declared.
+   */
+  activeKpis: import('@/services/strategy/kpiTypes').KpiRecord[];
 
   /** Operational goal labels — count only, no values (BlakQube). */
   operationalGoalsCount: number;
@@ -113,6 +136,42 @@ function toAction(c: NbeCandidate): BriefNextBestAction {
   };
 }
 
+/**
+ * Map a catalog action (declared on an activation entry the persona
+ * has switched on) into the same `BriefNextBestAction` shape the
+ * cockpit's Recommended row + the DecisionBoardLayout already render.
+ *
+ * Catalog-driven NBAs replace `selectNbeCandidates` as the primary
+ * source for venture-progress recommendations. The static NBE catalog
+ * stays as a fallback when the persona has no active activations
+ * exposing actions yet — keeps the cockpit non-empty during ramp-up.
+ *
+ * Effort + impact default to 'standard' / 'medium' for activity-class
+ * actions; outcome-class actions surface as 'high' impact so the
+ * Recommended row visually prioritises value-bearing moves. Class
+ * inference is best-effort from naming (the catalog doesn't carry
+ * a per-action class yet — easy follow-on).
+ */
+function catalogActionToBrief(input: {
+  activationId: string;
+  cartridge: ActiveCartridgeSlug | 'metame';
+  action: ActivationAction;
+}): BriefNextBestAction {
+  const cartridge = (input.cartridge === 'metame' ? 'metame' : input.cartridge) as ActiveCartridgeSlug;
+  const impact: NbeCandidate['impact'] = input.action.approvalRequired ? 'high' : 'medium';
+  return {
+    id: `activation:${input.activationId}:${input.action.action}`,
+    label: input.action.label,
+    rationale: input.action.rationale,
+    cartridge,
+    effort: 'standard',
+    impact,
+    approvalRequired: !!input.action.approvalRequired,
+    specialist: input.action.specialist ?? null,
+    suggestedArtifact: null,
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Build.
 // ─────────────────────────────────────────────────────────────────────────
@@ -152,6 +211,30 @@ export async function buildVentureProgress(
     ? Object.keys(blak.activeKpis).length
     : 0;
 
+  // Phase 2 B.1 — resolve activation-bound KPI values.
+  // 1) Coerce legacy `{name: target}` rows into the rich shape.
+  // 2) Resolver checks each activation-bound KPI against the persona's
+  //    active Activations + runs the metric query.
+  // 3) Manual KPIs pass through. Failed lookups mark `unresolvedReason`.
+  let resolvedKpis: KpiRecord[] = [];
+  try {
+    const raw = (blak.activeKpis ?? {}) as Record<string, unknown>;
+    const rich = coerceKpisToRichShape(raw);
+    const supabase = getSupabaseServer();
+    if (supabase && Object.keys(rich).length > 0) {
+      const resolved = await resolveKpis(supabase, {
+        personaId: input.personaId,
+        kpis: rich,
+      });
+      resolvedKpis = Object.values(resolved);
+    } else {
+      resolvedKpis = Object.values(rich);
+    }
+  } catch {
+    // Never block the cockpit on a KPI resolver failure.
+    resolvedKpis = [];
+  }
+
   const kpiSummary: VentureProgressKpiSummary = {
     activeKpisCount,
     operationalGoalsCount,
@@ -169,19 +252,61 @@ export async function buildVentureProgress(
     limit: recentLimit,
     cartridge: input.cartridge,
   });
-  const recentActivity: VentureProgressRecentActivity[] = intents.map((i) => ({
-    intentId: i.id,
-    intentName: i.intentName,
-    cartridge: i.activeCartridge,
-    status: i.status,
-    createdAt: i.createdAt,
-  }));
+  const recentActivity: VentureProgressRecentActivity[] = intents.map((i) => {
+    // Derived action capabilities — what the operator can do with
+    // this row from the cockpit's Active Work context menu. Pure
+    // function of status + targetAgents; no schema additions.
+    const isLive = i.status === 'in_progress' || i.status === 'awaiting_approval';
+    const specialist = i.targetAgents?.find((a) => a !== 'aigent-me') ?? i.targetAgents?.[0] ?? null;
+    const nextActionHint =
+      i.status === 'awaiting_approval' ? 'Approval pending — confirm to proceed' :
+      i.status === 'in_progress'       ? (specialist ? `Working with ${specialist}` : 'Working…') :
+      i.status === 'completed'         ? 'Completed — see receipt' :
+      i.status === 'failed'            ? 'Failed — retry or hand off' :
+      i.status === 'cancelled'         ? 'Cancelled' :
+      null;
+    return {
+      intentId: i.id,
+      intentName: i.intentName,
+      cartridge: i.activeCartridge,
+      status: i.status,
+      createdAt: i.createdAt,
+      canResume: i.status === 'failed',
+      canHandOff: isLive && !!specialist,
+      canCancel: isLive,
+      specialist,
+      nextActionHint,
+      blockers: [],
+    };
+  });
 
-  // Recommended actions:
-  //   1. AVL-tier candidates first (regardless of active cartridges, the user
-  //      is reviewing AVL).
-  //   2. Then the top 2 across the user's active cartridges to keep cross-
-  //      cartridge motion visible.
+  // Recommended actions — Phase 2 B.2 (1/2):
+  //
+  // PRIMARY source = catalog actions exposed by the persona's active
+  // activations. This is the activation-driven NBA pipeline that
+  // mirrors B.1's KPI flow — what the persona has switched on is the
+  // single source of truth for what they should be doing next.
+  //
+  // FALLBACK = the original static `selectNbeCandidates` output. Kept
+  // alive so the cockpit stays non-empty during ramp-up when an
+  // operator's active activations haven't yet declared actions, and
+  // so AVL-stage moves still surface during alpha-activation.
+  //
+  // Order: catalog actions first (operator-chosen surface area), AVL
+  // candidates next (operator's current review context), mixed
+  // candidates last (cross-cartridge motion). Capped at 8 total to
+  // keep the Recommended row scannable.
+  const activeActivationIds = await getActiveActivationIds(input.personaId).catch(
+    () => new Set<string>(),
+  );
+  const catalogActions = actionsForActiveActivations(activeActivationIds).map((row) =>
+    catalogActionToBrief({
+      activationId: row.activationId,
+      cartridge: row.cartridge,
+      action: row.action,
+    }),
+  );
+
   const avlActions = selectNbeCandidates({
     activeCartridges: ['avl'],
     currentStage,
@@ -194,7 +319,13 @@ export async function buildVentureProgress(
     limit: 5,
   }).filter((c) => c.cartridge !== 'avl').slice(0, 2);
 
-  const recommendedActions = [...avlActions, ...mixedActions].map(toAction);
+  // Dedupe by id so a fallback NbeCandidate doesn't duplicate a
+  // catalog action with the same key. Catalog wins on conflict.
+  const seen = new Set(catalogActions.map((a) => a.id));
+  const fallback = [...avlActions, ...mixedActions]
+    .map(toAction)
+    .filter((a) => !seen.has(a.id));
+  const recommendedActions = [...catalogActions, ...fallback].slice(0, 8);
 
   const suggestedArtifacts = Array.from(
     new Set(
@@ -212,6 +343,7 @@ export async function buildVentureProgress(
     experienceConfigured,
     linkedCartridges,
     kpiSummary,
+    activeKpis: resolvedKpis,
     operationalGoalsCount,
     commercialGoalsCount,
     recentActivity,

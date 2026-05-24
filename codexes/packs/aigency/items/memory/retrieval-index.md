@@ -919,3 +919,163 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-adee0c3.md](../build_/COMMITS/COMMIT-adee0c3.md)
 - Message: remove redundant mic from aigentMe copilot input — Marketa already handles voice there
+
+## Commit `7e62358` — 2026-05-23T13:13:40Z
+- Type: `push`
+- Brief: [COMMIT-7e62358.md](../build_/COMMITS/COMMIT-7e62358.md)
+- Message: mic on remaining free-form inputs in metaMe setup + alignment surfaces
+
+## Commit `d2f4b9d` — 2026-05-23T17:34:19Z
+- Type: `push`
+- Brief: [COMMIT-d2f4b9d.md](../build_/COMMITS/COMMIT-d2f4b9d.md)
+- Message: Phase 2 Slices 1-6: BriefLayout + DecisionBoard + VentureCockpit + Composer + ApprovalLayout (interrupt) + LedgerLayout + shared LayoutShell + consolidated layoutProps spread
+
+## Commit `c5a8aba` — 2026-05-23T16:49:00Z
+- Type: `push`
+- Brief: [COMMIT-c5a8aba.md](../build_/COMMITS/COMMIT-c5a8aba.md)
+- Message: Phase 2 Slice 0: layout registry scaffold (zero visual change) + dedicated mobile shapes in DIS + /api/design-parity/dis fetch endpoint for dog-food loop
+
+## Commit `f8bf182` — 2026-05-23T15:01:18Z
+- Type: `push`
+- Brief: [COMMIT-f8bf182.md](../build_/COMMITS/COMMIT-f8bf182.md)
+- Message: Phase 2 dog-food: DIS for aigentMe right-pane layouts + handbook §8b (Studio Design Intent / Parity framework as governing contract) + case-study doc
+
+## Commit `8d27fc5` — 2026-05-23T14:40:33Z
+- Type: `push`
+- Brief: [COMMIT-8d27fc5.md](../build_/COMMITS/COMMIT-8d27fc5.md)
+- Message: Handbook + agent KB: Design Fidelity posture (PARAMOUNT) — four-axis test, canonical tokens, composition + right-pane symmetry rules
+
+## Commit `5fcf602` — 2026-05-23T14:27:59Z
+- Type: `push`
+- Brief: [COMMIT-5fcf602.md](../build_/COMMITS/COMMIT-5fcf602.md)
+- Message: personas: inject OPERATIONAL_HANDBOOK into all 7 operational agent system prompts (architectural ground truth, not confidential)
+
+## Commit `b0a428a` — 2026-05-23T14:20:35Z
+- Type: `feat`
+- Brief: [COMMIT-b0a428a.md](../build_/COMMITS/COMMIT-b0a428a.md)
+- Message: facilitator/verify: add mainnet RPC cases (Base 8453, Eth 1, Arb 42161, OP 10, Polygon 137) so USDC mainnet credit can verify
+
+## Commit `d67b080` — 2026-05-23T13:51:44Z
+- Type: `push`
+- Brief: [COMMIT-d67b080.md](../build_/COMMITS/COMMIT-d67b080.md)
+- Message: Operators Handbook v1: canonical surface inventory + privacy seams + change impact checklist (AgentiQ → Operators Manual tab)
+
+## Commit `5b08bfe` — 2026-05-23T13:25:59Z
+- Type: `push`
+- Brief: [COMMIT-5b08bfe.md](../build_/COMMITS/COMMIT-5b08bfe.md)
+- Message: Strategy: actionable blockers — clickable chips open Partners + KPIs editors that close the declared-fields gap
+
+## Commit `d1698e5` — 2026-05-23T18:24:59Z
+- Type: `push`
+- Brief: [COMMIT-d1698e5.md](../build_/COMMITS/COMMIT-d1698e5.md)
+- Message: personas: close OPERATIONAL_HANDBOOK template literal (was escaped backtick — broke Amplify build)
+
+## Commit `d08e112` — 2026-05-23T19:16:09Z
+- Type: `push`
+- Brief: [COMMIT-d08e112.md](../build_/COMMITS/COMMIT-d08e112.md)
+- Message: DecisionBoard + VentureCockpit: vertical stack (no columns) — right pane too narrow for multi-column; cockpit uses 3 rows with carousels for KPIs and Active Work
+
+## Commit `3aea78f` — 2026-05-23T19:18:47Z
+- Type: `push`
+- Brief: [COMMIT-3aea78f.md](../build_/COMMITS/COMMIT-3aea78f.md)
+- Message: ActivityReceiptCard: click header to expand inline JSON drawer (T1-safe payload + copy button)
+
+## Commit `cfa0696` — 2026-05-23T19:57:06Z
+- Type: `push`
+- Brief: [COMMIT-cfa0696.md](../build_/COMMITS/COMMIT-cfa0696.md)
+- Message: VentureCockpit: glass-fill accents (cyan/emerald/violet per row), carousel within body padding (no edge bleed), ApprovalLayout z-40 (above floating compose), body clearance for floating compose strip, compose-modal specific-field error
+
+## Commit `8f7942f` — 2026-05-23T20:53:17Z
+- Type: `push`
+- Brief: [COMMIT-8f7942f.md](../build_/COMMITS/COMMIT-8f7942f.md)
+- Message: Phase 2 color pass: shared accentTokens + glass-fill across Brief / Decision / Venture / Composer / Ledger; Google Drive token cross-persona fallback (auth-profile siblings)
+
+## Commit `63d8621` — 2026-05-23T21:35:13Z
+- Type: `push`
+- Brief: [COMMIT-63d8621.md](../build_/COMMITS/COMMIT-63d8621.md)
+- Message: ApprovalLayout: unify second-tier external-action confirm + NBE approval through one Phase-2 overlay; drop inline SecondTierApprovalCard from stack
+
+## Commit `1c01f6c` — 2026-05-23T22:11:27Z
+- Type: `push`
+- Brief: [COMMIT-1c01f6c.md](../build_/COMMITS/COMMIT-1c01f6c.md)
+- Message: ArtifactCard: hide Gmail/Drive 'Open' link pre-approval (only show after status approved|sent|published) — fixes flow-interruption where Open was clicked instead of Send draft
+
+## Commit `754ae53` — 2026-05-23T22:26:08Z
+- Type: `push`
+- Brief: [COMMIT-754ae53.md](../build_/COMMITS/COMMIT-754ae53.md)
+- Message: AigentMe: kill auto-open-Gmail-tab on artifact creation — broke HITL flow by popping the external tab BEFORE the in-app approval card appeared. Restores Phase 1 'approve in app, view post-send' contract
+
+## Commit `5d91086` — 2026-05-23T22:52:19Z
+- Type: `push`
+- Brief: [COMMIT-5d91086.md](../build_/COMMITS/COMMIT-5d91086.md)
+- Message: ApprovalLayout: drop inline NBE ApprovalCard from stack (was rendering behind the Phase-2 overlay) + amber surface/border/primary CTA matching Phase-1 authorization treatment
+
+## Commit `56a60ad` — 2026-05-24T00:19:04Z
+- Type: `push`
+- Brief: [COMMIT-56a60ad.md](../build_/COMMITS/COMMIT-56a60ad.md)
+- Message: Phase 2 Slice 4 (compose-in-layout): all 6 compose modals support inline=true mode; openComposeByKind routes to ComposerLayout instead of popups; legacy modal mounts + open booleans removed from tab
+
+## Commit `3e8011e` — 2026-05-24T00:50:42Z
+- Type: `push`
+- Brief: [COMMIT-3e8011e.md](../build_/COMMITS/COMMIT-3e8011e.md)
+- Message: ComposerLayout dismiss: auto-scroll the ArtifactCard into view when returning to stack so the Send draft approval gate doesn't sit below the fold unnoticed
+
+## Commit `ccfd5da` — 2026-05-24T01:49:17Z
+- Type: `push`
+- Brief: [COMMIT-ccfd5da.md](../build_/COMMITS/COMMIT-ccfd5da.md)
+- Message: Phase 2 Slice 7 (A): dual-dispatch chip strip — NbeQuickChip type + onSelect on QuickPrompt + server-driven swap seam on assistant fetches; cold-open fallback unchanged
+
+## Commit `7d02d7e` — 2026-05-24T01:57:20Z
+- Type: `push`
+- Brief: [COMMIT-7d02d7e.md](../build_/COMMITS/COMMIT-7d02d7e.md)
+- Message: Slice C parity audit: zero critical violations across all 7 layouts; one DIS contract drift (dismiss X coord rule) amended to match LayoutShell-owned placement; 6 Studio framework frictions captured as improvement backlog
+
+## Commit `77aff62` — 2026-05-24T02:16:46Z
+- Type: `push`
+- Brief: [COMMIT-77aff62.md](../build_/COMMITS/COMMIT-77aff62.md)
+- Message: Phase 2 B.1 (1/3): KPI source pipeline activation-bound — KpiRecord/KpiSource schema with ACTIVATION_METRIC_CATALOG; resolver only resolves KPIs whose source activation is active (else unresolvedReason=source-inactive); ventureProgress returns rich activeKpis; cockpit renders KpiChip with current/target/trend instead of empty count badges
+
+## Commit `4bdd99c` — 2026-05-24T02:32:00Z
+- Type: `refactor`
+- Brief: [COMMIT-4bdd99c.md](../build_/COMMITS/COMMIT-4bdd99c.md)
+- Message: B.1 (1.5/3): metrics + actions move onto ACTIVATION_CATALOG entries — KPIs/NBAs now dynamically driven by the persona's Activations tab; declared all 7 catalog activations with their metrics + actions; metric registry is now a one-row edit per activation, no separate file
+
+## Commit `498c09a` — 2026-05-24T02:52:20Z
+- Type: `feat`
+- Brief: [COMMIT-498c09a.md](../build_/COMMITS/COMMIT-498c09a.md)
+- Message: Activation catalog: add metric class (activity/outcome/standing) + expand each activation with outcome-oriented KPIs — myCanvas likes/sparks/remixes, Order missions-completed/votes/contributions, AgentiQ OS referrals/SDK/forks, Venture Lab milestones/conversions/runway, Marketa meetings/proposals/closes, Qriptopian readership/pickups, Studio launched/remixed/completed-by-users; cockpit chip highlights outcomes with violet+dot
+
+## Commit `0e40380` — 2026-05-24T02:59:35Z
+- Type: `push`
+- Brief: [COMMIT-0e40380.md](../build_/COMMITS/COMMIT-0e40380.md)
+- Message: Phase 2 B.1 (2/3): ActiveKpisEditor refactored — source picker reads metricsForActiveActivations(persona), grouped by activation with inactive sources marked; rich KpiRecord shape persists; KpiDetailLayout (new layout, kpi-detail) opens on chip click with hero value + source provenance + manual-value editor
+
+## Commit `77ab0a6` — 2026-05-24T03:34:06Z
+- Type: `push`
+- Brief: [COMMIT-77ab0a6.md](../build_/COMMITS/COMMIT-77ab0a6.md)
+- Message: Phase 2 B.1 (3/3): copilot tools aigentme_add_kpi / set_kpi_value / remove_kpi / open_kpi_detail + readables activeKpis + availableKpiSources (filtered to persona's active activations); copilot refuses bindings to inactive activations and refuses to manually overwrite activation-bound KPIs
+
+## Commit `1fc9328` — 2026-05-24T04:46:42Z
+- Type: `push`
+- Brief: [COMMIT-1fc9328.md](../build_/COMMITS/COMMIT-1fc9328.md)
+- Message: Phase 2 B.2 (1/2): cockpit Recommended row now activation-driven — NBAs sourced from actionsForActiveActivations(persona) first, static NBE catalog kept as fallback when activations haven't declared actions; catalog actions map to BriefNextBestAction with outcome-bearing actions surfacing as high impact
+
+## Commit `14e609c` — 2026-05-24T04:52:37Z
+- Type: `push`
+- Brief: [COMMIT-14e609c.md](../build_/COMMITS/COMMIT-14e609c.md)
+- Message: Phase 2 B.2 (2/2): ActiveWorkDetailLayout (per-intent surface with Cancel/Handoff/Resume actions) + ActivityChip becomes clickable; recentActivity enriched server-side with canResume/canHandOff/canCancel/specialist/nextActionHint derived from intent status; action endpoints expected at /api/assistant/intents/[id]/{cancel,handoff,resume} — 404 surfaced as backlog note rather than failure
+
+## Commit `328bbf4` — 2026-05-24T06:24:05Z
+- Type: `push`
+- Brief: [COMMIT-328bbf4.md](../build_/COMMITS/COMMIT-328bbf4.md)
+- Message: Phase 2 B.3: live cockpit sync — silent background polling at 20s on cockpit layouts (pauses on document.hidden); LiveSyncIndicator in cockpit header shows 'Synced Ns ago' + manual refresh button; all mutation paths (KPI edit / intent action / NBE approval) trigger silent refetch so the cockpit reacts immediately without skeleton flash. Phase 3 will replace polling with Supabase realtime subscription
+
+## Commit `24a86f3` — 2026-05-24T07:06:39Z
+- Type: `push`
+- Brief: [COMMIT-24a86f3.md](../build_/COMMITS/COMMIT-24a86f3.md)
+- Message: intent route: accept activation-driven nbeIds — resolveCandidate parses 'activation:<id>:<action>' from ACTIVATION_CATALOG so the cockpit's Recommended NBAs (Phase 2 B.2 1/2) can queue intents; static NBE_CATALOGUE entries unchanged. Fixes 'unknown-nbeId' error when acting on activation-sourced rows in venture progress
+
+## Commit `fdfa189` — 2026-05-24T08:15:26Z
+- Type: `push`
+- Brief: [COMMIT-fdfa189.md](../build_/COMMITS/COMMIT-fdfa189.md)
+- Message: VentureCockpit: surface KPI editor from cockpit chips + header

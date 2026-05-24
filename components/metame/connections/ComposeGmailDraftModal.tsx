@@ -53,6 +53,14 @@ interface Props {
     source: 'llm' | 'template';
   }>;
   theme?: "light" | "dark";
+  /**
+   * Phase 2 Slice 4 migration: when true, renders the form *inline* with
+   * no overlay / dialog chrome so it can host inside ComposerLayout's
+   * right-pane body. The caller manages dismissal (typically via the
+   * layout's header X). `open` is ignored in inline mode — the form
+   * always renders when the layout mounts it.
+   */
+  inline?: boolean;
 }
 
 export function ComposeGmailDraftModal({
@@ -61,6 +69,7 @@ export function ComposeGmailDraftModal({
   onCreate,
   onDraftWithAigentMe,
   theme = "dark",
+  inline = false,
 }: Props) {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiDrafting, setAiDrafting] = useState(false);
@@ -116,8 +125,19 @@ export function ComposeGmailDraftModal({
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!to.trim() || !subject.trim() || !bodyText.trim()) {
-      setError("To, Subject and Body are all required.");
+    // Specific error per missing field — the previous one-message-for-all
+    // confused users when they'd drafted Subject + Body but only To was
+    // empty (or vice versa). Lists exactly what's missing.
+    const missing: string[] = [];
+    if (!to.trim())       missing.push("To");
+    if (!subject.trim())  missing.push("Subject");
+    if (!bodyText.trim()) missing.push("Body");
+    if (missing.length > 0) {
+      setError(
+        missing.length === 1
+          ? `${missing[0]} is required.`
+          : `${missing.slice(0, -1).join(", ")} and ${missing[missing.length - 1]} are required.`,
+      );
       return;
     }
     setSubmitting(true);
@@ -146,39 +166,39 @@ export function ComposeGmailDraftModal({
     }
   }, [to, subject, bodyText, cc, bcc, onCreate, onClose]);
 
-  if (!open) return null;
+  if (!inline && !open) return null;
 
-  return (
-    <div
-      className={overlayClass}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="compose-gmail-heading"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !submitting) onClose();
-      }}
-    >
+  // Form body — identical between inline (ComposerLayout host) and modal
+  // (legacy dialog) renderings. The only difference between the two is
+  // the chrome wrapping it.
+  const formBody = (
       <form
         onSubmit={handleSubmit}
-        className={`rounded-lg p-5 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl ${panelClass}`}
+        className={
+          inline
+            ? "w-full"
+            : `rounded-lg p-5 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl ${panelClass}`
+        }
       >
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <div className="flex items-center gap-2">
-            <Mail className="w-4 h-4 text-violet-400" />
-            <h3 id="compose-gmail-heading" className="font-semibold">
-              Compose Gmail draft
-            </h3>
+        {!inline && (
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2">
+              <Mail className="w-4 h-4 text-violet-400" />
+              <h3 id="compose-gmail-heading" className="font-semibold">
+                Compose Gmail draft
+              </h3>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="p-1 rounded hover:bg-slate-800/40"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={submitting}
-            className="p-1 rounded hover:bg-slate-800/40"
-            aria-label="Close"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        )}
 
         {/* aigentMe drafter — one-line prompt + Sparkle button. The
             response auto-fills the To / Cc / Bcc / Subject / Body fields
@@ -328,6 +348,24 @@ export function ComposeGmailDraftModal({
           </button>
         </div>
       </form>
+  );
+
+  // Inline mode: caller (ComposerLayout) owns the wrapper. Skip dialog
+  // chrome entirely — header X / dismiss live on the layout itself.
+  if (inline) return formBody;
+
+  // Legacy modal mode: overlay + dialog chrome wrap the same form body.
+  return (
+    <div
+      className={overlayClass}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="compose-gmail-heading"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !submitting) onClose();
+      }}
+    >
+      {formBody}
     </div>
   );
 }

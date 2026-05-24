@@ -116,6 +116,65 @@ export interface NBEChip {
   disposition: AgentDisposition
 }
 
+// ─── Quick chips (Phase 2 Slice 7 — dual-dispatch chip strip) ───────────────
+//
+// `NBEChip` (above) is the orchestration-side recommendation; `NbeQuickChip`
+// is the *render contract* for the aigentMe left-pane chip strip. The strip
+// dispatches each chip click in parallel to:
+//   1) the copilot — submit `copilotPrompt` as a user turn so the narrative
+//      continues in chat,
+//   2) the right pane — set `layoutDispatch.activate` (and optionally fire
+//      a fetch / compose-kind) so the workbench is ready by the time the
+//      copilot finishes.
+//
+// Chips without `layoutDispatch` are pure-inference (copilot only). Chips
+// without `copilotPrompt` are pure-layout (no narrative). Most chips will
+// carry both. The chip set itself is server-driven — the `quickChips`
+// envelope on `/api/assistant/*` responses replaces the current set every
+// turn so the strip reflects conversation context. A small static fallback
+// (`Brief me · Move forward · Venture progress`) covers cold open.
+
+export type QuickChipFetchKind =
+  | 'brief'
+  | 'move-forward'
+  | 'venture-progress'
+  | 'receipts'
+
+export type QuickChipComposeKind =
+  | 'gmail'
+  | 'event'
+  | 'doc'
+  | 'sheet'
+  | 'slides'
+  | 'marketa'
+
+export type QuickChipLayoutId =
+  | 'stack'
+  | 'brief'
+  | 'decision-board'
+  | 'venture-cockpit'
+  | 'composer'
+  | 'ledger'
+
+export interface NbeQuickChip {
+  /** Stable id — used for keying + dedupe across turns. */
+  id: string
+  /** Visible chip text. Keep ≤ 18 chars for the compact strip. */
+  label: string
+  /** Optional copilot prompt. Empty / null = pure-layout chip. */
+  copilotPrompt?: string | null
+  /** Optional right-pane dispatch. Omit for pure-inference chips. */
+  layoutDispatch?: {
+    activate: QuickChipLayoutId
+    fetch?: QuickChipFetchKind | null
+    composerKind?: QuickChipComposeKind | null
+  }
+  /** Disposition hint — drives priority in the orchestrator's rerank. */
+  disposition?: AgentDisposition
+  /** Lowest is highest priority. The strip renders sorted by rank then id. */
+  rank?: number
+}
+
 // ─── Guardian decision ────────────────────────────────────────────────────────
 
 export interface GuardianDecision {

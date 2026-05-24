@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-23T00:46:15.894Z",
+  "last_updated": "2026-05-24T08:17:23.360Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "adee0c3e7b3f63220a2bb730e63ff7460945e54f",
-  "latest_commit_short": "adee0c3",
-  "latest_commit_title": "remove redundant mic from aigentMe copilot input — Marketa already handles voice there",
+  "latest_commit": "fdfa189ed53b94ff096128b60de5effd9e6be081",
+  "latest_commit_short": "fdfa189",
+  "latest_commit_title": "VentureCockpit: surface KPI editor from cockpit chips + header",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,294 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "fdfa189",
+      "full_sha": "fdfa189ed53b94ff096128b60de5effd9e6be081",
+      "title": "VentureCockpit: surface KPI editor from cockpit chips + header",
+      "author": "Claude",
+      "timestamp": "2026-05-24T08:15:26Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-fdfa189.md"
+    },
+    {
+      "sha": "24a86f3",
+      "full_sha": "24a86f3c321960a95036a8e1ef898c1345973129",
+      "title": "intent route: accept activation-driven nbeIds — resolveCandidate parses 'activation:<id>:<action>' from ACTIVATION_CATALOG so the cockpit's Recommended NBAs (Phase 2 B.2 1/2) can queue intents; static NBE_CATALOGUE entries unchanged. Fixes 'unknown-nbeId' error when acting on activation-sourced rows in venture progress",
+      "author": "Claude",
+      "timestamp": "2026-05-24T07:06:39Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-24a86f3.md"
+    },
+    {
+      "sha": "328bbf4",
+      "full_sha": "328bbf44535ed723e4114a2bdb3cccb88bbde5e5",
+      "title": "Phase 2 B.3: live cockpit sync — silent background polling at 20s on cockpit layouts (pauses on document.hidden); LiveSyncIndicator in cockpit header shows 'Synced Ns ago' + manual refresh button; all mutation paths (KPI edit / intent action / NBE approval) trigger silent refetch so the cockpit reacts immediately without skeleton flash. Phase 3 will replace polling with Supabase realtime subscription",
+      "author": "Claude",
+      "timestamp": "2026-05-24T06:24:05Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-328bbf4.md"
+    },
+    {
+      "sha": "14e609c",
+      "full_sha": "14e609c68164bebd2b9ff85ce303f7dc59d9eabe",
+      "title": "Phase 2 B.2 (2/2): ActiveWorkDetailLayout (per-intent surface with Cancel/Handoff/Resume actions) + ActivityChip becomes clickable; recentActivity enriched server-side with canResume/canHandOff/canCancel/specialist/nextActionHint derived from intent status; action endpoints expected at /api/assistant/intents/[id]/{cancel,handoff,resume} — 404 surfaced as backlog note rather than failure",
+      "author": "Claude",
+      "timestamp": "2026-05-24T04:52:37Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-14e609c.md"
+    },
+    {
+      "sha": "1fc9328",
+      "full_sha": "1fc93284539e046959955417685a33fb47d7f047",
+      "title": "Phase 2 B.2 (1/2): cockpit Recommended row now activation-driven — NBAs sourced from actionsForActiveActivations(persona) first, static NBE catalog kept as fallback when activations haven't declared actions; catalog actions map to BriefNextBestAction with outcome-bearing actions surfacing as high impact",
+      "author": "Claude",
+      "timestamp": "2026-05-24T04:46:42Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1fc9328.md"
+    },
+    {
+      "sha": "77ab0a6",
+      "full_sha": "77ab0a68663e68d3e628d2c022f72a169af8b2c2",
+      "title": "Phase 2 B.1 (3/3): copilot tools aigentme_add_kpi / set_kpi_value / remove_kpi / open_kpi_detail + readables activeKpis + availableKpiSources (filtered to persona's active activations); copilot refuses bindings to inactive activations and refuses to manually overwrite activation-bound KPIs",
+      "author": "Claude",
+      "timestamp": "2026-05-24T03:34:06Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-77ab0a6.md"
+    },
+    {
+      "sha": "0e40380",
+      "full_sha": "0e40380451826a1fe30c12099b2287fd34a1424c",
+      "title": "Phase 2 B.1 (2/3): ActiveKpisEditor refactored — source picker reads metricsForActiveActivations(persona), grouped by activation with inactive sources marked; rich KpiRecord shape persists; KpiDetailLayout (new layout, kpi-detail) opens on chip click with hero value + source provenance + manual-value editor",
+      "author": "Claude",
+      "timestamp": "2026-05-24T02:59:35Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0e40380.md"
+    },
+    {
+      "sha": "498c09a",
+      "full_sha": "498c09a9ebdf67d15efbf6119d8e5bfe56099405",
+      "title": "Activation catalog: add metric class (activity/outcome/standing) + expand each activation with outcome-oriented KPIs — myCanvas likes/sparks/remixes, Order missions-completed/votes/contributions, AgentiQ OS referrals/SDK/forks, Venture Lab milestones/conversions/runway, Marketa meetings/proposals/closes, Qriptopian readership/pickups, Studio launched/remixed/completed-by-users; cockpit chip highlights outcomes with violet+dot",
+      "author": "Claude",
+      "timestamp": "2026-05-24T02:52:20Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-498c09a.md"
+    },
+    {
+      "sha": "4bdd99c",
+      "full_sha": "4bdd99c7cf0b9f41808d55702eda9146cb66b071",
+      "title": "B.1 (1.5/3): metrics + actions move onto ACTIVATION_CATALOG entries — KPIs/NBAs now dynamically driven by the persona's Activations tab; declared all 7 catalog activations with their metrics + actions; metric registry is now a one-row edit per activation, no separate file",
+      "author": "Claude",
+      "timestamp": "2026-05-24T02:32:00Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-4bdd99c.md"
+    },
+    {
+      "sha": "77aff62",
+      "full_sha": "77aff62253e687c4ea001b037960342b337fb310",
+      "title": "Phase 2 B.1 (1/3): KPI source pipeline activation-bound — KpiRecord/KpiSource schema with ACTIVATION_METRIC_CATALOG; resolver only resolves KPIs whose source activation is active (else unresolvedReason=source-inactive); ventureProgress returns rich activeKpis; cockpit renders KpiChip with current/target/trend instead of empty count badges",
+      "author": "Claude",
+      "timestamp": "2026-05-24T02:16:46Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-77aff62.md"
+    },
+    {
+      "sha": "7d02d7e",
+      "full_sha": "7d02d7e9edd5e64cb6f40b939830f6b5692d90d3",
+      "title": "Slice C parity audit: zero critical violations across all 7 layouts; one DIS contract drift (dismiss X coord rule) amended to match LayoutShell-owned placement; 6 Studio framework frictions captured as improvement backlog",
+      "author": "Claude",
+      "timestamp": "2026-05-24T01:57:20Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7d02d7e.md"
+    },
+    {
+      "sha": "ccfd5da",
+      "full_sha": "ccfd5da6dfac28f1f5334545fd49b0b38b2f7d33",
+      "title": "Phase 2 Slice 7 (A): dual-dispatch chip strip — NbeQuickChip type + onSelect on QuickPrompt + server-driven swap seam on assistant fetches; cold-open fallback unchanged",
+      "author": "Claude",
+      "timestamp": "2026-05-24T01:49:17Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-ccfd5da.md"
+    },
+    {
+      "sha": "3e8011e",
+      "full_sha": "3e8011ebabe282a33fd5250f745c42bab250b4aa",
+      "title": "ComposerLayout dismiss: auto-scroll the ArtifactCard into view when returning to stack so the Send draft approval gate doesn't sit below the fold unnoticed",
+      "author": "Claude",
+      "timestamp": "2026-05-24T00:50:42Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-3e8011e.md"
+    },
+    {
+      "sha": "56a60ad",
+      "full_sha": "56a60ade419cfd3fa2f10c5e920055130979c186",
+      "title": "Phase 2 Slice 4 (compose-in-layout): all 6 compose modals support inline=true mode; openComposeByKind routes to ComposerLayout instead of popups; legacy modal mounts + open booleans removed from tab",
+      "author": "Claude",
+      "timestamp": "2026-05-24T00:19:04Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-56a60ad.md"
+    },
+    {
+      "sha": "5d91086",
+      "full_sha": "5d91086380fadf1b4b9919c47731db9c013339c6",
+      "title": "ApprovalLayout: drop inline NBE ApprovalCard from stack (was rendering behind the Phase-2 overlay) + amber surface/border/primary CTA matching Phase-1 authorization treatment",
+      "author": "Claude",
+      "timestamp": "2026-05-23T22:52:19Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5d91086.md"
+    },
+    {
+      "sha": "754ae53",
+      "full_sha": "754ae53d3703a40351ce8fcd9f32aefbc8046382",
+      "title": "AigentMe: kill auto-open-Gmail-tab on artifact creation — broke HITL flow by popping the external tab BEFORE the in-app approval card appeared. Restores Phase 1 'approve in app, view post-send' contract",
+      "author": "Claude",
+      "timestamp": "2026-05-23T22:26:08Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-754ae53.md"
+    },
+    {
+      "sha": "1c01f6c",
+      "full_sha": "1c01f6c28891503e3bbfb267a9463e2696feb9e6",
+      "title": "ArtifactCard: hide Gmail/Drive 'Open' link pre-approval (only show after status approved|sent|published) — fixes flow-interruption where Open was clicked instead of Send draft",
+      "author": "Claude",
+      "timestamp": "2026-05-23T22:11:27Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1c01f6c.md"
+    },
+    {
+      "sha": "63d8621",
+      "full_sha": "63d8621e0e1387eb18e68ed471952988e840984d",
+      "title": "ApprovalLayout: unify second-tier external-action confirm + NBE approval through one Phase-2 overlay; drop inline SecondTierApprovalCard from stack",
+      "author": "Claude",
+      "timestamp": "2026-05-23T21:35:13Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-63d8621.md"
+    },
+    {
+      "sha": "8f7942f",
+      "full_sha": "8f7942f14a7c38c33cfbaa6bbca2521ce2361870",
+      "title": "Phase 2 color pass: shared accentTokens + glass-fill across Brief / Decision / Venture / Composer / Ledger; Google Drive token cross-persona fallback (auth-profile siblings)",
+      "author": "Claude",
+      "timestamp": "2026-05-23T20:53:17Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-8f7942f.md"
+    },
+    {
+      "sha": "cfa0696",
+      "full_sha": "cfa06962c512ec496189d86ae8c45216fd910061",
+      "title": "VentureCockpit: glass-fill accents (cyan/emerald/violet per row), carousel within body padding (no edge bleed), ApprovalLayout z-40 (above floating compose), body clearance for floating compose strip, compose-modal specific-field error",
+      "author": "Claude",
+      "timestamp": "2026-05-23T19:57:06Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-cfa0696.md"
+    },
+    {
+      "sha": "3aea78f",
+      "full_sha": "3aea78f241e540b42009a8c4780762b8cc4d809f",
+      "title": "ActivityReceiptCard: click header to expand inline JSON drawer (T1-safe payload + copy button)",
+      "author": "Claude",
+      "timestamp": "2026-05-23T19:18:47Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-3aea78f.md"
+    },
+    {
+      "sha": "d08e112",
+      "full_sha": "d08e1128ba4aea31596dc00351e3b0d91872e8ef",
+      "title": "DecisionBoard + VentureCockpit: vertical stack (no columns) — right pane too narrow for multi-column; cockpit uses 3 rows with carousels for KPIs and Active Work",
+      "author": "Claude",
+      "timestamp": "2026-05-23T19:16:09Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d08e112.md"
+    },
+    {
+      "sha": "d1698e5",
+      "full_sha": "d1698e5c1c59d15fa0f2d561939c95fef4af180b",
+      "title": "personas: close OPERATIONAL_HANDBOOK template literal (was escaped backtick — broke Amplify build)",
+      "author": "Claude",
+      "timestamp": "2026-05-23T18:24:59Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d1698e5.md"
+    },
+    {
+      "sha": "5b08bfe",
+      "full_sha": "5b08bfe0ce5af234fef9092c1b03c95ae1559e99",
+      "title": "Strategy: actionable blockers — clickable chips open Partners + KPIs editors that close the declared-fields gap",
+      "author": "Claude",
+      "timestamp": "2026-05-23T13:25:59Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5b08bfe.md"
+    },
+    {
+      "sha": "d67b080",
+      "full_sha": "d67b080893384c5b5a6474a4bf803f0cc5bb0f7c",
+      "title": "Operators Handbook v1: canonical surface inventory + privacy seams + change impact checklist (AgentiQ → Operators Manual tab)",
+      "author": "Claude",
+      "timestamp": "2026-05-23T13:51:44Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d67b080.md"
+    },
+    {
+      "sha": "b0a428a",
+      "full_sha": "b0a428a847b91565848cb5a9b69404bb1a56c8b2",
+      "title": "facilitator/verify: add mainnet RPC cases (Base 8453, Eth 1, Arb 42161, OP 10, Polygon 137) so USDC mainnet credit can verify",
+      "author": "Claude",
+      "timestamp": "2026-05-23T14:20:35Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-b0a428a.md"
+    },
+    {
+      "sha": "5fcf602",
+      "full_sha": "5fcf602ed6fc69a02134e64ac9f1ed7642a51905",
+      "title": "personas: inject OPERATIONAL_HANDBOOK into all 7 operational agent system prompts (architectural ground truth, not confidential)",
+      "author": "Claude",
+      "timestamp": "2026-05-23T14:27:59Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5fcf602.md"
+    },
+    {
+      "sha": "8d27fc5",
+      "full_sha": "8d27fc562df1dea4b82d62cdca19718769a522ff",
+      "title": "Handbook + agent KB: Design Fidelity posture (PARAMOUNT) — four-axis test, canonical tokens, composition + right-pane symmetry rules",
+      "author": "Claude",
+      "timestamp": "2026-05-23T14:40:33Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-8d27fc5.md"
+    },
+    {
+      "sha": "f8bf182",
+      "full_sha": "f8bf182f4c79e9bb220e88ec8d97f86cc3b520e8",
+      "title": "Phase 2 dog-food: DIS for aigentMe right-pane layouts + handbook §8b (Studio Design Intent / Parity framework as governing contract) + case-study doc",
+      "author": "Claude",
+      "timestamp": "2026-05-23T15:01:18Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f8bf182.md"
+    },
+    {
+      "sha": "c5a8aba",
+      "full_sha": "c5a8aba4dd4011c0ab5e552d861378ef10ecb408",
+      "title": "Phase 2 Slice 0: layout registry scaffold (zero visual change) + dedicated mobile shapes in DIS + /api/design-parity/dis fetch endpoint for dog-food loop",
+      "author": "Claude",
+      "timestamp": "2026-05-23T16:49:00Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c5a8aba.md"
+    },
+    {
+      "sha": "d2f4b9d",
+      "full_sha": "d2f4b9d4c162113d907db0e414d3506f2609e0c2",
+      "title": "Phase 2 Slices 1-6: BriefLayout + DecisionBoard + VentureCockpit + Composer + ApprovalLayout (interrupt) + LedgerLayout + shared LayoutShell + consolidated layoutProps spread",
+      "author": "Claude",
+      "timestamp": "2026-05-23T17:34:19Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d2f4b9d.md"
+    },
+    {
+      "sha": "7e62358",
+      "full_sha": "7e623588967fd109c4129b5edf89a98415406ada",
+      "title": "mic on remaining free-form inputs in metaMe setup + alignment surfaces",
+      "author": "Claude",
+      "timestamp": "2026-05-23T13:13:40Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7e62358.md"
+    },
     {
       "sha": "adee0c3",
       "full_sha": "adee0c3e7b3f63220a2bb730e63ff7460945e54f",
@@ -964,294 +1252,6 @@
       "timestamp": "2026-04-30T23:01:48Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-73f4581.md"
-    },
-    {
-      "sha": "0008bf6",
-      "full_sha": "0008bf684abd7b1416590185a3586f9fb45ec4bf",
-      "title": "KNYT cart Phase 2c — multi-item KnytCartCheckoutModal replaces per-item iteration",
-      "author": "Claude",
-      "timestamp": "2026-04-30T22:51:53Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0008bf6.md"
-    },
-    {
-      "sha": "feea823",
-      "full_sha": "feea8234cd7c2690a3ede44c295d11456f456179",
-      "title": "KNYT cart Phase 2b — server-side /api/cart/{quote,complete} endpoints",
-      "author": "Claude",
-      "timestamp": "2026-04-30T22:48:41Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-feea823.md"
-    },
-    {
-      "sha": "dcb38e6",
-      "full_sha": "dcb38e631287046eaa3fa7fe5b00b03d04366412",
-      "title": "KNYT cart Phase 2a — carry contentType + productType-mapper on cart lines",
-      "author": "Claude",
-      "timestamp": "2026-04-30T22:45:54Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-dcb38e6.md"
-    },
-    {
-      "sha": "473ad62",
-      "full_sha": "473ad62a92c619967a12c7db4001cdf6513993f1",
-      "title": "KNYT cart Phase 1.2 — close drawer on checkout + cart context in payment modal",
-      "author": "Claude",
-      "timestamp": "2026-04-30T22:25:33Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-473ad62.md"
-    },
-    {
-      "sha": "1df879d",
-      "full_sha": "1df879d82d14367f421511c5051f8a99a05cb356",
-      "title": "KNYT cart Phase 1.1 — split Buy/+Cart buttons across all 4 store tabs",
-      "author": "Claude",
-      "timestamp": "2026-04-30T21:43:10Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1df879d.md"
-    },
-    {
-      "sha": "10bf19a",
-      "full_sha": "10bf19ab4be31721f1d937ebf20e2f373725de19",
-      "title": "KNYT cart Phase 1 — qty stepper, count badge, drawer mounted across all 4 store tabs",
-      "author": "Claude",
-      "timestamp": "2026-04-30T19:21:40Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-10bf19a.md"
-    },
-    {
-      "sha": "e62ebcc",
-      "full_sha": "e62ebcc87ab46318443aab0394e5556165c493dc",
-      "title": "consolidate X-Frame-Options into middleware as single source of truth",
-      "author": "Claude",
-      "timestamp": "2026-04-30T18:08:16Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-e62ebcc.md"
-    },
-    {
-      "sha": "c4329b0",
-      "full_sha": "c4329b06a94b51f88f6c521f24d28eb39d253897",
-      "title": "allow metame.live + metame.dev to embed; mandate descriptive merge messages",
-      "author": "Claude",
-      "timestamp": "2026-04-30T17:36:56Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c4329b0.md"
-    },
-    {
-      "sha": "1ab55f2",
-      "full_sha": "1ab55f21f05074c1480263f35e63e7d039365c13",
-      "title": "revert overbroad middleware fallback that broke runtime page embedding",
-      "author": "Claude",
-      "timestamp": "2026-04-30T16:58:22Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1ab55f2.md"
-    },
-    {
-      "sha": "f71efd8",
-      "full_sha": "f71efd8e08c161144a6a17d4af359b5cfc66e3da",
-      "title": "fix Firefox X-Frame-Options on cartridge embed; consolidate header logic",
-      "author": "Claude",
-      "timestamp": "2026-04-30T16:37:15Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-f71efd8.md"
-    },
-    {
-      "sha": "d76dbd1",
-      "full_sha": "d76dbd11a8eab89163b0deee496ac6dae0428f5d",
-      "title": "nest STATE_SYNC processing flags per Lovable spec; bump KB search timeout",
-      "author": "Claude",
-      "timestamp": "2026-04-30T03:42:32Z",
-      "type": "chore",
-      "brief": "items/build_/COMMITS/COMMIT-d76dbd1.md"
-    },
-    {
-      "sha": "d8e603e",
-      "full_sha": "d8e603e7241cf991fc9020b237e8407f1dbd2ebc",
-      "title": "fire thinking-dots signal on navigation actions; remix banner UX bump",
-      "author": "Claude",
-      "timestamp": "2026-04-30T02:43:08Z",
-      "type": "chore",
-      "brief": "items/build_/COMMITS/COMMIT-d8e603e.md"
-    },
-    {
-      "sha": "87f3b18",
-      "full_sha": "87f3b188cf6643dfff114c0df0caff6afe939485",
-      "title": "fix NBA action: use source=text_input so inference + thin-client message fire",
-      "author": "Claude",
-      "timestamp": "2026-04-30T00:56:57Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-87f3b18.md"
-    },
-    {
-      "sha": "516b95d",
-      "full_sha": "516b95d7ff38b8cf573161d5483b558834150dd0",
-      "title": "gate community-content admin endpoints with server-side role check",
-      "author": "Claude",
-      "timestamp": "2026-04-29T20:43:04Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-516b95d.md"
-    },
-    {
-      "sha": "c25d66a",
-      "full_sha": "c25d66abc658e13b580f9dff525e1498a8fdb6c1",
-      "title": "add public viewer page for community-generated content",
-      "author": "Claude",
-      "timestamp": "2026-04-29T20:44:01Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-c25d66a.md"
-    },
-    {
-      "sha": "fc82cb7",
-      "full_sha": "fc82cb789744c104d38217c0af9b284099a60611",
-      "title": "remix expands inline like Customize banner — no popout dialog",
-      "author": "Claude",
-      "timestamp": "2026-04-29T20:48:53Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-fc82cb7.md"
-    },
-    {
-      "sha": "aa70e7d",
-      "full_sha": "aa70e7ddc4e4b93e7cf464c64250c71671c36ae6",
-      "title": "stub porto/internal webpack alias to fix wagmi connector barrel build error",
-      "author": "Claude",
-      "timestamp": "2026-04-29T01:02:15Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-aa70e7d.md"
-    },
-    {
-      "sha": "7d6dbfa",
-      "full_sha": "7d6dbfa7bc11bfc4be31a8928ca5f5be710c6297",
-      "title": "fix React #130 SSR error in connections tab; switch $KNYT chain to Ethereum mainnet (chainId 1)",
-      "author": "Claude",
-      "timestamp": "2026-04-29T00:45:11Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-7d6dbfa.md"
-    },
-    {
-      "sha": "8422f70",
-      "full_sha": "8422f70bda7f2d0620a644f18da3745e393860d7",
-      "title": "add WalletConnect external wallet to SmartWallet Connections tab with EVM $KNYT balance and treasury send flow",
-      "author": "Claude",
-      "timestamp": "2026-04-28T23:26:03Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-8422f70.md"
-    },
-    {
-      "sha": "e7f9717",
-      "full_sha": "e7f9717d0dacb5973bddd2ea1c6f7c8228cd1b2e",
-      "title": "populate agentiq codex architecture and knowledge docs from deep codebase analysis",
-      "author": "Claude",
-      "timestamp": "2026-03-27T02:24:05Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-e7f9717.md"
-    },
-    {
-      "sha": "f3ff549",
-      "full_sha": "f3ff549d51bf21658b84a9c23354e11c5273e379",
-      "title": "backfill agentiq codex with all 38 historical merged prs",
-      "author": "Claude",
-      "timestamp": "2026-03-27T02:14:07Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f3ff549.md"
-    },
-    {
-      "sha": "c89234f",
-      "full_sha": "c89234fbd3df7c7201ca11f9f3b2463ab7c47e11",
-      "title": "wire autonomys auto-drive sync for agentiq codex",
-      "author": "Claude",
-      "timestamp": "2026-03-27T01:57:57Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-c89234f.md"
-    },
-    {
-      "sha": "703a027",
-      "full_sha": "703a0276b6f78bbbf4bdfb990becd26024c982fd",
-      "title": "implement agentiq codex pipeline + aigent z system ai",
-      "author": "Claude",
-      "timestamp": "2026-03-27T01:38:55Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-703a027.md"
-    },
-    {
-      "sha": "6e4931f",
-      "full_sha": "6e4931f4ebba407b48cff3cd16c56560f39d97d1",
-      "title": "add deploy_experience and check_discord_status tools to Marketa",
-      "author": "Claude",
-      "timestamp": "2026-03-27T00:43:57Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-6e4931f.md"
-    },
-    {
-      "sha": "832dfd7",
-      "full_sha": "832dfd7bf2ece7540969319d15cc236511600edd",
-      "title": "add content generation tools to Marketa: image, video, article, and bundles",
-      "author": "Claude",
-      "timestamp": "2026-03-26T04:15:06Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-832dfd7.md"
-    },
-    {
-      "sha": "9ac363d",
-      "full_sha": "9ac363d09dd17ee71a5d78b1937fcaae822a11c0",
-      "title": "add Make scenario browser and Marketa tool calling",
-      "author": "Claude",
-      "timestamp": "2026-03-26T03:15:42Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-9ac363d.md"
-    },
-    {
-      "sha": "f37a298",
-      "full_sha": "f37a298a993236aac21cf9beb59da336da4b3a2e",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-26T02:10:32Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-f37a298.md"
-    },
-    {
-      "sha": "c2d643f",
-      "full_sha": "c2d643f364254a153594eda9054d387450d54401",
-      "title": "add workflow run polling, history, manifest display, QubeTalk invoke lane, env var health flags",
-      "author": "Claude",
-      "timestamp": "2026-03-26T02:10:27Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-c2d643f.md"
-    },
-    {
-      "sha": "caf9461",
-      "full_sha": "caf94610a4a07493dbe9b5a3ea5a2a2bc132db56",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-03-26T01:22:01Z",
-      "type": "deploy",
-      "brief": "items/build_/COMMITS/COMMIT-caf9461.md"
-    },
-    {
-      "sha": "9a0bf7d",
-      "full_sha": "9a0bf7dc8e52f22dcb830ec8cee602c8d1d07a59",
-      "title": "add Workflows tab to Composer Studio analysis panel",
-      "author": "Claude",
-      "timestamp": "2026-03-26T01:21:53Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-9a0bf7d.md"
-    },
-    {
-      "sha": "afb9a24",
-      "full_sha": "afb9a24520a0a76786221cfd4ed1d4e7f7c5defc",
-      "title": "add n8n + ACI adapters and shared adapter registry",
-      "author": "Claude",
-      "timestamp": "2026-03-26T01:21:47Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-afb9a24.md"
-    },
-    {
-      "sha": "2bdd662",
-      "full_sha": "2bdd6627ebe3fe65c2e26e2038cadefd52d74a0c",
-      "title": "add runtime observability — WorkflowRun tracking, runs API, cancel, health",
-      "author": "Claude",
-      "timestamp": "2026-03-26T01:21:38Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-2bdd662.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

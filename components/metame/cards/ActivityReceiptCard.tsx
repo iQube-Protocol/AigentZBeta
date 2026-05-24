@@ -8,7 +8,7 @@
  * invoked, context shared, artifacts created, approvals granted.
  */
 
-import React from "react";
+import React, { useCallback, useState } from "react";
 import {
   Receipt,
   Users,
@@ -17,6 +17,9 @@ import {
   ShieldCheck,
   Clipboard,
   FileText,
+  ChevronDown,
+  Copy,
+  Check,
 } from "lucide-react";
 
 export interface ActivityReceiptData {
@@ -94,22 +97,59 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
 
   const status = STATUS_META[data.receiptStatus];
 
+  // Click-to-expand toggles a raw-JSON drawer at the bottom of the card.
+  // The serialized object is the T1-safe ActivityReceiptData shape — no
+  // T0 identifiers (personaId, authProfileId, rootDid) by construction.
+  const [expanded, setExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const json = JSON.stringify(data, null, 2);
+
+  const handleCopy = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      try {
+        await navigator.clipboard.writeText(json);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      } catch {
+        /* ignore — clipboard permission edge case */
+      }
+    },
+    [json],
+  );
+
   return (
     <div className={`rounded-lg border p-4 ${surfaceClass} space-y-2`}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className={`flex items-center gap-2 text-xs uppercase tracking-wider ${mutedClass}`}>
-            <Receipt className={`w-3.5 h-3.5 ${accentClass}`} />
-            {ACTION_LABELS[data.actionType] ?? data.actionType}
-            <span>·</span>
-            <span>{CARTRIDGE_LABELS[data.activeCartridge] ?? data.activeCartridge}</span>
+      {/* Header is the click target — toggles a raw-JSON drawer at the
+          bottom of the card. Keyboard accessible via the <button>. */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        aria-controls={`receipt-${data.id}-json`}
+        className="w-full text-left rounded-md focus:outline-none focus:ring-2 focus:ring-violet-500/40"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className={`flex items-center gap-2 text-xs uppercase tracking-wider ${mutedClass}`}>
+              <Receipt className={`w-3.5 h-3.5 ${accentClass}`} />
+              {ACTION_LABELS[data.actionType] ?? data.actionType}
+              <span>·</span>
+              <span>{CARTRIDGE_LABELS[data.activeCartridge] ?? data.activeCartridge}</span>
+            </div>
+            <h4 className="font-medium mt-0.5">{data.summary}</h4>
           </div>
-          <h4 className="font-medium mt-0.5">{data.summary}</h4>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className={`px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-full border ${status.ring}`}>
+              {status.label}
+            </span>
+            <ChevronDown
+              className={`h-4 w-4 ${mutedClass} transition-transform ${expanded ? "rotate-180" : ""}`}
+            />
+          </div>
         </div>
-        <span className={`shrink-0 px-2 py-0.5 text-[10px] uppercase tracking-wider rounded-full border ${status.ring}`}>
-          {status.label}
-        </span>
-      </div>
+      </button>
 
       <div className="flex flex-wrap gap-2 text-[11px]">
         {data.agentsInvoked.length > 0 && (
@@ -146,6 +186,49 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
           <span className="ml-auto">DVN: <span className="font-mono">{data.dvnReceiptId.slice(0, 10)}…</span></span>
         )}
       </div>
+
+      {/* JSON drawer — collapsed by default; expanded via the header
+          click. Renders the T1-safe receipt payload as pretty JSON with
+          a copy affordance. No T0 fields by construction. */}
+      {expanded && (
+        <div
+          id={`receipt-${data.id}-json`}
+          className={`mt-2 rounded-md border ${
+            isDark
+              ? "border-slate-800/60 bg-slate-950/50"
+              : "border-slate-200 bg-slate-50"
+          }`}
+        >
+          <div className={`flex items-center justify-between px-3 py-1.5 border-b ${
+            isDark ? "border-slate-800/60" : "border-slate-200"
+          }`}>
+            <span className={`text-[10px] uppercase tracking-[0.16em] ${mutedClass}`}>
+              Receipt JSON
+            </span>
+            <button
+              type="button"
+              onClick={handleCopy}
+              aria-label={copied ? "Copied" : "Copy receipt JSON"}
+              title={copied ? "Copied" : "Copy JSON"}
+              className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] ${
+                isDark
+                  ? "text-slate-300 hover:bg-slate-800/60"
+                  : "text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+              {copied ? "Copied" : "Copy"}
+            </button>
+          </div>
+          <pre
+            className={`overflow-auto max-h-72 text-[11px] leading-snug p-3 font-mono ${
+              isDark ? "text-slate-300" : "text-slate-700"
+            }`}
+          >
+            {json}
+          </pre>
+        </div>
+      )}
     </div>
   );
 }
