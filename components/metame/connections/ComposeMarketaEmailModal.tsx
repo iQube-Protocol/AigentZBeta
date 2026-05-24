@@ -44,9 +44,11 @@ interface Props {
     source: 'llm' | 'template';
   }>;
   theme?: "light" | "dark";
+  /** See ComposeGmailDraftModal — Phase 2 inline host mode. */
+  inline?: boolean;
 }
 
-export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithAigentMe, theme = "dark" }: Props) {
+export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithAigentMe, theme = "dark", inline = false }: Props) {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiDrafting, setAiDrafting] = useState(false);
   const [aiRationale, setAiRationale] = useState<string | null>(null);
@@ -174,16 +176,11 @@ export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithA
     }
   }, [to, subject, bodyText, cc, bcc, fromName, onCreate, onClose]);
 
-  if (!open) return null;
+  if (!inline && !open) return null;
 
-  return (
-    <div
-      className={overlayClass}
-      role="dialog"
-      aria-modal="true"
-      onClick={(e) => { if (e.target === e.currentTarget && !submitting) onClose(); }}
-    >
-      <form onSubmit={handleSubmit} className={`rounded-lg p-5 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl ${panelClass}`}>
+  const formBody = (
+      <form onSubmit={handleSubmit} className={inline ? "w-full" : `rounded-lg p-5 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl ${panelClass}`}>
+        {!inline && (
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-2">
             <Send className="w-4 h-4 text-violet-400" />
@@ -193,6 +190,7 @@ export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithA
             <X className="w-4 h-4" />
           </button>
         </div>
+        )}
 
         <div className={`mb-3 p-3 rounded border ${isDark ? 'border-violet-500/30 bg-violet-500/5' : 'border-violet-300 bg-violet-50'}`}>
           <label className="block">
@@ -317,6 +315,18 @@ export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithA
           </button>
         </div>
       </form>
+  );
+
+  if (inline) return formBody;
+
+  return (
+    <div
+      className={overlayClass}
+      role="dialog"
+      aria-modal="true"
+      onClick={(e) => { if (e.target === e.currentTarget && !submitting) onClose(); }}
+    >
+      {formBody}
     </div>
   );
 }

@@ -50,12 +50,12 @@ import type { ArtifactCardData } from "@/components/metame/cards/ArtifactCard";
 import type { ActivityReceiptData } from "@/components/metame/cards/ActivityReceiptCard";
 import type { StageEvaluation } from "@/services/strategy/stageProgression";
 
-import { ComposeGmailDraftModal } from "@/components/metame/connections/ComposeGmailDraftModal";
-import { ComposeCalendarEventModal } from "@/components/metame/connections/ComposeCalendarEventModal";
-import { ComposeGoogleDocModal } from "@/components/metame/connections/ComposeGoogleDocModal";
-import { ComposeGoogleSheetModal } from "@/components/metame/connections/ComposeGoogleSheetModal";
-import { ComposeSlidesModal } from "@/components/metame/connections/ComposeSlidesModal";
-import { ComposeMarketaEmailModal } from "@/components/metame/connections/ComposeMarketaEmailModal";
+// ComposeGmailDraftModal + sibling compose modals are now mounted
+// inline by ComposerLayout (Phase 2 Slice 4). The tab no longer
+// imports or mounts them directly.
+// ComposeGoogleDocModal / ComposeGoogleSheetModal / ComposeSlidesModal /
+// ComposeMarketaEmailModal — see comment on the Gmail import above.
+// All six now mounted inline by ComposerLayout, not by this tab.
 
 import { ComposeQuickActionsStrip, type ComposeKind } from "@/components/metame/copilot/ComposeQuickActionsStrip";
 import AgentWalletDrawer from "@/components/AgentWalletDrawer";
@@ -230,12 +230,9 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const [walletOpen, setWalletOpen] = useState(false);
 
   // Compose modal open/close booleans.
-  const [composeGmailOpen, setComposeGmailOpen] = useState(false);
-  const [composeCalendarOpen, setComposeCalendarOpen] = useState(false);
-  const [composeDocOpen, setComposeDocOpen] = useState(false);
-  const [composeSheetOpen, setComposeSheetOpen] = useState(false);
-  const [composeSlidesOpen, setComposeSlidesOpen] = useState(false);
-  const [composeMarketaOpen, setComposeMarketaOpen] = useState(false);
+  // Phase 2 Slice 4: compose-modal open booleans removed. The single
+  // composerKind state below drives ComposerLayout's inline form host
+  // — no separate popup-modal open flags needed.
 
   // Per-specialist inline Ask state.
   const [askSpecialistOpenId, setAskSpecialistOpenId] = useState<string | null>(null);
@@ -879,16 +876,20 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
   }, [personaId, fetchReceipts]);
 
+  // Phase 2 Slice 4: which compose form ComposerLayout should render
+  // inline. Null when the layout is preview-only.
+  const [composerKind, setComposerKind] = useState<ComposeKind | null>(null);
+
   // ── AG-UI bridge: copilot → right pane ─────────────────────────────
+  // Compose footer / copilot bridge now routes ALL compose intents
+  // through the Phase 2 ComposerLayout — no popup modals over the
+  // right pane. The compose form hosts inline in the layout's body;
+  // submit creates the artifact + clears composerKind so the same
+  // surface flips to the draft preview with Send draft → Phase 2
+  // ApprovalLayout overlay (the unified HITL gate).
   const openComposeByKind = useCallback((kind: ComposeKind) => {
-    switch (kind) {
-      case "gmail":   setComposeGmailOpen(true); break;
-      case "event":   setComposeCalendarOpen(true); break;
-      case "doc":     setComposeDocOpen(true); break;
-      case "sheet":   setComposeSheetOpen(true); break;
-      case "slides":  setComposeSlidesOpen(true); break;
-      case "marketa": setComposeMarketaOpen(true); break;
-    }
+    setComposerKind(kind);
+    setActiveLayoutId('composer');
   }, []);
 
   const focusCard = useCallback((kind: CardKind) => {
@@ -1073,6 +1074,44 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 nbeRef,
                 approvalRef,
                 artifactRef,
+                // Phase 2 Slice 4: ComposerLayout reads composerKind
+                // to decide whether to render the inline compose form.
+                // After a successful create the wrapped handlers flip
+                // composerKind → null so the layout transitions to
+                // draft-preview without surface switching.
+                composerKind,
+                composerHandlers: {
+                  onCreateGmail: async (input) => {
+                    await handleComposeGmailDraft(input);
+                    setComposerKind(null);
+                  },
+                  onDraftGmail: handleDraftEmail,
+                  onCreateCalendar: async (input) => {
+                    await handleComposeCalendarEvent(input as Parameters<typeof handleComposeCalendarEvent>[0]);
+                    setComposerKind(null);
+                  },
+                  onDraftCalendar: handleDraftEvent,
+                  onCreateDoc: async (input) => {
+                    await handleComposeGoogleDoc(input as Parameters<typeof handleComposeGoogleDoc>[0]);
+                    setComposerKind(null);
+                  },
+                  onDraftDoc: handleDraftDoc,
+                  onCreateSheet: async (input) => {
+                    await handleComposeGoogleSheet(input as Parameters<typeof handleComposeGoogleSheet>[0]);
+                    setComposerKind(null);
+                  },
+                  onDraftSheet: handleDraftSheet,
+                  onCreateSlides: async (input) => {
+                    await handleComposeSlides(input as Parameters<typeof handleComposeSlides>[0]);
+                    setComposerKind(null);
+                  },
+                  onDraftSlides: handleDraftSlides,
+                  onCreateMarketa: async (input) => {
+                    await handleComposeMarketa(input as Parameters<typeof handleComposeMarketa>[0]);
+                    setComposerKind(null);
+                  },
+                  onDraftMarketa: handleDraftMarketa,
+                },
               };
               return (
               <>
@@ -1119,48 +1158,14 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         } : undefined}
         onSaved={handleWizardSaved}
       />
-      <ComposeGmailDraftModal
-        open={composeGmailOpen}
-        onClose={() => setComposeGmailOpen(false)}
-        onCreate={handleComposeGmailDraft}
-        onDraftWithAigentMe={handleDraftEmail}
-        theme={theme}
-      />
-      <ComposeCalendarEventModal
-        open={composeCalendarOpen}
-        onClose={() => setComposeCalendarOpen(false)}
-        onCreate={handleComposeCalendarEvent}
-        onDraftWithAigentMe={handleDraftEvent}
-        theme={theme}
-      />
-      <ComposeGoogleDocModal
-        open={composeDocOpen}
-        onClose={() => setComposeDocOpen(false)}
-        onCreate={handleComposeGoogleDoc}
-        onDraftWithAigentMe={handleDraftDoc}
-        theme={theme}
-      />
-      <ComposeSlidesModal
-        open={composeSlidesOpen}
-        onClose={() => setComposeSlidesOpen(false)}
-        onCreate={handleComposeSlides}
-        onDraftWithAigentMe={handleDraftSlides}
-        theme={theme}
-      />
-      <ComposeMarketaEmailModal
-        open={composeMarketaOpen}
-        onClose={() => setComposeMarketaOpen(false)}
-        onCreate={handleComposeMarketa}
-        onDraftWithAigentMe={handleDraftMarketa}
-        theme={theme}
-      />
-      <ComposeGoogleSheetModal
-        open={composeSheetOpen}
-        onClose={() => setComposeSheetOpen(false)}
-        onCreate={handleComposeGoogleSheet}
-        onDraftWithAigentMe={handleDraftSheet}
-        theme={theme}
-      />
+      {/* Phase 2 Slice 4: Compose popups removed. All six compose
+          surfaces (Email / Event / Doc / Sheet / Slides / Marketa)
+          now render INLINE inside ComposerLayout via its `inline=true`
+          host mode. Activator: openComposeByKind(kind) sets
+          activeLayoutId='composer' + composerKind, the layout mounts
+          the matching form, submit creates the artifact then flips
+          composerKind→null so the same layout shows the draft
+          preview with Send draft → unified ApprovalLayout overlay. */}
       <AgentWalletDrawer
         open={walletOpen}
         onClose={() => setWalletOpen(false)}

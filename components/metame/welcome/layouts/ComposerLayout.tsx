@@ -27,6 +27,21 @@ import type {
   RightPaneLayoutDefinition,
   RightPaneLayoutProps,
 } from "./types";
+import { ComposeGmailDraftModal } from "@/components/metame/connections/ComposeGmailDraftModal";
+import { ComposeCalendarEventModal } from "@/components/metame/connections/ComposeCalendarEventModal";
+import { ComposeGoogleDocModal } from "@/components/metame/connections/ComposeGoogleDocModal";
+import { ComposeGoogleSheetModal } from "@/components/metame/connections/ComposeGoogleSheetModal";
+import { ComposeSlidesModal } from "@/components/metame/connections/ComposeSlidesModal";
+import { ComposeMarketaEmailModal } from "@/components/metame/connections/ComposeMarketaEmailModal";
+
+const KIND_LABELS: Record<string, string> = {
+  gmail:   "Compose email",
+  event:   "Compose event",
+  doc:     "Compose doc",
+  sheet:   "Compose sheet",
+  slides:  "Compose slides",
+  marketa: "Compose Marketa email",
+};
 
 function ComposerLayoutComponent(props: RightPaneLayoutProps) {
   const {
@@ -37,6 +52,8 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
     onSendArtifact,
     onDismissArtifact,
     onRequestLayout,
+    composerKind,
+    composerHandlers,
   } = props;
 
   const isDark = theme === "dark";
@@ -53,6 +70,102 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
     onRequestLayout?.("stack");
   }, [onRequestLayout]);
 
+  // Inline form factory — when a composerKind is selected, render the
+  // matching modal in `inline` mode (no overlay chrome) so the form
+  // body hosts directly inside the layout. The modal's onClose returns
+  // the pane to stack; onCreate fires the existing artifact-create API
+  // via the handler the tab passed down.
+  const inlineForm = (() => {
+    if (!composerKind || !composerHandlers) return null;
+    const closeToStack = () => onRequestLayout?.("stack");
+    switch (composerKind) {
+      case "gmail":
+        if (!composerHandlers.onCreateGmail || !composerHandlers.onDraftGmail) return null;
+        return (
+          <ComposeGmailDraftModal
+            open
+            inline
+            onClose={closeToStack}
+            onCreate={composerHandlers.onCreateGmail}
+            onDraftWithAigentMe={composerHandlers.onDraftGmail}
+            theme={theme}
+          />
+        );
+      case "event":
+        if (!composerHandlers.onCreateCalendar || !composerHandlers.onDraftCalendar) return null;
+        return (
+          <ComposeCalendarEventModal
+            open
+            inline
+            onClose={closeToStack}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            onCreate={composerHandlers.onCreateCalendar as any}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            onDraftWithAigentMe={composerHandlers.onDraftCalendar as any}
+            theme={theme}
+          />
+        );
+      case "doc":
+        if (!composerHandlers.onCreateDoc || !composerHandlers.onDraftDoc) return null;
+        return (
+          <ComposeGoogleDocModal
+            open
+            inline
+            onClose={closeToStack}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            onCreate={composerHandlers.onCreateDoc as any}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            onDraftWithAigentMe={composerHandlers.onDraftDoc as any}
+            theme={theme}
+          />
+        );
+      case "sheet":
+        if (!composerHandlers.onCreateSheet || !composerHandlers.onDraftSheet) return null;
+        return (
+          <ComposeGoogleSheetModal
+            open
+            inline
+            onClose={closeToStack}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            onCreate={composerHandlers.onCreateSheet as any}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            onDraftWithAigentMe={composerHandlers.onDraftSheet as any}
+            theme={theme}
+          />
+        );
+      case "slides":
+        if (!composerHandlers.onCreateSlides || !composerHandlers.onDraftSlides) return null;
+        return (
+          <ComposeSlidesModal
+            open
+            inline
+            onClose={closeToStack}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            onCreate={composerHandlers.onCreateSlides as any}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            onDraftWithAigentMe={composerHandlers.onDraftSlides as any}
+            theme={theme}
+          />
+        );
+      case "marketa":
+        if (!composerHandlers.onCreateMarketa || !composerHandlers.onDraftMarketa) return null;
+        return (
+          <ComposeMarketaEmailModal
+            open
+            inline
+            onClose={closeToStack}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            onCreate={composerHandlers.onCreateMarketa as any}
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            onDraftWithAigentMe={composerHandlers.onDraftMarketa as any}
+            theme={theme}
+          />
+        );
+      default:
+        return null;
+    }
+  })();
+
   const primaryBtn = isDark
     ? "bg-violet-500/20 hover:bg-violet-500/30 border-violet-500/40 text-violet-100"
     : "bg-violet-100 hover:bg-violet-200 border-violet-300 text-violet-800";
@@ -67,11 +180,18 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
       theme={theme}
       headerIcon={<Pencil className="h-3.5 w-3.5" />}
       headerEyebrow="Composer"
-      headerTitle={draft?.title ?? "No draft open"}
+      headerTitle={
+        composerKind
+          ? KIND_LABELS[composerKind] ?? "Composer"
+          : draft?.title ?? "No draft open"
+      }
       onDismiss={handleDismiss}
       dismissLabel="Close composer"
       footer={
-        draft ? (
+        // Footer only renders when a draft exists and we're not in the
+        // compose-form state. The inline compose form ships its own
+        // Submit / Cancel buttons.
+        !composerKind && draft ? (
           <>
             <button
               type="button"
@@ -94,7 +214,12 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
         ) : undefined
       }
       body={
-        !draft ? (
+        // Composing? Render the inline form first. Once a draft lands
+        // (artifact created), the form unmounts and the draft preview
+        // shows below — same surface, no popup, no surface switching.
+        composerKind && inlineForm ? (
+          inlineForm
+        ) : !draft ? (
           <ComposerEmptyState isDark={isDark} mutedClass={mutedClass} />
         ) : (
           <div className="space-y-3">
