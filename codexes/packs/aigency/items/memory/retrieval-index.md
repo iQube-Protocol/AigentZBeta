@@ -1044,3 +1044,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-498c09a.md](../build_/COMMITS/COMMIT-498c09a.md)
 - Message: Activation catalog: add metric class (activity/outcome/standing) + expand each activation with outcome-oriented KPIs — myCanvas likes/sparks/remixes, Order missions-completed/votes/contributions, AgentiQ OS referrals/SDK/forks, Venture Lab milestones/conversions/runway, Marketa meetings/proposals/closes, Qriptopian readership/pickups, Studio launched/remixed/completed-by-users; cockpit chip highlights outcomes with violet+dot
+
+## Commit `0e40380` — 2026-05-24T02:59:35Z
+- Type: `push`
+- Brief: [COMMIT-0e40380.md](../build_/COMMITS/COMMIT-0e40380.md)
+- Message: Phase 2 B.1 (2/3): ActiveKpisEditor refactored — source picker reads metricsForActiveActivations(persona), grouped by activation with inactive sources marked; rich KpiRecord shape persists; KpiDetailLayout (new layout, kpi-detail) opens on chip click with hero value + source provenance + manual-value editor
