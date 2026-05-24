@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`d0825fd`](https://github.com/iQube-Protocol/AigentZBeta/commit/d0825fd14ab99cdedd29da5c40ba0bb68582a3ae) [push] nbe rerank: fold Capability Gateway preflight summary into LLM rerank prompt (Claude, 2026-05-24T10:09:51Z)
 - [`ac27250`](https://github.com/iQube-Protocol/AigentZBeta/commit/ac27250d378be9ff5e4fbed564ff81c5758e20d0) [push] capability gateway phase 2b — openclawCore extract, real web-search + owned-content-scan (Claude, 2026-05-24T09:58:46Z)
 - [`1c86dae`](https://github.com/iQube-Protocol/AigentZBeta/commit/1c86daee23d5cdb2554a749569dcaf2093e1a173) [feat] aigentMe: surface Capability Gateway preflight + add Ask specialists chip (Claude, 2026-05-24T09:51:12Z)
 - [`c2bfdc4`](https://github.com/iQube-Protocol/AigentZBeta/commit/c2bfdc401a4434b9ac726651895a0a92454211d1) [push] capability gateway phase 2c — pre-flight gather on aigentMe progression surfaces (Claude, 2026-05-24T09:21:28Z)
