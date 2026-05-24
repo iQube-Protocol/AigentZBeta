@@ -137,6 +137,14 @@ export interface BuildBriefInput {
   scopedCartridge?: ActiveCartridgeSlug;
   /** Defaults — if no ExperienceQube configured we still produce a useful brief. */
   defaultActiveCartridges?: ActiveCartridgeSlug[];
+  /**
+   * Optional fresh signal from the Capability Gateway pre-flight pass
+   * (e.g. web-search digest). Routed into the LLM rerank prompt as
+   * `liveContext` so the model can use it to break ties / boost a
+   * candidate whose rationale lines up with the signal. Ignored when
+   * the LLM rerank pass is off or the value is empty.
+   */
+  liveContext?: string | null;
 }
 
 const PRIORITY_LABELS_BY_CARTRIDGE: Record<ActiveCartridgeSlug, string> = {
@@ -222,6 +230,7 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
     primaryGoal,
     experienceGoals,
     strategy,
+    liveContext: input.liveContext ?? null,
   });
   nbeCandidates = rerank.ranked;
   const topNbeReason = rerank.topReason;
@@ -308,6 +317,8 @@ export async function buildMoveForward(input: {
    * Use the explicit form when the user has steered to a specific cartridge.
    */
   cartridge?: ActiveCartridgeSlug;
+  /** See `BuildBriefInput.liveContext` — same meaning. */
+  liveContext?: string | null;
 }): Promise<MoveForwardShape> {
   const [qube, guide, workspaceConnected, strategy, stageEval] = await Promise.all([
     getExperienceQube(input.personaId),
@@ -365,6 +376,7 @@ export async function buildMoveForward(input: {
       primaryGoal,
       experienceGoals,
       strategy,
+      liveContext: input.liveContext ?? null,
     });
     topCandidate = rerank.ranked[0] ?? null;
     altsRaw = rerank.ranked.slice(1);

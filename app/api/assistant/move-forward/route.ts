@@ -78,6 +78,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const result = await buildMoveForward({
       personaId: context.personaId,
       ...(scoped ? { cartridge: scoped } : {}),
+      // Phase 2c — pass the gather summary into the LLM rerank pass.
+      // No-op when preflight is off or the LLM rerank pass is disabled.
+      liveContext: preflight?.summary ?? null,
     });
     return NextResponse.json(
       preflight ? { ...result, preflightContext: preflight } : result,
