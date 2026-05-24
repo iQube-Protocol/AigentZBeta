@@ -89,7 +89,12 @@ export async function executeCapability(
       workOrder,
     };
   }
-  const adapterResult = await adapter.execute(workOrder);
+  // serverContext carries T0 (personaId) so in-process adapters can call
+  // existing T0-keyed services without us inventing T2-aliased shims for
+  // every owned-asset / entitlement lookup. The work order JSON stays
+  // T0-free (compile-time canary on CapabilityWorkOrder still holds);
+  // this side-channel exists only because the adapter is in-process.
+  const adapterResult = await adapter.execute(workOrder, { personaId: input.persona.personaId });
 
   // 4. Receipt — one per execution attempt regardless of outcome.
   const status = adapterResult.ok ? 'success' : adapterResult.reason === 'approval-pending' ? 'pending_approval' : 'failure';
