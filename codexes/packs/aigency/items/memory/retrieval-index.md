@@ -1064,3 +1064,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-14e609c.md](../build_/COMMITS/COMMIT-14e609c.md)
 - Message: Phase 2 B.2 (2/2): ActiveWorkDetailLayout (per-intent surface with Cancel/Handoff/Resume actions) + ActivityChip becomes clickable; recentActivity enriched server-side with canResume/canHandOff/canCancel/specialist/nextActionHint derived from intent status; action endpoints expected at /api/assistant/intents/[id]/{cancel,handoff,resume} — 404 surfaced as backlog note rather than failure
+
+## Commit `328bbf4` — 2026-05-24T06:24:05Z
+- Type: `push`
+- Brief: [COMMIT-328bbf4.md](../build_/COMMITS/COMMIT-328bbf4.md)
+- Message: Phase 2 B.3: live cockpit sync — silent background polling at 20s on cockpit layouts (pauses on document.hidden); LiveSyncIndicator in cockpit header shows 'Synced Ns ago' + manual refresh button; all mutation paths (KPI edit / intent action / NBE approval) trigger silent refetch so the cockpit reacts immediately without skeleton flash. Phase 3 will replace polling with Supabase realtime subscription

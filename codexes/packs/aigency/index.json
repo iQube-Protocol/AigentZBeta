@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-24T04:54:18.859Z",
+  "last_updated": "2026-05-24T06:25:58.061Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "14e609c68164bebd2b9ff85ce303f7dc59d9eabe",
-  "latest_commit_short": "14e609c",
-  "latest_commit_title": "Phase 2 B.2 (2/2): ActiveWorkDetailLayout (per-intent surface with Cancel/Handoff/Resume actions) + ActivityChip becomes clickable; recentActivity enriched server-side with canResume/canHandOff/canCancel/specialist/nextActionHint derived from intent status; action endpoints expected at /api/assistant/intents/[id]/{cancel,handoff,resume} — 404 surfaced as backlog note rather than failure",
+  "latest_commit": "328bbf44535ed723e4114a2bdb3cccb88bbde5e5",
+  "latest_commit_short": "328bbf4",
+  "latest_commit_title": "Phase 2 B.3: live cockpit sync — silent background polling at 20s on cockpit layouts (pauses on document.hidden); LiveSyncIndicator in cockpit header shows 'Synced Ns ago' + manual refresh button; all mutation paths (KPI edit / intent action / NBE approval) trigger silent refetch so the cockpit reacts immediately without skeleton flash. Phase 3 will replace polling with Supabase realtime subscription",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "328bbf4",
+      "full_sha": "328bbf44535ed723e4114a2bdb3cccb88bbde5e5",
+      "title": "Phase 2 B.3: live cockpit sync — silent background polling at 20s on cockpit layouts (pauses on document.hidden); LiveSyncIndicator in cockpit header shows 'Synced Ns ago' + manual refresh button; all mutation paths (KPI edit / intent action / NBE approval) trigger silent refetch so the cockpit reacts immediately without skeleton flash. Phase 3 will replace polling with Supabase realtime subscription",
+      "author": "Claude",
+      "timestamp": "2026-05-24T06:24:05Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-328bbf4.md"
+    },
     {
       "sha": "14e609c",
       "full_sha": "14e609c68164bebd2b9ff85ce303f7dc59d9eabe",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-04-30T22:48:41Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-feea823.md"
-    },
-    {
-      "sha": "dcb38e6",
-      "full_sha": "dcb38e631287046eaa3fa7fe5b00b03d04366412",
-      "title": "KNYT cart Phase 2a — carry contentType + productType-mapper on cart lines",
-      "author": "Claude",
-      "timestamp": "2026-04-30T22:45:54Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-dcb38e6.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
