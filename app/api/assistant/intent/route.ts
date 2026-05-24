@@ -36,6 +36,11 @@ import {
 } from '@/services/iqube/intentQube';
 import { NBE_CATALOGUE } from '@/services/orchestration/nbeCatalog';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import {
+  ACTIVATION_CATALOG,
+  type ActivationAction,
+} from '@/data/activation-catalog';
+import type { ActiveCartridgeSlug } from '@/services/iqube/experienceQube';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,6 +61,60 @@ interface IntentApiSurface {
   createdAt: string;
   /** Brief copy the welcome surface renders after the click. */
   queueMessage: string;
+}
+
+/**
+ * Shape used by the intent-create flow downstream. Both the static
+ * NBE catalogue entries AND activation-driven actions resolve into
+ * this shape so the rest of the route stays agnostic to source.
+ */
+interface ResolvedCandidate {
+  id: string;
+  label: string;
+  rationale: string;
+  cartridge: ActiveCartridgeSlug;
+  approvalRequired: boolean;
+  specialist: SpecialistAgentId | null;
+  suggestedArtifact: string | null;
+}
+
+function resolveCandidate(nbeId: string): ResolvedCandidate | null {
+  // Static catalogue first — fast path, no parsing.
+  const fromCatalogue = NBE_CATALOGUE.find((c) => c.id === nbeId);
+  if (fromCatalogue) {
+    return {
+      id: fromCatalogue.id,
+      label: fromCatalogue.label,
+      rationale: fromCatalogue.rationale,
+      cartridge: fromCatalogue.cartridge,
+      approvalRequired: fromCatalogue.approvalRequired,
+      specialist: (fromCatalogue.specialist ?? null) as SpecialistAgentId | null,
+      suggestedArtifact: fromCatalogue.suggestedArtifact ?? null,
+    };
+  }
+  // Activation-driven: `activation:<activationId>:<action>`. Look up
+  // the matching entry in ACTIVATION_CATALOG + the action declared on
+  // it. Returns null if either lookup misses; the caller surfaces a
+  // 400 with a clear hint about the expected shape.
+  const m = nbeId.match(/^activation:([^:]+):(.+)$/);
+  if (!m) return null;
+  const [, activationId, actionKey] = m;
+  const entry = ACTIVATION_CATALOG.find((e) => e.id === activationId);
+  if (!entry) return null;
+  const action: ActivationAction | undefined = (entry.actions ?? []).find((a) => a.action === actionKey);
+  if (!action) return null;
+  // ActivationCatalogEntry.sourceCartridge is `ActiveCartridgeSlug | 'metame'`
+  // — both are valid for IntentQube's activeCartridge field.
+  const cartridge = entry.sourceCartridge as ActiveCartridgeSlug;
+  return {
+    id: nbeId,
+    label: action.label,
+    rationale: action.rationale,
+    cartridge,
+    approvalRequired: !!action.approvalRequired,
+    specialist: (action.specialist ?? null) as SpecialistAgentId | null,
+    suggestedArtifact: null,
+  };
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -85,12 +144,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const candidate = NBE_CATALOGUE.find((c) => c.id === body.nbeId);
+  // Two id namespaces are valid:
+  //   1) Static catalogue ids (e.g. 'metame.update-experience-goals') —
+  //      resolved against NBE_CATALOGUE as before.
+  //   2) Phase 2 B.2 activation-driven ids (e.g.
+  //      'activation:mycanvas:draft-canvas-entry') — resolved against
+  //      ACTIVATION_CATALOG entries. The cockpit's Recommended row
+  //      surfaces these IDs whenever the persona has the originating
+  //      activation switched on.
+  const candidate = resolveCandidate(body.nbeId);
   if (!candidate) {
     return NextResponse.json(
       {
         error: 'unknown-nbeId',
-        detail: `nbeId '${body.nbeId}' is not in the catalogue. Valid ids: ${NBE_CATALOGUE.map((c) => c.id).join(', ')}`,
+        detail: `nbeId '${body.nbeId}' is not in the catalogue. Valid static ids: ${NBE_CATALOGUE.map((c) => c.id).join(', ')}. Activation-driven ids must use the pattern 'activation:<activationId>:<action>' and reference a known activation + action.`,
       },
       { status: 400, headers: { 'Cache-Control': 'no-store' } },
     );
