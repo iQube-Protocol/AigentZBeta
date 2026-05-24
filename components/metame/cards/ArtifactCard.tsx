@@ -24,13 +24,14 @@ import {
   ExternalLink,
   Loader2,
   Send,
+  AlertTriangle,
 } from "lucide-react";
 
 export interface ArtifactCardData {
   artifactId: string;
   artifactType: string;
   title: string;
-  destination: "runtime" | "drive" | "gmail" | "cartridge_store";
+  destination: "runtime" | "drive" | "gmail" | "calendar" | "cartridge_store";
   status: "draft" | "ready_for_review" | "approved" | "sent" | "published";
   receiptId: string | null;
   intentId: string | null;
@@ -38,6 +39,15 @@ export interface ArtifactCardData {
   createdAt: string;
   /** Phase 6.b populates this when destination !== 'runtime'. */
   locationUrl?: string | null;
+  /**
+   * Optional connector-emitted warning for a partial-success outcome
+   * (e.g. Drive created the doc but the Docs API was disabled so the
+   * body insert failed 403). Rendered as an amber callout on the
+   * card. When the text contains a Google Cloud Console URL, the
+   * card extracts it as a clickable "Enable API" CTA so the operator
+   * can fix the disabled-API issue in one click.
+   */
+  warning?: string | null;
   /**
    * Phase 6.b Part 2.5 — externalisation hint. When present, ArtifactCard
    * renders a "Send / share / publish" button bound to this connector. The
@@ -131,25 +141,32 @@ export function ArtifactCard({
           {data.message && (
             <p className={`text-xs mt-1 ${mutedClass}`}>{data.message}</p>
           )}
+          {data.warning && (
+            <ArtifactWarningCallout warning={data.warning} theme={theme} />
+          )}
           <div className="flex flex-wrap items-center gap-2 mt-2 text-[11px]">
             <span className={`px-2 py-0.5 rounded-full border ${statusMeta.ring}`}>
               {statusMeta.label}
             </span>
             {/*
               Gmail / Drive / Calendar location link.
-              Visible ONLY after the artifact has been approved + sent
-              (status: approved | sent | published). While the artifact
-              is still a draft awaiting send-approval, showing this
-              link side-by-side with the "Send draft" button was a UX
-              trap — operators clicked `Open` thinking it was the next
-              step, got dropped into Gmail in a new tab, and the
-              in-app approval never ran. Per the Phase-1 flow contract:
-              approve in app → send via API → link to view post-send.
+              Shown when the resource is in its final viewable state:
+                - status is approved / sent / published (existing path
+                  for artifacts that went through a send-approval), OR
+                - there is no pending action connector (the artifact has
+                  no external "send / share / publish" step waiting on
+                  approval — e.g. a private Google Doc created in the
+                  operator's own Drive is already live).
+              The original "draft hides the link" rule existed to stop
+              operators from clicking "Open" instead of "Send draft" on
+              approval-gated Gmail drafts. That rule still holds for
+              the approval-gated path via `data.actionConnectorId`.
             */}
             {data.locationUrl &&
               (data.status === "approved" ||
                 data.status === "sent" ||
-                data.status === "published") && (
+                data.status === "published" ||
+                !data.actionConnectorId) && (
               <a
                 href={data.locationUrl}
                 target="_blank"
@@ -160,7 +177,9 @@ export function ArtifactCard({
                   ? "View in Gmail"
                   : data.destination === "drive"
                     ? "View in Drive"
-                    : "Open"}{" "}
+                    : data.destination === "calendar"
+                      ? "View in Calendar"
+                      : "Open"}{" "}
                 <ExternalLink className="w-3 h-3" />
               </a>
             )}
@@ -205,6 +224,59 @@ export function ArtifactCard({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Amber callout for a connector-emitted partial-success warning.
+ * Extracts the first URL from the warning text — when it points at
+ * `console.developers.google.com` or `console.cloud.google.com`, the
+ * URL is surfaced as an "Enable API" CTA the operator can click to
+ * fix the disabled-API issue and re-run.
+ */
+function ArtifactWarningCallout({
+  warning,
+  theme,
+}: {
+  warning: string;
+  theme: "light" | "dark";
+}) {
+  const isDark = theme === "dark";
+  const box = isDark
+    ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
+    : "border-amber-400 bg-amber-50 text-amber-800";
+  const linkClass = isDark
+    ? "text-amber-100 underline hover:text-amber-50"
+    : "text-amber-900 underline hover:text-amber-700";
+  // Pull the first https:// URL out of the warning if present.
+  const urlMatch = warning.match(/https?:\/\/[^\s)>"']+/);
+  const fullUrl = urlMatch?.[0] ?? null;
+  const isGoogleApiConsole =
+    !!fullUrl &&
+    /console\.(developers|cloud)\.google\.com\/apis\/api\//.test(fullUrl);
+  // Strip the URL out of the displayed text so the CTA isn't
+  // duplicated as raw text plus button.
+  const displayText = fullUrl ? warning.replace(fullUrl, "").trim() : warning;
+  return (
+    <div className={`mt-2 rounded-md border px-2.5 py-1.5 text-[11px] leading-snug ${box}`}>
+      <div className="flex items-start gap-1.5">
+        <AlertTriangle className="h-3 w-3 shrink-0 mt-0.5" />
+        <div className="min-w-0">
+          <div className="break-words">{displayText}</div>
+          {fullUrl && (
+            <a
+              href={fullUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`mt-1 inline-flex items-center gap-1 text-[11px] font-medium ${linkClass}`}
+            >
+              {isGoogleApiConsole ? "Enable API" : "Open link"}{" "}
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
