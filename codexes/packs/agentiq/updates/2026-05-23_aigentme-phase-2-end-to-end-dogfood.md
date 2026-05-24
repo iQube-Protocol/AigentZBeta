@@ -96,6 +96,103 @@ watching for and feeding back into the platform:
 Each friction point will be captured in this doc as it's encountered,
 with a follow-on issue or PR linked.
 
+## 4a. Phase 2 baseline parity report (Slice C, 2026-05-23)
+
+Ran a static audit against the DIS contract (`dis/aigentme-phase-2.dis.json`)
+on all seven layouts after Slice 7 closed. The DOM-level
+`ParityChecker.generateReport` runs in-browser; this audit is the static
+equivalent (covers structural / token rules from the DIS layoutRules and
+handbook §8a four-axis test). Live visual-difference scoring on dev is
+a follow-on pass that doesn't change the structural findings below.
+
+### Compliance matrix
+
+| Layout | Shell | Markers | Radius | Body pad | Footer pad | Header 56 | No raw hex | No `hidden md:*` primary | Skeleton | Empty state | Accent tokens |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| StackLayout | n/a (wraps WelcomeRightPane verbatim) | ✓¹ | n/a | n/a | n/a | n/a | ✓ | ✓ | n/a | n/a | n/a |
+| BriefLayout | ✓ | ✓ via shell | ✓ via shell | ✓ via shell | ✓ via shell | ✓ via shell | ✓ | ✓ | ✓ | ✓ | partial² |
+| DecisionBoardLayout | ✓ | ✓ via shell | ✓ via shell | ✓ via shell | ✓ via shell | ✓ via shell | ✓ | ✓ | ✓ | ✓ | ✓ |
+| VentureCockpitLayout | ✓ | ✓ via shell | ✓ via shell | ✓ via shell | ✓ via shell | ✓ via shell | ✓ | ✓ | ✓ | ✓ | ✓ |
+| ComposerLayout | ✓ | ✓ via shell | ✓ via shell | ✓ via shell | ✓ via shell | ✓ via shell | ✓ | ✓ | n/a³ | ✓ | ✓ |
+| LedgerLayout | ✓ | ✓ via shell | ✓ via shell | ✓ via shell | ✓ via shell | ✓ via shell | ✓ | ✓ | ✓ | ✓ | ✓ |
+| ApprovalLayout | n/a (interrupt overlay, not a foreground card) | ✓ | ✓ (sheet `rounded-2xl`) | ✓ | ✓ | n/a (no header strip — overlay sheet) | ✓ | ✓ | n/a | n/a | uses amber explicitly |
+
+¹ StackLayout passes the rule through `WelcomeRightPane`'s root which carries
+`data-aigentme-right-pane="stack"` / `data-aigentme-layout="stack-layout-v1"`.
+
+² BriefLayout doesn't import `accentTokens` directly — its color accents
+(violet eyebrow, amber `Top priorities`) live inside the `BriefCard`
+component it composes. Not a violation, but worth a follow-up that lifts
+the eyebrow accents into `accentTokens.ts` so the palette stays canonical.
+
+³ ComposerLayout's loading state is delegated to the inline form
+(`ComposeXxxModal inline=true`) — the modals already have their own
+submitting indicators.
+
+### Findings
+
+**Zero critical violations.** No raw hex anywhere in `components/metame/welcome/layouts/`. No
+`hidden md:*` on any primary affordance. Every foreground layout
+composes through `LayoutShell`, which carries the canonical chrome
+(rounded-2xl outer, 56px header, `p-4 md:p-5 lg:p-6` body,
+`p-3 lg:p-4` footer, `data-aigentme-right-pane` + `data-aigentme-layout`
+markers).
+
+**One DIS contract drift, documented as a framework finding (§4b below):**
+
+The DIS `layoutRules` includes:
+> `"Dismiss X at right-3 top-3 (12px from corner), 24x24 button, identical coordinate across every layout."`
+
+LayoutShell renders dismiss **inside the 56px header strip on the right**
+(line 76: `<header className="h-14 ... gap-3 px-4">` with the X as the
+last child). Functionally this is identical-coordinate-across-layouts
+(every layout's X sits in the same place because the shell owns the
+chrome), but the implementation is *not* `absolute right-3 top-3`. The
+visual result is correct and consistent; the rule string needs an update
+to match.
+
+**Resolution:** treat as a DIS amendment, not a code change. The
+header-aligned dismiss is the better pattern (a) because it aligns
+vertically with the icon + title in the header row, (b) because it
+inherits the shell's symmetry contract, and (c) because absolute
+positioning would float over header content on narrow widths.
+
+Amending the DIS rule to:
+> "Dismiss X is right-aligned inside the 56px header strip at icon-end
+> position; same coordinate across every layout because the shared
+> LayoutShell owns the placement."
+
+### Visual-difference scoring (in-browser follow-on)
+
+Static structural audit doesn't catch:
+- Loading skeleton dimension drift vs final-state
+- Animation curve timing
+- Color contrast at the actual rendered surface
+- iOS Safari rendering quirks on backdrop-blur
+
+These require the DOM-bound `ParityChecker.generateReport` running on
+the deployed dev surface. Capturing as a follow-on item — operator can
+trigger from DevTools per the recipe in §5.1.
+
+## 4b. Studio framework friction captured
+
+What the parity loop taught us about the framework itself (the dog-food
+point — the platform managing its own project end-to-end). Each row
+becomes a candidate Studio improvement:
+
+| # | Friction | Severity | Suggested Studio change |
+|---|---|---|---|
+| 1 | DIS `layoutRules` are free-form strings, not structured assertions. A rule like *"Dismiss X at right-3 top-3"* can't be machine-checked without bespoke regex per rule. | medium | Promote `layoutRules` from `string[]` to `LayoutRule[]` with `{ id, description, check: RuleCheck }` where `RuleCheck` is a discriminated union (`css-class-present` / `data-attr-present` / `coord-of-element` / `count-of-element` etc). Lets `ParityChecker` map rules → assertions automatically. |
+| 2 | No way to express *"this rule applies via composition through LayoutShell, not directly on the layout"*. Static greps for `rounded-2xl` miss layouts that delegate to the shell. | medium | DIS rule entries gain optional `appliesVia: 'shell' \| 'direct'` so the checker walks the right node. |
+| 3 | `mobileShapes` is descriptive only — `kind: "horizontal-swipe"` doesn't map to a runtime check. The checker can't verify a layout actually implements its declared mobile shape. | medium | Promote `mobileShapes.kind` to an enum with associated `mobileShapeCheck` selectors (e.g. for `horizontal-swipe`: assert presence of `overflow-x-auto` + `snap-x` + page-dot indicator). |
+| 4 | Drift detection between DIS and implementation is manual. When we shipped the LayoutShell-owned dismiss, the DIS still said `right-3 top-3`. Nothing flagged the divergence. | medium | Add a `dis-drift` CI step that runs the parity check on every PR touching `components/metame/welcome/layouts/`. Critical drift fails the build. |
+| 5 | Severity `info` rules (per-token compliance) get hidden by the same audit surface as `critical` rules (raw hex, hidden-md). Operator can't see "this is fine, just informational" vs "this blocks promotion" at a glance. | low | `ParityChecker.generateReport` already returns severity per violation; the panel UI should group by severity and surface only criticals to the merge gate. |
+| 6 | The framework presumes one DIS per workstream; cross-workstream layouts (e.g. KnytTab shares LayoutShell) would have to fork the DIS. Composition isn't modeled. | low | DIS gains `extends?: string[]` so cartridge-specific DIS files inherit from a base `layout-shell-v1.dis.json`. Phase 3+. |
+
+Each friction becomes an issue in the Studio improvement backlog. The
+DIS amendment for #1 (`layoutRules` → `LayoutRule[]`) is the highest-
+leverage next change — it unlocks #2, #3, and #4.
+
 ## 5. Operating cadence
 
 - DIS authored before any code (✓ done 2026-05-23 — `dis/aigentme-phase-2.dis.json`).

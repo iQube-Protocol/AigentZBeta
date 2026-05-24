@@ -304,7 +304,7 @@
     "layoutRules": [
       "Each right-pane layout mounts/unmounts atomically — no overlap.",
       "Header strip is fixed 56px height with icon-left / title-center / actions-right symmetry.",
-      "Dismiss X at right-3 top-3 (12px from corner), 24x24 button, identical coordinate across every layout.",
+      "Dismiss X is right-aligned inside the 56px header strip at icon-end position; same coordinate across every layout because the shared LayoutShell owns the placement. (Amended 2026-05-23 from the original absolute `right-3 top-3` after the Slice-C parity audit — see codexes/packs/agentiq/updates/2026-05-23_aigentme-phase-2-end-to-end-dogfood.md §4a.)",
       "Body padding: p-5 desktop, p-4 mobile. Never mix scales in one layout.",
       "Outer card border-radius: rounded-2xl (16px). Sub-cards: rounded-lg (8px). Never mix radii within a card.",
       "Footer (when present): p-3 lg:p-4, right-aligned actions, never split across edges.",
