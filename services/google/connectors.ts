@@ -542,7 +542,14 @@ const driveCreateDoc: GoogleConnector<DriveCreateDocInput, DriveCreateDocOutput>
   description: 'Create a new Google Doc in Drive. Private to the user by default.',
   category: 'document',
   source: 'drive',
-  requiredScopes: [...GOOGLE_SCOPES.drive, ...GOOGLE_SCOPES.docs],
+  // Only the drive scope is needed — body content is uploaded inline
+  // via Drive's multipart upload + automatic conversion, so we never
+  // call docs.googleapis.com. Previously this required the separate
+  // docs scope to write body content via Docs API batchUpdate, and
+  // that path 403'd whenever the project didn't have the Docs API
+  // enabled. The multipart route only needs Drive (already enabled
+  // for any operator who can create files).
+  requiredScopes: [...GOOGLE_SCOPES.drive],
   requiresApproval: false,
   inputSchema: {
     title: { type: 'string', description: 'Document title', required: true },
@@ -557,86 +564,78 @@ const driveCreateDoc: GoogleConnector<DriveCreateDocInput, DriveCreateDocOutput>
     if (!driveToken.ok) return driveToken;
     if (!input.title) return { ok: false, code: 'invalid-input', reason: 'title required' };
     try {
-      // Step 1 — create the Doc via Drive API.
-      const createRes = await fetch('https://www.googleapis.com/drive/v3/files?fields=id,webViewLink', {
+      const hasBody = typeof input.bodyText === 'string' && input.bodyText.length > 0;
+      const baseUrl = 'https://www.googleapis.com/drive/v3/files?fields=id,webViewLink';
+      const uploadUrl = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink';
+
+      // Path A — no body content. Simple metadata-only create.
+      if (!hasBody) {
+        const createRes = await fetch(baseUrl, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${driveToken.token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: input.title,
+            mimeType: 'application/vnd.google-apps.document',
+          }),
+        });
+        if (!createRes.ok) {
+          const text = await createRes.text().catch(() => '');
+          return { ok: false, code: 'api-error', reason: `drive create-doc failed (${createRes.status}): ${text.slice(0, 200)}` };
+        }
+        const created = (await createRes.json()) as { id?: string; webViewLink?: string };
+        return {
+          ok: true,
+          output: {
+            documentId: created.id ?? '',
+            webViewLink: created.webViewLink ?? null,
+          },
+        };
+      }
+
+      // Path B — body content. Multipart upload with the metadata
+      // declaring the target Google Doc mime type and the bodyText as
+      // a text/plain part. Drive converts the upload into a Google
+      // Doc on the server side — no separate Docs API call needed.
+      // Reference: https://developers.google.com/drive/api/guides/manage-uploads#multipart
+      const boundary = `aigentme_doc_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      const metadata = {
+        name: input.title,
+        mimeType: 'application/vnd.google-apps.document',
+      };
+      const multipartBody =
+        `--${boundary}\r\n` +
+        `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
+        `${JSON.stringify(metadata)}\r\n` +
+        `--${boundary}\r\n` +
+        `Content-Type: text/plain; charset=UTF-8\r\n\r\n` +
+        `${input.bodyText}\r\n` +
+        `--${boundary}--`;
+
+      const uploadRes = await fetch(uploadUrl, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${driveToken.token}`,
-          'Content-Type': 'application/json',
+          'Content-Type': `multipart/related; boundary=${boundary}`,
         },
-        body: JSON.stringify({
-          name: input.title,
-          mimeType: 'application/vnd.google-apps.document',
-        }),
+        body: multipartBody,
       });
-      if (!createRes.ok) {
-        const text = await createRes.text().catch(() => '');
-        return { ok: false, code: 'api-error', reason: `drive create-doc failed (${createRes.status}): ${text.slice(0, 200)}` };
+      if (!uploadRes.ok) {
+        const text = await uploadRes.text().catch(() => '');
+        return {
+          ok: false,
+          code: 'api-error',
+          reason: `drive multipart upload failed (${uploadRes.status}): ${text.slice(0, 200)}`,
+        };
       }
-      const created = (await createRes.json()) as { id?: string; webViewLink?: string };
-      const documentId = created.id ?? '';
-      const webViewLink = created.webViewLink ?? null;
-
-      // Step 2 — optional initial body via Docs API.
-      //
-      // The Docs API requires the `documents` scope (granted via the
-      // separate 'docs' source connection). drive.file alone is enough
-      // to create the file but NOT to write content to it via
-      // documents.batchUpdate. Previously we swallowed the error here
-      // with .catch(() => undefined) and the user got a title-only doc
-      // with no warning. Now we:
-      //   1) require the docs token explicitly (no drive-token fallback
-      //      since it has the wrong scope),
-      //   2) check the batchUpdate response and surface a clear hint
-      //      pointing the operator at Connections → Connect Docs.
-      // The doc itself still exists either way; we return ok:true with a
-      // diagnostic body-insert message so the artifact appears in the UI.
-      let bodyInsertWarning: string | null = null;
-      if (input.bodyText && documentId) {
-        const docsToken = await resolveAccessToken(ctx.personaId, 'docs');
-        if (!docsToken.ok) {
-          bodyInsertWarning =
-            `Body content not written — ${docsToken.reason} ` +
-            `Open Aigent Me → Connections, connect Google Docs, then create the doc again.`;
-        } else {
-          try {
-            const updateRes = await fetch(
-              `https://docs.googleapis.com/v1/documents/${documentId}:batchUpdate`,
-              {
-                method: 'POST',
-                headers: {
-                  Authorization: `Bearer ${docsToken.token}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  requests: [
-                    {
-                      insertText: { location: { index: 1 }, text: input.bodyText },
-                    },
-                  ],
-                }),
-              },
-            );
-            if (!updateRes.ok) {
-              const text = await updateRes.text().catch(() => '');
-              bodyInsertWarning = `Body insert failed (${updateRes.status}): ${text.slice(0, 200)}`;
-            }
-          } catch (err) {
-            bodyInsertWarning = err instanceof Error ? err.message : String(err);
-          }
-        }
-      }
-
-      // Always succeed when the file itself exists — the body insert is
-      // best-effort within the same operation. When it fails we attach a
-      // warning so the UI can display it on the artifact card and the
-      // operator can fix the consent issue and re-run.
+      const uploaded = (await uploadRes.json()) as { id?: string; webViewLink?: string };
       return {
         ok: true,
         output: {
-          documentId,
-          webViewLink,
-          ...(bodyInsertWarning ? { warning: bodyInsertWarning } : {}),
+          documentId: uploaded.id ?? '',
+          webViewLink: uploaded.webViewLink ?? null,
         },
       };
     } catch (err) {
