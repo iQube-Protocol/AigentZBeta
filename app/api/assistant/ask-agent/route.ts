@@ -165,9 +165,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       contextShared: ['intent-summary', 'experience-meta-slice'],
     }).catch(() => undefined);
 
-    return NextResponse.json(response, {
-      headers: { 'Cache-Control': 'no-store' },
-    });
+    return NextResponse.json(
+      preflight ? { ...response, preflightContext: preflight } : response,
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[assistant/ask-agent] failed: ${msg}`);

@@ -24,6 +24,8 @@ import {
   Bot,
 } from "lucide-react";
 import { IqubeContextDisclosure, type IqubeKind } from "./IqubeContextDisclosure";
+import { PreflightByline, PreflightChip } from "./PreflightByline";
+import type { PreflightContext } from "@/services/capabilities/preflight";
 
 export interface SpecialistResponseData {
   specialistId: "marketa" | "quill" | "kn0w1" | "aigent-z" | "aigent-c" | "aigent-nakamoto";
@@ -37,6 +39,7 @@ export interface SpecialistResponseData {
   confidence: "low" | "medium" | "high";
   source: "llm" | "template";
   generatedAt: string;
+  preflightContext?: PreflightContext;
 }
 
 interface Props {
@@ -126,8 +129,10 @@ export function SpecialistResponseCard({
             <span className={`text-xs uppercase tracking-wider ${mutedClass}`}>
               {data.specialistLabel} · {requestLabel}
             </span>
+            <PreflightChip preflight={data.preflightContext} theme={theme} />
           </div>
           <h3 className="text-lg font-semibold leading-tight">{data.title}</h3>
+          <PreflightByline preflight={data.preflightContext} theme={theme} />
         </div>
         <div className="flex items-start gap-2 shrink-0">
           {data.source === "template" && (

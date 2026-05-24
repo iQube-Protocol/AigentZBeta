@@ -1099,3 +1099,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-e968318.md](../build_/COMMITS/COMMIT-e968318.md)
 - Message: capability gateway phase 2b — widen pre-flight gather to all specialists
+
+## Commit `c2bfdc4` — 2026-05-24T09:21:28Z
+- Type: `push`
+- Brief: [COMMIT-c2bfdc4.md](../build_/COMMITS/COMMIT-c2bfdc4.md)
+- Message: capability gateway phase 2c — pre-flight gather on aigentMe progression surfaces
+
+## Commit `1c86dae` — 2026-05-24T09:51:12Z
+- Type: `feat`
+- Brief: [COMMIT-1c86dae.md](../build_/COMMITS/COMMIT-1c86dae.md)
+- Message: aigentMe: surface Capability Gateway preflight + add Ask specialists chip

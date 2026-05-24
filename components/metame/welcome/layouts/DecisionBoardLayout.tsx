@@ -92,6 +92,7 @@ function DecisionBoardLayoutComponent(props: RightPaneLayoutProps) {
                   action={topAction}
                   variant="hero"
                   onAct={onNbeAct}
+                  preflightContext={moveForwardResult?.preflightContext}
                   theme={theme}
                 />
               </div>

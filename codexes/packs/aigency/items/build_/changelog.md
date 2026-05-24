@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`1c86dae`](https://github.com/iQube-Protocol/AigentZBeta/commit/1c86daee23d5cdb2554a749569dcaf2093e1a173) [feat] aigentMe: surface Capability Gateway preflight + add Ask specialists chip (Claude, 2026-05-24T09:51:12Z)
+- [`c2bfdc4`](https://github.com/iQube-Protocol/AigentZBeta/commit/c2bfdc401a4434b9ac726651895a0a92454211d1) [push] capability gateway phase 2c — pre-flight gather on aigentMe progression surfaces (Claude, 2026-05-24T09:21:28Z)
 - [`e968318`](https://github.com/iQube-Protocol/AigentZBeta/commit/e96831813d6f7d81eb29d4eb961911f33fdc0ab0) [push] capability gateway phase 2b — widen pre-flight gather to all specialists (Claude, 2026-05-24T09:13:42Z)
 - [`d2bb41f`](https://github.com/iQube-Protocol/AigentZBeta/commit/d2bb41ffd66b16c8f519e671480c63d555679a13) [push] capability gateway phase 2a — adapter pattern, openclaw shim, kn0w1 wiring (Claude, 2026-05-24T09:04:38Z)
 - [`ddff517`](https://github.com/iQube-Protocol/AigentZBeta/commit/ddff517c77f1cc59efe42aaf604ad3e23d441dbf) [feat] capability gateway — add CapabilityIntent axis + log B/C backlog (Claude, 2026-05-24T08:56:28Z)

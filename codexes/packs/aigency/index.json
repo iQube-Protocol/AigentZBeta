@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-24T09:15:44.779Z",
+  "last_updated": "2026-05-24T09:53:08.025Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "e96831813d6f7d81eb29d4eb961911f33fdc0ab0",
-  "latest_commit_short": "e968318",
-  "latest_commit_title": "capability gateway phase 2b — widen pre-flight gather to all specialists",
+  "latest_commit": "1c86daee23d5cdb2554a749569dcaf2093e1a173",
+  "latest_commit_short": "1c86dae",
+  "latest_commit_title": "aigentMe: surface Capability Gateway preflight + add Ask specialists chip",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "1c86dae",
+      "full_sha": "1c86daee23d5cdb2554a749569dcaf2093e1a173",
+      "title": "aigentMe: surface Capability Gateway preflight + add Ask specialists chip",
+      "author": "Claude",
+      "timestamp": "2026-05-24T09:51:12Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-1c86dae.md"
+    },
+    {
+      "sha": "c2bfdc4",
+      "full_sha": "c2bfdc401a4434b9ac726651895a0a92454211d1",
+      "title": "capability gateway phase 2c — pre-flight gather on aigentMe progression surfaces",
+      "author": "Claude",
+      "timestamp": "2026-05-24T09:21:28Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c2bfdc4.md"
+    },
     {
       "sha": "e968318",
       "full_sha": "e96831813d6f7d81eb29d4eb961911f33fdc0ab0",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-01T14:06:19Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-a3536fd.md"
-    },
-    {
-      "sha": "f0315bc",
-      "full_sha": "f0315bc42f43174e729bbd4e2fb574229badbe5b",
-      "title": "fix: KNYT store sign-in gate, balance flicker, and EVM KNYT display",
-      "author": "Claude",
-      "timestamp": "2026-05-01T14:00:19Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-f0315bc.md"
-    },
-    {
-      "sha": "e44f7f6",
-      "full_sha": "e44f7f6608623af235c0d69e912f078fb6f0a71f",
-      "title": "fix Brave compatibility — storage guards, fetch timeouts, static fallbacks",
-      "author": "Claude",
-      "timestamp": "2026-05-01T06:44:19Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-e44f7f6.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -42,6 +42,7 @@ import { NextBestActionCard, type NextBestActionData } from "@/components/metame
 import { ApprovalCard, type ApprovalCardAction, type ApprovalQueuedState } from "@/components/metame/cards/ApprovalCard";
 import { ArtifactCard, type ArtifactCardData } from "@/components/metame/cards/ArtifactCard";
 import type { IqubeKind } from "@/components/metame/cards/IqubeContextDisclosure";
+import { PreflightByline } from "@/components/metame/cards/PreflightByline";
 import type { StageEvaluation } from "@/services/strategy/stageProgression";
 import { StageProgressionChip } from "@/components/metame/welcome/StageProgressionChip";
 import { SecondTierApprovalCard } from "@/components/metame/cards/SecondTierApprovalCard";
@@ -105,6 +106,7 @@ interface Props {
     topAction: NextBestActionData | null;
     alternates: NextBestActionData[];
     topActionReason?: string | null;
+    preflightContext?: import("@/services/capabilities/preflight").PreflightContext;
   } | null;
   moveForwardLoading: boolean;
   pendingApproval: NextBestActionData | null;
@@ -467,6 +469,7 @@ export function WelcomeRightPane(props: Props) {
             action={topAction}
             onAct={onNbeAct}
             onDismiss={onDismissMoveForward}
+            preflightContext={moveForwardResult?.preflightContext}
             theme={theme}
             variant="hero"
           />
@@ -740,6 +743,7 @@ function SpecialistsGrid({
                 {response && (
                   <div className={`text-[11px] mt-1 ${mutedClass}`}>
                     <div className={`font-medium ${isDark ? "text-slate-200" : "text-slate-800"}`}>{response.title}</div>
+                    <PreflightByline preflight={response.preflightContext} theme={isDark ? "dark" : "light"} />
                     <p className="mt-0.5">{response.summary}</p>
                     {response.recommendations && response.recommendations.length > 0 && (
                       <ul className="list-disc list-inside mt-1 space-y-0.5">
