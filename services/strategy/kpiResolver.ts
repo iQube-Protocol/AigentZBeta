@@ -106,6 +106,10 @@ async function resolveSingle(
         ...kpi,
         current,
         unit: kpi.unit ?? metric.defaultUnit,
+        // Carry the metric class from the catalog onto the resolved
+        // record so the UI can render outcomes vs activity with the
+        // right emphasis without re-resolving the catalog entry.
+        class: metric.class ?? 'activity',
         trend: trendFromDelta(current, previous),
         lastUpdatedAt: new Date().toISOString(),
         unresolvedReason: null,

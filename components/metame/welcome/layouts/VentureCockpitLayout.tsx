@@ -237,8 +237,21 @@ function KpiChip({
   // muted slate when the source activation is inactive (so the
   // operator sees "this needs an activation" at a glance). Manual
   // KPIs use cyan with a small dot indicator.
+  //
+  // Metric class drives emphasis:
+  //   - outcome   → violet accent + small dot, primary visual weight
+  //   - standing  → amber accent, accumulated-position semantic
+  //   - activity  → cyan accent (default; leading-indicator)
+  // The operator sees outcomes pop out from activity at a glance.
   const isUnresolved = !!kpi.unresolvedReason;
-  const accentKey: 'cyan' | 'slate' = isUnresolved ? 'slate' : 'cyan';
+  const metricClass = kpi.class ?? 'activity';
+  const accentKey: 'cyan' | 'slate' | 'violet' | 'amber' = isUnresolved
+    ? 'slate'
+    : metricClass === 'outcome'
+      ? 'violet'
+      : metricClass === 'standing'
+        ? 'amber'
+        : 'cyan';
   const tint = accent(accentKey, isDark ? 'dark' : 'light');
   const hasValue = typeof kpi.current === 'number';
   const display = hasValue ? formatKpiValue(kpi.current!, kpi.unit) : '—';
@@ -259,6 +272,8 @@ function KpiChip({
         ? (isDark ? 'text-rose-300' : 'text-rose-700')
         : (isDark ? 'text-slate-400' : 'text-slate-500');
 
+  const showOutcomeDot = metricClass === 'outcome' && !isUnresolved;
+
   return (
     <div
       className={`rounded-lg border p-2.5 min-w-[10rem] max-w-[14rem] backdrop-blur-sm ${tint.border} ${hasValue ? tint.fillStrong : tint.fillSoft}`}
@@ -268,8 +283,17 @@ function KpiChip({
           : kpi.target || kpi.name
       }
     >
-      <div className={`text-xs truncate ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-        {kpi.name}
+      <div className="flex items-center gap-1.5">
+        {showOutcomeDot && (
+          <span
+            className={`inline-block h-1.5 w-1.5 rounded-full ${isDark ? 'bg-violet-300' : 'bg-violet-600'}`}
+            aria-label="Outcome metric"
+            title="Outcome — value-bearing event the world responded to"
+          />
+        )}
+        <div className={`text-xs truncate ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+          {kpi.name}
+        </div>
       </div>
       <div className="flex items-baseline gap-1 mt-0.5">
         <div className={`text-lg font-semibold leading-tight ${hasValue ? tint.text : (isDark ? 'text-slate-400' : 'text-slate-500')}`}>

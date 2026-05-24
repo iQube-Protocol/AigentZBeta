@@ -58,6 +58,12 @@ export interface KpiRecord {
   lastUpdatedAt: string | null;
   source: KpiSource;
   /**
+   * Metric class — populated by the resolver from the activation
+   * catalog. Drives visual emphasis in the cockpit (outcome → violet
+   * with dot, standing → amber, activity → cyan default).
+   */
+  class?: 'activity' | 'outcome' | 'standing';
+  /**
    * Set when the resolver couldn't bind `current` to a live source.
    * The chip renders muted with a "reconnect / activate" hint.
    */
