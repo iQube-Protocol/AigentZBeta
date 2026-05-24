@@ -160,7 +160,12 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
               ) : (
                 <Carousel>
                   {data.recentActivity.slice(0, 12).map((a) => (
-                    <ActivityChip key={a.intentId} activity={a} isDark={isDark} />
+                    <ActivityChip
+                      key={a.intentId}
+                      activity={a}
+                      isDark={isDark}
+                      onSelect={() => props.onSelectActiveWork?.(a.intentId)}
+                    />
                   ))}
                 </Carousel>
               )}
@@ -382,13 +387,16 @@ function PillChip({ label, isDark, accentId }: { label: string; isDark: boolean;
 function ActivityChip({
   activity,
   isDark,
+  onSelect,
 }: {
   activity: { intentId: string; intentName: string; cartridge: string; status: string };
   isDark: boolean;
+  onSelect?: () => void;
 }) {
   // Glass-fill emerald (Active Work accent). Status colors the bottom
   // line so the eye can scan completed / in-progress / failed without
-  // re-reading.
+  // re-reading. Phase 2 B.2 (2/2): now a button — clicking opens the
+  // ActiveWorkDetailLayout for the underlying intent.
   const tint = accent("emerald", isDark ? "dark" : "light");
   const status = activity.status.toLowerCase();
   const statusClass =
@@ -401,7 +409,11 @@ function ActivityChip({
           : isDark ? "text-slate-400" : "text-slate-500";
   const cartridgeClass = isDark ? "text-slate-400" : "text-slate-600";
   return (
-    <div className={`rounded-lg border p-2.5 min-w-[12rem] max-w-[16rem] backdrop-blur-sm ${tint.border} ${tint.fillSoft}`}>
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`text-left rounded-lg border p-2.5 min-w-[12rem] max-w-[16rem] backdrop-blur-sm transition-colors hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-violet-500/40 ${tint.border} ${tint.fillSoft}`}
+    >
       <div className={`text-xs font-medium truncate ${isDark ? "text-slate-100" : "text-slate-900"}`}>
         {activity.intentName}
       </div>
@@ -411,7 +423,7 @@ function ActivityChip({
       <div className={`text-[10px] uppercase tracking-[0.16em] mt-1 font-medium ${statusClass}`}>
         {activity.status}
       </div>
-    </div>
+    </button>
   );
 }
 

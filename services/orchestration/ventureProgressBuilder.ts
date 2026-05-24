@@ -68,6 +68,15 @@ export interface VentureProgressRecentActivity {
   cartridge: string;
   status: IntentStatus;
   createdAt: string;
+  // Phase 2 B.2 (2/2) — derived action capabilities so the cockpit's
+  // Active Work card can render an actionable context menu. All
+  // derived from status + targetAgents; no schema change in IntentQube.
+  canResume: boolean;
+  canHandOff: boolean;
+  canCancel: boolean;
+  specialist: string | null;
+  nextActionHint: string | null;
+  blockers: string[];
 }
 
 export interface VentureProgressShape {
@@ -243,13 +252,33 @@ export async function buildVentureProgress(
     limit: recentLimit,
     cartridge: input.cartridge,
   });
-  const recentActivity: VentureProgressRecentActivity[] = intents.map((i) => ({
-    intentId: i.id,
-    intentName: i.intentName,
-    cartridge: i.activeCartridge,
-    status: i.status,
-    createdAt: i.createdAt,
-  }));
+  const recentActivity: VentureProgressRecentActivity[] = intents.map((i) => {
+    // Derived action capabilities — what the operator can do with
+    // this row from the cockpit's Active Work context menu. Pure
+    // function of status + targetAgents; no schema additions.
+    const isLive = i.status === 'in_progress' || i.status === 'awaiting_approval';
+    const specialist = i.targetAgents?.find((a) => a !== 'aigent-me') ?? i.targetAgents?.[0] ?? null;
+    const nextActionHint =
+      i.status === 'awaiting_approval' ? 'Approval pending — confirm to proceed' :
+      i.status === 'in_progress'       ? (specialist ? `Working with ${specialist}` : 'Working…') :
+      i.status === 'completed'         ? 'Completed — see receipt' :
+      i.status === 'failed'            ? 'Failed — retry or hand off' :
+      i.status === 'cancelled'         ? 'Cancelled' :
+      null;
+    return {
+      intentId: i.id,
+      intentName: i.intentName,
+      cartridge: i.activeCartridge,
+      status: i.status,
+      createdAt: i.createdAt,
+      canResume: i.status === 'failed',
+      canHandOff: isLive && !!specialist,
+      canCancel: isLive,
+      specialist,
+      nextActionHint,
+      blockers: [],
+    };
+  });
 
   // Recommended actions — Phase 2 B.2 (1/2):
   //

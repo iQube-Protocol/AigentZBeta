@@ -938,6 +938,10 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // onClick sets this + activates 'kpi-detail'.
   const [selectedKpiId, setSelectedKpiId] = useState<string | null>(null);
 
+  // Phase 2 B.2 (2/2): selected intent for ActiveWorkDetailLayout.
+  // ActivityChip onClick sets this + activates 'active-work-detail'.
+  const [selectedIntentId, setSelectedIntentId] = useState<string | null>(null);
+
   // ── AG-UI bridge: copilot → right pane ─────────────────────────────
   // Compose footer / copilot bridge now routes ALL compose intents
   // through the Phase 2 ComposerLayout — no popup modals over the
@@ -1109,6 +1113,12 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const handleOpenKpiDetail = useCallback((kpiId: string) => {
     setSelectedKpiId(kpiId);
     setActiveLayoutId('kpi-detail');
+  }, []);
+
+  // Phase 2 B.2 (2/2) — ActiveWork chip click handler.
+  const handleSelectActiveWork = useCallback((intentId: string) => {
+    setSelectedIntentId(intentId);
+    setActiveLayoutId('active-work-detail');
   }, []);
 
   // T1-safe KPI snapshot for the copilot readable.
@@ -1416,11 +1426,14 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 // draft-preview without surface switching.
                 composerKind,
                 selectedKpiId,
+                selectedIntentId,
                 onSelectKpi: (kpiId: string) => {
                   setSelectedKpiId(kpiId);
                   setActiveLayoutId('kpi-detail');
                 },
+                onSelectActiveWork: handleSelectActiveWork,
                 onKpiEdited: () => { void fetchVentureProgress(); },
+                onIntentEdited: () => { void fetchVentureProgress(); },
                 composerHandlers: {
                   onCreateGmail: async (input) => {
                     await handleComposeGmailDraft(input);

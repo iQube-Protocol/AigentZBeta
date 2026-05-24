@@ -30,7 +30,8 @@ export type RightPaneLayoutId =
   | "composer"
   | "approval-interrupt"
   | "ledger"
-  | "kpi-detail";
+  | "kpi-detail"
+  | "active-work-detail";
 
 /**
  * Compose handler shapes — each onCreate matches the corresponding
@@ -83,6 +84,12 @@ export type RightPaneLayoutProps = WelcomeRightPaneProps & {
   onSelectKpi?: (kpiId: string) => void;
   /** Fired after a KPI manual value save so the cockpit re-fetches. */
   onKpiEdited?: () => void;
+  /** B.2 (2/2): selected intent id for ActiveWorkDetailLayout. */
+  selectedIntentId?: string | null;
+  /** Cockpit-side ActivityChip click handler. */
+  onSelectActiveWork?: (intentId: string) => void;
+  /** Fired after an intent action (cancel/handoff/resume) succeeds. */
+  onIntentEdited?: () => void;
 };
 
 export interface RightPaneLayoutDefinition {

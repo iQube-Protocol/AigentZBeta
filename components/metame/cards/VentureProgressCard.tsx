@@ -46,6 +46,13 @@ export interface VentureProgressRecentActivity {
   cartridge: string;
   status: string;
   createdAt: string;
+  // Phase 2 B.2 (2/2) — derived action capabilities.
+  canResume?: boolean;
+  canHandOff?: boolean;
+  canCancel?: boolean;
+  specialist?: string | null;
+  nextActionHint?: string | null;
+  blockers?: string[];
 }
 
 export interface VentureProgressData {

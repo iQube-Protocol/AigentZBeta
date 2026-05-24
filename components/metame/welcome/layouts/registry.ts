@@ -19,17 +19,19 @@ import { ComposerLayout } from "./ComposerLayout";
 import { ApprovalLayout } from "./ApprovalLayout";
 import { LedgerLayout } from "./LedgerLayout";
 import { KpiDetailLayout } from "./KpiDetailLayout";
+import { ActiveWorkDetailLayout } from "./ActiveWorkDetailLayout";
 import type { RightPaneLayoutDefinition, RightPaneLayoutId } from "./types";
 
 const REGISTRY: Record<RightPaneLayoutId, RightPaneLayoutDefinition> = {
-  "stack":              StackLayout,
-  "brief":              BriefLayout,
-  "decision-board":     DecisionBoardLayout,
-  "venture-cockpit":    VentureCockpitLayout,
-  "composer":           ComposerLayout,
-  "approval-interrupt": ApprovalLayout,
-  "ledger":             LedgerLayout,
-  "kpi-detail":         KpiDetailLayout,
+  "stack":               StackLayout,
+  "brief":               BriefLayout,
+  "decision-board":      DecisionBoardLayout,
+  "venture-cockpit":     VentureCockpitLayout,
+  "composer":            ComposerLayout,
+  "approval-interrupt":  ApprovalLayout,
+  "ledger":              LedgerLayout,
+  "kpi-detail":          KpiDetailLayout,
+  "active-work-detail":  ActiveWorkDetailLayout,
 };
 
 export function getLayout(id: RightPaneLayoutId | string | null | undefined): RightPaneLayoutDefinition {
