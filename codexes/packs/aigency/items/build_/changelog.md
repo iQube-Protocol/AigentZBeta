@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`d2bb41f`](https://github.com/iQube-Protocol/AigentZBeta/commit/d2bb41ffd66b16c8f519e671480c63d555679a13) [push] capability gateway phase 2a — adapter pattern, openclaw shim, kn0w1 wiring (Claude, 2026-05-24T09:04:38Z)
 - [`ddff517`](https://github.com/iQube-Protocol/AigentZBeta/commit/ddff517c77f1cc59efe42aaf604ad3e23d441dbf) [feat] capability gateway — add CapabilityIntent axis + log B/C backlog (Claude, 2026-05-24T08:56:28Z)
 - [`828d5b8`](https://github.com/iQube-Protocol/AigentZBeta/commit/828d5b8fa6f8bca76fd9203b02ca5129b68da572) [push] capability gateway phase 1 — types, policy compiler, gateway, receipt wrapper (Claude, 2026-05-24T08:42:04Z)
 - [`fdfa189`](https://github.com/iQube-Protocol/AigentZBeta/commit/fdfa189ed53b94ff096128b60de5effd9e6be081) [push] VentureCockpit: surface KPI editor from cockpit chips + header (Claude, 2026-05-24T08:15:26Z)

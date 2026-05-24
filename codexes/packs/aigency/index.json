@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-24T08:58:24.154Z",
+  "last_updated": "2026-05-24T09:06:26.598Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "ddff517c77f1cc59efe42aaf604ad3e23d441dbf",
-  "latest_commit_short": "ddff517",
-  "latest_commit_title": "capability gateway — add CapabilityIntent axis + log B/C backlog",
+  "latest_commit": "d2bb41ffd66b16c8f519e671480c63d555679a13",
+  "latest_commit_short": "d2bb41f",
+  "latest_commit_title": "capability gateway phase 2a — adapter pattern, openclaw shim, kn0w1 wiring",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d2bb41f",
+      "full_sha": "d2bb41ffd66b16c8f519e671480c63d555679a13",
+      "title": "capability gateway phase 2a — adapter pattern, openclaw shim, kn0w1 wiring",
+      "author": "Claude",
+      "timestamp": "2026-05-24T09:04:38Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d2bb41f.md"
+    },
     {
       "sha": "ddff517",
       "full_sha": "ddff517c77f1cc59efe42aaf604ad3e23d441dbf",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-01T04:17:07Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-e7b0bda.md"
-    },
-    {
-      "sha": "4aade85",
-      "full_sha": "4aade85e3775e7d77bab1c7d0c43f8818798b8ba",
-      "title": "fix: remove dead default imports from wallet barrel to break TDZ chain",
-      "author": "Claude",
-      "timestamp": "2026-05-01T03:17:09Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-4aade85.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
