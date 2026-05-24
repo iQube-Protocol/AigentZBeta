@@ -1019,3 +1019,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-3e8011e.md](../build_/COMMITS/COMMIT-3e8011e.md)
 - Message: ComposerLayout dismiss: auto-scroll the ArtifactCard into view when returning to stack so the Send draft approval gate doesn't sit below the fold unnoticed
+
+## Commit `ccfd5da` — 2026-05-24T01:49:17Z
+- Type: `push`
+- Brief: [COMMIT-ccfd5da.md](../build_/COMMITS/COMMIT-ccfd5da.md)
+- Message: Phase 2 Slice 7 (A): dual-dispatch chip strip — NbeQuickChip type + onSelect on QuickPrompt + server-driven swap seam on assistant fetches; cold-open fallback unchanged
