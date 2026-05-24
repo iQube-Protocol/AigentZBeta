@@ -39,6 +39,11 @@ import type { BriefNextBestAction } from '@/services/orchestration/briefBuilder'
 import { coerceKpisToRichShape, type KpiRecord } from '@/services/strategy/kpiTypes';
 import { resolveKpis } from '@/services/strategy/kpiResolver';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { getActiveActivationIds } from '@/services/activations/spineActivations';
+import {
+  actionsForActiveActivations,
+  type ActivationAction,
+} from '@/data/activation-catalog';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Public shape — matches the Venture Progress Card render contract.
@@ -119,6 +124,42 @@ function toAction(c: NbeCandidate): BriefNextBestAction {
     approvalRequired: c.approvalRequired,
     specialist: c.specialist ?? null,
     suggestedArtifact: c.suggestedArtifact ?? null,
+  };
+}
+
+/**
+ * Map a catalog action (declared on an activation entry the persona
+ * has switched on) into the same `BriefNextBestAction` shape the
+ * cockpit's Recommended row + the DecisionBoardLayout already render.
+ *
+ * Catalog-driven NBAs replace `selectNbeCandidates` as the primary
+ * source for venture-progress recommendations. The static NBE catalog
+ * stays as a fallback when the persona has no active activations
+ * exposing actions yet — keeps the cockpit non-empty during ramp-up.
+ *
+ * Effort + impact default to 'standard' / 'medium' for activity-class
+ * actions; outcome-class actions surface as 'high' impact so the
+ * Recommended row visually prioritises value-bearing moves. Class
+ * inference is best-effort from naming (the catalog doesn't carry
+ * a per-action class yet — easy follow-on).
+ */
+function catalogActionToBrief(input: {
+  activationId: string;
+  cartridge: ActiveCartridgeSlug | 'metame';
+  action: ActivationAction;
+}): BriefNextBestAction {
+  const cartridge = (input.cartridge === 'metame' ? 'metame' : input.cartridge) as ActiveCartridgeSlug;
+  const impact: NbeCandidate['impact'] = input.action.approvalRequired ? 'high' : 'medium';
+  return {
+    id: `activation:${input.activationId}:${input.action.action}`,
+    label: input.action.label,
+    rationale: input.action.rationale,
+    cartridge,
+    effort: 'standard',
+    impact,
+    approvalRequired: !!input.action.approvalRequired,
+    specialist: input.action.specialist ?? null,
+    suggestedArtifact: null,
   };
 }
 
@@ -210,11 +251,33 @@ export async function buildVentureProgress(
     createdAt: i.createdAt,
   }));
 
-  // Recommended actions:
-  //   1. AVL-tier candidates first (regardless of active cartridges, the user
-  //      is reviewing AVL).
-  //   2. Then the top 2 across the user's active cartridges to keep cross-
-  //      cartridge motion visible.
+  // Recommended actions — Phase 2 B.2 (1/2):
+  //
+  // PRIMARY source = catalog actions exposed by the persona's active
+  // activations. This is the activation-driven NBA pipeline that
+  // mirrors B.1's KPI flow — what the persona has switched on is the
+  // single source of truth for what they should be doing next.
+  //
+  // FALLBACK = the original static `selectNbeCandidates` output. Kept
+  // alive so the cockpit stays non-empty during ramp-up when an
+  // operator's active activations haven't yet declared actions, and
+  // so AVL-stage moves still surface during alpha-activation.
+  //
+  // Order: catalog actions first (operator-chosen surface area), AVL
+  // candidates next (operator's current review context), mixed
+  // candidates last (cross-cartridge motion). Capped at 8 total to
+  // keep the Recommended row scannable.
+  const activeActivationIds = await getActiveActivationIds(input.personaId).catch(
+    () => new Set<string>(),
+  );
+  const catalogActions = actionsForActiveActivations(activeActivationIds).map((row) =>
+    catalogActionToBrief({
+      activationId: row.activationId,
+      cartridge: row.cartridge,
+      action: row.action,
+    }),
+  );
+
   const avlActions = selectNbeCandidates({
     activeCartridges: ['avl'],
     currentStage,
@@ -227,7 +290,13 @@ export async function buildVentureProgress(
     limit: 5,
   }).filter((c) => c.cartridge !== 'avl').slice(0, 2);
 
-  const recommendedActions = [...avlActions, ...mixedActions].map(toAction);
+  // Dedupe by id so a fallback NbeCandidate doesn't duplicate a
+  // catalog action with the same key. Catalog wins on conflict.
+  const seen = new Set(catalogActions.map((a) => a.id));
+  const fallback = [...avlActions, ...mixedActions]
+    .map(toAction)
+    .filter((a) => !seen.has(a.id));
+  const recommendedActions = [...catalogActions, ...fallback].slice(0, 8);
 
   const suggestedArtifacts = Array.from(
     new Set(
