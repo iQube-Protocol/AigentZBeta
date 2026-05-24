@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-24T10:11:33.844Z",
+  "last_updated": "2026-05-24T17:37:35.943Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d0825fd14ab99cdedd29da5c40ba0bb68582a3ae",
-  "latest_commit_short": "d0825fd",
-  "latest_commit_title": "nbe rerank: fold Capability Gateway preflight summary into LLM rerank prompt",
+  "latest_commit": "e4cf0a0bfce48a5a21b9a47dd05fdb4449ed0973",
+  "latest_commit_short": "e4cf0a0",
+  "latest_commit_title": "aigentMe: SpecialistsLayout v1 — server recommender, thread, hand-off",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "e4cf0a0",
+      "full_sha": "e4cf0a0bfce48a5a21b9a47dd05fdb4449ed0973",
+      "title": "aigentMe: SpecialistsLayout v1 — server recommender, thread, hand-off",
+      "author": "Claude",
+      "timestamp": "2026-05-24T17:35:36Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-e4cf0a0.md"
+    },
     {
       "sha": "d0825fd",
       "full_sha": "d0825fd14ab99cdedd29da5c40ba0bb68582a3ae",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-01T15:34:43Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-5d9c6d7.md"
-    },
-    {
-      "sha": "738b6cc",
-      "full_sha": "738b6cc2f8af0fc183971d7a35b53d4fe902bf6c",
-      "title": "fix: migrate remaining persona ID reads to usePersonaSafe() context",
-      "author": "Claude",
-      "timestamp": "2026-05-01T14:30:15Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-738b6cc.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
