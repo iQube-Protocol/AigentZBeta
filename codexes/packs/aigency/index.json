@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-24T17:37:35.943Z",
+  "last_updated": "2026-05-24T18:30:31.979Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "e4cf0a0bfce48a5a21b9a47dd05fdb4449ed0973",
-  "latest_commit_short": "e4cf0a0",
-  "latest_commit_title": "aigentMe: SpecialistsLayout v1 — server recommender, thread, hand-off",
+  "latest_commit": "d45e06cc3e144c3c0ef9f4dd6d8ed967c1a6340f",
+  "latest_commit_short": "d45e06c",
+  "latest_commit_title": "SpecialistsLayout: unify composer + reply into a single emerald consultation card",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d45e06c",
+      "full_sha": "d45e06cc3e144c3c0ef9f4dd6d8ed967c1a6340f",
+      "title": "SpecialistsLayout: unify composer + reply into a single emerald consultation card",
+      "author": "Claude",
+      "timestamp": "2026-05-24T18:28:47Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d45e06c.md"
+    },
     {
       "sha": "e4cf0a0",
       "full_sha": "e4cf0a0bfce48a5a21b9a47dd05fdb4449ed0973",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-01T17:21:01Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-9bf2293.md"
-    },
-    {
-      "sha": "5d9c6d7",
-      "full_sha": "5d9c6d737b221d198d43ba0526fe17a76901eb27",
-      "title": "add RaBadges asset type + editable tier/variant + upload completion feedback",
-      "author": "Claude",
-      "timestamp": "2026-05-01T15:34:43Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-5d9c6d7.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
