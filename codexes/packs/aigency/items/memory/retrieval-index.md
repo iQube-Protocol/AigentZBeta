@@ -1054,3 +1054,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-77ab0a6.md](../build_/COMMITS/COMMIT-77ab0a6.md)
 - Message: Phase 2 B.1 (3/3): copilot tools aigentme_add_kpi / set_kpi_value / remove_kpi / open_kpi_detail + readables activeKpis + availableKpiSources (filtered to persona's active activations); copilot refuses bindings to inactive activations and refuses to manually overwrite activation-bound KPIs
+
+## Commit `1fc9328` — 2026-05-24T04:46:42Z
+- Type: `push`
+- Brief: [COMMIT-1fc9328.md](../build_/COMMITS/COMMIT-1fc9328.md)
+- Message: Phase 2 B.2 (1/2): cockpit Recommended row now activation-driven — NBAs sourced from actionsForActiveActivations(persona) first, static NBE catalog kept as fallback when activations haven't declared actions; catalog actions map to BriefNextBestAction with outcome-bearing actions surfacing as high impact
