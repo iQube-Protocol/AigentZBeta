@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-24T09:06:26.598Z",
+  "last_updated": "2026-05-24T09:15:44.779Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d2bb41ffd66b16c8f519e671480c63d555679a13",
-  "latest_commit_short": "d2bb41f",
-  "latest_commit_title": "capability gateway phase 2a — adapter pattern, openclaw shim, kn0w1 wiring",
+  "latest_commit": "e96831813d6f7d81eb29d4eb961911f33fdc0ab0",
+  "latest_commit_short": "e968318",
+  "latest_commit_title": "capability gateway phase 2b — widen pre-flight gather to all specialists",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "e968318",
+      "full_sha": "e96831813d6f7d81eb29d4eb961911f33fdc0ab0",
+      "title": "capability gateway phase 2b — widen pre-flight gather to all specialists",
+      "author": "Claude",
+      "timestamp": "2026-05-24T09:13:42Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-e968318.md"
+    },
     {
       "sha": "d2bb41f",
       "full_sha": "d2bb41ffd66b16c8f519e671480c63d555679a13",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-01T06:44:19Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-e44f7f6.md"
-    },
-    {
-      "sha": "e7b0bda",
-      "full_sha": "e7b0bda4895da2d6229ef830387e38367d35c9ea",
-      "title": "fix: SmartWalletDrawer hook-order TDZ — declare archived-persona useState before allAvailablePersonas useMemo",
-      "author": "Claude",
-      "timestamp": "2026-05-01T04:17:07Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-e7b0bda.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
