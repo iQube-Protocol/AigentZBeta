@@ -1014,3 +1014,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-56a60ad.md](../build_/COMMITS/COMMIT-56a60ad.md)
 - Message: Phase 2 Slice 4 (compose-in-layout): all 6 compose modals support inline=true mode; openComposeByKind routes to ComposerLayout instead of popups; legacy modal mounts + open booleans removed from tab
+
+## Commit `3e8011e` — 2026-05-24T00:50:42Z
+- Type: `push`
+- Brief: [COMMIT-3e8011e.md](../build_/COMMITS/COMMIT-3e8011e.md)
+- Message: ComposerLayout dismiss: auto-scroll the ArtifactCard into view when returning to stack so the Send draft approval gate doesn't sit below the fold unnoticed
