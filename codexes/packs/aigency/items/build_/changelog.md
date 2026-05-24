@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`e4cf0a0`](https://github.com/iQube-Protocol/AigentZBeta/commit/e4cf0a0bfce48a5a21b9a47dd05fdb4449ed0973) [push] aigentMe: SpecialistsLayout v1 — server recommender, thread, hand-off (Claude, 2026-05-24T17:35:36Z)
 - [`d0825fd`](https://github.com/iQube-Protocol/AigentZBeta/commit/d0825fd14ab99cdedd29da5c40ba0bb68582a3ae) [push] nbe rerank: fold Capability Gateway preflight summary into LLM rerank prompt (Claude, 2026-05-24T10:09:51Z)
 - [`ac27250`](https://github.com/iQube-Protocol/AigentZBeta/commit/ac27250d378be9ff5e4fbed564ff81c5758e20d0) [push] capability gateway phase 2b — openclawCore extract, real web-search + owned-content-scan (Claude, 2026-05-24T09:58:46Z)
 - [`1c86dae`](https://github.com/iQube-Protocol/AigentZBeta/commit/1c86daee23d5cdb2554a749569dcaf2093e1a173) [feat] aigentMe: surface Capability Gateway preflight + add Ask specialists chip (Claude, 2026-05-24T09:51:12Z)

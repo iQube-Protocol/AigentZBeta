@@ -1119,3 +1119,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-d0825fd.md](../build_/COMMITS/COMMIT-d0825fd.md)
 - Message: nbe rerank: fold Capability Gateway preflight summary into LLM rerank prompt
+
+## Commit `e4cf0a0` — 2026-05-24T17:35:36Z
+- Type: `push`
+- Brief: [COMMIT-e4cf0a0.md](../build_/COMMITS/COMMIT-e4cf0a0.md)
+- Message: aigentMe: SpecialistsLayout v1 — server recommender, thread, hand-off
