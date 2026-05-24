@@ -1024,3 +1024,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-ccfd5da.md](../build_/COMMITS/COMMIT-ccfd5da.md)
 - Message: Phase 2 Slice 7 (A): dual-dispatch chip strip — NbeQuickChip type + onSelect on QuickPrompt + server-driven swap seam on assistant fetches; cold-open fallback unchanged
+
+## Commit `7d02d7e` — 2026-05-24T01:57:20Z
+- Type: `push`
+- Brief: [COMMIT-7d02d7e.md](../build_/COMMITS/COMMIT-7d02d7e.md)
+- Message: Slice C parity audit: zero critical violations across all 7 layouts; one DIS contract drift (dismiss X coord rule) amended to match LayoutShell-owned placement; 6 Studio framework frictions captured as improvement backlog
