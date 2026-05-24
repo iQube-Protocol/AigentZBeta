@@ -1139,3 +1139,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-83830fa.md](../build_/COMMITS/COMMIT-83830fa.md)
 - Message: ArtifactCard: surface pop-out link for live artifacts + Enable-API CTA
+
+## Commit `a07c460` — 2026-05-24T20:59:10Z
+- Type: `push`
+- Brief: [COMMIT-a07c460.md](../build_/COMMITS/COMMIT-a07c460.md)
+- Message: google: write Doc body via Drive multipart upload — bypass Docs API

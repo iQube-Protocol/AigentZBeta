@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-24T20:52:33.503Z",
+  "last_updated": "2026-05-24T21:00:56.655Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "83830fa52d04df6df3b1ef08429e4309368bfca5",
-  "latest_commit_short": "83830fa",
-  "latest_commit_title": "ArtifactCard: surface pop-out link for live artifacts + Enable-API CTA",
+  "latest_commit": "a07c460bf1a2a57e4cedd94cd4269d995f763766",
+  "latest_commit_short": "a07c460",
+  "latest_commit_title": "google: write Doc body via Drive multipart upload — bypass Docs API",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a07c460",
+      "full_sha": "a07c460bf1a2a57e4cedd94cd4269d995f763766",
+      "title": "google: write Doc body via Drive multipart upload — bypass Docs API",
+      "author": "Claude",
+      "timestamp": "2026-05-24T20:59:10Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-a07c460.md"
+    },
     {
       "sha": "83830fa",
       "full_sha": "83830fa52d04df6df3b1ef08429e4309368bfca5",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-02T15:21:49Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-91addc8.md"
-    },
-    {
-      "sha": "9507817",
-      "full_sha": "9507817b30fbfed0b012a62876c4a5495e4f76d0",
-      "title": "fix purchase modal showing sign-in screen to authenticated users",
-      "author": "Claude",
-      "timestamp": "2026-05-02T15:18:39Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-9507817.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
