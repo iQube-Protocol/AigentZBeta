@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-24T18:50:12.212Z",
+  "last_updated": "2026-05-24T20:52:33.503Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "052d9fd33b2529a2257091241d03ffa4f75f7d88",
-  "latest_commit_short": "052d9fd",
-  "latest_commit_title": "SpecialistsLayout: suggested-artifact chips open composer pre-populated",
+  "latest_commit": "83830fa52d04df6df3b1ef08429e4309368bfca5",
+  "latest_commit_short": "83830fa",
+  "latest_commit_title": "ArtifactCard: surface pop-out link for live artifacts + Enable-API CTA",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "83830fa",
+      "full_sha": "83830fa52d04df6df3b1ef08429e4309368bfca5",
+      "title": "ArtifactCard: surface pop-out link for live artifacts + Enable-API CTA",
+      "author": "Claude",
+      "timestamp": "2026-05-24T20:50:48Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-83830fa.md"
+    },
     {
       "sha": "052d9fd",
       "full_sha": "052d9fd33b2529a2257091241d03ffa4f75f7d88",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-02T15:18:39Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-9507817.md"
-    },
-    {
-      "sha": "960838f",
-      "full_sha": "960838f3f7538b7dabeaceb8d8f24d6ba01ae209",
-      "title": "fix persona identity persistence and library thumbnails",
-      "author": "Claude",
-      "timestamp": "2026-05-02T14:59:59Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-960838f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
