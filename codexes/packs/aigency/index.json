@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-24T02:18:42.151Z",
+  "last_updated": "2026-05-24T02:33:48.654Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "77aff62253e687c4ea001b037960342b337fb310",
-  "latest_commit_short": "77aff62",
-  "latest_commit_title": "Phase 2 B.1 (1/3): KPI source pipeline activation-bound — KpiRecord/KpiSource schema with ACTIVATION_METRIC_CATALOG; resolver only resolves KPIs whose source activation is active (else unresolvedReason=source-inactive); ventureProgress returns rich activeKpis; cockpit renders KpiChip with current/target/trend instead of empty count badges",
+  "latest_commit": "4bdd99c7cf0b9f41808d55702eda9146cb66b071",
+  "latest_commit_short": "4bdd99c",
+  "latest_commit_title": "B.1 (1.5/3): metrics + actions move onto ACTIVATION_CATALOG entries — KPIs/NBAs now dynamically driven by the persona's Activations tab; declared all 7 catalog activations with their metrics + actions; metric registry is now a one-row edit per activation, no separate file",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "4bdd99c",
+      "full_sha": "4bdd99c7cf0b9f41808d55702eda9146cb66b071",
+      "title": "B.1 (1.5/3): metrics + actions move onto ACTIVATION_CATALOG entries — KPIs/NBAs now dynamically driven by the persona's Activations tab; declared all 7 catalog activations with their metrics + actions; metric registry is now a one-row edit per activation, no separate file",
+      "author": "Claude",
+      "timestamp": "2026-05-24T02:32:00Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-4bdd99c.md"
+    },
     {
       "sha": "77aff62",
       "full_sha": "77aff62253e687c4ea001b037960342b337fb310",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-04-30T17:36:56Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c4329b0.md"
-    },
-    {
-      "sha": "1ab55f2",
-      "full_sha": "1ab55f21f05074c1480263f35e63e7d039365c13",
-      "title": "revert overbroad middleware fallback that broke runtime page embedding",
-      "author": "Claude",
-      "timestamp": "2026-04-30T16:58:22Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1ab55f2.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
