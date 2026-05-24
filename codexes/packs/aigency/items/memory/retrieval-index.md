@@ -1134,3 +1134,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-052d9fd.md](../build_/COMMITS/COMMIT-052d9fd.md)
 - Message: SpecialistsLayout: suggested-artifact chips open composer pre-populated
+
+## Commit `83830fa` — 2026-05-24T20:50:48Z
+- Type: `push`
+- Brief: [COMMIT-83830fa.md](../build_/COMMITS/COMMIT-83830fa.md)
+- Message: ArtifactCard: surface pop-out link for live artifacts + Enable-API CTA

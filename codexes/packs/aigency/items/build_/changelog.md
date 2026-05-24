@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`83830fa`](https://github.com/iQube-Protocol/AigentZBeta/commit/83830fa52d04df6df3b1ef08429e4309368bfca5) [push] ArtifactCard: surface pop-out link for live artifacts + Enable-API CTA (Claude, 2026-05-24T20:50:48Z)
 - [`052d9fd`](https://github.com/iQube-Protocol/AigentZBeta/commit/052d9fd33b2529a2257091241d03ffa4f75f7d88) [push] SpecialistsLayout: suggested-artifact chips open composer pre-populated (Claude, 2026-05-24T18:48:05Z)
 - [`d45e06c`](https://github.com/iQube-Protocol/AigentZBeta/commit/d45e06cc3e144c3c0ef9f4dd6d8ed967c1a6340f) [push] SpecialistsLayout: unify composer + reply into a single emerald consultation card (Claude, 2026-05-24T18:28:47Z)
 - [`e4cf0a0`](https://github.com/iQube-Protocol/AigentZBeta/commit/e4cf0a0bfce48a5a21b9a47dd05fdb4449ed0973) [push] aigentMe: SpecialistsLayout v1 — server recommender, thread, hand-off (Claude, 2026-05-24T17:35:36Z)
