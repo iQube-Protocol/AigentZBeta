@@ -175,52 +175,31 @@ function SpecialistsLayoutComponent(props: RightPaneLayoutProps) {
             />
           )}
 
-          {/* 4 — Current reply (or in-flight placeholder). Rendered
-              ABOVE the composer so the operator sees the response
-              land directly under the focus card after hitting Send,
-              with the empty composer immediately below ready for the
-              next ask. */}
-          {selectedSpecialist && state.askLoadingId === selectedSpecialist.id && (
-            <AskingPlaceholder specialistLabel={selectedSpecialist.label} isDark={isDark} />
-          )}
-          {activeSpecialistResponse && state.askLoadingId !== selectedSpecialist?.id && (
-            <section>
-              <h4
-                className={`text-[10px] uppercase tracking-[0.16em] mb-2 font-medium ${
-                  isDark ? "text-emerald-300/90" : "text-emerald-700"
-                }`}
-              >
-                Reply
-              </h4>
-              <SpecialistResponseCard
-                data={activeSpecialistResponse}
-                theme={theme}
-                onCreateArtifact={undefined}
-              />
-              <HandoffStrip
-                roster={state.recommendation?.roster ?? []}
-                currentSpecialistId={selectedSpecialist?.id ?? null}
-                isDark={isDark}
-                onHandoff={(target) => props.onHandoffSpecialist?.(target)}
-              />
-            </section>
-          )}
-
-          {/* 5 — Composer (always under the reply so the conversation
-              reads top-down: focus → reply → next ask). */}
+          {/* 4 — Unified Consultation card (composer + reply). The
+              two pieces sit inside a single emerald-tinted container
+              so the operator reads them as one prompt/response
+              surface rather than two unrelated sections. Composer
+              comes first (where you write); the reply (or in-flight
+              placeholder) lands directly below it inside the same
+              card. Hand-off chips trail the reply since the pivot is
+              an outcome of seeing the response. */}
           {selectedSpecialist && selectedSpecialist.availability.status !== "needs-activation" && (
-            <Composer
+            <ConsultationCard
               specialist={selectedSpecialist}
               prompt={state.askPrompt}
               loading={state.askLoadingId === selectedSpecialist.id}
               error={state.askError}
+              response={activeSpecialistResponse}
+              roster={state.recommendation?.roster ?? []}
               isDark={isDark}
+              theme={theme}
               onChangePrompt={(p) => props.onSetSpecialistPrompt?.(p)}
               onSend={() => props.onAskSelectedSpecialist?.(state.askPrompt)}
+              onHandoff={(target) => props.onHandoffSpecialist?.(target)}
             />
           )}
 
-          {/* 6 — Prior consultations (receipts) */}
+          {/* 5 — Prior consultations (receipts) */}
           {selectedSpecialist && (
             <PriorConsultations
               thread={state.thread}
@@ -662,33 +641,92 @@ function HandoffStrip({
   );
 }
 
-function AskingPlaceholder({
-  specialistLabel,
+function ConsultationCard({
+  specialist,
+  prompt,
+  loading,
+  error,
+  response,
+  roster,
   isDark,
+  theme,
+  onChangePrompt,
+  onSend,
+  onHandoff,
 }: {
-  specialistLabel: string;
+  specialist: SpecialistRosterEntry;
+  prompt: string;
+  loading: boolean;
+  error: string | null;
+  response: import("@/components/metame/cards/SpecialistResponseCard").SpecialistResponseData | null;
+  roster: SpecialistRosterEntry[];
   isDark: boolean;
+  theme: "light" | "dark";
+  onChangePrompt: (p: string) => void;
+  onSend: () => void;
+  onHandoff: (target: SpecialistId) => void;
 }) {
-  // In-flight feedback: the moment the operator hits Send, the
-  // composer prompt clears and this placeholder lands in the reply
-  // slot so they see *something* responding to the click. Replaced by
-  // the real SpecialistResponseCard the instant the request resolves.
+  // Emerald-tinted wrapper that visually unifies the composer (what
+  // you ask) with the reply (what comes back). The accent matches the
+  // active-specialist FocusCard so the conversation reads as a
+  // continuation of the focused agent, not a disconnected pair of
+  // sections.
   const tint = accent("emerald", isDark ? "dark" : "light");
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
+  const dividerClass = isDark ? "border-emerald-500/20" : "border-emerald-300/60";
   return (
-    <section>
-      <h4
-        className={`text-[10px] uppercase tracking-[0.16em] mb-2 font-medium ${
-          isDark ? "text-emerald-300/90" : "text-emerald-700"
-        }`}
-      >
-        Reply
-      </h4>
-      <div className={`rounded-lg border p-4 ${tint.border} ${tint.fillSoft}`}>
-        <div className={`flex items-center gap-2 text-sm ${mutedClass}`}>
-          <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
-          <span>Asking {specialistLabel}…</span>
-        </div>
+    <section
+      className={`rounded-lg border ${tint.border} ${tint.fillSoft} overflow-hidden`}
+    >
+      <header className="px-3 py-2 flex items-center gap-2">
+        <Bot className={`h-3.5 w-3.5 ${tint.text}`} />
+        <span className={`text-[10px] uppercase tracking-[0.16em] ${tint.text}`}>
+          Consultation · {specialist.label}
+        </span>
+        {loading && (
+          <span className={`ml-auto inline-flex items-center gap-1 text-[10px] ${mutedClass}`}>
+            <Loader2 className="h-3 w-3 animate-spin text-emerald-400" />
+            in flight
+          </span>
+        )}
+      </header>
+      <div className={`border-t ${dividerClass} px-3 py-3 space-y-3`}>
+        {/* Composer — the "what you ask" half of the unified card. */}
+        <Composer
+          specialist={specialist}
+          prompt={prompt}
+          loading={loading}
+          error={error}
+          isDark={isDark}
+          onChangePrompt={onChangePrompt}
+          onSend={onSend}
+        />
+        {/* Reply / in-flight half — only divides the card when there's
+            something to show below the composer. */}
+        {(loading || response) && (
+          <div className={`border-t ${dividerClass} pt-3`}>
+            {loading ? (
+              <div className={`flex items-center gap-2 text-sm ${mutedClass}`}>
+                <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
+                <span>Asking {specialist.label}…</span>
+              </div>
+            ) : response ? (
+              <>
+                <SpecialistResponseCard
+                  data={response}
+                  theme={theme}
+                  onCreateArtifact={undefined}
+                />
+                <HandoffStrip
+                  roster={roster}
+                  currentSpecialistId={specialist.id}
+                  isDark={isDark}
+                  onHandoff={onHandoff}
+                />
+              </>
+            ) : null}
+          </div>
+        )}
       </div>
     </section>
   );
