@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-24T04:48:30.079Z",
+  "last_updated": "2026-05-24T04:54:18.859Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1fc93284539e046959955417685a33fb47d7f047",
-  "latest_commit_short": "1fc9328",
-  "latest_commit_title": "Phase 2 B.2 (1/2): cockpit Recommended row now activation-driven — NBAs sourced from actionsForActiveActivations(persona) first, static NBE catalog kept as fallback when activations haven't declared actions; catalog actions map to BriefNextBestAction with outcome-bearing actions surfacing as high impact",
+  "latest_commit": "14e609c68164bebd2b9ff85ce303f7dc59d9eabe",
+  "latest_commit_short": "14e609c",
+  "latest_commit_title": "Phase 2 B.2 (2/2): ActiveWorkDetailLayout (per-intent surface with Cancel/Handoff/Resume actions) + ActivityChip becomes clickable; recentActivity enriched server-side with canResume/canHandOff/canCancel/specialist/nextActionHint derived from intent status; action endpoints expected at /api/assistant/intents/[id]/{cancel,handoff,resume} — 404 surfaced as backlog note rather than failure",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "14e609c",
+      "full_sha": "14e609c68164bebd2b9ff85ce303f7dc59d9eabe",
+      "title": "Phase 2 B.2 (2/2): ActiveWorkDetailLayout (per-intent surface with Cancel/Handoff/Resume actions) + ActivityChip becomes clickable; recentActivity enriched server-side with canResume/canHandOff/canCancel/specialist/nextActionHint derived from intent status; action endpoints expected at /api/assistant/intents/[id]/{cancel,handoff,resume} — 404 surfaced as backlog note rather than failure",
+      "author": "Claude",
+      "timestamp": "2026-05-24T04:52:37Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-14e609c.md"
+    },
     {
       "sha": "1fc9328",
       "full_sha": "1fc93284539e046959955417685a33fb47d7f047",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-04-30T22:45:54Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-dcb38e6.md"
-    },
-    {
-      "sha": "473ad62",
-      "full_sha": "473ad62a92c619967a12c7db4001cdf6513993f1",
-      "title": "KNYT cart Phase 1.2 — close drawer on checkout + cart context in payment modal",
-      "author": "Claude",
-      "timestamp": "2026-04-30T22:25:33Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-473ad62.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
