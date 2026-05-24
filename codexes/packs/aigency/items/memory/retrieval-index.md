@@ -1069,3 +1069,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-328bbf4.md](../build_/COMMITS/COMMIT-328bbf4.md)
 - Message: Phase 2 B.3: live cockpit sync — silent background polling at 20s on cockpit layouts (pauses on document.hidden); LiveSyncIndicator in cockpit header shows 'Synced Ns ago' + manual refresh button; all mutation paths (KPI edit / intent action / NBE approval) trigger silent refetch so the cockpit reacts immediately without skeleton flash. Phase 3 will replace polling with Supabase realtime subscription
+
+## Commit `24a86f3` — 2026-05-24T07:06:39Z
+- Type: `push`
+- Brief: [COMMIT-24a86f3.md](../build_/COMMITS/COMMIT-24a86f3.md)
+- Message: intent route: accept activation-driven nbeIds — resolveCandidate parses 'activation:<id>:<action>' from ACTIVATION_CATALOG so the cockpit's Recommended NBAs (Phase 2 B.2 1/2) can queue intents; static NBE_CATALOGUE entries unchanged. Fixes 'unknown-nbeId' error when acting on activation-sourced rows in venture progress
