@@ -1114,3 +1114,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-ac27250.md](../build_/COMMITS/COMMIT-ac27250.md)
 - Message: capability gateway phase 2b — openclawCore extract, real web-search + owned-content-scan
+
+## Commit `d0825fd` — 2026-05-24T10:09:51Z
+- Type: `push`
+- Brief: [COMMIT-d0825fd.md](../build_/COMMITS/COMMIT-d0825fd.md)
+- Message: nbe rerank: fold Capability Gateway preflight summary into LLM rerank prompt

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-24T10:00:51.242Z",
+  "last_updated": "2026-05-24T10:11:33.844Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "ac27250d378be9ff5e4fbed564ff81c5758e20d0",
-  "latest_commit_short": "ac27250",
-  "latest_commit_title": "capability gateway phase 2b — openclawCore extract, real web-search + owned-content-scan",
+  "latest_commit": "d0825fd14ab99cdedd29da5c40ba0bb68582a3ae",
+  "latest_commit_short": "d0825fd",
+  "latest_commit_title": "nbe rerank: fold Capability Gateway preflight summary into LLM rerank prompt",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d0825fd",
+      "full_sha": "d0825fd14ab99cdedd29da5c40ba0bb68582a3ae",
+      "title": "nbe rerank: fold Capability Gateway preflight summary into LLM rerank prompt",
+      "author": "Claude",
+      "timestamp": "2026-05-24T10:09:51Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d0825fd.md"
+    },
     {
       "sha": "ac27250",
       "full_sha": "ac27250d378be9ff5e4fbed564ff81c5758e20d0",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-01T14:30:15Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-738b6cc.md"
-    },
-    {
-      "sha": "37757fa",
-      "full_sha": "37757fa4cdb9694cf9d036c834b5864e4d5e4300",
-      "title": "fix episode-0 GN upload: allow episodeNumber 0 in validation + handle non-JSON error responses",
-      "author": "Claude",
-      "timestamp": "2026-05-01T14:17:25Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-37757fa.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
