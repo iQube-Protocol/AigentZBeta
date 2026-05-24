@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`ddff517`](https://github.com/iQube-Protocol/AigentZBeta/commit/ddff517c77f1cc59efe42aaf604ad3e23d441dbf) [feat] capability gateway — add CapabilityIntent axis + log B/C backlog (Claude, 2026-05-24T08:56:28Z)
 - [`828d5b8`](https://github.com/iQube-Protocol/AigentZBeta/commit/828d5b8fa6f8bca76fd9203b02ca5129b68da572) [push] capability gateway phase 1 — types, policy compiler, gateway, receipt wrapper (Claude, 2026-05-24T08:42:04Z)
 - [`fdfa189`](https://github.com/iQube-Protocol/AigentZBeta/commit/fdfa189ed53b94ff096128b60de5effd9e6be081) [push] VentureCockpit: surface KPI editor from cockpit chips + header (Claude, 2026-05-24T08:15:26Z)
 - [`24a86f3`](https://github.com/iQube-Protocol/AigentZBeta/commit/24a86f3c321960a95036a8e1ef898c1345973129) [push] intent route: accept activation-driven nbeIds — resolveCandidate parses 'activation:<id>:<action>' from ACTIVATION_CATALOG so the cockpit's Recommended NBAs (Phase 2 B.2 1/2) can queue intents; static NBE_CATALOGUE entries unchanged. Fixes 'unknown-nbeId' error when acting on activation-sourced rows in venture progress (Claude, 2026-05-24T07:06:39Z)

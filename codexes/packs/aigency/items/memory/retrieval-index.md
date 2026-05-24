@@ -1084,3 +1084,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-828d5b8.md](../build_/COMMITS/COMMIT-828d5b8.md)
 - Message: capability gateway phase 1 — types, policy compiler, gateway, receipt wrapper
+
+## Commit `ddff517` — 2026-05-24T08:56:28Z
+- Type: `feat`
+- Brief: [COMMIT-ddff517.md](../build_/COMMITS/COMMIT-ddff517.md)
+- Message: capability gateway — add CapabilityIntent axis + log B/C backlog
