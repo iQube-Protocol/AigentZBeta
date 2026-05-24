@@ -18,7 +18,7 @@
  */
 
 import React, { useCallback } from "react";
-import { Briefcase, AlertCircle, Loader2 } from "lucide-react";
+import { Briefcase, AlertCircle, Loader2, RefreshCw } from "lucide-react";
 import {
   NextBestActionCard,
 } from "@/components/metame/cards/NextBestActionCard";
@@ -62,16 +62,26 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
   const data = ventureProgress;
   const stageLabel = data ? STAGE_LABELS[data.currentStage] ?? data.currentStage : "—";
 
-  const headerActions = data && data.blockersCount > 0 ? (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] ${
-      isDark
-        ? "border-amber-500/40 bg-amber-500/10 text-amber-300"
-        : "border-amber-300 bg-amber-50 text-amber-700"
-    }`}>
-      <AlertCircle className="h-3 w-3" />
-      {data.blockersCount} blocker{data.blockersCount === 1 ? "" : "s"}
-    </span>
-  ) : undefined;
+  const headerActions = (
+    <div className="flex items-center gap-1.5">
+      {data && data.blockersCount > 0 && (
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] ${
+          isDark
+            ? "border-amber-500/40 bg-amber-500/10 text-amber-300"
+            : "border-amber-300 bg-amber-50 text-amber-700"
+        }`}>
+          <AlertCircle className="h-3 w-3" />
+          {data.blockersCount} blocker{data.blockersCount === 1 ? "" : "s"}
+        </span>
+      )}
+      {/* Phase 2 B.3 — live sync indicator + force-refresh. */}
+      <LiveSyncIndicator
+        lastSyncedAt={props.ventureLastSyncedAt ?? null}
+        onForceSync={props.onForceSync}
+        isDark={isDark}
+      />
+    </div>
+  );
 
   return (
     <LayoutShell
@@ -382,6 +392,65 @@ function PillChip({ label, isDark, accentId }: { label: string; isDark: boolean;
       {label}
     </div>
   );
+}
+
+function LiveSyncIndicator({
+  lastSyncedAt,
+  onForceSync,
+  isDark,
+}: {
+  lastSyncedAt: Date | null;
+  onForceSync?: () => void;
+  isDark: boolean;
+}) {
+  // Re-render every 15s so the "Synced Ns ago" label stays accurate.
+  // Lightweight — only mounted while the cockpit is open.
+  const [, force] = React.useReducer((n: number) => n + 1, 0);
+  React.useEffect(() => {
+    const id = window.setInterval(force, 15_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const label = lastSyncedAt ? formatAgo(lastSyncedAt) : "—";
+  const fresh = lastSyncedAt && Date.now() - lastSyncedAt.getTime() < 30_000;
+  const dotClass = fresh
+    ? (isDark ? "bg-emerald-400" : "bg-emerald-500")
+    : (isDark ? "bg-slate-600" : "bg-slate-400");
+  const textClass = isDark ? "text-slate-400" : "text-slate-600";
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 text-[11px] ${textClass}`}
+      title={lastSyncedAt ? `Last synced ${lastSyncedAt.toLocaleTimeString()}` : "Not yet synced"}
+    >
+      <span className={`inline-block h-1.5 w-1.5 rounded-full ${dotClass}`} />
+      Synced {label}
+      {onForceSync && (
+        <button
+          type="button"
+          onClick={onForceSync}
+          aria-label="Refresh now"
+          title="Refresh now"
+          className={`ml-0.5 inline-flex items-center justify-center h-5 w-5 rounded-md transition-colors ${
+            isDark ? "text-slate-500 hover:text-slate-200 hover:bg-slate-800/60" : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+          }`}
+        >
+          <RefreshCw className="h-3 w-3" />
+        </button>
+      )}
+    </span>
+  );
+}
+
+function formatAgo(d: Date): string {
+  const sec = Math.max(0, Math.round((Date.now() - d.getTime()) / 1000));
+  if (sec < 5)   return "just now";
+  if (sec < 60)  return `${sec}s ago`;
+  const min = Math.round(sec / 60);
+  if (min < 60)  return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24)   return `${hr}h ago`;
+  return d.toLocaleDateString();
 }
 
 function ActivityChip({

@@ -90,6 +90,13 @@ export type RightPaneLayoutProps = WelcomeRightPaneProps & {
   onSelectActiveWork?: (intentId: string) => void;
   /** Fired after an intent action (cancel/handoff/resume) succeeds. */
   onIntentEdited?: () => void;
+  /**
+   * B.3 — live sync state for the cockpit. `lastSyncedAt` drives the
+   * "Synced Ns ago" indicator; `onForceSync` lets the operator force
+   * a refresh from the header.
+   */
+  ventureLastSyncedAt?: Date | null;
+  onForceSync?: () => void;
 };
 
 export interface RightPaneLayoutDefinition {

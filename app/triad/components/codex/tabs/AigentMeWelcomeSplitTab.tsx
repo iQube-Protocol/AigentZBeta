@@ -193,6 +193,10 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
 
   const [ventureProgress, setVentureProgress] = useState<VentureProgressData | null>(null);
   const [ventureProgressLoading, setVentureProgressLoading] = useState(false);
+  // Phase 2 B.3 — timestamp of the most recent successful venture
+  // progress fetch. Surfaced in the cockpit header as "Synced Ns ago"
+  // so the operator can see freshness at a glance.
+  const [ventureLastSyncedAt, setVentureLastSyncedAt] = useState<Date | null>(null);
   const [ventureProgressError, setVentureProgressError] = useState<string | null>(null);
 
   const [specialistResponses, setSpecialistResponses] = useState<Record<string, SpecialistResponseData>>({});
@@ -449,10 +453,17 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
   }, [personaId]);
 
-  const fetchVentureProgress = useCallback(async () => {
-    setVentureProgressLoading(true);
-    setVentureProgressError(null);
-    setVentureProgress(null);
+  const fetchVentureProgress = useCallback(async (opts?: { silent?: boolean }) => {
+    // Phase 2 B.3 — silent mode lets background polls + post-mutation
+    // refreshes update in place without flashing the loading skeleton.
+    // Chip-driven fetches still set loading so the operator sees the
+    // surface acknowledge their click.
+    const silent = !!opts?.silent;
+    if (!silent) {
+      setVentureProgressLoading(true);
+      setVentureProgressError(null);
+      setVentureProgress(null);
+    }
     try {
       const res = await personaFetch('/api/assistant/venture-progress', {
         method: 'POST',
@@ -466,11 +477,17 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       }
       const payload = (await res.json()) as VentureProgressData & { quickChips?: NbeQuickChip[] };
       setVentureProgress(payload);
+      setVentureLastSyncedAt(new Date());
       if (Array.isArray(payload.quickChips)) setServerChips(payload.quickChips);
     } catch (err) {
-      setVentureProgressError(err instanceof Error ? err.message : String(err));
+      if (!silent) {
+        setVentureProgressError(err instanceof Error ? err.message : String(err));
+      }
+      // Silent polls swallow errors — the operator already has the
+      // last good snapshot on screen and a transient error shouldn't
+      // wipe the cockpit.
     } finally {
-      setVentureProgressLoading(false);
+      if (!silent) setVentureProgressLoading(false);
     }
   }, [personaId]);
 
@@ -587,6 +604,11 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       setPendingApprovalNbe(null);
       // Foreground layout remains as-is; approval overlay unmounts.
       void fetchReceipts();
+      // Phase 2 B.3 — also refresh the cockpit so the just-queued
+      // intent appears in Active Work without the operator needing
+      // to wait for the next 20s poll. Silent mode keeps the
+      // existing surface mounted.
+      void fetchVentureProgress({ silent: true });
 
       // Workspace-flavoured NBEs (gmail/doc/event/etc.) hand off to the
       // corresponding compose modal so the user can actually do the action
@@ -987,6 +1009,50 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       .catch(() => undefined);
     return () => { cancelled = true; };
   }, [personaId]);
+
+  // Phase 2 B.3 — live cockpit sync.
+  //
+  // Background polls `fetchVentureProgress({ silent: true })` on a 20s
+  // cadence while the operator is on a cockpit-related layout AND the
+  // tab is visible. Pauses immediately on `document.hidden`; resumes
+  // on the next visibility-change event. Silent mode means the
+  // skeleton never flashes — the cockpit updates in place.
+  //
+  // Mutation paths (KPI edit, intent action, NBE approval) already
+  // call `fetchVentureProgress()` synchronously after their writes;
+  // this polling layer covers everything else (cartridge-side events
+  // that wrote a receipt without going through the cockpit). Phase 3
+  // replaces polling with a Supabase realtime subscription on
+  // `dvn_receipt_events` filtered to the persona.
+  useEffect(() => {
+    if (!personaId) return;
+    const isCockpitLayout =
+      activeLayoutId === 'venture-cockpit' ||
+      activeLayoutId === 'kpi-detail' ||
+      activeLayoutId === 'active-work-detail';
+    if (!isCockpitLayout) return;
+    if (typeof document !== 'undefined' && document.hidden) return;
+
+    const interval = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      void fetchVentureProgress({ silent: true });
+    }, 20_000);
+
+    const onVisibility = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        void fetchVentureProgress({ silent: true });
+      }
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onVisibility);
+    }
+    return () => {
+      window.clearInterval(interval);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', onVisibility);
+      }
+    };
+  }, [personaId, activeLayoutId, fetchVentureProgress]);
 
   // Phase 2 B.1 3/3 — KPI mutation handlers passed to the copilot
   // bridge. Reuse the same /api/assistant/experience-model path the
@@ -1432,8 +1498,11 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                   setActiveLayoutId('kpi-detail');
                 },
                 onSelectActiveWork: handleSelectActiveWork,
-                onKpiEdited: () => { void fetchVentureProgress(); },
-                onIntentEdited: () => { void fetchVentureProgress(); },
+                onKpiEdited: () => { void fetchVentureProgress({ silent: true }); },
+                onIntentEdited: () => { void fetchVentureProgress({ silent: true }); },
+                // Phase 2 B.3 — live sync header indicator + manual force.
+                ventureLastSyncedAt,
+                onForceSync: () => { void fetchVentureProgress({ silent: true }); },
                 composerHandlers: {
                   onCreateGmail: async (input) => {
                     await handleComposeGmailDraft(input);
