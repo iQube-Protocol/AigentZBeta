@@ -1059,3 +1059,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-1fc9328.md](../build_/COMMITS/COMMIT-1fc9328.md)
 - Message: Phase 2 B.2 (1/2): cockpit Recommended row now activation-driven — NBAs sourced from actionsForActiveActivations(persona) first, static NBE catalog kept as fallback when activations haven't declared actions; catalog actions map to BriefNextBestAction with outcome-bearing actions surfacing as high impact
+
+## Commit `14e609c` — 2026-05-24T04:52:37Z
+- Type: `push`
+- Brief: [COMMIT-14e609c.md](../build_/COMMITS/COMMIT-14e609c.md)
+- Message: Phase 2 B.2 (2/2): ActiveWorkDetailLayout (per-intent surface with Cancel/Handoff/Resume actions) + ActivityChip becomes clickable; recentActivity enriched server-side with canResume/canHandOff/canCancel/specialist/nextActionHint derived from intent status; action endpoints expected at /api/assistant/intents/[id]/{cancel,handoff,resume} — 404 surfaced as backlog note rather than failure
