@@ -280,6 +280,30 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const approvalRef = useRef<HTMLDivElement>(null);
   const artifactRef = useRef<HTMLDivElement>(null);
 
+  // Phase 2 Slice 4 polish: wrap setActiveLayoutId so that a transition
+  // back to 'stack' from any non-stack layout — most importantly the
+  // composer — auto-scrolls the just-created artifact into view. The
+  // ArtifactCard with the `Send draft` button can otherwise sit below
+  // the fold in a long stack and the operator misses the approval gate.
+  const requestLayout = useCallback(
+    (next: RightPaneLayoutId) => {
+      setActiveLayoutId((prev) => {
+        if (prev !== 'stack' && next === 'stack' && artifactRef.current) {
+          // Two RAFs: first lets React commit the layout swap, second
+          // lets the stack paint so the artifact section has a real
+          // bounding box before we scroll into view.
+          window.requestAnimationFrame(() => {
+            window.requestAnimationFrame(() => {
+              artifactRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+          });
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
   // ── Bootstrap fetch ─────────────────────────────────────────────────
   useEffect(() => {
     if (spine.status !== 'ready' && spine.status !== 'refreshing') return;
@@ -998,7 +1022,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               // Single source of truth for layout inputs — passed identically
               // to foreground and overlay.
               const layoutProps = {
-                onRequestLayout: setActiveLayoutId,
+                onRequestLayout: requestLayout,
                 theme,
                 personaId,
                 displayLabel: spine.displayLabel ?? data.displayLabel,
