@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-24T02:54:02.361Z",
+  "last_updated": "2026-05-24T03:01:16.635Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "498c09a9ebdf67d15efbf6119d8e5bfe56099405",
-  "latest_commit_short": "498c09a",
-  "latest_commit_title": "Activation catalog: add metric class (activity/outcome/standing) + expand each activation with outcome-oriented KPIs — myCanvas likes/sparks/remixes, Order missions-completed/votes/contributions, AgentiQ OS referrals/SDK/forks, Venture Lab milestones/conversions/runway, Marketa meetings/proposals/closes, Qriptopian readership/pickups, Studio launched/remixed/completed-by-users; cockpit chip highlights outcomes with violet+dot",
+  "latest_commit": "0e40380451826a1fe30c12099b2287fd34a1424c",
+  "latest_commit_short": "0e40380",
+  "latest_commit_title": "Phase 2 B.1 (2/3): ActiveKpisEditor refactored — source picker reads metricsForActiveActivations(persona), grouped by activation with inactive sources marked; rich KpiRecord shape persists; KpiDetailLayout (new layout, kpi-detail) opens on chip click with hero value + source provenance + manual-value editor",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "0e40380",
+      "full_sha": "0e40380451826a1fe30c12099b2287fd34a1424c",
+      "title": "Phase 2 B.1 (2/3): ActiveKpisEditor refactored — source picker reads metricsForActiveActivations(persona), grouped by activation with inactive sources marked; rich KpiRecord shape persists; KpiDetailLayout (new layout, kpi-detail) opens on chip click with hero value + source provenance + manual-value editor",
+      "author": "Claude",
+      "timestamp": "2026-05-24T02:59:35Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0e40380.md"
+    },
     {
       "sha": "498c09a",
       "full_sha": "498c09a9ebdf67d15efbf6119d8e5bfe56099405",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-04-30T19:21:40Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-10bf19a.md"
-    },
-    {
-      "sha": "e62ebcc",
-      "full_sha": "e62ebcc87ab46318443aab0394e5556165c493dc",
-      "title": "consolidate X-Frame-Options into middleware as single source of truth",
-      "author": "Claude",
-      "timestamp": "2026-04-30T18:08:16Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-e62ebcc.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
