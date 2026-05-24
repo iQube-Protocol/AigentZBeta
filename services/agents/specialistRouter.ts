@@ -107,6 +107,14 @@ export interface SpecialistResponse {
    * dedicated byline going forward.
    */
   preflightContext?: PreflightContext;
+  /**
+   * Set by the ask-agent route when the consultation was a hand-off
+   * from another specialist. The SpecialistsLayout renders a "← from X"
+   * pill on the response card and threads the prior title into the
+   * specialist's framing so the back-and-forth reads as a conversation
+   * rather than a fresh ask.
+   */
+  handoffFrom?: { specialistId: SpecialistId; priorTitle: string };
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -592,7 +600,6 @@ export async function askSpecialist(
   return {
     specialistId,
     specialistLabel,
-    requestType,
     ...tpl,
     source: 'template',
     generatedAt,

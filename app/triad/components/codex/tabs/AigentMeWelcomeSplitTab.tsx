@@ -254,6 +254,25 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const [askSpecialistResponses, setAskSpecialistResponses] = useState<Record<string, SpecialistResponseData>>({});
   const [askSpecialistErrors, setAskSpecialistErrors] = useState<Record<string, string>>({});
 
+  // Phase 2 — SpecialistsLayout state. Recommendation comes from
+  // /api/assistant/specialist-recommend; thread comes from
+  // /api/assistant/specialist-thread (reads activity_receipts).
+  const [selectedSpecialistId, setSelectedSpecialistId] = useState<
+    import("@/services/agents/specialistRouter").SpecialistId | null
+  >(null);
+  const [specialistRecommendation, setSpecialistRecommendation] = useState<
+    import("@/services/orchestration/specialistRecommender").SpecialistRecommendation | null
+  >(null);
+  const [specialistRecommendationLoading, setSpecialistRecommendationLoading] = useState(false);
+  const [specialistRecommendationError, setSpecialistRecommendationError] = useState<string | null>(null);
+  const [specialistRecommendationPreflight, setSpecialistRecommendationPreflight] = useState<
+    import("@/services/capabilities/preflight").PreflightContext | undefined
+  >(undefined);
+  const [specialistThread, setSpecialistThread] = useState<
+    NonNullable<import("@/components/metame/welcome/layouts/types").RightPaneLayoutProps["specialistsLayout"]>["thread"]
+  >([]);
+  const [specialistThreadLoading, setSpecialistThreadLoading] = useState(false);
+
   // Activity receipts.
   const [receipts, setReceipts] = useState<ActivityReceiptData[]>([]);
   const [receiptsLoading, setReceiptsLoading] = useState(false);
@@ -930,14 +949,22 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     setQueuedIntents((prev) => { const next = { ...prev }; delete next[nbeId]; return next; });
   }, []);
 
-  const handleAskSpecialist = useCallback(async (specialistId: string, prompt: string) => {
+  const handleAskSpecialist = useCallback(async (
+    specialistId: string,
+    prompt: string,
+    handoff?: { fromSpecialistId: string; priorTitle?: string; priorReceiptId?: string },
+  ) => {
     const key = specialistId;
     setAskSpecialistLoadingId(key);
     setAskSpecialistErrors((prev) => { const next = { ...prev }; delete next[key]; return next; });
     try {
       const res = await personaFetch('/api/assistant/ask-agent', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ specialistId, ...(prompt.trim() ? { prompt: prompt.trim() } : {}) }),
+        body: JSON.stringify({
+          specialistId,
+          ...(prompt.trim() ? { prompt: prompt.trim() } : {}),
+          ...(handoff ? { handoff } : {}),
+        }),
         personaIdHint: personaId,
       });
       if (!res.ok) {
@@ -954,6 +981,100 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       setAskSpecialistLoadingId(null);
     }
   }, [personaId, fetchReceipts]);
+
+  // Phase 2 — SpecialistsLayout fetchers + handlers.
+  const fetchSpecialistRecommendation = useCallback(async (query?: string) => {
+    if (!personaId) return;
+    setSpecialistRecommendationLoading(true);
+    setSpecialistRecommendationError(null);
+    try {
+      const res = await personaFetch('/api/assistant/specialist-recommend', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(query ? { query } : {}),
+        personaIdHint: personaId,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.detail || body?.error || `specialist-recommend failed (${res.status})`);
+      }
+      const payload = (await res.json()) as
+        import("@/services/orchestration/specialistRecommender").SpecialistRecommendation
+        & { preflightContext?: import("@/services/capabilities/preflight").PreflightContext };
+      setSpecialistRecommendation(payload);
+      setSpecialistRecommendationPreflight(payload.preflightContext);
+      // Auto-select the recommended specialist if none is selected yet,
+      // so the operator lands on a primed composer instead of an empty
+      // canvas. They can still pick another from the roster.
+      setSelectedSpecialistId((prev) => prev ?? payload.topSpecialistId);
+    } catch (err) {
+      setSpecialistRecommendationError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSpecialistRecommendationLoading(false);
+    }
+  }, [personaId]);
+
+  const fetchSpecialistThread = useCallback(async (
+    specialistId: import("@/services/agents/specialistRouter").SpecialistId,
+  ) => {
+    if (!personaId) return;
+    setSpecialistThreadLoading(true);
+    try {
+      const res = await personaFetch(
+        `/api/assistant/specialist-thread?specialistId=${specialistId}&limit=20`,
+        { personaIdHint: personaId },
+      );
+      if (!res.ok) {
+        setSpecialistThread([]);
+        return;
+      }
+      const payload = (await res.json()) as {
+        entries: NonNullable<import("@/components/metame/welcome/layouts/types").RightPaneLayoutProps["specialistsLayout"]>["thread"];
+      };
+      setSpecialistThread(payload.entries ?? []);
+    } catch {
+      setSpecialistThread([]);
+    } finally {
+      setSpecialistThreadLoading(false);
+    }
+  }, [personaId]);
+
+  const handleSelectSpecialist = useCallback((
+    id: import("@/services/agents/specialistRouter").SpecialistId,
+  ) => {
+    setSelectedSpecialistId(id);
+    setAskSpecialistPrompt("");
+    void fetchSpecialistThread(id);
+  }, [fetchSpecialistThread]);
+
+  const handleAskSelectedSpecialist = useCallback((prompt: string) => {
+    if (!selectedSpecialistId) return;
+    void handleAskSpecialist(selectedSpecialistId, prompt);
+  }, [selectedSpecialistId, handleAskSpecialist]);
+
+  const handleHandoffSpecialist = useCallback((
+    target: import("@/services/agents/specialistRouter").SpecialistId,
+  ) => {
+    if (!selectedSpecialistId || selectedSpecialistId === target) return;
+    const prior = askSpecialistResponses[selectedSpecialistId];
+    // Inherit the previous prompt verbatim; the route prefixes it
+    // with a hand-off note so the receiving specialist sees framing.
+    const carriedPrompt = askSpecialistPrompt.trim() || prior?.title || 'continue this consultation';
+    setSelectedSpecialistId(target);
+    void fetchSpecialistThread(target);
+    void handleAskSpecialist(target, carriedPrompt, {
+      fromSpecialistId: selectedSpecialistId,
+      priorTitle: prior?.title,
+    });
+  }, [selectedSpecialistId, askSpecialistResponses, askSpecialistPrompt, fetchSpecialistThread, handleAskSpecialist]);
+
+  const handleOpenActivationsForSpecialist = useCallback((_activationId: string) => {
+    // Phase 2 hand-wave: surface the Specialists section of the stack
+    // layout where the activations editor already lives. A direct deep
+    // link into the ActivationsEditor row for `_activationId` is the
+    // fast-follow once the editor exposes a per-row anchor.
+    setActiveLayoutId('stack');
+    setExpandedSectionId('experience');
+  }, []);
 
   // Phase 2 Slice 4: which compose form ComposerLayout should render
   // inline. Null when the layout is preview-only.
@@ -1370,17 +1491,17 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         id: 'ask-specialists',
         label: 'Ask specialists',
         // The copilot prompt frames the specialist roster so the LLM
-        // knows what's available; the right pane simultaneously expands
-        // the Specialists accordion so the operator can fire an
-        // individual ask in the same gesture.
+        // knows what's available; the right pane mounts the Phase 2
+        // SpecialistsLayout and fires the server-side recommender so
+        // the operator lands on a primed consultation surface.
         prompt: 'Which specialist should I consult right now — Marketa, Quill, Kn0w1, Aigent Z, Aigent C, Aigent Nakamoto, Moneypenny, or metaYe — and why?',
         onSelect: () => {
-          setActiveLayoutId('stack');
-          setExpandedSectionId('specialists');
+          setActiveLayoutId('specialists');
+          void fetchSpecialistRecommendation();
         },
       },
     ];
-  }, [serverChips, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts]);
+  }, [serverChips, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts, fetchSpecialistRecommendation]);
 
   return (
     <>
@@ -1526,6 +1647,25 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 onForceSync: () => { void fetchVentureProgress({ silent: true }); },
                 // KPI editor entry point — header button + empty-state CTA.
                 onEditKpis: () => setKpisEditorOpen(true),
+                // Phase 2 — SpecialistsLayout state bundle.
+                specialistsLayout: {
+                  selectedSpecialistId,
+                  recommendation: specialistRecommendation,
+                  recommendationLoading: specialistRecommendationLoading,
+                  recommendationError: specialistRecommendationError,
+                  sessionResponses: askSpecialistResponses,
+                  thread: specialistThread,
+                  threadLoading: specialistThreadLoading,
+                  askPrompt: askSpecialistPrompt,
+                  askLoadingId: askSpecialistLoadingId,
+                  askError: selectedSpecialistId ? (askSpecialistErrors[selectedSpecialistId] ?? null) : null,
+                  preflightContext: specialistRecommendationPreflight,
+                },
+                onSelectSpecialist: handleSelectSpecialist,
+                onAskSelectedSpecialist: handleAskSelectedSpecialist,
+                onSetSpecialistPrompt: setAskSpecialistPrompt,
+                onHandoffSpecialist: handleHandoffSpecialist,
+                onOpenActivationsForSpecialist: handleOpenActivationsForSpecialist,
                 composerHandlers: {
                   onCreateGmail: async (input) => {
                     await handleComposeGmailDraft(input);

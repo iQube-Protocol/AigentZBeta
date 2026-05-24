@@ -31,7 +31,8 @@ export type RightPaneLayoutId =
   | "approval-interrupt"
   | "ledger"
   | "kpi-detail"
-  | "active-work-detail";
+  | "active-work-detail"
+  | "specialists";
 
 /**
  * Compose handler shapes — each onCreate matches the corresponding
@@ -99,6 +100,41 @@ export type RightPaneLayoutProps = WelcomeRightPaneProps & {
   onForceSync?: () => void;
   /** Open the ActiveKpisEditor (modal). Cockpit's "Edit KPIs" button + empty-state CTA fire this. */
   onEditKpis?: () => void;
+  /**
+   * Phase 2 — SpecialistsLayout state. The tab owns the recommender +
+   * thread fetches and the in-memory askResponses map; the layout
+   * renders + dispatches.
+   */
+  specialistsLayout?: {
+    selectedSpecialistId: import("@/services/agents/specialistRouter").SpecialistId | null;
+    recommendation: import("@/services/orchestration/specialistRecommender").SpecialistRecommendation | null;
+    recommendationLoading: boolean;
+    recommendationError: string | null;
+    /** In-memory responses for the current session, keyed by specialist id. */
+    sessionResponses: Record<string, import("@/components/metame/cards/SpecialistResponseCard").SpecialistResponseData>;
+    /** Prior consultations for the selected specialist (from activity_receipts). */
+    thread: Array<{
+      receiptId: string;
+      specialistId: import("@/services/agents/specialistRouter").SpecialistId;
+      summary: string;
+      activeCartridge: string;
+      createdAt: string;
+      intentId: string | null;
+      fromHandoff: boolean;
+    }>;
+    threadLoading: boolean;
+    askPrompt: string;
+    askLoadingId: string | null;
+    askError: string | null;
+    preflightContext?: import("@/services/capabilities/preflight").PreflightContext;
+  };
+  onSelectSpecialist?: (id: import("@/services/agents/specialistRouter").SpecialistId) => void;
+  onAskSelectedSpecialist?: (prompt: string) => void;
+  onSetSpecialistPrompt?: (prompt: string) => void;
+  /** Operator-driven hand-off: re-ask the prior question to a different specialist. */
+  onHandoffSpecialist?: (target: import("@/services/agents/specialistRouter").SpecialistId) => void;
+  /** Activations tab CTA — for specialists whose source is "needs-activation". */
+  onOpenActivationsForSpecialist?: (activationId: string) => void;
 };
 
 export interface RightPaneLayoutDefinition {

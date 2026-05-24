@@ -68,6 +68,18 @@ interface PostBody {
   intentId?: string;
   prompt?: string;
   cartridge?: string;
+  /**
+   * Optional hand-off context — set when the operator pivots from one
+   * specialist's response to ask another. The route prefixes the
+   * intent rationale with a short hand-off note and tags the receipt
+   * with `specialist-handoff` in `contextShared` so the thread can
+   * surface the pivot.
+   */
+  handoff?: {
+    fromSpecialistId?: string;
+    priorTitle?: string;
+    priorReceiptId?: string;
+  };
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -130,10 +142,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       cartridge: activeCartridge,
       intentId: body.intentId ?? null,
     });
-    const enrichedRationale = preflight
-      ? `Pre-flight gather (workOrder=${preflight.workOrderId}): ${preflight.summary}` +
-        (intentRationale ? `\n\n${intentRationale}` : '')
-      : intentRationale;
+    // Hand-off prefix — when the operator pivots from one specialist
+    // to another, the new consultation lands with a short note so the
+    // receiving specialist's prompt frames itself against the prior
+    // take rather than from scratch.
+    const handoffFromRaw = body.handoff?.fromSpecialistId;
+    const handoffFrom = typeof handoffFromRaw === 'string' && (VALID_SPECIALISTS as string[]).includes(handoffFromRaw)
+      ? (handoffFromRaw as SpecialistId)
+      : null;
+    const handoffPriorTitle = typeof body.handoff?.priorTitle === 'string'
+      ? body.handoff.priorTitle.trim().slice(0, 200)
+      : null;
+    const handoffNote = handoffFrom
+      ? `Hand-off from ${handoffFrom}${handoffPriorTitle ? ` (prior take: "${handoffPriorTitle}")` : ''}.`
+      : null;
+
+    const rationaleParts: string[] = [];
+    if (preflight) rationaleParts.push(`Pre-flight gather (workOrder=${preflight.workOrderId}): ${preflight.summary}`);
+    if (handoffNote) rationaleParts.push(handoffNote);
+    if (intentRationale) rationaleParts.push(intentRationale);
+    const enrichedRationale = rationaleParts.length > 0 ? rationaleParts.join('\n\n') : intentRationale;
 
     const specialistContext: SpecialistContext = {
       activeCartridge,
@@ -162,11 +190,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       agentsInvoked: ['aigent-me', resolvedSpecialistId],
       toolsUsed: [response.source === 'llm' ? 'openai' : 'template'],
       iqubesUsed: ['PersonaQube', 'ExperienceQube', 'IntentQube'],
-      contextShared: ['intent-summary', 'experience-meta-slice'],
+      contextShared: handoffFrom
+        ? ['intent-summary', 'experience-meta-slice', 'specialist-handoff']
+        : ['intent-summary', 'experience-meta-slice'],
     }).catch(() => undefined);
 
+    // Surface the hand-off on the response so the layout can show a
+    // "← Marketa" pill on the rendered card without needing to fetch
+    // the receipt.
+    const handoffMeta = handoffFrom
+      ? { handoffFrom: { specialistId: handoffFrom, priorTitle: handoffPriorTitle ?? '' } }
+      : {};
     return NextResponse.json(
-      preflight ? { ...response, preflightContext: preflight } : response,
+      {
+        ...response,
+        ...(preflight ? { preflightContext: preflight } : {}),
+        ...handoffMeta,
+      },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (err) {
