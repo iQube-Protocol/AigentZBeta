@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-24T01:51:07.220Z",
+  "last_updated": "2026-05-24T01:59:00.001Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "ccfd5da6dfac28f1f5334545fd49b0b38b2f7d33",
-  "latest_commit_short": "ccfd5da",
-  "latest_commit_title": "Phase 2 Slice 7 (A): dual-dispatch chip strip — NbeQuickChip type + onSelect on QuickPrompt + server-driven swap seam on assistant fetches; cold-open fallback unchanged",
+  "latest_commit": "7d02d7e9edd5e64cb6f40b939830f6b5692d90d3",
+  "latest_commit_short": "7d02d7e",
+  "latest_commit_title": "Slice C parity audit: zero critical violations across all 7 layouts; one DIS contract drift (dismiss X coord rule) amended to match LayoutShell-owned placement; 6 Studio framework frictions captured as improvement backlog",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "7d02d7e",
+      "full_sha": "7d02d7e9edd5e64cb6f40b939830f6b5692d90d3",
+      "title": "Slice C parity audit: zero critical violations across all 7 layouts; one DIS contract drift (dismiss X coord rule) amended to match LayoutShell-owned placement; 6 Studio framework frictions captured as improvement backlog",
+      "author": "Claude",
+      "timestamp": "2026-05-24T01:57:20Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7d02d7e.md"
+    },
     {
       "sha": "ccfd5da",
       "full_sha": "ccfd5da6dfac28f1f5334545fd49b0b38b2f7d33",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-04-30T16:37:15Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-f71efd8.md"
-    },
-    {
-      "sha": "d76dbd1",
-      "full_sha": "d76dbd11a8eab89163b0deee496ac6dae0428f5d",
-      "title": "nest STATE_SYNC processing flags per Lovable spec; bump KB search timeout",
-      "author": "Claude",
-      "timestamp": "2026-04-30T03:42:32Z",
-      "type": "chore",
-      "brief": "items/build_/COMMITS/COMMIT-d76dbd1.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
