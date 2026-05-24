@@ -33,6 +33,8 @@ import {
   type SpecialistContext,
 } from '@/services/agents/specialistRouter';
 import { createActivityReceipt } from '@/services/receipts/activityReceiptService';
+import { executeCapability } from '@/services/capabilities/execute';
+import type { PolicyEnvelope } from '@/services/capabilities/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -118,6 +120,49 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     }
 
+    // ── Capability Gateway — Pattern A pre-flight gather ──────────────
+    // Phase 2 wiring: gated behind CAPABILITY_GATEWAY_PREFLIGHT=true
+    // and limited to `kn0w1` so a regression here can't take down the
+    // other seven specialists. When the gateway returns a result, we
+    // prepend a short context block to intentRationale; on any failure
+    // (deny, adapter error, timeout) we fall through silently — gather
+    // is enrichment, not a hard dependency.
+    let enrichedRationale = intentRationale;
+    if (
+      process.env.CAPABILITY_GATEWAY_PREFLIGHT === 'true' &&
+      resolvedSpecialistId === 'kn0w1' &&
+      intentName
+    ) {
+      const envelope: PolicyEnvelope = {
+        tenant_id: 'default',
+        persona_id: context.personaId,
+        disclosure_class: 'persona',
+        allowed_surfaces: [],
+        forbidden_actions: [],
+        requires_guardian_approval: false,
+        cartridge_scope: activeCartridge,
+      };
+      const gather = await executeCapability({
+        persona: context,
+        envelope,
+        adapter: 'openclaw',
+        capability_intent: 'tool_gather',
+        capability_class: 'search',
+        tool_name: 'web-search',
+        input: { query: intentName.slice(0, 200) },
+        origin_surface: `ask-agent/${resolvedSpecialistId}`,
+        cartridge: activeCartridge,
+        intentId: body.intentId ?? null,
+      }).catch((err) => {
+        console.warn('[ask-agent] preflight gather threw:', err instanceof Error ? err.message : err);
+        return null;
+      });
+      if (gather?.ok && gather.adapterResult.ok) {
+        const block = `Pre-flight gather (workOrder=${gather.workOrder.workOrderId}): ${gather.adapterResult.summary}`;
+        enrichedRationale = enrichedRationale ? `${block}\n\n${enrichedRationale}` : block;
+      }
+    }
+
     const specialistContext: SpecialistContext = {
       activeCartridge,
       experienceName: qube?.meta.experienceName ?? null,
@@ -126,7 +171,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       currentStage: qube?.meta.currentStage ?? 'setup',
       activeCartridges: qube?.meta.activeCartridges ?? ['metame'],
       intentName,
-      intentRationale,
+      intentRationale: enrichedRationale,
       ...(body.prompt ? { userPrompt: body.prompt } : {}),
     };
 
