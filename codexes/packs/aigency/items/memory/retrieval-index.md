@@ -1094,3 +1094,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-d2bb41f.md](../build_/COMMITS/COMMIT-d2bb41f.md)
 - Message: capability gateway phase 2a — adapter pattern, openclaw shim, kn0w1 wiring
+
+## Commit `e968318` — 2026-05-24T09:13:42Z
+- Type: `push`
+- Brief: [COMMIT-e968318.md](../build_/COMMITS/COMMIT-e968318.md)
+- Message: capability gateway phase 2b — widen pre-flight gather to all specialists
