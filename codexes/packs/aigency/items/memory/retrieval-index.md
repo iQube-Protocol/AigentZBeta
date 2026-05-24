@@ -1129,3 +1129,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-d45e06c.md](../build_/COMMITS/COMMIT-d45e06c.md)
 - Message: SpecialistsLayout: unify composer + reply into a single emerald consultation card
+
+## Commit `052d9fd` — 2026-05-24T18:48:05Z
+- Type: `push`
+- Brief: [COMMIT-052d9fd.md](../build_/COMMITS/COMMIT-052d9fd.md)
+- Message: SpecialistsLayout: suggested-artifact chips open composer pre-populated
