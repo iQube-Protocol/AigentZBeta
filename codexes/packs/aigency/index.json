@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-24T00:20:51.666Z",
+  "last_updated": "2026-05-24T00:52:26.213Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "56a60ade419cfd3fa2f10c5e920055130979c186",
-  "latest_commit_short": "56a60ad",
-  "latest_commit_title": "Phase 2 Slice 4 (compose-in-layout): all 6 compose modals support inline=true mode; openComposeByKind routes to ComposerLayout instead of popups; legacy modal mounts + open booleans removed from tab",
+  "latest_commit": "3e8011ebabe282a33fd5250f745c42bab250b4aa",
+  "latest_commit_short": "3e8011e",
+  "latest_commit_title": "ComposerLayout dismiss: auto-scroll the ArtifactCard into view when returning to stack so the Send draft approval gate doesn't sit below the fold unnoticed",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "3e8011e",
+      "full_sha": "3e8011ebabe282a33fd5250f745c42bab250b4aa",
+      "title": "ComposerLayout dismiss: auto-scroll the ArtifactCard into view when returning to stack so the Send draft approval gate doesn't sit below the fold unnoticed",
+      "author": "Claude",
+      "timestamp": "2026-05-24T00:50:42Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-3e8011e.md"
+    },
     {
       "sha": "56a60ad",
       "full_sha": "56a60ade419cfd3fa2f10c5e920055130979c186",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-04-30T02:43:08Z",
       "type": "chore",
       "brief": "items/build_/COMMITS/COMMIT-d8e603e.md"
-    },
-    {
-      "sha": "87f3b18",
-      "full_sha": "87f3b188cf6643dfff114c0df0caff6afe939485",
-      "title": "fix NBA action: use source=text_input so inference + thin-client message fire",
-      "author": "Claude",
-      "timestamp": "2026-04-30T00:56:57Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-87f3b18.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
