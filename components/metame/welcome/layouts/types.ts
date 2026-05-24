@@ -77,6 +77,16 @@ export type RightPaneLayoutProps = WelcomeRightPaneProps & {
   composerKind?: ComposeKind | null;
   composerHandlers?: ComposerHandlers;
   /**
+   * Optional pre-baked aigentMe draft prompt — when ComposerLayout
+   * mounts with this set, the inline compose form pre-fills its AI
+   * prompt textarea AND auto-fires the draft once so the operator
+   * lands on a populated form. Used by the SpecialistsLayout
+   * suggested-artifact buttons (e.g. Marketa proposes "Partner
+   * proposal" → click → composer opens with subject/body/recipients
+   * already drafted from Marketa's response).
+   */
+  composerInitialPrompt?: string | null;
+  /**
    * B.1: selected KPI id for the KpiDetailLayout. The cockpit chip
    * onClick sets this + activates 'kpi-detail'.
    */
@@ -135,6 +145,14 @@ export type RightPaneLayoutProps = WelcomeRightPaneProps & {
   onHandoffSpecialist?: (target: import("@/services/agents/specialistRouter").SpecialistId) => void;
   /** Activations tab CTA — for specialists whose source is "needs-activation". */
   onOpenActivationsForSpecialist?: (activationId: string) => void;
+  /**
+   * Suggested-artifact chip → open composer pre-populated. The handler
+   * maps the artifact label (e.g. "Partner proposal", "Article brief",
+   * "Email draft") to a ComposeKind, builds an inferred prompt from
+   * the response shape, and opens ComposerLayout with that prompt set
+   * as composerInitialPrompt so the inline form auto-drafts on mount.
+   */
+  onUseSuggestedArtifact?: (artifactType: string, response: import("@/components/metame/cards/SpecialistResponseCard").SpecialistResponseData) => void;
 };
 
 export interface RightPaneLayoutDefinition {

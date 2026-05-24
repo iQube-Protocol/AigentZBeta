@@ -54,6 +54,7 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
     onRequestLayout,
     composerKind,
     composerHandlers,
+    composerInitialPrompt,
   } = props;
 
   const isDark = theme === "dark";
@@ -89,6 +90,7 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
             onCreate={composerHandlers.onCreateGmail}
             onDraftWithAigentMe={composerHandlers.onDraftGmail}
             theme={theme}
+            initialPrompt={composerInitialPrompt ?? undefined}
           />
         );
       case "event":
@@ -103,6 +105,7 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onDraftWithAigentMe={composerHandlers.onDraftCalendar as any}
             theme={theme}
+            initialPrompt={composerInitialPrompt ?? undefined}
           />
         );
       case "doc":
@@ -117,6 +120,7 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onDraftWithAigentMe={composerHandlers.onDraftDoc as any}
             theme={theme}
+            initialPrompt={composerInitialPrompt ?? undefined}
           />
         );
       case "sheet":
@@ -131,6 +135,7 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onDraftWithAigentMe={composerHandlers.onDraftSheet as any}
             theme={theme}
+            initialPrompt={composerInitialPrompt ?? undefined}
           />
         );
       case "slides":
@@ -145,6 +150,7 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onDraftWithAigentMe={composerHandlers.onDraftSlides as any}
             theme={theme}
+            initialPrompt={composerInitialPrompt ?? undefined}
           />
         );
       case "marketa":
@@ -159,6 +165,7 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onDraftWithAigentMe={composerHandlers.onDraftMarketa as any}
             theme={theme}
+            initialPrompt={composerInitialPrompt ?? undefined}
           />
         );
       default:

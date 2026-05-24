@@ -196,6 +196,10 @@ function SpecialistsLayoutComponent(props: RightPaneLayoutProps) {
               onChangePrompt={(p) => props.onSetSpecialistPrompt?.(p)}
               onSend={() => props.onAskSelectedSpecialist?.(state.askPrompt)}
               onHandoff={(target) => props.onHandoffSpecialist?.(target)}
+              onUseSuggestedArtifact={(artifactType) =>
+                activeSpecialistResponse &&
+                props.onUseSuggestedArtifact?.(artifactType, activeSpecialistResponse)
+              }
             />
           )}
 
@@ -653,6 +657,7 @@ function ConsultationCard({
   onChangePrompt,
   onSend,
   onHandoff,
+  onUseSuggestedArtifact,
 }: {
   specialist: SpecialistRosterEntry;
   prompt: string;
@@ -665,6 +670,7 @@ function ConsultationCard({
   onChangePrompt: (p: string) => void;
   onSend: () => void;
   onHandoff: (target: SpecialistId) => void;
+  onUseSuggestedArtifact?: (artifactType: string) => void;
 }) {
   // Emerald-tinted wrapper that visually unifies the composer (what
   // you ask) with the reply (what comes back). The accent matches the
@@ -715,7 +721,7 @@ function ConsultationCard({
                 <SpecialistResponseCard
                   data={response}
                   theme={theme}
-                  onCreateArtifact={undefined}
+                  onCreateArtifact={onUseSuggestedArtifact}
                 />
                 <HandoffStrip
                   roster={roster}

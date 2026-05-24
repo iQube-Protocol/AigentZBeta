@@ -163,6 +163,48 @@ function composeKindForAction(action: NextBestActionData): ComposeKind | null {
   }
 }
 
+/**
+ * Specialist-response → ComposeKind resolver. Free-form artifact
+ * labels coming back from the LLM (e.g. "Partner proposal", "Article
+ * brief", "Campaign deck") are normalised to lowercase and matched
+ * against keyword patterns. Returns null when no compose surface is
+ * a sensible fit — the SpecialistResponseCard then renders the chip
+ * as a non-clickable label.
+ */
+function composeKindForSuggestedArtifact(artifactType: string): ComposeKind | null {
+  const t = artifactType.toLowerCase();
+  if (/(email|outreach|gmail|note to|reply|message)/.test(t)) {
+    return /(marketa|campaign send)/.test(t) ? 'marketa' : 'gmail';
+  }
+  if (/(meeting|calendar|event|invite|sync\b)/.test(t)) return 'event';
+  if (/(slide|deck|presentation|pitch)/.test(t)) return 'slides';
+  if (/(sheet|spreadsheet|tracker|csv|table)/.test(t)) return 'sheet';
+  if (/(doc|brief|memo|proposal|article|outline|narrative|write-up|writeup|spec|plan)/.test(t)) return 'doc';
+  return null;
+}
+
+/**
+ * Build the inferred draft prompt the ComposerLayout fires on mount.
+ * Combines the specialist response's title + summary + top
+ * recommendations + chosen artifact into a single, concrete brief so
+ * the modal's draft handler can produce a populated form.
+ */
+function buildPromptForSuggestedArtifact(
+  artifactType: string,
+  response: import('@/components/metame/cards/SpecialistResponseCard').SpecialistResponseData,
+): string {
+  const lines: string[] = [];
+  lines.push(`Draft a ${artifactType.toLowerCase()} that operationalises ${response.specialistLabel}'s recommendation: "${response.title}".`);
+  if (response.summary) lines.push(`Context: ${response.summary}`);
+  const topRecs = response.recommendations.slice(0, 4);
+  if (topRecs.length > 0) {
+    lines.push(`Key points to cover:`);
+    for (const r of topRecs) lines.push(`- ${r}`);
+  }
+  lines.push(`Keep it concrete, action-oriented, and ready for the operator to review, edit, and send.`);
+  return lines.join('\n');
+}
+
 interface Props {
   theme?: 'light' | 'dark';
   isAdmin?: boolean;
@@ -1095,6 +1137,11 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // Phase 2 Slice 4: which compose form ComposerLayout should render
   // inline. Null when the layout is preview-only.
   const [composerKind, setComposerKind] = useState<ComposeKind | null>(null);
+  // Optional pre-baked aigentMe draft prompt — when set, the inline
+  // compose form pre-fills its AI prompt textarea AND auto-fires the
+  // draft on mount so the operator lands on a populated form. Used by
+  // the SpecialistsLayout suggested-artifact buttons.
+  const [composerInitialPrompt, setComposerInitialPrompt] = useState<string | null>(null);
 
   // Phase 2 B.1: selected KPI for KpiDetailLayout. The cockpit chip's
   // onClick sets this + activates 'kpi-detail'.
@@ -1117,6 +1164,26 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // surface flips to the draft preview with Send draft → Phase 2
   // ApprovalLayout overlay (the unified HITL gate).
   const openComposeByKind = useCallback((kind: ComposeKind) => {
+    // Clear any prior auto-draft prompt — manual chip-fired composer
+    // opens should land on an empty form, not re-run a previous draft.
+    setComposerInitialPrompt(null);
+    setComposerKind(kind);
+    setActiveLayoutId('composer');
+  }, []);
+
+  // SpecialistsLayout suggested-artifact button → open ComposerLayout
+  // with a pre-baked aigentMe draft prompt so the inline form
+  // auto-populates. No-op when the artifact label doesn't map to any
+  // compose surface (e.g. "Strategy memo PDF" — we leave the chip
+  // non-clickable and the operator can ask the specialist to refine).
+  const handleUseSuggestedArtifact = useCallback((
+    artifactType: string,
+    response: import('@/components/metame/cards/SpecialistResponseCard').SpecialistResponseData,
+  ) => {
+    const kind = composeKindForSuggestedArtifact(artifactType);
+    if (!kind) return;
+    const prompt = buildPromptForSuggestedArtifact(artifactType, response);
+    setComposerInitialPrompt(prompt);
     setComposerKind(kind);
     setActiveLayoutId('composer');
   }, []);
@@ -1461,6 +1528,9 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         case null: case undefined: /* no fetch */ break;
       }
       if (chip.layoutDispatch.composerKind) {
+        // Chip-driven composer opens land on an empty form — only the
+        // suggested-artifact path sets composerInitialPrompt.
+        setComposerInitialPrompt(null);
         setComposerKind(chip.layoutDispatch.composerKind);
       }
     };
@@ -1687,6 +1757,13 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 onSetSpecialistPrompt: setAskSpecialistPrompt,
                 onHandoffSpecialist: handleHandoffSpecialist,
                 onOpenActivationsForSpecialist: handleOpenActivationsForSpecialist,
+                onUseSuggestedArtifact: handleUseSuggestedArtifact,
+                // Pre-baked aigentMe draft prompt for the ComposerLayout
+                // when the operator fired a suggested-artifact button.
+                // Cleared by every non-suggested-artifact composer open
+                // path so the next composer mount starts empty unless a
+                // suggested-artifact explicitly seeded a prompt.
+                composerInitialPrompt,
                 composerHandlers: {
                   onCreateGmail: async (input) => {
                     await handleComposeGmailDraft(input);

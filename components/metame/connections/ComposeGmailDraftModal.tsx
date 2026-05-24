@@ -18,7 +18,7 @@
  * artifacts list by the parent.
  */
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Loader2, X, Mail, Sparkles } from "lucide-react";
 import { MicButton } from "@/components/ui/MicButton";
 import { transformEmailDictation } from "@/hooks/useSpeechRecognition";
@@ -61,6 +61,8 @@ interface Props {
    * always renders when the layout mounts it.
    */
   inline?: boolean;
+  /** See ComposeGoogleDocModal — auto-fires draft on mount when set. */
+  initialPrompt?: string;
 }
 
 export function ComposeGmailDraftModal({
@@ -70,6 +72,7 @@ export function ComposeGmailDraftModal({
   onDraftWithAigentMe,
   theme = "dark",
   inline = false,
+  initialPrompt,
 }: Props) {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiDrafting, setAiDrafting] = useState(false);
@@ -83,15 +86,13 @@ export function ComposeGmailDraftModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleDraft = useCallback(async () => {
+  const draftWithPrompt = useCallback(async (promptToUse: string) => {
+    const trimmed = promptToUse.trim();
+    if (!trimmed) return;
     setError(null);
-    if (!aiPrompt.trim()) {
-      setError('Tell aigentMe what the email is for (one sentence).');
-      return;
-    }
     setAiDrafting(true);
     try {
-      const draft = await onDraftWithAigentMe(aiPrompt.trim());
+      const draft = await onDraftWithAigentMe(trimmed);
       setTo(draft.to ?? "");
       setCc(draft.cc ?? "");
       setBcc(draft.bcc ?? "");
@@ -104,7 +105,25 @@ export function ComposeGmailDraftModal({
     } finally {
       setAiDrafting(false);
     }
-  }, [aiPrompt, onDraftWithAigentMe]);
+  }, [onDraftWithAigentMe]);
+
+  const handleDraft = useCallback(() => {
+    if (!aiPrompt.trim()) {
+      setError('Tell aigentMe what the email is for (one sentence).');
+      return;
+    }
+    void draftWithPrompt(aiPrompt);
+  }, [aiPrompt, draftWithPrompt]);
+
+  // Mount-fire from initialPrompt — see ComposeGoogleDocModal.
+  const lastInitialPromptRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialPrompt || !initialPrompt.trim()) return;
+    if (lastInitialPromptRef.current === initialPrompt) return;
+    lastInitialPromptRef.current = initialPrompt;
+    setAiPrompt(initialPrompt);
+    void draftWithPrompt(initialPrompt);
+  }, [initialPrompt, draftWithPrompt]);
 
   const isDark = theme === "dark";
   const overlayClass = "fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4";

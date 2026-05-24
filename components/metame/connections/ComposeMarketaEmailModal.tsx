@@ -10,7 +10,7 @@
  * /api/connectors/execute flow.
  */
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Loader2, X, Send, Sparkles } from "lucide-react";
 import { MicButton } from "@/components/ui/MicButton";
 import { transformEmailDictation } from "@/hooks/useSpeechRecognition";
@@ -46,9 +46,11 @@ interface Props {
   theme?: "light" | "dark";
   /** See ComposeGmailDraftModal — Phase 2 inline host mode. */
   inline?: boolean;
+  /** See ComposeGoogleDocModal — auto-fires draft on mount when set. */
+  initialPrompt?: string;
 }
 
-export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithAigentMe, theme = "dark", inline = false }: Props) {
+export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithAigentMe, theme = "dark", inline = false, initialPrompt }: Props) {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiDrafting, setAiDrafting] = useState(false);
   const [aiRationale, setAiRationale] = useState<string | null>(null);
@@ -114,15 +116,13 @@ export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithA
     ? "border border-slate-700 text-slate-300 hover:border-slate-500"
     : "border border-slate-300 text-slate-700 hover:border-slate-500";
 
-  const handleDraft = useCallback(async () => {
+  const draftWithPrompt = useCallback(async (promptToUse: string) => {
+    const trimmed = promptToUse.trim();
+    if (!trimmed) return;
     setError(null);
-    if (!aiPrompt.trim()) {
-      setError('Tell aigentMe what the outreach is for.');
-      return;
-    }
     setAiDrafting(true);
     try {
-      const draft = await onDraftWithAigentMe(aiPrompt.trim());
+      const draft = await onDraftWithAigentMe(trimmed);
       setTo(draft.to ?? "");
       setCc(draft.cc ?? "");
       setBcc(draft.bcc ?? "");
@@ -135,7 +135,25 @@ export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithA
     } finally {
       setAiDrafting(false);
     }
-  }, [aiPrompt, onDraftWithAigentMe]);
+  }, [onDraftWithAigentMe]);
+
+  const handleDraft = useCallback(() => {
+    if (!aiPrompt.trim()) {
+      setError('Tell aigentMe what the outreach is for.');
+      return;
+    }
+    void draftWithPrompt(aiPrompt);
+  }, [aiPrompt, draftWithPrompt]);
+
+  // Mount-fire from initialPrompt — see ComposeGoogleDocModal.
+  const lastInitialPromptRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialPrompt || !initialPrompt.trim()) return;
+    if (lastInitialPromptRef.current === initialPrompt) return;
+    lastInitialPromptRef.current = initialPrompt;
+    setAiPrompt(initialPrompt);
+    void draftWithPrompt(initialPrompt);
+  }, [initialPrompt, draftWithPrompt]);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
