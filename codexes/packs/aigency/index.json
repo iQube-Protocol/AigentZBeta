@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-24T08:17:23.360Z",
+  "last_updated": "2026-05-24T08:44:00.254Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "fdfa189ed53b94ff096128b60de5effd9e6be081",
-  "latest_commit_short": "fdfa189",
-  "latest_commit_title": "VentureCockpit: surface KPI editor from cockpit chips + header",
+  "latest_commit": "828d5b8fa6f8bca76fd9203b02ca5129b68da572",
+  "latest_commit_short": "828d5b8",
+  "latest_commit_title": "capability gateway phase 1 — types, policy compiler, gateway, receipt wrapper",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "828d5b8",
+      "full_sha": "828d5b8fa6f8bca76fd9203b02ca5129b68da572",
+      "title": "capability gateway phase 1 — types, policy compiler, gateway, receipt wrapper",
+      "author": "Claude",
+      "timestamp": "2026-05-24T08:42:04Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-828d5b8.md"
+    },
     {
       "sha": "fdfa189",
       "full_sha": "fdfa189ed53b94ff096128b60de5effd9e6be081",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-01T02:56:02Z",
       "type": "chore",
       "brief": "items/build_/COMMITS/COMMIT-59216d8.md"
-    },
-    {
-      "sha": "73f4581",
-      "full_sha": "73f458158c5a80667aa1ec7593eb51edf622c07e",
-      "title": "KNYT cart Phase 3b — buy-more-KNYT panel when KNYT rail is short",
-      "author": "Claude",
-      "timestamp": "2026-04-30T23:01:48Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-73f4581.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

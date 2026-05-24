@@ -1079,3 +1079,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-fdfa189.md](../build_/COMMITS/COMMIT-fdfa189.md)
 - Message: VentureCockpit: surface KPI editor from cockpit chips + header
+
+## Commit `828d5b8` — 2026-05-24T08:42:04Z
+- Type: `push`
+- Brief: [COMMIT-828d5b8.md](../build_/COMMITS/COMMIT-828d5b8.md)
+- Message: capability gateway phase 1 — types, policy compiler, gateway, receipt wrapper
