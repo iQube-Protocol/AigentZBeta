@@ -119,9 +119,23 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
               accentClass={isDark ? "text-cyan-300/90" : "text-cyan-700"}
             >
               <Carousel>
-                <StatChip label="Active KPIs" value={data.kpiSummary.activeKpisCount} isDark={isDark} accentId="cyan" />
-                <StatChip label="Operational goals" value={data.operationalGoalsCount} isDark={isDark} accentId="cyan" />
-                <StatChip label="Commercial goals" value={data.commercialGoalsCount} isDark={isDark} accentId="cyan" />
+                {/* Phase 2 B.1 — when the server returned resolved KPIs
+                    (rich shape, activation-bound), render one chip per
+                    KPI showing current/target/trend. Falls back to the
+                    legacy count chips when the venture has no KPIs
+                    declared yet so the operator still sees the
+                    operational/commercial summary. */}
+                {data.activeKpis && data.activeKpis.length > 0 ? (
+                  data.activeKpis.map((kpi) => (
+                    <KpiChip key={kpi.id} kpi={kpi} isDark={isDark} />
+                  ))
+                ) : (
+                  <>
+                    <StatChip label="Active KPIs" value={data.kpiSummary.activeKpisCount} isDark={isDark} accentId="cyan" />
+                    <StatChip label="Operational goals" value={data.operationalGoalsCount} isDark={isDark} accentId="cyan" />
+                    <StatChip label="Commercial goals" value={data.commercialGoalsCount} isDark={isDark} accentId="cyan" />
+                  </>
+                )}
                 {data.kpiSummary.hasFranchiseProposition && (
                   <PillChip label="Franchise proposition" isDark={isDark} accentId="emerald" />
                 )}
@@ -209,6 +223,90 @@ function Carousel({ children }: { children: React.ReactNode }) {
       ))}
     </div>
   );
+}
+
+function KpiChip({
+  kpi,
+  isDark,
+}: {
+  kpi: import('@/services/strategy/kpiTypes').KpiRecord;
+  isDark: boolean;
+}) {
+  // Rich KPI chip — shows name + current/target + trend arrow. Source
+  // drives the accent: activation-bound KPIs use cyan when resolved,
+  // muted slate when the source activation is inactive (so the
+  // operator sees "this needs an activation" at a glance). Manual
+  // KPIs use cyan with a small dot indicator.
+  const isUnresolved = !!kpi.unresolvedReason;
+  const accentKey: 'cyan' | 'slate' = isUnresolved ? 'slate' : 'cyan';
+  const tint = accent(accentKey, isDark ? 'dark' : 'light');
+  const hasValue = typeof kpi.current === 'number';
+  const display = hasValue ? formatKpiValue(kpi.current!, kpi.unit) : '—';
+  const targetLabel = kpi.target ? kpi.target.split(/\s+by\s+/i)[0] : '';
+
+  const trendArrow =
+    kpi.trend === 'up'
+      ? '↑'
+      : kpi.trend === 'down'
+        ? '↓'
+        : kpi.trend === 'flat'
+          ? '→'
+          : '';
+  const trendClass =
+    kpi.trend === 'up'
+      ? (isDark ? 'text-emerald-300' : 'text-emerald-700')
+      : kpi.trend === 'down'
+        ? (isDark ? 'text-rose-300' : 'text-rose-700')
+        : (isDark ? 'text-slate-400' : 'text-slate-500');
+
+  return (
+    <div
+      className={`rounded-lg border p-2.5 min-w-[10rem] max-w-[14rem] backdrop-blur-sm ${tint.border} ${hasValue ? tint.fillStrong : tint.fillSoft}`}
+      title={
+        isUnresolved
+          ? `Source ${kpi.source.activationId ?? '—'} not active`
+          : kpi.target || kpi.name
+      }
+    >
+      <div className={`text-xs truncate ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+        {kpi.name}
+      </div>
+      <div className="flex items-baseline gap-1 mt-0.5">
+        <div className={`text-lg font-semibold leading-tight ${hasValue ? tint.text : (isDark ? 'text-slate-400' : 'text-slate-500')}`}>
+          {display}
+        </div>
+        {targetLabel && hasValue && (
+          <div className={`text-[10px] ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+            / {targetLabel}
+          </div>
+        )}
+        {trendArrow && (
+          <div className={`text-xs font-medium ml-auto ${trendClass}`}>
+            {trendArrow}
+          </div>
+        )}
+      </div>
+      {isUnresolved && (
+        <div className={`text-[10px] mt-1 ${isDark ? 'text-amber-300/80' : 'text-amber-700'}`}>
+          {kpi.unresolvedReason === 'source-inactive'
+            ? 'Activate source to track'
+            : kpi.unresolvedReason === 'metric-unknown'
+              ? 'Metric unavailable'
+              : 'Source error'}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatKpiValue(value: number, unit?: string): string {
+  // Compact format: 1234 → "1.2k", 1500000 → "1.5M"
+  const abs = Math.abs(value);
+  let display: string;
+  if (abs >= 1_000_000) display = `${(value / 1_000_000).toFixed(1)}M`;
+  else if (abs >= 1_000) display = `${(value / 1_000).toFixed(1)}k`;
+  else display = String(value);
+  return unit ? `${display} ${unit}` : display;
 }
 
 function StatChip({

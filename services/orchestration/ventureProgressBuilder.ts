@@ -36,6 +36,9 @@ import {
   type NbeCandidate,
 } from '@/services/orchestration/nbeCatalog';
 import type { BriefNextBestAction } from '@/services/orchestration/briefBuilder';
+import { coerceKpisToRichShape, type KpiRecord } from '@/services/strategy/kpiTypes';
+import { resolveKpis } from '@/services/strategy/kpiResolver';
+import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Public shape — matches the Venture Progress Card render contract.
@@ -71,6 +74,12 @@ export interface VentureProgressShape {
   linkedCartridges: ActiveCartridgeSlug[];
 
   kpiSummary: VentureProgressKpiSummary;
+  /**
+   * Phase 2 B.1 — rich KPI records (id / name / target / current /
+   * unit / trend / source / lastUpdatedAt). Resolved per-source by
+   * `services/strategy/kpiResolver.ts`. Empty when no KPIs declared.
+   */
+  activeKpis: import('@/services/strategy/kpiTypes').KpiRecord[];
 
   /** Operational goal labels — count only, no values (BlakQube). */
   operationalGoalsCount: number;
@@ -152,6 +161,30 @@ export async function buildVentureProgress(
     ? Object.keys(blak.activeKpis).length
     : 0;
 
+  // Phase 2 B.1 — resolve activation-bound KPI values.
+  // 1) Coerce legacy `{name: target}` rows into the rich shape.
+  // 2) Resolver checks each activation-bound KPI against the persona's
+  //    active Activations + runs the metric query.
+  // 3) Manual KPIs pass through. Failed lookups mark `unresolvedReason`.
+  let resolvedKpis: KpiRecord[] = [];
+  try {
+    const raw = (blak.activeKpis ?? {}) as Record<string, unknown>;
+    const rich = coerceKpisToRichShape(raw);
+    const supabase = getSupabaseServer();
+    if (supabase && Object.keys(rich).length > 0) {
+      const resolved = await resolveKpis(supabase, {
+        personaId: input.personaId,
+        kpis: rich,
+      });
+      resolvedKpis = Object.values(resolved);
+    } else {
+      resolvedKpis = Object.values(rich);
+    }
+  } catch {
+    // Never block the cockpit on a KPI resolver failure.
+    resolvedKpis = [];
+  }
+
   const kpiSummary: VentureProgressKpiSummary = {
     activeKpisCount,
     operationalGoalsCount,
@@ -212,6 +245,7 @@ export async function buildVentureProgress(
     experienceConfigured,
     linkedCartridges,
     kpiSummary,
+    activeKpis: resolvedKpis,
     operationalGoalsCount,
     commercialGoalsCount,
     recentActivity,

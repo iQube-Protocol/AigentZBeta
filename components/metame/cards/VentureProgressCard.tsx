@@ -56,6 +56,8 @@ export interface VentureProgressData {
   experienceConfigured: boolean;
   linkedCartridges: string[];
   kpiSummary: VentureProgressKpiSummary;
+  /** Phase 2 B.1 — rich KPI rows resolved against active activations. */
+  activeKpis?: import('@/services/strategy/kpiTypes').KpiRecord[];
   operationalGoalsCount: number;
   commercialGoalsCount: number;
   recentActivity: VentureProgressRecentActivity[];
