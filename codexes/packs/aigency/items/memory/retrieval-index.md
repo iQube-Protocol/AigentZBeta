@@ -1089,3 +1089,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-ddff517.md](../build_/COMMITS/COMMIT-ddff517.md)
 - Message: capability gateway — add CapabilityIntent axis + log B/C backlog
+
+## Commit `d2bb41f` — 2026-05-24T09:04:38Z
+- Type: `push`
+- Brief: [COMMIT-d2bb41f.md](../build_/COMMITS/COMMIT-d2bb41f.md)
+- Message: capability gateway phase 2a — adapter pattern, openclaw shim, kn0w1 wiring
