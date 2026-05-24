@@ -1124,3 +1124,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-e4cf0a0.md](../build_/COMMITS/COMMIT-e4cf0a0.md)
 - Message: aigentMe: SpecialistsLayout v1 — server recommender, thread, hand-off
+
+## Commit `d45e06c` — 2026-05-24T18:28:47Z
+- Type: `push`
+- Brief: [COMMIT-d45e06c.md](../build_/COMMITS/COMMIT-d45e06c.md)
+- Message: SpecialistsLayout: unify composer + reply into a single emerald consultation card
