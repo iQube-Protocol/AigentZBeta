@@ -1034,3 +1034,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-77aff62.md](../build_/COMMITS/COMMIT-77aff62.md)
 - Message: Phase 2 B.1 (1/3): KPI source pipeline activation-bound — KpiRecord/KpiSource schema with ACTIVATION_METRIC_CATALOG; resolver only resolves KPIs whose source activation is active (else unresolvedReason=source-inactive); ventureProgress returns rich activeKpis; cockpit renders KpiChip with current/target/trend instead of empty count badges
+
+## Commit `4bdd99c` — 2026-05-24T02:32:00Z
+- Type: `refactor`
+- Brief: [COMMIT-4bdd99c.md](../build_/COMMITS/COMMIT-4bdd99c.md)
+- Message: B.1 (1.5/3): metrics + actions move onto ACTIVATION_CATALOG entries — KPIs/NBAs now dynamically driven by the persona's Activations tab; declared all 7 catalog activations with their metrics + actions; metric registry is now a one-row edit per activation, no separate file
