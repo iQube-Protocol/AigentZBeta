@@ -27,6 +27,7 @@ import type { ActivePersonaContext } from '@/types/access';
 import { compileCapabilityPolicy, type CapabilityDenyReason } from './policyCompiler';
 import type {
   CapabilityClass,
+  CapabilityIntent,
   CapabilityWorkOrder,
   PolicyEnvelope,
 } from './types';
@@ -40,6 +41,13 @@ export interface IssueWorkOrderInput {
 
   /** Adapter that will execute. Phase 1 only registers 'openclaw'. */
   adapter: 'openclaw';
+
+  /**
+   * Integration pattern (A / B / C). Phase 1 only accepts 'tool_gather';
+   * 'tool_execute' and 'plan_step' are reserved for the B/C backlog and
+   * rejected at the gateway until their wiring lands.
+   */
+  capability_intent?: CapabilityIntent;
 
   /** Coarse class for allowlist gating. */
   capability_class: CapabilityClass;
@@ -79,6 +87,7 @@ export type GatewayDenyReason =
   | 'persona-required'
   | 'policy-envelope-required'
   | 'unknown-adapter'
+  | 'capability-intent-not-yet-wired'
   | CapabilityDenyReason;
 
 /**
@@ -99,6 +108,19 @@ export function issueCapabilityWorkOrder(
   }
   if (input.adapter !== 'openclaw') {
     return { ok: false, reason: 'unknown-adapter', detail: `adapter '${input.adapter}' not registered` };
+  }
+
+  // Pattern B ('tool_execute') and Pattern C ('plan_step') are reserved
+  // for the B/C backlog. The gateway accepts the field shape now so
+  // callers can compile against the final API surface, but rejects any
+  // intent other than Pattern A at runtime until wiring lands.
+  const capability_intent: CapabilityIntent = input.capability_intent ?? 'tool_gather';
+  if (capability_intent !== 'tool_gather') {
+    return {
+      ok: false,
+      reason: 'capability-intent-not-yet-wired',
+      detail: `capability_intent '${capability_intent}' is on the B/C backlog; only 'tool_gather' is wired in phase 1`,
+    };
   }
 
   const decision = compileCapabilityPolicy({
@@ -125,6 +147,7 @@ export function issueCapabilityWorkOrder(
   const workOrder: CapabilityWorkOrder = {
     workOrderId: randomUUID(),
     adapter: input.adapter,
+    capability_intent,
     capability_class: input.capability_class,
     tool_name: input.tool_name,
     input: input.input,

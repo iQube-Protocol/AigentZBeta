@@ -48,7 +48,13 @@ export const prdToRepoIdentifiabilityMap: Record<PrdIdentifiability, Identifiabi
 
 // ─── Capability axis ─────────────────────────────────────────────────────────
 
-/** Coarse classification of what a capability does. Drives allowlist gating. */
+/**
+ * Coarse classification of what a capability does. Drives allowlist
+ * gating (which Identifiability tier can invoke which class).
+ *
+ * This is the TOOL TYPE axis. The complementary PATTERN axis lives in
+ * `CapabilityIntent` below (Pattern A / B / C in the integration plan).
+ */
 export type CapabilityClass =
   | 'read'        // pure-read tools (registry lookup, owned-content scan)
   | 'search'      // external search / discovery
@@ -57,6 +63,24 @@ export type CapabilityClass =
   | 'write'       // mutate persisted state (db row, registry entry)
   | 'payment'     // initiate / settle a payment
   | 'execute';    // generic tool execution that doesn't fit above
+
+/**
+ * Integration pattern axis — orthogonal to `CapabilityClass`. Describes
+ * WHERE in the aigentMe pipeline this work order sits. Lets the same
+ * gateway entry point serve all three integration patterns.
+ *
+ *   - 'tool_gather'   Pattern A: pre-flight enrichment before a
+ *                     specialist composes its reply. Phase 1/2.
+ *   - 'tool_execute'  Pattern B: post-reply execution of a specialist's
+ *                     suggested action. Backlog.
+ *   - 'plan_step'     Pattern C: one step inside a multi-step NBE
+ *                     plan run by `capabilityGateway.runPlan(...)`.
+ *                     Backlog.
+ *
+ * Phase 1 work orders default to 'tool_gather'. Adding a new pattern
+ * is an additive change here — no gateway signature churn.
+ */
+export type CapabilityIntent = 'tool_gather' | 'tool_execute' | 'plan_step';
 
 /** Disclosure tier carried through to gating. Mirrors PolicyEnvelope. */
 export type DisclosureClass = 'public' | 'tenant' | 'persona' | 'sovereign';
@@ -122,6 +146,13 @@ export interface CapabilityWorkOrder {
 
   /** Which adapter should execute this. */
   adapter: 'openclaw' | 'reserved-future';
+
+  /**
+   * Integration pattern this work order belongs to. Phase 1 issues
+   * only 'tool_gather'; Pattern B / C land via the same gateway with
+   * different intents — no new entry point.
+   */
+  capability_intent: CapabilityIntent;
 
   /** Coarse class for allowlist gating. */
   capability_class: CapabilityClass;
