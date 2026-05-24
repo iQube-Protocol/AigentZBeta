@@ -29,7 +29,8 @@ export type RightPaneLayoutId =
   | "venture-cockpit"
   | "composer"
   | "approval-interrupt"
-  | "ledger";
+  | "ledger"
+  | "kpi-detail";
 
 /**
  * Compose handler shapes — each onCreate matches the corresponding
@@ -73,6 +74,15 @@ export type RightPaneLayoutProps = WelcomeRightPaneProps & {
    */
   composerKind?: ComposeKind | null;
   composerHandlers?: ComposerHandlers;
+  /**
+   * B.1: selected KPI id for the KpiDetailLayout. The cockpit chip
+   * onClick sets this + activates 'kpi-detail'.
+   */
+  selectedKpiId?: string | null;
+  /** Cockpit-side chip click handler — sets selectedKpiId + activates 'kpi-detail'. */
+  onSelectKpi?: (kpiId: string) => void;
+  /** Fired after a KPI manual value save so the cockpit re-fetches. */
+  onKpiEdited?: () => void;
 };
 
 export interface RightPaneLayoutDefinition {

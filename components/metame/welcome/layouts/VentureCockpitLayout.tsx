@@ -127,7 +127,12 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
                     operational/commercial summary. */}
                 {data.activeKpis && data.activeKpis.length > 0 ? (
                   data.activeKpis.map((kpi) => (
-                    <KpiChip key={kpi.id} kpi={kpi} isDark={isDark} />
+                    <KpiChip
+                      key={kpi.id}
+                      kpi={kpi}
+                      isDark={isDark}
+                      onSelect={() => props.onSelectKpi?.(kpi.id)}
+                    />
                   ))
                 ) : (
                   <>
@@ -228,9 +233,11 @@ function Carousel({ children }: { children: React.ReactNode }) {
 function KpiChip({
   kpi,
   isDark,
+  onSelect,
 }: {
   kpi: import('@/services/strategy/kpiTypes').KpiRecord;
   isDark: boolean;
+  onSelect?: () => void;
 }) {
   // Rich KPI chip — shows name + current/target + trend arrow. Source
   // drives the accent: activation-bound KPIs use cyan when resolved,
@@ -275,8 +282,10 @@ function KpiChip({
   const showOutcomeDot = metricClass === 'outcome' && !isUnresolved;
 
   return (
-    <div
-      className={`rounded-lg border p-2.5 min-w-[10rem] max-w-[14rem] backdrop-blur-sm ${tint.border} ${hasValue ? tint.fillStrong : tint.fillSoft}`}
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`text-left rounded-lg border p-2.5 min-w-[10rem] max-w-[14rem] backdrop-blur-sm transition-colors hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-violet-500/40 ${tint.border} ${hasValue ? tint.fillStrong : tint.fillSoft}`}
       title={
         isUnresolved
           ? `Source ${kpi.source.activationId ?? '—'} not active`
@@ -319,7 +328,7 @@ function KpiChip({
               : 'Source error'}
         </div>
       )}
-    </div>
+    </button>
   );
 }
 

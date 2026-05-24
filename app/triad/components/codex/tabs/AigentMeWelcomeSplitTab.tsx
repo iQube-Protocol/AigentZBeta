@@ -928,6 +928,10 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // inline. Null when the layout is preview-only.
   const [composerKind, setComposerKind] = useState<ComposeKind | null>(null);
 
+  // Phase 2 B.1: selected KPI for KpiDetailLayout. The cockpit chip's
+  // onClick sets this + activates 'kpi-detail'.
+  const [selectedKpiId, setSelectedKpiId] = useState<string | null>(null);
+
   // ── AG-UI bridge: copilot → right pane ─────────────────────────────
   // Compose footer / copilot bridge now routes ALL compose intents
   // through the Phase 2 ComposerLayout — no popup modals over the
@@ -1195,6 +1199,12 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 // composerKind → null so the layout transitions to
                 // draft-preview without surface switching.
                 composerKind,
+                selectedKpiId,
+                onSelectKpi: (kpiId: string) => {
+                  setSelectedKpiId(kpiId);
+                  setActiveLayoutId('kpi-detail');
+                },
+                onKpiEdited: () => { void fetchVentureProgress(); },
                 composerHandlers: {
                   onCreateGmail: async (input) => {
                     await handleComposeGmailDraft(input);
