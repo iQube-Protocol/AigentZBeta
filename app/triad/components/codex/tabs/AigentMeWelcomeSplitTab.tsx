@@ -30,6 +30,12 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  coerceKpisToRichShape,
+  type KpiRecord,
+  type KpiSource,
+} from "@/services/strategy/kpiTypes";
+import { ACTIVATION_CATALOG } from "@/data/activation-catalog";
+import {
   usePersonaSpine,
   personaFetch,
   PersonaSpineGate,
@@ -958,6 +964,210 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const latestArtifact = artifacts[0] ?? null;
   const activeCartridges = (data?.availableCartridges ?? []).map((c) => c.slug);
 
+  // Phase 2 B.1 3/3 — load the persona's active activation ids so the
+  // copilot bridge can expose the available KPI sources filtered to
+  // what's currently switched on.
+  const [activeActivationIds, setActiveActivationIds] = useState<string[]>([]);
+  useEffect(() => {
+    if (!personaId) return;
+    let cancelled = false;
+    void personaFetch('/api/assistant/activations', { personaIdHint: personaId })
+      .then((r) => r.json())
+      .then((d: { activations?: Array<{ id: string; status: string }> }) => {
+        if (cancelled) return;
+        const ids = (d.activations ?? [])
+          .filter((a) => a.status === 'active')
+          .map((a) => a.id);
+        setActiveActivationIds(ids);
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [personaId]);
+
+  // Phase 2 B.1 3/3 — KPI mutation handlers passed to the copilot
+  // bridge. Reuse the same /api/assistant/experience-model path the
+  // editor uses; refresh venture-progress after each save so the
+  // cockpit picks up the change.
+  const handleAddKpi = useCallback(
+    async (input: { name: string; target: string; source: KpiSource; unit?: string }): Promise<{ ok: true; id: string } | { ok: false; reason: string }> => {
+      if (!personaId) return { ok: false, reason: 'No active persona' };
+      try {
+        const modelRes = await personaFetch('/api/assistant/experience-model', { personaIdHint: personaId });
+        const model = await modelRes.json();
+        const current = coerceKpisToRichShape(model?.activeKpis);
+        const id = `kpi_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+        // Pull metric label from catalog when activation-bound.
+        let unit = input.unit;
+        let metricClass: 'activity' | 'outcome' | 'standing' = 'activity';
+        if (input.source.kind === 'activation' && input.source.activationId && input.source.metric) {
+          const entry = ACTIVATION_CATALOG.find((e) => e.id === input.source.activationId);
+          const metric = entry?.metrics?.find((m) => m.metric === input.source.metric);
+          if (metric) {
+            unit = unit ?? metric.defaultUnit;
+            metricClass = metric.class ?? 'activity';
+          }
+        }
+        const record: KpiRecord = {
+          id,
+          name: input.name,
+          target: input.target,
+          current: null,
+          unit,
+          trend: 'unknown',
+          lastUpdatedAt: null,
+          source: input.source,
+          class: metricClass,
+        };
+        const next = { ...current, [id]: record };
+        const saveRes = await personaFetch('/api/assistant/experience-model', {
+          personaIdHint: personaId,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ blak: { activeKpis: next } }),
+        });
+        if (!saveRes.ok) {
+          const body = await saveRes.json().catch(() => ({}));
+          return { ok: false, reason: body?.detail || body?.error || `save failed (${saveRes.status})` };
+        }
+        void fetchVentureProgress();
+        return { ok: true, id };
+      } catch (err) {
+        return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+      }
+    },
+    [personaId, fetchVentureProgress],
+  );
+
+  const handleSetKpiValue = useCallback(
+    async (input: { kpiId: string; current: number }): Promise<{ ok: true } | { ok: false; reason: string }> => {
+      if (!personaId) return { ok: false, reason: 'No active persona' };
+      try {
+        const modelRes = await personaFetch('/api/assistant/experience-model', { personaIdHint: personaId });
+        const model = await modelRes.json();
+        const current = coerceKpisToRichShape(model?.activeKpis);
+        const existing = current[input.kpiId];
+        if (!existing) return { ok: false, reason: `KPI '${input.kpiId}' not found.` };
+        if (existing.source.kind !== 'manual') {
+          return { ok: false, reason: `KPI '${existing.name}' has a non-manual source; values resolve automatically.` };
+        }
+        const next = {
+          ...current,
+          [input.kpiId]: {
+            ...existing,
+            current: input.current,
+            lastUpdatedAt: new Date().toISOString(),
+          },
+        };
+        const saveRes = await personaFetch('/api/assistant/experience-model', {
+          personaIdHint: personaId,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ blak: { activeKpis: next } }),
+        });
+        if (!saveRes.ok) {
+          const body = await saveRes.json().catch(() => ({}));
+          return { ok: false, reason: body?.detail || body?.error || `save failed (${saveRes.status})` };
+        }
+        void fetchVentureProgress();
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+      }
+    },
+    [personaId, fetchVentureProgress],
+  );
+
+  const handleRemoveKpi = useCallback(
+    async (kpiId: string): Promise<{ ok: true } | { ok: false; reason: string }> => {
+      if (!personaId) return { ok: false, reason: 'No active persona' };
+      try {
+        const modelRes = await personaFetch('/api/assistant/experience-model', { personaIdHint: personaId });
+        const model = await modelRes.json();
+        const current = coerceKpisToRichShape(model?.activeKpis);
+        if (!current[kpiId]) return { ok: false, reason: `KPI '${kpiId}' not found.` };
+        const next = { ...current };
+        delete next[kpiId];
+        const saveRes = await personaFetch('/api/assistant/experience-model', {
+          personaIdHint: personaId,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ blak: { activeKpis: next } }),
+        });
+        if (!saveRes.ok) {
+          const body = await saveRes.json().catch(() => ({}));
+          return { ok: false, reason: body?.detail || body?.error || `save failed (${saveRes.status})` };
+        }
+        void fetchVentureProgress();
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+      }
+    },
+    [personaId, fetchVentureProgress],
+  );
+
+  const handleOpenKpiDetail = useCallback((kpiId: string) => {
+    setSelectedKpiId(kpiId);
+    setActiveLayoutId('kpi-detail');
+  }, []);
+
+  // T1-safe KPI snapshot for the copilot readable.
+  const copilotActiveKpis = useMemo(() => {
+    const rows = ventureProgress?.activeKpis ?? [];
+    return rows.map((kpi) => {
+      const entry = kpi.source.kind === 'activation' && kpi.source.activationId
+        ? ACTIVATION_CATALOG.find((e) => e.id === kpi.source.activationId)
+        : null;
+      const sourceLabel =
+        kpi.source.kind === 'manual'
+          ? 'Manual'
+          : entry
+            ? `${entry.label} → ${kpi.source.metric ?? '—'}`
+            : 'Unknown';
+      return {
+        id: kpi.id,
+        name: kpi.name,
+        target: kpi.target,
+        current: kpi.current,
+        unit: kpi.unit,
+        trend: kpi.trend,
+        class: kpi.class,
+        sourceKind: kpi.source.kind,
+        sourceLabel,
+        unresolvedReason: kpi.unresolvedReason ?? null,
+      };
+    });
+  }, [ventureProgress?.activeKpis]);
+
+  // Available KPI sources — union of metrics across the persona's
+  // ACTIVE activations. Inactive activations are omitted so the
+  // copilot only sees options that will resolve.
+  const copilotAvailableKpiSources = useMemo(() => {
+    const set = new Set(activeActivationIds);
+    const out: Array<{
+      activationId: string;
+      activationLabel: string;
+      metric: string;
+      metricLabel: string;
+      metricClass: 'activity' | 'outcome' | 'standing';
+      defaultUnit?: string;
+    }> = [];
+    for (const entry of ACTIVATION_CATALOG) {
+      if (!set.has(entry.id)) continue;
+      for (const m of entry.metrics ?? []) {
+        out.push({
+          activationId: entry.id,
+          activationLabel: entry.label,
+          metric: m.metric,
+          metricLabel: m.label,
+          metricClass: m.class ?? 'activity',
+          defaultUnit: m.defaultUnit,
+        });
+      }
+    }
+    return out;
+  }, [activeActivationIds]);
+
   useAigentMeCopilotBridge({
     openCompose: openComposeByKind,
     fireCta: handleCtaClick,
@@ -973,6 +1183,10 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       setExpandedSectionId(id);
     },
     focusCard,
+    addKpi: handleAddKpi,
+    setKpiValue: handleSetKpiValue,
+    removeKpi: handleRemoveKpi,
+    openKpiDetail: handleOpenKpiDetail,
     readable: {
       activeBrief: { hasBrief: !!brief, summary: brief?.summary ?? null },
       pendingApproval: { has: !!pendingApprovalNbe, cartridge: pendingApprovalNbe?.cartridge ?? null },
@@ -989,6 +1203,8 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       nextBestActionsCount: (moveForwardResult?.alternates.length ?? 0) + (moveForwardResult?.topAction ? 1 : 0),
       expandedSectionId,
       receiptsCount: receipts.length,
+      activeKpis: copilotActiveKpis,
+      availableKpiSources: copilotAvailableKpiSources,
     },
   });
 
