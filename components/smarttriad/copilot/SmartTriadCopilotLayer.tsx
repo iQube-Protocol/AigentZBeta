@@ -90,6 +90,21 @@ type QuickPrompt =
       icon?: React.ReactNode;
       iconOnly?: boolean;
       skipInference?: boolean;
+      /**
+       * Phase 2 Slice 7 — dual-dispatch chip strip.
+       *
+       * The chip strip is generic (knows nothing about layouts). Tabs
+       * that want right-pane dispatch from a chip click pass `onSelect`
+       * alongside the chip; we invoke it after submitting the copilot
+       * prompt. Tab implementations typically call
+       * `setActiveLayoutId(layoutId)` here so the workbench is ready by
+       * the time the copilot's response lands.
+       *
+       * Fires for every chip-click regardless of skipInference, so a
+       * pure-layout chip (skipInference: true, prompt: "") still
+       * triggers the right pane action.
+       */
+      onSelect?: () => void;
     };
 
 export function SmartTriadCopilotLayer({
@@ -327,7 +342,16 @@ export function SmartTriadCopilotLayer({
     const promptText = typeof prompt === 'string' ? prompt : prompt.prompt || prompt.label;
     setInput(promptText);
     onPrompt?.(promptText);
-    
+
+    // Phase 2 Slice 7: dual-dispatch. Whatever the chip's onSelect
+    // wants to do on the right pane (most commonly setActiveLayoutId
+    // + a data fetch) runs in parallel with the copilot prompt above.
+    // Fires for every chip click regardless of skipInference — pure
+    // layout chips skip the auto-send below but still trigger this.
+    if (typeof prompt !== 'string' && prompt.onSelect) {
+      prompt.onSelect();
+    }
+
     // Auto-send if skipInference is not set
     if (typeof prompt !== 'string' && !prompt.skipInference) {
       setTimeout(() => handleSend(), 100);

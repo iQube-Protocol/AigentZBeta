@@ -67,6 +67,7 @@ import {
   DEFAULT_LAYOUT_ID,
   type RightPaneLayoutId,
 } from "@/components/metame/welcome/layouts/registry";
+import type { NbeQuickChip } from "@/types/orchestration";
 import {
   useAigentMeCopilotBridge,
   type SectionId,
@@ -268,6 +269,15 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // DIS: codexes/packs/agentiq/items/dis/aigentme-phase-2.dis.json
   const [activeLayoutId, setActiveLayoutId] = useState<RightPaneLayoutId>(DEFAULT_LAYOUT_ID);
 
+  // Phase 2 Slice 7 — server-driven chip set.
+  // Null = use the cold-open static fallback below. Each /api/assistant/*
+  // response may carry a `quickChips: NbeQuickChip[]` envelope; when it
+  // does, the strip swaps to that set for the next turn. The fetch
+  // helpers (fetchBrief / fetchMoveForward / fetchVentureProgress) read
+  // the envelope and call setServerChips(). Server emission is the
+  // follow-on slice — this slot makes the swap point ready.
+  const [serverChips, setServerChips] = useState<NbeQuickChip[] | null>(null);
+
   // Phase 2 Slice 5: ApprovalLayout is INTERRUPT class — when a pending
   // approval arrives it overlays whatever layout is foreground. The
   // foreground layout stays mounted underneath so user context is
@@ -391,7 +401,11 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.detail || body?.error || `brief failed (${res.status})`);
       }
-      setBrief((await res.json()) as BriefCardData);
+      const payload = (await res.json()) as BriefCardData & { quickChips?: NbeQuickChip[] };
+      setBrief(payload);
+      // Phase 2 Slice 7: server-driven chip set. When the response
+      // carries a quickChips envelope, swap the strip for the next turn.
+      if (Array.isArray(payload.quickChips)) setServerChips(payload.quickChips);
     } catch (err) {
       setBriefError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -413,7 +427,15 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.detail || body?.error || `move-forward failed (${res.status})`);
       }
-      setMoveForwardResult((await res.json()) as { cartridge: string; topAction: NextBestActionData | null; alternates: NextBestActionData[]; topActionReason?: string | null });
+      const payload = (await res.json()) as {
+        cartridge: string;
+        topAction: NextBestActionData | null;
+        alternates: NextBestActionData[];
+        topActionReason?: string | null;
+        quickChips?: NbeQuickChip[];
+      };
+      setMoveForwardResult(payload);
+      if (Array.isArray(payload.quickChips)) setServerChips(payload.quickChips);
     } catch {
       setMoveForwardResult({ cartridge: cartridge ?? 'metame', topAction: null, alternates: [] });
     } finally {
@@ -436,7 +458,9 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.detail || body?.error || `venture-progress failed (${res.status})`);
       }
-      setVentureProgress((await res.json()) as VentureProgressData);
+      const payload = (await res.json()) as VentureProgressData & { quickChips?: NbeQuickChip[] };
+      setVentureProgress(payload);
+      if (Array.isArray(payload.quickChips)) setServerChips(payload.quickChips);
     } catch (err) {
       setVentureProgressError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -968,11 +992,78 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // Static seed prompts for the copilot (the right pane's CTAs are
   // still the canonical entry point; these just teach the copilot what
   // it can do on this surface).
-  const copilotQuickPrompts = useMemo(() => [
-    { id: 'brief', label: 'Brief me', prompt: 'Give me my daily brief.' },
-    { id: 'move', label: 'Move forward', prompt: 'What is the next best action I should take right now?' },
-    { id: 'venture', label: 'Venture progress', prompt: 'Where am I on my venture progress?' },
-  ], []);
+  // Phase 2 Slice 7 — dual-dispatch chip strip.
+  //
+  // Each chip carries TWO surfaces of intent:
+  //   1) the copilot — `prompt` is submitted as a user turn so the
+  //      narrative continues in chat (existing behavior).
+  //   2) the right pane — `onSelect` switches the active layout AND
+  //      fires the matching data fetch so the workbench is ready by
+  //      the time the copilot's response lands.
+  //
+  // Cold-open static set below. When the server returns a
+  // `quickChips: NbeQuickChip[]` envelope on a `/api/assistant/*`
+  // response, the strip swaps to that set (via setServerChips). The
+  // mapper below converts an NbeQuickChip's `layoutDispatch` into the
+  // local onSelect closure so the right-pane dispatch stays generic
+  // on the server side.
+  const copilotQuickPrompts = useMemo(() => {
+    const dispatchFor = (chip: NbeQuickChip) => () => {
+      if (!chip.layoutDispatch) return;
+      const { activate, fetch: fetchKind } = chip.layoutDispatch;
+      setActiveLayoutId(activate);
+      switch (fetchKind) {
+        case 'brief':            void fetchBrief(); break;
+        case 'move-forward':     void fetchMoveForward(); break;
+        case 'venture-progress': void fetchVentureProgress(); break;
+        case 'receipts':         void fetchReceipts(); break;
+        case null: case undefined: /* no fetch */ break;
+      }
+      if (chip.layoutDispatch.composerKind) {
+        setComposerKind(chip.layoutDispatch.composerKind);
+      }
+    };
+
+    if (serverChips && serverChips.length > 0) {
+      return serverChips.map((chip) => ({
+        id: chip.id,
+        label: chip.label,
+        prompt: chip.copilotPrompt ?? "",
+        skipInference: !chip.copilotPrompt,
+        onSelect: dispatchFor(chip),
+      }));
+    }
+
+    return [
+      {
+        id: 'brief',
+        label: 'Brief me',
+        prompt: 'Give me my daily brief.',
+        onSelect: () => {
+          setActiveLayoutId('brief');
+          void fetchBrief();
+        },
+      },
+      {
+        id: 'move',
+        label: 'Move forward',
+        prompt: 'What is the next best action I should take right now?',
+        onSelect: () => {
+          setActiveLayoutId('decision-board');
+          void fetchMoveForward();
+        },
+      },
+      {
+        id: 'venture',
+        label: 'Venture progress',
+        prompt: 'Where am I on my venture progress?',
+        onSelect: () => {
+          setActiveLayoutId('venture-cockpit');
+          void fetchVentureProgress();
+        },
+      },
+    ];
+  }, [serverChips, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts]);
 
   return (
     <>
