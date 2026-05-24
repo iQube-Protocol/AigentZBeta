@@ -1009,3 +1009,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-5d91086.md](../build_/COMMITS/COMMIT-5d91086.md)
 - Message: ApprovalLayout: drop inline NBE ApprovalCard from stack (was rendering behind the Phase-2 overlay) + amber surface/border/primary CTA matching Phase-1 authorization treatment
+
+## Commit `56a60ad` — 2026-05-24T00:19:04Z
+- Type: `push`
+- Brief: [COMMIT-56a60ad.md](../build_/COMMITS/COMMIT-56a60ad.md)
+- Message: Phase 2 Slice 4 (compose-in-layout): all 6 compose modals support inline=true mode; openComposeByKind routes to ComposerLayout instead of popups; legacy modal mounts + open booleans removed from tab
