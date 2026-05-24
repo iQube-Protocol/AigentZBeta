@@ -1029,3 +1029,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-7d02d7e.md](../build_/COMMITS/COMMIT-7d02d7e.md)
 - Message: Slice C parity audit: zero critical violations across all 7 layouts; one DIS contract drift (dismiss X coord rule) amended to match LayoutShell-owned placement; 6 Studio framework frictions captured as improvement backlog
+
+## Commit `77aff62` — 2026-05-24T02:16:46Z
+- Type: `push`
+- Brief: [COMMIT-77aff62.md](../build_/COMMITS/COMMIT-77aff62.md)
+- Message: Phase 2 B.1 (1/3): KPI source pipeline activation-bound — KpiRecord/KpiSource schema with ACTIVATION_METRIC_CATALOG; resolver only resolves KPIs whose source activation is active (else unresolvedReason=source-inactive); ventureProgress returns rich activeKpis; cockpit renders KpiChip with current/target/trend instead of empty count badges
