@@ -1149,3 +1149,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-0a8fa17.md](../build_/COMMITS/COMMIT-0a8fa17.md)
 - Message: runtime: aigent-z → aigent-me in agent dropdown + default, alias-based
+
+## Commit `99e2175` — 2026-05-25T18:55:28Z
+- Type: `push`
+- Brief: [COMMIT-99e2175.md](../build_/COMMITS/COMMIT-99e2175.md)
+- Message: aigent-me chat: load metaMe cartridge state into system prompt

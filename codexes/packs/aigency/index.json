@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-25T17:54:40.901Z",
+  "last_updated": "2026-05-25T18:57:27.338Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "0a8fa170bca3098828287f920585b46e9b3449cc",
-  "latest_commit_short": "0a8fa17",
-  "latest_commit_title": "runtime: aigent-z → aigent-me in agent dropdown + default, alias-based",
+  "latest_commit": "99e2175eeef7e0e2a6ea7404e73a755b29904fd6",
+  "latest_commit_short": "99e2175",
+  "latest_commit_title": "aigent-me chat: load metaMe cartridge state into system prompt",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "99e2175",
+      "full_sha": "99e2175eeef7e0e2a6ea7404e73a755b29904fd6",
+      "title": "aigent-me chat: load metaMe cartridge state into system prompt",
+      "author": "Claude",
+      "timestamp": "2026-05-25T18:55:28Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-99e2175.md"
+    },
     {
       "sha": "0a8fa17",
       "full_sha": "0a8fa170bca3098828287f920585b46e9b3449cc",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-02T23:16:39Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-2d2851e.md"
-    },
-    {
-      "sha": "1ec0495",
-      "full_sha": "1ec04957d2f5e7596c4fe4f46cad5a9d4a8f338e",
-      "title": "fix entitlements enrichment for all asset id formats",
-      "author": "Claude",
-      "timestamp": "2026-05-02T17:02:07Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-1ec0495.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
