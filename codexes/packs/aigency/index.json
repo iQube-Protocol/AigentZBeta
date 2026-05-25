@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-24T09:53:08.025Z",
+  "last_updated": "2026-05-24T21:00:56.655Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1c86daee23d5cdb2554a749569dcaf2093e1a173",
-  "latest_commit_short": "1c86dae",
-  "latest_commit_title": "aigentMe: surface Capability Gateway preflight + add Ask specialists chip",
+  "latest_commit": "a07c460bf1a2a57e4cedd94cd4269d995f763766",
+  "latest_commit_short": "a07c460",
+  "latest_commit_title": "google: write Doc body via Drive multipart upload — bypass Docs API",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,69 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a07c460",
+      "full_sha": "a07c460bf1a2a57e4cedd94cd4269d995f763766",
+      "title": "google: write Doc body via Drive multipart upload — bypass Docs API",
+      "author": "Claude",
+      "timestamp": "2026-05-24T20:59:10Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-a07c460.md"
+    },
+    {
+      "sha": "83830fa",
+      "full_sha": "83830fa52d04df6df3b1ef08429e4309368bfca5",
+      "title": "ArtifactCard: surface pop-out link for live artifacts + Enable-API CTA",
+      "author": "Claude",
+      "timestamp": "2026-05-24T20:50:48Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-83830fa.md"
+    },
+    {
+      "sha": "052d9fd",
+      "full_sha": "052d9fd33b2529a2257091241d03ffa4f75f7d88",
+      "title": "SpecialistsLayout: suggested-artifact chips open composer pre-populated",
+      "author": "Claude",
+      "timestamp": "2026-05-24T18:48:05Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-052d9fd.md"
+    },
+    {
+      "sha": "d45e06c",
+      "full_sha": "d45e06cc3e144c3c0ef9f4dd6d8ed967c1a6340f",
+      "title": "SpecialistsLayout: unify composer + reply into a single emerald consultation card",
+      "author": "Claude",
+      "timestamp": "2026-05-24T18:28:47Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d45e06c.md"
+    },
+    {
+      "sha": "e4cf0a0",
+      "full_sha": "e4cf0a0bfce48a5a21b9a47dd05fdb4449ed0973",
+      "title": "aigentMe: SpecialistsLayout v1 — server recommender, thread, hand-off",
+      "author": "Claude",
+      "timestamp": "2026-05-24T17:35:36Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-e4cf0a0.md"
+    },
+    {
+      "sha": "d0825fd",
+      "full_sha": "d0825fd14ab99cdedd29da5c40ba0bb68582a3ae",
+      "title": "nbe rerank: fold Capability Gateway preflight summary into LLM rerank prompt",
+      "author": "Claude",
+      "timestamp": "2026-05-24T10:09:51Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d0825fd.md"
+    },
+    {
+      "sha": "ac27250",
+      "full_sha": "ac27250d378be9ff5e4fbed564ff81c5758e20d0",
+      "title": "capability gateway phase 2b — openclawCore extract, real web-search + owned-content-scan",
+      "author": "Claude",
+      "timestamp": "2026-05-24T09:58:46Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-ac27250.md"
+    },
     {
       "sha": "1c86dae",
       "full_sha": "1c86daee23d5cdb2554a749569dcaf2093e1a173",
@@ -1189,69 +1252,6 @@
       "timestamp": "2026-05-02T15:21:49Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-91addc8.md"
-    },
-    {
-      "sha": "9507817",
-      "full_sha": "9507817b30fbfed0b012a62876c4a5495e4f76d0",
-      "title": "fix purchase modal showing sign-in screen to authenticated users",
-      "author": "Claude",
-      "timestamp": "2026-05-02T15:18:39Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-9507817.md"
-    },
-    {
-      "sha": "960838f",
-      "full_sha": "960838f3f7538b7dabeaceb8d8f24d6ba01ae209",
-      "title": "fix persona identity persistence and library thumbnails",
-      "author": "Claude",
-      "timestamp": "2026-05-02T14:59:59Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-960838f.md"
-    },
-    {
-      "sha": "9bf2293",
-      "full_sha": "9bf229332d417c0e3b4e319a4b2fc88e737e8c48",
-      "title": "fix drawer z-index, KNYT store link, copilot on store tabs, investor tab visibility",
-      "author": "Claude",
-      "timestamp": "2026-05-01T17:21:01Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-9bf2293.md"
-    },
-    {
-      "sha": "5d9c6d7",
-      "full_sha": "5d9c6d737b221d198d43ba0526fe17a76901eb27",
-      "title": "add RaBadges asset type + editable tier/variant + upload completion feedback",
-      "author": "Claude",
-      "timestamp": "2026-05-01T15:34:43Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-5d9c6d7.md"
-    },
-    {
-      "sha": "738b6cc",
-      "full_sha": "738b6cc2f8af0fc183971d7a35b53d4fe902bf6c",
-      "title": "fix: migrate remaining persona ID reads to usePersonaSafe() context",
-      "author": "Claude",
-      "timestamp": "2026-05-01T14:30:15Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-738b6cc.md"
-    },
-    {
-      "sha": "37757fa",
-      "full_sha": "37757fa4cdb9694cf9d036c834b5864e4d5e4300",
-      "title": "fix episode-0 GN upload: allow episodeNumber 0 in validation + handle non-JSON error responses",
-      "author": "Claude",
-      "timestamp": "2026-05-01T14:17:25Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-37757fa.md"
-    },
-    {
-      "sha": "a3536fd",
-      "full_sha": "a3536fd94e1a1ad8508b9539317d46b2808222d6",
-      "title": "add asset detail drilldown to Codex Manager dashboard",
-      "author": "Claude",
-      "timestamp": "2026-05-01T14:06:19Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-a3536fd.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

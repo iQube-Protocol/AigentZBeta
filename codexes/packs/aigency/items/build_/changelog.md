@@ -1,4 +1,11 @@
 # Build — Changelog
+- [`a07c460`](https://github.com/iQube-Protocol/AigentZBeta/commit/a07c460bf1a2a57e4cedd94cd4269d995f763766) [push] google: write Doc body via Drive multipart upload — bypass Docs API (Claude, 2026-05-24T20:59:10Z)
+- [`83830fa`](https://github.com/iQube-Protocol/AigentZBeta/commit/83830fa52d04df6df3b1ef08429e4309368bfca5) [push] ArtifactCard: surface pop-out link for live artifacts + Enable-API CTA (Claude, 2026-05-24T20:50:48Z)
+- [`052d9fd`](https://github.com/iQube-Protocol/AigentZBeta/commit/052d9fd33b2529a2257091241d03ffa4f75f7d88) [push] SpecialistsLayout: suggested-artifact chips open composer pre-populated (Claude, 2026-05-24T18:48:05Z)
+- [`d45e06c`](https://github.com/iQube-Protocol/AigentZBeta/commit/d45e06cc3e144c3c0ef9f4dd6d8ed967c1a6340f) [push] SpecialistsLayout: unify composer + reply into a single emerald consultation card (Claude, 2026-05-24T18:28:47Z)
+- [`e4cf0a0`](https://github.com/iQube-Protocol/AigentZBeta/commit/e4cf0a0bfce48a5a21b9a47dd05fdb4449ed0973) [push] aigentMe: SpecialistsLayout v1 — server recommender, thread, hand-off (Claude, 2026-05-24T17:35:36Z)
+- [`d0825fd`](https://github.com/iQube-Protocol/AigentZBeta/commit/d0825fd14ab99cdedd29da5c40ba0bb68582a3ae) [push] nbe rerank: fold Capability Gateway preflight summary into LLM rerank prompt (Claude, 2026-05-24T10:09:51Z)
+- [`ac27250`](https://github.com/iQube-Protocol/AigentZBeta/commit/ac27250d378be9ff5e4fbed564ff81c5758e20d0) [push] capability gateway phase 2b — openclawCore extract, real web-search + owned-content-scan (Claude, 2026-05-24T09:58:46Z)
 - [`1c86dae`](https://github.com/iQube-Protocol/AigentZBeta/commit/1c86daee23d5cdb2554a749569dcaf2093e1a173) [feat] aigentMe: surface Capability Gateway preflight + add Ask specialists chip (Claude, 2026-05-24T09:51:12Z)
 - [`c2bfdc4`](https://github.com/iQube-Protocol/AigentZBeta/commit/c2bfdc401a4434b9ac726651895a0a92454211d1) [push] capability gateway phase 2c — pre-flight gather on aigentMe progression surfaces (Claude, 2026-05-24T09:21:28Z)
 - [`e968318`](https://github.com/iQube-Protocol/AigentZBeta/commit/e96831813d6f7d81eb29d4eb961911f33fdc0ab0) [push] capability gateway phase 2b — widen pre-flight gather to all specialists (Claude, 2026-05-24T09:13:42Z)

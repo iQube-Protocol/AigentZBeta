@@ -1109,3 +1109,38 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-1c86dae.md](../build_/COMMITS/COMMIT-1c86dae.md)
 - Message: aigentMe: surface Capability Gateway preflight + add Ask specialists chip
+
+## Commit `ac27250` — 2026-05-24T09:58:46Z
+- Type: `push`
+- Brief: [COMMIT-ac27250.md](../build_/COMMITS/COMMIT-ac27250.md)
+- Message: capability gateway phase 2b — openclawCore extract, real web-search + owned-content-scan
+
+## Commit `d0825fd` — 2026-05-24T10:09:51Z
+- Type: `push`
+- Brief: [COMMIT-d0825fd.md](../build_/COMMITS/COMMIT-d0825fd.md)
+- Message: nbe rerank: fold Capability Gateway preflight summary into LLM rerank prompt
+
+## Commit `e4cf0a0` — 2026-05-24T17:35:36Z
+- Type: `push`
+- Brief: [COMMIT-e4cf0a0.md](../build_/COMMITS/COMMIT-e4cf0a0.md)
+- Message: aigentMe: SpecialistsLayout v1 — server recommender, thread, hand-off
+
+## Commit `d45e06c` — 2026-05-24T18:28:47Z
+- Type: `push`
+- Brief: [COMMIT-d45e06c.md](../build_/COMMITS/COMMIT-d45e06c.md)
+- Message: SpecialistsLayout: unify composer + reply into a single emerald consultation card
+
+## Commit `052d9fd` — 2026-05-24T18:48:05Z
+- Type: `push`
+- Brief: [COMMIT-052d9fd.md](../build_/COMMITS/COMMIT-052d9fd.md)
+- Message: SpecialistsLayout: suggested-artifact chips open composer pre-populated
+
+## Commit `83830fa` — 2026-05-24T20:50:48Z
+- Type: `push`
+- Brief: [COMMIT-83830fa.md](../build_/COMMITS/COMMIT-83830fa.md)
+- Message: ArtifactCard: surface pop-out link for live artifacts + Enable-API CTA
+
+## Commit `a07c460` — 2026-05-24T20:59:10Z
+- Type: `push`
+- Brief: [COMMIT-a07c460.md](../build_/COMMITS/COMMIT-a07c460.md)
+- Message: google: write Doc body via Drive multipart upload — bypass Docs API

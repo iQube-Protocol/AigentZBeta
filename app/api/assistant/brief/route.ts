@@ -100,6 +100,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       personaId: context.personaId,
       briefType,
       scopedCartridge,
+      // Phase 2c — pass the gather summary into the LLM rerank pass.
+      // No-op when CAPABILITY_GATEWAY_PREFLIGHT is off (preflight is
+      // null) or when the LLM rerank pass itself is disabled.
+      liveContext: preflight?.summary ?? null,
     });
     return NextResponse.json(
       preflight ? { ...brief, preflightContext: preflight } : brief,

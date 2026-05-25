@@ -40,6 +40,7 @@ export interface SpecialistResponseData {
   source: "llm" | "template";
   generatedAt: string;
   preflightContext?: PreflightContext;
+  handoffFrom?: { specialistId: SpecialistResponseData["specialistId"]; priorTitle: string };
 }
 
 interface Props {
@@ -124,11 +125,19 @@ export function SpecialistResponseCard({
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <Bot className={`w-4 h-4 ${accentClass}`} />
             <span className={`text-xs uppercase tracking-wider ${mutedClass}`}>
               {data.specialistLabel} · {requestLabel}
             </span>
+            {data.handoffFrom && (
+              <span
+                className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-full border ${chipClass}`}
+                title={data.handoffFrom.priorTitle ? `Hand-off from ${data.handoffFrom.specialistId} — prior take: "${data.handoffFrom.priorTitle}"` : `Hand-off from ${data.handoffFrom.specialistId}`}
+              >
+                ← {data.handoffFrom.specialistId}
+              </span>
+            )}
             <PreflightChip preflight={data.preflightContext} theme={theme} />
           </div>
           <h3 className="text-lg font-semibold leading-tight">{data.title}</h3>

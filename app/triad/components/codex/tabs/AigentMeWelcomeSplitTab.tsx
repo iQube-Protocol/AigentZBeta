@@ -35,6 +35,10 @@ import {
   type KpiSource,
 } from "@/services/strategy/kpiTypes";
 import { ACTIVATION_CATALOG } from "@/data/activation-catalog";
+import {
+  getActiveCartridge,
+  tryOpenInMountedCartridge,
+} from "@/services/cartridge/CartridgePresenceRegistry";
 import { ActiveKpisEditor } from "@/components/metame/setup/ActiveKpisEditor";
 import {
   usePersonaSpine,
@@ -159,6 +163,48 @@ function composeKindForAction(action: NextBestActionData): ComposeKind | null {
   }
 }
 
+/**
+ * Specialist-response → ComposeKind resolver. Free-form artifact
+ * labels coming back from the LLM (e.g. "Partner proposal", "Article
+ * brief", "Campaign deck") are normalised to lowercase and matched
+ * against keyword patterns. Returns null when no compose surface is
+ * a sensible fit — the SpecialistResponseCard then renders the chip
+ * as a non-clickable label.
+ */
+function composeKindForSuggestedArtifact(artifactType: string): ComposeKind | null {
+  const t = artifactType.toLowerCase();
+  if (/(email|outreach|gmail|note to|reply|message)/.test(t)) {
+    return /(marketa|campaign send)/.test(t) ? 'marketa' : 'gmail';
+  }
+  if (/(meeting|calendar|event|invite|sync\b)/.test(t)) return 'event';
+  if (/(slide|deck|presentation|pitch)/.test(t)) return 'slides';
+  if (/(sheet|spreadsheet|tracker|csv|table)/.test(t)) return 'sheet';
+  if (/(doc|brief|memo|proposal|article|outline|narrative|write-up|writeup|spec|plan)/.test(t)) return 'doc';
+  return null;
+}
+
+/**
+ * Build the inferred draft prompt the ComposerLayout fires on mount.
+ * Combines the specialist response's title + summary + top
+ * recommendations + chosen artifact into a single, concrete brief so
+ * the modal's draft handler can produce a populated form.
+ */
+function buildPromptForSuggestedArtifact(
+  artifactType: string,
+  response: import('@/components/metame/cards/SpecialistResponseCard').SpecialistResponseData,
+): string {
+  const lines: string[] = [];
+  lines.push(`Draft a ${artifactType.toLowerCase()} that operationalises ${response.specialistLabel}'s recommendation: "${response.title}".`);
+  if (response.summary) lines.push(`Context: ${response.summary}`);
+  const topRecs = response.recommendations.slice(0, 4);
+  if (topRecs.length > 0) {
+    lines.push(`Key points to cover:`);
+    for (const r of topRecs) lines.push(`- ${r}`);
+  }
+  lines.push(`Keep it concrete, action-oriented, and ready for the operator to review, edit, and send.`);
+  return lines.join('\n');
+}
+
 interface Props {
   theme?: 'light' | 'dark';
   isAdmin?: boolean;
@@ -253,6 +299,25 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const [askSpecialistLoadingId, setAskSpecialistLoadingId] = useState<string | null>(null);
   const [askSpecialistResponses, setAskSpecialistResponses] = useState<Record<string, SpecialistResponseData>>({});
   const [askSpecialistErrors, setAskSpecialistErrors] = useState<Record<string, string>>({});
+
+  // Phase 2 — SpecialistsLayout state. Recommendation comes from
+  // /api/assistant/specialist-recommend; thread comes from
+  // /api/assistant/specialist-thread (reads activity_receipts).
+  const [selectedSpecialistId, setSelectedSpecialistId] = useState<
+    import("@/services/agents/specialistRouter").SpecialistId | null
+  >(null);
+  const [specialistRecommendation, setSpecialistRecommendation] = useState<
+    import("@/services/orchestration/specialistRecommender").SpecialistRecommendation | null
+  >(null);
+  const [specialistRecommendationLoading, setSpecialistRecommendationLoading] = useState(false);
+  const [specialistRecommendationError, setSpecialistRecommendationError] = useState<string | null>(null);
+  const [specialistRecommendationPreflight, setSpecialistRecommendationPreflight] = useState<
+    import("@/services/capabilities/preflight").PreflightContext | undefined
+  >(undefined);
+  const [specialistThread, setSpecialistThread] = useState<
+    NonNullable<import("@/components/metame/welcome/layouts/types").RightPaneLayoutProps["specialistsLayout"]>["thread"]
+  >([]);
+  const [specialistThreadLoading, setSpecialistThreadLoading] = useState(false);
 
   // Activity receipts.
   const [receipts, setReceipts] = useState<ActivityReceiptData[]>([]);
@@ -930,14 +995,22 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     setQueuedIntents((prev) => { const next = { ...prev }; delete next[nbeId]; return next; });
   }, []);
 
-  const handleAskSpecialist = useCallback(async (specialistId: string, prompt: string) => {
+  const handleAskSpecialist = useCallback(async (
+    specialistId: string,
+    prompt: string,
+    handoff?: { fromSpecialistId: string; priorTitle?: string; priorReceiptId?: string },
+  ) => {
     const key = specialistId;
     setAskSpecialistLoadingId(key);
     setAskSpecialistErrors((prev) => { const next = { ...prev }; delete next[key]; return next; });
     try {
       const res = await personaFetch('/api/assistant/ask-agent', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ specialistId, ...(prompt.trim() ? { prompt: prompt.trim() } : {}) }),
+        body: JSON.stringify({
+          specialistId,
+          ...(prompt.trim() ? { prompt: prompt.trim() } : {}),
+          ...(handoff ? { handoff } : {}),
+        }),
         personaIdHint: personaId,
       });
       if (!res.ok) {
@@ -955,9 +1028,120 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
   }, [personaId, fetchReceipts]);
 
+  // Phase 2 — SpecialistsLayout fetchers + handlers.
+  const fetchSpecialistRecommendation = useCallback(async (query?: string) => {
+    if (!personaId) return;
+    setSpecialistRecommendationLoading(true);
+    setSpecialistRecommendationError(null);
+    try {
+      const res = await personaFetch('/api/assistant/specialist-recommend', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(query ? { query } : {}),
+        personaIdHint: personaId,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.detail || body?.error || `specialist-recommend failed (${res.status})`);
+      }
+      const payload = (await res.json()) as
+        import("@/services/orchestration/specialistRecommender").SpecialistRecommendation
+        & { preflightContext?: import("@/services/capabilities/preflight").PreflightContext };
+      setSpecialistRecommendation(payload);
+      setSpecialistRecommendationPreflight(payload.preflightContext);
+      // Auto-select the recommended specialist if none is selected yet,
+      // so the operator lands on a primed composer instead of an empty
+      // canvas. They can still pick another from the roster.
+      setSelectedSpecialistId((prev) => prev ?? payload.topSpecialistId);
+    } catch (err) {
+      setSpecialistRecommendationError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSpecialistRecommendationLoading(false);
+    }
+  }, [personaId]);
+
+  const fetchSpecialistThread = useCallback(async (
+    specialistId: import("@/services/agents/specialistRouter").SpecialistId,
+  ) => {
+    if (!personaId) return;
+    setSpecialistThreadLoading(true);
+    try {
+      const res = await personaFetch(
+        `/api/assistant/specialist-thread?specialistId=${specialistId}&limit=20`,
+        { personaIdHint: personaId },
+      );
+      if (!res.ok) {
+        setSpecialistThread([]);
+        return;
+      }
+      const payload = (await res.json()) as {
+        entries: NonNullable<import("@/components/metame/welcome/layouts/types").RightPaneLayoutProps["specialistsLayout"]>["thread"];
+      };
+      setSpecialistThread(payload.entries ?? []);
+    } catch {
+      setSpecialistThread([]);
+    } finally {
+      setSpecialistThreadLoading(false);
+    }
+  }, [personaId]);
+
+  const handleSelectSpecialist = useCallback((
+    id: import("@/services/agents/specialistRouter").SpecialistId,
+  ) => {
+    setSelectedSpecialistId(id);
+    setAskSpecialistPrompt("");
+    void fetchSpecialistThread(id);
+  }, [fetchSpecialistThread]);
+
+  const handleAskSelectedSpecialist = useCallback((prompt: string) => {
+    if (!selectedSpecialistId) return;
+    void handleAskSpecialist(selectedSpecialistId, prompt);
+  }, [selectedSpecialistId, handleAskSpecialist]);
+
+  const handleHandoffSpecialist = useCallback((
+    target: import("@/services/agents/specialistRouter").SpecialistId,
+  ) => {
+    if (!selectedSpecialistId || selectedSpecialistId === target) return;
+    const prior = askSpecialistResponses[selectedSpecialistId];
+    // Inherit the previous prompt verbatim; the route prefixes it
+    // with a hand-off note so the receiving specialist sees framing.
+    const carriedPrompt = askSpecialistPrompt.trim() || prior?.title || 'continue this consultation';
+    setSelectedSpecialistId(target);
+    void fetchSpecialistThread(target);
+    void handleAskSpecialist(target, carriedPrompt, {
+      fromSpecialistId: selectedSpecialistId,
+      priorTitle: prior?.title,
+    });
+  }, [selectedSpecialistId, askSpecialistResponses, askSpecialistPrompt, fetchSpecialistThread, handleAskSpecialist]);
+
+  const handleOpenActivationsForSpecialist = useCallback((_activationId: string) => {
+    // Deep-link the operator to the cartridge's Activations top-nav
+    // tab via the canonical CartridgePresenceRegistry. The mounted
+    // cartridge's setTab callback (registered by CodexPanelDynamic
+    // through useCartridgePresence) switches the surface directly,
+    // no URL navigation required.
+    const active = getActiveCartridge();
+    if (active) {
+      const switched = tryOpenInMountedCartridge({
+        cartridgeId: active.cartridgeId,
+        tab: 'activations',
+      });
+      if (switched) return;
+    }
+    // Fallback: if the registry has no active cartridge (mount race or
+    // standalone embed), surface the Experience accordion in the
+    // stack layout so the operator still lands on something coherent.
+    setActiveLayoutId('stack');
+    setExpandedSectionId('experience');
+  }, []);
+
   // Phase 2 Slice 4: which compose form ComposerLayout should render
   // inline. Null when the layout is preview-only.
   const [composerKind, setComposerKind] = useState<ComposeKind | null>(null);
+  // Optional pre-baked aigentMe draft prompt — when set, the inline
+  // compose form pre-fills its AI prompt textarea AND auto-fires the
+  // draft on mount so the operator lands on a populated form. Used by
+  // the SpecialistsLayout suggested-artifact buttons.
+  const [composerInitialPrompt, setComposerInitialPrompt] = useState<string | null>(null);
 
   // Phase 2 B.1: selected KPI for KpiDetailLayout. The cockpit chip's
   // onClick sets this + activates 'kpi-detail'.
@@ -980,6 +1164,26 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // surface flips to the draft preview with Send draft → Phase 2
   // ApprovalLayout overlay (the unified HITL gate).
   const openComposeByKind = useCallback((kind: ComposeKind) => {
+    // Clear any prior auto-draft prompt — manual chip-fired composer
+    // opens should land on an empty form, not re-run a previous draft.
+    setComposerInitialPrompt(null);
+    setComposerKind(kind);
+    setActiveLayoutId('composer');
+  }, []);
+
+  // SpecialistsLayout suggested-artifact button → open ComposerLayout
+  // with a pre-baked aigentMe draft prompt so the inline form
+  // auto-populates. No-op when the artifact label doesn't map to any
+  // compose surface (e.g. "Strategy memo PDF" — we leave the chip
+  // non-clickable and the operator can ask the specialist to refine).
+  const handleUseSuggestedArtifact = useCallback((
+    artifactType: string,
+    response: import('@/components/metame/cards/SpecialistResponseCard').SpecialistResponseData,
+  ) => {
+    const kind = composeKindForSuggestedArtifact(artifactType);
+    if (!kind) return;
+    const prompt = buildPromptForSuggestedArtifact(artifactType, response);
+    setComposerInitialPrompt(prompt);
     setComposerKind(kind);
     setActiveLayoutId('composer');
   }, []);
@@ -1324,6 +1528,9 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         case null: case undefined: /* no fetch */ break;
       }
       if (chip.layoutDispatch.composerKind) {
+        // Chip-driven composer opens land on an empty form — only the
+        // suggested-artifact path sets composerInitialPrompt.
+        setComposerInitialPrompt(null);
         setComposerKind(chip.layoutDispatch.composerKind);
       }
     };
@@ -1370,24 +1577,29 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         id: 'ask-specialists',
         label: 'Ask specialists',
         // The copilot prompt frames the specialist roster so the LLM
-        // knows what's available; the right pane simultaneously expands
-        // the Specialists accordion so the operator can fire an
-        // individual ask in the same gesture.
+        // knows what's available; the right pane mounts the Phase 2
+        // SpecialistsLayout and fires the server-side recommender so
+        // the operator lands on a primed consultation surface.
         prompt: 'Which specialist should I consult right now — Marketa, Quill, Kn0w1, Aigent Z, Aigent C, Aigent Nakamoto, Moneypenny, or metaYe — and why?',
         onSelect: () => {
-          setActiveLayoutId('stack');
-          setExpandedSectionId('specialists');
+          setActiveLayoutId('specialists');
+          void fetchSpecialistRecommendation();
         },
       },
     ];
-  }, [serverChips, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts]);
+  }, [serverChips, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts, fetchSpecialistRecommendation]);
 
   return (
     <>
       <PersonaSpineGate state={spine}>
         <div className="h-[calc(100vh-96px)] flex flex-col lg:flex-row gap-2 px-2 pr-3 overflow-hidden">
-          {/* ── LEFT: persistent copilot ─────────────────────────── */}
-          <div className="lg:w-[55%] w-full h-full min-h-0 flex flex-col">
+          {/* ── LEFT: persistent copilot (50/50 with the right pane —
+              the right pane is the busier surface and deserves
+              equal width; the metaVatar rendering layer reads the
+              copilot's getBoundingClientRect via the
+              --metaavatar-copilot-w CSS variable so it rescales
+              automatically when this changes). ─────────────────── */}
+          <div className="lg:w-1/2 w-full h-full min-h-0 flex flex-col">
             <SmartTriadCopilotLayer
               isOpen
               variant="panel"
@@ -1399,8 +1611,8 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
             />
           </div>
 
-          {/* ── RIGHT: dynamic surface ───────────────────────────── */}
-          <div className="lg:w-[45%] w-full h-full min-h-0 relative">
+          {/* ── RIGHT: dynamic surface (50/50 with the copilot). ── */}
+          <div className="lg:w-1/2 w-full h-full min-h-0 relative">
             {bootstrapLoading && !data && (
               <div className="h-full flex items-center justify-center text-sm opacity-60">
                 Loading aigentMe…
@@ -1526,6 +1738,32 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 onForceSync: () => { void fetchVentureProgress({ silent: true }); },
                 // KPI editor entry point — header button + empty-state CTA.
                 onEditKpis: () => setKpisEditorOpen(true),
+                // Phase 2 — SpecialistsLayout state bundle.
+                specialistsLayout: {
+                  selectedSpecialistId,
+                  recommendation: specialistRecommendation,
+                  recommendationLoading: specialistRecommendationLoading,
+                  recommendationError: specialistRecommendationError,
+                  sessionResponses: askSpecialistResponses,
+                  thread: specialistThread,
+                  threadLoading: specialistThreadLoading,
+                  askPrompt: askSpecialistPrompt,
+                  askLoadingId: askSpecialistLoadingId,
+                  askError: selectedSpecialistId ? (askSpecialistErrors[selectedSpecialistId] ?? null) : null,
+                  preflightContext: specialistRecommendationPreflight,
+                },
+                onSelectSpecialist: handleSelectSpecialist,
+                onAskSelectedSpecialist: handleAskSelectedSpecialist,
+                onSetSpecialistPrompt: setAskSpecialistPrompt,
+                onHandoffSpecialist: handleHandoffSpecialist,
+                onOpenActivationsForSpecialist: handleOpenActivationsForSpecialist,
+                onUseSuggestedArtifact: handleUseSuggestedArtifact,
+                // Pre-baked aigentMe draft prompt for the ComposerLayout
+                // when the operator fired a suggested-artifact button.
+                // Cleared by every non-suggested-artifact composer open
+                // path so the next composer mount starts empty unless a
+                // suggested-artifact explicitly seeded a prompt.
+                composerInitialPrompt,
                 composerHandlers: {
                   onCreateGmail: async (input) => {
                     await handleComposeGmailDraft(input);

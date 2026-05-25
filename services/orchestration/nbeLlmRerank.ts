@@ -37,8 +37,13 @@ Rules:
   1. clears the persona's biggest current blocker, OR
   2. directly serves the inferred-strategy headline / primary goal, OR
   3. unlocks compounding moves (e.g. workspace draft → outreach).
+- When a "liveContext" string is provided, treat it as a fresh signal
+  from a capability tool (e.g. web-search, owned-content-scan). Use it
+  to break ties or boost a candidate whose rationale lines up with the
+  signal — but never let it override the deterministic eligibility set,
+  and never invent ids. If it's noise, ignore it.
 - Penalise candidates that duplicate work the persona has already done.
-- topReason: ≤ 140 chars, concrete (reference the actual blocker or goal). No markdown.`;
+- topReason: ≤ 140 chars, concrete (reference the actual blocker or goal, or the live signal when it drove the pick). No markdown.`;
 
 interface RerankContext {
   currentStage: ExperienceStage;
@@ -46,6 +51,13 @@ interface RerankContext {
   primaryGoal: string | null;
   experienceGoals: string[];
   strategy: InferredStrategy | null;
+  /**
+   * Optional Capability Gateway pre-flight summary (e.g. web-search
+   * digest, owned-content-scan finding). Surfaces as a `liveContext`
+   * field in the prompt body. Empty / null => omitted entirely so the
+   * prompt shape stays stable for callers that don't have a gather.
+   */
+  liveContext?: string | null;
 }
 
 function stripJsonFences(raw: string): string {
@@ -88,6 +100,10 @@ function summariseForPrompt(
   candidates: NbeCandidate[],
   ctx: RerankContext,
 ): string {
+  const liveContext =
+    typeof ctx.liveContext === 'string' && ctx.liveContext.trim().length > 0
+      ? ctx.liveContext.trim().slice(0, 600)
+      : null;
   return JSON.stringify(
     {
       persona: {
@@ -104,6 +120,7 @@ function summariseForPrompt(
             coherence: ctx.strategy.coherenceNote,
           }
         : null,
+      ...(liveContext ? { liveContext } : {}),
       candidates: candidates.map((c) => ({
         id: c.id,
         label: c.label,

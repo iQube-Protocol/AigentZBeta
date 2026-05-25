@@ -102,6 +102,16 @@ interface CreateArtifactSurface {
   message: string;
   createdAt: string;
   locationUrl?: string | null;
+  /**
+   * Optional connector-emitted warning when a partial success
+   * happened (e.g. Drive created the doc but the Docs API was
+   * disabled so the body insert failed 403). Surfaced as an amber
+   * callout on the artifact card. When the warning text contains a
+   * Google Cloud Console URL, the card extracts it as a clickable
+   * "Enable API" CTA so the operator can fix the disabled-API issue
+   * in one click and re-run.
+   */
+  warning?: string | null;
   actionConnectorId?: string;
   actionConnectorLabel?: string;
   actionInput?: Record<string, unknown>;
@@ -477,13 +487,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           status: 'draft',
           receiptId: receipt?.id ?? null,
           intentId: body.sourceIntentId ?? null,
-          message: bodyWarning
-            ? `Doc created (title only). ${bodyWarning}`
-            : firstShare
-              ? `Doc created. Click "Share doc" to grant ${firstShare.email} ${firstShare.role} access — approval required.`
-              : 'Doc created privately in your Drive.',
+          message: firstShare
+            ? `Doc created. Click "Share doc" to grant ${firstShare.email} ${firstShare.role} access — approval required.`
+            : 'Doc created privately in your Drive.',
           createdAt,
           locationUrl,
+          ...(bodyWarning ? { warning: bodyWarning } : {}),
           ...(firstShare && documentId
             ? {
                 actionConnectorId: 'google.drive.share-doc',
