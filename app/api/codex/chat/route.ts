@@ -28,6 +28,7 @@ import {
   buildComposerPromptParts,
   type ComposerSessionContext,
 } from '@/services/copilot/composer';
+import { getExperienceQube, getPersonalGuide } from '@/services/iqube/experienceQube';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -80,6 +81,21 @@ interface UserContext {
   receiptVisibility?: boolean;
   skillFilter?: 'curated' | 'all';
   explanationFirst?: boolean;
+  // metaMe cartridge enrichment — populated when the active runtime
+  // agent is aigent-me. Reads ExperienceQube.meta + PersonalGuide.blak
+  // server-side from the user's metaMe cartridge state. Surfaces the
+  // user's declared focus, primary goal, stage, and active cartridges
+  // to aigentMe so its responses are framed in the user's actual
+  // workstream — not a generic system orchestrator voice.
+  metameContext?: {
+    experienceName?: string | null;
+    experienceType?: string | null;
+    primaryGoal?: string | null;
+    currentStage?: string | null;
+    activeCartridges?: string[];
+    focusIntent?: string | null;
+    alignmentState?: string | null;
+  };
 }
 
 interface CodexMetadata {
@@ -1465,6 +1481,44 @@ This user is a story enthusiast interested in the metaKnyts universe.
 // Agents that need the KNYT codex character/episode context injected
 const KNYT_FOCUSED_AGENTS = new Set(['aigent-kn0w1', 'aigent-marketa']);
 
+/**
+ * Load the metaMe cartridge state for a persona so aigentMe can answer
+ * inside the user's actual workstream context. Reads ExperienceQube.meta
+ * (experience name / type, primary goal, current stage, active cartridges)
+ * and PersonalGuide.blak (focus intent, alignment state).
+ *
+ * Returns null when either:
+ *   - personaId is missing / not a string (anonymous chat — generic mode)
+ *   - getExperienceQube returns null (no cartridge state yet)
+ *
+ * Errors are caught and swallowed (returns null) so a hiccup in the
+ * cartridge store doesn't break the chat — generic mode is the safe
+ * fallback.
+ */
+async function loadMetameContext(
+  personaId: string | undefined | null,
+): Promise<UserContext['metameContext']> {
+  if (!personaId || typeof personaId !== 'string') return undefined;
+  try {
+    const [qube, guide] = await Promise.all([
+      getExperienceQube(personaId).catch(() => null),
+      getPersonalGuide(personaId).catch(() => null),
+    ]);
+    if (!qube && !guide) return undefined;
+    return {
+      experienceName:   qube?.meta.experienceName ?? null,
+      experienceType:   qube?.meta.experienceType ?? null,
+      primaryGoal:      qube?.meta.primaryGoal ?? null,
+      currentStage:     qube?.meta.currentStage ?? null,
+      activeCartridges: qube?.meta.activeCartridges ?? [],
+      focusIntent:      guide?.focusIntent ?? null,
+      alignmentState:   guide?.alignmentState ?? null,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 // Build system prompt with codex context, user role, and KB content
 function buildSystemPrompt(
   metadata: CodexMetadata,
@@ -1509,6 +1563,27 @@ function buildSystemPrompt(
   }
   const policyBlock = policyLines.length > 0
     ? `\n\n## Active Policy Rules (metaMe Settings)\n\n${policyLines.join('\n')}`
+    : '';
+
+  // metaMe cartridge context — only rendered for aigent-me. Surfaces the
+  // user's ExperienceQube + PersonalGuide state so aigentMe answers
+  // inside their actual workstream context rather than as a generic
+  // system orchestrator. Loaded by loadMetameContext() in the POST
+  // handler; absent fields are omitted (no hallucination of state).
+  const metameLines: string[] = [];
+  if (resolvedPersonaId === 'aigent-me' && userContext?.metameContext) {
+    const m = userContext.metameContext;
+    if (m.experienceName)   metameLines.push(`- Current experience: **${m.experienceName}**${m.experienceType ? ` (${m.experienceType})` : ''}`);
+    if (m.primaryGoal)      metameLines.push(`- Primary goal: ${m.primaryGoal}`);
+    if (m.currentStage)     metameLines.push(`- Current stage: ${m.currentStage}`);
+    if (m.activeCartridges && m.activeCartridges.length > 0) {
+      metameLines.push(`- Active cartridges: ${m.activeCartridges.join(', ')}`);
+    }
+    if (m.focusIntent)      metameLines.push(`- Today's focus (PersonalGuide): ${m.focusIntent}`);
+    if (m.alignmentState)   metameLines.push(`- Alignment state: ${m.alignmentState}`);
+  }
+  const metameContextBlock = metameLines.length > 0
+    ? `\n\n## User's metaMe Cartridge State\n\nFrame your reply inside this context — these are the facts the user has declared. Do not invent or override them.\n\n${metameLines.join('\n')}`
     : '';
 
   // Shared KB context section (appended for all agents when search returns results)
@@ -1624,8 +1699,10 @@ After your response, add:
 6. Be engaging and immersive — you are a guide to this universe${kbSection}${liveSection}${skillFocusSection}`;
   }
 
-  // Platform/system agents: persona system prompt only, plus any KB hits
-  return `${personaIntro}${policyBlock}${kbSection}`;
+  // Platform/system agents: persona system prompt only, plus any KB hits.
+  // metameContextBlock is appended for aigent-me (empty string for any
+  // other agent — adds nothing to their prompts).
+  return `${personaIntro}${policyBlock}${metameContextBlock}${kbSection}`;
 }
 
 // CORS headers for cross-origin requests from Vite dev server
@@ -1711,8 +1788,18 @@ export async function POST(request: NextRequest) {
     } else {
       const resolvedAgentForFetch = (typeof aigentId === 'string' && normalizeAgentId(aigentId)) || defaultAgentIdForPersona(persona);
       const isKn0w1 = resolvedAgentForFetch === 'aigent-kn0w1';
+      const isAigentMe = resolvedAgentForFetch === 'aigent-me';
       const activeSkill = isKn0w1 ? detectSkillIntent(message) : null;
       const needsProtocolKB = isProtocolQuery(message);
+
+      // aigentMe enrichment: when the active agent is the user's
+      // sovereign aigentMe, load their metaMe cartridge state so the
+      // system prompt frames the reply inside their actual workstream.
+      // Loaded in parallel with the KB / metadata fetches below.
+      if (isAigentMe) {
+        const ctx = await loadMetameContext(typeof personaId === 'string' ? personaId : undefined);
+        if (ctx) userContext.metameContext = ctx;
+      }
 
       // Fetch codex metadata, KB results, protocol KB (when relevant), and live KNYT state in parallel
       const [resolvedMetadata, resolvedKbResults, resolvedProtocolResults, resolvedLiveContext] = await Promise.all([
