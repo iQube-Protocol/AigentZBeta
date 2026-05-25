@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-24T21:00:56.655Z",
+  "last_updated": "2026-05-25T17:54:40.901Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "a07c460bf1a2a57e4cedd94cd4269d995f763766",
-  "latest_commit_short": "a07c460",
-  "latest_commit_title": "google: write Doc body via Drive multipart upload — bypass Docs API",
+  "latest_commit": "0a8fa170bca3098828287f920585b46e9b3449cc",
+  "latest_commit_short": "0a8fa17",
+  "latest_commit_title": "runtime: aigent-z → aigent-me in agent dropdown + default, alias-based",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "0a8fa17",
+      "full_sha": "0a8fa170bca3098828287f920585b46e9b3449cc",
+      "title": "runtime: aigent-z → aigent-me in agent dropdown + default, alias-based",
+      "author": "Claude",
+      "timestamp": "2026-05-25T17:52:35Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0a8fa17.md"
+    },
     {
       "sha": "a07c460",
       "full_sha": "a07c460bf1a2a57e4cedd94cd4269d995f763766",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-02T17:02:07Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-1ec0495.md"
-    },
-    {
-      "sha": "91addc8",
-      "full_sha": "91addc84e3e431d2124fe6edc0eb044a2b3cb213",
-      "title": "fix build timeout: add force-dynamic to agent-llm-options route",
-      "author": "Claude",
-      "timestamp": "2026-05-02T15:21:49Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-91addc8.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

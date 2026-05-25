@@ -1144,3 +1144,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-a07c460.md](../build_/COMMITS/COMMIT-a07c460.md)
 - Message: google: write Doc body via Drive multipart upload — bypass Docs API
+
+## Commit `0a8fa17` — 2026-05-25T17:52:35Z
+- Type: `push`
+- Brief: [COMMIT-0a8fa17.md](../build_/COMMITS/COMMIT-0a8fa17.md)
+- Message: runtime: aigent-z → aigent-me in agent dropdown + default, alias-based
