@@ -17,13 +17,27 @@
  *     posture. Surfaces don't get to claim admin grants via a
  *     half-loaded state.
  *
+ * Auth posture
+ * ------------
+ *   - Uses personaFetch from utils/personaSpine, which auto-attaches
+ *     the Supabase Bearer token to outbound requests. The spine
+ *     endpoint resolves callers via getCallerIdentityContext, which
+ *     reads `Authorization: Bearer …` — cookies alone are NOT
+ *     sufficient.
+ *   - Initial bug 2026-05-26: this hook used raw `fetch` with
+ *     `credentials: "same-origin"`. Cookies were sent but the Bearer
+ *     token was missing, so the endpoint returned 401 for every
+ *     caller — even global admins — and admin tabs never appeared.
+ *     personaFetch wraps the same fetch with the token already
+ *     attached.
+ *
  * Privacy
  * -------
- *   - The endpoint resolves persona via the spine; no client-supplied
- *     persona id. This hook simply calls fetch with default credentials
- *     so the cookie / PST that getActivePersona reads is present.
+ *   - The endpoint resolves persona server-side via the spine; no
+ *     client-supplied persona id. personaFetch is server-trust-safe.
  */
 import { useEffect, useMemo, useState } from "react";
+import { personaFetch } from "@/utils/personaSpine";
 
 export interface CartridgeAdminGrantsState {
   isGlobalAdmin: boolean;
@@ -51,9 +65,8 @@ export function useCartridgeAdminGrants(): CartridgeAdminGrantsState {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/persona/cartridge-admin-grants", {
+        const res = await personaFetch("/api/persona/cartridge-admin-grants", {
           cache: "no-store",
-          credentials: "same-origin",
         });
         if (!res.ok) {
           if (!cancelled) setLoaded(true);
