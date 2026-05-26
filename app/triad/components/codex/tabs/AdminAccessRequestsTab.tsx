@@ -22,6 +22,7 @@ interface AccessRequest {
   requesterDisplayLabel: string | null;
   requesterEmail: string | null;
   requestedCartridgeSlug: string | null;
+  requestType: 'cartridge_access' | 'cartridge_admin' | 'global_admin';
   message: string | null;
   status: 'pending' | 'approved' | 'denied' | 'cancelled';
   requestedAt: string;
@@ -36,6 +37,18 @@ interface AccessRequest {
     isInvestor: boolean;
   };
 }
+
+const REQUEST_TYPE_LABEL: Record<AccessRequest['requestType'], string> = {
+  cartridge_access: 'Access',
+  cartridge_admin: 'Admin',
+  global_admin: 'Global admin',
+};
+
+const REQUEST_TYPE_TONE: Record<AccessRequest['requestType'], string> = {
+  cartridge_access: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40',
+  cartridge_admin: 'bg-amber-500/15 text-amber-300 border-amber-500/40',
+  global_admin: 'bg-rose-500/15 text-rose-300 border-rose-500/40',
+};
 
 type StatusFilter = 'pending' | 'approved' | 'denied' | 'all';
 
@@ -165,12 +178,14 @@ export function AdminAccessRequestsTab() {
         <div>
           <h2 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-emerald-400" />
-            Admin Access Requests
+            Access Requests
           </h2>
           <p className="text-sm text-slate-400 mt-1 max-w-3xl">
-            Personas without any admin grants can request access to a specific cartridge. Review the
-            request, check the inline CRM enrichment, and approve — which writes the matching role
-            into <code className="text-xs">crm_admin_roles</code> — or deny with a reason.
+            Personas can request <span className="text-emerald-300">access</span> to a cartridge
+            (runtime visibility only) or <span className="text-amber-300">admin privileges</span>
+            (review queues, adminOnly tabs). Review the inline persona graph and decide. Access
+            approvals write to <code className="text-xs">persona_activations</code>; admin
+            approvals write to <code className="text-xs">crm_admin_roles</code>.
           </p>
         </div>
         <Button
@@ -244,11 +259,25 @@ export function AdminAccessRequestsTab() {
                     <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
                   )}
                   <div className="text-left min-w-0">
-                    <div className="text-sm text-slate-100 truncate">
-                      {req.requesterDisplayLabel || req.requesterEmail || 'Unknown requester'}
-                      <span className="text-slate-500 mx-2">·</span>
+                    <div className="text-sm text-slate-100 truncate flex items-center gap-2 flex-wrap">
+                      <span>
+                        {req.requesterDisplayLabel || req.requesterEmail || 'Unknown requester'}
+                      </span>
+                      <span className="text-slate-500">·</span>
                       <span className="text-slate-300">
                         {req.requestedCartridgeSlug || 'platform-wide (global)'}
+                      </span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded-full border ${REQUEST_TYPE_TONE[req.requestType]}`}
+                        title={
+                          req.requestType === 'cartridge_access'
+                            ? 'Runtime access to the cartridge. No admin scope. Approval writes a persona_activations row.'
+                            : req.requestType === 'cartridge_admin'
+                              ? 'Admin privileges on the cartridge. Includes adminOnly tabs. Approval writes a crm_admin_roles row.'
+                              : 'Platform-wide admin (uber / global). Approval writes a platform_super_admin role.'
+                        }
+                      >
+                        {REQUEST_TYPE_LABEL[req.requestType]}
                       </span>
                     </div>
                     <div className="text-xs text-slate-500 mt-0.5">

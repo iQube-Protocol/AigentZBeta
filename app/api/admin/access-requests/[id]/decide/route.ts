@@ -93,17 +93,86 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   // === Approve path ===
-  // Resolve the requested cartridge slug → tenant id (or treat as a
-  // platform-wide grant when slug is null). The slug-to-tenant
-  // direction is the inverse of the alias map in
-  // services/access/cartridgeAdminGrants.ts; the simplest correct
-  // resolver is "look up the tenant whose slug matches, or whose alias
-  // produces this cartridge slug." Alpha-scope: walk crm_tenants
-  // directly. If the cartridge has no matching tenant (e.g. metame),
-  // fall back to a global platform_super_admin grant on the requester.
+  // Branch on request_type:
+  //   - cartridge_access → write a persona_activations row (grants
+  //     runtime visibility to the cartridge; NO admin scope, NO
+  //     adminOnly tab access). This is the dominant path.
+  //   - cartridge_admin  → write a crm_admin_roles row scoped to the
+  //     tenant. Reviewer should only approve this when the requester
+  //     has demonstrated need for admin-tier capability.
+  //   - global_admin     → write a crm_admin_roles row with
+  //     role_type = 'platform_super_admin' (null tenant scope).
   const cartridgeSlug = existing.requested_cartridge_slug as string | null;
+  const requestType = (existing.request_type as string | undefined) ?? 'cartridge_access';
 
   let grantedRoleId: string | null = null;
+
+  if (requestType === 'cartridge_access') {
+    // Non-admin access path. Map cartridge slug → activation id and
+    // upsert a persona_activations row. The activation system already
+    // handles status='active' + granted_via='admin' as the canonical
+    // shape for an admin-granted runtime surface.
+    if (!cartridgeSlug) {
+      return NextResponse.json(
+        { error: 'inconsistent-row', message: 'cartridge_access request requires a cartridge slug.' },
+        { status: 422 },
+      );
+    }
+    const activationId = cartridgeSlugToActivationId(cartridgeSlug);
+    if (!activationId) {
+      return NextResponse.json(
+        {
+          error: 'activation-not-found',
+          message: `No activation id is registered for cartridge slug '${cartridgeSlug}'. Add a mapping to cartridgeSlugToActivationId() or use the cartridge_admin path.`,
+        },
+        { status: 422 },
+      );
+    }
+    const { error: actErr } = await admin
+      .from('persona_activations')
+      .upsert(
+        {
+          persona_id: existing.persona_id,
+          activation_id: activationId,
+          status: 'active',
+          granted_via: 'admin',
+          granted_at: new Date().toISOString(),
+          revoked_at: null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'persona_id,activation_id' },
+      );
+    if (actErr) {
+      console.error('[access-requests/decide] activation upsert error', actErr);
+      return NextResponse.json({ error: 'grant-failed', detail: actErr.message }, { status: 500 });
+    }
+    // No granted_role_id — this didn't go through crm_admin_roles.
+    const { data: updated, error: updErr } = await admin
+      .from('admin_access_requests')
+      .update({
+        status: 'approved',
+        decided_at: new Date().toISOString(),
+        decided_by_persona_id: persona.personaId,
+        decision_reason: reason,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select('*')
+      .single();
+    if (updErr) {
+      console.error('[access-requests/decide] access approve update error', updErr);
+      return NextResponse.json({ error: 'update-failed' }, { status: 500 });
+    }
+    return NextResponse.json({
+      ok: true,
+      decision: 'approved',
+      grantKind: 'persona_activation',
+      activationId,
+      request: updated,
+    });
+  }
+
+  // Admin paths (cartridge_admin | global_admin) — write to crm_admin_roles.
   if (!cartridgeSlug) {
     // Platform-wide request — create a platform_super_admin row.
     if (!existing.auth_profile_id) {
@@ -194,7 +263,26 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     console.error('[access-requests/decide] approve update error', updErr);
     return NextResponse.json({ error: 'update-failed' }, { status: 500 });
   }
-  return NextResponse.json({ ok: true, decision: 'approved', request: updated, grantedRoleId });
+  return NextResponse.json({ ok: true, decision: 'approved', request: updated, grantedRoleId, grantKind: 'crm_admin_role' });
+}
+
+// Cartridge slug → persona_activations.activation_id mapping. Used by
+// the cartridge_access approval path so the grant lands as a runtime
+// activation rather than an admin role. The activation ids match the
+// catalog in data/activation-catalog.ts; adding a new cartridge
+// requires registering both there AND here.
+function cartridgeSlugToActivationId(cartridgeSlug: string): string | null {
+  const map: Record<string, string> = {
+    'knyt-codex':   'knyt',           // KNYT runtime surface
+    knyt:           'knyt',           // accept either form
+    qripto:         'qriptopian',
+    qriptopian:     'qriptopian',
+    'agentiq-os':   'agentiq-os',
+    'venture-lab':  'venture-lab',
+    marketa:        'marketa',
+    metame:         'metame',
+  };
+  return map[cartridgeSlug] ?? null;
 }
 
 // Inverse of TENANT_SLUG_TO_CARTRIDGE_SLUG in services/access/cartridgeAdminGrants.ts.

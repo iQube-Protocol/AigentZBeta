@@ -2474,7 +2474,7 @@ export const METAME_CODEX: CodexConfig = {
       config: { component: 'AdminAccessRequestsTab', props: {} },
       metadata: {
         icon: 'ShieldCheck',
-        description: 'Review and decide persona-submitted admin access requests',
+        description: 'Review persona-submitted cartridge access + admin requests',
         color: 'emerald'
       }
     },

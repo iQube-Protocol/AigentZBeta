@@ -31,6 +31,7 @@ interface AdminAccessRequestRow {
   requester_display_label: string | null;
   requester_email: string | null;
   requested_cartridge_slug: string | null;
+  request_type: 'cartridge_access' | 'cartridge_admin' | 'global_admin';
   message: string | null;
   status: 'pending' | 'approved' | 'denied' | 'cancelled';
   requested_at: string;
@@ -49,7 +50,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
   }
 
-  let body: { requestedCartridgeSlug?: string | null; message?: string | null };
+  let body: {
+    requestedCartridgeSlug?: string | null;
+    message?: string | null;
+    requestType?: string | null;
+  };
   try {
     body = await req.json();
   } catch {
@@ -68,16 +73,48 @@ export async function POST(req: NextRequest) {
       ? body.message.trim().slice(0, 2000)
       : null;
 
+  // Request type — default to cartridge_access (the dominant path).
+  // The UI surfaces an explicit "with admin privileges" toggle for the
+  // less-common cartridge_admin path. Global admin requests are
+  // implied by null cartridge slug + request_type = 'global_admin'.
+  const rawRequestType = typeof body.requestType === 'string' ? body.requestType.trim() : 'cartridge_access';
+  const requestType: 'cartridge_access' | 'cartridge_admin' | 'global_admin' = (() => {
+    if (rawRequestType === 'cartridge_admin') return 'cartridge_admin';
+    if (rawRequestType === 'global_admin') return 'global_admin';
+    return 'cartridge_access';
+  })();
+  // Sanity: global_admin must have null slug; cartridge_* must have a slug.
+  if (requestType === 'global_admin' && requestedCartridgeSlug !== null) {
+    return NextResponse.json(
+      { error: 'inconsistent-request', message: 'Global admin requests must have no cartridge slug.' },
+      { status: 400 },
+    );
+  }
+  if (requestType !== 'global_admin' && requestedCartridgeSlug === null) {
+    return NextResponse.json(
+      { error: 'inconsistent-request', message: 'Cartridge access/admin requests require a cartridge slug.' },
+      { status: 400 },
+    );
+  }
+
   // A persona that already holds the requested grant has no reason
   // to submit a request — short-circuit with a 409 so the UI can show
   // a clear "you already have this" affordance.
-  if (persona.cartridgeFlags.isAdmin) {
+  //
+  // Global-admin requesters are already global admins → block.
+  // Cartridge-admin requesters who already have THAT cartridge admin
+  // grant → block. Cartridge-access requesters fall through — we
+  // don't currently check persona_activations here because the access
+  // gate may live elsewhere (cohort, payment) and the activation
+  // resolver runs at request-decision time, not here.
+  if (requestType === 'global_admin' && persona.cartridgeFlags.isAdmin) {
     return NextResponse.json(
       { error: 'already-global-admin', message: 'You already have global admin access.' },
       { status: 409 },
     );
   }
   if (
+    requestType === 'cartridge_admin' &&
     requestedCartridgeSlug &&
     persona.cartridgeFlags.adminCartridges.includes(requestedCartridgeSlug)
   ) {
@@ -123,6 +160,7 @@ export async function POST(req: NextRequest) {
     requester_display_label: displayLabel,
     requester_email: callerEmail,
     requested_cartridge_slug: requestedCartridgeSlug,
+    request_type: requestType,
     message,
     status: 'pending' as const,
   };
@@ -283,6 +321,7 @@ function toResponseShape(row: AdminAccessRequestRow) {
     requesterDisplayLabel: row.requester_display_label,
     requesterEmail: row.requester_email,
     requestedCartridgeSlug: row.requested_cartridge_slug,
+    requestType: row.request_type,
     message: row.message,
     status: row.status,
     requestedAt: row.requested_at,

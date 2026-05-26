@@ -1694,7 +1694,11 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     const accessChip = !adminGrants.isGlobalAdmin && adminGrants.cartridgeSlugs.size === 0
       ? [{
           id: 'request-access',
-          label: 'Request access',
+          // Renamed 2026-05-26 from "Request access" to "Request alpha
+          // access" so the chip surfaces the alpha context up front
+          // (operator feedback — the prior label didn't make it clear
+          // this is the alpha-release access path, not an admin gate).
+          label: 'Request alpha access',
           // Pure UI chip — opens the modal. No chat dispatch, no
           // right-pane fetch. Stays out of the LLM message stream.
           prompt: '',
