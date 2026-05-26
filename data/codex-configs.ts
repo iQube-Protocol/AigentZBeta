@@ -2477,6 +2477,22 @@ export const METAME_CODEX: CodexConfig = {
         description: 'Review and decide persona-submitted admin access requests',
         color: 'emerald'
       }
+    },
+    {
+      id: 'admin-persona-360',
+      label: 'Persona 360',
+      slug: 'persona-360',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 63,
+      type: 'static',
+      config: { component: 'Persona360InspectorTab', props: {} },
+      metadata: {
+        icon: 'User',
+        description: 'Look up any persona and inspect the full identity / asset graph',
+        color: 'violet'
+      }
     }
   ],
   permissions: {
