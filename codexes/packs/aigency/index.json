@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-26T14:48:34.163Z",
+  "last_updated": "2026-05-26T17:55:26.628Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c56ae59256287ce9c5aa09bc97a39ae13057731a",
-  "latest_commit_short": "c56ae59",
-  "latest_commit_title": "copilot: kill KNYT lore bias + thread brief shape + admin grants into LLM context",
+  "latest_commit": "51d51fae303507f02a72d2fd6eb7e0679f7decbe",
+  "latest_commit_short": "51d51fa",
+  "latest_commit_title": "Qriptopian Cartridge v3 restructure + KNYT Pulse rename",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "51d51fa",
+      "full_sha": "51d51fae303507f02a72d2fd6eb7e0679f7decbe",
+      "title": "Qriptopian Cartridge v3 restructure + KNYT Pulse rename",
+      "author": "Claude",
+      "timestamp": "2026-05-26T17:53:08Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-51d51fa.md"
+    },
     {
       "sha": "c56ae59",
       "full_sha": "c56ae59256287ce9c5aa09bc97a39ae13057731a",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-06T20:29:58Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-e09bfed.md"
-    },
-    {
-      "sha": "49d9905",
-      "full_sha": "49d9905135a7e72919532b200ebaf6eb3de34df6",
-      "title": "migrate entitlements/list route to getSupabaseServer (timeout-guarded)",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:43:23Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-49d9905.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

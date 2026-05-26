@@ -1234,3 +1234,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-c56ae59.md](../build_/COMMITS/COMMIT-c56ae59.md)
 - Message: copilot: kill KNYT lore bias + thread brief shape + admin grants into LLM context
+
+## Commit `51d51fa` — 2026-05-26T17:53:08Z
+- Type: `refactor`
+- Brief: [COMMIT-51d51fa.md](../build_/COMMITS/COMMIT-51d51fa.md)
+- Message: Qriptopian Cartridge v3 restructure + KNYT Pulse rename
