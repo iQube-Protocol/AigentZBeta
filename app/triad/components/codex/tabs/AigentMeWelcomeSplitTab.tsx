@@ -152,6 +152,43 @@ function autoOpenArtifact(_data: { locationUrl?: string | null; artifactType?: s
  * modal that should open right after approval. Returns null when no
  * compose hand-off makes sense — those NBEs stay queued only.
  */
+/**
+ * Class-wide unified dispatcher — single source of truth for
+ * progressing ANY artifact (NBE Act / specialist chip / "create a
+ * doc / report / deck" affordances) to the right destination.
+ *
+ * Routes through classifySuggestedArtifact and returns a normalised
+ * dispatch instruction. Callers turn the instruction into the
+ * actual surface change (open composer modal / navigate to canvas /
+ * navigate to studio).
+ *
+ * Why this matters: operator feedback was 'the class-wide artifact
+ * progression has to span specialists AND NBE Act AND the Compose
+ * strip AND any "create a doc / report / deck" chips — not just
+ * specialists piece-meal'. Centralising the classifier here keeps
+ * every dispatch consistent so a 'create a partner brief' from any
+ * surface always lands in myWorkbench, 'compose a deck' always
+ * lands in the slides composer, 'generate a report' lands as a doc,
+ * etc.
+ */
+export interface ArtifactDispatchPayload {
+  /** The artifact label (e.g. 'partner-brief', 'image-prompt'). */
+  artifactType: string;
+  /** Title for the inferred draft prompt. */
+  title: string;
+  /** Summary for the inferred draft prompt. */
+  summary?: string;
+  /** Bulleted recommendations to seed the draft. */
+  recommendations?: string[];
+  /** Originating surface — used for navigation source-of-truth. */
+  source: 'specialist' | 'nbe-act' | 'compose-chip' | 'chat';
+  /** Optional specialist id for downstream telemetry. */
+  specialistId?: string;
+}
+
+// Back-compat — kept for the few callers that explicitly want a
+// ComposeKind. Prefer classifyNbeAction for new code so NBE Act
+// dispatch and specialist-chip dispatch share the same router.
 function composeKindForAction(action: NextBestActionData): ComposeKind | null {
   // Explicit workspace NBEs.
   if (action.id === 'metame.use-workspace-gmail') return 'gmail';
@@ -175,27 +212,96 @@ function composeKindForAction(action: NextBestActionData): ComposeKind | null {
  * a sensible fit — the SpecialistResponseCard then renders the chip
  * as a non-clickable label.
  */
-function composeKindForSuggestedArtifact(artifactType: string): ComposeKind | null {
+/**
+ * Artifact routing — class-wide progression contract.
+ *
+ * Specialists emit a small set of suggestedArtifacts; the operator
+ * clicks a chip on the SpecialistResponseCard and the artifact has
+ * to land somewhere actionable. We have FOUR destinations:
+ *
+ *   1. Composer modal (gmail, event, doc, sheet, slides, marketa)
+ *      — for artifacts the operator drafts inside a modal.
+ *   2. myCanvas remix dialog (mycanvas-remix) — for publishing-bound
+ *      artifacts that should be staged onto the persona's canvas
+ *      before going to KNYT Pulse / Qriptopian Pulse.
+ *   3. myWorkbench (myworkbench-draft) — for PRIVATE working
+ *      artifacts (partner briefs, internal reports, decks pre-share).
+ *   4. metaMe Studio (image-prompt, video-script, post-set) — for
+ *      generative skills that produce media. Routes to the studio
+ *      composer with a prefilled prompt.
+ *
+ * The classifier below maps each artifact string (often free-text
+ * from the LLM) to one of the four classes. Keeping this single
+ * function as the SoT means adding a new artifact type only needs a
+ * regex update here + a route in handleUseSuggestedArtifact.
+ */
+export type SuggestedArtifactClass =
+  | { kind: 'composer'; composeKind: ComposeKind }
+  | { kind: 'mycanvas-remix' }
+  | { kind: 'myworkbench-draft' }
+  | { kind: 'studio'; skill: 'image' | 'video' | 'post-set' }
+  | { kind: 'marketa-campaign' }
+  | { kind: 'partner-brief' }
+  | { kind: 'unknown' };
+
+function classifySuggestedArtifact(artifactType: string): SuggestedArtifactClass {
   const t = artifactType.toLowerCase();
-  // myCanvas remix is a separate non-composer flow — see
-  // handleUseSuggestedArtifact, which routes 'mycanvas-remix' into
-  // the RemixDialog instead of opening a composer modal. Returning
-  // null here means the artifact-route handler picks up the special
-  // case and dispatches to the canvas surface instead.
-  if (/(mycanvas|canvas-remix|remix-canvas|canvas remix)/.test(t)) return null;
-  if (/(email|outreach|gmail|note to|reply|message)/.test(t)) {
-    return /(marketa|campaign send)/.test(t) ? 'marketa' : 'gmail';
+
+  // myCanvas remix — explicit publishing path. Highest specificity
+  // first because 'canvas' could otherwise be caught by later regexes.
+  if (/(mycanvas|canvas-remix|remix-canvas|canvas remix)/.test(t)) return { kind: 'mycanvas-remix' };
+
+  // myWorkbench — private internal artifacts (workbench draft, partner-private).
+  if (/(myworkbench|workbench-draft|workbench draft|private[- ]?draft)/.test(t)) {
+    return { kind: 'myworkbench-draft' };
   }
-  if (/(meeting|calendar|event|invite|sync\b)/.test(t)) return 'event';
-  if (/(slide|deck|presentation|pitch)/.test(t)) return 'slides';
-  if (/(sheet|spreadsheet|tracker|csv|table)/.test(t)) return 'sheet';
-  if (/(doc|brief|memo|proposal|article|outline|narrative|write-up|writeup|spec|plan)/.test(t)) return 'doc';
-  return null;
+
+  // Marketa campaign (different from a Marketa email — campaign is
+  // the full send-pipeline; the email is just the message body).
+  if (/(marketa.?campaign|campaign send|send-set|marketa send)/.test(t)) {
+    return { kind: 'marketa-campaign' };
+  }
+
+  // Partner brief — Marketa private brief. Maps to a private working
+  // doc the user can review with their team before sharing.
+  if (/(partner.?brief)/.test(t)) {
+    return { kind: 'partner-brief' };
+  }
+
+  // Studio skills — image / video / post-set generation pipelines.
+  if (/(image[- ]?prompt|image[- ]?gen|hero[- ]?image|illustration)/.test(t)) {
+    return { kind: 'studio', skill: 'image' };
+  }
+  if (/(video[- ]?script|video[- ]?gen|video[- ]?clip|trailer|motion)/.test(t)) {
+    return { kind: 'studio', skill: 'video' };
+  }
+  if (/(post[- ]?set|social[- ]?posts|tweet[- ]?thread)/.test(t)) {
+    return { kind: 'studio', skill: 'post-set' };
+  }
+
+  // Standard composer surfaces — preserve the existing classifier.
+  if (/(email|outreach|gmail|note to|reply|message)/.test(t)) {
+    return { kind: 'composer', composeKind: /(marketa|campaign send)/.test(t) ? 'marketa' : 'gmail' };
+  }
+  if (/(meeting|calendar|event|invite|sync\b)/.test(t)) return { kind: 'composer', composeKind: 'event' };
+  if (/(slide|deck|presentation|pitch)/.test(t)) return { kind: 'composer', composeKind: 'slides' };
+  if (/(sheet|spreadsheet|tracker|csv|table)/.test(t)) return { kind: 'composer', composeKind: 'sheet' };
+  if (/(doc|brief|memo|proposal|article|outline|narrative|write-up|writeup|spec|plan|venture[- ]?report)/.test(t)) {
+    return { kind: 'composer', composeKind: 'doc' };
+  }
+
+  return { kind: 'unknown' };
+}
+
+// Back-compat helpers — kept as thin wrappers around classifySuggestedArtifact
+// so existing callers (if any) don't break. Prefer the classifier in new code.
+function composeKindForSuggestedArtifact(artifactType: string): ComposeKind | null {
+  const cls = classifySuggestedArtifact(artifactType);
+  return cls.kind === 'composer' ? cls.composeKind : null;
 }
 
 function isMyCanvasRemixArtifact(artifactType: string): boolean {
-  const t = artifactType.toLowerCase();
-  return /(mycanvas|canvas-remix|remix-canvas|canvas remix)/.test(t);
+  return classifySuggestedArtifact(artifactType).kind === 'mycanvas-remix';
 }
 
 /**
@@ -711,28 +817,65 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       // existing surface mounted.
       void fetchVentureProgress({ silent: true });
 
-      // Workspace-flavoured NBEs (gmail/doc/event/etc.) hand off to the
-      // corresponding compose modal so the user can actually do the action
-      // they just approved. Without this the queue grows but nothing happens.
-      const composeKind = composeKindForAction(action);
-      if (composeKind) {
-        // Move D — when the rerank emitted a prompt hint for this NBA,
-        // seed the composer with it. Otherwise leave the form blank,
-        // matching the chip-driven openComposeByKind() flow below.
-        setComposerInitialPrompt(handoffHint && handoffHint.trim().length > 0 ? handoffHint : null);
-        setComposerKind(composeKind);
-        setActiveLayoutId('composer');
-        setPendingApprovalHint(null);
+      // Class-wide artifact dispatch — same router every other surface
+      // (specialist chips, future "create a doc / report / deck"
+      // chips) uses, so approved NBE actions land in the right
+      // destination automatically:
+      //   workspace gmail / doc / sheet / slides / event → composer modal
+      //   partner-brief / report → myWorkbench (private)
+      //   article / mycanvas-remix → myCanvas (public publishing)
+      //   image-prompt / video-script / post-set → metaMe Studio
+      //   marketa-campaign → marketa composer
+      // The handoffHint from the rerank pass seeds the composer when
+      // composer is the destination; for non-composer destinations
+      // the navigation payload carries the action title + rationale
+      // so the target surface can pre-stage.
+      setPendingApprovalHint(null);
+      const artifactType = action.suggestedArtifact ?? '';
+      const cls = classifySuggestedArtifact(artifactType);
+
+      if (cls.kind === 'composer') {
+        // Composer surfaces honour the explicit rerank hint when the
+        // LLM emitted one (richer than the generic title/rationale).
+        if (handoffHint && handoffHint.trim().length > 0) {
+          setComposerInitialPrompt(handoffHint);
+          setComposerKind(cls.composeKind);
+          setActiveLayoutId('composer');
+        } else {
+          dispatchArtifact({
+            artifactType,
+            title: action.label,
+            summary: action.rationale,
+            source: 'nbe-act',
+          });
+        }
+      } else if (cls.kind === 'unknown') {
+        // Fall back to the legacy id-based mapper for NBE ids that
+        // pre-date suggestedArtifact (metame.use-workspace-*). Without
+        // this fallback those NBEs would no-op after approval.
+        const legacyKind = composeKindForAction(action);
+        if (legacyKind) {
+          setComposerInitialPrompt(handoffHint && handoffHint.trim().length > 0 ? handoffHint : null);
+          setComposerKind(legacyKind);
+          setActiveLayoutId('composer');
+        } else {
+          // True no-handoff NBE — scroll to the queued card so the
+          // state change is visible.
+          window.setTimeout(() => {
+            const el = document.querySelector(`[data-queued-nbe-id="${action.id}"]`);
+            el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 50);
+        }
       } else {
-        setPendingApprovalHint(null);
-        // No compose hand-off — scroll the right pane to the freshly queued
-        // card so the state change is obvious. The approval card has just
-        // unmounted; without this scroll the user often misses the queue
-        // indicator (which renders in the queued-intents zone above).
-        window.setTimeout(() => {
-          const el = document.querySelector(`[data-queued-nbe-id="${action.id}"]`);
-          el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 50);
+        // Non-composer destinations (canvas / workbench / studio /
+        // marketa-campaign) — route through the dispatcher with the
+        // action's title + rationale as context.
+        dispatchArtifact({
+          artifactType,
+          title: action.label,
+          summary: action.rationale,
+          source: 'nbe-act',
+        });
       }
 
       if (action.specialist) {
@@ -766,6 +909,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     } finally {
       setSubmittingApproval(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingApprovalNbe, pendingApprovalHint, personaId, fetchReceipts, fetchVentureProgress]);
 
   // ── Compose handlers — all 6 mirror the classic tab pattern ────────
@@ -1216,41 +1360,114 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // auto-populates. No-op when the artifact label doesn't map to any
   // compose surface (e.g. "Strategy memo PDF" — we leave the chip
   // non-clickable and the operator can ask the specialist to refine).
+  // Class-wide artifact dispatcher — the single SoT every surface
+  // calls when the operator wants to progress an artifact. Specialist
+  // chips, NBE Act buttons, future "create a doc / report / deck"
+  // chips all funnel through here so a partner-brief always lands in
+  // myWorkbench, a deck always in the slides composer, an image
+  // always at the metaMe Studio, etc.
+  const dispatchArtifact = useCallback((payload: ArtifactDispatchPayload) => {
+    const cls = classifySuggestedArtifact(payload.artifactType);
+
+    const encodedPayload = encodeURIComponent(
+      JSON.stringify({
+        source: payload.source,
+        specialistId: payload.specialistId,
+        title: payload.title,
+        summary: payload.summary,
+        recommendations: payload.recommendations,
+      }),
+    );
+
+    // Build a doc-ready prompt for composer surfaces from whatever
+    // context the caller supplied. Matches the shape
+    // buildPromptForSuggestedArtifact used to build, but adapted to
+    // run off a plain payload instead of a SpecialistResponseData.
+    const buildPromptFromPayload = (): string => {
+      const lines: string[] = [];
+      lines.push(`# ${payload.title}`);
+      if (payload.summary) lines.push('', payload.summary);
+      if (payload.recommendations && payload.recommendations.length > 0) {
+        lines.push('', '## Recommendations');
+        for (const r of payload.recommendations) lines.push(`- ${r}`);
+      }
+      lines.push('', `## Artifact requested`, `- ${payload.artifactType}`);
+      if (payload.source === 'specialist' && payload.specialistId) {
+        lines.push('', `_via ${payload.specialistId}_`);
+      }
+      return lines.join('\n');
+    };
+
+    switch (cls.kind) {
+      case 'mycanvas-remix':
+        // Public publishing path — KNYT Pulse / Qriptopian Pulse.
+        try {
+          const url = `/codex/viewer?slug=metame&tab=mycanvas&remix=${encodedPayload}`;
+          if (typeof window !== 'undefined') window.location.assign(url);
+        } catch { /* best-effort */ }
+        return;
+
+      case 'myworkbench-draft':
+      case 'partner-brief':
+        // PRIVATE working surface — partner briefs, internal reports,
+        // decks pre-share. Per operator: 'myWorkbench is for private
+        // confidential work — emails, partner-briefs, reports, decks'.
+        try {
+          const url = `/codex/viewer?slug=metame&tab=my-workbench&draft=${encodedPayload}`;
+          if (typeof window !== 'undefined') window.location.assign(url);
+        } catch { /* best-effort */ }
+        return;
+
+      case 'marketa-campaign':
+        setComposerInitialPrompt(buildPromptFromPayload());
+        setComposerKind('marketa');
+        setActiveLayoutId('composer');
+        return;
+
+      case 'studio':
+        try {
+          const promptText = buildPromptFromPayload();
+          const skillParam =
+            cls.skill === 'image' ? 'image' :
+            cls.skill === 'video' ? 'video' :
+            'post-set';
+          const url = `/codex/viewer?slug=metame&tab=studio&skill=${encodeURIComponent(skillParam)}&prompt=${encodeURIComponent(promptText)}`;
+          if (typeof window !== 'undefined') window.location.assign(url);
+        } catch { /* best-effort */ }
+        return;
+
+      case 'composer':
+        setComposerInitialPrompt(buildPromptFromPayload());
+        setComposerKind(cls.composeKind);
+        setActiveLayoutId('composer');
+        return;
+
+      case 'unknown':
+      default:
+        // Silent no-op for novel labels from the LLM. The chip stays
+        // visible but the click is benign.
+        return;
+    }
+  }, [setComposerInitialPrompt, setComposerKind, setActiveLayoutId]);
+
+  // Specialist-chip entry point — adapts the SpecialistResponseData
+  // shape into an ArtifactDispatchPayload and funnels through the
+  // single dispatcher above. Keeps the signature stable for the
+  // SpecialistResponseCard.onCreateArtifact prop while routing every
+  // click through the class-wide router.
   const handleUseSuggestedArtifact = useCallback((
     artifactType: string,
     response: import('@/components/metame/cards/SpecialistResponseCard').SpecialistResponseData,
   ) => {
-    // myCanvas remix is a separate flow — navigate to the myCanvas
-    // tab with a `?remix=` query carrying the specialist response so
-    // the canvas can pre-stage the remix dialog. Falls back to a
-    // simple navigation if the navigator API isn't reachable from
-    // this surface.
-    if (isMyCanvasRemixArtifact(artifactType)) {
-      try {
-        const remixPayload = encodeURIComponent(
-          JSON.stringify({
-            source: 'specialist',
-            specialistId: response.specialistId,
-            title: response.title,
-            summary: response.summary,
-          }),
-        );
-        const url = `/codex/viewer?slug=metame&tab=mycanvas&remix=${remixPayload}`;
-        if (typeof window !== 'undefined') {
-          window.location.assign(url);
-        }
-      } catch {
-        // best-effort; the chip still gives the operator the path forward.
-      }
-      return;
-    }
-    const kind = composeKindForSuggestedArtifact(artifactType);
-    if (!kind) return;
-    const prompt = buildPromptForSuggestedArtifact(artifactType, response);
-    setComposerInitialPrompt(prompt);
-    setComposerKind(kind);
-    setActiveLayoutId('composer');
-  }, []);
+    dispatchArtifact({
+      artifactType,
+      title: response.title,
+      summary: response.summary,
+      recommendations: response.recommendations,
+      source: 'specialist',
+      specialistId: response.specialistId,
+    });
+  }, [dispatchArtifact]);
 
   const focusCard = useCallback((kind: CardKind) => {
     const refMap: Record<CardKind, React.RefObject<HTMLDivElement>> = {
@@ -1265,6 +1482,69 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
 
   const latestArtifact = artifacts[0] ?? null;
   const activeCartridges = (data?.availableCartridges ?? []).map((c) => c.slug);
+
+  /**
+   * Phase F.2 — CONTEXTUAL Request alpha access recommendation.
+   *
+   * Scans the brief.nextBestActions + moveForwardResult.alternates
+   * for any NBA whose target cartridge ISN'T in the persona's active
+   * set. Returns the first such cartridge (slug + display label) so
+   * the RequestAccessChip in the right-pane carousel can surface it
+   * with the appropriate framing.
+   *
+   * Returns null when:
+   *   - no NBAs are loaded yet
+   *   - every NBA's cartridge IS in the active set
+   *   - the persona is a global admin (covered by chip's render gate)
+   *
+   * Normalises cartridge slugs the same way RequestAccessChip used
+   * to (knyt -> knyt-codex, qriptopian -> qripto) so the compare
+   * doesn't false-fire on slug-form mismatches.
+   */
+  const recommendedAccessCartridge = useMemo<
+    { slug: string; label: string } | null
+  >(() => {
+    const normaliseToCartridge = (s: string): string => {
+      if (s === 'knyt') return 'knyt-codex';
+      if (s === 'qriptopian') return 'qripto';
+      return s;
+    };
+    const labelFor = (slug: string): string => {
+      switch (slug) {
+        case 'knyt-codex':  return 'KNYT';
+        case 'qripto':      return 'The Qriptopian';
+        case 'marketa':     return 'Marketa';
+        case 'venture-lab': return 'metaMe Venture Lab';
+        case 'agentiq-os':  return 'AgentiQ OS';
+        case 'metame':      return 'metaMe';
+        default:            return slug;
+      }
+    };
+    const activeSet = new Set(activeCartridges.map(normaliseToCartridge));
+    // Don't suggest a cartridge the persona is ALREADY on. Pull
+    // candidates from both surfaces; brief first, moveForward
+    // alternates second.
+    const candidates: string[] = [];
+    for (const nba of brief?.nextBestActions ?? []) {
+      if (typeof nba.cartridge === 'string') candidates.push(normaliseToCartridge(nba.cartridge));
+    }
+    if (moveForwardResult?.topAction?.cartridge) {
+      candidates.push(normaliseToCartridge(moveForwardResult.topAction.cartridge));
+    }
+    for (const alt of moveForwardResult?.alternates ?? []) {
+      if (typeof alt.cartridge === 'string') candidates.push(normaliseToCartridge(alt.cartridge));
+    }
+    // metaMe and the always-on platform cartridges aren't gated;
+    // never recommend requesting access to them.
+    const skip = new Set(['metame', 'agentiq-os']);
+    for (const slug of candidates) {
+      if (skip.has(slug)) continue;
+      if (!activeSet.has(slug)) {
+        return { slug, label: labelFor(slug) };
+      }
+    }
+    return null;
+  }, [brief, moveForwardResult, activeCartridges]);
 
   // Phase 2 B.1 3/3 — load the persona's active activation ids so the
   // copilot bridge can expose the available KPI sources filtered to
@@ -1836,12 +2116,16 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 specialists: data.availableSpecialists,
                 isAdmin: isAdmin ?? data.cartridgeFlags?.isAdmin,
                 // Phase E follow-up: pass admin grants + active
-                // cartridges into the right-pane chip carousel so the
-                // Request alpha access chip can render its gate +
-                // pick a sensible default cartridge.
+                // cartridges into the right-pane chip carousel.
                 isGlobalAdmin: adminGrants.isGlobalAdmin,
                 hasCartridgeAdminGrant: adminGrants.cartridgeSlugs.size > 0,
                 activeCartridges,
+                // Phase F.2 — CONTEXTUAL Request access nudge. Only
+                // populated when a brief/move-forward NBA targets a
+                // cartridge the persona isn't on. The chip in
+                // WelcomeRightPane renders nothing when this is null.
+                recommendedAccessCartridgeSlug: recommendedAccessCartridge?.slug ?? null,
+                recommendedAccessCartridgeLabel: recommendedAccessCartridge?.label ?? null,
                 brief,
                 briefLoading,
                 briefError,
