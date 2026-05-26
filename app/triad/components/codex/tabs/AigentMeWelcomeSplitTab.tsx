@@ -326,6 +326,35 @@ function buildPromptForSuggestedArtifact(
   return lines.join('\n');
 }
 
+/**
+ * NBE-action variant of the directive-style prompt builder. Used by
+ * the post-approve flow when the LLM rerank did NOT emit a
+ * nbaPromptHints entry for the action — without this, the composer
+ * modal would open empty and the operator would have to type a prompt
+ * manually. With this fallback the modal always auto-populates from
+ * the action's own label + rationale, mirroring the prompt shape
+ * buildPromptForSuggestedArtifact emits for specialist chips so the
+ * doc-draft / sheet-draft / slides-draft endpoints all produce
+ * useful drafts.
+ *
+ * Operator: 'the act button is no longer auto populating the
+ * generate/composer modal. None of them are. this part of the
+ * workflow broke.' — this builder restores the autopopulate.
+ */
+function buildPromptForNbeAction(
+  artifactType: string,
+  action: NextBestActionData,
+): string {
+  const kind = artifactType.toLowerCase() || 'doc';
+  const lines: string[] = [];
+  lines.push(`Draft a ${kind} that operationalises this next-best action: "${action.label}".`);
+  if (action.rationale) lines.push(`Context: ${action.rationale}`);
+  if (action.cartridge) lines.push(`Cartridge: ${action.cartridge}.`);
+  if (action.suggestedArtifact) lines.push(`Artifact type requested: ${action.suggestedArtifact}.`);
+  lines.push(`Keep it concrete, action-oriented, and ready for the operator to review, edit, and send.`);
+  return lines.join('\n');
+}
+
 interface Props {
   theme?: 'light' | 'dark';
   isAdmin?: boolean;
@@ -851,13 +880,21 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
 
       if (cls.kind === 'composer' || cls.kind === 'unknown') {
         // Composer destinations (including legacy id-based ones that
-        // classifier returns 'unknown' on). Use the exact alpha path.
+        // classifier returns 'unknown' on). Always seed the composer
+        // with SOMETHING — handoffHint when the LLM rerank emitted
+        // one, otherwise the directive fallback built from the
+        // action's own label + rationale. Without this fallback the
+        // modal opens empty when the rerank doesn't produce a hint
+        // (which is most of the time in alpha) and the operator has
+        // to type a prompt manually — the autopopulate regression.
         const composeKind =
           cls.kind === 'composer' ? cls.composeKind : composeKindForAction(action);
         if (composeKind) {
-          setComposerInitialPrompt(
-            handoffHint && handoffHint.trim().length > 0 ? handoffHint : null,
-          );
+          const seedPrompt =
+            handoffHint && handoffHint.trim().length > 0
+              ? handoffHint
+              : buildPromptForNbeAction(artifactType, action);
+          setComposerInitialPrompt(seedPrompt);
           setComposerKind(composeKind);
           setActiveLayoutId('composer');
         } else {
