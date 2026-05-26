@@ -2409,7 +2409,13 @@ export const CODEX_DEFINITIONS: CodexConfig[] = [
   KNYT_CODEX,
   QRIPTO_CODEX,
   AGENTIQ_CARTRIDGE,
-  AGENTIQ_OS_CARTRIDGE,
+  // AGENTIQ_OS_CARTRIDGE — archived 2026-05-26 (deduped). The standalone
+  // /triad/embed/codex/agentiq-os surface was a duplicate of the AgentiQ
+  // OS content already surfaced inline as the `agentiqos` tabGroup inside
+  // METAME_CODEX (via aiqOsTabsByGroup). The constant is still exported
+  // above so that helper continues to read the canonical tab definitions
+  // from a single source — removing it from this registry drops only the
+  // duplicate standalone embed route, not the inline surface.
   VENTURE_LAB_CODEX,
   METAME_CODEX,
   MARKETA_CARTRIDGE,

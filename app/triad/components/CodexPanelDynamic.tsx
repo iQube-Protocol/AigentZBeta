@@ -795,6 +795,44 @@ export default function CodexPanelDynamic({
                   )}
                 </div>
               </div>
+
+              {/*
+                Tier-3 sub-sub-tab row — rendered as a SEPARATE row below
+                the tier-2 nav when BOTH conditions hold:
+                  - the active group has multiple sibling tabs (tier-2 is
+                    rendering the siblings in the bar above), AND
+                  - the active tab has its own subTabs (tier-3).
+                Prior behaviour collapsed tier-3 into the tier-2 slot via
+                an `else if` — that only fired for single-tab groups, so
+                multi-tab groups whose active tab also had subTabs (e.g.
+                AgentiQ OS Home → its 3rd-tier sub-tabs) silently dropped
+                the third row after the ed2ad425 refactor. This second
+                row restores the missing tier without disturbing the
+                single-tab-group inline path above.
+              */}
+              {activeGroup && activeGroupSubTabs.length > 1 && activeSubTabs.length > 0 && (
+                <div className={`flex-shrink-0 border-b px-4 py-1 flex items-center gap-1 min-w-0 overflow-x-auto no-scrollbar ${isDark ? 'border-white/[0.04] bg-white/[0.01]' : 'border-slate-100 bg-slate-50/60'}`}>
+                  {activeSubTabs.map((sub) => {
+                    const isActive = (activeSubSubTab?.slug ?? activeSubTabs[0].slug) === sub.slug;
+                    const Icon = getIconComponent(sub.metadata?.icon || 'Circle');
+                    return (
+                      <button
+                        key={sub.id}
+                        onClick={() => setActiveSubSubTabSlug(sub.slug)}
+                        className={`flex items-center gap-1.5 px-2.5 py-0.5 text-[10px] font-medium transition-all whitespace-nowrap rounded-md flex-shrink-0 ${
+                          isActive
+                            ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/25 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
+                            : isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+                        }`}
+                        title={sub.metadata?.description}
+                      >
+                        <Icon className="w-3 h-3 flex-shrink-0" />
+                        {sub.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </>
           );
         })()}
