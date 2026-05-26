@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-26T09:49:12.652Z",
+  "last_updated": "2026-05-26T09:57:21.186Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "41d107988fae82afb82700340424a2d554ddcac2",
-  "latest_commit_short": "41d1079",
-  "latest_commit_title": "fix admin-tab visibility: hook uses personaFetch (Bearer token), not raw fetch",
+  "latest_commit": "7c3125f382b6d9078474b850461a57bdf1549716",
+  "latest_commit_short": "7c3125f",
+  "latest_commit_title": "CLAUDE.md: dual-source cartridge registration rule (hand-curated wins)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "7c3125f",
+      "full_sha": "7c3125f382b6d9078474b850461a57bdf1549716",
+      "title": "CLAUDE.md: dual-source cartridge registration rule (hand-curated wins)",
+      "author": "Claude",
+      "timestamp": "2026-05-26T09:55:18Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7c3125f.md"
+    },
+    {
+      "sha": "ea60f8e",
+      "full_sha": "ea60f8e87e08db5782fe0bf1bf1be7d34765de13",
+      "title": "CLAUDE.md: document spine-fetch auth contract + per-cartridge admin grants",
+      "author": "Claude",
+      "timestamp": "2026-05-26T09:53:25Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-ea60f8e.md"
+    },
     {
       "sha": "41d1079",
       "full_sha": "41d107988fae82afb82700340424a2d554ddcac2",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-06T20:45:14Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-244ff4f.md"
-    },
-    {
-      "sha": "eaad44a",
-      "full_sha": "eaad44a6b29e30cfbf6bd95948a15cbf91e09ef2",
-      "title": "migrate wallet/identity/consolidate DB client to getSupabaseServer (timeout-guarded)",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:46:08Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-eaad44a.md"
-    },
-    {
-      "sha": "71dbc5a",
-      "full_sha": "71dbc5a454f26969c56c1eff750c9eddf902b0d2",
-      "title": "sprint 3: add investor dashboard tables, RLS, and read/admin APIs",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:57:07Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-71dbc5a.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
