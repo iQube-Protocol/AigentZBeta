@@ -46,6 +46,8 @@ import {
   PersonaSpineGate,
 } from "@/utils/personaSpine";
 import { SmartTriadCopilotLayer } from "@/components/smarttriad/copilot/SmartTriadCopilotLayer";
+import { useCartridgeAdminGrants } from "@/app/hooks/useCartridgeAdminGrants";
+import { RequestAdminAccessButton } from "@/components/metame/admin/RequestAdminAccessButton";
 
 import {
   ExperienceModelCard,
@@ -235,6 +237,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     topAction: NextBestActionData | null;
     alternates: NextBestActionData[];
     topActionReason?: string | null;
+    nbaPromptHints?: Record<string, string>;
     preflightContext?: import("@/services/capabilities/preflight").PreflightContext;
   } | null>(null);
   const [moveForwardLoading, setMoveForwardLoading] = useState(false);
@@ -329,6 +332,10 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
 
   // Approval + queued intents.
   const [pendingApprovalNbe, setPendingApprovalNbe] = useState<NextBestActionData | null>(null);
+  // Move D — when Act fires on an NBA that carries a `promptHint`, we
+  // stash it here so the post-approval composer hand-off can seed
+  // composerInitialPrompt with the LLM's "aigentMe's take" framing.
+  const [pendingApprovalHint, setPendingApprovalHint] = useState<string | null>(null);
   const [submittingApproval, setSubmittingApproval] = useState(false);
   const [approvalError, setApprovalError] = useState<string | null>(null);
   const [queuedIntents, setQueuedIntents] = useState<
@@ -509,6 +516,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         topAction: NextBestActionData | null;
         alternates: NextBestActionData[];
         topActionReason?: string | null;
+        nbaPromptHints?: Record<string, string>;
         preflightContext?: import("@/services/capabilities/preflight").PreflightContext;
         quickChips?: NbeQuickChip[];
       };
@@ -632,6 +640,16 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
     setApprovalError(null);
     setPendingApprovalNbe(action);
+    // Move D — look up the per-NBA prompt hint emitted by the LLM
+    // rerank pass (lives on either the brief or the move-forward
+    // result, depending on which surface fired the Act). When the
+    // approval flow hands off to a compose modal, this seeds
+    // composerInitialPrompt so the form lands populated.
+    const hint =
+      brief?.nbaPromptHints?.[action.id] ??
+      moveForwardResult?.nbaPromptHints?.[action.id] ??
+      null;
+    setPendingApprovalHint(hint && hint.trim().length > 0 ? hint.trim() : null);
     // Phase 2 Slice 5: ApprovalLayout overlays the current layout
     // automatically via the render — see the right-pane wrapper below.
     // We don't swap `activeLayoutId` so the foreground stays mounted.
@@ -640,10 +658,11 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     window.requestAnimationFrame(() => {
       approvalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
-  }, [queuedIntents, personaId, fetchReceipts]);
+  }, [queuedIntents, personaId, fetchReceipts, brief, moveForwardResult]);
 
   const handleApprovalCancel = useCallback(() => {
     setPendingApprovalNbe(null);
+    setPendingApprovalHint(null);
     setApprovalError(null);
     // Foreground layout remains as-is; the approval overlay unmounts.
   }, []);
@@ -669,6 +688,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         ...prev,
         [action.id]: { intentId: intentData.intentId, status: intentData.status, queueMessage: intentData.queueMessage },
       }));
+      const handoffHint = pendingApprovalHint;
       setPendingApprovalNbe(null);
       // Foreground layout remains as-is; approval overlay unmounts.
       void fetchReceipts();
@@ -683,8 +703,15 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       // they just approved. Without this the queue grows but nothing happens.
       const composeKind = composeKindForAction(action);
       if (composeKind) {
-        openComposeByKind(composeKind);
+        // Move D — when the rerank emitted a prompt hint for this NBA,
+        // seed the composer with it. Otherwise leave the form blank,
+        // matching the chip-driven openComposeByKind() flow below.
+        setComposerInitialPrompt(handoffHint && handoffHint.trim().length > 0 ? handoffHint : null);
+        setComposerKind(composeKind);
+        setActiveLayoutId('composer');
+        setPendingApprovalHint(null);
       } else {
+        setPendingApprovalHint(null);
         // No compose hand-off — scroll the right pane to the freshly queued
         // card so the state change is obvious. The approval card has just
         // unmounted; without this scroll the user often misses the queue
@@ -726,7 +753,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     } finally {
       setSubmittingApproval(false);
     }
-  }, [pendingApprovalNbe, personaId, fetchReceipts]);
+  }, [pendingApprovalNbe, pendingApprovalHint, personaId, fetchReceipts, fetchVentureProgress]);
 
   // ── Compose handlers — all 6 mirror the classic tab pattern ────────
   const handleDraftEmail = useCallback(async (prompt: string) => {
@@ -1456,6 +1483,12 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     return out;
   }, [activeActivationIds]);
 
+  // 2026-05-26 chief-of-staff: feed admin grant scope into the
+  // copilot's readable bundle so the LLM biases recommendations
+  // toward admin-tier moves when the persona qualifies. Hook resolves
+  // server-side via the spine — never trusts a client claim.
+  const adminGrants = useCartridgeAdminGrants();
+
   useAigentMeCopilotBridge({
     openCompose: openComposeByKind,
     fireCta: handleCtaClick,
@@ -1476,13 +1509,35 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     removeKpi: handleRemoveKpi,
     openKpiDetail: handleOpenKpiDetail,
     readable: {
-      activeBrief: { hasBrief: !!brief, summary: brief?.summary ?? null },
+      activeBrief: {
+        hasBrief: !!brief,
+        briefType: brief?.briefType ?? null,
+        primaryGoal: brief?.context?.primaryGoal ?? null,
+        experienceName: brief?.context?.experienceName ?? null,
+        currentStage: brief?.context?.currentStage ?? null,
+        topPriorities: brief?.topPriorities ?? [],
+        nextBestActions: (brief?.nextBestActions ?? []).map((a) => ({
+          id: a.id,
+          label: a.label,
+          rationale: a.rationale,
+          cartridge: a.cartridge,
+          effort: a.effort,
+          impact: a.impact,
+          approvalRequired: a.approvalRequired,
+          suggestedArtifact: a.suggestedArtifact ?? null,
+        })),
+      },
       pendingApproval: { has: !!pendingApprovalNbe, cartridge: pendingApprovalNbe?.cartridge ?? null },
       experienceModelStatus: {
         configured: !!expModel?.configured,
         stage: (expModel?.meta?.currentStage as string | null) ?? null,
+        primaryGoal: (expModel?.meta?.primaryGoal as string | null) ?? null,
       },
       activeCartridges,
+      cartridgeAdminGrants: {
+        isGlobalAdmin: adminGrants.isGlobalAdmin,
+        adminCartridges: Array.from(adminGrants.cartridgeSlugs),
+      },
       latestArtifact: {
         kind: latestArtifact?.artifactType ?? null,
         title: latestArtifact?.title ?? null,
@@ -1495,6 +1550,77 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       availableKpiSources: copilotAvailableKpiSources,
     },
   });
+
+  // T1-safe snapshot of what the right pane is currently showing —
+  // forwarded into the copilot via `groundContext` and threaded into
+  // the /api/codex/chat POST body so the chat LLM grounds its
+  // narrative in the same rows the right pane is rendering. Replaces
+  // the prior behaviour where the chat had no idea what brief / NBAs
+  // were on screen and would invent generic `[Priority 1]` /
+  // `[Action 1]` placeholders. Null fields are omitted by the route.
+  const copilotGroundContext = useMemo(() => {
+    const brief_ = brief
+      ? {
+          briefType: brief.briefType,
+          primaryGoal: brief.context?.primaryGoal ?? null,
+          experienceName: brief.context?.experienceName ?? null,
+          currentStage: brief.context?.currentStage ?? null,
+          activeCartridges: brief.context?.activeCartridges ?? [],
+          topPriorities: brief.topPriorities ?? [],
+          nextBestActions: (brief.nextBestActions ?? []).map((a) => ({
+            id: a.id,
+            label: a.label,
+            rationale: a.rationale,
+            cartridge: a.cartridge,
+            effort: a.effort,
+            impact: a.impact,
+            approvalRequired: a.approvalRequired,
+            suggestedArtifact: a.suggestedArtifact ?? null,
+            promptHint: brief.nbaPromptHints?.[a.id] ?? null,
+          })),
+        }
+      : null;
+    const moveForward_ = moveForwardResult
+      ? {
+          cartridge: moveForwardResult.cartridge,
+          topActionReason: moveForwardResult.topActionReason ?? null,
+          topAction: moveForwardResult.topAction
+            ? {
+                id: moveForwardResult.topAction.id,
+                label: moveForwardResult.topAction.label,
+                rationale: moveForwardResult.topAction.rationale,
+                cartridge: moveForwardResult.topAction.cartridge,
+                impact: moveForwardResult.topAction.impact,
+                suggestedArtifact: moveForwardResult.topAction.suggestedArtifact ?? null,
+                promptHint:
+                  moveForwardResult.nbaPromptHints?.[moveForwardResult.topAction.id] ?? null,
+              }
+            : null,
+          alternates: (moveForwardResult.alternates ?? []).map((a) => ({
+            id: a.id,
+            label: a.label,
+            rationale: a.rationale,
+            cartridge: a.cartridge,
+            impact: a.impact,
+            promptHint: moveForwardResult.nbaPromptHints?.[a.id] ?? null,
+          })),
+        }
+      : null;
+    return {
+      brief: brief_,
+      moveForward: moveForward_,
+      experienceModel: {
+        configured: !!expModel?.configured,
+        stage: (expModel?.meta?.currentStage as string | null) ?? null,
+        primaryGoal: (expModel?.meta?.primaryGoal as string | null) ?? null,
+      },
+      activeCartridges,
+      pendingApproval: pendingApprovalNbe
+        ? { id: pendingApprovalNbe.id, label: pendingApprovalNbe.label, cartridge: pendingApprovalNbe.cartridge }
+        : null,
+      queuedIntentIds: Object.keys(queuedIntents ?? {}),
+    };
+  }, [brief, moveForwardResult, expModel, activeCartridges, pendingApprovalNbe, queuedIntents]);
 
   // ── Render ──────────────────────────────────────────────────────────
   // Static seed prompts for the copilot (the right pane's CTAs are
@@ -1607,12 +1733,23 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               promptPlaceholder="Ask aigentMe — brief, move forward, draft an email…"
               agent={{ id: 'aigent-me', name: 'aigentMe' }}
               agentSubtitle="metaMe · personal assistant"
+              personaId={personaId}
+              groundContext={copilotGroundContext}
               onClose={() => undefined}
             />
           </div>
 
           {/* ── RIGHT: dynamic surface (50/50 with the copilot). ── */}
           <div className="lg:w-1/2 w-full h-full min-h-0 relative">
+            {/* Persona with no admin grants (neither global nor per-cartridge)
+                gets a small affordance to request admin access. Hidden the
+                moment any grant exists so global admins / cartridge admins
+                don't see noise on their own surface. */}
+            {!adminGrants.isGlobalAdmin && adminGrants.cartridgeSlugs.size === 0 && (
+              <div className="absolute top-2 right-2 z-30">
+                <RequestAdminAccessButton />
+              </div>
+            )}
             {bootstrapLoading && !data && (
               <div className="h-full flex items-center justify-center text-sm opacity-60">
                 Loading aigentMe…

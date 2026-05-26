@@ -96,6 +96,15 @@ interface UserContext {
     focusIntent?: string | null;
     alignmentState?: string | null;
   };
+  /**
+   * T1-safe snapshot of what the calling surface is currently rendering
+   * (the live brief shape, move-forward bundle, expModel state). When
+   * present, the system prompt instructs the LLM to narrate ONLY these
+   * rows by label and rationale rather than inventing a template. Set
+   * by the chat client on every POST when available; null/undefined =>
+   * generic narrative falls back to KB / persona prompt.
+   */
+  groundContext?: Record<string, unknown> | null;
 }
 
 interface CodexMetadata {
@@ -1336,7 +1345,23 @@ async function fetchCodexMetadata(domain: ContentDomain = 'metaKnyts'): Promise<
     };
   }
 
-  // Default: Fetch metaKnyts content
+  // Default: ONLY return metaKnyts content when the caller explicitly
+  // asked for the metaKnyts domain. The previous behaviour dumped
+  // KNYT characters / cards / episodes into the LLM prompt for EVERY
+  // domain that wasn't 'qriptopian' — including 'agentiq' (aigentMe
+  // copilot) — which produced KNYT-flavoured narrative on briefs that
+  // had nothing to do with KNYT. Fix 2026-05-26: any unrecognised
+  // domain returns an empty content scaffold so the LLM falls back to
+  // its general / persona-prompt knowledge instead of being primed
+  // with lore that doesn't apply.
+  if (domain !== 'metaKnyts') {
+    return {
+      characters: [],
+      episodes: [],
+      stats: { characterCount: 0, episodeCount: 0, coverCount: 0, masterCount: 0 },
+    };
+  }
+
   const { data: characters } = await supabase
     .from('codex_characters')
     .select(`
@@ -1586,6 +1611,96 @@ function buildSystemPrompt(
     ? `\n\n## User's metaMe Cartridge State\n\nFrame your reply inside this context — these are the facts the user has declared. Do not invent or override them.\n\n${metameLines.join('\n')}`
     : '';
 
+  // Right-pane ground truth — when the host surface tells us what's
+  // currently on screen, the LLM MUST narrate that exact shape instead
+  // of inventing a generic template. Only emitted for aigent-me and
+  // only when groundContext carries usable structure. Skipped when the
+  // payload is empty so we don't add noise.
+  let groundContextBlock = '';
+  if (resolvedPersonaId === 'aigent-me' && userContext?.groundContext) {
+    try {
+      const gc = userContext.groundContext as Record<string, unknown>;
+      const brief = gc.brief as Record<string, unknown> | null | undefined;
+      const moveForward = gc.moveForward as Record<string, unknown> | null | undefined;
+      const expModel = gc.experienceModel as Record<string, unknown> | null | undefined;
+      const pending = gc.pendingApproval as Record<string, unknown> | null | undefined;
+      const queuedIds = Array.isArray(gc.queuedIntentIds) ? (gc.queuedIntentIds as string[]) : [];
+      const activeCartridges = Array.isArray(gc.activeCartridges) ? (gc.activeCartridges as string[]) : [];
+
+      const lines: string[] = [];
+
+      if (brief && Array.isArray(brief.nextBestActions) && (brief.nextBestActions as unknown[]).length > 0) {
+        const priorities = (brief.topPriorities as Array<{ label?: string; cartridge?: string }> | undefined) ?? [];
+        const nbas = (brief.nextBestActions as Array<Record<string, unknown>>) ?? [];
+        lines.push(`### Active brief on the right pane`);
+        if (brief.experienceName) lines.push(`- Experience: **${brief.experienceName}**`);
+        if (brief.primaryGoal)    lines.push(`- Primary goal: ${brief.primaryGoal}`);
+        if (brief.currentStage)   lines.push(`- Stage: ${brief.currentStage}`);
+        if (priorities.length > 0) {
+          lines.push(`- Top priorities:`);
+          for (const p of priorities.slice(0, 6)) {
+            if (p?.label) lines.push(`  • ${p.label}${p.cartridge ? ` (${p.cartridge})` : ''}`);
+          }
+        }
+        lines.push(`- Next-best actions (deterministic + LLM-reranked):`);
+        for (let i = 0; i < nbas.length; i++) {
+          const a = nbas[i];
+          const label = typeof a.label === 'string' ? a.label : 'Unnamed action';
+          const cartridge = typeof a.cartridge === 'string' ? a.cartridge : '';
+          const rationale = typeof a.rationale === 'string' ? a.rationale : '';
+          const impact = typeof a.impact === 'string' ? ` · ${a.impact} impact` : '';
+          const approval = a.approvalRequired ? ' · approval required' : '';
+          const hint = typeof a.promptHint === 'string' && a.promptHint.length > 0 ? `\n     hint: ${a.promptHint}` : '';
+          const artifact = typeof a.suggestedArtifact === 'string' && a.suggestedArtifact ? ` · suggested artifact: ${a.suggestedArtifact}` : '';
+          lines.push(`  ${i + 1}. **${label}** (${cartridge})${impact}${approval}${artifact}\n     why: ${rationale}${hint}`);
+        }
+      }
+
+      if (moveForward && (moveForward.topAction || (Array.isArray(moveForward.alternates) && (moveForward.alternates as unknown[]).length > 0))) {
+        lines.push(`### Move-forward bundle on the right pane`);
+        if (moveForward.cartridge) lines.push(`- Cartridge focus: ${moveForward.cartridge}`);
+        if (moveForward.topActionReason) lines.push(`- Top action reason: ${moveForward.topActionReason}`);
+        const top = moveForward.topAction as Record<string, unknown> | null | undefined;
+        if (top) {
+          const hint = typeof top.promptHint === 'string' && top.promptHint.length > 0 ? `\n   hint: ${top.promptHint}` : '';
+          lines.push(`- Top action: **${top.label}** (${top.cartridge})\n   why: ${top.rationale}${hint}`);
+        }
+        const alts = (moveForward.alternates as Array<Record<string, unknown>>) ?? [];
+        if (alts.length > 0) {
+          lines.push(`- Alternates:`);
+          for (const a of alts.slice(0, 3)) {
+            const hint = typeof a.promptHint === 'string' && a.promptHint.length > 0 ? `\n     hint: ${a.promptHint}` : '';
+            lines.push(`  • **${a.label}** (${a.cartridge}) — ${a.rationale}${hint}`);
+          }
+        }
+      }
+
+      if (expModel && typeof expModel.configured === 'boolean') {
+        lines.push(`### Experience model`);
+        lines.push(`- Configured: ${expModel.configured ? 'yes' : 'no'}`);
+        if (expModel.stage) lines.push(`- Stage: ${expModel.stage}`);
+        if (expModel.primaryGoal) lines.push(`- Primary goal: ${expModel.primaryGoal}`);
+      }
+
+      if (activeCartridges.length > 0) {
+        lines.push(`### Active cartridges\n- ${activeCartridges.join(', ')}`);
+      }
+
+      if (pending && pending.label) {
+        lines.push(`### Pending approval\n- ${pending.label} (${pending.cartridge ?? 'metame'})`);
+      }
+      if (queuedIds.length > 0) {
+        lines.push(`### Queued intents (already approved, awaiting execution)\n- ${queuedIds.join(', ')}`);
+      }
+
+      if (lines.length > 0) {
+        groundContextBlock = `\n\n## Right-pane ground truth — narrate THIS, do not invent\n\nThe operator's right pane is currently showing the structured data below. Your reply MUST mirror these exact rows — refer to each NBA by its label and rationale, cite the persona's primary goal / stage / active cartridges as the framing axis, and use the per-NBA hint (when present) as the starting frame for any "Act" guidance. NEVER emit placeholder strings like "[Priority 1]", "[Action 1]", or "[Event/Document/Message 1]" — those indicate you ignored this block. If the operator asks "give me my daily brief", paraphrase the brief below as a short narrative followed by 2-3 sentences of WHY each NBA is the move right now.\n\n${lines.join('\n')}`;
+      }
+    } catch {
+      // groundContext malformed — fall back to general narrative.
+    }
+  }
+
   // Shared KB context section (appended for all agents when search returns results)
   const kbSection = kbContext && kbContext.length > 0 ? `
 
@@ -1700,9 +1815,9 @@ After your response, add:
   }
 
   // Platform/system agents: persona system prompt only, plus any KB hits.
-  // metameContextBlock is appended for aigent-me (empty string for any
-  // other agent — adds nothing to their prompts).
-  return `${personaIntro}${policyBlock}${metameContextBlock}${kbSection}`;
+  // metameContextBlock + groundContextBlock are appended for aigent-me
+  // (empty strings for any other agent — adds nothing to their prompts).
+  return `${personaIntro}${policyBlock}${metameContextBlock}${groundContextBlock}${kbSection}`;
 }
 
 // CORS headers for cross-origin requests from Vite dev server
@@ -1738,6 +1853,11 @@ export async function POST(request: NextRequest) {
       explanation_first,
       // Kn0w1 live context — optional personaId to fetch live KNYT state
       personaId,
+      // Right-pane ground truth — T1-safe snapshot of what the calling
+      // surface is rendering. Only honoured for aigent-me; ignored for
+      // other personas to avoid leaking aigentMe-flavoured narrative
+      // into KNYT / Marketa replies.
+      groundContext,
     } = body;
 
     if (!message) {
@@ -1768,6 +1888,10 @@ export async function POST(request: NextRequest) {
         : skill_filter === false || skill_filter === 'all' ? 'all'
         : undefined,
       explanationFirst: typeof explanation_first === 'boolean' ? explanation_first : undefined,
+      groundContext:
+        groundContext && typeof groundContext === 'object' && !Array.isArray(groundContext)
+          ? (groundContext as Record<string, unknown>)
+          : undefined,
     };
 
     console.log('[CodexChat] User context:', { 

@@ -1209,3 +1209,28 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-ea60f8e.md](../build_/COMMITS/COMMIT-ea60f8e.md)
 - Message: CLAUDE.md: document spine-fetch auth contract + per-cartridge admin grants
+
+## Commit `7c3125f` — 2026-05-26T09:55:18Z
+- Type: `push`
+- Brief: [COMMIT-7c3125f.md](../build_/COMMITS/COMMIT-7c3125f.md)
+- Message: CLAUDE.md: dual-source cartridge registration rule (hand-curated wins)
+
+## Commit `f9a34db` — 2026-05-26T10:09:35Z
+- Type: `feat`
+- Brief: [COMMIT-f9a34db.md](../build_/COMMITS/COMMIT-f9a34db.md)
+- Message: register TabRendererFallback component + add Admin under Marketa Partner
+
+## Commit `89d80cf` — 2026-05-26T10:12:01Z
+- Type: `push`
+- Brief: [COMMIT-89d80cf.md](../build_/COMMITS/COMMIT-89d80cf.md)
+- Message: AgentiQ OS: stub Admin tabGroup so the mirror has content
+
+## Commit `f32d517` — 2026-05-26T14:19:24Z
+- Type: `feat`
+- Brief: [COMMIT-f32d517.md](../build_/COMMITS/COMMIT-f32d517.md)
+- Message: copilot: wire mic to STT + add Listen TTS + persist messages + clear affordance
+
+## Commit `c56ae59` — 2026-05-26T14:46:41Z
+- Type: `push`
+- Brief: [COMMIT-c56ae59.md](../build_/COMMITS/COMMIT-c56ae59.md)
+- Message: copilot: kill KNYT lore bias + thread brief shape + admin grants into LLM context

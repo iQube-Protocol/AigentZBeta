@@ -107,6 +107,14 @@ export interface BriefShape {
    * call ran or the call failed.
    */
   topNbeReason?: string | null;
+  /**
+   * Optional per-NBA compose / action prompt hints keyed by NBA id.
+   * Produced by the LLM rerank pass alongside `topNbeReason`. Empty
+   * record when no LLM call ran or the call returned no usable hints.
+   * Surfaces as the "aigentMe's take" italic line under each NBA card
+   * and seeds composerInitialPrompt when Act maps to a compose modal.
+   */
+  nbaPromptHints?: Record<string, string>;
   /** Counts of pending approvals. Surfaced in the brief header. */
   pendingApprovalsCount: number;
   /** iQube usage disclosure for the calling surface to render. */
@@ -234,6 +242,7 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
   });
   nbeCandidates = rerank.ranked;
   const topNbeReason = rerank.topReason;
+  const nbaPromptHints = rerank.nbaPromptHints;
 
   const nextBestActions: BriefNextBestAction[] = nbeCandidates.map((c) => ({
     id: c.id,
@@ -281,6 +290,7 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
     topPriorities,
     nextBestActions,
     topNbeReason,
+    nbaPromptHints,
     pendingApprovalsCount: 0, // Phase 6 wires this.
     using,
     notShared: [
@@ -303,6 +313,8 @@ export interface MoveForwardShape {
   alternates: BriefNextBestAction[];
   /** ≤140-char rationale for the top pick from the LLM rerank pass. */
   topActionReason?: string | null;
+  /** See `BriefShape.nbaPromptHints` — same shape, same meaning. */
+  nbaPromptHints?: Record<string, string>;
   using: BriefShape['using'];
   notShared: string[];
   /** See `BriefShape.preflightContext` — same shape, same meaning. */
@@ -345,6 +357,7 @@ export async function buildMoveForward(input: {
   let topCandidate: NbeCandidate | null;
   let altsRaw: NbeCandidate[];
   let topActionReason: string | null = null;
+  let nbaPromptHints: Record<string, string> = {};
 
   if (input.cartridge) {
     topCandidate = selectTopNbeForCartridge(input.cartridge, currentStage, {
@@ -381,6 +394,7 @@ export async function buildMoveForward(input: {
     topCandidate = rerank.ranked[0] ?? null;
     altsRaw = rerank.ranked.slice(1);
     topActionReason = rerank.topReason;
+    nbaPromptHints = rerank.nbaPromptHints;
   }
 
   const resolvedCartridge: ActiveCartridgeSlug =
@@ -424,6 +438,7 @@ export async function buildMoveForward(input: {
     topAction: topCandidate ? toAction(topCandidate) : null,
     alternates: altsRaw.slice(0, 2).map(toAction),
     topActionReason,
+    nbaPromptHints,
     using: experienceConfigured
       ? ['PersonaQube', 'ExperienceQube', 'IntentQube']
       : ['PersonaQube', 'IntentQube'],

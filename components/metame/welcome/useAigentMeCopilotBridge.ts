@@ -86,10 +86,47 @@ interface BridgeInputs {
 
   // Readable snapshot — T1 only.
   readable: {
-    activeBrief: { hasBrief: boolean; summary: string | null };
+    /**
+     * Active brief shape — when present, includes the structured
+     * data the brief render uses (top priorities + computed NBAs)
+     * so the copilot's narrative can ground in the actual rows
+     * shown on the right pane instead of generating from scratch
+     * via RAG (which used to drift into KNYT lore for venture-
+     * focused operators).
+     */
+    activeBrief: {
+      hasBrief: boolean;
+      briefType: string | null;
+      primaryGoal: string | null;
+      experienceName: string | null;
+      currentStage: string | null;
+      topPriorities: Array<{ id: string; label: string; cartridge: string }>;
+      /** Compact NBA list — id + label + rationale + cartridge so the
+       *  LLM can name them by label in its narrative. */
+      nextBestActions: Array<{
+        id: string;
+        label: string;
+        rationale: string;
+        cartridge: string;
+        effort: string;
+        impact: string;
+        approvalRequired: boolean;
+        suggestedArtifact: string | null;
+      }>;
+    };
     pendingApproval: { has: boolean; cartridge: string | null };
-    experienceModelStatus: { configured: boolean; stage: string | null };
+    experienceModelStatus: { configured: boolean; stage: string | null; primaryGoal: string | null };
     activeCartridges: string[];
+    /**
+     * 2026-05-26 chief-of-staff extension: surfaces the persona's
+     * cartridge admin grants so the copilot biases recommendations
+     * toward chief-of-staff moves on admin-scoped surfaces. Empty
+     * array + isGlobalAdmin: false ⇒ ground-level operator framing.
+     */
+    cartridgeAdminGrants: {
+      isGlobalAdmin: boolean;
+      adminCartridges: string[];
+    };
     latestArtifact: { kind: string | null; title: string | null; status: string | null };
     nextBestActionsCount: number;
     expandedSectionId: SectionId | null;
@@ -116,7 +153,8 @@ export function useAigentMeCopilotBridge({
 }: BridgeInputs) {
   // ── Readables ──────────────────────────────────────────────────────
   useCopilotReadable({
-    description: "Active brief on the aigentMe welcome surface (null when no brief has been requested).",
+    description:
+      "Active brief shape on the aigentMe welcome surface. When hasBrief is true, ground your narrative in the exact topPriorities + nextBestActions rows the right pane is rendering — name them by label, reference their rationale, and prescribe specific next moves rooted in this list. Do NOT invent unrelated suggestions. Use primaryGoal + currentStage as the framing axis.",
     value: readable.activeBrief,
   });
   useCopilotReadable({
@@ -124,12 +162,18 @@ export function useAigentMeCopilotBridge({
     value: readable.pendingApproval,
   });
   useCopilotReadable({
-    description: "ExperienceModel configuration status (whether the user has set up their venture-building model and current stage).",
+    description: "ExperienceModel configuration status (whether the user has set up their venture-building model, current stage, and primary goal).",
     value: readable.experienceModelStatus,
   });
   useCopilotReadable({
-    description: "Active cartridge slugs the user currently has installed (KNYT, Marketa, Qriptopian, etc.).",
+    description:
+      "Active cartridge slugs the user currently has installed. Bias every recommendation toward these surfaces — never propose work on cartridges that are NOT in this list. When the list is short (e.g. just 'metame'), focus on setup / ExperienceModel completion moves first.",
     value: readable.activeCartridges,
+  });
+  useCopilotReadable({
+    description:
+      "Cartridge admin grants for this persona. When isGlobalAdmin is true OR adminCartridges contains the slug for an active surface, prefer chief-of-staff moves (review queues, partner ops, content-pipeline state) over ground-level operator moves. Cite the specific cartridge by name when admin-tier work is relevant.",
+    value: readable.cartridgeAdminGrants,
   });
   useCopilotReadable({
     description: "Latest artifact created on this surface (Gmail draft, calendar event, doc, sheet, slides, Marketa email).",

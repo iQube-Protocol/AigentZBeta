@@ -106,7 +106,7 @@ const CARTRIDGE_LABELS: Record<string, string> = {
   knyt: "KNYT",
   qriptopian: "The Qriptopian",
   marketa: "Marketa",
-  avl: "AgentiQ Venture Lab",
+  avl: "metaMe Venture Lab",
 };
 
 export function VentureProgressCard({
@@ -185,7 +185,7 @@ export function VentureProgressCard({
           <div className="flex items-center gap-2 mb-1">
             <Briefcase className={`w-4 h-4 ${accentClass}`} />
             <span className={`text-xs uppercase tracking-wider ${mutedClass}`}>
-              Venture Progress · AgentiQ Venture Lab
+              Venture Progress · metaMe Venture Lab
             </span>
             <PreflightChip preflight={data.preflightContext} theme={theme} />
           </div>

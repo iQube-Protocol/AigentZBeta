@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-26T09:55:21.013Z",
+  "last_updated": "2026-05-26T14:48:34.163Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "ea60f8e87e08db5782fe0bf1bf1be7d34765de13",
-  "latest_commit_short": "ea60f8e",
-  "latest_commit_title": "CLAUDE.md: document spine-fetch auth contract + per-cartridge admin grants",
+  "latest_commit": "c56ae59256287ce9c5aa09bc97a39ae13057731a",
+  "latest_commit_short": "c56ae59",
+  "latest_commit_title": "copilot: kill KNYT lore bias + thread brief shape + admin grants into LLM context",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,51 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c56ae59",
+      "full_sha": "c56ae59256287ce9c5aa09bc97a39ae13057731a",
+      "title": "copilot: kill KNYT lore bias + thread brief shape + admin grants into LLM context",
+      "author": "Claude",
+      "timestamp": "2026-05-26T14:46:41Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c56ae59.md"
+    },
+    {
+      "sha": "f32d517",
+      "full_sha": "f32d51767fafb82350355a26b99a64695f2a1d13",
+      "title": "copilot: wire mic to STT + add Listen TTS + persist messages + clear affordance",
+      "author": "Claude",
+      "timestamp": "2026-05-26T14:19:24Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-f32d517.md"
+    },
+    {
+      "sha": "89d80cf",
+      "full_sha": "89d80cfd47367eb3754cc9a1afc9ce24fc82007e",
+      "title": "AgentiQ OS: stub Admin tabGroup so the mirror has content",
+      "author": "Claude",
+      "timestamp": "2026-05-26T10:12:01Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-89d80cf.md"
+    },
+    {
+      "sha": "f9a34db",
+      "full_sha": "f9a34dbad05f7767c10c357a53959f39415c7355",
+      "title": "register TabRendererFallback component + add Admin under Marketa Partner",
+      "author": "Claude",
+      "timestamp": "2026-05-26T10:09:35Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-f9a34db.md"
+    },
+    {
+      "sha": "7c3125f",
+      "full_sha": "7c3125f382b6d9078474b850461a57bdf1549716",
+      "title": "CLAUDE.md: dual-source cartridge registration rule (hand-curated wins)",
+      "author": "Claude",
+      "timestamp": "2026-05-26T09:55:18Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7c3125f.md"
+    },
     {
       "sha": "ea60f8e",
       "full_sha": "ea60f8e87e08db5782fe0bf1bf1be7d34765de13",
@@ -1207,51 +1252,6 @@
       "timestamp": "2026-05-06T20:43:23Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-49d9905.md"
-    },
-    {
-      "sha": "69da15a",
-      "full_sha": "69da15a4abbe119fb57135ffea9258f204fb99ae",
-      "title": "migrate codex/owned route to getSupabaseServer (timeout-guarded)",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:43:36Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-69da15a.md"
-    },
-    {
-      "sha": "ff8a4f9",
-      "full_sha": "ff8a4f959579609485a7cec22364602b9409a3ca",
-      "title": "migrate wallet/personas DB client to getSupabaseServer (timeout-guarded)",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:44:10Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-ff8a4f9.md"
-    },
-    {
-      "sha": "1b0d145",
-      "full_sha": "1b0d1450aa384e6b1345e2341ca909e538b3ccff",
-      "title": "migrate wallet/knyt/balance route to getSupabaseServer (timeout-guarded)",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:44:40Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1b0d145.md"
-    },
-    {
-      "sha": "244ff4f",
-      "full_sha": "244ff4f6bc5b4c2b893ffc3db9918d60c283eadc",
-      "title": "migrate wallet/identity/profile DB client to getSupabaseServer (timeout-guarded)",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:45:14Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-244ff4f.md"
-    },
-    {
-      "sha": "eaad44a",
-      "full_sha": "eaad44a6b29e30cfbf6bd95948a15cbf91e09ef2",
-      "title": "migrate wallet/identity/consolidate DB client to getSupabaseServer (timeout-guarded)",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:46:08Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-eaad44a.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

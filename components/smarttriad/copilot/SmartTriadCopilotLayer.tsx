@@ -6,9 +6,11 @@
  * advanced inference rendering capabilities.
  */
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import { useIsMobile } from "@/app/hooks/use-mobile";
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
+import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
 import { SmartTriadInferenceRenderer, type SmartTriadMessage } from "./SmartTriadInferenceRenderer";
 import {
   Bot,
@@ -20,6 +22,9 @@ import {
   Mic,
   MicOff,
   PanelRightClose,
+  Volume2,
+  VolumeX,
+  RotateCcw,
 } from "lucide-react";
 
 // Import CSS
@@ -78,6 +83,16 @@ interface SmartTriadCopilotLayerProps {
     accentColor?: string;
   };
   enableAdvancedRendering?: boolean;
+  /**
+   * Optional T1-safe snapshot of what the host surface is currently
+   * rendering (e.g. the live brief shape on aigentMe welcome). Forwarded
+   * verbatim to the chat route as `groundContext` so the LLM can
+   * narrate the same rows the right pane is showing instead of
+   * inventing a generic template. Read via a ref inside handleSend so
+   * the latest value is always used, even when the parent populates it
+   * asynchronously after a chip click.
+   */
+  groundContext?: Record<string, unknown> | null;
 }
 
 type CopilotMode = "chat" | "avatar";
@@ -146,6 +161,7 @@ export function SmartTriadCopilotLayer({
   personaId,
   tenantConfig,
   enableAdvancedRendering = true,
+  groundContext,
 }: SmartTriadCopilotLayerProps) {
   
   // Core state
@@ -168,9 +184,40 @@ export function SmartTriadCopilotLayer({
   const isAvatarActive = mode === "avatar" && activeContainer === avatarContainer;
   const isMobile = useIsMobile();
   
-  // Messages state
+  // Session-storage key — scoped to the persona so different personas
+  // don't leak each other's copilot history when switching accounts on
+  // the same browser. Falls back to 'anon' so the hook still rehydrates
+  // when personaId is undefined (single-persona contexts).
+  const persistKey = useMemo(
+    () => `smarttriad.copilot.messages.${personaId ?? 'anon'}`,
+    [personaId],
+  );
+
+  // Messages state — seeded from sessionStorage on mount so a persona
+  // who navigates away and comes back keeps their conversation.
+  // Cleared explicitly via the refresh affordance in the toggle row.
   const [internalMessages, setInternalMessages] = useState<SmartTriadMessage[]>(() => {
     const initialMsgs: SmartTriadMessage[] = [];
+
+    // Try session storage first; if present, return it verbatim and
+    // skip the welcome/initial seeds (those are first-mount only).
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = window.sessionStorage.getItem(persistKey);
+        if (raw) {
+          const parsed = JSON.parse(raw) as SmartTriadMessage[];
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            // Rehydrate Date instances — JSON loses the type.
+            return parsed.map((m) => ({
+              ...m,
+              timestamp: m.timestamp ? new Date(m.timestamp) : new Date(),
+            }));
+          }
+        }
+      } catch {
+        // Corrupt storage — fall through to seed messages.
+      }
+    }
     
     // Add welcome message for first visit
     if (isFirstVisit && !initialMessage) {
@@ -210,6 +257,32 @@ export function SmartTriadCopilotLayer({
   
   // Use external messages if provided, otherwise use internal state
   const messages = externalMessages || internalMessages;
+
+  // Persist the in-memory messages to sessionStorage on every change
+  // so a persona returning to the surface sees their conversation
+  // restored. Skipped when the caller owns the message state via
+  // externalMessages + onMessagesChange (their concern, not ours).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (externalMessages) return;
+    try {
+      window.sessionStorage.setItem(persistKey, JSON.stringify(internalMessages));
+    } catch {
+      // Quota exceeded / storage disabled — silent best-effort.
+    }
+  }, [internalMessages, persistKey, externalMessages]);
+
+  // Clear handler — drops persisted history and resets to seed.
+  // Wired to the refresh icon next to the chat/avatar toggle so the
+  // operator can reset the conversation explicitly.
+  const handleClearMessages = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      try { window.sessionStorage.removeItem(persistKey); } catch { /* ignore */ }
+    }
+    setInternalMessages([...seedMessages]);
+    if (onMessagesChange) onMessagesChange([...seedMessages]);
+  }, [persistKey, seedMessages, onMessagesChange]);
+
   const updateMessages = useCallback(
     (updater: (prev: SmartTriadMessage[]) => SmartTriadMessage[]) => {
       const next = updater([...messages]);
@@ -225,6 +298,14 @@ export function SmartTriadCopilotLayer({
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Latest groundContext snapshot — read by handleSend at the moment
+  // the POST goes out, so the LLM always sees the freshest right-pane
+  // state (e.g. a brief that finished loading between chip click and
+  // send). Stable callback identity is preserved.
+  const groundContextRef = useRef<Record<string, unknown> | null | undefined>(groundContext);
+  useEffect(() => {
+    groundContextRef.current = groundContext;
+  }, [groundContext]);
   
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -281,14 +362,27 @@ export function SmartTriadCopilotLayer({
 
       // Map persona to the correct KB search domain:
       // KNYT agents search the metaKnyts codex; MoneyPenny searches Qriptopian;
-      // platform agents (Aigent Z/C) pass 'agentiq' — the route treats unknown domains
-      // as platform-only and skips KNYT codex injection.
-      const resolvedPersona = personaId ?? 'aigent-kn0w1';
+      // platform agents (Aigent Z/C/Me) pass 'agentiq' — the route treats
+      // unknown domains as platform-only and skips KNYT codex injection.
+      //
+      // 2026-05-26 fix: agent.id is the canonical persona identity when the
+      // surface passes one (e.g. aigentMe panel sets agent={ id: 'aigent-me' }
+      // but doesn't always pass a separate personaId prop). Falling back to
+      // personaId → agent.id → 'aigent-z' prevents the prior bug where the
+      // aigentMe surface was treated as Kn0w1, triggering KNYT-flavoured
+      // narrative on every response.
+      const resolvedPersona = personaId ?? agent?.id ?? 'aigent-z';
       const domainForPersona = (() => {
         if (resolvedPersona === 'aigent-kn0w1' || resolvedPersona === 'aigent-marketa') return 'metaKnyts';
         if (resolvedPersona === 'aigent-moneypenny') return 'qriptopian';
         return 'agentiq'; // aigent-z, aigent-c, metaMe, etc.
       })();
+
+      // Read the freshest groundContext at POST time — a chip click
+      // typically triggers a right-pane fetch in parallel with this
+      // send; without the ref we'd capture the snapshot from when the
+      // chip fired, which is empty.
+      const currentGroundContext = groundContextRef.current ?? null;
 
       const res = await fetch('/api/codex/chat', {
         method: 'POST',
@@ -300,6 +394,8 @@ export function SmartTriadCopilotLayer({
           aigentId: resolvedPersona,
           domain: domainForPersona,
           provider_id: selectedProvider,
+          personaId,
+          groundContext: currentGroundContext,
         }),
       });
 
@@ -431,6 +527,7 @@ export function SmartTriadCopilotLayer({
           agentSubtitle={agentSubtitle}
           selectedProvider={selectedProvider}
           setSelectedProvider={setSelectedProvider}
+          onClearMessages={handleClearMessages}
         />
       ) : (
         <EmbeddedCopilot
@@ -509,6 +606,7 @@ function FloatingCopilot({
   selectedProvider,
   setSelectedProvider,
   inlineMode = false,
+  onClearMessages,
 }: {
   messages: SmartTriadMessage[];
   input: string;
@@ -520,6 +618,7 @@ function FloatingCopilot({
   setShowQuickPrompts: (show: boolean) => void;
   onQuickPrompt: (prompt: any) => void;
   onClose: () => void;
+  onClearMessages?: () => void;
   mode: CopilotMode;
   setMode: (mode: CopilotMode) => void;
   isAvatarActive: boolean;
@@ -543,7 +642,43 @@ function FloatingCopilot({
   setSelectedProvider: (p: string) => void;
 }) {
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
-  const [micActive, setMicActive] = useState(false);
+
+  // STT — replaces the prior cosmetic micActive toggle that didn't
+  // actually wire to any transcription path. The mic button now
+  // delegates to useSpeechRecognition which records via MediaRecorder
+  // and POSTs to /api/skills/stt for Whisper transcription. The
+  // transcript is appended to the prompt input.
+  const stt = useSpeechRecognition({
+    onFinalResult: (text) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      // Preserve any partially-typed prompt + add a space.
+      setInput(input ? `${input.trimEnd()} ${trimmed}` : trimmed);
+    },
+  });
+  const micActive = stt.isListening;
+
+  // TTS — wired to the Listen icon next to the trust/reliability
+  // dots. Reads the latest assistant message aloud; cancels if the
+  // operator clicks again while speaking.
+  const tts = useSpeechSynthesis();
+  const lastAssistantMessage = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant' && typeof messages[i].content === 'string') {
+        return messages[i].content as string;
+      }
+    }
+    return '';
+  }, [messages]);
+  const handleListenToggle = useCallback(() => {
+    if (tts.isSpeaking) {
+      tts.cancel();
+      return;
+    }
+    if (!lastAssistantMessage) return;
+    tts.speak(lastAssistantMessage);
+  }, [tts, lastAssistantMessage]);
+
   const visibleQuickPrompts = showQuickPrompts && quickPrompts.length > 0;
 
   // Dark-mode CSS variable overrides so SmartTriad CSS renders on dark background
@@ -603,6 +738,33 @@ function FloatingCopilot({
               )}
             </div>
             <div className="flex items-center gap-3">
+              {/* Listen — read the latest assistant message aloud via
+                  window.speechSynthesis. Click again while speaking to
+                  cancel. Disabled when no assistant message exists yet
+                  or TTS isn't supported in this browser. Sits to the
+                  left of the R/T dots so the trust/reliability glance
+                  stays uncluttered. */}
+              {tts.isSupported && (
+                <button
+                  type="button"
+                  onClick={handleListenToggle}
+                  disabled={!lastAssistantMessage}
+                  title={
+                    !lastAssistantMessage
+                      ? 'No reply to read yet'
+                      : tts.isSpeaking
+                        ? 'Stop reading'
+                        : 'Read the latest reply aloud'
+                  }
+                  className={`p-1 rounded-md transition-colors ${
+                    tts.isSpeaking
+                      ? 'text-cyan-300 bg-cyan-500/15'
+                      : 'text-white/50 hover:text-cyan-300 hover:bg-white/5'
+                  } disabled:opacity-30 disabled:cursor-not-allowed`}
+                >
+                  {tts.isSpeaking ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                </button>
+              )}
               <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
                 <span className="text-[10px] text-white/60">R</span>
                 {renderDots(7.8, "reliability")}
@@ -699,29 +861,48 @@ function FloatingCopilot({
             </div>
           )}
 
-          {/* Bottom nav row: mode toggle + model selector + mic */}
+          {/* Bottom nav row: mode toggle + refresh + model selector + mic */}
           <div className="px-3 pb-3 pt-1 flex items-center justify-between flex-shrink-0">
-            {/* Left: chat/avatar mode toggle */}
-            {!hideAvatarToggle ? (
-              <div className="flex items-center gap-0.5 bg-white/5 rounded-lg p-0.5 ring-1 ring-white/10">
+            {/* Left: chat/avatar mode toggle + refresh */}
+            <div className="flex items-center gap-2">
+              {!hideAvatarToggle ? (
+                <div className="flex items-center gap-0.5 bg-white/5 rounded-lg p-0.5 ring-1 ring-white/10">
+                  <button
+                    onClick={() => setMode("avatar")}
+                    className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
+                      mode === "avatar" ? "bg-purple-500/20 text-purple-400" : "text-white/50 hover:text-white/80"
+                    }`}
+                  >
+                    <User className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() => setMode("chat")}
+                    className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
+                      mode === "chat" ? "bg-cyan-500/20 text-cyan-400" : "text-white/50 hover:text-white/80"
+                    }`}
+                  >
+                    <MessageSquare className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : null}
+              {/* Refresh — drops persisted conversation history and
+                  resets to the seed/welcome message. Sits to the
+                  right of the chat/avatar toggle so it's near the
+                  primary mode controls without competing with them.
+                  Only renders when the parent gave us an
+                  onClearMessages handler (the case for all internally-
+                  managed message stores; externalMessages owners
+                  manage their own clear path). */}
+              {onClearMessages && (
                 <button
-                  onClick={() => setMode("avatar")}
-                  className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
-                    mode === "avatar" ? "bg-purple-500/20 text-purple-400" : "text-white/50 hover:text-white/80"
-                  }`}
+                  onClick={onClearMessages}
+                  title="Clear conversation history"
+                  className="p-1 rounded-md text-white/40 hover:text-white/80 hover:bg-white/5 transition-colors"
                 >
-                  <User className="w-3 h-3" />
+                  <RotateCcw className="w-3.5 h-3.5" />
                 </button>
-                <button
-                  onClick={() => setMode("chat")}
-                  className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
-                    mode === "chat" ? "bg-cyan-500/20 text-cyan-400" : "text-white/50 hover:text-white/80"
-                  }`}
-                >
-                  <MessageSquare className="w-3 h-3" />
-                </button>
-              </div>
-            ) : <div />}
+              )}
+            </div>
 
             {/* Right: model selector + mic */}
             <div className="relative flex items-center gap-2">
@@ -769,16 +950,36 @@ function FloatingCopilot({
                 )}
               </div>
 
-              {/* Mic toggle */}
+              {/* Mic toggle — wired to useSpeechRecognition (MediaRecorder +
+                  Whisper via /api/skills/stt). Disabled when MediaRecorder
+                  isn't supported (very old browsers) or while a prior clip
+                  is still being transcribed. */}
               <button
                 type="button"
-                onClick={() => setMicActive((prev) => !prev)}
-                title={micActive ? "Stop microphone" : "Start microphone"}
+                onClick={() => stt.toggle()}
+                disabled={!stt.isSupported || stt.isProcessing}
+                title={
+                  !stt.isSupported
+                    ? 'Speech recognition unavailable in this browser'
+                    : stt.isProcessing
+                      ? 'Transcribing…'
+                      : micActive
+                        ? 'Stop microphone'
+                        : 'Start microphone'
+                }
                 className={`p-1.5 rounded-lg transition-colors ${
-                  micActive ? "text-cyan-300 bg-cyan-500/10" : "text-slate-400 hover:text-fuchsia-300 hover:bg-fuchsia-500/10"
-                }`}
+                  micActive
+                    ? 'text-cyan-300 bg-cyan-500/10'
+                    : stt.isProcessing
+                      ? 'text-amber-300 bg-amber-500/10'
+                      : 'text-slate-400 hover:text-fuchsia-300 hover:bg-fuchsia-500/10'
+                } disabled:opacity-40 disabled:cursor-not-allowed`}
               >
-                {micActive ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+                {stt.isProcessing
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : micActive
+                    ? <Mic className="w-4 h-4" />
+                    : <MicOff className="w-4 h-4" />}
               </button>
             </div>
           </div>

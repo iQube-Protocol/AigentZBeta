@@ -1642,6 +1642,12 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
     { id: 'deploy',    label: 'Deploy',    icon: 'Rocket',   order: 4 },
     { id: 'missions',  label: 'Missions',  icon: 'Target',   order: 5 },
     { id: 'community', label: 'Community', icon: 'Users',    order: 6 },
+    // Admin group — stubbed 2026-05-26 so the chief-of-staff
+    // unlock has a real surface to mirror into metaMe's agentiqos
+    // group. Hidden from non-admins via the standard adminOnly gate;
+    // when AgentiQ OS grows real admin content, populate the existing
+    // 'aiqos-admin-home' stub with the proper tabs.
+    { id: 'admin',     label: 'Admin',     icon: 'Settings', order: 7, adminOnly: true },
   ],
   tabs: [
     // ── Home group ─────────────────────────────────────────────
@@ -1877,6 +1883,33 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
       config: { component: 'FeaturesTab', props: {} },
       metadata: { icon: 'Sparkles', description: 'Qriptopian editorial features' },
     },
+
+    // ── Admin group (stubbed 2026-05-26) ───────────────────────
+    // AgentiQ OS doesn't yet have admin content of its own. The
+    // placeholder below keeps the tabGroup non-empty so the
+    // chief-of-staff mirror into metaMe has something to render,
+    // and so the per-cartridge admin gate (adminOfCartridge:
+    // 'agentiq-os') has a concrete target. When real admin
+    // content lands, swap PlaceholderTab for the real component
+    // and add siblings here.
+    {
+      id: 'agentiq-os-admin-home',
+      label: 'AgentiQ OS Admin',
+      slug: 'admin-home',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'AgentiQ OS Admin',
+          description: 'AgentiQ OS admin surface — stubbed. Real admin content lands when the cartridge ships its first admin workflow (registry ops, agent lifecycle, etc.).',
+        },
+      },
+      metadata: { icon: 'Settings', description: 'AgentiQ OS admin surface (stub)', color: 'indigo' },
+    },
   ],
   permissions: {
     view: ['*'],
@@ -2067,12 +2100,14 @@ const qriptoAdminTabsForMetameQriptopia = () =>
       group: 'qriptopia',
     }));
 
-// AgentiQ OS admin tabs mirrored into metaMe's agentiqos group. The
-// AgentiQ OS cartridge's adminOnly tabs sit at top level (no group)
-// — same shape as Qripto.
+// AgentiQ OS admin tabs mirrored into metaMe's agentiqos group.
+// Pulls from the AgentiQ OS cartridge's `admin` tabGroup (added
+// 2026-05-26) — currently a single stub PlaceholderTab; real
+// content lands when AgentiQ OS ships its admin workflows. Same
+// clone pattern as the KNYT mirror.
 const agentiqOsAdminTabsForMetameAgentiqos = () =>
   AGENTIQ_OS_CARTRIDGE.tabs
-    .filter((t) => t.adminOnly === true && t.enabled && !t.group)
+    .filter((t) => t.group === 'admin' && t.enabled)
     .sort((a, b) => a.order - b.order)
     .map((t) => ({
       ...t,
@@ -2394,6 +2429,37 @@ export const METAME_CODEX: CodexConfig = {
       config: { component: 'MarketaQubeTalk', props: {} },
       metadata: { icon: 'MessageSquare', description: 'Marketa coordination channel', color: 'violet' }
     },
+    // Chief-of-staff unlock: Marketa Admin mirrored into metaMe's
+    // marketa group. metaMe's marketa group is hand-written (no pure
+    // mirror), so we declare the Admin sub-tab explicitly here.
+    // subTabs reuse the same helper Marketa cartridge uses internally
+    // (the partner-admin definition lives inside MARKETA_CARTRIDGE) by
+    // cloning admin tabGroup tabs with the per-cartridge gate.
+    {
+      id: 'marketa-admin',
+      label: 'Admin',
+      slug: 'marketa-admin',
+      enabled: true,
+      adminOfCartridge: 'marketa',
+      group: 'marketa',
+      order: 25,
+      type: 'static',
+      config: { component: 'TabRendererFallback', props: {} },
+      metadata: { icon: 'Settings', description: 'Marketa admin surface — visible only to Marketa cartridge admins', color: 'indigo' },
+      get subTabs() {
+        return MARKETA_CARTRIDGE.tabs
+          .filter((t) => t.group === 'admin' && t.enabled)
+          .sort((a, b) => a.order - b.order)
+          .map((t) => ({
+            ...t,
+            id: `metame-marketa-admin-${t.id}`,
+            slug: `marketa-admin-${t.slug}`,
+            adminOnly: false,
+            adminOfCartridge: 'marketa',
+            group: 'marketa',
+          }));
+      },
+    },
 
     // ── metaMe Studio group (admin-gated) ────────────────────────────────────
     {
@@ -2406,6 +2472,32 @@ export const METAME_CODEX: CodexConfig = {
       type: 'static',
       config: { component: 'MetaMeStudioTab', props: {} },
       metadata: { icon: 'Wand2', description: 'Build Experiences using guided templates, the Composer API and receipt pipeline.', color: 'violet' }
+    },
+    // Studio Admin stub — metaMe Studio is the active surface for the
+    // Composer Copilot / Experience Template authoring flow; it has no
+    // tier-2 sub-tabs today. Adding an Admin sub-tab here makes the
+    // chief-of-staff protocol consistent across every metaMe activation
+    // group: admins always have an Admin entry to reach
+    // configuration / governance. Stubbed via PlaceholderTab until real
+    // Studio admin tooling lands (template publishing controls, bundle
+    // versioning, surface plan review queues, etc.).
+    {
+      id: 'studio-admin',
+      label: 'Studio Admin',
+      slug: 'studio-admin',
+      enabled: true,
+      adminOfCartridge: 'metame',
+      group: 'studio',
+      order: 31,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'metaMe Studio Admin',
+          description: 'Studio admin surface — stub. Real admin tooling (template publishing, bundle versioning, surface-plan review) lands when the first Studio admin workflow ships.',
+        },
+      },
+      metadata: { icon: 'Settings', description: 'metaMe Studio admin surface — visible only to metaMe cartridge admins', color: 'indigo' },
     },
 
     // ── AgentiQ OS group (admin-gated) — mirrors AgentiQ OS cartridge top groups ──
@@ -2601,6 +2693,38 @@ export const METAME_CODEX: CodexConfig = {
       type: 'static',
       config: { component: 'ExperienceDashboardTab', props: { tenantId: 'metame' } },
       metadata: { icon: 'BarChart3', description: 'User journey states, progression, NBE opportunities', color: 'violet' }
+    },
+    {
+      id: 'admin-access-requests',
+      label: 'Access Requests',
+      slug: 'access-requests',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 62,
+      type: 'static',
+      config: { component: 'AdminAccessRequestsTab', props: {} },
+      metadata: {
+        icon: 'ShieldCheck',
+        description: 'Review and decide persona-submitted admin access requests',
+        color: 'emerald'
+      }
+    },
+    {
+      id: 'admin-persona-360',
+      label: 'Persona 360',
+      slug: 'persona-360',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 63,
+      type: 'static',
+      config: { component: 'Persona360InspectorTab', props: {} },
+      metadata: {
+        icon: 'User',
+        description: 'Look up any persona and inspect the full identity / asset graph',
+        color: 'violet'
+      }
     }
   ],
   permissions: {
@@ -2792,6 +2916,44 @@ export const MARKETA_CARTRIDGE: CodexConfig = {
       type: 'static',
       config: { component: 'MarketaQubeTalk', props: { scopedToPartner: true } },
       metadata: { icon: 'MessageSquare', description: 'Direct comms with Marketa agent' },
+    },
+    // Chief-of-staff unlock: Admin sub-menu inside the Partner group,
+    // visible only to personas listed as Marketa cartridge admins
+    // (cartridgeFlags.adminCartridges includes 'marketa'). Global
+    // uber/platform admins satisfy the gate too. Native to Marketa
+    // — any future cartridge that mirrors the Marketa partner group
+    // would inherit this Admin sub-menu for free via the same
+    // mechanism. Same protocol as KNYT order > Admin.
+    {
+      id: 'partner-admin',
+      label: 'Admin',
+      slug: 'partner-admin',
+      enabled: true,
+      adminOfCartridge: 'marketa',
+      group: 'partner',
+      order: 5,
+      type: 'static',
+      config: { component: 'TabRendererFallback', props: {} },
+      metadata: {
+        icon: 'Settings',
+        description: 'Marketa admin surface — visible only to Marketa cartridge admins',
+      },
+      // Lazy getter — MARKETA_CARTRIDGE.tabs isn't fully constructed
+      // when this literal evaluates. Reading via a getter defers until
+      // tab.subTabs is consumed at render time.
+      get subTabs() {
+        return MARKETA_CARTRIDGE.tabs
+          .filter((t) => t.group === 'admin' && t.enabled)
+          .sort((a, b) => a.order - b.order)
+          .map((t) => ({
+            ...t,
+            id: `partner-admin-${t.id}`,
+            slug: `partner-admin-${t.slug}`,
+            adminOnly: false,
+            adminOfCartridge: 'marketa',
+            group: 'partner',
+          }));
+      },
     },
   ],
   permissions: {

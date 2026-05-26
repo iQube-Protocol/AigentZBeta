@@ -263,7 +263,7 @@ export const NBE_CATALOGUE: NbeCandidate[] = [
     impact: 'medium',
   },
 
-  // ── AgentiQ Venture Lab (AVL) ────────────────────────────────────────
+  // ── metaMe Venture Lab (AVL) ─────────────────────────────────────────
   {
     id: 'avl.generate-progress-report',
     label: 'Generate a venture progress report',

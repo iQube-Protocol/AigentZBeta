@@ -1,4 +1,9 @@
 # Build — Changelog
+- [`c56ae59`](https://github.com/iQube-Protocol/AigentZBeta/commit/c56ae59256287ce9c5aa09bc97a39ae13057731a) [push] copilot: kill KNYT lore bias + thread brief shape + admin grants into LLM context (Claude, 2026-05-26T14:46:41Z)
+- [`f32d517`](https://github.com/iQube-Protocol/AigentZBeta/commit/f32d51767fafb82350355a26b99a64695f2a1d13) [feat] copilot: wire mic to STT + add Listen TTS + persist messages + clear affordance (Claude, 2026-05-26T14:19:24Z)
+- [`89d80cf`](https://github.com/iQube-Protocol/AigentZBeta/commit/89d80cfd47367eb3754cc9a1afc9ce24fc82007e) [push] AgentiQ OS: stub Admin tabGroup so the mirror has content (Claude, 2026-05-26T10:12:01Z)
+- [`f9a34db`](https://github.com/iQube-Protocol/AigentZBeta/commit/f9a34dbad05f7767c10c357a53959f39415c7355) [feat] register TabRendererFallback component + add Admin under Marketa Partner (Claude, 2026-05-26T10:09:35Z)
+- [`7c3125f`](https://github.com/iQube-Protocol/AigentZBeta/commit/7c3125f382b6d9078474b850461a57bdf1549716) [push] CLAUDE.md: dual-source cartridge registration rule (hand-curated wins) (Claude, 2026-05-26T09:55:18Z)
 - [`ea60f8e`](https://github.com/iQube-Protocol/AigentZBeta/commit/ea60f8e87e08db5782fe0bf1bf1be7d34765de13) [push] CLAUDE.md: document spine-fetch auth contract + per-cartridge admin grants (Claude, 2026-05-26T09:53:25Z)
 - [`41d1079`](https://github.com/iQube-Protocol/AigentZBeta/commit/41d107988fae82afb82700340424a2d554ddcac2) [fix] fix admin-tab visibility: hook uses personaFetch (Bearer token), not raw fetch (Claude, 2026-05-26T09:47:13Z)
 - [`0ece4a6`](https://github.com/iQube-Protocol/AigentZBeta/commit/0ece4a625172abbbcd274f680b1e920fd517ea66) [push] KNYT owns Admin under Order — metaMe inherits via existing mirror (Claude, 2026-05-26T08:55:46Z)
