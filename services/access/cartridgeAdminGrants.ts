@@ -21,14 +21,41 @@
  *
  * Alpha tenant↔cartridge mapping
  * ------------------------------
- *   For v1 we treat `crm_tenants.slug` as the cartridge slug. Today
- *   that holds because CRM tenants and cartridges 1:1 by slug. When
- *   the alignment diverges (e.g. multi-tenant cartridges like the 21
- *   Sats worlds), the resolution should grow an explicit mapping
- *   table — tracked in the backlog. This module is the single hook
- *   point to extend when that lands.
+ *   The resolver returns cartridge slugs (the slug used inside
+ *   `data/codex-configs.ts` against `CodexTab.adminOfCartridge`).
+ *   CRM tenant slugs and cartridge slugs grew up independently and
+ *   aren't always identical — KNYT is `knyt` in CRM but `knyt-codex`
+ *   as a cartridge; Qriptopian is `qriptopian` in CRM but `qripto` as
+ *   a cartridge. The static alias table below maps the two. Tenants
+ *   without an alias pass through as-is.
+ *
+ *   When multi-tenant cartridges arrive (e.g. 21 Sats worlds — many
+ *   tenants under one franchise that share a single cartridge),
+ *   replace this static map with a join table. Tracked in the
+ *   backlog at
+ *   codexes/packs/agentiq/updates/2026-05-26_admin-tab-in-activation-backlog.md.
  */
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+
+/**
+ * Maps CRM tenant slug → cartridge slug.
+ */
+const TENANT_SLUG_TO_CARTRIDGE_SLUG: Record<string, string> = {
+  // CRM has 'knyt'; the cartridge ships as 'knyt-codex'.
+  knyt: 'knyt-codex',
+  // CRM has 'qriptopian'; the cartridge ships as 'qripto'.
+  qriptopian: 'qripto',
+  // Direct passes — listed for clarity; the default branch handles
+  // them identically.
+  'agentiq-os': 'agentiq-os',
+  'venture-lab': 'venture-lab',
+  metame: 'metame',
+  marketa: 'marketa',
+};
+
+function mapTenantToCartridgeSlug(tenantSlug: string): string {
+  return TENANT_SLUG_TO_CARTRIDGE_SLUG[tenantSlug] ?? tenantSlug;
+}
 
 export interface CartridgeAdminGrants {
   /**
@@ -152,7 +179,11 @@ export async function getCartridgeAdminGrants(
     new Set(
       ((tenantRows ?? []) as TenantSlugRow[])
         .map((t) => (typeof t.slug === 'string' ? t.slug.trim() : ''))
-        .filter((s): s is string => !!s),
+        .filter((s): s is string => !!s)
+        // Translate CRM tenant slugs into the cartridge slugs the UI
+        // consults via `CodexTab.adminOfCartridge`. Unknown slugs
+        // pass through as-is.
+        .map(mapTenantToCartridgeSlug),
     ),
   );
 

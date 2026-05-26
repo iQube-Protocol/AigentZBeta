@@ -137,6 +137,57 @@ describe('getCartridgeAdminGrants', () => {
     expect(grants).toEqual({ isGlobalAdmin: false, cartridgeSlugs: ['knyt-codex'] });
   });
 
+  it('maps CRM tenant slug "knyt" → cartridge slug "knyt-codex" so the UI gate matches', async () => {
+    // Mirrors the actual CRM seed: tenant.slug is 'knyt' (not 'knyt-codex').
+    // The resolver must translate so adminOfCartridge: 'knyt-codex' in
+    // METAME_CODEX matches the persona's grant.
+    mockedGetSupabaseServer.mockReturnValue(
+      mockSupabase([
+        {
+          table: 'crm_admin_roles',
+          rows: [
+            { role_type: 'tenant_super_admin', tenant_id: 'tenant-knyt', franchise_id: null },
+          ],
+        },
+        { table: 'crm_tenants', rows: [{ slug: 'knyt' }] },
+      ]) as unknown as ReturnType<typeof getSupabaseServer>,
+    );
+    const grants = await getCartridgeAdminGrants('auth-profile-knyt-admin', []);
+    expect(grants).toEqual({ isGlobalAdmin: false, cartridgeSlugs: ['knyt-codex'] });
+  });
+
+  it('maps CRM tenant slug "qriptopian" → cartridge slug "qripto"', async () => {
+    mockedGetSupabaseServer.mockReturnValue(
+      mockSupabase([
+        {
+          table: 'crm_admin_roles',
+          rows: [
+            { role_type: 'tenant_super_admin', tenant_id: 'tenant-qripto', franchise_id: null },
+          ],
+        },
+        { table: 'crm_tenants', rows: [{ slug: 'qriptopian' }] },
+      ]) as unknown as ReturnType<typeof getSupabaseServer>,
+    );
+    const grants = await getCartridgeAdminGrants('auth-profile-qripto-admin', []);
+    expect(grants).toEqual({ isGlobalAdmin: false, cartridgeSlugs: ['qripto'] });
+  });
+
+  it('unknown CRM tenant slug passes through unchanged', async () => {
+    mockedGetSupabaseServer.mockReturnValue(
+      mockSupabase([
+        {
+          table: 'crm_admin_roles',
+          rows: [
+            { role_type: 'tenant_super_admin', tenant_id: 'tenant-future', franchise_id: null },
+          ],
+        },
+        { table: 'crm_tenants', rows: [{ slug: 'some-new-cartridge' }] },
+      ]) as unknown as ReturnType<typeof getSupabaseServer>,
+    );
+    const grants = await getCartridgeAdminGrants('auth-profile-future-admin', []);
+    expect(grants).toEqual({ isGlobalAdmin: false, cartridgeSlugs: ['some-new-cartridge'] });
+  });
+
   it('franchise_super_admin fans out to child tenants but never to foreign franchises', async () => {
     mockedGetSupabaseServer.mockReturnValue(
       mockSupabase([

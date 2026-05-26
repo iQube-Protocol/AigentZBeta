@@ -1792,6 +1792,67 @@ const knytAdminTabsForMetameOrder = () =>
       group: 'order',
     }));
 
+// Qriptopian admin tabs mirrored into metaMe's qriptopia group. Qripto's
+// admin tabs live at top level (no group), gated by adminOnly: true. We
+// filter on adminOnly === true to pick them up. Same clone pattern as
+// the KNYT mirror — drop adminOnly, set adminOfCartridge gate, prefix
+// slug to avoid collision in metaMe's namespace.
+const qriptoAdminTabsForMetameQriptopia = () =>
+  QRIPTO_CODEX.tabs
+    .filter((t) => t.adminOnly === true && t.enabled && !t.group)
+    .sort((a, b) => a.order - b.order)
+    .map((t) => ({
+      ...t,
+      id: `metame-qripto-admin-${t.id}`,
+      slug: `qripto-admin-${t.slug}`,
+      adminOnly: false,
+      adminOfCartridge: 'qripto',
+      group: 'qriptopia',
+    }));
+
+// AgentiQ OS admin tabs mirrored into metaMe's agentiqos group. The
+// AgentiQ OS cartridge's adminOnly tabs sit at top level (no group)
+// — same shape as Qripto.
+const agentiqOsAdminTabsForMetameAgentiqos = () =>
+  AGENTIQ_OS_CARTRIDGE.tabs
+    .filter((t) => t.adminOnly === true && t.enabled && !t.group)
+    .sort((a, b) => a.order - b.order)
+    .map((t) => ({
+      ...t,
+      id: `metame-aiqos-admin-${t.id}`,
+      slug: `aiqos-admin-${t.slug}`,
+      adminOnly: false,
+      adminOfCartridge: 'agentiq-os',
+      group: 'agentiqos',
+    }));
+
+// Venture Lab α currently has no top-level "Admin" tab — every tab on
+// the cartridge is adminOnly already. To keep the metaMe activation
+// surface consistent with the protocol (every cartridge with admin
+// content exposes it inside its metaMe activation group when the
+// persona is admin of that cartridge), we synthesise a single
+// placeholder "VL Admin" entry for now. When VL grows a proper
+// adminOnly tabGroup like KNYT's, swap this stub for the same clone
+// pattern used above.
+const ventureLabAdminTabsForMetameVl = () => [
+  {
+    id: 'metame-vl-admin-placeholder',
+    label: 'Venture Lab Admin',
+    slug: 'vl-admin-placeholder',
+    enabled: true,
+    adminOfCartridge: 'venture-lab',
+    group: 'vl',
+    order: 0,
+    type: 'static' as const,
+    config: { component: 'TabRendererFallback', props: {} },
+    metadata: {
+      icon: 'Settings',
+      description: 'Placeholder Venture Lab admin surface — full admin tabs to be wired when the VL cartridge ships its adminOnly tabGroup.',
+      color: 'amber',
+    },
+  },
+];
+
 export const METAME_CODEX: CodexConfig = {
   id: 'metame-codex',
   name: 'metaMe Cartridge',
@@ -2021,6 +2082,24 @@ export const METAME_CODEX: CodexConfig = {
       config: { component: 'RelationshipBuilderTab', props: {} },
       metadata: { icon: 'Users', description: 'Partner / relationship builder', color: 'violet' }
     },
+    // Venture Lab admin stub — VL doesn't yet have a dedicated
+    // adminOnly tabGroup on its own cartridge, so we ship a single
+    // placeholder admin tab here gated by adminOfCartridge: 'venture-lab'.
+    // When VL grows a proper admin surface, replace the placeholder
+    // child with the same clone pattern used for KNYT / Qripto / AIQ OS.
+    {
+      id: 'vl-admin',
+      label: 'VL Admin',
+      slug: 'vl-admin',
+      enabled: true,
+      adminOfCartridge: 'venture-lab',
+      group: 'vl',
+      order: 12,
+      type: 'static',
+      config: { component: 'TabRendererFallback', props: {} },
+      metadata: { icon: 'Settings', description: 'Venture Lab admin surface — stubbed until VL ships its own adminOnly tabGroup. Visible only when the active persona admins the Venture Lab cartridge.', color: 'amber' },
+      subTabs: ventureLabAdminTabsForMetameVl(),
+    },
 
     // ── Marketa group (admin-gated; Partner sub-tabs) ────────────────────────
     {
@@ -2177,6 +2256,22 @@ export const METAME_CODEX: CodexConfig = {
       metadata: { icon: 'Users', description: 'Community resources and Kn0wdZ', color: 'emerald' },
       subTabs: aiqOsTabsByGroup('community'),
     },
+    // Chief-of-staff unlock: AgentiQ OS admin tabs mirrored into the
+    // metaMe agentiqos group. Visible only to personas admin of the
+    // agentiq-os cartridge.
+    {
+      id: 'agentiqos-admin',
+      label: 'AgentiQ OS Admin',
+      slug: 'agentiqos-admin',
+      enabled: true,
+      adminOfCartridge: 'agentiq-os',
+      group: 'agentiqos',
+      order: 47,
+      type: 'static',
+      config: { component: 'TabRendererFallback', props: {} },
+      metadata: { icon: 'Settings', description: 'AgentiQ OS admin surface — visible only when the active persona admins the AgentiQ OS cartridge', color: 'indigo' },
+      subTabs: agentiqOsAdminTabsForMetameAgentiqos(),
+    },
 
     // ── Qriptopia group ──────────────────────────────────────────────────────
     {
@@ -2217,6 +2312,22 @@ export const METAME_CODEX: CodexConfig = {
         props: { title: '21 Sats', description: 'Bitcoin-native rewards surface. Coming soon.' }
       },
       metadata: { icon: 'Bitcoin', description: '21 Sats rewards', color: 'violet' }
+    },
+    // Chief-of-staff unlock: Qriptopian admin tabs mirrored into the
+    // metaMe qriptopia group. Visible only to personas admin of the
+    // qripto cartridge.
+    {
+      id: 'qriptopia-admin',
+      label: 'Qriptopian Admin',
+      slug: 'qriptopia-admin',
+      enabled: true,
+      adminOfCartridge: 'qripto',
+      group: 'qriptopia',
+      order: 53,
+      type: 'static',
+      config: { component: 'TabRendererFallback', props: {} },
+      metadata: { icon: 'Settings', description: 'Qriptopian admin surface — visible only when the active persona admins the Qripto cartridge', color: 'indigo' },
+      subTabs: qriptoAdminTabsForMetameQriptopia(),
     },
 
     // ── Admin group (admin-gated) ────────────────────────────────────────────
