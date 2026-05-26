@@ -1204,3 +1204,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-41d1079.md](../build_/COMMITS/COMMIT-41d1079.md)
 - Message: fix admin-tab visibility: hook uses personaFetch (Bearer token), not raw fetch
+
+## Commit `ea60f8e` — 2026-05-26T09:53:25Z
+- Type: `push`
+- Brief: [COMMIT-ea60f8e.md](../build_/COMMITS/COMMIT-ea60f8e.md)
+- Message: CLAUDE.md: document spine-fetch auth contract + per-cartridge admin grants
