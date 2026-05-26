@@ -144,6 +144,17 @@ interface Props {
   specialistResponses: Record<string, SpecialistResponseData>;
   specialistLoading: Record<string, boolean>;
   specialistErrors: Record<string, string>;
+  /**
+   * Optional artifact router — when a specialist response card's
+   * "Suggested artifacts" chip is clicked, this fires with the
+   * artifact label + the originating response. Same shape as the
+   * SpecialistsLayout consumer (handleUseSuggestedArtifact in the
+   * tab) so both surfaces wire to the identical handler.
+   */
+  onUseSuggestedArtifact?: (
+    artifactType: string,
+    response: SpecialistResponseData,
+  ) => void;
   queuedIntents: Record<string, { intentId: string; status: string; queueMessage: string }>;
 
   /** Below-fold sections. */
@@ -420,6 +431,7 @@ export function WelcomeRightPane(props: Props) {
     pendingApproval, submittingApproval, approvalError,
     artifacts, actionPendingArtifactId, actionErrors, secondTierApproval,
     specialistResponses, specialistLoading, specialistErrors, queuedIntents,
+    onUseSuggestedArtifact,
     expModel, expModelLoading, stageEval,
     receipts, receiptsLoading, receiptsPersonaLabel,
     expandedSectionId, setExpandedSectionId,
@@ -636,6 +648,11 @@ export function WelcomeRightPane(props: Props) {
           data={sp}
           using={usingIqubes}
           onDismiss={() => onDismissSpecialist(nbeId)}
+          onCreateArtifact={
+            onUseSuggestedArtifact
+              ? (artifactType) => onUseSuggestedArtifact(artifactType, sp)
+              : undefined
+          }
           theme={theme}
         />
       ))}

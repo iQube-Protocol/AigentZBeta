@@ -2073,6 +2073,22 @@ export const METAME_CODEX: CodexConfig = {
         color: 'violet',
       },
     },
+    {
+      id: 'myworkbench',
+      label: 'myWorkbench',
+      slug: 'my-workbench',
+      enabled: true,
+      activationId: 'mycanvas',
+      group: 'mycanvas',
+      order: 1,
+      type: 'static',
+      config: { component: 'MyWorkbenchTab', props: {} },
+      metadata: {
+        icon: 'Hammer',
+        description: 'Workbench — works in active development, scratch space, drafts pre-publication',
+        color: 'violet',
+      },
+    },
 
     // ── Order of Metayé group (activation-gated; auto-granted) ───────────────
     // Mirrors the KNYT codex Order group + sub-tabs via the subTabs mechanism.

@@ -177,6 +177,12 @@ function composeKindForAction(action: NextBestActionData): ComposeKind | null {
  */
 function composeKindForSuggestedArtifact(artifactType: string): ComposeKind | null {
   const t = artifactType.toLowerCase();
+  // myCanvas remix is a separate non-composer flow — see
+  // handleUseSuggestedArtifact, which routes 'mycanvas-remix' into
+  // the RemixDialog instead of opening a composer modal. Returning
+  // null here means the artifact-route handler picks up the special
+  // case and dispatches to the canvas surface instead.
+  if (/(mycanvas|canvas-remix|remix-canvas|canvas remix)/.test(t)) return null;
   if (/(email|outreach|gmail|note to|reply|message)/.test(t)) {
     return /(marketa|campaign send)/.test(t) ? 'marketa' : 'gmail';
   }
@@ -185,6 +191,11 @@ function composeKindForSuggestedArtifact(artifactType: string): ComposeKind | nu
   if (/(sheet|spreadsheet|tracker|csv|table)/.test(t)) return 'sheet';
   if (/(doc|brief|memo|proposal|article|outline|narrative|write-up|writeup|spec|plan)/.test(t)) return 'doc';
   return null;
+}
+
+function isMyCanvasRemixArtifact(artifactType: string): boolean {
+  const t = artifactType.toLowerCase();
+  return /(mycanvas|canvas-remix|remix-canvas|canvas remix)/.test(t);
 }
 
 /**
@@ -1209,6 +1220,30 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     artifactType: string,
     response: import('@/components/metame/cards/SpecialistResponseCard').SpecialistResponseData,
   ) => {
+    // myCanvas remix is a separate flow — navigate to the myCanvas
+    // tab with a `?remix=` query carrying the specialist response so
+    // the canvas can pre-stage the remix dialog. Falls back to a
+    // simple navigation if the navigator API isn't reachable from
+    // this surface.
+    if (isMyCanvasRemixArtifact(artifactType)) {
+      try {
+        const remixPayload = encodeURIComponent(
+          JSON.stringify({
+            source: 'specialist',
+            specialistId: response.specialistId,
+            title: response.title,
+            summary: response.summary,
+          }),
+        );
+        const url = `/codex/viewer?slug=metame&tab=mycanvas&remix=${remixPayload}`;
+        if (typeof window !== 'undefined') {
+          window.location.assign(url);
+        }
+      } catch {
+        // best-effort; the chip still gives the operator the path forward.
+      }
+      return;
+    }
     const kind = composeKindForSuggestedArtifact(artifactType);
     if (!kind) return;
     const prompt = buildPromptForSuggestedArtifact(artifactType, response);
