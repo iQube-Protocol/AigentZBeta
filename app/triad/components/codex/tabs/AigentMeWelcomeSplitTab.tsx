@@ -46,6 +46,7 @@ import {
   PersonaSpineGate,
 } from "@/utils/personaSpine";
 import { SmartTriadCopilotLayer } from "@/components/smarttriad/copilot/SmartTriadCopilotLayer";
+import { useCartridgeAdminGrants } from "@/app/hooks/useCartridgeAdminGrants";
 
 import {
   ExperienceModelCard,
@@ -1456,6 +1457,12 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     return out;
   }, [activeActivationIds]);
 
+  // 2026-05-26 chief-of-staff: feed admin grant scope into the
+  // copilot's readable bundle so the LLM biases recommendations
+  // toward admin-tier moves when the persona qualifies. Hook resolves
+  // server-side via the spine — never trusts a client claim.
+  const adminGrants = useCartridgeAdminGrants();
+
   useAigentMeCopilotBridge({
     openCompose: openComposeByKind,
     fireCta: handleCtaClick,
@@ -1476,13 +1483,35 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     removeKpi: handleRemoveKpi,
     openKpiDetail: handleOpenKpiDetail,
     readable: {
-      activeBrief: { hasBrief: !!brief, summary: brief?.summary ?? null },
+      activeBrief: {
+        hasBrief: !!brief,
+        briefType: brief?.briefType ?? null,
+        primaryGoal: brief?.context?.primaryGoal ?? null,
+        experienceName: brief?.context?.experienceName ?? null,
+        currentStage: brief?.context?.currentStage ?? null,
+        topPriorities: brief?.topPriorities ?? [],
+        nextBestActions: (brief?.nextBestActions ?? []).map((a) => ({
+          id: a.id,
+          label: a.label,
+          rationale: a.rationale,
+          cartridge: a.cartridge,
+          effort: a.effort,
+          impact: a.impact,
+          approvalRequired: a.approvalRequired,
+          suggestedArtifact: a.suggestedArtifact ?? null,
+        })),
+      },
       pendingApproval: { has: !!pendingApprovalNbe, cartridge: pendingApprovalNbe?.cartridge ?? null },
       experienceModelStatus: {
         configured: !!expModel?.configured,
         stage: (expModel?.meta?.currentStage as string | null) ?? null,
+        primaryGoal: (expModel?.meta?.primaryGoal as string | null) ?? null,
       },
       activeCartridges,
+      cartridgeAdminGrants: {
+        isGlobalAdmin: adminGrants.isGlobalAdmin,
+        adminCartridges: Array.from(adminGrants.cartridgeSlugs),
+      },
       latestArtifact: {
         kind: latestArtifact?.artifactType ?? null,
         title: latestArtifact?.title ?? null,

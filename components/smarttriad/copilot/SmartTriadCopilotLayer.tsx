@@ -343,9 +343,16 @@ export function SmartTriadCopilotLayer({
 
       // Map persona to the correct KB search domain:
       // KNYT agents search the metaKnyts codex; MoneyPenny searches Qriptopian;
-      // platform agents (Aigent Z/C) pass 'agentiq' — the route treats unknown domains
-      // as platform-only and skips KNYT codex injection.
-      const resolvedPersona = personaId ?? 'aigent-kn0w1';
+      // platform agents (Aigent Z/C/Me) pass 'agentiq' — the route treats
+      // unknown domains as platform-only and skips KNYT codex injection.
+      //
+      // 2026-05-26 fix: agent.id is the canonical persona identity when the
+      // surface passes one (e.g. aigentMe panel sets agent={ id: 'aigent-me' }
+      // but doesn't always pass a separate personaId prop). Falling back to
+      // personaId → agent.id → 'aigent-z' prevents the prior bug where the
+      // aigentMe surface was treated as Kn0w1, triggering KNYT-flavoured
+      // narrative on every response.
+      const resolvedPersona = personaId ?? agent?.id ?? 'aigent-z';
       const domainForPersona = (() => {
         if (resolvedPersona === 'aigent-kn0w1' || resolvedPersona === 'aigent-marketa') return 'metaKnyts';
         if (resolvedPersona === 'aigent-moneypenny') return 'qriptopian';

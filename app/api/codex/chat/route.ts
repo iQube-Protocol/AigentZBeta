@@ -1336,7 +1336,23 @@ async function fetchCodexMetadata(domain: ContentDomain = 'metaKnyts'): Promise<
     };
   }
 
-  // Default: Fetch metaKnyts content
+  // Default: ONLY return metaKnyts content when the caller explicitly
+  // asked for the metaKnyts domain. The previous behaviour dumped
+  // KNYT characters / cards / episodes into the LLM prompt for EVERY
+  // domain that wasn't 'qriptopian' — including 'agentiq' (aigentMe
+  // copilot) — which produced KNYT-flavoured narrative on briefs that
+  // had nothing to do with KNYT. Fix 2026-05-26: any unrecognised
+  // domain returns an empty content scaffold so the LLM falls back to
+  // its general / persona-prompt knowledge instead of being primed
+  // with lore that doesn't apply.
+  if (domain !== 'metaKnyts') {
+    return {
+      characters: [],
+      episodes: [],
+      stats: { characterCount: 0, episodeCount: 0, coverCount: 0, masterCount: 0 },
+    };
+  }
+
   const { data: characters } = await supabase
     .from('codex_characters')
     .select(`
