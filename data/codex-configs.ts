@@ -2197,6 +2197,37 @@ export const METAME_CODEX: CodexConfig = {
       config: { component: 'MarketaQubeTalk', props: {} },
       metadata: { icon: 'MessageSquare', description: 'Marketa coordination channel', color: 'violet' }
     },
+    // Chief-of-staff unlock: Marketa Admin mirrored into metaMe's
+    // marketa group. metaMe's marketa group is hand-written (no pure
+    // mirror), so we declare the Admin sub-tab explicitly here.
+    // subTabs reuse the same helper Marketa cartridge uses internally
+    // (the partner-admin definition lives inside MARKETA_CARTRIDGE) by
+    // cloning admin tabGroup tabs with the per-cartridge gate.
+    {
+      id: 'marketa-admin',
+      label: 'Admin',
+      slug: 'marketa-admin',
+      enabled: true,
+      adminOfCartridge: 'marketa',
+      group: 'marketa',
+      order: 25,
+      type: 'static',
+      config: { component: 'TabRendererFallback', props: {} },
+      metadata: { icon: 'Settings', description: 'Marketa admin surface — visible only to Marketa cartridge admins', color: 'indigo' },
+      get subTabs() {
+        return MARKETA_CARTRIDGE.tabs
+          .filter((t) => t.group === 'admin' && t.enabled)
+          .sort((a, b) => a.order - b.order)
+          .map((t) => ({
+            ...t,
+            id: `metame-marketa-admin-${t.id}`,
+            slug: `marketa-admin-${t.slug}`,
+            adminOnly: false,
+            adminOfCartridge: 'marketa',
+            group: 'marketa',
+          }));
+      },
+    },
 
     // ── metaMe Studio group (admin-gated) ────────────────────────────────────
     {
@@ -2209,6 +2240,32 @@ export const METAME_CODEX: CodexConfig = {
       type: 'static',
       config: { component: 'MetaMeStudioTab', props: {} },
       metadata: { icon: 'Wand2', description: 'Build Experiences using guided templates, the Composer API and receipt pipeline.', color: 'violet' }
+    },
+    // Studio Admin stub — metaMe Studio is the active surface for the
+    // Composer Copilot / Experience Template authoring flow; it has no
+    // tier-2 sub-tabs today. Adding an Admin sub-tab here makes the
+    // chief-of-staff protocol consistent across every metaMe activation
+    // group: admins always have an Admin entry to reach
+    // configuration / governance. Stubbed via PlaceholderTab until real
+    // Studio admin tooling lands (template publishing controls, bundle
+    // versioning, surface plan review queues, etc.).
+    {
+      id: 'studio-admin',
+      label: 'Studio Admin',
+      slug: 'studio-admin',
+      enabled: true,
+      adminOfCartridge: 'metame',
+      group: 'studio',
+      order: 31,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'metaMe Studio Admin',
+          description: 'Studio admin surface — stub. Real admin tooling (template publishing, bundle versioning, surface-plan review) lands when the first Studio admin workflow ships.',
+        },
+      },
+      metadata: { icon: 'Settings', description: 'metaMe Studio admin surface — visible only to metaMe cartridge admins', color: 'indigo' },
     },
 
     // ── AgentiQ OS group (admin-gated) — mirrors AgentiQ OS cartridge top groups ──
