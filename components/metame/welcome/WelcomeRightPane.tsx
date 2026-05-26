@@ -468,6 +468,7 @@ export function WelcomeRightPane(props: Props) {
           <NextBestActionCard
             action={topAction}
             onAct={onNbeAct}
+            queued={!!queuedIntents[topAction.id]}
             onDismiss={onDismissMoveForward}
             preflightContext={moveForwardResult?.preflightContext}
             theme={theme}

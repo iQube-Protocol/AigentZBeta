@@ -25,6 +25,7 @@ import {
   Zap,
   ShieldAlert,
   X,
+  Check,
 } from "lucide-react";
 import { PreflightByline, PreflightChip } from "@/components/metame/cards/PreflightByline";
 import type { PreflightContext } from "@/services/capabilities/preflight";
@@ -46,6 +47,14 @@ interface Props {
   variant?: "compact" | "hero";
   /** Click handler for the "Act" button. Phase 6 wires execution. */
   onAct?: (action: NextBestActionData) => void;
+  /**
+   * When true, the action has already been queued as an IntentQube
+   * (handler short-circuits server-side). The Act button is replaced
+   * with a non-clickable "Queued" badge so the operator gets explicit
+   * feedback that their click landed — fixes the previous regression
+   * where Act stayed enabled but did nothing until the tab remounted.
+   */
+  queued?: boolean;
   /** Hero variant only — renders an inline X that lets the user clear
    *  the whole move-forward bundle (topAction + alternates) so the
    *  right pane doesn't pile up. Re-firing the chip re-opens it. */
@@ -94,6 +103,7 @@ export function NextBestActionCard({
   action,
   variant = "compact",
   onAct,
+  queued = false,
   onDismiss,
   preflightContext,
   theme = "dark",
@@ -169,7 +179,7 @@ export function NextBestActionCard({
         </div>
 
         <div className="flex items-start gap-2 shrink-0">
-          {onAct && (
+          {onAct && !queued && (
             <button
               onClick={() => onAct(action)}
               className={`flex items-center gap-1 px-3 py-1.5 rounded-md border text-xs font-medium transition ${buttonClass}`}
@@ -177,6 +187,19 @@ export function NextBestActionCard({
               Act
               <ArrowRight className="w-3 h-3" />
             </button>
+          )}
+          {queued && (
+            <span
+              className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-md border text-xs font-medium ${
+                isDark
+                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
+                  : "border-emerald-500/40 bg-emerald-50 text-emerald-700"
+              }`}
+              title="Queued as an IntentQube — awaiting review / execution"
+            >
+              <Check className="w-3 h-3" />
+              Queued
+            </span>
           )}
           {isHero && onDismiss && (
             <button

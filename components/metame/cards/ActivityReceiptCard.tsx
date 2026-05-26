@@ -20,6 +20,7 @@ import {
   ChevronDown,
   Copy,
   Check,
+  ExternalLink,
 } from "lucide-react";
 
 export interface ActivityReceiptData {
@@ -165,7 +166,7 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
           <ReceiptLine icon={<Clipboard className="w-3 h-3" />} label="Context" items={data.contextShared} chipClass={chipClass} mutedClass={mutedClass} />
         )}
         {data.artifactsCreated.length > 0 && (
-          <ReceiptLine icon={<FileText className="w-3 h-3" />} label="Artifacts" items={data.artifactsCreated} chipClass={chipClass} mutedClass={mutedClass} />
+          <ArtifactsReceiptLine items={data.artifactsCreated} chipClass={chipClass} mutedClass={mutedClass} isDark={isDark} />
         )}
         {data.approvalsGranted.length > 0 && (
           <ReceiptLine icon={<ShieldCheck className="w-3 h-3" />} label="Approvals" items={data.approvalsGranted.map((id) => `${id.slice(0, 8)}…`)} chipClass={chipClass} mutedClass={mutedClass} />
@@ -229,6 +230,97 @@ export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" 
           </pre>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Per-type viewable URL builders for artifact badges. Keyed by the
+ * prefix used in `activity_receipts.artifacts_created` (e.g. the
+ * artifact-create route emits `google-doc:<documentId>`,
+ * `gmail-draft:<draftId>`, etc.). Returning null means we can't link
+ * to it — the badge renders as a plain chip.
+ */
+const ARTIFACT_URL_BUILDERS: Record<string, (id: string) => string> = {
+  "google-doc":     (id) => `https://docs.google.com/document/d/${id}/edit`,
+  "google-sheet":   (id) => `https://docs.google.com/spreadsheets/d/${id}/edit`,
+  "google-slides":  (id) => `https://docs.google.com/presentation/d/${id}/edit`,
+  "slide-outline":  (id) => `https://docs.google.com/presentation/d/${id}/edit`,
+  "gmail-draft":    (id) => `https://mail.google.com/mail/u/0/#drafts/${id}`,
+  "calendar-block": (id) => `https://calendar.google.com/calendar/u/0/r/eventedit/${id}`,
+};
+
+const ARTIFACT_LABELS: Record<string, string> = {
+  "google-doc":     "Open in Drive",
+  "google-sheet":   "Open in Drive",
+  "google-slides":  "Open in Drive",
+  "slide-outline":  "Open in Drive",
+  "gmail-draft":    "Open in Gmail",
+  "calendar-block": "Open in Calendar",
+};
+
+function buildArtifactUrl(entry: string): { type: string; id: string; url: string | null; label: string } {
+  // Expected format: `<type>:<id>`. The artifact-create route always
+  // emits this shape (route.ts:468 etc). Anything else: plain chip.
+  const colonIdx = entry.indexOf(":");
+  if (colonIdx === -1) return { type: "", id: "", url: null, label: entry };
+  const type = entry.slice(0, colonIdx);
+  const id = entry.slice(colonIdx + 1);
+  const builder = ARTIFACT_URL_BUILDERS[type];
+  // Guard against id being a title fallback (when the connector
+  // didn't return a real id) — Drive ids are >=20 chars of [\w-]+.
+  if (!builder || !id || id.length < 15 || !/^[\w-]+$/.test(id)) {
+    return { type, id, url: null, label: entry };
+  }
+  return { type, id, url: builder(id), label: ARTIFACT_LABELS[type] ?? "Open" };
+}
+
+interface ArtifactsReceiptLineProps {
+  items: string[];
+  chipClass: string;
+  mutedClass: string;
+  isDark: boolean;
+}
+
+function ArtifactsReceiptLine({ items, chipClass, mutedClass, isDark }: ArtifactsReceiptLineProps) {
+  // Same visual rhythm as ReceiptLine, but each artifact entry that
+  // encodes a known Drive/Gmail/Calendar id renders as a clickable
+  // launch button — closes the loop on the user's bug where the
+  // receipt referenced an artifact but had no way to reach it.
+  const linkClass = isDark
+    ? "border-violet-500/40 bg-violet-500/10 text-violet-200 hover:bg-violet-500/20"
+    : "border-violet-400 bg-violet-50 text-violet-700 hover:bg-violet-100";
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className={`flex items-center gap-1 ${mutedClass}`}>
+        <FileText className="w-3 h-3" />
+        Artifacts:
+      </span>
+      <div className="flex flex-wrap gap-1">
+        {items.map((entry) => {
+          const { url, label, id } = buildArtifactUrl(entry);
+          if (url) {
+            return (
+              <a
+                key={entry}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border transition-colors ${linkClass}`}
+                title={`Open artifact ${id.slice(0, 12)}…`}
+              >
+                <ExternalLink className="w-2.5 h-2.5" />
+                {label}
+              </a>
+            );
+          }
+          return (
+            <span key={entry} className={`px-1.5 py-0.5 rounded border ${chipClass}`}>
+              {entry}
+            </span>
+          );
+        })}
+      </div>
     </div>
   );
 }
