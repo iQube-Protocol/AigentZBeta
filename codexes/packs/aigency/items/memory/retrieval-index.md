@@ -1214,3 +1214,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-7c3125f.md](../build_/COMMITS/COMMIT-7c3125f.md)
 - Message: CLAUDE.md: dual-source cartridge registration rule (hand-curated wins)
+
+## Commit `f9a34db` — 2026-05-26T10:09:35Z
+- Type: `feat`
+- Brief: [COMMIT-f9a34db.md](../build_/COMMITS/COMMIT-f9a34db.md)
+- Message: register TabRendererFallback component + add Admin under Marketa Partner
