@@ -1194,3 +1194,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-8dce7e8.md](../build_/COMMITS/COMMIT-8dce7e8.md)
 - Message: fix admin-tab visibility: email-alias fallback in grants resolver + diag route
+
+## Commit `0ece4a6` — 2026-05-26T08:55:46Z
+- Type: `push`
+- Brief: [COMMIT-0ece4a6.md](../build_/COMMITS/COMMIT-0ece4a6.md)
+- Message: KNYT owns Admin under Order — metaMe inherits via existing mirror

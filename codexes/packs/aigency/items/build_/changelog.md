@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`0ece4a6`](https://github.com/iQube-Protocol/AigentZBeta/commit/0ece4a625172abbbcd274f680b1e920fd517ea66) [push] KNYT owns Admin under Order — metaMe inherits via existing mirror (Claude, 2026-05-26T08:55:46Z)
 - [`8dce7e8`](https://github.com/iQube-Protocol/AigentZBeta/commit/8dce7e897b3d9476640bca271e9ab1b3fe43742b) [fix] fix admin-tab visibility: email-alias fallback in grants resolver + diag route (Claude, 2026-05-26T08:19:10Z)
 - [`2c91b74`](https://github.com/iQube-Protocol/AigentZBeta/commit/2c91b74f11ac0688e59bd13f1a99389214607365) [push] spine extension: per-cartridge admin grants → cartridgeFlags.adminCartridges (Claude, 2026-05-26T04:34:23Z)
 - [`7dd0dd2`](https://github.com/iQube-Protocol/AigentZBeta/commit/7dd0dd25d255305b4fdf91669cc202577476edf2) [fix] fix admin-tab visibility: CRM tenant↔cartridge slug alias + 3 more mirrors (Claude, 2026-05-26T04:19:03Z)
