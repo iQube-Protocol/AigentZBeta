@@ -415,11 +415,19 @@ export function WelcomeRightPane(props: Props) {
           overlay is mounted by AigentMeWelcomeSplitTab when either
           `pendingApprovalNbe` or `secondTierApproval` is set. */}
 
-      {/* Queued intents — re-render ApprovalCard in confirmed state. */}
+      {/* Queued intents — re-render ApprovalCard in confirmed state.
+          The NBE definition can come from EITHER moveForwardResult OR
+          brief.nextBestActions; the brief path was missed in the alpha
+          and caused the queued template to silently render nothing
+          when an operator queued an NBE from the Brief surface
+          (2026-05-26 fix). */}
       {Object.entries(queuedIntents).map(([nbeId, queued]) => {
-        const nbe = (moveForwardResult?.topAction?.id === nbeId
-          ? moveForwardResult.topAction
-          : moveForwardResult?.alternates.find((a) => a.id === nbeId)) ?? null;
+        const fromMoveForward =
+          moveForwardResult?.topAction?.id === nbeId
+            ? moveForwardResult.topAction
+            : moveForwardResult?.alternates.find((a) => a.id === nbeId) ?? null;
+        const fromBrief = brief?.nextBestActions?.find((a) => a.id === nbeId) ?? null;
+        const nbe = fromMoveForward ?? fromBrief;
         if (!nbe) return null;
         return (
           <div key={`queued-${nbeId}`} data-queued-nbe-id={nbeId}>

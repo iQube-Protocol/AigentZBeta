@@ -120,6 +120,23 @@ type QuickPrompt =
        * triggers the right pane action.
        */
       onSelect?: () => void;
+      /**
+       * Optional fetch dispatcher that runs ON SEND rather than ON
+       * CLICK. When a chip carries this, clicking the chip only sets
+       * the input + (optionally) switches the layout via onSelect;
+       * the actual right-pane data fetch runs inside handleSend so
+       * the chat POST sees the freshest groundContext snapshot. Fixes
+       * the alpha sequencing where chip click fired the fetch and
+       * the chat 100ms later — leaving the LLM with no ground truth.
+       */
+      onDispatchOnSend?: () => Promise<void> | void;
+      /**
+       * Render the chip with a subtle pulse highlight to draw the
+       * operator's attention. Used by the "Request access" chip when
+       * the active persona has no admin grants — the affordance is
+       * easy to miss inside the chip strip otherwise.
+       */
+      highlight?: boolean;
     };
 
 export function SmartTriadCopilotLayer({
@@ -306,6 +323,11 @@ export function SmartTriadCopilotLayer({
   useEffect(() => {
     groundContextRef.current = groundContext;
   }, [groundContext]);
+  // Pending dispatch — populated when a quick-prompt chip carries an
+  // `onDispatchOnSend` callback. The dispatch fires inside handleSend
+  // BEFORE the chat POST so the right-pane fetch lands first and the
+  // chat sees the fresh groundContext. Cleared after dispatch.
+  const pendingDispatchRef = useRef<(() => Promise<void> | void) | null>(null);
   
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -352,6 +374,20 @@ export function SmartTriadCopilotLayer({
     setIsProcessing(true);
 
     try {
+      // Run any pending chip dispatch FIRST — when a chip carries an
+      // onDispatchOnSend the right-pane fetch happens here so the
+      // chat POST captures the freshest groundContext. Errors swallow:
+      // a failed dispatch shouldn't block the chat send.
+      const dispatch = pendingDispatchRef.current;
+      pendingDispatchRef.current = null;
+      if (dispatch) {
+        try {
+          await dispatch();
+        } catch (err) {
+          console.error('[copilot] pending dispatch failed', err);
+        }
+      }
+
       const chatHistory = messages
         .filter((m) => m.role !== 'system')
         .slice(-10)
@@ -433,26 +469,40 @@ export function SmartTriadCopilotLayer({
     }
   }, [input, isProcessing, updateMessages, messages, personaId, selectedProvider]);
   
-  // Handle quick prompt selection
+  // Handle quick prompt selection.
+  //
+  // 2026-05-26 sequencing fix — chip click previously fired both
+  // onSelect (right-pane fetch) AND the chat 100ms later. The chat
+  // raced ahead of the fetch and the LLM got no ground truth.
+  //
+  // New behaviour:
+  //   - Chip click sets the input + fires onSelect (which typically
+  //     switches the right-pane layout to its loading skeleton). It
+  //     does NOT auto-send.
+  //   - If the chip carries onDispatchOnSend, we capture it into the
+  //     pendingDispatchRef so handleSend runs it BEFORE the chat
+  //     POST and the chat sees fresh groundContext.
+  //   - The user is free to edit the prompt before pressing Send.
+  //     Pressing Send fires the right-pane fetch + chat with proper
+  //     sequencing.
+  //   - Pure layout chips (skipInference: true, no onDispatchOnSend)
+  //     just switch the layout and stop — same as before.
   const handleQuickPrompt = useCallback((prompt: QuickPrompt) => {
     const promptText = typeof prompt === 'string' ? prompt : prompt.prompt || prompt.label;
     setInput(promptText);
     onPrompt?.(promptText);
 
-    // Phase 2 Slice 7: dual-dispatch. Whatever the chip's onSelect
-    // wants to do on the right pane (most commonly setActiveLayoutId
-    // + a data fetch) runs in parallel with the copilot prompt above.
-    // Fires for every chip click regardless of skipInference — pure
-    // layout chips skip the auto-send below but still trigger this.
     if (typeof prompt !== 'string' && prompt.onSelect) {
       prompt.onSelect();
     }
 
-    // Auto-send if skipInference is not set
-    if (typeof prompt !== 'string' && !prompt.skipInference) {
-      setTimeout(() => handleSend(), 100);
+    if (typeof prompt !== 'string' && prompt.onDispatchOnSend) {
+      pendingDispatchRef.current = prompt.onDispatchOnSend;
     }
-  }, [onPrompt, handleSend]);
+
+    // Focus the input so the operator can immediately edit / press Enter.
+    setTimeout(() => inputRef.current?.focus(), 30);
+  }, [onPrompt]);
   
   // Provider change is handled via selectedProvider state lifted to this component
   // and forwarded to FloatingCopilot which updates it via setSelectedProvider
@@ -814,13 +864,21 @@ function FloatingCopilot({
           {/* Quick prompts strip — above input, below messages */}
           {visibleQuickPrompts && (
             <div className="px-3 pt-2 pb-1 flex gap-1.5 flex-wrap flex-shrink-0">
-              {quickPrompts.slice(0, 4).map((qp, i) => {
+              {quickPrompts.slice(0, 5).map((qp, i) => {
                 const label = typeof qp === "string" ? qp : qp.label;
+                const highlight = typeof qp !== "string" && qp.highlight === true;
+                // Highlighted chips get an emerald ring + slow pulse so
+                // they stand out without animating distractingly. Plain
+                // chips keep the existing low-contrast neutral style.
+                const base = highlight
+                  ? "bg-emerald-500/15 text-emerald-100 ring-1 ring-emerald-400/60 hover:bg-emerald-500/25 hover:text-white shadow-[0_0_0_0_rgba(16,185,129,0.4)] animate-[pulse_2s_ease-in-out_infinite]"
+                  : "bg-white/5 text-white/70 ring-1 ring-white/10 hover:bg-white/10 hover:text-white";
                 return (
                   <button
                     key={i}
                     onClick={() => onQuickPrompt(qp)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-white/5 text-white/70 ring-1 ring-white/10 hover:bg-white/10 hover:text-white transition-colors"
+                    title={typeof qp !== "string" ? qp.prompt : undefined}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${base}`}
                   >
                     {label}
                   </button>

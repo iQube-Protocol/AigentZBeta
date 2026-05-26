@@ -2,30 +2,35 @@
 
 /**
  * RequestAdminAccessButton — opens a small modal that lets a persona
- * submit a request for admin access to a specific cartridge. Only
- * renders when the active persona has NO admin grants (no isAdmin,
- * no per-cartridge grants). Global admins and cartridge admins don't
- * see it.
+ * submit a request for access to a cartridge.
  *
- * The submit POSTs to /api/admin/access-requests; the route is gated
- * by the spine and writes a 'pending' row that a global admin can
- * decide via the Admin Access Requests tab.
+ * 2026-05-26 refinements: the alpha mistakenly conflated two flows.
+ * Most requesters want runtime ACCESS to a cartridge (view + use it),
+ * NOT admin scope (review queues, partner ops, gated admin tabs).
+ * The modal now defaults to cartridge_access and surfaces an explicit
+ * "request admin privileges instead" toggle for the rarer admin path.
+ *
+ * Submits to /api/admin/access-requests. The spine-gated route writes
+ * a 'pending' row; a global admin decides via the Admin Access
+ * Requests tab.
+ *
+ * Component supports two modes:
+ *   - uncontrolled (default) — renders its own trigger button + modal.
+ *   - controlled (open + onOpenChange) — parent owns open state; only
+ *     the modal renders. Used by the welcome-surface pulse chip.
  */
 
 import { useCallback, useState } from "react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck } from "lucide-react";
+import { Info, ShieldCheck, Sparkles } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 
 interface Props {
-  /**
-   * Pre-fill the cartridge slug the user is requesting admin on.
-   * When omitted, the modal lets them pick from the standard set
-   * (or request platform-wide / global admin).
-   */
   defaultCartridgeSlug?: string;
   className?: string;
+  open?: boolean;
+  onOpenChange?: (next: boolean) => void;
 }
 
 const CARTRIDGE_OPTIONS: Array<{ slug: string | null; label: string }> = [
@@ -35,15 +40,34 @@ const CARTRIDGE_OPTIONS: Array<{ slug: string | null; label: string }> = [
   { slug: 'marketa', label: 'Marketa' },
   { slug: 'venture-lab', label: 'metaMe Venture Lab' },
   { slug: 'agentiq-os', label: 'AgentiQ OS' },
-  { slug: null, label: 'Platform-wide (global admin)' },
+  // Global admin is intentionally NOT in this list. It's a much
+  // narrower path and requires a separate flow (reviewer must opt in
+  // explicitly; not a default the typical operator should land on).
 ];
 
-export function RequestAdminAccessButton({ defaultCartridgeSlug, className }: Props) {
-  const [open, setOpen] = useState(false);
-  const [cartridgeSlug, setCartridgeSlug] = useState<string | null>(defaultCartridgeSlug ?? 'metame');
+type AccessKind = 'access' | 'admin';
+
+export function RequestAdminAccessButton({
+  defaultCartridgeSlug,
+  className,
+  open: controlledOpen,
+  onOpenChange,
+}: Props) {
+  const isControlled = controlledOpen !== undefined;
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = isControlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (isControlled) onOpenChange?.(next);
+    else setUncontrolledOpen(next);
+  };
+  const [cartridgeSlug, setCartridgeSlug] = useState<string>(defaultCartridgeSlug ?? 'metame');
+  const [accessKind, setAccessKind] = useState<AccessKind>('access');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const selectedLabel =
+    CARTRIDGE_OPTIONS.find((o) => o.slug === cartridgeSlug)?.label ?? cartridgeSlug;
 
   const submit = useCallback(async () => {
     setSubmitting(true);
@@ -54,6 +78,7 @@ export function RequestAdminAccessButton({ defaultCartridgeSlug, className }: Pr
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           requestedCartridgeSlug: cartridgeSlug,
+          requestType: accessKind === 'admin' ? 'cartridge_admin' : 'cartridge_access',
           message: message.trim() || null,
         }),
       });
@@ -68,7 +93,9 @@ export function RequestAdminAccessButton({ defaultCartridgeSlug, className }: Pr
       setResult({
         ok: true,
         text:
-          'Request submitted. A global admin will review it and you will see the decision on your next sign-in.',
+          accessKind === 'admin'
+            ? `Admin request submitted for ${selectedLabel}. A global admin will review it.`
+            : `Access request submitted for ${selectedLabel}. A global admin will review it and you'll see the cartridge in your runtime once approved.`,
       });
       setMessage('');
     } catch (err) {
@@ -76,38 +103,48 @@ export function RequestAdminAccessButton({ defaultCartridgeSlug, className }: Pr
     } finally {
       setSubmitting(false);
     }
-  }, [cartridgeSlug, message]);
+  }, [cartridgeSlug, accessKind, message, selectedLabel]);
 
   return (
     <>
-      <Button
-        variant="outline"
-        size="sm"
-        className={`border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10 ${className ?? ''}`}
-        onClick={() => setOpen(true)}
-      >
-        <ShieldCheck className="w-4 h-4 mr-1.5" />
-        Request admin access
-      </Button>
+      {!isControlled && (
+        <Button
+          variant="outline"
+          size="sm"
+          className={`border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10 ${className ?? ''}`}
+          onClick={() => setOpen(true)}
+        >
+          <Sparkles className="w-4 h-4 mr-1.5" />
+          Request alpha access — {selectedLabel}
+        </Button>
+      )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Request admin access</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-emerald-300" />
+              Request alpha access
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 text-sm text-slate-300">
-            <p>
-              Choose the cartridge you want admin scope on, and add a short justification so the
-              reviewer knows the context.
-            </p>
+            <div className="text-xs text-slate-400 leading-relaxed flex gap-2">
+              <Info className="w-3.5 h-3.5 mt-0.5 shrink-0 text-slate-500" />
+              <span>
+                This is an alpha release. Submit a request below; once a global admin
+                approves you'll see the cartridge in your runtime and can use it. Admin
+                privileges are a separate scope — toggle the option below only if you
+                need to administer the cartridge (review queues, partner ops, gated
+                admin tabs).
+              </span>
+            </div>
+
             <label className="block">
               <span className="text-xs uppercase tracking-wide text-slate-400 mb-1 block">
                 Cartridge
               </span>
               <select
-                value={cartridgeSlug ?? '__global'}
-                onChange={(e) =>
-                  setCartridgeSlug(e.target.value === '__global' ? null : e.target.value)
-                }
+                value={cartridgeSlug}
+                onChange={(e) => setCartridgeSlug(e.target.value)}
                 className="w-full px-3 py-2 rounded-md bg-slate-800/60 border border-slate-700 text-sm focus:outline-none focus:border-violet-500"
               >
                 {CARTRIDGE_OPTIONS.map((opt) => (
@@ -117,6 +154,26 @@ export function RequestAdminAccessButton({ defaultCartridgeSlug, className }: Pr
                 ))}
               </select>
             </label>
+
+            <label className="flex items-start gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={accessKind === 'admin'}
+                onChange={(e) => setAccessKind(e.target.checked ? 'admin' : 'access')}
+                className="mt-1"
+              />
+              <span className="text-xs text-slate-300">
+                <span className="inline-flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-300" />
+                  Request <em>admin privileges</em> on {selectedLabel}
+                </span>
+                <span className="block text-[11px] text-slate-500 mt-0.5">
+                  Most requesters don't need this. Only check if you'll be administering
+                  the cartridge (review queues, gated admin tabs).
+                </span>
+              </span>
+            </label>
+
             <label className="block">
               <span className="text-xs uppercase tracking-wide text-slate-400 mb-1 block">
                 Justification
@@ -124,7 +181,11 @@ export function RequestAdminAccessButton({ defaultCartridgeSlug, className }: Pr
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="e.g. I'm the partnership lead for the KNYT activation and need to review campaigns and partner cohorts."
+                placeholder={
+                  accessKind === 'admin'
+                    ? "e.g. I'm the partnership lead for the KNYT activation and need to review campaigns and approve partner cohorts."
+                    : `e.g. I'd like to start using ${selectedLabel} as part of my active workstreams.`
+                }
                 rows={4}
                 maxLength={2000}
                 className="w-full px-3 py-2 rounded-md bg-slate-800/60 border border-slate-700 text-sm focus:outline-none focus:border-violet-500 resize-y"
@@ -133,6 +194,7 @@ export function RequestAdminAccessButton({ defaultCartridgeSlug, className }: Pr
                 {message.length} / 2000
               </span>
             </label>
+
             {result && (
               <div
                 className={`text-sm px-3 py-2 rounded-md border ${
@@ -150,7 +212,11 @@ export function RequestAdminAccessButton({ defaultCartridgeSlug, className }: Pr
               Close
             </Button>
             <Button onClick={() => void submit()} disabled={submitting || (result?.ok ?? false)}>
-              {submitting ? 'Submitting…' : 'Submit request'}
+              {submitting
+                ? 'Submitting…'
+                : accessKind === 'admin'
+                  ? 'Request admin'
+                  : 'Request access'}
             </Button>
           </DialogFooter>
         </DialogContent>
