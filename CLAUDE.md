@@ -152,8 +152,56 @@ Tests in `tests/persona-broadcast-handshake.test.ts` and `tests/access-spine.tes
 | Your own auth gate before granting rewards | `evaluateAccess(persona, descriptor, 'transfer')` |
 | Your own FIO-handle-required check | The spine denies with `reason='fio-handle-required'`; surface that |
 | Your own admin / partner role checker | `persona.cartridgeFlags.{isAdmin,isPartner}` (server-resolved) |
+| Your own per-cartridge admin role checker | `persona.cartridgeFlags.adminCartridges: string[]` (server-resolved). Slugs only. `isAdmin: true` satisfies any per-cartridge check. Credential class: `admin-cartridge:<slug>` |
+| Your own client-side `fetch(/api/...)` for spine endpoints | `personaFetch` from `utils/personaSpine` — see "Client-side spine fetches" below |
 | Your own decryption for state-C content | `streamStateCPlaintext` from `services/content/stateCDelivery` |
 | Your own persona-switch listener | Subscribe to the `aa-persona-change-v1` postMessage |
+
+### Client-side spine fetches — MUST use `personaFetch`, never raw `fetch` (PARAMOUNT)
+
+Any client-side call to a route that resolves the caller through the spine (`getActivePersona` or `getCallerIdentityContext`) requires the Supabase Bearer token in the `Authorization` header. Cookies + `credentials: 'same-origin'` are **NOT** sufficient — the spine ignores cookies entirely for auth.
+
+Routes that fall under this rule include (non-exhaustive):
+- `/api/wallet/active-persona`
+- `/api/persona/*`
+- `/api/assistant/*` (bootstrap, brief, move-forward, ask-agent, intent, etc.)
+- `/api/admin/*` (every diagnostic + admin route)
+- `/api/access/*`
+- `/api/connectors/*`
+
+**Use this:**
+
+```ts
+import { personaFetch } from "@/utils/personaSpine";
+
+const res = await personaFetch("/api/persona/cartridge-admin-grants", {
+  cache: "no-store",
+});
+```
+
+`personaFetch` calls `getSupabaseAccessToken()` and attaches it as `Authorization: Bearer <token>` before delegating to fetch. It's the single canonical client surface for spine-aware HTTP.
+
+**Never use this for spine endpoints:**
+
+```ts
+// ❌ ALWAYS RETURNS 401 — no Bearer token attached
+fetch("/api/persona/...", { credentials: "same-origin" });
+fetch("/api/persona/...");  // same problem
+```
+
+The bug pattern: when a hook / utility uses raw `fetch`, every spine endpoint returns 401, the hook silently falls into its empty / fail-closed state, and downstream gates (admin tabs, paywalls, persona switches) deny without any console error. Symptoms feel like "the feature just doesn't work for this user" — but the operator IS authenticated; the FE is just failing to attach the token. Cost the team a multi-hour debug loop on 2026-05-26 with the admin-tab visibility regression.
+
+**Debugging from DevTools / a browser URL bar** — neither sends the Authorization header. Pull the token from `localStorage` and attach it manually:
+
+```js
+(async () => {
+  const k = Object.keys(localStorage).find(k => k.includes('auth-token'));
+  const parsed = JSON.parse(localStorage.getItem(k));
+  const token = parsed?.access_token ?? parsed?.currentSession?.access_token;
+  const r = await fetch('/api/<path>', { headers: { Authorization: `Bearer ${token}` } });
+  console.log(JSON.stringify(await r.json(), null, 2));
+})();
+```
 
 ### Files you MUST NOT modify without operator approval
 
