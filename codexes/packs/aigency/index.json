@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-26T10:11:30.874Z",
+  "last_updated": "2026-05-26T10:13:49.713Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "f9a34dbad05f7767c10c357a53959f39415c7355",
-  "latest_commit_short": "f9a34db",
-  "latest_commit_title": "register TabRendererFallback component + add Admin under Marketa Partner",
+  "latest_commit": "89d80cfd47367eb3754cc9a1afc9ce24fc82007e",
+  "latest_commit_short": "89d80cf",
+  "latest_commit_title": "AgentiQ OS: stub Admin tabGroup so the mirror has content",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "89d80cf",
+      "full_sha": "89d80cfd47367eb3754cc9a1afc9ce24fc82007e",
+      "title": "AgentiQ OS: stub Admin tabGroup so the mirror has content",
+      "author": "Claude",
+      "timestamp": "2026-05-26T10:12:01Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-89d80cf.md"
+    },
     {
       "sha": "f9a34db",
       "full_sha": "f9a34dbad05f7767c10c357a53959f39415c7355",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-06T20:44:10Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-ff8a4f9.md"
-    },
-    {
-      "sha": "1b0d145",
-      "full_sha": "1b0d1450aa384e6b1345e2341ca909e538b3ccff",
-      "title": "migrate wallet/knyt/balance route to getSupabaseServer (timeout-guarded)",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:44:40Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1b0d145.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -1219,3 +1219,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-f9a34db.md](../build_/COMMITS/COMMIT-f9a34db.md)
 - Message: register TabRendererFallback component + add Admin under Marketa Partner
+
+## Commit `89d80cf` — 2026-05-26T10:12:01Z
+- Type: `push`
+- Brief: [COMMIT-89d80cf.md](../build_/COMMITS/COMMIT-89d80cf.md)
+- Message: AgentiQ OS: stub Admin tabGroup so the mirror has content
