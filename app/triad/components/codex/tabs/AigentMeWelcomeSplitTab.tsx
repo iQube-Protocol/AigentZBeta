@@ -826,37 +826,39 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       //   article / mycanvas-remix → myCanvas (public publishing)
       //   image-prompt / video-script / post-set → metaMe Studio
       //   marketa-campaign → marketa composer
-      // The handoffHint from the rerank pass seeds the composer when
-      // composer is the destination; for non-composer destinations
-      // the navigation payload carries the action title + rationale
-      // so the target surface can pre-stage.
+      //
+      // 2026-05-26 regression-restore: the previous unification
+      // routed ALL composer-class artifacts through dispatchArtifact's
+      // buildPromptFromPayload step, which auto-fired a draft with a
+      // synthetic title+rationale prompt. That broke the alpha doc
+      // generation flow — the modal opened but the draft never
+      // populated correctly (the synthetic prompt isn't structured
+      // like the rerank's nbaPromptHints and the doc-draft endpoint
+      // didn't produce useful output). For composer destinations we
+      // now use the EXACT same path that worked before Phase F.1:
+      //   - setComposerInitialPrompt(handoffHint || null)
+      //   - setComposerKind(<kind>)
+      //   - setActiveLayoutId('composer')
+      // Modal's existing useEffect handles the auto-fire when
+      // handoffHint is present; otherwise the operator types a
+      // prompt and clicks Draft — same as alpha. Non-composer
+      // destinations (canvas / workbench / studio / marketa-campaign)
+      // still go through dispatchArtifact since those are NEW paths
+      // and aren't affected by the regression.
       setPendingApprovalHint(null);
       const artifactType = action.suggestedArtifact ?? '';
       const cls = classifySuggestedArtifact(artifactType);
 
-      if (cls.kind === 'composer') {
-        // Composer surfaces honour the explicit rerank hint when the
-        // LLM emitted one (richer than the generic title/rationale).
-        if (handoffHint && handoffHint.trim().length > 0) {
-          setComposerInitialPrompt(handoffHint);
-          setComposerKind(cls.composeKind);
-          setActiveLayoutId('composer');
-        } else {
-          dispatchArtifact({
-            artifactType,
-            title: action.label,
-            summary: action.rationale,
-            source: 'nbe-act',
-          });
-        }
-      } else if (cls.kind === 'unknown') {
-        // Fall back to the legacy id-based mapper for NBE ids that
-        // pre-date suggestedArtifact (metame.use-workspace-*). Without
-        // this fallback those NBEs would no-op after approval.
-        const legacyKind = composeKindForAction(action);
-        if (legacyKind) {
-          setComposerInitialPrompt(handoffHint && handoffHint.trim().length > 0 ? handoffHint : null);
-          setComposerKind(legacyKind);
+      if (cls.kind === 'composer' || cls.kind === 'unknown') {
+        // Composer destinations (including legacy id-based ones that
+        // classifier returns 'unknown' on). Use the exact alpha path.
+        const composeKind =
+          cls.kind === 'composer' ? cls.composeKind : composeKindForAction(action);
+        if (composeKind) {
+          setComposerInitialPrompt(
+            handoffHint && handoffHint.trim().length > 0 ? handoffHint : null,
+          );
+          setComposerKind(composeKind);
           setActiveLayoutId('composer');
         } else {
           // True no-handoff NBE — scroll to the queued card so the
@@ -868,8 +870,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         }
       } else {
         // Non-composer destinations (canvas / workbench / studio /
-        // marketa-campaign) — route through the dispatcher with the
-        // action's title + rationale as context.
+        // marketa-campaign) — route through the dispatcher.
         dispatchArtifact({
           artifactType,
           title: action.label,
@@ -1450,15 +1451,26 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
   }, [setComposerInitialPrompt, setComposerKind, setActiveLayoutId]);
 
-  // Specialist-chip entry point — adapts the SpecialistResponseData
-  // shape into an ArtifactDispatchPayload and funnels through the
-  // single dispatcher above. Keeps the signature stable for the
-  // SpecialistResponseCard.onCreateArtifact prop while routing every
-  // click through the class-wide router.
+  // Specialist-chip entry point. 2026-05-26 regression-restore: for
+  // COMPOSER destinations we use the alpha buildPromptForSuggestedArtifact()
+  // path that worked end-to-end before Phase F.1 — directive prompts
+  // produce richer doc drafts than the synthetic markdown the unified
+  // dispatcher emits. For non-composer destinations (canvas /
+  // workbench / studio / marketa-campaign) we still funnel through
+  // dispatchArtifact since those are new paths.
   const handleUseSuggestedArtifact = useCallback((
     artifactType: string,
     response: import('@/components/metame/cards/SpecialistResponseCard').SpecialistResponseData,
   ) => {
+    const cls = classifySuggestedArtifact(artifactType);
+    if (cls.kind === 'composer') {
+      const prompt = buildPromptForSuggestedArtifact(artifactType, response);
+      setComposerInitialPrompt(prompt);
+      setComposerKind(cls.composeKind);
+      setActiveLayoutId('composer');
+      return;
+    }
+    // Non-composer destinations route through the unified dispatcher.
     dispatchArtifact({
       artifactType,
       title: response.title,
