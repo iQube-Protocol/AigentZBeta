@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-26T17:55:26.628Z",
+  "last_updated": "2026-05-26T19:57:51.531Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "51d51fae303507f02a72d2fd6eb7e0679f7decbe",
-  "latest_commit_short": "51d51fa",
-  "latest_commit_title": "Qriptopian Cartridge v3 restructure + KNYT Pulse rename",
+  "latest_commit": "fd34baa4a7e05b89c58e3e360219aeff46868e44",
+  "latest_commit_short": "fd34baa",
+  "latest_commit_title": "Qriptopian Cartridge v3.1 refinement — Store, Qriptopia, Admin reorder + Community Correspondent",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "fd34baa",
+      "full_sha": "fd34baa4a7e05b89c58e3e360219aeff46868e44",
+      "title": "Qriptopian Cartridge v3.1 refinement — Store, Qriptopia, Admin reorder + Community Correspondent",
+      "author": "Claude",
+      "timestamp": "2026-05-26T19:55:50Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-fd34baa.md"
+    },
     {
       "sha": "51d51fa",
       "full_sha": "51d51fae303507f02a72d2fd6eb7e0679f7decbe",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-06T05:33:01Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-d2c4645.md"
-    },
-    {
-      "sha": "e09bfed",
-      "full_sha": "e09bfed180980a917574098f424aa83c4a90c133",
-      "title": "wire wallet tasks/reputation/rewards tabs to /api/wallet/tasks",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:29:58Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-e09bfed.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
