@@ -55,6 +55,13 @@ interface Props {
   loading?: boolean;
   error?: string | null;
   onActOnNbe?: (action: NextBestActionData) => void;
+  /**
+   * Set of NBE ids that have already been queued as IntentQubes. NBA
+   * cards in `nextBestActions` whose id is in this set render a
+   * "Queued" badge instead of the Act button so the operator sees
+   * their click landed.
+   */
+  queuedIntents?: Record<string, unknown>;
   /** When provided, renders a close (X) control in the header so the
    *  user can dismiss the brief instead of scrolling past it. The chip
    *  that triggered the brief can re-open it. */
@@ -70,7 +77,7 @@ const STAGE_LABELS: Record<string, string> = {
   scale: "Scale",
 };
 
-export function BriefCard({ data, loading, error, onActOnNbe, onDismiss, theme = "dark" }: Props) {
+export function BriefCard({ data, loading, error, onActOnNbe, queuedIntents, onDismiss, theme = "dark" }: Props) {
   const isDark = theme === "dark";
   const surfaceClass = isDark
     ? "bg-slate-900/50 border-slate-700/60 text-slate-100"
@@ -219,6 +226,7 @@ export function BriefCard({ data, loading, error, onActOnNbe, onDismiss, theme =
                 key={action.id}
                 action={action}
                 onAct={onActOnNbe}
+                queued={!!queuedIntents?.[action.id]}
                 theme={theme}
               />
             ))

@@ -83,6 +83,9 @@ interface Props {
   loading?: boolean;
   error?: string | null;
   onActOnNbe?: (action: NextBestActionData) => void;
+  /** Same shape as BriefCard.queuedIntents — once an NBA is queued
+   *  its Act button flips to a non-clickable "Queued" badge. */
+  queuedIntents?: Record<string, unknown>;
   /** When provided, renders a close (X) control in the header so the
    *  user can dismiss the venture-progress card. The chip that opened
    *  it (Venture progress) can re-open it. */
@@ -111,6 +114,7 @@ export function VentureProgressCard({
   loading,
   error,
   onActOnNbe,
+  queuedIntents,
   onDismiss,
   theme = "dark",
 }: Props) {
@@ -324,6 +328,7 @@ export function VentureProgressCard({
                 key={action.id}
                 action={action}
                 onAct={onActOnNbe}
+                queued={!!queuedIntents?.[action.id]}
                 theme={theme}
               />
             ))}

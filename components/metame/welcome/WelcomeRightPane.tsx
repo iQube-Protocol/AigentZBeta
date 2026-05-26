@@ -441,6 +441,7 @@ export function WelcomeRightPane(props: Props) {
             loading={briefLoading}
             error={briefError}
             onActOnNbe={onNbeAct}
+            queuedIntents={queuedIntents}
             onDismiss={onDismissBrief}
             theme={theme}
           />
@@ -452,6 +453,8 @@ export function WelcomeRightPane(props: Props) {
           data={ventureProgress}
           loading={ventureProgressLoading}
           error={ventureProgressError}
+          onActOnNbe={onNbeAct}
+          queuedIntents={queuedIntents}
           onDismiss={onDismissVenture}
           theme={theme}
         />

@@ -215,6 +215,7 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
                       key={a.id}
                       action={a}
                       onAct={onNbeAct}
+                      queued={!!props.queuedIntents?.[a.id]}
                       theme={theme}
                     />
                   ))}

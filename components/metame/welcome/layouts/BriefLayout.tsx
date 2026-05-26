@@ -32,6 +32,7 @@ function BriefLayoutComponent(props: RightPaneLayoutProps) {
     brief,
     briefLoading,
     briefError,
+    queuedIntents,
     onNbeAct,
     onDismissBrief,
     onBriefVariantChange,
@@ -114,6 +115,7 @@ function BriefLayoutComponent(props: RightPaneLayoutProps) {
             loading={false}
             error={null}
             onActOnNbe={onNbeAct}
+            queuedIntents={queuedIntents}
             onDismiss={undefined}
             theme={theme}
           />
