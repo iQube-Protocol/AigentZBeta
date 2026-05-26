@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-26T03:45:47.532Z",
+  "last_updated": "2026-05-26T04:20:54.257Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "fee30e88bce10907854907a0e33b746680af0c06",
-  "latest_commit_short": "fee30e8",
-  "latest_commit_title": "admin-tab in activation: per-cartridge gating + KNYT Admin mirror in metaMe",
+  "latest_commit": "7dd0dd25d255305b4fdf91669cc202577476edf2",
+  "latest_commit_short": "7dd0dd2",
+  "latest_commit_title": "fix admin-tab visibility: CRM tenant↔cartridge slug alias + 3 more mirrors",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "7dd0dd2",
+      "full_sha": "7dd0dd25d255305b4fdf91669cc202577476edf2",
+      "title": "fix admin-tab visibility: CRM tenant↔cartridge slug alias + 3 more mirrors",
+      "author": "Claude",
+      "timestamp": "2026-05-26T04:19:03Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-7dd0dd2.md"
+    },
     {
       "sha": "fee30e8",
       "full_sha": "fee30e88bce10907854907a0e33b746680af0c06",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-05T00:25:20Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-388cd07.md"
-    },
-    {
-      "sha": "c1cd1d4",
-      "full_sha": "c1cd1d4f1cb0c69549ec48f321343cd4217826f1",
-      "title": "docs: Phase 2 SmartTriad ownership unification backlog + KNYT stabilization session update",
-      "author": "Claude",
-      "timestamp": "2026-05-04T21:57:53Z",
-      "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-c1cd1d4.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
