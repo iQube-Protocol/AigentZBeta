@@ -1154,3 +1154,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-99e2175.md](../build_/COMMITS/COMMIT-99e2175.md)
 - Message: aigent-me chat: load metaMe cartridge state into system prompt
+
+## Commit `f85dac0` — 2026-05-26T00:42:07Z
+- Type: `push`
+- Brief: [COMMIT-f85dac0.md](../build_/COMMITS/COMMIT-f85dac0.md)
+- Message: NBE Act → Queued badge after queue + clickable artifact links in receipts
