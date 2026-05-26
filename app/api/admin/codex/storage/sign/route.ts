@@ -29,26 +29,34 @@ function getExt(fileName: string, mimeType?: string): string {
 function buildPath(params: {
   category: string;
   series: string;
+  /** Qriptopian uploads pass 'papers/protocols' / 'magazines/2' etc.
+   *  When present, replaces the epXX path segment so qripto assets are
+   *  organised by series scope rather than episode number. */
+  seriesScope?: string;
   episodeNumber: number | null;
   assetKind?: string;
   contentType?: string;
   fileName: string;
   mimeType?: string;
 }): string {
-  const { category, series, episodeNumber, assetKind, contentType, fileName, mimeType } = params;
+  const { category, series, seriesScope, episodeNumber, assetKind, contentType, fileName, mimeType } = params;
   const ext = getExt(fileName, mimeType);
   const ts = Date.now();
-  const ep = episodeNumber != null ? `ep${String(episodeNumber).padStart(2, '0')}` : 'epXX';
+  // Qripto: 'papers/protocols' → 'papers-protocols' (filesystem-safe).
+  // KNYT: epXX from episodeNumber (existing behaviour).
+  const scope = seriesScope
+    ? seriesScope.replace(/[^a-z0-9-]+/gi, '-').toLowerCase()
+    : (episodeNumber != null ? `ep${String(episodeNumber).padStart(2, '0')}` : 'epXX');
 
   if (category === 'master' || category === 'still') {
     const ct = contentType || 'episode_still';
-    return `codex/masters/${series}/${ct}/${ep}_${ts}.${ext}`;
+    return `codex/masters/${series}/${ct}/${scope}_${ts}.${ext}`;
   }
   if (category === 'print') {
-    return `codex/masters/${series}/episode_print/${ep}_${ts}.${ext}`;
+    return `codex/masters/${series}/episode_print/${scope}_${ts}.${ext}`;
   }
   const kind = assetKind || category;
-  return `codex/assets/${series}/${kind}/${ep}_${ts}.${ext}`;
+  return `codex/assets/${series}/${kind}/${scope}_${ts}.${ext}`;
 }
 
 export async function POST(req: NextRequest) {
@@ -60,11 +68,15 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const {
-      category, series = 'metaKnyts', episodeNumber = null,
+      category, series = 'metaKnyts', seriesScope, episodeNumber = null,
       assetKind, contentType, fileName, mimeType,
       existingPath,
     } = body as {
-      category: string; series?: string; episodeNumber?: number | null;
+      category: string; series?: string;
+      // Qripto-only: 'papers/protocols' / 'magazines/2' etc. Drives the
+      // path segment in buildPath when present.
+      seriesScope?: string;
+      episodeNumber?: number | null;
       assetKind?: string; contentType?: string; fileName: string; mimeType?: string;
       // When set, sign for THIS exact storage path (overwrite/replace). Used by
       // the "Replace file" admin action so the public URL stays stable and no
@@ -82,7 +94,7 @@ export async function POST(req: NextRequest) {
 
     const path = existingPath
       ? existingPath
-      : buildPath({ category, series, episodeNumber, assetKind, contentType, fileName, mimeType });
+      : buildPath({ category, series, seriesScope, episodeNumber, assetKind, contentType, fileName, mimeType });
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
