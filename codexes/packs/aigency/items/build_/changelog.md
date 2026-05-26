@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`7dd0dd2`](https://github.com/iQube-Protocol/AigentZBeta/commit/7dd0dd25d255305b4fdf91669cc202577476edf2) [fix] fix admin-tab visibility: CRM tenant↔cartridge slug alias + 3 more mirrors (Claude, 2026-05-26T04:19:03Z)
 - [`fee30e8`](https://github.com/iQube-Protocol/AigentZBeta/commit/fee30e88bce10907854907a0e33b746680af0c06) [push] admin-tab in activation: per-cartridge gating + KNYT Admin mirror in metaMe (Claude, 2026-05-26T03:44:02Z)
 - [`784c4bf`](https://github.com/iQube-Protocol/AigentZBeta/commit/784c4bffd4c8473394161c5c86f71dce1615033c) [push] access spine: per-persona cartridge-admin grants resolver + canary (Claude, 2026-05-26T03:36:40Z)
 - [`b907029`](https://github.com/iQube-Protocol/AigentZBeta/commit/b907029f0691b8c30f9e6c6802aecc492ac89f67) [push] archive duplicate AgentiQ OS codex + restore 3rd-tier sub-tab nav row (Claude, 2026-05-26T03:33:08Z)

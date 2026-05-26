@@ -1179,3 +1179,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-fee30e8.md](../build_/COMMITS/COMMIT-fee30e8.md)
 - Message: admin-tab in activation: per-cartridge gating + KNYT Admin mirror in metaMe
+
+## Commit `7dd0dd2` — 2026-05-26T04:19:03Z
+- Type: `fix`
+- Brief: [COMMIT-7dd0dd2.md](../build_/COMMITS/COMMIT-7dd0dd2.md)
+- Message: fix admin-tab visibility: CRM tenant↔cartridge slug alias + 3 more mirrors
