@@ -1169,3 +1169,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-b907029.md](../build_/COMMITS/COMMIT-b907029.md)
 - Message: archive duplicate AgentiQ OS codex + restore 3rd-tier sub-tab nav row
+
+## Commit `784c4bf` — 2026-05-26T03:36:40Z
+- Type: `push`
+- Brief: [COMMIT-784c4bf.md](../build_/COMMITS/COMMIT-784c4bf.md)
+- Message: access spine: per-persona cartridge-admin grants resolver + canary

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-26T03:34:59.693Z",
+  "last_updated": "2026-05-26T03:38:28.518Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "b907029f0691b8c30f9e6c6802aecc492ac89f67",
-  "latest_commit_short": "b907029",
-  "latest_commit_title": "archive duplicate AgentiQ OS codex + restore 3rd-tier sub-tab nav row",
+  "latest_commit": "784c4bffd4c8473394161c5c86f71dce1615033c",
+  "latest_commit_short": "784c4bf",
+  "latest_commit_title": "access spine: per-persona cartridge-admin grants resolver + canary",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "784c4bf",
+      "full_sha": "784c4bffd4c8473394161c5c86f71dce1615033c",
+      "title": "access spine: per-persona cartridge-admin grants resolver + canary",
+      "author": "Claude",
+      "timestamp": "2026-05-26T03:36:40Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-784c4bf.md"
+    },
     {
       "sha": "b907029",
       "full_sha": "b907029f0691b8c30f9e6c6802aecc492ac89f67",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-04T21:37:47Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-bc6c7cc.md"
-    },
-    {
-      "sha": "ad4d1e5",
-      "full_sha": "ad4d1e52f0d4fd4dc67182cc720326c6a2a5d1ac",
-      "title": "trigger deploy: persona hydration + PDF meta + video mobile + admin dispatch fixes",
-      "author": "Claude",
-      "timestamp": "2026-05-04T20:40:11Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-ad4d1e5.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
