@@ -1244,3 +1244,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-fd34baa.md](../build_/COMMITS/COMMIT-fd34baa.md)
 - Message: Qriptopian Cartridge v3.1 refinement — Store, Qriptopia, Admin reorder + Community Correspondent
+
+## Commit `41c69e5` — 2026-05-26T20:49:13Z
+- Type: `push`
+- Brief: [COMMIT-41c69e5.md](../build_/COMMITS/COMMIT-41c69e5.md)
+- Message: myCanvas → Pulse publish + cartridge split end-to-end
