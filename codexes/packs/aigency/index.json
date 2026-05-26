@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-26T19:57:51.531Z",
+  "last_updated": "2026-05-26T20:51:17.102Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "fd34baa4a7e05b89c58e3e360219aeff46868e44",
-  "latest_commit_short": "fd34baa",
-  "latest_commit_title": "Qriptopian Cartridge v3.1 refinement — Store, Qriptopia, Admin reorder + Community Correspondent",
+  "latest_commit": "41c69e5e2541419c0984af0d68a7ae27a9b652ab",
+  "latest_commit_short": "41c69e5",
+  "latest_commit_title": "myCanvas → Pulse publish + cartridge split end-to-end",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "41c69e5",
+      "full_sha": "41c69e5e2541419c0984af0d68a7ae27a9b652ab",
+      "title": "myCanvas → Pulse publish + cartridge split end-to-end",
+      "author": "Claude",
+      "timestamp": "2026-05-26T20:49:13Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-41c69e5.md"
+    },
     {
       "sha": "fd34baa",
       "full_sha": "fd34baa4a7e05b89c58e3e360219aeff46868e44",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-08T00:24:54Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-2d81f86.md"
-    },
-    {
-      "sha": "d2c4645",
-      "full_sha": "d2c46454970e0e0f00cd510168d5e0ce82f73d26",
-      "title": "add dev note: supabase postgrest silent column error + episode thumbnail fix pattern",
-      "author": "Claude",
-      "timestamp": "2026-05-06T05:33:01Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-d2c4645.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
