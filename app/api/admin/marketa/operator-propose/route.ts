@@ -25,6 +25,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { COHORT_REGISTRY, resolveCohort } from '@/services/campaign/cohortResolver';
+import { requireCartridgeAdmin } from '@/services/access/requireCartridgeAdmin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -55,6 +56,14 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  // 2026-05-26: gate added. This endpoint creates operator-authored
+  // campaign proposals that go straight into the approval queue —
+  // must be a Marketa cartridge admin (or global) to fire. Previously
+  // ungated; any authenticated caller could spoof an operator
+  // proposal.
+  const gate = await requireCartridgeAdmin(req, 'marketa');
+  if (gate instanceof NextResponse) return gate;
+
   let body: {
     personaId: string;
     intent: string;

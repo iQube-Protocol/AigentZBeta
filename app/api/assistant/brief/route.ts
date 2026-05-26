@@ -31,6 +31,7 @@ import {
   type BriefType,
 } from '@/services/orchestration/briefBuilder';
 import { runPreflightGather } from '@/services/capabilities/preflight';
+import { summarizeCartridgeAdminContext } from '@/services/orchestration/adminContextSummarizer';
 import type { ActiveCartridgeSlug } from '@/services/iqube/experienceQube';
 
 export const dynamic = 'force-dynamic';
@@ -96,14 +97,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       cartridge: scopedCartridge ?? 'metame',
     });
 
+    // 2026-05-26 chief-of-staff extension: fold admin-tier signals
+    // into liveContext when the persona admins any cartridge. The
+    // recommender uses this to bias toward chief-of-staff moves
+    // (review queues, partner ops) over ground-level operator moves.
+    // No-op for non-admins.
+    const adminSummary = await summarizeCartridgeAdminContext(
+      context.personaId,
+      context.cartridgeFlags.adminCartridges,
+      context.cartridgeFlags.isAdmin,
+    );
+    const liveContext = [preflight?.summary, adminSummary]
+      .filter((s): s is string => typeof s === 'string' && s.length > 0)
+      .join('\n\n') || null;
+
     const brief = await buildBrief({
       personaId: context.personaId,
       briefType,
       scopedCartridge,
-      // Phase 2c — pass the gather summary into the LLM rerank pass.
-      // No-op when CAPABILITY_GATEWAY_PREFLIGHT is off (preflight is
-      // null) or when the LLM rerank pass itself is disabled.
-      liveContext: preflight?.summary ?? null,
+      liveContext,
     });
     return NextResponse.json(
       preflight ? { ...brief, preflightContext: preflight } : brief,

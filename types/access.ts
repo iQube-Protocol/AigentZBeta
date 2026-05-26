@@ -271,9 +271,19 @@ export interface ContentGatingDescriptor {
   kind: GatingKind;
   /**
    * Credential id when kind='credential'. Examples:
-   *   'admin' | 'partner' | 'investor'
-   *   'cohort:<cohort_id>'
-   *   'token:<chain>:<contract>'    // ERC-721/1155 holder check
+   *   'admin'                       — global uber/platform-tier admin
+   *                                    (cartridgeFlags.isAdmin)
+   *   'partner' | 'investor'        — other cartridgeFlags booleans
+   *   'admin-cartridge:<slug>'      — per-cartridge admin grant
+   *                                    (cartridgeFlags.adminCartridges
+   *                                    contains the slug, OR global
+   *                                    isAdmin satisfies the gate).
+   *                                    Added 2026-05-26 as Layer 3 of
+   *                                    the spine admin-grants
+   *                                    extension — see
+   *                                    codexes/packs/agentiq/updates/2026-05-26_spine-admin-grants-extension.md.
+   *   'cohort:<cohort_id>'          — cohort membership via RQH
+   *   'token:<chain>:<contract>'    — ERC-721/1155 holder check
    */
   credential?: string;
   priceUsd?: number;

@@ -26,6 +26,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { recommendSpecialist } from '@/services/orchestration/specialistRecommender';
 import { runPreflightGather } from '@/services/capabilities/preflight';
+import { summarizeCartridgeAdminContext } from '@/services/orchestration/adminContextSummarizer';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,10 +68,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       cartridge: cartridge || 'metame',
     });
 
+    // 2026-05-26: admin-tier signals fold into liveContext so the
+    // specialist recommender biases toward chief-of-staff specialists
+    // (e.g. Aigent Z for orchestration, Marketa for pipeline) when
+    // the persona admins relevant cartridges.
+    const adminSummary = await summarizeCartridgeAdminContext(
+      context.personaId,
+      context.cartridgeFlags.adminCartridges,
+      context.cartridgeFlags.isAdmin,
+    );
+    const liveContext = [preflight?.summary, adminSummary]
+      .filter((s): s is string => typeof s === 'string' && s.length > 0)
+      .join('\n\n') || null;
+
     const recommendation = await recommendSpecialist({
       personaId: context.personaId,
       query: query || null,
-      liveContext: preflight?.summary ?? null,
+      liveContext,
     });
 
     return NextResponse.json(
