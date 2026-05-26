@@ -1189,3 +1189,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-2c91b74.md](../build_/COMMITS/COMMIT-2c91b74.md)
 - Message: spine extension: per-cartridge admin grants → cartridgeFlags.adminCartridges
+
+## Commit `8dce7e8` — 2026-05-26T08:19:10Z
+- Type: `fix`
+- Brief: [COMMIT-8dce7e8.md](../build_/COMMITS/COMMIT-8dce7e8.md)
+- Message: fix admin-tab visibility: email-alias fallback in grants resolver + diag route

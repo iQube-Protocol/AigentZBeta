@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-26T04:36:08.640Z",
+  "last_updated": "2026-05-26T08:21:07.785Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "2c91b74f11ac0688e59bd13f1a99389214607365",
-  "latest_commit_short": "2c91b74",
-  "latest_commit_title": "spine extension: per-cartridge admin grants → cartridgeFlags.adminCartridges",
+  "latest_commit": "8dce7e897b3d9476640bca271e9ab1b3fe43742b",
+  "latest_commit_short": "8dce7e8",
+  "latest_commit_title": "fix admin-tab visibility: email-alias fallback in grants resolver + diag route",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "8dce7e8",
+      "full_sha": "8dce7e897b3d9476640bca271e9ab1b3fe43742b",
+      "title": "fix admin-tab visibility: email-alias fallback in grants resolver + diag route",
+      "author": "Claude",
+      "timestamp": "2026-05-26T08:19:10Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-8dce7e8.md"
+    },
     {
       "sha": "2c91b74",
       "full_sha": "2c91b74f11ac0688e59bd13f1a99389214607365",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-06T21:05:50Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-37baf80.md"
-    },
-    {
-      "sha": "fded607",
-      "full_sha": "fded6075707a21c8c69aaadb8a5b17356f490712",
-      "title": "fix: add getOwnedAssetIds enumeration fallback to userOwnsAsset + deploy trigger",
-      "author": "Claude",
-      "timestamp": "2026-05-05T00:44:47Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-fded607.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
