@@ -47,7 +47,9 @@ import {
 } from "@/utils/personaSpine";
 import { SmartTriadCopilotLayer } from "@/components/smarttriad/copilot/SmartTriadCopilotLayer";
 import { useCartridgeAdminGrants } from "@/app/hooks/useCartridgeAdminGrants";
-import { RequestAdminAccessButton } from "@/components/metame/admin/RequestAdminAccessButton";
+// RequestAdminAccessButton now mounted inside WelcomeRightPane (right-
+// pane badge carousel). Import removed when the left-strip chip
+// moved out per 2026-05-26 operator feedback.
 
 import {
   ExperienceModelCard,
@@ -175,6 +177,12 @@ function composeKindForAction(action: NextBestActionData): ComposeKind | null {
  */
 function composeKindForSuggestedArtifact(artifactType: string): ComposeKind | null {
   const t = artifactType.toLowerCase();
+  // myCanvas remix is a separate non-composer flow — see
+  // handleUseSuggestedArtifact, which routes 'mycanvas-remix' into
+  // the RemixDialog instead of opening a composer modal. Returning
+  // null here means the artifact-route handler picks up the special
+  // case and dispatches to the canvas surface instead.
+  if (/(mycanvas|canvas-remix|remix-canvas|canvas remix)/.test(t)) return null;
   if (/(email|outreach|gmail|note to|reply|message)/.test(t)) {
     return /(marketa|campaign send)/.test(t) ? 'marketa' : 'gmail';
   }
@@ -183,6 +191,11 @@ function composeKindForSuggestedArtifact(artifactType: string): ComposeKind | nu
   if (/(sheet|spreadsheet|tracker|csv|table)/.test(t)) return 'sheet';
   if (/(doc|brief|memo|proposal|article|outline|narrative|write-up|writeup|spec|plan)/.test(t)) return 'doc';
   return null;
+}
+
+function isMyCanvasRemixArtifact(artifactType: string): boolean {
+  const t = artifactType.toLowerCase();
+  return /(mycanvas|canvas-remix|remix-canvas|canvas remix)/.test(t);
 }
 
 /**
@@ -1169,11 +1182,6 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // draft on mount so the operator lands on a populated form. Used by
   // the SpecialistsLayout suggested-artifact buttons.
   const [composerInitialPrompt, setComposerInitialPrompt] = useState<string | null>(null);
-  // Controlled state for the Request Admin Access modal. Opens from
-  // the pulse-highlighted "Request access" chip in the copilot strip
-  // (Phase E.2 — chip replaces the absolute-positioned button that
-  // overlapped the right pane's close affordance).
-  const [requestAccessOpen, setRequestAccessOpen] = useState(false);
 
   // Phase 2 B.1: selected KPI for KpiDetailLayout. The cockpit chip's
   // onClick sets this + activates 'kpi-detail'.
@@ -1212,6 +1220,30 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     artifactType: string,
     response: import('@/components/metame/cards/SpecialistResponseCard').SpecialistResponseData,
   ) => {
+    // myCanvas remix is a separate flow — navigate to the myCanvas
+    // tab with a `?remix=` query carrying the specialist response so
+    // the canvas can pre-stage the remix dialog. Falls back to a
+    // simple navigation if the navigator API isn't reachable from
+    // this surface.
+    if (isMyCanvasRemixArtifact(artifactType)) {
+      try {
+        const remixPayload = encodeURIComponent(
+          JSON.stringify({
+            source: 'specialist',
+            specialistId: response.specialistId,
+            title: response.title,
+            summary: response.summary,
+          }),
+        );
+        const url = `/codex/viewer?slug=metame&tab=mycanvas&remix=${remixPayload}`;
+        if (typeof window !== 'undefined') {
+          window.location.assign(url);
+        }
+      } catch {
+        // best-effort; the chip still gives the operator the path forward.
+      }
+      return;
+    }
     const kind = composeKindForSuggestedArtifact(artifactType);
     if (!kind) return;
     const prompt = buildPromptForSuggestedArtifact(artifactType, response);
@@ -1691,25 +1723,16 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       }));
     }
 
-    const accessChip = !adminGrants.isGlobalAdmin && adminGrants.cartridgeSlugs.size === 0
-      ? [{
-          id: 'request-access',
-          // Renamed 2026-05-26 from "Request access" to "Request alpha
-          // access" so the chip surfaces the alpha context up front
-          // (operator feedback — the prior label didn't make it clear
-          // this is the alpha-release access path, not an admin gate).
-          label: 'Request alpha access',
-          // Pure UI chip — opens the modal. No chat dispatch, no
-          // right-pane fetch. Stays out of the LLM message stream.
-          prompt: '',
-          skipInference: true,
-          highlight: true,
-          onSelect: () => setRequestAccessOpen(true),
-        }]
-      : [];
+    // 2026-05-26 follow-up: the Request alpha access chip moved out
+    // of the left chip strip and into the right-pane badge carousel
+    // (WelcomeRightPane.RequestAccessChip). The left strip is for
+    // generative quick prompts; manual / admin affordances belong on
+    // the right. The controlled modal mount in this tab is no longer
+    // driven from here, but stays mounted at the tab root so the
+    // legacy uncontrolled trigger (if any future surface uses it)
+    // still works.
 
     return [
-      ...accessChip,
       {
         id: 'brief',
         label: 'Brief me',
@@ -1743,7 +1766,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         onDispatchOnSend: async () => { await fetchSpecialistRecommendation(); },
       },
     ];
-  }, [serverChips, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts, fetchSpecialistRecommendation, adminGrants.isGlobalAdmin, adminGrants.cartridgeSlugs]);
+  }, [serverChips, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts, fetchSpecialistRecommendation]);
 
   return (
     <>
@@ -1771,16 +1794,11 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
 
           {/* ── RIGHT: dynamic surface (50/50 with the copilot). ── */}
           <div className="lg:w-1/2 w-full h-full min-h-0 relative">
-            {/* RequestAdminAccessButton moved into the copilot chip
-                strip as a highlighted pulse chip — see
-                copilotQuickPrompts below. The previous absolute-
-                positioned button overlapped the close button on the
-                right pane. Modal mounts here in controlled mode,
-                opened by the chip's onSelect callback. */}
-            <RequestAdminAccessButton
-              open={requestAccessOpen}
-              onOpenChange={setRequestAccessOpen}
-            />
+            {/* RequestAdminAccessButton now mounted inside the
+                right-pane badge carousel (WelcomeRightPane
+                RequestAccessChip) — operator feedback: manual /
+                admin affordances belong on the right, not in the
+                generative quick-prompt strip. */}
             {bootstrapLoading && !data && (
               <div className="h-full flex items-center justify-center text-sm opacity-60">
                 Loading aigentMe…
@@ -1817,6 +1835,13 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 ctas: data.primaryCtas,
                 specialists: data.availableSpecialists,
                 isAdmin: isAdmin ?? data.cartridgeFlags?.isAdmin,
+                // Phase E follow-up: pass admin grants + active
+                // cartridges into the right-pane chip carousel so the
+                // Request alpha access chip can render its gate +
+                // pick a sensible default cartridge.
+                isGlobalAdmin: adminGrants.isGlobalAdmin,
+                hasCartridgeAdminGrant: adminGrants.cartridgeSlugs.size > 0,
+                activeCartridges,
                 brief,
                 briefLoading,
                 briefError,
