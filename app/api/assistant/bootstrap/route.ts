@@ -92,7 +92,12 @@ interface AssistantBootstrapSurface {
   displayLabel?: string;
 
   /** Cartridge-role flags (server-resolved). */
-  cartridgeFlags: { isAdmin: boolean; isPartner: boolean };
+  cartridgeFlags: {
+    isAdmin: boolean;
+    isPartner: boolean;
+    /** Cartridge slugs the persona admins (per-cartridge grants). */
+    adminCartridges: string[];
+  };
 
   /**
    * Active cartridge slug the assistant should treat as default.

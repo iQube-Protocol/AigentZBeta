@@ -63,10 +63,27 @@ export interface ActivePersonaContext {
 
   identifiability: Identifiability;
 
-  /** Cartridge-role flags. Booleans only — no underlying handle exposed. */
+  /**
+   * Cartridge-role flags. Booleans + the per-cartridge admin scope
+   * array. T1-safe content only — slugs and booleans, no underlying
+   * tenant/franchise ids or CRM row references.
+   *
+   * `adminCartridges` was added 2026-05-26 (spine admin extension —
+   * see codexes/packs/agentiq/updates/2026-05-26_spine-admin-grants-extension.md):
+   * persona admin scope is now first-class on the spine, resolved by
+   * getActivePersona() in the same pass as `isAdmin`. Replaces the
+   * prior bespoke route-level lookup (parallel resolver pattern that
+   * violated the "single source of truth" contract).
+   *
+   * `isAdmin` (global uber/platform-tier) overrides any specific
+   * adminCartridges check. The two are independent; a tenant-admin
+   * of KNYT has adminCartridges: ['knyt-codex'] + isAdmin: false.
+   */
   cartridgeFlags: {
     isAdmin: boolean;
     isPartner: boolean;
+    /** Cartridge slugs the persona is explicitly admin of. T1-safe. */
+    adminCartridges: string[];
   };
 
   /** Cohort group ids the persona is a member of (no aliases at rest). */
@@ -107,9 +124,16 @@ export interface ActivePersonaSurface {
 
   identifiability: Identifiability;
 
+  /**
+   * T1 cartridge flags. Mirrors the T0 `ActivePersonaContext.cartridgeFlags`
+   * shape but exposed across the wire — slugs only, never tenant ids.
+   * `adminCartridges` added 2026-05-26 alongside the spine extension.
+   */
   cartridgeFlags: {
     isAdmin: boolean;
     isPartner: boolean;
+    /** Cartridge slugs the persona admins. T1-safe slug strings only. */
+    adminCartridges: string[];
   };
 
   /**

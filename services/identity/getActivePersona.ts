@@ -33,6 +33,7 @@ import {
   verifyPersonaSessionToken,
 } from '@/services/identity/personaSessionToken';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { getCartridgeAdminGrants } from '@/services/access/cartridgeAdminGrants';
 
 import type {
   ActivePersonaContext,
@@ -330,9 +331,21 @@ export async function getActivePersona(
   const identifiability = normaliseIdentifiability(personaRow?.default_identity_state ?? null);
 
   // 5. Cartridge flags
-  const [isAdmin, isPartner] = await Promise.all([
+  //
+  //    `isAdmin` is global (uber/platform-tier — boolean).
+  //    `adminCartridges` is the per-cartridge admin scope array added
+  //    2026-05-26 — see codexes/packs/agentiq/updates/2026-05-26_spine-admin-grants-extension.md.
+  //    Both resolve in the same pass so the spine is the single
+  //    source-of-truth for admin authorization; downstream callers
+  //    (evaluateAccess, UI gates, admin endpoints) read from
+  //    cartridgeFlags rather than re-querying CRM.
+  const [isAdmin, isPartner, adminGrants] = await Promise.all([
     resolveAdminFlag(caller.authProfileId, linkedAuthProfileIds, caller.email ?? null),
     Promise.resolve(resolvePartnerFlag()),
+    getCartridgeAdminGrants(caller.authProfileId, linkedAuthProfileIds).catch(() => ({
+      isGlobalAdmin: false,
+      cartridgeSlugs: [] as string[],
+    })),
   ]);
 
   // 6. Cohort memberships — table not yet built (cohort backlog Phase 3 wire-up).
@@ -345,8 +358,12 @@ export async function getActivePersona(
     authProfileId: caller.authProfileId,
     identifiability,
     cartridgeFlags: {
-      isAdmin,
+      // `isAdmin` and `adminGrants.isGlobalAdmin` resolve from different
+      // queries today; either path that reads "global admin" should set
+      // the flag so callers don't have to know which resolver ran first.
+      isAdmin: isAdmin || adminGrants.isGlobalAdmin,
       isPartner,
+      adminCartridges: adminGrants.cartridgeSlugs,
     },
     cohortMemberships,
     fioHandle: personaRow?.fio_handle ?? null,
