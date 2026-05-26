@@ -1124,11 +1124,11 @@ export const QRIPTO_CODEX: CodexConfig = {
       order: 1,
       type: 'static',
       config: {
-        component: 'PlaceholderTab',
-        props: {
-          title: 'Qriptopian Pulse',
-          description: 'Publishing surface where remixed / edited / admin-customised content lands. Works in concert with Community Correspondent — contributions land here, get voted on via the Canon/Community/Correspondent cluster, top-voted promoted into Live Magazine › Features. myCanvas › New Ideas publish path arrives in the wiring pass (see backlog).',
-        },
+        // Live wiring: renders the existing KnytCommunityContentTab
+        // with cartridge='qripto' so the list endpoint scopes to
+        // Qriptopian rows only. Notes published from myCanvas › New
+        // Ideas with destination=Qriptopian Pulse appear here.
+        component: 'QriptoPulseTab'
       },
       metadata: {
         icon: 'Radio',
@@ -1181,15 +1181,41 @@ export const QRIPTO_CODEX: CodexConfig = {
         color: 'indigo'
       }
     },
+    {
+      // Replicated admin surface inside Qriptopia per operator request —
+      // 5th tab, admin-gated. Renders the canonical Qriptopian content
+      // management view (QriptopianAdminTab) so admins working inside
+      // the Qriptopia user-facing area can reach moderation without
+      // context-switching to the standalone Admin group. Non-admins
+      // don't see this tab.
+      id: 'qriptopia-admin',
+      label: 'Admin',
+      slug: 'qriptopia-admin',
+      enabled: true,
+      adminOnly: true,
+      group: 'qriptopia',
+      order: 4,
+      type: 'static',
+      config: { component: 'QriptopianAdminTab' },
+      metadata: {
+        icon: 'Settings',
+        description: 'Qriptopian admin shortcut — same surface as Admin › Magazine and Codex',
+        color: 'indigo'
+      }
+    },
 
     // ── Admin group — first-class, admin-gated ────────────────────────────
     // Order per v3.1 refinement: Magazine and Codex Admin first (existing
     // QriptopianAdminTab — anchors the admin surface for backwards
     // continuity), then Pulse Admin (with moderation duties — see backlog),
     // then Premium, Partners, Polity, Edit.
+    // Admin sub-tab labels intentionally drop the word "Admin" — every
+    // tab in this group is admin-only, so the suffix is redundant. Per
+    // operator: "for all these Admin sub tabs we can remove the word
+    // Admin as its redundant being they are all admin sub menu items".
     {
       id: 'admin-magazine-codex',
-      label: 'Magazine and Codex Admin',
+      label: 'Magazine and Codex',
       slug: 'admin-magazine-codex',
       enabled: true,
       adminOnly: true,
@@ -1197,8 +1223,6 @@ export const QRIPTO_CODEX: CodexConfig = {
       order: 0,
       type: 'static',
       config: {
-        // Retains the existing Qriptopian content management admin surface,
-        // re-labelled per the v3 restructure brief.
         component: 'QriptopianAdminTab'
       },
       metadata: {
@@ -1209,7 +1233,7 @@ export const QRIPTO_CODEX: CodexConfig = {
     },
     {
       id: 'admin-pulse',
-      label: 'Pulse Admin',
+      label: 'Pulse',
       slug: 'admin-pulse',
       enabled: true,
       adminOnly: true,
@@ -1217,17 +1241,17 @@ export const QRIPTO_CODEX: CodexConfig = {
       order: 1,
       type: 'static',
       config: {
-        component: 'PlaceholderTab',
-        props: {
-          title: 'Pulse Admin',
-          description: 'Moderate the Qriptopian Pulse publishing surface — review contributions, delete/reject submissions, oversee voting, manage promotion to Live Magazine. Moderation actions arrive in the wiring pass (see backlog).',
-        },
+        // Live wiring — clone of KnytCommunityContentAdminTab with
+        // cartridge='qripto'. Inherits Promote / Reject / Delete actions.
+        // Delete is real (DELETE /api/community-content/[id], admin-gated,
+        // also clears the matching publication-state mirror).
+        component: 'QriptoPulseAdminTab'
       },
-      metadata: { icon: 'Shield', description: 'Pulse moderation and promotion', color: 'indigo' }
+      metadata: { icon: 'Shield', description: 'Qriptopian Pulse moderation queue', color: 'indigo' }
     },
     {
       id: 'admin-premium',
-      label: 'Premium Admin',
+      label: 'Premium',
       slug: 'admin-premium',
       enabled: true,
       adminOnly: true,
@@ -1237,7 +1261,7 @@ export const QRIPTO_CODEX: CodexConfig = {
       config: {
         component: 'PlaceholderTab',
         props: {
-          title: 'Premium Admin',
+          title: 'Premium',
           description: 'Manage gated Qriptopian content — entitlement bindings, pricing, and Q¢ rails.',
         },
       },
@@ -1245,7 +1269,7 @@ export const QRIPTO_CODEX: CodexConfig = {
     },
     {
       id: 'admin-partners',
-      label: 'Partners Admin',
+      label: 'Partners',
       slug: 'admin-partners',
       enabled: true,
       adminOnly: true,
@@ -1255,7 +1279,7 @@ export const QRIPTO_CODEX: CodexConfig = {
       config: {
         component: 'PlaceholderTab',
         props: {
-          title: 'Partners & Affiliates Admin',
+          title: 'Partners & Affiliates',
           description: 'Manage the partner roster surfaced in Store › Affiliates and Partners — KNYT (now its own Store sub-tab) and any future partners.',
         },
       },
@@ -1263,7 +1287,7 @@ export const QRIPTO_CODEX: CodexConfig = {
     },
     {
       id: 'admin-polity',
-      label: 'Polity Admin',
+      label: 'Polity',
       slug: 'admin-polity',
       enabled: true,
       adminOnly: true,
@@ -1273,7 +1297,7 @@ export const QRIPTO_CODEX: CodexConfig = {
       config: {
         component: 'PlaceholderTab',
         props: {
-          title: 'Polity Admin',
+          title: 'Polity',
           description: 'Rewards and PCS status ascension management — configure tasks, badges, and ladder rungs for the Polity progression.',
         },
       },

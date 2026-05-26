@@ -73,6 +73,8 @@ import { QriptopianEditTab } from "./tabs/QriptopianEditTab";
 import { QriptopianAdminTab } from "./tabs/QriptopianAdminTab";
 import { QriptoAffiliatesPartnersTab } from "./tabs/QriptoAffiliatesPartnersTab";
 import { QriptoCommunityCorrespondentTab } from "./tabs/QriptoCommunityCorrespondentTab";
+import { QriptoPulseTab } from "./tabs/QriptoPulseTab";
+import { QriptoPulseAdminTab } from "./tabs/QriptoPulseAdminTab";
 import { KnytStoreEpisodesTab } from "./tabs/KnytStoreEpisodesTab";
 import { KnytStoreCardsTab } from "./tabs/KnytStoreCardsTab";
 import { KnytStoreBundlesTab } from "./tabs/KnytStoreBundlesTab";
@@ -198,6 +200,8 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   QriptopianAdminTab,
   QriptoAffiliatesPartnersTab,
   QriptoCommunityCorrespondentTab,
+  QriptoPulseTab,
+  QriptoPulseAdminTab,
   KnytStoreEpisodesTab,
   KnytStoreCardsTab,
   KnytStoreBundlesTab,
