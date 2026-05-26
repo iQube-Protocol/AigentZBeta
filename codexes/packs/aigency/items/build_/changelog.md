@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`89d80cf`](https://github.com/iQube-Protocol/AigentZBeta/commit/89d80cfd47367eb3754cc9a1afc9ce24fc82007e) [push] AgentiQ OS: stub Admin tabGroup so the mirror has content (Claude, 2026-05-26T10:12:01Z)
 - [`f9a34db`](https://github.com/iQube-Protocol/AigentZBeta/commit/f9a34dbad05f7767c10c357a53959f39415c7355) [feat] register TabRendererFallback component + add Admin under Marketa Partner (Claude, 2026-05-26T10:09:35Z)
 - [`7c3125f`](https://github.com/iQube-Protocol/AigentZBeta/commit/7c3125f382b6d9078474b850461a57bdf1549716) [push] CLAUDE.md: dual-source cartridge registration rule (hand-curated wins) (Claude, 2026-05-26T09:55:18Z)
 - [`ea60f8e`](https://github.com/iQube-Protocol/AigentZBeta/commit/ea60f8e87e08db5782fe0bf1bf1be7d34765de13) [push] CLAUDE.md: document spine-fetch auth contract + per-cartridge admin grants (Claude, 2026-05-26T09:53:25Z)
