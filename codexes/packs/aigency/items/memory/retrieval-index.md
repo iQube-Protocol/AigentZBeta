@@ -1184,3 +1184,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-7dd0dd2.md](../build_/COMMITS/COMMIT-7dd0dd2.md)
 - Message: fix admin-tab visibility: CRM tenant↔cartridge slug alias + 3 more mirrors
+
+## Commit `2c91b74` — 2026-05-26T04:34:23Z
+- Type: `push`
+- Brief: [COMMIT-2c91b74.md](../build_/COMMITS/COMMIT-2c91b74.md)
+- Message: spine extension: per-cartridge admin grants → cartridgeFlags.adminCartridges

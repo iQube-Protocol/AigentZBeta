@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-26T04:20:54.257Z",
+  "last_updated": "2026-05-26T04:36:08.640Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "7dd0dd25d255305b4fdf91669cc202577476edf2",
-  "latest_commit_short": "7dd0dd2",
-  "latest_commit_title": "fix admin-tab visibility: CRM tenant↔cartridge slug alias + 3 more mirrors",
+  "latest_commit": "2c91b74f11ac0688e59bd13f1a99389214607365",
+  "latest_commit_short": "2c91b74",
+  "latest_commit_title": "spine extension: per-cartridge admin grants → cartridgeFlags.adminCartridges",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "2c91b74",
+      "full_sha": "2c91b74f11ac0688e59bd13f1a99389214607365",
+      "title": "spine extension: per-cartridge admin grants → cartridgeFlags.adminCartridges",
+      "author": "Claude",
+      "timestamp": "2026-05-26T04:34:23Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-2c91b74.md"
+    },
     {
       "sha": "7dd0dd2",
       "full_sha": "7dd0dd25d255305b4fdf91669cc202577476edf2",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-05T00:44:47Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-fded607.md"
-    },
-    {
-      "sha": "388cd07",
-      "full_sha": "388cd07a00682088200eb4d76c46304656de2d2d",
-      "title": "backlog: add entitlement format divergence + isEpisodeLocked redesign to Phase 2",
-      "author": "Claude",
-      "timestamp": "2026-05-05T00:25:20Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-388cd07.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
