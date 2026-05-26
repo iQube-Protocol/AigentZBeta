@@ -68,6 +68,7 @@ import { VentureLabGrowthMatrixTab } from "./tabs/VentureLabGrowthMatrixTab";
 import { VentureLabPortfolioTab } from "./tabs/VentureLabPortfolioTab";
 import { QriptopianEditTab } from "./tabs/QriptopianEditTab";
 import { QriptopianAdminTab } from "./tabs/QriptopianAdminTab";
+import { QriptoAffiliatesPartnersTab } from "./tabs/QriptoAffiliatesPartnersTab";
 import { KnytStoreEpisodesTab } from "./tabs/KnytStoreEpisodesTab";
 import { KnytStoreCardsTab } from "./tabs/KnytStoreCardsTab";
 import { KnytStoreBundlesTab } from "./tabs/KnytStoreBundlesTab";
@@ -169,6 +170,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   VentureLabPortfolioTab,
   QriptopianEditTab,
   QriptopianAdminTab,
+  QriptoAffiliatesPartnersTab,
   KnytStoreEpisodesTab,
   KnytStoreCardsTab,
   KnytStoreBundlesTab,
