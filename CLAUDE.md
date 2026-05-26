@@ -433,6 +433,35 @@ link: buildCodexUrl("knyt-codex", { tab: "knyt-alpha", personaId, from: "alpha-k
 
 ---
 
+## Cartridge / Codex Registration — Dual-Source Pattern (READ BEFORE DELETING)
+
+Cartridges in the codex registry come from **two sources** that can collide:
+
+1. **Hand-curated** in `data/codex-configs.ts` (`CODEX_DEFINITIONS` array). These carry rich tab structures, interactive React components (`BoundedDelegationTab`, `DevPersonaTab`, etc.), and the slugs that other surfaces (e.g. `QuickLinksCard`) target.
+2. **Auto-generated** from `codexes/packs/<name>/` directories by `app/api/codex/registry/_lib/packRegistry.ts::loadPackCodexes()`. These produce simple markdown-viewer cartridges with tabs derived from `collections.json`.
+
+**If you see two cartridges with the same name in the picker, DO NOT remove the one in `CODEX_DEFINITIONS`.** That is almost always the canonical one. Suppress the auto-generated duplicate by adding the pack directory name to the skip list in `packRegistry.ts`:
+
+```ts
+// app/api/codex/registry/_lib/packRegistry.ts
+if (lowered === "agentiq" || lowered === "aigentiq" || lowered === "aigency" || lowered === "agentiq-os") continue;
+```
+
+The hand-curated cartridge can still consume the pack's markdown content via `AgentiqCartridgeTab` props inside its tabs — pack docs are not lost, only the duplicate registration is. This pattern preserves:
+
+- The hand-curated tab structure and interactive components
+- The slug that `QuickLinksCard` / inter-cartridge nav targets
+- The constant export (e.g. `AGENTIQ_OS_CARTRIDGE`) used by helpers like `aiqOsTabsByGroup()` to mirror tabs into other cartridges
+
+How to tell which is which when both exist:
+- Hand-curated id ends in `-cartridge` (e.g. `agentiq-os-cartridge`); pack-generated ends in `-codex` (e.g. `agentiq-os-codex`).
+- Hand-curated has interactive tabs; pack-generated has only markdown.
+- `QuickLinksCard` and metaMe's `aiqOsTabsByGroup()` target the hand-curated slug.
+
+Historical example: commit `b907029f` (2026-05-26) archived the hand-curated `AGENTIQ_OS_CARTRIDGE` thinking it was the duplicate. The pack-driven version took over the picker, lost all interactivity, and broke the slug that metaMe targets. Reverted by `fb9f56bd` — restore + skip-list pattern.
+
+---
+
 ## Local Development Path
 
 The canonical local root for this project is:
