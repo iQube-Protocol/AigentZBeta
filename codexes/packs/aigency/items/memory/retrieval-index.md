@@ -1164,3 +1164,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-e24ca0b.md](../build_/COMMITS/COMMIT-e24ca0b.md)
 - Message: Queued badge propagation to BriefCard + VentureCockpit + VentureProgressCard
+
+## Commit `b907029` — 2026-05-26T03:33:08Z
+- Type: `push`
+- Brief: [COMMIT-b907029.md](../build_/COMMITS/COMMIT-b907029.md)
+- Message: archive duplicate AgentiQ OS codex + restore 3rd-tier sub-tab nav row

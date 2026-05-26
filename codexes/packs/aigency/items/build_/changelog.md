@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`b907029`](https://github.com/iQube-Protocol/AigentZBeta/commit/b907029f0691b8c30f9e6c6802aecc492ac89f67) [push] archive duplicate AgentiQ OS codex + restore 3rd-tier sub-tab nav row (Claude, 2026-05-26T03:33:08Z)
 - [`e24ca0b`](https://github.com/iQube-Protocol/AigentZBeta/commit/e24ca0b70f29c76016a9d5d7505f85d3fec2c8b2) [push] Queued badge propagation to BriefCard + VentureCockpit + VentureProgressCard (Claude, 2026-05-26T02:32:30Z)
 - [`f85dac0`](https://github.com/iQube-Protocol/AigentZBeta/commit/f85dac003523777dbd373787160f4c7ce039045c) [push] NBE Act → Queued badge after queue + clickable artifact links in receipts (Claude, 2026-05-26T00:42:07Z)
 - [`99e2175`](https://github.com/iQube-Protocol/AigentZBeta/commit/99e2175eeef7e0e2a6ea7404e73a755b29904fd6) [push] aigent-me chat: load metaMe cartridge state into system prompt (Claude, 2026-05-25T18:55:28Z)
