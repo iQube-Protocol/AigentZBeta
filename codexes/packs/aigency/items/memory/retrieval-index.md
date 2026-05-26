@@ -1229,3 +1229,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-f32d517.md](../build_/COMMITS/COMMIT-f32d517.md)
 - Message: copilot: wire mic to STT + add Listen TTS + persist messages + clear affordance
+
+## Commit `c56ae59` — 2026-05-26T14:46:41Z
+- Type: `push`
+- Brief: [COMMIT-c56ae59.md](../build_/COMMITS/COMMIT-c56ae59.md)
+- Message: copilot: kill KNYT lore bias + thread brief shape + admin grants into LLM context

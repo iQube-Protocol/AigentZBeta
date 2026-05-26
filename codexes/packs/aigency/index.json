@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-26T14:21:16.992Z",
+  "last_updated": "2026-05-26T14:48:34.163Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "f32d51767fafb82350355a26b99a64695f2a1d13",
-  "latest_commit_short": "f32d517",
-  "latest_commit_title": "copilot: wire mic to STT + add Listen TTS + persist messages + clear affordance",
+  "latest_commit": "c56ae59256287ce9c5aa09bc97a39ae13057731a",
+  "latest_commit_short": "c56ae59",
+  "latest_commit_title": "copilot: kill KNYT lore bias + thread brief shape + admin grants into LLM context",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c56ae59",
+      "full_sha": "c56ae59256287ce9c5aa09bc97a39ae13057731a",
+      "title": "copilot: kill KNYT lore bias + thread brief shape + admin grants into LLM context",
+      "author": "Claude",
+      "timestamp": "2026-05-26T14:46:41Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c56ae59.md"
+    },
     {
       "sha": "f32d517",
       "full_sha": "f32d51767fafb82350355a26b99a64695f2a1d13",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-06T20:43:23Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-49d9905.md"
-    },
-    {
-      "sha": "69da15a",
-      "full_sha": "69da15a4abbe119fb57135ffea9258f204fb99ae",
-      "title": "migrate codex/owned route to getSupabaseServer (timeout-guarded)",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:43:36Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-69da15a.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

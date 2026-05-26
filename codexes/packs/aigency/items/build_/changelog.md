@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`c56ae59`](https://github.com/iQube-Protocol/AigentZBeta/commit/c56ae59256287ce9c5aa09bc97a39ae13057731a) [push] copilot: kill KNYT lore bias + thread brief shape + admin grants into LLM context (Claude, 2026-05-26T14:46:41Z)
 - [`f32d517`](https://github.com/iQube-Protocol/AigentZBeta/commit/f32d51767fafb82350355a26b99a64695f2a1d13) [feat] copilot: wire mic to STT + add Listen TTS + persist messages + clear affordance (Claude, 2026-05-26T14:19:24Z)
 - [`89d80cf`](https://github.com/iQube-Protocol/AigentZBeta/commit/89d80cfd47367eb3754cc9a1afc9ce24fc82007e) [push] AgentiQ OS: stub Admin tabGroup so the mirror has content (Claude, 2026-05-26T10:12:01Z)
 - [`f9a34db`](https://github.com/iQube-Protocol/AigentZBeta/commit/f9a34dbad05f7767c10c357a53959f39415c7355) [feat] register TabRendererFallback component + add Admin under Marketa Partner (Claude, 2026-05-26T10:09:35Z)
