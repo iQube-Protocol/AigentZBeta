@@ -396,18 +396,27 @@ export function SmartTriadCopilotLayer({
           content: typeof m.content === 'string' ? m.content : '',
         }));
 
-      // Map persona to the correct KB search domain:
-      // KNYT agents search the metaKnyts codex; MoneyPenny searches Qriptopian;
-      // platform agents (Aigent Z/C/Me) pass 'agentiq' — the route treats
-      // unknown domains as platform-only and skips KNYT codex injection.
+      // Resolve which AGENT IDENTITY this chat turn should adopt.
       //
-      // 2026-05-26 fix: agent.id is the canonical persona identity when the
-      // surface passes one (e.g. aigentMe panel sets agent={ id: 'aigent-me' }
-      // but doesn't always pass a separate personaId prop). Falling back to
-      // personaId → agent.id → 'aigent-z' prevents the prior bug where the
-      // aigentMe surface was treated as Kn0w1, triggering KNYT-flavoured
-      // narrative on every response.
-      const resolvedPersona = personaId ?? agent?.id ?? 'aigent-z';
+      // 2026-05-26 fix #2: the prior implementation used
+      //   const resolvedPersona = personaId ?? agent?.id ?? 'aigent-z';
+      // which conflated two distinct concerns:
+      //   - personaId: the SPINE persona UUID (e.g. 'info2knyt-...')
+      //   - agent.id: the AGENT identifier (e.g. 'aigent-me')
+      // When personaId was a UUID it bled into the persona field on
+      // the chat POST. The chat route's defaultAgentIdForPersona()
+      // sees a value that doesn't start with 'aigent-' and falls back
+      // to 'aigent-kn0w1' — the KNYT-focused agent. Result: aigentMe
+      // surface responses came back in Kn0w1's voice with KNYT lore
+      // framing ('passionate story enthusiast in the metaKnyts
+      // universe...'). The spine persona id is sent separately in the
+      // body as `personaId` for live-context lookups — it must NEVER
+      // be used as an agent identifier.
+      const resolvedPersona = (() => {
+        if (agent?.id && agent.id.startsWith('aigent-')) return agent.id;
+        if (typeof personaId === 'string' && personaId.startsWith('aigent-')) return personaId;
+        return 'aigent-z';
+      })();
       const domainForPersona = (() => {
         if (resolvedPersona === 'aigent-kn0w1' || resolvedPersona === 'aigent-marketa') return 'metaKnyts';
         if (resolvedPersona === 'aigent-moneypenny') return 'qriptopian';

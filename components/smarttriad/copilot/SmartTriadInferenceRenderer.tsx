@@ -478,10 +478,20 @@ function MermaidDiagram({ code }: { code: string }) {
 // ========================================
 
 function processInlineFormatting(text: string): string {
-  // Key term highlighting
-  KEY_TERMS.forEach(term => {
+  // Key term highlighting — use NUL-bracketed placeholders so later
+  // iterations don't match inside the class attribute of earlier-
+  // wrapped terms. The case-insensitive 'SmartTriad' regex used to
+  // collide with the 'smarttriad' inside class="smarttriad-key-term"
+  // from a previously-wrapped 'metaKnyts', producing garbled HTML
+  // like 'SmartTriad-key-term">metaKnyts universe' (2026-05-26 fix).
+  const placeholders: string[] = [];
+  KEY_TERMS.forEach((term) => {
     const regex = new RegExp(`\\b${term}\\b`, 'gi');
-    text = text.replace(regex, `<span class="smarttriad-key-term">${term}</span>`);
+    text = text.replace(regex, (match) => {
+      const i = placeholders.length;
+      placeholders.push(`<span class="smarttriad-key-term">${match}</span>`);
+      return ` KT${i} `;
+    });
   });
 
   // Bold formatting
@@ -495,6 +505,10 @@ function processInlineFormatting(text: string): string {
     /!\[([^\]]*)\]\(([^)]+)\)/g,
     '<div class="smarttriad-image-container"><img src="$2" alt="$1" class="smarttriad-image" /><div class="smarttriad-image-caption">$1</div></div>'
   );
+
+  // Expand key-term placeholders last so the surrounding formatting
+  // passes can't re-match inside the inserted span attributes.
+  text = text.replace(/ KT(\d+) /g, (_, i) => placeholders[Number(i)] ?? '');
 
   return text;
 }
