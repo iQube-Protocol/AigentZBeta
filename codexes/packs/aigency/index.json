@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-26T10:13:49.713Z",
+  "last_updated": "2026-05-26T14:21:16.992Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "89d80cfd47367eb3754cc9a1afc9ce24fc82007e",
-  "latest_commit_short": "89d80cf",
-  "latest_commit_title": "AgentiQ OS: stub Admin tabGroup so the mirror has content",
+  "latest_commit": "f32d51767fafb82350355a26b99a64695f2a1d13",
+  "latest_commit_short": "f32d517",
+  "latest_commit_title": "copilot: wire mic to STT + add Listen TTS + persist messages + clear affordance",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "f32d517",
+      "full_sha": "f32d51767fafb82350355a26b99a64695f2a1d13",
+      "title": "copilot: wire mic to STT + add Listen TTS + persist messages + clear affordance",
+      "author": "Claude",
+      "timestamp": "2026-05-26T14:19:24Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-f32d517.md"
+    },
     {
       "sha": "89d80cf",
       "full_sha": "89d80cfd47367eb3754cc9a1afc9ce24fc82007e",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-06T20:43:36Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-69da15a.md"
-    },
-    {
-      "sha": "ff8a4f9",
-      "full_sha": "ff8a4f959579609485a7cec22364602b9409a3ca",
-      "title": "migrate wallet/personas DB client to getSupabaseServer (timeout-guarded)",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:44:10Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-ff8a4f9.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -1224,3 +1224,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-89d80cf.md](../build_/COMMITS/COMMIT-89d80cf.md)
 - Message: AgentiQ OS: stub Admin tabGroup so the mirror has content
+
+## Commit `f32d517` — 2026-05-26T14:19:24Z
+- Type: `feat`
+- Brief: [COMMIT-f32d517.md](../build_/COMMITS/COMMIT-f32d517.md)
+- Message: copilot: wire mic to STT + add Listen TTS + persist messages + clear affordance
