@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-26T03:38:28.518Z",
+  "last_updated": "2026-05-26T03:45:47.532Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "784c4bffd4c8473394161c5c86f71dce1615033c",
-  "latest_commit_short": "784c4bf",
-  "latest_commit_title": "access spine: per-persona cartridge-admin grants resolver + canary",
+  "latest_commit": "fee30e88bce10907854907a0e33b746680af0c06",
+  "latest_commit_short": "fee30e8",
+  "latest_commit_title": "admin-tab in activation: per-cartridge gating + KNYT Admin mirror in metaMe",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "fee30e8",
+      "full_sha": "fee30e88bce10907854907a0e33b746680af0c06",
+      "title": "admin-tab in activation: per-cartridge gating + KNYT Admin mirror in metaMe",
+      "author": "Claude",
+      "timestamp": "2026-05-26T03:44:02Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-fee30e8.md"
+    },
     {
       "sha": "784c4bf",
       "full_sha": "784c4bffd4c8473394161c5c86f71dce1615033c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-04T21:57:53Z",
       "type": "docs",
       "brief": "items/build_/COMMITS/COMMIT-c1cd1d4.md"
-    },
-    {
-      "sha": "bc6c7cc",
-      "full_sha": "bc6c7cc508c72d85516bd8910e540def9e14e382",
-      "title": "fix: isEpisodeLocked() now checks metadata.owned first, eliminating badge/lock divergence",
-      "author": "Claude",
-      "timestamp": "2026-05-04T21:37:47Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-bc6c7cc.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
