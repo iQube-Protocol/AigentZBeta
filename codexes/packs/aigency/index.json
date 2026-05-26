@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-26T08:21:07.785Z",
+  "last_updated": "2026-05-26T08:57:41.601Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "8dce7e897b3d9476640bca271e9ab1b3fe43742b",
-  "latest_commit_short": "8dce7e8",
-  "latest_commit_title": "fix admin-tab visibility: email-alias fallback in grants resolver + diag route",
+  "latest_commit": "0ece4a625172abbbcd274f680b1e920fd517ea66",
+  "latest_commit_short": "0ece4a6",
+  "latest_commit_title": "KNYT owns Admin under Order — metaMe inherits via existing mirror",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "0ece4a6",
+      "full_sha": "0ece4a625172abbbcd274f680b1e920fd517ea66",
+      "title": "KNYT owns Admin under Order — metaMe inherits via existing mirror",
+      "author": "Claude",
+      "timestamp": "2026-05-26T08:55:46Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0ece4a6.md"
+    },
     {
       "sha": "8dce7e8",
       "full_sha": "8dce7e897b3d9476640bca271e9ab1b3fe43742b",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-06T20:57:12Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-b06e8df.md"
-    },
-    {
-      "sha": "37baf80",
-      "full_sha": "37baf80729073eaf0d48b39d060896894254cc52",
-      "title": "sprint 4: add KnytInvestmentsAdminTab — per-investor expandable rows + add event/doc + visibility toggle",
-      "author": "Claude",
-      "timestamp": "2026-05-06T21:05:50Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-37baf80.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
