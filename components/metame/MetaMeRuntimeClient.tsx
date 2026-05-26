@@ -288,7 +288,10 @@ const SOURCE_PRIORITY_BY_INTENT: Record<RuntimeIntent, RuntimeContentSource[]> =
 };
 
 const RUNTIME_AGENTS: RuntimeAgent[] = [
-  { id: "aigent-z", label: "Aigent Z", colorClass: "text-cyan-300" },
+  // aigentMe replaces the prior "Aigent Z" entry. Same id space —
+  // resolved through services/metame/agentLlmOrchestra where "aigent-z"
+  // is aliased to "aigent-me" so internal references continue to work.
+  { id: "aigent-me", label: "aigentMe", colorClass: "text-cyan-300" },
   { id: "aigent-kn0w1", label: "Kn0w1", colorClass: "text-emerald-300" },
   { id: "aigent-moneypenny", label: "MoneyPenny", colorClass: "text-violet-300" },
   { id: "aigent-nakamoto", label: "Nakamoto", colorClass: "text-amber-300" },
@@ -296,7 +299,7 @@ const RUNTIME_AGENTS: RuntimeAgent[] = [
 ];
 
 const AGENT_PERSONA_KEY: Record<string, string> = {
-  "aigent-z": "z",
+  "aigent-me": "me",
   "aigent-kn0w1": "kn0w1",
   "aigent-moneypenny": "moneypenny",
   "aigent-nakamoto": "nakamoto",
@@ -2285,11 +2288,11 @@ export default function MetaMeRuntimeClient() {
     (runtimeActivePersonaSurface as RuntimeSurfaceWithFio | null)?.ownFioHandle ??
     null;
 
-  // LAUNCH OVERRIDE (KNYT activation campaign): default lead agent on arrival
-  // is Kn0w1 (KNYT-aligned), not Aigent Z. Reverts to RUNTIME_AGENTS[0]
-  // (Aigent Z / metaMe) post-launch.
+  // Default lead agent on arrival is aigentMe — the user's personal
+  // aigent wired to their metaMe cartridge. Persisted selection
+  // (settings sync) wins for returning users.
   const [selectedAgent, setSelectedAgent] = useState<RuntimeAgent>(
-    RUNTIME_AGENTS.find((a) => a.id === "aigent-kn0w1") ?? RUNTIME_AGENTS[0]
+    RUNTIME_AGENTS.find((a) => a.id === "aigent-me") ?? RUNTIME_AGENTS[0]
   );
   const [showAgentSelector, setShowAgentSelector] = useState(false);
   const [showModelSelector, setShowModelSelector] = useState(false);
