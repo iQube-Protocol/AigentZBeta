@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-26T02:34:24.484Z",
+  "last_updated": "2026-05-26T03:34:59.693Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "e24ca0b70f29c76016a9d5d7505f85d3fec2c8b2",
-  "latest_commit_short": "e24ca0b",
-  "latest_commit_title": "Queued badge propagation to BriefCard + VentureCockpit + VentureProgressCard",
+  "latest_commit": "b907029f0691b8c30f9e6c6802aecc492ac89f67",
+  "latest_commit_short": "b907029",
+  "latest_commit_title": "archive duplicate AgentiQ OS codex + restore 3rd-tier sub-tab nav row",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "b907029",
+      "full_sha": "b907029f0691b8c30f9e6c6802aecc492ac89f67",
+      "title": "archive duplicate AgentiQ OS codex + restore 3rd-tier sub-tab nav row",
+      "author": "Claude",
+      "timestamp": "2026-05-26T03:33:08Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b907029.md"
+    },
     {
       "sha": "e24ca0b",
       "full_sha": "e24ca0b70f29c76016a9d5d7505f85d3fec2c8b2",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-04T20:40:11Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-ad4d1e5.md"
-    },
-    {
-      "sha": "d271662",
-      "full_sha": "d2716629e7be5fdaa4d88f703cbacfeaf1297015",
-      "title": "prevent pdf download on mobile: route to PDFPageViewer on mobile when CID available; replace mobile download link with iframe in PDFLiteReaderModal",
-      "author": "Claude",
-      "timestamp": "2026-05-04T02:57:47Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d271662.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
