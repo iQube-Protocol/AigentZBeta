@@ -85,14 +85,18 @@ export async function POST(
 
   const { data: content, error: fetchError } = await supabase
     .from('community_generated_content')
-    .select('id, creator_persona_id, status')
+    .select('id, creator_persona_id, status, cartridge')
     .eq('id', id)
     .maybeSingle();
 
   if (fetchError) return NextResponse.json({ ok: false, error: fetchError.message }, { status: 500 });
   if (!content) return NextResponse.json({ ok: false, error: 'Not found' }, { status: 404 });
 
-  const row = content as { id: string; creator_persona_id: string; status: string };
+  const row = content as { id: string; creator_persona_id: string; status: string; cartridge?: string };
+  // Cartridge defaults to 'knyt' for back-compat with rows created before
+  // the Pulse cartridge split migration. The column was added with
+  // DEFAULT 'knyt' so all existing rows are already KNYT-flavoured.
+  const cartridge: 'knyt' | 'qripto' = row.cartridge === 'qripto' ? 'qripto' : 'knyt';
   // Auth-profile-level ownership — accept any persona the caller's
   // auth profile owns (covers multi-persona users + content created
   // under stale defaults). Strict personaId equality used to reject
@@ -106,7 +110,7 @@ export async function POST(
 
   // Already shared / promoted — idempotent
   if (row.status !== 'draft') {
-    return NextResponse.json({ ok: true, status: row.status, alreadyPublished: true });
+    return NextResponse.json({ ok: true, status: row.status, alreadyPublished: true, cartridge });
   }
 
   const { error: updateError } = await supabase
@@ -116,12 +120,20 @@ export async function POST(
 
   if (updateError) return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 });
 
-  // Insert a matching knyt_publication_states row so KnytReactionBar
-  // (the 21 Sats reaction infrastructure) accepts this content as a
-  // valid publication. We use the same UUID for both rows so the front
-  // end can pass community_content.id straight through as publicationId.
-  // Best-effort — non-fatal if the table or schema rejects.
-  await supabase.from('knyt_publication_states').upsert(
+  // Insert a matching {cartridge}_publication_states row so the Living
+  // Canon reaction infrastructure (KnytReactionBar today, qripto mirror
+  // when the cartridge-parameterized refactor lands) accepts this row
+  // as a valid publication. Cartridge column on community_generated_content
+  // determines which table receives the publication-state record:
+  //   - cartridge='knyt'   → knyt_publication_states
+  //   - cartridge='qripto' → qripto_publication_states
+  // Same UUID is used for both rows so the front-end can pass the
+  // community_content.id straight through as publicationId. Best-effort —
+  // non-fatal if the table or schema rejects.
+  const publicationTable = cartridge === 'qripto'
+    ? 'qripto_publication_states'
+    : 'knyt_publication_states';
+  await supabase.from(publicationTable).upsert(
     {
       id,
       subject_type: 'community_content',
@@ -134,5 +146,5 @@ export async function POST(
     { onConflict: 'id' },
   );
 
-  return NextResponse.json({ ok: true, status: 'shared' });
+  return NextResponse.json({ ok: true, status: 'shared', cartridge });
 }

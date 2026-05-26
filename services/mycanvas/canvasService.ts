@@ -143,7 +143,17 @@ export async function createEntry(
 export async function updateEntry(
   personaId: string,
   entryId: string,
-  patch: { title?: string; bodyMd?: string; tags?: string[]; visibility?: CanvasVisibility },
+  patch: {
+    title?: string;
+    bodyMd?: string;
+    tags?: string[];
+    visibility?: CanvasVisibility;
+    /** Free-form per-entry metadata. Server-side helpers (e.g. the
+     *  publish-to-pulse route) stamp contentId / cartridge here so
+     *  the existing republish path can find the row later. Overwrites
+     *  the column — callers should merge before writing. */
+    metaJson?: Record<string, unknown>;
+  },
 ): Promise<CanvasEntry | null> {
   const admin = getSupabaseServer();
   if (!admin) return null;
@@ -153,6 +163,9 @@ export async function updateEntry(
   if (Array.isArray(patch.tags)) update.tags = patch.tags.slice(0, 16);
   if (patch.visibility === 'private' || patch.visibility === 'invited') {
     update.visibility = patch.visibility;
+  }
+  if (patch.metaJson && typeof patch.metaJson === 'object') {
+    update.meta_json = patch.metaJson;
   }
   const { data } = await admin
     .from('mycanvas_entries')

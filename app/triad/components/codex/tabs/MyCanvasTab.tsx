@@ -9,7 +9,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Check, Cpu, Loader2, Plus, PenSquare, Share2, Sparkles, Trash2, Save, X, UserPlus } from "lucide-react";
+import { Check, Cpu, Loader2, Plus, PenSquare, Radio, Share2, Sparkles, Trash2, Save, X, UserPlus } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { RemixDialog } from "@/components/metame/runtime/RemixDialog";
 import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal";
@@ -254,6 +254,66 @@ export function MyCanvasTab({ personaId, theme = "dark" }: Props) {
     [personaId],
   );
 
+  // Per-entry "publish to Pulse" state — open dropdown picks the
+  // destination cartridge (KNYT Pulse / Qriptopian Pulse). For 'note'
+  // entries the route materialises a stub community_generated_content
+  // row (skill='note', qc_cost=0, image_url=null) then flips it to
+  // 'shared'. For 'experience_derived' entries the existing
+  // /api/community-content/[id]/publish path is used — the row already
+  // exists with its own cartridge stamp.
+  const [publishOpenForId, setPublishOpenForId] = useState<string | null>(null);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
+  const handlePublishNoteToPulse = useCallback(
+    async (entry: CanvasEntry, cartridge: "knyt" | "qripto") => {
+      setError(null);
+      setPublishingId(entry.id);
+      try {
+        const res = await personaFetch(`/api/mycanvas/entries/${entry.id}/publish-to-pulse`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cartridge }),
+          personaIdHint: personaId ?? undefined,
+        });
+        const j = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          contentId?: string;
+          cartridge?: string;
+        };
+        if (!res.ok || !j.ok) {
+          setError(j.error ?? `publish failed (${res.status})`);
+          return;
+        }
+        // Refresh the entry list so the metaJson.contentId stamp
+        // appears immediately (drives the existing republish path on
+        // subsequent clicks). Closed publish dropdown either way.
+        setPublishOpenForId(null);
+        if (j.contentId) {
+          setEntries((prev) =>
+            prev.map((e) =>
+              e.id === entry.id
+                ? {
+                    ...e,
+                    metaJson: {
+                      ...e.metaJson,
+                      contentId: j.contentId!,
+                      cartridge: j.cartridge ?? cartridge,
+                      publishedAt: new Date().toISOString(),
+                    },
+                  }
+                : e,
+            ),
+          );
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setPublishingId(null);
+      }
+    },
+    [personaId],
+  );
+
   const isDark = theme === "dark";
   const panelClass = isDark ? "bg-slate-900 text-slate-100" : "bg-white text-slate-900";
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
@@ -382,6 +442,36 @@ export function MyCanvasTab({ personaId, theme = "dark" }: Props) {
                 >
                   <UserPlus className="w-3 h-3" /> Invite
                 </button>
+                {/* Publish to Pulse — note entries only. experience_derived
+                    entries already have a publish path via metaJson.contentId
+                    (handlePublishToCommunity below). Adds a cartridge picker
+                    so the user chooses KNYT Pulse or Qriptopian Pulse. Once
+                    published, the entry is stamped with contentId so it can
+                    re-publish idempotently via the existing path. */}
+                {selected.entryType === "note" && (
+                  <button
+                    type="button"
+                    onClick={() => setPublishOpenForId(publishOpenForId === selected.id ? null : selected.id)}
+                    disabled={publishingId === selected.id}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded border text-xs disabled:opacity-50 ${
+                      selected.metaJson?.contentId
+                        ? "border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/10"
+                        : "border-slate-600 text-slate-300 hover:border-violet-500/40"
+                    }`}
+                    title={
+                      selected.metaJson?.contentId
+                        ? "Already published — publishing again is idempotent"
+                        : "Publish this note to KNYT Pulse or Qriptopian Pulse"
+                    }
+                  >
+                    {publishingId === selected.id ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Radio className="w-3 h-3" />
+                    )}
+                    {selected.metaJson?.contentId ? "Published" : "Publish"}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => void handleDelete(selected.id)}
@@ -390,6 +480,34 @@ export function MyCanvasTab({ personaId, theme = "dark" }: Props) {
                   <Trash2 className="w-3 h-3" /> Delete
                 </button>
               </div>
+              {publishOpenForId === selected.id && selected.entryType === "note" && (
+                <div className="p-3 border-b border-slate-700/50 bg-slate-800/40 flex items-center gap-2">
+                  <span className="text-xs text-slate-400">Publish to:</span>
+                  <button
+                    type="button"
+                    onClick={() => void handlePublishNoteToPulse(selected, "knyt")}
+                    disabled={publishingId === selected.id}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded border border-violet-500/40 bg-violet-500/10 hover:bg-violet-500/20 text-violet-100 text-xs disabled:opacity-50"
+                  >
+                    <Radio className="w-3 h-3" /> KNYT Pulse
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handlePublishNoteToPulse(selected, "qripto")}
+                    disabled={publishingId === selected.id}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded border border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-100 text-xs disabled:opacity-50"
+                  >
+                    <Radio className="w-3 h-3" /> Qriptopian Pulse
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPublishOpenForId(null)}
+                    className="ml-auto text-xs text-slate-400 hover:text-slate-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
               {inviteOpenForId === selected.id && (
                 <div className="p-3 border-b border-slate-700/50 flex items-center gap-2 bg-slate-800/40">
                   <input
