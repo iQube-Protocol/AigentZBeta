@@ -156,7 +156,7 @@ const AVAILABLE_CARTRIDGES: AssistantBootstrapSurface['availableCartridges'] = [
   { slug: 'knyt', label: 'KNYT' },
   { slug: 'qriptopian', label: 'The Qriptopian' },
   { slug: 'marketa', label: 'Marketa' },
-  { slug: 'avl', label: 'AgentiQ Venture Lab' },
+  { slug: 'avl', label: 'metaMe Venture Lab' },
 ];
 
 const AVAILABLE_SPECIALISTS: AssistantSpecialist[] = [

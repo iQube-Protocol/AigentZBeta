@@ -74,7 +74,7 @@ const CARTRIDGE_LABELS: Record<string, string> = {
   knyt: "KNYT",
   qriptopian: "The Qriptopian",
   marketa: "Marketa",
-  avl: "AgentiQ Venture Lab",
+  avl: "metaMe Venture Lab",
 };
 
 export function ApprovalCard({

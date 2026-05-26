@@ -196,7 +196,7 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
     label: 'Venture Lab',
     description: 'Venture-building workspace — KPIs, partners, and runway moves.',
     longDescription:
-      'Operate your venture through the AgentiQ Venture Lab α surfaces — track KPIs, manage priority partners and campaigns, generate venture progress reports, and run the alpha-activation checkpoints with Aigent Z.',
+      'Operate your venture through the metaMe Venture Lab α surfaces — track KPIs, manage priority partners and campaigns, generate venture progress reports, and run the alpha-activation checkpoints with Aigent Z.',
     gate: 'gated',
     tabSlug: 'venture-lab',
     sourceCartridge: 'avl',

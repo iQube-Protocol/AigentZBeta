@@ -115,7 +115,7 @@ const CARTRIDGES: Array<{ slug: ActiveCartridgeSlug; label: string }> = [
   { slug: "knyt",       label: "KNYT" },
   { slug: "qriptopian", label: "The Qriptopian" },
   { slug: "marketa",    label: "Marketa" },
-  { slug: "avl",        label: "AgentiQ Venture Lab" },
+  { slug: "avl",        label: "metaMe Venture Lab" },
 ];
 
 const CONFIDENTIALITY_OPTIONS: Array<{ value: ConfidentialityDefault; label: string; hint: string }> = [
