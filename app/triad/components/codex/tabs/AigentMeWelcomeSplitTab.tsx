@@ -47,6 +47,7 @@ import {
 } from "@/utils/personaSpine";
 import { SmartTriadCopilotLayer } from "@/components/smarttriad/copilot/SmartTriadCopilotLayer";
 import { useCartridgeAdminGrants } from "@/app/hooks/useCartridgeAdminGrants";
+import { RequestAdminAccessButton } from "@/components/metame/admin/RequestAdminAccessButton";
 
 import {
   ExperienceModelCard,
@@ -1740,6 +1741,15 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
 
           {/* ── RIGHT: dynamic surface (50/50 with the copilot). ── */}
           <div className="lg:w-1/2 w-full h-full min-h-0 relative">
+            {/* Persona with no admin grants (neither global nor per-cartridge)
+                gets a small affordance to request admin access. Hidden the
+                moment any grant exists so global admins / cartridge admins
+                don't see noise on their own surface. */}
+            {!adminGrants.isGlobalAdmin && adminGrants.cartridgeSlugs.size === 0 && (
+              <div className="absolute top-2 right-2 z-30">
+                <RequestAdminAccessButton />
+              </div>
+            )}
             {bootstrapLoading && !data && (
               <div className="h-full flex items-center justify-center text-sm opacity-60">
                 Loading aigentMe…

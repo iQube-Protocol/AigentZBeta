@@ -2461,6 +2461,22 @@ export const METAME_CODEX: CodexConfig = {
       type: 'static',
       config: { component: 'ExperienceDashboardTab', props: { tenantId: 'metame' } },
       metadata: { icon: 'BarChart3', description: 'User journey states, progression, NBE opportunities', color: 'violet' }
+    },
+    {
+      id: 'admin-access-requests',
+      label: 'Access Requests',
+      slug: 'access-requests',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 62,
+      type: 'static',
+      config: { component: 'AdminAccessRequestsTab', props: {} },
+      metadata: {
+        icon: 'ShieldCheck',
+        description: 'Review and decide persona-submitted admin access requests',
+        color: 'emerald'
+      }
     }
   ],
   permissions: {
