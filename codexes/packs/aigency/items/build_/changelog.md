@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`7c3125f`](https://github.com/iQube-Protocol/AigentZBeta/commit/7c3125f382b6d9078474b850461a57bdf1549716) [push] CLAUDE.md: dual-source cartridge registration rule (hand-curated wins) (Claude, 2026-05-26T09:55:18Z)
 - [`ea60f8e`](https://github.com/iQube-Protocol/AigentZBeta/commit/ea60f8e87e08db5782fe0bf1bf1be7d34765de13) [push] CLAUDE.md: document spine-fetch auth contract + per-cartridge admin grants (Claude, 2026-05-26T09:53:25Z)
 - [`41d1079`](https://github.com/iQube-Protocol/AigentZBeta/commit/41d107988fae82afb82700340424a2d554ddcac2) [fix] fix admin-tab visibility: hook uses personaFetch (Bearer token), not raw fetch (Claude, 2026-05-26T09:47:13Z)
 - [`0ece4a6`](https://github.com/iQube-Protocol/AigentZBeta/commit/0ece4a625172abbbcd274f680b1e920fd517ea66) [push] KNYT owns Admin under Order — metaMe inherits via existing mirror (Claude, 2026-05-26T08:55:46Z)

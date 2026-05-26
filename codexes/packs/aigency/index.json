@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-26T09:55:21.013Z",
+  "last_updated": "2026-05-26T09:57:21.186Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "ea60f8e87e08db5782fe0bf1bf1be7d34765de13",
-  "latest_commit_short": "ea60f8e",
-  "latest_commit_title": "CLAUDE.md: document spine-fetch auth contract + per-cartridge admin grants",
+  "latest_commit": "7c3125f382b6d9078474b850461a57bdf1549716",
+  "latest_commit_short": "7c3125f",
+  "latest_commit_title": "CLAUDE.md: dual-source cartridge registration rule (hand-curated wins)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "7c3125f",
+      "full_sha": "7c3125f382b6d9078474b850461a57bdf1549716",
+      "title": "CLAUDE.md: dual-source cartridge registration rule (hand-curated wins)",
+      "author": "Claude",
+      "timestamp": "2026-05-26T09:55:18Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7c3125f.md"
+    },
     {
       "sha": "ea60f8e",
       "full_sha": "ea60f8e87e08db5782fe0bf1bf1be7d34765de13",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-06T20:45:14Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-244ff4f.md"
-    },
-    {
-      "sha": "eaad44a",
-      "full_sha": "eaad44a6b29e30cfbf6bd95948a15cbf91e09ef2",
-      "title": "migrate wallet/identity/consolidate DB client to getSupabaseServer (timeout-guarded)",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:46:08Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-eaad44a.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
