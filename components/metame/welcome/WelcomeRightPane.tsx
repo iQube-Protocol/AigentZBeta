@@ -106,6 +106,7 @@ interface Props {
     topAction: NextBestActionData | null;
     alternates: NextBestActionData[];
     topActionReason?: string | null;
+    nbaPromptHints?: Record<string, string>;
     preflightContext?: import("@/services/capabilities/preflight").PreflightContext;
   } | null;
   moveForwardLoading: boolean;
@@ -474,6 +475,7 @@ export function WelcomeRightPane(props: Props) {
             queued={!!queuedIntents[topAction.id]}
             onDismiss={onDismissMoveForward}
             preflightContext={moveForwardResult?.preflightContext}
+            promptHint={moveForwardResult?.nbaPromptHints?.[topAction.id] ?? null}
             theme={theme}
             variant="hero"
           />
@@ -486,6 +488,7 @@ export function WelcomeRightPane(props: Props) {
               key={alt.id}
               action={alt}
               onAct={onNbeAct}
+              promptHint={moveForwardResult?.nbaPromptHints?.[alt.id] ?? null}
               theme={theme}
             />
           ))}

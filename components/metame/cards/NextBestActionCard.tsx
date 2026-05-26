@@ -67,6 +67,13 @@ interface Props {
    * so callers thread it explicitly to the hero card.
    */
   preflightContext?: PreflightContext | null;
+  /**
+   * Optional ≤200-char compose / action prompt hint produced by the LLM
+   * rerank pass. Renders as an italic "aigentMe's take" line under the
+   * rationale and is forwarded to `onAct` so callers can seed
+   * composerInitialPrompt when Act maps to a compose modal.
+   */
+  promptHint?: string | null;
   theme?: "light" | "dark";
 }
 
@@ -106,6 +113,7 @@ export function NextBestActionCard({
   queued = false,
   onDismiss,
   preflightContext,
+  promptHint,
   theme = "dark",
 }: Props) {
   const isDark = theme === "dark";
@@ -152,6 +160,19 @@ export function NextBestActionCard({
           </h4>
           {isHero && <PreflightByline preflight={preflightContext} theme={theme} />}
           <p className={`text-sm mt-1 ${mutedClass}`}>{action.rationale}</p>
+          {promptHint && promptHint.trim().length > 0 && (
+            <p
+              className={`text-xs mt-2 italic leading-snug ${
+                isDark ? "text-violet-200/80" : "text-violet-700"
+              }`}
+              title="aigentMe's take — used as the starting frame when you Act"
+            >
+              <span className="not-italic font-medium opacity-70 mr-1">
+                aigentMe&rsquo;s take:
+              </span>
+              {promptHint}
+            </p>
+          )}
 
           <div className="flex flex-wrap items-center gap-2 mt-3">
             <span className={`px-2 py-0.5 text-[11px] rounded-full border ${chipClass}`}>
