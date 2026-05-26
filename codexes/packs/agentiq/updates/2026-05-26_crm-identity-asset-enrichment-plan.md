@@ -187,12 +187,19 @@ Each step is independently reviewable. Stop after C-followup-3 for the "admin re
 
 ---
 
-## Open questions for the operator
+## Operator answers (2026-05-26)
 
-1. **AigentQube ownership** — what's the canonical source today for "this persona has provisioned Aigent Marketa"? `agentiq_native_registry_assets` carries the catalog, but the per-persona provisioning record may live in `marketa_agent_personas` or another agent-specific table. Confirm this so C-followup-5 backfills from the right source.
-2. **TalentQube ownership** — same question. Is there an existing per-persona TalentQube table, or does the persona's TalentQube live as a single row in `personas.iqube_blob` / blakQube?
-3. **Persona 360 inspector tab** — wanted now, or hold for a later iteration? The access-requests enrichment is the smaller win and would satisfy the immediate workflow described in the user's request.
-4. **PII display rules** — when the reviewer expands the enrichment panel, should the requester's email be visible verbatim, masked (`d***@metame.com`), or only shown as a chip ("Investor on file" / "Not an investor")? The current alpha shows the email verbatim because the admin already knows the requester (they're approving them). Confirm posture for the broader graph.
+The four open questions were resolved in the same session this doc was written. Captured here so any future reader has the answers inline rather than chasing them across QubeTalk packets.
+
+1. **AigentQube ownership** → the **iQube Registry** (`registry_assets`) is the canonical SoT. Per-persona AigentQube provisioning rows project into `persona_iqube_holdings` (proposed below) which references `registry_assets.asset_id`. Tables like `marketa_agent_personas` remain as agent-specific operational state; they are NOT the ownership SoT.
+
+2. **TalentQube ownership** → also the **iQube Registry**. Where a TalentQube is bespoke to a persona, the persona-specific facts (skills, history, attestations) live as **blakQube content** on that iQube — read via `discloseCredential()` at the spine layer, never queried directly. `persona_iqube_holdings` carries the linkage row + acquisition metadata; the rich content lives encrypted on the iQube.
+
+3. **Persona 360 inspector tab** → **build now**. Implemented as C-followup-4 alongside the resolver + enriched access-requests panel. Sits under `metame-codex/admin/persona-360`.
+
+4. **PII display rules — alpha** → **show the email verbatim** to platform admins. Rationale from the operator: "All platform participants have a known relationship with the platform and stack, and new non-platform admins would need to request the user's consent to share PII with them." That's an explicit deferral to the consent system, not an absence of one.
+
+   **Backlog item (PII control surface)** — users need an ongoing-consent mechanism that controls which audiences (platform admins, partner admins, specific cartridge admins, named third parties) can see which PII fields (email, FIO handle, wallet aliases, KYC tier). Spike this into a separate doc under `agentiq/updates/` when the next iQube workstream picks it up; reference the spine's existing `discloseCredential()` contract for the disclosure pathway. The Persona 360 + access-requests panels assume the alpha posture until that work lands.
 
 ---
 

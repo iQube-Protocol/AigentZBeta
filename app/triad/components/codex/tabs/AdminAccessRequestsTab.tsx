@@ -12,6 +12,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, ChevronDown, ChevronRight, RefreshCw, ShieldCheck, XCircle } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
+import {
+  PersonaAssetGraphView,
+  type PersonaAssetGraphPayload,
+} from "@/components/metame/admin/PersonaAssetGraphView";
 
 interface AccessRequest {
   id: string;
@@ -57,6 +61,10 @@ export function AdminAccessRequestsTab() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [decidingId, setDecidingId] = useState<string | null>(null);
   const [decisionReason, setDecisionReason] = useState<Record<string, string>>({});
+  // Lazy-loaded graph per request id. The list endpoint carries the
+  // light alpha enrichment; the deeper persona asset graph lands when
+  // the reviewer opens a row. Cached so re-expand doesn't re-fetch.
+  const [graphById, setGraphById] = useState<Record<string, PersonaAssetGraphPayload | 'loading' | 'error'>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -85,6 +93,39 @@ export function AdminAccessRequestsTab() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const toggleExpand = useCallback(
+    (id: string) => {
+      setExpanded((prev) => {
+        const next = { ...prev, [id]: !prev[id] };
+        return next;
+      });
+      // Fire the deeper graph fetch the first time the row opens.
+      setGraphById((prev) => {
+        if (prev[id] !== undefined) return prev;
+        return { ...prev, [id]: 'loading' };
+      });
+      // Use a separate async path so we don't await inside the setter.
+      const alreadyHave = graphById[id] !== undefined;
+      if (alreadyHave) return;
+      (async () => {
+        try {
+          const res = await personaFetch(`/api/admin/access-requests/${id}/graph`, {
+            cache: 'no-store',
+          });
+          const json = await res.json();
+          if (!res.ok || !json.ok || !json.graph) {
+            setGraphById((prev) => ({ ...prev, [id]: 'error' }));
+            return;
+          }
+          setGraphById((prev) => ({ ...prev, [id]: json.graph as PersonaAssetGraphPayload }));
+        } catch {
+          setGraphById((prev) => ({ ...prev, [id]: 'error' }));
+        }
+      })();
+    },
+    [graphById],
+  );
 
   const decide = useCallback(
     async (id: string, decision: 'approve' | 'deny') => {
@@ -193,7 +234,7 @@ export function AdminAccessRequestsTab() {
             >
               <button
                 type="button"
-                onClick={() => setExpanded((prev) => ({ ...prev, [req.id]: !prev[req.id] }))}
+                onClick={() => toggleExpand(req.id)}
                 className="w-full flex items-center justify-between gap-3 px-3 py-2.5 hover:bg-slate-800/50"
               >
                 <div className="flex items-center gap-3 min-w-0">
@@ -272,6 +313,32 @@ export function AdminAccessRequestsTab() {
                       />
                     </div>
                   )}
+
+                  {/* Lazy-loaded persona asset graph — fires on first
+                      expand. Until persona_iqube_holdings is wired, the
+                      iQube panel renders empty; the rest of the graph
+                      lights up immediately from existing tables. */}
+                  <div>
+                    <div className="text-[11px] uppercase tracking-wide text-slate-500 mb-1.5">
+                      Identity &amp; Asset graph
+                    </div>
+                    {graphById[req.id] === 'loading' && (
+                      <div className="text-xs text-slate-500 py-2">Loading graph…</div>
+                    )}
+                    {graphById[req.id] === 'error' && (
+                      <div className="text-xs text-rose-300 py-2">
+                        Failed to load the persona asset graph.
+                      </div>
+                    )}
+                    {graphById[req.id] &&
+                      graphById[req.id] !== 'loading' &&
+                      graphById[req.id] !== 'error' && (
+                        <PersonaAssetGraphView
+                          graph={graphById[req.id] as PersonaAssetGraphPayload}
+                          layout="cards"
+                        />
+                      )}
+                  </div>
 
                   {req.status === 'pending' && (
                     <div className="space-y-2">

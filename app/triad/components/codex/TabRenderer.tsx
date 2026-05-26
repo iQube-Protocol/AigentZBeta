@@ -36,6 +36,7 @@ import { MoneyPennyTab } from "./tabs/MoneyPennyTab";
 import { NakamotoTab } from "./tabs/NakamotoTab";
 import { ExperienceDashboardTab } from "./tabs/ExperienceDashboardTab";
 import { AdminAccessRequestsTab } from "./tabs/AdminAccessRequestsTab";
+import { Persona360InspectorTab } from "./tabs/Persona360InspectorTab";
 import { AigentMeWelcomeTab } from "./tabs/AigentMeWelcomeTab";
 import { AigentMeWelcomeSplitTab } from "./tabs/AigentMeWelcomeSplitTab";
 import { ActivationsTab } from "./tabs/ActivationsTab";
@@ -157,6 +158,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   MoneyPennyTab,
   ExperienceDashboardTab,
   AdminAccessRequestsTab,
+  Persona360InspectorTab,
   AigentMeWelcomeTab,
   AigentMeWelcomeSplitTab,
   ActivationsTab,
