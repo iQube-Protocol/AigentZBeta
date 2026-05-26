@@ -83,6 +83,16 @@ interface SmartTriadCopilotLayerProps {
     accentColor?: string;
   };
   enableAdvancedRendering?: boolean;
+  /**
+   * Optional T1-safe snapshot of what the host surface is currently
+   * rendering (e.g. the live brief shape on aigentMe welcome). Forwarded
+   * verbatim to the chat route as `groundContext` so the LLM can
+   * narrate the same rows the right pane is showing instead of
+   * inventing a generic template. Read via a ref inside handleSend so
+   * the latest value is always used, even when the parent populates it
+   * asynchronously after a chip click.
+   */
+  groundContext?: Record<string, unknown> | null;
 }
 
 type CopilotMode = "chat" | "avatar";
@@ -151,6 +161,7 @@ export function SmartTriadCopilotLayer({
   personaId,
   tenantConfig,
   enableAdvancedRendering = true,
+  groundContext,
 }: SmartTriadCopilotLayerProps) {
   
   // Core state
@@ -287,6 +298,14 @@ export function SmartTriadCopilotLayer({
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Latest groundContext snapshot — read by handleSend at the moment
+  // the POST goes out, so the LLM always sees the freshest right-pane
+  // state (e.g. a brief that finished loading between chip click and
+  // send). Stable callback identity is preserved.
+  const groundContextRef = useRef<Record<string, unknown> | null | undefined>(groundContext);
+  useEffect(() => {
+    groundContextRef.current = groundContext;
+  }, [groundContext]);
   
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -359,6 +378,12 @@ export function SmartTriadCopilotLayer({
         return 'agentiq'; // aigent-z, aigent-c, metaMe, etc.
       })();
 
+      // Read the freshest groundContext at POST time — a chip click
+      // typically triggers a right-pane fetch in parallel with this
+      // send; without the ref we'd capture the snapshot from when the
+      // chip fired, which is empty.
+      const currentGroundContext = groundContextRef.current ?? null;
+
       const res = await fetch('/api/codex/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -369,6 +394,8 @@ export function SmartTriadCopilotLayer({
           aigentId: resolvedPersona,
           domain: domainForPersona,
           provider_id: selectedProvider,
+          personaId,
+          groundContext: currentGroundContext,
         }),
       });
 

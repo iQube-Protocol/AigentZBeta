@@ -1550,6 +1550,77 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     },
   });
 
+  // T1-safe snapshot of what the right pane is currently showing —
+  // forwarded into the copilot via `groundContext` and threaded into
+  // the /api/codex/chat POST body so the chat LLM grounds its
+  // narrative in the same rows the right pane is rendering. Replaces
+  // the prior behaviour where the chat had no idea what brief / NBAs
+  // were on screen and would invent generic `[Priority 1]` /
+  // `[Action 1]` placeholders. Null fields are omitted by the route.
+  const copilotGroundContext = useMemo(() => {
+    const brief_ = brief
+      ? {
+          briefType: brief.briefType,
+          primaryGoal: brief.context?.primaryGoal ?? null,
+          experienceName: brief.context?.experienceName ?? null,
+          currentStage: brief.context?.currentStage ?? null,
+          activeCartridges: brief.context?.activeCartridges ?? [],
+          topPriorities: brief.topPriorities ?? [],
+          nextBestActions: (brief.nextBestActions ?? []).map((a) => ({
+            id: a.id,
+            label: a.label,
+            rationale: a.rationale,
+            cartridge: a.cartridge,
+            effort: a.effort,
+            impact: a.impact,
+            approvalRequired: a.approvalRequired,
+            suggestedArtifact: a.suggestedArtifact ?? null,
+            promptHint: brief.nbaPromptHints?.[a.id] ?? null,
+          })),
+        }
+      : null;
+    const moveForward_ = moveForwardResult
+      ? {
+          cartridge: moveForwardResult.cartridge,
+          topActionReason: moveForwardResult.topActionReason ?? null,
+          topAction: moveForwardResult.topAction
+            ? {
+                id: moveForwardResult.topAction.id,
+                label: moveForwardResult.topAction.label,
+                rationale: moveForwardResult.topAction.rationale,
+                cartridge: moveForwardResult.topAction.cartridge,
+                impact: moveForwardResult.topAction.impact,
+                suggestedArtifact: moveForwardResult.topAction.suggestedArtifact ?? null,
+                promptHint:
+                  moveForwardResult.nbaPromptHints?.[moveForwardResult.topAction.id] ?? null,
+              }
+            : null,
+          alternates: (moveForwardResult.alternates ?? []).map((a) => ({
+            id: a.id,
+            label: a.label,
+            rationale: a.rationale,
+            cartridge: a.cartridge,
+            impact: a.impact,
+            promptHint: moveForwardResult.nbaPromptHints?.[a.id] ?? null,
+          })),
+        }
+      : null;
+    return {
+      brief: brief_,
+      moveForward: moveForward_,
+      experienceModel: {
+        configured: !!expModel?.configured,
+        stage: (expModel?.meta?.currentStage as string | null) ?? null,
+        primaryGoal: (expModel?.meta?.primaryGoal as string | null) ?? null,
+      },
+      activeCartridges,
+      pendingApproval: pendingApprovalNbe
+        ? { id: pendingApprovalNbe.id, label: pendingApprovalNbe.label, cartridge: pendingApprovalNbe.cartridge }
+        : null,
+      queuedIntentIds: Object.keys(queuedIntents ?? {}),
+    };
+  }, [brief, moveForwardResult, expModel, activeCartridges, pendingApprovalNbe, queuedIntents]);
+
   // ── Render ──────────────────────────────────────────────────────────
   // Static seed prompts for the copilot (the right pane's CTAs are
   // still the canonical entry point; these just teach the copilot what
@@ -1661,6 +1732,8 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               promptPlaceholder="Ask aigentMe — brief, move forward, draft an email…"
               agent={{ id: 'aigent-me', name: 'aigentMe' }}
               agentSubtitle="metaMe · personal assistant"
+              personaId={personaId}
+              groundContext={copilotGroundContext}
               onClose={() => undefined}
             />
           </div>

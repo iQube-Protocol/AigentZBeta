@@ -3,7 +3,7 @@
  * Per PRD v0.2 §8 Golden Path 4 (Review Venture Progress) and §9.2
  * (Venture Progress Card render contract).
  *
- * Aigent Me's read-only window into AgentiQ Venture Lab (AVL):
+ * Aigent Me's read-only window into metaMe Venture Lab (AVL):
  *   - active venture / project name + stage
  *   - operational + commercial goal counts (BlakQube T1-safe counts only)
  *   - KPI counts (never values)
