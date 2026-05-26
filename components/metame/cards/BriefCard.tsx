@@ -48,6 +48,12 @@ export interface BriefCardData {
   using: ("PersonaQube" | "ExperienceQube" | "IntentQube")[];
   notShared: string[];
   preflightContext?: PreflightContext;
+  /**
+   * Optional per-NBA compose / action prompt hints, keyed by NBA id —
+   * produced by the LLM rerank pass alongside `topNbeReason`. Threads
+   * into each `NextBestActionCard.promptHint`.
+   */
+  nbaPromptHints?: Record<string, string>;
 }
 
 interface Props {
@@ -227,6 +233,7 @@ export function BriefCard({ data, loading, error, onActOnNbe, queuedIntents, onD
                 action={action}
                 onAct={onActOnNbe}
                 queued={!!queuedIntents?.[action.id]}
+                promptHint={data.nbaPromptHints?.[action.id] ?? null}
                 theme={theme}
               />
             ))
