@@ -1483,6 +1483,69 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const latestArtifact = artifacts[0] ?? null;
   const activeCartridges = (data?.availableCartridges ?? []).map((c) => c.slug);
 
+  /**
+   * Phase F.2 — CONTEXTUAL Request alpha access recommendation.
+   *
+   * Scans the brief.nextBestActions + moveForwardResult.alternates
+   * for any NBA whose target cartridge ISN'T in the persona's active
+   * set. Returns the first such cartridge (slug + display label) so
+   * the RequestAccessChip in the right-pane carousel can surface it
+   * with the appropriate framing.
+   *
+   * Returns null when:
+   *   - no NBAs are loaded yet
+   *   - every NBA's cartridge IS in the active set
+   *   - the persona is a global admin (covered by chip's render gate)
+   *
+   * Normalises cartridge slugs the same way RequestAccessChip used
+   * to (knyt -> knyt-codex, qriptopian -> qripto) so the compare
+   * doesn't false-fire on slug-form mismatches.
+   */
+  const recommendedAccessCartridge = useMemo<
+    { slug: string; label: string } | null
+  >(() => {
+    const normaliseToCartridge = (s: string): string => {
+      if (s === 'knyt') return 'knyt-codex';
+      if (s === 'qriptopian') return 'qripto';
+      return s;
+    };
+    const labelFor = (slug: string): string => {
+      switch (slug) {
+        case 'knyt-codex':  return 'KNYT';
+        case 'qripto':      return 'The Qriptopian';
+        case 'marketa':     return 'Marketa';
+        case 'venture-lab': return 'metaMe Venture Lab';
+        case 'agentiq-os':  return 'AgentiQ OS';
+        case 'metame':      return 'metaMe';
+        default:            return slug;
+      }
+    };
+    const activeSet = new Set(activeCartridges.map(normaliseToCartridge));
+    // Don't suggest a cartridge the persona is ALREADY on. Pull
+    // candidates from both surfaces; brief first, moveForward
+    // alternates second.
+    const candidates: string[] = [];
+    for (const nba of brief?.nextBestActions ?? []) {
+      if (typeof nba.cartridge === 'string') candidates.push(normaliseToCartridge(nba.cartridge));
+    }
+    if (moveForwardResult?.topAction?.cartridge) {
+      candidates.push(normaliseToCartridge(moveForwardResult.topAction.cartridge));
+    }
+    for (const alt of moveForwardResult?.alternates ?? []) {
+      if (typeof alt.cartridge === 'string') candidates.push(normaliseToCartridge(alt.cartridge));
+    }
+    // metaMe and the always-on platform cartridges aren't gated;
+    // never recommend requesting access to them.
+    const skip = new Set(['metame', 'agentiq-os']);
+    for (const slug of candidates) {
+      if (skip.has(slug)) continue;
+      if (!activeSet.has(slug)) {
+        return { slug, label: labelFor(slug) };
+      }
+    }
+    return null;
+  }, [brief, moveForwardResult, activeCartridges]);
+
   // Phase 2 B.1 3/3 — load the persona's active activation ids so the
   // copilot bridge can expose the available KPI sources filtered to
   // what's currently switched on.
@@ -2053,12 +2116,16 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 specialists: data.availableSpecialists,
                 isAdmin: isAdmin ?? data.cartridgeFlags?.isAdmin,
                 // Phase E follow-up: pass admin grants + active
-                // cartridges into the right-pane chip carousel so the
-                // Request alpha access chip can render its gate +
-                // pick a sensible default cartridge.
+                // cartridges into the right-pane chip carousel.
                 isGlobalAdmin: adminGrants.isGlobalAdmin,
                 hasCartridgeAdminGrant: adminGrants.cartridgeSlugs.size > 0,
                 activeCartridges,
+                // Phase F.2 — CONTEXTUAL Request access nudge. Only
+                // populated when a brief/move-forward NBA targets a
+                // cartridge the persona isn't on. The chip in
+                // WelcomeRightPane renders nothing when this is null.
+                recommendedAccessCartridgeSlug: recommendedAccessCartridge?.slug ?? null,
+                recommendedAccessCartridgeLabel: recommendedAccessCartridge?.label ?? null,
                 brief,
                 briefLoading,
                 briefError,

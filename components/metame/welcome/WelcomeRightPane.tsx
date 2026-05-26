@@ -103,12 +103,21 @@ interface Props {
   isGlobalAdmin?: boolean;
   hasCartridgeAdminGrant?: boolean;
   /**
-   * Cartridge slugs the persona currently has active. Used by the
-   * Request alpha access chip to default the picker to the first
-   * cartridge they DON'T already have, avoiding the alpha bug where
-   * the modal defaulted to 'metame' on the metame surface.
+   * Cartridge slugs the persona currently has active. Retained for
+   * future surfaces; the Request access chip itself no longer reads
+   * this directly — it relies on the contextual recommendation
+   * computed by the parent.
    */
   activeCartridges?: string[];
+  /**
+   * CONTEXTUAL trigger for the Request alpha access chip. When the
+   * parent detects that one of the persona's brief/move-forward
+   * NBAs targets a cartridge the persona isn't activated on, it
+   * passes the recommended slug here and the chip surfaces.
+   * Undefined = no recommendation = chip hidden.
+   */
+  recommendedAccessCartridgeSlug?: string | null;
+  recommendedAccessCartridgeLabel?: string | null;
 
   /** Live cards. */
   brief: BriefCardData | null;
@@ -284,95 +293,98 @@ function PersonalGuideChip({ personaId }: { personaId?: string }) {
 }
 
 /**
- * RequestAccessChip — pulse-highlighted affordance in the right-pane
- * badge carousel. Renders only when the active persona has NO admin
- * grants (no global, no per-cartridge). Self-contained: pulls grants
- * via useCartridgeAdminGrants, mounts the request modal in controlled
- * mode, and persists dismiss state in sessionStorage so the operator
- * can opt out for the session.
+ * RequestAccessChip — pulse-highlighted CONTEXTUAL affordance in the
+ * right-pane badge carousel.
  *
- * Moved here from the left chip strip per operator feedback —
- * 'the right pane is for manual inputs, the left for generative
- * stuff'. The chip lives alongside ExpGuide: Drifting and PersonaQube
- * Badge so the dismissible cluster reads as a single banner row.
+ * 2026-05-26 contextual rewrite: the alpha render-by-default behaviour
+ * was noisy. Operator: 'don't render by default. It should be
+ * contextual. If a user wants to launch an activity that requires a
+ * capability in another cartridge — e.g. monitor more than one
+ * venture — they should be recommended upgrading to that cartridge.'
+ *
+ * The chip now renders ONLY when `recommendedCartridgeSlug` is set.
+ * The parent surface computes that slug by scanning the brief / move-
+ * forward NBAs for actions whose target cartridge isn't in the
+ * persona's active cartridges. When something IS recommended, the
+ * chip label includes the cartridge name so the operator knows
+ * exactly what they're being asked to request.
+ *
+ * Still self-contained: mounts its own modal in controlled mode,
+ * dismiss persists in sessionStorage scoped to the recommended slug
+ * so dismissing 'Venture Lab' doesn't hide a later 'Marketa' nudge.
  */
 function RequestAccessChip({
-  activeCartridges,
+  recommendedCartridgeSlug,
+  recommendedCartridgeLabel,
   isGlobalAdmin,
   hasCartridgeAdminGrant,
 }: {
-  activeCartridges: string[];
+  /** Slug to surface in the chip + modal. Undefined => render nothing. */
+  recommendedCartridgeSlug?: string | null;
+  /** Human label for the recommendation chip. Falls back to slug. */
+  recommendedCartridgeLabel?: string | null;
   isGlobalAdmin: boolean;
   hasCartridgeAdminGrant: boolean;
 }) {
-  const DISMISS_KEY = 'metame.requestAccessChip.dismissed';
+  const dismissKey = recommendedCartridgeSlug
+    ? `metame.requestAccessChip.dismissed.${recommendedCartridgeSlug}`
+    : null;
   const [dismissed, setDismissed] = useState(false);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      setDismissed(window.sessionStorage.getItem(DISMISS_KEY) === '1');
-    } catch {
-      // sessionStorage blocked — leave undismissed.
+    if (typeof window === 'undefined' || !dismissKey) {
+      setDismissed(false);
+      return;
     }
-  }, []);
+    try {
+      setDismissed(window.sessionStorage.getItem(dismissKey) === '1');
+    } catch {
+      setDismissed(false);
+    }
+  }, [dismissKey]);
 
-  // Hidden when the persona already has grants, when dismissed for
-  // this session, or in environments where there's nothing meaningful
-  // to request (empty cartridge list).
-  if (isGlobalAdmin || hasCartridgeAdminGrant || dismissed) return null;
-
-  // Default cartridge in the modal = the first one the user is NOT
-  // already active on, so the picker lands on something useful. If
-  // they're active on everything in the alpha set, fall back to a
-  // sensible default the operator can change.
-  const ALL_SLUGS = ['knyt-codex', 'qripto', 'marketa', 'venture-lab', 'agentiq-os', 'metame'];
-  const activeSet = new Set(activeCartridges);
-  // CRM tenant slug -> cartridge slug normalisation for the active
-  // list (the active list uses 'knyt' / 'qriptopian' while the modal
-  // expects 'knyt-codex' / 'qripto'). Keep this in sync with
-  // services/access/cartridgeAdminGrants.ts.
-  const normalisedActive = new Set<string>();
-  for (const s of activeSet) {
-    if (s === 'knyt') normalisedActive.add('knyt-codex');
-    else if (s === 'qriptopian') normalisedActive.add('qripto');
-    else normalisedActive.add(s);
-  }
-  const defaultSlug = ALL_SLUGS.find((s) => !normalisedActive.has(s)) ?? 'knyt-codex';
+  // Render gate: only when there's a contextual recommendation AND
+  // the persona doesn't already have an admin/access path AND they
+  // haven't dismissed this specific recommendation for the session.
+  if (!recommendedCartridgeSlug) return null;
+  if (isGlobalAdmin || hasCartridgeAdminGrant) return null;
+  if (dismissed) return null;
 
   const dismiss = () => {
     setDismissed(true);
-    if (typeof window !== 'undefined') {
-      try { window.sessionStorage.setItem(DISMISS_KEY, '1'); } catch { /* ignore */ }
+    if (typeof window !== 'undefined' && dismissKey) {
+      try { window.sessionStorage.setItem(dismissKey, '1'); } catch { /* ignore */ }
     }
   };
+
+  const displayLabel = recommendedCartridgeLabel ?? recommendedCartridgeSlug;
 
   return (
     <>
       <span
         className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 bg-emerald-500/15 text-emerald-100 border-emerald-400/60 shadow-[0_0_0_0_rgba(16,185,129,0.4)] animate-[pulse_2s_ease-in-out_infinite]"
-        title="Request access to a cartridge — alpha release. Click to open the request form."
+        title={`Some recommended actions need the ${displayLabel} cartridge. Click to request alpha access.`}
       >
         <button
           type="button"
           onClick={() => setOpen(true)}
           className="hover:underline focus:outline-none"
         >
-          Request alpha access
+          Request {displayLabel} access
         </button>
         <button
           type="button"
           onClick={dismiss}
-          aria-label="Dismiss request access prompt"
-          title="Dismiss for this session"
+          aria-label={`Dismiss ${displayLabel} access prompt`}
+          title="Not now (dismiss for this session)"
           className="ml-1 text-emerald-200/80 hover:text-white"
         >
           ×
         </button>
       </span>
       <RequestAdminAccessButton
-        defaultCartridgeSlug={defaultSlug}
+        defaultCartridgeSlug={recommendedCartridgeSlug}
         open={open}
         onOpenChange={setOpen}
       />
@@ -425,6 +437,8 @@ export function WelcomeRightPane(props: Props) {
     isGlobalAdmin = false,
     hasCartridgeAdminGrant = false,
     activeCartridges = [],
+    recommendedAccessCartridgeSlug = null,
+    recommendedAccessCartridgeLabel = null,
     brief, briefLoading, briefError,
     ventureProgress, ventureProgressLoading, ventureProgressError,
     moveForwardResult, moveForwardLoading,
@@ -494,7 +508,8 @@ export function WelcomeRightPane(props: Props) {
         <PersonaQubeBadge using={usingIqubes} theme={theme} />
         <StageProgressionChip evaluation={stageEval ?? null} />
         <RequestAccessChip
-          activeCartridges={activeCartridges}
+          recommendedCartridgeSlug={recommendedAccessCartridgeSlug}
+          recommendedCartridgeLabel={recommendedAccessCartridgeLabel}
           isGlobalAdmin={isGlobalAdmin}
           hasCartridgeAdminGrant={hasCartridgeAdminGrant}
         />
