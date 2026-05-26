@@ -1169,6 +1169,11 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // draft on mount so the operator lands on a populated form. Used by
   // the SpecialistsLayout suggested-artifact buttons.
   const [composerInitialPrompt, setComposerInitialPrompt] = useState<string | null>(null);
+  // Controlled state for the Request Admin Access modal. Opens from
+  // the pulse-highlighted "Request access" chip in the copilot strip
+  // (Phase E.2 — chip replaces the absolute-positioned button that
+  // overlapped the right pane's close affordance).
+  const [requestAccessOpen, setRequestAccessOpen] = useState(false);
 
   // Phase 2 B.1: selected KPI for KpiDetailLayout. The cockpit chip's
   // onClick sets this + activates 'kpi-detail'.
@@ -1641,23 +1646,37 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // mapper below converts an NbeQuickChip's `layoutDispatch` into the
   // local onSelect closure so the right-pane dispatch stays generic
   // on the server side.
+  // 2026-05-26 sequencing fix — chips now expose two callbacks:
+  //   - onSelect runs synchronously on click. It only switches the
+  //     right-pane layout to its loading skeleton.
+  //   - onDispatchOnSend runs async inside handleSend, BEFORE the chat
+  //     POST. It performs the actual right-pane fetch. By the time the
+  //     LLM call goes out, brief / moveForward / venture state has
+  //     landed in the parent and the groundContext snapshot is fresh.
+  // Effect: clicking "Brief me" no longer races the chat ahead of the
+  // brief — the prompt loads into the input, the right pane shows a
+  // skeleton, the user can edit, and Send fires both panes in sync.
   const copilotQuickPrompts = useMemo(() => {
-    const dispatchFor = (chip: NbeQuickChip) => () => {
+    const layoutDispatchFor = (chip: NbeQuickChip) => () => {
       if (!chip.layoutDispatch) return;
-      const { activate, fetch: fetchKind } = chip.layoutDispatch;
+      const { activate } = chip.layoutDispatch;
       setActiveLayoutId(activate);
-      switch (fetchKind) {
-        case 'brief':            void fetchBrief(); break;
-        case 'move-forward':     void fetchMoveForward(); break;
-        case 'venture-progress': void fetchVentureProgress(); break;
-        case 'receipts':         void fetchReceipts(); break;
-        case null: case undefined: /* no fetch */ break;
-      }
       if (chip.layoutDispatch.composerKind) {
         // Chip-driven composer opens land on an empty form — only the
         // suggested-artifact path sets composerInitialPrompt.
         setComposerInitialPrompt(null);
         setComposerKind(chip.layoutDispatch.composerKind);
+      }
+    };
+    const fetchDispatchFor = (chip: NbeQuickChip) => async () => {
+      if (!chip.layoutDispatch) return;
+      const { fetch: fetchKind } = chip.layoutDispatch;
+      switch (fetchKind) {
+        case 'brief':            await fetchBrief(); break;
+        case 'move-forward':     await fetchMoveForward(); break;
+        case 'venture-progress': await fetchVentureProgress(); break;
+        case 'receipts':         await fetchReceipts(); break;
+        case null: case undefined: /* no fetch */ break;
       }
     };
 
@@ -1667,37 +1686,46 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         label: chip.label,
         prompt: chip.copilotPrompt ?? "",
         skipInference: !chip.copilotPrompt,
-        onSelect: dispatchFor(chip),
+        onSelect: layoutDispatchFor(chip),
+        onDispatchOnSend: fetchDispatchFor(chip),
       }));
     }
 
+    const accessChip = !adminGrants.isGlobalAdmin && adminGrants.cartridgeSlugs.size === 0
+      ? [{
+          id: 'request-access',
+          label: 'Request access',
+          // Pure UI chip — opens the modal. No chat dispatch, no
+          // right-pane fetch. Stays out of the LLM message stream.
+          prompt: '',
+          skipInference: true,
+          highlight: true,
+          onSelect: () => setRequestAccessOpen(true),
+        }]
+      : [];
+
     return [
+      ...accessChip,
       {
         id: 'brief',
         label: 'Brief me',
         prompt: 'Give me my daily brief.',
-        onSelect: () => {
-          setActiveLayoutId('brief');
-          void fetchBrief();
-        },
+        onSelect: () => setActiveLayoutId('brief'),
+        onDispatchOnSend: async () => { await fetchBrief(); },
       },
       {
         id: 'move',
         label: 'Move forward',
         prompt: 'What is the next best action I should take right now?',
-        onSelect: () => {
-          setActiveLayoutId('decision-board');
-          void fetchMoveForward();
-        },
+        onSelect: () => setActiveLayoutId('decision-board'),
+        onDispatchOnSend: async () => { await fetchMoveForward(); },
       },
       {
         id: 'venture',
         label: 'Venture progress',
         prompt: 'Where am I on my venture progress?',
-        onSelect: () => {
-          setActiveLayoutId('venture-cockpit');
-          void fetchVentureProgress();
-        },
+        onSelect: () => setActiveLayoutId('venture-cockpit'),
+        onDispatchOnSend: async () => { await fetchVentureProgress(); },
       },
       {
         id: 'ask-specialists',
@@ -1707,13 +1735,11 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         // SpecialistsLayout and fires the server-side recommender so
         // the operator lands on a primed consultation surface.
         prompt: 'Which specialist should I consult right now — Marketa, Quill, Kn0w1, Aigent Z, Aigent C, Aigent Nakamoto, Moneypenny, or metaYe — and why?',
-        onSelect: () => {
-          setActiveLayoutId('specialists');
-          void fetchSpecialistRecommendation();
-        },
+        onSelect: () => setActiveLayoutId('specialists'),
+        onDispatchOnSend: async () => { await fetchSpecialistRecommendation(); },
       },
     ];
-  }, [serverChips, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts, fetchSpecialistRecommendation]);
+  }, [serverChips, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts, fetchSpecialistRecommendation, adminGrants.isGlobalAdmin, adminGrants.cartridgeSlugs]);
 
   return (
     <>
@@ -1741,15 +1767,16 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
 
           {/* ── RIGHT: dynamic surface (50/50 with the copilot). ── */}
           <div className="lg:w-1/2 w-full h-full min-h-0 relative">
-            {/* Persona with no admin grants (neither global nor per-cartridge)
-                gets a small affordance to request admin access. Hidden the
-                moment any grant exists so global admins / cartridge admins
-                don't see noise on their own surface. */}
-            {!adminGrants.isGlobalAdmin && adminGrants.cartridgeSlugs.size === 0 && (
-              <div className="absolute top-2 right-2 z-30">
-                <RequestAdminAccessButton />
-              </div>
-            )}
+            {/* RequestAdminAccessButton moved into the copilot chip
+                strip as a highlighted pulse chip — see
+                copilotQuickPrompts below. The previous absolute-
+                positioned button overlapped the close button on the
+                right pane. Modal mounts here in controlled mode,
+                opened by the chip's onSelect callback. */}
+            <RequestAdminAccessButton
+              open={requestAccessOpen}
+              onOpenChange={setRequestAccessOpen}
+            />
             {bootstrapLoading && !data && (
               <div className="h-full flex items-center justify-center text-sm opacity-60">
                 Loading aigentMe…

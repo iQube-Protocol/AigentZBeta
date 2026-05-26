@@ -26,6 +26,13 @@ interface Props {
    */
   defaultCartridgeSlug?: string;
   className?: string;
+  /**
+   * Controlled mode — when supplied, the parent owns the open state
+   * (e.g. opening via a chip click). The internal button is hidden
+   * in this mode; the modal is the only thing this component renders.
+   */
+  open?: boolean;
+  onOpenChange?: (next: boolean) => void;
 }
 
 const CARTRIDGE_OPTIONS: Array<{ slug: string | null; label: string }> = [
@@ -38,8 +45,17 @@ const CARTRIDGE_OPTIONS: Array<{ slug: string | null; label: string }> = [
   { slug: null, label: 'Platform-wide (global admin)' },
 ];
 
-export function RequestAdminAccessButton({ defaultCartridgeSlug, className }: Props) {
-  const [open, setOpen] = useState(false);
+export function RequestAdminAccessButton({ defaultCartridgeSlug, className, open: controlledOpen, onOpenChange }: Props) {
+  const isControlled = controlledOpen !== undefined;
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = isControlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (next: boolean) => {
+    if (isControlled) {
+      onOpenChange?.(next);
+    } else {
+      setUncontrolledOpen(next);
+    }
+  };
   const [cartridgeSlug, setCartridgeSlug] = useState<string | null>(defaultCartridgeSlug ?? 'metame');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -80,15 +96,17 @@ export function RequestAdminAccessButton({ defaultCartridgeSlug, className }: Pr
 
   return (
     <>
-      <Button
-        variant="outline"
-        size="sm"
-        className={`border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10 ${className ?? ''}`}
-        onClick={() => setOpen(true)}
-      >
-        <ShieldCheck className="w-4 h-4 mr-1.5" />
-        Request admin access
-      </Button>
+      {!isControlled && (
+        <Button
+          variant="outline"
+          size="sm"
+          className={`border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10 ${className ?? ''}`}
+          onClick={() => setOpen(true)}
+        >
+          <ShieldCheck className="w-4 h-4 mr-1.5" />
+          Request admin access
+        </Button>
+      )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
