@@ -140,6 +140,45 @@ export const MATURITY_LABEL: Record<MaturityLevel, string> = {
   stewarding: 'Stewarding',
 };
 
+/**
+ * Plain-language descriptions of each maturity level. Surfaced as
+ * tooltips on the wizard buttons so a new operator can self-assess
+ * without guessing what each label means.
+ */
+export const MATURITY_DESCRIPTION: Record<MaturityLevel, string> = {
+  noticing:
+    'Just becoming aware that this sphere matters — no consistent practice yet.',
+  exploring:
+    'Trying things out, gathering information, no committed routines.',
+  experimenting:
+    'Running small bets to learn what works for you — willing to fail.',
+  practicing:
+    'A routine exists but still requires conscious effort to maintain.',
+  integrating:
+    'Now part of how you operate day-to-day; rarely skipped.',
+  sustaining:
+    'Self-correcting — bounces back quickly when life disrupts it.',
+  stewarding:
+    'You can guide others through this; the practice runs you, not the other way around.',
+};
+
+export const SPHERE_DESCRIPTION: Record<SphereAxis, string> = {
+  energy:
+    'How you generate, conserve, and spend the underlying drive that powers everything else.',
+  body:
+    'Physical health, sleep, nutrition, movement — the substrate of all other agency.',
+  mind:
+    'Thinking, focus, learning, decision quality — the cognitive layer.',
+  emotion:
+    'Feeling vocabulary, regulation, self-honesty about emotional state.',
+  relationship:
+    'One-to-one ties — partner, family, close friends, business co-founders.',
+  community:
+    'The wider circles you belong to and contribute to — local, professional, identity-based.',
+  legacy:
+    'The long horizon — what you build to outlast you, the imprint you leave.',
+};
+
 export const ALIGNMENT_LABEL: Record<AlignmentState, string> = {
   aligned: 'Aligned',
   drifting: 'Drifting',

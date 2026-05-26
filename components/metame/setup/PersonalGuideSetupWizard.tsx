@@ -39,8 +39,10 @@ import { personaFetch } from "@/utils/personaSpine";
 import { MicButton } from "@/components/ui/MicButton";
 import {
   ALIGNMENT_LABEL,
+  MATURITY_DESCRIPTION,
   MATURITY_LABEL,
   MATURITY_LEVELS,
+  SPHERE_DESCRIPTION,
   SPHERE_AXES,
   SPHERE_LABEL,
   defaultSphereMaturity,
@@ -337,6 +339,7 @@ function SphereStep({
 }) {
   return (
     <Field label={`${SPHERE_LABEL[sphere]} — where do you sit?`}>
+      <p className="text-xs text-slate-400 mb-2 -mt-1">{SPHERE_DESCRIPTION[sphere]}</p>
       <div className="flex flex-wrap gap-1.5">
         {MATURITY_LEVELS.map((m) => {
           const selected = m === value;
@@ -345,6 +348,8 @@ function SphereStep({
               key={m}
               type="button"
               onClick={() => onChange(m)}
+              title={`${MATURITY_LABEL[m]} — ${MATURITY_DESCRIPTION[m]}`}
+              aria-label={`${MATURITY_LABEL[m]} — ${MATURITY_DESCRIPTION[m]}`}
               className={`px-2.5 py-1 rounded-full border text-xs transition ${
                 selected
                   ? "bg-violet-500/20 border-violet-500 text-violet-200"
@@ -357,6 +362,9 @@ function SphereStep({
           );
         })}
       </div>
+      <p className="text-[11px] text-slate-500 mt-1.5 italic">
+        Tip: hover any label to see what it means.
+      </p>
     </Field>
   );
 }
