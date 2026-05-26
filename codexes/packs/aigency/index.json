@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-26T00:43:55.028Z",
+  "last_updated": "2026-05-26T02:34:24.484Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "f85dac003523777dbd373787160f4c7ce039045c",
-  "latest_commit_short": "f85dac0",
-  "latest_commit_title": "NBE Act → Queued badge after queue + clickable artifact links in receipts",
+  "latest_commit": "e24ca0b70f29c76016a9d5d7505f85d3fec2c8b2",
+  "latest_commit_short": "e24ca0b",
+  "latest_commit_title": "Queued badge propagation to BriefCard + VentureCockpit + VentureProgressCard",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "e24ca0b",
+      "full_sha": "e24ca0b70f29c76016a9d5d7505f85d3fec2c8b2",
+      "title": "Queued badge propagation to BriefCard + VentureCockpit + VentureProgressCard",
+      "author": "Claude",
+      "timestamp": "2026-05-26T02:32:30Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-e24ca0b.md"
+    },
     {
       "sha": "f85dac0",
       "full_sha": "f85dac003523777dbd373787160f4c7ce039045c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-04T02:57:47Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-d271662.md"
-    },
-    {
-      "sha": "7389c24",
-      "full_sha": "7389c24a4b5640b88a932978f3fe9d2efb3864dd",
-      "title": "fix runtime remix modal: seed activePersonaId from PersonaContext in standalone page mode",
-      "author": "Claude",
-      "timestamp": "2026-05-03T23:39:22Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-7389c24.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
