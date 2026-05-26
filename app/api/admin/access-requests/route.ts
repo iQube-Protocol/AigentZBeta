@@ -154,7 +154,7 @@ export async function POST(req: NextRequest) {
     displayLabel = callerEmail.split('@')[0] ?? null;
   }
 
-  const insertRow = {
+  const insertRow: Record<string, unknown> = {
     persona_id: persona.personaId,
     auth_profile_id: persona.authProfileId,
     requester_display_label: displayLabel,
@@ -165,11 +165,29 @@ export async function POST(req: NextRequest) {
     status: 'pending' as const,
   };
 
-  const { data, error } = await admin
+  let { data, error } = await admin
     .from('admin_access_requests')
     .insert(insertRow)
     .select('*')
     .single();
+
+  // Graceful fallback: when migration 20260526020000 hasn't been
+  // applied yet, the request_type column doesn't exist and Postgres
+  // returns 42703. Retry without the column so the alpha workflow
+  // keeps working even on environments that haven't run the migration.
+  // The resulting row gets treated as 'cartridge_admin' by the decide
+  // route (the historical default before request_type existed).
+  if (error && (error.code === '42703' || /column .*request_type/i.test(error.message ?? ''))) {
+    console.warn('[access-requests] request_type column missing — falling back. Run migration 20260526020000.');
+    const { request_type, ...rowSansType } = insertRow;
+    const retry = await admin
+      .from('admin_access_requests')
+      .insert(rowSansType)
+      .select('*')
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) {
     // Unique-pending index trip = duplicate request still open. Return
@@ -182,7 +200,18 @@ export async function POST(req: NextRequest) {
       );
     }
     console.error('[access-requests] insert error', error);
-    return NextResponse.json({ error: 'insert-failed' }, { status: 500 });
+    // Surface the Postgres detail so the operator can act on it
+    // (missing column / RLS denial / foreign-key error all read
+    // differently here). Without it the modal shows a useless
+    // 'insert-failed' string.
+    return NextResponse.json(
+      {
+        error: 'insert-failed',
+        message: error.message || 'Failed to write the request row. Check that migration 20260526000000 has been applied.',
+        code: error.code ?? null,
+      },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json({ ok: true, request: toResponseShape(data as AdminAccessRequestRow) });

@@ -31,6 +31,7 @@ import {
 import { MicButton } from "@/components/ui/MicButton";
 import { personaFetch } from "@/utils/personaSpine";
 import { PersonalGuideSetupWizard } from "@/components/metame/setup/PersonalGuideSetupWizard";
+import { RequestAdminAccessButton } from "@/components/metame/admin/RequestAdminAccessButton";
 import { ALIGNMENT_LABEL, type AlignmentState, type PersonalGuideData } from "@/types/experienceGuide";
 import {
   ExperienceModelCard,
@@ -93,6 +94,21 @@ interface Props {
   ctas: PrimaryCta[];
   specialists: Specialist[];
   isAdmin?: boolean;
+  /**
+   * Spine-resolved admin grants. Drives the Request alpha access
+   * chip's render gate (hidden when the persona already holds any
+   * admin grant). When undefined, chip falls back to permissive
+   * mode (visible) so legacy callers don't get a regression.
+   */
+  isGlobalAdmin?: boolean;
+  hasCartridgeAdminGrant?: boolean;
+  /**
+   * Cartridge slugs the persona currently has active. Used by the
+   * Request alpha access chip to default the picker to the first
+   * cartridge they DON'T already have, avoiding the alpha bug where
+   * the modal defaulted to 'metame' on the metame surface.
+   */
+  activeCartridges?: string[];
 
   /** Live cards. */
   brief: BriefCardData | null;
@@ -128,6 +144,17 @@ interface Props {
   specialistResponses: Record<string, SpecialistResponseData>;
   specialistLoading: Record<string, boolean>;
   specialistErrors: Record<string, string>;
+  /**
+   * Optional artifact router — when a specialist response card's
+   * "Suggested artifacts" chip is clicked, this fires with the
+   * artifact label + the originating response. Same shape as the
+   * SpecialistsLayout consumer (handleUseSuggestedArtifact in the
+   * tab) so both surfaces wire to the identical handler.
+   */
+  onUseSuggestedArtifact?: (
+    artifactType: string,
+    response: SpecialistResponseData,
+  ) => void;
   queuedIntents: Record<string, { intentId: string; status: string; queueMessage: string }>;
 
   /** Below-fold sections. */
@@ -256,6 +283,103 @@ function PersonalGuideChip({ personaId }: { personaId?: string }) {
   );
 }
 
+/**
+ * RequestAccessChip — pulse-highlighted affordance in the right-pane
+ * badge carousel. Renders only when the active persona has NO admin
+ * grants (no global, no per-cartridge). Self-contained: pulls grants
+ * via useCartridgeAdminGrants, mounts the request modal in controlled
+ * mode, and persists dismiss state in sessionStorage so the operator
+ * can opt out for the session.
+ *
+ * Moved here from the left chip strip per operator feedback —
+ * 'the right pane is for manual inputs, the left for generative
+ * stuff'. The chip lives alongside ExpGuide: Drifting and PersonaQube
+ * Badge so the dismissible cluster reads as a single banner row.
+ */
+function RequestAccessChip({
+  activeCartridges,
+  isGlobalAdmin,
+  hasCartridgeAdminGrant,
+}: {
+  activeCartridges: string[];
+  isGlobalAdmin: boolean;
+  hasCartridgeAdminGrant: boolean;
+}) {
+  const DISMISS_KEY = 'metame.requestAccessChip.dismissed';
+  const [dismissed, setDismissed] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      setDismissed(window.sessionStorage.getItem(DISMISS_KEY) === '1');
+    } catch {
+      // sessionStorage blocked — leave undismissed.
+    }
+  }, []);
+
+  // Hidden when the persona already has grants, when dismissed for
+  // this session, or in environments where there's nothing meaningful
+  // to request (empty cartridge list).
+  if (isGlobalAdmin || hasCartridgeAdminGrant || dismissed) return null;
+
+  // Default cartridge in the modal = the first one the user is NOT
+  // already active on, so the picker lands on something useful. If
+  // they're active on everything in the alpha set, fall back to a
+  // sensible default the operator can change.
+  const ALL_SLUGS = ['knyt-codex', 'qripto', 'marketa', 'venture-lab', 'agentiq-os', 'metame'];
+  const activeSet = new Set(activeCartridges);
+  // CRM tenant slug -> cartridge slug normalisation for the active
+  // list (the active list uses 'knyt' / 'qriptopian' while the modal
+  // expects 'knyt-codex' / 'qripto'). Keep this in sync with
+  // services/access/cartridgeAdminGrants.ts.
+  const normalisedActive = new Set<string>();
+  for (const s of activeSet) {
+    if (s === 'knyt') normalisedActive.add('knyt-codex');
+    else if (s === 'qriptopian') normalisedActive.add('qripto');
+    else normalisedActive.add(s);
+  }
+  const defaultSlug = ALL_SLUGS.find((s) => !normalisedActive.has(s)) ?? 'knyt-codex';
+
+  const dismiss = () => {
+    setDismissed(true);
+    if (typeof window !== 'undefined') {
+      try { window.sessionStorage.setItem(DISMISS_KEY, '1'); } catch { /* ignore */ }
+    }
+  };
+
+  return (
+    <>
+      <span
+        className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 bg-emerald-500/15 text-emerald-100 border-emerald-400/60 shadow-[0_0_0_0_rgba(16,185,129,0.4)] animate-[pulse_2s_ease-in-out_infinite]"
+        title="Request access to a cartridge — alpha release. Click to open the request form."
+      >
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="hover:underline focus:outline-none"
+        >
+          Request alpha access
+        </button>
+        <button
+          type="button"
+          onClick={dismiss}
+          aria-label="Dismiss request access prompt"
+          title="Dismiss for this session"
+          className="ml-1 text-emerald-200/80 hover:text-white"
+        >
+          ×
+        </button>
+      </span>
+      <RequestAdminAccessButton
+        defaultCartridgeSlug={defaultSlug}
+        open={open}
+        onOpenChange={setOpen}
+      />
+    </>
+  );
+}
+
 function PersonaQubeBadge({ using, theme = "dark" }: { using: IqubeKind[]; theme?: "light" | "dark" }) {
   const isDark = theme === "dark";
   const surfaceClass = isDark
@@ -298,12 +422,16 @@ export function WelcomeRightPane(props: Props) {
     ctas,
     specialists,
     isAdmin,
+    isGlobalAdmin = false,
+    hasCartridgeAdminGrant = false,
+    activeCartridges = [],
     brief, briefLoading, briefError,
     ventureProgress, ventureProgressLoading, ventureProgressError,
     moveForwardResult, moveForwardLoading,
     pendingApproval, submittingApproval, approvalError,
     artifacts, actionPendingArtifactId, actionErrors, secondTierApproval,
     specialistResponses, specialistLoading, specialistErrors, queuedIntents,
+    onUseSuggestedArtifact,
     expModel, expModelLoading, stageEval,
     receipts, receiptsLoading, receiptsPersonaLabel,
     expandedSectionId, setExpandedSectionId,
@@ -365,6 +493,11 @@ export function WelcomeRightPane(props: Props) {
         <PersonalGuideChip personaId={personaId} />
         <PersonaQubeBadge using={usingIqubes} theme={theme} />
         <StageProgressionChip evaluation={stageEval ?? null} />
+        <RequestAccessChip
+          activeCartridges={activeCartridges}
+          isGlobalAdmin={isGlobalAdmin}
+          hasCartridgeAdminGrant={hasCartridgeAdminGrant}
+        />
       </div>
 
       {/* ── Primary CTA pills ────────────────────────────────────── */}
@@ -515,6 +648,11 @@ export function WelcomeRightPane(props: Props) {
           data={sp}
           using={usingIqubes}
           onDismiss={() => onDismissSpecialist(nbeId)}
+          onCreateArtifact={
+            onUseSuggestedArtifact
+              ? (artifactType) => onUseSuggestedArtifact(artifactType, sp)
+              : undefined
+          }
           theme={theme}
         />
       ))}

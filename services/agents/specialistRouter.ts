@@ -217,7 +217,7 @@ function userPromptFor(ctx: SpecialistContext, requestType: SpecialistRequestTyp
         title: 'string — 6-12 word headline',
         summary: 'string — 1-3 sentence framing',
         recommendations: ['string — 3-6 actionable bullets'],
-        suggestedArtifacts: ['string — 0-4 artifact types: brief, google-doc, gmail-draft, calendar-block, post-set, image-prompt, video-script, slide-outline, venture-report'],
+        suggestedArtifacts: ['string — 0-4 artifact types from this set: article, brief, google-doc, gmail-draft, calendar-block, post-set, image-prompt, video-script, slide-outline, venture-report, mycanvas-remix. Prefer "article" for Quill / editorial responses; prefer "mycanvas-remix" when the next step is to remix into the persona\'s canvas.'],
         requiresApproval: 'boolean — true if implementing this requires send/share/publish',
         confidence: '"low" | "medium" | "high"',
       },
@@ -429,7 +429,13 @@ function templateResponse(
         `Anchor the piece with a single quote or scene; avoid feature-list narration.`,
         `Close with the next reader move — a deeper article, a participation moment, or a collector path.`,
       ],
-      suggestedArtifacts: ['brief', 'google-doc'],
+      // Quill's editorial responses default to surfaceable artifacts the
+      // user can immediately progress to. 'article' opens the doc
+      // composer pre-seeded with Quill's framing; 'mycanvas-remix'
+      // routes into the RemixDialog so the angle can be staged onto
+      // the persona's myCanvas. Both are picked up by the welcome
+      // surface's artifact-router (composeKindForSuggestedArtifact).
+      suggestedArtifacts: ['article', 'mycanvas-remix', 'brief'],
       requiresApproval: false,
       confidence: 'medium',
     };

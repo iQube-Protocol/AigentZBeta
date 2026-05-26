@@ -41,6 +41,7 @@ import { AigentMeWelcomeTab } from "./tabs/AigentMeWelcomeTab";
 import { AigentMeWelcomeSplitTab } from "./tabs/AigentMeWelcomeSplitTab";
 import { ActivationsTab } from "./tabs/ActivationsTab";
 import { MyCanvasTab } from "./tabs/MyCanvasTab";
+import { MyWorkbenchTab } from "./tabs/MyWorkbenchTab";
 import { InvestorDirectoryTab } from "./tabs/InvestorDirectoryTab";
 import { ArtifactTraceabilityTab } from "./tabs/ArtifactTraceabilityTab";
 import { FactoryIntakeTab } from "./tabs/FactoryIntakeTab";
@@ -164,6 +165,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   AigentMeWelcomeSplitTab,
   ActivationsTab,
   MyCanvasTab,
+  MyWorkbenchTab,
   InvestorDirectoryTab,
   ArtifactTraceabilityTab,
   FactoryIntakeTab,
