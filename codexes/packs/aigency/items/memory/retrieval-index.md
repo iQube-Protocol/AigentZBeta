@@ -1199,3 +1199,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-0ece4a6.md](../build_/COMMITS/COMMIT-0ece4a6.md)
 - Message: KNYT owns Admin under Order — metaMe inherits via existing mirror
+
+## Commit `41d1079` — 2026-05-26T09:47:13Z
+- Type: `fix`
+- Brief: [COMMIT-41d1079.md](../build_/COMMITS/COMMIT-41d1079.md)
+- Message: fix admin-tab visibility: hook uses personaFetch (Bearer token), not raw fetch
