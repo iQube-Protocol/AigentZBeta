@@ -1159,3 +1159,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-f85dac0.md](../build_/COMMITS/COMMIT-f85dac0.md)
 - Message: NBE Act → Queued badge after queue + clickable artifact links in receipts
+
+## Commit `e24ca0b` — 2026-05-26T02:32:30Z
+- Type: `push`
+- Brief: [COMMIT-e24ca0b.md](../build_/COMMITS/COMMIT-e24ca0b.md)
+- Message: Queued badge propagation to BriefCard + VentureCockpit + VentureProgressCard
