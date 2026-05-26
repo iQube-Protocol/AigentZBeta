@@ -563,12 +563,14 @@ export function WelcomeRightPane(props: Props) {
           overlay is mounted by AigentMeWelcomeSplitTab when either
           `pendingApprovalNbe` or `secondTierApproval` is set. */}
 
-      {/* Queued intents — re-render ApprovalCard in confirmed state.
-          The NBE definition can come from EITHER moveForwardResult OR
-          brief.nextBestActions; the brief path was missed in the alpha
-          and caused the queued template to silently render nothing
-          when an operator queued an NBE from the Brief surface
-          (2026-05-26 fix). */}
+      {/* Queued intents — re-render ApprovalCard in confirmed state +
+          fold the matching specialist response (if any) into the same
+          emerald capsule so the queued action and its mission
+          recommendation read as one complete unit. The NBE definition
+          can come from EITHER moveForwardResult OR brief.nextBestActions
+          (the brief path was missed in the alpha and caused the queued
+          template to silently render nothing when an operator queued
+          an NBE from the Brief surface — 2026-05-26 fix). */}
       {Object.entries(queuedIntents).map(([nbeId, queued]) => {
         const fromMoveForward =
           moveForwardResult?.topAction?.id === nbeId
@@ -577,8 +579,18 @@ export function WelcomeRightPane(props: Props) {
         const fromBrief = brief?.nextBestActions?.find((a) => a.id === nbeId) ?? null;
         const nbe = fromMoveForward ?? fromBrief;
         if (!nbe) return null;
+        const sp = specialistResponses[nbeId] ?? null;
+        const spLoading = !!specialistLoading[nbeId];
+        const spError = specialistErrors[nbeId] ?? null;
+        const capsuleSurface = isDark
+          ? "border-emerald-500/40 bg-emerald-500/[0.03]"
+          : "border-emerald-300 bg-emerald-50/40";
         return (
-          <div key={`queued-${nbeId}`} data-queued-nbe-id={nbeId}>
+          <div
+            key={`queued-${nbeId}`}
+            data-queued-nbe-id={nbeId}
+            className={`rounded-xl border ${capsuleSurface} p-2 space-y-2`}
+          >
             <ApprovalCard
               action={toApprovalAction(nbe)}
               onApprove={() => undefined}
@@ -587,6 +599,21 @@ export function WelcomeRightPane(props: Props) {
               using={usingIqubes}
               theme={theme}
             />
+            {(sp || spLoading || spError) && (
+              <SpecialistResponseCard
+                data={sp}
+                loading={spLoading}
+                error={spError}
+                using={usingIqubes}
+                onDismiss={() => onDismissSpecialist(nbeId)}
+                onCreateArtifact={
+                  onUseSuggestedArtifact && sp
+                    ? (artifactType) => onUseSuggestedArtifact(artifactType, sp)
+                    : undefined
+                }
+                theme={theme}
+              />
+            )}
           </div>
         );
       })}
@@ -656,33 +683,40 @@ export function WelcomeRightPane(props: Props) {
         </div>
       )}
 
-      {/* Specialist responses linked to NBEs */}
-      {Object.entries(specialistResponses).map(([nbeId, sp]) => (
-        <SpecialistResponseCard
-          key={nbeId}
-          data={sp}
-          using={usingIqubes}
-          onDismiss={() => onDismissSpecialist(nbeId)}
-          onCreateArtifact={
-            onUseSuggestedArtifact
-              ? (artifactType) => onUseSuggestedArtifact(artifactType, sp)
-              : undefined
-          }
-          theme={theme}
-        />
-      ))}
+      {/* Specialist responses linked to NBEs.
+          Skip entries whose nbeId is already shown inside a queued
+          capsule above — otherwise the same mission recommendation
+          would render twice. */}
+      {Object.entries(specialistResponses)
+        .filter(([nbeId]) => !queuedIntents[nbeId])
+        .map(([nbeId, sp]) => (
+          <SpecialistResponseCard
+            key={nbeId}
+            data={sp}
+            using={usingIqubes}
+            onDismiss={() => onDismissSpecialist(nbeId)}
+            onCreateArtifact={
+              onUseSuggestedArtifact
+                ? (artifactType) => onUseSuggestedArtifact(artifactType, sp)
+                : undefined
+            }
+            theme={theme}
+          />
+        ))}
       {Object.entries(specialistLoading)
-        .filter(([, loading]) => loading)
+        .filter(([nbeId, loading]) => loading && !queuedIntents[nbeId])
         .map(([nbeId]) => (
           <div key={nbeId} className={`text-xs flex items-center gap-2 ${mutedClass}`}>
             <Loader2 className="w-3 h-3 animate-spin" /> Consulting specialist…
           </div>
         ))}
-      {Object.entries(specialistErrors).map(([nbeId, err]) => (
-        <p key={`err-${nbeId}`} className={`text-xs ${isDark ? "text-rose-400" : "text-rose-600"}`}>
-          Specialist failed: {err}
-        </p>
-      ))}
+      {Object.entries(specialistErrors)
+        .filter(([nbeId]) => !queuedIntents[nbeId])
+        .map(([nbeId, err]) => (
+          <p key={`err-${nbeId}`} className={`text-xs ${isDark ? "text-rose-400" : "text-rose-600"}`}>
+            Specialist failed: {err}
+          </p>
+        ))}
 
       {artifacts.length > 0 && (
         <div ref={artifactRef} className="space-y-2">

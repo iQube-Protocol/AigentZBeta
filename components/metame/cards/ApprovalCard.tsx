@@ -92,8 +92,12 @@ export function ApprovalCard({
   const surfaceClass = isDark
     ? "bg-violet-500/5 border-violet-500/40 text-slate-100"
     : "bg-violet-50 border-violet-300 text-slate-900";
+  const queuedSurfaceClass = isDark
+    ? "bg-emerald-500/5 border-emerald-500/40 text-slate-100"
+    : "bg-emerald-50 border-emerald-300 text-slate-900";
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
   const accentClass = isDark ? "text-violet-200" : "text-violet-800";
+  const queuedAccentClass = isDark ? "text-emerald-200" : "text-emerald-800";
   const approveBtn = isDark
     ? "bg-violet-500 hover:bg-violet-400 text-white"
     : "bg-violet-600 hover:bg-violet-700 text-white";
@@ -103,11 +107,11 @@ export function ApprovalCard({
 
   if (queued) {
     return (
-      <div className={`rounded-lg border p-4 ${surfaceClass}`}>
+      <div className={`rounded-lg border p-4 ${queuedSurfaceClass}`}>
         <div className="flex items-start gap-3">
-          <CheckCircle2 className={`w-5 h-5 mt-0.5 ${accentClass}`} />
+          <CheckCircle2 className={`w-5 h-5 mt-0.5 ${queuedAccentClass}`} />
           <div className="flex-1 min-w-0">
-            <h4 className={`font-semibold ${accentClass}`}>Queued — {action.label}</h4>
+            <h4 className={`font-semibold ${queuedAccentClass}`}>Queued — {action.label}</h4>
             <p className={`text-sm mt-1 ${mutedClass}`}>{queued.queueMessage}</p>
             <p className={`text-[11px] mt-2 ${mutedClass}`}>
               intent: <span className="font-mono">{queued.intentId.slice(0, 8)}…</span>
