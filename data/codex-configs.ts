@@ -2561,6 +2561,44 @@ export const MARKETA_CARTRIDGE: CodexConfig = {
       config: { component: 'MarketaQubeTalk', props: { scopedToPartner: true } },
       metadata: { icon: 'MessageSquare', description: 'Direct comms with Marketa agent' },
     },
+    // Chief-of-staff unlock: Admin sub-menu inside the Partner group,
+    // visible only to personas listed as Marketa cartridge admins
+    // (cartridgeFlags.adminCartridges includes 'marketa'). Global
+    // uber/platform admins satisfy the gate too. Native to Marketa
+    // — any future cartridge that mirrors the Marketa partner group
+    // would inherit this Admin sub-menu for free via the same
+    // mechanism. Same protocol as KNYT order > Admin.
+    {
+      id: 'partner-admin',
+      label: 'Admin',
+      slug: 'partner-admin',
+      enabled: true,
+      adminOfCartridge: 'marketa',
+      group: 'partner',
+      order: 5,
+      type: 'static',
+      config: { component: 'TabRendererFallback', props: {} },
+      metadata: {
+        icon: 'Settings',
+        description: 'Marketa admin surface — visible only to Marketa cartridge admins',
+      },
+      // Lazy getter — MARKETA_CARTRIDGE.tabs isn't fully constructed
+      // when this literal evaluates. Reading via a getter defers until
+      // tab.subTabs is consumed at render time.
+      get subTabs() {
+        return MARKETA_CARTRIDGE.tabs
+          .filter((t) => t.group === 'admin' && t.enabled)
+          .sort((a, b) => a.order - b.order)
+          .map((t) => ({
+            ...t,
+            id: `partner-admin-${t.id}`,
+            slug: `partner-admin-${t.slug}`,
+            adminOnly: false,
+            adminOfCartridge: 'marketa',
+            group: 'partner',
+          }));
+      },
+    },
   ],
   permissions: {
     view: ['*'],
