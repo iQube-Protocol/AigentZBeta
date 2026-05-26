@@ -1410,6 +1410,12 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
     { id: 'deploy',    label: 'Deploy',    icon: 'Rocket',   order: 4 },
     { id: 'missions',  label: 'Missions',  icon: 'Target',   order: 5 },
     { id: 'community', label: 'Community', icon: 'Users',    order: 6 },
+    // Admin group — stubbed 2026-05-26 so the chief-of-staff
+    // unlock has a real surface to mirror into metaMe's agentiqos
+    // group. Hidden from non-admins via the standard adminOnly gate;
+    // when AgentiQ OS grows real admin content, populate the existing
+    // 'aiqos-admin-home' stub with the proper tabs.
+    { id: 'admin',     label: 'Admin',     icon: 'Settings', order: 7, adminOnly: true },
   ],
   tabs: [
     // ── Home group ─────────────────────────────────────────────
@@ -1645,6 +1651,33 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
       config: { component: 'FeaturesTab', props: {} },
       metadata: { icon: 'Sparkles', description: 'Qriptopian editorial features' },
     },
+
+    // ── Admin group (stubbed 2026-05-26) ───────────────────────
+    // AgentiQ OS doesn't yet have admin content of its own. The
+    // placeholder below keeps the tabGroup non-empty so the
+    // chief-of-staff mirror into metaMe has something to render,
+    // and so the per-cartridge admin gate (adminOfCartridge:
+    // 'agentiq-os') has a concrete target. When real admin
+    // content lands, swap PlaceholderTab for the real component
+    // and add siblings here.
+    {
+      id: 'agentiq-os-admin-home',
+      label: 'AgentiQ OS Admin',
+      slug: 'admin-home',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'AgentiQ OS Admin',
+          description: 'AgentiQ OS admin surface — stubbed. Real admin content lands when the cartridge ships its first admin workflow (registry ops, agent lifecycle, etc.).',
+        },
+      },
+      metadata: { icon: 'Settings', description: 'AgentiQ OS admin surface (stub)', color: 'indigo' },
+    },
   ],
   permissions: {
     view: ['*'],
@@ -1835,12 +1868,14 @@ const qriptoAdminTabsForMetameQriptopia = () =>
       group: 'qriptopia',
     }));
 
-// AgentiQ OS admin tabs mirrored into metaMe's agentiqos group. The
-// AgentiQ OS cartridge's adminOnly tabs sit at top level (no group)
-// — same shape as Qripto.
+// AgentiQ OS admin tabs mirrored into metaMe's agentiqos group.
+// Pulls from the AgentiQ OS cartridge's `admin` tabGroup (added
+// 2026-05-26) — currently a single stub PlaceholderTab; real
+// content lands when AgentiQ OS ships its admin workflows. Same
+// clone pattern as the KNYT mirror.
 const agentiqOsAdminTabsForMetameAgentiqos = () =>
   AGENTIQ_OS_CARTRIDGE.tabs
-    .filter((t) => t.adminOnly === true && t.enabled && !t.group)
+    .filter((t) => t.group === 'admin' && t.enabled)
     .sort((a, b) => a.order - b.order)
     .map((t) => ({
       ...t,
