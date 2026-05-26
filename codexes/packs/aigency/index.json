@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-26T20:51:17.102Z",
+  "last_updated": "2026-05-26T22:34:46.097Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "41c69e5e2541419c0984af0d68a7ae27a9b652ab",
-  "latest_commit_short": "41c69e5",
-  "latest_commit_title": "myCanvas → Pulse publish + cartridge split end-to-end",
+  "latest_commit": "6997901e0c04a54bf5f02612089cc8179fc86b1f",
+  "latest_commit_short": "6997901",
+  "latest_commit_title": "Qriptopian Pulse — wire live + clone admin moderation + drop \"Admin\" labels",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "6997901",
+      "full_sha": "6997901e0c04a54bf5f02612089cc8179fc86b1f",
+      "title": "Qriptopian Pulse — wire live + clone admin moderation + drop \"Admin\" labels",
+      "author": "Claude",
+      "timestamp": "2026-05-26T22:32:43Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-6997901.md"
+    },
     {
       "sha": "41c69e5",
       "full_sha": "41c69e5e2541419c0984af0d68a7ae27a9b652ab",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-08T01:45:25Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-10db221.md"
-    },
-    {
-      "sha": "2d81f86",
-      "full_sha": "2d81f86cc10342037812083f85683ee486ad1e15",
-      "title": "trigger amplify rebuild: sprint 3+4 investor dashboard + admin investments tab",
-      "author": "Claude",
-      "timestamp": "2026-05-08T00:24:54Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-2d81f86.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
