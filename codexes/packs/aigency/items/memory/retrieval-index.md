@@ -1174,3 +1174,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-784c4bf.md](../build_/COMMITS/COMMIT-784c4bf.md)
 - Message: access spine: per-persona cartridge-admin grants resolver + canary
+
+## Commit `fee30e8` — 2026-05-26T03:44:02Z
+- Type: `push`
+- Brief: [COMMIT-fee30e8.md](../build_/COMMITS/COMMIT-fee30e8.md)
+- Message: admin-tab in activation: per-cartridge gating + KNYT Admin mirror in metaMe
