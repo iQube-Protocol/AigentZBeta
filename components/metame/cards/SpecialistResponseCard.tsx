@@ -51,6 +51,13 @@ interface Props {
   onDismiss?: () => void;
   /** Click an artifact chip → request Aigent Me create it. */
   onCreateArtifact?: (artifactType: string) => void;
+  /**
+   * When set, the "Approval required to implement" footer pill becomes
+   * a button that scrolls to / opens the implement-approval surface
+   * (the second-tier approval on the matching artifact, or the
+   * suggested-artifact chips when no artifact has been drafted yet).
+   */
+  onRequestApproval?: () => void;
   theme?: "light" | "dark";
 }
 
@@ -81,6 +88,7 @@ export function SpecialistResponseCard({
   using = ["PersonaQube", "ExperienceQube", "IntentQube"],
   onDismiss,
   onCreateArtifact,
+  onRequestApproval,
   theme = "dark",
 }: Props) {
   const isDark = theme === "dark";
@@ -219,9 +227,20 @@ export function SpecialistResponseCard({
           {conf.label}
         </span>
         {data.requiresApproval && (
-          <span className="px-2 py-0.5 rounded-full border border-amber-500/40 text-amber-300 bg-amber-500/10">
-            Approval required to implement
-          </span>
+          onRequestApproval ? (
+            <button
+              type="button"
+              onClick={onRequestApproval}
+              title="Jump to the approval gate for this recommendation"
+              className="px-2 py-0.5 rounded-full border border-amber-500/60 text-amber-200 bg-amber-500/15 hover:bg-amber-500/25 hover:border-amber-400/80 transition cursor-pointer"
+            >
+              Approval required to implement →
+            </button>
+          ) : (
+            <span className="px-2 py-0.5 rounded-full border border-amber-500/40 text-amber-300 bg-amber-500/10">
+              Approval required to implement
+            </span>
+          )
         )}
         <span className="ml-auto flex items-center gap-1">
           <Sparkles className="w-3 h-3" />
