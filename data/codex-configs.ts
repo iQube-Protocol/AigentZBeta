@@ -1765,6 +1765,33 @@ const knytOrderTabs = () =>
     .filter((t) => t.group === 'order-group' && t.enabled)
     .sort((a, b) => a.order - b.order);
 
+// Mirror of the KNYT cartridge's Admin tabs for surfacing inside the
+// metaMe "Order of Metayé" group — the chief-of-staff unlock for
+// founder-operator personas. Cloned with:
+//   - `adminOnly` dropped (the global admin gate is replaced by the
+//     per-cartridge gate below — KNYT cartridge admins who aren't
+//     global admins still see the tab, which is the whole point)
+//   - `adminOfCartridge: 'knyt-codex'` set (per-cartridge gate;
+//     hides the tab from any persona not listed as an admin of
+//     the KNYT cartridge)
+//   - `group: 'order'` reassigned (the metaMe Order of Metayé tabGroup)
+//   - `slug` prefixed with 'knyt-admin-' to avoid collisions inside
+//     metaMe's own tab namespace
+// Defense in depth: each child carries the gate too — the activeSubTabs
+// filter in CodexPanelDynamic also checks adminOfCartridge.
+const knytAdminTabsForMetameOrder = () =>
+  KNYT_CODEX.tabs
+    .filter((t) => t.group === 'admin' && t.enabled)
+    .sort((a, b) => a.order - b.order)
+    .map((t) => ({
+      ...t,
+      id: `metame-knyt-admin-${t.id}`,
+      slug: `knyt-admin-${t.slug}`,
+      adminOnly: false,
+      adminOfCartridge: 'knyt-codex',
+      group: 'order',
+    }));
+
 export const METAME_CODEX: CodexConfig = {
   id: 'metame-codex',
   name: 'metaMe Cartridge',
@@ -1945,6 +1972,30 @@ export const METAME_CODEX: CodexConfig = {
         color: 'amber',
       },
       subTabs: knytOrderTabs(),
+    },
+    // Chief-of-staff unlock: KNYT Admin tab mirrored into metaMe's
+    // Order of Metayé group, visible ONLY to personas who are admins
+    // of the KNYT cartridge (gated by adminOfCartridge: 'knyt-codex'
+    // — server-resolved via /api/persona/cartridge-admin-grants).
+    // Non-admins never see this tab; admins get the full KNYT admin
+    // sub-tabs as a tier-3 row beneath it without leaving metaMe.
+    {
+      id: 'order-knyt-admin',
+      label: 'KNYT Admin',
+      slug: 'order-knyt-admin',
+      enabled: true,
+      activationId: 'order-of-metaye',
+      adminOfCartridge: 'knyt-codex',
+      group: 'order',
+      order: 1,
+      type: 'static',
+      config: { component: 'TabRendererFallback', props: {} },
+      metadata: {
+        icon: 'Settings',
+        description: 'KNYT cartridge admin surface — visible only when the active persona admins the KNYT cartridge',
+        color: 'indigo',
+      },
+      subTabs: knytAdminTabsForMetameOrder(),
     },
 
     // ── VL group (activation-gated) ───────────────────────────────────────

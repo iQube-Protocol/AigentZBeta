@@ -23,6 +23,7 @@ import { SmartTriadProvider } from "@/app/components/content/SmartTriadProvider"
 import { SmartTriadSurfaces } from "@/app/components/content/SmartTriadSurfaces";
 import { personaFetch } from "@/utils/personaSpine";
 import { useActivations } from "@/services/activations/ActivationsContext";
+import { useCartridgeAdminGrants } from "@/app/hooks/useCartridgeAdminGrants";
 import { useActivePersona } from "@/app/hooks/useActivePersona";
 import { TabRenderer } from "./codex/TabRenderer";
 import { SubHeaderSlotContext } from "./codex/SubHeaderSlot";
@@ -204,9 +205,15 @@ export default function CodexPanelDynamic({
   // through React's render cycle (no window events, no fetch race).
   const { activeIds: activeActivations } = useActivations();
 
+  // Per-cartridge admin grants — fail-CLOSED while loading so the
+  // adminOfCartridge tabs (e.g. mirrored KNYT Admin inside metaMe's
+  // Order group) stay hidden during the brief fetch window for
+  // non-admin personas.
+  const cartridgeAdminGrants = useCartridgeAdminGrants();
+
   const enabledTabs = useMemo(
-    () => getEnabledTabs(codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
-    [codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, hiddenTabSet]
+    () => getEnabledTabs(codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, cartridgeAdminGrants).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
+    [codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, cartridgeAdminGrants, hiddenTabSet]
   );
   
   const [activeTabSlug, setActiveTabSlug] = useState<string>(
@@ -322,9 +329,21 @@ export default function CodexPanelDynamic({
   );
 
   // Resolve the third-tier active tab when the parent has subTabs.
+  // Defense in depth — the same gates that apply to top-level tabs in
+  // getEnabledTabs are mirrored here so a mis-configured parent tab
+  // can't accidentally surface gated sub-tabs.
   const activeSubTabs = useMemo(
-    () => (activeTab?.subTabs ?? []).filter((t) => t.enabled && (!t.adminOnly || isAdmin)),
-    [activeTab, isAdmin]
+    () => (activeTab?.subTabs ?? []).filter((t) => {
+      if (!t.enabled) return false;
+      if (t.adminOnly && !isAdmin) return false;
+      if (t.adminOfCartridge) {
+        if (!cartridgeAdminGrants.isGlobalAdmin && !cartridgeAdminGrants.cartridgeSlugs.has(t.adminOfCartridge)) {
+          return false;
+        }
+      }
+      return true;
+    }),
+    [activeTab, isAdmin, cartridgeAdminGrants]
   );
   const activeSubSubTab = useMemo(() => {
     if (activeSubTabs.length === 0) return null;

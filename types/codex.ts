@@ -69,6 +69,20 @@ export interface CodexTab {
   partnerOnly?: boolean;   // When true, tab is only visible to partner users (admins also see it)
   investorOnly?: boolean;  // When true, tab is only visible to verified investors (admins also see it)
   /**
+   * Per-cartridge admin gate. When set, the tab is visible ONLY when the
+   * active persona is an admin of the named cartridge (slug match against
+   * the grants returned by /api/persona/cartridge-admin-grants). Used to
+   * surface a foreign cartridge's Admin tab inside another cartridge's
+   * Activation sub-surface — e.g. metaMe's Order of Metayé group mirrors
+   * the KNYT cartridge's Admin tab so a KNYT admin running in their
+   * metaMe view gets full chief-of-staff visibility without leaving the
+   * surface, while a non-admin sees nothing.
+   *
+   * Independent of `adminOnly`. A global uber/platform admin
+   * (isGlobalAdmin: true) satisfies any adminOfCartridge gate.
+   */
+  adminOfCartridge?: string;
+  /**
    * When set, tab is visible only when the persona has an `active` row in
    * `persona_activations` for this activation id (catalog id from
    * data/activation-catalog.ts). Admins are not implicitly bypassed — they
