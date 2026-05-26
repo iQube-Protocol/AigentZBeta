@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-26T09:57:21.186Z",
+  "last_updated": "2026-05-26T10:11:30.874Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "7c3125f382b6d9078474b850461a57bdf1549716",
-  "latest_commit_short": "7c3125f",
-  "latest_commit_title": "CLAUDE.md: dual-source cartridge registration rule (hand-curated wins)",
+  "latest_commit": "f9a34dbad05f7767c10c357a53959f39415c7355",
+  "latest_commit_short": "f9a34db",
+  "latest_commit_title": "register TabRendererFallback component + add Admin under Marketa Partner",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "f9a34db",
+      "full_sha": "f9a34dbad05f7767c10c357a53959f39415c7355",
+      "title": "register TabRendererFallback component + add Admin under Marketa Partner",
+      "author": "Claude",
+      "timestamp": "2026-05-26T10:09:35Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-f9a34db.md"
+    },
     {
       "sha": "7c3125f",
       "full_sha": "7c3125f382b6d9078474b850461a57bdf1549716",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-06T20:44:40Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-1b0d145.md"
-    },
-    {
-      "sha": "244ff4f",
-      "full_sha": "244ff4f6bc5b4c2b893ffc3db9918d60c283eadc",
-      "title": "migrate wallet/identity/profile DB client to getSupabaseServer (timeout-guarded)",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:45:14Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-244ff4f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
