@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-25T18:57:27.338Z",
+  "last_updated": "2026-05-26T00:43:55.028Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "99e2175eeef7e0e2a6ea7404e73a755b29904fd6",
-  "latest_commit_short": "99e2175",
-  "latest_commit_title": "aigent-me chat: load metaMe cartridge state into system prompt",
+  "latest_commit": "f85dac003523777dbd373787160f4c7ce039045c",
+  "latest_commit_short": "f85dac0",
+  "latest_commit_title": "NBE Act → Queued badge after queue + clickable artifact links in receipts",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "f85dac0",
+      "full_sha": "f85dac003523777dbd373787160f4c7ce039045c",
+      "title": "NBE Act → Queued badge after queue + clickable artifact links in receipts",
+      "author": "Claude",
+      "timestamp": "2026-05-26T00:42:07Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f85dac0.md"
+    },
     {
       "sha": "99e2175",
       "full_sha": "99e2175eeef7e0e2a6ea7404e73a755b29904fd6",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-03T23:39:22Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-7389c24.md"
-    },
-    {
-      "sha": "2d2851e",
-      "full_sha": "2d2851eae8bb80f8b1bfbb66b3ef0c7252103418",
-      "title": "add knyt token gating workstream handover notes",
-      "author": "Claude",
-      "timestamp": "2026-05-02T23:16:39Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-2d2851e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
