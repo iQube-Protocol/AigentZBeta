@@ -91,17 +91,44 @@ interface TenantSlugRow {
 export async function getCartridgeAdminGrants(
   authProfileId: string | null | undefined,
   linkedAuthProfileIds: string[] = [],
+  callerEmail: string | null = null,
 ): Promise<CartridgeAdminGrants> {
   if (!authProfileId) return EMPTY_GRANTS;
 
   const client = getSupabaseServer();
   if (!client) return EMPTY_GRANTS;
 
-  // 1) Read every active admin role row for any of the persona's
-  //    candidate auth_profile_ids. The set includes the canonical id
-  //    plus every linked profile id that the merge view has resolved
-  //    — same source-of-truth as resolveAdminFlag in getActivePersona.
-  const candidateIds = Array.from(new Set([authProfileId, ...linkedAuthProfileIds].filter(Boolean)));
+  // 1) Resolve the candidate auth_profile_id set:
+  //    canonical + every linked profile via the merge view + every
+  //    auth_profile_id that owns the caller's email in the alias
+  //    table. The third leg mirrors resolveAdminFlag's fallback so
+  //    that admin grants attached to a sibling profile (which the
+  //    merge view hasn't linked yet) are still discoverable. Without
+  //    this fallback, operators whose admin role was granted before
+  //    profile-merge ran saw the role gate close — root cause of the
+  //    "admin tab not showing" bug observed 2026-05-26.
+  const candidateIds = Array.from(
+    new Set([authProfileId, ...linkedAuthProfileIds].filter(Boolean)),
+  );
+  if (callerEmail) {
+    try {
+      const email = callerEmail.trim().toLowerCase();
+      const { data: aliasRows } = await client
+        .from('crm_auth_profile_emails')
+        .select('auth_profile_id')
+        .eq('email_normalized', email)
+        .eq('status', 'active');
+      const aliasIds = ((aliasRows ?? []) as Array<{ auth_profile_id?: string }>)
+        .map((r) => r.auth_profile_id)
+        .filter((id): id is string => !!id);
+      for (const id of aliasIds) {
+        if (!candidateIds.includes(id)) candidateIds.push(id);
+      }
+    } catch {
+      // Email-alias lookup is best-effort. Resolver continues with
+      // whatever ids we already have.
+    }
+  }
   if (candidateIds.length === 0) return EMPTY_GRANTS;
 
   const { data: roleRows, error: roleErr } = await client

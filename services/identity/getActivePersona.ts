@@ -342,7 +342,11 @@ export async function getActivePersona(
   const [isAdmin, isPartner, adminGrants] = await Promise.all([
     resolveAdminFlag(caller.authProfileId, linkedAuthProfileIds, caller.email ?? null),
     Promise.resolve(resolvePartnerFlag()),
-    getCartridgeAdminGrants(caller.authProfileId, linkedAuthProfileIds).catch(() => ({
+    getCartridgeAdminGrants(
+      caller.authProfileId,
+      linkedAuthProfileIds,
+      caller.email ?? null,
+    ).catch(() => ({
       isGlobalAdmin: false,
       cartridgeSlugs: [] as string[],
     })),

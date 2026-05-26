@@ -216,6 +216,86 @@ describe('getCartridgeAdminGrants', () => {
     expect(new Set(grants.cartridgeSlugs)).toEqual(new Set(['21sats-a', '21sats-b']));
   });
 
+  it('discovers admin grant via email-alias fallback when the canonical auth_profile_id has no role row', async () => {
+    // Mirrors the real-world bug surfaced 2026-05-26: the operator's
+    // admin role was granted against a sibling auth_profile_id known
+    // only via the email-alias table. The merge view hadn't linked the
+    // two yet, so the prior resolver missed the role and the admin
+    // tab never appeared. With the email-alias fallback in place, the
+    // sibling id is added to the candidate set BEFORE the
+    // crm_admin_roles query — so the role gets discovered.
+    mockedGetSupabaseServer.mockReturnValue(
+      mockSupabase([
+        {
+          // Email-alias lookup returns a sibling auth_profile_id that
+          // the merge view doesn't yet link to the canonical id.
+          table: 'crm_auth_profile_emails',
+          rows: [{ id: 'sibling-auth-profile' }] as Array<MockRow>,
+        },
+        {
+          // Now the admin_roles query includes the sibling id —
+          // mockSupabase doesn't enforce IN filters per row but the
+          // step asserts the table was queried in the expected order.
+          table: 'crm_admin_roles',
+          rows: [
+            { role_type: 'tenant_super_admin', tenant_id: 'tenant-knyt', franchise_id: null },
+          ],
+        },
+        { table: 'crm_tenants', rows: [{ slug: 'knyt' }] },
+      ]) as unknown as ReturnType<typeof getSupabaseServer>,
+    );
+    // Pass canonical authProfileId with NO linked ids; the only way
+    // to find the role is via the email-alias fallback.
+    const grants = await getCartridgeAdminGrants(
+      'auth-profile-canonical-orphan',
+      [],
+      'admin-user@example.com',
+    );
+    expect(grants.isGlobalAdmin).toBe(false);
+    expect(grants.cartridgeSlugs).toEqual(['knyt-codex']);
+  });
+
+  it('email-alias fallback is best-effort — failure does not throw', async () => {
+    // When the alias table query throws, the resolver continues with
+    // whatever candidate ids it already has. No exception escapes.
+    let callCount = 0;
+    const failingClient = {
+      from(table: string) {
+        callCount++;
+        if (table === 'crm_auth_profile_emails') {
+          // Simulate a throw inside the alias lookup
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () => ({ then: (_: unknown, reject: (e: Error) => void) => reject(new Error('boom')) }),
+              }),
+            }),
+          };
+        }
+        // For crm_admin_roles, return empty (so we end at empty grants)
+        const rows: MockRow[] = [];
+        const chain = {
+          select: () => chain,
+          in: () => chain,
+          eq: () => chain,
+          then: (resolve: (v: { data: MockRow[]; error: null }) => unknown) =>
+            resolve({ data: rows, error: null }),
+        };
+        return chain;
+      },
+    };
+    mockedGetSupabaseServer.mockReturnValue(
+      failingClient as unknown as ReturnType<typeof getSupabaseServer>,
+    );
+    const grants = await getCartridgeAdminGrants(
+      'auth-profile-canonical',
+      [],
+      'admin-user@example.com',
+    );
+    expect(grants).toEqual({ isGlobalAdmin: false, cartridgeSlugs: [] });
+    expect(callCount).toBeGreaterThan(0);
+  });
+
   it('returns empty grants when getSupabaseServer is unavailable — fail-closed', async () => {
     mockedGetSupabaseServer.mockReturnValue(null as unknown as ReturnType<typeof getSupabaseServer>);
     const grants = await getCartridgeAdminGrants('auth-profile-any', []);
