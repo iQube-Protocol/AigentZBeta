@@ -653,6 +653,52 @@ export const KNYT_CODEX: CodexConfig = {
       }
     },
 
+    // Admin under Order — KNYT cartridge owns the inclusion logic
+    // natively. The mirror in metaMe (`knytOrderTabs()`) picks this up
+    // automatically, so the same Admin sub-menu appears inside metaMe's
+    // Order of Metayé tier-3 nav without any metaMe-side wiring.
+    //
+    // Per-cartridge gate: only personas listed as admins of KNYT in CRM
+    // see this tab (via cartridgeFlags.adminCartridges from the spine).
+    // Global uber/platform admins satisfy the gate too. The cloned
+    // subTabs inherit the same gate as defense in depth.
+    {
+      id: 'order-admin',
+      label: 'Admin',
+      slug: 'order-admin',
+      enabled: true,
+      adminOfCartridge: 'knyt-codex',
+      group: 'order-group',
+      order: 7,
+      type: 'static',
+      config: { component: 'TabRendererFallback', props: {} },
+      metadata: {
+        icon: 'Settings',
+        description: 'KNYT admin surface — visible only to KNYT cartridge admins',
+        color: 'indigo'
+      },
+      // Reference the same admin tab definitions used by the standalone
+      // KNYT Admin tabGroup — but clone with adminOnly dropped and the
+      // per-cartridge gate applied so tenant-admins (not just global
+      // uber-admins) see them.
+      get subTabs() {
+        // Lazy getter — KNYT_CODEX.tabs isn't fully constructed when
+        // this object literal evaluates inside the same tabs array.
+        // Reading via a getter defers until KNYT_CODEX is complete.
+        return KNYT_CODEX.tabs
+          .filter((t) => t.group === 'admin' && t.enabled)
+          .sort((a, b) => a.order - b.order)
+          .map((t) => ({
+            ...t,
+            id: `order-admin-${t.id}`,
+            slug: `order-admin-${t.slug}`,
+            adminOnly: false,
+            adminOfCartridge: 'knyt-codex',
+            group: 'order-group',
+          }));
+      },
+    },
+
     // ── Admin group (admin-gated) ──────────────────────────────
     {
       id: 'knyt-alpha',
@@ -1765,32 +1811,11 @@ const knytOrderTabs = () =>
     .filter((t) => t.group === 'order-group' && t.enabled)
     .sort((a, b) => a.order - b.order);
 
-// Mirror of the KNYT cartridge's Admin tabs for surfacing inside the
-// metaMe "Order of Metayé" group — the chief-of-staff unlock for
-// founder-operator personas. Cloned with:
-//   - `adminOnly` dropped (the global admin gate is replaced by the
-//     per-cartridge gate below — KNYT cartridge admins who aren't
-//     global admins still see the tab, which is the whole point)
-//   - `adminOfCartridge: 'knyt-codex'` set (per-cartridge gate;
-//     hides the tab from any persona not listed as an admin of
-//     the KNYT cartridge)
-//   - `group: 'order'` reassigned (the metaMe Order of Metayé tabGroup)
-//   - `slug` prefixed with 'knyt-admin-' to avoid collisions inside
-//     metaMe's own tab namespace
-// Defense in depth: each child carries the gate too — the activeSubTabs
-// filter in CodexPanelDynamic also checks adminOfCartridge.
-const knytAdminTabsForMetameOrder = () =>
-  KNYT_CODEX.tabs
-    .filter((t) => t.group === 'admin' && t.enabled)
-    .sort((a, b) => a.order - b.order)
-    .map((t) => ({
-      ...t,
-      id: `metame-knyt-admin-${t.id}`,
-      slug: `knyt-admin-${t.slug}`,
-      adminOnly: false,
-      adminOfCartridge: 'knyt-codex',
-      group: 'order',
-    }));
+// (knytAdminTabsForMetameOrder removed 2026-05-26 — admin is now a
+// native sub-item under KNYT's Order group via the order-admin tab,
+// so the existing knytOrderTabs() mirror flows it through into metaMe
+// automatically. The per-cartridge admin gate stays — it's set on the
+// order-admin tab inside KNYT, not in the metaMe mirror.)
 
 // Qriptopian admin tabs mirrored into metaMe's qriptopia group. Qripto's
 // admin tabs live at top level (no group), gated by adminOnly: true. We
@@ -2032,31 +2057,11 @@ export const METAME_CODEX: CodexConfig = {
         description: 'Active surface of the KNYT world inside metaMe',
         color: 'amber',
       },
+      // KNYT now owns the Admin sub-menu under its own order-group
+      // (see KNYT_CODEX 'order-admin' tab). knytOrderTabs() flows it
+      // through here automatically — no metaMe-side admin mirror needed
+      // for KNYT. Per-cartridge gate stays at the source declaration.
       subTabs: knytOrderTabs(),
-    },
-    // Chief-of-staff unlock: KNYT Admin tab mirrored into metaMe's
-    // Order of Metayé group, visible ONLY to personas who are admins
-    // of the KNYT cartridge (gated by adminOfCartridge: 'knyt-codex'
-    // — server-resolved via /api/persona/cartridge-admin-grants).
-    // Non-admins never see this tab; admins get the full KNYT admin
-    // sub-tabs as a tier-3 row beneath it without leaving metaMe.
-    {
-      id: 'order-knyt-admin',
-      label: 'KNYT Admin',
-      slug: 'order-knyt-admin',
-      enabled: true,
-      activationId: 'order-of-metaye',
-      adminOfCartridge: 'knyt-codex',
-      group: 'order',
-      order: 1,
-      type: 'static',
-      config: { component: 'TabRendererFallback', props: {} },
-      metadata: {
-        icon: 'Settings',
-        description: 'KNYT cartridge admin surface — visible only when the active persona admins the KNYT cartridge',
-        color: 'indigo',
-      },
-      subTabs: knytAdminTabsForMetameOrder(),
     },
 
     // ── VL group (activation-gated) ───────────────────────────────────────
