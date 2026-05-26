@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-05-26_crm-identity-asset-enrichment-plan.md",
         "updates/2026-05-26_spine-admin-grants-extension.md",
         "updates/2026-05-26_admin-tab-in-activation-backlog.md",
         "updates/2026-05-25_specialists-layout-inference-memory-backlog.md",
