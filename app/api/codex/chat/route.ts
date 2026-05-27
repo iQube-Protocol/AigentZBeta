@@ -29,6 +29,8 @@ import {
   type ComposerSessionContext,
 } from '@/services/copilot/composer';
 import { getExperienceQube, getPersonalGuide } from '@/services/iqube/experienceQube';
+import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getPersonaUploadService } from '@/services/uploads/supabaseUploadAdapter';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -105,6 +107,22 @@ interface UserContext {
    * generic narrative falls back to KB / persona prompt.
    */
   groundContext?: Record<string, unknown> | null;
+  /**
+   * Pre-formatted system-prompt block listing the persona uploads the
+   * operator attached to this turn. The POST handler fetches each
+   * upload's indexed content + composes the block before calling
+   * buildSystemPrompt; buildSystemPrompt appends it verbatim to the
+   * persona prompt so the LLM sees the file content as additional
+   * context.
+   *
+   * Format produced by composeAttachedUploadsBlock():
+   *   ## Attached uploads
+   *   <attached_file id="..." filename="..." mime="...">
+   *   CONTENT (truncated)
+   *   </attached_file>
+   *   ...
+   */
+  attachedUploadsBlock?: string;
 }
 
 interface CodexMetadata {
@@ -1817,12 +1835,67 @@ After your response, add:
   // Platform/system agents: persona system prompt only, plus any KB hits.
   // metameContextBlock + groundContextBlock are appended for aigent-me
   // (empty strings for any other agent — adds nothing to their prompts).
-  return `${personaIntro}${policyBlock}${metameContextBlock}${groundContextBlock}${kbSection}`;
+  // Attached uploads block — only emitted for aigent-me (the only
+  // surface that currently exposes the upload-attach UI). When the
+  // POST handler resolved uploads against the persona, the block is
+  // a fully-formatted markdown section ready to append.
+  const attachedUploadsBlock =
+    resolvedPersonaId === 'aigent-me' && userContext?.attachedUploadsBlock
+      ? userContext.attachedUploadsBlock
+      : '';
+
+  return `${personaIntro}${policyBlock}${metameContextBlock}${groundContextBlock}${attachedUploadsBlock}${kbSection}`;
 }
 
 // CORS headers for cross-origin requests from Vite dev server
 export async function OPTIONS() {
   return new NextResponse(null, { status: 200,  });
+}
+
+/**
+ * Compose the system-prompt block listing the operator's attached
+ * uploads. Each upload is fetched via the persona service (enforces
+ * ownership) and its indexed contentMd (or summary for unparsed
+ * types) is included verbatim. Per-file content is capped at 16k
+ * chars and the list is capped at 8 attachments to keep the model
+ * context within budget. Returns an empty string when the list is
+ * empty / unparseable / persona-mismatched so callers can append it
+ * unconditionally.
+ */
+async function composeAttachedUploadsBlock(
+  personaId: string,
+  uploadIds: unknown,
+): Promise<string> {
+  if (!personaId) return '';
+  if (!Array.isArray(uploadIds) || uploadIds.length === 0) return '';
+  const ids = uploadIds
+    .filter((x): x is string => typeof x === 'string' && x.length > 0)
+    .slice(0, 8);
+  if (ids.length === 0) return '';
+
+  const service = getPersonaUploadService();
+  const blocks: string[] = [];
+  for (const id of ids) {
+    try {
+      const upload = await service.get(id, personaId);
+      if (!upload) continue;
+      if (upload.status !== 'ready') {
+        blocks.push(
+          `<attached_file id="${upload.id}" filename="${upload.filename}" mime="${upload.mimeType}" status="${upload.status}">\n(File is still ${upload.status} — content not yet available.)\n</attached_file>`,
+        );
+        continue;
+      }
+      const content = upload.index?.contentMd ?? upload.index?.summary ?? '(no extracted content)';
+      const truncated = content.length > 16000 ? content.slice(0, 16000) + '\n...(truncated)' : content;
+      blocks.push(
+        `<attached_file id="${upload.id}" filename="${upload.filename}" mime="${upload.mimeType}">\n${truncated}\n</attached_file>`,
+      );
+    } catch (err) {
+      console.warn(`[chat] attached upload fetch failed for ${id}:`, err);
+    }
+  }
+  if (blocks.length === 0) return '';
+  return `\n\n## Attached uploads — operator-supplied context for this turn\n\nThe operator has attached the following file(s) to this message. Read them, cite them where relevant, and use them as primary source material when the operator asks about their content.\n\n${blocks.join('\n\n')}`;
 }
 
 export async function POST(request: NextRequest) {
@@ -1858,6 +1931,14 @@ export async function POST(request: NextRequest) {
       // other personas to avoid leaking aigentMe-flavoured narrative
       // into KNYT / Marketa replies.
       groundContext,
+      // Persona upload ids the operator attached for this turn. The
+      // handler validates ownership via the spine, fetches each
+      // upload's indexed content (contentMd / contentJson summary),
+      // and composes a system-prompt block that buildSystemPrompt
+      // appends to the persona intro so the LLM sees the file
+      // content. Capped at 8 attachments per turn / 16k chars per
+      // file so the model context budget stays sane.
+      attachedUploadIds,
     } = body;
 
     if (!message) {
@@ -1865,6 +1946,22 @@ export async function POST(request: NextRequest) {
         { error: 'Message is required' },
         { status: 400,  }
       );
+    }
+
+    // Resolve attached-upload contents through the spine. Ownership
+    // is enforced by the persona service — uploadIds that don't
+    // belong to the active persona are silently skipped.
+    let attachedUploadsBlock = '';
+    if (Array.isArray(attachedUploadIds) && attachedUploadIds.length > 0) {
+      try {
+        const activePersona = await getActivePersona(request);
+        const resolvedPersonaId = activePersona?.personaId ?? personaId;
+        if (resolvedPersonaId) {
+          attachedUploadsBlock = await composeAttachedUploadsBlock(resolvedPersonaId, attachedUploadIds);
+        }
+      } catch (err) {
+        console.warn('[chat] attached uploads composition failed:', err);
+      }
     }
 
     // Infer primary role from message and declared roles
@@ -1892,6 +1989,7 @@ export async function POST(request: NextRequest) {
         groundContext && typeof groundContext === 'object' && !Array.isArray(groundContext)
           ? (groundContext as Record<string, unknown>)
           : undefined,
+      attachedUploadsBlock: attachedUploadsBlock || undefined,
     };
 
     console.log('[CodexChat] User context:', { 
