@@ -1284,3 +1284,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-6352ef3.md](../build_/COMMITS/COMMIT-6352ef3.md)
 - Message: Surface every Qripto upload row in admin (covers + papers) with diagnostics + bust Next cache
+
+## Commit `c52d1aa` — 2026-05-27T04:43:58Z
+- Type: `push`
+- Brief: [COMMIT-c52d1aa.md](../build_/COMMITS/COMMIT-c52d1aa.md)
+- Message: Render PDF covers via iframe + adopt KNYT 4-up card grid pattern for Qripto Papers

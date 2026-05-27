@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`c52d1aa`](https://github.com/iQube-Protocol/AigentZBeta/commit/c52d1aa56f1aa70a184bbe2ed9224c5e53c930e2) [push] Render PDF covers via iframe + adopt KNYT 4-up card grid pattern for Qripto Papers (Claude, 2026-05-27T04:43:58Z)
 - [`6352ef3`](https://github.com/iQube-Protocol/AigentZBeta/commit/6352ef3ca5399e596a310146becde5b29d515e2c) [push] Surface every Qripto upload row in admin (covers + papers) with diagnostics + bust Next cache (Claude, 2026-05-27T04:39:35Z)
 - [`95e536c`](https://github.com/iQube-Protocol/AigentZBeta/commit/95e536c123a2ea1d8a8abfa8363edaa6fda4f1bf) [push] Skip encryption-at-rest for Qripto WIP uploads + open papers in PDF lite viewer (Claude, 2026-05-27T03:34:50Z)
 - [`0e1fe66`](https://github.com/iQube-Protocol/AigentZBeta/commit/0e1fe6681e3c77d69719e6cdf8e8b7d082ead602) [feat] Wire Qriptopian Papers tab + admin codex list to actual asset data (Claude, 2026-05-27T01:55:18Z)
