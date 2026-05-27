@@ -487,7 +487,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const [submittingApproval, setSubmittingApproval] = useState(false);
   const [approvalError, setApprovalError] = useState<string | null>(null);
   const [queuedIntents, setQueuedIntents] = useState<
-    Record<string, { intentId: string; status: string; queueMessage: string }>
+    Record<string, { intentId: string; status: string; queueMessage: string; manuallyComplete?: boolean }>
   >({});
 
   // Accordion: which right-pane config section is expanded.
@@ -1215,6 +1215,20 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
 
   const handleDismissQueued = useCallback((nbeId: string) => {
     setQueuedIntents((prev) => { const next = { ...prev }; delete next[nbeId]; return next; });
+  }, []);
+
+  // Mark complete — flips a queued pill to the green "complete" state
+  // without needing a real connector-success signal. In alpha (where
+  // Phase 5/6 specialist routing isn't live yet) this gives the
+  // operator explicit lifecycle control. When real execution lands the
+  // pill will auto-flip on the artifact status check; this manual
+  // path stays as a fallback.
+  const handleMarkPillComplete = useCallback((nbeId: string) => {
+    setQueuedIntents((prev) => {
+      const cur = prev[nbeId];
+      if (!cur) return prev;
+      return { ...prev, [nbeId]: { ...cur, manuallyComplete: true } };
+    });
   }, []);
 
   const handleAskSpecialist = useCallback(async (
@@ -2235,6 +2249,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 onCancelSecondTier: handleCancelSecondTier,
                 onDismissSpecialist: handleDismissSpecialist,
                 onDismissQueued: handleDismissQueued,
+                onMarkPillComplete: handleMarkPillComplete,
                 onDismissBrief: () => {
                   setBrief(null);
                   setBriefError(null);

@@ -22,7 +22,7 @@
  */
 
 import React from "react";
-import { Check, CheckCircle2, Loader2, X, Users, Sparkles } from "lucide-react";
+import { Check, CheckCircle2, Loader2, X, Users, Sparkles, CheckSquare } from "lucide-react";
 import type { NextBestActionData } from "@/components/metame/cards/NextBestActionCard";
 import {
   SpecialistResponseCard,
@@ -36,6 +36,14 @@ export interface ExpandedNBEPillQueuedState {
   intentId: string;
   status: string;
   queueMessage: string;
+  /**
+   * Operator-applied terminal flag — flips the pill to the green
+   * "complete" state without needing an actual connector-success
+   * signal. Useful in alpha when execution is mocked (Phase 5/6
+   * specialist routing not live yet) and the operator needs explicit
+   * control over pill lifecycle.
+   */
+  manuallyComplete?: boolean;
 }
 
 export interface ExpandedNBEPillSecondTier {
@@ -69,6 +77,10 @@ interface Props {
   onDismissArtifact: (artifactId: string) => void;
   onApproveSecondTier?: () => void;
   onCancelSecondTier?: () => void;
+  /** Operator-driven complete flip — surfaces a "Mark complete" button
+   *  in the pill header so the user can advance pill state to green
+   *  even when no artifact-level execution signal has fired. */
+  onMarkComplete?: () => void;
   theme?: "light" | "dark";
 }
 
@@ -90,13 +102,41 @@ const SPECIALIST_LABELS: Record<string, string> = {
 };
 
 /**
- * "Complete" heuristic — every artifact attached to the pill has been
- * sent / published, and at least one artifact exists. If no artifacts
- * have been drafted yet the pill is still in "queued" (blue) state.
+ * "Complete" semantics — either:
+ *   - the operator manually marked the pill complete, OR
+ *   - every artifact attached to the pill has been sent/published
+ *     (with at least one artifact present so a queued-but-empty pill
+ *     doesn't immediately read as complete).
  */
-function isPillComplete(artifacts: ArtifactCardData[]): boolean {
+function isPillComplete(
+  queued: ExpandedNBEPillQueuedState,
+  artifacts: ArtifactCardData[],
+): boolean {
+  if (queued.manuallyComplete) return true;
   if (artifacts.length === 0) return false;
   return artifacts.every((a) => a.status === "sent" || a.status === "published");
+}
+
+/**
+ * Of the suggested artifacts on a specialist response, pick the one
+ * most likely to actually trigger a second-tier approval (i.e. the
+ * one that externalises). Used by the "Approval required to implement →"
+ * pill to drive a one-click draft + approve flow instead of just
+ * scrolling.
+ */
+function pickApprovalArtifact(suggested: string[] | undefined): string | null {
+  if (!suggested || suggested.length === 0) return null;
+  const externalisingPriority = [
+    "gmail-draft",
+    "calendar-block",
+    "calendar-invite",
+    "post-set",
+    "market-campaign",
+  ];
+  for (const candidate of externalisingPriority) {
+    if (suggested.includes(candidate)) return candidate;
+  }
+  return suggested[0] ?? null;
 }
 
 export function ExpandedNBEPill({
@@ -117,10 +157,11 @@ export function ExpandedNBEPill({
   onDismissArtifact,
   onApproveSecondTier,
   onCancelSecondTier,
+  onMarkComplete,
   theme = "dark",
 }: Props) {
   const isDark = theme === "dark";
-  const complete = isPillComplete(artifacts);
+  const complete = isPillComplete(queued, artifacts);
 
   // Border + accent tokens for queued (blue) vs complete (green).
   const borderClass = complete
@@ -139,25 +180,46 @@ export function ExpandedNBEPill({
   const stateLabel = complete ? "Complete" : "Queued";
   const StateIcon = complete ? CheckCircle2 : Check;
 
-  // Auto-pick the artifact to scroll to when the recommendation's
-  // "Approval required to implement" pill is clicked. Falls back to
-  // first artifact, then to the suggested-artifact chips below.
+  // "Approval required to implement →" pill behaviour. Three branches:
+  //  1) A second-tier approval is already open for an artifact in this
+  //     pill → just scroll to it (avoid re-dispatching).
+  //  2) An artifact is already drafted but no approval surfaced yet →
+  //     scroll to that artifact so the operator can click its own
+  //     Send/Approve control.
+  //  3) Nothing drafted yet AND the specialist has suggested artifacts
+  //     → auto-draft the most likely externalising one. The dispatcher
+  //     opens the second-tier approval inline if the connector
+  //     requires it, so the operator gets one-click "draft + approve"
+  //     instead of the old "click → scroll → hunt for chip → click chip
+  //     → wait → find approval somewhere else" loop.
   const handleRequestApproval = () => {
-    const target =
-      artifacts.find((a) => a.artifactId === secondTierApproval?.artifactId) ??
-      artifacts.find((a) => a.actionConnectorId) ??
-      artifacts[0] ??
-      null;
-    if (target) {
-      const el = document.querySelector(`[data-artifact-id="${target.artifactId}"]`);
-      el?.scrollIntoView({ behavior: "smooth", block: "start" });
-    } else {
-      // No artifact drafted yet — surface the suggested-artifact chips.
-      const chips = document.querySelector(
-        `[data-pill-intent-id="${queued.intentId}"] [data-suggested-artifacts]`,
-      );
-      chips?.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (secondTierApproval) {
+      const target = artifacts.find((a) => a.artifactId === secondTierApproval.artifactId);
+      if (target) {
+        document
+          .querySelector(`[data-artifact-id="${target.artifactId}"]`)
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
     }
+    if (artifacts.length > 0) {
+      document
+        .querySelector(`[data-artifact-id="${artifacts[0].artifactId}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if (specialistResponse && onUseSuggestedArtifact) {
+      const artifactType = pickApprovalArtifact(specialistResponse.suggestedArtifacts);
+      if (artifactType) {
+        onUseSuggestedArtifact(artifactType, specialistResponse);
+        return;
+      }
+    }
+    // Last resort — surface the suggested-artifact chips so the
+    // operator can pick one manually.
+    document
+      .querySelector(`[data-pill-intent-id="${queued.intentId}"] [data-suggested-artifacts]`)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
   return (
@@ -197,13 +259,30 @@ export function ExpandedNBEPill({
             <span className="font-mono">{complete ? "complete" : queued.status}</span>
           </p>
         </div>
-        <button
-          onClick={onDismissQueued}
-          className="shrink-0 p-1 rounded hover:bg-slate-800/40"
-          aria-label="Dismiss"
-        >
-          <X className="w-4 h-4" />
-        </button>
+        <div className="flex items-start gap-1 shrink-0">
+          {!complete && onMarkComplete && (
+            <button
+              onClick={onMarkComplete}
+              title="Mark this pill complete — flips to green"
+              aria-label="Mark complete"
+              className={`inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] font-medium transition ${
+                isDark
+                  ? "border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/10"
+                  : "border-emerald-400 text-emerald-700 hover:bg-emerald-50"
+              }`}
+            >
+              <CheckSquare className="w-3 h-3" />
+              Mark complete
+            </button>
+          )}
+          <button
+            onClick={onDismissQueued}
+            className="p-1 rounded hover:bg-slate-800/40"
+            aria-label="Dismiss"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Folded specialist response — recommendations + suggested artifact chips */}

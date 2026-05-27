@@ -93,6 +93,10 @@ interface Props {
   onDismissArtifact?: (artifactId: string) => void;
   onApproveSecondTier?: () => void;
   onCancelSecondTier?: () => void;
+  /** Operator-driven complete flip — surfaces "Mark complete" on each
+   *  expanded pill so the user can advance it to green even when
+   *  execution is mocked. */
+  onMarkPillComplete?: (nbeId: string) => void;
   /** When provided, renders a close (X) control in the header so the
    *  user can dismiss the brief instead of scrolling past it. The chip
    *  that triggered the brief can re-open it. */
@@ -129,6 +133,7 @@ export function BriefCard({
   onDismissArtifact,
   onApproveSecondTier,
   onCancelSecondTier,
+  onMarkPillComplete,
   onDismiss,
   theme = "dark",
 }: Props) {
@@ -275,53 +280,66 @@ export function BriefCard({
               different cartridge or update your ExperienceModel.
             </p>
           ) : (
-            data.nextBestActions.map((action) => {
-              const queued = queuedIntents?.[action.id] ?? null;
-              if (queued) {
-                const artifactsForPill =
-                  (artifactsByIntent && artifactsByIntent[queued.intentId]) ?? [];
-                const matchedSecondTier =
-                  secondTierApproval &&
-                  artifactsForPill.some((a) => a.artifactId === secondTierApproval.artifactId)
-                    ? secondTierApproval
-                    : null;
+            // Promote queued pills to the top of the suggested-next-moves
+            // list so the operator sees their in-flight work first, then
+            // the still-pending actions below. Preserves original ordering
+            // within each bucket.
+            [...data.nextBestActions]
+              .sort((a, b) => {
+                const aq = queuedIntents?.[a.id] ? 1 : 0;
+                const bq = queuedIntents?.[b.id] ? 1 : 0;
+                return bq - aq;
+              })
+              .map((action) => {
+                const queued = queuedIntents?.[action.id] ?? null;
+                if (queued) {
+                  const artifactsForPill =
+                    (artifactsByIntent && artifactsByIntent[queued.intentId]) ?? [];
+                  const matchedSecondTier =
+                    secondTierApproval &&
+                    artifactsForPill.some((a) => a.artifactId === secondTierApproval.artifactId)
+                      ? secondTierApproval
+                      : null;
+                  return (
+                    <ExpandedNBEPill
+                      key={action.id}
+                      action={action}
+                      queued={queued}
+                      specialistResponse={specialistResponses?.[action.id] ?? null}
+                      specialistLoading={!!specialistLoading?.[action.id]}
+                      specialistError={specialistErrors?.[action.id] ?? null}
+                      artifacts={artifactsForPill}
+                      secondTierApproval={matchedSecondTier}
+                      using={using ?? ["PersonaQube", "ExperienceQube", "IntentQube"]}
+                      actionPendingArtifactId={actionPendingArtifactId}
+                      actionErrors={actionErrors}
+                      onDismissQueued={() => onDismissQueued?.(action.id)}
+                      onDismissSpecialist={
+                        onDismissSpecialist ? () => onDismissSpecialist(action.id) : undefined
+                      }
+                      onUseSuggestedArtifact={onUseSuggestedArtifact}
+                      onSendArtifact={(id) => onSendArtifact?.(id)}
+                      onDismissArtifact={(id) => onDismissArtifact?.(id)}
+                      onApproveSecondTier={onApproveSecondTier}
+                      onCancelSecondTier={onCancelSecondTier}
+                      onMarkComplete={
+                        onMarkPillComplete ? () => onMarkPillComplete(action.id) : undefined
+                      }
+                      theme={theme}
+                    />
+                  );
+                }
                 return (
-                  <ExpandedNBEPill
+                  <NextBestActionCard
                     key={action.id}
                     action={action}
-                    queued={queued}
-                    specialistResponse={specialistResponses?.[action.id] ?? null}
-                    specialistLoading={!!specialistLoading?.[action.id]}
-                    specialistError={specialistErrors?.[action.id] ?? null}
-                    artifacts={artifactsForPill}
-                    secondTierApproval={matchedSecondTier}
-                    using={using ?? ["PersonaQube", "ExperienceQube", "IntentQube"]}
-                    actionPendingArtifactId={actionPendingArtifactId}
-                    actionErrors={actionErrors}
-                    onDismissQueued={() => onDismissQueued?.(action.id)}
-                    onDismissSpecialist={
-                      onDismissSpecialist ? () => onDismissSpecialist(action.id) : undefined
-                    }
-                    onUseSuggestedArtifact={onUseSuggestedArtifact}
-                    onSendArtifact={(id) => onSendArtifact?.(id)}
-                    onDismissArtifact={(id) => onDismissArtifact?.(id)}
-                    onApproveSecondTier={onApproveSecondTier}
-                    onCancelSecondTier={onCancelSecondTier}
+                    onAct={onActOnNbe}
+                    queued={false}
+                    promptHint={data.nbaPromptHints?.[action.id] ?? null}
                     theme={theme}
                   />
                 );
-              }
-              return (
-                <NextBestActionCard
-                  key={action.id}
-                  action={action}
-                  onAct={onActOnNbe}
-                  queued={false}
-                  promptHint={data.nbaPromptHints?.[action.id] ?? null}
-                  theme={theme}
-                />
-              );
-            })
+              })
           )}
         </div>
       </section>

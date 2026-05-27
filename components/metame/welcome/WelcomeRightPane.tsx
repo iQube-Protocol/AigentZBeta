@@ -193,6 +193,11 @@ interface Props {
   onCancelSecondTier: () => void;
   onDismissSpecialist: (nbeId: string) => void;
   onDismissQueued: (nbeId: string) => void;
+  /** Operator-driven complete flip on a queued NBE pill. Threads
+   *  through to ExpandedNBEPill's "Mark complete" header button so the
+   *  user can advance pill state to green without waiting on real
+   *  execution. */
+  onMarkPillComplete?: (nbeId: string) => void;
   /** Per-bundle dismiss handlers — clear the loaded brief / venture /
    *  move-forward state so the action space doesn't pile up. Re-firing
    *  the chip re-issues the request and re-renders the bundle. */
@@ -452,7 +457,7 @@ export function WelcomeRightPane(props: Props) {
     usingIqubes,
     onCtaClick, onNbeAct, onApprovalApprove, onApprovalCancel,
     onSendArtifact, onDismissArtifact, onApproveSecondTier, onCancelSecondTier,
-    onDismissSpecialist, onDismissQueued,
+    onDismissSpecialist, onDismissQueued, onMarkPillComplete,
     onDismissBrief, onDismissVenture, onDismissMoveForward,
     onAskSpecialist, askSpecialistOpenId, askSpecialistPrompt, askSpecialistLoadingId,
     askSpecialistResponses, askSpecialistErrors,
@@ -734,6 +739,7 @@ export function WelcomeRightPane(props: Props) {
             onDismissArtifact={onDismissArtifact}
             onApproveSecondTier={onApproveSecondTier}
             onCancelSecondTier={onCancelSecondTier}
+            onMarkPillComplete={onMarkPillComplete}
             onDismiss={onDismissBrief}
             theme={theme}
           />
