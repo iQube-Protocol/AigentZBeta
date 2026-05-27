@@ -660,12 +660,11 @@ export function WelcomeRightPane(props: Props) {
           (the brief path was missed in the alpha and caused the queued
           template to silently render nothing when an operator queued
           an NBE from the Brief surface — 2026-05-26 fix). */}
-      {/* Top-of-pane queued capsule loop — only renders when there's
-          NO active Capsule (e.g. early state before any chip click).
-          Once a Capsule is engaged, its own template owns the queued
-          Pill rendering, so this loop steps aside to avoid double
-          rendering. */}
-      {activeCapsuleId === null && Object.entries(queuedIntents).map(([nbeId, queued]) => {
+      {/* Top-of-pane queued capsule loop — only fires for queued
+          Pills that aren't owned by a visible template Capsule
+          (Brief / Move-forward). Each Capsule renders its own Pills
+          inline; this loop catches any orphan that lost its parent. */}
+      {Object.entries(queuedIntents).map(([nbeId, queued]) => {
         // The Brief Capsule and Move-forward Capsule now own the
         // expansion of their own Pills inline — don't double-render
         // them as standalone capsules at the top of the pane.
@@ -735,7 +734,7 @@ export function WelcomeRightPane(props: Props) {
         );
       })}
 
-      {activeCapsuleId === "brief" && (brief || briefLoading || briefError) && (
+      {(brief || briefLoading || briefError) && (
         <div ref={briefRef}>
           <BriefCard
             data={brief}
@@ -760,7 +759,7 @@ export function WelcomeRightPane(props: Props) {
         </div>
       )}
 
-      {activeCapsuleId === "venture-progress" && (ventureProgress || ventureProgressLoading || ventureProgressError) && (
+      {(ventureProgress || ventureProgressLoading || ventureProgressError) && (
         <VentureProgressCard
           data={ventureProgress}
           loading={ventureProgressLoading}
@@ -772,7 +771,7 @@ export function WelcomeRightPane(props: Props) {
         />
       )}
 
-      {activeCapsuleId === "move-forward" && topAction && !queuedIntents[topAction.id] && (
+      {topAction && !queuedIntents[topAction.id] && (
         <div ref={nbeRef}>
           {moveForwardResult?.topActionReason && (
             <div className="mb-1.5 px-3 py-1.5 rounded-md border border-violet-500/30 bg-violet-500/5 text-[11px] text-violet-200 flex items-start gap-1.5">
@@ -792,7 +791,7 @@ export function WelcomeRightPane(props: Props) {
           />
         </div>
       )}
-      {activeCapsuleId === "move-forward" && alternates.length > 0 && (
+      {alternates.length > 0 && (
         <div className="space-y-2">
           {alternates.filter((a) => !queuedIntents[a.id]).map((alt) => (
             <NextBestActionCard
@@ -805,7 +804,7 @@ export function WelcomeRightPane(props: Props) {
           ))}
         </div>
       )}
-      {activeCapsuleId === "move-forward" && moveForwardLoading && (
+      {moveForwardLoading && (
         <div className={`text-xs flex items-center gap-2 ${mutedClass}`}>
           <Loader2 className="w-3 h-3 animate-spin" /> Finding next best action…
         </div>
