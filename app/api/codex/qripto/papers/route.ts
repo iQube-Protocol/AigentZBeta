@@ -20,6 +20,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
+// Force per-request execution so freshly-uploaded rows surface
+// immediately without waiting for Next's static cache to roll over.
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 type AssetRow = {
   id: string;
@@ -98,11 +102,18 @@ export async function GET(req: NextRequest) {
 
     const rows = (data || []) as AssetRow[];
 
-    // Bucket rows by scope, separating covers from papers.
+    // Bucket rows by scope, separating covers from papers. Group-filter
+    // (papers vs magazines) is applied here but `assets` below returns
+    // EVERY in-scope row so the admin view can show unmatched covers.
     const buckets = new Map<string, { papers: AssetRow[]; covers: AssetRow[] }>();
+    // Diagnostic counter — when the route returns zero papers it's
+    // usually because rows exist but their storage filename prefix
+    // doesn't match the (papers|magazines)-<slug>_<ts> pattern. Surface
+    // the unparseable count so the admin can flag it.
+    let unparseableCount = 0;
     for (const row of rows) {
       const scope = parseScopeFromUrl(row.auto_drive_cid);
-      if (!scope) continue;
+      if (!scope) { unparseableCount += 1; continue; }
       if (!scope.startsWith(`${group}/`)) continue;
       if (scopeFilter && scope !== scopeFilter) continue;
       const bucket = buckets.get(scope) ?? { papers: [], covers: [] };
@@ -114,7 +125,46 @@ export async function GET(req: NextRequest) {
       buckets.set(scope, bucket);
     }
 
+    // Flat per-row admin list — covers AND papers each as their own
+    // entry. Used by the Magazine & Codex admin table so the operator
+    // can see every uploaded row regardless of whether it matched.
+    type AdminAsset = {
+      id: string;
+      title: string;
+      scope: string;
+      scopeLabel: string;
+      role: 'cover' | 'paper';
+      assetKind: string | null;
+      storageUrl: string;
+      coverThumbUrl: string | null;
+      mimeType: string;
+      uploadedAt: string | null;
+    };
+    const assets: AdminAsset[] = [];
+    for (const [scope, bucket] of buckets) {
+      for (const role of ['cover', 'paper'] as const) {
+        const list = role === 'cover' ? bucket.covers : bucket.papers;
+        for (const row of list) {
+          if (!row.auto_drive_cid) continue;
+          assets.push({
+            id: row.id,
+            title: row.supabase_title || row.title || 'Untitled',
+            scope,
+            scopeLabel: SCOPE_LABELS[scope] || scope,
+            role,
+            assetKind: row.asset_kind,
+            storageUrl: row.auto_drive_cid,
+            coverThumbUrl: row.cover_thumb_url,
+            mimeType: row.mime_type || 'application/octet-stream',
+            uploadedAt: row.created_at,
+          });
+        }
+      }
+    }
+
     // Flatten with cover matching — most recent cover in the scope wins.
+    // The codex Papers tab consumes this list; covers themselves don't
+    // appear as cards because each card IS a paper-with-cover bundle.
     const papers: PaperCard[] = [];
     for (const [scope, bucket] of buckets) {
       const coverUrl = bucket.covers[0]?.cover_thumb_url || bucket.covers[0]?.auto_drive_cid || null;
@@ -140,7 +190,17 @@ export async function GET(req: NextRequest) {
       return (b.uploadedAt ?? '').localeCompare(a.uploadedAt ?? '');
     });
 
-    return NextResponse.json({ group, scope: scopeFilter, papers });
+    return NextResponse.json({
+      group,
+      scope: scopeFilter,
+      papers,
+      assets,
+      diagnostics: {
+        totalRows: rows.length,
+        unparseable: unparseableCount,
+        bucketCount: buckets.size,
+      },
+    });
   } catch (e: unknown) {
     return NextResponse.json(
       { error: (e as Error)?.message || 'Failed to load papers', papers: [] },
