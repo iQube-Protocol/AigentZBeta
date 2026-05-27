@@ -644,18 +644,34 @@ export function WelcomeRightPane(props: Props) {
                 theme={theme}
               />
             )}
-            {capsuleArtifacts.map((artifact) => (
-              <div key={artifact.artifactId} data-artifact-id={artifact.artifactId}>
-                <ArtifactCard
-                  data={artifact}
-                  onAction={() => onSendArtifact(artifact.artifactId)}
-                  onDismiss={() => onDismissArtifact(artifact.artifactId)}
-                  actionPending={actionPendingArtifactId === artifact.artifactId}
-                  actionError={actionErrors[artifact.artifactId]}
-                  theme={theme}
-                />
-              </div>
-            ))}
+            {capsuleArtifacts.map((artifact) => {
+              const showSecondTier =
+                secondTierApproval?.artifactId === artifact.artifactId;
+              return (
+                <div key={artifact.artifactId} data-artifact-id={artifact.artifactId} className="space-y-2">
+                  <ArtifactCard
+                    data={artifact}
+                    onAction={() => onSendArtifact(artifact.artifactId)}
+                    onDismiss={() => onDismissArtifact(artifact.artifactId)}
+                    actionPending={actionPendingArtifactId === artifact.artifactId}
+                    actionError={actionErrors[artifact.artifactId]}
+                    theme={theme}
+                  />
+                  {showSecondTier && secondTierApproval && (
+                    <SecondTierApprovalCard
+                      connectorLabel={secondTierApproval.connectorLabel}
+                      summary={secondTierApproval.summary}
+                      detail={secondTierApproval.detail}
+                      submitting={secondTierApproval.submitting}
+                      error={secondTierApproval.error}
+                      onApprove={onApproveSecondTier}
+                      onCancel={onCancelSecondTier}
+                      theme={theme}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         );
       })}
