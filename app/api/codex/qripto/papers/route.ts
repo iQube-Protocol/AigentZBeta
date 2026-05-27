@@ -62,6 +62,27 @@ const SCOPE_LABELS: Record<string, string> = {
   'magazines/3':                   'Issue #3',
 };
 
+// Editorial order of series sections in the codex grid — top to bottom.
+// Used by the final paper sort instead of alphabetical scopeLabel so
+// the operator can pin Experience Sovereignty above COYN Thesis (and
+// future re-orderings) without touching the matcher. Scopes not listed
+// fall to the end in scope-label order.
+const SCOPE_DISPLAY_ORDER: string[] = [
+  'papers/protocols',
+  'papers/polity',
+  'papers/experience-sovereignty',
+  'papers/coyn-thesis',
+  'papers/polity-plutocracy',
+  'magazines/0',
+  'magazines/1',
+  'magazines/2',
+  'magazines/3',
+];
+function scopeOrderIndex(scope: string): number {
+  const idx = SCOPE_DISPLAY_ORDER.indexOf(scope);
+  return idx === -1 ? Number.POSITIVE_INFINITY : idx;
+}
+
 const COVER_KINDS = new Set(['cover_image', 'cover_pdf']);
 
 /**
@@ -258,11 +279,14 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Final order: scope label A→Z, then leading sequence number ASC
-    // (1 first), tie-break by uploaded_at ASC. Reuses titleLeadingNumber
-    // declared above. Papers without a leading number fall to the end.
+    // Final order: scope by editorial index (SCOPE_DISPLAY_ORDER), then
+    // leading sequence number ASC (1 first) within scope, tie-break by
+    // uploaded_at ASC. Reuses titleLeadingNumber declared above. Papers
+    // without a leading number fall to the end of their scope.
     papers.sort((a, b) => {
-      if (a.scopeLabel !== b.scopeLabel) return a.scopeLabel.localeCompare(b.scopeLabel);
+      const sa = scopeOrderIndex(a.scope);
+      const sb = scopeOrderIndex(b.scope);
+      if (sa !== sb) return sa - sb;
       const na = titleLeadingNumber(a.title) ?? Number.POSITIVE_INFINITY;
       const nb = titleLeadingNumber(b.title) ?? Number.POSITIVE_INFINITY;
       if (na !== nb) return na - nb;
