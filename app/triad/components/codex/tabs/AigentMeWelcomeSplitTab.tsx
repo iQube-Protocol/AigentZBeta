@@ -74,6 +74,7 @@ import type { StageEvaluation } from "@/services/strategy/stageProgression";
 
 import { ComposeQuickActionsStrip, type ComposeKind } from "@/components/metame/copilot/ComposeQuickActionsStrip";
 import AgentWalletDrawer from "@/components/AgentWalletDrawer";
+import { UploadDrawer } from "@/components/metame/uploads/UploadDrawer";
 // WelcomeRightPane is composed by the layout registry now — `StackLayout`
 // wraps it identically so Phase 1 behavior is preserved while Phase 2
 // slices add intent-specific layouts alongside.
@@ -444,6 +445,12 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
 
   // Wallet drawer.
   const [walletOpen, setWalletOpen] = useState(false);
+  // Upload drawer state — opens via the new Upload icon in the compose
+  // strip. Persists uploads to /api/uploads which writes to
+  // persona_uploads + Supabase Storage and runs the parse-on-upload
+  // indexer so context attach / tool input flows can read the
+  // extracted content.
+  const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
 
   // Compose modal open/close booleans.
   // Phase 2 Slice 4: compose-modal open booleans removed. The single
@@ -2590,6 +2597,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 <ComposeQuickActionsStrip
                   onOpen={openComposeByKind}
                   onWalletOpen={() => setWalletOpen(true)}
+                  onUploadOpen={() => setUploadDrawerOpen(true)}
                   theme={theme}
                 />
               </div>
@@ -2670,6 +2678,12 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         open={walletOpen}
         onClose={() => setWalletOpen(false)}
         agent={{ id: 'aigent-me', name: 'aigentMe' }}
+      />
+      <UploadDrawer
+        open={uploadDrawerOpen}
+        onClose={() => setUploadDrawerOpen(false)}
+        personaId={personaId}
+        theme={theme}
       />
     </>
   );
