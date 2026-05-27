@@ -1274,3 +1274,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-0e1fe66.md](../build_/COMMITS/COMMIT-0e1fe66.md)
 - Message: Wire Qriptopian Papers tab + admin codex list to actual asset data
+
+## Commit `95e536c` — 2026-05-27T03:34:50Z
+- Type: `push`
+- Brief: [COMMIT-95e536c.md](../build_/COMMITS/COMMIT-95e536c.md)
+- Message: Skip encryption-at-rest for Qripto WIP uploads + open papers in PDF lite viewer
