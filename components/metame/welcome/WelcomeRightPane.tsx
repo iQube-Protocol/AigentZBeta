@@ -639,6 +639,22 @@ export function WelcomeRightPane(props: Props) {
               </button>
             );
           })}
+          {/* Bridge into the canonical Pills & Artifacts ledger so the
+              operator can browse every CTA Acted on this session (and
+              prior sessions) without leaving the metaMe surface. */}
+          <a
+            href="/codex/viewer?slug=metame&tab=my-workbench"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`ml-auto px-2 py-0.5 rounded-full border transition ${
+              isDark
+                ? "border-violet-500/40 text-violet-200 hover:border-violet-400 hover:bg-violet-500/10"
+                : "border-violet-300 text-violet-700 hover:border-violet-500 hover:bg-violet-50"
+            }`}
+            title="Open the full Pills & Artifacts ledger in myWorkbench"
+          >
+            View all in myWorkbench →
+          </a>
         </div>
       )}
 
