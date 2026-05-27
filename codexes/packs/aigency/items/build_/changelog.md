@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`ddadc89`](https://github.com/iQube-Protocol/AigentZBeta/commit/ddadc89d29ab2d98801f3803542c79ced24f142e) [push] Replace Qripto assetKind dropdown with Standalone | Part of a Series + X of Y inputs (Claude, 2026-05-27T00:21:51Z)
 - [`0929def`](https://github.com/iQube-Protocol/AigentZBeta/commit/0929defe329a50b4aafb64ab20133def0b25edc1) [push] Qripto-aware Codex Upload modal — Series + Content Types live (Claude, 2026-05-26T23:14:25Z)
 - [`6997901`](https://github.com/iQube-Protocol/AigentZBeta/commit/6997901e0c04a54bf5f02612089cc8179fc86b1f) [feat] Qriptopian Pulse — wire live + clone admin moderation + drop "Admin" labels (Claude, 2026-05-26T22:32:43Z)
 - [`41c69e5`](https://github.com/iQube-Protocol/AigentZBeta/commit/41c69e5e2541419c0984af0d68a7ae27a9b652ab) [push] myCanvas → Pulse publish + cartridge split end-to-end (Claude, 2026-05-26T20:49:13Z)
