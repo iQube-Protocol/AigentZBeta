@@ -2500,6 +2500,12 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 // path so the next composer mount starts empty unless a
                 // suggested-artifact explicitly seeded a prompt.
                 composerInitialPrompt,
+                // ComposerLayout's X / Cancel calls this to clear the
+                // overlay state so the composer unmounts. Without it,
+                // the dismiss only swapped foreground layouts — a
+                // no-op when the composer is mounted as an overlay
+                // on top of the active Capsule.
+                onComposerClose: () => setComposerKind(null),
                 composerHandlers: {
                   onCreateGmail: async (input) => {
                     await handleComposeGmailDraft(input);
