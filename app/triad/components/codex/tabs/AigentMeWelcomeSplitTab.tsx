@@ -1630,7 +1630,10 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       case 'marketa-campaign':
         setComposerInitialPrompt(buildPromptFromPayload());
         setComposerKind('marketa');
-        setActiveLayoutId('composer');
+        // Composer overlay handles rendering on top of the active
+        // Capsule — no foreground layout swap (the swap was causing
+        // the brief / venture to vanish on Act and then re-appear
+        // wrongly when the overlay closed).
         return;
 
       case 'studio':
@@ -1648,7 +1651,8 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       case 'composer':
         setComposerInitialPrompt(buildPromptFromPayload());
         setComposerKind(cls.composeKind);
-        setActiveLayoutId('composer');
+        // Composer overlay handles rendering on top of the active
+        // Capsule — no foreground layout swap.
         return;
 
       case 'unknown':
@@ -1675,7 +1679,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       const prompt = buildPromptForSuggestedArtifact(artifactType, response);
       setComposerInitialPrompt(prompt);
       setComposerKind(cls.composeKind);
-      setActiveLayoutId('composer');
+      // Composer overlay handles rendering on top of the active Capsule.
       return;
     }
     // Non-composer destinations route through the unified dispatcher.
