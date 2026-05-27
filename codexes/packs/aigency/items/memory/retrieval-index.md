@@ -1304,3 +1304,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-31d3a6a.md](../build_/COMMITS/COMMIT-31d3a6a.md)
 - Message: Polyfill Promise.withResolvers in PDF-thumb route (pdfjs-dist 4.x needs Node 22 method on Amplify Node 20)
+
+## Commit `51f6a32` — 2026-05-27T15:26:46Z
+- Type: `push`
+- Brief: [COMMIT-51f6a32.md](../build_/COMMITS/COMMIT-51f6a32.md)
+- Message: Use pdfjs-dist legacy build (no worker) in PDF-thumb route so Lambda doesnt look for pdf.worker.mjs
