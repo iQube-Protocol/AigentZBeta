@@ -1078,6 +1078,18 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingApprovalNbe, pendingApprovalHint, personaId, fetchReceipts, fetchVentureProgress]);
 
+  // Parent IntentQube id for the composer flow. Set when the composer
+  // is opened in response to an Act on a queued NBE; threaded into
+  // /api/assistant/create-artifact via `sourceIntentId` so the drafted
+  // artifact nests inside its parent Pill instead of falling through
+  // to the orphan-artifact bucket. Declared HERE (above the compose
+  // handlers) so its binding exists by the time their useCallback
+  // dependency arrays are evaluated — declaring it further down in
+  // the file alongside composerKind put it in the TDZ at render time
+  // and crashed the cartridge with "can't access lexical declaration
+  // before initialization".
+  const [composerSourceIntentId, setComposerSourceIntentId] = useState<string | null>(null);
+
   // ── Compose handlers — all 6 mirror the classic tab pattern ────────
   const handleDraftEmail = useCallback(async (prompt: string) => {
     const res = await personaFetch('/api/assistant/draft-email', {
@@ -1506,16 +1518,12 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // draft on mount so the operator lands on a populated form. Used by
   // the SpecialistsLayout suggested-artifact buttons.
   const [composerInitialPrompt, setComposerInitialPrompt] = useState<string | null>(null);
-  // Parent IntentQube id for the composer flow. Set when the composer
-  // is opened in response to an Act on a queued NBE; threaded into
-  // /api/assistant/create-artifact via `sourceIntentId` so the drafted
-  // artifact nests inside its parent Pill instead of falling through
-  // to the orphan-artifact bucket. Cleared on composer close / kind
-  // change so compose-strip drafts (no parent Pill) stay orphan.
-  const [composerSourceIntentId, setComposerSourceIntentId] = useState<string | null>(null);
-  // Clear the parent-intent binding whenever the composer is dismissed.
-  // Watches composerKind so every close path (backdrop click, onCreate
-  // success, overlay X) resets the binding without per-call wiring.
+
+  // Clear the composer's parent-intent binding whenever the composer
+  // is dismissed (composerKind flips to null on backdrop click,
+  // onCreate success, overlay X). Without this, a subsequent
+  // compose-strip draft could inherit the prior Pill's intent id and
+  // appear nested in a stale Pill.
   useEffect(() => {
     if (composerKind === null) setComposerSourceIntentId(null);
   }, [composerKind]);
