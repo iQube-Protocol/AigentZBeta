@@ -14,6 +14,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Loader2, X, Send, Sparkles } from "lucide-react";
 import { MicButton } from "@/components/ui/MicButton";
 import { transformEmailDictation } from "@/hooks/useSpeechRecognition";
+import { UploadAttachmentPicker } from "@/components/metame/uploads/UploadAttachmentPicker";
 
 interface CampaignOption {
   id: string;
@@ -33,6 +34,9 @@ interface Props {
     fromName?: string;
     campaignId?: string;
     cohortId?: string;
+    /** Persona upload ids to attach. Resolved by the marketa
+     *  connector at send time via the upload service. */
+    attachmentUploadIds?: string[];
   }) => Promise<void>;
   onDraftWithAigentMe: (prompt: string) => Promise<{
     to: string;
@@ -67,6 +71,10 @@ export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithA
   const [campaignsLoading, setCampaignsLoading] = useState(false);
   const [campaignId, setCampaignId] = useState("");
   const [cohortId, setCohortId] = useState("");
+  // Persona upload ids selected as attachments. UploadPicker mounts
+  // inline below the campaign/cohort row; selected ids ride through
+  // to onCreate → create-artifact → marketa connector at send time.
+  const [attachmentUploadIds, setAttachmentUploadIds] = useState<string[]>([]);
 
   // Fetch campaigns + their cohorts when the modal opens. Live shape comes
   // from /api/marketa/campaigns (KS Prospects, KNYT Codex, Partners).
@@ -182,10 +190,12 @@ export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithA
         ...(fromName.trim() ? { fromName: fromName.trim() } : {}),
         ...(campaignId ? { campaignId } : {}),
         ...(cohortId ? { cohortId } : {}),
+        ...(attachmentUploadIds.length > 0 ? { attachmentUploadIds } : {}),
       });
       setAiPrompt(""); setAiRationale(null); setAiSource(null);
       setTo(""); setSubject(""); setBodyText(""); setCc(""); setBcc(""); setFromName("");
       setCampaignId(""); setCohortId("");
+      setAttachmentUploadIds([]);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -289,6 +299,15 @@ export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithA
               </select>
             </label>
           </div>
+          {/* Attachment picker — persona uploads selected here ride
+              through onCreate into the Marketa connector as
+              attachmentUploadIds. The connector resolves them to
+              base64 payloads at send time. */}
+          <UploadAttachmentPicker
+            value={attachmentUploadIds}
+            onChange={setAttachmentUploadIds}
+            theme={theme}
+          />
           <label className="block">
             <span className={`block text-xs mb-1 ${labelClass}`}>To</span>
             <input type="text" value={to} onChange={(e) => setTo(e.target.value)} placeholder="recipient@example.com" className={`w-full px-3 py-2 rounded ${inputClass}`} disabled={submitting} />
