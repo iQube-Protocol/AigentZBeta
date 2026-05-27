@@ -77,6 +77,16 @@ export type RightPaneLayoutProps = WelcomeRightPaneProps & {
   composerKind?: ComposeKind | null;
   composerHandlers?: ComposerHandlers;
   /**
+   * Close handler for the composer surface. When the composer is
+   * mounted as an OVERLAY on top of an active Capsule (Brief / Move
+   * forward / Venture), the layout's onRequestLayout('stack') is a
+   * no-op because the foreground isn't the composer — it's the
+   * Capsule layout that's still active underneath. The parent tab
+   * wires this to setComposerKind(null) so the overlay unmounts
+   * cleanly regardless of which layout is foreground.
+   */
+  onComposerClose?: () => void;
+  /**
    * Optional pre-baked aigentMe draft prompt — when ComposerLayout
    * mounts with this set, the inline compose form pre-fills its AI
    * prompt textarea AND auto-fires the draft once so the operator
@@ -153,6 +163,14 @@ export type RightPaneLayoutProps = WelcomeRightPaneProps & {
    * as composerInitialPrompt so the inline form auto-drafts on mount.
    */
   onUseSuggestedArtifact?: (artifactType: string, response: import("@/components/metame/cards/SpecialistResponseCard").SpecialistResponseData) => void;
+  /**
+   * Map of synthetic intent id → specialist id for artifacts spawned
+   * from a specialist's suggested-artifact chip. SpecialistsLayout
+   * uses it to filter the global `artifacts` list down to those
+   * drafted from the current consultation, so they fold inside the
+   * Ask Specialists Capsule instead of floating as orphans.
+   */
+  specialistIntentMap?: Record<string, string>;
 };
 
 export interface RightPaneLayoutDefinition {

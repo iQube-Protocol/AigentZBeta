@@ -80,6 +80,8 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   "video-script": <Video className="w-4 h-4" />,
   "slide-outline": <Presentation className="w-4 h-4" />,
   "venture-report": <Clipboard className="w-4 h-4" />,
+  "marketa-email": <Mail className="w-4 h-4" />,
+  "marketa-cohort-email": <Mail className="w-4 h-4" />,
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -92,6 +94,8 @@ const TYPE_LABELS: Record<string, string> = {
   "video-script": "Video script",
   "slide-outline": "Slide outline",
   "venture-report": "Venture report",
+  "marketa-email": "Marketa email",
+  "marketa-cohort-email": "Marketa cohort email",
 };
 
 const STATUS_META: Record<ArtifactCardData["status"], { label: string; ring: string }> = {

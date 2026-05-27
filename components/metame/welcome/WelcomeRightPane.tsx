@@ -184,6 +184,14 @@ interface Props {
   capsuleHistory?: ReadonlyArray<"brief" | "move-forward" | "venture-progress" | "ask-specialists">;
   /** Switch the active Capsule (also pushes the current one into history). */
   onEngageCapsule?: (id: "brief" | "move-forward" | "venture-progress" | "ask-specialists") => void;
+  /**
+   * Map of synthetic intent id → specialist id for artifacts spawned
+   * from a specialist's suggested-artifact chip. The standalone
+   * artifact render below filters these out so they don't double-
+   * render — SpecialistsLayout owns their display inside the
+   * consultation card.
+   */
+  specialistIntentMap?: Record<string, string>;
 
   /** Below-fold sections. */
   expModel: ExperienceModelCardData | null;
@@ -473,6 +481,7 @@ export function WelcomeRightPane(props: Props) {
     activeCapsuleId = null,
     capsuleHistory = [],
     onEngageCapsule,
+    specialistIntentMap,
     onUseSuggestedArtifact,
     expModel, expModelLoading, stageEval,
     receipts, receiptsLoading, receiptsPersonaLabel,
@@ -681,7 +690,15 @@ export function WelcomeRightPane(props: Props) {
           Pills that aren't owned by a visible template Capsule
           (Brief / Move-forward). Each Capsule renders its own Pills
           inline; this loop catches any orphan that lost its parent. */}
-      {Object.entries(queuedIntents).map(([nbeId, queued]) => {
+      {/* Top-of-pane queued capsule loop — disabled whenever a
+          Capsule is engaged, because each Capsule template now owns
+          its own Pill rendering inline. This used to be a fallback
+          for orphan queued NBEs (no parent Capsule visible); with the
+          activeCapsuleId gate above, the active Capsule always owns
+          its Pills and nothing should leak here. Kept around (but
+          gated) so a future engagement-less state still has somewhere
+          to surface a stray queued intent if one appears. */}
+      {activeCapsuleId === null && Object.entries(queuedIntents).map(([nbeId, queued]) => {
         // The Brief Capsule and Move-forward Capsule now own the
         // expansion of their own Pills inline — don't double-render
         // them as standalone capsules at the top of the pane.
@@ -751,7 +768,12 @@ export function WelcomeRightPane(props: Props) {
         );
       })}
 
-      {(brief || briefLoading || briefError) && (
+      {/* Brief Capsule — only renders when the operator is engaged
+          in the Brief. Safe to gate now that composer no longer
+          swaps the foreground layout (it overlays instead), so
+          activeCapsuleId stays stable through the Act → compose →
+          send cycle and the Brief Capsule never disappears mid-flow. */}
+      {activeCapsuleId === "brief" && (brief || briefLoading || briefError) && (
         <div ref={briefRef}>
           <BriefCard
             data={brief}
@@ -776,7 +798,9 @@ export function WelcomeRightPane(props: Props) {
         </div>
       )}
 
-      {(ventureProgress || ventureProgressLoading || ventureProgressError) && (
+      {/* Venture Progress Capsule — only renders when engaged. Same
+          gating rationale as the Brief Capsule above. */}
+      {activeCapsuleId === "venture-progress" && (ventureProgress || ventureProgressLoading || ventureProgressError) && (
         <VentureProgressCard
           data={ventureProgress}
           loading={ventureProgressLoading}
@@ -792,7 +816,9 @@ export function WelcomeRightPane(props: Props) {
           Queued Pills expand inline as ExpandedNBEPill (same pattern as
           the Brief Capsule) so the bundle stays intact when the
           operator Acts on one Pill. */}
-      {topAction && (
+      {/* Move-forward Capsule — gated on engagement; same as Brief
+          and Venture Capsules above. */}
+      {activeCapsuleId === "move-forward" && topAction && (
         <div ref={nbeRef}>
           {moveForwardResult?.topActionReason && (
             <div className="mb-1.5 px-3 py-1.5 rounded-md border border-violet-500/30 bg-violet-500/5 text-[11px] text-violet-200 flex items-start gap-1.5">
@@ -839,7 +865,7 @@ export function WelcomeRightPane(props: Props) {
           )}
         </div>
       )}
-      {alternates.length > 0 && (
+      {activeCapsuleId === "move-forward" && alternates.length > 0 && (
         <div className="space-y-2">
           {alternates.map((alt) => {
             const queued = queuedIntents[alt.id];
@@ -883,7 +909,7 @@ export function WelcomeRightPane(props: Props) {
           })}
         </div>
       )}
-      {moveForwardLoading && (
+      {activeCapsuleId === "move-forward" && moveForwardLoading && (
         <div className={`text-xs flex items-center gap-2 ${mutedClass}`}>
           <Loader2 className="w-3 h-3 animate-spin" /> Finding next best action…
         </div>
@@ -927,19 +953,22 @@ export function WelcomeRightPane(props: Props) {
           surface. */}
 
       {/* Standalone artifacts — only "true" orphans (no parent intent
-          matching a queued Pill). In practice these come from the
-          bottom compose strip (Email / Doc / Sheet / Slides / Marketa /
-          Event) where the operator drafted something without first
-          Acting on a Pill. */}
+          matching a queued Pill, and not tagged for a specialist
+          consultation). Specialist-spawned drafts now nest inside the
+          Ask Specialists Capsule, so this filter skips them too.
+          What's left are typically bottom-compose-strip drafts. */}
       {(() => {
         const ownedIntentIds = new Set<string>();
         for (const [nbeId, queued] of Object.entries(queuedIntents)) {
           ownedIntentIds.add(queued.intentId);
           void nbeId;
         }
-        const standalone = artifacts.filter(
-          (a) => !a.intentId || !ownedIntentIds.has(a.intentId),
-        );
+        const standalone = artifacts.filter((a) => {
+          if (!a.intentId) return true;
+          if (ownedIntentIds.has(a.intentId)) return false;
+          if (specialistIntentMap && specialistIntentMap[a.intentId]) return false;
+          return true;
+        });
         if (standalone.length === 0) return null;
         return (
           <div ref={artifactRef} className="space-y-2">

@@ -184,6 +184,12 @@ export interface ArtifactDispatchPayload {
   source: 'specialist' | 'nbe-act' | 'compose-chip' | 'chat';
   /** Optional specialist id for downstream telemetry. */
   specialistId?: string;
+  /** Optional synthetic intent id — threaded through to
+   *  /api/assistant/create-artifact so dispatched artifacts can be
+   *  grouped under a Pill / Capsule by intentId. Used by the
+   *  Specialists flow to bind suggested-artifact drafts to the
+   *  consultation that spawned them. */
+  sourceIntentId?: string;
 }
 
 // Back-compat — kept for the few callers that explicitly want a
@@ -957,11 +963,16 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       setPendingApprovalNbe(null);
       // Foreground layout remains as-is; approval overlay unmounts.
       void fetchReceipts();
-      // Phase 2 B.3 — also refresh the cockpit so the just-queued
-      // intent appears in Active Work without the operator needing
-      // to wait for the next 20s poll. Silent mode keeps the
-      // existing surface mounted.
-      void fetchVentureProgress({ silent: true });
+      // Phase 2 B.3 — refresh the cockpit so the just-queued intent
+      // appears in Active Work without waiting for the next 20s poll.
+      // Gated on the active Capsule: only fetch when the operator is
+      // actually engaged in the Venture Capsule — otherwise the
+      // populated state causes the VentureProgressCard to render in
+      // the stack pane alongside the Brief Capsule (the regression
+      // the operator just flagged).
+      if (activeCapsuleId === 'venture-progress') {
+        void fetchVentureProgress({ silent: true });
+      }
 
       // Class-wide artifact dispatch — same router every other surface
       // (specialist chips, future "create a doc / report / deck"
@@ -1076,7 +1087,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       setSubmittingApproval(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingApprovalNbe, pendingApprovalHint, personaId, fetchReceipts, fetchVentureProgress]);
+  }, [pendingApprovalNbe, pendingApprovalHint, personaId, fetchReceipts, fetchVentureProgress, activeCapsuleId]);
 
   // Parent IntentQube id for the composer flow. Set when the composer
   // is opened in response to an Act on a queued NBE; threaded into
@@ -1089,6 +1100,13 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // and crashed the cartridge with "can't access lexical declaration
   // before initialization".
   const [composerSourceIntentId, setComposerSourceIntentId] = useState<string | null>(null);
+  // Map of synthetic-intent-id → specialist id for artifacts spawned
+  // from a specialist's suggested-artifact chip. Lets the
+  // SpecialistsLayout fold those drafts inside the Ask Specialists
+  // Capsule (Pill-pattern parity with Brief / Move-forward / Venture)
+  // and lets the right-pane standalone-artifact render skip them so
+  // they don't double-render as orphans.
+  const [specialistIntentMap, setSpecialistIntentMap] = useState<Record<string, string>>({});
 
   // ── Compose handlers — all 6 mirror the classic tab pattern ────────
   const handleDraftEmail = useCallback(async (prompt: string) => {
@@ -1542,18 +1560,21 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const [kpisEditorOpen, setKpisEditorOpen] = useState(false);
 
   // ── AG-UI bridge: copilot → right pane ─────────────────────────────
-  // Compose footer / copilot bridge now routes ALL compose intents
-  // through the Phase 2 ComposerLayout — no popup modals over the
-  // right pane. The compose form hosts inline in the layout's body;
-  // submit creates the artifact + clears composerKind so the same
-  // surface flips to the draft preview with Send draft → Phase 2
-  // ApprovalLayout overlay (the unified HITL gate).
+  // Compose footer / copilot bridge routes ALL compose intents
+  // through the composer overlay. The compose form hosts inline in
+  // the overlay; submit creates the artifact + clears composerKind so
+  // the overlay unmounts and the active Capsule remains visible
+  // underneath (Brief / Move forward / Venture).
   const openComposeByKind = useCallback((kind: ComposeKind) => {
     // Clear any prior auto-draft prompt — manual chip-fired composer
     // opens should land on an empty form, not re-run a previous draft.
     setComposerInitialPrompt(null);
     setComposerKind(kind);
-    setActiveLayoutId('composer');
+    // No more setActiveLayoutId('composer') — the overlay handles
+    // rendering on top of whatever foreground layout is active. The
+    // previous double-call mounted the composer twice (once via the
+    // foreground swap, once via the overlay), leaving an unresponsive
+    // second modal stuck behind the first when the operator closed it.
   }, []);
 
   // SpecialistsLayout suggested-artifact button → open ComposerLayout
@@ -1622,7 +1643,10 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       case 'marketa-campaign':
         setComposerInitialPrompt(buildPromptFromPayload());
         setComposerKind('marketa');
-        setActiveLayoutId('composer');
+        // Composer overlay handles rendering on top of the active
+        // Capsule — no foreground layout swap (the swap was causing
+        // the brief / venture to vanish on Act and then re-appear
+        // wrongly when the overlay closed).
         return;
 
       case 'studio':
@@ -1640,7 +1664,8 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       case 'composer':
         setComposerInitialPrompt(buildPromptFromPayload());
         setComposerKind(cls.composeKind);
-        setActiveLayoutId('composer');
+        // Composer overlay handles rendering on top of the active
+        // Capsule — no foreground layout swap.
         return;
 
       case 'unknown':
@@ -1662,15 +1687,27 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     artifactType: string,
     response: import('@/components/metame/cards/SpecialistResponseCard').SpecialistResponseData,
   ) => {
+    // Generate a synthetic intent id for this specialist-spawned
+    // artifact. Routed into create-artifact via composerSourceIntentId,
+    // so the persisted artifact carries intentId = synthetic id.
+    // SpecialistsLayout uses the (intent → specialist) map to fold the
+    // resulting artifact card inside the Ask Specialists Capsule
+    // instead of letting it float as an orphan in the right pane.
+    const synthIntentId = `specialist:${response.specialistId}:${Date.now()}`;
+    setSpecialistIntentMap((prev) => ({ ...prev, [synthIntentId]: response.specialistId }));
+    setComposerSourceIntentId(synthIntentId);
+
     const cls = classifySuggestedArtifact(artifactType);
     if (cls.kind === 'composer') {
       const prompt = buildPromptForSuggestedArtifact(artifactType, response);
       setComposerInitialPrompt(prompt);
       setComposerKind(cls.composeKind);
-      setActiveLayoutId('composer');
+      // Composer overlay handles rendering on top of the active Capsule.
       return;
     }
     // Non-composer destinations route through the unified dispatcher.
+    // Pass the synthetic intent id so dispatched artifacts also land
+    // tagged for specialist folding.
     dispatchArtifact({
       artifactType,
       title: response.title,
@@ -1678,6 +1715,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       recommendations: response.recommendations,
       source: 'specialist',
       specialistId: response.specialistId,
+      sourceIntentId: synthIntentId,
     });
   }, [dispatchArtifact]);
 
@@ -2482,12 +2520,19 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 onHandoffSpecialist: handleHandoffSpecialist,
                 onOpenActivationsForSpecialist: handleOpenActivationsForSpecialist,
                 onUseSuggestedArtifact: handleUseSuggestedArtifact,
+                specialistIntentMap,
                 // Pre-baked aigentMe draft prompt for the ComposerLayout
                 // when the operator fired a suggested-artifact button.
                 // Cleared by every non-suggested-artifact composer open
                 // path so the next composer mount starts empty unless a
                 // suggested-artifact explicitly seeded a prompt.
                 composerInitialPrompt,
+                // ComposerLayout's X / Cancel calls this to clear the
+                // overlay state so the composer unmounts. Without it,
+                // the dismiss only swapped foreground layouts — a
+                // no-op when the composer is mounted as an overlay
+                // on top of the active Capsule.
+                onComposerClose: () => setComposerKind(null),
                 composerHandlers: {
                   onCreateGmail: async (input) => {
                     await handleComposeGmailDraft(input);
