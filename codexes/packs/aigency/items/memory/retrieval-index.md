@@ -1319,3 +1319,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-47347c4.md](../build_/COMMITS/COMMIT-47347c4.md)
 - Message: Remove cover_pdf upload option + add CLAUDE.md must-read on PDF-grid-with-image-cover pattern
+
+## Commit `e0e0470` — 2026-05-27T19:24:25Z
+- Type: `feat`
+- Brief: [COMMIT-e0e0470.md](../build_/COMMITS/COMMIT-e0e0470.md)
+- Message: Pair Qripto covers to papers by created_at index + add ID + URL columns to admin table (KNYT parity)

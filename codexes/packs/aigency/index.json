@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-27T18:52:24.945Z",
+  "last_updated": "2026-05-27T19:26:25.619Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "47347c40af2ff2046edd5aa3357b84b3e75e36a1",
-  "latest_commit_short": "47347c4",
-  "latest_commit_title": "Remove cover_pdf upload option + add CLAUDE.md must-read on PDF-grid-with-image-cover pattern",
+  "latest_commit": "e0e0470958421d0ab7f4fce6bfa261d7cef776ca",
+  "latest_commit_short": "e0e0470",
+  "latest_commit_title": "Pair Qripto covers to papers by created_at index + add ID + URL columns to admin table (KNYT parity)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "e0e0470",
+      "full_sha": "e0e0470958421d0ab7f4fce6bfa261d7cef776ca",
+      "title": "Pair Qripto covers to papers by created_at index + add ID + URL columns to admin table (KNYT parity)",
+      "author": "Claude",
+      "timestamp": "2026-05-27T19:24:25Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-e0e0470.md"
+    },
     {
       "sha": "47347c4",
       "full_sha": "47347c40af2ff2046edd5aa3357b84b3e75e36a1",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-21T18:24:56Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-e4352e4.md"
-    },
-    {
-      "sha": "813b74c",
-      "full_sha": "813b74c4a3df932fd6453909257debe06b2bee3f",
-      "title": "knyt retail bundles tab: drop 4 single non-bundled GN offers (gn-investor-{qripto,digital,paperback,hardcover}) — they belong on the investor tab where they're discounted; rename tab 'Bundles & GN' → 'Bundles'; section header 'Graphic Novel, Episode & Character Bundles' → 'Premium Bundles' (investor tab unchanged)",
-      "author": "Claude",
-      "timestamp": "2026-05-19T05:55:17Z",
-      "type": "refactor",
-      "brief": "items/build_/COMMITS/COMMIT-813b74c.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`e0e0470`](https://github.com/iQube-Protocol/AigentZBeta/commit/e0e0470958421d0ab7f4fce6bfa261d7cef776ca) [feat] Pair Qripto covers to papers by created_at index + add ID + URL columns to admin table (KNYT parity) (Claude, 2026-05-27T19:24:25Z)
 - [`47347c4`](https://github.com/iQube-Protocol/AigentZBeta/commit/47347c40af2ff2046edd5aa3357b84b3e75e36a1) [feat] Remove cover_pdf upload option + add CLAUDE.md must-read on PDF-grid-with-image-cover pattern (Claude, 2026-05-27T18:50:28Z)
 - [`df780ef`](https://github.com/iQube-Protocol/AigentZBeta/commit/df780eff29c51ac0c493de83a153170a9c55388c) [push] Match KNYT cover pattern exactly: covers are images, no pdfjs rasteriser, no fake worker (Claude, 2026-05-27T18:41:54Z)
 - [`51f6a32`](https://github.com/iQube-Protocol/AigentZBeta/commit/51f6a32f6652ecec53bceb42d60f131cc9e2993c) [push] Use pdfjs-dist legacy build (no worker) in PDF-thumb route so Lambda doesnt look for pdf.worker.mjs (Claude, 2026-05-27T15:26:46Z)
