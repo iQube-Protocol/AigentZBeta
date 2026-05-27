@@ -1279,3 +1279,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-95e536c.md](../build_/COMMITS/COMMIT-95e536c.md)
 - Message: Skip encryption-at-rest for Qripto WIP uploads + open papers in PDF lite viewer
+
+## Commit `6352ef3` — 2026-05-27T04:39:35Z
+- Type: `push`
+- Brief: [COMMIT-6352ef3.md](../build_/COMMITS/COMMIT-6352ef3.md)
+- Message: Surface every Qripto upload row in admin (covers + papers) with diagnostics + bust Next cache
