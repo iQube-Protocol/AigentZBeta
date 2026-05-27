@@ -1324,3 +1324,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-e0e0470.md](../build_/COMMITS/COMMIT-e0e0470.md)
 - Message: Pair Qripto covers to papers by created_at index + add ID + URL columns to admin table (KNYT parity)
+
+## Commit `c305db9` — 2026-05-27T20:54:33Z
+- Type: `push`
+- Brief: [COMMIT-c305db9.md](../build_/COMMITS/COMMIT-c305db9.md)
+- Message: Sort Qripto Papers grid by leading sequence number in title so #1 sits left of each series row
