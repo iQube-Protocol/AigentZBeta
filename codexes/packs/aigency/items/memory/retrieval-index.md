@@ -1259,3 +1259,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-0929def.md](../build_/COMMITS/COMMIT-0929def.md)
 - Message: Qripto-aware Codex Upload modal — Series + Content Types live
+
+## Commit `ddadc89` — 2026-05-27T00:21:51Z
+- Type: `push`
+- Brief: [COMMIT-ddadc89.md](../build_/COMMITS/COMMIT-ddadc89.md)
+- Message: Replace Qripto assetKind dropdown with Standalone | Part of a Series + X of Y inputs

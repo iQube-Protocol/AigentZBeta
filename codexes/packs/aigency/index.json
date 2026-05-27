@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-26T23:16:20.873Z",
+  "last_updated": "2026-05-27T00:23:57.897Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "0929defe329a50b4aafb64ab20133def0b25edc1",
-  "latest_commit_short": "0929def",
-  "latest_commit_title": "Qripto-aware Codex Upload modal — Series + Content Types live",
+  "latest_commit": "ddadc89d29ab2d98801f3803542c79ced24f142e",
+  "latest_commit_short": "ddadc89",
+  "latest_commit_title": "Replace Qripto assetKind dropdown with Standalone | Part of a Series + X of Y inputs",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "ddadc89",
+      "full_sha": "ddadc89d29ab2d98801f3803542c79ced24f142e",
+      "title": "Replace Qripto assetKind dropdown with Standalone | Part of a Series + X of Y inputs",
+      "author": "Claude",
+      "timestamp": "2026-05-27T00:21:51Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-ddadc89.md"
+    },
     {
       "sha": "0929def",
       "full_sha": "0929defe329a50b4aafb64ab20133def0b25edc1",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-16T22:06:10Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-af22afd.md"
-    },
-    {
-      "sha": "6131ef3",
-      "full_sha": "6131ef306f8c69c2401b79f1bca20966577f2342",
-      "title": "add aigentMe split-screen welcome tab with persistent CopilotKit AG-UI bridge",
-      "author": "Claude",
-      "timestamp": "2026-05-14T23:33:20Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-6131ef3.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

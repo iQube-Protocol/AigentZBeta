@@ -22,9 +22,16 @@ import {
   NextBestActionCard,
   type NextBestActionData,
 } from "@/components/metame/cards/NextBestActionCard";
-import { IqubeContextDisclosure } from "@/components/metame/cards/IqubeContextDisclosure";
+import { IqubeContextDisclosure, type IqubeKind } from "@/components/metame/cards/IqubeContextDisclosure";
 import { PreflightByline, PreflightChip } from "@/components/metame/cards/PreflightByline";
 import type { PreflightContext } from "@/services/capabilities/preflight";
+import {
+  ExpandedNBEPill,
+  type ExpandedNBEPillQueuedState,
+  type ExpandedNBEPillSecondTier,
+} from "@/components/metame/cards/ExpandedNBEPill";
+import type { SpecialistResponseData } from "@/components/metame/cards/SpecialistResponseCard";
+import type { ArtifactCardData } from "@/components/metame/cards/ArtifactCard";
 
 export interface BriefCardData {
   briefType: "daily" | "project" | "cartridge";
@@ -62,12 +69,30 @@ interface Props {
   error?: string | null;
   onActOnNbe?: (action: NextBestActionData) => void;
   /**
-   * Set of NBE ids that have already been queued as IntentQubes. NBA
-   * cards in `nextBestActions` whose id is in this set render a
-   * "Queued" badge instead of the Act button so the operator sees
-   * their click landed.
+   * NBE ids that have already been queued as IntentQubes, keyed to the
+   * full queued state. When a row's id is in this map, the NBA card is
+   * replaced inline by an ExpandedNBEPill so the brief becomes the
+   * single Capsule containing every Pill it spawned.
    */
-  queuedIntents?: Record<string, unknown>;
+  queuedIntents?: Record<string, ExpandedNBEPillQueuedState>;
+  /** Specialist responses keyed by NBE id — folded into the queued Pill. */
+  specialistResponses?: Record<string, SpecialistResponseData>;
+  specialistLoading?: Record<string, boolean>;
+  specialistErrors?: Record<string, string>;
+  /** Artifacts grouped by their originating intent id. */
+  artifactsByIntent?: Record<string, ArtifactCardData[]>;
+  /** Active second-tier approval (folded into the matching Pill). */
+  secondTierApproval?: ExpandedNBEPillSecondTier | null;
+  using?: IqubeKind[];
+  actionPendingArtifactId?: string | null;
+  actionErrors?: Record<string, string>;
+  onUseSuggestedArtifact?: (artifactType: string, response: SpecialistResponseData) => void;
+  onDismissQueued?: (nbeId: string) => void;
+  onDismissSpecialist?: (nbeId: string) => void;
+  onSendArtifact?: (artifactId: string) => void;
+  onDismissArtifact?: (artifactId: string) => void;
+  onApproveSecondTier?: () => void;
+  onCancelSecondTier?: () => void;
   /** When provided, renders a close (X) control in the header so the
    *  user can dismiss the brief instead of scrolling past it. The chip
    *  that triggered the brief can re-open it. */
@@ -83,7 +108,30 @@ const STAGE_LABELS: Record<string, string> = {
   scale: "Scale",
 };
 
-export function BriefCard({ data, loading, error, onActOnNbe, queuedIntents, onDismiss, theme = "dark" }: Props) {
+export function BriefCard({
+  data,
+  loading,
+  error,
+  onActOnNbe,
+  queuedIntents,
+  specialistResponses,
+  specialistLoading,
+  specialistErrors,
+  artifactsByIntent,
+  secondTierApproval,
+  using,
+  actionPendingArtifactId,
+  actionErrors,
+  onUseSuggestedArtifact,
+  onDismissQueued,
+  onDismissSpecialist,
+  onSendArtifact,
+  onDismissArtifact,
+  onApproveSecondTier,
+  onCancelSecondTier,
+  onDismiss,
+  theme = "dark",
+}: Props) {
   const isDark = theme === "dark";
   const surfaceClass = isDark
     ? "bg-slate-900/50 border-slate-700/60 text-slate-100"
@@ -227,16 +275,53 @@ export function BriefCard({ data, loading, error, onActOnNbe, queuedIntents, onD
               different cartridge or update your ExperienceModel.
             </p>
           ) : (
-            data.nextBestActions.map((action) => (
-              <NextBestActionCard
-                key={action.id}
-                action={action}
-                onAct={onActOnNbe}
-                queued={!!queuedIntents?.[action.id]}
-                promptHint={data.nbaPromptHints?.[action.id] ?? null}
-                theme={theme}
-              />
-            ))
+            data.nextBestActions.map((action) => {
+              const queued = queuedIntents?.[action.id] ?? null;
+              if (queued) {
+                const artifactsForPill =
+                  (artifactsByIntent && artifactsByIntent[queued.intentId]) ?? [];
+                const matchedSecondTier =
+                  secondTierApproval &&
+                  artifactsForPill.some((a) => a.artifactId === secondTierApproval.artifactId)
+                    ? secondTierApproval
+                    : null;
+                return (
+                  <ExpandedNBEPill
+                    key={action.id}
+                    action={action}
+                    queued={queued}
+                    specialistResponse={specialistResponses?.[action.id] ?? null}
+                    specialistLoading={!!specialistLoading?.[action.id]}
+                    specialistError={specialistErrors?.[action.id] ?? null}
+                    artifacts={artifactsForPill}
+                    secondTierApproval={matchedSecondTier}
+                    using={using ?? ["PersonaQube", "ExperienceQube", "IntentQube"]}
+                    actionPendingArtifactId={actionPendingArtifactId}
+                    actionErrors={actionErrors}
+                    onDismissQueued={() => onDismissQueued?.(action.id)}
+                    onDismissSpecialist={
+                      onDismissSpecialist ? () => onDismissSpecialist(action.id) : undefined
+                    }
+                    onUseSuggestedArtifact={onUseSuggestedArtifact}
+                    onSendArtifact={(id) => onSendArtifact?.(id)}
+                    onDismissArtifact={(id) => onDismissArtifact?.(id)}
+                    onApproveSecondTier={onApproveSecondTier}
+                    onCancelSecondTier={onCancelSecondTier}
+                    theme={theme}
+                  />
+                );
+              }
+              return (
+                <NextBestActionCard
+                  key={action.id}
+                  action={action}
+                  onAct={onActOnNbe}
+                  queued={false}
+                  promptHint={data.nbaPromptHints?.[action.id] ?? null}
+                  theme={theme}
+                />
+              );
+            })
           )}
         </div>
       </section>
