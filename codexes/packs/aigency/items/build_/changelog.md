@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`b82bb3a`](https://github.com/iQube-Protocol/AigentZBeta/commit/b82bb3a87c6fdba4a46c898196b7d8c1e9a9b214) [push] Pair Qripto covers to papers by shared title stem (case+punct normalised) — works when covers have headings but no leading number (Claude, 2026-05-27T20:58:22Z)
 - [`c305db9`](https://github.com/iQube-Protocol/AigentZBeta/commit/c305db9bc61d5afe72a79e731d26b5c3ffe7749d) [push] Sort Qripto Papers grid by leading sequence number in title so #1 sits left of each series row (Claude, 2026-05-27T20:54:33Z)
 - [`e0e0470`](https://github.com/iQube-Protocol/AigentZBeta/commit/e0e0470958421d0ab7f4fce6bfa261d7cef776ca) [feat] Pair Qripto covers to papers by created_at index + add ID + URL columns to admin table (KNYT parity) (Claude, 2026-05-27T19:24:25Z)
 - [`47347c4`](https://github.com/iQube-Protocol/AigentZBeta/commit/47347c40af2ff2046edd5aa3357b84b3e75e36a1) [feat] Remove cover_pdf upload option + add CLAUDE.md must-read on PDF-grid-with-image-cover pattern (Claude, 2026-05-27T18:50:28Z)

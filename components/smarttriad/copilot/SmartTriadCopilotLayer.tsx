@@ -12,6 +12,7 @@ import { useIsMobile } from "@/app/hooks/use-mobile";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
 import { SmartTriadInferenceRenderer, type SmartTriadMessage } from "./SmartTriadInferenceRenderer";
+import { UploadAttachmentPicker } from "@/components/metame/uploads/UploadAttachmentPicker";
 import {
   Bot,
   User,
@@ -184,6 +185,11 @@ export function SmartTriadCopilotLayer({
   // Core state
   const [mode, setMode] = useState<CopilotMode>("chat");
   const [input, setInput] = useState("");
+  // Persona upload ids attached to the next message. Picker UI lives
+  // in the chat input footer; selected ids ride through the /api/codex
+  // /chat POST as `attachedUploadIds`. Cleared after a successful
+  // send so each turn starts fresh.
+  const [attachedUploadIds, setAttachedUploadIds] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<string>("anthropic");
   const [showQuickPrompts, setShowQuickPrompts] = useState(true);
@@ -371,6 +377,11 @@ export function SmartTriadCopilotLayer({
 
     updateMessages((prev) => [...prev, userMessage]);
     setInput("");
+    // Snapshot the attachments for this turn THEN clear them so the
+    // next turn starts fresh. The chat POST below uses the snapshot
+    // (captured by the dependency closure above) — actual ids are
+    // already serialised into the request body.
+    setAttachedUploadIds([]);
     setIsProcessing(true);
 
     try {
@@ -441,6 +452,10 @@ export function SmartTriadCopilotLayer({
           provider_id: selectedProvider,
           personaId,
           groundContext: currentGroundContext,
+          // Operator-attached uploads — server fetches indexed content
+          // for each, injects as <attached_file> blocks in the system
+          // prompt so the LLM sees the file content this turn.
+          ...(attachedUploadIds.length > 0 ? { attachedUploadIds } : {}),
         }),
       });
 
@@ -476,7 +491,7 @@ export function SmartTriadCopilotLayer({
     } finally {
       setIsProcessing(false);
     }
-  }, [input, isProcessing, updateMessages, messages, personaId, selectedProvider]);
+  }, [input, isProcessing, updateMessages, messages, personaId, selectedProvider, attachedUploadIds]);
   
   // Handle quick prompt selection.
   //
@@ -587,6 +602,8 @@ export function SmartTriadCopilotLayer({
           selectedProvider={selectedProvider}
           setSelectedProvider={setSelectedProvider}
           onClearMessages={handleClearMessages}
+          attachedUploadIds={attachedUploadIds}
+          setAttachedUploadIds={setAttachedUploadIds}
         />
       ) : (
         <EmbeddedCopilot
@@ -666,6 +683,8 @@ function FloatingCopilot({
   setSelectedProvider,
   inlineMode = false,
   onClearMessages,
+  attachedUploadIds,
+  setAttachedUploadIds,
 }: {
   messages: SmartTriadMessage[];
   input: string;
@@ -699,6 +718,10 @@ function FloatingCopilot({
   inlineMode?: boolean;
   selectedProvider: string;
   setSelectedProvider: (p: string) => void;
+  /** Persona upload ids attached to the next message — picker mounts
+   *  inside the input row. Cleared by the parent on send. */
+  attachedUploadIds: string[];
+  setAttachedUploadIds: (next: string[]) => void;
 }) {
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
 
@@ -924,6 +947,18 @@ function FloatingCopilot({
                 >
                   {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </button>
+              </div>
+              {/* Chat attachment row — uploaded files the operator wants
+                  the next aigentMe message to see. Server fetches each
+                  upload's indexed contentMd and injects as
+                  <attached_file> blocks in the system prompt. */}
+              <div className="mt-2">
+                <UploadAttachmentPicker
+                  personaId={personaId}
+                  value={attachedUploadIds}
+                  onChange={setAttachedUploadIds}
+                  theme="dark"
+                />
               </div>
             </div>
           )}

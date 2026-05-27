@@ -21,6 +21,7 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Loader2, X, Mail, Sparkles } from "lucide-react";
 import { MicButton } from "@/components/ui/MicButton";
+import { UploadAttachmentPicker } from "@/components/metame/uploads/UploadAttachmentPicker";
 import { transformEmailDictation } from "@/hooks/useSpeechRecognition";
 
 interface Props {
@@ -37,6 +38,11 @@ interface Props {
     bodyText: string;
     cc?: string;
     bcc?: string;
+    /** Persona upload ids — picker mounts inline; Phase 2 wires the
+     *  Gmail multipart MIME builder so attachments ride with the
+     *  draft. Until then they round-trip as actionInput metadata so
+     *  the artifact record remembers the operator's selections. */
+    attachmentUploadIds?: string[];
   }) => Promise<void>;
   /**
    * Phase 6.b Part 2.5b — aigentMe drafts a full email from a one-liner
@@ -81,6 +87,7 @@ export function ComposeGmailDraftModal({
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
   const [bodyText, setBodyText] = useState("");
+  const [attachmentUploadIds, setAttachmentUploadIds] = useState<string[]>([]);
   const [cc, setCc] = useState("");
   const [bcc, setBcc] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -167,6 +174,7 @@ export function ComposeGmailDraftModal({
         bodyText,
         ...(cc.trim() ? { cc: cc.trim() } : {}),
         ...(bcc.trim() ? { bcc: bcc.trim() } : {}),
+        ...(attachmentUploadIds.length > 0 ? { attachmentUploadIds } : {}),
       });
       // Reset on success so the modal is clean next time.
       setAiPrompt("");
@@ -177,6 +185,7 @@ export function ComposeGmailDraftModal({
       setBodyText("");
       setCc("");
       setBcc("");
+      setAttachmentUploadIds([]);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -316,6 +325,15 @@ export function ComposeGmailDraftModal({
               />
             </label>
           </div>
+          {/* Attachment picker — Phase 1 surfaces the affordance and
+              persists the upload ids onto the artifact actionInput.
+              Phase 2 wires the Gmail multipart MIME builder to send
+              the bytes as draft attachments. */}
+          <UploadAttachmentPicker
+            value={attachmentUploadIds}
+            onChange={setAttachmentUploadIds}
+            theme={theme}
+          />
           <label className="block">
             <span className={`block text-xs mb-1 ${labelClass}`}>Subject</span>
             <input
