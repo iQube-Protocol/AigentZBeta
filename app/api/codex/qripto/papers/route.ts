@@ -163,23 +163,35 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Pair covers to papers by SHARED LEADING NUMBER in the title.
-    // Operators name files like "1 Beyond the Binary.pdf" and
-    // "1 Beyond the Binary cover.png" — both carry "1" at the front of
-    // the title (the modal seeds title from filename stem), so the
-    // matcher binds them deterministically regardless of upload order.
+    // Pair covers to papers by SHARED TITLE STEM. Operator workflow:
+    // - Paper file:  "1 Beyond the Binary.pdf"  → title "1 Beyond the Binary"
+    // - Cover file:  "Beyond the Binary.png"    → title "Beyond the Binary"
+    // Both normalise to the stem "beyond the binary" and bind together.
     //
-    // Fallback hierarchy when a paper has no leading-number cover
-    // match:
-    //   1) cover whose created_at is closest in time to the paper's
-    //   2) any image cover in the scope (most recent first)
-    //   3) null — card paints the gradient fallback
+    // Match hierarchy:
+    //   1) cover stem === paper stem (the canonical case)
+    //   2) cover's leading number === paper's leading number (fallback
+    //      for files like "1.pdf" / "1.png")
+    //   3) cover created closest in time to the paper (last resort —
+    //      mostly catches "I uploaded one cover for a one-paper scope")
+    //   4) null — card paints the gradient fallback
     //
     // Non-image cover rows are filtered out — covers must be JPG/PNG/
     // WebP per CLAUDE.md "Grids of PDF Assets with Covers".
     function titleLeadingNumber(title: string): number | null {
       const m = title.match(/^\s*(\d{1,4})\s*[.\-:)]?\s+/);
       return m ? Number(m[1]) : null;
+    }
+    function titleStem(title: string): string {
+      return title
+        .toLowerCase()
+        // strip leading sequence number (e.g. "1 ", "01. ", "1) ")
+        .replace(/^\s*\d{1,4}\s*[.\-:)]?\s+/, '')
+        // strip trailing " cover" / " thumbnail" / " thumb" tokens
+        .replace(/\s+(cover|thumbnail|thumb)\s*$/i, '')
+        // collapse punctuation + whitespace to single spaces
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
     }
     function timeDistMs(a: string | null, b: string | null): number {
       if (!a || !b) return Number.POSITIVE_INFINITY;
@@ -195,13 +207,16 @@ export async function GET(req: NextRequest) {
         .filter((c) => (c.mime_type || '').startsWith('image/'))
         .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''));
 
-      // Index covers by their leading sequence number for O(1) lookup.
+      // Pre-index covers by stem and by leading number for O(1) lookup.
+      // First-seen wins (because covers are sorted DESC, that's the
+      // most-recent matching cover for any given key).
+      const coversByStem = new Map<string, AssetRow>();
       const coversByNumber = new Map<number, AssetRow>();
       for (const c of imageCovers) {
         const t = c.supabase_title || c.title || '';
+        const stem = titleStem(t);
+        if (stem && !coversByStem.has(stem)) coversByStem.set(stem, c);
         const n = titleLeadingNumber(t);
-        // First (most-recent) cover per number wins — if the operator
-        // re-uploaded a cover with the same number, that's the active one.
         if (n != null && !coversByNumber.has(n)) coversByNumber.set(n, c);
       }
 
@@ -209,12 +224,18 @@ export async function GET(req: NextRequest) {
         const storageUrl = row.auto_drive_cid;
         if (!storageUrl) continue;
         const paperTitle = row.supabase_title || row.title || 'Untitled';
+        const paperStem = titleStem(paperTitle);
         const paperNum = titleLeadingNumber(paperTitle);
 
-        // 1) leading-number match
-        let matchedCover = paperNum != null ? coversByNumber.get(paperNum) ?? null : null;
+        // 1) stem match
+        let matchedCover: AssetRow | null = paperStem ? coversByStem.get(paperStem) ?? null : null;
 
-        // 2) time-proximity fallback
+        // 2) leading-number match
+        if (!matchedCover && paperNum != null) {
+          matchedCover = coversByNumber.get(paperNum) ?? null;
+        }
+
+        // 3) time-proximity fallback
         if (!matchedCover && imageCovers.length > 0) {
           matchedCover = [...imageCovers].sort(
             (a, b) => timeDistMs(a.created_at, row.created_at) - timeDistMs(b.created_at, row.created_at),
