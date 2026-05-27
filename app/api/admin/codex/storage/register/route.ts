@@ -222,7 +222,13 @@ export async function POST(req: NextRequest) {
     };
     // Populate cover_thumb_url so the viewer renders directly (the KnytTab
     // and CategoryDetailPanel both prefer cover_thumb_url over CID-routing).
-    if (assetKind === 'cover_image' || assetKind === 'cover_pdf' || (safeMime.startsWith('image/'))) {
+    // PDF covers (Qripto papers) store the URL too — the Papers tab renders
+    // the PDF first page as the card art via the existing PDF page route.
+    if (
+      category === 'cover' ||
+      assetKind === 'cover_image' || assetKind === 'cover_pdf' ||
+      safeMime.startsWith('image/')
+    ) {
       insertRow.cover_thumb_url = storageUrl;
     }
     if (variantName) insertRow.variant_name = variantName;

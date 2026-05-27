@@ -111,7 +111,7 @@ const QRIPTO_SERIES: { value: string; label: string; group: 'papers' | 'magazine
 // Replaces the KNYT ASSET_CATEGORIES for the qriptopian tab. White-papers
 // are scoped to the Papers series; the rest are valid for both Papers and
 // Magazines.
-type QriptoCategoryId = 'white-paper' | 'article' | 'video' | 'audio' | 'image' | 'infographic';
+type QriptoCategoryId = 'cover' | 'white-paper' | 'article' | 'video' | 'audio' | 'image' | 'infographic';
 const QRIPTO_CATEGORIES: {
   id: QriptoCategoryId;
   label: string;
@@ -119,6 +119,7 @@ const QRIPTO_CATEGORIES: {
   description: string;
   accept: string;
 }[] = [
+  { id: 'cover',       label: 'Cover',         icon: Image,    description: 'Card cover for a paper / magazine (JPG, PNG, WebP or single-page PDF)', accept: '.jpg,.jpeg,.png,.webp,.pdf' },
   { id: 'white-paper', label: 'White-papers',  icon: FileText, description: 'Long-form thesis PDFs (Papers series)',           accept: '.pdf' },
   { id: 'article',     label: 'Articles',      icon: FileText, description: 'Magazine articles (markdown / Word / PDF)',       accept: '.md,.docx,.pdf,.txt' },
   { id: 'video',       label: 'Video',         icon: Video,    description: 'Video pieces (interviews, explainers, reels)',    accept: '.mp4,.webm,.mov' },
@@ -436,12 +437,21 @@ function UploadQueueItem({ item, category, onUpdate, onRemove }: QueueItemProps)
           {item.status === 'error' && item.error && (
             <p className="mt-1 text-xs text-red-400">{item.error}</p>
           )}
-          {item.status === 'success' && item.result && (
+          {item.status === 'success' && item.result && (() => {
+            // Supabase uploads return the full public URL in result.cid.
+            // /api/content/cover/[cid] is the IMAGE cover proxy (sharp →
+            // webp) and Next path-routing collapses '//' in the URL, so
+            // routing a full URL through it 404s. Link straight to the
+            // storage URL for Supabase uploads; only the image cover
+            // proxy gets the legacy CID form for Autonomys assets.
+            const isHttpUrl = item.result.cid.startsWith('http://') || item.result.cid.startsWith('https://');
+            const previewHref = isHttpUrl ? item.result.cid : `/api/content/cover/${item.result.cid}`;
+            return (
             <div className="mt-1.5 space-y-1">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[10px] text-gray-500 shrink-0">CID:</span>
+                <span className="text-[10px] text-gray-500 shrink-0">{isHttpUrl ? 'URL:' : 'CID:'}</span>
                 <a
-                  href={`/api/content/cover/${item.result.cid}`}
+                  href={previewHref}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="truncate font-mono text-[10px] text-cyan-400 hover:text-cyan-300 underline underline-offset-2 max-w-[180px]"
@@ -469,7 +479,7 @@ function UploadQueueItem({ item, category, onUpdate, onRemove }: QueueItemProps)
                 </button>
               </div>
               <a
-                href={`/api/content/cover/${item.result.cid}`}
+                href={previewHref}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-[10px] text-cyan-400 hover:text-cyan-300 font-medium"
@@ -477,7 +487,8 @@ function UploadQueueItem({ item, category, onUpdate, onRemove }: QueueItemProps)
                 <Image className="h-3 w-3" /> Preview asset →
               </a>
             </div>
-          )}
+            );
+          })()}
           {item.status === 'uploading' && (
             <div className="mt-2 h-1 overflow-hidden rounded-full bg-gray-700">
               <div
@@ -572,7 +583,11 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files ?? []);
       if (files.length === 0) return;
-      const assetKindByCategory: Record<QriptoCategoryId, CodexAssetKind> = {
+      // Non-cover categories ride 'lore' as the catch-all bucket so storage
+      // routing stays uniform. Covers go through the dedicated 'cover'
+      // bucket so the register route writes cover_thumb_url and the asset
+      // surfaces in card grids without further wiring.
+      const assetKindByCategory: Record<Exclude<QriptoCategoryId, 'cover'>, CodexAssetKind> = {
         'white-paper': 'background_lore_doc',
         'article':     'background_lore_doc',
         'video':       'game_video',
@@ -580,19 +595,27 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
         'image':       'social_campaign_image',
         'infographic': 'social_campaign_image',
       };
-      const newItems: UploadItem[] = files.map((file, idx) => ({
-        id: `${Date.now()}-q-${idx}`,
-        file,
-        category: 'lore',
-        assetKind: assetKindByCategory[selectedQriptoCategory],
-        episodeNumber: null,
-        title: file.name.replace(/\.[^/.]+$/, ''),
-        status: 'pending' as const,
-        progress: 0,
-        displayMode: 'pdf' as DisplayMode,
-        cartridge: 'qriptopian' as const,
-        seriesMode: 'standalone' as const,
-      }));
+      const isCover = selectedQriptoCategory === 'cover';
+      const newItems: UploadItem[] = files.map((file, idx) => {
+        // For a cover, pick cover_pdf vs cover_image off the mime so the
+        // register row carries the right asset_kind. PDF covers (first-page
+        // thumbnails) and image covers both populate cover_thumb_url.
+        const coverKind: CodexAssetKind =
+          file.type === 'application/pdf' ? 'cover_pdf' : 'cover_image';
+        return {
+          id: `${Date.now()}-q-${idx}`,
+          file,
+          category: isCover ? 'cover' : 'lore',
+          assetKind: isCover ? coverKind : assetKindByCategory[selectedQriptoCategory as Exclude<QriptoCategoryId, 'cover'>],
+          episodeNumber: null,
+          title: file.name.replace(/\.[^/.]+$/, ''),
+          status: 'pending' as const,
+          progress: 0,
+          displayMode: 'pdf' as DisplayMode,
+          cartridge: 'qriptopian' as const,
+          seriesMode: 'standalone' as const,
+        };
+      });
       setUploadQueue((prev) => [...prev, ...newItems]);
       if (qriptoFileInputRef.current) qriptoFileInputRef.current.value = '';
     },
