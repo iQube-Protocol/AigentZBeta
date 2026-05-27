@@ -80,9 +80,29 @@ class NodeCanvasFactory {
 }
 
 async function renderPdfPageToPng(buf: Buffer, page: number, targetWidth: number) {
-  const pdfjs = await import('pdfjs-dist/build/pdf.mjs');
-  const { getDocument } = pdfjs as unknown as { getDocument: (args: unknown) => { promise: Promise<unknown> } };
-  const loadingTask = getDocument({ data: new Uint8Array(buf), isEvalSupported: false });
+  // Use the *legacy* build — designed for Node.js / no worker.
+  // The default build (`pdfjs-dist/build/pdf.mjs`) tries to load
+  // `pdf.worker.mjs` from disk, which Next.js doesn't bundle into the
+  // Lambda — hence the "Cannot find module .../chunks/pdf.worker.mjs"
+  // error on dev-beta. The legacy entry runs everything on the main
+  // thread; slower but works in the serverless function out of the box.
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const { getDocument, GlobalWorkerOptions } = pdfjs as unknown as {
+    getDocument: (args: unknown) => { promise: Promise<unknown> };
+    GlobalWorkerOptions: { workerSrc: string };
+  };
+  // Defensive: even on the legacy build, point workerSrc at a no-op
+  // string so any internal worker probe resolves rather than throwing.
+  if (GlobalWorkerOptions && typeof GlobalWorkerOptions === 'object') {
+    GlobalWorkerOptions.workerSrc = '';
+  }
+  const loadingTask = getDocument({
+    data: new Uint8Array(buf),
+    isEvalSupported: false,
+    // Force-disable workers — render on the main thread.
+    disableWorker: true,
+    useWorkerFetch: false,
+  });
   const pdf = (await loadingTask.promise) as {
     numPages: number;
     getPage: (n: number) => Promise<{
