@@ -2444,28 +2444,9 @@ export const METAME_CODEX: CodexConfig = {
     },
 
     // ── Admin group (admin-gated) ────────────────────────────────────────────
-    {
-      id: 'admin-experience-framework',
-      label: 'Experience Framework',
-      slug: 'experience-framework',
-      enabled: true,
-      group: 'admin',
-      order: 60,
-      type: 'static',
-      config: {
-        component: 'AgentiqCartridgeTab',
-        props: {
-          packId: 'metame',
-          collectionId: 'col_experience_framework',
-          defaultPath: 'items/METAME_EXPERIENCE_FRAMEWORK.md'
-        }
-      },
-      metadata: {
-        icon: 'Layers',
-        description: 'Canonical experience framework — strategy, model, matrix, ladder, governance',
-        color: 'violet'
-      }
-    },
+    // 2026-05-27 — Journey Dashboard surfaces first so admins land on the
+    // live operational view; Experience Framework moves last as
+    // canonical reference reading. Order numbers shifted accordingly.
     {
       id: 'admin-journey-dashboard',
       label: 'Journey Dashboard',
@@ -2473,7 +2454,7 @@ export const METAME_CODEX: CodexConfig = {
       enabled: true,
       adminOnly: true,
       group: 'admin',
-      order: 61,
+      order: 60,
       type: 'static',
       config: { component: 'ExperienceDashboardTab', props: { tenantId: 'metame' } },
       metadata: { icon: 'BarChart3', description: 'User journey states, progression, NBE opportunities', color: 'violet' }
@@ -2485,7 +2466,7 @@ export const METAME_CODEX: CodexConfig = {
       enabled: true,
       adminOnly: true,
       group: 'admin',
-      order: 62,
+      order: 61,
       type: 'static',
       config: { component: 'AdminAccessRequestsTab', props: {} },
       metadata: {
@@ -2501,12 +2482,34 @@ export const METAME_CODEX: CodexConfig = {
       enabled: true,
       adminOnly: true,
       group: 'admin',
-      order: 63,
+      order: 62,
       type: 'static',
       config: { component: 'Persona360InspectorTab', props: {} },
       metadata: {
         icon: 'User',
         description: 'Look up any persona and inspect the full identity / asset graph',
+        color: 'violet'
+      }
+    },
+    {
+      id: 'admin-experience-framework',
+      label: 'Experience Framework',
+      slug: 'experience-framework',
+      enabled: true,
+      group: 'admin',
+      order: 63,
+      type: 'static',
+      config: {
+        component: 'AgentiqCartridgeTab',
+        props: {
+          packId: 'metame',
+          collectionId: 'col_experience_framework',
+          defaultPath: 'items/METAME_EXPERIENCE_FRAMEWORK.md'
+        }
+      },
+      metadata: {
+        icon: 'Layers',
+        description: 'Canonical experience framework — strategy, model, matrix, ladder, governance',
         color: 'violet'
       }
     }
