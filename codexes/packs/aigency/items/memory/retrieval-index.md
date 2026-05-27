@@ -1299,3 +1299,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-b83c732.md](../build_/COMMITS/COMMIT-b83c732.md)
 - Message: Rasterise PDF covers server-side to WebP so they render as real thumbnails
+
+## Commit `31d3a6a` — 2026-05-27T14:50:45Z
+- Type: `push`
+- Brief: [COMMIT-31d3a6a.md](../build_/COMMITS/COMMIT-31d3a6a.md)
+- Message: Polyfill Promise.withResolvers in PDF-thumb route (pdfjs-dist 4.x needs Node 22 method on Amplify Node 20)

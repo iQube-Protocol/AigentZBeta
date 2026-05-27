@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`31d3a6a`](https://github.com/iQube-Protocol/AigentZBeta/commit/31d3a6a0a3b762e7809ff6a62487620ea051e739) [push] Polyfill Promise.withResolvers in PDF-thumb route (pdfjs-dist 4.x needs Node 22 method on Amplify Node 20) (Claude, 2026-05-27T14:50:45Z)
 - [`b83c732`](https://github.com/iQube-Protocol/AigentZBeta/commit/b83c7325a5f9aaa7198495ca6cfd273b5f2ba2de) [push] Rasterise PDF covers server-side to WebP so they render as real thumbnails (Claude, 2026-05-27T05:26:35Z)
 - [`b386014`](https://github.com/iQube-Protocol/AigentZBeta/commit/b38601486449bf62b1d5a54b3851817b05ce4f63) [push] Mirror Qripto Codex tabs (Magazines / Papers / Polity) into metaMe qriptopia group (Claude, 2026-05-27T05:03:53Z)
 - [`c52d1aa`](https://github.com/iQube-Protocol/AigentZBeta/commit/c52d1aa56f1aa70a184bbe2ed9224c5e53c930e2) [push] Render PDF covers via iframe + adopt KNYT 4-up card grid pattern for Qripto Papers (Claude, 2026-05-27T04:43:58Z)
