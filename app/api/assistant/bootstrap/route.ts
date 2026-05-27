@@ -71,6 +71,7 @@ interface AssistantCta {
     | 'brief-me'
     | 'move-this-forward'
     | 'review-venture-progress'
+    | 'ask-specialists'
     | 'create-something'
     | 'coordinate-follow-ups';
   label: string;
@@ -228,6 +229,7 @@ const PRIMARY_CTAS: AssistantCta[] = [
   { id: 'brief-me',                label: 'Brief me',                  enabled: true,  status: 'available' },
   { id: 'move-this-forward',       label: 'Move goals forward',        enabled: true,  status: 'available' },
   { id: 'review-venture-progress', label: 'Review venture progress',   enabled: true,  status: 'available' },
+  { id: 'ask-specialists',         label: 'Ask specialists',           enabled: true,  status: 'available' },
   { id: 'create-something',        label: 'Create something',          enabled: false, status: 'preview' },
   { id: 'coordinate-follow-ups',   label: 'Coordinate follow-ups',     enabled: false, status: 'preview' },
 ];

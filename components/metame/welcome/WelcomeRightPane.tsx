@@ -73,6 +73,7 @@ const CTA_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> 
   "move-this-forward": Sparkles,
   "set-up-experience-model": Layers,
   "review-venture-progress": BarChart3,
+  "ask-specialists": Users,
   "create-something": Plus,
   "coordinate-follow-ups": Users,
 };
@@ -172,6 +173,16 @@ interface Props {
    * a brief refetch or for NBAs queued from move-forward / venture).
    */
   actedNbeRegistry?: Record<string, NextBestActionData>;
+  /**
+   * The Capsule template currently engaged. Only one Capsule renders
+   * at a time; the others are accessible via the session-history
+   * strip rendered above the active Capsule.
+   */
+  activeCapsuleId?: "brief" | "move-forward" | "venture-progress" | "ask-specialists" | null;
+  /** Past Capsules — clickable chips to switch back into. */
+  capsuleHistory?: ReadonlyArray<"brief" | "move-forward" | "venture-progress" | "ask-specialists">;
+  /** Switch the active Capsule (also pushes the current one into history). */
+  onEngageCapsule?: (id: "brief" | "move-forward" | "venture-progress" | "ask-specialists") => void;
 
   /** Below-fold sections. */
   expModel: ExperienceModelCardData | null;
@@ -458,6 +469,9 @@ export function WelcomeRightPane(props: Props) {
     artifacts, actionPendingArtifactId, actionErrors, secondTierApproval,
     specialistResponses, specialistLoading, specialistErrors, queuedIntents,
     actedNbeRegistry = {},
+    activeCapsuleId = null,
+    capsuleHistory = [],
+    onEngageCapsule,
     onUseSuggestedArtifact,
     expModel, expModelLoading, stageEval,
     receipts, receiptsLoading, receiptsPersonaLabel,
@@ -595,7 +609,39 @@ export function WelcomeRightPane(props: Props) {
         </div>
       )}
 
-      {/* ── Live cards: brief / venture / NBE / approval / artifacts ── */}
+      {/* ── Session history strip ──────────────────────────────────
+          Past Capsules render as small chips so the operator can
+          jump back to any prior template without losing context.
+          Empty until the operator has switched between at least
+          two templates. */}
+      {capsuleHistory.length > 0 && onEngageCapsule && (
+        <div className="flex items-center gap-1.5 flex-wrap text-[11px]">
+          <span className={`uppercase tracking-wider ${mutedClass}`}>History</span>
+          {capsuleHistory.map((id) => {
+            const label =
+              id === "brief" ? "Brief"
+                : id === "move-forward" ? "Move forward"
+                  : id === "venture-progress" ? "Venture progress"
+                    : "Ask specialists";
+            return (
+              <button
+                key={id}
+                onClick={() => onEngageCapsule(id)}
+                className={`px-2 py-0.5 rounded-full border transition ${
+                  isDark
+                    ? "border-slate-700 text-slate-300 hover:border-violet-500/60 hover:bg-slate-800/40"
+                    : "border-slate-300 text-slate-700 hover:border-violet-400 hover:bg-slate-50"
+                }`}
+                title={`Return to ${label}`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Live cards: only the active Capsule renders here ── */}
       {/* Phase 2 Slice 5b: the NBE-level approval card (pendingApproval)
           previously rendered inline here in the stack. It now renders
           exclusively through the ApprovalLayout overlay so the operator
@@ -614,7 +660,12 @@ export function WelcomeRightPane(props: Props) {
           (the brief path was missed in the alpha and caused the queued
           template to silently render nothing when an operator queued
           an NBE from the Brief surface — 2026-05-26 fix). */}
-      {Object.entries(queuedIntents).map(([nbeId, queued]) => {
+      {/* Top-of-pane queued capsule loop — only renders when there's
+          NO active Capsule (e.g. early state before any chip click).
+          Once a Capsule is engaged, its own template owns the queued
+          Pill rendering, so this loop steps aside to avoid double
+          rendering. */}
+      {activeCapsuleId === null && Object.entries(queuedIntents).map(([nbeId, queued]) => {
         // The Brief Capsule and Move-forward Capsule now own the
         // expansion of their own Pills inline — don't double-render
         // them as standalone capsules at the top of the pane.
@@ -684,7 +735,7 @@ export function WelcomeRightPane(props: Props) {
         );
       })}
 
-      {(brief || briefLoading || briefError) && (
+      {activeCapsuleId === "brief" && (brief || briefLoading || briefError) && (
         <div ref={briefRef}>
           <BriefCard
             data={brief}
@@ -709,7 +760,7 @@ export function WelcomeRightPane(props: Props) {
         </div>
       )}
 
-      {(ventureProgress || ventureProgressLoading || ventureProgressError) && (
+      {activeCapsuleId === "venture-progress" && (ventureProgress || ventureProgressLoading || ventureProgressError) && (
         <VentureProgressCard
           data={ventureProgress}
           loading={ventureProgressLoading}
@@ -721,7 +772,7 @@ export function WelcomeRightPane(props: Props) {
         />
       )}
 
-      {topAction && !queuedIntents[topAction.id] && (
+      {activeCapsuleId === "move-forward" && topAction && !queuedIntents[topAction.id] && (
         <div ref={nbeRef}>
           {moveForwardResult?.topActionReason && (
             <div className="mb-1.5 px-3 py-1.5 rounded-md border border-violet-500/30 bg-violet-500/5 text-[11px] text-violet-200 flex items-start gap-1.5">
@@ -741,7 +792,7 @@ export function WelcomeRightPane(props: Props) {
           />
         </div>
       )}
-      {alternates.length > 0 && (
+      {activeCapsuleId === "move-forward" && alternates.length > 0 && (
         <div className="space-y-2">
           {alternates.filter((a) => !queuedIntents[a.id]).map((alt) => (
             <NextBestActionCard
@@ -754,9 +805,39 @@ export function WelcomeRightPane(props: Props) {
           ))}
         </div>
       )}
-      {moveForwardLoading && (
+      {activeCapsuleId === "move-forward" && moveForwardLoading && (
         <div className={`text-xs flex items-center gap-2 ${mutedClass}`}>
           <Loader2 className="w-3 h-3 animate-spin" /> Finding next best action…
+        </div>
+      )}
+
+      {/* Ask Specialists Capsule — minimal scaffold for now.
+          The full template (pick a specialist → get a recommendation →
+          optionally draft an artifact → linear approve/send → "ask
+          another?" CTA) lands in the next pass. This placeholder
+          honours the "one Capsule engaged at a time" rule so the chip
+          has somewhere to land. */}
+      {activeCapsuleId === "ask-specialists" && (
+        <div
+          className={`rounded-lg border p-5 ${
+            isDark
+              ? "bg-slate-900/50 border-slate-700/60 text-slate-100"
+              : "bg-white border-slate-200 text-slate-900"
+          }`}
+        >
+          <h3 className="text-lg font-semibold mb-1">Ask Specialists</h3>
+          <p className={`text-sm ${mutedClass}`}>
+            Pick a specialist to consult — Marketa for partner moves,
+            Quill for editorial framing, Kn0w1 for mission shape,
+            Aigent Nakamoto for tokenomics, Aigent Z for orchestration.
+            Their recommendations land here and you can draft a follow-on
+            artifact directly from them.
+          </p>
+          <p className={`text-[11px] mt-3 ${mutedClass} italic`}>
+            Specialist picker + consultation flow lands in the next
+            pass. The Capsule scaffold is wired so the chip + history
+            strip work end-to-end.
+          </p>
         </div>
       )}
 

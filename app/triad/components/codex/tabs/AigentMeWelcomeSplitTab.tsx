@@ -497,6 +497,29 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     Record<string, NextBestActionData>
   >({});
 
+  // Active Capsule template — one engaged at a time. Each Capsule
+  // (Brief, Move forward, Venture progress, Ask specialists) is its
+  // own bounded surface; the operator engages one, completes their
+  // work, then moves to the next. Previous Capsules collapse into
+  // the session-history strip and can be restored by click.
+  type CapsuleId = "brief" | "move-forward" | "venture-progress" | "ask-specialists";
+  const [activeCapsuleId, setActiveCapsuleId] = useState<CapsuleId | null>(null);
+  const [capsuleHistory, setCapsuleHistory] = useState<CapsuleId[]>([]);
+  const engageCapsule = useCallback((next: CapsuleId) => {
+    setActiveCapsuleId((cur) => {
+      if (cur === next) return cur;
+      if (cur) {
+        // Push the previous Capsule into history (dedup so the strip
+        // doesn't accumulate duplicate entries when bouncing between
+        // two templates).
+        setCapsuleHistory((h) => (h[h.length - 1] === cur ? h : [...h.filter((x) => x !== cur), cur]));
+      }
+      // Drop `next` from history so it doesn't appear in both places.
+      setCapsuleHistory((h) => h.filter((x) => x !== next));
+      return next;
+    });
+  }, []);
+
   // Accordion: which right-pane config section is expanded.
   const [expandedSectionId, setExpandedSectionId] = useState<SectionId | null>(null);
 
@@ -740,29 +763,32 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
 
   const handleCtaClick = useCallback((ctaId: string) => {
     if (ctaId === 'set-up-experience-model') { setWizardOpen(true); return; }
-    // Phase 2 Slice 1: 'brief-me' now selects the BriefLayout AND fires
-    // the fetch. The layout owns the rendering; the stack no longer
-    // accumulates a brief card.
+    // Each Capsule chip engages exactly one Capsule. Previous
+    // Capsule (if any) is pushed to the session-history strip via
+    // engageCapsule so the operator can return to it later.
     if (ctaId === 'brief-me') {
+      engageCapsule('brief');
       setActiveLayoutId('brief');
       void fetchBrief();
       return;
     }
-    // Move-forward + venture-progress request their intent-layouts.
-    // Until Slices 2 + 3 land, the registry falls back to StackLayout
-    // so the cards still render in the stack; once the layouts ship,
-    // these calls activate them automatically.
     if (ctaId === 'move-this-forward') {
+      engageCapsule('move-forward');
       setActiveLayoutId('decision-board');
       void fetchMoveForward();
       return;
     }
     if (ctaId === 'review-venture-progress') {
+      engageCapsule('venture-progress');
       setActiveLayoutId('venture-cockpit');
       void fetchVentureProgress();
       return;
     }
-  }, [fetchBrief, fetchMoveForward, fetchVentureProgress]);
+    if (ctaId === 'ask-specialists') {
+      engageCapsule('ask-specialists');
+      return;
+    }
+  }, [fetchBrief, fetchMoveForward, fetchVentureProgress, engageCapsule]);
 
   const handleWizardSaved = useCallback((saved: ExperienceModelCardData) => {
     setExpModel(saved);
@@ -2268,6 +2294,9 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 onDismissQueued: handleDismissQueued,
                 onMarkPillComplete: handleMarkPillComplete,
                 actedNbeRegistry,
+                activeCapsuleId,
+                capsuleHistory,
+                onEngageCapsule: engageCapsule,
                 onDismissBrief: () => {
                   setBrief(null);
                   setBriefError(null);
