@@ -808,9 +808,27 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     setActedNbeRegistry((prev) =>
       prev[action.id] ? prev : { ...prev, [action.id]: action },
     );
-    // Short-circuit: the "update goals" NBE opens the goals editor directly
-    // rather than going through the generic approval → intent path.
+    // Short-circuit: the "update goals" NBE opens the goals editor
+    // directly rather than going through the generic approval → intent
+    // path. Lifecycle feedback: register a queued intent immediately
+    // (manuallyComplete=false) so the Pill flips Blue while the editor
+    // is open; the editor's onSaved callback then flips it to Green so
+    // the operator sees the work landed. Without this the Pill stayed
+    // pending and the operator had no signal the save succeeded.
     if (action.id === 'metame.update-experience-goals') {
+      const optimisticIntentId = `update-goals-${Date.now()}`;
+      setQueuedIntents((prev) => ({
+        ...prev,
+        [action.id]: {
+          intentId: optimisticIntentId,
+          status: 'in_progress',
+          queueMessage: 'Editing active ExperienceGoals…',
+          manuallyComplete: false,
+        },
+      }));
+      setActedNbeRegistry((prev) =>
+        prev[action.id] ? prev : { ...prev, [action.id]: action },
+      );
       setGoalsEditorOpen(true);
       return;
     }
@@ -2488,11 +2506,37 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       {/* ── Modals (mounted at root, single source of truth) ─────── */}
       <ExperienceGoalsEditor
         open={goalsEditorOpen}
-        onOpenChange={setGoalsEditorOpen}
+        onOpenChange={(open) => {
+          // When the editor closes WITHOUT saving (operator hit X /
+          // cancelled), clear the optimistic queued Pill so the brief
+          // doesn't sit on a Blue chip forever. The save path handles
+          // its own completion via onSaved below.
+          setGoalsEditorOpen(open);
+          if (!open) {
+            setQueuedIntents((prev) => {
+              const cur = prev['metame.update-experience-goals'];
+              if (!cur || cur.manuallyComplete) return prev;
+              const next = { ...prev };
+              delete next['metame.update-experience-goals'];
+              return next;
+            });
+          }
+        }}
         personaId={personaId}
         onSaved={() => {
-          // Re-fetch the bootstrap so the right pane reflects new goal count.
+          // Flip the queued Pill to Green so the operator sees the
+          // save landed, then re-fetch receipts + venture progress
+          // (where Operational Goals lives) so the count chip on the
+          // Venture Capsule reflects the new state without a manual
+          // refresh.
+          setQueuedIntents((prev) => {
+            const cur = prev['metame.update-experience-goals'];
+            if (!cur) return prev;
+            return { ...prev, ['metame.update-experience-goals']: { ...cur, manuallyComplete: true, status: 'completed', queueMessage: 'ExperienceGoals updated.' } };
+          });
           void fetchReceipts();
+          void fetchVentureProgress({ silent: true });
+          void fetchBrief();
         }}
       />
       <ExperienceModelSetupWizard

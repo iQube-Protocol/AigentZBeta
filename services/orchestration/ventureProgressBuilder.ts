@@ -35,6 +35,7 @@ import {
   selectNbeCandidates,
   type NbeCandidate,
 } from '@/services/orchestration/nbeCatalog';
+import { llmRerankNbeCandidates } from '@/services/orchestration/nbeLlmRerank';
 import type { BriefNextBestAction } from '@/services/orchestration/briefBuilder';
 import type { PreflightContext } from '@/services/capabilities/preflight';
 import { coerceKpisToRichShape, type KpiRecord } from '@/services/strategy/kpiTypes';
@@ -109,6 +110,15 @@ export interface VentureProgressShape {
 
   /** Recommended next NBEs (AVL-tier from the catalogue, then top mixed). */
   recommendedActions: BriefNextBestAction[];
+
+  /**
+   * Per-NBA compose / action prompt hints keyed by NBE id, produced
+   * by the LLM rerank pass — mirrors `BriefShape.nbaPromptHints` so
+   * the Venture Capsule's Pills land pre-populated with the same
+   * SoT-tailored take the Brief Capsule provides. Empty when the
+   * rerank LLM key isn't configured.
+   */
+  nbaPromptHints?: Record<string, string>;
 
   /** Suggested artifact types the user could create now. */
   suggestedArtifacts: Array<NonNullable<NbeCandidate['suggestedArtifact']>>;
@@ -330,6 +340,28 @@ export async function buildVentureProgress(
     .filter((a) => !seen.has(a.id));
   const recommendedActions = [...catalogActions, ...fallback].slice(0, 8);
 
+  // LLM rerank — produces per-NBA compose / action prompt hints
+  // tailored to the persona's SoT (current stage, active cartridges,
+  // primary goal, experience goals). Mirrors what BriefBuilder does
+  // so the Venture Capsule's Pills land with the same pre-populated
+  // "aigentMe's take" lines + composer seed prompts as the Brief
+  // Capsule. Reranks the underlying NbeCandidate list, then re-maps
+  // hints by id back onto the BriefNextBestAction shape. No-op when
+  // the LLM key isn't configured (alpha environments).
+  const experienceGoalsForRerank: string[] = [
+    ...(Array.isArray(blak.experienceGoals) ? (blak.experienceGoals as string[]).filter((g): g is string => typeof g === 'string') : []),
+  ];
+  const rerankCandidates = [...avlActions, ...mixedActions];
+  const rerank = await llmRerankNbeCandidates(rerankCandidates, {
+    currentStage,
+    activeCartridges: linkedCartridges,
+    primaryGoal,
+    experienceGoals: experienceGoalsForRerank,
+    strategy: null,
+    liveContext: null,
+  }).catch(() => ({ ranked: rerankCandidates, topReason: null, nbaPromptHints: {}, llmApplied: false }));
+  const nbaPromptHints = rerank.nbaPromptHints;
+
   const suggestedArtifacts = Array.from(
     new Set(
       [...avlActions, ...mixedActions]
@@ -352,6 +384,7 @@ export async function buildVentureProgress(
     recentActivity,
     blockersCount: 0, // Phase 6 wires this from the approval queue.
     recommendedActions,
+    nbaPromptHints,
     suggestedArtifacts,
     using: experienceConfigured
       ? ['PersonaQube', 'ExperienceQube', 'IntentQube']
