@@ -582,9 +582,38 @@ export function WelcomeRightPane(props: Props) {
         const sp = specialistResponses[nbeId] ?? null;
         const spLoading = !!specialistLoading[nbeId];
         const spError = specialistErrors[nbeId] ?? null;
+        // Fold artifacts produced from this same intent into the capsule
+        // so the operator sees Queued → Recommendation → Drafted artifact(s)
+        // as one continuous unit instead of having to hunt for the
+        // approval surface further down the right pane.
+        const capsuleArtifacts = artifacts.filter(
+          (a) => a.intentId && a.intentId === queued.intentId,
+        );
         const capsuleSurface = isDark
           ? "border-emerald-500/40 bg-emerald-500/[0.03]"
           : "border-emerald-300 bg-emerald-50/40";
+        // "Approval required to implement" → scroll to the first
+        // capsule artifact that still needs second-tier approval (i.e.
+        // has an externalisation connector wired). Falls back to a
+        // smooth scroll to the capsule itself when no artifact exists
+        // yet, prompting the operator to draft one via the chips.
+        const handleRequestApproval = () => {
+          const target =
+            capsuleArtifacts.find((a) => a.actionConnectorId) ??
+            capsuleArtifacts[0] ??
+            null;
+          if (target) {
+            const el = document.querySelector(
+              `[data-artifact-id="${target.artifactId}"]`,
+            );
+            el?.scrollIntoView({ behavior: "smooth", block: "start" });
+          } else {
+            const cap = document.querySelector(
+              `[data-queued-nbe-id="${nbeId}"]`,
+            );
+            cap?.scrollIntoView({ behavior: "smooth", block: "end" });
+          }
+        };
         return (
           <div
             key={`queued-${nbeId}`}
@@ -611,9 +640,38 @@ export function WelcomeRightPane(props: Props) {
                     ? (artifactType) => onUseSuggestedArtifact(artifactType, sp)
                     : undefined
                 }
+                onRequestApproval={handleRequestApproval}
                 theme={theme}
               />
             )}
+            {capsuleArtifacts.map((artifact) => {
+              const showSecondTier =
+                secondTierApproval?.artifactId === artifact.artifactId;
+              return (
+                <div key={artifact.artifactId} data-artifact-id={artifact.artifactId} className="space-y-2">
+                  <ArtifactCard
+                    data={artifact}
+                    onAction={() => onSendArtifact(artifact.artifactId)}
+                    onDismiss={() => onDismissArtifact(artifact.artifactId)}
+                    actionPending={actionPendingArtifactId === artifact.artifactId}
+                    actionError={actionErrors[artifact.artifactId]}
+                    theme={theme}
+                  />
+                  {showSecondTier && secondTierApproval && (
+                    <SecondTierApprovalCard
+                      connectorLabel={secondTierApproval.connectorLabel}
+                      summary={secondTierApproval.summary}
+                      detail={secondTierApproval.detail}
+                      submitting={secondTierApproval.submitting}
+                      error={secondTierApproval.error}
+                      onApprove={onApproveSecondTier}
+                      onCancel={onCancelSecondTier}
+                      theme={theme}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         );
       })}
@@ -718,21 +776,34 @@ export function WelcomeRightPane(props: Props) {
           </p>
         ))}
 
-      {artifacts.length > 0 && (
-        <div ref={artifactRef} className="space-y-2">
-          {artifacts.map((artifact) => (
-            <ArtifactCard
-              key={artifact.artifactId}
-              data={artifact}
-              onAction={() => onSendArtifact(artifact.artifactId)}
-              onDismiss={() => onDismissArtifact(artifact.artifactId)}
-              actionPending={actionPendingArtifactId === artifact.artifactId}
-              actionError={actionErrors[artifact.artifactId]}
-              theme={theme}
-            />
-          ))}
-        </div>
-      )}
+      {/* Standalone artifacts — skip any that have already been folded
+          into a queued capsule above (same intentId), so the operator
+          sees each artifact in exactly one place. */}
+      {(() => {
+        const queuedIntentIds = new Set(
+          Object.values(queuedIntents).map((q) => q.intentId),
+        );
+        const standalone = artifacts.filter(
+          (a) => !a.intentId || !queuedIntentIds.has(a.intentId),
+        );
+        if (standalone.length === 0) return null;
+        return (
+          <div ref={artifactRef} className="space-y-2">
+            {standalone.map((artifact) => (
+              <div key={artifact.artifactId} data-artifact-id={artifact.artifactId}>
+                <ArtifactCard
+                  data={artifact}
+                  onAction={() => onSendArtifact(artifact.artifactId)}
+                  onDismiss={() => onDismissArtifact(artifact.artifactId)}
+                  actionPending={actionPendingArtifactId === artifact.artifactId}
+                  actionError={actionErrors[artifact.artifactId]}
+                  theme={theme}
+                />
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Phase 2 Slice 5b: second-tier external-action approval is
           rendered through the Phase 2 ApprovalLayout overlay instead

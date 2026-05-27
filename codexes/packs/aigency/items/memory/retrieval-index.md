@@ -1254,3 +1254,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-6997901.md](../build_/COMMITS/COMMIT-6997901.md)
 - Message: Qriptopian Pulse — wire live + clone admin moderation + drop "Admin" labels
+
+## Commit `0929def` — 2026-05-26T23:14:25Z
+- Type: `push`
+- Brief: [COMMIT-0929def.md](../build_/COMMITS/COMMIT-0929def.md)
+- Message: Qripto-aware Codex Upload modal — Series + Content Types live
