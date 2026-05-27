@@ -939,7 +939,15 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               : buildPromptForNbeAction(artifactType, action);
           setComposerInitialPrompt(seedPrompt);
           setComposerKind(composeKind);
-          setActiveLayoutId('composer');
+          // No more setActiveLayoutId('composer') — swapping the
+          // layout away from the active Capsule (Brief / Move-forward
+          // / Venture) hides every other Pill in the bundle and
+          // collapses the Capsule view. The composer needs to open
+          // as an overlay on top of the active Capsule so the rest
+          // of the Pills remain visible and the operator can return
+          // to the Capsule after composing. ComposerOverlayLayout
+          // mounts on top of ForegroundLayout when composerKind !==
+          // null; see the layout overlay block in render below.
         } else {
           // True no-handoff NBE — scroll to the queued card so the
           // state change is visible.
@@ -2233,6 +2241,14 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 pendingApprovalNbe || (secondTierApproval && !secondTierInCapsule)
                   ? getLayout('approval-interrupt').component
                   : null;
+              // Composer overlays the active Capsule when composerKind
+              // is set — never swaps the foreground layout, so the
+              // Brief / Move-forward / Venture Capsule remains intact
+              // and the operator can return to it after composing.
+              const ComposerOverlayLayout =
+                composerKind && activeLayoutId !== 'composer'
+                  ? getLayout('composer').component
+                  : null;
               // Single source of truth for layout inputs — passed identically
               // to foreground and overlay.
               const layoutProps = {
@@ -2410,6 +2426,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               return (
               <>
               <ForegroundLayout {...layoutProps} />
+              {ComposerOverlayLayout && <ComposerOverlayLayout {...layoutProps} />}
               {ApprovalOverlayLayout && <ApprovalOverlayLayout {...layoutProps} />}
               </>
               );
