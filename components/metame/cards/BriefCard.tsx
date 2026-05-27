@@ -22,7 +22,7 @@ import {
   NextBestActionCard,
   type NextBestActionData,
 } from "@/components/metame/cards/NextBestActionCard";
-import { IqubeContextDisclosure, type IqubeKind } from "@/components/metame/cards/IqubeContextDisclosure";
+import { IqubeContextDisclosure } from "@/components/metame/cards/IqubeContextDisclosure";
 import { PreflightByline, PreflightChip } from "@/components/metame/cards/PreflightByline";
 import type { PreflightContext } from "@/services/capabilities/preflight";
 import {
@@ -30,7 +30,6 @@ import {
   type ExpandedNBEPillQueuedState,
   type ExpandedNBEPillSecondTier,
 } from "@/components/metame/cards/ExpandedNBEPill";
-import type { SpecialistResponseData } from "@/components/metame/cards/SpecialistResponseCard";
 import type { ArtifactCardData } from "@/components/metame/cards/ArtifactCard";
 
 export interface BriefCardData {
@@ -75,27 +74,17 @@ interface Props {
    * single Capsule containing every Pill it spawned.
    */
   queuedIntents?: Record<string, ExpandedNBEPillQueuedState>;
-  /** Specialist responses keyed by NBE id — folded into the queued Pill. */
-  specialistResponses?: Record<string, SpecialistResponseData>;
-  specialistLoading?: Record<string, boolean>;
-  specialistErrors?: Record<string, string>;
   /** Artifacts grouped by their originating intent id. */
   artifactsByIntent?: Record<string, ArtifactCardData[]>;
   /** Active second-tier approval (folded into the matching Pill). */
   secondTierApproval?: ExpandedNBEPillSecondTier | null;
-  using?: IqubeKind[];
   actionPendingArtifactId?: string | null;
   actionErrors?: Record<string, string>;
-  onUseSuggestedArtifact?: (artifactType: string, response: SpecialistResponseData) => void;
   onDismissQueued?: (nbeId: string) => void;
-  onDismissSpecialist?: (nbeId: string) => void;
   onSendArtifact?: (artifactId: string) => void;
   onDismissArtifact?: (artifactId: string) => void;
   onApproveSecondTier?: () => void;
   onCancelSecondTier?: () => void;
-  /** Operator-driven complete flip — surfaces "Mark complete" on each
-   *  expanded pill so the user can advance it to green even when
-   *  execution is mocked. */
   onMarkPillComplete?: (nbeId: string) => void;
   /**
    * Session registry of NBA definitions for NBEs the operator has
@@ -127,17 +116,11 @@ export function BriefCard({
   error,
   onActOnNbe,
   queuedIntents,
-  specialistResponses,
-  specialistLoading,
-  specialistErrors,
   artifactsByIntent,
   secondTierApproval,
-  using,
   actionPendingArtifactId,
   actionErrors,
-  onUseSuggestedArtifact,
   onDismissQueued,
-  onDismissSpecialist,
   onSendArtifact,
   onDismissArtifact,
   onApproveSecondTier,
@@ -328,19 +311,11 @@ export function BriefCard({
                       key={action.id}
                       action={action}
                       queued={queued}
-                      specialistResponse={specialistResponses?.[action.id] ?? null}
-                      specialistLoading={!!specialistLoading?.[action.id]}
-                      specialistError={specialistErrors?.[action.id] ?? null}
                       artifacts={artifactsForPill}
                       secondTierApproval={matchedSecondTier}
-                      using={using ?? ["PersonaQube", "ExperienceQube", "IntentQube"]}
                       actionPendingArtifactId={actionPendingArtifactId}
                       actionErrors={actionErrors}
                       onDismissQueued={() => onDismissQueued?.(action.id)}
-                      onDismissSpecialist={
-                        onDismissSpecialist ? () => onDismissSpecialist(action.id) : undefined
-                      }
-                      onUseSuggestedArtifact={onUseSuggestedArtifact}
                       onSendArtifact={(id) => onSendArtifact?.(id)}
                       onDismissArtifact={(id) => onDismissArtifact?.(id)}
                       onApproveSecondTier={onApproveSecondTier}

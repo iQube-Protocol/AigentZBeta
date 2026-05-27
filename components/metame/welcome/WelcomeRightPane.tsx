@@ -627,41 +627,17 @@ export function WelcomeRightPane(props: Props) {
         const fromBrief = brief?.nextBestActions?.find((a) => a.id === nbeId) ?? null;
         const nbe = fromMoveForward ?? fromBrief;
         if (!nbe) return null;
-        const sp = specialistResponses[nbeId] ?? null;
-        const spLoading = !!specialistLoading[nbeId];
-        const spError = specialistErrors[nbeId] ?? null;
-        // Fold artifacts produced from this same intent into the capsule
-        // so the operator sees Queued → Recommendation → Drafted artifact(s)
-        // as one continuous unit instead of having to hunt for the
-        // approval surface further down the right pane.
+        // Fold artifacts produced from this same intent into the
+        // capsule. No specialist mission recommendation here — each
+        // Capsule template (Brief, Move forward, Venture progress,
+        // Ask Specialists) is its own bounded surface; specialist
+        // guidance only renders inside the Ask Specialists Capsule.
         const capsuleArtifacts = artifacts.filter(
           (a) => a.intentId && a.intentId === queued.intentId,
         );
         const capsuleSurface = isDark
-          ? "border-emerald-500/40 bg-emerald-500/[0.03]"
-          : "border-emerald-300 bg-emerald-50/40";
-        // "Approval required to implement" → scroll to the first
-        // capsule artifact that still needs second-tier approval (i.e.
-        // has an externalisation connector wired). Falls back to a
-        // smooth scroll to the capsule itself when no artifact exists
-        // yet, prompting the operator to draft one via the chips.
-        const handleRequestApproval = () => {
-          const target =
-            capsuleArtifacts.find((a) => a.actionConnectorId) ??
-            capsuleArtifacts[0] ??
-            null;
-          if (target) {
-            const el = document.querySelector(
-              `[data-artifact-id="${target.artifactId}"]`,
-            );
-            el?.scrollIntoView({ behavior: "smooth", block: "start" });
-          } else {
-            const cap = document.querySelector(
-              `[data-queued-nbe-id="${nbeId}"]`,
-            );
-            cap?.scrollIntoView({ behavior: "smooth", block: "end" });
-          }
-        };
+          ? "border-sky-500/50 bg-sky-500/[0.06]"
+          : "border-sky-400 bg-sky-50";
         return (
           <div
             key={`queued-${nbeId}`}
@@ -676,22 +652,6 @@ export function WelcomeRightPane(props: Props) {
               using={usingIqubes}
               theme={theme}
             />
-            {(sp || spLoading || spError) && (
-              <SpecialistResponseCard
-                data={sp}
-                loading={spLoading}
-                error={spError}
-                using={usingIqubes}
-                onDismiss={() => onDismissSpecialist(nbeId)}
-                onCreateArtifact={
-                  onUseSuggestedArtifact && sp
-                    ? (artifactType) => onUseSuggestedArtifact(artifactType, sp)
-                    : undefined
-                }
-                onRequestApproval={handleRequestApproval}
-                theme={theme}
-              />
-            )}
             {capsuleArtifacts.map((artifact) => {
               const showSecondTier =
                 secondTierApproval?.artifactId === artifact.artifactId;
@@ -732,17 +692,11 @@ export function WelcomeRightPane(props: Props) {
             error={briefError}
             onActOnNbe={onNbeAct}
             queuedIntents={queuedIntents}
-            specialistResponses={specialistResponses}
-            specialistLoading={specialistLoading}
-            specialistErrors={specialistErrors}
             artifactsByIntent={artifactsByIntent}
             secondTierApproval={secondTierApproval}
-            using={usingIqubes}
             actionPendingArtifactId={actionPendingArtifactId}
             actionErrors={actionErrors}
-            onUseSuggestedArtifact={onUseSuggestedArtifact}
             onDismissQueued={onDismissQueued}
-            onDismissSpecialist={onDismissSpecialist}
             onSendArtifact={onSendArtifact}
             onDismissArtifact={onDismissArtifact}
             onApproveSecondTier={onApproveSecondTier}
@@ -806,47 +760,18 @@ export function WelcomeRightPane(props: Props) {
         </div>
       )}
 
-      {/* Specialist responses for orphan NBEs only.
-          - Brief-owned NBEs render their specialist inside BriefCard.
-          - Queued NBEs (move-forward / venture) render theirs inside the
-            top-of-pane capsule loop above.
-          What's left are truly orphan responses (mis-keyed by the
-          ask-agent route or for an NBE no surface holds). */}
-      {Object.entries(specialistResponses)
-        .filter(([nbeId]) => !queuedIntents[nbeId] && !briefOwnedNbeIds.has(nbeId))
-        .map(([nbeId, sp]) => (
-          <SpecialistResponseCard
-            key={nbeId}
-            data={sp}
-            using={usingIqubes}
-            onDismiss={() => onDismissSpecialist(nbeId)}
-            onCreateArtifact={
-              onUseSuggestedArtifact
-                ? (artifactType) => onUseSuggestedArtifact(artifactType, sp)
-                : undefined
-            }
-            theme={theme}
-          />
-        ))}
-      {Object.entries(specialistLoading)
-        .filter(([nbeId, loading]) => loading && !queuedIntents[nbeId] && !briefOwnedNbeIds.has(nbeId))
-        .map(([nbeId]) => (
-          <div key={nbeId} className={`text-xs flex items-center gap-2 ${mutedClass}`}>
-            <Loader2 className="w-3 h-3 animate-spin" /> Consulting specialist…
-          </div>
-        ))}
-      {Object.entries(specialistErrors)
-        .filter(([nbeId]) => !queuedIntents[nbeId] && !briefOwnedNbeIds.has(nbeId))
-        .map(([nbeId, err]) => (
-          <p key={`err-${nbeId}`} className={`text-xs ${isDark ? "text-rose-400" : "text-rose-600"}`}>
-            Specialist failed: {err}
-          </p>
-        ))}
+      {/* Specialist responses no longer render anywhere on this surface.
+          They belong to the dedicated Ask Specialists Capsule, accessed
+          via the "Ask specialists" chip. Folding them into the Brief
+          Pill / standalone created the cognitive-load problem the
+          operator flagged — each Capsule is now its own bounded
+          surface. */}
 
-      {/* Standalone artifacts — skip any that already render inside a
-          parent Capsule (Brief, Move-forward, or the top-of-pane queued
-          stack), so the operator sees each artifact in exactly one
-          place. */}
+      {/* Standalone artifacts — only "true" orphans (no parent intent
+          matching a queued Pill). In practice these come from the
+          bottom compose strip (Email / Doc / Sheet / Slides / Marketa /
+          Event) where the operator drafted something without first
+          Acting on a Pill. */}
       {(() => {
         const ownedIntentIds = new Set<string>();
         for (const [nbeId, queued] of Object.entries(queuedIntents)) {
