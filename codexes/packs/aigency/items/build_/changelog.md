@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`47347c4`](https://github.com/iQube-Protocol/AigentZBeta/commit/47347c40af2ff2046edd5aa3357b84b3e75e36a1) [feat] Remove cover_pdf upload option + add CLAUDE.md must-read on PDF-grid-with-image-cover pattern (Claude, 2026-05-27T18:50:28Z)
 - [`df780ef`](https://github.com/iQube-Protocol/AigentZBeta/commit/df780eff29c51ac0c493de83a153170a9c55388c) [push] Match KNYT cover pattern exactly: covers are images, no pdfjs rasteriser, no fake worker (Claude, 2026-05-27T18:41:54Z)
 - [`51f6a32`](https://github.com/iQube-Protocol/AigentZBeta/commit/51f6a32f6652ecec53bceb42d60f131cc9e2993c) [push] Use pdfjs-dist legacy build (no worker) in PDF-thumb route so Lambda doesnt look for pdf.worker.mjs (Claude, 2026-05-27T15:26:46Z)
 - [`31d3a6a`](https://github.com/iQube-Protocol/AigentZBeta/commit/31d3a6a0a3b762e7809ff6a62487620ea051e739) [push] Polyfill Promise.withResolvers in PDF-thumb route (pdfjs-dist 4.x needs Node 22 method on Amplify Node 20) (Claude, 2026-05-27T14:50:45Z)

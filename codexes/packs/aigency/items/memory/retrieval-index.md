@@ -1314,3 +1314,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-df780ef.md](../build_/COMMITS/COMMIT-df780ef.md)
 - Message: Match KNYT cover pattern exactly: covers are images, no pdfjs rasteriser, no fake worker
+
+## Commit `47347c4` — 2026-05-27T18:50:28Z
+- Type: `feat`
+- Brief: [COMMIT-47347c4.md](../build_/COMMITS/COMMIT-47347c4.md)
+- Message: Remove cover_pdf upload option + add CLAUDE.md must-read on PDF-grid-with-image-cover pattern
