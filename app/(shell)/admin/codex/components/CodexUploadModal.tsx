@@ -160,9 +160,11 @@ const ASSET_CATEGORIES: {
     id: 'cover',
     label: 'Covers',
     icon: Image,
-    description: 'Limited edition still cover variants (PDF or image)',
+    // Covers are IMAGE ONLY across every cartridge. Don't add cover_pdf
+    // back — see CLAUDE.md "Grids of PDF assets with covers" for the
+    // working pattern and the rasteriser-failure history.
+    description: 'Limited edition still cover variants (image only — JPG/PNG/WebP)',
     assetKinds: [
-      { value: 'cover_pdf', label: 'Cover PDF', accept: '.pdf' },
       { value: 'cover_image', label: 'Cover Image', accept: '.png,.jpg,.jpeg,.webp' },
     ],
   },

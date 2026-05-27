@@ -415,6 +415,60 @@ This eliminates the URL-leakage window without requiring `pdfjs-dist` or full-PD
 
 ---
 
+## Grids of PDF Assets with Covers — MUST READ (PARAMOUNT)
+
+**Whenever you build a grid of PDF assets (papers, magazines, episodes, scrolls, anything with a thumbnail card that opens a PDF), follow this pattern exactly. Do not invent variants. Do not try to render PDFs as image thumbnails server-side. Three sessions of work were lost trying to bolt a PDF rasteriser onto Lambda before this rule was written down.**
+
+### The canonical pattern (KNYT)
+
+The KNYT cartridge is the reference implementation. Mirror it.
+
+1. **Cover = image. Body = PDF. Two separate uploads, two separate rows.**
+   - Cover: `asset_kind = 'cover_image'`, `mime_type = image/*` (JPG / PNG / WebP). Stored as-is on Supabase; `cover_thumb_url` is set to the public storage URL.
+   - PDF body: `asset_kind = 'episode_print'` / `'background_lore_doc'` / etc., `mime_type = 'application/pdf'`.
+2. **The two are paired in software, not via FK.** Group by series scope / episode number / display position. The most recent image cover in the same scope is the thumbnail.
+3. **The card thumbnail is `<img src={cover_thumb_url}>`.** No proxy. No iframe. No worker.
+4. **The card click opens `PDFLiteReaderModal`** pointed at the PDF body's public Supabase URL (`pdf_lite_url` for KNYT episodes; `auto_drive_cid` for codex_media_assets rows). The modal uses `<object>` (desktop) or `<iframe>` (mobile) for native PDF rendering — no pdfjs, no canvas.
+
+This works in every browser, has zero server dependencies, and is the path that has shipped to production.
+
+### What does NOT work — do not try these again
+
+- **`asset_kind = 'cover_pdf'`.** The enum exists for legacy reasons but no production cartridge renders it as a thumbnail. The upload modals' Cover content type must not list it as an option. (Removed 2026-05-27 from `app/(shell)/admin/codex/components/CodexUploadModal.tsx` for both KNYT and Qripto.)
+- **Cross-origin `<iframe>` thumbnails of PDFs.** Browsers either paint blank or trigger a download — the iframe-load itself kicks off the browser's download flow even with `pointer-events-none`. Symptom: card click "downloads the PDF instead of opening the viewer".
+- **Server-side rasterising a PDF first page to PNG/WebP on Lambda using `pdfjs-dist`.** Three failure modes stack:
+  1. `Promise.withResolvers is not a function` — pdfjs-dist 4.x needs Node 22; Amplify runs Node 20. Polyfillable.
+  2. `Setting up fake worker failed: Cannot find module pdf.worker.mjs` — pdfjs's fake-worker fallback does a relative `import("./pdf.worker.mjs")` that resolves to `/var/task/.next/server/chunks/pdf.worker.mjs`. The worker file isn't traced into the chunks dir even with `serverExternalPackages: ["pdfjs-dist"]` and `outputFileTracingIncludes` pinning it. Both fixes were attempted and both still fail in Lambda. The legacy build (`pdfjs-dist/legacy/build/pdf.mjs`) and the `disableWorker: true` flag both still trigger the fake-worker code path.
+  3. Even if you bundle it, `@napi-rs/canvas` adds ~30 MB to the Lambda deploy.
+
+If anyone asks "can we just render PDF page 1 as the cover server-side?" — **the answer is no, upload an image cover instead**. The operator's editorial workflow is the source of the thumbnail; it's not derived from the PDF.
+
+### Operator workflow for new cartridges
+
+When a new cartridge needs a grid of PDF assets (e.g. the Qriptopian Papers tab):
+
+1. Upload modal exposes two content types: **Cover** (image only — `.jpg .jpeg .png .webp`) and **<body type>** (PDF).
+2. API route reads both `codex_media_assets` rows for the series scope and returns `{ pdfUrl, coverUrl }` per card. coverUrl is plain text — no proxy URL, no rasteriser URL.
+3. Card component:
+   ```tsx
+   <button onClick={() => setActivePdf({ url: p.pdfUrl, title: p.title })}>
+     <img src={p.coverUrl} alt={p.title} />
+     {/* ... title overlay ... */}
+   </button>
+   <PDFLiteReaderModal open={activePdf !== null} pdfUrl={activePdf?.url ?? ''} title={activePdf?.title} onClose={() => setActivePdf(null)} />
+   ```
+4. Grid layout follows the KNYT shape: `grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4`, `aspect-[3/4]` cards, full-bleed cover with bottom-up black gradient carrying the title, top-right backdrop-blur badge.
+
+### Reference files
+
+- Pattern source: `app/triad/components/codex/tabs/KnytTab.tsx` — the canonical KNYT episode grid (search for `grid-cols-2 md:grid-cols-3 lg:grid-cols-4`).
+- Pattern copy: `app/triad/components/codex/tabs/QriptoPapersTab.tsx` — Qripto Papers grid using the same shape.
+- Modal: `app/triad/components/content/PDFLiteReaderModal.tsx` — the canonical PDF viewer. Never replace with pdfjs in the renderer.
+- Upload modal: `app/(shell)/admin/codex/components/CodexUploadModal.tsx` — Cover content type is image-only.
+- Failure history: `codexes/packs/agentiq/updates/2026-05-27_qripto-cover-upload-and-wip-contentqube-backlog.md`.
+
+---
+
 ## Architecture Layers (respect the boundaries)
 
 | Layer | Responsibility | Technologies |
