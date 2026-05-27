@@ -163,33 +163,69 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Flatten with cover matching. Both papers and covers are inserted
-    // by Supabase in created_at DESC order (the source query above
-    // sorts that way). Pair them by index: the most recent paper gets
-    // the most recent image cover, the second-most-recent paper gets
-    // the second-most-recent cover, and so on. Operators upload paper
-    // + cover consecutively, so index-pairing matches editorial intent
-    // without needing an explicit FK column.
+    // Pair covers to papers by SHARED LEADING NUMBER in the title.
+    // Operators name files like "1 Beyond the Binary.pdf" and
+    // "1 Beyond the Binary cover.png" — both carry "1" at the front of
+    // the title (the modal seeds title from filename stem), so the
+    // matcher binds them deterministically regardless of upload order.
+    //
+    // Fallback hierarchy when a paper has no leading-number cover
+    // match:
+    //   1) cover whose created_at is closest in time to the paper's
+    //   2) any image cover in the scope (most recent first)
+    //   3) null — card paints the gradient fallback
     //
     // Non-image cover rows are filtered out — covers must be JPG/PNG/
     // WebP per CLAUDE.md "Grids of PDF Assets with Covers".
+    function titleLeadingNumber(title: string): number | null {
+      const m = title.match(/^\s*(\d{1,4})\s*[.\-:)]?\s+/);
+      return m ? Number(m[1]) : null;
+    }
+    function timeDistMs(a: string | null, b: string | null): number {
+      if (!a || !b) return Number.POSITIVE_INFINITY;
+      const ta = Date.parse(a);
+      const tb = Date.parse(b);
+      if (Number.isNaN(ta) || Number.isNaN(tb)) return Number.POSITIVE_INFINITY;
+      return Math.abs(ta - tb);
+    }
+
     const papers: PaperCard[] = [];
     for (const [scope, bucket] of buckets) {
       const imageCovers = bucket.covers
         .filter((c) => (c.mime_type || '').startsWith('image/'))
         .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''));
-      const papersDesc = [...bucket.papers].sort(
-        (a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''),
-      );
-      papersDesc.forEach((row, idx) => {
+
+      // Index covers by their leading sequence number for O(1) lookup.
+      const coversByNumber = new Map<number, AssetRow>();
+      for (const c of imageCovers) {
+        const t = c.supabase_title || c.title || '';
+        const n = titleLeadingNumber(t);
+        // First (most-recent) cover per number wins — if the operator
+        // re-uploaded a cover with the same number, that's the active one.
+        if (n != null && !coversByNumber.has(n)) coversByNumber.set(n, c);
+      }
+
+      for (const row of bucket.papers) {
         const storageUrl = row.auto_drive_cid;
-        if (!storageUrl) return;
-        const matchedCover = imageCovers[idx] || imageCovers[imageCovers.length - 1] || null;
+        if (!storageUrl) continue;
+        const paperTitle = row.supabase_title || row.title || 'Untitled';
+        const paperNum = titleLeadingNumber(paperTitle);
+
+        // 1) leading-number match
+        let matchedCover = paperNum != null ? coversByNumber.get(paperNum) ?? null : null;
+
+        // 2) time-proximity fallback
+        if (!matchedCover && imageCovers.length > 0) {
+          matchedCover = [...imageCovers].sort(
+            (a, b) => timeDistMs(a.created_at, row.created_at) - timeDistMs(b.created_at, row.created_at),
+          )[0] ?? null;
+        }
+
         const coverUrl = matchedCover?.cover_thumb_url || matchedCover?.auto_drive_cid || null;
         const coverMime = matchedCover?.mime_type || null;
         papers.push({
           id: row.id,
-          title: row.supabase_title || row.title || 'Untitled',
+          title: paperTitle,
           scope,
           scopeLabel: SCOPE_LABELS[scope] || scope,
           pdfUrl: storageUrl,
@@ -198,26 +234,16 @@ export async function GET(req: NextRequest) {
           mimeType: row.mime_type || 'application/pdf',
           uploadedAt: row.created_at,
         });
-      });
+      }
     }
 
-    // Pull the leading sequence number off the title so the grid can
-    // sort by editorial order. Operators name papers "1 Beyond the
-    // Binary", "2 …", "3 …" — strip the integer prefix (optional dot
-    // / dash / colon) and use it for ordering. Papers without a
-    // leading number fall to the end of their scope.
-    function leadingNumber(title: string): number {
-      const m = title.match(/^\s*(\d{1,4})\s*[.\-:)]?\s+/);
-      return m ? Number(m[1]) : Number.POSITIVE_INFINITY;
-    }
-
-    // Final order: scope label A→Z, then sequence number ASC (1 first),
-    // tie-break by uploaded_at ASC (oldest first). This puts paper #1
-    // on the left of each series row in the codex grid.
+    // Final order: scope label A→Z, then leading sequence number ASC
+    // (1 first), tie-break by uploaded_at ASC. Reuses titleLeadingNumber
+    // declared above. Papers without a leading number fall to the end.
     papers.sort((a, b) => {
       if (a.scopeLabel !== b.scopeLabel) return a.scopeLabel.localeCompare(b.scopeLabel);
-      const na = leadingNumber(a.title);
-      const nb = leadingNumber(b.title);
+      const na = titleLeadingNumber(a.title) ?? Number.POSITIVE_INFINITY;
+      const nb = titleLeadingNumber(b.title) ?? Number.POSITIVE_INFINITY;
       if (na !== nb) return na - nb;
       return (a.uploadedAt ?? '').localeCompare(b.uploadedAt ?? '');
     });
