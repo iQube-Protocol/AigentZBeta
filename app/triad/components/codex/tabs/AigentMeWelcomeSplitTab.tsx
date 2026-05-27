@@ -765,27 +765,53 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     if (ctaId === 'set-up-experience-model') { setWizardOpen(true); return; }
     // Each Capsule chip engages exactly one Capsule. Previous
     // Capsule (if any) is pushed to the session-history strip via
-    // engageCapsule so the operator can return to it later.
+    // engageCapsule so the operator can return to it later. Sibling
+    // template state is cleared so the stack pane never shows two
+    // Capsules side-by-side — only the newly-engaged one renders.
     if (ctaId === 'brief-me') {
       engageCapsule('brief');
       setActiveLayoutId('brief');
+      setVentureProgress(null);
+      setVentureProgressError(null);
+      setVentureProgressLoading(false);
+      setMoveForwardResult(null);
+      setMoveForwardLoading(false);
       void fetchBrief();
       return;
     }
     if (ctaId === 'move-this-forward') {
       engageCapsule('move-forward');
       setActiveLayoutId('decision-board');
+      setBrief(null);
+      setBriefError(null);
+      setBriefLoading(false);
+      setVentureProgress(null);
+      setVentureProgressError(null);
+      setVentureProgressLoading(false);
       void fetchMoveForward();
       return;
     }
     if (ctaId === 'review-venture-progress') {
       engageCapsule('venture-progress');
       setActiveLayoutId('venture-cockpit');
+      setBrief(null);
+      setBriefError(null);
+      setBriefLoading(false);
+      setMoveForwardResult(null);
+      setMoveForwardLoading(false);
       void fetchVentureProgress();
       return;
     }
     if (ctaId === 'ask-specialists') {
       engageCapsule('ask-specialists');
+      setBrief(null);
+      setBriefError(null);
+      setBriefLoading(false);
+      setVentureProgress(null);
+      setVentureProgressError(null);
+      setVentureProgressLoading(false);
+      setMoveForwardResult(null);
+      setMoveForwardLoading(false);
       return;
     }
   }, [fetchBrief, fetchMoveForward, fetchVentureProgress, engageCapsule]);
@@ -808,9 +834,27 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     setActedNbeRegistry((prev) =>
       prev[action.id] ? prev : { ...prev, [action.id]: action },
     );
-    // Short-circuit: the "update goals" NBE opens the goals editor directly
-    // rather than going through the generic approval → intent path.
+    // Short-circuit: the "update goals" NBE opens the goals editor
+    // directly rather than going through the generic approval → intent
+    // path. Lifecycle feedback: register a queued intent immediately
+    // (manuallyComplete=false) so the Pill flips Blue while the editor
+    // is open; the editor's onSaved callback then flips it to Green so
+    // the operator sees the work landed. Without this the Pill stayed
+    // pending and the operator had no signal the save succeeded.
     if (action.id === 'metame.update-experience-goals') {
+      const optimisticIntentId = `update-goals-${Date.now()}`;
+      setQueuedIntents((prev) => ({
+        ...prev,
+        [action.id]: {
+          intentId: optimisticIntentId,
+          status: 'in_progress',
+          queueMessage: 'Editing active ExperienceGoals…',
+          manuallyComplete: false,
+        },
+      }));
+      setActedNbeRegistry((prev) =>
+        prev[action.id] ? prev : { ...prev, [action.id]: action },
+      );
       setGoalsEditorOpen(true);
       return;
     }
@@ -969,6 +1013,9 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               : buildPromptForNbeAction(artifactType, action);
           setComposerInitialPrompt(seedPrompt);
           setComposerKind(composeKind);
+          // Bind the composer to this queued intent so the drafted
+          // artifact nests inside the Pill instead of going orphan.
+          setComposerSourceIntentId(intentData.intentId);
           // No more setActiveLayoutId('composer') — swapping the
           // layout away from the active Capsule (Brief / Move-forward
           // / Venture) hides every other Pill in the bundle and
@@ -1031,6 +1078,18 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingApprovalNbe, pendingApprovalHint, personaId, fetchReceipts, fetchVentureProgress]);
 
+  // Parent IntentQube id for the composer flow. Set when the composer
+  // is opened in response to an Act on a queued NBE; threaded into
+  // /api/assistant/create-artifact via `sourceIntentId` so the drafted
+  // artifact nests inside its parent Pill instead of falling through
+  // to the orphan-artifact bucket. Declared HERE (above the compose
+  // handlers) so its binding exists by the time their useCallback
+  // dependency arrays are evaluated — declaring it further down in
+  // the file alongside composerKind put it in the TDZ at render time
+  // and crashed the cartridge with "can't access lexical declaration
+  // before initialization".
+  const [composerSourceIntentId, setComposerSourceIntentId] = useState<string | null>(null);
+
   // ── Compose handlers — all 6 mirror the classic tab pattern ────────
   const handleDraftEmail = useCallback(async (prompt: string) => {
     const res = await personaFetch('/api/assistant/draft-email', {
@@ -1047,7 +1106,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const handleComposeGmailDraft = useCallback(async (input: { to: string; subject: string; bodyText: string; cc?: string; bcc?: string }) => {
     const res = await personaFetch('/api/assistant/create-artifact', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ artifactType: 'gmail-draft', destination: 'gmail', title: input.subject, connectorInput: input }),
+      body: JSON.stringify({ artifactType: 'gmail-draft', destination: 'gmail', title: input.subject, connectorInput: input, sourceIntentId: composerSourceIntentId }),
       personaIdHint: personaId,
     });
     if (!res.ok) {
@@ -1056,7 +1115,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
     const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10)); autoOpenArtifact(data);
     void fetchReceipts();
-  }, [personaId, fetchReceipts]);
+  }, [personaId, fetchReceipts, composerSourceIntentId]);
 
   const handleDraftEvent = useCallback(async (prompt: string) => {
     const res = await personaFetch('/api/assistant/draft-event', {
@@ -1073,7 +1132,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const handleComposeCalendarEvent = useCallback(async (input: { summary: string; description: string; startIso: string; endIso: string; timeZone: string; attendeeEmails: string[] }) => {
     const res = await personaFetch('/api/assistant/create-artifact', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ artifactType: 'calendar-block', destination: 'calendar', title: input.summary, connectorInput: input }),
+      body: JSON.stringify({ artifactType: 'calendar-block', destination: 'calendar', title: input.summary, connectorInput: input, sourceIntentId: composerSourceIntentId }),
       personaIdHint: personaId,
     });
     if (!res.ok) {
@@ -1082,7 +1141,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
     const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10)); autoOpenArtifact(data);
     void fetchReceipts();
-  }, [personaId, fetchReceipts]);
+  }, [personaId, fetchReceipts, composerSourceIntentId]);
 
   const handleDraftDoc = useCallback(async (prompt: string) => {
     const res = await personaFetch('/api/assistant/draft-doc', {
@@ -1099,7 +1158,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const handleComposeGoogleDoc = useCallback(async (input: { title: string; bodyText: string; shareSuggestions: Array<{ email: string; role: 'reader' | 'commenter' | 'writer' }> }) => {
     const res = await personaFetch('/api/assistant/create-artifact', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ artifactType: 'google-doc', destination: 'drive', title: input.title, connectorInput: input }),
+      body: JSON.stringify({ artifactType: 'google-doc', destination: 'drive', title: input.title, connectorInput: input, sourceIntentId: composerSourceIntentId }),
       personaIdHint: personaId,
     });
     if (!res.ok) {
@@ -1108,7 +1167,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
     const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10)); autoOpenArtifact(data);
     void fetchReceipts();
-  }, [personaId, fetchReceipts]);
+  }, [personaId, fetchReceipts, composerSourceIntentId]);
 
   const handleDraftSlides = useCallback(async (prompt: string) => {
     const res = await personaFetch('/api/assistant/draft-slides', {
@@ -1125,7 +1184,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const handleComposeSlides = useCallback(async (input: { title: string; outline: string[]; sections?: Array<{ title: string; bullets: string[]; diagramConcept?: string }> }) => {
     const res = await personaFetch('/api/assistant/create-artifact', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ artifactType: 'slide-outline', destination: 'drive', title: input.title, connectorInput: input }),
+      body: JSON.stringify({ artifactType: 'slide-outline', destination: 'drive', title: input.title, connectorInput: input, sourceIntentId: composerSourceIntentId }),
       personaIdHint: personaId,
     });
     if (!res.ok) {
@@ -1134,7 +1193,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
     const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10)); autoOpenArtifact(data);
     void fetchReceipts();
-  }, [personaId, fetchReceipts]);
+  }, [personaId, fetchReceipts, composerSourceIntentId]);
 
   const handleDraftSheet = useCallback(async (prompt: string) => {
     const res = await personaFetch('/api/assistant/draft-sheet', {
@@ -1151,7 +1210,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const handleComposeGoogleSheet = useCallback(async (input: { title: string; sheetName: string; rows: string[][] }) => {
     const res = await personaFetch('/api/assistant/create-artifact', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ artifactType: 'google-sheet', destination: 'drive', title: input.title, connectorInput: input }),
+      body: JSON.stringify({ artifactType: 'google-sheet', destination: 'drive', title: input.title, connectorInput: input, sourceIntentId: composerSourceIntentId }),
       personaIdHint: personaId,
     });
     if (!res.ok) {
@@ -1160,7 +1219,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
     const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10)); autoOpenArtifact(data);
     void fetchReceipts();
-  }, [personaId, fetchReceipts]);
+  }, [personaId, fetchReceipts, composerSourceIntentId]);
 
   const handleDraftMarketa = useCallback(async (prompt: string) => {
     const res = await personaFetch('/api/assistant/draft-marketa-email', {
@@ -1177,7 +1236,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const handleComposeMarketa = useCallback(async (input: { to: string; subject: string; bodyText: string; cc?: string; bcc?: string; fromName?: string; campaignId?: string; cohortId?: string }) => {
     const res = await personaFetch('/api/assistant/create-artifact', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ artifactType: 'marketa-email', destination: 'runtime', title: input.subject, connectorInput: input }),
+      body: JSON.stringify({ artifactType: 'marketa-email', destination: 'runtime', title: input.subject, connectorInput: input, sourceIntentId: composerSourceIntentId }),
       personaIdHint: personaId,
     });
     if (!res.ok) {
@@ -1186,7 +1245,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
     const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10)); autoOpenArtifact(data);
     void fetchReceipts();
-  }, [personaId, fetchReceipts]);
+  }, [personaId, fetchReceipts, composerSourceIntentId]);
 
   // ── Artifact externalisation flow ──────────────────────────────────
   const handleDismissArtifact = useCallback((artifactId: string) => {
@@ -1343,7 +1402,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     } finally {
       setAskSpecialistLoadingId(null);
     }
-  }, [personaId, fetchReceipts]);
+  }, [personaId, fetchReceipts, composerSourceIntentId]);
 
   // Phase 2 — SpecialistsLayout fetchers + handlers.
   const fetchSpecialistRecommendation = useCallback(async (query?: string) => {
@@ -1459,6 +1518,15 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // draft on mount so the operator lands on a populated form. Used by
   // the SpecialistsLayout suggested-artifact buttons.
   const [composerInitialPrompt, setComposerInitialPrompt] = useState<string | null>(null);
+
+  // Clear the composer's parent-intent binding whenever the composer
+  // is dismissed (composerKind flips to null on backdrop click,
+  // onCreate success, overlay X). Without this, a subsequent
+  // compose-strip draft could inherit the prior Pill's intent id and
+  // appear nested in a stale Pill.
+  useEffect(() => {
+    if (composerKind === null) setComposerSourceIntentId(null);
+  }, [composerKind]);
 
   // Phase 2 B.1: selected KPI for KpiDetailLayout. The cockpit chip's
   // onClick sets this + activates 'kpi-detail'.
@@ -2488,11 +2556,37 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       {/* ── Modals (mounted at root, single source of truth) ─────── */}
       <ExperienceGoalsEditor
         open={goalsEditorOpen}
-        onOpenChange={setGoalsEditorOpen}
+        onOpenChange={(open) => {
+          // When the editor closes WITHOUT saving (operator hit X /
+          // cancelled), clear the optimistic queued Pill so the brief
+          // doesn't sit on a Blue chip forever. The save path handles
+          // its own completion via onSaved below.
+          setGoalsEditorOpen(open);
+          if (!open) {
+            setQueuedIntents((prev) => {
+              const cur = prev['metame.update-experience-goals'];
+              if (!cur || cur.manuallyComplete) return prev;
+              const next = { ...prev };
+              delete next['metame.update-experience-goals'];
+              return next;
+            });
+          }
+        }}
         personaId={personaId}
         onSaved={() => {
-          // Re-fetch the bootstrap so the right pane reflects new goal count.
+          // Flip the queued Pill to Green so the operator sees the
+          // save landed, then re-fetch receipts + venture progress
+          // (where Operational Goals lives) so the count chip on the
+          // Venture Capsule reflects the new state without a manual
+          // refresh.
+          setQueuedIntents((prev) => {
+            const cur = prev['metame.update-experience-goals'];
+            if (!cur) return prev;
+            return { ...prev, ['metame.update-experience-goals']: { ...cur, manuallyComplete: true, status: 'completed', queueMessage: 'ExperienceGoals updated.' } };
+          });
           void fetchReceipts();
+          void fetchVentureProgress({ silent: true });
+          void fetchBrief();
         }}
       />
       <ExperienceModelSetupWizard

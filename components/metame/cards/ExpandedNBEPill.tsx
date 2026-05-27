@@ -225,13 +225,23 @@ export function ExpandedNBEPill({
         </div>
       </div>
 
-      {/* Drafted artifact(s) — each with optional second-tier approval gate */}
+      {/* Drafted artifact(s) — each with optional second-tier approval gate.
+          When the parent Pill is Complete (either manuallyComplete or
+          via every artifact already sent), force the ArtifactCard's
+          status to 'sent' for rendering so its "View in Drive / Gmail
+          / Calendar" link surfaces. ArtifactCard hides the link when
+          status === 'draft' AND actionConnectorId is set (to push the
+          operator toward Send rather than Open) — but a completed
+          pill means the work is done; the operator wants the link. */}
       {artifacts.map((artifact) => {
         const showSecondTier = secondTierApproval?.artifactId === artifact.artifactId;
+        const renderArtifact: ArtifactCardData = complete && artifact.status === "draft"
+          ? { ...artifact, status: "sent" }
+          : artifact;
         return (
           <div key={artifact.artifactId} data-artifact-id={artifact.artifactId} className="space-y-2">
             <ArtifactCard
-              data={artifact}
+              data={renderArtifact}
               onAction={() => onSendArtifact(artifact.artifactId)}
               onDismiss={() => onDismissArtifact(artifact.artifactId)}
               actionPending={actionPendingArtifactId === artifact.artifactId}
