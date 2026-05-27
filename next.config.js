@@ -12,11 +12,7 @@ const nextConfig = {
   output: isAmplifyBuild ? "standalone" : undefined,
   // Prevent playwright and other native/large packages from being bundled in server routes.
   // This reduces per-page memory pressure and avoids "Critical dependency" warnings.
-  // pdfjs-dist is externalised because its fake-worker fallback does a dynamic
-  // `import("./pdf.worker.mjs")` that Next.js can't trace into the chunks bundle —
-  // leaving the package external lets that relative import resolve from node_modules
-  // at runtime (used by /api/codex/qripto/pdf-thumb and /api/content/pdf-page/[cid]).
-  serverExternalPackages: ["playwright", "playwright-core", "pdf-parse", "pdfjs-dist", "@napi-rs/canvas", "ffmpeg-static"],
+  serverExternalPackages: ["playwright", "playwright-core", "pdf-parse", "@napi-rs/canvas", "ffmpeg-static"],
   experimental: {
     // Limit worker parallelism on Amplify to avoid ENOMEM when forking page-data workers.
     // The main build process consumes ~3 GB; each forked worker needs additional RAM.
@@ -25,12 +21,6 @@ const nextConfig = {
     // so that /api/codex/packs/[packId]/file can read them at runtime on Lambda.
     outputFileTracingIncludes: {
       "/api/codex/packs/[packId]/file": ["./codexes/packs/**/*.md", "./codexes/packs/**/*.json"],
-      // pdfjs-dist's legacy build dynamically imports pdf.worker.mjs as a sibling
-      // file. Force-include it (and the canvas binary) so the Lambda has both.
-      "/api/codex/qripto/pdf-thumb": [
-        "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
-        "./node_modules/pdfjs-dist/legacy/build/pdf.mjs",
-      ],
     },
   },
   transpilePackages: [

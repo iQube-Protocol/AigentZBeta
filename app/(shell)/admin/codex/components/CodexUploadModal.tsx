@@ -119,7 +119,7 @@ const QRIPTO_CATEGORIES: {
   description: string;
   accept: string;
 }[] = [
-  { id: 'cover',       label: 'Cover',         icon: Image,    description: 'Card cover for a paper / magazine (JPG, PNG, WebP or single-page PDF)', accept: '.jpg,.jpeg,.png,.webp,.pdf' },
+  { id: 'cover',       label: 'Cover',         icon: Image,    description: 'Card cover for a paper / magazine — image only (JPG, PNG, WebP). Use a separate Cover upload for the thumbnail; the PDF body goes through White-papers / Articles.', accept: '.jpg,.jpeg,.png,.webp' },
   { id: 'white-paper', label: 'White-papers',  icon: FileText, description: 'Long-form thesis PDFs (Papers series)',           accept: '.pdf' },
   { id: 'article',     label: 'Articles',      icon: FileText, description: 'Magazine articles (markdown / Word / PDF)',       accept: '.md,.docx,.pdf,.txt' },
   { id: 'video',       label: 'Video',         icon: Video,    description: 'Video pieces (interviews, explainers, reels)',    accept: '.mp4,.webm,.mov' },
@@ -596,26 +596,25 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
         'infographic': 'social_campaign_image',
       };
       const isCover = selectedQriptoCategory === 'cover';
-      const newItems: UploadItem[] = files.map((file, idx) => {
-        // For a cover, pick cover_pdf vs cover_image off the mime so the
-        // register row carries the right asset_kind. PDF covers (first-page
-        // thumbnails) and image covers both populate cover_thumb_url.
-        const coverKind: CodexAssetKind =
-          file.type === 'application/pdf' ? 'cover_pdf' : 'cover_image';
-        return {
-          id: `${Date.now()}-q-${idx}`,
-          file,
-          category: isCover ? 'cover' : 'lore',
-          assetKind: isCover ? coverKind : assetKindByCategory[selectedQriptoCategory as Exclude<QriptoCategoryId, 'cover'>],
-          episodeNumber: null,
-          title: file.name.replace(/\.[^/.]+$/, ''),
-          status: 'pending' as const,
-          progress: 0,
-          displayMode: 'pdf' as DisplayMode,
-          cartridge: 'qriptopian' as const,
-          seriesMode: 'standalone' as const,
-        };
-      });
+      const newItems: UploadItem[] = files.map((file, idx) => ({
+        id: `${Date.now()}-q-${idx}`,
+        file,
+        category: isCover ? 'cover' : 'lore',
+        // Covers are images only — matches the KNYT pattern (cover_image
+        // rendered via plain <img src>). PDF covers were dropped because
+        // rendering page 1 server-side requires pdfjs + a Lambda-friendly
+        // worker setup that we don't have.
+        assetKind: isCover
+          ? ('cover_image' as CodexAssetKind)
+          : assetKindByCategory[selectedQriptoCategory as Exclude<QriptoCategoryId, 'cover'>],
+        episodeNumber: null,
+        title: file.name.replace(/\.[^/.]+$/, ''),
+        status: 'pending' as const,
+        progress: 0,
+        displayMode: 'pdf' as DisplayMode,
+        cartridge: 'qriptopian' as const,
+        seriesMode: 'standalone' as const,
+      }));
       setUploadQueue((prev) => [...prev, ...newItems]);
       if (qriptoFileInputRef.current) qriptoFileInputRef.current.value = '';
     },
