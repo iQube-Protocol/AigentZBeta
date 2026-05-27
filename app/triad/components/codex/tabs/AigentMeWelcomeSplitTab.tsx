@@ -487,7 +487,14 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const [submittingApproval, setSubmittingApproval] = useState(false);
   const [approvalError, setApprovalError] = useState<string | null>(null);
   const [queuedIntents, setQueuedIntents] = useState<
-    Record<string, { intentId: string; status: string; queueMessage: string }>
+    Record<string, { intentId: string; status: string; queueMessage: string; manuallyComplete?: boolean }>
+  >({});
+  // Session registry of NBA definitions for every NBE the operator has
+  // Acted on. Survives brief / move-forward refetches so the Brief
+  // Capsule can render expanded Pills even after the source NBA is no
+  // longer in brief.nextBestActions. Keyed by NBE id.
+  const [actedNbeRegistry, setActedNbeRegistry] = useState<
+    Record<string, NextBestActionData>
   >({});
 
   // Accordion: which right-pane config section is expanded.
@@ -765,6 +772,16 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // ── Approval / NBE flow ────────────────────────────────────────────
   const handleNbeAct = useCallback((action: NextBestActionData) => {
     if (queuedIntents[action.id]) return;
+    // Capture the NBA definition into the session registry so the
+    // brief Capsule can still render this Pill even if a subsequent
+    // brief refetch drops the NBA from its nextBestActions list, or
+    // if the Pill came from a different surface (move-forward,
+    // venture-progress). Without this, only NBAs currently in
+    // brief.nextBestActions render — so a user who acted on 3 CTAs
+    // sees only the ones the brief still lists.
+    setActedNbeRegistry((prev) =>
+      prev[action.id] ? prev : { ...prev, [action.id]: action },
+    );
     // Short-circuit: the "update goals" NBE opens the goals editor directly
     // rather than going through the generic approval → intent path.
     if (action.id === 'metame.update-experience-goals') {
@@ -1215,6 +1232,20 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
 
   const handleDismissQueued = useCallback((nbeId: string) => {
     setQueuedIntents((prev) => { const next = { ...prev }; delete next[nbeId]; return next; });
+  }, []);
+
+  // Mark complete — flips a queued pill to the green "complete" state
+  // without needing a real connector-success signal. In alpha (where
+  // Phase 5/6 specialist routing isn't live yet) this gives the
+  // operator explicit lifecycle control. When real execution lands the
+  // pill will auto-flip on the artifact status check; this manual
+  // path stays as a fallback.
+  const handleMarkPillComplete = useCallback((nbeId: string) => {
+    setQueuedIntents((prev) => {
+      const cur = prev[nbeId];
+      if (!cur) return prev;
+      return { ...prev, [nbeId]: { ...cur, manuallyComplete: true } };
+    });
   }, []);
 
   const handleAskSpecialist = useCallback(async (
@@ -2235,6 +2266,8 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 onCancelSecondTier: handleCancelSecondTier,
                 onDismissSpecialist: handleDismissSpecialist,
                 onDismissQueued: handleDismissQueued,
+                onMarkPillComplete: handleMarkPillComplete,
+                actedNbeRegistry,
                 onDismissBrief: () => {
                   setBrief(null);
                   setBriefError(null);

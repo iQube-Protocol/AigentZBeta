@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`0e1fe66`](https://github.com/iQube-Protocol/AigentZBeta/commit/0e1fe6681e3c77d69719e6cdf8e8b7d082ead602) [feat] Wire Qriptopian Papers tab + admin codex list to actual asset data (Claude, 2026-05-27T01:55:18Z)
 - [`9f14330`](https://github.com/iQube-Protocol/AigentZBeta/commit/9f14330f44a8696d174ec644f4ccf4a9d1666d5d) [feat] Add Qripto Cover content type + fix upload preview link for Supabase URLs (Claude, 2026-05-27T01:31:26Z)
 - [`ddadc89`](https://github.com/iQube-Protocol/AigentZBeta/commit/ddadc89d29ab2d98801f3803542c79ced24f142e) [push] Replace Qripto assetKind dropdown with Standalone | Part of a Series + X of Y inputs (Claude, 2026-05-27T00:21:51Z)
 - [`0929def`](https://github.com/iQube-Protocol/AigentZBeta/commit/0929defe329a50b4aafb64ab20133def0b25edc1) [push] Qripto-aware Codex Upload modal — Series + Content Types live (Claude, 2026-05-26T23:14:25Z)

@@ -164,7 +164,14 @@ interface Props {
     artifactType: string,
     response: SpecialistResponseData,
   ) => void;
-  queuedIntents: Record<string, { intentId: string; status: string; queueMessage: string }>;
+  queuedIntents: Record<string, { intentId: string; status: string; queueMessage: string; manuallyComplete?: boolean }>;
+  /**
+   * Session registry of NBA definitions for every NBE the operator has
+   * Acted on this session. Lets the Brief Capsule render expanded
+   * Pills whose NBA is no longer in brief.nextBestActions (e.g. after
+   * a brief refetch or for NBAs queued from move-forward / venture).
+   */
+  actedNbeRegistry?: Record<string, NextBestActionData>;
 
   /** Below-fold sections. */
   expModel: ExperienceModelCardData | null;
@@ -193,6 +200,11 @@ interface Props {
   onCancelSecondTier: () => void;
   onDismissSpecialist: (nbeId: string) => void;
   onDismissQueued: (nbeId: string) => void;
+  /** Operator-driven complete flip on a queued NBE pill. Threads
+   *  through to ExpandedNBEPill's "Mark complete" header button so the
+   *  user can advance pill state to green without waiting on real
+   *  execution. */
+  onMarkPillComplete?: (nbeId: string) => void;
   /** Per-bundle dismiss handlers — clear the loaded brief / venture /
    *  move-forward state so the action space doesn't pile up. Re-firing
    *  the chip re-issues the request and re-renders the bundle. */
@@ -445,6 +457,7 @@ export function WelcomeRightPane(props: Props) {
     pendingApproval, submittingApproval, approvalError,
     artifacts, actionPendingArtifactId, actionErrors, secondTierApproval,
     specialistResponses, specialistLoading, specialistErrors, queuedIntents,
+    actedNbeRegistry = {},
     onUseSuggestedArtifact,
     expModel, expModelLoading, stageEval,
     receipts, receiptsLoading, receiptsPersonaLabel,
@@ -452,7 +465,7 @@ export function WelcomeRightPane(props: Props) {
     usingIqubes,
     onCtaClick, onNbeAct, onApprovalApprove, onApprovalCancel,
     onSendArtifact, onDismissArtifact, onApproveSecondTier, onCancelSecondTier,
-    onDismissSpecialist, onDismissQueued,
+    onDismissSpecialist, onDismissQueued, onMarkPillComplete,
     onDismissBrief, onDismissVenture, onDismissMoveForward,
     onAskSpecialist, askSpecialistOpenId, askSpecialistPrompt, askSpecialistLoadingId,
     askSpecialistResponses, askSpecialistErrors,
@@ -734,6 +747,8 @@ export function WelcomeRightPane(props: Props) {
             onDismissArtifact={onDismissArtifact}
             onApproveSecondTier={onApproveSecondTier}
             onCancelSecondTier={onCancelSecondTier}
+            onMarkPillComplete={onMarkPillComplete}
+            actedNbeRegistry={actedNbeRegistry}
             onDismiss={onDismissBrief}
             theme={theme}
           />
