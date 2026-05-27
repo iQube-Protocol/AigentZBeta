@@ -77,19 +77,49 @@ const MJ_TO_STEERING: Record<string, SteeringEvent> = {
 
 // ── ID resolution ─────────────────────────────────────────────────────────────
 
-type CustomIdKind = 'investor' | 'staging' | 'unknown';
+type CustomIdKind = 'investor' | 'staging' | 'cohort-investor' | 'cohort-partner' | 'cohort-staging' | 'unknown';
 
-function parseCustomId(customId: string | undefined): {
+interface ParsedCustomId {
   kind: CustomIdKind;
+  /** Persona / contact / staging row id. */
   id: string | null;
+  /** Sequence id (legacy) or `cohort:<campaign>:<cohort>` tag. */
   sequenceId: string | null;
-} {
-  if (!customId) return { kind: 'unknown', id: null, sequenceId: null };
+  /** Campaign + cohort labels when CustomID is cohort-prefixed. */
+  campaignId: string | null;
+  cohortId: string | null;
+}
+
+/**
+ * Parses every CustomID format we emit:
+ *
+ *   "<investor_id>|<sequence_id>"                          — legacy investor sequence
+ *   "stg_<staging_id>|<email_number>"                      — legacy KS staging
+ *   "cohort:<campaign>:<cohort>|<recipient_id>"            — Marketa cohort send (new)
+ *
+ * Cohort sends route by campaign id:
+ *   knyt_codex     → nakamoto_knyt_personas (cohort-investor)
+ *   knyt_partners  → avl_partner_contacts (cohort-partner)
+ *   ks_prospects   → ks_backers_staging (cohort-staging)
+ */
+function parseCustomId(customId: string | undefined): ParsedCustomId {
+  if (!customId) return { kind: 'unknown', id: null, sequenceId: null, campaignId: null, cohortId: null };
   const parts = customId.split('|');
-  if (parts[0]?.startsWith('stg_')) {
-    return { kind: 'staging', id: parts[0].slice(4) || null, sequenceId: parts[1] || null };
+  const head = parts[0] ?? '';
+  const tail = parts[1] ?? null;
+
+  if (head.startsWith('cohort:')) {
+    const [, campaignId, cohortId] = head.split(':');
+    let kind: CustomIdKind = 'unknown';
+    if (campaignId === 'knyt_codex') kind = 'cohort-investor';
+    else if (campaignId === 'knyt_partners') kind = 'cohort-partner';
+    else if (campaignId === 'ks_prospects') kind = 'cohort-staging';
+    return { kind, id: tail, sequenceId: head, campaignId: campaignId ?? null, cohortId: cohortId ?? null };
   }
-  return { kind: 'investor', id: parts[0] || null, sequenceId: parts[1] || null };
+  if (head.startsWith('stg_')) {
+    return { kind: 'staging', id: head.slice(4) || null, sequenceId: tail, campaignId: null, cohortId: null };
+  }
+  return { kind: 'investor', id: head || null, sequenceId: tail, campaignId: null, cohortId: null };
 }
 
 async function resolveInvestorId(
@@ -97,12 +127,13 @@ async function resolveInvestorId(
   client: ReturnType<typeof getCrmClient>
 ): Promise<{ investorId: string | null; sequenceId: string | null }> {
   const parsed = parseCustomId(ev.CustomID);
-  // CustomID explicitly targets an investor record
-  if (parsed.kind === 'investor' && parsed.id) {
+  // CustomID explicitly targets an investor record (legacy sequence or
+  // Marketa cohort to knyt_codex — both land on nakamoto_knyt_personas).
+  if ((parsed.kind === 'investor' || parsed.kind === 'cohort-investor') && parsed.id) {
     return { investorId: parsed.id, sequenceId: parsed.sequenceId };
   }
-  // CustomID targets staging — skip investor resolution
-  if (parsed.kind === 'staging') {
+  // CustomID targets staging / partner — skip investor resolution
+  if (parsed.kind === 'staging' || parsed.kind === 'cohort-staging' || parsed.kind === 'cohort-partner') {
     return { investorId: null, sequenceId: parsed.sequenceId };
   }
   // No CustomID — fall back to email lookup in personas
@@ -113,6 +144,34 @@ async function resolveInvestorId(
     .ilike('"Email"', ev.email)
     .maybeSingle();
   return { investorId: data?.id ?? null, sequenceId: null };
+}
+
+// ── Partner cohort tracking (avl_partner_contacts) ────────────────────────
+//
+// Mirrors the staging engagement transitions but writes to the
+// AVL partner CRM. State column is `outreach_status` — we apply a
+// best-effort mapping; consumer code that depends on terminal states
+// should treat these as advisory until Phase 6 schema cleanup lands.
+
+const PARTNER_STATUS_MAP: Record<string, string> = {
+  open:    'opened',
+  click:   'engaged',
+  bounce:  'bounced',
+  spam:    'opted_out',
+  unsub:   'opted_out',
+};
+
+async function updatePartnerContact(
+  id: string,
+  eventType: string,
+  client: ReturnType<typeof getCrmClient>,
+  parsed: ParsedCustomId,
+): Promise<void> {
+  const next = PARTNER_STATUS_MAP[eventType];
+  if (!next) return;
+  const patch: Record<string, unknown> = { outreach_status: next };
+  if (parsed.sequenceId) patch.last_outreach_sequence = parsed.sequenceId;
+  await client.from('avl_partner_contacts').update(patch).eq('id', id);
 }
 
 // ── Staging engagement tracking ───────────────────────────────────────────────
@@ -188,6 +247,25 @@ async function processEvent(
     console.info(`[webhooks/mailjet] staging ${parsed.id}: ${ev.event}`);
     return 'advanced';
   }
+
+  // ── Marketa cohort fast paths ────────────────────────────────────────────
+  // cohort:knyt_codex:<cohort>|<persona_id>  → nakamoto_knyt_personas
+  // cohort:knyt_partners:<cohort>|<contact_id> → avl_partner_contacts
+  // cohort:ks_prospects:<cohort>|<staging_id>  → ks_backers_staging
+  if (parsed.kind === 'cohort-staging' && parsed.id) {
+    await updateStagingById(parsed.id, ev.event, client);
+    console.info(`[webhooks/mailjet] cohort staging ${parsed.id}: ${ev.event} (${parsed.campaignId}:${parsed.cohortId})`);
+    return 'advanced';
+  }
+  if (parsed.kind === 'cohort-partner' && parsed.id) {
+    await updatePartnerContact(parsed.id, ev.event, client, parsed);
+    console.info(`[webhooks/mailjet] cohort partner ${parsed.id}: ${ev.event} (${parsed.campaignId}:${parsed.cohortId})`);
+    return 'advanced';
+  }
+  // cohort-investor falls through to the existing investor path below —
+  // nakamoto_knyt_personas state machine already handles all the event
+  // types we care about. The sequenceId carries the cohort tag for
+  // attribution (last_campaign_sequence).
 
   // ── Log-only events (bounce, blocked) for investor path ──────────────────
   if (rule === null) {
