@@ -163,6 +163,14 @@ export type RightPaneLayoutProps = WelcomeRightPaneProps & {
    * as composerInitialPrompt so the inline form auto-drafts on mount.
    */
   onUseSuggestedArtifact?: (artifactType: string, response: import("@/components/metame/cards/SpecialistResponseCard").SpecialistResponseData) => void;
+  /**
+   * Map of synthetic intent id → specialist id for artifacts spawned
+   * from a specialist's suggested-artifact chip. SpecialistsLayout
+   * uses it to filter the global `artifacts` list down to those
+   * drafted from the current consultation, so they fold inside the
+   * Ask Specialists Capsule instead of floating as orphans.
+   */
+  specialistIntentMap?: Record<string, string>;
 };
 
 export interface RightPaneLayoutDefinition {
