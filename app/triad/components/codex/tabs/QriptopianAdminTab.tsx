@@ -1246,24 +1246,24 @@ function CodexManager() {
                   )}
                 </div>
               )}
-              <div className="overflow-hidden rounded-xl border border-white/5 bg-slate-900/40">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-900/60 text-[11px] uppercase tracking-wide text-slate-400">
+              <div className="overflow-x-auto rounded-xl border border-white/5 bg-slate-900/40">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-900/60 text-[10px] uppercase tracking-wider text-slate-500">
                     <tr>
-                      <th className="px-3 py-2 text-left">Thumb</th>
-                      <th className="px-3 py-2 text-left">Role</th>
-                      <th className="px-3 py-2 text-left">Title</th>
-                      <th className="px-3 py-2 text-left">Series</th>
-                      <th className="px-3 py-2 text-left">Kind</th>
-                      <th className="px-3 py-2 text-left">Mime</th>
-                      <th className="px-3 py-2 text-left">Uploaded</th>
+                      <th className="px-3 py-2">Thumb</th>
+                      <th className="px-3 py-2">Role</th>
+                      <th className="px-3 py-2">Title</th>
+                      <th className="px-3 py-2">Series</th>
+                      <th className="px-3 py-2">Kind</th>
+                      <th className="px-3 py-2">Mime</th>
+                      <th className="px-3 py-2">ID</th>
+                      <th className="px-3 py-2">URL</th>
+                      <th className="px-3 py-2">Uploaded</th>
                       <th className="px-3 py-2 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
                     {qriptoRows.map((r) => {
-                      // coverThumbUrl is already PDF-rasterised by the API for cover_pdf rows,
-                      // so this <img> works uniformly for images and PDF covers.
                       const thumbSrc = r.coverThumbUrl
                         || (r.role === 'cover' && r.mimeType.startsWith('image/') ? r.storageUrl : null)
                         || (r.mimeType.startsWith('image/') ? r.storageUrl : null);
@@ -1282,12 +1282,32 @@ function CodexManager() {
                               {r.role}
                             </span>
                           </td>
-                          <td className="px-3 py-2 text-slate-200">{r.title}</td>
+                          <td className="px-3 py-2 text-slate-200 max-w-[180px] truncate" title={r.title}>{r.title}</td>
                           <td className="px-3 py-2 text-slate-400">{r.scopeLabel}</td>
                           <td className="px-3 py-2 text-slate-500">{r.assetKind || '—'}</td>
                           <td className="px-3 py-2 text-slate-500">{r.mimeType}</td>
-                          <td className="px-3 py-2 text-slate-500">{r.uploadedAt ? new Date(r.uploadedAt).toLocaleString() : '—'}</td>
-                          <td className="px-3 py-2 text-right">
+                          <td className="px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={() => navigator.clipboard?.writeText(r.id)}
+                              className="font-mono text-[10px] text-slate-400 hover:text-teal-300"
+                              title="Click to copy ID"
+                            >
+                              {r.id.slice(0, 8)}…
+                            </button>
+                          </td>
+                          <td className="px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={() => navigator.clipboard?.writeText(r.storageUrl)}
+                              className="font-mono text-[10px] text-slate-400 hover:text-teal-300 max-w-[200px] truncate inline-block align-bottom"
+                              title={r.storageUrl}
+                            >
+                              {r.storageUrl.replace(/^https?:\/\/[^/]+/, '')}
+                            </button>
+                          </td>
+                          <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{r.uploadedAt ? new Date(r.uploadedAt).toLocaleString() : '—'}</td>
+                          <td className="px-3 py-2 text-right whitespace-nowrap">
                             <a
                               href={r.storageUrl}
                               target="_blank"

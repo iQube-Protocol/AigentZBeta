@@ -163,22 +163,30 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Flatten with cover matching — most recent cover in the scope wins.
-    // KNYT pattern: the cover URL is a plain image URL (cover_image) and
-    // the card renders it with <img src>. No rasteriser, no iframe, no
-    // worker. If a non-image row ever lands in the covers bucket (legacy
-    // cover_pdf rows) it's ignored — the operator needs to upload a
-    // proper image cover.
+    // Flatten with cover matching. Both papers and covers are inserted
+    // by Supabase in created_at DESC order (the source query above
+    // sorts that way). Pair them by index: the most recent paper gets
+    // the most recent image cover, the second-most-recent paper gets
+    // the second-most-recent cover, and so on. Operators upload paper
+    // + cover consecutively, so index-pairing matches editorial intent
+    // without needing an explicit FK column.
+    //
+    // Non-image cover rows are filtered out — covers must be JPG/PNG/
+    // WebP per CLAUDE.md "Grids of PDF Assets with Covers".
     const papers: PaperCard[] = [];
     for (const [scope, bucket] of buckets) {
-      const imageCover = bucket.covers.find(
-        (c) => (c.mime_type || '').startsWith('image/'),
+      const imageCovers = bucket.covers
+        .filter((c) => (c.mime_type || '').startsWith('image/'))
+        .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''));
+      const papersDesc = [...bucket.papers].sort(
+        (a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''),
       );
-      const coverUrl = imageCover?.cover_thumb_url || imageCover?.auto_drive_cid || null;
-      const coverMime = imageCover?.mime_type || null;
-      for (const row of bucket.papers) {
+      papersDesc.forEach((row, idx) => {
         const storageUrl = row.auto_drive_cid;
-        if (!storageUrl) continue;
+        if (!storageUrl) return;
+        const matchedCover = imageCovers[idx] || imageCovers[imageCovers.length - 1] || null;
+        const coverUrl = matchedCover?.cover_thumb_url || matchedCover?.auto_drive_cid || null;
+        const coverMime = matchedCover?.mime_type || null;
         papers.push({
           id: row.id,
           title: row.supabase_title || row.title || 'Untitled',
@@ -190,7 +198,7 @@ export async function GET(req: NextRequest) {
           mimeType: row.mime_type || 'application/pdf',
           uploadedAt: row.created_at,
         });
-      }
+      });
     }
 
     // Stable order: by scope label, then by uploaded_at desc within scope.
