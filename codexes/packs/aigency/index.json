@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-27T03:36:55.398Z",
+  "last_updated": "2026-05-27T04:41:44.357Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "95e536c123a2ea1d8a8abfa8363edaa6fda4f1bf",
-  "latest_commit_short": "95e536c",
-  "latest_commit_title": "Skip encryption-at-rest for Qripto WIP uploads + open papers in PDF lite viewer",
+  "latest_commit": "6352ef3ca5399e596a310146becde5b29d515e2c",
+  "latest_commit_short": "6352ef3",
+  "latest_commit_title": "Surface every Qripto upload row in admin (covers + papers) with diagnostics + bust Next cache",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "6352ef3",
+      "full_sha": "6352ef3ca5399e596a310146becde5b29d515e2c",
+      "title": "Surface every Qripto upload row in admin (covers + papers) with diagnostics + bust Next cache",
+      "author": "Claude",
+      "timestamp": "2026-05-27T04:39:35Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-6352ef3.md"
+    },
     {
       "sha": "95e536c",
       "full_sha": "95e536c123a2ea1d8a8abfa8363edaa6fda4f1bf",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-18T23:35:09Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c753039.md"
-    },
-    {
-      "sha": "f0c3a42",
-      "full_sha": "f0c3a422a8c9e4ce3e2bd9309c20895fe1f76cb9",
-      "title": "revert: AGN card back to PDFLiteReader (masterId proxy approach fails on 430MB GN — Lambda OOM)",
-      "author": "Claude",
-      "timestamp": "2026-05-16T22:27:57Z",
-      "type": "revert",
-      "brief": "items/build_/COMMITS/COMMIT-f0c3a42.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

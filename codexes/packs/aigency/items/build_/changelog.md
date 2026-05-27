@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`6352ef3`](https://github.com/iQube-Protocol/AigentZBeta/commit/6352ef3ca5399e596a310146becde5b29d515e2c) [push] Surface every Qripto upload row in admin (covers + papers) with diagnostics + bust Next cache (Claude, 2026-05-27T04:39:35Z)
 - [`95e536c`](https://github.com/iQube-Protocol/AigentZBeta/commit/95e536c123a2ea1d8a8abfa8363edaa6fda4f1bf) [push] Skip encryption-at-rest for Qripto WIP uploads + open papers in PDF lite viewer (Claude, 2026-05-27T03:34:50Z)
 - [`0e1fe66`](https://github.com/iQube-Protocol/AigentZBeta/commit/0e1fe6681e3c77d69719e6cdf8e8b7d082ead602) [feat] Wire Qriptopian Papers tab + admin codex list to actual asset data (Claude, 2026-05-27T01:55:18Z)
 - [`9f14330`](https://github.com/iQube-Protocol/AigentZBeta/commit/9f14330f44a8696d174ec644f4ccf4a9d1666d5d) [feat] Add Qripto Cover content type + fix upload preview link for Supabase URLs (Claude, 2026-05-27T01:31:26Z)
