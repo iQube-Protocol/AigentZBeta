@@ -51,10 +51,12 @@ interface Props {
 }
 
 const USE_KIND_OPTIONS: Array<{ id: UploadUseKind; label: string; description: string }> = [
-  { id: 'context',   label: 'Add to next aigentMe prompt', description: 'Parsed text is attached to the next chat message as context.' },
-  { id: 'tool',      label: 'Use as a tool input',        description: 'JSON / CSV exposed as a structured tool the LLM can query.' },
-  { id: 'workbench', label: 'Save to myWorkbench',         description: 'Lands as a private draft for later reuse.' },
-  { id: 'general',   label: 'Just save for now',           description: "No commitment — you can re-route the upload later." },
+  { id: 'context',          label: 'Add to next aigentMe prompt', description: 'Parsed text is attached to the next chat message as context.' },
+  { id: 'tool',             label: 'Use as a tool input',         description: 'JSON / CSV exposed as a structured tool the LLM can query.' },
+  { id: 'email_attachment', label: 'Attach to an outbound email', description: 'Surfaces first in the Gmail / Marketa compose modal attachment picker.' },
+  { id: 'iqube_payload',    label: 'Embed inside an iQube',       description: 'Stages the file for embed at iQube mint time (Phase 2 wires the payload writer).' },
+  { id: 'workbench',        label: 'Save to myWorkbench',         description: 'Lands as a private draft for later reuse.' },
+  { id: 'general',          label: 'Just save for now',           description: "No commitment — you can re-route the upload later." },
 ];
 
 function iconForMime(mime: string, ext: string): React.ReactNode {
