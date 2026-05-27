@@ -2173,6 +2173,24 @@ const qriptoAdminTabsForMetameQriptopia = () =>
       group: 'qriptopia',
     }));
 
+// Qriptopian Codex group (Magazines, Papers, Polity, …) mirrored into
+// metaMe's qriptopia surface so the metaMe view stays in sync with the
+// canonical Qripto cartridge. Without this, metaMe shows only the
+// stub Features / Community / 21 Sats tabs and the operator has to
+// jump cartridges to read a paper. Slug-prefixed to avoid namespace
+// collision; order rebased so they appear before the existing stubs.
+const qriptoCodexTabsForMetameQriptopia = () =>
+  QRIPTO_CODEX.tabs
+    .filter((t) => t.group === 'codex' && t.enabled)
+    .sort((a, b) => a.order - b.order)
+    .map((t, idx) => ({
+      ...t,
+      id: `metame-qripto-codex-${t.id}`,
+      slug: `qripto-codex-${t.slug}`,
+      group: 'qriptopia',
+      order: 40 + idx, // Sits ABOVE Features (50), Community (51), 21 Sats (52)
+    }));
+
 // AgentiQ OS admin tabs mirrored into metaMe's agentiqos group.
 // Pulls from the AgentiQ OS cartridge's `admin` tabGroup (added
 // 2026-05-26) — currently a single stub PlaceholderTab; real
@@ -2692,6 +2710,11 @@ export const METAME_CODEX: CodexConfig = {
     },
 
     // ── Qriptopia group ──────────────────────────────────────────────────────
+    // Canonical Qripto Codex tabs (Magazines, Papers, Polity) are mirrored
+    // in from QRIPTO_CODEX so metaMe stays in lock-step with the cartridge.
+    // The mirror sits at order 40..49 so it appears BEFORE the existing
+    // Features / Community / 21 Sats / Admin stubs without renumbering them.
+    ...qriptoCodexTabsForMetameQriptopia(),
     {
       id: 'qriptopia-features',
       label: 'Features',
