@@ -1309,3 +1309,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-51f6a32.md](../build_/COMMITS/COMMIT-51f6a32.md)
 - Message: Use pdfjs-dist legacy build (no worker) in PDF-thumb route so Lambda doesnt look for pdf.worker.mjs
+
+## Commit `df780ef` — 2026-05-27T18:41:54Z
+- Type: `push`
+- Brief: [COMMIT-df780ef.md](../build_/COMMITS/COMMIT-df780ef.md)
+- Message: Match KNYT cover pattern exactly: covers are images, no pdfjs rasteriser, no fake worker
