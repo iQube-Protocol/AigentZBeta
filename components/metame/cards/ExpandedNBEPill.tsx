@@ -91,17 +91,35 @@ const SPECIALIST_LABELS: Record<string, string> = {
 };
 
 /**
- * "Complete" semantics — either:
- *   - the operator manually marked the pill complete, OR
- *   - every artifact attached to the pill has been sent/published
- *     (with at least one artifact present so a queued-but-empty pill
- *     doesn't immediately read as complete).
+ * Pill lifecycle, kept deliberately simple:
+ *
+ *   Internal action (action.approvalRequired === false)
+ *     Act + first-tier approve → Green (Complete) immediately.
+ *     There is no Blue state for internal moves — the first-tier
+ *     approval IS the only gate, so once it's granted the work is
+ *     done from the operator's perspective.
+ *
+ *   External action (action.approvalRequired === true)
+ *     Act + first-tier approve → Blue (Queued)
+ *       awaiting the artifact to be drafted, then the second-tier
+ *       approval gate, then connector execution.
+ *     Artifact status flips to 'sent' / 'published' (DVN receipt) →
+ *       Green (Complete).
+ *
+ *   manuallyComplete on the queued state overrides either path —
+ *   the operator can flip a Blue pill to Green via the Mark complete
+ *   header button when execution is mocked / blocked.
  */
 function isPillComplete(
+  action: NextBestActionData,
   queued: ExpandedNBEPillQueuedState,
   artifacts: ArtifactCardData[],
 ): boolean {
   if (queued.manuallyComplete) return true;
+  // Internal action — green the moment it lands in the queue.
+  if (!action.approvalRequired) return true;
+  // External action — green only when every drafted artifact has
+  // shipped externally.
   if (artifacts.length === 0) return false;
   return artifacts.every((a) => a.status === "sent" || a.status === "published");
 }
@@ -122,7 +140,7 @@ export function ExpandedNBEPill({
   theme = "dark",
 }: Props) {
   const isDark = theme === "dark";
-  const complete = isPillComplete(queued, artifacts);
+  const complete = isPillComplete(action, queued, artifacts);
 
   // Border + accent tokens for queued (blue) vs complete (green).
   // Background opacity is bumped so the Pill reads as a distinct card
@@ -236,11 +254,13 @@ export function ExpandedNBEPill({
         );
       })}
 
-      {/* Footer state hint */}
+      {/* Footer state hint — wording reflects which path got us to green */}
       {complete && (
         <div className={`text-[11px] flex items-center gap-1.5 ${isDark ? "text-emerald-300/80" : "text-emerald-700"}`}>
           <Sparkles className="w-3 h-3" />
-          All follow-on artifacts have shipped — this pill is complete.
+          {action.approvalRequired
+            ? "Externalised — receipt issued. Pill complete."
+            : "Internal action — completed on approval."}
         </div>
       )}
     </div>
