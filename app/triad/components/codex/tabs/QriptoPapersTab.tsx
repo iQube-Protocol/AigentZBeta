@@ -26,6 +26,7 @@ type PaperCard = {
   scopeLabel: string;
   pdfUrl: string;
   coverUrl: string | null;
+  coverMime: string | null;
   mimeType: string;
   uploadedAt: string | null;
 };
@@ -70,9 +71,6 @@ export function QriptoPapersTab({ theme = 'dark', group = 'papers' }: QriptoPape
   const isDark = theme === 'dark';
   const headingClass = isDark ? 'text-white' : 'text-slate-900';
   const mutedClass = isDark ? 'text-slate-400' : 'text-slate-600';
-  const cardClass = isDark
-    ? 'bg-slate-800/50 border-slate-700 hover:border-purple-500/50'
-    : 'bg-white border-slate-200 hover:border-purple-500/50';
 
   // Group cards by scope label for sub-section headers.
   const grouped = papers.reduce<Record<string, PaperCard[]>>((acc, p) => {
@@ -118,41 +116,61 @@ export function QriptoPapersTab({ theme = 'dark', group = 'papers' }: QriptoPape
           <h3 className={`mb-3 text-sm font-semibold uppercase tracking-wide ${mutedClass}`}>
             {label}
           </h3>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Card grid mirrors the KNYT cartridge surface plan: 2-up on
+              mobile, 3-up on md, 4-up on lg. Full-bleed cover with a
+              gradient overlay carrying the title, and a small scope
+              badge at top-right — same shape as a KNYT episode card. */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {items.map((p) => (
               <button
                 key={p.id}
                 type="button"
                 onClick={() => setActivePdf({ url: p.pdfUrl, title: p.title })}
-                className={`group flex flex-col overflow-hidden rounded-lg border text-left transition ${cardClass}`}
+                className="group relative aspect-[3/4] rounded-lg overflow-hidden cursor-pointer transition-all duration-300 hover:ring-2 hover:ring-white/30 bg-slate-900"
+                aria-label={`Open ${p.title}`}
               >
-                <div className="relative aspect-[3/4] w-full overflow-hidden bg-slate-900">
-                  {p.coverUrl ? (
+                {/* Background — gradient stays as a fallback when no cover
+                    is available, matching KNYT's purple→black wash. */}
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-900 via-indigo-900 to-black" />
+                {p.coverUrl ? (
+                  p.coverMime === 'application/pdf' ? (
+                    <iframe
+                      src={`${p.coverUrl}#page=1&toolbar=0&navpanes=0&statusbar=0&scrollbar=0&view=Fit`}
+                      title={`${p.title} cover`}
+                      className="pointer-events-none absolute inset-0 h-full w-full"
+                    />
+                  ) : (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img
                       src={p.coverUrl}
                       alt={p.title}
-                      className="h-full w-full object-cover transition group-hover:scale-[1.02]"
+                      className="absolute inset-0 h-full w-full object-cover transition group-hover:scale-[1.02]"
                     />
-                  ) : (
-                    <div className={`flex h-full w-full flex-col items-center justify-center gap-2 ${mutedClass}`}>
-                      <ImageOff className="h-8 w-8" />
-                      <span className="text-xs">No cover uploaded</span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-1 flex-col gap-1.5 p-3">
-                  <div className="flex items-start gap-2">
-                    <FileText className={`mt-0.5 h-4 w-4 shrink-0 ${mutedClass}`} />
-                    <p className={`text-sm font-medium leading-snug ${headingClass}`}>{p.title}</p>
+                  )
+                ) : (
+                  <div className={`absolute inset-0 flex flex-col items-center justify-center gap-2 ${mutedClass}`}>
+                    <ImageOff className="h-8 w-8" />
+                    <span className="text-xs">No cover</span>
                   </div>
-                  <div className={`mt-auto flex items-center justify-between text-[11px] ${mutedClass}`}>
+                )}
+                {/* Bottom-up gradient + title — same legibility treatment
+                    as KNYT episode cards. */}
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent p-3 pt-10">
+                  <div className="flex items-start gap-2">
+                    <FileText className="mt-0.5 h-4 w-4 shrink-0 text-white/80" />
+                    <p className="text-sm font-medium leading-snug text-white line-clamp-2">{p.title}</p>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between text-[11px] text-white/60">
                     <span>{p.uploadedAt ? new Date(p.uploadedAt).toLocaleDateString() : ''}</span>
-                    <span className="inline-flex items-center gap-1 text-purple-400 group-hover:text-purple-300">
+                    <span className="inline-flex items-center gap-1 text-purple-300 group-hover:text-purple-200">
                       Read <BookOpen className="h-3 w-3" />
                     </span>
                   </div>
                 </div>
+                {/* Series-scope badge — top-right, KNYT pattern. */}
+                <span className="absolute top-2 right-2 px-2 py-1 bg-black/50 backdrop-blur-sm text-white text-[10px] font-semibold rounded">
+                  {p.scopeLabel}
+                </span>
               </button>
             ))}
           </div>

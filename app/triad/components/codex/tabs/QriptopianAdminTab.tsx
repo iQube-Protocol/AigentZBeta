@@ -1265,12 +1265,21 @@ function CodexManager() {
                       const thumbSrc = r.coverThumbUrl
                         || (r.role === 'cover' ? r.storageUrl : null)
                         || (r.mimeType.startsWith('image/') ? r.storageUrl : null);
+                      const thumbIsPdf = (r.mimeType === 'application/pdf') && (r.role === 'cover' || r.assetKind === 'cover_pdf');
                       return (
                         <tr key={r.id} className="hover:bg-slate-800/40">
                           <td className="px-3 py-2">
                             {thumbSrc ? (
-                              /* eslint-disable-next-line @next/next/no-img-element */
-                              <img src={thumbSrc} alt="" className="h-12 w-9 rounded object-cover" />
+                              thumbIsPdf ? (
+                                <iframe
+                                  src={`${thumbSrc}#page=1&toolbar=0&navpanes=0&statusbar=0&scrollbar=0&view=Fit`}
+                                  title=""
+                                  className="pointer-events-none h-12 w-9 rounded"
+                                />
+                              ) : (
+                                /* eslint-disable-next-line @next/next/no-img-element */
+                                <img src={thumbSrc} alt="" className="h-12 w-9 rounded object-cover" />
+                              )
                             ) : (
                               <div className="flex h-12 w-9 items-center justify-center rounded bg-slate-800 text-[10px] text-slate-500">—</div>
                             )}

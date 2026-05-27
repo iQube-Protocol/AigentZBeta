@@ -43,6 +43,7 @@ type PaperCard = {
   scopeLabel: string;
   pdfUrl: string;
   coverUrl: string | null;
+  coverMime: string | null;
   mimeType: string;
   uploadedAt: string | null;
 };
@@ -165,9 +166,13 @@ export async function GET(req: NextRequest) {
     // Flatten with cover matching — most recent cover in the scope wins.
     // The codex Papers tab consumes this list; covers themselves don't
     // appear as cards because each card IS a paper-with-cover bundle.
+    // `coverMime` lets the card renderer branch (image → <img>, PDF →
+    // <iframe> first-page preview).
     const papers: PaperCard[] = [];
     for (const [scope, bucket] of buckets) {
-      const coverUrl = bucket.covers[0]?.cover_thumb_url || bucket.covers[0]?.auto_drive_cid || null;
+      const cover = bucket.covers[0];
+      const coverUrl = cover?.cover_thumb_url || cover?.auto_drive_cid || null;
+      const coverMime = cover?.mime_type || null;
       for (const row of bucket.papers) {
         const storageUrl = row.auto_drive_cid;
         if (!storageUrl) continue;
@@ -178,6 +183,7 @@ export async function GET(req: NextRequest) {
           scopeLabel: SCOPE_LABELS[scope] || scope,
           pdfUrl: storageUrl,
           coverUrl,
+          coverMime,
           mimeType: row.mime_type || 'application/pdf',
           uploadedAt: row.created_at,
         });
