@@ -201,10 +201,25 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Stable order: by scope label, then by uploaded_at desc within scope.
+    // Pull the leading sequence number off the title so the grid can
+    // sort by editorial order. Operators name papers "1 Beyond the
+    // Binary", "2 …", "3 …" — strip the integer prefix (optional dot
+    // / dash / colon) and use it for ordering. Papers without a
+    // leading number fall to the end of their scope.
+    function leadingNumber(title: string): number {
+      const m = title.match(/^\s*(\d{1,4})\s*[.\-:)]?\s+/);
+      return m ? Number(m[1]) : Number.POSITIVE_INFINITY;
+    }
+
+    // Final order: scope label A→Z, then sequence number ASC (1 first),
+    // tie-break by uploaded_at ASC (oldest first). This puts paper #1
+    // on the left of each series row in the codex grid.
     papers.sort((a, b) => {
       if (a.scopeLabel !== b.scopeLabel) return a.scopeLabel.localeCompare(b.scopeLabel);
-      return (b.uploadedAt ?? '').localeCompare(a.uploadedAt ?? '');
+      const na = leadingNumber(a.title);
+      const nb = leadingNumber(b.title);
+      if (na !== nb) return na - nb;
+      return (a.uploadedAt ?? '').localeCompare(b.uploadedAt ?? '');
     });
 
     return NextResponse.json({
