@@ -164,7 +164,14 @@ interface Props {
     artifactType: string,
     response: SpecialistResponseData,
   ) => void;
-  queuedIntents: Record<string, { intentId: string; status: string; queueMessage: string }>;
+  queuedIntents: Record<string, { intentId: string; status: string; queueMessage: string; manuallyComplete?: boolean }>;
+  /**
+   * Session registry of NBA definitions for every NBE the operator has
+   * Acted on this session. Lets the Brief Capsule render expanded
+   * Pills whose NBA is no longer in brief.nextBestActions (e.g. after
+   * a brief refetch or for NBAs queued from move-forward / venture).
+   */
+  actedNbeRegistry?: Record<string, NextBestActionData>;
 
   /** Below-fold sections. */
   expModel: ExperienceModelCardData | null;
@@ -450,6 +457,7 @@ export function WelcomeRightPane(props: Props) {
     pendingApproval, submittingApproval, approvalError,
     artifacts, actionPendingArtifactId, actionErrors, secondTierApproval,
     specialistResponses, specialistLoading, specialistErrors, queuedIntents,
+    actedNbeRegistry = {},
     onUseSuggestedArtifact,
     expModel, expModelLoading, stageEval,
     receipts, receiptsLoading, receiptsPersonaLabel,
@@ -740,6 +748,7 @@ export function WelcomeRightPane(props: Props) {
             onApproveSecondTier={onApproveSecondTier}
             onCancelSecondTier={onCancelSecondTier}
             onMarkPillComplete={onMarkPillComplete}
+            actedNbeRegistry={actedNbeRegistry}
             onDismiss={onDismissBrief}
             theme={theme}
           />

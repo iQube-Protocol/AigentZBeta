@@ -489,6 +489,13 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const [queuedIntents, setQueuedIntents] = useState<
     Record<string, { intentId: string; status: string; queueMessage: string; manuallyComplete?: boolean }>
   >({});
+  // Session registry of NBA definitions for every NBE the operator has
+  // Acted on. Survives brief / move-forward refetches so the Brief
+  // Capsule can render expanded Pills even after the source NBA is no
+  // longer in brief.nextBestActions. Keyed by NBE id.
+  const [actedNbeRegistry, setActedNbeRegistry] = useState<
+    Record<string, NextBestActionData>
+  >({});
 
   // Accordion: which right-pane config section is expanded.
   const [expandedSectionId, setExpandedSectionId] = useState<SectionId | null>(null);
@@ -765,6 +772,16 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // ── Approval / NBE flow ────────────────────────────────────────────
   const handleNbeAct = useCallback((action: NextBestActionData) => {
     if (queuedIntents[action.id]) return;
+    // Capture the NBA definition into the session registry so the
+    // brief Capsule can still render this Pill even if a subsequent
+    // brief refetch drops the NBA from its nextBestActions list, or
+    // if the Pill came from a different surface (move-forward,
+    // venture-progress). Without this, only NBAs currently in
+    // brief.nextBestActions render — so a user who acted on 3 CTAs
+    // sees only the ones the brief still lists.
+    setActedNbeRegistry((prev) =>
+      prev[action.id] ? prev : { ...prev, [action.id]: action },
+    );
     // Short-circuit: the "update goals" NBE opens the goals editor directly
     // rather than going through the generic approval → intent path.
     if (action.id === 'metame.update-experience-goals') {
@@ -2250,6 +2267,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 onDismissSpecialist: handleDismissSpecialist,
                 onDismissQueued: handleDismissQueued,
                 onMarkPillComplete: handleMarkPillComplete,
+                actedNbeRegistry,
                 onDismissBrief: () => {
                   setBrief(null);
                   setBriefError(null);

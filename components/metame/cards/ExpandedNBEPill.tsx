@@ -164,13 +164,16 @@ export function ExpandedNBEPill({
   const complete = isPillComplete(queued, artifacts);
 
   // Border + accent tokens for queued (blue) vs complete (green).
+  // Background opacity is bumped so the Pill reads as a distinct card
+  // inside the Brief Capsule rather than blending into the slate
+  // surface as a header strip.
   const borderClass = complete
     ? isDark
-      ? "border-emerald-500/50 bg-emerald-500/[0.04]"
-      : "border-emerald-400 bg-emerald-50/60"
+      ? "border-emerald-500/60 bg-emerald-500/[0.08] shadow-sm shadow-emerald-500/5"
+      : "border-emerald-400 bg-emerald-50"
     : isDark
-      ? "border-sky-500/50 bg-sky-500/[0.04]"
-      : "border-sky-400 bg-sky-50/60";
+      ? "border-sky-500/60 bg-sky-500/[0.10] shadow-sm shadow-sky-500/5"
+      : "border-sky-400 bg-sky-50";
 
   const headerAccent = complete
     ? isDark ? "text-emerald-200" : "text-emerald-800"
