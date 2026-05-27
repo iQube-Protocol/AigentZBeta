@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-27T19:26:25.619Z",
+  "last_updated": "2026-05-27T20:56:47.992Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "e0e0470958421d0ab7f4fce6bfa261d7cef776ca",
-  "latest_commit_short": "e0e0470",
-  "latest_commit_title": "Pair Qripto covers to papers by created_at index + add ID + URL columns to admin table (KNYT parity)",
+  "latest_commit": "c305db9bc61d5afe72a79e731d26b5c3ffe7749d",
+  "latest_commit_short": "c305db9",
+  "latest_commit_title": "Sort Qripto Papers grid by leading sequence number in title so #1 sits left of each series row",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c305db9",
+      "full_sha": "c305db9bc61d5afe72a79e731d26b5c3ffe7749d",
+      "title": "Sort Qripto Papers grid by leading sequence number in title so #1 sits left of each series row",
+      "author": "Claude",
+      "timestamp": "2026-05-27T20:54:33Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c305db9.md"
+    },
     {
       "sha": "e0e0470",
       "full_sha": "e0e0470958421d0ab7f4fce6bfa261d7cef776ca",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-21T18:16:49Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-1dcc609.md"
-    },
-    {
-      "sha": "e4352e4",
-      "full_sha": "e4352e4f11615851da616cd284f67bbc588e0886",
-      "title": "trigger deploy: activations soft-release fix (d273247..1dcc609)",
-      "author": "Claude",
-      "timestamp": "2026-05-21T18:24:56Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-e4352e4.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
