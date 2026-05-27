@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-27T01:57:16.383Z",
+  "last_updated": "2026-05-27T03:36:55.398Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "0e1fe6681e3c77d69719e6cdf8e8b7d082ead602",
-  "latest_commit_short": "0e1fe66",
-  "latest_commit_title": "Wire Qriptopian Papers tab + admin codex list to actual asset data",
+  "latest_commit": "95e536c123a2ea1d8a8abfa8363edaa6fda4f1bf",
+  "latest_commit_short": "95e536c",
+  "latest_commit_title": "Skip encryption-at-rest for Qripto WIP uploads + open papers in PDF lite viewer",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "95e536c",
+      "full_sha": "95e536c123a2ea1d8a8abfa8363edaa6fda4f1bf",
+      "title": "Skip encryption-at-rest for Qripto WIP uploads + open papers in PDF lite viewer",
+      "author": "Claude",
+      "timestamp": "2026-05-27T03:34:50Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-95e536c.md"
+    },
     {
       "sha": "0e1fe66",
       "full_sha": "0e1fe6681e3c77d69719e6cdf8e8b7d082ead602",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-16T22:27:57Z",
       "type": "revert",
       "brief": "items/build_/COMMITS/COMMIT-f0c3a42.md"
-    },
-    {
-      "sha": "a6c2ee8",
-      "full_sha": "a6c2ee8fb211c24be9f511c666e1517f2ad5fa04",
-      "title": "pdf viewer: surface page-load HTTP status + response body in the UI instead of forcing operator to dig through devtools",
-      "author": "Claude",
-      "timestamp": "2026-05-16T22:22:50Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a6c2ee8.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
