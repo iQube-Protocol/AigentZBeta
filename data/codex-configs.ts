@@ -926,10 +926,9 @@ export const QRIPTO_CODEX: CodexConfig = {
       order: 1,
       type: 'static',
       config: {
-        component: 'PlaceholderTab',
+        component: 'QriptoPapersTab',
         props: {
-          title: 'Papers',
-          description: 'Codex-grade white papers from the Polity and the Qriptopian series — PDF + token-gating. Content source: AutoDrive Qriptopian classes (wiring brief incoming).',
+          group: 'papers',
         },
       },
       metadata: {

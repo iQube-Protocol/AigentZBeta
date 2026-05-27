@@ -27,6 +27,7 @@ import { FeaturesTab } from "./tabs/FeaturesTab";
 import { PennyDropsTab } from "./tabs/PennyDropsTab";
 import { Kn0wdZTab } from "./tabs/Kn0wdZTab";
 import { QriptoScrollsTab } from "./tabs/QriptoScrollsTab";
+import { QriptoPapersTab } from "./tabs/QriptoPapersTab";
 import { PlaceholderTab } from "./tabs/PlaceholderTab";
 import { AgentiqCartridgeTab } from "./tabs/AgentiqCartridgeTab";
 import { PackBrowserTab } from "./tabs/PackBrowserTab";
@@ -155,6 +156,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   PennyDropsTab,
   Kn0wdZTab,
   QriptoScrollsTab,
+  QriptoPapersTab,
   AgentiqCartridgeTab,
   MarketaTab,
   KnytTab,

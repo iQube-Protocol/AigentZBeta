@@ -989,6 +989,43 @@ function CodexManager() {
   const [detailError,    setDetailError]    = useState<string | null>(null);
   const [copiedCid,      setCopiedCid]      = useState<string | null>(null);
 
+  // Qriptopian asset list — flat list of uploads grouped by series scope.
+  // Hydrated from /api/codex/qripto/papers (papers + magazines combined).
+  type QriptoAdminRow = {
+    id: string; title: string; scope: string; scopeLabel: string;
+    pdfUrl: string; coverUrl: string | null; mimeType: string; uploadedAt: string | null;
+  };
+  const [qriptoRows, setQriptoRows] = useState<QriptoAdminRow[]>([]);
+  const [qriptoLoading, setQriptoLoading] = useState(false);
+  const [qriptoError, setQriptoError] = useState<string | null>(null);
+  useEffect(() => {
+    if (activeTab !== 'qriptopian') return;
+    let cancelled = false;
+    (async () => {
+      setQriptoLoading(true); setQriptoError(null);
+      try {
+        const [papersRes, magsRes] = await Promise.all([
+          fetch('/api/codex/qripto/papers?group=papers', { cache: 'no-store' }),
+          fetch('/api/codex/qripto/papers?group=magazines', { cache: 'no-store' }),
+        ]);
+        const papersJson = await papersRes.json();
+        const magsJson = await magsRes.json();
+        if (cancelled) return;
+        const combined: QriptoAdminRow[] = [
+          ...(Array.isArray(papersJson.papers) ? papersJson.papers : []),
+          ...(Array.isArray(magsJson.papers) ? magsJson.papers : []),
+        ];
+        combined.sort((a, b) => (b.uploadedAt ?? '').localeCompare(a.uploadedAt ?? ''));
+        setQriptoRows(combined);
+      } catch (e) {
+        if (!cancelled) setQriptoError((e as Error)?.message || 'Failed to load Qripto assets');
+      } finally {
+        if (!cancelled) setQriptoLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeTab, uploadOpen]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -1167,8 +1204,61 @@ function CodexManager() {
       ) : error ? (
         <div className="rounded-xl border border-red-800/40 bg-red-950/20 p-4 text-xs text-red-400">{error}</div>
       ) : activeTab === 'qriptopian' ? (
-        <div className="rounded-xl border border-white/5 bg-slate-800/50 p-8 text-center text-sm text-slate-400">
-          Qriptopian Codex — Coming Soon
+        <div className="space-y-3">
+          {qriptoLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-teal-400" />
+            </div>
+          ) : qriptoError ? (
+            <div className="rounded-xl border border-red-800/40 bg-red-950/20 p-4 text-xs text-red-400">{qriptoError}</div>
+          ) : qriptoRows.length === 0 ? (
+            <div className="rounded-xl border border-white/5 bg-slate-800/50 p-8 text-center text-sm text-slate-400">
+              No Qriptopian assets uploaded yet. Use <span className="text-teal-400">Upload Content</span> to add papers, magazines, or covers.
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-white/5 bg-slate-900/40">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-900/60 text-[11px] uppercase tracking-wide text-slate-400">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Cover</th>
+                    <th className="px-3 py-2 text-left">Title</th>
+                    <th className="px-3 py-2 text-left">Series</th>
+                    <th className="px-3 py-2 text-left">Type</th>
+                    <th className="px-3 py-2 text-left">Uploaded</th>
+                    <th className="px-3 py-2 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {qriptoRows.map((r) => (
+                    <tr key={r.id} className="hover:bg-slate-800/40">
+                      <td className="px-3 py-2">
+                        {r.coverUrl ? (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img src={r.coverUrl} alt="" className="h-12 w-9 rounded object-cover" />
+                        ) : (
+                          <div className="flex h-12 w-9 items-center justify-center rounded bg-slate-800 text-[10px] text-slate-500">—</div>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-slate-200">{r.title}</td>
+                      <td className="px-3 py-2 text-slate-400">{r.scopeLabel}</td>
+                      <td className="px-3 py-2 text-slate-400">{r.mimeType}</td>
+                      <td className="px-3 py-2 text-slate-500">{r.uploadedAt ? new Date(r.uploadedAt).toLocaleString() : '—'}</td>
+                      <td className="px-3 py-2 text-right">
+                        <a
+                          href={r.pdfUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-teal-400 hover:text-teal-300"
+                        >
+                          Open
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       ) : (
         <>
