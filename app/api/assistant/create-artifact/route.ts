@@ -657,6 +657,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         fromName?: string;
         campaignId?: string;
         cohortId?: string;
+        /** Persona upload ids selected as attachments by the operator
+         *  in the compose modal. Resolved server-side by the marketa
+         *  connector at send time via the upload service. */
+        attachmentUploadIds?: string[];
       };
       // Cohort branch — when the operator picked a campaign + cohort,
       // the artifact targets the marketa.send-cohort connector which
@@ -704,6 +708,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             subject: input.subject,
             bodyText: input.bodyText,
             ...(input.fromName ? { fromName: input.fromName } : {}),
+            ...(Array.isArray(input.attachmentUploadIds) && input.attachmentUploadIds.length > 0
+              ? { attachmentUploadIds: input.attachmentUploadIds }
+              : {}),
           },
         };
         return NextResponse.json(surface, { headers: { 'Cache-Control': 'no-store' } });
@@ -750,6 +757,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           ...(input.fromName ? { fromName: input.fromName } : {}),
           ...(input.campaignId ? { campaignId: input.campaignId } : {}),
           ...(input.cohortId ? { cohortId: input.cohortId } : {}),
+          ...(Array.isArray(input.attachmentUploadIds) && input.attachmentUploadIds.length > 0
+            ? { attachmentUploadIds: input.attachmentUploadIds }
+            : {}),
         },
       };
       return NextResponse.json(surface, { headers: { 'Cache-Control': 'no-store' } });

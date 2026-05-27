@@ -1128,7 +1128,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     return (await res.json()) as { to: string; cc: string; bcc: string; subject: string; bodyText: string; rationale: string; source: 'llm' | 'template' };
   }, [personaId]);
 
-  const handleComposeGmailDraft = useCallback(async (input: { to: string; subject: string; bodyText: string; cc?: string; bcc?: string }) => {
+  const handleComposeGmailDraft = useCallback(async (input: { to: string; subject: string; bodyText: string; cc?: string; bcc?: string; attachmentUploadIds?: string[] }) => {
     const res = await personaFetch('/api/assistant/create-artifact', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ artifactType: 'gmail-draft', destination: 'gmail', title: input.subject, connectorInput: input, sourceIntentId: composerSourceIntentId }),
@@ -1258,7 +1258,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     return (await res.json()) as { to: string; cc: string; bcc: string; subject: string; bodyText: string; rationale: string; source: 'llm' | 'template' };
   }, [personaId]);
 
-  const handleComposeMarketa = useCallback(async (input: { to: string; subject: string; bodyText: string; cc?: string; bcc?: string; fromName?: string; campaignId?: string; cohortId?: string }) => {
+  const handleComposeMarketa = useCallback(async (input: { to: string; subject: string; bodyText: string; cc?: string; bcc?: string; fromName?: string; campaignId?: string; cohortId?: string; attachmentUploadIds?: string[] }) => {
     const res = await personaFetch('/api/assistant/create-artifact', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ artifactType: 'marketa-email', destination: 'runtime', title: input.subject, connectorInput: input, sourceIntentId: composerSourceIntentId }),
