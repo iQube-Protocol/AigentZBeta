@@ -209,7 +209,13 @@ export function WorkbenchLedger({ personaId, theme = "dark" }: Props) {
   const filteredEntries = useMemo<LedgerEntry[]>(() => {
     if (!data) return [];
     if (filter === "all") return data.entries;
-    if (filter === "drafts") return data.entries.filter((e) => e.kind === "orphan_artifact");
+    if (filter === "drafts") {
+      // Drafts = orphan artifacts whose nothing has been sent yet. A
+      // sent orphan reads as Complete (green), not Draft.
+      return data.entries.filter(
+        (e) => e.kind === "orphan_artifact" && !e.artifacts.some((a) => a.sent),
+      );
+    }
     if (filter === "queued") {
       return data.entries.filter(
         (e) =>
@@ -217,7 +223,11 @@ export function WorkbenchLedger({ personaId, theme = "dark" }: Props) {
       );
     }
     if (filter === "complete") {
-      return data.entries.filter((e) => e.kind === "pill" && e.status === "completed");
+      return data.entries.filter((e) => {
+        if (e.kind === "pill") return e.status === "completed";
+        // Sent orphan → also "Complete".
+        return e.artifacts.some((a) => a.sent);
+      });
     }
     return data.entries;
   }, [data, filter]);
@@ -327,16 +337,26 @@ export function WorkbenchLedger({ personaId, theme = "dark" }: Props) {
               </article>
             );
           }
-          // Orphan artifact entry — compose-strip draft with no parent Pill.
+          // Orphan artifact entry — compose-strip draft with no parent
+          // Pill. Promote to "complete" (green) when at least one of
+          // its artifacts has been sent / published; otherwise show
+          // as a slate "Draft" chip. Mirrors the nested-CTA semantic
+          // so the ledger reads consistently.
+          const orphanComplete = entry.artifacts.some((a) => a.sent);
+          const chipClass = orphanComplete
+            ? "border-emerald-500/60 text-emerald-200 bg-emerald-500/10"
+            : isDark
+              ? "border-slate-600 text-slate-300 bg-slate-500/10"
+              : "border-slate-300 text-slate-700 bg-slate-100";
+          const ChipIcon = orphanComplete ? CheckCircle2 : null;
           return (
             <article key={entry.receiptId} className={`rounded-lg border p-3 ${cardClass} space-y-2`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] uppercase tracking-wider ${
-                      isDark ? "border-slate-600 text-slate-300 bg-slate-500/10" : "border-slate-300 text-slate-700 bg-slate-100"
-                    }`}>
-                      Draft
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] uppercase tracking-wider ${chipClass}`}>
+                      {ChipIcon ? <ChipIcon className="w-3 h-3" /> : null}
+                      {orphanComplete ? "Complete" : "Draft"}
                     </span>
                     <span className={`text-[10px] uppercase tracking-wider ${mutedClass}`}>
                       Compose strip · {CARTRIDGE_LABELS[entry.cartridge] ?? entry.cartridge}
