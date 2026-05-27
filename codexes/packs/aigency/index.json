@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-27T01:33:30.376Z",
+  "last_updated": "2026-05-27T01:57:16.383Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "9f14330f44a8696d174ec644f4ccf4a9d1666d5d",
-  "latest_commit_short": "9f14330",
-  "latest_commit_title": "Add Qripto Cover content type + fix upload preview link for Supabase URLs",
+  "latest_commit": "0e1fe6681e3c77d69719e6cdf8e8b7d082ead602",
+  "latest_commit_short": "0e1fe66",
+  "latest_commit_title": "Wire Qriptopian Papers tab + admin codex list to actual asset data",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "0e1fe66",
+      "full_sha": "0e1fe6681e3c77d69719e6cdf8e8b7d082ead602",
+      "title": "Wire Qriptopian Papers tab + admin codex list to actual asset data",
+      "author": "Claude",
+      "timestamp": "2026-05-27T01:55:18Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-0e1fe66.md"
+    },
     {
       "sha": "9f14330",
       "full_sha": "9f14330f44a8696d174ec644f4ccf4a9d1666d5d",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-16T22:22:50Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-a6c2ee8.md"
-    },
-    {
-      "sha": "6d0f74d",
-      "full_sha": "6d0f74d72a8a3dc5df59d933bf64e3ce18bfb72a",
-      "title": "codex GN: set maxDuration=60 on pdf-page-by-master route (Lambda's 10s default kills the 430MB fetch mid-flight)",
-      "author": "Claude",
-      "timestamp": "2026-05-16T22:18:19Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-6d0f74d.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

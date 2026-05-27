@@ -1269,3 +1269,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-9f14330.md](../build_/COMMITS/COMMIT-9f14330.md)
 - Message: Add Qripto Cover content type + fix upload preview link for Supabase URLs
+
+## Commit `0e1fe66` — 2026-05-27T01:55:18Z
+- Type: `feat`
+- Brief: [COMMIT-0e1fe66.md](../build_/COMMITS/COMMIT-0e1fe66.md)
+- Message: Wire Qriptopian Papers tab + admin codex list to actual asset data
