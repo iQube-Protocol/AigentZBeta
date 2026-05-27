@@ -37,7 +37,37 @@ function BriefLayoutComponent(props: RightPaneLayoutProps) {
     onDismissBrief,
     onBriefVariantChange,
     onRequestLayout,
+    // Pill-lifecycle plumbing — same set the stack pane passes
+    // through so the expanded ExpandedNBEPill can fold its drafted
+    // artifact + second-tier approval + Mark complete control. When
+    // BriefLayout is the foreground (activeLayoutId='brief'), these
+    // weren't being forwarded, so the Pill rendered without its
+    // artifact card (the regression the operator just flagged).
+    artifacts,
+    actionPendingArtifactId,
+    actionErrors,
+    secondTierApproval,
+    onSendArtifact,
+    onDismissArtifact,
+    onApproveSecondTier,
+    onCancelSecondTier,
+    onDismissQueued,
+    onMarkPillComplete,
+    actedNbeRegistry,
+    usingIqubes,
   } = props;
+
+  // Group artifacts by intent id so the brief Capsule can fold each
+  // drafted artifact inside its parent Pill — same logic as
+  // WelcomeRightPane uses in the stack pane.
+  const artifactsByIntent = React.useMemo<Record<string, Array<typeof artifacts[number]>>>(() => {
+    const map: Record<string, Array<typeof artifacts[number]>> = {};
+    for (const a of artifacts ?? []) {
+      if (!a.intentId) continue;
+      (map[a.intentId] ??= []).push(a);
+    }
+    return map;
+  }, [artifacts]);
 
   const [activeVariant, setActiveVariant] = useState<BriefVariant>(
     brief?.briefType ?? "daily",
@@ -116,6 +146,18 @@ function BriefLayoutComponent(props: RightPaneLayoutProps) {
             error={null}
             onActOnNbe={onNbeAct}
             queuedIntents={queuedIntents}
+            artifactsByIntent={artifactsByIntent}
+            secondTierApproval={secondTierApproval}
+            actionPendingArtifactId={actionPendingArtifactId}
+            actionErrors={actionErrors}
+            onDismissQueued={onDismissQueued}
+            onSendArtifact={onSendArtifact}
+            onDismissArtifact={onDismissArtifact}
+            onApproveSecondTier={onApproveSecondTier}
+            onCancelSecondTier={onCancelSecondTier}
+            onMarkPillComplete={onMarkPillComplete}
+            actedNbeRegistry={actedNbeRegistry}
+            using={usingIqubes}
             onDismiss={undefined}
             theme={theme}
           />
