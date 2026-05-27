@@ -60,6 +60,14 @@ interface UploadItem {
   editionMax?: number;
   editionTier?: EditionTier;
   displayMode?: DisplayMode;
+  // ── Qriptopian-only fields ─────────────────────────────────────────────
+  // Stamped by handleQriptoFileSelect so the queue row can branch its
+  // dropdown UI without re-reading activeTab. `seriesMode='part-of-series'`
+  // surfaces the partNumber + partTotal number inputs (X of Y).
+  cartridge?: 'knyt' | 'qriptopian';
+  seriesMode?: 'standalone' | 'part-of-series';
+  partNumber?: number;
+  partTotal?: number;
 }
 
 type Props = {
@@ -261,16 +269,18 @@ interface QueueItemProps {
 }
 
 function UploadQueueItem({ item, category, onUpdate, onRemove }: QueueItemProps) {
+  const isQripto = item.cartridge === 'qriptopian';
   const isCover = item.category === 'cover';
   const isMaster = item.category === 'master' || item.category === 'still';
   const isPrint = item.category === 'print';
-  const isLore = item.category === 'lore';
+  const isLore = item.category === 'lore' && !isQripto;
   const isCharacter = item.category === 'character';
   const isRaBadge = item.category === 'rabadges';
   // Motion Comics (master), Print, Characters and RaBadges all expose the same
   // Common/Rare/Epic/Legendary tier dropdown so the operator can flag the
-  // upload's edition/rarity tier alongside the asset.
-  const showEditionTier = isPrint || isMaster || isCharacter || isRaBadge;
+  // upload's edition/rarity tier alongside the asset. Qripto rows opt out —
+  // they use a Standalone | Part-of-series picker instead.
+  const showEditionTier = !isQripto && (isPrint || isMaster || isCharacter || isRaBadge);
 
   const borderColor =
     item.status === 'success' ? 'border-green-500/30 bg-green-500/10' :
@@ -306,7 +316,7 @@ function UploadQueueItem({ item, category, onUpdate, onRemove }: QueueItemProps)
             <span>{(item.file.size / 1024 / 1024).toFixed(2)} MB</span>
             <span>{item.episodeNumber == null ? 'Series' : item.episodeNumber === -1 ? 'GN' : `Ep. #${item.episodeNumber}`}</span>
 
-            {item.status === 'pending' && !isPrint && (
+            {item.status === 'pending' && !isPrint && !isQripto && (
               <select
                 value={isMaster ? item.masterType : item.assetKind}
                 onChange={(e) => {
@@ -319,6 +329,48 @@ function UploadQueueItem({ item, category, onUpdate, onRemove }: QueueItemProps)
                   <option key={k.value} value={k.value}>{k.label}</option>
                 ))}
               </select>
+            )}
+
+            {item.status === 'pending' && isQripto && (
+              <>
+                <select
+                  value={item.seriesMode ?? 'standalone'}
+                  onChange={(e) => {
+                    const mode = e.target.value as 'standalone' | 'part-of-series';
+                    onUpdate(
+                      mode === 'part-of-series'
+                        ? { seriesMode: mode, partNumber: item.partNumber ?? 1, partTotal: item.partTotal ?? 1 }
+                        : { seriesMode: mode, partNumber: undefined, partTotal: undefined },
+                    );
+                  }}
+                  className="rounded border border-gray-600 bg-gray-700 px-1.5 py-0.5 text-gray-300"
+                  title="Series mode"
+                >
+                  <option value="standalone">Standalone</option>
+                  <option value="part-of-series">Part of a series</option>
+                </select>
+                {item.seriesMode === 'part-of-series' && (
+                  <span className="inline-flex items-center gap-1">
+                    <input
+                      type="number"
+                      min={1}
+                      value={item.partNumber ?? 1}
+                      onChange={(e) => onUpdate({ partNumber: Math.max(1, Number(e.target.value) || 1) })}
+                      className="w-12 rounded border border-gray-600 bg-gray-700 px-1.5 py-0.5 text-gray-300"
+                      title="Part number"
+                    />
+                    <span className="text-gray-500">of</span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={item.partTotal ?? 1}
+                      onChange={(e) => onUpdate({ partTotal: Math.max(1, Number(e.target.value) || 1) })}
+                      className="w-12 rounded border border-gray-600 bg-gray-700 px-1.5 py-0.5 text-gray-300"
+                      title="Total parts"
+                    />
+                  </span>
+                )}
+              </>
             )}
 
             {item.status === 'pending' && showEditionTier && (
@@ -538,6 +590,8 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
         status: 'pending' as const,
         progress: 0,
         displayMode: 'pdf' as DisplayMode,
+        cartridge: 'qriptopian' as const,
+        seriesMode: 'standalone' as const,
       }));
       setUploadQueue((prev) => [...prev, ...newItems]);
       if (qriptoFileInputRef.current) qriptoFileInputRef.current.value = '';
@@ -648,6 +702,14 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
           if ((item.category === 'character' || item.category === 'rabadges') && item.editionTier) registerBody.rarityTier = item.editionTier;
           if (item.category === 'lore' && item.displayMode) registerBody.displayMode = item.displayMode;
         }
+        if (item.cartridge === 'qriptopian') {
+          registerBody.cartridge = 'qriptopian';
+          registerBody.seriesMode = item.seriesMode ?? 'standalone';
+          if (item.seriesMode === 'part-of-series') {
+            registerBody.partNumber = item.partNumber ?? 1;
+            registerBody.partTotal = item.partTotal ?? 1;
+          }
+        }
 
         let regRes: Response;
         try {
@@ -696,6 +758,14 @@ export function CodexUploadModal({ isOpen, onClose, onUploadComplete }: Props) {
         }
         if (item.category === 'lore' && item.displayMode) {
           formData.append('displayMode', item.displayMode);
+        }
+      }
+      if (item.cartridge === 'qriptopian') {
+        formData.append('cartridge', 'qriptopian');
+        formData.append('seriesMode', item.seriesMode ?? 'standalone');
+        if (item.seriesMode === 'part-of-series') {
+          formData.append('partNumber', String(item.partNumber ?? 1));
+          formData.append('partTotal', String(item.partTotal ?? 1));
         }
       }
 
