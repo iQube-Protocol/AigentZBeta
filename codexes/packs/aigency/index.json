@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-27T04:41:44.357Z",
+  "last_updated": "2026-05-27T04:45:48.519Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "6352ef3ca5399e596a310146becde5b29d515e2c",
-  "latest_commit_short": "6352ef3",
-  "latest_commit_title": "Surface every Qripto upload row in admin (covers + papers) with diagnostics + bust Next cache",
+  "latest_commit": "c52d1aa56f1aa70a184bbe2ed9224c5e53c930e2",
+  "latest_commit_short": "c52d1aa",
+  "latest_commit_title": "Render PDF covers via iframe + adopt KNYT 4-up card grid pattern for Qripto Papers",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c52d1aa",
+      "full_sha": "c52d1aa56f1aa70a184bbe2ed9224c5e53c930e2",
+      "title": "Render PDF covers via iframe + adopt KNYT 4-up card grid pattern for Qripto Papers",
+      "author": "Claude",
+      "timestamp": "2026-05-27T04:43:58Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c52d1aa.md"
+    },
     {
       "sha": "6352ef3",
       "full_sha": "6352ef3ca5399e596a310146becde5b29d515e2c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-19T01:30:21Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-d5ca6b9.md"
-    },
-    {
-      "sha": "c753039",
-      "full_sha": "c753039de38ce5113b3a76764de26de1c5bdd780",
-      "title": "knyt: gate GN + Ep #0 like every other episode; document PDF render pipeline",
-      "author": "Claude",
-      "timestamp": "2026-05-18T23:35:09Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c753039.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
