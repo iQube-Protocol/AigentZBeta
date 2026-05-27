@@ -25,6 +25,7 @@
 
 import { MyCanvasTab } from "./MyCanvasTab";
 import { WorkbenchLedger } from "@/components/metame/workbench/WorkbenchLedger";
+import { CohortMetricsCard } from "@/components/metame/workbench/CohortMetricsCard";
 
 interface Props {
   personaId?: string;
@@ -35,6 +36,7 @@ export function MyWorkbenchTab(props: Props) {
   return (
     <div className="space-y-6">
       <WorkbenchLedger personaId={props.personaId} theme={props.theme} />
+      <CohortMetricsCard personaId={props.personaId} theme={props.theme} />
       <MyCanvasTab {...props} surface="workbench" />
     </div>
   );
