@@ -2151,9 +2151,31 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               // Phase 2 Slice 5b: second-tier is no longer rendered
               // inline in the stack; it lives in this same overlay so
               // the operator's flow stays in-app for every gate.
-              const ApprovalOverlayLayout = (pendingApprovalNbe || secondTierApproval)
-                ? getLayout('approval-interrupt').component
-                : null;
+              //
+              // Capsule-folded follow-up: when the artifact awaiting
+              // second-tier approval was drafted from a queued NBE
+              // (intent id matches an entry in queuedIntents), the
+              // SecondTierApprovalCard renders inline inside the
+              // emerald capsule next to its artifact — the operator
+              // sees Queued → Recommendation → Artifact → Approve & send
+              // as one continuous unit. Mounting the overlay too would
+              // double-render the same gate; suppress it in that case.
+              // The overlay still handles orphan artifacts (no matching
+              // capsule) and every NBE approval.
+              const secondTierInCapsule = (() => {
+                if (!secondTierApproval) return false;
+                const queuedIntentIds = new Set(
+                  Object.values(queuedIntents).map((q) => q.intentId),
+                );
+                const artifact = artifacts.find(
+                  (a) => a.artifactId === secondTierApproval.artifactId,
+                );
+                return !!(artifact?.intentId && queuedIntentIds.has(artifact.intentId));
+              })();
+              const ApprovalOverlayLayout =
+                pendingApprovalNbe || (secondTierApproval && !secondTierInCapsule)
+                  ? getLayout('approval-interrupt').component
+                  : null;
               // Single source of truth for layout inputs — passed identically
               // to foreground and overlay.
               const layoutProps = {
