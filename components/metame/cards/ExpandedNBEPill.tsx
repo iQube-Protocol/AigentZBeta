@@ -22,8 +22,8 @@
  * operator flagged.
  */
 
-import React from "react";
-import { Check, CheckCircle2, X, Users, Sparkles, CheckSquare } from "lucide-react";
+import React, { useState } from "react";
+import { Check, CheckCircle2, ChevronDown, ChevronUp, X, Users, Sparkles, CheckSquare } from "lucide-react";
 import type { NextBestActionData } from "@/components/metame/cards/NextBestActionCard";
 import { ArtifactCard, type ArtifactCardData } from "@/components/metame/cards/ArtifactCard";
 import { SecondTierApprovalCard } from "@/components/metame/cards/SecondTierApprovalCard";
@@ -141,6 +141,11 @@ export function ExpandedNBEPill({
 }: Props) {
   const isDark = theme === "dark";
   const complete = isPillComplete(action, queued, artifacts);
+  // Collapse / expand body so the operator can hide the artifact +
+  // approval detail and keep just the header chip when the bundle
+  // grows long. Header (state + label + intent id + controls) stays
+  // visible always; only the body content collapses.
+  const [expanded, setExpanded] = useState(true);
 
   // Border + accent tokens for queued (blue) vs complete (green).
   // Background opacity is bumped so the Pill reads as a distinct card
@@ -219,8 +224,18 @@ export function ExpandedNBEPill({
             onClick={onDismissQueued}
             className="p-1 rounded hover:bg-slate-800/40"
             aria-label="Dismiss"
+            title="Dismiss this Pill"
           >
             <X className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="p-1 rounded hover:bg-slate-800/40"
+            aria-label={expanded ? "Collapse Pill body" : "Expand Pill body"}
+            aria-expanded={expanded}
+            title={expanded ? "Collapse" : "Expand"}
+          >
+            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
         </div>
       </div>
@@ -232,8 +247,9 @@ export function ExpandedNBEPill({
           / Calendar" link surfaces. ArtifactCard hides the link when
           status === 'draft' AND actionConnectorId is set (to push the
           operator toward Send rather than Open) — but a completed
-          pill means the work is done; the operator wants the link. */}
-      {artifacts.map((artifact) => {
+          pill means the work is done; the operator wants the link.
+          Hidden when the operator collapses the Pill via the chevron. */}
+      {expanded && artifacts.map((artifact) => {
         const showSecondTier = secondTierApproval?.artifactId === artifact.artifactId;
         const renderArtifact: ArtifactCardData = complete && artifact.status === "draft"
           ? { ...artifact, status: "sent" }
@@ -265,7 +281,7 @@ export function ExpandedNBEPill({
       })}
 
       {/* Footer state hint — wording reflects which path got us to green */}
-      {complete && (
+      {expanded && complete && (
         <div className={`text-[11px] flex items-center gap-1.5 ${isDark ? "text-emerald-300/80" : "text-emerald-700"}`}>
           <Sparkles className="w-3 h-3" />
           {action.approvalRequired

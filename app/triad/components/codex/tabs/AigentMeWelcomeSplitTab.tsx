@@ -957,11 +957,16 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       setPendingApprovalNbe(null);
       // Foreground layout remains as-is; approval overlay unmounts.
       void fetchReceipts();
-      // Phase 2 B.3 — also refresh the cockpit so the just-queued
-      // intent appears in Active Work without the operator needing
-      // to wait for the next 20s poll. Silent mode keeps the
-      // existing surface mounted.
-      void fetchVentureProgress({ silent: true });
+      // Phase 2 B.3 — refresh the cockpit so the just-queued intent
+      // appears in Active Work without waiting for the next 20s poll.
+      // Gated on the active Capsule: only fetch when the operator is
+      // actually engaged in the Venture Capsule — otherwise the
+      // populated state causes the VentureProgressCard to render in
+      // the stack pane alongside the Brief Capsule (the regression
+      // the operator just flagged).
+      if (activeCapsuleId === 'venture-progress') {
+        void fetchVentureProgress({ silent: true });
+      }
 
       // Class-wide artifact dispatch — same router every other surface
       // (specialist chips, future "create a doc / report / deck"
@@ -1076,7 +1081,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       setSubmittingApproval(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingApprovalNbe, pendingApprovalHint, personaId, fetchReceipts, fetchVentureProgress]);
+  }, [pendingApprovalNbe, pendingApprovalHint, personaId, fetchReceipts, fetchVentureProgress, activeCapsuleId]);
 
   // Parent IntentQube id for the composer flow. Set when the composer
   // is opened in response to an Act on a queued NBE; threaded into
@@ -1542,18 +1547,21 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const [kpisEditorOpen, setKpisEditorOpen] = useState(false);
 
   // ── AG-UI bridge: copilot → right pane ─────────────────────────────
-  // Compose footer / copilot bridge now routes ALL compose intents
-  // through the Phase 2 ComposerLayout — no popup modals over the
-  // right pane. The compose form hosts inline in the layout's body;
-  // submit creates the artifact + clears composerKind so the same
-  // surface flips to the draft preview with Send draft → Phase 2
-  // ApprovalLayout overlay (the unified HITL gate).
+  // Compose footer / copilot bridge routes ALL compose intents
+  // through the composer overlay. The compose form hosts inline in
+  // the overlay; submit creates the artifact + clears composerKind so
+  // the overlay unmounts and the active Capsule remains visible
+  // underneath (Brief / Move forward / Venture).
   const openComposeByKind = useCallback((kind: ComposeKind) => {
     // Clear any prior auto-draft prompt — manual chip-fired composer
     // opens should land on an empty form, not re-run a previous draft.
     setComposerInitialPrompt(null);
     setComposerKind(kind);
-    setActiveLayoutId('composer');
+    // No more setActiveLayoutId('composer') — the overlay handles
+    // rendering on top of whatever foreground layout is active. The
+    // previous double-call mounted the composer twice (once via the
+    // foreground swap, once via the overlay), leaving an unresponsive
+    // second modal stuck behind the first when the operator closed it.
   }, []);
 
   // SpecialistsLayout suggested-artifact button → open ComposerLayout
