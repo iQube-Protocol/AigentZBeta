@@ -55,17 +55,6 @@ export function ComposeQuickActionsStrip({ onOpen, onWalletOpen, onUploadOpen, t
       {(onWalletOpen || onUploadOpen) && (
         <span className="mx-1 text-slate-600 select-none shrink-0">|</span>
       )}
-      {onWalletOpen && (
-        <button
-          type="button"
-          onClick={onWalletOpen}
-          title="Open wallet"
-          aria-label="Open wallet"
-          className={`flex items-center justify-center p-1.5 rounded-md border transition shrink-0 ${baseBtn}`}
-        >
-          <Wallet className="w-3.5 h-3.5" />
-        </button>
-      )}
       {onUploadOpen && (
         <button
           type="button"
@@ -75,6 +64,17 @@ export function ComposeQuickActionsStrip({ onOpen, onWalletOpen, onUploadOpen, t
           className={`flex items-center justify-center p-1.5 rounded-md border transition shrink-0 ${baseBtn}`}
         >
           <Upload className="w-3.5 h-3.5" />
+        </button>
+      )}
+      {onWalletOpen && (
+        <button
+          type="button"
+          onClick={onWalletOpen}
+          title="Open wallet"
+          aria-label="Open wallet"
+          className={`flex items-center justify-center p-1.5 rounded-md border transition shrink-0 ${baseBtn}`}
+        >
+          <Wallet className="w-3.5 h-3.5" />
         </button>
       )}
     </div>
