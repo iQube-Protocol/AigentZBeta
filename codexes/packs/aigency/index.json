@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-27T14:52:52.938Z",
+  "last_updated": "2026-05-27T15:28:47.171Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "31d3a6a0a3b762e7809ff6a62487620ea051e739",
-  "latest_commit_short": "31d3a6a",
-  "latest_commit_title": "Polyfill Promise.withResolvers in PDF-thumb route (pdfjs-dist 4.x needs Node 22 method on Amplify Node 20)",
+  "latest_commit": "51f6a32f6652ecec53bceb42d60f131cc9e2993c",
+  "latest_commit_short": "51f6a32",
+  "latest_commit_title": "Use pdfjs-dist legacy build (no worker) in PDF-thumb route so Lambda doesnt look for pdf.worker.mjs",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "51f6a32",
+      "full_sha": "51f6a32f6652ecec53bceb42d60f131cc9e2993c",
+      "title": "Use pdfjs-dist legacy build (no worker) in PDF-thumb route so Lambda doesnt look for pdf.worker.mjs",
+      "author": "Claude",
+      "timestamp": "2026-05-27T15:26:46Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-51f6a32.md"
+    },
     {
       "sha": "31d3a6a",
       "full_sha": "31d3a6a0a3b762e7809ff6a62487620ea051e739",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-19T05:41:20Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-21de6d9.md"
-    },
-    {
-      "sha": "3e039bb",
-      "full_sha": "3e039bb94a2780120b670cbcb1c6240ce0e72d53",
-      "title": "knyt pricing: last-derived fallback + indicative-pricing badge",
-      "author": "Claude",
-      "timestamp": "2026-05-19T04:16:20Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-3e039bb.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
