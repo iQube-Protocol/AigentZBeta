@@ -132,6 +132,10 @@ interface GmailDraftInput {
   bodyText: string;
   cc?: string;
   bcc?: string;
+  /** Persona upload ids to attach. Resolved server-side via
+   *  resolveAttachments and assembled into a multipart/mixed MIME
+   *  envelope. The connector context's personaId enforces ownership. */
+  attachmentUploadIds?: string[];
 }
 interface GmailDraftOutput {
   draftId: string;
@@ -160,8 +164,24 @@ function sanitiseRecipientList(value: string | undefined): { ok: true; value: st
   return { ok: true, value: entries.join(', ') };
 }
 
+interface GmailAttachment {
+  filename: string;
+  mimeType: string;
+  base64Content: string;
+}
+
 function buildGmailHeader(
-  fields: { to: string; cc?: string; bcc?: string; subject: string; bodyText: string },
+  fields: {
+    to: string;
+    cc?: string;
+    bcc?: string;
+    subject: string;
+    bodyText: string;
+    /** Optional pre-resolved attachments (base64-encoded). When
+     *  present, builds a multipart/mixed MIME envelope; otherwise
+     *  builds the simpler single-part text/plain message. */
+    attachments?: GmailAttachment[];
+  },
 ): { ok: true; raw: string } | { ok: false; reason: string } {
   const to = sanitiseRecipientList(fields.to);
   if (!to.ok) return { ok: false, reason: `To: ${to.reason}` };
@@ -173,16 +193,69 @@ function buildGmailHeader(
   // Subject can't carry CRLF either.
   const subject = String(fields.subject).replace(/[\r\n]+/g, ' ').trim();
   if (!subject) return { ok: false, reason: 'subject required' };
-  const headerLines = [
+
+  const headerLines: string[] = [
     `To: ${to.value}`,
-    cc.value ? `Cc: ${cc.value}` : null,
-    bcc.value ? `Bcc: ${bcc.value}` : null,
+    cc.value ? `Cc: ${cc.value}` : '',
+    bcc.value ? `Bcc: ${bcc.value}` : '',
     `Subject: ${subject}`,
-    'Content-Type: text/plain; charset="UTF-8"',
+    'MIME-Version: 1.0',
+  ].filter(Boolean);
+
+  // No attachments → simple text/plain. Same single-part path as
+  // before, preserved so the existing happy path stays unchanged for
+  // bodies that don't attach anything.
+  if (!fields.attachments || fields.attachments.length === 0) {
+    const headers = [
+      ...headerLines,
+      'Content-Type: text/plain; charset="UTF-8"',
+      '',
+      fields.bodyText,
+    ].join('\r\n');
+    return { ok: true, raw: base64UrlEncode(headers) };
+  }
+
+  // Attachments present → multipart/mixed envelope with the body as
+  // the first part and each attachment as a base64-encoded sibling.
+  // Boundary string is deliberately verbose to avoid colliding with
+  // anything that might appear in the body or attachments.
+  const boundary = `=_gmailpart_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+  const parts: string[] = [];
+  // First part — plain-text body.
+  parts.push(
+    [
+      `--${boundary}`,
+      'Content-Type: text/plain; charset="UTF-8"',
+      'Content-Transfer-Encoding: 7bit',
+      '',
+      fields.bodyText,
+    ].join('\r\n'),
+  );
+  // Subsequent parts — attachments. Base64 content is wrapped at 76
+  // chars per RFC 2045.
+  for (const a of fields.attachments) {
+    const wrapped = a.base64Content.replace(/(.{76})/g, '$1\r\n').trim();
+    parts.push(
+      [
+        `--${boundary}`,
+        `Content-Type: ${a.mimeType}; name="${a.filename.replace(/"/g, '')}"`,
+        'Content-Transfer-Encoding: base64',
+        `Content-Disposition: attachment; filename="${a.filename.replace(/"/g, '')}"`,
+        '',
+        wrapped,
+      ].join('\r\n'),
+    );
+  }
+  parts.push(`--${boundary}--`);
+
+  const envelope = [
+    ...headerLines,
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
     '',
-    fields.bodyText,
-  ].filter(Boolean).join('\r\n');
-  return { ok: true, raw: base64UrlEncode(headerLines) };
+    parts.join('\r\n'),
+  ].join('\r\n');
+
+  return { ok: true, raw: base64UrlEncode(envelope) };
 }
 
 const gmailDraft: GoogleConnector<GmailDraftInput, GmailDraftOutput> = {
@@ -199,6 +272,7 @@ const gmailDraft: GoogleConnector<GmailDraftInput, GmailDraftOutput> = {
     bodyText: { type: 'string', description: 'Plain-text body', required: true },
     cc: { type: 'string', description: 'Comma-separated CC recipients' },
     bcc: { type: 'string', description: 'Comma-separated BCC recipients' },
+    attachmentUploadIds: { type: 'array', description: 'Optional persona upload ids to attach as multipart/mixed MIME parts' },
   },
   outputSchema: {
     draftId: { type: 'string', description: 'Gmail draft id' },
@@ -211,12 +285,30 @@ const gmailDraft: GoogleConnector<GmailDraftInput, GmailDraftOutput> = {
     if (!input.to || !input.subject) {
       return { ok: false, code: 'invalid-input', reason: 'to + subject required' };
     }
+    // Resolve any attached uploads to base64 payloads. The helper
+    // enforces persona ownership + the 24 MB combined cap so
+    // over-attaching surfaces a clear error before we burn the
+    // Gmail API call.
+    let attachments: GmailAttachment[] = [];
+    if (Array.isArray(input.attachmentUploadIds) && input.attachmentUploadIds.length > 0) {
+      const { resolveAttachments } = await import('@/services/uploads/uploadAttachmentHelper');
+      const resolved = await resolveAttachments(ctx.personaId, input.attachmentUploadIds);
+      if (!resolved.ok) {
+        return { ok: false, code: 'invalid-input', reason: `attachment resolve failed: ${resolved.reason}` };
+      }
+      attachments = resolved.attachments.map((a) => ({
+        filename: a.filename,
+        mimeType: a.mimeType,
+        base64Content: a.base64Content,
+      }));
+    }
     const built = buildGmailHeader({
       to: input.to,
       cc: input.cc,
       bcc: input.bcc,
       subject: input.subject,
       bodyText: input.bodyText,
+      ...(attachments.length > 0 ? { attachments } : {}),
     });
     if (!built.ok) {
       return { ok: false, code: 'invalid-input', reason: built.reason };
@@ -314,12 +406,26 @@ const gmailSend: GoogleConnector<GmailSendInput, GmailSendOutput> = {
     if (!input.to || !input.subject) {
       return { ok: false, code: 'invalid-input', reason: 'to + subject required when fromDraftId absent' };
     }
+    let attachmentsSend: GmailAttachment[] = [];
+    if (Array.isArray(input.attachmentUploadIds) && input.attachmentUploadIds.length > 0) {
+      const { resolveAttachments } = await import('@/services/uploads/uploadAttachmentHelper');
+      const resolved = await resolveAttachments(ctx.personaId, input.attachmentUploadIds);
+      if (!resolved.ok) {
+        return { ok: false, code: 'invalid-input', reason: `attachment resolve failed: ${resolved.reason}` };
+      }
+      attachmentsSend = resolved.attachments.map((a) => ({
+        filename: a.filename,
+        mimeType: a.mimeType,
+        base64Content: a.base64Content,
+      }));
+    }
     const builtSend = buildGmailHeader({
       to: input.to,
       cc: input.cc,
       bcc: input.bcc,
       subject: input.subject,
       bodyText: input.bodyText ?? '',
+      ...(attachmentsSend.length > 0 ? { attachments: attachmentsSend } : {}),
     });
     if (!builtSend.ok) {
       return { ok: false, code: 'invalid-input', reason: builtSend.reason };

@@ -151,24 +151,166 @@ export const defaultUploadIndexer: UploadIndexer = async ({ upload, bytes }) => 
     };
   }
 
-  // ── Phase 2 stubs — return a placeholder summary so the operator
-  // sees the upload landed even though the deeper parse isn't wired. ─
+  // ── PDF ─────────────────────────────────────────────────────────────
   if (mime === 'application/pdf' || ext === 'pdf') {
-    return placeholderIndex(upload, 'PDF parse — Phase 2 (pdf-parse). File stored; preview pending.');
+    try {
+      const text = await extractPdfText(bytes);
+      return {
+        contentMd: text.slice(0, UPLOAD_LIMITS.maxIndexedChars),
+        contentJson: null,
+        summary: summariseText(text || `PDF · ${upload.filename}`),
+        tokensEstimate: estimateTokens(text),
+        schemaMeta: null,
+        error: null,
+      };
+    } catch (err) {
+      return {
+        contentMd: null,
+        contentJson: null,
+        summary: `PDF parse failed — file stored. ${err instanceof Error ? err.message : ''}`,
+        tokensEstimate: 0,
+        schemaMeta: null,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
   }
+
+  // ── DOCX — stub until `mammoth` is added as a dep. ──────────────────
   if (ext === 'docx' || mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-    return placeholderIndex(upload, 'DOCX parse — Phase 2 (mammoth). File stored; preview pending.');
+    return placeholderIndex(upload, 'DOCX parse — install `mammoth` to enable. File stored.');
   }
+
+  // ── Image — OpenAI Vision summary via gpt-4o-mini. ──────────────────
   if (mime.startsWith('image/')) {
-    return placeholderIndex(upload, 'Image — Phase 2 vision summary. File stored; preview pending.');
+    try {
+      const summary = await summariseImageViaOpenAI(bytes, mime);
+      return {
+        contentMd: summary,
+        contentJson: null,
+        summary: summariseText(summary || `Image · ${upload.filename}`),
+        tokensEstimate: estimateTokens(summary ?? ''),
+        schemaMeta: { width: null, height: null },
+        error: summary ? null : 'no-vision-output',
+      };
+    } catch (err) {
+      return {
+        contentMd: null,
+        contentJson: null,
+        summary: `Image vision failed — file stored. ${err instanceof Error ? err.message : ''}`,
+        tokensEstimate: 0,
+        schemaMeta: null,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
   }
+
+  // ── Audio — Whisper transcription. ──────────────────────────────────
   if (mime.startsWith('audio/')) {
-    return placeholderIndex(upload, 'Audio — Phase 2 Whisper transcription. File stored; preview pending.');
+    try {
+      const text = await transcribeAudioViaWhisper(bytes, mime, upload.filename);
+      return {
+        contentMd: text.slice(0, UPLOAD_LIMITS.maxIndexedChars),
+        contentJson: null,
+        summary: summariseText(text || `Audio · ${upload.filename}`),
+        tokensEstimate: estimateTokens(text),
+        schemaMeta: null,
+        error: null,
+      };
+    } catch (err) {
+      return {
+        contentMd: null,
+        contentJson: null,
+        summary: `Audio transcription failed — file stored. ${err instanceof Error ? err.message : ''}`,
+        tokensEstimate: 0,
+        schemaMeta: null,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
   }
 
   // ── Unknown — keep the row, no extracted content. ───────────────────
   return placeholderIndex(upload, `Unsupported type ${mime || ext}. File stored; no preview generated.`);
 };
+
+// ── Phase 2 helpers ───────────────────────────────────────────────────
+
+async function extractPdfText(bytes: Uint8Array): Promise<string> {
+  // Dynamic import keeps the heavy native dep out of the cold-start
+  // path for non-PDF uploads.
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore — pdf-parse ships without typings
+  const pdfParse = (await import('pdf-parse')).default as (data: Buffer) => Promise<{ text: string }>;
+  const buf = Buffer.from(bytes);
+  const result = await pdfParse(buf);
+  return (result?.text ?? '').trim();
+}
+
+async function summariseImageViaOpenAI(bytes: Uint8Array, mime: string): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY not configured — image vision skipped.');
+  }
+  const base64 = Buffer.from(bytes).toString('base64');
+  const dataUrl = `data:${mime};base64,${base64}`;
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text:
+                'Describe this image in 2–3 sentences. Identify the main subject(s), composition, text content if any, and any obviously notable features. Be concise — this summary is indexed as context for an AI assistant.',
+            },
+            { type: 'image_url', image_url: { url: dataUrl } },
+          ],
+        },
+      ],
+      max_tokens: 300,
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`OpenAI vision failed (${res.status}): ${body.slice(0, 200)}`);
+  }
+  const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  return (json.choices?.[0]?.message?.content ?? '').trim();
+}
+
+async function transcribeAudioViaWhisper(
+  bytes: Uint8Array,
+  mime: string,
+  filename: string,
+): Promise<string> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY not configured — Whisper skipped.');
+  }
+  const form = new FormData();
+  // Whisper accepts mp3, mp4, mpeg, mpga, m4a, wav, webm. The blob's
+  // type drives the file extension Whisper detects.
+  const blob = new Blob([bytes], { type: mime || 'audio/webm' });
+  form.append('file', blob, filename || 'audio');
+  form.append('model', 'whisper-1');
+  const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: form,
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Whisper failed (${res.status}): ${body.slice(0, 200)}`);
+  }
+  const json = (await res.json()) as { text?: string };
+  return (json.text ?? '').trim();
+}
 
 function placeholderIndex(upload: PersonaUploadRow, summary: string) {
   return {

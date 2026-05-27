@@ -1875,6 +1875,10 @@ async function composeAttachedUploadsBlock(
 
   const service = getPersonaUploadService();
   const blocks: string[] = [];
+  // Tool-kind uploads get a separate framing so the LLM treats them
+  // as structured data to query rather than narrative context. Both
+  // kinds inject the same content; only the wrapper prose differs.
+  const toolBlocks: string[] = [];
   for (const id of ids) {
     try {
       const upload = await service.get(id, personaId);
@@ -1887,15 +1891,26 @@ async function composeAttachedUploadsBlock(
       }
       const content = upload.index?.contentMd ?? upload.index?.summary ?? '(no extracted content)';
       const truncated = content.length > 16000 ? content.slice(0, 16000) + '\n...(truncated)' : content;
-      blocks.push(
-        `<attached_file id="${upload.id}" filename="${upload.filename}" mime="${upload.mimeType}">\n${truncated}\n</attached_file>`,
-      );
+      const block = `<attached_file id="${upload.id}" filename="${upload.filename}" mime="${upload.mimeType}" use_kind="${upload.useKind}">\n${truncated}\n</attached_file>`;
+      if (upload.useKind === 'tool') toolBlocks.push(block);
+      else blocks.push(block);
     } catch (err) {
       console.warn(`[chat] attached upload fetch failed for ${id}:`, err);
     }
   }
-  if (blocks.length === 0) return '';
-  return `\n\n## Attached uploads — operator-supplied context for this turn\n\nThe operator has attached the following file(s) to this message. Read them, cite them where relevant, and use them as primary source material when the operator asks about their content.\n\n${blocks.join('\n\n')}`;
+  const sections: string[] = [];
+  if (blocks.length > 0) {
+    sections.push(
+      `## Attached uploads — operator-supplied context for this turn\n\nThe operator has attached the following file(s) to this message. Read them, cite them where relevant, and use them as primary source material when the operator asks about their content.\n\n${blocks.join('\n\n')}`,
+    );
+  }
+  if (toolBlocks.length > 0) {
+    sections.push(
+      `## Attached structured data — operator-supplied as a queryable tool input\n\nThe operator has attached the following structured file(s) (JSON / CSV) and wants you to treat them as a query surface. When the operator asks questions, filter / aggregate / look up entries against this data directly. Quote specific rows / keys when you cite values.\n\n${toolBlocks.join('\n\n')}`,
+    );
+  }
+  if (sections.length === 0) return '';
+  return `\n\n${sections.join('\n\n')}`;
 }
 
 export async function POST(request: NextRequest) {
