@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-27T15:28:47.171Z",
+  "last_updated": "2026-05-27T18:43:47.919Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "51f6a32f6652ecec53bceb42d60f131cc9e2993c",
-  "latest_commit_short": "51f6a32",
-  "latest_commit_title": "Use pdfjs-dist legacy build (no worker) in PDF-thumb route so Lambda doesnt look for pdf.worker.mjs",
+  "latest_commit": "df780eff29c51ac0c493de83a153170a9c55388c",
+  "latest_commit_short": "df780ef",
+  "latest_commit_title": "Match KNYT cover pattern exactly: covers are images, no pdfjs rasteriser, no fake worker",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "df780ef",
+      "full_sha": "df780eff29c51ac0c493de83a153170a9c55388c",
+      "title": "Match KNYT cover pattern exactly: covers are images, no pdfjs rasteriser, no fake worker",
+      "author": "Claude",
+      "timestamp": "2026-05-27T18:41:54Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-df780ef.md"
+    },
     {
       "sha": "51f6a32",
       "full_sha": "51f6a32f6652ecec53bceb42d60f131cc9e2993c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-19T05:50:08Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-fdbd1b5.md"
-    },
-    {
-      "sha": "21de6d9",
-      "full_sha": "21de6d9abd7ff5f4233678b563826d9627f37998",
-      "title": "knyt store: drop $600 ZeroKNYT memberPrice (was leaking to all visitors); investor stays $800, retail stays $1000 — cohort-gated ZeroKNYT offer to ship separately",
-      "author": "Claude",
-      "timestamp": "2026-05-19T05:41:20Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-21de6d9.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
