@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-27T00:23:57.897Z",
+  "last_updated": "2026-05-27T01:33:30.376Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "ddadc89d29ab2d98801f3803542c79ced24f142e",
-  "latest_commit_short": "ddadc89",
-  "latest_commit_title": "Replace Qripto assetKind dropdown with Standalone | Part of a Series + X of Y inputs",
+  "latest_commit": "9f14330f44a8696d174ec644f4ccf4a9d1666d5d",
+  "latest_commit_short": "9f14330",
+  "latest_commit_title": "Add Qripto Cover content type + fix upload preview link for Supabase URLs",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "9f14330",
+      "full_sha": "9f14330f44a8696d174ec644f4ccf4a9d1666d5d",
+      "title": "Add Qripto Cover content type + fix upload preview link for Supabase URLs",
+      "author": "Claude",
+      "timestamp": "2026-05-27T01:31:26Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-9f14330.md"
+    },
     {
       "sha": "ddadc89",
       "full_sha": "ddadc89d29ab2d98801f3803542c79ced24f142e",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-16T22:18:19Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-6d0f74d.md"
-    },
-    {
-      "sha": "af22afd",
-      "full_sha": "af22afd4f904707339fbbe04f7ba04cc11ba5158",
-      "title": "codex GN: restore masterId-proxy page-by-page rendering (from 0feeb548)",
-      "author": "Claude",
-      "timestamp": "2026-05-16T22:06:10Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-af22afd.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

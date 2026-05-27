@@ -1264,3 +1264,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-ddadc89.md](../build_/COMMITS/COMMIT-ddadc89.md)
 - Message: Replace Qripto assetKind dropdown with Standalone | Part of a Series + X of Y inputs
+
+## Commit `9f14330` — 2026-05-27T01:31:26Z
+- Type: `feat`
+- Brief: [COMMIT-9f14330.md](../build_/COMMITS/COMMIT-9f14330.md)
+- Message: Add Qripto Cover content type + fix upload preview link for Supabase URLs
