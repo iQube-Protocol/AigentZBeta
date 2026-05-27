@@ -1329,3 +1329,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-c305db9.md](../build_/COMMITS/COMMIT-c305db9.md)
 - Message: Sort Qripto Papers grid by leading sequence number in title so #1 sits left of each series row
+
+## Commit `b82bb3a` — 2026-05-27T20:58:22Z
+- Type: `push`
+- Brief: [COMMIT-b82bb3a.md](../build_/COMMITS/COMMIT-b82bb3a.md)
+- Message: Pair Qripto covers to papers by shared title stem (case+punct normalised) — works when covers have headings but no leading number

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-27T20:56:47.992Z",
+  "last_updated": "2026-05-27T21:00:04.790Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c305db9bc61d5afe72a79e731d26b5c3ffe7749d",
-  "latest_commit_short": "c305db9",
-  "latest_commit_title": "Sort Qripto Papers grid by leading sequence number in title so #1 sits left of each series row",
+  "latest_commit": "b82bb3a87c6fdba4a46c898196b7d8c1e9a9b214",
+  "latest_commit_short": "b82bb3a",
+  "latest_commit_title": "Pair Qripto covers to papers by shared title stem (case+punct normalised) — works when covers have headings but no leading number",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "b82bb3a",
+      "full_sha": "b82bb3a87c6fdba4a46c898196b7d8c1e9a9b214",
+      "title": "Pair Qripto covers to papers by shared title stem (case+punct normalised) — works when covers have headings but no leading number",
+      "author": "Claude",
+      "timestamp": "2026-05-27T20:58:22Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b82bb3a.md"
+    },
     {
       "sha": "c305db9",
       "full_sha": "c305db9bc61d5afe72a79e731d26b5c3ffe7749d",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-21T17:51:51Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-b0659f1.md"
-    },
-    {
-      "sha": "1dcc609",
-      "full_sha": "1dcc60979d580738ec47450486e18cf1d1804edf",
-      "title": "releaseEdition surfaces schema-cache failures + appendCommon collapses dup rows onto latest edition",
-      "author": "Claude",
-      "timestamp": "2026-05-21T18:16:49Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1dcc609.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
