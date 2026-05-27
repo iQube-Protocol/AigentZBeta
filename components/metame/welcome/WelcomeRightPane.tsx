@@ -184,6 +184,14 @@ interface Props {
   capsuleHistory?: ReadonlyArray<"brief" | "move-forward" | "venture-progress" | "ask-specialists">;
   /** Switch the active Capsule (also pushes the current one into history). */
   onEngageCapsule?: (id: "brief" | "move-forward" | "venture-progress" | "ask-specialists") => void;
+  /**
+   * Map of synthetic intent id → specialist id for artifacts spawned
+   * from a specialist's suggested-artifact chip. The standalone
+   * artifact render below filters these out so they don't double-
+   * render — SpecialistsLayout owns their display inside the
+   * consultation card.
+   */
+  specialistIntentMap?: Record<string, string>;
 
   /** Below-fold sections. */
   expModel: ExperienceModelCardData | null;
@@ -473,6 +481,7 @@ export function WelcomeRightPane(props: Props) {
     activeCapsuleId = null,
     capsuleHistory = [],
     onEngageCapsule,
+    specialistIntentMap,
     onUseSuggestedArtifact,
     expModel, expModelLoading, stageEval,
     receipts, receiptsLoading, receiptsPersonaLabel,
@@ -944,19 +953,22 @@ export function WelcomeRightPane(props: Props) {
           surface. */}
 
       {/* Standalone artifacts — only "true" orphans (no parent intent
-          matching a queued Pill). In practice these come from the
-          bottom compose strip (Email / Doc / Sheet / Slides / Marketa /
-          Event) where the operator drafted something without first
-          Acting on a Pill. */}
+          matching a queued Pill, and not tagged for a specialist
+          consultation). Specialist-spawned drafts now nest inside the
+          Ask Specialists Capsule, so this filter skips them too.
+          What's left are typically bottom-compose-strip drafts. */}
       {(() => {
         const ownedIntentIds = new Set<string>();
         for (const [nbeId, queued] of Object.entries(queuedIntents)) {
           ownedIntentIds.add(queued.intentId);
           void nbeId;
         }
-        const standalone = artifacts.filter(
-          (a) => !a.intentId || !ownedIntentIds.has(a.intentId),
-        );
+        const standalone = artifacts.filter((a) => {
+          if (!a.intentId) return true;
+          if (ownedIntentIds.has(a.intentId)) return false;
+          if (specialistIntentMap && specialistIntentMap[a.intentId]) return false;
+          return true;
+        });
         if (standalone.length === 0) return null;
         return (
           <div ref={artifactRef} className="space-y-2">

@@ -32,6 +32,7 @@ import {
 import { LayoutShell } from "./LayoutShell";
 import { accent } from "./accentTokens";
 import { SpecialistResponseCard } from "@/components/metame/cards/SpecialistResponseCard";
+import { ArtifactCard } from "@/components/metame/cards/ArtifactCard";
 import { PreflightByline, PreflightChip } from "@/components/metame/cards/PreflightByline";
 import { MicButton } from "@/components/ui/MicButton";
 import type {
@@ -88,7 +89,23 @@ const PROMPT_TEMPLATES_BY_SPECIALIST: Partial<Record<SpecialistId, string[]>> = 
 };
 
 function SpecialistsLayoutComponent(props: RightPaneLayoutProps) {
-  const { theme = "dark", specialistsLayout: state, onRequestLayout } = props;
+  const {
+    theme = "dark",
+    specialistsLayout: state,
+    onRequestLayout,
+    // Artifact-folding plumbing — when the operator clicks a suggested
+    // artifact chip in the specialist response, the resulting draft
+    // is tagged with a synthetic intent id mapped to this specialist.
+    // The ConsultationCard finds matching artifacts and folds them
+    // inside the Ask Specialists Capsule (Pill-pattern parity with
+    // Brief / Move-forward / Venture).
+    artifacts,
+    specialistIntentMap,
+    actionPendingArtifactId,
+    actionErrors,
+    onSendArtifact,
+    onDismissArtifact,
+  } = props;
   const isDark = theme === "dark";
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
 
@@ -200,6 +217,20 @@ function SpecialistsLayoutComponent(props: RightPaneLayoutProps) {
                 activeSpecialistResponse &&
                 props.onUseSuggestedArtifact?.(artifactType, activeSpecialistResponse)
               }
+              // Drafted artifacts spawned from this specialist's
+              // suggested-artifact chips — folded inside the
+              // consultation card via the synthetic-intent map.
+              specialistArtifacts={
+                (artifacts ?? []).filter(
+                  (a) =>
+                    a.intentId &&
+                    specialistIntentMap?.[a.intentId] === selectedSpecialist.id,
+                )
+              }
+              actionPendingArtifactId={actionPendingArtifactId}
+              actionErrors={actionErrors}
+              onSendArtifact={onSendArtifact}
+              onDismissArtifact={onDismissArtifact}
             />
           )}
 
@@ -658,6 +689,11 @@ function ConsultationCard({
   onSend,
   onHandoff,
   onUseSuggestedArtifact,
+  specialistArtifacts,
+  actionPendingArtifactId,
+  actionErrors,
+  onSendArtifact,
+  onDismissArtifact,
 }: {
   specialist: SpecialistRosterEntry;
   prompt: string;
@@ -671,6 +707,14 @@ function ConsultationCard({
   onSend: () => void;
   onHandoff: (target: SpecialistId) => void;
   onUseSuggestedArtifact?: (artifactType: string) => void;
+  /** Drafted artifacts that originated from this specialist's
+   *  suggested-artifact chips. Filtered by the parent tab via the
+   *  specialistIntentMap. */
+  specialistArtifacts?: import("@/components/metame/cards/ArtifactCard").ArtifactCardData[];
+  actionPendingArtifactId?: string | null;
+  actionErrors?: Record<string, string>;
+  onSendArtifact?: (artifactId: string) => void;
+  onDismissArtifact?: (artifactId: string) => void;
 }) {
   // Emerald-tinted wrapper that visually unifies the composer (what
   // you ask) with the reply (what comes back). The accent matches the
@@ -723,6 +767,34 @@ function ConsultationCard({
                   theme={theme}
                   onCreateArtifact={onUseSuggestedArtifact}
                 />
+                {/* Drafted artifacts from this consultation. Folded
+                    inside the Capsule per the Pill pattern so they
+                    don't float as orphans in the right pane. Each
+                    artifact carries its own Send/Open affordances. */}
+                {specialistArtifacts && specialistArtifacts.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    <h4 className={`text-[10px] uppercase tracking-[0.16em] font-medium ${
+                      isDark ? "text-emerald-300/90" : "text-emerald-700"
+                    }`}>
+                      Drafted from this consultation
+                    </h4>
+                    {specialistArtifacts.map((art) => (
+                      <ArtifactCard
+                        key={art.artifactId}
+                        data={art}
+                        onAction={
+                          onSendArtifact ? () => onSendArtifact(art.artifactId) : undefined
+                        }
+                        onDismiss={
+                          onDismissArtifact ? () => onDismissArtifact(art.artifactId) : undefined
+                        }
+                        actionPending={actionPendingArtifactId === art.artifactId}
+                        actionError={actionErrors?.[art.artifactId]}
+                        theme={theme}
+                      />
+                    ))}
+                  </div>
+                )}
                 <HandoffStrip
                   roster={roster}
                   currentSpecialistId={specialist.id}
