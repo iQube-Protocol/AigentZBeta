@@ -1289,3 +1289,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-c52d1aa.md](../build_/COMMITS/COMMIT-c52d1aa.md)
 - Message: Render PDF covers via iframe + adopt KNYT 4-up card grid pattern for Qripto Papers
+
+## Commit `b386014` — 2026-05-27T05:03:53Z
+- Type: `push`
+- Brief: [COMMIT-b386014.md](../build_/COMMITS/COMMIT-b386014.md)
+- Message: Mirror Qripto Codex tabs (Magazines / Papers / Polity) into metaMe qriptopia group

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-27T04:45:48.519Z",
+  "last_updated": "2026-05-27T05:05:52.507Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c52d1aa56f1aa70a184bbe2ed9224c5e53c930e2",
-  "latest_commit_short": "c52d1aa",
-  "latest_commit_title": "Render PDF covers via iframe + adopt KNYT 4-up card grid pattern for Qripto Papers",
+  "latest_commit": "b38601486449bf62b1d5a54b3851817b05ce4f63",
+  "latest_commit_short": "b386014",
+  "latest_commit_title": "Mirror Qripto Codex tabs (Magazines / Papers / Polity) into metaMe qriptopia group",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "b386014",
+      "full_sha": "b38601486449bf62b1d5a54b3851817b05ce4f63",
+      "title": "Mirror Qripto Codex tabs (Magazines / Papers / Polity) into metaMe qriptopia group",
+      "author": "Claude",
+      "timestamp": "2026-05-27T05:03:53Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b386014.md"
+    },
     {
       "sha": "c52d1aa",
       "full_sha": "c52d1aa56f1aa70a184bbe2ed9224c5e53c930e2",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-19T03:11:40Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-7228c5c.md"
-    },
-    {
-      "sha": "d5ca6b9",
-      "full_sha": "d5ca6b9bfead1c6656a83ee1f589786faadee208",
-      "title": "knyt characters: align 0-indexed convention end-to-end + score-based character matching",
-      "author": "Claude",
-      "timestamp": "2026-05-19T01:30:21Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d5ca6b9.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
