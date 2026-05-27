@@ -21,7 +21,13 @@ import React, { useCallback } from "react";
 import { Briefcase, AlertCircle, Loader2, RefreshCw, SlidersHorizontal, ChevronRight, Plus } from "lucide-react";
 import {
   NextBestActionCard,
+  type NextBestActionData,
 } from "@/components/metame/cards/NextBestActionCard";
+import {
+  ExpandedNBEPill,
+  type ExpandedNBEPillQueuedState,
+} from "@/components/metame/cards/ExpandedNBEPill";
+import type { ArtifactCardData } from "@/components/metame/cards/ArtifactCard";
 import { LayoutShell } from "./LayoutShell";
 import { accent, type Accent } from "./accentTokens";
 import type {
@@ -46,9 +52,74 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
     onNbeAct,
     onDismissVenture,
     onRequestLayout,
+    // Pill-lifecycle plumbing — mirrors BriefLayout / DecisionBoard
+    // so the Recommended row swaps each queued NBA for an
+    // ExpandedNBEPill with its drafted artifact + second-tier
+    // approval + Mark complete folded inside.
+    queuedIntents,
+    artifacts,
+    actionPendingArtifactId,
+    actionErrors,
+    secondTierApproval,
+    onSendArtifact,
+    onDismissArtifact,
+    onApproveSecondTier,
+    onCancelSecondTier,
+    onDismissQueued,
+    onMarkPillComplete,
   } = props;
 
   const isDark = theme === "dark";
+
+  // Group artifacts by intent id for cohort-style folding.
+  const artifactsByIntent = React.useMemo<Record<string, ArtifactCardData[]>>(() => {
+    const map: Record<string, ArtifactCardData[]> = {};
+    for (const a of artifacts ?? []) {
+      if (!a.intentId) continue;
+      (map[a.intentId] ??= []).push(a);
+    }
+    return map;
+  }, [artifacts]);
+
+  // Same renderer pattern as DecisionBoard: queued → ExpandedNBEPill,
+  // pending → NextBestActionCard. Lets the Venture Capsule carry the
+  // full Pill lifecycle the brief / move-forward Capsules already do.
+  const renderActionRow = (a: NextBestActionData) => {
+    const queued = queuedIntents?.[a.id] as ExpandedNBEPillQueuedState | undefined;
+    if (queued) {
+      const pillArtifacts = artifactsByIntent[queued.intentId] ?? [];
+      const matchedSecondTier =
+        secondTierApproval && pillArtifacts.some((x) => x.artifactId === secondTierApproval.artifactId)
+          ? secondTierApproval
+          : null;
+      return (
+        <ExpandedNBEPill
+          action={a}
+          queued={queued}
+          artifacts={pillArtifacts}
+          secondTierApproval={matchedSecondTier}
+          actionPendingArtifactId={actionPendingArtifactId}
+          actionErrors={actionErrors}
+          onDismissQueued={() => onDismissQueued?.(a.id)}
+          onSendArtifact={(id) => onSendArtifact?.(id)}
+          onDismissArtifact={(id) => onDismissArtifact?.(id)}
+          onApproveSecondTier={onApproveSecondTier}
+          onCancelSecondTier={onCancelSecondTier}
+          onMarkComplete={onMarkPillComplete ? () => onMarkPillComplete(a.id) : undefined}
+          theme={theme}
+        />
+      );
+    }
+    return (
+      <NextBestActionCard
+        action={a}
+        onAct={onNbeAct}
+        queued={false}
+        promptHint={ventureProgress?.nbaPromptHints?.[a.id] ?? null}
+        theme={theme}
+      />
+    );
+  };
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
   const stripClass = isDark
     ? "bg-slate-900/60 border-slate-800/60"
@@ -211,13 +282,7 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
               ) : (
                 <div className="space-y-2">
                   {data.recommendedActions.slice(0, 3).map((a) => (
-                    <NextBestActionCard
-                      key={a.id}
-                      action={a}
-                      onAct={onNbeAct}
-                      queued={!!props.queuedIntents?.[a.id]}
-                      theme={theme}
-                    />
+                    <div key={a.id}>{renderActionRow(a)}</div>
                   ))}
                 </div>
               )}
