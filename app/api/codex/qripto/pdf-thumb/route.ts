@@ -23,6 +23,24 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
+// pdfjs-dist 4.x calls Promise.withResolvers (Node 22+). Amplify runs
+// Node 20, so without this polyfill the rasteriser throws
+// "Promise.withResolvers is not a function" the moment it loads a PDF.
+// Idempotent: only assigns when the method is missing.
+if (typeof (Promise as unknown as { withResolvers?: unknown }).withResolvers !== 'function') {
+  (Promise as unknown as {
+    withResolvers: <T>() => { promise: Promise<T>; resolve: (v: T | PromiseLike<T>) => void; reject: (r?: unknown) => void };
+  }).withResolvers = function <T>() {
+    let resolve!: (v: T | PromiseLike<T>) => void;
+    let reject!: (r?: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  };
+}
+
 // ─── In-memory cache ──────────────────────────────────────────────────
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 min
 type CacheEntry = { buf: Buffer; mime: string; ts: number };
