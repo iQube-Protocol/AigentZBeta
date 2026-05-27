@@ -473,6 +473,36 @@ export function WelcomeRightPane(props: Props) {
   const topAction = moveForwardResult?.topAction ?? null;
   const alternates = moveForwardResult?.alternates ?? [];
 
+  // Group artifacts by their originating intent id so each Capsule
+  // (Brief, Move forward, Venture progress) can fold the artifacts
+  // produced from its Pills into the matching ExpandedNBEPill.
+  const artifactsByIntent = React.useMemo<Record<string, ArtifactCardData[]>>(() => {
+    const map: Record<string, ArtifactCardData[]> = {};
+    for (const a of artifacts) {
+      if (!a.intentId) continue;
+      (map[a.intentId] ??= []).push(a);
+    }
+    return map;
+  }, [artifacts]);
+
+  // Set of NBE ids that BriefCard now owns (renders their Pills inline).
+  // These should NOT also render as standalone capsules at the top of
+  // the pane — the Brief Capsule is the canonical home.
+  const briefOwnedNbeIds = React.useMemo<Set<string>>(() => {
+    const ids = new Set<string>();
+    for (const a of brief?.nextBestActions ?? []) ids.add(a.id);
+    return ids;
+  }, [brief?.nextBestActions]);
+
+  // Same for the Move-forward bundle (top action + alternates) — those
+  // Pills belong inside the move-forward Capsule.
+  const moveForwardOwnedNbeIds = React.useMemo<Set<string>>(() => {
+    const ids = new Set<string>();
+    if (moveForwardResult?.topAction) ids.add(moveForwardResult.topAction.id);
+    for (const a of moveForwardResult?.alternates ?? []) ids.add(a.id);
+    return ids;
+  }, [moveForwardResult]);
+
   return (
     <div
       data-aigentme-right-pane="stack"
@@ -572,6 +602,11 @@ export function WelcomeRightPane(props: Props) {
           template to silently render nothing when an operator queued
           an NBE from the Brief surface — 2026-05-26 fix). */}
       {Object.entries(queuedIntents).map(([nbeId, queued]) => {
+        // The Brief Capsule and Move-forward Capsule now own the
+        // expansion of their own Pills inline — don't double-render
+        // them as standalone capsules at the top of the pane.
+        if (briefOwnedNbeIds.has(nbeId)) return null;
+        if (moveForwardOwnedNbeIds.has(nbeId)) return null;
         const fromMoveForward =
           moveForwardResult?.topAction?.id === nbeId
             ? moveForwardResult.topAction
@@ -684,6 +719,21 @@ export function WelcomeRightPane(props: Props) {
             error={briefError}
             onActOnNbe={onNbeAct}
             queuedIntents={queuedIntents}
+            specialistResponses={specialistResponses}
+            specialistLoading={specialistLoading}
+            specialistErrors={specialistErrors}
+            artifactsByIntent={artifactsByIntent}
+            secondTierApproval={secondTierApproval}
+            using={usingIqubes}
+            actionPendingArtifactId={actionPendingArtifactId}
+            actionErrors={actionErrors}
+            onUseSuggestedArtifact={onUseSuggestedArtifact}
+            onDismissQueued={onDismissQueued}
+            onDismissSpecialist={onDismissSpecialist}
+            onSendArtifact={onSendArtifact}
+            onDismissArtifact={onDismissArtifact}
+            onApproveSecondTier={onApproveSecondTier}
+            onCancelSecondTier={onCancelSecondTier}
             onDismiss={onDismissBrief}
             theme={theme}
           />
@@ -741,12 +791,14 @@ export function WelcomeRightPane(props: Props) {
         </div>
       )}
 
-      {/* Specialist responses linked to NBEs.
-          Skip entries whose nbeId is already shown inside a queued
-          capsule above — otherwise the same mission recommendation
-          would render twice. */}
+      {/* Specialist responses for orphan NBEs only.
+          - Brief-owned NBEs render their specialist inside BriefCard.
+          - Queued NBEs (move-forward / venture) render theirs inside the
+            top-of-pane capsule loop above.
+          What's left are truly orphan responses (mis-keyed by the
+          ask-agent route or for an NBE no surface holds). */}
       {Object.entries(specialistResponses)
-        .filter(([nbeId]) => !queuedIntents[nbeId])
+        .filter(([nbeId]) => !queuedIntents[nbeId] && !briefOwnedNbeIds.has(nbeId))
         .map(([nbeId, sp]) => (
           <SpecialistResponseCard
             key={nbeId}
@@ -762,29 +814,32 @@ export function WelcomeRightPane(props: Props) {
           />
         ))}
       {Object.entries(specialistLoading)
-        .filter(([nbeId, loading]) => loading && !queuedIntents[nbeId])
+        .filter(([nbeId, loading]) => loading && !queuedIntents[nbeId] && !briefOwnedNbeIds.has(nbeId))
         .map(([nbeId]) => (
           <div key={nbeId} className={`text-xs flex items-center gap-2 ${mutedClass}`}>
             <Loader2 className="w-3 h-3 animate-spin" /> Consulting specialist…
           </div>
         ))}
       {Object.entries(specialistErrors)
-        .filter(([nbeId]) => !queuedIntents[nbeId])
+        .filter(([nbeId]) => !queuedIntents[nbeId] && !briefOwnedNbeIds.has(nbeId))
         .map(([nbeId, err]) => (
           <p key={`err-${nbeId}`} className={`text-xs ${isDark ? "text-rose-400" : "text-rose-600"}`}>
             Specialist failed: {err}
           </p>
         ))}
 
-      {/* Standalone artifacts — skip any that have already been folded
-          into a queued capsule above (same intentId), so the operator
-          sees each artifact in exactly one place. */}
+      {/* Standalone artifacts — skip any that already render inside a
+          parent Capsule (Brief, Move-forward, or the top-of-pane queued
+          stack), so the operator sees each artifact in exactly one
+          place. */}
       {(() => {
-        const queuedIntentIds = new Set(
-          Object.values(queuedIntents).map((q) => q.intentId),
-        );
+        const ownedIntentIds = new Set<string>();
+        for (const [nbeId, queued] of Object.entries(queuedIntents)) {
+          ownedIntentIds.add(queued.intentId);
+          void nbeId;
+        }
         const standalone = artifacts.filter(
-          (a) => !a.intentId || !queuedIntentIds.has(a.intentId),
+          (a) => !a.intentId || !ownedIntentIds.has(a.intentId),
         );
         if (standalone.length === 0) return null;
         return (
