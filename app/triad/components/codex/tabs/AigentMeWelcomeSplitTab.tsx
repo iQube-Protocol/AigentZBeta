@@ -815,7 +815,24 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       return;
     }
     // Stage-advance NBE → POST /api/assistant/stage-progression directly.
+    // Surface immediate visual feedback: register a queued intent
+    // (manuallyComplete so the Pill flips straight to Green per the
+    // internal-action lifecycle), refresh receipts + brief so the new
+    // stage context propagates.
     if (action.id === 'metame.advance-stage') {
+      const optimisticIntentId = `stage-advance-${Date.now()}`;
+      setQueuedIntents((prev) => ({
+        ...prev,
+        [action.id]: {
+          intentId: optimisticIntentId,
+          status: 'complete',
+          queueMessage: 'Stage advance requested — refreshing context.',
+          manuallyComplete: true,
+        },
+      }));
+      setActedNbeRegistry((prev) =>
+        prev[action.id] ? prev : { ...prev, [action.id]: action },
+      );
       void (async () => {
         try {
           await personaFetch('/api/assistant/stage-progression', {
@@ -825,7 +842,20 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
             body: JSON.stringify({ trigger: 'nbe' }),
           });
           void fetchReceipts();
-        } catch { /* surfaced through stale state */ }
+          void fetchBrief();
+        } catch (err) {
+          // Surface failure inline by reverting the optimistic pill
+          // and stashing the error on the queue entry.
+          const msg = err instanceof Error ? err.message : String(err);
+          setQueuedIntents((prev) => {
+            const cur = prev[action.id];
+            if (!cur || cur.intentId !== optimisticIntentId) return prev;
+            return {
+              ...prev,
+              [action.id]: { ...cur, status: 'failed', queueMessage: `Stage advance failed: ${msg}`, manuallyComplete: false },
+            };
+          });
+        }
       })();
       return;
     }
@@ -2426,7 +2456,17 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               return (
               <>
               <ForegroundLayout {...layoutProps} />
-              {ComposerOverlayLayout && <ComposerOverlayLayout {...layoutProps} />}
+              {ComposerOverlayLayout && (
+                <div className="absolute inset-0 z-30 flex md:items-center md:justify-center">
+                  <div
+                    className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                    onClick={() => setComposerKind(null)}
+                  />
+                  <div className="relative z-10 w-full md:max-w-2xl md:mx-4 max-h-[90%] overflow-auto">
+                    <ComposerOverlayLayout {...layoutProps} />
+                  </div>
+                </div>
+              )}
               {ApprovalOverlayLayout && <ApprovalOverlayLayout {...layoutProps} />}
               </>
               );

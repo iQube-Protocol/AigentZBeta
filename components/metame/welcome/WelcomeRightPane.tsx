@@ -38,6 +38,7 @@ import {
   type ExperienceModelCardData,
 } from "@/components/metame/cards/ExperienceModelCard";
 import { BriefCard, type BriefCardData } from "@/components/metame/cards/BriefCard";
+import { ExpandedNBEPill } from "@/components/metame/cards/ExpandedNBEPill";
 import { VentureProgressCard, type VentureProgressData } from "@/components/metame/cards/VentureProgressCard";
 import { NextBestActionCard, type NextBestActionData } from "@/components/metame/cards/NextBestActionCard";
 import { ApprovalCard, type ApprovalCardAction, type ApprovalQueuedState } from "@/components/metame/cards/ApprovalCard";
@@ -638,6 +639,22 @@ export function WelcomeRightPane(props: Props) {
               </button>
             );
           })}
+          {/* Bridge into the canonical Pills & Artifacts ledger so the
+              operator can browse every CTA Acted on this session (and
+              prior sessions) without leaving the metaMe surface. */}
+          <a
+            href="/codex/viewer?slug=metame&tab=my-workbench"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`ml-auto px-2 py-0.5 rounded-full border transition ${
+              isDark
+                ? "border-violet-500/40 text-violet-200 hover:border-violet-400 hover:bg-violet-500/10"
+                : "border-violet-300 text-violet-700 hover:border-violet-500 hover:bg-violet-50"
+            }`}
+            title="Open the full Pills & Artifacts ledger in myWorkbench"
+          >
+            View all in myWorkbench →
+          </a>
         </div>
       )}
 
@@ -771,7 +788,11 @@ export function WelcomeRightPane(props: Props) {
         />
       )}
 
-      {topAction && !queuedIntents[topAction.id] && (
+      {/* Move-forward Capsule — top action + alternates as a bundle.
+          Queued Pills expand inline as ExpandedNBEPill (same pattern as
+          the Brief Capsule) so the bundle stays intact when the
+          operator Acts on one Pill. */}
+      {topAction && (
         <div ref={nbeRef}>
           {moveForwardResult?.topActionReason && (
             <div className="mb-1.5 px-3 py-1.5 rounded-md border border-violet-500/30 bg-violet-500/5 text-[11px] text-violet-200 flex items-start gap-1.5">
@@ -779,29 +800,87 @@ export function WelcomeRightPane(props: Props) {
               <span><span className="text-slate-400">Why this:</span> {moveForwardResult.topActionReason}</span>
             </div>
           )}
-          <NextBestActionCard
-            action={topAction}
-            onAct={onNbeAct}
-            queued={!!queuedIntents[topAction.id]}
-            onDismiss={onDismissMoveForward}
-            preflightContext={moveForwardResult?.preflightContext}
-            promptHint={moveForwardResult?.nbaPromptHints?.[topAction.id] ?? null}
-            theme={theme}
-            variant="hero"
-          />
+          {queuedIntents[topAction.id] ? (
+            <ExpandedNBEPill
+              action={topAction}
+              queued={queuedIntents[topAction.id]}
+              artifacts={artifactsByIntent[queuedIntents[topAction.id].intentId] ?? []}
+              secondTierApproval={
+                secondTierApproval &&
+                (artifactsByIntent[queuedIntents[topAction.id].intentId] ?? []).some(
+                  (a) => a.artifactId === secondTierApproval.artifactId,
+                )
+                  ? secondTierApproval
+                  : null
+              }
+              actionPendingArtifactId={actionPendingArtifactId}
+              actionErrors={actionErrors}
+              onDismissQueued={() => onDismissQueued(topAction.id)}
+              onSendArtifact={(id) => onSendArtifact(id)}
+              onDismissArtifact={(id) => onDismissArtifact(id)}
+              onApproveSecondTier={onApproveSecondTier}
+              onCancelSecondTier={onCancelSecondTier}
+              onMarkComplete={
+                onMarkPillComplete ? () => onMarkPillComplete(topAction.id) : undefined
+              }
+              theme={theme}
+            />
+          ) : (
+            <NextBestActionCard
+              action={topAction}
+              onAct={onNbeAct}
+              queued={false}
+              onDismiss={onDismissMoveForward}
+              preflightContext={moveForwardResult?.preflightContext}
+              promptHint={moveForwardResult?.nbaPromptHints?.[topAction.id] ?? null}
+              theme={theme}
+              variant="hero"
+            />
+          )}
         </div>
       )}
       {alternates.length > 0 && (
         <div className="space-y-2">
-          {alternates.filter((a) => !queuedIntents[a.id]).map((alt) => (
-            <NextBestActionCard
-              key={alt.id}
-              action={alt}
-              onAct={onNbeAct}
-              promptHint={moveForwardResult?.nbaPromptHints?.[alt.id] ?? null}
-              theme={theme}
-            />
-          ))}
+          {alternates.map((alt) => {
+            const queued = queuedIntents[alt.id];
+            if (queued) {
+              const artifactsForPill = artifactsByIntent[queued.intentId] ?? [];
+              const matchedSecondTier =
+                secondTierApproval &&
+                artifactsForPill.some((a) => a.artifactId === secondTierApproval.artifactId)
+                  ? secondTierApproval
+                  : null;
+              return (
+                <ExpandedNBEPill
+                  key={alt.id}
+                  action={alt}
+                  queued={queued}
+                  artifacts={artifactsForPill}
+                  secondTierApproval={matchedSecondTier}
+                  actionPendingArtifactId={actionPendingArtifactId}
+                  actionErrors={actionErrors}
+                  onDismissQueued={() => onDismissQueued(alt.id)}
+                  onSendArtifact={(id) => onSendArtifact(id)}
+                  onDismissArtifact={(id) => onDismissArtifact(id)}
+                  onApproveSecondTier={onApproveSecondTier}
+                  onCancelSecondTier={onCancelSecondTier}
+                  onMarkComplete={
+                    onMarkPillComplete ? () => onMarkPillComplete(alt.id) : undefined
+                  }
+                  theme={theme}
+                />
+              );
+            }
+            return (
+              <NextBestActionCard
+                key={alt.id}
+                action={alt}
+                onAct={onNbeAct}
+                promptHint={moveForwardResult?.nbaPromptHints?.[alt.id] ?? null}
+                theme={theme}
+              />
+            );
+          })}
         </div>
       )}
       {moveForwardLoading && (

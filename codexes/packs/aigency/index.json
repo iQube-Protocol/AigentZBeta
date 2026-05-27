@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-27T05:05:52.507Z",
+  "last_updated": "2026-05-27T05:28:30.521Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "b38601486449bf62b1d5a54b3851817b05ce4f63",
-  "latest_commit_short": "b386014",
-  "latest_commit_title": "Mirror Qripto Codex tabs (Magazines / Papers / Polity) into metaMe qriptopia group",
+  "latest_commit": "b83c7325a5f9aaa7198495ca6cfd273b5f2ba2de",
+  "latest_commit_short": "b83c732",
+  "latest_commit_title": "Rasterise PDF covers server-side to WebP so they render as real thumbnails",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "b83c732",
+      "full_sha": "b83c7325a5f9aaa7198495ca6cfd273b5f2ba2de",
+      "title": "Rasterise PDF covers server-side to WebP so they render as real thumbnails",
+      "author": "Claude",
+      "timestamp": "2026-05-27T05:26:35Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b83c732.md"
+    },
     {
       "sha": "b386014",
       "full_sha": "b38601486449bf62b1d5a54b3851817b05ce4f63",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-19T03:58:27Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-621ec0c.md"
-    },
-    {
-      "sha": "7228c5c",
-      "full_sha": "7228c5c2be8364260fec7f9922427a818ac96100",
-      "title": "knyt characters: per-asset digiterra label — use terra when digiterra doesn't appear in title (fixes Deji Ifada/Kn0w1 first-card label)",
-      "author": "Claude",
-      "timestamp": "2026-05-19T03:11:40Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7228c5c.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

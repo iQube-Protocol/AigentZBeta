@@ -1294,3 +1294,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-b386014.md](../build_/COMMITS/COMMIT-b386014.md)
 - Message: Mirror Qripto Codex tabs (Magazines / Papers / Polity) into metaMe qriptopia group
+
+## Commit `b83c732` — 2026-05-27T05:26:35Z
+- Type: `push`
+- Brief: [COMMIT-b83c732.md](../build_/COMMITS/COMMIT-b83c732.md)
+- Message: Rasterise PDF covers server-side to WebP so they render as real thumbnails

@@ -3,27 +3,28 @@
 /**
  * MyWorkbenchTab — PRIVATE working surface for the persona.
  *
+ * Layout:
+ *   1. WorkbenchLedger (top) — Pills & Artifacts ledger across every
+ *      Capsule. The historical view: every CTA Acted on, every
+ *      artifact drafted, with state chips and resume links.
+ *   2. Private drafts list (below) — the existing MyCanvasTab in
+ *      surface='workbench' mode (partner briefs, internal reports,
+ *      decks pre-share). Functionally unchanged.
+ *
  * 2026-05-26 differentiation (per operator): myWorkbench is for
  * PRIVATE confidential work — partner briefs, internal reports,
  * decks pre-share, drafts that haven't decided whether they want
  * to be public yet. myCanvas (the sister surface) is for PUBLIC
  * publishing (KNYT Pulse / Qriptopian Pulse).
  *
- * Functionally identical to MyCanvasTab — same list/create/edit
- * affordances, same backing /api/mycanvas/entries endpoint. The
- * `surface='workbench'` prop drives:
- *
- *   - default visibility on create = 'private' (vs 'invited' for canvas)
- *   - metaJson stamp { surface: 'workbench' } so the list filter
- *     keeps the two surfaces' entries separate
- *   - URL param consumer reads ?draft= (vs ?remix= for canvas)
- *
- * Specialist artifact dispatch in AigentMeWelcomeSplitTab routes
- * 'partner-brief' / 'myworkbench-draft' artifacts here via
- *   /codex/viewer?slug=metame&tab=my-workbench&draft=<encoded JSON>
+ * The ledger layered on top (2026-05-27) makes myWorkbench the
+ * canonical home for in-flight + completed CTAs and orphan
+ * compose-strip drafts, so the active aigentMe Capsules can stay
+ * focused on current engagement.
  */
 
 import { MyCanvasTab } from "./MyCanvasTab";
+import { WorkbenchLedger } from "@/components/metame/workbench/WorkbenchLedger";
 
 interface Props {
   personaId?: string;
@@ -31,7 +32,12 @@ interface Props {
 }
 
 export function MyWorkbenchTab(props: Props) {
-  return <MyCanvasTab {...props} surface="workbench" />;
+  return (
+    <div className="space-y-6">
+      <WorkbenchLedger personaId={props.personaId} theme={props.theme} />
+      <MyCanvasTab {...props} surface="workbench" />
+    </div>
+  );
 }
 
 export default MyWorkbenchTab;

@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`b83c732`](https://github.com/iQube-Protocol/AigentZBeta/commit/b83c7325a5f9aaa7198495ca6cfd273b5f2ba2de) [push] Rasterise PDF covers server-side to WebP so they render as real thumbnails (Claude, 2026-05-27T05:26:35Z)
 - [`b386014`](https://github.com/iQube-Protocol/AigentZBeta/commit/b38601486449bf62b1d5a54b3851817b05ce4f63) [push] Mirror Qripto Codex tabs (Magazines / Papers / Polity) into metaMe qriptopia group (Claude, 2026-05-27T05:03:53Z)
 - [`c52d1aa`](https://github.com/iQube-Protocol/AigentZBeta/commit/c52d1aa56f1aa70a184bbe2ed9224c5e53c930e2) [push] Render PDF covers via iframe + adopt KNYT 4-up card grid pattern for Qripto Papers (Claude, 2026-05-27T04:43:58Z)
 - [`6352ef3`](https://github.com/iQube-Protocol/AigentZBeta/commit/6352ef3ca5399e596a310146becde5b29d515e2c) [push] Surface every Qripto upload row in admin (covers + papers) with diagnostics + bust Next cache (Claude, 2026-05-27T04:39:35Z)
