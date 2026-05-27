@@ -16,7 +16,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { FileText, Loader2, ExternalLink, ImageOff } from 'lucide-react';
+import { FileText, Loader2, ImageOff, BookOpen } from 'lucide-react';
+import { PDFLiteReaderModal } from '@/app/triad/components/content/PDFLiteReaderModal';
 
 type PaperCard = {
   id: string;
@@ -39,6 +40,10 @@ export function QriptoPapersTab({ theme = 'dark', group = 'papers' }: QriptoPape
   const [papers, setPapers] = useState<PaperCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // PDF-lite viewer state — clicking a card opens the modal in-place
+  // rather than navigating to the raw Supabase URL. Same pattern as
+  // KNYT episodes (cover thumbnail → modal viewer → PDF body).
+  const [activePdf, setActivePdf] = useState<{ url: string; title: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,12 +120,11 @@ export function QriptoPapersTab({ theme = 'dark', group = 'papers' }: QriptoPape
           </h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {items.map((p) => (
-              <a
+              <button
                 key={p.id}
-                href={p.pdfUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`group flex flex-col overflow-hidden rounded-lg border transition ${cardClass}`}
+                type="button"
+                onClick={() => setActivePdf({ url: p.pdfUrl, title: p.title })}
+                className={`group flex flex-col overflow-hidden rounded-lg border text-left transition ${cardClass}`}
               >
                 <div className="relative aspect-[3/4] w-full overflow-hidden bg-slate-900">
                   {p.coverUrl ? (
@@ -145,15 +149,21 @@ export function QriptoPapersTab({ theme = 'dark', group = 'papers' }: QriptoPape
                   <div className={`mt-auto flex items-center justify-between text-[11px] ${mutedClass}`}>
                     <span>{p.uploadedAt ? new Date(p.uploadedAt).toLocaleDateString() : ''}</span>
                     <span className="inline-flex items-center gap-1 text-purple-400 group-hover:text-purple-300">
-                      Open PDF <ExternalLink className="h-3 w-3" />
+                      Read <BookOpen className="h-3 w-3" />
                     </span>
                   </div>
                 </div>
-              </a>
+              </button>
             ))}
           </div>
         </section>
       ))}
+      <PDFLiteReaderModal
+        open={activePdf !== null}
+        pdfUrl={activePdf?.url ?? ''}
+        title={activePdf?.title}
+        onClose={() => setActivePdf(null)}
+      />
     </div>
   );
 }
