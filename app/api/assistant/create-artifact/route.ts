@@ -658,6 +658,58 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         campaignId?: string;
         cohortId?: string;
       };
+      // Cohort branch — when the operator picked a campaign + cohort,
+      // the artifact targets the marketa.send-cohort connector which
+      // fans out via Mailjet batch to every member. Single approval
+      // for the whole cohort; `to` field becomes optional (and gets
+      // dropped from actionInput since the connector resolves
+      // recipients server-side from the CRM).
+      const isCohortSend = !!input.campaignId && (!!input.cohortId || input.campaignId === 'ks_prospects');
+      if (isCohortSend) {
+        if (!input.subject || !input.bodyText) {
+          return NextResponse.json(
+            { error: 'invalid-connector-input', detail: 'subject + bodyText required for cohort send' },
+            { status: 400, headers: { 'Cache-Control': 'no-store' } },
+          );
+        }
+        const receiptRow = await createActivityReceipt({
+          personaId: context.personaId,
+          intentId: body.sourceIntentId ?? null,
+          activeCartridge: cartridge,
+          actionType: 'artifact_created',
+          summary: `Drafted Marketa cohort email: ${input.subject} → ${input.campaignId}:${input.cohortId ?? 'all'}`,
+          agentsInvoked: ['aigent-me', 'marketa'],
+          toolsUsed: ['runtime'],
+          iqubesUsed: ['PersonaQube', 'ExperienceQube', 'IntentQube'],
+          contextShared: ['intent-summary', 'experience-meta-slice'],
+          artifactsCreated: [`marketa-cohort-email:${input.subject}`],
+          approvalsGranted: body.sourceIntentId ? [body.sourceIntentId] : [],
+        });
+        const cohortLabel = `${input.campaignId}${input.cohortId ? `:${input.cohortId}` : ''}`;
+        const surface: CreateArtifactSurface = {
+          artifactId,
+          artifactType: 'marketa-cohort-email',
+          title: `${input.subject} → ${cohortLabel}`,
+          destination: 'runtime',
+          status: 'draft',
+          receiptId: receiptRow?.id ?? null,
+          intentId: body.sourceIntentId ?? null,
+          message: `Marketa cohort email drafted for ${cohortLabel}. Click "Approve & send" to fan out to every member via Mailjet.`,
+          createdAt,
+          actionConnectorId: 'marketa.send-cohort',
+          actionConnectorLabel: 'Approve & send to cohort',
+          actionInput: {
+            campaignId: input.campaignId,
+            ...(input.cohortId ? { cohortId: input.cohortId } : {}),
+            subject: input.subject,
+            bodyText: input.bodyText,
+            ...(input.fromName ? { fromName: input.fromName } : {}),
+          },
+        };
+        return NextResponse.json(surface, { headers: { 'Cache-Control': 'no-store' } });
+      }
+
+      // Single-recipient branch — the legacy transactional path.
       if (!input.to || !input.subject || !input.bodyText) {
         return NextResponse.json(
           { error: 'invalid-connector-input', detail: 'to + subject + bodyText required' },
