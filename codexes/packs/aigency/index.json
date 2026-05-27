@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-27T18:43:47.919Z",
+  "last_updated": "2026-05-27T18:52:24.945Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "df780eff29c51ac0c493de83a153170a9c55388c",
-  "latest_commit_short": "df780ef",
-  "latest_commit_title": "Match KNYT cover pattern exactly: covers are images, no pdfjs rasteriser, no fake worker",
+  "latest_commit": "47347c40af2ff2046edd5aa3357b84b3e75e36a1",
+  "latest_commit_short": "47347c4",
+  "latest_commit_title": "Remove cover_pdf upload option + add CLAUDE.md must-read on PDF-grid-with-image-cover pattern",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "47347c4",
+      "full_sha": "47347c40af2ff2046edd5aa3357b84b3e75e36a1",
+      "title": "Remove cover_pdf upload option + add CLAUDE.md must-read on PDF-grid-with-image-cover pattern",
+      "author": "Claude",
+      "timestamp": "2026-05-27T18:50:28Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-47347c4.md"
+    },
     {
       "sha": "df780ef",
       "full_sha": "df780eff29c51ac0c493de83a153170a9c55388c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-19T05:55:17Z",
       "type": "refactor",
       "brief": "items/build_/COMMITS/COMMIT-813b74c.md"
-    },
-    {
-      "sha": "fdbd1b5",
-      "full_sha": "fdbd1b56697d84668a63347b44b136c0b28ad5c2",
-      "title": "knyt store bundles tab: strip investor copy and show retail price on the retail surface (no 'Investor Bundle' header, no 'Investor Only' pill, no 'Investor pricing' label, no member-price line; KnytPricePill + savings + cart all key off retailPrice ?? digitalPrice — investor tab unchanged)",
-      "author": "Claude",
-      "timestamp": "2026-05-19T05:50:08Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-fdbd1b5.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
