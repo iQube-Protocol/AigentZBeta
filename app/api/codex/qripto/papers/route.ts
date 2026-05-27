@@ -147,6 +147,11 @@ export async function GET(req: NextRequest) {
         const list = role === 'cover' ? bucket.covers : bucket.papers;
         for (const row of list) {
           if (!row.auto_drive_cid) continue;
+          // Server-rendered thumb for PDF covers; the raw URL otherwise.
+          const isPdfCover = role === 'cover' && row.mime_type === 'application/pdf';
+          const coverThumbUrl = isPdfCover
+            ? `/api/codex/qripto/pdf-thumb?url=${encodeURIComponent(row.auto_drive_cid)}&page=1&width=240`
+            : row.cover_thumb_url;
           assets.push({
             id: row.id,
             title: row.supabase_title || row.title || 'Untitled',
@@ -155,7 +160,7 @@ export async function GET(req: NextRequest) {
             role,
             assetKind: row.asset_kind,
             storageUrl: row.auto_drive_cid,
-            coverThumbUrl: row.cover_thumb_url,
+            coverThumbUrl,
             mimeType: row.mime_type || 'application/octet-stream',
             uploadedAt: row.created_at,
           });
@@ -166,13 +171,19 @@ export async function GET(req: NextRequest) {
     // Flatten with cover matching — most recent cover in the scope wins.
     // The codex Papers tab consumes this list; covers themselves don't
     // appear as cards because each card IS a paper-with-cover bundle.
-    // `coverMime` lets the card renderer branch (image → <img>, PDF →
-    // <iframe> first-page preview).
+    // PDF covers can't paint inside <img> or a cross-origin <iframe>;
+    // we proxy them through /api/codex/qripto/pdf-thumb which renders
+    // page 1 to a WebP server-side. Image covers stay as the raw URL.
     const papers: PaperCard[] = [];
     for (const [scope, bucket] of buckets) {
       const cover = bucket.covers[0];
-      const coverUrl = cover?.cover_thumb_url || cover?.auto_drive_cid || null;
+      const coverRaw = cover?.cover_thumb_url || cover?.auto_drive_cid || null;
       const coverMime = cover?.mime_type || null;
+      const coverUrl = coverRaw
+        ? (coverMime === 'application/pdf'
+            ? `/api/codex/qripto/pdf-thumb?url=${encodeURIComponent(coverRaw)}&page=1&width=600`
+            : coverRaw)
+        : null;
       for (const row of bucket.papers) {
         const storageUrl = row.auto_drive_cid;
         if (!storageUrl) continue;

@@ -133,20 +133,16 @@ export function QriptoPapersTab({ theme = 'dark', group = 'papers' }: QriptoPape
                     is available, matching KNYT's purple→black wash. */}
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-900 via-indigo-900 to-black" />
                 {p.coverUrl ? (
-                  p.coverMime === 'application/pdf' ? (
-                    <iframe
-                      src={`${p.coverUrl}#page=1&toolbar=0&navpanes=0&statusbar=0&scrollbar=0&view=Fit`}
-                      title={`${p.title} cover`}
-                      className="pointer-events-none absolute inset-0 h-full w-full"
-                    />
-                  ) : (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
-                      src={p.coverUrl}
-                      alt={p.title}
-                      className="absolute inset-0 h-full w-full object-cover transition group-hover:scale-[1.02]"
-                    />
-                  )
+                  /* PDF covers are rasterised server-side to WebP by the
+                     papers endpoint (see /api/codex/qripto/pdf-thumb).
+                     Both image and PDF covers reach the browser as a
+                     plain image URL, so the same <img> works for both. */
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={p.coverUrl}
+                    alt={p.title}
+                    className="absolute inset-0 h-full w-full object-cover transition group-hover:scale-[1.02]"
+                  />
                 ) : (
                   <div className={`absolute inset-0 flex flex-col items-center justify-center gap-2 ${mutedClass}`}>
                     <ImageOff className="h-8 w-8" />

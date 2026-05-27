@@ -1262,24 +1262,17 @@ function CodexManager() {
                   </thead>
                   <tbody className="divide-y divide-white/5">
                     {qriptoRows.map((r) => {
+                      // coverThumbUrl is already PDF-rasterised by the API for cover_pdf rows,
+                      // so this <img> works uniformly for images and PDF covers.
                       const thumbSrc = r.coverThumbUrl
-                        || (r.role === 'cover' ? r.storageUrl : null)
+                        || (r.role === 'cover' && r.mimeType.startsWith('image/') ? r.storageUrl : null)
                         || (r.mimeType.startsWith('image/') ? r.storageUrl : null);
-                      const thumbIsPdf = (r.mimeType === 'application/pdf') && (r.role === 'cover' || r.assetKind === 'cover_pdf');
                       return (
                         <tr key={r.id} className="hover:bg-slate-800/40">
                           <td className="px-3 py-2">
                             {thumbSrc ? (
-                              thumbIsPdf ? (
-                                <iframe
-                                  src={`${thumbSrc}#page=1&toolbar=0&navpanes=0&statusbar=0&scrollbar=0&view=Fit`}
-                                  title=""
-                                  className="pointer-events-none h-12 w-9 rounded"
-                                />
-                              ) : (
-                                /* eslint-disable-next-line @next/next/no-img-element */
-                                <img src={thumbSrc} alt="" className="h-12 w-9 rounded object-cover" />
-                              )
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <img src={thumbSrc} alt="" className="h-12 w-9 rounded object-cover" />
                             ) : (
                               <div className="flex h-12 w-9 items-center justify-center rounded bg-slate-800 text-[10px] text-slate-500">—</div>
                             )}
