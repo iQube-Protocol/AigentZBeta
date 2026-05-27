@@ -55,6 +55,7 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
     composerKind,
     composerHandlers,
     composerInitialPrompt,
+    onComposerClose,
   } = props;
 
   const isDark = theme === "dark";
@@ -67,9 +68,14 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
   const pending = draft ? actionPendingArtifactId === draft.id : false;
   const err = draft ? actionErrors?.[draft.id] : null;
 
+  // Dismiss path — clears composerKind via onComposerClose when the
+  // composer is mounted as an overlay (the modern path), AND nudges
+  // the foreground layout back to 'stack' as a fallback for callers
+  // that still mount this layout as the foreground (legacy).
   const handleDismiss = useCallback(() => {
+    onComposerClose?.();
     onRequestLayout?.("stack");
-  }, [onRequestLayout]);
+  }, [onComposerClose, onRequestLayout]);
 
   // Inline form factory — when a composerKind is selected, render the
   // matching modal in `inline` mode (no overlay chrome) so the form
@@ -78,7 +84,13 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
   // via the handler the tab passed down.
   const inlineForm = (() => {
     if (!composerKind || !composerHandlers) return null;
-    const closeToStack = () => onRequestLayout?.("stack");
+    // Modal X / Cancel → clear composerKind via onComposerClose so
+    // the overlay unmounts, plus the legacy layout swap for callers
+    // that mount this as the foreground.
+    const closeToStack = () => {
+      onComposerClose?.();
+      onRequestLayout?.("stack");
+    };
     switch (composerKind) {
       case "gmail":
         if (!composerHandlers.onCreateGmail || !composerHandlers.onDraftGmail) return null;
