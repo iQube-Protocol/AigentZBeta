@@ -73,6 +73,7 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
     composerHandlers,
     composerInitialPrompt,
     onComposerClose,
+    personaId,
   } = props;
 
   const isDark = theme === "dark";
@@ -120,6 +121,7 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
             onDraftWithAigentMe={composerHandlers.onDraftGmail}
             theme={theme}
             initialPrompt={composerInitialPrompt ?? undefined}
+            personaId={personaId}
           />
         );
       case "event":
@@ -195,6 +197,7 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
             onDraftWithAigentMe={composerHandlers.onDraftMarketa as any}
             theme={theme}
             initialPrompt={composerInitialPrompt ?? undefined}
+            personaId={personaId}
           />
         );
       default:

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-28T16:24:17.439Z",
+  "last_updated": "2026-05-28T21:16:23.709Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "3bdae274891dcb57df8bf86d295488a89d4a284f",
-  "latest_commit_short": "3bdae27",
-  "latest_commit_title": "uploads: keep status='ready' on enrichment failure + clarify Marketa label",
+  "latest_commit": "9ddf15d9dbe5ed9097b2c057462735aa23748e18",
+  "latest_commit_short": "9ddf15d",
+  "latest_commit_title": "KNYT store: surface-scoped includes + initialClaimed in sku-supply + retail X-of-Y badge",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,69 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "9ddf15d",
+      "full_sha": "9ddf15d9dbe5ed9097b2c057462735aa23748e18",
+      "title": "KNYT store: surface-scoped includes + initialClaimed in sku-supply + retail X-of-Y badge",
+      "author": "Claude",
+      "timestamp": "2026-05-28T21:14:28Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-9ddf15d.md"
+    },
+    {
+      "sha": "51be5ac",
+      "full_sha": "51be5ac706de3e8dfab07ab81bcd79931b180b3f",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-28T21:14:28Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-51be5ac.md"
+    },
+    {
+      "sha": "9294258",
+      "full_sha": "9294258385854d28b253003fd0ad83389bbb999e",
+      "title": "KNYT store: Franchisee PoA 15 of 21 + First KNYT investor signed-AGN gate",
+      "author": "Claude",
+      "timestamp": "2026-05-28T18:21:59Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-9294258.md"
+    },
+    {
+      "sha": "0ccf0e0",
+      "full_sha": "0ccf0e04d7a4a5e3bef6f2fecde976a8df857e9f",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-28T18:21:59Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0ccf0e0.md"
+    },
+    {
+      "sha": "28cb0d4",
+      "full_sha": "28cb0d4e0cb8309e40c6a56e128b109b1013f694",
+      "title": "compose modals: thread personaId to UploadAttachmentPicker",
+      "author": "Claude",
+      "timestamp": "2026-05-28T16:49:46Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-28cb0d4.md"
+    },
+    {
+      "sha": "aa1d41a",
+      "full_sha": "aa1d41aa3f274f12f000d93919f720923413fe4f",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-28T16:49:46Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-aa1d41a.md"
+    },
+    {
+      "sha": "a7cce75",
+      "full_sha": "a7cce75b6c219eb6aa70e7e702738edd3944f43e",
+      "title": "Fix Qube tool id encoding: tool-<name> canonical, tool_<name> legacy fallback (registered names use hyphens, not underscores)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T16:34:26Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-a7cce75.md"
+    },
     {
       "sha": "3bdae27",
       "full_sha": "3bdae274891dcb57df8bf86d295488a89d4a284f",
@@ -1189,69 +1252,6 @@
       "timestamp": "2026-05-23T13:25:59Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-5b08bfe.md"
-    },
-    {
-      "sha": "d67b080",
-      "full_sha": "d67b080893384c5b5a6474a4bf803f0cc5bb0f7c",
-      "title": "Operators Handbook v1: canonical surface inventory + privacy seams + change impact checklist (AgentiQ → Operators Manual tab)",
-      "author": "Claude",
-      "timestamp": "2026-05-23T13:51:44Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d67b080.md"
-    },
-    {
-      "sha": "b0a428a",
-      "full_sha": "b0a428a847b91565848cb5a9b69404bb1a56c8b2",
-      "title": "facilitator/verify: add mainnet RPC cases (Base 8453, Eth 1, Arb 42161, OP 10, Polygon 137) so USDC mainnet credit can verify",
-      "author": "Claude",
-      "timestamp": "2026-05-23T14:20:35Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-b0a428a.md"
-    },
-    {
-      "sha": "5fcf602",
-      "full_sha": "5fcf602ed6fc69a02134e64ac9f1ed7642a51905",
-      "title": "personas: inject OPERATIONAL_HANDBOOK into all 7 operational agent system prompts (architectural ground truth, not confidential)",
-      "author": "Claude",
-      "timestamp": "2026-05-23T14:27:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5fcf602.md"
-    },
-    {
-      "sha": "8d27fc5",
-      "full_sha": "8d27fc562df1dea4b82d62cdca19718769a522ff",
-      "title": "Handbook + agent KB: Design Fidelity posture (PARAMOUNT) — four-axis test, canonical tokens, composition + right-pane symmetry rules",
-      "author": "Claude",
-      "timestamp": "2026-05-23T14:40:33Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-8d27fc5.md"
-    },
-    {
-      "sha": "f8bf182",
-      "full_sha": "f8bf182f4c79e9bb220e88ec8d97f86cc3b520e8",
-      "title": "Phase 2 dog-food: DIS for aigentMe right-pane layouts + handbook §8b (Studio Design Intent / Parity framework as governing contract) + case-study doc",
-      "author": "Claude",
-      "timestamp": "2026-05-23T15:01:18Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f8bf182.md"
-    },
-    {
-      "sha": "c5a8aba",
-      "full_sha": "c5a8aba4dd4011c0ab5e552d861378ef10ecb408",
-      "title": "Phase 2 Slice 0: layout registry scaffold (zero visual change) + dedicated mobile shapes in DIS + /api/design-parity/dis fetch endpoint for dog-food loop",
-      "author": "Claude",
-      "timestamp": "2026-05-23T16:49:00Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c5a8aba.md"
-    },
-    {
-      "sha": "d2f4b9d",
-      "full_sha": "d2f4b9d4c162113d907db0e414d3506f2609e0c2",
-      "title": "Phase 2 Slices 1-6: BriefLayout + DecisionBoard + VentureCockpit + Composer + ApprovalLayout (interrupt) + LedgerLayout + shared LayoutShell + consolidated layoutProps spread",
-      "author": "Claude",
-      "timestamp": "2026-05-23T17:34:19Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d2f4b9d.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

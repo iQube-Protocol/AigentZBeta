@@ -424,19 +424,28 @@ function InvestorBundleDetail({
             </div>
           )}
 
-          {bundle.includes && bundle.includes.length > 0 && (
-            <div>
-              <p className="text-[10px] font-semibold text-slate-300 mb-1">Includes</p>
-              <div className="space-y-0.5">
-                {bundle.includes.map((item, i) => (
-                  <div key={i} className="flex items-start gap-1.5 text-[9px] text-slate-300">
-                    <span className="text-yellow-400 shrink-0">•</span>
-                    <span>{item}</span>
-                  </div>
-                ))}
+          {(() => {
+            // Investor tab prefers `investorIncludes` when defined so
+            // per-surface gates (e.g. "Author Signed available to current
+            // ZeroKNYTs ONLY" on the First KNYT bundle) only render here,
+            // not on the retail Bundles tab. Falls through to `includes`
+            // otherwise.
+            const items = bundle.investorIncludes ?? bundle.includes;
+            if (!items || items.length === 0) return null;
+            return (
+              <div>
+                <p className="text-[10px] font-semibold text-slate-300 mb-1">Includes</p>
+                <div className="space-y-0.5">
+                  {items.map((item, i) => (
+                    <div key={i} className="flex items-start gap-1.5 text-[9px] text-slate-300">
+                      <span className="text-yellow-400 shrink-0">•</span>
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       </div>
 

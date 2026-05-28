@@ -1424,3 +1424,38 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-3bdae27.md](../build_/COMMITS/COMMIT-3bdae27.md)
 - Message: uploads: keep status='ready' on enrichment failure + clarify Marketa label
+
+## Commit `a7cce75` — 2026-05-28T16:34:26Z
+- Type: `fix`
+- Brief: [COMMIT-a7cce75.md](../build_/COMMITS/COMMIT-a7cce75.md)
+- Message: Fix Qube tool id encoding: tool-<name> canonical, tool_<name> legacy fallback (registered names use hyphens, not underscores)
+
+## Commit `aa1d41a` — 2026-05-28T16:49:46Z
+- Type: `push`
+- Brief: [COMMIT-aa1d41a.md](../build_/COMMITS/COMMIT-aa1d41a.md)
+- Message: trigger deploy to dev
+
+## Commit `28cb0d4` — 2026-05-28T16:49:46Z
+- Type: `push`
+- Brief: [COMMIT-28cb0d4.md](../build_/COMMITS/COMMIT-28cb0d4.md)
+- Message: compose modals: thread personaId to UploadAttachmentPicker
+
+## Commit `0ccf0e0` — 2026-05-28T18:21:59Z
+- Type: `push`
+- Brief: [COMMIT-0ccf0e0.md](../build_/COMMITS/COMMIT-0ccf0e0.md)
+- Message: trigger deploy to dev
+
+## Commit `9294258` — 2026-05-28T18:21:59Z
+- Type: `push`
+- Brief: [COMMIT-9294258.md](../build_/COMMITS/COMMIT-9294258.md)
+- Message: KNYT store: Franchisee PoA 15 of 21 + First KNYT investor signed-AGN gate
+
+## Commit `51be5ac` — 2026-05-28T21:14:28Z
+- Type: `push`
+- Brief: [COMMIT-51be5ac.md](../build_/COMMITS/COMMIT-51be5ac.md)
+- Message: trigger deploy to dev
+
+## Commit `9ddf15d` — 2026-05-28T21:14:28Z
+- Type: `push`
+- Brief: [COMMIT-9ddf15d.md](../build_/COMMITS/COMMIT-9ddf15d.md)
+- Message: KNYT store: surface-scoped includes + initialClaimed in sku-supply + retail X-of-Y badge

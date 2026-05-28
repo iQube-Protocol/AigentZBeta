@@ -1,4 +1,11 @@
 # Build — Changelog
+- [`9ddf15d`](https://github.com/iQube-Protocol/AigentZBeta/commit/9ddf15d9dbe5ed9097b2c057462735aa23748e18) [push] KNYT store: surface-scoped includes + initialClaimed in sku-supply + retail X-of-Y badge (Claude, 2026-05-28T21:14:28Z)
+- [`51be5ac`](https://github.com/iQube-Protocol/AigentZBeta/commit/51be5ac706de3e8dfab07ab81bcd79931b180b3f) [push] trigger deploy to dev (Claude, 2026-05-28T21:14:28Z)
+- [`9294258`](https://github.com/iQube-Protocol/AigentZBeta/commit/9294258385854d28b253003fd0ad83389bbb999e) [push] KNYT store: Franchisee PoA 15 of 21 + First KNYT investor signed-AGN gate (Claude, 2026-05-28T18:21:59Z)
+- [`0ccf0e0`](https://github.com/iQube-Protocol/AigentZBeta/commit/0ccf0e04d7a4a5e3bef6f2fecde976a8df857e9f) [push] trigger deploy to dev (Claude, 2026-05-28T18:21:59Z)
+- [`28cb0d4`](https://github.com/iQube-Protocol/AigentZBeta/commit/28cb0d4e0cb8309e40c6a56e128b109b1013f694) [push] compose modals: thread personaId to UploadAttachmentPicker (Claude, 2026-05-28T16:49:46Z)
+- [`aa1d41a`](https://github.com/iQube-Protocol/AigentZBeta/commit/aa1d41aa3f274f12f000d93919f720923413fe4f) [push] trigger deploy to dev (Claude, 2026-05-28T16:49:46Z)
+- [`a7cce75`](https://github.com/iQube-Protocol/AigentZBeta/commit/a7cce75b6c219eb6aa70e7e702738edd3944f43e) [fix] Fix Qube tool id encoding: tool-<name> canonical, tool_<name> legacy fallback (registered names use hyphens, not underscores) (Claude, 2026-05-28T16:34:26Z)
 - [`3bdae27`](https://github.com/iQube-Protocol/AigentZBeta/commit/3bdae274891dcb57df8bf86d295488a89d4a284f) [push] uploads: keep status='ready' on enrichment failure + clarify Marketa label (Claude, 2026-05-28T16:22:20Z)
 - [`ef74414`](https://github.com/iQube-Protocol/AigentZBeta/commit/ef7441484ee38433cb55c919b0077b63d0312f68) [push] trigger deploy to dev (Claude, 2026-05-28T16:22:20Z)
 - [`2deac7d`](https://github.com/iQube-Protocol/AigentZBeta/commit/2deac7d1196005083f433fb2bb2567a7f55367b8) [feat] add persona-uploads bucket setup runbook (Claude, 2026-05-28T16:11:00Z)

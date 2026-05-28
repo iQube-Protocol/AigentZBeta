@@ -69,6 +69,12 @@ interface Props {
   inline?: boolean;
   /** See ComposeGoogleDocModal — auto-fires draft on mount when set. */
   initialPrompt?: string;
+  /** Active persona — required by UploadAttachmentPicker so it fetches
+   *  the operator's uploads (not the spine's default persona). Without
+   *  this prop the picker falls back to localStorage-based persona
+   *  resolution and can render an empty / wrong-persona list, leaving
+   *  attachmentUploadIds silently empty at submit time. */
+  personaId?: string;
 }
 
 export function ComposeGmailDraftModal({
@@ -79,6 +85,7 @@ export function ComposeGmailDraftModal({
   theme = "dark",
   inline = false,
   initialPrompt,
+  personaId,
 }: Props) {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiDrafting, setAiDrafting] = useState(false);
@@ -330,6 +337,7 @@ export function ComposeGmailDraftModal({
               Phase 2 wires the Gmail multipart MIME builder to send
               the bytes as draft attachments. */}
           <UploadAttachmentPicker
+            personaId={personaId}
             value={attachmentUploadIds}
             onChange={setAttachmentUploadIds}
             theme={theme}
