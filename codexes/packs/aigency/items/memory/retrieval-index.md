@@ -1424,3 +1424,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-3bdae27.md](../build_/COMMITS/COMMIT-3bdae27.md)
 - Message: uploads: keep status='ready' on enrichment failure + clarify Marketa label
+
+## Commit `a7cce75` — 2026-05-28T16:34:26Z
+- Type: `fix`
+- Brief: [COMMIT-a7cce75.md](../build_/COMMITS/COMMIT-a7cce75.md)
+- Message: Fix Qube tool id encoding: tool-<name> canonical, tool_<name> legacy fallback (registered names use hyphens, not underscores)

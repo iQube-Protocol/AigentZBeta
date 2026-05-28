@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-28T16:24:17.439Z",
+  "last_updated": "2026-05-28T16:36:27.429Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "3bdae274891dcb57df8bf86d295488a89d4a284f",
-  "latest_commit_short": "3bdae27",
-  "latest_commit_title": "uploads: keep status='ready' on enrichment failure + clarify Marketa label",
+  "latest_commit": "a7cce75b6c219eb6aa70e7e702738edd3944f43e",
+  "latest_commit_short": "a7cce75",
+  "latest_commit_title": "Fix Qube tool id encoding: tool-<name> canonical, tool_<name> legacy fallback (registered names use hyphens, not underscores)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a7cce75",
+      "full_sha": "a7cce75b6c219eb6aa70e7e702738edd3944f43e",
+      "title": "Fix Qube tool id encoding: tool-<name> canonical, tool_<name> legacy fallback (registered names use hyphens, not underscores)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T16:34:26Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-a7cce75.md"
+    },
     {
       "sha": "3bdae27",
       "full_sha": "3bdae274891dcb57df8bf86d295488a89d4a284f",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-23T16:49:00Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c5a8aba.md"
-    },
-    {
-      "sha": "d2f4b9d",
-      "full_sha": "d2f4b9d4c162113d907db0e414d3506f2609e0c2",
-      "title": "Phase 2 Slices 1-6: BriefLayout + DecisionBoard + VentureCockpit + Composer + ApprovalLayout (interrupt) + LedgerLayout + shared LayoutShell + consolidated layoutProps spread",
-      "author": "Claude",
-      "timestamp": "2026-05-23T17:34:19Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d2f4b9d.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
