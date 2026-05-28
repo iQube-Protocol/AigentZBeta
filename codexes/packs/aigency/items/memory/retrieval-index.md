@@ -1469,3 +1469,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-f517444.md](../build_/COMMITS/COMMIT-f517444.md)
 - Message: Add scripts/verify-deployer-key.js — local key→address derivation, no RPC, pre-deploy sanity check
+
+## Commit `2e4ee0b` — 2026-05-28T22:41:48Z
+- Type: `feat`
+- Brief: [COMMIT-2e4ee0b.md](../build_/COMMITS/COMMIT-2e4ee0b.md)
+- Message: Add scripts/deploy-qct-reserve-base-mainnet.js — chain-pinned QCTReserve deploy with canonical Circle USDC + setReserve linking

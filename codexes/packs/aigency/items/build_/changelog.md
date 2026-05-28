@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`2e4ee0b`](https://github.com/iQube-Protocol/AigentZBeta/commit/2e4ee0bf67fd2a377f9f706d8cd7a1e1ea5eec43) [feat] Add scripts/deploy-qct-reserve-base-mainnet.js — chain-pinned QCTReserve deploy with canonical Circle USDC + setReserve linking (Claude, 2026-05-28T22:41:48Z)
 - [`f517444`](https://github.com/iQube-Protocol/AigentZBeta/commit/f517444cd52117ed03cc53c790f29948e744171b) [feat] Add scripts/verify-deployer-key.js — local key→address derivation, no RPC, pre-deploy sanity check (Claude, 2026-05-28T22:16:32Z)
 - [`b41253f`](https://github.com/iQube-Protocol/AigentZBeta/commit/b41253fc1664d19fdffb96f5e9f5dda6c8dd7299) [feat] Add chain-pinned + balance-prechecked Base mainnet deploy scripts for QCT + iQubeNFT (single-network, no multi-deploy bug) (Claude, 2026-05-28T22:12:53Z)
 - [`9ddf15d`](https://github.com/iQube-Protocol/AigentZBeta/commit/9ddf15d9dbe5ed9097b2c057462735aa23748e18) [push] KNYT store: surface-scoped includes + initialClaimed in sku-supply + retail X-of-Y badge (Claude, 2026-05-28T21:14:28Z)
