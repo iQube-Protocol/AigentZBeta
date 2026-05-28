@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`f40facd`](https://github.com/iQube-Protocol/AigentZBeta/commit/f40facd5b5f8cdfa7b030783c18584eec135bc5a) [push] Use Satoshi gold seal for 21 Sats Franchise cards + admin override on investor-tab + cohort gates (Claude, 2026-05-28T02:59:24Z)
 - [`7f85e60`](https://github.com/iQube-Protocol/AigentZBeta/commit/7f85e60de82fed0e2ebde2f2422581d490398fce) [feat] Add 21 Sats Franchises section to KNYT investor tab — 3 gold cards, ZeroKNYT cohort gate, PoA mailto, no-KNYT-rail flag, tab investor-gated (Claude, 2026-05-28T02:00:33Z)
 - [`d6a7362`](https://github.com/iQube-Protocol/AigentZBeta/commit/d6a73629b42b74c009c1e4da7e6826eec66b6027) [push] Reorder Qripto Papers grid — Experience Sovereignty, COYN Thesis, The Polity at the top (Claude, 2026-05-28T00:35:47Z)
 - [`f6143da`](https://github.com/iQube-Protocol/AigentZBeta/commit/f6143daf264a210d110196500c8e6b3555e3748d) [feat] Add editorial scope order — Experience Sovereignty now sits above COYN Thesis in Qripto Papers grid (Claude, 2026-05-27T22:30:29Z)

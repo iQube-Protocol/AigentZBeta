@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-28T02:02:36.697Z",
+  "last_updated": "2026-05-28T03:01:27.941Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "7f85e60de82fed0e2ebde2f2422581d490398fce",
-  "latest_commit_short": "7f85e60",
-  "latest_commit_title": "Add 21 Sats Franchises section to KNYT investor tab — 3 gold cards, ZeroKNYT cohort gate, PoA mailto, no-KNYT-rail flag, tab investor-gated",
+  "latest_commit": "f40facd5b5f8cdfa7b030783c18584eec135bc5a",
+  "latest_commit_short": "f40facd",
+  "latest_commit_title": "Use Satoshi gold seal for 21 Sats Franchise cards + admin override on investor-tab + cohort gates",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "f40facd",
+      "full_sha": "f40facd5b5f8cdfa7b030783c18584eec135bc5a",
+      "title": "Use Satoshi gold seal for 21 Sats Franchise cards + admin override on investor-tab + cohort gates",
+      "author": "Claude",
+      "timestamp": "2026-05-28T02:59:24Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f40facd.md"
+    },
     {
       "sha": "7f85e60",
       "full_sha": "7f85e60de82fed0e2ebde2f2422581d490398fce",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-21T20:53:14Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-d507119.md"
-    },
-    {
-      "sha": "4dabf9f",
-      "full_sha": "4dabf9f3dfee569f40a318f5a9494fa1c262a2f0",
-      "title": "trigger deploy to dev: re-trigger activations soft-release fix (45fe2a8 already on dev)",
-      "author": "Claude",
-      "timestamp": "2026-05-21T18:42:22Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-4dabf9f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -1349,3 +1349,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-7f85e60.md](../build_/COMMITS/COMMIT-7f85e60.md)
 - Message: Add 21 Sats Franchises section to KNYT investor tab — 3 gold cards, ZeroKNYT cohort gate, PoA mailto, no-KNYT-rail flag, tab investor-gated
+
+## Commit `f40facd` — 2026-05-28T02:59:24Z
+- Type: `push`
+- Brief: [COMMIT-f40facd.md](../build_/COMMITS/COMMIT-f40facd.md)
+- Message: Use Satoshi gold seal for 21 Sats Franchise cards + admin override on investor-tab + cohort gates
