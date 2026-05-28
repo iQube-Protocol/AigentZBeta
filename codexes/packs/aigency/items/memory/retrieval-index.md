@@ -1344,3 +1344,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-d6a7362.md](../build_/COMMITS/COMMIT-d6a7362.md)
 - Message: Reorder Qripto Papers grid — Experience Sovereignty, COYN Thesis, The Polity at the top
+
+## Commit `7f85e60` — 2026-05-28T02:00:33Z
+- Type: `feat`
+- Brief: [COMMIT-7f85e60.md](../build_/COMMITS/COMMIT-7f85e60.md)
+- Message: Add 21 Sats Franchises section to KNYT investor tab — 3 gold cards, ZeroKNYT cohort gate, PoA mailto, no-KNYT-rail flag, tab investor-gated
