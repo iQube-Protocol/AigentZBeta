@@ -23,6 +23,7 @@ import {
   Mic,
   MicOff,
   PanelRightClose,
+  Paperclip,
   Volume2,
   VolumeX,
   RotateCcw,
@@ -190,6 +191,11 @@ export function SmartTriadCopilotLayer({
   // /chat POST as `attachedUploadIds`. Cleared after a successful
   // send so each turn starts fresh.
   const [attachedUploadIds, setAttachedUploadIds] = useState<string[]>([]);
+  // Picker open state — paperclip in the chat footer (next to model
+  // selector) toggles this. Kept minimal so the area around the
+  // prompt stays clean; the picker bar only renders when open or
+  // when there are chips to display.
+  const [attachmentsPickerOpen, setAttachmentsPickerOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<string>("anthropic");
   const [showQuickPrompts, setShowQuickPrompts] = useState(true);
@@ -604,6 +610,8 @@ export function SmartTriadCopilotLayer({
           onClearMessages={handleClearMessages}
           attachedUploadIds={attachedUploadIds}
           setAttachedUploadIds={setAttachedUploadIds}
+          attachmentsPickerOpen={attachmentsPickerOpen}
+          setAttachmentsPickerOpen={setAttachmentsPickerOpen}
         />
       ) : (
         <EmbeddedCopilot
@@ -685,6 +693,8 @@ function FloatingCopilot({
   onClearMessages,
   attachedUploadIds,
   setAttachedUploadIds,
+  attachmentsPickerOpen,
+  setAttachmentsPickerOpen,
 }: {
   messages: SmartTriadMessage[];
   input: string;
@@ -722,6 +732,12 @@ function FloatingCopilot({
    *  inside the input row. Cleared by the parent on send. */
   attachedUploadIds: string[];
   setAttachedUploadIds: (next: string[]) => void;
+  /** Picker open state — driven by the paperclip toggle next to the
+   *  model selector. Lifted so the chrome stays minimal: only the
+   *  paperclip is visible by default; the picker bar renders only
+   *  when open (or when there are selected chips to surface). */
+  attachmentsPickerOpen: boolean;
+  setAttachmentsPickerOpen: (next: boolean) => void;
 }) {
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
 
@@ -948,18 +964,23 @@ function FloatingCopilot({
                   {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </button>
               </div>
-              {/* Chat attachment row — uploaded files the operator wants
-                  the next aigentMe message to see. Server fetches each
-                  upload's indexed contentMd and injects as
-                  <attached_file> blocks in the system prompt. */}
-              <div className="mt-2">
-                <UploadAttachmentPicker
-                  personaId={personaId}
-                  value={attachedUploadIds}
-                  onChange={setAttachedUploadIds}
-                  theme="dark"
-                />
-              </div>
+              {/* Chat attachment row — only renders when the operator
+                  opened the picker via the paperclip OR when there are
+                  selected chips to surface. Keeps the prompt area
+                  minimal by default. The picker component itself
+                  returns null when uncontrolled-closed AND empty. */}
+              {(attachmentsPickerOpen || attachedUploadIds.length > 0) && (
+                <div className="mt-2">
+                  <UploadAttachmentPicker
+                    personaId={personaId}
+                    value={attachedUploadIds}
+                    onChange={setAttachedUploadIds}
+                    open={attachmentsPickerOpen}
+                    onOpenChange={setAttachmentsPickerOpen}
+                    theme="dark"
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -1006,8 +1027,39 @@ function FloatingCopilot({
               )}
             </div>
 
-            {/* Right: model selector + mic */}
+            {/* Right: paperclip (attachments) + model selector + mic */}
             <div className="relative flex items-center gap-2">
+              {/* Paperclip — toggles the attachment picker bar.
+                  Highlighted when there are selections so the operator
+                  can see attachments are queued for the next send. */}
+              <button
+                type="button"
+                onClick={() => setAttachmentsPickerOpen(!attachmentsPickerOpen)}
+                title={
+                  attachedUploadIds.length > 0
+                    ? `${attachedUploadIds.length} file(s) attached — click to manage`
+                    : attachmentsPickerOpen
+                      ? 'Hide attachment library'
+                      : 'Attach files from your upload library'
+                }
+                aria-label="Toggle attachment picker"
+                aria-pressed={attachmentsPickerOpen}
+                className={`p-1.5 rounded-lg transition-colors ${
+                  attachedUploadIds.length > 0
+                    ? 'text-violet-300 bg-violet-500/15'
+                    : attachmentsPickerOpen
+                      ? 'text-violet-300 bg-violet-500/10'
+                      : 'text-slate-400 hover:text-violet-300 hover:bg-violet-500/10'
+                }`}
+              >
+                <Paperclip className="w-4 h-4" />
+                {attachedUploadIds.length > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-1 rounded-full bg-violet-500 text-white text-[9px] leading-[14px] text-center font-semibold">
+                    {attachedUploadIds.length}
+                  </span>
+                )}
+              </button>
+
               {/* LLM provider icon dropdown */}
               <div className="relative">
                 <button
