@@ -24,6 +24,14 @@ import { useKnytBalance } from '@/app/hooks/useKnytBalance';
 interface Props {
   personaId?: string;
   theme?: 'light' | 'dark';
+  /**
+   * Admin override — when true, the cohort gate on franchise SKUs is
+   * bypassed so admins can see and exercise the buy / purchase flow
+   * regardless of campaignCohort. Sourced from TabRenderer (which
+   * server-resolves the persona's adminCartridges). Mirrors the same
+   * pattern used by other admin-bypass surfaces in the cartridge.
+   */
+  isAdmin?: boolean;
 }
 
 interface PendingPurchase {
@@ -496,7 +504,7 @@ const collectionInvestorBundles = BUNDLE_PRICING.filter((b) =>
 );
 const franchiseInvestorBundles  = BUNDLE_PRICING.filter((b) => b.isInvestorOnly && b.category === 'franchise');
 
-export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
+export function KnytStoreInvestorTab({ personaId, theme: _theme, isAdmin = false }: Props) {
   const { knytPriceUsd, stale: knytRateStale } = useEthPrice();
   const liveKnytRate = knytPriceUsd > 0 ? knytPriceUsd : KNYT_USD_RATE;
   // DVN KNYT balance for the active persona — feeds the ContentPurchaseModal's
@@ -561,8 +569,13 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
     })();
     return () => { cancelled = true; };
   }, [personaId]);
-  const isVerified = investorStatus.isInvestor;
-  const isZeroKnyt = investorStatus.campaignCohort === 'zero_knyt';
+  // Admins are implicitly verified investors so they can exercise the
+  // payment flow end-to-end during QA — required by operator instruction
+  // 2026-05-27. The investor-status check still runs in parallel for
+  // real-investor branches (so admins on the ZeroKNYT cohort still get
+  // ZeroKNYT-specific copy).
+  const isVerified = investorStatus.isInvestor || isAdmin;
+  const isZeroKnyt = investorStatus.campaignCohort === 'zero_knyt' || isAdmin;
   const { getCoverThumb, getCharacterThumb } = useKnytThumbnails();
   const { getBundleImage } = useBundleImages();
   const cart = useKnytCart();
