@@ -52,9 +52,13 @@ interface Props {
   inline?: boolean;
   /** See ComposeGoogleDocModal — auto-fires draft on mount when set. */
   initialPrompt?: string;
+  /** Active persona — required by UploadAttachmentPicker so it fetches
+   *  the operator's uploads (not the spine's default persona). See
+   *  ComposeGmailDraftModal Props for the failure mode. */
+  personaId?: string;
 }
 
-export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithAigentMe, theme = "dark", inline = false, initialPrompt }: Props) {
+export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithAigentMe, theme = "dark", inline = false, initialPrompt, personaId }: Props) {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiDrafting, setAiDrafting] = useState(false);
   const [aiRationale, setAiRationale] = useState<string | null>(null);
@@ -304,6 +308,7 @@ export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithA
               attachmentUploadIds. The connector resolves them to
               base64 payloads at send time. */}
           <UploadAttachmentPicker
+            personaId={personaId}
             value={attachmentUploadIds}
             onChange={setAttachmentUploadIds}
             theme={theme}
