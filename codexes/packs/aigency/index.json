@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-28T22:18:19.359Z",
+  "last_updated": "2026-05-28T22:43:47.315Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "f517444cd52117ed03cc53c790f29948e744171b",
-  "latest_commit_short": "f517444",
-  "latest_commit_title": "Add scripts/verify-deployer-key.js — local key→address derivation, no RPC, pre-deploy sanity check",
+  "latest_commit": "2e4ee0bf67fd2a377f9f706d8cd7a1e1ea5eec43",
+  "latest_commit_short": "2e4ee0b",
+  "latest_commit_title": "Add scripts/deploy-qct-reserve-base-mainnet.js — chain-pinned QCTReserve deploy with canonical Circle USDC + setReserve linking",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "2e4ee0b",
+      "full_sha": "2e4ee0bf67fd2a377f9f706d8cd7a1e1ea5eec43",
+      "title": "Add scripts/deploy-qct-reserve-base-mainnet.js — chain-pinned QCTReserve deploy with canonical Circle USDC + setReserve linking",
+      "author": "Claude",
+      "timestamp": "2026-05-28T22:41:48Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-2e4ee0b.md"
+    },
     {
       "sha": "f517444",
       "full_sha": "f517444cd52117ed03cc53c790f29948e744171b",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-23T19:18:47Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-3aea78f.md"
-    },
-    {
-      "sha": "d08e112",
-      "full_sha": "d08e1128ba4aea31596dc00351e3b0d91872e8ef",
-      "title": "DecisionBoard + VentureCockpit: vertical stack (no columns) — right pane too narrow for multi-column; cockpit uses 3 rows with carousels for KPIs and Active Work",
-      "author": "Claude",
-      "timestamp": "2026-05-23T19:16:09Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d08e112.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
