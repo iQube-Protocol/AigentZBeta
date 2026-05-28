@@ -1384,3 +1384,28 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-1b7c2f8.md](../build_/COMMITS/COMMIT-1b7c2f8.md)
 - Message: harden aigentMe Capsule/Layout contract — single activator + guardrails
+
+## Commit `808e230` — 2026-05-28T15:21:13Z
+- Type: `push`
+- Brief: [COMMIT-808e230.md](../build_/COMMITS/COMMIT-808e230.md)
+- Message: trigger deploy to dev
+
+## Commit `b317316` — 2026-05-28T15:21:08Z
+- Type: `push`
+- Brief: [COMMIT-b317316.md](../build_/COMMITS/COMMIT-b317316.md)
+- Message: reinstate persona-uploads frontend wiring (lost in stable-build revert)
+
+## Commit `d5b2194` — 2026-05-28T15:39:31Z
+- Type: `push`
+- Brief: [COMMIT-d5b2194.md](../build_/COMMITS/COMMIT-d5b2194.md)
+- Message: iQube Legibility Profile v0.1 — Commit 2/6: card builder + lifecycle/visibility/permission mappers
+
+## Commit `1e657ab` — 2026-05-28T15:43:33Z
+- Type: `push`
+- Brief: [COMMIT-1e657ab.md](../build_/COMMITS/COMMIT-1e657ab.md)
+- Message: iQube Legibility Profile v0.1 — Commit 5/6: GET /policy + /actions routes (with private_payload_exposed structural lock)
+
+## Commit `9754fe6` — 2026-05-28T15:45:51Z
+- Type: `push`
+- Brief: [COMMIT-9754fe6.md](../build_/COMMITS/COMMIT-9754fe6.md)
+- Message: iQube Legibility Profile v0.1 — Commit 6/6: well-known catalog route + vitest suite + docs

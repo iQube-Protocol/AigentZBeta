@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-28T15:16:50.135Z",
+  "last_updated": "2026-05-28T15:47:46.116Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1b7c2f815589b2c32b83164cec12a0b79e7df571",
-  "latest_commit_short": "1b7c2f8",
-  "latest_commit_title": "harden aigentMe Capsule/Layout contract — single activator + guardrails",
+  "latest_commit": "9754fe68951ff0635100c92b5beca363881b14f9",
+  "latest_commit_short": "9754fe6",
+  "latest_commit_title": "iQube Legibility Profile v0.1 — Commit 6/6: well-known catalog route + vitest suite + docs",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,51 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "9754fe6",
+      "full_sha": "9754fe68951ff0635100c92b5beca363881b14f9",
+      "title": "iQube Legibility Profile v0.1 — Commit 6/6: well-known catalog route + vitest suite + docs",
+      "author": "Claude",
+      "timestamp": "2026-05-28T15:45:51Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-9754fe6.md"
+    },
+    {
+      "sha": "1e657ab",
+      "full_sha": "1e657ab9eb63f541449c567fb831baef420ee559",
+      "title": "iQube Legibility Profile v0.1 — Commit 5/6: GET /policy + /actions routes (with private_payload_exposed structural lock)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T15:43:33Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1e657ab.md"
+    },
+    {
+      "sha": "d5b2194",
+      "full_sha": "d5b2194a78cdbbfeca78d07911d0eecfbb4f51e3",
+      "title": "iQube Legibility Profile v0.1 — Commit 2/6: card builder + lifecycle/visibility/permission mappers",
+      "author": "Claude",
+      "timestamp": "2026-05-28T15:39:31Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d5b2194.md"
+    },
+    {
+      "sha": "b317316",
+      "full_sha": "b3173162713c3a93dee28e0a283019da3a06d310",
+      "title": "reinstate persona-uploads frontend wiring (lost in stable-build revert)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T15:21:08Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b317316.md"
+    },
+    {
+      "sha": "808e230",
+      "full_sha": "808e230cc244296acc8a70c8a0d1a4d2f5185031",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-28T15:21:13Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-808e230.md"
+    },
     {
       "sha": "1b7c2f8",
       "full_sha": "1b7c2f815589b2c32b83164cec12a0b79e7df571",
@@ -1207,51 +1252,6 @@
       "timestamp": "2026-05-22T22:41:01Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-f4fd3b4.md"
-    },
-    {
-      "sha": "bd16c01",
-      "full_sha": "bd16c017ef32ff6e42b869765d40813587783ead",
-      "title": "remix drafter (idea → title/article/image) + mic on remixer, customizer, aigentMe copilot",
-      "author": "Claude",
-      "timestamp": "2026-05-22T22:04:21Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-bd16c01.md"
-    },
-    {
-      "sha": "cb8bfb4",
-      "full_sha": "cb8bfb4449baeb94be5e066ece6f57ebbcdca72d",
-      "title": "opt embed routes in to microphone via Permissions-Policy + bridge to Lovable",
-      "author": "Claude",
-      "timestamp": "2026-05-22T20:55:54Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-cb8bfb4.md"
-    },
-    {
-      "sha": "1ea306c",
-      "full_sha": "1ea306cf7ecf513323d05ec7f1add9b671da3e07",
-      "title": "switch mic STT from Web Speech API to MediaRecorder + Whisper",
-      "author": "Claude",
-      "timestamp": "2026-05-22T19:54:09Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1ea306c.md"
-    },
-    {
-      "sha": "290ddbf",
-      "full_sha": "290ddbf6c839a5c4290c148867f72467e8a47c6d",
-      "title": "disable Safari email AutoFill on aigentMe compose prompt inputs",
-      "author": "Claude",
-      "timestamp": "2026-05-22T17:54:40Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-290ddbf.md"
-    },
-    {
-      "sha": "8c31614",
-      "full_sha": "8c3161468b4264bed3ac9e64413197db46ca1042",
-      "title": "add microphone to runtime iframe allow attr + log persona-stream errors",
-      "author": "Claude",
-      "timestamp": "2026-05-22T17:50:40Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-8c31614.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
