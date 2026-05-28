@@ -68,10 +68,10 @@ const SCOPE_LABELS: Record<string, string> = {
 // future re-orderings) without touching the matcher. Scopes not listed
 // fall to the end in scope-label order.
 const SCOPE_DISPLAY_ORDER: string[] = [
-  'papers/protocols',
-  'papers/polity',
   'papers/experience-sovereignty',
   'papers/coyn-thesis',
+  'papers/polity',
+  'papers/protocols',
   'papers/polity-plutocracy',
   'magazines/0',
   'magazines/1',
