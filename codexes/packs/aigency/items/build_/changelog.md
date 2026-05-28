@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`28cb0d4`](https://github.com/iQube-Protocol/AigentZBeta/commit/28cb0d4e0cb8309e40c6a56e128b109b1013f694) [push] compose modals: thread personaId to UploadAttachmentPicker (Claude, 2026-05-28T16:49:46Z)
+- [`aa1d41a`](https://github.com/iQube-Protocol/AigentZBeta/commit/aa1d41aa3f274f12f000d93919f720923413fe4f) [push] trigger deploy to dev (Claude, 2026-05-28T16:49:46Z)
 - [`a7cce75`](https://github.com/iQube-Protocol/AigentZBeta/commit/a7cce75b6c219eb6aa70e7e702738edd3944f43e) [fix] Fix Qube tool id encoding: tool-<name> canonical, tool_<name> legacy fallback (registered names use hyphens, not underscores) (Claude, 2026-05-28T16:34:26Z)
 - [`3bdae27`](https://github.com/iQube-Protocol/AigentZBeta/commit/3bdae274891dcb57df8bf86d295488a89d4a284f) [push] uploads: keep status='ready' on enrichment failure + clarify Marketa label (Claude, 2026-05-28T16:22:20Z)
 - [`ef74414`](https://github.com/iQube-Protocol/AigentZBeta/commit/ef7441484ee38433cb55c919b0077b63d0312f68) [push] trigger deploy to dev (Claude, 2026-05-28T16:22:20Z)

@@ -1429,3 +1429,13 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-a7cce75.md](../build_/COMMITS/COMMIT-a7cce75.md)
 - Message: Fix Qube tool id encoding: tool-<name> canonical, tool_<name> legacy fallback (registered names use hyphens, not underscores)
+
+## Commit `aa1d41a` — 2026-05-28T16:49:46Z
+- Type: `push`
+- Brief: [COMMIT-aa1d41a.md](../build_/COMMITS/COMMIT-aa1d41a.md)
+- Message: trigger deploy to dev
+
+## Commit `28cb0d4` — 2026-05-28T16:49:46Z
+- Type: `push`
+- Brief: [COMMIT-28cb0d4.md](../build_/COMMITS/COMMIT-28cb0d4.md)
+- Message: compose modals: thread personaId to UploadAttachmentPicker
