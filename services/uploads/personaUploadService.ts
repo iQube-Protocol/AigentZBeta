@@ -219,9 +219,17 @@ export class PersonaUploadService {
           error: partial.error ?? null,
           indexedAt: new Date().toISOString(),
         });
-        await this.metadata.updateRow(uploadId, {
-          status: partial.error ? 'failed' : 'ready',
-        });
+        // Bytes are already stored at this point (storage.put succeeded
+        // before the indexer ran). Enrichment errors — image vision
+        // quota, Whisper failure, PDF parse error — are NOT a reason to
+        // hide the upload from pickers: the file is still attachable to
+        // an email, embeddable in an iQube, or savable to workbench. We
+        // preserve `partial.error` on the index row so the UI surfaces
+        // "vision unavailable" / "transcription failed" copy, but the
+        // row stays `ready` so it appears in /api/uploads?status=ready
+        // listings. Only a hard catch (indexer throws / metadata write
+        // fails) flips to `failed`.
+        await this.metadata.updateRow(uploadId, { status: 'ready' });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         index = await this.metadata.upsertIndex({
