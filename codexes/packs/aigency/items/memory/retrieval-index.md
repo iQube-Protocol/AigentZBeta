@@ -1474,3 +1474,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-2e4ee0b.md](../build_/COMMITS/COMMIT-2e4ee0b.md)
 - Message: Add scripts/deploy-qct-reserve-base-mainnet.js — chain-pinned QCTReserve deploy with canonical Circle USDC + setReserve linking
+
+## Commit `5c63350` — 2026-05-28T23:30:40Z
+- Type: `chore`
+- Brief: [COMMIT-5c63350.md](../build_/COMMITS/COMMIT-5c63350.md)
+- Message: Bump hardhat solidity compiler 0.8.20 → 0.8.24 (OpenZeppelin v5 requires ^0.8.24)
