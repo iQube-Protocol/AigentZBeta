@@ -1484,3 +1484,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-7c30d2e.md](../build_/COMMITS/COMMIT-7c30d2e.md)
 - Message: Set hardhat evmVersion: 'cancun' (default is 'paris'; OpenZeppelin Bytes.sol mcopy needs Cancun, Base mainnet supports it)
+
+## Commit `125b99e` — 2026-05-28T23:45:56Z
+- Type: `push`
+- Brief: [COMMIT-125b99e.md](../build_/COMMITS/COMMIT-125b99e.md)
+- Message: Record live Base mainnet addresses: QCT, iQubeNFT, QCTReserve (deployed 2026-05-28)
