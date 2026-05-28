@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-28T15:41:22.329Z",
+  "last_updated": "2026-05-28T15:45:26.794Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d5b2194a78cdbbfeca78d07911d0eecfbb4f51e3",
-  "latest_commit_short": "d5b2194",
-  "latest_commit_title": "iQube Legibility Profile v0.1 — Commit 2/6: card builder + lifecycle/visibility/permission mappers",
+  "latest_commit": "1e657ab9eb63f541449c567fb831baef420ee559",
+  "latest_commit_short": "1e657ab",
+  "latest_commit_title": "iQube Legibility Profile v0.1 — Commit 5/6: GET /policy + /actions routes (with private_payload_exposed structural lock)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "1e657ab",
+      "full_sha": "1e657ab9eb63f541449c567fb831baef420ee559",
+      "title": "iQube Legibility Profile v0.1 — Commit 5/6: GET /policy + /actions routes (with private_payload_exposed structural lock)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T15:43:33Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1e657ab.md"
+    },
     {
       "sha": "d5b2194",
       "full_sha": "d5b2194a78cdbbfeca78d07911d0eecfbb4f51e3",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-22T22:04:21Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-bd16c01.md"
-    },
-    {
-      "sha": "cb8bfb4",
-      "full_sha": "cb8bfb4449baeb94be5e066ece6f57ebbcdca72d",
-      "title": "opt embed routes in to microphone via Permissions-Policy + bridge to Lovable",
-      "author": "Claude",
-      "timestamp": "2026-05-22T20:55:54Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-cb8bfb4.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
