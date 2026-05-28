@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`b317316`](https://github.com/iQube-Protocol/AigentZBeta/commit/b3173162713c3a93dee28e0a283019da3a06d310) [push] reinstate persona-uploads frontend wiring (lost in stable-build revert) (Claude, 2026-05-28T15:21:08Z)
+- [`808e230`](https://github.com/iQube-Protocol/AigentZBeta/commit/808e230cc244296acc8a70c8a0d1a4d2f5185031) [push] trigger deploy to dev (Claude, 2026-05-28T15:21:13Z)
 - [`1b7c2f8`](https://github.com/iQube-Protocol/AigentZBeta/commit/1b7c2f815589b2c32b83164cec12a0b79e7df571) [push] harden aigentMe Capsule/Layout contract — single activator + guardrails (Claude, 2026-05-28T15:13:58Z)
 - [`29b5492`](https://github.com/iQube-Protocol/AigentZBeta/commit/29b5492eaab95029b48cc271f3194d2adddc13dc) [push] trigger deploy to dev (Claude, 2026-05-28T15:13:58Z)
 - [`614526f`](https://github.com/iQube-Protocol/AigentZBeta/commit/614526f4b5f73f138b61b0477c5df0d8b2c10514) [push] Backlog: 21 Sats Franchises store_skus seed + KNYT COYN bonus payout wiring (Claude, 2026-05-28T15:12:14Z)
