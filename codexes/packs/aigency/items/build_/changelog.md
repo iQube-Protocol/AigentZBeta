@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`b41253f`](https://github.com/iQube-Protocol/AigentZBeta/commit/b41253fc1664d19fdffb96f5e9f5dda6c8dd7299) [feat] Add chain-pinned + balance-prechecked Base mainnet deploy scripts for QCT + iQubeNFT (single-network, no multi-deploy bug) (Claude, 2026-05-28T22:12:53Z)
 - [`9ddf15d`](https://github.com/iQube-Protocol/AigentZBeta/commit/9ddf15d9dbe5ed9097b2c057462735aa23748e18) [push] KNYT store: surface-scoped includes + initialClaimed in sku-supply + retail X-of-Y badge (Claude, 2026-05-28T21:14:28Z)
 - [`51be5ac`](https://github.com/iQube-Protocol/AigentZBeta/commit/51be5ac706de3e8dfab07ab81bcd79931b180b3f) [push] trigger deploy to dev (Claude, 2026-05-28T21:14:28Z)
 - [`9294258`](https://github.com/iQube-Protocol/AigentZBeta/commit/9294258385854d28b253003fd0ad83389bbb999e) [push] KNYT store: Franchisee PoA 15 of 21 + First KNYT investor signed-AGN gate (Claude, 2026-05-28T18:21:59Z)

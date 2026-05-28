@@ -1459,3 +1459,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-9ddf15d.md](../build_/COMMITS/COMMIT-9ddf15d.md)
 - Message: KNYT store: surface-scoped includes + initialClaimed in sku-supply + retail X-of-Y badge
+
+## Commit `b41253f` — 2026-05-28T22:12:53Z
+- Type: `feat`
+- Brief: [COMMIT-b41253f.md](../build_/COMMITS/COMMIT-b41253f.md)
+- Message: Add chain-pinned + balance-prechecked Base mainnet deploy scripts for QCT + iQubeNFT (single-network, no multi-deploy bug)
