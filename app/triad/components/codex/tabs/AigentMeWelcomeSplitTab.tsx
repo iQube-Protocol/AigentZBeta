@@ -503,6 +503,24 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // work, then moves to the next. Previous Capsules collapse into
   // the session-history strip and can be restored by click.
   type CapsuleId = "brief" | "move-forward" | "venture-progress" | "ask-specialists";
+  // CANONICAL Capsule → Layout mapping. Every Capsule template owns
+  // exactly one dedicated foreground layout. Activating a Capsule MUST
+  // mount its layout (both states stay in lockstep) — otherwise the
+  // operator lands on the stack/manual fallback while activeCapsuleId
+  // claims a Capsule is engaged. This was the 2026-05-28 Ask Specialists
+  // regression: the chip set activeCapsuleId but not activeLayoutId, so
+  // the specialist response + suggested-artifact CTAs rendered on the
+  // manual surface instead of inside the Capsule.
+  //
+  // DO NOT activate a Capsule without also setting its layout. Always
+  // route through `engageCapsuleAndMount` below. If you add a fifth
+  // Capsule, extend this mapping AND the type union.
+  const CAPSULE_LAYOUT: Record<CapsuleId, RightPaneLayoutId> = {
+    "brief": "brief",
+    "move-forward": "decision-board",
+    "venture-progress": "venture-cockpit",
+    "ask-specialists": "specialists",
+  };
   const [activeCapsuleId, setActiveCapsuleId] = useState<CapsuleId | null>(null);
   const [capsuleHistory, setCapsuleHistory] = useState<CapsuleId[]>([]);
   const engageCapsule = useCallback((next: CapsuleId) => {
@@ -530,6 +548,22 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // and the activator chips set this state to route the pane.
   // DIS: codexes/packs/agentiq/items/dis/aigentme-phase-2.dis.json
   const [activeLayoutId, setActiveLayoutId] = useState<RightPaneLayoutId>(DEFAULT_LAYOUT_ID);
+
+  // Capsule activator — engages the Capsule AND mounts its canonical
+  // dedicated layout in one atomic call. Every Capsule chip (left-pane
+  // handleCtaClick AND chat-copilot quickPrompt onSelect) MUST route
+  // through this helper. Calling engageCapsule alone leaves
+  // activeLayoutId pinned to whatever it was (often 'stack'), and the
+  // operator lands on the manual-fallback surface while activeCapsuleId
+  // claims a Capsule is engaged — the 2026-05-28 Ask Specialists
+  // regression. The mapping lives in CAPSULE_LAYOUT above; if you add a
+  // fifth Capsule, extend the mapping and the type union (not this
+  // helper).
+  const engageCapsuleAndMount = useCallback((next: CapsuleId) => {
+    engageCapsule(next);
+    setActiveLayoutId(CAPSULE_LAYOUT[next]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engageCapsule]);
 
   // Phase 2 Slice 7 — server-driven chip set.
   // Null = use the cold-open static fallback below. Each /api/assistant/*
@@ -769,8 +803,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     // template state is cleared so the stack pane never shows two
     // Capsules side-by-side — only the newly-engaged one renders.
     if (ctaId === 'brief-me') {
-      engageCapsule('brief');
-      setActiveLayoutId('brief');
+      engageCapsuleAndMount('brief');
       setVentureProgress(null);
       setVentureProgressError(null);
       setVentureProgressLoading(false);
@@ -780,8 +813,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       return;
     }
     if (ctaId === 'move-this-forward') {
-      engageCapsule('move-forward');
-      setActiveLayoutId('decision-board');
+      engageCapsuleAndMount('move-forward');
       setBrief(null);
       setBriefError(null);
       setBriefLoading(false);
@@ -792,8 +824,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       return;
     }
     if (ctaId === 'review-venture-progress') {
-      engageCapsule('venture-progress');
-      setActiveLayoutId('venture-cockpit');
+      engageCapsuleAndMount('venture-progress');
       setBrief(null);
       setBriefError(null);
       setBriefLoading(false);
@@ -803,8 +834,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       return;
     }
     if (ctaId === 'ask-specialists') {
-      engageCapsule('ask-specialists');
-      setActiveLayoutId('specialists');
+      engageCapsuleAndMount('ask-specialists');
       setBrief(null);
       setBriefError(null);
       setBriefLoading(false);
@@ -815,7 +845,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       setMoveForwardLoading(false);
       return;
     }
-  }, [fetchBrief, fetchMoveForward, fetchVentureProgress, engageCapsule]);
+  }, [fetchBrief, fetchMoveForward, fetchVentureProgress, engageCapsuleAndMount]);
 
   const handleWizardSaved = useCallback((saved: ExperienceModelCardData) => {
     setExpModel(saved);
@@ -2242,21 +2272,21 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         id: 'brief',
         label: 'Brief me',
         prompt: 'Give me my daily brief.',
-        onSelect: () => setActiveLayoutId('brief'),
+        onSelect: () => engageCapsuleAndMount('brief'),
         onDispatchOnSend: async () => { await fetchBrief(); },
       },
       {
         id: 'move',
         label: 'Move forward',
         prompt: 'What is the next best action I should take right now?',
-        onSelect: () => setActiveLayoutId('decision-board'),
+        onSelect: () => engageCapsuleAndMount('move-forward'),
         onDispatchOnSend: async () => { await fetchMoveForward(); },
       },
       {
         id: 'venture',
         label: 'Venture progress',
         prompt: 'Where am I on my venture progress?',
-        onSelect: () => setActiveLayoutId('venture-cockpit'),
+        onSelect: () => engageCapsuleAndMount('venture-progress'),
         onDispatchOnSend: async () => { await fetchVentureProgress(); },
       },
       {
@@ -2267,11 +2297,11 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         // SpecialistsLayout and fires the server-side recommender so
         // the operator lands on a primed consultation surface.
         prompt: 'Which specialist should I consult right now — Marketa, Quill, Kn0w1, Aigent Z, Aigent C, Aigent Nakamoto, Moneypenny, or metaYe — and why?',
-        onSelect: () => setActiveLayoutId('specialists'),
+        onSelect: () => engageCapsuleAndMount('ask-specialists'),
         onDispatchOnSend: async () => { await fetchSpecialistRecommendation(); },
       },
     ];
-  }, [serverChips, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts, fetchSpecialistRecommendation]);
+  }, [serverChips, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts, fetchSpecialistRecommendation, engageCapsuleAndMount]);
 
   return (
     <>

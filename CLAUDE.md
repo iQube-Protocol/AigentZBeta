@@ -415,6 +415,45 @@ This eliminates the URL-leakage window without requiring `pdfjs-dist` or full-PD
 
 ---
 
+## aigentMe Capsule ↔ Layout Contract — MUST READ (PARAMOUNT)
+
+**The aigentMe right pane has two paired states (`activeCapsuleId` + `activeLayoutId`) that MUST stay in lockstep. Activating a Capsule without mounting its dedicated layout — or unmounting the layout while the Capsule is still engaged — drops the operator on the manual/stack fallback while parent state still claims a Capsule is in flight. This costs hours of debug time and surfaces as "capsule disappeared", "CTAs render in the wrong window", or "after Act the artifact lands on the wrong surface".**
+
+### Canonical mapping (all four Capsule chips)
+
+| Capsule chip | `activeCapsuleId` | `activeLayoutId` | Dedicated layout file |
+|---|---|---|---|
+| Brief me | `brief` | `brief` | `components/metame/welcome/layouts/BriefLayout.tsx` |
+| Move forward | `move-forward` | `decision-board` | `components/metame/welcome/layouts/DecisionBoardLayout.tsx` |
+| Venture progress | `venture-progress` | `venture-cockpit` | `components/metame/welcome/layouts/VentureCockpitLayout.tsx` |
+| Ask specialists | `ask-specialists` | `specialists` | `components/metame/welcome/layouts/SpecialistsLayout.tsx` |
+
+Mapping is defined once at `app/triad/components/codex/tabs/AigentMeWelcomeSplitTab.tsx:CAPSULE_LAYOUT`. Adding a fifth Capsule means extending that constant + the `CapsuleId` type union.
+
+### Rules
+
+1. **Every Capsule activator routes through `engageCapsuleAndMount(capsuleId)`.** That helper sets both states atomically. Call sites include the left-pane `handleCtaClick` chip strip AND the chat-copilot `quickPrompts.onSelect` handlers — both paths must use the helper. Never call `engageCapsule` without also setting the layout, and never `setActiveLayoutId('brief' | 'decision-board' | 'venture-cockpit' | 'specialists')` without also engaging the Capsule.
+
+2. **ComposerLayout is an OVERLAY, not a foreground.** It mounts on top of whatever Capsule is engaged when `composerKind !== null`. Its dismiss/close/onCreate/cancel handlers MUST call `onComposerClose?.()` ONLY — never `onRequestLayout('stack')` and never any other layout swap. Calling a layout swap from ComposerLayout unmounts the underlying Capsule and the operator's work vanishes. The legacy `onRequestLayout('stack')` lines were vestigial from when ComposerLayout was a foreground surface; do not reintroduce them, even "as a fallback".
+
+3. **Dedicated layouts must thread Pill-lifecycle props through to their cards.** BriefLayout, DecisionBoardLayout, VentureCockpitLayout, and SpecialistsLayout all need: `artifacts`, `actionPendingArtifactId`, `actionErrors`, `secondTierApproval`, `onSendArtifact`, `onDismissArtifact`, `onApproveSecondTier`, `onCancelSecondTier`, `onDismissQueued`, `onMarkPillComplete`. Queued NBAs MUST render as `ExpandedNBEPill` (with the drafted artifact + second-tier approval folded inline) — never as `NextBestActionCard queued={true}` (the legacy "Queued" badge that bombs without lifecycle props).
+
+4. **Don't add an effect that resets `activeLayoutId` to `'stack'`.** If you need a "go home" affordance, route it through a Capsule dismiss handler (e.g. `onDismissBrief`) that clears the relevant capsule data AND only then swaps the layout — never a blanket reset that runs on every render or on every receipt of an artifact event.
+
+### Failure history
+
+- **2026-05-28 Capsule disappearance**: ComposerLayout's `handleDismiss` and `closeToStack` fired `onRequestLayout('stack')`. Every time an operator completed a compose modal (or hit X), the underlying Capsule layout unmounted. Data persisted in parent state, so clicking the quick-action chip resurfaced it — masking the real bug as "intermittent disappearance". Fix in `b226c88a`: drop the layout swap from ComposerLayout dismiss paths.
+- **2026-05-28 Ask Specialists fallback**: the left-pane Ask Specialists chip called `engageCapsule('ask-specialists')` but skipped `setActiveLayoutId('specialists')`. Specialist responses and suggested-artifact chips rendered on the stack/manual fallback instead of inside the Specialists Capsule. Fix in `e7d79742`: add the missing layout mount.
+- **2026-05-28 Move-forward + Venture legacy NBA cards**: DecisionBoardLayout + VentureCockpitLayout had been reverted to `NextBestActionCard queued={true}` without the Pill-lifecycle props wired. Queued items rendered with the legacy "Queued" badge and threw on second-tier approval. Fix in `b226c88a`: restore the `ExpandedNBEPill` pattern with full prop threading.
+
+### Reference docs
+
+- Architecture + repro recipe: `codexes/packs/agentiq/updates/2026-05-28_aigentme-capsule-layout-contract.md`
+- Layout registry types: `components/metame/welcome/layouts/types.ts`
+- Pill primitive: `components/metame/cards/ExpandedNBEPill.tsx`
+
+---
+
 ## Grids of PDF Assets with Covers — MUST READ (PARAMOUNT)
 
 **Whenever you build a grid of PDF assets (papers, magazines, episodes, scrolls, anything with a thumbnail card that opens a PDF), follow this pattern exactly. Do not invent variants. Do not try to render PDFs as image thumbnails server-side. Three sessions of work were lost trying to bolt a PDF rasteriser onto Lambda before this rule was written down.**

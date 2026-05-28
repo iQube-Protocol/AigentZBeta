@@ -11,10 +11,28 @@
  * Mobile: full-screen editor; thread context collapses to a chip; sticky
  * bottom action bar (DIS `mobileShapes.composer-layout-v1`).
  *
- * Activator wiring: future slices will add a "Compose" chip and an
- * "Open in composer" action on artifact cards. For now the layout is
- * registered + reachable by `setActiveLayoutId('composer')` and
- * gracefully renders the most-recent-draft state.
+ * ─── OVERLAY CONTRACT — READ BEFORE EDITING ────────────────────────
+ * ComposerLayout mounts ONLY as a transparent overlay on top of the
+ * active Capsule foreground (Brief / Move-forward / Venture / Specialists).
+ * The Capsule layout stays mounted underneath so the operator can return
+ * to it after the compose form closes — its Pills, queued state, drafted
+ * artifacts, and second-tier approvals are preserved across the compose
+ * round-trip.
+ *
+ * DO NOT call `onRequestLayout('stack')` (or any other layout swap) from
+ * this component's dismiss/close/onCreate/cancel handlers. Doing so
+ * unmounts whatever Capsule layout was foreground and the operator's
+ * work vanishes. This was the 2026-05-28 "capsule disappears after Act"
+ * regression — capsule data persisted in parent state but the dedicated
+ * layout was gone, and the only way to recover was to click the
+ * quick-action chip to re-mount. The legacy `onRequestLayout('stack')`
+ * calls were vestigial from when ComposerLayout was a foreground
+ * surface, before the overlay refactor.
+ *
+ * Dismiss path: call `onComposerClose?.()` only. The parent's
+ * `setComposerKind(null)` unmounts the overlay; the foreground Capsule
+ * remains intact.
+ * ───────────────────────────────────────────────────────────────────
  *
  * DIS template id: `composer-layout-v1`.
  */
