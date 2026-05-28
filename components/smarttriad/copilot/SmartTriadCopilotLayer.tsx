@@ -12,7 +12,6 @@ import { useIsMobile } from "@/app/hooks/use-mobile";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
 import { SmartTriadInferenceRenderer, type SmartTriadMessage } from "./SmartTriadInferenceRenderer";
-import { UploadAttachmentPicker } from "@/components/metame/uploads/UploadAttachmentPicker";
 import {
   Bot,
   User,
@@ -23,7 +22,6 @@ import {
   Mic,
   MicOff,
   PanelRightClose,
-  Paperclip,
   Volume2,
   VolumeX,
   RotateCcw,
@@ -186,16 +184,6 @@ export function SmartTriadCopilotLayer({
   // Core state
   const [mode, setMode] = useState<CopilotMode>("chat");
   const [input, setInput] = useState("");
-  // Persona upload ids attached to the next message. Picker UI lives
-  // in the chat input footer; selected ids ride through the /api/codex
-  // /chat POST as `attachedUploadIds`. Cleared after a successful
-  // send so each turn starts fresh.
-  const [attachedUploadIds, setAttachedUploadIds] = useState<string[]>([]);
-  // Picker open state — paperclip in the chat footer (next to model
-  // selector) toggles this. Kept minimal so the area around the
-  // prompt stays clean; the picker bar only renders when open or
-  // when there are chips to display.
-  const [attachmentsPickerOpen, setAttachmentsPickerOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<string>("anthropic");
   const [showQuickPrompts, setShowQuickPrompts] = useState(true);
@@ -383,11 +371,6 @@ export function SmartTriadCopilotLayer({
 
     updateMessages((prev) => [...prev, userMessage]);
     setInput("");
-    // Snapshot the attachments for this turn THEN clear them so the
-    // next turn starts fresh. The chat POST below uses the snapshot
-    // (captured by the dependency closure above) — actual ids are
-    // already serialised into the request body.
-    setAttachedUploadIds([]);
     setIsProcessing(true);
 
     try {
@@ -458,10 +441,6 @@ export function SmartTriadCopilotLayer({
           provider_id: selectedProvider,
           personaId,
           groundContext: currentGroundContext,
-          // Operator-attached uploads — server fetches indexed content
-          // for each, injects as <attached_file> blocks in the system
-          // prompt so the LLM sees the file content this turn.
-          ...(attachedUploadIds.length > 0 ? { attachedUploadIds } : {}),
         }),
       });
 
@@ -497,7 +476,7 @@ export function SmartTriadCopilotLayer({
     } finally {
       setIsProcessing(false);
     }
-  }, [input, isProcessing, updateMessages, messages, personaId, selectedProvider, attachedUploadIds]);
+  }, [input, isProcessing, updateMessages, messages, personaId, selectedProvider]);
   
   // Handle quick prompt selection.
   //
@@ -608,10 +587,6 @@ export function SmartTriadCopilotLayer({
           selectedProvider={selectedProvider}
           setSelectedProvider={setSelectedProvider}
           onClearMessages={handleClearMessages}
-          attachedUploadIds={attachedUploadIds}
-          setAttachedUploadIds={setAttachedUploadIds}
-          attachmentsPickerOpen={attachmentsPickerOpen}
-          setAttachmentsPickerOpen={setAttachmentsPickerOpen}
         />
       ) : (
         <EmbeddedCopilot
@@ -691,10 +666,6 @@ function FloatingCopilot({
   setSelectedProvider,
   inlineMode = false,
   onClearMessages,
-  attachedUploadIds,
-  setAttachedUploadIds,
-  attachmentsPickerOpen,
-  setAttachmentsPickerOpen,
 }: {
   messages: SmartTriadMessage[];
   input: string;
@@ -728,16 +699,6 @@ function FloatingCopilot({
   inlineMode?: boolean;
   selectedProvider: string;
   setSelectedProvider: (p: string) => void;
-  /** Persona upload ids attached to the next message — picker mounts
-   *  inside the input row. Cleared by the parent on send. */
-  attachedUploadIds: string[];
-  setAttachedUploadIds: (next: string[]) => void;
-  /** Picker open state — driven by the paperclip toggle next to the
-   *  model selector. Lifted so the chrome stays minimal: only the
-   *  paperclip is visible by default; the picker bar renders only
-   *  when open (or when there are selected chips to surface). */
-  attachmentsPickerOpen: boolean;
-  setAttachmentsPickerOpen: (next: boolean) => void;
 }) {
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
 
@@ -964,23 +925,6 @@ function FloatingCopilot({
                   {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </button>
               </div>
-              {/* Chat attachment row — only renders when the operator
-                  opened the picker via the paperclip OR when there are
-                  selected chips to surface. Keeps the prompt area
-                  minimal by default. The picker component itself
-                  returns null when uncontrolled-closed AND empty. */}
-              {(attachmentsPickerOpen || attachedUploadIds.length > 0) && (
-                <div className="mt-2">
-                  <UploadAttachmentPicker
-                    personaId={personaId}
-                    value={attachedUploadIds}
-                    onChange={setAttachedUploadIds}
-                    open={attachmentsPickerOpen}
-                    onOpenChange={setAttachmentsPickerOpen}
-                    theme="dark"
-                  />
-                </div>
-              )}
             </div>
           )}
 
@@ -1027,39 +971,8 @@ function FloatingCopilot({
               )}
             </div>
 
-            {/* Right: paperclip (attachments) + model selector + mic */}
+            {/* Right: model selector + mic */}
             <div className="relative flex items-center gap-2">
-              {/* Paperclip — toggles the attachment picker bar.
-                  Highlighted when there are selections so the operator
-                  can see attachments are queued for the next send. */}
-              <button
-                type="button"
-                onClick={() => setAttachmentsPickerOpen(!attachmentsPickerOpen)}
-                title={
-                  attachedUploadIds.length > 0
-                    ? `${attachedUploadIds.length} file(s) attached — click to manage`
-                    : attachmentsPickerOpen
-                      ? 'Hide attachment library'
-                      : 'Attach files from your upload library'
-                }
-                aria-label="Toggle attachment picker"
-                aria-pressed={attachmentsPickerOpen}
-                className={`p-1.5 rounded-lg transition-colors ${
-                  attachedUploadIds.length > 0
-                    ? 'text-violet-300 bg-violet-500/15'
-                    : attachmentsPickerOpen
-                      ? 'text-violet-300 bg-violet-500/10'
-                      : 'text-slate-400 hover:text-violet-300 hover:bg-violet-500/10'
-                }`}
-              >
-                <Paperclip className="w-4 h-4" />
-                {attachedUploadIds.length > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-1 rounded-full bg-violet-500 text-white text-[9px] leading-[14px] text-center font-semibold">
-                    {attachedUploadIds.length}
-                  </span>
-                )}
-              </button>
-
               {/* LLM provider icon dropdown */}
               <div className="relative">
                 <button
