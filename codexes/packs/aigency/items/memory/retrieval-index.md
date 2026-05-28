@@ -1439,3 +1439,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-28cb0d4.md](../build_/COMMITS/COMMIT-28cb0d4.md)
 - Message: compose modals: thread personaId to UploadAttachmentPicker
+
+## Commit `0ccf0e0` — 2026-05-28T18:21:59Z
+- Type: `push`
+- Brief: [COMMIT-0ccf0e0.md](../build_/COMMITS/COMMIT-0ccf0e0.md)
+- Message: trigger deploy to dev
+
+## Commit `9294258` — 2026-05-28T18:21:59Z
+- Type: `push`
+- Brief: [COMMIT-9294258.md](../build_/COMMITS/COMMIT-9294258.md)
+- Message: KNYT store: Franchisee PoA 15 of 21 + First KNYT investor signed-AGN gate
