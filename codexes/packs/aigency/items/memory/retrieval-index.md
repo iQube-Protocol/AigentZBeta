@@ -1409,3 +1409,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-9754fe6.md](../build_/COMMITS/COMMIT-9754fe6.md)
 - Message: iQube Legibility Profile v0.1 — Commit 6/6: well-known catalog route + vitest suite + docs
+
+## Commit `2deac7d` — 2026-05-28T16:11:00Z
+- Type: `feat`
+- Brief: [COMMIT-2deac7d.md](../build_/COMMITS/COMMIT-2deac7d.md)
+- Message: add persona-uploads bucket setup runbook
