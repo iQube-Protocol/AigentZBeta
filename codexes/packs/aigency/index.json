@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-28T15:47:46.116Z",
+  "last_updated": "2026-05-28T16:13:09.921Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "9754fe68951ff0635100c92b5beca363881b14f9",
-  "latest_commit_short": "9754fe6",
-  "latest_commit_title": "iQube Legibility Profile v0.1 — Commit 6/6: well-known catalog route + vitest suite + docs",
+  "latest_commit": "2deac7d1196005083f433fb2bb2567a7f55367b8",
+  "latest_commit_short": "2deac7d",
+  "latest_commit_title": "add persona-uploads bucket setup runbook",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "2deac7d",
+      "full_sha": "2deac7d1196005083f433fb2bb2567a7f55367b8",
+      "title": "add persona-uploads bucket setup runbook",
+      "author": "Claude",
+      "timestamp": "2026-05-28T16:11:00Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-2deac7d.md"
+    },
     {
       "sha": "9754fe6",
       "full_sha": "9754fe68951ff0635100c92b5beca363881b14f9",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-23T00:44:27Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-adee0c3.md"
-    },
-    {
-      "sha": "f4fd3b4",
-      "full_sha": "f4fd3b4e2869308637103e729cd700e23b22a508",
-      "title": "land at top of capsule/article panel on open, not bottom of chat",
-      "author": "Claude",
-      "timestamp": "2026-05-22T22:41:01Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f4fd3b4.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
