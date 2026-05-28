@@ -804,6 +804,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
     if (ctaId === 'ask-specialists') {
       engageCapsule('ask-specialists');
+      setActiveLayoutId('specialists');
       setBrief(null);
       setBriefError(null);
       setBriefLoading(false);
