@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-27T22:32:22.423Z",
+  "last_updated": "2026-05-28T00:37:42.974Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "f6143daf264a210d110196500c8e6b3555e3748d",
-  "latest_commit_short": "f6143da",
-  "latest_commit_title": "Add editorial scope order — Experience Sovereignty now sits above COYN Thesis in Qripto Papers grid",
+  "latest_commit": "d6a73629b42b74c009c1e4da7e6826eec66b6027",
+  "latest_commit_short": "d6a7362",
+  "latest_commit_title": "Reorder Qripto Papers grid — Experience Sovereignty, COYN Thesis, The Polity at the top",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d6a7362",
+      "full_sha": "d6a73629b42b74c009c1e4da7e6826eec66b6027",
+      "title": "Reorder Qripto Papers grid — Experience Sovereignty, COYN Thesis, The Polity at the top",
+      "author": "Claude",
+      "timestamp": "2026-05-28T00:35:47Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d6a7362.md"
+    },
     {
       "sha": "f6143da",
       "full_sha": "f6143daf264a210d110196500c8e6b3555e3748d",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-21T17:13:10Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-78a2cda.md"
-    },
-    {
-      "sha": "d273247",
-      "full_sha": "d27324754d70ee3936b07b244c7450e2776ea67a",
-      "title": "fix activation bounce: soft-release editions (released_at) so auto-grant doesn't resurrect deactivated tabs",
-      "author": "Claude",
-      "timestamp": "2026-05-21T17:34:24Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-d273247.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
