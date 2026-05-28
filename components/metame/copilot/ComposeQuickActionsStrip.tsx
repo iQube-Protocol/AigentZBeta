@@ -10,14 +10,13 @@
  */
 
 import React from "react";
-import { Mail, Calendar, FileText, Sheet, Layout, Megaphone, Wallet, Upload } from "lucide-react";
+import { Mail, Calendar, FileText, Sheet, Layout, Megaphone, Wallet } from "lucide-react";
 
 export type ComposeKind = "gmail" | "event" | "doc" | "sheet" | "slides" | "marketa";
 
 interface Props {
   onOpen: (kind: ComposeKind) => void;
   onWalletOpen?: () => void;
-  onUploadOpen?: () => void;
   theme?: "light" | "dark";
 }
 
@@ -30,7 +29,7 @@ const ACTIONS: Array<{ kind: ComposeKind; label: string; Icon: React.ComponentTy
   { kind: "marketa", label: "Marketa", Icon: Megaphone },
 ];
 
-export function ComposeQuickActionsStrip({ onOpen, onWalletOpen, onUploadOpen, theme = "dark" }: Props) {
+export function ComposeQuickActionsStrip({ onOpen, onWalletOpen, theme = "dark" }: Props) {
   const isDark = theme === "dark";
   const baseBtn = isDark
     ? "bg-slate-800/60 border-slate-700/60 text-slate-200 hover:border-emerald-500/60 hover:bg-slate-800"
@@ -52,30 +51,19 @@ export function ComposeQuickActionsStrip({ onOpen, onWalletOpen, onUploadOpen, t
           <span>{label}</span>
         </button>
       ))}
-      {(onWalletOpen || onUploadOpen) && (
-        <span className="mx-1 text-slate-600 select-none shrink-0">|</span>
-      )}
-      {onUploadOpen && (
-        <button
-          type="button"
-          onClick={onUploadOpen}
-          title="Upload docs / content for aigentMe"
-          aria-label="Upload docs / content"
-          className={`flex items-center justify-center p-1.5 rounded-md border transition shrink-0 ${baseBtn}`}
-        >
-          <Upload className="w-3.5 h-3.5" />
-        </button>
-      )}
       {onWalletOpen && (
-        <button
-          type="button"
-          onClick={onWalletOpen}
-          title="Open wallet"
-          aria-label="Open wallet"
-          className={`flex items-center justify-center p-1.5 rounded-md border transition shrink-0 ${baseBtn}`}
-        >
-          <Wallet className="w-3.5 h-3.5" />
-        </button>
+        <>
+          <span className="mx-1 text-slate-600 select-none shrink-0">|</span>
+          <button
+            type="button"
+            onClick={onWalletOpen}
+            title="Open wallet"
+            aria-label="Open wallet"
+            className={`flex items-center justify-center p-1.5 rounded-md border transition shrink-0 ${baseBtn}`}
+          >
+            <Wallet className="w-3.5 h-3.5" />
+          </button>
+        </>
       )}
     </div>
   );
