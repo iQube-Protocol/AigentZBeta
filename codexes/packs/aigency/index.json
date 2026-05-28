@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-28T03:01:27.941Z",
+  "last_updated": "2026-05-28T03:55:15.769Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "f40facd5b5f8cdfa7b030783c18584eec135bc5a",
-  "latest_commit_short": "f40facd",
-  "latest_commit_title": "Use Satoshi gold seal for 21 Sats Franchise cards + admin override on investor-tab + cohort gates",
+  "latest_commit": "d52a3a5f4295f08ea59c7d9b202f41c3c7cbb0b7",
+  "latest_commit_short": "d52a3a5",
+  "latest_commit_title": "Suppress 21 Sats Franchises in retail Premium Bundles + use personaFetch for purchase complete + paypal (fix 401)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d52a3a5",
+      "full_sha": "d52a3a5f4295f08ea59c7d9b202f41c3c7cbb0b7",
+      "title": "Suppress 21 Sats Franchises in retail Premium Bundles + use personaFetch for purchase complete + paypal (fix 401)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T03:53:24Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-d52a3a5.md"
+    },
     {
       "sha": "f40facd",
       "full_sha": "f40facd5b5f8cdfa7b030783c18584eec135bc5a",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-21T21:42:53Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c4fcf0b.md"
-    },
-    {
-      "sha": "d507119",
-      "full_sha": "d5071196afea61e558740caf1695f87c3a2e8a39",
-      "title": "activations: prefer ACTIVE row when multiple editions exist (fixes stale revokedAt timestamp on display)",
-      "author": "Claude",
-      "timestamp": "2026-05-21T20:53:14Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d507119.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

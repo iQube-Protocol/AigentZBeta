@@ -1354,3 +1354,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-f40facd.md](../build_/COMMITS/COMMIT-f40facd.md)
 - Message: Use Satoshi gold seal for 21 Sats Franchise cards + admin override on investor-tab + cohort gates
+
+## Commit `d52a3a5` — 2026-05-28T03:53:24Z
+- Type: `fix`
+- Brief: [COMMIT-d52a3a5.md](../build_/COMMITS/COMMIT-d52a3a5.md)
+- Message: Suppress 21 Sats Franchises in retail Premium Bundles + use personaFetch for purchase complete + paypal (fix 401)
