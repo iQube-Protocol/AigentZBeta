@@ -1399,3 +1399,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-d5b2194.md](../build_/COMMITS/COMMIT-d5b2194.md)
 - Message: iQube Legibility Profile v0.1 — Commit 2/6: card builder + lifecycle/visibility/permission mappers
+
+## Commit `1e657ab` — 2026-05-28T15:43:33Z
+- Type: `push`
+- Brief: [COMMIT-1e657ab.md](../build_/COMMITS/COMMIT-1e657ab.md)
+- Message: iQube Legibility Profile v0.1 — Commit 5/6: GET /policy + /actions routes (with private_payload_exposed structural lock)
