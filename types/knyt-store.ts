@@ -190,7 +190,15 @@ export interface BundlePricing {
    */
   bonusKnytCoynPct?: number;
   printFulfillment: 'post-kickstarter' | 'publisher' | 'signed-author';
-  includes?: string[];   // human-readable contents
+  includes?: string[];   // human-readable contents (retail surface uses this)
+  /**
+   * Investor-tab override for the `includes` list. When defined, the
+   * Investor tab renders this array instead of `includes` (e.g. the
+   * First KNYT investor bundle adds the "Author Signed available to
+   * current ZeroKNYTs ONLY" gate to the Hardcover AGN line). Retail
+   * surfaces (Bundles tab) always fall through to `includes`.
+   */
+  investorIncludes?: string[];
   accessGrant?: string;  // e.g. 'zero-knyt-order' for Order of Metaiye tiers
   /** Which GN variants this bundle grants. See GnVariant. Empty/undefined → bundle does not grant the GN. */
   gnVariants?: GnVariant[];
@@ -252,6 +260,15 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     printFulfillment: 'signed-author',
     gnVariants: ['qripto', 'hardcover'],
     includes: [
+      '1 QAGN (Qripto AgentiQ Graphic Novel)',
+      '13 Qripto Editions (all episodes)',
+      '13 KNYT Characters',
+      'Collector Card',
+      '1 Hardcover AgentiQ Graphic Novel (AGN)',
+      '13 Print Episodes',
+      'Proof of Print Certificate',
+    ],
+    investorIncludes: [
       '1 QAGN (Qripto AgentiQ Graphic Novel)',
       '13 Qripto Editions (all episodes)',
       '13 KNYT Characters',
