@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-28T21:16:23.709Z",
+  "last_updated": "2026-05-28T22:14:50.264Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "9ddf15d9dbe5ed9097b2c057462735aa23748e18",
-  "latest_commit_short": "9ddf15d",
-  "latest_commit_title": "KNYT store: surface-scoped includes + initialClaimed in sku-supply + retail X-of-Y badge",
+  "latest_commit": "b41253fc1664d19fdffb96f5e9f5dda6c8dd7299",
+  "latest_commit_short": "b41253f",
+  "latest_commit_title": "Add chain-pinned + balance-prechecked Base mainnet deploy scripts for QCT + iQubeNFT (single-network, no multi-deploy bug)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "b41253f",
+      "full_sha": "b41253fc1664d19fdffb96f5e9f5dda6c8dd7299",
+      "title": "Add chain-pinned + balance-prechecked Base mainnet deploy scripts for QCT + iQubeNFT (single-network, no multi-deploy bug)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T22:12:53Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-b41253f.md"
+    },
     {
       "sha": "9ddf15d",
       "full_sha": "9ddf15d9dbe5ed9097b2c057462735aa23748e18",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-23T18:24:59Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-d1698e5.md"
-    },
-    {
-      "sha": "5b08bfe",
-      "full_sha": "5b08bfe0ce5af234fef9092c1b03c95ae1559e99",
-      "title": "Strategy: actionable blockers — clickable chips open Partners + KPIs editors that close the declared-fields gap",
-      "author": "Claude",
-      "timestamp": "2026-05-23T13:25:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5b08bfe.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
