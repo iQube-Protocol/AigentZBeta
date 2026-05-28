@@ -11,7 +11,11 @@ if (fs.existsSync(envPath)) {
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: {
-    version: "0.8.20",
+    // Bumped from 0.8.20 → 0.8.24 because OpenZeppelin v5 internals
+    // (ERC721, Strings, Bytes) added `pragma solidity ^0.8.24`. Our
+    // contracts pin `^0.8.20` which is forward-compatible, so the
+    // bump compiles everything without source changes.
+    version: "0.8.24",
     settings: {
       optimizer: {
         enabled: true,
