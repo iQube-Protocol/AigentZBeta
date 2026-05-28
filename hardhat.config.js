@@ -19,6 +19,12 @@ module.exports = {
     // pin `^0.8.20` which is forward-compatible.
     version: "0.8.27",
     settings: {
+      // Hardhat's default evmVersion is 'paris' regardless of compiler
+      // version. OpenZeppelin Bytes.sol uses the `mcopy` opcode which
+      // only exists on Cancun-or-later EVMs. Base mainnet is fully
+      // Cancun since the Dencun upgrade, so it's safe (and required)
+      // to compile against it.
+      evmVersion: "cancun",
       optimizer: {
         enabled: true,
         runs: 200
