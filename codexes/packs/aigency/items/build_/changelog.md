@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`7f85e60`](https://github.com/iQube-Protocol/AigentZBeta/commit/7f85e60de82fed0e2ebde2f2422581d490398fce) [feat] Add 21 Sats Franchises section to KNYT investor tab — 3 gold cards, ZeroKNYT cohort gate, PoA mailto, no-KNYT-rail flag, tab investor-gated (Claude, 2026-05-28T02:00:33Z)
 - [`d6a7362`](https://github.com/iQube-Protocol/AigentZBeta/commit/d6a73629b42b74c009c1e4da7e6826eec66b6027) [push] Reorder Qripto Papers grid — Experience Sovereignty, COYN Thesis, The Polity at the top (Claude, 2026-05-28T00:35:47Z)
 - [`f6143da`](https://github.com/iQube-Protocol/AigentZBeta/commit/f6143daf264a210d110196500c8e6b3555e3748d) [feat] Add editorial scope order — Experience Sovereignty now sits above COYN Thesis in Qripto Papers grid (Claude, 2026-05-27T22:30:29Z)
 - [`b82bb3a`](https://github.com/iQube-Protocol/AigentZBeta/commit/b82bb3a87c6fdba4a46c898196b7d8c1e9a9b214) [push] Pair Qripto covers to papers by shared title stem (case+punct normalised) — works when covers have headings but no leading number (Claude, 2026-05-27T20:58:22Z)

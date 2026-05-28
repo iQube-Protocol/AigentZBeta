@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-28T00:37:42.974Z",
+  "last_updated": "2026-05-28T02:02:36.697Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d6a73629b42b74c009c1e4da7e6826eec66b6027",
-  "latest_commit_short": "d6a7362",
-  "latest_commit_title": "Reorder Qripto Papers grid — Experience Sovereignty, COYN Thesis, The Polity at the top",
+  "latest_commit": "7f85e60de82fed0e2ebde2f2422581d490398fce",
+  "latest_commit_short": "7f85e60",
+  "latest_commit_title": "Add 21 Sats Franchises section to KNYT investor tab — 3 gold cards, ZeroKNYT cohort gate, PoA mailto, no-KNYT-rail flag, tab investor-gated",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "7f85e60",
+      "full_sha": "7f85e60de82fed0e2ebde2f2422581d490398fce",
+      "title": "Add 21 Sats Franchises section to KNYT investor tab — 3 gold cards, ZeroKNYT cohort gate, PoA mailto, no-KNYT-rail flag, tab investor-gated",
+      "author": "Claude",
+      "timestamp": "2026-05-28T02:00:33Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-7f85e60.md"
+    },
     {
       "sha": "d6a7362",
       "full_sha": "d6a73629b42b74c009c1e4da7e6826eec66b6027",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-21T18:42:22Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-4dabf9f.md"
-    },
-    {
-      "sha": "78a2cda",
-      "full_sha": "78a2cda8c5c62167d2ff7f88726e7bceb98ac39c",
-      "title": "backlog: generalise claimEdition to iqube-universal claim primitive (post-comic expansion)",
-      "author": "Claude",
-      "timestamp": "2026-05-21T17:13:10Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-78a2cda.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
