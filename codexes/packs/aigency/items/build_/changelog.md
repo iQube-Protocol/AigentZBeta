@@ -1,4 +1,8 @@
 # Build — Changelog
+- [`3bdae27`](https://github.com/iQube-Protocol/AigentZBeta/commit/3bdae274891dcb57df8bf86d295488a89d4a284f) [push] uploads: keep status='ready' on enrichment failure + clarify Marketa label (Claude, 2026-05-28T16:22:20Z)
+- [`ef74414`](https://github.com/iQube-Protocol/AigentZBeta/commit/ef7441484ee38433cb55c919b0077b63d0312f68) [push] trigger deploy to dev (Claude, 2026-05-28T16:22:20Z)
+- [`2deac7d`](https://github.com/iQube-Protocol/AigentZBeta/commit/2deac7d1196005083f433fb2bb2567a7f55367b8) [feat] add persona-uploads bucket setup runbook (Claude, 2026-05-28T16:11:00Z)
+- [`9754fe6`](https://github.com/iQube-Protocol/AigentZBeta/commit/9754fe68951ff0635100c92b5beca363881b14f9) [push] iQube Legibility Profile v0.1 — Commit 6/6: well-known catalog route + vitest suite + docs (Claude, 2026-05-28T15:45:51Z)
 - [`1e657ab`](https://github.com/iQube-Protocol/AigentZBeta/commit/1e657ab9eb63f541449c567fb831baef420ee559) [push] iQube Legibility Profile v0.1 — Commit 5/6: GET /policy + /actions routes (with private_payload_exposed structural lock) (Claude, 2026-05-28T15:43:33Z)
 - [`d5b2194`](https://github.com/iQube-Protocol/AigentZBeta/commit/d5b2194a78cdbbfeca78d07911d0eecfbb4f51e3) [push] iQube Legibility Profile v0.1 — Commit 2/6: card builder + lifecycle/visibility/permission mappers (Claude, 2026-05-28T15:39:31Z)
 - [`b317316`](https://github.com/iQube-Protocol/AigentZBeta/commit/b3173162713c3a93dee28e0a283019da3a06d310) [push] reinstate persona-uploads frontend wiring (lost in stable-build revert) (Claude, 2026-05-28T15:21:08Z)

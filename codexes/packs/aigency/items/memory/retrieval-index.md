@@ -1404,3 +1404,23 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-1e657ab.md](../build_/COMMITS/COMMIT-1e657ab.md)
 - Message: iQube Legibility Profile v0.1 — Commit 5/6: GET /policy + /actions routes (with private_payload_exposed structural lock)
+
+## Commit `9754fe6` — 2026-05-28T15:45:51Z
+- Type: `push`
+- Brief: [COMMIT-9754fe6.md](../build_/COMMITS/COMMIT-9754fe6.md)
+- Message: iQube Legibility Profile v0.1 — Commit 6/6: well-known catalog route + vitest suite + docs
+
+## Commit `2deac7d` — 2026-05-28T16:11:00Z
+- Type: `feat`
+- Brief: [COMMIT-2deac7d.md](../build_/COMMITS/COMMIT-2deac7d.md)
+- Message: add persona-uploads bucket setup runbook
+
+## Commit `ef74414` — 2026-05-28T16:22:20Z
+- Type: `push`
+- Brief: [COMMIT-ef74414.md](../build_/COMMITS/COMMIT-ef74414.md)
+- Message: trigger deploy to dev
+
+## Commit `3bdae27` — 2026-05-28T16:22:20Z
+- Type: `push`
+- Brief: [COMMIT-3bdae27.md](../build_/COMMITS/COMMIT-3bdae27.md)
+- Message: uploads: keep status='ready' on enrichment failure + clarify Marketa label
