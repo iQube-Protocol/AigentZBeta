@@ -25,6 +25,10 @@ import {
 import { useEvmKnytPayment } from '@/app/hooks/useEvmKnytPayment';
 import { useSupabaseSessionPersonas } from '@/app/hooks/useSupabaseSessionPersonas';
 import { bundleIncludesPrintGn } from '@/types/knyt-store';
+// Spine routes (/api/purchase/*, /api/wallet/*) require an Authorization
+// Bearer token — cookies + credentials:'include' aren't enough. See
+// CLAUDE.md "Client-side spine fetches" rule.
+import { personaFetch } from '@/utils/personaSpine';
 
 // Phase 1 Pricing Constants
 const KNYT_USD_RATE = 1.40;
@@ -328,7 +332,8 @@ export function ContentPurchaseModal({
 
       if (selectedRail === 'paypal') {
         const amountUSD = pricing.rails.paypal.amount;
-        const response = await fetch(`${apiBase}/api/purchase/paypal/create-order`, {
+        // Same spine-Bearer requirement as /api/purchase/complete below.
+        const response = await personaFetch(`${apiBase}/api/purchase/paypal/create-order`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -434,9 +439,13 @@ export function ContentPurchaseModal({
       // trusted from the request body (T0 leak / spoof risk). We keep
       // sending it for backwards compatibility with older deployments;
       // newer servers ignore it and read the session.
-      const response = await fetch(`${apiBase}/api/purchase/complete`, {
+      //
+      // personaFetch attaches the Supabase Bearer token from the active
+      // session — required for spine endpoints. The previous raw fetch
+      // relied on cookies + credentials:'include', which the spine
+      // ignores → every Q¢ / USDC purchase 401'd with "Unauthorized".
+      const response = await personaFetch(`${apiBase}/api/purchase/complete`, {
         method: 'POST',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           personaId: resolvedPersonaId,
