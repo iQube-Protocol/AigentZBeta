@@ -54,6 +54,11 @@ interface Body {
       explicitly chose "Pay from DVN balance" instead of going through
       the on-chain wallet flow. */
   paymentMode?: 'auto' | 'dvn';
+  /** Cartridge that owns this row — drives which *_publication_states
+      table the publish endpoint writes to. Defaults to 'knyt' for
+      back-compat. When sourceExperienceId points at a Qriptopian
+      experience the caller should set 'qripto'. */
+  cartridge?: 'knyt' | 'qripto';
 }
 
 interface Settings {
@@ -192,6 +197,12 @@ export async function POST(req: NextRequest) {
 
   // 5. Insert content row
   const generationIndex = quota ? (quota.total_generations + 1) : 1;
+  // Cartridge defaults to 'knyt' for back-compat. Callers (RemixDialog,
+  // myCanvas note publish) pass 'qripto' explicitly when the row should
+  // belong to the Qriptopian Pulse. The /publish route reads this field
+  // to decide which *_publication_states table receives the record.
+  const cartridge: 'knyt' | 'qripto' = body.cartridge === 'qripto' ? 'qripto' : 'knyt';
+
   const insertPayload = {
     creator_persona_id:   personaId,
     source_experience_id: body.sourceExperienceId ?? null,
@@ -204,6 +215,7 @@ export async function POST(req: NextRequest) {
     status:               'draft',
     qc_cost:              qcCost,
     generation_index:     generationIndex,
+    cartridge,
   };
 
   const { data: inserted, error: insertError } = await supabase

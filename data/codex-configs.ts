@@ -410,6 +410,11 @@ export const KNYT_CODEX: CodexConfig = {
       label: 'Investor KNYT',
       slug: 'store-investor',
       enabled: true,
+      // CRM-investor gated — hidden from the public pill rail until the
+      // persona resolves to a nakamoto_knyt_personas row. Tab component
+      // also runs the same check server-side and refuses to render
+      // purchase actions for non-investors (defence in depth).
+      investorOnly: true,
       group: 'store',
       order: 3,
       type: 'static',
@@ -638,17 +643,23 @@ export const KNYT_CODEX: CodexConfig = {
     // ── Community Generated Content (under Order — surfaces in metaMe's
     // Order of Metayé via knytOrderTabs() mirror) ──────────────────────
     {
+      // Rebrand 2026-05-26: "Community" → "KNYT Pulse" per the Qriptopian
+      // restructure brief. The id stays `community-content` for slug /
+      // permalink stability; the user-visible label and route slug both
+      // move to "pulse". The deeper 21 Sats voting handoff nuance lands
+      // separately — see codexes/packs/agentiq/updates/
+      // 2026-05-26_knyt-pulse-21sats-handoff-backlog.md.
       id: 'community-content',
-      label: 'Community',
-      slug: 'community-content',
+      label: 'KNYT Pulse',
+      slug: 'pulse',
       enabled: true,
       group: 'order-group',
       order: 6,
       type: 'static',
       config: { component: 'KnytCommunityContentTab' },
       metadata: {
-        icon: 'Sparkles',
-        description: 'Community-remixed articles and KNYT stories',
+        icon: 'Radio',
+        description: 'KNYT Pulse — community-remixed articles and KNYT stories',
         color: 'violet'
       }
     },
@@ -861,7 +872,7 @@ export const QRIPTO_CODEX: CodexConfig = {
   name: 'Qriptopian Cartridge',
   slug: 'qripto',
   enabled: true,
-  version: '1.0.0',
+  version: '2.0.0',
   owner: 'qriptopian',
   metadata: {
     description: 'The Qriptopian knowledge base, features, and community',
@@ -870,12 +881,35 @@ export const QRIPTO_CODEX: CodexConfig = {
     category: 'publication',
     tags: ['qriptopian', 'news', 'features', 'community']
   },
+  // ─── 2026-05-26 restructure ────────────────────────────────────────────────
+  // Five top-level menu items per the agreed brief:
+  //   1. Codex          — canonical, finished content (Magazines · Papers · Polity)
+  //   2. Live Magazine  — works-in-progress, community-evolving editorial
+  //   3. Store          — Premium Content + Affiliates and Partners
+  //   4. Qriptopia      — Community (21 Sats cluster mirror) · Qriptopian Pulse · PCS Ladder
+  //   5. Admin          — first-class, admin-gated (Pulse / Premium / Partners /
+  //                       Polity / Magazine and Codex admin views)
+  // The deeper KNYT Pulse ↔ 21 Sats handoff nuance is backlogged separately —
+  // see codexes/packs/agentiq/updates/2026-05-26_knyt-pulse-21sats-handoff-backlog.md.
+  tabGroups: [
+    { id: 'codex',         label: 'Codex',         icon: 'BookOpen',  order: 0 },
+    { id: 'live-magazine', label: 'Live Magazine', icon: 'Newspaper', order: 1 },
+    { id: 'store',         label: 'Store',         icon: 'ShoppingBag', order: 2 },
+    { id: 'qriptopia',     label: 'Qriptopia',     icon: 'Sparkles',  order: 3 },
+    { id: 'admin',         label: 'Admin',         icon: 'Settings',  order: 4, adminOnly: true },
+  ],
   tabs: [
+    // ── Codex group — canonical / finished content ─────────────────────────
     {
+      // Existing 'codex' tab kept verbatim, relabelled "Magazines" and re-homed.
+      // The current issue-number toggle stays exactly as it functions today;
+      // it now scopes to "canonical magazine editions" rather than acting as
+      // a global cartridge filter.
       id: 'codex',
-      label: 'Codex',
-      slug: 'codex',
+      label: 'Magazines',
+      slug: 'magazines',
       enabled: true,
+      group: 'codex',
       order: 0,
       type: 'liquid-ui',
       config: {
@@ -883,23 +917,64 @@ export const QRIPTO_CODEX: CodexConfig = {
         dataSource: '/api/codex/qripto/home'
       },
       metadata: {
-        icon: 'Home',
-        description: 'Qripto Codex home and overview',
+        icon: 'BookOpen',
+        description: 'Canonical Qriptopian magazine editions',
         color: 'indigo'
       }
     },
+    {
+      id: 'papers',
+      label: 'Papers',
+      slug: 'papers',
+      enabled: true,
+      group: 'codex',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'QriptoPapersTab',
+        props: {
+          group: 'papers',
+        },
+      },
+      metadata: {
+        icon: 'FileText',
+        description: 'Codex-grade white papers — Polity and Qriptopian series',
+        color: 'indigo'
+      }
+    },
+    {
+      id: 'polity',
+      label: 'Polity',
+      slug: 'polity',
+      enabled: true,
+      group: 'codex',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'Polity',
+          description: 'The Qriptopian Polity — governance, principles, and the steward circle. Content surface coming soon.',
+        },
+      },
+      metadata: {
+        icon: 'Landmark',
+        description: 'Qriptopian Polity — governance and principles',
+        color: 'indigo'
+      }
+    },
+
+    // ── Live Magazine group — works-in-progress editorial ──────────────────
     {
       id: 'features',
       label: 'Features',
       slug: 'features',
       enabled: true,
-      order: 1,
+      group: 'live-magazine',
+      order: 0,
       type: 'static',
       config: {
         component: 'FeaturesTab',
-        // Integrates Qriptopian home content: hero articles, latest news, second hero
-        // Backward compatible with existing Supabase content structure
-        // Uses APIs: /api/content/section/home-hero, /api/content/section/latest-news, /api/content/section/second-hero
       },
       metadata: {
         icon: 'Star',
@@ -911,7 +986,8 @@ export const QRIPTO_CODEX: CodexConfig = {
       label: 'PennyDrops',
       slug: 'pennydrops',
       enabled: true,
-      order: 2,
+      group: 'live-magazine',
+      order: 1,
       type: 'dynamic',
       config: {
         component: 'PennyDropsTab',
@@ -928,7 +1004,8 @@ export const QRIPTO_CODEX: CodexConfig = {
       label: 'Scrolls',
       slug: 'scrolls',
       enabled: true,
-      order: 3,
+      group: 'live-magazine',
+      order: 2,
       type: 'static',
       config: {
         component: 'QriptoScrollsTab'
@@ -943,7 +1020,8 @@ export const QRIPTO_CODEX: CodexConfig = {
       label: 'Kn0wdZ',
       slug: 'kn0wdz',
       enabled: true,
-      order: 4,
+      group: 'live-magazine',
+      order: 3,
       type: 'static',
       config: {
         component: 'Kn0wdZTab'
@@ -953,44 +1031,293 @@ export const QRIPTO_CODEX: CodexConfig = {
         description: 'Knowledge base and learning resources'
       }
     },
+
+    // ── Store group ────────────────────────────────────────────────────────
     {
-      id: 'rewards',
-      label: 'Rewards',
-      slug: 'rewards',
+      id: 'premium-content',
+      label: 'Premium Content',
+      slug: 'premium-content',
       enabled: true,
-      order: 5,
-      type: 'dynamic',
-      config: {
-        component: 'RewardsTab',
-        dataSource: '/api/codex/qripto/rewards'
-      },
-      metadata: {
-        icon: 'Gift',
-        description: 'Community rewards and achievements'
-      }
-    },
-    {
-      id: 'qriptopia',
-      label: 'Qriptopia',
-      slug: 'qriptopia',
-      enabled: true,
-      order: 6,
+      group: 'store',
+      order: 0,
       type: 'static',
       config: {
-        component: 'QriptopiaTab'
+        component: 'PlaceholderTab',
+        props: {
+          title: 'Premium Content',
+          description: 'Gated Qriptopian content. Entitlement pattern mirrors metaKnyts in the KNYT cartridge. First premium pieces coming soon.',
+        },
       },
       metadata: {
-        icon: 'Sparkles',
-        description: 'The vision of Qriptopia'
+        icon: 'Lock',
+        description: 'Gated Qriptopian premium content',
+        color: 'indigo'
       }
     },
     {
+      // KNYT promoted to its own top-level Store sub-tab per the v3.1
+      // refinement (was previously nested inside Affiliates & Partners).
+      // Renders the canonical KnytStoreBundlesTab directly — no host
+      // wrapper needed.
+      id: 'store-knyt',
+      label: 'KNYT',
+      slug: 'knyt',
+      enabled: true,
+      group: 'store',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'KnytStoreBundlesTab'
+      },
+      metadata: {
+        icon: 'Layers',
+        description: 'KNYT episode and card bundles available to the Qriptopian audience',
+        color: 'violet'
+      }
+    },
+    {
+      id: 'partners-affiliates',
+      label: 'Affiliates & Partners',
+      slug: 'partners-affiliates',
+      enabled: true,
+      group: 'store',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'Affiliates & Partners',
+          description: 'Future partner offerings will surface here alongside KNYT (now its own sub-tab). Roster managed via Admin › Partners Admin.',
+        },
+      },
+      metadata: {
+        icon: 'Handshake',
+        description: 'Cross-cartridge partner offerings — future partners',
+        color: 'indigo'
+      }
+    },
+
+    // ── Qriptopia group — community surfaces ──────────────────────────────
+    // Order per v3.1: Features → Qriptopian Pulse → Community Correspondent
+    // → PCS Ladder. Features is the same component as Live Magazine ›
+    // Features (component re-use); it surfaces here too so the Qriptopia
+    // group travels cleanly when mirrored into the metaMe cartridge.
+    {
+      id: 'qriptopia-features',
+      label: 'Features',
+      slug: 'qriptopia-features',
+      enabled: true,
+      group: 'qriptopia',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'FeaturesTab',
+      },
+      metadata: {
+        icon: 'Star',
+        description: 'Featured articles — same as Live Magazine › Features, repeated in Qriptopia for cross-cartridge travel',
+        color: 'indigo'
+      }
+    },
+    {
+      id: 'pulse',
+      label: 'Qriptopian Pulse',
+      slug: 'pulse',
+      enabled: true,
+      group: 'qriptopia',
+      order: 1,
+      type: 'static',
+      config: {
+        // Live wiring: renders the existing KnytCommunityContentTab
+        // with cartridge='qripto' so the list endpoint scopes to
+        // Qriptopian rows only. Notes published from myCanvas › New
+        // Ideas with destination=Qriptopian Pulse appear here.
+        component: 'QriptoPulseTab'
+      },
+      metadata: {
+        icon: 'Radio',
+        description: 'Qriptopian publishing surface — community contributions',
+        color: 'indigo'
+      }
+    },
+    {
+      id: 'community-correspondent',
+      label: 'Community Correspondent',
+      slug: 'community-correspondent',
+      enabled: true,
+      group: 'qriptopia',
+      order: 2,
+      type: 'static',
+      config: {
+        // QriptoCommunityCorrespondentTab renders the three-pill structure
+        // (Canon · Community · Correspondent) mirroring the KNYT 21 Sats
+        // Living Canon cluster, but scoped to Qriptopian Pulse content.
+        // Real data pipe lands when the cartridge-parameterized Living
+        // Canon refactor + Qriptopian Pulse publish wiring ships (see
+        // codexes/packs/agentiq/updates/
+        // 2026-05-26_qriptopian-pulse-wiring-and-moderation-backlog.md).
+        component: 'QriptoCommunityCorrespondentTab'
+      },
+      metadata: {
+        icon: 'Megaphone',
+        description: 'Canon / Community / Correspondent — Qriptopian voting and curation',
+        color: 'indigo'
+      }
+    },
+    {
+      id: 'pcs-ladder',
+      label: 'PCS Ladder',
+      slug: 'pcs-ladder',
+      enabled: true,
+      group: 'qriptopia',
+      order: 3,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'PCS Ladder',
+          description: 'Progressive Creative Sovereignty Ladder — tracks the user\'s tasks completed in the Polity, badges earned, and ladder rungs achieved. Clones the KNYT Order tab pattern, Polity-progress-flavoured.',
+        },
+      },
+      metadata: {
+        icon: 'TrendingUp',
+        description: 'Progressive Creative Sovereignty progression',
+        color: 'indigo'
+      }
+    },
+    {
+      // Replicated admin surface inside Qriptopia per operator request —
+      // 5th tab, admin-gated. Renders the canonical Qriptopian content
+      // management view (QriptopianAdminTab) so admins working inside
+      // the Qriptopia user-facing area can reach moderation without
+      // context-switching to the standalone Admin group. Non-admins
+      // don't see this tab.
+      id: 'qriptopia-admin',
+      label: 'Admin',
+      slug: 'qriptopia-admin',
+      enabled: true,
+      adminOnly: true,
+      group: 'qriptopia',
+      order: 4,
+      type: 'static',
+      config: { component: 'QriptopianAdminTab' },
+      metadata: {
+        icon: 'Settings',
+        description: 'Qriptopian admin shortcut — same surface as Admin › Magazine and Codex',
+        color: 'indigo'
+      }
+    },
+
+    // ── Admin group — first-class, admin-gated ────────────────────────────
+    // Order per v3.1 refinement: Magazine and Codex Admin first (existing
+    // QriptopianAdminTab — anchors the admin surface for backwards
+    // continuity), then Pulse Admin (with moderation duties — see backlog),
+    // then Premium, Partners, Polity, Edit.
+    // Admin sub-tab labels intentionally drop the word "Admin" — every
+    // tab in this group is admin-only, so the suffix is redundant. Per
+    // operator: "for all these Admin sub tabs we can remove the word
+    // Admin as its redundant being they are all admin sub menu items".
+    {
+      id: 'admin-magazine-codex',
+      label: 'Magazine and Codex',
+      slug: 'admin-magazine-codex',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'QriptopianAdminTab'
+      },
+      metadata: {
+        icon: 'Settings',
+        description: 'Magazine and Codex content management',
+        color: 'indigo'
+      }
+    },
+    {
+      id: 'admin-pulse',
+      label: 'Pulse',
+      slug: 'admin-pulse',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 1,
+      type: 'static',
+      config: {
+        // Live wiring — clone of KnytCommunityContentAdminTab with
+        // cartridge='qripto'. Inherits Promote / Reject / Delete actions.
+        // Delete is real (DELETE /api/community-content/[id], admin-gated,
+        // also clears the matching publication-state mirror).
+        component: 'QriptoPulseAdminTab'
+      },
+      metadata: { icon: 'Shield', description: 'Qriptopian Pulse moderation queue', color: 'indigo' }
+    },
+    {
+      id: 'admin-premium',
+      label: 'Premium',
+      slug: 'admin-premium',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'Premium',
+          description: 'Manage gated Qriptopian content — entitlement bindings, pricing, and Q¢ rails.',
+        },
+      },
+      metadata: { icon: 'Lock', description: 'Premium content gating administration', color: 'indigo' }
+    },
+    {
+      id: 'admin-partners',
+      label: 'Partners',
+      slug: 'admin-partners',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 3,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'Partners & Affiliates',
+          description: 'Manage the partner roster surfaced in Store › Affiliates and Partners — KNYT (now its own Store sub-tab) and any future partners.',
+        },
+      },
+      metadata: { icon: 'Handshake', description: 'Partner roster administration', color: 'indigo' }
+    },
+    {
+      id: 'admin-polity',
+      label: 'Polity',
+      slug: 'admin-polity',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 4,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'Polity',
+          description: 'Rewards and PCS status ascension management — configure tasks, badges, and ladder rungs for the Polity progression.',
+        },
+      },
+      metadata: { icon: 'Landmark', description: 'Polity rewards and PCS ascension administration', color: 'indigo' }
+    },
+    {
+      // Edit was previously a standalone admin tab. Re-homed into the Admin
+      // group so the content-authoring surface sits alongside the new admin
+      // views. Component unchanged.
       id: 'edit',
       label: 'Edit',
       slug: 'edit',
       enabled: true,
       adminOnly: true,
-      order: 7,
+      group: 'admin',
+      order: 5,
       type: 'static',
       config: {
         component: 'QriptopianEditTab'
@@ -998,23 +1325,6 @@ export const QRIPTO_CODEX: CodexConfig = {
       metadata: {
         icon: 'FileEdit',
         description: 'Create, edit and publish articles to the Qriptopian cartridge',
-        color: 'indigo'
-      }
-    },
-    {
-      id: 'admin',
-      label: 'Admin',
-      slug: 'admin',
-      enabled: true,
-      adminOnly: true,
-      order: 8,
-      type: 'static',
-      config: {
-        component: 'QriptopianAdminTab'
-      },
-      metadata: {
-        icon: 'Settings',
-        description: 'Content management admin portal',
         color: 'indigo'
       }
     }
@@ -1868,6 +2178,24 @@ const qriptoAdminTabsForMetameQriptopia = () =>
       group: 'qriptopia',
     }));
 
+// Qriptopian Codex group (Magazines, Papers, Polity, …) mirrored into
+// metaMe's qriptopia surface so the metaMe view stays in sync with the
+// canonical Qripto cartridge. Without this, metaMe shows only the
+// stub Features / Community / 21 Sats tabs and the operator has to
+// jump cartridges to read a paper. Slug-prefixed to avoid namespace
+// collision; order rebased so they appear before the existing stubs.
+const qriptoCodexTabsForMetameQriptopia = () =>
+  QRIPTO_CODEX.tabs
+    .filter((t) => t.group === 'codex' && t.enabled)
+    .sort((a, b) => a.order - b.order)
+    .map((t, idx) => ({
+      ...t,
+      id: `metame-qripto-codex-${t.id}`,
+      slug: `qripto-codex-${t.slug}`,
+      group: 'qriptopia',
+      order: 40 + idx, // Sits ABOVE Features (50), Community (51), 21 Sats (52)
+    }));
+
 // AgentiQ OS admin tabs mirrored into metaMe's agentiqos group.
 // Pulls from the AgentiQ OS cartridge's `admin` tabGroup (added
 // 2026-05-26) — currently a single stub PlaceholderTab; real
@@ -2387,6 +2715,11 @@ export const METAME_CODEX: CodexConfig = {
     },
 
     // ── Qriptopia group ──────────────────────────────────────────────────────
+    // Canonical Qripto Codex tabs (Magazines, Papers, Polity) are mirrored
+    // in from QRIPTO_CODEX so metaMe stays in lock-step with the cartridge.
+    // The mirror sits at order 40..49 so it appears BEFORE the existing
+    // Features / Community / 21 Sats / Admin stubs without renumbering them.
+    ...qriptoCodexTabsForMetameQriptopia(),
     {
       id: 'qriptopia-features',
       label: 'Features',

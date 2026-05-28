@@ -5,6 +5,9 @@
  *   personaId?  — when set with mine=1, filter to creator's content
  *   mine        — '1' to scope to the requesting persona's content
  *   status?     — comma-separated list, defaults to 'shared,runtime_promoted'
+ *   cartridge?  — 'knyt' | 'qripto' — filter by cartridge column. When
+ *                 omitted, returns rows from every cartridge (back-compat
+ *                 for legacy callers that pre-date the cartridge split).
  *   limit?      — default 30, max 100
  *
  * Returns: { ok, items: [...], count }
@@ -19,13 +22,14 @@ import { getCommunityContentSupabase } from '../_lib/personaContext';
 export const dynamic = 'force-dynamic';
 
 const ALLOWED_STATUSES = new Set(['draft', 'shared', 'pending_promotion', 'runtime_promoted', 'rejected']);
+const ALLOWED_CARTRIDGES = new Set(['knyt', 'qripto']);
 
 interface ContentRow {
   id: string;
   creator_persona_id: string;
   source_experience_id: string | null;
   parent_id: string | null;
-  skill: 'article' | 'story';
+  skill: 'article' | 'story' | 'note';
   title: string;
   prompt: string;
   article_body: string | null;
@@ -34,6 +38,7 @@ interface ContentRow {
   qc_cost: number;
   generation_index: number;
   runtime_promoted_at: string | null;
+  cartridge: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -54,6 +59,8 @@ export async function GET(req: NextRequest) {
     .split(',')
     .map((s) => s.trim())
     .filter((s) => ALLOWED_STATUSES.has(s));
+  const cartridgeParam = params.get('cartridge')?.trim().toLowerCase() || null;
+  const cartridge = cartridgeParam && ALLOWED_CARTRIDGES.has(cartridgeParam) ? cartridgeParam : null;
   const limit = Math.min(100, Math.max(1, Number.parseInt(params.get('limit') || '30', 10) || 30));
 
   if (mine && !personaId) {
@@ -73,7 +80,7 @@ export async function GET(req: NextRequest) {
       // looked up separately (see imagePreview hydration on the client)
       // and the full article body is fetched on-demand when the user
       // opens an item.
-      .select('id, creator_persona_id, source_experience_id, parent_id, skill, title, prompt, status, qc_cost, generation_index, runtime_promoted_at, created_at, updated_at')
+      .select('id, creator_persona_id, source_experience_id, parent_id, skill, title, prompt, status, qc_cost, generation_index, runtime_promoted_at, cartridge, created_at, updated_at')
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -81,6 +88,14 @@ export async function GET(req: NextRequest) {
       query = query.eq('creator_persona_id', personaId);
     } else if (statusParam.length > 0) {
       query = query.in('status', statusParam);
+    }
+
+    // Cartridge filter — when present, scopes to KNYT or Qriptopian only.
+    // When omitted, returns rows from every cartridge (back-compat with
+    // pre-split callers; existing rows default cartridge='knyt' via the
+    // migration so legacy behaviour stays correct).
+    if (cartridge) {
+      query = query.eq('cartridge', cartridge);
     }
 
     const { data, error } = await query;
@@ -130,6 +145,7 @@ export async function GET(req: NextRequest) {
         isMe:      personaId ? r.creator_persona_id === personaId : false,
       },
       promotedToRuntime:   r.status === 'runtime_promoted',
+      cartridge:           (r.cartridge as 'knyt' | 'qripto' | null) ?? 'knyt',
       createdAt:           r.created_at,
       updatedAt:           r.updated_at,
     }));

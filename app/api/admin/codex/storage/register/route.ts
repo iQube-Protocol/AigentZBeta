@@ -186,7 +186,15 @@ export async function POST(req: NextRequest) {
     let encIv2 = '';
     let encAuthTag2 = '';
     let encKeyId2 = '';
-    if (isEncryptionConfigured()) {
+    // Qriptopian uploads are WIP-public content rendered through the
+    // PDF-lite viewer, which loads the Supabase URL directly in the
+    // browser. Encrypting-at-rest breaks that path because the public
+    // URL would then serve ciphertext (PDFLiteReader gets garbage,
+    // <img src=cover_thumb_url> renders nothing). Skip encryption for
+    // this cartridge until a Qripto SKU + state-C delivery proxy ship
+    // (backlog: 2026-05-27_qripto-cover-upload-and-wip-contentqube-backlog.md).
+    const skipEncryption = series === 'qriptopian';
+    if (isEncryptionConfigured() && !skipEncryption) {
       try {
         const out = await encryptInPlace(supabase, bucket, path, mediaId);
         encIv2 = out.iv;
@@ -198,6 +206,8 @@ export async function POST(req: NextRequest) {
           { status: 500 },
         );
       }
+    } else if (skipEncryption) {
+      console.log(`[register] series=${series} — skipping encryption (WIP-public, served plaintext for PDF-lite viewer)`);
     } else {
       console.warn('[register] CONTENT_ENCRYPTION_MASTER_KEY missing — skipping encryption (state-C plaintext)');
     }
@@ -216,13 +226,23 @@ export async function POST(req: NextRequest) {
       encryption_iv: encIv2,
       encryption_auth_tag: encAuthTag2,
       encryption_key_id: encKeyId2,
-      content_state: 'C',
+      // State 'A' = free/plaintext at the Supabase URL (no decrypt
+      // needed). 'C' = encrypted-at-rest, needs the state-C proxy.
+      // Match the state to what we actually did with the bytes so
+      // downstream delivery code doesn't try to decrypt zero-length IVs.
+      content_state: skipEncryption ? 'A' : 'C',
       mint_status: 'wip',
       status: 'active',
     };
     // Populate cover_thumb_url so the viewer renders directly (the KnytTab
     // and CategoryDetailPanel both prefer cover_thumb_url over CID-routing).
-    if (assetKind === 'cover_image' || assetKind === 'cover_pdf' || (safeMime.startsWith('image/'))) {
+    // PDF covers (Qripto papers) store the URL too — the Papers tab renders
+    // the PDF first page as the card art via the existing PDF page route.
+    if (
+      category === 'cover' ||
+      assetKind === 'cover_image' || assetKind === 'cover_pdf' ||
+      safeMime.startsWith('image/')
+    ) {
       insertRow.cover_thumb_url = storageUrl;
     }
     if (variantName) insertRow.variant_name = variantName;

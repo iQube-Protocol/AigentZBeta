@@ -989,6 +989,61 @@ function CodexManager() {
   const [detailError,    setDetailError]    = useState<string | null>(null);
   const [copiedCid,      setCopiedCid]      = useState<string | null>(null);
 
+  // Qriptopian asset list — every uploaded row (covers AND papers) is
+  // surfaced as its own line so the operator can see whether the cover
+  // they think they uploaded actually exists, what scope it's in, and
+  // whether it matches the paper. Endpoint returns `assets` (full list)
+  // alongside `papers` (paper-with-cover bundles consumed by the codex
+  // tab) — admin uses `assets`.
+  type QriptoAdminRow = {
+    id: string; title: string; scope: string; scopeLabel: string;
+    role: 'cover' | 'paper';
+    assetKind: string | null;
+    storageUrl: string;
+    coverThumbUrl: string | null;
+    mimeType: string;
+    uploadedAt: string | null;
+  };
+  const [qriptoRows, setQriptoRows] = useState<QriptoAdminRow[]>([]);
+  const [qriptoLoading, setQriptoLoading] = useState(false);
+  const [qriptoError, setQriptoError] = useState<string | null>(null);
+  const [qriptoDiag, setQriptoDiag] = useState<{ totalRows: number; unparseable: number; bucketCount: number } | null>(null);
+  useEffect(() => {
+    if (activeTab !== 'qriptopian') return;
+    let cancelled = false;
+    (async () => {
+      setQriptoLoading(true); setQriptoError(null);
+      try {
+        const [papersRes, magsRes] = await Promise.all([
+          fetch('/api/codex/qripto/papers?group=papers', { cache: 'no-store' }),
+          fetch('/api/codex/qripto/papers?group=magazines', { cache: 'no-store' }),
+        ]);
+        const papersJson = await papersRes.json();
+        const magsJson = await magsRes.json();
+        if (cancelled) return;
+        const combined: QriptoAdminRow[] = [
+          ...(Array.isArray(papersJson.assets) ? papersJson.assets : []),
+          ...(Array.isArray(magsJson.assets) ? magsJson.assets : []),
+        ];
+        combined.sort((a, b) => (b.uploadedAt ?? '').localeCompare(a.uploadedAt ?? ''));
+        setQriptoRows(combined);
+        // Sum diagnostics across the two group calls.
+        const d1 = papersJson.diagnostics || { totalRows: 0, unparseable: 0, bucketCount: 0 };
+        const d2 = magsJson.diagnostics || { totalRows: 0, unparseable: 0, bucketCount: 0 };
+        setQriptoDiag({
+          totalRows: d1.totalRows,
+          unparseable: d1.unparseable,
+          bucketCount: d1.bucketCount + d2.bucketCount,
+        });
+      } catch (e) {
+        if (!cancelled) setQriptoError((e as Error)?.message || 'Failed to load Qripto assets');
+      } finally {
+        if (!cancelled) setQriptoLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeTab, uploadOpen]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -1167,8 +1222,109 @@ function CodexManager() {
       ) : error ? (
         <div className="rounded-xl border border-red-800/40 bg-red-950/20 p-4 text-xs text-red-400">{error}</div>
       ) : activeTab === 'qriptopian' ? (
-        <div className="rounded-xl border border-white/5 bg-slate-800/50 p-8 text-center text-sm text-slate-400">
-          Qriptopian Codex — Coming Soon
+        <div className="space-y-3">
+          {qriptoLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-teal-400" />
+            </div>
+          ) : qriptoError ? (
+            <div className="rounded-xl border border-red-800/40 bg-red-950/20 p-4 text-xs text-red-400">{qriptoError}</div>
+          ) : qriptoRows.length === 0 ? (
+            <div className="rounded-xl border border-white/5 bg-slate-800/50 p-8 text-center text-sm text-slate-400">
+              No Qriptopian assets uploaded yet. Use <span className="text-teal-400">Upload Content</span> to add papers, magazines, or covers.
+            </div>
+          ) : (
+            <>
+              {qriptoDiag && (
+                <div className="rounded-md border border-white/5 bg-slate-900/40 px-3 py-1.5 text-[11px] text-slate-400">
+                  {qriptoDiag.totalRows} total row{qriptoDiag.totalRows === 1 ? '' : 's'} ·
+                  {' '}{qriptoDiag.bucketCount} scope{qriptoDiag.bucketCount === 1 ? '' : 's'}
+                  {qriptoDiag.unparseable > 0 && (
+                    <span className="ml-2 text-amber-400">
+                      · {qriptoDiag.unparseable} row{qriptoDiag.unparseable === 1 ? '' : 's'} have a storage filename that doesn&apos;t match the (papers|magazines)-&lt;slug&gt;_&lt;ts&gt; pattern and aren&apos;t being grouped — check the upload Series picker
+                    </span>
+                  )}
+                </div>
+              )}
+              <div className="overflow-x-auto rounded-xl border border-white/5 bg-slate-900/40">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-900/60 text-[10px] uppercase tracking-wider text-slate-500">
+                    <tr>
+                      <th className="px-3 py-2">Thumb</th>
+                      <th className="px-3 py-2">Role</th>
+                      <th className="px-3 py-2">Title</th>
+                      <th className="px-3 py-2">Series</th>
+                      <th className="px-3 py-2">Kind</th>
+                      <th className="px-3 py-2">Mime</th>
+                      <th className="px-3 py-2">ID</th>
+                      <th className="px-3 py-2">URL</th>
+                      <th className="px-3 py-2">Uploaded</th>
+                      <th className="px-3 py-2 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {qriptoRows.map((r) => {
+                      const thumbSrc = r.coverThumbUrl
+                        || (r.role === 'cover' && r.mimeType.startsWith('image/') ? r.storageUrl : null)
+                        || (r.mimeType.startsWith('image/') ? r.storageUrl : null);
+                      return (
+                        <tr key={r.id} className="hover:bg-slate-800/40">
+                          <td className="px-3 py-2">
+                            {thumbSrc ? (
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <img src={thumbSrc} alt="" className="h-12 w-9 rounded object-cover" />
+                            ) : (
+                              <div className="flex h-12 w-9 items-center justify-center rounded bg-slate-800 text-[10px] text-slate-500">—</div>
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className={`rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${r.role === 'cover' ? 'bg-purple-500/15 text-purple-300' : 'bg-teal-500/15 text-teal-300'}`}>
+                              {r.role}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-slate-200 max-w-[180px] truncate" title={r.title}>{r.title}</td>
+                          <td className="px-3 py-2 text-slate-400">{r.scopeLabel}</td>
+                          <td className="px-3 py-2 text-slate-500">{r.assetKind || '—'}</td>
+                          <td className="px-3 py-2 text-slate-500">{r.mimeType}</td>
+                          <td className="px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={() => navigator.clipboard?.writeText(r.id)}
+                              className="font-mono text-[10px] text-slate-400 hover:text-teal-300"
+                              title="Click to copy ID"
+                            >
+                              {r.id.slice(0, 8)}…
+                            </button>
+                          </td>
+                          <td className="px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={() => navigator.clipboard?.writeText(r.storageUrl)}
+                              className="font-mono text-[10px] text-slate-400 hover:text-teal-300 max-w-[200px] truncate inline-block align-bottom"
+                              title={r.storageUrl}
+                            >
+                              {r.storageUrl.replace(/^https?:\/\/[^/]+/, '')}
+                            </button>
+                          </td>
+                          <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{r.uploadedAt ? new Date(r.uploadedAt).toLocaleString() : '—'}</td>
+                          <td className="px-3 py-2 text-right whitespace-nowrap">
+                            <a
+                              href={r.storageUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs text-teal-400 hover:text-teal-300"
+                            >
+                              Open
+                            </a>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </div>
       ) : (
         <>

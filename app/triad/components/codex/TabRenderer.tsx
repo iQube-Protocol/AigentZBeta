@@ -27,6 +27,7 @@ import { FeaturesTab } from "./tabs/FeaturesTab";
 import { PennyDropsTab } from "./tabs/PennyDropsTab";
 import { Kn0wdZTab } from "./tabs/Kn0wdZTab";
 import { QriptoScrollsTab } from "./tabs/QriptoScrollsTab";
+import { QriptoPapersTab } from "./tabs/QriptoPapersTab";
 import { PlaceholderTab } from "./tabs/PlaceholderTab";
 import { AgentiqCartridgeTab } from "./tabs/AgentiqCartridgeTab";
 import { PackBrowserTab } from "./tabs/PackBrowserTab";
@@ -71,6 +72,10 @@ import { VentureLabGrowthMatrixTab } from "./tabs/VentureLabGrowthMatrixTab";
 import { VentureLabPortfolioTab } from "./tabs/VentureLabPortfolioTab";
 import { QriptopianEditTab } from "./tabs/QriptopianEditTab";
 import { QriptopianAdminTab } from "./tabs/QriptopianAdminTab";
+import { QriptoAffiliatesPartnersTab } from "./tabs/QriptoAffiliatesPartnersTab";
+import { QriptoCommunityCorrespondentTab } from "./tabs/QriptoCommunityCorrespondentTab";
+import { QriptoPulseTab } from "./tabs/QriptoPulseTab";
+import { QriptoPulseAdminTab } from "./tabs/QriptoPulseAdminTab";
 import { KnytStoreEpisodesTab } from "./tabs/KnytStoreEpisodesTab";
 import { KnytStoreCardsTab } from "./tabs/KnytStoreCardsTab";
 import { KnytStoreBundlesTab } from "./tabs/KnytStoreBundlesTab";
@@ -151,6 +156,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   PennyDropsTab,
   Kn0wdZTab,
   QriptoScrollsTab,
+  QriptoPapersTab,
   AgentiqCartridgeTab,
   MarketaTab,
   KnytTab,
@@ -194,6 +200,10 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   VentureLabPortfolioTab,
   QriptopianEditTab,
   QriptopianAdminTab,
+  QriptoAffiliatesPartnersTab,
+  QriptoCommunityCorrespondentTab,
+  QriptoPulseTab,
+  QriptoPulseAdminTab,
   KnytStoreEpisodesTab,
   KnytStoreCardsTab,
   KnytStoreBundlesTab,

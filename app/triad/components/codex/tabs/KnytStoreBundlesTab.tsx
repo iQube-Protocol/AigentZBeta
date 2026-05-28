@@ -517,7 +517,13 @@ function PackDetail({
 // belong on the Investor tab where they're priced at a discount.
 const isSingleGn = (b: BundlePricing) => b.episodes.length === 1 && b.episodes[0] === -1;
 const publicBundles  = BUNDLE_PRICING.filter((b) => !b.isInvestorOnly && !isSingleGn(b));
-const investorBundles = BUNDLE_PRICING.filter((b) => b.isInvestorOnly && !isSingleGn(b));
+// Franchise SKUs (category='franchise') are suppressed from the retail
+// Premium Bundles surface for now. They live exclusively in the Investor
+// KNYT tab. To open them up to retail later, flip this filter to include
+// them and the existing card render already handles their flags.
+const investorBundles = BUNDLE_PRICING.filter((b) =>
+  b.isInvestorOnly && !isSingleGn(b) && b.category !== 'franchise',
+);
 
 export function KnytStoreBundlesTab({ personaId, theme: _theme }: Props) {
   const [view, setView]         = useState<BundleView>({ kind: 'landing' });

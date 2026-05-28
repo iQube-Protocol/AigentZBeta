@@ -58,9 +58,18 @@ interface Props {
   personaId?: string;
   isAdmin?: boolean;
   theme?: "light" | "dark";
+  /**
+   * Cartridge filter. When set, only rows where
+   * community_generated_content.cartridge matches are returned by
+   * /api/community-content/list?cartridge=<cartridge>. Defaults to
+   * undefined (no filter — every cartridge) for back-compat with the
+   * existing KNYT cartridge mount, which historically expected the
+   * unfiltered list. The Qriptopian Pulse tab passes 'qripto'.
+   */
+  cartridge?: "knyt" | "qripto";
 }
 
-export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin }: Props) {
+export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin, cartridge }: Props) {
   const [items, setItems] = useState<CommunityContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +87,7 @@ export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin }: Props)
       } else {
         params.set("status", "shared,runtime_promoted");
       }
+      if (cartridge) params.set("cartridge", cartridge);
       const res = await fetch(`/api/community-content/list?${params}`, { cache: "no-store" });
       let json: { ok?: boolean; items?: CommunityContentItem[]; error?: string };
       try {
@@ -99,7 +109,7 @@ export function KnytCommunityContentTab({ personaId, isAdmin: _isAdmin }: Props)
     } finally {
       setLoading(false);
     }
-  }, [personaId, filter]);
+  }, [personaId, filter, cartridge]);
 
   useEffect(() => {
     void load();

@@ -1229,3 +1229,133 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-f32d517.md](../build_/COMMITS/COMMIT-f32d517.md)
 - Message: copilot: wire mic to STT + add Listen TTS + persist messages + clear affordance
+
+## Commit `c56ae59` — 2026-05-26T14:46:41Z
+- Type: `push`
+- Brief: [COMMIT-c56ae59.md](../build_/COMMITS/COMMIT-c56ae59.md)
+- Message: copilot: kill KNYT lore bias + thread brief shape + admin grants into LLM context
+
+## Commit `51d51fa` — 2026-05-26T17:53:08Z
+- Type: `refactor`
+- Brief: [COMMIT-51d51fa.md](../build_/COMMITS/COMMIT-51d51fa.md)
+- Message: Qriptopian Cartridge v3 restructure + KNYT Pulse rename
+
+## Commit `fd34baa` — 2026-05-26T19:55:50Z
+- Type: `push`
+- Brief: [COMMIT-fd34baa.md](../build_/COMMITS/COMMIT-fd34baa.md)
+- Message: Qriptopian Cartridge v3.1 refinement — Store, Qriptopia, Admin reorder + Community Correspondent
+
+## Commit `41c69e5` — 2026-05-26T20:49:13Z
+- Type: `push`
+- Brief: [COMMIT-41c69e5.md](../build_/COMMITS/COMMIT-41c69e5.md)
+- Message: myCanvas → Pulse publish + cartridge split end-to-end
+
+## Commit `6997901` — 2026-05-26T22:32:43Z
+- Type: `feat`
+- Brief: [COMMIT-6997901.md](../build_/COMMITS/COMMIT-6997901.md)
+- Message: Qriptopian Pulse — wire live + clone admin moderation + drop "Admin" labels
+
+## Commit `0929def` — 2026-05-26T23:14:25Z
+- Type: `push`
+- Brief: [COMMIT-0929def.md](../build_/COMMITS/COMMIT-0929def.md)
+- Message: Qripto-aware Codex Upload modal — Series + Content Types live
+
+## Commit `ddadc89` — 2026-05-27T00:21:51Z
+- Type: `push`
+- Brief: [COMMIT-ddadc89.md](../build_/COMMITS/COMMIT-ddadc89.md)
+- Message: Replace Qripto assetKind dropdown with Standalone | Part of a Series + X of Y inputs
+
+## Commit `9f14330` — 2026-05-27T01:31:26Z
+- Type: `feat`
+- Brief: [COMMIT-9f14330.md](../build_/COMMITS/COMMIT-9f14330.md)
+- Message: Add Qripto Cover content type + fix upload preview link for Supabase URLs
+
+## Commit `0e1fe66` — 2026-05-27T01:55:18Z
+- Type: `feat`
+- Brief: [COMMIT-0e1fe66.md](../build_/COMMITS/COMMIT-0e1fe66.md)
+- Message: Wire Qriptopian Papers tab + admin codex list to actual asset data
+
+## Commit `95e536c` — 2026-05-27T03:34:50Z
+- Type: `push`
+- Brief: [COMMIT-95e536c.md](../build_/COMMITS/COMMIT-95e536c.md)
+- Message: Skip encryption-at-rest for Qripto WIP uploads + open papers in PDF lite viewer
+
+## Commit `6352ef3` — 2026-05-27T04:39:35Z
+- Type: `push`
+- Brief: [COMMIT-6352ef3.md](../build_/COMMITS/COMMIT-6352ef3.md)
+- Message: Surface every Qripto upload row in admin (covers + papers) with diagnostics + bust Next cache
+
+## Commit `c52d1aa` — 2026-05-27T04:43:58Z
+- Type: `push`
+- Brief: [COMMIT-c52d1aa.md](../build_/COMMITS/COMMIT-c52d1aa.md)
+- Message: Render PDF covers via iframe + adopt KNYT 4-up card grid pattern for Qripto Papers
+
+## Commit `b386014` — 2026-05-27T05:03:53Z
+- Type: `push`
+- Brief: [COMMIT-b386014.md](../build_/COMMITS/COMMIT-b386014.md)
+- Message: Mirror Qripto Codex tabs (Magazines / Papers / Polity) into metaMe qriptopia group
+
+## Commit `b83c732` — 2026-05-27T05:26:35Z
+- Type: `push`
+- Brief: [COMMIT-b83c732.md](../build_/COMMITS/COMMIT-b83c732.md)
+- Message: Rasterise PDF covers server-side to WebP so they render as real thumbnails
+
+## Commit `31d3a6a` — 2026-05-27T14:50:45Z
+- Type: `push`
+- Brief: [COMMIT-31d3a6a.md](../build_/COMMITS/COMMIT-31d3a6a.md)
+- Message: Polyfill Promise.withResolvers in PDF-thumb route (pdfjs-dist 4.x needs Node 22 method on Amplify Node 20)
+
+## Commit `51f6a32` — 2026-05-27T15:26:46Z
+- Type: `push`
+- Brief: [COMMIT-51f6a32.md](../build_/COMMITS/COMMIT-51f6a32.md)
+- Message: Use pdfjs-dist legacy build (no worker) in PDF-thumb route so Lambda doesnt look for pdf.worker.mjs
+
+## Commit `df780ef` — 2026-05-27T18:41:54Z
+- Type: `push`
+- Brief: [COMMIT-df780ef.md](../build_/COMMITS/COMMIT-df780ef.md)
+- Message: Match KNYT cover pattern exactly: covers are images, no pdfjs rasteriser, no fake worker
+
+## Commit `47347c4` — 2026-05-27T18:50:28Z
+- Type: `feat`
+- Brief: [COMMIT-47347c4.md](../build_/COMMITS/COMMIT-47347c4.md)
+- Message: Remove cover_pdf upload option + add CLAUDE.md must-read on PDF-grid-with-image-cover pattern
+
+## Commit `e0e0470` — 2026-05-27T19:24:25Z
+- Type: `feat`
+- Brief: [COMMIT-e0e0470.md](../build_/COMMITS/COMMIT-e0e0470.md)
+- Message: Pair Qripto covers to papers by created_at index + add ID + URL columns to admin table (KNYT parity)
+
+## Commit `c305db9` — 2026-05-27T20:54:33Z
+- Type: `push`
+- Brief: [COMMIT-c305db9.md](../build_/COMMITS/COMMIT-c305db9.md)
+- Message: Sort Qripto Papers grid by leading sequence number in title so #1 sits left of each series row
+
+## Commit `b82bb3a` — 2026-05-27T20:58:22Z
+- Type: `push`
+- Brief: [COMMIT-b82bb3a.md](../build_/COMMITS/COMMIT-b82bb3a.md)
+- Message: Pair Qripto covers to papers by shared title stem (case+punct normalised) — works when covers have headings but no leading number
+
+## Commit `f6143da` — 2026-05-27T22:30:29Z
+- Type: `feat`
+- Brief: [COMMIT-f6143da.md](../build_/COMMITS/COMMIT-f6143da.md)
+- Message: Add editorial scope order — Experience Sovereignty now sits above COYN Thesis in Qripto Papers grid
+
+## Commit `d6a7362` — 2026-05-28T00:35:47Z
+- Type: `push`
+- Brief: [COMMIT-d6a7362.md](../build_/COMMITS/COMMIT-d6a7362.md)
+- Message: Reorder Qripto Papers grid — Experience Sovereignty, COYN Thesis, The Polity at the top
+
+## Commit `7f85e60` — 2026-05-28T02:00:33Z
+- Type: `feat`
+- Brief: [COMMIT-7f85e60.md](../build_/COMMITS/COMMIT-7f85e60.md)
+- Message: Add 21 Sats Franchises section to KNYT investor tab — 3 gold cards, ZeroKNYT cohort gate, PoA mailto, no-KNYT-rail flag, tab investor-gated
+
+## Commit `f40facd` — 2026-05-28T02:59:24Z
+- Type: `push`
+- Brief: [COMMIT-f40facd.md](../build_/COMMITS/COMMIT-f40facd.md)
+- Message: Use Satoshi gold seal for 21 Sats Franchise cards + admin override on investor-tab + cohort gates
+
+## Commit `d52a3a5` — 2026-05-28T03:53:24Z
+- Type: `fix`
+- Brief: [COMMIT-d52a3a5.md](../build_/COMMITS/COMMIT-d52a3a5.md)
+- Message: Suppress 21 Sats Franchises in retail Premium Bundles + use personaFetch for purchase complete + paypal (fix 401)

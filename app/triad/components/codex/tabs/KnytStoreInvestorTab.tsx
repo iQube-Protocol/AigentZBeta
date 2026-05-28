@@ -24,6 +24,14 @@ import { useKnytBalance } from '@/app/hooks/useKnytBalance';
 interface Props {
   personaId?: string;
   theme?: 'light' | 'dark';
+  /**
+   * Admin override — when true, the cohort gate on franchise SKUs is
+   * bypassed so admins can see and exercise the buy / purchase flow
+   * regardless of campaignCohort. Sourced from TabRenderer (which
+   * server-resolves the persona's adminCartridges). Mirrors the same
+   * pattern used by other admin-bypass surfaces in the cartridge.
+   */
+  isAdmin?: boolean;
 }
 
 interface PendingPurchase {
@@ -35,6 +43,9 @@ interface PendingPurchase {
   /** Optional explicit KNYT base, set per-SKU when the static USD→KNYT
    *  conversion doesn't reflect the desired token figure (e.g. Satoshi). */
   baseKnytOverride?: number;
+  /** When true, the purchase modal hides the KNYT pay rail. Set on
+   *  franchise SKUs whose `noKnytRail` flag is on. */
+  disableKnytRail?: boolean;
 }
 
 type InvestorView =
@@ -59,15 +70,28 @@ function KnytPricePill({ basePrice }: { basePrice: number }) {
  * Adds a small "+ cart" button next to the buy button. When `onAddToCart` is
  * provided, the row renders both. Otherwise it renders just the buy button.
  * When `isVerified` is false, both buttons are replaced with a locked indicator.
+ *
+ * Franchise extensions:
+ * - `applyHref` (e.g. mailto link) — render an Apply CTA instead of buy/cart.
+ *   Used by SKUs flagged `priceOnApplication`.
+ * - `canPurchase=false` — render a cohort-locked indicator instead of buy/cart
+ *   even when the persona IS a verified investor. Used by franchise SKUs whose
+ *   `purchaseCohort` doesn't match the active persona.
  */
 function InvestorBuyRow({
   onBuy,
   onAddToCart,
   isVerified,
+  applyHref,
+  canPurchase = true,
+  cohortLockLabel,
 }: {
   onBuy: (e: React.MouseEvent) => void;
   onAddToCart?: (e: React.MouseEvent) => void;
   isVerified: boolean;
+  applyHref?: string;
+  canPurchase?: boolean;
+  cohortLockLabel?: string;
 }) {
   if (!isVerified) {
     return (
@@ -75,6 +99,31 @@ function InvestorBuyRow({
         <span className="flex items-center gap-1 rounded-lg border border-yellow-900/40 bg-yellow-950/30 px-2 py-1 text-[10px] text-yellow-700">
           <Lock className="h-2.5 w-2.5 shrink-0" />
           Investors only
+        </span>
+      </div>
+    );
+  }
+  if (applyHref) {
+    return (
+      <div className="flex items-center gap-1 justify-end">
+        <a
+          href={applyHref}
+          onClick={(e) => e.stopPropagation()}
+          className="flex items-center gap-1 rounded-lg bg-yellow-700/80 hover:bg-yellow-600 px-2 py-1 text-[10px] font-semibold text-white transition-colors"
+          title="Apply for allocation"
+        >
+          <Crown className="h-3 w-3 shrink-0" />
+          <span>Apply</span>
+        </a>
+      </div>
+    );
+  }
+  if (!canPurchase) {
+    return (
+      <div className="flex items-center gap-1 justify-end">
+        <span className="flex items-center gap-1 rounded-lg border border-yellow-900/40 bg-yellow-950/30 px-2 py-1 text-[10px] text-yellow-700">
+          <Lock className="h-2.5 w-2.5 shrink-0" />
+          {cohortLockLabel ?? 'Cohort only'}
         </span>
       </div>
     );
@@ -113,6 +162,7 @@ function InvestorBundleCard({
   tierImage,
   isVerified,
   remainingSupply,
+  isZeroKnyt,
 }: {
   bundle: BundlePricing;
   onClick: () => void;
@@ -126,7 +176,20 @@ function InvestorBundleCard({
    */
   remainingSupply?: number;
   isVerified: boolean;
+  /** ZeroKNYT cohort flag — toggled by parent. Used to gate buy buttons
+   *  on franchise SKUs (those with purchaseCohort='zero_knyt'). */
+  isZeroKnyt?: boolean;
 }) {
+  // Franchise SKU helpers — `applyHref` populated when the SKU is PoA;
+  // `canPurchase` is false when the SKU requires a cohort the persona
+  // doesn't hold. Surface a distinct lock label so the operator knows
+  // it's a cohort gate, not the generic "investors only" gate.
+  const applyHref = bundle.priceOnApplication
+    ? `mailto:${bundle.poaEmail ?? 'info@metame.com'}?subject=${encodeURIComponent('Application: ' + bundle.label)}`
+    : undefined;
+  const cohortRequired = bundle.purchaseCohort;
+  const canPurchase = !cohortRequired || (cohortRequired === 'zero_knyt' && !!isZeroKnyt);
+  const cohortLockLabel = cohortRequired === 'zero_knyt' ? 'ZeroKNYT cohort' : 'Cohort gated';
   const isGnOnly = bundle.episodes.length === 1 && bundle.episodes[0] === -1;
   const cardImage = tierImage ?? (isGnOnly ? getCoverThumb(-1) ?? INVESTOR_SEAL : INVESTOR_SEAL);
   return (
@@ -149,7 +212,9 @@ function InvestorBundleCard({
           )}
           {bundle.isLimited && bundle.limitedSupply && (
             <div className="absolute top-1 right-1 rounded border border-red-700/40 bg-red-900/70 px-1 py-0.5 text-[9px] font-bold text-red-300">
-              {(remainingSupply ?? bundle.limitedSupply)} of {bundle.limitedSupply} left
+              {(remainingSupply ?? (bundle.initialClaimed != null
+                ? bundle.limitedSupply - bundle.initialClaimed
+                : bundle.limitedSupply))} of {bundle.limitedSupply} left
             </div>
           )}
           {bundle.isConditional && (
@@ -162,15 +227,28 @@ function InvestorBundleCard({
         <div className="px-1.5 pt-1 pb-0.5">
           <p className="text-[10px] font-semibold text-white leading-tight">{bundle.label}</p>
           <div className="flex items-baseline gap-1 flex-wrap">
-            <p className="text-[13px] font-bold text-yellow-300">${bundle.digitalPrice}</p>
-            {bundle.retailPrice && bundle.retailPrice !== bundle.digitalPrice && (
-              <p className="text-[10px] text-slate-500 line-through">${bundle.retailPrice}</p>
+            {bundle.priceOnApplication ? (
+              <p className="text-[11px] font-bold text-yellow-300">Price on application</p>
+            ) : (
+              <>
+                <p className="text-[13px] font-bold text-yellow-300">${bundle.digitalPrice.toLocaleString()}</p>
+                {bundle.retailPrice && bundle.retailPrice !== bundle.digitalPrice && (
+                  <p className="text-[10px] text-slate-500 line-through">${bundle.retailPrice.toLocaleString()}</p>
+                )}
+              </>
             )}
           </div>
         </div>
       </button>
       <div className="px-1.5 pb-1.5 pt-0.5">
-        <InvestorBuyRow onBuy={onBuy} onAddToCart={onAddToCart} isVerified={isVerified} />
+        <InvestorBuyRow
+          onBuy={onBuy}
+          onAddToCart={onAddToCart}
+          isVerified={isVerified}
+          applyHref={applyHref}
+          canPurchase={canPurchase}
+          cohortLockLabel={cohortLockLabel}
+        />
       </div>
     </div>
   );
@@ -184,6 +262,7 @@ function InvestorBundleDetail({
   getCharacterThumb,
   tierImage,
   isVerified,
+  isZeroKnyt,
 }: {
   bundle: BundlePricing;
   onBuy: () => void;
@@ -192,7 +271,15 @@ function InvestorBundleDetail({
   getCharacterThumb: (n: number) => string | undefined;
   tierImage?: string | null;
   isVerified: boolean;
+  isZeroKnyt?: boolean;
 }) {
+  // Franchise extensions — see InvestorBundleCard for full notes.
+  const applyHref = bundle.priceOnApplication
+    ? `mailto:${bundle.poaEmail ?? 'info@metame.com'}?subject=${encodeURIComponent('Application: ' + bundle.label)}`
+    : undefined;
+  const cohortRequired = bundle.purchaseCohort;
+  const canPurchase = !cohortRequired || (cohortRequired === 'zero_knyt' && !!isZeroKnyt);
+  const cohortLockLabel = cohortRequired === 'zero_knyt' ? 'ZeroKNYT cohort only' : 'Cohort gated';
   const includedEpisodes = EPISODE_PRICING.filter((ep) => bundle.episodes.includes(ep.episodeNumber));
   const individualTotal = includedEpisodes.reduce((s, ep) => s + ep.digitalPrice, 0);
 
@@ -243,25 +330,51 @@ function InvestorBundleDetail({
 
           <div className="rounded-xl border border-yellow-800/30 bg-yellow-900/10 p-3 space-y-1.5">
             <div className="flex items-baseline gap-2 flex-wrap">
-              <span className="text-2xl font-bold text-yellow-300">${bundle.digitalPrice}</span>
-              {bundle.retailPrice && bundle.retailPrice !== bundle.digitalPrice && (
-                <span className="text-sm text-slate-500 line-through">${bundle.retailPrice} retail</span>
+              {bundle.priceOnApplication ? (
+                <span className="text-xl font-bold text-yellow-300">Price on application</span>
+              ) : (
+                <>
+                  <span className="text-2xl font-bold text-yellow-300">${bundle.digitalPrice.toLocaleString()}</span>
+                  {bundle.retailPrice && bundle.retailPrice !== bundle.digitalPrice && (
+                    <span className="text-sm text-slate-500 line-through">${bundle.retailPrice.toLocaleString()} retail</span>
+                  )}
+                  <span className="text-[11px] text-slate-400">USD</span>
+                </>
               )}
-              <span className="text-[11px] text-slate-400">USD</span>
             </div>
-            <p className="text-[10px] font-semibold text-yellow-400">Investor pricing</p>
+            <p className="text-[10px] font-semibold text-yellow-400">
+              {bundle.priceOnApplication ? 'Allocation by application' : 'Investor pricing'}
+            </p>
             {bundle.memberPrice && (
               <p className="text-[10px] text-teal-400">
                 ${bundle.memberPrice} for {bundle.memberCohort} members
               </p>
             )}
-            <KnytPricePill basePrice={bundle.memberPrice ?? bundle.digitalPrice} />
+            {/* KNYT pill suppressed when the SKU has no KNYT rail (franchise
+                guild SKUs strategic-floor priced) or when it's PoA. */}
+            {!bundle.noKnytRail && !bundle.priceOnApplication && (
+              <KnytPricePill basePrice={bundle.memberPrice ?? bundle.digitalPrice} />
+            )}
             {bundle.digitalPrice < individualTotal && (
               <p className="text-[10px] text-teal-400">
                 Save ${(individualTotal - bundle.digitalPrice).toFixed(0)} vs individually
               </p>
             )}
-            {isVerified ? (
+            {isVerified && applyHref ? (
+              <a
+                href={applyHref}
+                className="mt-1 flex items-center justify-center gap-1.5 rounded-lg bg-yellow-700/80 hover:bg-yellow-600 px-3 py-1.5 text-[11px] font-semibold text-white transition-colors"
+                title="Apply for allocation"
+              >
+                <Crown className="h-3.5 w-3.5 shrink-0" />
+                Apply for allocation
+              </a>
+            ) : isVerified && !canPurchase ? (
+              <div className="flex items-center gap-1.5 mt-1 rounded-lg border border-yellow-900/40 bg-yellow-950/30 px-3 py-1.5">
+                <Lock className="h-3.5 w-3.5 text-yellow-700 shrink-0" />
+                <span className="text-[11px] text-yellow-700">{cohortLockLabel}</span>
+              </div>
+            ) : isVerified ? (
               <div className="flex items-center gap-1 mt-1">
                 <button
                   type="button"
@@ -381,9 +494,17 @@ function InvestorBundleDetail({
 }
 
 const gnInvestorBundles         = BUNDLE_PRICING.filter((b) => b.isInvestorOnly && b.episodes.length === 1 && b.episodes[0] === -1);
-const collectionInvestorBundles = BUNDLE_PRICING.filter((b) => b.isInvestorOnly && !(b.episodes.length === 1 && b.episodes[0] === -1));
+// Collection bundles = legacy investor offers (Satoshi, GN tiers without the
+// gn-only filter, etc.). Excludes franchise SKUs which render in their own
+// section beneath Collection Bundles.
+const collectionInvestorBundles = BUNDLE_PRICING.filter((b) =>
+  b.isInvestorOnly
+    && !(b.episodes.length === 1 && b.episodes[0] === -1)
+    && b.category !== 'franchise',
+);
+const franchiseInvestorBundles  = BUNDLE_PRICING.filter((b) => b.isInvestorOnly && b.category === 'franchise');
 
-export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
+export function KnytStoreInvestorTab({ personaId, theme: _theme, isAdmin = false }: Props) {
   const { knytPriceUsd, stale: knytRateStale } = useEthPrice();
   const liveKnytRate = knytPriceUsd > 0 ? knytPriceUsd : KNYT_USD_RATE;
   // DVN KNYT balance for the active persona — feeds the ContentPurchaseModal's
@@ -416,10 +537,45 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
   const [view, setView]         = useState<InvestorView>({ kind: 'landing' });
   const [purchase, setPurchase] = useState<PendingPurchase | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
-  // Purchase access mirrors the retail store: anyone reaching this tab can
-  // purchase at investor pricing. The investor offers themselves are the
-  // discount; further entitlement enforcement lives at the cart/checkout layer.
-  const isVerified = true;
+  // CRM-investor gating. Hits /api/crm/campaign/investor-status which
+  // returns { isInvestor, campaignCohort } so we can render the tab to
+  // verified investors only and gate franchise-SKU buy buttons to the
+  // ZeroKNYT cohort. While the request is in flight we render as if
+  // unverified — better than briefly showing buy buttons to non-investors.
+  const [investorStatus, setInvestorStatus] = useState<{
+    isInvestor: boolean;
+    campaignCohort: string | null;
+    loaded: boolean;
+  }>({ isInvestor: false, campaignCohort: null, loaded: false });
+  useEffect(() => {
+    if (!personaId) {
+      setInvestorStatus({ isInvestor: false, campaignCohort: null, loaded: true });
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/crm/campaign/investor-status?personaId=${encodeURIComponent(personaId)}`, { cache: 'no-store' });
+        const json = await res.json();
+        if (cancelled) return;
+        setInvestorStatus({
+          isInvestor: !!json.isInvestor,
+          campaignCohort: typeof json.campaignCohort === 'string' ? json.campaignCohort : null,
+          loaded: true,
+        });
+      } catch {
+        if (!cancelled) setInvestorStatus({ isInvestor: false, campaignCohort: null, loaded: true });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [personaId]);
+  // Admins are implicitly verified investors so they can exercise the
+  // payment flow end-to-end during QA — required by operator instruction
+  // 2026-05-27. The investor-status check still runs in parallel for
+  // real-investor branches (so admins on the ZeroKNYT cohort still get
+  // ZeroKNYT-specific copy).
+  const isVerified = investorStatus.isInvestor || isAdmin;
+  const isZeroKnyt = investorStatus.campaignCohort === 'zero_knyt' || isAdmin;
   const { getCoverThumb, getCharacterThumb } = useKnytThumbnails();
   const { getBundleImage } = useBundleImages();
   const cart = useKnytCart();
@@ -447,6 +603,11 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
   }
 
   function openBundlePurchase(bundle: BundlePricing) {
+    // PoA SKUs never open the purchase modal — their card surfaces an
+    // Apply CTA (mailto) directly. Defence-in-depth: if a stale Buy
+    // handler fires for a PoA SKU, no-op rather than open a modal with
+    // misleading pricing.
+    if (bundle.priceOnApplication) return;
     const isGnOnly = bundle.episodes.length === 1 && bundle.episodes[0] === -1;
     const image = isGnOnly ? getCoverThumb(-1) ?? INVESTOR_SEAL : INVESTOR_SEAL;
     setPurchase({
@@ -456,6 +617,7 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
       contentImage:     image,
       priceUsdOverride: bundle.memberPrice ?? bundle.digitalPrice,
       baseKnytOverride: bundle.baseKnytOverride,
+      disableKnytRail:  !!bundle.noKnytRail,
     });
   }
 
@@ -520,6 +682,7 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
                       getCoverThumb={getCoverThumb}
                       tierImage={getBundleImage(bundle.id)}
                       isVerified={isVerified}
+                      isZeroKnyt={isZeroKnyt}
                       remainingSupply={supplyMap[bundle.id]}
                     />
                   ))}
@@ -542,6 +705,33 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
                       getCoverThumb={getCoverThumb}
                       tierImage={getBundleImage(bundle.id)}
                       isVerified={isVerified}
+                      isZeroKnyt={isZeroKnyt}
+                      remainingSupply={supplyMap[bundle.id]}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 21 Sats Franchises — gold-card franchise SKUs. Visible to
+                all verified investors; buy buttons gated to ZeroKNYT
+                cohort (purchaseCohort='zero_knyt'). PoA SKU shows an
+                Apply CTA instead of buy/cart (mailto info@metame.com). */}
+            {franchiseInvestorBundles.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-semibold text-yellow-400 uppercase tracking-wide px-0.5">21 Sats Franchises</p>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {franchiseInvestorBundles.map((bundle) => (
+                    <InvestorBundleCard
+                      key={bundle.id}
+                      bundle={bundle}
+                      onClick={() => setView({ kind: 'bundle-detail', bundle })}
+                      onBuy={(e) => { e.stopPropagation(); openBundlePurchase(bundle); }}
+                      onAddToCart={bundle.priceOnApplication ? undefined : (e) => { e.stopPropagation(); addBundleToCart(bundle); }}
+                      getCoverThumb={getCoverThumb}
+                      tierImage={getBundleImage(bundle.id)}
+                      isVerified={isVerified}
+                      isZeroKnyt={isZeroKnyt}
                       remainingSupply={supplyMap[bundle.id]}
                     />
                   ))}
@@ -569,6 +759,7 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
             getCharacterThumb={getCharacterThumb}
             tierImage={getBundleImage(view.bundle.id)}
             isVerified={isVerified}
+            isZeroKnyt={isZeroKnyt}
           />
         )}
       </div>
@@ -589,6 +780,7 @@ export function KnytStoreInvestorTab({ personaId, theme: _theme }: Props) {
           knytBalance={balance?.dvnKnyt ?? 0}
           spendableKnyt={spendableBalance ?? 0}
           evmKnyt={balance?.evmKnyt ?? 0}
+          disableKnytRail={purchase.disableKnytRail}
           onBalanceRefresh={() => refreshBalance()}
           onPurchaseComplete={() => {
             setPurchase(null);

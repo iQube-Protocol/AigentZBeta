@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-26T14:21:16.992Z",
+  "last_updated": "2026-05-28T03:55:15.769Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "f32d51767fafb82350355a26b99a64695f2a1d13",
-  "latest_commit_short": "f32d517",
-  "latest_commit_title": "copilot: wire mic to STT + add Listen TTS + persist messages + clear affordance",
+  "latest_commit": "d52a3a5f4295f08ea59c7d9b202f41c3c7cbb0b7",
+  "latest_commit_short": "d52a3a5",
+  "latest_commit_title": "Suppress 21 Sats Franchises in retail Premium Bundles + use personaFetch for purchase complete + paypal (fix 401)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,240 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d52a3a5",
+      "full_sha": "d52a3a5f4295f08ea59c7d9b202f41c3c7cbb0b7",
+      "title": "Suppress 21 Sats Franchises in retail Premium Bundles + use personaFetch for purchase complete + paypal (fix 401)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T03:53:24Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-d52a3a5.md"
+    },
+    {
+      "sha": "f40facd",
+      "full_sha": "f40facd5b5f8cdfa7b030783c18584eec135bc5a",
+      "title": "Use Satoshi gold seal for 21 Sats Franchise cards + admin override on investor-tab + cohort gates",
+      "author": "Claude",
+      "timestamp": "2026-05-28T02:59:24Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f40facd.md"
+    },
+    {
+      "sha": "7f85e60",
+      "full_sha": "7f85e60de82fed0e2ebde2f2422581d490398fce",
+      "title": "Add 21 Sats Franchises section to KNYT investor tab — 3 gold cards, ZeroKNYT cohort gate, PoA mailto, no-KNYT-rail flag, tab investor-gated",
+      "author": "Claude",
+      "timestamp": "2026-05-28T02:00:33Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-7f85e60.md"
+    },
+    {
+      "sha": "d6a7362",
+      "full_sha": "d6a73629b42b74c009c1e4da7e6826eec66b6027",
+      "title": "Reorder Qripto Papers grid — Experience Sovereignty, COYN Thesis, The Polity at the top",
+      "author": "Claude",
+      "timestamp": "2026-05-28T00:35:47Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d6a7362.md"
+    },
+    {
+      "sha": "f6143da",
+      "full_sha": "f6143daf264a210d110196500c8e6b3555e3748d",
+      "title": "Add editorial scope order — Experience Sovereignty now sits above COYN Thesis in Qripto Papers grid",
+      "author": "Claude",
+      "timestamp": "2026-05-27T22:30:29Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-f6143da.md"
+    },
+    {
+      "sha": "b82bb3a",
+      "full_sha": "b82bb3a87c6fdba4a46c898196b7d8c1e9a9b214",
+      "title": "Pair Qripto covers to papers by shared title stem (case+punct normalised) — works when covers have headings but no leading number",
+      "author": "Claude",
+      "timestamp": "2026-05-27T20:58:22Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b82bb3a.md"
+    },
+    {
+      "sha": "c305db9",
+      "full_sha": "c305db9bc61d5afe72a79e731d26b5c3ffe7749d",
+      "title": "Sort Qripto Papers grid by leading sequence number in title so #1 sits left of each series row",
+      "author": "Claude",
+      "timestamp": "2026-05-27T20:54:33Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c305db9.md"
+    },
+    {
+      "sha": "e0e0470",
+      "full_sha": "e0e0470958421d0ab7f4fce6bfa261d7cef776ca",
+      "title": "Pair Qripto covers to papers by created_at index + add ID + URL columns to admin table (KNYT parity)",
+      "author": "Claude",
+      "timestamp": "2026-05-27T19:24:25Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-e0e0470.md"
+    },
+    {
+      "sha": "47347c4",
+      "full_sha": "47347c40af2ff2046edd5aa3357b84b3e75e36a1",
+      "title": "Remove cover_pdf upload option + add CLAUDE.md must-read on PDF-grid-with-image-cover pattern",
+      "author": "Claude",
+      "timestamp": "2026-05-27T18:50:28Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-47347c4.md"
+    },
+    {
+      "sha": "df780ef",
+      "full_sha": "df780eff29c51ac0c493de83a153170a9c55388c",
+      "title": "Match KNYT cover pattern exactly: covers are images, no pdfjs rasteriser, no fake worker",
+      "author": "Claude",
+      "timestamp": "2026-05-27T18:41:54Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-df780ef.md"
+    },
+    {
+      "sha": "51f6a32",
+      "full_sha": "51f6a32f6652ecec53bceb42d60f131cc9e2993c",
+      "title": "Use pdfjs-dist legacy build (no worker) in PDF-thumb route so Lambda doesnt look for pdf.worker.mjs",
+      "author": "Claude",
+      "timestamp": "2026-05-27T15:26:46Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-51f6a32.md"
+    },
+    {
+      "sha": "31d3a6a",
+      "full_sha": "31d3a6a0a3b762e7809ff6a62487620ea051e739",
+      "title": "Polyfill Promise.withResolvers in PDF-thumb route (pdfjs-dist 4.x needs Node 22 method on Amplify Node 20)",
+      "author": "Claude",
+      "timestamp": "2026-05-27T14:50:45Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-31d3a6a.md"
+    },
+    {
+      "sha": "b83c732",
+      "full_sha": "b83c7325a5f9aaa7198495ca6cfd273b5f2ba2de",
+      "title": "Rasterise PDF covers server-side to WebP so they render as real thumbnails",
+      "author": "Claude",
+      "timestamp": "2026-05-27T05:26:35Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b83c732.md"
+    },
+    {
+      "sha": "b386014",
+      "full_sha": "b38601486449bf62b1d5a54b3851817b05ce4f63",
+      "title": "Mirror Qripto Codex tabs (Magazines / Papers / Polity) into metaMe qriptopia group",
+      "author": "Claude",
+      "timestamp": "2026-05-27T05:03:53Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b386014.md"
+    },
+    {
+      "sha": "c52d1aa",
+      "full_sha": "c52d1aa56f1aa70a184bbe2ed9224c5e53c930e2",
+      "title": "Render PDF covers via iframe + adopt KNYT 4-up card grid pattern for Qripto Papers",
+      "author": "Claude",
+      "timestamp": "2026-05-27T04:43:58Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c52d1aa.md"
+    },
+    {
+      "sha": "6352ef3",
+      "full_sha": "6352ef3ca5399e596a310146becde5b29d515e2c",
+      "title": "Surface every Qripto upload row in admin (covers + papers) with diagnostics + bust Next cache",
+      "author": "Claude",
+      "timestamp": "2026-05-27T04:39:35Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-6352ef3.md"
+    },
+    {
+      "sha": "95e536c",
+      "full_sha": "95e536c123a2ea1d8a8abfa8363edaa6fda4f1bf",
+      "title": "Skip encryption-at-rest for Qripto WIP uploads + open papers in PDF lite viewer",
+      "author": "Claude",
+      "timestamp": "2026-05-27T03:34:50Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-95e536c.md"
+    },
+    {
+      "sha": "0e1fe66",
+      "full_sha": "0e1fe6681e3c77d69719e6cdf8e8b7d082ead602",
+      "title": "Wire Qriptopian Papers tab + admin codex list to actual asset data",
+      "author": "Claude",
+      "timestamp": "2026-05-27T01:55:18Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-0e1fe66.md"
+    },
+    {
+      "sha": "9f14330",
+      "full_sha": "9f14330f44a8696d174ec644f4ccf4a9d1666d5d",
+      "title": "Add Qripto Cover content type + fix upload preview link for Supabase URLs",
+      "author": "Claude",
+      "timestamp": "2026-05-27T01:31:26Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-9f14330.md"
+    },
+    {
+      "sha": "ddadc89",
+      "full_sha": "ddadc89d29ab2d98801f3803542c79ced24f142e",
+      "title": "Replace Qripto assetKind dropdown with Standalone | Part of a Series + X of Y inputs",
+      "author": "Claude",
+      "timestamp": "2026-05-27T00:21:51Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-ddadc89.md"
+    },
+    {
+      "sha": "0929def",
+      "full_sha": "0929defe329a50b4aafb64ab20133def0b25edc1",
+      "title": "Qripto-aware Codex Upload modal — Series + Content Types live",
+      "author": "Claude",
+      "timestamp": "2026-05-26T23:14:25Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0929def.md"
+    },
+    {
+      "sha": "6997901",
+      "full_sha": "6997901e0c04a54bf5f02612089cc8179fc86b1f",
+      "title": "Qriptopian Pulse — wire live + clone admin moderation + drop \"Admin\" labels",
+      "author": "Claude",
+      "timestamp": "2026-05-26T22:32:43Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-6997901.md"
+    },
+    {
+      "sha": "41c69e5",
+      "full_sha": "41c69e5e2541419c0984af0d68a7ae27a9b652ab",
+      "title": "myCanvas → Pulse publish + cartridge split end-to-end",
+      "author": "Claude",
+      "timestamp": "2026-05-26T20:49:13Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-41c69e5.md"
+    },
+    {
+      "sha": "fd34baa",
+      "full_sha": "fd34baa4a7e05b89c58e3e360219aeff46868e44",
+      "title": "Qriptopian Cartridge v3.1 refinement — Store, Qriptopia, Admin reorder + Community Correspondent",
+      "author": "Claude",
+      "timestamp": "2026-05-26T19:55:50Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-fd34baa.md"
+    },
+    {
+      "sha": "51d51fa",
+      "full_sha": "51d51fae303507f02a72d2fd6eb7e0679f7decbe",
+      "title": "Qriptopian Cartridge v3 restructure + KNYT Pulse rename",
+      "author": "Claude",
+      "timestamp": "2026-05-26T17:53:08Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-51d51fa.md"
+    },
+    {
+      "sha": "c56ae59",
+      "full_sha": "c56ae59256287ce9c5aa09bc97a39ae13057731a",
+      "title": "copilot: kill KNYT lore bias + thread brief shape + admin grants into LLM context",
+      "author": "Claude",
+      "timestamp": "2026-05-26T14:46:41Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c56ae59.md"
+    },
     {
       "sha": "f32d517",
       "full_sha": "f32d51767fafb82350355a26b99a64695f2a1d13",
@@ -1018,240 +1252,6 @@
       "timestamp": "2026-05-21T21:42:53Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c4fcf0b.md"
-    },
-    {
-      "sha": "d507119",
-      "full_sha": "d5071196afea61e558740caf1695f87c3a2e8a39",
-      "title": "activations: prefer ACTIVE row when multiple editions exist (fixes stale revokedAt timestamp on display)",
-      "author": "Claude",
-      "timestamp": "2026-05-21T20:53:14Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d507119.md"
-    },
-    {
-      "sha": "4dabf9f",
-      "full_sha": "4dabf9f3dfee569f40a318f5a9494fa1c262a2f0",
-      "title": "trigger deploy to dev: re-trigger activations soft-release fix (45fe2a8 already on dev)",
-      "author": "Claude",
-      "timestamp": "2026-05-21T18:42:22Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-4dabf9f.md"
-    },
-    {
-      "sha": "78a2cda",
-      "full_sha": "78a2cda8c5c62167d2ff7f88726e7bceb98ac39c",
-      "title": "backlog: generalise claimEdition to iqube-universal claim primitive (post-comic expansion)",
-      "author": "Claude",
-      "timestamp": "2026-05-21T17:13:10Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-78a2cda.md"
-    },
-    {
-      "sha": "d273247",
-      "full_sha": "d27324754d70ee3936b07b244c7450e2776ea67a",
-      "title": "fix activation bounce: soft-release editions (released_at) so auto-grant doesn't resurrect deactivated tabs",
-      "author": "Claude",
-      "timestamp": "2026-05-21T17:34:24Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-d273247.md"
-    },
-    {
-      "sha": "b0659f1",
-      "full_sha": "b0659f1c43270cd92bce7ce0a00e68e4096a2356",
-      "title": "diag: surface edition rows + released_at column presence (catches missing migration)",
-      "author": "Claude",
-      "timestamp": "2026-05-21T17:51:51Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-b0659f1.md"
-    },
-    {
-      "sha": "1dcc609",
-      "full_sha": "1dcc60979d580738ec47450486e18cf1d1804edf",
-      "title": "releaseEdition surfaces schema-cache failures + appendCommon collapses dup rows onto latest edition",
-      "author": "Claude",
-      "timestamp": "2026-05-21T18:16:49Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1dcc609.md"
-    },
-    {
-      "sha": "e4352e4",
-      "full_sha": "e4352e4f11615851da616cd284f67bbc588e0886",
-      "title": "trigger deploy: activations soft-release fix (d273247..1dcc609)",
-      "author": "Claude",
-      "timestamp": "2026-05-21T18:24:56Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-e4352e4.md"
-    },
-    {
-      "sha": "813b74c",
-      "full_sha": "813b74c4a3df932fd6453909257debe06b2bee3f",
-      "title": "knyt retail bundles tab: drop 4 single non-bundled GN offers (gn-investor-{qripto,digital,paperback,hardcover}) — they belong on the investor tab where they're discounted; rename tab 'Bundles & GN' → 'Bundles'; section header 'Graphic Novel, Episode & Character Bundles' → 'Premium Bundles' (investor tab unchanged)",
-      "author": "Claude",
-      "timestamp": "2026-05-19T05:55:17Z",
-      "type": "refactor",
-      "brief": "items/build_/COMMITS/COMMIT-813b74c.md"
-    },
-    {
-      "sha": "fdbd1b5",
-      "full_sha": "fdbd1b56697d84668a63347b44b136c0b28ad5c2",
-      "title": "knyt store bundles tab: strip investor copy and show retail price on the retail surface (no 'Investor Bundle' header, no 'Investor Only' pill, no 'Investor pricing' label, no member-price line; KnytPricePill + savings + cart all key off retailPrice ?? digitalPrice — investor tab unchanged)",
-      "author": "Claude",
-      "timestamp": "2026-05-19T05:50:08Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-fdbd1b5.md"
-    },
-    {
-      "sha": "21de6d9",
-      "full_sha": "21de6d9abd7ff5f4233678b563826d9627f37998",
-      "title": "knyt store: drop $600 ZeroKNYT memberPrice (was leaking to all visitors); investor stays $800, retail stays $1000 — cohort-gated ZeroKNYT offer to ship separately",
-      "author": "Claude",
-      "timestamp": "2026-05-19T05:41:20Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-21de6d9.md"
-    },
-    {
-      "sha": "3e039bb",
-      "full_sha": "3e039bb94a2780120b670cbcb1c6240ce0e72d53",
-      "title": "knyt pricing: last-derived fallback + indicative-pricing badge",
-      "author": "Claude",
-      "timestamp": "2026-05-19T04:16:20Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-3e039bb.md"
-    },
-    {
-      "sha": "621ec0c",
-      "full_sha": "621ec0cc4e332123ea5f71b957661cd52fd20325",
-      "title": "knyt pricing: align store UI + server debit with live KNYT→USD rate",
-      "author": "Claude",
-      "timestamp": "2026-05-19T03:58:27Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-621ec0c.md"
-    },
-    {
-      "sha": "7228c5c",
-      "full_sha": "7228c5c2be8364260fec7f9922427a818ac96100",
-      "title": "knyt characters: per-asset digiterra label — use terra when digiterra doesn't appear in title (fixes Deji Ifada/Kn0w1 first-card label)",
-      "author": "Claude",
-      "timestamp": "2026-05-19T03:11:40Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7228c5c.md"
-    },
-    {
-      "sha": "d5ca6b9",
-      "full_sha": "d5ca6b9bfead1c6656a83ee1f589786faadee208",
-      "title": "knyt characters: align 0-indexed convention end-to-end + score-based character matching",
-      "author": "Claude",
-      "timestamp": "2026-05-19T01:30:21Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d5ca6b9.md"
-    },
-    {
-      "sha": "c753039",
-      "full_sha": "c753039de38ce5113b3a76764de26de1c5bdd780",
-      "title": "knyt: gate GN + Ep #0 like every other episode; document PDF render pipeline",
-      "author": "Claude",
-      "timestamp": "2026-05-18T23:35:09Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c753039.md"
-    },
-    {
-      "sha": "f0c3a42",
-      "full_sha": "f0c3a422a8c9e4ce3e2bd9309c20895fe1f76cb9",
-      "title": "revert: AGN card back to PDFLiteReader (masterId proxy approach fails on 430MB GN — Lambda OOM)",
-      "author": "Claude",
-      "timestamp": "2026-05-16T22:27:57Z",
-      "type": "revert",
-      "brief": "items/build_/COMMITS/COMMIT-f0c3a42.md"
-    },
-    {
-      "sha": "a6c2ee8",
-      "full_sha": "a6c2ee8fb211c24be9f511c666e1517f2ad5fa04",
-      "title": "pdf viewer: surface page-load HTTP status + response body in the UI instead of forcing operator to dig through devtools",
-      "author": "Claude",
-      "timestamp": "2026-05-16T22:22:50Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a6c2ee8.md"
-    },
-    {
-      "sha": "6d0f74d",
-      "full_sha": "6d0f74d72a8a3dc5df59d933bf64e3ce18bfb72a",
-      "title": "codex GN: set maxDuration=60 on pdf-page-by-master route (Lambda's 10s default kills the 430MB fetch mid-flight)",
-      "author": "Claude",
-      "timestamp": "2026-05-16T22:18:19Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-6d0f74d.md"
-    },
-    {
-      "sha": "af22afd",
-      "full_sha": "af22afd4f904707339fbbe04f7ba04cc11ba5158",
-      "title": "codex GN: restore masterId-proxy page-by-page rendering (from 0feeb548)",
-      "author": "Claude",
-      "timestamp": "2026-05-16T22:06:10Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-af22afd.md"
-    },
-    {
-      "sha": "6131ef3",
-      "full_sha": "6131ef306f8c69c2401b79f1bca20966577f2342",
-      "title": "add aigentMe split-screen welcome tab with persistent CopilotKit AG-UI bridge",
-      "author": "Claude",
-      "timestamp": "2026-05-14T23:33:20Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-6131ef3.md"
-    },
-    {
-      "sha": "10db221",
-      "full_sha": "10db221fa89fb080e0fcee2a4aa7ca514bfd461b",
-      "title": "feat: thin-client active-persona integration — surface ownFioHandle + parent broadcast + integration doc",
-      "author": "Claude",
-      "timestamp": "2026-05-08T01:45:25Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-10db221.md"
-    },
-    {
-      "sha": "2d81f86",
-      "full_sha": "2d81f86cc10342037812083f85683ee486ad1e15",
-      "title": "trigger amplify rebuild: sprint 3+4 investor dashboard + admin investments tab",
-      "author": "Claude",
-      "timestamp": "2026-05-08T00:24:54Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-2d81f86.md"
-    },
-    {
-      "sha": "d2c4645",
-      "full_sha": "d2c46454970e0e0f00cd510168d5e0ce82f73d26",
-      "title": "add dev note: supabase postgrest silent column error + episode thumbnail fix pattern",
-      "author": "Claude",
-      "timestamp": "2026-05-06T05:33:01Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-d2c4645.md"
-    },
-    {
-      "sha": "e09bfed",
-      "full_sha": "e09bfed180980a917574098f424aa83c4a90c133",
-      "title": "wire wallet tasks/reputation/rewards tabs to /api/wallet/tasks",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:29:58Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-e09bfed.md"
-    },
-    {
-      "sha": "49d9905",
-      "full_sha": "49d9905135a7e72919532b200ebaf6eb3de34df6",
-      "title": "migrate entitlements/list route to getSupabaseServer (timeout-guarded)",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:43:23Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-49d9905.md"
-    },
-    {
-      "sha": "69da15a",
-      "full_sha": "69da15a4abbe119fb57135ffea9258f204fb99ae",
-      "title": "migrate codex/owned route to getSupabaseServer (timeout-guarded)",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:43:36Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-69da15a.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
