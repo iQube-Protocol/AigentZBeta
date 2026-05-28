@@ -1,17 +1,21 @@
 "use client";
 
 /**
- * UploadAttachmentPicker — inline multi-select of persona uploads for
- * use as outbound email attachments. Mounts inside compose modals
- * (Gmail, Marketa) above the body field.
+ * UploadAttachmentPicker — minimal controlled picker for persona
+ * uploads. Mounted in two surfaces:
  *
- * Lists READY uploads only — parsing-in-flight / failed / archived
- * uploads are excluded so the operator can't queue an attachment that
- * won't resolve at send time.
+ *   - Chat input footer (SmartTriadCopilotLayer) — paperclip toggle
+ *     lives next to the model selector; this component renders the
+ *     selected chips + library list when `open` is true.
+ *   - Compose modals (Gmail / Marketa) — defaults to standalone mode
+ *     where the picker manages its own open state via the legacy
+ *     `Pick from library` button (kept for those surfaces; lifted out
+ *     of the chat input per operator request to keep the prompt box
+ *     clean).
  *
- * Uploads tagged `use_kind='email_attachment'` surface first; the
- * rest follow in created_at order. Operator can still pick any ready
- * upload regardless of use_kind.
+ * Lists READY uploads only. Uploads tagged `use_kind='email_attachment'`
+ * surface first; the rest follow in created_at order. Operator can
+ * still pick any ready upload regardless of use_kind.
  */
 
 import React, { useEffect, useState } from "react";
@@ -22,12 +26,21 @@ import type { PersonaUploadRow } from "@/services/uploads/personaUploadService";
 interface Props {
   /** Active persona id — required for the upload list fetch. */
   personaId?: string;
-  /** Currently selected upload ids. Controlled by the parent modal. */
+  /** Currently selected upload ids. Controlled by the parent. */
   value: string[];
   onChange: (next: string[]) => void;
   /** Opens the full UploadDrawer for adding a new file mid-compose.
-   *  Optional — when omitted, the "Upload" affordance hides. */
+   *  Optional — when omitted, the "Upload new" affordance hides. */
   onOpenUploader?: () => void;
+  /**
+   * When provided, the picker is fully controlled by the parent and
+   * the in-component "Pick from library" trigger is suppressed.
+   * Chat input uses this mode (paperclip lives in the input footer).
+   * Compose modals leave `open`/`onOpenChange` undefined and use the
+   * in-component header trigger.
+   */
+  open?: boolean;
+  onOpenChange?: (next: boolean) => void;
   theme?: "light" | "dark";
 }
 
@@ -50,12 +63,27 @@ function formatBytes(n: number): string {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
-export function UploadAttachmentPicker({ personaId, value, onChange, onOpenUploader, theme = "dark" }: Props) {
+export function UploadAttachmentPicker({
+  personaId,
+  value,
+  onChange,
+  onOpenUploader,
+  open: controlledOpen,
+  onOpenChange,
+  theme = "dark",
+}: Props) {
   const isDark = theme === "dark";
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
+  const isControlled = typeof controlledOpen === 'boolean';
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = isControlled ? !!controlledOpen : internalOpen;
+  const setOpen = (next: boolean) => {
+    if (isControlled) onOpenChange?.(next);
+    else setInternalOpen(next);
+  };
+
   const [uploads, setUploads] = useState<PersonaUploadRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -67,7 +95,6 @@ export function UploadAttachmentPicker({ personaId, value, onChange, onOpenUploa
         if (!res.ok) return;
         const json = (await res.json()) as { uploads: PersonaUploadRow[] };
         if (cancelled) return;
-        // Sort email_attachment kind first.
         const sorted = [...json.uploads].sort((a, b) => {
           const aw = a.useKind === 'email_attachment' ? 0 : 1;
           const bw = b.useKind === 'email_attachment' ? 0 : 1;
@@ -75,6 +102,8 @@ export function UploadAttachmentPicker({ personaId, value, onChange, onOpenUploa
           return a.createdAt < b.createdAt ? 1 : -1;
         });
         setUploads(sorted);
+      } catch {
+        // Best-effort load — picker stays usable even if list fetch fails.
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -90,35 +119,45 @@ export function UploadAttachmentPicker({ personaId, value, onChange, onOpenUploa
     else onChange([...value, id]);
   };
 
+  // Nothing to render when uncontrolled-closed AND nothing selected.
+  // Keeps the chat prompt box clean by default.
+  if (isControlled && !open && value.length === 0) return null;
+
   return (
     <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
-        <label className={`text-xs uppercase tracking-wider ${mutedClass}`}>
-          Attachments
-          {value.length > 0 && <span className="ml-1 text-violet-300">· {value.length}</span>}
-        </label>
-        <div className="flex items-center gap-2">
-          {onOpenUploader && (
+      {/* In-component header — only when uncontrolled (compose modals).
+          Chat input drives open/close from the paperclip next to the
+          model selector and suppresses this header. */}
+      {!isControlled && (
+        <div className="flex items-center justify-between">
+          <label className={`text-xs uppercase tracking-wider ${mutedClass}`}>
+            Attachments
+            {value.length > 0 && <span className="ml-1 text-violet-300">· {value.length}</span>}
+          </label>
+          <div className="flex items-center gap-2">
+            {onOpenUploader && (
+              <button
+                type="button"
+                onClick={onOpenUploader}
+                className={`inline-flex items-center gap-1 text-[11px] underline ${mutedClass} hover:text-violet-300`}
+                title="Upload a new file"
+              >
+                <Upload className="w-3 h-3" /> Upload new
+              </button>
+            )}
             <button
               type="button"
-              onClick={onOpenUploader}
+              onClick={() => setOpen(!open)}
               className={`inline-flex items-center gap-1 text-[11px] underline ${mutedClass} hover:text-violet-300`}
-              title="Upload a new file"
             >
-              <Upload className="w-3 h-3" /> Upload new
+              <Paperclip className="w-3 h-3" /> {open ? 'Hide picker' : 'Pick from library'}
             </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            className={`inline-flex items-center gap-1 text-[11px] underline ${mutedClass} hover:text-violet-300`}
-          >
-            <Paperclip className="w-3 h-3" /> {open ? 'Hide picker' : 'Pick from library'}
-          </button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Selected chips (always visible when there are selections) */}
+      {/* Selected chips — always visible when there are selections,
+          regardless of open state. Operator can remove with X. */}
       {selected.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {selected.map((u) => (
@@ -144,17 +183,46 @@ export function UploadAttachmentPicker({ personaId, value, onChange, onOpenUploa
         </div>
       )}
 
-      {/* Library picker — collapsed by default. */}
+      {/* Library list — only when open. Header copy doubles as the
+          "Library ref" hint per operator request. */}
       {open && (
         <div className={`rounded-md border max-h-48 overflow-auto p-2 ${
           isDark ? "border-slate-700 bg-slate-900/60" : "border-slate-200 bg-white"
         }`}>
+          <div className="flex items-center justify-between mb-2">
+            <span className={`text-[10px] uppercase tracking-wider ${mutedClass}`}>
+              Library {value.length > 0 ? `· ${value.length} selected` : ''}
+            </span>
+            <div className="flex items-center gap-2">
+              {onOpenUploader && (
+                <button
+                  type="button"
+                  onClick={onOpenUploader}
+                  className={`inline-flex items-center gap-1 text-[10px] underline ${mutedClass} hover:text-violet-300`}
+                  title="Upload a new file"
+                >
+                  <Upload className="w-3 h-3" /> Upload new
+                </button>
+              )}
+              {isControlled && (
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className={`inline-flex items-center gap-1 text-[10px] underline ${mutedClass} hover:text-violet-300`}
+                >
+                  Hide picker
+                </button>
+              )}
+            </div>
+          </div>
           {loading ? (
             <div className={`flex items-center gap-2 text-xs ${mutedClass}`}>
               <Loader2 className="w-3 h-3 animate-spin" /> Loading library…
             </div>
           ) : uploads.length === 0 ? (
-            <p className={`text-xs ${mutedClass}`}>No ready uploads — use "Upload new" above.</p>
+            <p className={`text-xs ${mutedClass}`}>
+              No ready uploads in your library{onOpenUploader ? ' — use "Upload new" above to add one.' : '.'}
+            </p>
           ) : (
             <ul className="space-y-0.5">
               {uploads.map((u) => {

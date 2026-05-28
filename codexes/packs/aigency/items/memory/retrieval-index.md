@@ -1339,3 +1339,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-f6143da.md](../build_/COMMITS/COMMIT-f6143da.md)
 - Message: Add editorial scope order — Experience Sovereignty now sits above COYN Thesis in Qripto Papers grid
+
+## Commit `d6a7362` — 2026-05-28T00:35:47Z
+- Type: `push`
+- Brief: [COMMIT-d6a7362.md](../build_/COMMITS/COMMIT-d6a7362.md)
+- Message: Reorder Qripto Papers grid — Experience Sovereignty, COYN Thesis, The Polity at the top
