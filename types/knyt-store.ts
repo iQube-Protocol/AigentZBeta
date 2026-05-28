@@ -256,7 +256,7 @@ export const BUNDLE_PRICING: BundlePricing[] = [
       '13 Qripto Editions (all episodes)',
       '13 KNYT Characters',
       'Collector Card',
-      '1 Hardcover AgentiQ Graphic Novel (AGN)',
+      '1 Hardcover AgentiQ Graphic Novel (AGN) - Author Signed version available to current ZeroKNYTS ONLY',
       '13 Print Episodes',
       'Proof of Print Certificate',
     ],
@@ -442,8 +442,8 @@ export const BUNDLE_PRICING: BundlePricing[] = [
   // - Guild SKUs (#1/#2): no discount, KNYT rail suppressed in the modal.
   //   20% KNYT COYN bonus paid out at fulfillment (hidden field).
   // - Franchisee PoA: priced on application, no add-to-cart, Apply CTA
-  //   opens a mailto to info@metame.com. "17 of 21" left = limitedSupply
-  //   21 minus initialClaimed 4.
+  //   opens a mailto to info@metame.com. "15 of 21" left = limitedSupply
+  //   21 minus initialClaimed 6.
   {
     id: 'franchise-21sats-guild-zeroknyt',
     label: '21 Sats Guild ZeroKNYT',
@@ -503,7 +503,7 @@ export const BUNDLE_PRICING: BundlePricing[] = [
     isInvestorOnly: true,
     isLimited: true,
     limitedSupply: 21,
-    initialClaimed: 4,
+    initialClaimed: 6,
     printFulfillment: 'signed-author',
     category: 'franchise',
     purchaseCohort: 'zero_knyt',
