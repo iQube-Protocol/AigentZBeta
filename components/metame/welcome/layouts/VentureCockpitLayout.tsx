@@ -17,11 +17,12 @@
  * DIS template id: `venture-cockpit-layout-v1`.
  */
 
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import { Briefcase, AlertCircle, Loader2, RefreshCw, SlidersHorizontal, ChevronRight, Plus } from "lucide-react";
 import {
   NextBestActionCard,
 } from "@/components/metame/cards/NextBestActionCard";
+import { ExpandedNBEPill } from "@/components/metame/cards/ExpandedNBEPill";
 import { LayoutShell } from "./LayoutShell";
 import { accent, type Accent } from "./accentTokens";
 import type {
@@ -46,9 +47,31 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
     onNbeAct,
     onDismissVenture,
     onRequestLayout,
+    artifacts,
+    actionPendingArtifactId,
+    actionErrors,
+    secondTierApproval,
+    onSendArtifact,
+    onDismissArtifact,
+    onApproveSecondTier,
+    onCancelSecondTier,
+    onDismissQueued,
+    onMarkPillComplete,
+    queuedIntents,
   } = props;
 
   const isDark = theme === "dark";
+
+  // Group artifacts by parent intent so each queued Pill folds its own
+  // drafted artifact (same pattern as BriefLayout / DecisionBoardLayout).
+  const artifactsByIntent = useMemo<Record<string, Array<typeof artifacts[number]>>>(() => {
+    const map: Record<string, Array<typeof artifacts[number]>> = {};
+    for (const a of artifacts ?? []) {
+      if (!a.intentId) continue;
+      (map[a.intentId] ??= []).push(a);
+    }
+    return map;
+  }, [artifacts]);
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
   const stripClass = isDark
     ? "bg-slate-900/60 border-slate-800/60"
@@ -210,15 +233,46 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
                 <EmptyLine isDark={isDark} text="Nothing recommended right now." />
               ) : (
                 <div className="space-y-2">
-                  {data.recommendedActions.slice(0, 3).map((a) => (
-                    <NextBestActionCard
-                      key={a.id}
-                      action={a}
-                      onAct={onNbeAct}
-                      queued={!!props.queuedIntents?.[a.id]}
-                      theme={theme}
-                    />
-                  ))}
+                  {data.recommendedActions.slice(0, 3).map((a) => {
+                    const queued = queuedIntents?.[a.id];
+                    if (queued) {
+                      const artifactsForPill = artifactsByIntent[queued.intentId] ?? [];
+                      const matchedSecondTier =
+                        secondTierApproval &&
+                        artifactsForPill.some((af) => af.artifactId === secondTierApproval.artifactId)
+                          ? secondTierApproval
+                          : null;
+                      return (
+                        <ExpandedNBEPill
+                          key={a.id}
+                          action={a}
+                          queued={queued}
+                          artifacts={artifactsForPill}
+                          secondTierApproval={matchedSecondTier}
+                          actionPendingArtifactId={actionPendingArtifactId}
+                          actionErrors={actionErrors}
+                          onDismissQueued={() => onDismissQueued?.(a.id)}
+                          onSendArtifact={(id) => onSendArtifact?.(id)}
+                          onDismissArtifact={(id) => onDismissArtifact?.(id)}
+                          onApproveSecondTier={onApproveSecondTier}
+                          onCancelSecondTier={onCancelSecondTier}
+                          onMarkComplete={
+                            onMarkPillComplete ? () => onMarkPillComplete(a.id) : undefined
+                          }
+                          theme={theme}
+                        />
+                      );
+                    }
+                    return (
+                      <NextBestActionCard
+                        key={a.id}
+                        action={a}
+                        onAct={onNbeAct}
+                        queued={false}
+                        theme={theme}
+                      />
+                    );
+                  })}
                 </div>
               )}
             </Row>

@@ -51,7 +51,6 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
     actionErrors,
     onSendArtifact,
     onDismissArtifact,
-    onRequestLayout,
     composerKind,
     composerHandlers,
     composerInitialPrompt,
@@ -68,14 +67,15 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
   const pending = draft ? actionPendingArtifactId === draft.id : false;
   const err = draft ? actionErrors?.[draft.id] : null;
 
-  // Dismiss path — clears composerKind via onComposerClose when the
-  // composer is mounted as an overlay (the modern path), AND nudges
-  // the foreground layout back to 'stack' as a fallback for callers
-  // that still mount this layout as the foreground (legacy).
+  // Composer mounts only as an overlay now. Dismiss clears composerKind
+  // so the overlay unmounts; the foreground Capsule (Brief / Move-forward
+  // / Venture / Specialists) stays mounted underneath. The earlier
+  // onRequestLayout('stack') call was a legacy fallback from when the
+  // composer was a foreground layout — it actively broke the active
+  // Capsule by swapping activeLayoutId out from under it after compose.
   const handleDismiss = useCallback(() => {
     onComposerClose?.();
-    onRequestLayout?.("stack");
-  }, [onComposerClose, onRequestLayout]);
+  }, [onComposerClose]);
 
   // Inline form factory — when a composerKind is selected, render the
   // matching modal in `inline` mode (no overlay chrome) so the form
@@ -84,12 +84,11 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
   // via the handler the tab passed down.
   const inlineForm = (() => {
     if (!composerKind || !composerHandlers) return null;
-    // Modal X / Cancel → clear composerKind via onComposerClose so
-    // the overlay unmounts, plus the legacy layout swap for callers
-    // that mount this as the foreground.
+    // Modal X / Cancel → clear composerKind so the overlay unmounts.
+    // No foreground layout swap — the active Capsule (Brief / Move
+    // forward / Venture / Specialists) stays mounted underneath.
     const closeToStack = () => {
       onComposerClose?.();
-      onRequestLayout?.("stack");
     };
     switch (composerKind) {
       case "gmail":
