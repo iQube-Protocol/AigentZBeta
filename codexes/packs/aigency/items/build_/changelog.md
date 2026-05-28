@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`9754fe6`](https://github.com/iQube-Protocol/AigentZBeta/commit/9754fe68951ff0635100c92b5beca363881b14f9) [push] iQube Legibility Profile v0.1 — Commit 6/6: well-known catalog route + vitest suite + docs (Claude, 2026-05-28T15:45:51Z)
 - [`1e657ab`](https://github.com/iQube-Protocol/AigentZBeta/commit/1e657ab9eb63f541449c567fb831baef420ee559) [push] iQube Legibility Profile v0.1 — Commit 5/6: GET /policy + /actions routes (with private_payload_exposed structural lock) (Claude, 2026-05-28T15:43:33Z)
 - [`d5b2194`](https://github.com/iQube-Protocol/AigentZBeta/commit/d5b2194a78cdbbfeca78d07911d0eecfbb4f51e3) [push] iQube Legibility Profile v0.1 — Commit 2/6: card builder + lifecycle/visibility/permission mappers (Claude, 2026-05-28T15:39:31Z)
 - [`b317316`](https://github.com/iQube-Protocol/AigentZBeta/commit/b3173162713c3a93dee28e0a283019da3a06d310) [push] reinstate persona-uploads frontend wiring (lost in stable-build revert) (Claude, 2026-05-28T15:21:08Z)

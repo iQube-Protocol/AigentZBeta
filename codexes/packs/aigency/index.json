@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-28T15:45:26.794Z",
+  "last_updated": "2026-05-28T15:47:46.116Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1e657ab9eb63f541449c567fb831baef420ee559",
-  "latest_commit_short": "1e657ab",
-  "latest_commit_title": "iQube Legibility Profile v0.1 — Commit 5/6: GET /policy + /actions routes (with private_payload_exposed structural lock)",
+  "latest_commit": "9754fe68951ff0635100c92b5beca363881b14f9",
+  "latest_commit_short": "9754fe6",
+  "latest_commit_title": "iQube Legibility Profile v0.1 — Commit 6/6: well-known catalog route + vitest suite + docs",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "9754fe6",
+      "full_sha": "9754fe68951ff0635100c92b5beca363881b14f9",
+      "title": "iQube Legibility Profile v0.1 — Commit 6/6: well-known catalog route + vitest suite + docs",
+      "author": "Claude",
+      "timestamp": "2026-05-28T15:45:51Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-9754fe6.md"
+    },
     {
       "sha": "1e657ab",
       "full_sha": "1e657ab9eb63f541449c567fb831baef420ee559",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-22T22:41:01Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-f4fd3b4.md"
-    },
-    {
-      "sha": "bd16c01",
-      "full_sha": "bd16c017ef32ff6e42b869765d40813587783ead",
-      "title": "remix drafter (idea → title/article/image) + mic on remixer, customizer, aigentMe copilot",
-      "author": "Claude",
-      "timestamp": "2026-05-22T22:04:21Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-bd16c01.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

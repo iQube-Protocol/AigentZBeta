@@ -1404,3 +1404,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-1e657ab.md](../build_/COMMITS/COMMIT-1e657ab.md)
 - Message: iQube Legibility Profile v0.1 — Commit 5/6: GET /policy + /actions routes (with private_payload_exposed structural lock)
+
+## Commit `9754fe6` — 2026-05-28T15:45:51Z
+- Type: `push`
+- Brief: [COMMIT-9754fe6.md](../build_/COMMITS/COMMIT-9754fe6.md)
+- Message: iQube Legibility Profile v0.1 — Commit 6/6: well-known catalog route + vitest suite + docs
