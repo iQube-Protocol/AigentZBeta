@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-28T15:14:17.557Z",
+  "last_updated": "2026-05-28T15:16:50.135Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "614526f4b5f73f138b61b0477c5df0d8b2c10514",
-  "latest_commit_short": "614526f",
-  "latest_commit_title": "Backlog: 21 Sats Franchises store_skus seed + KNYT COYN bonus payout wiring",
+  "latest_commit": "1b7c2f815589b2c32b83164cec12a0b79e7df571",
+  "latest_commit_short": "1b7c2f8",
+  "latest_commit_title": "harden aigentMe Capsule/Layout contract — single activator + guardrails",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "1b7c2f8",
+      "full_sha": "1b7c2f815589b2c32b83164cec12a0b79e7df571",
+      "title": "harden aigentMe Capsule/Layout contract — single activator + guardrails",
+      "author": "Claude",
+      "timestamp": "2026-05-28T15:13:58Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1b7c2f8.md"
+    },
+    {
+      "sha": "29b5492",
+      "full_sha": "29b5492eaab95029b48cc271f3194d2adddc13dc",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-28T15:13:58Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-29b5492.md"
+    },
     {
       "sha": "614526f",
       "full_sha": "614526f4b5f73f138b61b0477c5df0d8b2c10514",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-22T17:50:40Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-8c31614.md"
-    },
-    {
-      "sha": "5b8f9fb",
-      "full_sha": "5b8f9fb2c5efd69f53aa5ea040b2bfdfc4cbdd1f",
-      "title": "add STT mic affordance to compose modals and expGuide textareas",
-      "author": "Claude",
-      "timestamp": "2026-05-22T16:48:23Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-5b8f9fb.md"
-    },
-    {
-      "sha": "bbaff66",
-      "full_sha": "bbaff669de9a0ff92090011f6632a5bd69379f8e",
-      "title": "fix activation toggle: explicit SELECT→INSERT/UPDATE (PostgREST upsert can't target partial unique index)",
-      "author": "Claude",
-      "timestamp": "2026-05-21T22:45:45Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-bbaff66.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

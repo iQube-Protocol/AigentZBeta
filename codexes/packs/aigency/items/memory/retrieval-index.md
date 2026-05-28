@@ -1374,3 +1374,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-614526f.md](../build_/COMMITS/COMMIT-614526f.md)
 - Message: Backlog: 21 Sats Franchises store_skus seed + KNYT COYN bonus payout wiring
+
+## Commit `29b5492` — 2026-05-28T15:13:58Z
+- Type: `push`
+- Brief: [COMMIT-29b5492.md](../build_/COMMITS/COMMIT-29b5492.md)
+- Message: trigger deploy to dev
+
+## Commit `1b7c2f8` — 2026-05-28T15:13:58Z
+- Type: `push`
+- Brief: [COMMIT-1b7c2f8.md](../build_/COMMITS/COMMIT-1b7c2f8.md)
+- Message: harden aigentMe Capsule/Layout contract — single activator + guardrails
