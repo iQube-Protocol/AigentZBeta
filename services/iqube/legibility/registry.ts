@@ -42,7 +42,10 @@ export async function getLegibilitySource(
   if (UUID_RE.test(iqubeId)) {
     return getContentQubeSource(iqubeId, opts);
   }
-  if (iqubeId.startsWith('tool_')) {
+  // Tools: canonical `tool-<name>` or legacy `tool_<name>` (the
+  // adapter normalises underscores to hyphens for the registry
+  // lookup so historical links don't 404).
+  if (iqubeId.startsWith('tool-') || iqubeId.startsWith('tool_')) {
     return getToolQubeSource(iqubeId);
   }
   if (iqubeId.startsWith('aigent-')) {

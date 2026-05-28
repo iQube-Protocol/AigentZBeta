@@ -77,7 +77,7 @@ function privateContentQube(): LegibilitySource {
 
 function publicToolQube(): LegibilitySource {
   return {
-    iqube_id: 'tool_web_search',
+    iqube_id: 'tool-web-search',
     name: 'web_search',
     description: 'Live web search tool.',
     primitive_type: 'ToolQube',

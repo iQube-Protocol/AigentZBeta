@@ -35,7 +35,7 @@ For a **`public_meta_private_payload` ContentQube**:
 - The action menu includes `read_meta` and `request_access` but **not** `read_payload`.
 - `access.payload_disclosure === 'policy_mediated'` advertises that the agent must go through the request-access flow.
 
-For a **`ToolQube`** (e.g. `tool_web_search`):
+For a **`ToolQube`** (e.g. `tool-web-search`, or the legacy form `tool_web_search` — both resolve):
 
 - Card describing the tool's existence and invocation shape.
 - `requires_policy_check` includes `audit_state` — agents must ask before introspecting a tool's runtime state.
@@ -114,7 +114,7 @@ The catalog returns three real working examples on dev-beta as soon as the sourc
 
 1. **Public canonized ContentQube** — e.g. the Qriptopian "Time Sovereignty" paper. Lives in `content_qubes` once canonized.
 2. **`public_meta_private_payload` WIP ContentQube** — a draft paper. Will surface once an in-progress row is marked publicly discoverable.
-3. **ToolQube** — `tool_web_search` (and every other tool registered with openclawCore).
+3. **ToolQube** — `tool-web-search`, `tool-echo`, `tool-owned-content-scan` (and every other tool registered with openclawCore).
 4. **AigentQube** — `aigent-marketa` (and the four other canonical runtime aigents).
 
 ## Spine guardrails (mandatory reading for any future contributor)
