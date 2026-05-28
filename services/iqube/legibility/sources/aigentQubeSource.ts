@@ -56,8 +56,8 @@ const PROFILES: Record<(typeof RUNTIME_AGENT_IDS)[number], AigentProfile> = {
       + 'Routes intent across specialists, mediates persona-bound disclosure, and emits NBE plans.',
     role: 'orchestrator',
     references_tool_iqubes: [
-      'tool_owned_content_scan',
-      'tool_web_search',
+      'tool-owned-content-scan',
+      'tool-web-search',
     ],
     supported_interfaces: {
       runtime_url: 'https://dev-beta.aigentz.me/runtime',
@@ -72,8 +72,8 @@ const PROFILES: Record<(typeof RUNTIME_AGENT_IDS)[number], AigentProfile> = {
       + 'Uses multiple ToolQubes to draft campaigns, score cohorts, and emit send pipelines.',
     role: 'specialist',
     references_tool_iqubes: [
-      'tool_web_search',
-      'tool_owned_content_scan',
+      'tool-web-search',
+      'tool-owned-content-scan',
     ],
     supported_interfaces: {
       runtime_url: 'https://dev-beta.aigentz.me/marketa',

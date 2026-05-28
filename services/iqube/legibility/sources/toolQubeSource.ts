@@ -4,13 +4,14 @@
  * tools self-register at module load.
  *
  * iqube_id convention:
- *   tool_<tool_name>  e.g. tool_echo, tool_web_search,
- *   tool_owned_content_scan
+ *   tool-<tool-name>  e.g. tool-echo, tool-web-search,
+ *   tool-owned-content-scan
  *
- * That gives a stable, slug-friendly id without requiring a DB
- * table. Fast-follow can promote tools into a `tool_qubes` table
- * if we want to track per-tool metadata (versioning, vendor, etc.)
- * separate from the in-code registry.
+ * The hyphen-prefixed format is canonical and matches the aigent
+ * naming (`aigent-me`, `aigent-marketa`). The underscore form
+ * (`tool_web_search`) is accepted as a fallback for backward
+ * compatibility — internal lookups convert underscores to hyphens
+ * because the real registry names use hyphens.
  *
  * Spine note: tool execution is mediated by the capability gateway
  * which already runs identity-aware policy. The card surface
@@ -21,20 +22,35 @@
 import { listToolDescriptions, getTool } from '@/services/capabilities/openclawCore/registry';
 import type { LegibilitySource } from '../cardBuilder';
 
-const TOOL_PREFIX = 'tool_';
+const TOOL_PREFIX_HYPHEN = 'tool-';
+const TOOL_PREFIX_UNDERSCORE = 'tool_';
 
 /**
- * Encode an openclawCore tool name into a legibility-id and back.
- * The wrapping prefix makes ToolQube ids distinguishable from
- * AigentQube ids (`aigent-*`) and ContentQube ids (UUIDs).
+ * Encode an openclawCore tool name (which may contain hyphens) into
+ * a canonical iqube_id. Tools register as e.g. `web-search`; the
+ * iqube_id becomes `tool-web-search`.
  */
 function toolIdFor(toolName: string): string {
-  return `${TOOL_PREFIX}${toolName}`;
+  return `${TOOL_PREFIX_HYPHEN}${toolName}`;
 }
 
+/**
+ * Decode an iqube_id back to a tool name. Accepts both:
+ * - canonical `tool-<name>` (hyphens preserved)
+ * - legacy `tool_<name>` (underscores swapped to hyphens for lookup)
+ *
+ * Returns null when the id doesn't start with either prefix.
+ */
 function toolNameFor(iqubeId: string): string | null {
-  if (!iqubeId.startsWith(TOOL_PREFIX)) return null;
-  return iqubeId.slice(TOOL_PREFIX.length);
+  if (iqubeId.startsWith(TOOL_PREFIX_HYPHEN)) {
+    return iqubeId.slice(TOOL_PREFIX_HYPHEN.length);
+  }
+  if (iqubeId.startsWith(TOOL_PREFIX_UNDERSCORE)) {
+    // Convert underscores to hyphens so `tool_web_search` →
+    // `web-search`, which IS the registered name.
+    return iqubeId.slice(TOOL_PREFIX_UNDERSCORE.length).replace(/_/g, '-');
+  }
+  return null;
 }
 
 /**

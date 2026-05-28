@@ -1,4 +1,7 @@
 # Build — Changelog
+- [`a7cce75`](https://github.com/iQube-Protocol/AigentZBeta/commit/a7cce75b6c219eb6aa70e7e702738edd3944f43e) [fix] Fix Qube tool id encoding: tool-<name> canonical, tool_<name> legacy fallback (registered names use hyphens, not underscores) (Claude, 2026-05-28T16:34:26Z)
+- [`3bdae27`](https://github.com/iQube-Protocol/AigentZBeta/commit/3bdae274891dcb57df8bf86d295488a89d4a284f) [push] uploads: keep status='ready' on enrichment failure + clarify Marketa label (Claude, 2026-05-28T16:22:20Z)
+- [`ef74414`](https://github.com/iQube-Protocol/AigentZBeta/commit/ef7441484ee38433cb55c919b0077b63d0312f68) [push] trigger deploy to dev (Claude, 2026-05-28T16:22:20Z)
 - [`2deac7d`](https://github.com/iQube-Protocol/AigentZBeta/commit/2deac7d1196005083f433fb2bb2567a7f55367b8) [feat] add persona-uploads bucket setup runbook (Claude, 2026-05-28T16:11:00Z)
 - [`9754fe6`](https://github.com/iQube-Protocol/AigentZBeta/commit/9754fe68951ff0635100c92b5beca363881b14f9) [push] iQube Legibility Profile v0.1 — Commit 6/6: well-known catalog route + vitest suite + docs (Claude, 2026-05-28T15:45:51Z)
 - [`1e657ab`](https://github.com/iQube-Protocol/AigentZBeta/commit/1e657ab9eb63f541449c567fb831baef420ee559) [push] iQube Legibility Profile v0.1 — Commit 5/6: GET /policy + /actions routes (with private_payload_exposed structural lock) (Claude, 2026-05-28T15:43:33Z)
