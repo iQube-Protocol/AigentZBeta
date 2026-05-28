@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-28T23:35:21.482Z",
+  "last_updated": "2026-05-28T23:47:52.878Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "7c30d2ec4bb2afeded912c206d648663e630416c",
-  "latest_commit_short": "7c30d2e",
-  "latest_commit_title": "Set hardhat evmVersion: 'cancun' (default is 'paris'; OpenZeppelin Bytes.sol mcopy needs Cancun, Base mainnet supports it)",
+  "latest_commit": "125b99ecd34223386faa432f7e0d9265a81c3634",
+  "latest_commit_short": "125b99e",
+  "latest_commit_title": "Record live Base mainnet addresses: QCT, iQubeNFT, QCTReserve (deployed 2026-05-28)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "125b99e",
+      "full_sha": "125b99ecd34223386faa432f7e0d9265a81c3634",
+      "title": "Record live Base mainnet addresses: QCT, iQubeNFT, QCTReserve (deployed 2026-05-28)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T23:45:56Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-125b99e.md"
+    },
     {
       "sha": "7c30d2e",
       "full_sha": "7c30d2ec4bb2afeded912c206d648663e630416c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-23T21:35:13Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-63d8621.md"
-    },
-    {
-      "sha": "8f7942f",
-      "full_sha": "8f7942f14a7c38c33cfbaa6bbca2521ce2361870",
-      "title": "Phase 2 color pass: shared accentTokens + glass-fill across Brief / Decision / Venture / Composer / Ledger; Google Drive token cross-persona fallback (auth-profile siblings)",
-      "author": "Claude",
-      "timestamp": "2026-05-23T20:53:17Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-8f7942f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
