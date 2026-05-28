@@ -144,10 +144,51 @@ export interface BundlePricing {
   isInvestorOnly?: boolean;
   isLimited?: boolean;
   limitedSupply?: number;
+  /**
+   * Static "already claimed" count for limited SKUs whose remaining
+   * supply isn't yet tracked by /api/wallet/knyt/sku-supply (e.g. PoA
+   * franchise SKUs that are allocated off-platform). When set, the card
+   * shows `(limitedSupply - initialClaimed) of limitedSupply left`.
+   * Once the supply API knows about the SKU, its number takes over.
+   */
+  initialClaimed?: number;
   /** When true this bundle is locked until conditionalMinOrders threshold is met */
   isConditional?: boolean;
   conditionalMinOrders?: number;
   conditionalNote?: string;
+  /**
+   * Editorial category — drives which section of the investor tab the
+   * card renders under. Default behaviour (undefined) puts the SKU in
+   * the existing Collection Bundles section. 'franchise' surfaces it
+   * under "21 Sats Franchises" instead.
+   */
+  category?: 'franchise';
+  /**
+   * Cohort slug a persona must hold to BUY this SKU. Render is still
+   * visible to all verified investors; only the buy + add-to-cart
+   * buttons are gated. Flip-friendly: set to `undefined` to open the
+   * SKU to all investors.
+   */
+  purchaseCohort?: string;
+  /**
+   * Suppress the KNYT pay rail in the purchase modal. Used for SKUs
+   * priced at strategic floor (no discount, no token path). The card
+   * also hides the "$X w/ $KNYT COYN" pill when this is set.
+   */
+  noKnytRail?: boolean;
+  /**
+   * SKU is priced "on application" — no add-to-cart, no buy button.
+   * The card replaces the buy row with an Apply CTA that mailto's
+   * `poaEmail` (or falls back to a default investor inbox).
+   */
+  priceOnApplication?: boolean;
+  poaEmail?: string;
+  /**
+   * Hidden bonus, expressed as a percent of purchase value, paid out in
+   * KNYT COYN to the buyer. Not rendered in public copy — captured here
+   * so the rewards pipeline can read it when fulfilling the order.
+   */
+  bonusKnytCoynPct?: number;
   printFulfillment: 'post-kickstarter' | 'publisher' | 'signed-author';
   includes?: string[];   // human-readable contents
   accessGrant?: string;  // e.g. 'zero-knyt-order' for Order of Metaiye tiers
@@ -392,6 +433,90 @@ export const BUNDLE_PRICING: BundlePricing[] = [
       '13 Print Episodes',
       'Proof of Print Certificate',
     ],
+  },
+
+  // ── 21 Sats Franchises ──────────────────────────────────────────────────
+  // Three offers under the 21 Sats franchise layer. Visible to all
+  // verified investors; buy buttons gated to the 'zero-knyt' cohort
+  // (flip-friendly: remove purchaseCohort to open up).
+  // - Guild SKUs (#1/#2): no discount, KNYT rail suppressed in the modal.
+  //   20% KNYT COYN bonus paid out at fulfillment (hidden field).
+  // - Franchisee PoA: priced on application, no add-to-cart, Apply CTA
+  //   opens a mailto to info@metame.com. "17 of 21" left = limitedSupply
+  //   21 minus initialClaimed 4.
+  {
+    id: 'franchise-21sats-guild-zeroknyt',
+    label: '21 Sats Guild ZeroKNYT',
+    episodes: [], // Franchise SKUs don't grant episodes directly.
+    digitalPrice: 3000,
+    retailPrice: 3000,
+    badgeTier: 'qripto',
+    isFullSeason: false,
+    isInvestorOnly: true,
+    isLimited: true,
+    limitedSupply: 21,
+    printFulfillment: 'signed-author',
+    category: 'franchise',
+    purchaseCohort: 'zero_knyt',
+    noKnytRail: true,
+    bonusKnytCoynPct: 20,
+    includes: [
+      'Membership in a 21-ZeroKNYT guild that collectively owns one SatoshiKNYT',
+      'Shared lore, campaigns, drops, activations, missions',
+      'Community-led world-building inside the Satoshi era',
+      'Exposure to the 21 Sats franchise layer without owning a full SatoshiKNYT',
+    ],
+    conditionalNote: '21 ZeroKNYTs. One SatoshiKNYT. A shared claim on the Satoshi era.',
+  },
+  {
+    id: 'franchise-21sats-guild-triadknyt',
+    label: '21 Sats Guild TriadKNYT',
+    episodes: [],
+    digitalPrice: 12000,
+    retailPrice: 12000,
+    badgeTier: 'qripto',
+    isFullSeason: false,
+    isInvestorOnly: true,
+    isLimited: true,
+    limitedSupply: 3,
+    printFulfillment: 'signed-author',
+    category: 'franchise',
+    purchaseCohort: 'zero_knyt',
+    noKnytRail: true,
+    bonusKnytCoynPct: 20,
+    includes: [
+      '1 of 3 founder seats in a Triad cell that owns one SatoshiKNYT',
+      'Tighter control and deeper participation vs. the 21-member guild',
+      'Combined capital, creativity, audience, media, technical, biz-dev strengths',
+      'Designed for operator / collector / creator / investor founders',
+    ],
+    conditionalNote: 'Three founders. One SatoshiKNYT. A tighter path into the franchise layer.',
+  },
+  {
+    id: 'franchise-21sats-franchisee-poa',
+    label: '21 Sats Franchisee PoA',
+    episodes: [],
+    digitalPrice: 0, // Not used — priced on application.
+    retailPrice: 0,
+    badgeTier: 'qripto',
+    isFullSeason: false,
+    isInvestorOnly: true,
+    isLimited: true,
+    limitedSupply: 21,
+    initialClaimed: 4,
+    printFulfillment: 'signed-author',
+    category: 'franchise',
+    purchaseCohort: 'zero_knyt',
+    priceOnApplication: true,
+    poaEmail: 'info@metame.com',
+    includes: [
+      'Full ownership of one of 21 Satoshi-era agentic media franchises',
+      'Strongest individual position across lore, commercial rights, AI agent activation',
+      'Long-term franchise participation: licensing, partnerships, content, appearances',
+      'Cross-world activations, memberships, agent services, collectibles',
+      'Allocation handled by PoA due to scarcity and strategic fit',
+    ],
+    conditionalNote: 'One of 21. Full franchise control. Maximum upside.',
   },
 ];
 

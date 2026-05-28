@@ -410,6 +410,11 @@ export const KNYT_CODEX: CodexConfig = {
       label: 'Investor KNYT',
       slug: 'store-investor',
       enabled: true,
+      // CRM-investor gated — hidden from the public pill rail until the
+      // persona resolves to a nakamoto_knyt_personas row. Tab component
+      // also runs the same check server-side and refuses to render
+      // purchase actions for non-investors (defence in depth).
+      investorOnly: true,
       group: 'store',
       order: 3,
       type: 'static',

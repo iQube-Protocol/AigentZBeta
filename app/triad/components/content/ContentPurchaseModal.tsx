@@ -135,6 +135,13 @@ interface ContentPurchaseModalProps {
   contentImage?: string;
   baseKnytOverride?: number;
   priceUsdOverride?: number;
+  /**
+   * Suppress the KNYT pay rail entirely. Used by SKUs priced at strategic
+   * floor with no KNYT discount path (e.g. 21 Sats Franchise guild
+   * offers). When true, the rail picker hides the KNYT option and the
+   * default rail flips to USDC.
+   */
+  disableKnytRail?: boolean;
   /** DVN ledger balance (immediately spendable in-app) */
   knytBalance?: number;
   /** Same as knytBalance — preferred alias passed by KnytTab */
@@ -211,6 +218,7 @@ export function ContentPurchaseModal({
   onBalanceRefresh,
   knytUsdRate,
   knytUsdRateIsStale,
+  disableKnytRail,
 }: ContentPurchaseModalProps) {
   const router = useRouter();
   const effectiveSpendable = spendableKnyt ?? knytBalance;
@@ -224,7 +232,10 @@ export function ContentPurchaseModal({
     (!!resolvedPersonaId && resolvedPersonaId !== 'default' && resolvedPersonaId !== 'guest') ||
     hasSession;
 
-  const [selectedRail, setSelectedRail] = useState<PaymentRail>('knyt');
+  // Default to USDC when the KNYT rail is suppressed for this SKU
+  // (e.g. franchise guild offers — no discount, no KNYT path). Falls
+  // back to 'knyt' for every other purchase, matching legacy behaviour.
+  const [selectedRail, setSelectedRail] = useState<PaymentRail>(disableKnytRail ? 'usdc' : 'knyt');
   const [purchasing, setPurchasing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ entitlementId: string; amount: number; currency: string; rail: string } | null>(null);
@@ -280,7 +291,14 @@ export function ContentPurchaseModal({
 
   useEffect(() => {
     if (open) {
-      setSelectedRail(canAffordKnyt || (canAffordEvmKnyt && !evmKnytBlocked) ? 'knyt' : 'paypal');
+      // When the KNYT rail is suppressed for this SKU, the auto-flip
+      // must not select 'knyt' — default to USDC instead (the most
+      // common fiat-adjacent rail for franchise-tier purchases).
+      if (disableKnytRail) {
+        setSelectedRail('usdc');
+      } else {
+        setSelectedRail(canAffordKnyt || (canAffordEvmKnyt && !evmKnytBlocked) ? 'knyt' : 'paypal');
+      }
       setError(null);
       setSuccess(null);
       setShowConfirmation(false);
@@ -744,6 +762,7 @@ export function ContentPurchaseModal({
               <div className="space-y-2 mb-5">
                 <p className="text-xs text-white/50 uppercase tracking-wider mb-2">Select Payment Method</p>
 
+                {!disableKnytRail && (
                 <button
                   onClick={() => setSelectedRail('knyt')}
                   disabled={!canAffordKnyt && !canAffordEvmKnyt}
@@ -792,6 +811,7 @@ export function ContentPurchaseModal({
                     <div className="text-xs text-white/40 line-through">{baseKnyt} KNYT</div>
                   </div>
                 </button>
+                )}
 
                 <button
                   onClick={() => setSelectedRail('qcents')}
