@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-27T21:00:04.790Z",
+  "last_updated": "2026-05-27T22:32:22.423Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "b82bb3a87c6fdba4a46c898196b7d8c1e9a9b214",
-  "latest_commit_short": "b82bb3a",
-  "latest_commit_title": "Pair Qripto covers to papers by shared title stem (case+punct normalised) — works when covers have headings but no leading number",
+  "latest_commit": "f6143daf264a210d110196500c8e6b3555e3748d",
+  "latest_commit_short": "f6143da",
+  "latest_commit_title": "Add editorial scope order — Experience Sovereignty now sits above COYN Thesis in Qripto Papers grid",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "f6143da",
+      "full_sha": "f6143daf264a210d110196500c8e6b3555e3748d",
+      "title": "Add editorial scope order — Experience Sovereignty now sits above COYN Thesis in Qripto Papers grid",
+      "author": "Claude",
+      "timestamp": "2026-05-27T22:30:29Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-f6143da.md"
+    },
     {
       "sha": "b82bb3a",
       "full_sha": "b82bb3a87c6fdba4a46c898196b7d8c1e9a9b214",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-21T17:34:24Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-d273247.md"
-    },
-    {
-      "sha": "b0659f1",
-      "full_sha": "b0659f1c43270cd92bce7ce0a00e68e4096a2356",
-      "title": "diag: surface edition rows + released_at column presence (catches missing migration)",
-      "author": "Claude",
-      "timestamp": "2026-05-21T17:51:51Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-b0659f1.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

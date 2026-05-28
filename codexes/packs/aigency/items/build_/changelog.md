@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`f6143da`](https://github.com/iQube-Protocol/AigentZBeta/commit/f6143daf264a210d110196500c8e6b3555e3748d) [feat] Add editorial scope order — Experience Sovereignty now sits above COYN Thesis in Qripto Papers grid (Claude, 2026-05-27T22:30:29Z)
 - [`b82bb3a`](https://github.com/iQube-Protocol/AigentZBeta/commit/b82bb3a87c6fdba4a46c898196b7d8c1e9a9b214) [push] Pair Qripto covers to papers by shared title stem (case+punct normalised) — works when covers have headings but no leading number (Claude, 2026-05-27T20:58:22Z)
 - [`c305db9`](https://github.com/iQube-Protocol/AigentZBeta/commit/c305db9bc61d5afe72a79e731d26b5c3ffe7749d) [push] Sort Qripto Papers grid by leading sequence number in title so #1 sits left of each series row (Claude, 2026-05-27T20:54:33Z)
 - [`e0e0470`](https://github.com/iQube-Protocol/AigentZBeta/commit/e0e0470958421d0ab7f4fce6bfa261d7cef776ca) [feat] Pair Qripto covers to papers by created_at index + add ID + URL columns to admin table (KNYT parity) (Claude, 2026-05-27T19:24:25Z)

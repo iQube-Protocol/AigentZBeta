@@ -1334,3 +1334,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-b82bb3a.md](../build_/COMMITS/COMMIT-b82bb3a.md)
 - Message: Pair Qripto covers to papers by shared title stem (case+punct normalised) — works when covers have headings but no leading number
+
+## Commit `f6143da` — 2026-05-27T22:30:29Z
+- Type: `feat`
+- Brief: [COMMIT-f6143da.md](../build_/COMMITS/COMMIT-f6143da.md)
+- Message: Add editorial scope order — Experience Sovereignty now sits above COYN Thesis in Qripto Papers grid
