@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-28T15:23:08.821Z",
+  "last_updated": "2026-05-28T15:41:22.329Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "b3173162713c3a93dee28e0a283019da3a06d310",
-  "latest_commit_short": "b317316",
-  "latest_commit_title": "reinstate persona-uploads frontend wiring (lost in stable-build revert)",
+  "latest_commit": "d5b2194a78cdbbfeca78d07911d0eecfbb4f51e3",
+  "latest_commit_short": "d5b2194",
+  "latest_commit_title": "iQube Legibility Profile v0.1 — Commit 2/6: card builder + lifecycle/visibility/permission mappers",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d5b2194",
+      "full_sha": "d5b2194a78cdbbfeca78d07911d0eecfbb4f51e3",
+      "title": "iQube Legibility Profile v0.1 — Commit 2/6: card builder + lifecycle/visibility/permission mappers",
+      "author": "Claude",
+      "timestamp": "2026-05-28T15:39:31Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d5b2194.md"
+    },
     {
       "sha": "b317316",
       "full_sha": "b3173162713c3a93dee28e0a283019da3a06d310",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-22T20:55:54Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-cb8bfb4.md"
-    },
-    {
-      "sha": "1ea306c",
-      "full_sha": "1ea306cf7ecf513323d05ec7f1add9b671da3e07",
-      "title": "switch mic STT from Web Speech API to MediaRecorder + Whisper",
-      "author": "Claude",
-      "timestamp": "2026-05-22T19:54:09Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1ea306c.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

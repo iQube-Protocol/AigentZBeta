@@ -1394,3 +1394,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-b317316.md](../build_/COMMITS/COMMIT-b317316.md)
 - Message: reinstate persona-uploads frontend wiring (lost in stable-build revert)
+
+## Commit `d5b2194` — 2026-05-28T15:39:31Z
+- Type: `push`
+- Brief: [COMMIT-d5b2194.md](../build_/COMMITS/COMMIT-d5b2194.md)
+- Message: iQube Legibility Profile v0.1 — Commit 2/6: card builder + lifecycle/visibility/permission mappers

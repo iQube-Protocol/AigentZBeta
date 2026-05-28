@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`d5b2194`](https://github.com/iQube-Protocol/AigentZBeta/commit/d5b2194a78cdbbfeca78d07911d0eecfbb4f51e3) [push] iQube Legibility Profile v0.1 — Commit 2/6: card builder + lifecycle/visibility/permission mappers (Claude, 2026-05-28T15:39:31Z)
 - [`b317316`](https://github.com/iQube-Protocol/AigentZBeta/commit/b3173162713c3a93dee28e0a283019da3a06d310) [push] reinstate persona-uploads frontend wiring (lost in stable-build revert) (Claude, 2026-05-28T15:21:08Z)
 - [`808e230`](https://github.com/iQube-Protocol/AigentZBeta/commit/808e230cc244296acc8a70c8a0d1a4d2f5185031) [push] trigger deploy to dev (Claude, 2026-05-28T15:21:13Z)
 - [`1b7c2f8`](https://github.com/iQube-Protocol/AigentZBeta/commit/1b7c2f815589b2c32b83164cec12a0b79e7df571) [push] harden aigentMe Capsule/Layout contract — single activator + guardrails (Claude, 2026-05-28T15:13:58Z)
