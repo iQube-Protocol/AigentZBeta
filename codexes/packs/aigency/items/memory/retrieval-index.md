@@ -1449,3 +1449,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-9294258.md](../build_/COMMITS/COMMIT-9294258.md)
 - Message: KNYT store: Franchisee PoA 15 of 21 + First KNYT investor signed-AGN gate
+
+## Commit `51be5ac` — 2026-05-28T21:14:28Z
+- Type: `push`
+- Brief: [COMMIT-51be5ac.md](../build_/COMMITS/COMMIT-51be5ac.md)
+- Message: trigger deploy to dev
+
+## Commit `9ddf15d` — 2026-05-28T21:14:28Z
+- Type: `push`
+- Brief: [COMMIT-9ddf15d.md](../build_/COMMITS/COMMIT-9ddf15d.md)
+- Message: KNYT store: surface-scoped includes + initialClaimed in sku-supply + retail X-of-Y badge

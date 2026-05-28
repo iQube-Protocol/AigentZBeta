@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`9ddf15d`](https://github.com/iQube-Protocol/AigentZBeta/commit/9ddf15d9dbe5ed9097b2c057462735aa23748e18) [push] KNYT store: surface-scoped includes + initialClaimed in sku-supply + retail X-of-Y badge (Claude, 2026-05-28T21:14:28Z)
+- [`51be5ac`](https://github.com/iQube-Protocol/AigentZBeta/commit/51be5ac706de3e8dfab07ab81bcd79931b180b3f) [push] trigger deploy to dev (Claude, 2026-05-28T21:14:28Z)
 - [`9294258`](https://github.com/iQube-Protocol/AigentZBeta/commit/9294258385854d28b253003fd0ad83389bbb999e) [push] KNYT store: Franchisee PoA 15 of 21 + First KNYT investor signed-AGN gate (Claude, 2026-05-28T18:21:59Z)
 - [`0ccf0e0`](https://github.com/iQube-Protocol/AigentZBeta/commit/0ccf0e04d7a4a5e3bef6f2fecde976a8df857e9f) [push] trigger deploy to dev (Claude, 2026-05-28T18:21:59Z)
 - [`28cb0d4`](https://github.com/iQube-Protocol/AigentZBeta/commit/28cb0d4e0cb8309e40c6a56e128b109b1013f694) [push] compose modals: thread personaId to UploadAttachmentPicker (Claude, 2026-05-28T16:49:46Z)
