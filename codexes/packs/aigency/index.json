@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-28T23:32:25.882Z",
+  "last_updated": "2026-05-28T23:35:21.482Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "5c63350364acdf04dba1593ce02d1d095672289b",
-  "latest_commit_short": "5c63350",
-  "latest_commit_title": "Bump hardhat solidity compiler 0.8.20 → 0.8.24 (OpenZeppelin v5 requires ^0.8.24)",
+  "latest_commit": "7c30d2ec4bb2afeded912c206d648663e630416c",
+  "latest_commit_short": "7c30d2e",
+  "latest_commit_title": "Set hardhat evmVersion: 'cancun' (default is 'paris'; OpenZeppelin Bytes.sol mcopy needs Cancun, Base mainnet supports it)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "7c30d2e",
+      "full_sha": "7c30d2ec4bb2afeded912c206d648663e630416c",
+      "title": "Set hardhat evmVersion: 'cancun' (default is 'paris'; OpenZeppelin Bytes.sol mcopy needs Cancun, Base mainnet supports it)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T23:33:41Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7c30d2e.md"
+    },
     {
       "sha": "5c63350",
       "full_sha": "5c63350364acdf04dba1593ce02d1d095672289b",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-23T20:53:17Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-8f7942f.md"
-    },
-    {
-      "sha": "cfa0696",
-      "full_sha": "cfa06962c512ec496189d86ae8c45216fd910061",
-      "title": "VentureCockpit: glass-fill accents (cyan/emerald/violet per row), carousel within body padding (no edge bleed), ApprovalLayout z-40 (above floating compose), body clearance for floating compose strip, compose-modal specific-field error",
-      "author": "Claude",
-      "timestamp": "2026-05-23T19:57:06Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-cfa0696.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

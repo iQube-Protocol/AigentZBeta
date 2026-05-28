@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`7c30d2e`](https://github.com/iQube-Protocol/AigentZBeta/commit/7c30d2ec4bb2afeded912c206d648663e630416c) [push] Set hardhat evmVersion: 'cancun' (default is 'paris'; OpenZeppelin Bytes.sol mcopy needs Cancun, Base mainnet supports it) (Claude, 2026-05-28T23:33:41Z)
 - [`5c63350`](https://github.com/iQube-Protocol/AigentZBeta/commit/5c63350364acdf04dba1593ce02d1d095672289b) [chore] Bump hardhat solidity compiler 0.8.20 → 0.8.24 (OpenZeppelin v5 requires ^0.8.24) (Claude, 2026-05-28T23:30:40Z)
 - [`2e4ee0b`](https://github.com/iQube-Protocol/AigentZBeta/commit/2e4ee0bf67fd2a377f9f706d8cd7a1e1ea5eec43) [feat] Add scripts/deploy-qct-reserve-base-mainnet.js — chain-pinned QCTReserve deploy with canonical Circle USDC + setReserve linking (Claude, 2026-05-28T22:41:48Z)
 - [`f517444`](https://github.com/iQube-Protocol/AigentZBeta/commit/f517444cd52117ed03cc53c790f29948e744171b) [feat] Add scripts/verify-deployer-key.js — local key→address derivation, no RPC, pre-deploy sanity check (Claude, 2026-05-28T22:16:32Z)

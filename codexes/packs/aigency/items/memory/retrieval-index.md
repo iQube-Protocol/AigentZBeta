@@ -1479,3 +1479,8 @@ Top-level retrieval anchors for this pack.
 - Type: `chore`
 - Brief: [COMMIT-5c63350.md](../build_/COMMITS/COMMIT-5c63350.md)
 - Message: Bump hardhat solidity compiler 0.8.20 → 0.8.24 (OpenZeppelin v5 requires ^0.8.24)
+
+## Commit `7c30d2e` — 2026-05-28T23:33:41Z
+- Type: `push`
+- Brief: [COMMIT-7c30d2e.md](../build_/COMMITS/COMMIT-7c30d2e.md)
+- Message: Set hardhat evmVersion: 'cancun' (default is 'paris'; OpenZeppelin Bytes.sol mcopy needs Cancun, Base mainnet supports it)
