@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-28T16:13:09.921Z",
+  "last_updated": "2026-05-28T16:24:17.439Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "2deac7d1196005083f433fb2bb2567a7f55367b8",
-  "latest_commit_short": "2deac7d",
-  "latest_commit_title": "add persona-uploads bucket setup runbook",
+  "latest_commit": "3bdae274891dcb57df8bf86d295488a89d4a284f",
+  "latest_commit_short": "3bdae27",
+  "latest_commit_title": "uploads: keep status='ready' on enrichment failure + clarify Marketa label",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "3bdae27",
+      "full_sha": "3bdae274891dcb57df8bf86d295488a89d4a284f",
+      "title": "uploads: keep status='ready' on enrichment failure + clarify Marketa label",
+      "author": "Claude",
+      "timestamp": "2026-05-28T16:22:20Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-3bdae27.md"
+    },
+    {
+      "sha": "ef74414",
+      "full_sha": "ef7441484ee38433cb55c919b0077b63d0312f68",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-28T16:22:20Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-ef74414.md"
+    },
     {
       "sha": "2deac7d",
       "full_sha": "2deac7d1196005083f433fb2bb2567a7f55367b8",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-23T17:34:19Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-d2f4b9d.md"
-    },
-    {
-      "sha": "7e62358",
-      "full_sha": "7e623588967fd109c4129b5edf89a98415406ada",
-      "title": "mic on remaining free-form inputs in metaMe setup + alignment surfaces",
-      "author": "Claude",
-      "timestamp": "2026-05-23T13:13:40Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7e62358.md"
-    },
-    {
-      "sha": "adee0c3",
-      "full_sha": "adee0c3e7b3f63220a2bb730e63ff7460945e54f",
-      "title": "remove redundant mic from aigentMe copilot input — Marketa already handles voice there",
-      "author": "Claude",
-      "timestamp": "2026-05-23T00:44:27Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-adee0c3.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
