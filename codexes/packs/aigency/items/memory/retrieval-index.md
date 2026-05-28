@@ -1369,3 +1369,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-b226c88.md](../build_/COMMITS/COMMIT-b226c88.md)
 - Message: fix capsule disappearance + restore Pill pattern to Move-forward + Venture
+
+## Commit `614526f` — 2026-05-28T15:12:14Z
+- Type: `push`
+- Brief: [COMMIT-614526f.md](../build_/COMMITS/COMMIT-614526f.md)
+- Message: Backlog: 21 Sats Franchises store_skus seed + KNYT COYN bonus payout wiring

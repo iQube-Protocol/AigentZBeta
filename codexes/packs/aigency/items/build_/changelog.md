@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`614526f`](https://github.com/iQube-Protocol/AigentZBeta/commit/614526f4b5f73f138b61b0477c5df0d8b2c10514) [push] Backlog: 21 Sats Franchises store_skus seed + KNYT COYN bonus payout wiring (Claude, 2026-05-28T15:12:14Z)
 - [`b226c88`](https://github.com/iQube-Protocol/AigentZBeta/commit/b226c88aa765d6e244364132ef53e2951f5d8d25) [fix] fix capsule disappearance + restore Pill pattern to Move-forward + Venture (Claude, 2026-05-28T05:43:50Z)
 - [`6ce6085`](https://github.com/iQube-Protocol/AigentZBeta/commit/6ce60855cc5da589f07892b3a6784f1fed8ba046) [push] trigger deploy to dev (Claude, 2026-05-28T05:43:54Z)
 - [`d52a3a5`](https://github.com/iQube-Protocol/AigentZBeta/commit/d52a3a5f4295f08ea59c7d9b202f41c3c7cbb0b7) [fix] Suppress 21 Sats Franchises in retail Premium Bundles + use personaFetch for purchase complete + paypal (fix 401) (Claude, 2026-05-28T03:53:24Z)

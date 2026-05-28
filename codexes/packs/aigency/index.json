@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-28T05:45:55.408Z",
+  "last_updated": "2026-05-28T15:14:17.557Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "b226c88aa765d6e244364132ef53e2951f5d8d25",
-  "latest_commit_short": "b226c88",
-  "latest_commit_title": "fix capsule disappearance + restore Pill pattern to Move-forward + Venture",
+  "latest_commit": "614526f4b5f73f138b61b0477c5df0d8b2c10514",
+  "latest_commit_short": "614526f",
+  "latest_commit_title": "Backlog: 21 Sats Franchises store_skus seed + KNYT COYN bonus payout wiring",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "614526f",
+      "full_sha": "614526f4b5f73f138b61b0477c5df0d8b2c10514",
+      "title": "Backlog: 21 Sats Franchises store_skus seed + KNYT COYN bonus payout wiring",
+      "author": "Claude",
+      "timestamp": "2026-05-28T15:12:14Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-614526f.md"
+    },
     {
       "sha": "b226c88",
       "full_sha": "b226c88aa765d6e244364132ef53e2951f5d8d25",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-21T22:45:45Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-bbaff66.md"
-    },
-    {
-      "sha": "0e8264f",
-      "full_sha": "0e8264f66ad3d431630fdfe45d871349cde8b9e7",
-      "title": "activation toggle: dedicated rarity='activation' + partial unique index + atomic UPSERT/UPDATE",
-      "author": "Claude",
-      "timestamp": "2026-05-21T22:30:59Z",
-      "type": "chore",
-      "brief": "items/build_/COMMITS/COMMIT-0e8264f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
