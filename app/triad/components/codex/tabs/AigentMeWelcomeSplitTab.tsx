@@ -184,12 +184,6 @@ export interface ArtifactDispatchPayload {
   source: 'specialist' | 'nbe-act' | 'compose-chip' | 'chat';
   /** Optional specialist id for downstream telemetry. */
   specialistId?: string;
-  /** Optional synthetic intent id — threaded through to
-   *  /api/assistant/create-artifact so dispatched artifacts can be
-   *  grouped under a Pill / Capsule by intentId. Used by the
-   *  Specialists flow to bind suggested-artifact drafts to the
-   *  consultation that spawned them. */
-  sourceIntentId?: string;
 }
 
 // Back-compat — kept for the few callers that explicitly want a
@@ -810,6 +804,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
     if (ctaId === 'ask-specialists') {
       engageCapsule('ask-specialists');
+      setActiveLayoutId('specialists');
       setBrief(null);
       setBriefError(null);
       setBriefLoading(false);
@@ -1100,13 +1095,6 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // and crashed the cartridge with "can't access lexical declaration
   // before initialization".
   const [composerSourceIntentId, setComposerSourceIntentId] = useState<string | null>(null);
-  // Map of synthetic-intent-id → specialist id for artifacts spawned
-  // from a specialist's suggested-artifact chip. Lets the
-  // SpecialistsLayout fold those drafts inside the Ask Specialists
-  // Capsule (Pill-pattern parity with Brief / Move-forward / Venture)
-  // and lets the right-pane standalone-artifact render skip them so
-  // they don't double-render as orphans.
-  const [specialistIntentMap, setSpecialistIntentMap] = useState<Record<string, string>>({});
 
   // ── Compose handlers — all 6 mirror the classic tab pattern ────────
   const handleDraftEmail = useCallback(async (prompt: string) => {
@@ -1687,16 +1675,6 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     artifactType: string,
     response: import('@/components/metame/cards/SpecialistResponseCard').SpecialistResponseData,
   ) => {
-    // Generate a synthetic intent id for this specialist-spawned
-    // artifact. Routed into create-artifact via composerSourceIntentId,
-    // so the persisted artifact carries intentId = synthetic id.
-    // SpecialistsLayout uses the (intent → specialist) map to fold the
-    // resulting artifact card inside the Ask Specialists Capsule
-    // instead of letting it float as an orphan in the right pane.
-    const synthIntentId = `specialist:${response.specialistId}:${Date.now()}`;
-    setSpecialistIntentMap((prev) => ({ ...prev, [synthIntentId]: response.specialistId }));
-    setComposerSourceIntentId(synthIntentId);
-
     const cls = classifySuggestedArtifact(artifactType);
     if (cls.kind === 'composer') {
       const prompt = buildPromptForSuggestedArtifact(artifactType, response);
@@ -1706,8 +1684,6 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       return;
     }
     // Non-composer destinations route through the unified dispatcher.
-    // Pass the synthetic intent id so dispatched artifacts also land
-    // tagged for specialist folding.
     dispatchArtifact({
       artifactType,
       title: response.title,
@@ -1715,7 +1691,6 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       recommendations: response.recommendations,
       source: 'specialist',
       specialistId: response.specialistId,
-      sourceIntentId: synthIntentId,
     });
   }, [dispatchArtifact]);
 
@@ -2520,7 +2495,6 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 onHandoffSpecialist: handleHandoffSpecialist,
                 onOpenActivationsForSpecialist: handleOpenActivationsForSpecialist,
                 onUseSuggestedArtifact: handleUseSuggestedArtifact,
-                specialistIntentMap,
                 // Pre-baked aigentMe draft prompt for the ComposerLayout
                 // when the operator fired a suggested-artifact button.
                 // Cleared by every non-suggested-artifact composer open

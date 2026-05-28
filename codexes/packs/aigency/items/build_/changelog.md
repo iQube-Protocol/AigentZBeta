@@ -1,4 +1,7 @@
 # Build — Changelog
+- [`b226c88`](https://github.com/iQube-Protocol/AigentZBeta/commit/b226c88aa765d6e244364132ef53e2951f5d8d25) [fix] fix capsule disappearance + restore Pill pattern to Move-forward + Venture (Claude, 2026-05-28T05:43:50Z)
+- [`6ce6085`](https://github.com/iQube-Protocol/AigentZBeta/commit/6ce60855cc5da589f07892b3a6784f1fed8ba046) [push] trigger deploy to dev (Claude, 2026-05-28T05:43:54Z)
+- [`d52a3a5`](https://github.com/iQube-Protocol/AigentZBeta/commit/d52a3a5f4295f08ea59c7d9b202f41c3c7cbb0b7) [fix] Suppress 21 Sats Franchises in retail Premium Bundles + use personaFetch for purchase complete + paypal (fix 401) (Claude, 2026-05-28T03:53:24Z)
 - [`f40facd`](https://github.com/iQube-Protocol/AigentZBeta/commit/f40facd5b5f8cdfa7b030783c18584eec135bc5a) [push] Use Satoshi gold seal for 21 Sats Franchise cards + admin override on investor-tab + cohort gates (Claude, 2026-05-28T02:59:24Z)
 - [`7f85e60`](https://github.com/iQube-Protocol/AigentZBeta/commit/7f85e60de82fed0e2ebde2f2422581d490398fce) [feat] Add 21 Sats Franchises section to KNYT investor tab — 3 gold cards, ZeroKNYT cohort gate, PoA mailto, no-KNYT-rail flag, tab investor-gated (Claude, 2026-05-28T02:00:33Z)
 - [`d6a7362`](https://github.com/iQube-Protocol/AigentZBeta/commit/d6a73629b42b74c009c1e4da7e6826eec66b6027) [push] Reorder Qripto Papers grid — Experience Sovereignty, COYN Thesis, The Polity at the top (Claude, 2026-05-28T00:35:47Z)
