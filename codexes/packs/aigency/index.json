@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-28T22:43:47.315Z",
+  "last_updated": "2026-05-28T23:32:25.882Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "2e4ee0bf67fd2a377f9f706d8cd7a1e1ea5eec43",
-  "latest_commit_short": "2e4ee0b",
-  "latest_commit_title": "Add scripts/deploy-qct-reserve-base-mainnet.js — chain-pinned QCTReserve deploy with canonical Circle USDC + setReserve linking",
+  "latest_commit": "5c63350364acdf04dba1593ce02d1d095672289b",
+  "latest_commit_short": "5c63350",
+  "latest_commit_title": "Bump hardhat solidity compiler 0.8.20 → 0.8.24 (OpenZeppelin v5 requires ^0.8.24)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5c63350",
+      "full_sha": "5c63350364acdf04dba1593ce02d1d095672289b",
+      "title": "Bump hardhat solidity compiler 0.8.20 → 0.8.24 (OpenZeppelin v5 requires ^0.8.24)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T23:30:40Z",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-5c63350.md"
+    },
     {
       "sha": "2e4ee0b",
       "full_sha": "2e4ee0bf67fd2a377f9f706d8cd7a1e1ea5eec43",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-23T19:57:06Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-cfa0696.md"
-    },
-    {
-      "sha": "3aea78f",
-      "full_sha": "3aea78f241e540b42009a8c4780762b8cc4d809f",
-      "title": "ActivityReceiptCard: click header to expand inline JSON drawer (T1-safe payload + copy button)",
-      "author": "Claude",
-      "timestamp": "2026-05-23T19:18:47Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-3aea78f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
