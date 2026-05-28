@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-28T22:14:50.264Z",
+  "last_updated": "2026-05-28T22:18:19.359Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "b41253fc1664d19fdffb96f5e9f5dda6c8dd7299",
-  "latest_commit_short": "b41253f",
-  "latest_commit_title": "Add chain-pinned + balance-prechecked Base mainnet deploy scripts for QCT + iQubeNFT (single-network, no multi-deploy bug)",
+  "latest_commit": "f517444cd52117ed03cc53c790f29948e744171b",
+  "latest_commit_short": "f517444",
+  "latest_commit_title": "Add scripts/verify-deployer-key.js — local key→address derivation, no RPC, pre-deploy sanity check",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "f517444",
+      "full_sha": "f517444cd52117ed03cc53c790f29948e744171b",
+      "title": "Add scripts/verify-deployer-key.js — local key→address derivation, no RPC, pre-deploy sanity check",
+      "author": "Claude",
+      "timestamp": "2026-05-28T22:16:32Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-f517444.md"
+    },
     {
       "sha": "b41253f",
       "full_sha": "b41253fc1664d19fdffb96f5e9f5dda6c8dd7299",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-23T19:16:09Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-d08e112.md"
-    },
-    {
-      "sha": "d1698e5",
-      "full_sha": "d1698e5c1c59d15fa0f2d561939c95fef4af180b",
-      "title": "personas: close OPERATIONAL_HANDBOOK template literal (was escaped backtick — broke Amplify build)",
-      "author": "Claude",
-      "timestamp": "2026-05-23T18:24:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d1698e5.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

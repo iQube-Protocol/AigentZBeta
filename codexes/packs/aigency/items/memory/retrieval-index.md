@@ -1464,3 +1464,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-b41253f.md](../build_/COMMITS/COMMIT-b41253f.md)
 - Message: Add chain-pinned + balance-prechecked Base mainnet deploy scripts for QCT + iQubeNFT (single-network, no multi-deploy bug)
+
+## Commit `f517444` — 2026-05-28T22:16:32Z
+- Type: `feat`
+- Brief: [COMMIT-f517444.md](../build_/COMMITS/COMMIT-f517444.md)
+- Message: Add scripts/verify-deployer-key.js — local key→address derivation, no RPC, pre-deploy sanity check
