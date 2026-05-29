@@ -1549,3 +1549,28 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-477030b.md](../build_/COMMITS/COMMIT-477030b.md)
 - Message: STT timeout + composer state persistence (sub-tab survival)
+
+## Commit `89adda9` — 2026-05-29T08:16:01Z
+- Type: `push`
+- Brief: [COMMIT-89adda9.md](../build_/COMMITS/COMMIT-89adda9.md)
+- Message: Guard rail — baseTokenMint refuses to broadcast unless connected RPC reports chainId 8453 (caught wrong-chain phantom-mint to Sepolia 2026-05-29)
+
+## Commit `a203a05` — 2026-05-29T08:40:55Z
+- Type: `push`
+- Brief: [COMMIT-a203a05.md](../build_/COMMITS/COMMIT-a203a05.md)
+- Message: trigger deploy to dev
+
+## Commit `6903e15` — 2026-05-29T08:40:55Z
+- Type: `fix`
+- Brief: [COMMIT-6903e15.md](../build_/COMMITS/COMMIT-6903e15.md)
+- Message: draftLlmHelper: fix Anthropic model id — claude-sonnet-4-5 → claude-sonnet-4-6
+
+## Commit `f2ef1a7` — 2026-05-29T08:52:52Z
+- Type: `push`
+- Brief: [COMMIT-f2ef1a7.md](../build_/COMMITS/COMMIT-f2ef1a7.md)
+- Message: trigger deploy to dev
+
+## Commit `9dce3d2` — 2026-05-29T08:52:52Z
+- Type: `feat`
+- Brief: [COMMIT-9dce3d2.md](../build_/COMMITS/COMMIT-9dce3d2.md)
+- Message: llmDraftHelper: add Venice (Llama 3.3 70B) as third-tier fallback

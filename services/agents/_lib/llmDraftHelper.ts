@@ -15,13 +15,23 @@
  */
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const VENICE_API_KEY = process.env.VENICE_API_KEY;
+const VENICE_BASE_URL = process.env.VENICE_BASE_URL || 'https://api.venice.ai/api/v1';
 
 // Match the model used by nbeLlmRerank + specialistRouter so the LLM
 // stack stays consistent. Override via env if a workstream needs a
 // different family — but keep the default in sync with the other
-// Anthropic call sites.
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_DRAFT_MODEL || 'claude-sonnet-4-5';
+// Anthropic call sites. claude-sonnet-4-6 is the current Sonnet
+// generation (Sonnet 4.6 in the Claude 4.X family); other Anthropic
+// call sites in this repo target claude-haiku-4-5-20251001 for cheaper
+// classification work — drafting benefits from Sonnet's quality so we
+// pin to Sonnet here.
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_DRAFT_MODEL || 'claude-sonnet-4-6';
 const OPENAI_MODEL = process.env.OPENAI_DRAFT_MODEL || 'gpt-4o-mini';
+// Venice hosts open-source models (Llama / Mistral variants). We pin
+// to the same llama-3.3-70b that specialistRouter already uses so dev
+// + prod accounts share the same model allowlist. Override via env.
+const VENICE_MODEL = process.env.VENICE_DRAFT_MODEL || 'llama-3.3-70b';
 
 function stripJsonFences(raw: string): string {
   // Anthropic sometimes wraps JSON in ```json ... ``` fences even when
@@ -129,10 +139,68 @@ export async function callOpenAiJson(
 }
 
 /**
- * Try Anthropic first, then OpenAI. Returns the first non-null
- * response, or null if both providers are unavailable / failed.
- * Each draft service composes its own system + user prompts and
- * parses the returned text as JSON.
+ * Call Venice (OpenAI-compatible chat/completions API hosting open-
+ * source models like Llama 3.3 70B). Used as the third-tier fallback
+ * after Anthropic + OpenAI both fail, so that quota outages on the
+ * commercial providers don't drop the operator to the prompt-leaking
+ * templateDraft. Venice's OSS models are weaker at strict-JSON
+ * obedience than Sonnet / gpt-4o-mini — the caller's JSON.parse may
+ * fail more often and the draft service will still fall through to
+ * the template — but this is a meaningful safety net.
+ *
+ * We explicitly nudge the system prompt to remind the OSS model to
+ * return JSON only, since they tend to wander into commentary.
+ */
+export async function callVeniceJson(
+  system: string,
+  user: string,
+  maxTokens = 1000,
+): Promise<string | null> {
+  if (!VENICE_API_KEY) return null;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15_000);
+  try {
+    const res = await fetch(`${VENICE_BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${VENICE_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: VENICE_MODEL,
+        messages: [
+          { role: 'system', content: `${system}\nReturn a single valid JSON object only. Do not include any commentary, markdown fences, or prose outside the JSON.` },
+          { role: 'user', content: user },
+        ],
+        temperature: 0.5,
+        max_tokens: maxTokens,
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      console.warn(`[llmDraftHelper] Venice returned ${res.status}; falling through`);
+      return null;
+    }
+    const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+    const text = data?.choices?.[0]?.message?.content?.trim();
+    if (!text) return null;
+    return stripJsonFences(text);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[llmDraftHelper] Venice call failed: ${msg}; falling through`);
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Try Anthropic first, then OpenAI, then Venice (open-source third
+ * tier). Returns the first non-null response, or null if every
+ * provider is unavailable / failed. Each draft service composes its
+ * own system + user prompts and parses the returned text as JSON; if
+ * every provider fails OR every provider returns unparseable JSON the
+ * draft service falls back to its local templateDraft().
  */
 export async function callDraftLlm(
   system: string,
@@ -141,5 +209,7 @@ export async function callDraftLlm(
 ): Promise<string | null> {
   const anthropic = await callAnthropicJson(system, user, maxTokens);
   if (anthropic) return anthropic;
-  return callOpenAiJson(system, user, maxTokens);
+  const openai = await callOpenAiJson(system, user, maxTokens);
+  if (openai) return openai;
+  return callVeniceJson(system, user, maxTokens);
 }
