@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`3dd18ed`](https://github.com/iQube-Protocol/AigentZBeta/commit/3dd18edd85219013742d0bbfa5667a65efbc9298) [refactor] IframeTab: move Open-in-new-tab link out of iframe overlay into chrome strip (Claude, 2026-05-29T15:03:03Z)
+- [`5088f07`](https://github.com/iQube-Protocol/AigentZBeta/commit/5088f07151b95d5451bc66a3670dd03ad4d47222) [push] trigger deploy to dev (Claude, 2026-05-29T15:03:03Z)
 - [`e5c5a1b`](https://github.com/iQube-Protocol/AigentZBeta/commit/e5c5a1b719d1669665288482f1b10c5f9cf266f1) [push] copilot speaker icon: swap browser-native TTS → /api/skills/tts (Cartesia) (Claude, 2026-05-29T14:49:44Z)
 - [`03c66b8`](https://github.com/iQube-Protocol/AigentZBeta/commit/03c66b83cc5d9776a6de31e0c57e7b28c8b5cbcb) [push] trigger deploy to dev (Claude, 2026-05-29T14:49:44Z)
 - [`86d150a`](https://github.com/iQube-Protocol/AigentZBeta/commit/86d150a417b33b2a91ec52bd177b27d0939894aa) [feat] Qriptopian cartridge: add qriptopia.com iframe tab (mirrors metaMe) (Claude, 2026-05-29T14:34:59Z)
