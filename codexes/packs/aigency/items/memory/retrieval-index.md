@@ -1514,3 +1514,13 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-ec82d25.md](../build_/COMMITS/COMMIT-ec82d25.md)
 - Message: Add ContentQubeEditions (ERC-1155) contract + Base mainnet deploy script — closes Phase 7B edition mint loop
+
+## Commit `9700f42` — 2026-05-29T05:54:57Z
+- Type: `push`
+- Brief: [COMMIT-9700f42.md](../build_/COMMITS/COMMIT-9700f42.md)
+- Message: trigger deploy to dev
+
+## Commit `78bea0f` — 2026-05-29T05:54:57Z
+- Type: `push`
+- Brief: [COMMIT-78bea0f.md](../build_/COMMITS/COMMIT-78bea0f.md)
+- Message: draft services: Anthropic primary, OpenAI secondary (was OpenAI-only)
