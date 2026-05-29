@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-29T14:51:40.150Z",
+  "last_updated": "2026-05-29T15:05:02.228Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "e5c5a1b719d1669665288482f1b10c5f9cf266f1",
-  "latest_commit_short": "e5c5a1b",
-  "latest_commit_title": "copilot speaker icon: swap browser-native TTS → /api/skills/tts (Cartesia)",
+  "latest_commit": "3dd18edd85219013742d0bbfa5667a65efbc9298",
+  "latest_commit_short": "3dd18ed",
+  "latest_commit_title": "IframeTab: move Open-in-new-tab link out of iframe overlay into chrome strip",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "3dd18ed",
+      "full_sha": "3dd18edd85219013742d0bbfa5667a65efbc9298",
+      "title": "IframeTab: move Open-in-new-tab link out of iframe overlay into chrome strip",
+      "author": "Claude",
+      "timestamp": "2026-05-29T15:03:03Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-3dd18ed.md"
+    },
+    {
+      "sha": "5088f07",
+      "full_sha": "5088f07151b95d5451bc66a3670dd03ad4d47222",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-29T15:03:03Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5088f07.md"
+    },
     {
       "sha": "e5c5a1b",
       "full_sha": "e5c5a1b719d1669665288482f1b10c5f9cf266f1",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-24T20:59:10Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-a07c460.md"
-    },
-    {
-      "sha": "83830fa",
-      "full_sha": "83830fa52d04df6df3b1ef08429e4309368bfca5",
-      "title": "ArtifactCard: surface pop-out link for live artifacts + Enable-API CTA",
-      "author": "Claude",
-      "timestamp": "2026-05-24T20:50:48Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-83830fa.md"
-    },
-    {
-      "sha": "052d9fd",
-      "full_sha": "052d9fd33b2529a2257091241d03ffa4f75f7d88",
-      "title": "SpecialistsLayout: suggested-artifact chips open composer pre-populated",
-      "author": "Claude",
-      "timestamp": "2026-05-24T18:48:05Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-052d9fd.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

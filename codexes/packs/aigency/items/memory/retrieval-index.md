@@ -1629,3 +1629,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-e5c5a1b.md](../build_/COMMITS/COMMIT-e5c5a1b.md)
 - Message: copilot speaker icon: swap browser-native TTS → /api/skills/tts (Cartesia)
+
+## Commit `5088f07` — 2026-05-29T15:03:03Z
+- Type: `push`
+- Brief: [COMMIT-5088f07.md](../build_/COMMITS/COMMIT-5088f07.md)
+- Message: trigger deploy to dev
+
+## Commit `3dd18ed` — 2026-05-29T15:03:03Z
+- Type: `refactor`
+- Brief: [COMMIT-3dd18ed.md](../build_/COMMITS/COMMIT-3dd18ed.md)
+- Message: IframeTab: move Open-in-new-tab link out of iframe overlay into chrome strip
