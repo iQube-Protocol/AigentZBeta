@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-29T09:04:55.451Z",
+  "last_updated": "2026-05-29T09:38:27.482Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "bebbf22991c4646aad717fd0dec35521e899ea78",
-  "latest_commit_short": "bebbf22",
-  "latest_commit_title": "Phase 7B admin UI: CanonicalMintPanel mounted in KNYT Codex Admin + Registry-integration backlog",
+  "latest_commit": "b9e2e083f3507bb730b7dd8ee68b2b6b0e543a8f",
+  "latest_commit_short": "b9e2e08",
+  "latest_commit_title": "STT: add Groq Whisper-large-v3 as fallback when OpenAI fails",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "b9e2e08",
+      "full_sha": "b9e2e083f3507bb730b7dd8ee68b2b6b0e543a8f",
+      "title": "STT: add Groq Whisper-large-v3 as fallback when OpenAI fails",
+      "author": "Claude",
+      "timestamp": "2026-05-29T09:36:27Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-b9e2e08.md"
+    },
+    {
+      "sha": "c2b0b5f",
+      "full_sha": "c2b0b5fba1c1306b456c7d5ff331cf007a3bb978",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-29T09:36:27Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c2b0b5f.md"
+    },
     {
       "sha": "bebbf22",
       "full_sha": "bebbf22991c4646aad717fd0dec35521e899ea78",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-24T09:04:38Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-d2bb41f.md"
-    },
-    {
-      "sha": "ddff517",
-      "full_sha": "ddff517c77f1cc59efe42aaf604ad3e23d441dbf",
-      "title": "capability gateway — add CapabilityIntent axis + log B/C backlog",
-      "author": "Claude",
-      "timestamp": "2026-05-24T08:56:28Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-ddff517.md"
-    },
-    {
-      "sha": "828d5b8",
-      "full_sha": "828d5b8fa6f8bca76fd9203b02ca5129b68da572",
-      "title": "capability gateway phase 1 — types, policy compiler, gateway, receipt wrapper",
-      "author": "Claude",
-      "timestamp": "2026-05-24T08:42:04Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-828d5b8.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

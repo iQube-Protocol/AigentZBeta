@@ -1579,3 +1579,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-bebbf22.md](../build_/COMMITS/COMMIT-bebbf22.md)
 - Message: Phase 7B admin UI: CanonicalMintPanel mounted in KNYT Codex Admin + Registry-integration backlog
+
+## Commit `c2b0b5f` — 2026-05-29T09:36:27Z
+- Type: `push`
+- Brief: [COMMIT-c2b0b5f.md](../build_/COMMITS/COMMIT-c2b0b5f.md)
+- Message: trigger deploy to dev
+
+## Commit `b9e2e08` — 2026-05-29T09:36:27Z
+- Type: `feat`
+- Brief: [COMMIT-b9e2e08.md](../build_/COMMITS/COMMIT-b9e2e08.md)
+- Message: STT: add Groq Whisper-large-v3 as fallback when OpenAI fails
