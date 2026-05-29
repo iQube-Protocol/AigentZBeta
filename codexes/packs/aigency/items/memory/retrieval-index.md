@@ -1534,3 +1534,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-68482e1.md](../build_/COMMITS/COMMIT-68482e1.md)
 - Message: artifact card + receipt: surface attachment count for diagnostics
+
+## Commit `d36a2ae` — 2026-05-29T06:57:06Z
+- Type: `chore`
+- Brief: [COMMIT-d36a2ae.md](../build_/COMMITS/COMMIT-d36a2ae.md)
+- Message: Record ContentQubeEditions Base mainnet deploy (0x6Ca41CB4… verified) + Amplify env-var update

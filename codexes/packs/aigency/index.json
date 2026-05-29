@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-29T05:59:22.864Z",
+  "last_updated": "2026-05-29T06:59:04.874Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "68482e1723de235ac7822337d469de7a3e5b3fa0",
-  "latest_commit_short": "68482e1",
-  "latest_commit_title": "artifact card + receipt: surface attachment count for diagnostics",
+  "latest_commit": "d36a2aece3b47d3f92fe9f55e9c7b038260df313",
+  "latest_commit_short": "d36a2ae",
+  "latest_commit_title": "Record ContentQubeEditions Base mainnet deploy (0x6Ca41CB4… verified) + Amplify env-var update",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d36a2ae",
+      "full_sha": "d36a2aece3b47d3f92fe9f55e9c7b038260df313",
+      "title": "Record ContentQubeEditions Base mainnet deploy (0x6Ca41CB4… verified) + Amplify env-var update",
+      "author": "Claude",
+      "timestamp": "2026-05-29T06:57:06Z",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-d36a2ae.md"
+    },
     {
       "sha": "68482e1",
       "full_sha": "68482e1723de235ac7822337d469de7a3e5b3fa0",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-24T02:52:20Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-498c09a.md"
-    },
-    {
-      "sha": "4bdd99c",
-      "full_sha": "4bdd99c7cf0b9f41808d55702eda9146cb66b071",
-      "title": "B.1 (1.5/3): metrics + actions move onto ACTIVATION_CATALOG entries — KPIs/NBAs now dynamically driven by the persona's Activations tab; declared all 7 catalog activations with their metrics + actions; metric registry is now a one-row edit per activation, no separate file",
-      "author": "Claude",
-      "timestamp": "2026-05-24T02:32:00Z",
-      "type": "refactor",
-      "brief": "items/build_/COMMITS/COMMIT-4bdd99c.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
