@@ -1499,3 +1499,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-395a8f2.md](../build_/COMMITS/COMMIT-395a8f2.md)
 - Message: Switch hardhat verify config to Etherscan V2 (chain-agnostic single key); V1 endpoints retired May 31, 2025
+
+## Commit `1b7d6bd` — 2026-05-29T00:27:23Z
+- Type: `push`
+- Brief: [COMMIT-1b7d6bd.md](../build_/COMMITS/COMMIT-1b7d6bd.md)
+- Message: Mark QCT + iQubeNFT + QCTReserve as source-verified on Basescan (deployment registry)

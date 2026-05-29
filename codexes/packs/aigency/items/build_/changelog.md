@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`1b7d6bd`](https://github.com/iQube-Protocol/AigentZBeta/commit/1b7d6bd25d7e6185d080f8a3d6ab32a0d025e7a9) [push] Mark QCT + iQubeNFT + QCTReserve as source-verified on Basescan (deployment registry) (Claude, 2026-05-29T00:27:23Z)
 - [`395a8f2`](https://github.com/iQube-Protocol/AigentZBeta/commit/395a8f295c88f34fc50c78b5affedaa228b9ba76) [push] Switch hardhat verify config to Etherscan V2 (chain-agnostic single key); V1 endpoints retired May 31, 2025 (Claude, 2026-05-29T00:18:58Z)
 - [`2bd4971`](https://github.com/iQube-Protocol/AigentZBeta/commit/2bd4971b651f4b4e655aad6b710c9b08474900fa) [feat] Record Base mainnet deploy artefacts + add basescan verify config (etherscan.apiKey.base, customChains for chainId 8453) (Claude, 2026-05-28T23:58:20Z)
 - [`125b99e`](https://github.com/iQube-Protocol/AigentZBeta/commit/125b99ecd34223386faa432f7e0d9265a81c3634) [push] Record live Base mainnet addresses: QCT, iQubeNFT, QCTReserve (deployed 2026-05-28) (Claude, 2026-05-28T23:45:56Z)
