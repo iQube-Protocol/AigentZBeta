@@ -1,4 +1,7 @@
 # Build — Changelog
+- [`d36a2ae`](https://github.com/iQube-Protocol/AigentZBeta/commit/d36a2aece3b47d3f92fe9f55e9c7b038260df313) [chore] Record ContentQubeEditions Base mainnet deploy (0x6Ca41CB4… verified) + Amplify env-var update (Claude, 2026-05-29T06:57:06Z)
+- [`68482e1`](https://github.com/iQube-Protocol/AigentZBeta/commit/68482e1723de235ac7822337d469de7a3e5b3fa0) [push] artifact card + receipt: surface attachment count for diagnostics (Claude, 2026-05-29T05:57:30Z)
+- [`52ab4ac`](https://github.com/iQube-Protocol/AigentZBeta/commit/52ab4ace7488030e368adfdb23276d22a3c7359b) [push] trigger deploy to dev (Claude, 2026-05-29T05:57:30Z)
 - [`78bea0f`](https://github.com/iQube-Protocol/AigentZBeta/commit/78bea0fcc98199c82f64829dfc6727ff3952610e) [push] draft services: Anthropic primary, OpenAI secondary (was OpenAI-only) (Claude, 2026-05-29T05:54:57Z)
 - [`9700f42`](https://github.com/iQube-Protocol/AigentZBeta/commit/9700f42986666043052d2deb142d20c34d6fe32b) [push] trigger deploy to dev (Claude, 2026-05-29T05:54:57Z)
 - [`ec82d25`](https://github.com/iQube-Protocol/AigentZBeta/commit/ec82d25c7eb260821d855d8b4535b3013c9a24a2) [feat] Add ContentQubeEditions (ERC-1155) contract + Base mainnet deploy script — closes Phase 7B edition mint loop (Claude, 2026-05-29T05:26:03Z)
