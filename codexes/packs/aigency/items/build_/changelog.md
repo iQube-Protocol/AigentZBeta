@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`da0c735`](https://github.com/iQube-Protocol/AigentZBeta/commit/da0c735747325c937786704a32ed138ae41bde55) [push] TTS: expose Cartesia error in response header + pulse R/T dots during loading (Claude, 2026-05-29T15:48:14Z)
+- [`88d41a1`](https://github.com/iQube-Protocol/AigentZBeta/commit/88d41a11c96b8b681dfdfe96f6509e650bc1ade1) [push] trigger deploy to dev (Claude, 2026-05-29T15:48:14Z)
 - [`3dd18ed`](https://github.com/iQube-Protocol/AigentZBeta/commit/3dd18edd85219013742d0bbfa5667a65efbc9298) [refactor] IframeTab: move Open-in-new-tab link out of iframe overlay into chrome strip (Claude, 2026-05-29T15:03:03Z)
 - [`5088f07`](https://github.com/iQube-Protocol/AigentZBeta/commit/5088f07151b95d5451bc66a3670dd03ad4d47222) [push] trigger deploy to dev (Claude, 2026-05-29T15:03:03Z)
 - [`e5c5a1b`](https://github.com/iQube-Protocol/AigentZBeta/commit/e5c5a1b719d1669665288482f1b10c5f9cf266f1) [push] copilot speaker icon: swap browser-native TTS → /api/skills/tts (Cartesia) (Claude, 2026-05-29T14:49:44Z)

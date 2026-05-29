@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-29T15:05:02.228Z",
+  "last_updated": "2026-05-29T15:50:15.524Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "3dd18edd85219013742d0bbfa5667a65efbc9298",
-  "latest_commit_short": "3dd18ed",
-  "latest_commit_title": "IframeTab: move Open-in-new-tab link out of iframe overlay into chrome strip",
+  "latest_commit": "da0c735747325c937786704a32ed138ae41bde55",
+  "latest_commit_short": "da0c735",
+  "latest_commit_title": "TTS: expose Cartesia error in response header + pulse R/T dots during loading",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "da0c735",
+      "full_sha": "da0c735747325c937786704a32ed138ae41bde55",
+      "title": "TTS: expose Cartesia error in response header + pulse R/T dots during loading",
+      "author": "Claude",
+      "timestamp": "2026-05-29T15:48:14Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-da0c735.md"
+    },
+    {
+      "sha": "88d41a1",
+      "full_sha": "88d41a11c96b8b681dfdfe96f6509e650bc1ade1",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-29T15:48:14Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-88d41a1.md"
+    },
     {
       "sha": "3dd18ed",
       "full_sha": "3dd18edd85219013742d0bbfa5667a65efbc9298",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-25T18:55:28Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-99e2175.md"
-    },
-    {
-      "sha": "0a8fa17",
-      "full_sha": "0a8fa170bca3098828287f920585b46e9b3449cc",
-      "title": "runtime: aigent-z → aigent-me in agent dropdown + default, alias-based",
-      "author": "Claude",
-      "timestamp": "2026-05-25T17:52:35Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0a8fa17.md"
-    },
-    {
-      "sha": "a07c460",
-      "full_sha": "a07c460bf1a2a57e4cedd94cd4269d995f763766",
-      "title": "google: write Doc body via Drive multipart upload — bypass Docs API",
-      "author": "Claude",
-      "timestamp": "2026-05-24T20:59:10Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a07c460.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

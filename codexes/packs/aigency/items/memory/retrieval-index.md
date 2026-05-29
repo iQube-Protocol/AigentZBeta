@@ -1639,3 +1639,13 @@ Top-level retrieval anchors for this pack.
 - Type: `refactor`
 - Brief: [COMMIT-3dd18ed.md](../build_/COMMITS/COMMIT-3dd18ed.md)
 - Message: IframeTab: move Open-in-new-tab link out of iframe overlay into chrome strip
+
+## Commit `88d41a1` — 2026-05-29T15:48:14Z
+- Type: `push`
+- Brief: [COMMIT-88d41a1.md](../build_/COMMITS/COMMIT-88d41a1.md)
+- Message: trigger deploy to dev
+
+## Commit `da0c735` — 2026-05-29T15:48:14Z
+- Type: `push`
+- Brief: [COMMIT-da0c735.md](../build_/COMMITS/COMMIT-da0c735.md)
+- Message: TTS: expose Cartesia error in response header + pulse R/T dots during loading
