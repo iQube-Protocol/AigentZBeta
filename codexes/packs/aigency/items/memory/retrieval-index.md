@@ -1589,3 +1589,13 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-b9e2e08.md](../build_/COMMITS/COMMIT-b9e2e08.md)
 - Message: STT: add Groq Whisper-large-v3 as fallback when OpenAI fails
+
+## Commit `d8ea55d` — 2026-05-29T14:10:00Z
+- Type: `push`
+- Brief: [COMMIT-d8ea55d.md](../build_/COMMITS/COMMIT-d8ea55d.md)
+- Message: trigger deploy to dev
+
+## Commit `f9cfb44` — 2026-05-29T14:10:00Z
+- Type: `push`
+- Brief: [COMMIT-f9cfb44.md](../build_/COMMITS/COMMIT-f9cfb44.md)
+- Message: metaMe: Cartesia TTS primary + myCanvas two-row header + metame.com iframe tab

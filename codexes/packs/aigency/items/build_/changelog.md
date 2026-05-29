@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`f9cfb44`](https://github.com/iQube-Protocol/AigentZBeta/commit/f9cfb44edb9ca2441af7d0d9ef74c41606b71dd2) [push] metaMe: Cartesia TTS primary + myCanvas two-row header + metame.com iframe tab (Claude, 2026-05-29T14:10:00Z)
+- [`d8ea55d`](https://github.com/iQube-Protocol/AigentZBeta/commit/d8ea55d3bf40b9c240ded9e464c4066b88ca3dcf) [push] trigger deploy to dev (Claude, 2026-05-29T14:10:00Z)
 - [`b9e2e08`](https://github.com/iQube-Protocol/AigentZBeta/commit/b9e2e083f3507bb730b7dd8ee68b2b6b0e543a8f) [feat] STT: add Groq Whisper-large-v3 as fallback when OpenAI fails (Claude, 2026-05-29T09:36:27Z)
 - [`c2b0b5f`](https://github.com/iQube-Protocol/AigentZBeta/commit/c2b0b5fba1c1306b456c7d5ff331cf007a3bb978) [push] trigger deploy to dev (Claude, 2026-05-29T09:36:27Z)
 - [`bebbf22`](https://github.com/iQube-Protocol/AigentZBeta/commit/bebbf22991c4646aad717fd0dec35521e899ea78) [push] Phase 7B admin UI: CanonicalMintPanel mounted in KNYT Codex Admin + Registry-integration backlog (Claude, 2026-05-29T09:02:57Z)
