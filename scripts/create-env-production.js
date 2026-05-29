@@ -24,6 +24,8 @@ const envVars = [
   'VENICE_IMAGE_MODEL',
   'ANTHROPIC_API_KEY',
   'ANTHROPIC_MODEL',
+  // ── Groq — third-tier STT fallback (Whisper-large-v3, OpenAI-compatible) ─
+  'GROQ_API_KEY',
   // ── Phase 6.b — Google Workspace OAuth (Aigent Me connectors) ────────
   'GOOGLE_OAUTH_CLIENT_ID',
   'GOOGLE_OAUTH_CLIENT_SECRET',

@@ -11,6 +11,13 @@
  * Auth: requires an authenticated persona via the spine — Whisper calls
  * cost real money so we don't expose the endpoint anonymously. Mirrors
  * /api/wallet/* gating semantics.
+ *
+ * Provider chain (mirrors llmDraftHelper's tiering):
+ *   1. OpenAI Whisper-1 (primary; paid account)
+ *   2. Groq Whisper-large-v3 (free-tier fallback; same Whisper family,
+ *      OpenAI-compatible endpoint at api.groq.com/openai/v1/)
+ *   3. surface a 503 with the upstream failure reason so the FE can
+ *      tell the operator the mic is offline
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -22,6 +29,64 @@ export const dynamic = "force-dynamic";
 
 const MAX_BYTES = 8 * 1024 * 1024; // 8MB cap matches Whisper-friendly clip sizes
 
+interface TranscribeResult {
+  ok: boolean;
+  text?: string;
+  error?: string;
+  status?: number;
+}
+
+async function transcribeOpenAi(file: File, lang?: string): Promise<TranscribeResult> {
+  if (!process.env.OPENAI_API_KEY) {
+    return { ok: false, error: "openai-not-configured", status: 503 };
+  }
+  try {
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+      maxRetries: 0,
+      timeout: 22_000,
+    });
+    const result = await openai.audio.transcriptions.create({
+      model: "whisper-1",
+      file,
+      ...(lang ? { language: lang } : {}),
+    });
+    return { ok: true, text: result.text ?? "" };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn("[skills/stt] openai whisper failed:", msg);
+    return { ok: false, error: msg };
+  }
+}
+
+async function transcribeGroq(file: File, lang?: string): Promise<TranscribeResult> {
+  if (!process.env.GROQ_API_KEY) {
+    return { ok: false, error: "groq-not-configured", status: 503 };
+  }
+  try {
+    // Groq exposes an OpenAI-compatible audio/transcriptions endpoint, so we
+    // can use the OpenAI SDK with a baseURL override. whisper-large-v3 is
+    // the same Whisper family OpenAI runs — quality parity, not the lossy
+    // Llama-on-Venice tradeoff we accept for chat drafts.
+    const groq = new OpenAI({
+      apiKey: process.env.GROQ_API_KEY,
+      baseURL: "https://api.groq.com/openai/v1",
+      maxRetries: 0,
+      timeout: 22_000,
+    });
+    const result = await groq.audio.transcriptions.create({
+      model: "whisper-large-v3",
+      file,
+      ...(lang ? { language: lang } : {}),
+    });
+    return { ok: true, text: result.text ?? "" };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn("[skills/stt] groq whisper failed:", msg);
+    return { ok: false, error: msg };
+  }
+}
+
 export async function POST(req: NextRequest) {
   const persona = await getActivePersona(req);
   if (!persona) {
@@ -31,8 +96,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ error: "OpenAI not configured" }, { status: 503 });
+  // Require at least one provider configured. Groq alone is enough since
+  // it serves the same Whisper family.
+  if (!process.env.OPENAI_API_KEY && !process.env.GROQ_API_KEY) {
+    return NextResponse.json(
+      { error: "no-stt-provider-configured" },
+      { status: 503 },
+    );
   }
 
   let form: FormData;
@@ -51,45 +121,36 @@ export async function POST(req: NextRequest) {
   }
 
   const lang = typeof form.get("lang") === "string" ? (form.get("lang") as string) : undefined;
+  const ext = audio.type.includes("ogg") ? "ogg" : audio.type.includes("mp4") ? "mp4" : "webm";
+  const file = new File([audio], `clip.${ext}`, { type: audio.type || "audio/webm" });
 
-  // Lambda's hard exec budget is 30s; the OpenAI SDK retries by default
-  // and can easily blow past that if Whisper is slow / quota-throttled,
-  // producing a 504 at API Gateway instead of a clean error here.
-  // maxRetries=0 + a 22s timeout keeps us safely inside the budget so
-  // the operator gets a real error (quota / timeout) instead of a
-  // gateway timeout.
-  try {
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-      maxRetries: 0,
-      timeout: 22_000,
-    });
-    const ext = audio.type.includes("ogg") ? "ogg" : audio.type.includes("mp4") ? "mp4" : "webm";
-    const file = new File([audio], `clip.${ext}`, { type: audio.type || "audio/webm" });
-    const result = await openai.audio.transcriptions.create({
-      model: "whisper-1",
-      file,
-      ...(lang ? { language: lang } : {}),
-    });
+  // Primary: OpenAI Whisper. Secondary: Groq Whisper-large-v3.
+  const primary = await transcribeOpenAi(file, lang);
+  if (primary.ok) {
     return NextResponse.json(
-      { text: result.text ?? "" },
+      { text: primary.text, provider: "openai" },
       { headers: { "Cache-Control": "no-store" } },
     );
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("[skills/stt] whisper failed:", msg);
-    const lower = msg.toLowerCase();
-    // Map common upstream failure modes so the FE can surface useful
-    // copy instead of a generic "stt failed". Quota exhaustion is the
-    // most common dev-env failure mode today.
-    const isQuota = lower.includes("quota") || lower.includes("429") || lower.includes("insufficient_quota");
-    const isTimeout = lower.includes("timeout") || lower.includes("aborted");
+  }
+
+  const fallback = await transcribeGroq(file, lang);
+  if (fallback.ok) {
     return NextResponse.json(
-      {
-        error: isQuota ? "openai-quota-exhausted" : isTimeout ? "stt-timeout" : "stt-failed",
-        detail: msg,
-      },
-      { status: isQuota ? 503 : isTimeout ? 504 : 500 },
+      { text: fallback.text, provider: "groq" },
+      { headers: { "Cache-Control": "no-store" } },
     );
   }
+
+  // Both providers failed — surface the most actionable error code so the
+  // FE can show real copy instead of a generic 504.
+  const combined = `${primary.error ?? ""} | ${fallback.error ?? ""}`.toLowerCase();
+  const isQuota = combined.includes("quota") || combined.includes("429") || combined.includes("insufficient_quota");
+  const isTimeout = combined.includes("timeout") || combined.includes("aborted");
+  return NextResponse.json(
+    {
+      error: isQuota ? "stt-providers-quota-exhausted" : isTimeout ? "stt-timeout" : "stt-failed",
+      detail: combined.trim(),
+    },
+    { status: isQuota ? 503 : isTimeout ? 504 : 500 },
+  );
 }
