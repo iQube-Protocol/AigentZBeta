@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-29T00:00:12.592Z",
+  "last_updated": "2026-05-29T00:20:59.688Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "2bd4971b651f4b4e655aad6b710c9b08474900fa",
-  "latest_commit_short": "2bd4971",
-  "latest_commit_title": "Record Base mainnet deploy artefacts + add basescan verify config (etherscan.apiKey.base, customChains for chainId 8453)",
+  "latest_commit": "395a8f295c88f34fc50c78b5affedaa228b9ba76",
+  "latest_commit_short": "395a8f2",
+  "latest_commit_title": "Switch hardhat verify config to Etherscan V2 (chain-agnostic single key); V1 endpoints retired May 31, 2025",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "395a8f2",
+      "full_sha": "395a8f295c88f34fc50c78b5affedaa228b9ba76",
+      "title": "Switch hardhat verify config to Etherscan V2 (chain-agnostic single key); V1 endpoints retired May 31, 2025",
+      "author": "Claude",
+      "timestamp": "2026-05-29T00:18:58Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-395a8f2.md"
+    },
     {
       "sha": "2bd4971",
       "full_sha": "2bd4971b651f4b4e655aad6b710c9b08474900fa",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-23T22:26:08Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-754ae53.md"
-    },
-    {
-      "sha": "1c01f6c",
-      "full_sha": "1c01f6c28891503e3bbfb267a9463e2696feb9e6",
-      "title": "ArtifactCard: hide Gmail/Drive 'Open' link pre-approval (only show after status approved|sent|published) — fixes flow-interruption where Open was clicked instead of Send draft",
-      "author": "Claude",
-      "timestamp": "2026-05-23T22:11:27Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1c01f6c.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

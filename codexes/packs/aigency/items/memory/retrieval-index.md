@@ -1494,3 +1494,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-2bd4971.md](../build_/COMMITS/COMMIT-2bd4971.md)
 - Message: Record Base mainnet deploy artefacts + add basescan verify config (etherscan.apiKey.base, customChains for chainId 8453)
+
+## Commit `395a8f2` — 2026-05-29T00:18:58Z
+- Type: `push`
+- Brief: [COMMIT-395a8f2.md](../build_/COMMITS/COMMIT-395a8f2.md)
+- Message: Switch hardhat verify config to Etherscan V2 (chain-agnostic single key); V1 endpoints retired May 31, 2025
