@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-29T05:06:32.915Z",
+  "last_updated": "2026-05-29T05:27:42.252Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d388e2aa1f3470f27445b66b52d3d166b2413816",
-  "latest_commit_short": "d388e2a",
-  "latest_commit_title": "Phase 7B mint-trigger admin routes + widen env-var aliases (IQUBE_NFT_CONTRACT_ADDRESS accepted for ERC-721 master)",
+  "latest_commit": "ec82d25c7eb260821d855d8b4535b3013c9a24a2",
+  "latest_commit_short": "ec82d25",
+  "latest_commit_title": "Add ContentQubeEditions (ERC-1155) contract + Base mainnet deploy script — closes Phase 7B edition mint loop",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "ec82d25",
+      "full_sha": "ec82d25c7eb260821d855d8b4535b3013c9a24a2",
+      "title": "Add ContentQubeEditions (ERC-1155) contract + Base mainnet deploy script — closes Phase 7B edition mint loop",
+      "author": "Claude",
+      "timestamp": "2026-05-29T05:26:03Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-ec82d25.md"
+    },
     {
       "sha": "d388e2a",
       "full_sha": "d388e2aa1f3470f27445b66b52d3d166b2413816",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-24T00:50:42Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-3e8011e.md"
-    },
-    {
-      "sha": "56a60ad",
-      "full_sha": "56a60ade419cfd3fa2f10c5e920055130979c186",
-      "title": "Phase 2 Slice 4 (compose-in-layout): all 6 compose modals support inline=true mode; openComposeByKind routes to ComposerLayout instead of popups; legacy modal mounts + open booleans removed from tab",
-      "author": "Claude",
-      "timestamp": "2026-05-24T00:19:04Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-56a60ad.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

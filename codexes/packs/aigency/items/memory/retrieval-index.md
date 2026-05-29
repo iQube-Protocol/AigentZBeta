@@ -1509,3 +1509,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-d388e2a.md](../build_/COMMITS/COMMIT-d388e2a.md)
 - Message: Phase 7B mint-trigger admin routes + widen env-var aliases (IQUBE_NFT_CONTRACT_ADDRESS accepted for ERC-721 master)
+
+## Commit `ec82d25` — 2026-05-29T05:26:03Z
+- Type: `feat`
+- Brief: [COMMIT-ec82d25.md](../build_/COMMITS/COMMIT-ec82d25.md)
+- Message: Add ContentQubeEditions (ERC-1155) contract + Base mainnet deploy script — closes Phase 7B edition mint loop

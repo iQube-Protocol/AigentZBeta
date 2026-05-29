@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`ec82d25`](https://github.com/iQube-Protocol/AigentZBeta/commit/ec82d25c7eb260821d855d8b4535b3013c9a24a2) [feat] Add ContentQubeEditions (ERC-1155) contract + Base mainnet deploy script — closes Phase 7B edition mint loop (Claude, 2026-05-29T05:26:03Z)
 - [`d388e2a`](https://github.com/iQube-Protocol/AigentZBeta/commit/d388e2aa1f3470f27445b66b52d3d166b2413816) [push] Phase 7B mint-trigger admin routes + widen env-var aliases (IQUBE_NFT_CONTRACT_ADDRESS accepted for ERC-721 master) (Claude, 2026-05-29T05:04:32Z)
 - [`1b7d6bd`](https://github.com/iQube-Protocol/AigentZBeta/commit/1b7d6bd25d7e6185d080f8a3d6ab32a0d025e7a9) [push] Mark QCT + iQubeNFT + QCTReserve as source-verified on Basescan (deployment registry) (Claude, 2026-05-29T00:27:23Z)
 - [`395a8f2`](https://github.com/iQube-Protocol/AigentZBeta/commit/395a8f295c88f34fc50c78b5affedaa228b9ba76) [push] Switch hardhat verify config to Etherscan V2 (chain-agnostic single key); V1 endpoints retired May 31, 2025 (Claude, 2026-05-29T00:18:58Z)
