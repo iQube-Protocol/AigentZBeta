@@ -892,6 +892,7 @@ export const QRIPTO_CODEX: CodexConfig = {
   // The deeper KNYT Pulse ↔ 21 Sats handoff nuance is backlogged separately —
   // see codexes/packs/agentiq/updates/2026-05-26_knyt-pulse-21sats-handoff-backlog.md.
   tabGroups: [
+    { id: 'web',           label: 'qriptopia.com', icon: 'Globe',     order: -1, iconOnly: true },
     { id: 'codex',         label: 'Codex',         icon: 'BookOpen',  order: 0 },
     { id: 'live-magazine', label: 'Live Magazine', icon: 'Newspaper', order: 1 },
     { id: 'store',         label: 'Store',         icon: 'ShoppingBag', order: 2 },
@@ -899,6 +900,34 @@ export const QRIPTO_CODEX: CodexConfig = {
     { id: 'admin',         label: 'Admin',         icon: 'Settings',  order: 4, adminOnly: true },
   ],
   tabs: [
+    // ── web group (qriptopia.com embed) ───────────────────────────────────
+    // First-class persistent tab that renders qriptopia.com inside an
+    // iframe. Mirrors the metaMe cartridge's metame.com tab pattern (same
+    // iconOnly group chip, same IframeTab component, no activation
+    // gating).
+    //
+    // Hard constraint: qriptopia.com must permit framing from the
+    // embedding host. If the page renders blank, the cause is on the
+    // qriptopia.com server config (X-Frame-Options / CSP
+    // frame-ancestors) — not on this tab.
+    {
+      id: 'qriptopia-web-embed',
+      label: 'qriptopia.com',
+      slug: 'qriptopia-web',
+      enabled: true,
+      group: 'web',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'IframeTab',
+        props: { src: 'https://qriptopia.com', title: 'qriptopia.com' },
+      },
+      metadata: {
+        icon: 'Globe',
+        description: 'qriptopia.com website embedded inside the cartridge',
+        color: 'sky',
+      },
+    },
     // ── Codex group — canonical / finished content ─────────────────────────
     {
       // Existing 'codex' tab kept verbatim, relabelled "Magazines" and re-homed.
