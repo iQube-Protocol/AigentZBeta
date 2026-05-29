@@ -1524,3 +1524,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-78bea0f.md](../build_/COMMITS/COMMIT-78bea0f.md)
 - Message: draft services: Anthropic primary, OpenAI secondary (was OpenAI-only)
+
+## Commit `52ab4ac` — 2026-05-29T05:57:30Z
+- Type: `push`
+- Brief: [COMMIT-52ab4ac.md](../build_/COMMITS/COMMIT-52ab4ac.md)
+- Message: trigger deploy to dev
+
+## Commit `68482e1` — 2026-05-29T05:57:30Z
+- Type: `push`
+- Brief: [COMMIT-68482e1.md](../build_/COMMITS/COMMIT-68482e1.md)
+- Message: artifact card + receipt: surface attachment count for diagnostics
