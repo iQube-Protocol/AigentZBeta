@@ -10,7 +10,7 @@
  * Phase 6.b wires Google Workspace OAuth.
  */
 
-import React from "react";
+import React, { useState } from "react";
 import {
   FileText,
   Mail,
@@ -20,6 +20,7 @@ import {
   Presentation,
   Layers,
   Clipboard,
+  ClipboardCheck,
   X,
   ExternalLink,
   Loader2,
@@ -105,6 +106,48 @@ const STATUS_META: Record<ArtifactCardData["status"], { label: string; ring: str
   sent:             { label: "Sent",             ring: "border-emerald-500/40 text-emerald-300 bg-emerald-500/10" },
   published:        { label: "Published",        ring: "border-emerald-500/70 text-emerald-100 bg-emerald-500/15" },
 };
+
+/**
+ * Renders `receipt: <8-char prefix>…` followed by a small Clipboard button
+ * that copies the FULL receipt id to the system clipboard. Click feedback
+ * swaps the icon to ClipboardCheck for ~1.5s. Lives inside the artifact
+ * chip row in ArtifactCard / ExpandedNBEPill so the operator can grab the
+ * id without leaving the Capsule. Receipt-detail view in-pill is on the
+ * backlog; this is the smaller, safe interim.
+ */
+function ReceiptIdChip({ receiptId, mutedClass }: { receiptId: string; mutedClass: string }) {
+  const [copied, setCopied] = useState(false);
+  const onCopy = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(receiptId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Permission denied / non-secure-context — silently no-op; the
+      // truncated id is still visible for manual copy.
+    }
+  };
+  return (
+    <span className={`inline-flex items-center gap-1 ${mutedClass}`}>
+      receipt: <span className="font-mono">{receiptId.slice(0, 8)}…</span>
+      <button
+        type="button"
+        onClick={onCopy}
+        title={copied ? "Copied!" : `Copy receipt id ${receiptId}`}
+        aria-label={copied ? "Receipt id copied" : "Copy receipt id"}
+        className={`p-0.5 rounded transition-colors ${
+          copied
+            ? "text-emerald-300"
+            : "text-slate-500 hover:text-violet-300 hover:bg-violet-500/10"
+        }`}
+      >
+        {copied ? <ClipboardCheck className="w-3 h-3" /> : <Clipboard className="w-3 h-3" />}
+      </button>
+    </span>
+  );
+}
 
 export function ArtifactCard({
   data,
@@ -205,9 +248,7 @@ export function ArtifactCard({
               </a>
             )}
             {data.receiptId && (
-              <span className={mutedClass}>
-                receipt: <span className="font-mono">{data.receiptId.slice(0, 8)}…</span>
-              </span>
+              <ReceiptIdChip receiptId={data.receiptId} mutedClass={mutedClass} />
             )}
             <span className={`${mutedClass} ml-auto`}>
               {new Date(data.createdAt).toLocaleTimeString()}
