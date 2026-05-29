@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-28T23:47:52.878Z",
+  "last_updated": "2026-05-29T00:00:12.592Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "125b99ecd34223386faa432f7e0d9265a81c3634",
-  "latest_commit_short": "125b99e",
-  "latest_commit_title": "Record live Base mainnet addresses: QCT, iQubeNFT, QCTReserve (deployed 2026-05-28)",
+  "latest_commit": "2bd4971b651f4b4e655aad6b710c9b08474900fa",
+  "latest_commit_short": "2bd4971",
+  "latest_commit_title": "Record Base mainnet deploy artefacts + add basescan verify config (etherscan.apiKey.base, customChains for chainId 8453)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "2bd4971",
+      "full_sha": "2bd4971b651f4b4e655aad6b710c9b08474900fa",
+      "title": "Record Base mainnet deploy artefacts + add basescan verify config (etherscan.apiKey.base, customChains for chainId 8453)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T23:58:20Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-2bd4971.md"
+    },
     {
       "sha": "125b99e",
       "full_sha": "125b99ecd34223386faa432f7e0d9265a81c3634",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-23T22:11:27Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-1c01f6c.md"
-    },
-    {
-      "sha": "63d8621",
-      "full_sha": "63d8621e0e1387eb18e68ed471952988e840984d",
-      "title": "ApprovalLayout: unify second-tier external-action confirm + NBE approval through one Phase-2 overlay; drop inline SecondTierApprovalCard from stack",
-      "author": "Claude",
-      "timestamp": "2026-05-23T21:35:13Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-63d8621.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

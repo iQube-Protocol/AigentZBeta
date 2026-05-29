@@ -1489,3 +1489,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-125b99e.md](../build_/COMMITS/COMMIT-125b99e.md)
 - Message: Record live Base mainnet addresses: QCT, iQubeNFT, QCTReserve (deployed 2026-05-28)
+
+## Commit `2bd4971` — 2026-05-28T23:58:20Z
+- Type: `feat`
+- Brief: [COMMIT-2bd4971.md](../build_/COMMITS/COMMIT-2bd4971.md)
+- Message: Record Base mainnet deploy artefacts + add basescan verify config (etherscan.apiKey.base, customChains for chainId 8453)

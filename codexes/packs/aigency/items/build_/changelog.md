@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`2bd4971`](https://github.com/iQube-Protocol/AigentZBeta/commit/2bd4971b651f4b4e655aad6b710c9b08474900fa) [feat] Record Base mainnet deploy artefacts + add basescan verify config (etherscan.apiKey.base, customChains for chainId 8453) (Claude, 2026-05-28T23:58:20Z)
 - [`125b99e`](https://github.com/iQube-Protocol/AigentZBeta/commit/125b99ecd34223386faa432f7e0d9265a81c3634) [push] Record live Base mainnet addresses: QCT, iQubeNFT, QCTReserve (deployed 2026-05-28) (Claude, 2026-05-28T23:45:56Z)
 - [`7c30d2e`](https://github.com/iQube-Protocol/AigentZBeta/commit/7c30d2ec4bb2afeded912c206d648663e630416c) [push] Set hardhat evmVersion: 'cancun' (default is 'paris'; OpenZeppelin Bytes.sol mcopy needs Cancun, Base mainnet supports it) (Claude, 2026-05-28T23:33:41Z)
 - [`5c63350`](https://github.com/iQube-Protocol/AigentZBeta/commit/5c63350364acdf04dba1593ce02d1d095672289b) [chore] Bump hardhat solidity compiler 0.8.20 → 0.8.24 (OpenZeppelin v5 requires ^0.8.24) (Claude, 2026-05-28T23:30:40Z)
