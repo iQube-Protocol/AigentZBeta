@@ -1539,3 +1539,13 @@ Top-level retrieval anchors for this pack.
 - Type: `chore`
 - Brief: [COMMIT-d36a2ae.md](../build_/COMMITS/COMMIT-d36a2ae.md)
 - Message: Record ContentQubeEditions Base mainnet deploy (0x6Ca41CB4… verified) + Amplify env-var update
+
+## Commit `81104c7` — 2026-05-29T07:21:26Z
+- Type: `push`
+- Brief: [COMMIT-81104c7.md](../build_/COMMITS/COMMIT-81104c7.md)
+- Message: trigger deploy to dev
+
+## Commit `477030b` — 2026-05-29T07:21:26Z
+- Type: `push`
+- Brief: [COMMIT-477030b.md](../build_/COMMITS/COMMIT-477030b.md)
+- Message: STT timeout + composer state persistence (sub-tab survival)
