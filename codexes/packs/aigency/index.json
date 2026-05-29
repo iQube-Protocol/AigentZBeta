@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-29T15:50:15.524Z",
+  "last_updated": "2026-05-29T17:08:29.574Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "da0c735747325c937786704a32ed138ae41bde55",
-  "latest_commit_short": "da0c735",
-  "latest_commit_title": "TTS: expose Cartesia error in response header + pulse R/T dots during loading",
+  "latest_commit": "5cbbec335bace62a43c314be9d7fa044fd27d27b",
+  "latest_commit_short": "5cbbec3",
+  "latest_commit_title": "metaMe protocol primitive: R/T dots spec + TTS console diagnostics + iframe Open removal",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5cbbec3",
+      "full_sha": "5cbbec335bace62a43c314be9d7fa044fd27d27b",
+      "title": "metaMe protocol primitive: R/T dots spec + TTS console diagnostics + iframe Open removal",
+      "author": "Claude",
+      "timestamp": "2026-05-29T17:06:24Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5cbbec3.md"
+    },
+    {
+      "sha": "1cfe1c1",
+      "full_sha": "1cfe1c156ae191bc88157f20c74ad78f30ac1d33",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-29T17:06:24Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1cfe1c1.md"
+    },
     {
       "sha": "da0c735",
       "full_sha": "da0c735747325c937786704a32ed138ae41bde55",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-26T02:32:30Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-e24ca0b.md"
-    },
-    {
-      "sha": "f85dac0",
-      "full_sha": "f85dac003523777dbd373787160f4c7ce039045c",
-      "title": "NBE Act → Queued badge after queue + clickable artifact links in receipts",
-      "author": "Claude",
-      "timestamp": "2026-05-26T00:42:07Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f85dac0.md"
-    },
-    {
-      "sha": "99e2175",
-      "full_sha": "99e2175eeef7e0e2a6ea7404e73a755b29904fd6",
-      "title": "aigent-me chat: load metaMe cartridge state into system prompt",
-      "author": "Claude",
-      "timestamp": "2026-05-25T18:55:28Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-99e2175.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
