@@ -1599,3 +1599,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-f9cfb44.md](../build_/COMMITS/COMMIT-f9cfb44.md)
 - Message: metaMe: Cartesia TTS primary + myCanvas two-row header + metame.com iframe tab
+
+## Commit `7306936` — 2026-05-29T14:20:39Z
+- Type: `push`
+- Brief: [COMMIT-7306936.md](../build_/COMMITS/COMMIT-7306936.md)
+- Message: trigger deploy to dev
+
+## Commit `3cdddb4` — 2026-05-29T14:20:39Z
+- Type: `push`
+- Brief: [COMMIT-3cdddb4.md](../build_/COMMITS/COMMIT-3cdddb4.md)
+- Message: ArtifactCard: copy-id button next to truncated receipt prefix
