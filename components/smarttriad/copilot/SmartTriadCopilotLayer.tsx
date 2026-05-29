@@ -11,6 +11,7 @@ import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import { useIsMobile } from "@/app/hooks/use-mobile";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
+import { useTTSPlayer } from "@/app/hooks/useTTSPlayer";
 import { SmartTriadInferenceRenderer, type SmartTriadMessage } from "./SmartTriadInferenceRenderer";
 import { UploadAttachmentPicker } from "@/components/metame/uploads/UploadAttachmentPicker";
 import {
@@ -757,7 +758,15 @@ function FloatingCopilot({
   // TTS — wired to the Listen icon next to the trust/reliability
   // dots. Reads the latest assistant message aloud; cancels if the
   // operator clicks again while speaking.
-  const tts = useSpeechSynthesis();
+  //
+  // useTTSPlayer hits /api/skills/tts which serves Cartesia Sonic
+  // English (Marketa voice) as the primary, OpenAI tts-1 as the
+  // fallback — same Cartesia voice the VAPI / CodexCopilotLayer
+  // surface uses. Browser-native window.speechSynthesis (useSpeechSynthesis)
+  // is kept around as a third-tier fallback only — feature-detect via
+  // browserTts.isSupported below. The previous Volume2 icon wiring
+  // talked to browser-native TTS directly, so the operator never
+  // heard the Cartesia voice on this surface.
   const lastAssistantMessage = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].role === 'assistant' && typeof messages[i].content === 'string') {
@@ -766,14 +775,19 @@ function FloatingCopilot({
     }
     return '';
   }, [messages]);
+  const lastAssistantMessageRef = useRef(lastAssistantMessage);
+  useEffect(() => { lastAssistantMessageRef.current = lastAssistantMessage; }, [lastAssistantMessage]);
+  const tts = useTTSPlayer({
+    getText: () => lastAssistantMessageRef.current,
+    voice: 'nova',
+  });
+  const browserTts = useSpeechSynthesis();
   const handleListenToggle = useCallback(() => {
-    if (tts.isSpeaking) {
-      tts.cancel();
-      return;
-    }
     if (!lastAssistantMessage) return;
-    tts.speak(lastAssistantMessage);
+    void tts.handleListen();
   }, [tts, lastAssistantMessage]);
+  const ttsIsSpeaking = tts.ttsState === 'playing';
+  const ttsIsLoading = tts.ttsState === 'loading';
 
   const visibleQuickPrompts = showQuickPrompts && quickPrompts.length > 0;
 
@@ -840,25 +854,27 @@ function FloatingCopilot({
                   or TTS isn't supported in this browser. Sits to the
                   left of the R/T dots so the trust/reliability glance
                   stays uncluttered. */}
-              {tts.isSupported && (
+              {(browserTts.isSupported || true) && (
                 <button
                   type="button"
                   onClick={handleListenToggle}
-                  disabled={!lastAssistantMessage}
+                  disabled={!lastAssistantMessage || ttsIsLoading}
                   title={
                     !lastAssistantMessage
                       ? 'No reply to read yet'
-                      : tts.isSpeaking
-                        ? 'Stop reading'
-                        : 'Read the latest reply aloud'
+                      : ttsIsLoading
+                        ? 'Fetching Cartesia voice…'
+                        : ttsIsSpeaking
+                          ? 'Stop reading'
+                          : 'Read the latest reply aloud (Cartesia voice)'
                   }
                   className={`p-1 rounded-md transition-colors ${
-                    tts.isSpeaking
+                    ttsIsSpeaking
                       ? 'text-cyan-300 bg-cyan-500/15'
                       : 'text-white/50 hover:text-cyan-300 hover:bg-white/5'
                   } disabled:opacity-30 disabled:cursor-not-allowed`}
                 >
-                  {tts.isSpeaking ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                  {ttsIsSpeaking ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
                 </button>
               )}
               <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
