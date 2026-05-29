@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`e5c5a1b`](https://github.com/iQube-Protocol/AigentZBeta/commit/e5c5a1b719d1669665288482f1b10c5f9cf266f1) [push] copilot speaker icon: swap browser-native TTS → /api/skills/tts (Cartesia) (Claude, 2026-05-29T14:49:44Z)
+- [`03c66b8`](https://github.com/iQube-Protocol/AigentZBeta/commit/03c66b83cc5d9776a6de31e0c57e7b28c8b5cbcb) [push] trigger deploy to dev (Claude, 2026-05-29T14:49:44Z)
 - [`86d150a`](https://github.com/iQube-Protocol/AigentZBeta/commit/86d150a417b33b2a91ec52bd177b27d0939894aa) [feat] Qriptopian cartridge: add qriptopia.com iframe tab (mirrors metaMe) (Claude, 2026-05-29T14:34:59Z)
 - [`bee1d11`](https://github.com/iQube-Protocol/AigentZBeta/commit/bee1d11bdb79cfd2f4f7b02f7a4267e944058484) [push] trigger deploy to dev (Claude, 2026-05-29T14:34:59Z)
 - [`3cdddb4`](https://github.com/iQube-Protocol/AigentZBeta/commit/3cdddb486f9b195582a61f5e526379bbc4dbafd0) [push] ArtifactCard: copy-id button next to truncated receipt prefix (Claude, 2026-05-29T14:20:39Z)
