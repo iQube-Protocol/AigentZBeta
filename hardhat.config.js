@@ -70,34 +70,14 @@ module.exports = {
       chainId: 8453
     }
   },
-  // Etherscan / Basescan verification config.
-  // Basescan uses the same API shape as Etherscan; the v2 unified
-  // Etherscan API key works across chains, but we also accept a
-  // dedicated BASESCAN_API_KEY env var as a fallback. Set whichever
-  // you have in .env.local.
+  // Etherscan v2 unified verification config.
+  // As of May 31, 2025 Etherscan retired V1 chain-specific keys
+  // (basescan.org, optimistic.etherscan.io, etc.). The V2 API uses
+  // a single key from etherscan.io that auto-routes by chainId. We
+  // accept ETHERSCAN_API_KEY first; BASESCAN_API_KEY is kept as a
+  // fallback for operator inertia but should also be a V2-issued key.
   etherscan: {
-    apiKey: {
-      base: process.env.BASESCAN_API_KEY || process.env.ETHERSCAN_API_KEY || '',
-      baseSepolia: process.env.BASESCAN_API_KEY || process.env.ETHERSCAN_API_KEY || '',
-    },
-    customChains: [
-      {
-        network: "base",
-        chainId: 8453,
-        urls: {
-          apiURL: "https://api.basescan.org/api",
-          browserURL: "https://basescan.org"
-        }
-      },
-      {
-        network: "baseSepolia",
-        chainId: 84532,
-        urls: {
-          apiURL: "https://api-sepolia.basescan.org/api",
-          browserURL: "https://sepolia.basescan.org"
-        }
-      }
-    ]
+    apiKey: process.env.ETHERSCAN_API_KEY || process.env.BASESCAN_API_KEY || '',
   },
   paths: {
     sources: "./contracts",
