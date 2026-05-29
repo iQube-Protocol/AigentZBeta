@@ -52,25 +52,39 @@ export function IframeTab({
     );
   }
   return (
-    <div className="relative w-full h-full min-h-[600px] bg-slate-950">
+    <div className="flex flex-col w-full h-full min-h-[600px] bg-slate-950">
+      {/* Chrome strip — Open-in-new-tab link sits above the iframe so it
+          never overlays embedded site content (was previously absolute
+          top-right inside the iframe container, which collided with
+          most sites' own top-right UI). */}
+      <div className={`flex items-center justify-end gap-2 px-2 py-1 border-b ${
+        theme === "dark"
+          ? "border-slate-800/60 bg-slate-900/40"
+          : "border-slate-200 bg-slate-50/60"
+      }`}>
+        <a
+          href={src}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={`Open ${src} in new tab`}
+          className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors ${
+            theme === "dark"
+              ? "text-slate-300 hover:text-cyan-300 hover:bg-cyan-500/10"
+              : "text-slate-600 hover:text-cyan-700 hover:bg-cyan-500/10"
+          }`}
+        >
+          <ExternalLink className="w-3 h-3" />
+          Open
+        </a>
+      </div>
       <iframe
         src={src}
         title={title}
-        className="absolute inset-0 w-full h-full border-0"
+        className="flex-1 w-full border-0"
         loading="lazy"
         referrerPolicy={referrerPolicy}
         {...(sandbox ? { sandbox } : {})}
       />
-      <a
-        href={src}
-        target="_blank"
-        rel="noopener noreferrer"
-        title="Open in new tab"
-        className="absolute top-2 right-2 z-10 inline-flex items-center gap-1 rounded-md border border-slate-700/60 bg-slate-900/70 px-2 py-1 text-[10px] font-medium text-slate-300 backdrop-blur-md hover:bg-slate-800/80"
-      >
-        <ExternalLink className="w-3 h-3" />
-        Open
-      </a>
     </div>
   );
 }
