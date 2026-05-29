@@ -1554,3 +1554,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-89adda9.md](../build_/COMMITS/COMMIT-89adda9.md)
 - Message: Guard rail — baseTokenMint refuses to broadcast unless connected RPC reports chainId 8453 (caught wrong-chain phantom-mint to Sepolia 2026-05-29)
+
+## Commit `a203a05` — 2026-05-29T08:40:55Z
+- Type: `push`
+- Brief: [COMMIT-a203a05.md](../build_/COMMITS/COMMIT-a203a05.md)
+- Message: trigger deploy to dev
+
+## Commit `6903e15` — 2026-05-29T08:40:55Z
+- Type: `fix`
+- Brief: [COMMIT-6903e15.md](../build_/COMMITS/COMMIT-6903e15.md)
+- Message: draftLlmHelper: fix Anthropic model id — claude-sonnet-4-5 → claude-sonnet-4-6

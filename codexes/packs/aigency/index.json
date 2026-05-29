@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-29T08:17:59.022Z",
+  "last_updated": "2026-05-29T08:42:56.205Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "89adda9ac8f884c10a1c89e2af267f5fd9b940ad",
-  "latest_commit_short": "89adda9",
-  "latest_commit_title": "Guard rail — baseTokenMint refuses to broadcast unless connected RPC reports chainId 8453 (caught wrong-chain phantom-mint to Sepolia 2026-05-29)",
+  "latest_commit": "6903e15b6b0524bf4159fcbd8d9aa0716b4897cb",
+  "latest_commit_short": "6903e15",
+  "latest_commit_title": "draftLlmHelper: fix Anthropic model id — claude-sonnet-4-5 → claude-sonnet-4-6",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "6903e15",
+      "full_sha": "6903e15b6b0524bf4159fcbd8d9aa0716b4897cb",
+      "title": "draftLlmHelper: fix Anthropic model id — claude-sonnet-4-5 → claude-sonnet-4-6",
+      "author": "Claude",
+      "timestamp": "2026-05-29T08:40:55Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-6903e15.md"
+    },
+    {
+      "sha": "a203a05",
+      "full_sha": "a203a05d57cd6daa5b810036b14b8c82e3c0760b",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-29T08:40:55Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-a203a05.md"
+    },
     {
       "sha": "89adda9",
       "full_sha": "89adda9ac8f884c10a1c89e2af267f5fd9b940ad",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-24T06:24:05Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-328bbf4.md"
-    },
-    {
-      "sha": "14e609c",
-      "full_sha": "14e609c68164bebd2b9ff85ce303f7dc59d9eabe",
-      "title": "Phase 2 B.2 (2/2): ActiveWorkDetailLayout (per-intent surface with Cancel/Handoff/Resume actions) + ActivityChip becomes clickable; recentActivity enriched server-side with canResume/canHandOff/canCancel/specialist/nextActionHint derived from intent status; action endpoints expected at /api/assistant/intents/[id]/{cancel,handoff,resume} — 404 surfaced as backlog note rather than failure",
-      "author": "Claude",
-      "timestamp": "2026-05-24T04:52:37Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-14e609c.md"
-    },
-    {
-      "sha": "1fc9328",
-      "full_sha": "1fc93284539e046959955417685a33fb47d7f047",
-      "title": "Phase 2 B.2 (1/2): cockpit Recommended row now activation-driven — NBAs sourced from actionsForActiveActivations(persona) first, static NBE catalog kept as fallback when activations haven't declared actions; catalog actions map to BriefNextBestAction with outcome-bearing actions surfacing as high impact",
-      "author": "Claude",
-      "timestamp": "2026-05-24T04:46:42Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1fc9328.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
