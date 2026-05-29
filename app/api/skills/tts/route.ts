@@ -41,6 +41,14 @@ async function synthCartesia(text: string): Promise<SynthResult> {
   if (!CARTESIA_API_KEY) {
     return { ok: false, error: "cartesia-not-configured" };
   }
+  // Lambda's hard exec budget is 30s. Cap Cartesia at 8s so we always
+  // have ~20s left to try the OpenAI fallback before API Gateway
+  // returns 504. Without this the fetch can hang indefinitely on
+  // upstream network issues (TCP connect / TLS handshake / slow
+  // response body) and eat the whole budget — that's what produced the
+  // 504 the operator saw on 2026-05-29.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8_000);
   try {
     const res = await fetch("https://api.cartesia.ai/tts/bytes", {
       method: "POST",
@@ -59,20 +67,23 @@ async function synthCartesia(text: string): Promise<SynthResult> {
           sample_rate: 44100,
         },
       }),
+      signal: controller.signal,
     });
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
       console.warn(
         `[skills/tts] Cartesia returned ${res.status}: ${detail.slice(0, 200)}`,
       );
-      return { ok: false, error: `cartesia-${res.status}` };
+      return { ok: false, error: `cartesia-${res.status}: ${detail.slice(0, 200)}` };
     }
     const buf = Buffer.from(await res.arrayBuffer());
     return { ok: true, bytes: buf };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn(`[skills/tts] Cartesia call failed: ${msg}`);
-    return { ok: false, error: msg };
+    return { ok: false, error: msg.includes("aborted") ? "cartesia-timeout-8s" : msg };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -81,10 +92,13 @@ async function synthOpenAi(text: string, voice: string): Promise<SynthResult> {
     return { ok: false, error: "openai-not-configured" };
   }
   try {
+    // Cartesia gets 8s of the Lambda budget (see synthCartesia); keep
+    // OpenAI under 18s so the whole route returns inside Lambda's 30s
+    // limit with margin for response serialization.
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
       maxRetries: 0,
-      timeout: 22_000,
+      timeout: 18_000,
     });
     const mp3 = await openai.audio.speech.create({
       model: "tts-1",
@@ -142,7 +156,12 @@ export async function POST(req: NextRequest) {
   const combined = `${primary.error ?? ""} | ${fallback.error ?? ""}`.toLowerCase();
   const isQuota = combined.includes("quota") || combined.includes("429");
   return NextResponse.json(
-    { error: isQuota ? "tts-providers-quota-exhausted" : "tts-failed", detail: combined.trim() },
+    {
+      error: isQuota ? "tts-providers-quota-exhausted" : "tts-failed",
+      detail: combined.trim(),
+      cartesia: primary.error ?? null,
+      openai: fallback.error ?? null,
+    },
     { status: isQuota ? 503 : 500 },
   );
 }
