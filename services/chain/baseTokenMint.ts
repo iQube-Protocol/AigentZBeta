@@ -116,6 +116,42 @@ function buildBaseSigner(): { signer: Wallet; provider: JsonRpcProvider } | null
 }
 
 /**
+ * Base mainnet chainId. Asserted before every signed tx so a
+ * misconfigured RPC (e.g. one of the *_RPC_URL env vars pointing at
+ * Base Sepolia by mistake) fails loud rather than silently submitting
+ * the tx to the wrong chain. The wrong-chain failure mode is silent
+ * because EVMs accept any calldata sent to any address — so a call
+ * to a mainnet contract address on Sepolia "succeeds" but does
+ * nothing, and the route returns ok=true with a real-looking tx hash.
+ * Caught the hard way on 2026-05-29 (one phantom mint to Sepolia
+ * burned ~$0.000... of testnet ETH, no real harm).
+ */
+const BASE_MAINNET_CHAIN_ID = 8453n;
+
+async function assertConnectedToBaseMainnet(
+  provider: JsonRpcProvider,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const net = await provider.getNetwork();
+    if (net.chainId !== BASE_MAINNET_CHAIN_ID) {
+      return {
+        ok: false,
+        error:
+          `Connected RPC is chainId ${net.chainId} (${net.name}), expected `
+          + `${BASE_MAINNET_CHAIN_ID} (Base mainnet). Check IQUBE_NFT_RPC_URL / `
+          + `BASE_RPC_URL / NEXT_PUBLIC_RPC_BASE_MAINNET env vars.`,
+      };
+    }
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error: `Failed to query RPC chainId: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
+/**
  * Resolve the ERC-721 master-qube contract address. Accepts the legacy
  * `CONTENT_QUBE_ERC721_ADDRESS` name AND the newer
  * `IQUBE_NFT_CONTRACT_ADDRESS` name (which is what the Amplify env vars
@@ -201,6 +237,14 @@ export async function mintCanonicalEdition(
     return { ok: true, skipped: 'contract_unconfigured' };
   }
 
+  // Chain assertion — refuse to broadcast if the connected RPC isn't
+  // Base mainnet. See assertConnectedToBaseMainnet() for context.
+  const chainCheck = await assertConnectedToBaseMainnet(conn.provider);
+  if (!chainCheck.ok) {
+    console.error('[baseTokenMint] wrong-chain refusal (edition):', chainCheck.error);
+    return { ok: false, error: chainCheck.error };
+  }
+
   const tokenId    = deriveEditionTokenId(contentQubeId, editionNumber);
   const tokenIdHex = '0x' + tokenId.toString(16);
 
@@ -258,6 +302,14 @@ export async function mintMasterQube(input: MintMasterInput): Promise<MintMaster
   if (!conn) {
     console.warn('[baseTokenMint] BASE_MINTER_PRIVATE_KEY / RPC not configured; master mint deferred');
     return { ok: true, skipped: 'contract_unconfigured' };
+  }
+
+  // Chain assertion — refuse to broadcast if the connected RPC isn't
+  // Base mainnet. See assertConnectedToBaseMainnet() for context.
+  const chainCheck = await assertConnectedToBaseMainnet(conn.provider);
+  if (!chainCheck.ok) {
+    console.error('[baseTokenMint] wrong-chain refusal (master):', chainCheck.error);
+    return { ok: false, error: chainCheck.error };
   }
 
   const tokenId    = deriveMasterTokenId(contentQubeId);
