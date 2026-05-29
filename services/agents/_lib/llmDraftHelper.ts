@@ -19,8 +19,12 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 // Match the model used by nbeLlmRerank + specialistRouter so the LLM
 // stack stays consistent. Override via env if a workstream needs a
 // different family — but keep the default in sync with the other
-// Anthropic call sites.
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_DRAFT_MODEL || 'claude-sonnet-4-5';
+// Anthropic call sites. claude-sonnet-4-6 is the current Sonnet
+// generation (Sonnet 4.6 in the Claude 4.X family); other Anthropic
+// call sites in this repo target claude-haiku-4-5-20251001 for cheaper
+// classification work — drafting benefits from Sonnet's quality so we
+// pin to Sonnet here.
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_DRAFT_MODEL || 'claude-sonnet-4-6';
 const OPENAI_MODEL = process.env.OPENAI_DRAFT_MODEL || 'gpt-4o-mini';
 
 function stripJsonFences(raw: string): string {
