@@ -54,6 +54,8 @@ export interface DraftEmailOutput {
   generatedAt: string;
 }
 
+import { callDraftLlm } from './_lib/llmDraftHelper';
+
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.SPECIALIST_LLM_MODEL || 'gpt-4o-mini';
 
@@ -160,7 +162,7 @@ export async function draftEmail(input: DraftEmailInput): Promise<DraftEmailOutp
     };
   }
 
-  const raw = await callOpenAi(SYSTEM_PROMPT, userPrompt({ ...input, prompt }));
+  const raw = await callDraftLlm(SYSTEM_PROMPT, userPrompt({ ...input, prompt }), 700);
   if (raw) {
     try {
       const parsed = JSON.parse(raw) as Partial<DraftEmailOutput>;
