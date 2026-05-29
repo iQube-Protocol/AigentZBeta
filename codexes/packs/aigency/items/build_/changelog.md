@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`b9e2e08`](https://github.com/iQube-Protocol/AigentZBeta/commit/b9e2e083f3507bb730b7dd8ee68b2b6b0e543a8f) [feat] STT: add Groq Whisper-large-v3 as fallback when OpenAI fails (Claude, 2026-05-29T09:36:27Z)
+- [`c2b0b5f`](https://github.com/iQube-Protocol/AigentZBeta/commit/c2b0b5fba1c1306b456c7d5ff331cf007a3bb978) [push] trigger deploy to dev (Claude, 2026-05-29T09:36:27Z)
 - [`bebbf22`](https://github.com/iQube-Protocol/AigentZBeta/commit/bebbf22991c4646aad717fd0dec35521e899ea78) [push] Phase 7B admin UI: CanonicalMintPanel mounted in KNYT Codex Admin + Registry-integration backlog (Claude, 2026-05-29T09:02:57Z)
 - [`9dce3d2`](https://github.com/iQube-Protocol/AigentZBeta/commit/9dce3d294f1c2d5e6cd9273bc3b84326b031ce4e) [feat] llmDraftHelper: add Venice (Llama 3.3 70B) as third-tier fallback (Claude, 2026-05-29T08:52:52Z)
 - [`f2ef1a7`](https://github.com/iQube-Protocol/AigentZBeta/commit/f2ef1a78dec6da9db80076f2c8678cd1a4170ca2) [push] trigger deploy to dev (Claude, 2026-05-29T08:52:52Z)
