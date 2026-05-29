@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-29T00:29:12.580Z",
+  "last_updated": "2026-05-29T05:06:32.915Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "1b7d6bd25d7e6185d080f8a3d6ab32a0d025e7a9",
-  "latest_commit_short": "1b7d6bd",
-  "latest_commit_title": "Mark QCT + iQubeNFT + QCTReserve as source-verified on Basescan (deployment registry)",
+  "latest_commit": "d388e2aa1f3470f27445b66b52d3d166b2413816",
+  "latest_commit_short": "d388e2a",
+  "latest_commit_title": "Phase 7B mint-trigger admin routes + widen env-var aliases (IQUBE_NFT_CONTRACT_ADDRESS accepted for ERC-721 master)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "d388e2a",
+      "full_sha": "d388e2aa1f3470f27445b66b52d3d166b2413816",
+      "title": "Phase 7B mint-trigger admin routes + widen env-var aliases (IQUBE_NFT_CONTRACT_ADDRESS accepted for ERC-721 master)",
+      "author": "Claude",
+      "timestamp": "2026-05-29T05:04:32Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d388e2a.md"
+    },
     {
       "sha": "1b7d6bd",
       "full_sha": "1b7d6bd25d7e6185d080f8a3d6ab32a0d025e7a9",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-24T00:19:04Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-56a60ad.md"
-    },
-    {
-      "sha": "5d91086",
-      "full_sha": "5d91086380fadf1b4b9919c47731db9c013339c6",
-      "title": "ApprovalLayout: drop inline NBE ApprovalCard from stack (was rendering behind the Phase-2 overlay) + amber surface/border/primary CTA matching Phase-1 authorization treatment",
-      "author": "Claude",
-      "timestamp": "2026-05-23T22:52:19Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5d91086.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

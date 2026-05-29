@@ -1504,3 +1504,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-1b7d6bd.md](../build_/COMMITS/COMMIT-1b7d6bd.md)
 - Message: Mark QCT + iQubeNFT + QCTReserve as source-verified on Basescan (deployment registry)
+
+## Commit `d388e2a` — 2026-05-29T05:04:32Z
+- Type: `push`
+- Brief: [COMMIT-d388e2a.md](../build_/COMMITS/COMMIT-d388e2a.md)
+- Message: Phase 7B mint-trigger admin routes + widen env-var aliases (IQUBE_NFT_CONTRACT_ADDRESS accepted for ERC-721 master)
