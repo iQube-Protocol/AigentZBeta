@@ -130,6 +130,11 @@ export async function POST(req: NextRequest) {
         "Content-Type": "audio/mpeg",
         "Content-Length": String(fallback.bytes.length),
         "X-TTS-Provider": "openai",
+        // Diagnostic: surface why Cartesia fell through so the operator
+        // can DevTools the /api/skills/tts response and see the actual
+        // failure reason (auth, model, version mismatch, quota, etc.)
+        // without needing CloudWatch access.
+        "X-TTS-Cartesia-Error": (primary.error ?? "unknown").slice(0, 200),
       },
     });
   }

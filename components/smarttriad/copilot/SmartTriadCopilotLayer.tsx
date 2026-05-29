@@ -808,6 +808,10 @@ function FloatingCopilot({
   // Render R/T score dots
   const renderDots = (value: number, type: "trust" | "reliability") => {
     const dotCount = Math.ceil(value / 2);
+    // Pulse while the chat round-trip is in flight OR while we're
+    // fetching TTS audio (Cartesia/OpenAI). Gives the operator a single
+    // "the copilot is working" signal across both paths.
+    const isBusy = isProcessing || ttsIsLoading;
     return (
       <div className="flex items-center gap-0.5">
         {Array.from({ length: 5 }, (_, i) => {
@@ -820,8 +824,8 @@ function FloatingCopilot({
           return (
             <span
               key={i}
-              className={`h-1.5 w-1.5 rounded-full ${colorClass} ${isProcessing ? "animate-pulse" : "transition-all duration-300"}`}
-              style={isProcessing ? { animationDelay: `${i * 0.15}s` } : undefined}
+              className={`h-1.5 w-1.5 rounded-full ${colorClass} ${isBusy ? "animate-pulse" : "transition-all duration-300"}`}
+              style={isBusy ? { animationDelay: `${i * 0.15}s` } : undefined}
             />
           );
         })}
