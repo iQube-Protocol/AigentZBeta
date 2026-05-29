@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-29T08:42:56.205Z",
+  "last_updated": "2026-05-29T08:54:46.933Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "6903e15b6b0524bf4159fcbd8d9aa0716b4897cb",
-  "latest_commit_short": "6903e15",
-  "latest_commit_title": "draftLlmHelper: fix Anthropic model id — claude-sonnet-4-5 → claude-sonnet-4-6",
+  "latest_commit": "9dce3d294f1c2d5e6cd9273bc3b84326b031ce4e",
+  "latest_commit_short": "9dce3d2",
+  "latest_commit_title": "llmDraftHelper: add Venice (Llama 3.3 70B) as third-tier fallback",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "9dce3d2",
+      "full_sha": "9dce3d294f1c2d5e6cd9273bc3b84326b031ce4e",
+      "title": "llmDraftHelper: add Venice (Llama 3.3 70B) as third-tier fallback",
+      "author": "Claude",
+      "timestamp": "2026-05-29T08:52:52Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-9dce3d2.md"
+    },
+    {
+      "sha": "f2ef1a7",
+      "full_sha": "f2ef1a78dec6da9db80076f2c8678cd1a4170ca2",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-29T08:52:52Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f2ef1a7.md"
+    },
     {
       "sha": "6903e15",
       "full_sha": "6903e15b6b0524bf4159fcbd8d9aa0716b4897cb",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-24T08:15:26Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-fdfa189.md"
-    },
-    {
-      "sha": "24a86f3",
-      "full_sha": "24a86f3c321960a95036a8e1ef898c1345973129",
-      "title": "intent route: accept activation-driven nbeIds — resolveCandidate parses 'activation:<id>:<action>' from ACTIVATION_CATALOG so the cockpit's Recommended NBAs (Phase 2 B.2 1/2) can queue intents; static NBE_CATALOGUE entries unchanged. Fixes 'unknown-nbeId' error when acting on activation-sourced rows in venture progress",
-      "author": "Claude",
-      "timestamp": "2026-05-24T07:06:39Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-24a86f3.md"
-    },
-    {
-      "sha": "328bbf4",
-      "full_sha": "328bbf44535ed723e4114a2bdb3cccb88bbde5e5",
-      "title": "Phase 2 B.3: live cockpit sync — silent background polling at 20s on cockpit layouts (pauses on document.hidden); LiveSyncIndicator in cockpit header shows 'Synced Ns ago' + manual refresh button; all mutation paths (KPI edit / intent action / NBE approval) trigger silent refetch so the cockpit reacts immediately without skeleton flash. Phase 3 will replace polling with Supabase realtime subscription",
-      "author": "Claude",
-      "timestamp": "2026-05-24T06:24:05Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-328bbf4.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
