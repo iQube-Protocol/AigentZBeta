@@ -1649,3 +1649,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-da0c735.md](../build_/COMMITS/COMMIT-da0c735.md)
 - Message: TTS: expose Cartesia error in response header + pulse R/T dots during loading
+
+## Commit `1cfe1c1` — 2026-05-29T17:06:24Z
+- Type: `push`
+- Brief: [COMMIT-1cfe1c1.md](../build_/COMMITS/COMMIT-1cfe1c1.md)
+- Message: trigger deploy to dev
+
+## Commit `5cbbec3` — 2026-05-29T17:06:24Z
+- Type: `push`
+- Brief: [COMMIT-5cbbec3.md](../build_/COMMITS/COMMIT-5cbbec3.md)
+- Message: metaMe protocol primitive: R/T dots spec + TTS console diagnostics + iframe Open removal

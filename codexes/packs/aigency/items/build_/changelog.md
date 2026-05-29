@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`5cbbec3`](https://github.com/iQube-Protocol/AigentZBeta/commit/5cbbec335bace62a43c314be9d7fa044fd27d27b) [push] metaMe protocol primitive: R/T dots spec + TTS console diagnostics + iframe Open removal (Claude, 2026-05-29T17:06:24Z)
+- [`1cfe1c1`](https://github.com/iQube-Protocol/AigentZBeta/commit/1cfe1c156ae191bc88157f20c74ad78f30ac1d33) [push] trigger deploy to dev (Claude, 2026-05-29T17:06:24Z)
 - [`da0c735`](https://github.com/iQube-Protocol/AigentZBeta/commit/da0c735747325c937786704a32ed138ae41bde55) [push] TTS: expose Cartesia error in response header + pulse R/T dots during loading (Claude, 2026-05-29T15:48:14Z)
 - [`88d41a1`](https://github.com/iQube-Protocol/AigentZBeta/commit/88d41a11c96b8b681dfdfe96f6509e650bc1ade1) [push] trigger deploy to dev (Claude, 2026-05-29T15:48:14Z)
 - [`3dd18ed`](https://github.com/iQube-Protocol/AigentZBeta/commit/3dd18edd85219013742d0bbfa5667a65efbc9298) [refactor] IframeTab: move Open-in-new-tab link out of iframe overlay into chrome strip (Claude, 2026-05-29T15:03:03Z)
