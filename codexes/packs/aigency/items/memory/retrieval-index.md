@@ -1564,3 +1564,18 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-6903e15.md](../build_/COMMITS/COMMIT-6903e15.md)
 - Message: draftLlmHelper: fix Anthropic model id — claude-sonnet-4-5 → claude-sonnet-4-6
+
+## Commit `f2ef1a7` — 2026-05-29T08:52:52Z
+- Type: `push`
+- Brief: [COMMIT-f2ef1a7.md](../build_/COMMITS/COMMIT-f2ef1a7.md)
+- Message: trigger deploy to dev
+
+## Commit `9dce3d2` — 2026-05-29T08:52:52Z
+- Type: `feat`
+- Brief: [COMMIT-9dce3d2.md](../build_/COMMITS/COMMIT-9dce3d2.md)
+- Message: llmDraftHelper: add Venice (Llama 3.3 70B) as third-tier fallback
+
+## Commit `bebbf22` — 2026-05-29T09:02:57Z
+- Type: `push`
+- Brief: [COMMIT-bebbf22.md](../build_/COMMITS/COMMIT-bebbf22.md)
+- Message: Phase 7B admin UI: CanonicalMintPanel mounted in KNYT Codex Admin + Registry-integration backlog
