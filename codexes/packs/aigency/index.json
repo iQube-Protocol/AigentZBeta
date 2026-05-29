@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-29T09:38:27.482Z",
+  "last_updated": "2026-05-29T14:12:04.038Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "b9e2e083f3507bb730b7dd8ee68b2b6b0e543a8f",
-  "latest_commit_short": "b9e2e08",
-  "latest_commit_title": "STT: add Groq Whisper-large-v3 as fallback when OpenAI fails",
+  "latest_commit": "f9cfb44edb9ca2441af7d0d9ef74c41606b71dd2",
+  "latest_commit_short": "f9cfb44",
+  "latest_commit_title": "metaMe: Cartesia TTS primary + myCanvas two-row header + metame.com iframe tab",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "f9cfb44",
+      "full_sha": "f9cfb44edb9ca2441af7d0d9ef74c41606b71dd2",
+      "title": "metaMe: Cartesia TTS primary + myCanvas two-row header + metame.com iframe tab",
+      "author": "Claude",
+      "timestamp": "2026-05-29T14:10:00Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f9cfb44.md"
+    },
+    {
+      "sha": "d8ea55d",
+      "full_sha": "d8ea55d3bf40b9c240ded9e464c4066b88ca3dcf",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-29T14:10:00Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d8ea55d.md"
+    },
     {
       "sha": "b9e2e08",
       "full_sha": "b9e2e083f3507bb730b7dd8ee68b2b6b0e543a8f",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-24T09:21:28Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c2bfdc4.md"
-    },
-    {
-      "sha": "e968318",
-      "full_sha": "e96831813d6f7d81eb29d4eb961911f33fdc0ab0",
-      "title": "capability gateway phase 2b — widen pre-flight gather to all specialists",
-      "author": "Claude",
-      "timestamp": "2026-05-24T09:13:42Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-e968318.md"
-    },
-    {
-      "sha": "d2bb41f",
-      "full_sha": "d2bb41ffd66b16c8f519e671480c63d555679a13",
-      "title": "capability gateway phase 2a — adapter pattern, openclaw shim, kn0w1 wiring",
-      "author": "Claude",
-      "timestamp": "2026-05-24T09:04:38Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d2bb41f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
