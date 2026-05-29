@@ -1130,7 +1130,31 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // the file alongside composerKind put it in the TDZ at render time
   // and crashed the cartridge with "can't access lexical declaration
   // before initialization".
-  const [composerSourceIntentId, setComposerSourceIntentId] = useState<string | null>(null);
+  //
+  // Persisted alongside composerKind + composerInitialPrompt (see
+  // those state hooks for the rationale) so the artifact that
+  // eventually surfaces still nests inside the Pill the operator
+  // originally Acted from, even if they sub-tab-navigate mid-compose.
+  const [composerSourceIntentId, setComposerSourceIntentId] = useState<string | null>(() => {
+    if (typeof window === 'undefined' || !personaId) return null;
+    try {
+      const raw = window.sessionStorage.getItem(`aigentme:split:composerSourceIntentId:${personaId}`);
+      return raw ? (JSON.parse(raw) as string | null) : null;
+    } catch { return null; }
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined' || !personaId) return;
+    try {
+      if (composerSourceIntentId === null) {
+        window.sessionStorage.removeItem(`aigentme:split:composerSourceIntentId:${personaId}`);
+      } else {
+        window.sessionStorage.setItem(
+          `aigentme:split:composerSourceIntentId:${personaId}`,
+          JSON.stringify(composerSourceIntentId),
+        );
+      }
+    } catch { /* quota — silently degrade */ }
+  }, [composerSourceIntentId, personaId]);
 
   // ── Compose handlers — all 6 mirror the classic tab pattern ────────
   const handleDraftEmail = useCallback(async (prompt: string) => {
@@ -1554,12 +1578,58 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
 
   // Phase 2 Slice 4: which compose form ComposerLayout should render
   // inline. Null when the layout is preview-only.
-  const [composerKind, setComposerKind] = useState<ComposeKind | null>(null);
+  //
+  // Persisted to sessionStorage so the composer survives sub-tab
+  // navigation (TabRenderer fully unmounts AigentMeWelcomeSplitTab when
+  // the operator switches to Strategy / NBE / Analysis / etc., the way
+  // it does for any codex sub-tab). Same pattern as `artifacts` above.
+  // On remount, the modal re-mounts via composerKind + auto-redrafts
+  // from composerInitialPrompt; the operator's typed field edits are
+  // still lost (modal local state) — that lift is a follow-up.
+  const [composerKind, setComposerKind] = useState<ComposeKind | null>(() => {
+    if (typeof window === 'undefined' || !personaId) return null;
+    try {
+      const raw = window.sessionStorage.getItem(`aigentme:split:composerKind:${personaId}`);
+      return raw ? (JSON.parse(raw) as ComposeKind | null) : null;
+    } catch { return null; }
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined' || !personaId) return;
+    try {
+      if (composerKind === null) {
+        window.sessionStorage.removeItem(`aigentme:split:composerKind:${personaId}`);
+      } else {
+        window.sessionStorage.setItem(
+          `aigentme:split:composerKind:${personaId}`,
+          JSON.stringify(composerKind),
+        );
+      }
+    } catch { /* quota — silently degrade */ }
+  }, [composerKind, personaId]);
   // Optional pre-baked aigentMe draft prompt — when set, the inline
   // compose form pre-fills its AI prompt textarea AND auto-fires the
   // draft on mount so the operator lands on a populated form. Used by
   // the SpecialistsLayout suggested-artifact buttons.
-  const [composerInitialPrompt, setComposerInitialPrompt] = useState<string | null>(null);
+  const [composerInitialPrompt, setComposerInitialPrompt] = useState<string | null>(() => {
+    if (typeof window === 'undefined' || !personaId) return null;
+    try {
+      const raw = window.sessionStorage.getItem(`aigentme:split:composerInitialPrompt:${personaId}`);
+      return raw ? (JSON.parse(raw) as string | null) : null;
+    } catch { return null; }
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined' || !personaId) return;
+    try {
+      if (composerInitialPrompt === null) {
+        window.sessionStorage.removeItem(`aigentme:split:composerInitialPrompt:${personaId}`);
+      } else {
+        window.sessionStorage.setItem(
+          `aigentme:split:composerInitialPrompt:${personaId}`,
+          JSON.stringify(composerInitialPrompt),
+        );
+      }
+    } catch { /* quota — silently degrade */ }
+  }, [composerInitialPrompt, personaId]);
 
   // Clear the composer's parent-intent binding whenever the composer
   // is dismissed (composerKind flips to null on backdrop click,

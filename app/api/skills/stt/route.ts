@@ -52,8 +52,18 @@ export async function POST(req: NextRequest) {
 
   const lang = typeof form.get("lang") === "string" ? (form.get("lang") as string) : undefined;
 
+  // Lambda's hard exec budget is 30s; the OpenAI SDK retries by default
+  // and can easily blow past that if Whisper is slow / quota-throttled,
+  // producing a 504 at API Gateway instead of a clean error here.
+  // maxRetries=0 + a 22s timeout keeps us safely inside the budget so
+  // the operator gets a real error (quota / timeout) instead of a
+  // gateway timeout.
   try {
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+      maxRetries: 0,
+      timeout: 22_000,
+    });
     const ext = audio.type.includes("ogg") ? "ogg" : audio.type.includes("mp4") ? "mp4" : "webm";
     const file = new File([audio], `clip.${ext}`, { type: audio.type || "audio/webm" });
     const result = await openai.audio.transcriptions.create({
@@ -68,6 +78,18 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[skills/stt] whisper failed:", msg);
-    return NextResponse.json({ error: "stt-failed", detail: msg }, { status: 500 });
+    const lower = msg.toLowerCase();
+    // Map common upstream failure modes so the FE can surface useful
+    // copy instead of a generic "stt failed". Quota exhaustion is the
+    // most common dev-env failure mode today.
+    const isQuota = lower.includes("quota") || lower.includes("429") || lower.includes("insufficient_quota");
+    const isTimeout = lower.includes("timeout") || lower.includes("aborted");
+    return NextResponse.json(
+      {
+        error: isQuota ? "openai-quota-exhausted" : isTimeout ? "stt-timeout" : "stt-failed",
+        detail: msg,
+      },
+      { status: isQuota ? 503 : isTimeout ? 504 : 500 },
+    );
   }
 }
