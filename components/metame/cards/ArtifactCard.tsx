@@ -152,6 +152,23 @@ export function ArtifactCard({
             <span className={`px-2 py-0.5 rounded-full border ${statusMeta.ring}`}>
               {statusMeta.label}
             </span>
+            {(() => {
+              // Attachment-count chip — surfaces the persona uploads that
+              // will ride with the artifact when the operator clicks
+              // Send. Diagnostic: without this the picker can fall to
+              // empty (wrong persona, fetch race, etc.) and the operator
+              // ships an email expecting an attachment that never made
+              // it into the multipart MIME body. Lives on the card so
+              // the count is visible before Send + confirmed after.
+              const ids = (data.actionInput as { attachmentUploadIds?: unknown } | undefined)?.attachmentUploadIds;
+              const count = Array.isArray(ids) ? ids.length : 0;
+              if (count === 0) return null;
+              return (
+                <span className="px-2 py-0.5 rounded-full border border-violet-500/40 bg-violet-500/10 text-violet-200">
+                  {count} attached
+                </span>
+              );
+            })()}
             {/*
               Gmail / Drive / Calendar location link.
               Shown when the resource is in its final viewable state:
