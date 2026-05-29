@@ -1619,3 +1619,13 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-86d150a.md](../build_/COMMITS/COMMIT-86d150a.md)
 - Message: Qriptopian cartridge: add qriptopia.com iframe tab (mirrors metaMe)
+
+## Commit `03c66b8` — 2026-05-29T14:49:44Z
+- Type: `push`
+- Brief: [COMMIT-03c66b8.md](../build_/COMMITS/COMMIT-03c66b8.md)
+- Message: trigger deploy to dev
+
+## Commit `e5c5a1b` — 2026-05-29T14:49:44Z
+- Type: `push`
+- Brief: [COMMIT-e5c5a1b.md](../build_/COMMITS/COMMIT-e5c5a1b.md)
+- Message: copilot speaker icon: swap browser-native TTS → /api/skills/tts (Cartesia)
