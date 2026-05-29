@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-29T05:27:42.252Z",
+  "last_updated": "2026-05-29T05:56:54.073Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "ec82d25c7eb260821d855d8b4535b3013c9a24a2",
-  "latest_commit_short": "ec82d25",
-  "latest_commit_title": "Add ContentQubeEditions (ERC-1155) contract + Base mainnet deploy script — closes Phase 7B edition mint loop",
+  "latest_commit": "78bea0fcc98199c82f64829dfc6727ff3952610e",
+  "latest_commit_short": "78bea0f",
+  "latest_commit_title": "draft services: Anthropic primary, OpenAI secondary (was OpenAI-only)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "78bea0f",
+      "full_sha": "78bea0fcc98199c82f64829dfc6727ff3952610e",
+      "title": "draft services: Anthropic primary, OpenAI secondary (was OpenAI-only)",
+      "author": "Claude",
+      "timestamp": "2026-05-29T05:54:57Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-78bea0f.md"
+    },
+    {
+      "sha": "9700f42",
+      "full_sha": "9700f42986666043052d2deb142d20c34d6fe32b",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-29T05:54:57Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-9700f42.md"
+    },
     {
       "sha": "ec82d25",
       "full_sha": "ec82d25c7eb260821d855d8b4535b3013c9a24a2",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-24T01:57:20Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-7d02d7e.md"
-    },
-    {
-      "sha": "ccfd5da",
-      "full_sha": "ccfd5da6dfac28f1f5334545fd49b0b38b2f7d33",
-      "title": "Phase 2 Slice 7 (A): dual-dispatch chip strip — NbeQuickChip type + onSelect on QuickPrompt + server-driven swap seam on assistant fetches; cold-open fallback unchanged",
-      "author": "Claude",
-      "timestamp": "2026-05-24T01:49:17Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-ccfd5da.md"
-    },
-    {
-      "sha": "3e8011e",
-      "full_sha": "3e8011ebabe282a33fd5250f745c42bab250b4aa",
-      "title": "ComposerLayout dismiss: auto-scroll the ArtifactCard into view when returning to stack so the Send draft approval gate doesn't sit below the fold unnoticed",
-      "author": "Claude",
-      "timestamp": "2026-05-24T00:50:42Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-3e8011e.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
