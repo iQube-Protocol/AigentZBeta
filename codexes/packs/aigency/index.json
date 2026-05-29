@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-29T08:54:46.933Z",
+  "last_updated": "2026-05-29T09:04:55.451Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "9dce3d294f1c2d5e6cd9273bc3b84326b031ce4e",
-  "latest_commit_short": "9dce3d2",
-  "latest_commit_title": "llmDraftHelper: add Venice (Llama 3.3 70B) as third-tier fallback",
+  "latest_commit": "bebbf22991c4646aad717fd0dec35521e899ea78",
+  "latest_commit_short": "bebbf22",
+  "latest_commit_title": "Phase 7B admin UI: CanonicalMintPanel mounted in KNYT Codex Admin + Registry-integration backlog",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "bebbf22",
+      "full_sha": "bebbf22991c4646aad717fd0dec35521e899ea78",
+      "title": "Phase 7B admin UI: CanonicalMintPanel mounted in KNYT Codex Admin + Registry-integration backlog",
+      "author": "Claude",
+      "timestamp": "2026-05-29T09:02:57Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-bebbf22.md"
+    },
     {
       "sha": "9dce3d2",
       "full_sha": "9dce3d294f1c2d5e6cd9273bc3b84326b031ce4e",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-24T08:42:04Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-828d5b8.md"
-    },
-    {
-      "sha": "fdfa189",
-      "full_sha": "fdfa189ed53b94ff096128b60de5effd9e6be081",
-      "title": "VentureCockpit: surface KPI editor from cockpit chips + header",
-      "author": "Claude",
-      "timestamp": "2026-05-24T08:15:26Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-fdfa189.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

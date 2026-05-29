@@ -1574,3 +1574,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-9dce3d2.md](../build_/COMMITS/COMMIT-9dce3d2.md)
 - Message: llmDraftHelper: add Venice (Llama 3.3 70B) as third-tier fallback
+
+## Commit `bebbf22` — 2026-05-29T09:02:57Z
+- Type: `push`
+- Brief: [COMMIT-bebbf22.md](../build_/COMMITS/COMMIT-bebbf22.md)
+- Message: Phase 7B admin UI: CanonicalMintPanel mounted in KNYT Codex Admin + Registry-integration backlog

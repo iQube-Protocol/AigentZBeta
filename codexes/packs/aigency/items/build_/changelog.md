@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`bebbf22`](https://github.com/iQube-Protocol/AigentZBeta/commit/bebbf22991c4646aad717fd0dec35521e899ea78) [push] Phase 7B admin UI: CanonicalMintPanel mounted in KNYT Codex Admin + Registry-integration backlog (Claude, 2026-05-29T09:02:57Z)
 - [`9dce3d2`](https://github.com/iQube-Protocol/AigentZBeta/commit/9dce3d294f1c2d5e6cd9273bc3b84326b031ce4e) [feat] llmDraftHelper: add Venice (Llama 3.3 70B) as third-tier fallback (Claude, 2026-05-29T08:52:52Z)
 - [`f2ef1a7`](https://github.com/iQube-Protocol/AigentZBeta/commit/f2ef1a78dec6da9db80076f2c8678cd1a4170ca2) [push] trigger deploy to dev (Claude, 2026-05-29T08:52:52Z)
 - [`6903e15`](https://github.com/iQube-Protocol/AigentZBeta/commit/6903e15b6b0524bf4159fcbd8d9aa0716b4897cb) [fix] draftLlmHelper: fix Anthropic model id — claude-sonnet-4-5 → claude-sonnet-4-6 (Claude, 2026-05-29T08:40:55Z)
