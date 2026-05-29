@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-29T14:22:39.503Z",
+  "last_updated": "2026-05-29T14:37:13.384Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "3cdddb486f9b195582a61f5e526379bbc4dbafd0",
-  "latest_commit_short": "3cdddb4",
-  "latest_commit_title": "ArtifactCard: copy-id button next to truncated receipt prefix",
+  "latest_commit": "86d150a417b33b2a91ec52bd177b27d0939894aa",
+  "latest_commit_short": "86d150a",
+  "latest_commit_title": "Qriptopian cartridge: add qriptopia.com iframe tab (mirrors metaMe)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "86d150a",
+      "full_sha": "86d150a417b33b2a91ec52bd177b27d0939894aa",
+      "title": "Qriptopian cartridge: add qriptopia.com iframe tab (mirrors metaMe)",
+      "author": "Claude",
+      "timestamp": "2026-05-29T14:34:59Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-86d150a.md"
+    },
+    {
+      "sha": "bee1d11",
+      "full_sha": "bee1d11bdb79cfd2f4f7b02f7a4267e944058484",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-29T14:34:59Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-bee1d11.md"
+    },
     {
       "sha": "3cdddb4",
       "full_sha": "3cdddb486f9b195582a61f5e526379bbc4dbafd0",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-24T17:35:36Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-e4cf0a0.md"
-    },
-    {
-      "sha": "d0825fd",
-      "full_sha": "d0825fd14ab99cdedd29da5c40ba0bb68582a3ae",
-      "title": "nbe rerank: fold Capability Gateway preflight summary into LLM rerank prompt",
-      "author": "Claude",
-      "timestamp": "2026-05-24T10:09:51Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d0825fd.md"
-    },
-    {
-      "sha": "ac27250",
-      "full_sha": "ac27250d378be9ff5e4fbed564ff81c5758e20d0",
-      "title": "capability gateway phase 2b — openclawCore extract, real web-search + owned-content-scan",
-      "author": "Claude",
-      "timestamp": "2026-05-24T09:58:46Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-ac27250.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
