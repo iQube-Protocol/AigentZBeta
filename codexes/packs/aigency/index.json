@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-29T00:20:59.688Z",
+  "last_updated": "2026-05-29T00:29:12.580Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "395a8f295c88f34fc50c78b5affedaa228b9ba76",
-  "latest_commit_short": "395a8f2",
-  "latest_commit_title": "Switch hardhat verify config to Etherscan V2 (chain-agnostic single key); V1 endpoints retired May 31, 2025",
+  "latest_commit": "1b7d6bd25d7e6185d080f8a3d6ab32a0d025e7a9",
+  "latest_commit_short": "1b7d6bd",
+  "latest_commit_title": "Mark QCT + iQubeNFT + QCTReserve as source-verified on Basescan (deployment registry)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "1b7d6bd",
+      "full_sha": "1b7d6bd25d7e6185d080f8a3d6ab32a0d025e7a9",
+      "title": "Mark QCT + iQubeNFT + QCTReserve as source-verified on Basescan (deployment registry)",
+      "author": "Claude",
+      "timestamp": "2026-05-29T00:27:23Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1b7d6bd.md"
+    },
     {
       "sha": "395a8f2",
       "full_sha": "395a8f295c88f34fc50c78b5affedaa228b9ba76",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-23T22:52:19Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-5d91086.md"
-    },
-    {
-      "sha": "754ae53",
-      "full_sha": "754ae53d3703a40351ce8fcd9f32aefbc8046382",
-      "title": "AigentMe: kill auto-open-Gmail-tab on artifact creation — broke HITL flow by popping the external tab BEFORE the in-app approval card appeared. Restores Phase 1 'approve in app, view post-send' contract",
-      "author": "Claude",
-      "timestamp": "2026-05-23T22:26:08Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-754ae53.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
