@@ -1449,3 +1449,68 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-9294258.md](../build_/COMMITS/COMMIT-9294258.md)
 - Message: KNYT store: Franchisee PoA 15 of 21 + First KNYT investor signed-AGN gate
+
+## Commit `51be5ac` — 2026-05-28T21:14:28Z
+- Type: `push`
+- Brief: [COMMIT-51be5ac.md](../build_/COMMITS/COMMIT-51be5ac.md)
+- Message: trigger deploy to dev
+
+## Commit `9ddf15d` — 2026-05-28T21:14:28Z
+- Type: `push`
+- Brief: [COMMIT-9ddf15d.md](../build_/COMMITS/COMMIT-9ddf15d.md)
+- Message: KNYT store: surface-scoped includes + initialClaimed in sku-supply + retail X-of-Y badge
+
+## Commit `b41253f` — 2026-05-28T22:12:53Z
+- Type: `feat`
+- Brief: [COMMIT-b41253f.md](../build_/COMMITS/COMMIT-b41253f.md)
+- Message: Add chain-pinned + balance-prechecked Base mainnet deploy scripts for QCT + iQubeNFT (single-network, no multi-deploy bug)
+
+## Commit `f517444` — 2026-05-28T22:16:32Z
+- Type: `feat`
+- Brief: [COMMIT-f517444.md](../build_/COMMITS/COMMIT-f517444.md)
+- Message: Add scripts/verify-deployer-key.js — local key→address derivation, no RPC, pre-deploy sanity check
+
+## Commit `2e4ee0b` — 2026-05-28T22:41:48Z
+- Type: `feat`
+- Brief: [COMMIT-2e4ee0b.md](../build_/COMMITS/COMMIT-2e4ee0b.md)
+- Message: Add scripts/deploy-qct-reserve-base-mainnet.js — chain-pinned QCTReserve deploy with canonical Circle USDC + setReserve linking
+
+## Commit `5c63350` — 2026-05-28T23:30:40Z
+- Type: `chore`
+- Brief: [COMMIT-5c63350.md](../build_/COMMITS/COMMIT-5c63350.md)
+- Message: Bump hardhat solidity compiler 0.8.20 → 0.8.24 (OpenZeppelin v5 requires ^0.8.24)
+
+## Commit `7c30d2e` — 2026-05-28T23:33:41Z
+- Type: `push`
+- Brief: [COMMIT-7c30d2e.md](../build_/COMMITS/COMMIT-7c30d2e.md)
+- Message: Set hardhat evmVersion: 'cancun' (default is 'paris'; OpenZeppelin Bytes.sol mcopy needs Cancun, Base mainnet supports it)
+
+## Commit `125b99e` — 2026-05-28T23:45:56Z
+- Type: `push`
+- Brief: [COMMIT-125b99e.md](../build_/COMMITS/COMMIT-125b99e.md)
+- Message: Record live Base mainnet addresses: QCT, iQubeNFT, QCTReserve (deployed 2026-05-28)
+
+## Commit `2bd4971` — 2026-05-28T23:58:20Z
+- Type: `feat`
+- Brief: [COMMIT-2bd4971.md](../build_/COMMITS/COMMIT-2bd4971.md)
+- Message: Record Base mainnet deploy artefacts + add basescan verify config (etherscan.apiKey.base, customChains for chainId 8453)
+
+## Commit `395a8f2` — 2026-05-29T00:18:58Z
+- Type: `push`
+- Brief: [COMMIT-395a8f2.md](../build_/COMMITS/COMMIT-395a8f2.md)
+- Message: Switch hardhat verify config to Etherscan V2 (chain-agnostic single key); V1 endpoints retired May 31, 2025
+
+## Commit `1b7d6bd` — 2026-05-29T00:27:23Z
+- Type: `push`
+- Brief: [COMMIT-1b7d6bd.md](../build_/COMMITS/COMMIT-1b7d6bd.md)
+- Message: Mark QCT + iQubeNFT + QCTReserve as source-verified on Basescan (deployment registry)
+
+## Commit `d388e2a` — 2026-05-29T05:04:32Z
+- Type: `push`
+- Brief: [COMMIT-d388e2a.md](../build_/COMMITS/COMMIT-d388e2a.md)
+- Message: Phase 7B mint-trigger admin routes + widen env-var aliases (IQUBE_NFT_CONTRACT_ADDRESS accepted for ERC-721 master)
+
+## Commit `ec82d25` — 2026-05-29T05:26:03Z
+- Type: `feat`
+- Brief: [COMMIT-ec82d25.md](../build_/COMMITS/COMMIT-ec82d25.md)
+- Message: Add ContentQubeEditions (ERC-1155) contract + Base mainnet deploy script — closes Phase 7B edition mint loop

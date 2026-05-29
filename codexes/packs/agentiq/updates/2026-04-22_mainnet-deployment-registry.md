@@ -1,8 +1,52 @@
 # Mainnet Deployment Registry
 *Doc 35 — On-chain contract addresses, deploy procedures, and BTC anchoring wiring for AgentiQ KNYT Alpha*
 
-**Status:** in progress — QCT deploy pending  
-**Last updated:** 2026-04-22  
+**Status:** QCT + iQubeNFT + QCTReserve LIVE on Base mainnet (2026-05-28)
+**Last updated:** 2026-05-28
+
+---
+
+## 0. Live Contract Roster — Base Mainnet (chainId 8453)
+
+All three QCT-era contracts deployed AND verified 2026-05-28 from AigentZ EOA `0x0e3a4FDbE83F7e206380E6C61CA016F2127FF844`. ~0.000023 ETH total deploy gas (≈$0.05).
+
+| Contract | Address | Deploy tx | Source verified |
+|---|---|---|---|
+| **QriptoCENT (QCT)** — Base Q¢ ERC-20, 18 dec, 400M premine, 1B cap | `0x46CD79B8f795169FC59D5f1DE1a444c3C39fE7CE` | `0xaa7e258a64a1e72cebf8413e5dceb04c97d8bc02d2352d3c51ab89dbc7dbe066` | ✅ [#code](https://basescan.org/address/0x46CD79B8f795169FC59D5f1DE1a444c3C39fE7CE#code) |
+| **iQubeNFT** — Base iQube ERC-721 identity anchor | `0xD7e07dF8259bD491B1259892F4Fb9357Dd0aff17` | `0xb0eea0101265c5ec57b29922c225702df3a74b1f211e840cc37fb5f52d91b21d` | ✅ [#code](https://basescan.org/address/0xD7e07dF8259bD491B1259892F4Fb9357Dd0aff17#code) |
+| **QCTReserve** — Base Q¢ ↔ Base USDC swap (1 USDC = 100 QCT, 0.1% fee) | `0x06Be2FbcBBB9cCA2D0Ce1753AdC18ab8021dc0FA` | `0xa8ea8d9b3630fa102cc8fe543002cff61b0957122b27422a4daf5718d55fcade` | ✅ [#code](https://basescan.org/address/0x06Be2FbcBBB9cCA2D0Ce1753AdC18ab8021dc0FA#code) |
+| `QCT.setReserve(reserve)` linking tx | (call on QCT above) | `0x68e8a43ec6c299bb1b7f1b59a46352a4edee6d21e8719020d604867668f3508f` | — |
+
+USDC reference: canonical Circle USDC on Base at `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` (no deploy needed).
+
+### Amplify env vars (set in dev branch, soak, then main)
+
+```
+NEXT_PUBLIC_QCT_BASE_MAINNET=0x46CD79B8f795169FC59D5f1DE1a444c3C39fE7CE
+NEXT_PUBLIC_QCT_BASE_MAINNET_CHAIN_ID=8453
+IQUBE_NFT_CONTRACT_ADDRESS=0xD7e07dF8259bD491B1259892F4Fb9357Dd0aff17
+IQUBE_NFT_CHAIN_ID=8453
+NEXT_PUBLIC_QCT_RESERVE_BASE_MAINNET=0x06Be2FbcBBB9cCA2D0Ce1753AdC18ab8021dc0FA
+```
+
+### Deploy scripts (chain-pinned + balance-prechecked — use these, not the legacy multi-chain scripts)
+
+```
+scripts/deploy-qct-base-mainnet.js          # QCT
+scripts/deploy-iqube-nft-base-mainnet.js    # iQubeNFT
+scripts/deploy-qct-reserve-base-mainnet.js  # QCTReserve (reads QCT address from deployments/qct-base-mainnet.json)
+scripts/verify-deployer-key.js              # local key→address derivation, no RPC
+```
+
+Hardhat config requires `version: "0.8.27"` + `evmVersion: "cancun"` (OpenZeppelin v5 Bytes.sol uses the Cancun `mcopy` opcode; Base is fully Dencun-compatible).
+
+### Deployment artefacts persisted to repo
+
+```
+deployments/qct-base-mainnet.json
+deployments/iqube-nft-base-mainnet.json
+deployments/qct-reserve-base-mainnet.json
+```
 
 ---
 

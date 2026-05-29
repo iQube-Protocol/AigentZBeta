@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-28T18:25:07.671Z",
+  "last_updated": "2026-05-29T05:27:42.252Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "9294258385854d28b253003fd0ad83389bbb999e",
-  "latest_commit_short": "9294258",
-  "latest_commit_title": "KNYT store: Franchisee PoA 15 of 21 + First KNYT investor signed-AGN gate",
+  "latest_commit": "ec82d25c7eb260821d855d8b4535b3013c9a24a2",
+  "latest_commit_short": "ec82d25",
+  "latest_commit_title": "Add ContentQubeEditions (ERC-1155) contract + Base mainnet deploy script — closes Phase 7B edition mint loop",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,123 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "ec82d25",
+      "full_sha": "ec82d25c7eb260821d855d8b4535b3013c9a24a2",
+      "title": "Add ContentQubeEditions (ERC-1155) contract + Base mainnet deploy script — closes Phase 7B edition mint loop",
+      "author": "Claude",
+      "timestamp": "2026-05-29T05:26:03Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-ec82d25.md"
+    },
+    {
+      "sha": "d388e2a",
+      "full_sha": "d388e2aa1f3470f27445b66b52d3d166b2413816",
+      "title": "Phase 7B mint-trigger admin routes + widen env-var aliases (IQUBE_NFT_CONTRACT_ADDRESS accepted for ERC-721 master)",
+      "author": "Claude",
+      "timestamp": "2026-05-29T05:04:32Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d388e2a.md"
+    },
+    {
+      "sha": "1b7d6bd",
+      "full_sha": "1b7d6bd25d7e6185d080f8a3d6ab32a0d025e7a9",
+      "title": "Mark QCT + iQubeNFT + QCTReserve as source-verified on Basescan (deployment registry)",
+      "author": "Claude",
+      "timestamp": "2026-05-29T00:27:23Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1b7d6bd.md"
+    },
+    {
+      "sha": "395a8f2",
+      "full_sha": "395a8f295c88f34fc50c78b5affedaa228b9ba76",
+      "title": "Switch hardhat verify config to Etherscan V2 (chain-agnostic single key); V1 endpoints retired May 31, 2025",
+      "author": "Claude",
+      "timestamp": "2026-05-29T00:18:58Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-395a8f2.md"
+    },
+    {
+      "sha": "2bd4971",
+      "full_sha": "2bd4971b651f4b4e655aad6b710c9b08474900fa",
+      "title": "Record Base mainnet deploy artefacts + add basescan verify config (etherscan.apiKey.base, customChains for chainId 8453)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T23:58:20Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-2bd4971.md"
+    },
+    {
+      "sha": "125b99e",
+      "full_sha": "125b99ecd34223386faa432f7e0d9265a81c3634",
+      "title": "Record live Base mainnet addresses: QCT, iQubeNFT, QCTReserve (deployed 2026-05-28)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T23:45:56Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-125b99e.md"
+    },
+    {
+      "sha": "7c30d2e",
+      "full_sha": "7c30d2ec4bb2afeded912c206d648663e630416c",
+      "title": "Set hardhat evmVersion: 'cancun' (default is 'paris'; OpenZeppelin Bytes.sol mcopy needs Cancun, Base mainnet supports it)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T23:33:41Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7c30d2e.md"
+    },
+    {
+      "sha": "5c63350",
+      "full_sha": "5c63350364acdf04dba1593ce02d1d095672289b",
+      "title": "Bump hardhat solidity compiler 0.8.20 → 0.8.24 (OpenZeppelin v5 requires ^0.8.24)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T23:30:40Z",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-5c63350.md"
+    },
+    {
+      "sha": "2e4ee0b",
+      "full_sha": "2e4ee0bf67fd2a377f9f706d8cd7a1e1ea5eec43",
+      "title": "Add scripts/deploy-qct-reserve-base-mainnet.js — chain-pinned QCTReserve deploy with canonical Circle USDC + setReserve linking",
+      "author": "Claude",
+      "timestamp": "2026-05-28T22:41:48Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-2e4ee0b.md"
+    },
+    {
+      "sha": "f517444",
+      "full_sha": "f517444cd52117ed03cc53c790f29948e744171b",
+      "title": "Add scripts/verify-deployer-key.js — local key→address derivation, no RPC, pre-deploy sanity check",
+      "author": "Claude",
+      "timestamp": "2026-05-28T22:16:32Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-f517444.md"
+    },
+    {
+      "sha": "b41253f",
+      "full_sha": "b41253fc1664d19fdffb96f5e9f5dda6c8dd7299",
+      "title": "Add chain-pinned + balance-prechecked Base mainnet deploy scripts for QCT + iQubeNFT (single-network, no multi-deploy bug)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T22:12:53Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-b41253f.md"
+    },
+    {
+      "sha": "9ddf15d",
+      "full_sha": "9ddf15d9dbe5ed9097b2c057462735aa23748e18",
+      "title": "KNYT store: surface-scoped includes + initialClaimed in sku-supply + retail X-of-Y badge",
+      "author": "Claude",
+      "timestamp": "2026-05-28T21:14:28Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-9ddf15d.md"
+    },
+    {
+      "sha": "51be5ac",
+      "full_sha": "51be5ac706de3e8dfab07ab81bcd79931b180b3f",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-28T21:14:28Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-51be5ac.md"
+    },
     {
       "sha": "9294258",
       "full_sha": "9294258385854d28b253003fd0ad83389bbb999e",
@@ -1135,123 +1252,6 @@
       "timestamp": "2026-05-24T00:50:42Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-3e8011e.md"
-    },
-    {
-      "sha": "56a60ad",
-      "full_sha": "56a60ade419cfd3fa2f10c5e920055130979c186",
-      "title": "Phase 2 Slice 4 (compose-in-layout): all 6 compose modals support inline=true mode; openComposeByKind routes to ComposerLayout instead of popups; legacy modal mounts + open booleans removed from tab",
-      "author": "Claude",
-      "timestamp": "2026-05-24T00:19:04Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-56a60ad.md"
-    },
-    {
-      "sha": "5d91086",
-      "full_sha": "5d91086380fadf1b4b9919c47731db9c013339c6",
-      "title": "ApprovalLayout: drop inline NBE ApprovalCard from stack (was rendering behind the Phase-2 overlay) + amber surface/border/primary CTA matching Phase-1 authorization treatment",
-      "author": "Claude",
-      "timestamp": "2026-05-23T22:52:19Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5d91086.md"
-    },
-    {
-      "sha": "754ae53",
-      "full_sha": "754ae53d3703a40351ce8fcd9f32aefbc8046382",
-      "title": "AigentMe: kill auto-open-Gmail-tab on artifact creation — broke HITL flow by popping the external tab BEFORE the in-app approval card appeared. Restores Phase 1 'approve in app, view post-send' contract",
-      "author": "Claude",
-      "timestamp": "2026-05-23T22:26:08Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-754ae53.md"
-    },
-    {
-      "sha": "1c01f6c",
-      "full_sha": "1c01f6c28891503e3bbfb267a9463e2696feb9e6",
-      "title": "ArtifactCard: hide Gmail/Drive 'Open' link pre-approval (only show after status approved|sent|published) — fixes flow-interruption where Open was clicked instead of Send draft",
-      "author": "Claude",
-      "timestamp": "2026-05-23T22:11:27Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1c01f6c.md"
-    },
-    {
-      "sha": "63d8621",
-      "full_sha": "63d8621e0e1387eb18e68ed471952988e840984d",
-      "title": "ApprovalLayout: unify second-tier external-action confirm + NBE approval through one Phase-2 overlay; drop inline SecondTierApprovalCard from stack",
-      "author": "Claude",
-      "timestamp": "2026-05-23T21:35:13Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-63d8621.md"
-    },
-    {
-      "sha": "8f7942f",
-      "full_sha": "8f7942f14a7c38c33cfbaa6bbca2521ce2361870",
-      "title": "Phase 2 color pass: shared accentTokens + glass-fill across Brief / Decision / Venture / Composer / Ledger; Google Drive token cross-persona fallback (auth-profile siblings)",
-      "author": "Claude",
-      "timestamp": "2026-05-23T20:53:17Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-8f7942f.md"
-    },
-    {
-      "sha": "cfa0696",
-      "full_sha": "cfa06962c512ec496189d86ae8c45216fd910061",
-      "title": "VentureCockpit: glass-fill accents (cyan/emerald/violet per row), carousel within body padding (no edge bleed), ApprovalLayout z-40 (above floating compose), body clearance for floating compose strip, compose-modal specific-field error",
-      "author": "Claude",
-      "timestamp": "2026-05-23T19:57:06Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-cfa0696.md"
-    },
-    {
-      "sha": "3aea78f",
-      "full_sha": "3aea78f241e540b42009a8c4780762b8cc4d809f",
-      "title": "ActivityReceiptCard: click header to expand inline JSON drawer (T1-safe payload + copy button)",
-      "author": "Claude",
-      "timestamp": "2026-05-23T19:18:47Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-3aea78f.md"
-    },
-    {
-      "sha": "d08e112",
-      "full_sha": "d08e1128ba4aea31596dc00351e3b0d91872e8ef",
-      "title": "DecisionBoard + VentureCockpit: vertical stack (no columns) — right pane too narrow for multi-column; cockpit uses 3 rows with carousels for KPIs and Active Work",
-      "author": "Claude",
-      "timestamp": "2026-05-23T19:16:09Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d08e112.md"
-    },
-    {
-      "sha": "d1698e5",
-      "full_sha": "d1698e5c1c59d15fa0f2d561939c95fef4af180b",
-      "title": "personas: close OPERATIONAL_HANDBOOK template literal (was escaped backtick — broke Amplify build)",
-      "author": "Claude",
-      "timestamp": "2026-05-23T18:24:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d1698e5.md"
-    },
-    {
-      "sha": "5b08bfe",
-      "full_sha": "5b08bfe0ce5af234fef9092c1b03c95ae1559e99",
-      "title": "Strategy: actionable blockers — clickable chips open Partners + KPIs editors that close the declared-fields gap",
-      "author": "Claude",
-      "timestamp": "2026-05-23T13:25:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5b08bfe.md"
-    },
-    {
-      "sha": "d67b080",
-      "full_sha": "d67b080893384c5b5a6474a4bf803f0cc5bb0f7c",
-      "title": "Operators Handbook v1: canonical surface inventory + privacy seams + change impact checklist (AgentiQ → Operators Manual tab)",
-      "author": "Claude",
-      "timestamp": "2026-05-23T13:51:44Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d67b080.md"
-    },
-    {
-      "sha": "b0a428a",
-      "full_sha": "b0a428a847b91565848cb5a9b69404bb1a56c8b2",
-      "title": "facilitator/verify: add mainnet RPC cases (Base 8453, Eth 1, Arb 42161, OP 10, Polygon 137) so USDC mainnet credit can verify",
-      "author": "Claude",
-      "timestamp": "2026-05-23T14:20:35Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-b0a428a.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
