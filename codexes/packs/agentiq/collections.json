@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-05-29_metame-client-rt-dots-spec.md",
         "updates/2026-05-29_canonical-mint-panel-registry-integration.md",
         "updates/2026-05-28_persona-uploads-bucket-setup.md",
         "updates/2026-05-28_aigentme-capsule-layout-contract.md",

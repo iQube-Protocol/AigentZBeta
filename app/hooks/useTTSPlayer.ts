@@ -128,7 +128,30 @@ export function useTTSPlayer(options: { getText: () => string; voice?: string })
         const res = await pendingFetch;
 
         if (stopRequestedRef.current) break;
-        if (!res.ok) throw new Error(`TTS ${res.status}`);
+        if (!res.ok) {
+          // Surface the response body so the user can see WHY the TTS
+          // route failed (no provider configured, both providers down,
+          // quota, etc.) instead of a bare HTTP status. Read once via
+          // text() to avoid double-consuming the body.
+          const detail = await res.text().catch(() => '');
+          console.error(`[useTTSPlayer] /api/skills/tts ${res.status}: ${detail.slice(0, 400)}`);
+          throw new Error(`TTS ${res.status}: ${detail.slice(0, 200)}`);
+        }
+
+        // Diagnostic — log which provider served the bytes + any
+        // Cartesia fallthrough reason. Operator can DevTools the
+        // network tab too but this surfaces it in console for the
+        // common case where the operator just clicked Listen and
+        // wants to know why the voice changed (or didn't).
+        const provider = res.headers.get('X-TTS-Provider');
+        const cartesiaErr = res.headers.get('X-TTS-Cartesia-Error');
+        if (provider) {
+          if (cartesiaErr) {
+            console.warn(`[useTTSPlayer] served by ${provider}; Cartesia fell through: ${cartesiaErr}`);
+          } else {
+            console.info(`[useTTSPlayer] served by ${provider}`);
+          }
+        }
 
         const blob = await res.blob();
         if (stopRequestedRef.current) break;

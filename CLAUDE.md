@@ -415,6 +415,35 @@ This eliminates the URL-leakage window without requiring `pdfjs-dist` or full-PD
 
 ---
 
+## metaMe Client Protocol Primitive — R/T scoring dots + busy pulse
+
+**Every copilot surface (server-rendered, thin-client, embed) MUST render reliability + trust scores using the same dot strip, colour ramp, and busy-pulse animation. Diverging on dot count, colour, or pulse semantics breaks the trust glance the strip exists to deliver, and the operator's mental model no longer travels intact between cartridges.**
+
+Full spec: `codexes/packs/agentiq/updates/2026-05-29_metame-client-rt-dots-spec.md` — read end-to-end before implementing or refactoring.
+
+### Quick rules
+
+- **5 dots per strip**, lit count = `Math.ceil(value / 2)` where `value ∈ 0..10`. Unlit dots stay rendered in `bg-slate-600`.
+- **Colour ramps** (lit dots only):
+  - R (reliability): `≤3 red-500`, `3.01-6 yellow-500`, `>6 purple-500`
+  - T (trust):       `≤3 red-500`, `3.01-6 yellow-500`, `>6 green-500`
+- **Dot geometry**: `h-1.5 w-1.5 rounded-full`, strip is `flex items-center gap-0.5`.
+- **Busy pulse** — Tailwind `animate-pulse` fires when the copilot is doing work the operator should wait on. Two independent signals share the same pulse:
+  1. `isProcessing === true` (chat round-trip in flight via `/api/codex/chat`)
+  2. `ttsState === 'loading'` (TTS audio being fetched via `/api/skills/tts`)
+  Either ⇒ `isBusy = true`. Per-dot staggered `animation-delay: ${i * 0.15}s` produces a ripple, not a synchronous blink.
+- **Idle state** uses `transition-all duration-300` instead of `animate-pulse` so colour changes (score updates) animate smoothly.
+
+### Canonical implementation
+
+Reference: `components/smarttriad/copilot/SmartTriadCopilotLayer.tsx:renderDots`. Mirror the helper exactly; don't fork the colour logic or the pulse condition.
+
+### Why this matters
+
+The R/T strip is read at a flicker — the operator never reads the value, they read the colour + pulse posture. Forks that drop the staggered delay (synchronous blink) or omit the TTS-loading signal silently break the "is the copilot working" feedback loop. Thin-clients (Lovable, etc.) implementing the metaMe client protocol must replicate this primitive line-for-line.
+
+---
+
 ## aigentMe Capsule ↔ Layout Contract — MUST READ (PARAMOUNT)
 
 **The aigentMe right pane has two paired states (`activeCapsuleId` + `activeLayoutId`) that MUST stay in lockstep. Activating a Capsule without mounting its dedicated layout — or unmounting the layout while the Capsule is still engaged — drops the operator on the manual/stack fallback while parent state still claims a Capsule is in flight. This costs hours of debug time and surfaces as "capsule disappeared", "CTAs render in the wrong window", or "after Act the artifact lands on the wrong surface".**

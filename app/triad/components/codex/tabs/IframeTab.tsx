@@ -15,7 +15,7 @@
 "use client";
 
 import React from "react";
-import { ExternalLink, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 
 interface IframeTabProps {
   src?: string;
@@ -53,30 +53,11 @@ export function IframeTab({
   }
   return (
     <div className="flex flex-col w-full h-full min-h-[600px] bg-slate-950">
-      {/* Chrome strip — Open-in-new-tab link sits above the iframe so it
-          never overlays embedded site content (was previously absolute
-          top-right inside the iframe container, which collided with
-          most sites' own top-right UI). */}
-      <div className={`flex items-center justify-end gap-2 px-2 py-1 border-b ${
-        theme === "dark"
-          ? "border-slate-800/60 bg-slate-900/40"
-          : "border-slate-200 bg-slate-50/60"
-      }`}>
-        <a
-          href={src}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={`Open ${src} in new tab`}
-          className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors ${
-            theme === "dark"
-              ? "text-slate-300 hover:text-cyan-300 hover:bg-cyan-500/10"
-              : "text-slate-600 hover:text-cyan-700 hover:bg-cyan-500/10"
-          }`}
-        >
-          <ExternalLink className="w-3 h-3" />
-          Open
-        </a>
-      </div>
+      {/* Open-in-new-tab affordance removed — the cartridge sub-header
+          already shows the embed URL + label, and any chrome row above
+          the iframe ate vertical space the embedded site needs. If a
+          future cartridge wants its own embed open-link, surface it
+          in the sub-header instead of in this component. */}
       <iframe
         src={src}
         title={title}
