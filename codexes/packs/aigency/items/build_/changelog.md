@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`3cdddb4`](https://github.com/iQube-Protocol/AigentZBeta/commit/3cdddb486f9b195582a61f5e526379bbc4dbafd0) [push] ArtifactCard: copy-id button next to truncated receipt prefix (Claude, 2026-05-29T14:20:39Z)
+- [`7306936`](https://github.com/iQube-Protocol/AigentZBeta/commit/730693658b341a326d463a55fc19e8c6346f15e9) [push] trigger deploy to dev (Claude, 2026-05-29T14:20:39Z)
 - [`f9cfb44`](https://github.com/iQube-Protocol/AigentZBeta/commit/f9cfb44edb9ca2441af7d0d9ef74c41606b71dd2) [push] metaMe: Cartesia TTS primary + myCanvas two-row header + metame.com iframe tab (Claude, 2026-05-29T14:10:00Z)
 - [`d8ea55d`](https://github.com/iQube-Protocol/AigentZBeta/commit/d8ea55d3bf40b9c240ded9e464c4066b88ca3dcf) [push] trigger deploy to dev (Claude, 2026-05-29T14:10:00Z)
 - [`b9e2e08`](https://github.com/iQube-Protocol/AigentZBeta/commit/b9e2e083f3507bb730b7dd8ee68b2b6b0e543a8f) [feat] STT: add Groq Whisper-large-v3 as fallback when OpenAI fails (Claude, 2026-05-29T09:36:27Z)
