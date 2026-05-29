@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-29T05:59:22.864Z",
+  "last_updated": "2026-05-29T07:23:19.235Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "68482e1723de235ac7822337d469de7a3e5b3fa0",
-  "latest_commit_short": "68482e1",
-  "latest_commit_title": "artifact card + receipt: surface attachment count for diagnostics",
+  "latest_commit": "477030b561120cc3d3d56fa80d55f66e48e1b658",
+  "latest_commit_short": "477030b",
+  "latest_commit_title": "STT timeout + composer state persistence (sub-tab survival)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,33 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "477030b",
+      "full_sha": "477030b561120cc3d3d56fa80d55f66e48e1b658",
+      "title": "STT timeout + composer state persistence (sub-tab survival)",
+      "author": "Claude",
+      "timestamp": "2026-05-29T07:21:26Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-477030b.md"
+    },
+    {
+      "sha": "81104c7",
+      "full_sha": "81104c7cc922b3561ae32b59f4050fc7835d733f",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-29T07:21:26Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-81104c7.md"
+    },
+    {
+      "sha": "d36a2ae",
+      "full_sha": "d36a2aece3b47d3f92fe9f55e9c7b038260df313",
+      "title": "Record ContentQubeEditions Base mainnet deploy (0x6Ca41CB4… verified) + Amplify env-var update",
+      "author": "Claude",
+      "timestamp": "2026-05-29T06:57:06Z",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-d36a2ae.md"
+    },
     {
       "sha": "68482e1",
       "full_sha": "68482e1723de235ac7822337d469de7a3e5b3fa0",
@@ -1225,33 +1252,6 @@
       "timestamp": "2026-05-24T03:34:06Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-77ab0a6.md"
-    },
-    {
-      "sha": "0e40380",
-      "full_sha": "0e40380451826a1fe30c12099b2287fd34a1424c",
-      "title": "Phase 2 B.1 (2/3): ActiveKpisEditor refactored — source picker reads metricsForActiveActivations(persona), grouped by activation with inactive sources marked; rich KpiRecord shape persists; KpiDetailLayout (new layout, kpi-detail) opens on chip click with hero value + source provenance + manual-value editor",
-      "author": "Claude",
-      "timestamp": "2026-05-24T02:59:35Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0e40380.md"
-    },
-    {
-      "sha": "498c09a",
-      "full_sha": "498c09a9ebdf67d15efbf6119d8e5bfe56099405",
-      "title": "Activation catalog: add metric class (activity/outcome/standing) + expand each activation with outcome-oriented KPIs — myCanvas likes/sparks/remixes, Order missions-completed/votes/contributions, AgentiQ OS referrals/SDK/forks, Venture Lab milestones/conversions/runway, Marketa meetings/proposals/closes, Qriptopian readership/pickups, Studio launched/remixed/completed-by-users; cockpit chip highlights outcomes with violet+dot",
-      "author": "Claude",
-      "timestamp": "2026-05-24T02:52:20Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-498c09a.md"
-    },
-    {
-      "sha": "4bdd99c",
-      "full_sha": "4bdd99c7cf0b9f41808d55702eda9146cb66b071",
-      "title": "B.1 (1.5/3): metrics + actions move onto ACTIVATION_CATALOG entries — KPIs/NBAs now dynamically driven by the persona's Activations tab; declared all 7 catalog activations with their metrics + actions; metric registry is now a one-row edit per activation, no separate file",
-      "author": "Claude",
-      "timestamp": "2026-05-24T02:32:00Z",
-      "type": "refactor",
-      "brief": "items/build_/COMMITS/COMMIT-4bdd99c.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
