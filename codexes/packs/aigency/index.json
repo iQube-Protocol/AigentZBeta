@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-29T05:06:32.915Z",
+  "last_updated": "2026-05-29T05:59:22.864Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d388e2aa1f3470f27445b66b52d3d166b2413816",
-  "latest_commit_short": "d388e2a",
-  "latest_commit_title": "Phase 7B mint-trigger admin routes + widen env-var aliases (IQUBE_NFT_CONTRACT_ADDRESS accepted for ERC-721 master)",
+  "latest_commit": "68482e1723de235ac7822337d469de7a3e5b3fa0",
+  "latest_commit_short": "68482e1",
+  "latest_commit_title": "artifact card + receipt: surface attachment count for diagnostics",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,51 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "68482e1",
+      "full_sha": "68482e1723de235ac7822337d469de7a3e5b3fa0",
+      "title": "artifact card + receipt: surface attachment count for diagnostics",
+      "author": "Claude",
+      "timestamp": "2026-05-29T05:57:30Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-68482e1.md"
+    },
+    {
+      "sha": "52ab4ac",
+      "full_sha": "52ab4ace7488030e368adfdb23276d22a3c7359b",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-29T05:57:30Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-52ab4ac.md"
+    },
+    {
+      "sha": "78bea0f",
+      "full_sha": "78bea0fcc98199c82f64829dfc6727ff3952610e",
+      "title": "draft services: Anthropic primary, OpenAI secondary (was OpenAI-only)",
+      "author": "Claude",
+      "timestamp": "2026-05-29T05:54:57Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-78bea0f.md"
+    },
+    {
+      "sha": "9700f42",
+      "full_sha": "9700f42986666043052d2deb142d20c34d6fe32b",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-29T05:54:57Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-9700f42.md"
+    },
+    {
+      "sha": "ec82d25",
+      "full_sha": "ec82d25c7eb260821d855d8b4535b3013c9a24a2",
+      "title": "Add ContentQubeEditions (ERC-1155) contract + Base mainnet deploy script — closes Phase 7B edition mint loop",
+      "author": "Claude",
+      "timestamp": "2026-05-29T05:26:03Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-ec82d25.md"
+    },
     {
       "sha": "d388e2a",
       "full_sha": "d388e2aa1f3470f27445b66b52d3d166b2413816",
@@ -1207,51 +1252,6 @@
       "timestamp": "2026-05-24T02:32:00Z",
       "type": "refactor",
       "brief": "items/build_/COMMITS/COMMIT-4bdd99c.md"
-    },
-    {
-      "sha": "77aff62",
-      "full_sha": "77aff62253e687c4ea001b037960342b337fb310",
-      "title": "Phase 2 B.1 (1/3): KPI source pipeline activation-bound — KpiRecord/KpiSource schema with ACTIVATION_METRIC_CATALOG; resolver only resolves KPIs whose source activation is active (else unresolvedReason=source-inactive); ventureProgress returns rich activeKpis; cockpit renders KpiChip with current/target/trend instead of empty count badges",
-      "author": "Claude",
-      "timestamp": "2026-05-24T02:16:46Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-77aff62.md"
-    },
-    {
-      "sha": "7d02d7e",
-      "full_sha": "7d02d7e9edd5e64cb6f40b939830f6b5692d90d3",
-      "title": "Slice C parity audit: zero critical violations across all 7 layouts; one DIS contract drift (dismiss X coord rule) amended to match LayoutShell-owned placement; 6 Studio framework frictions captured as improvement backlog",
-      "author": "Claude",
-      "timestamp": "2026-05-24T01:57:20Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7d02d7e.md"
-    },
-    {
-      "sha": "ccfd5da",
-      "full_sha": "ccfd5da6dfac28f1f5334545fd49b0b38b2f7d33",
-      "title": "Phase 2 Slice 7 (A): dual-dispatch chip strip — NbeQuickChip type + onSelect on QuickPrompt + server-driven swap seam on assistant fetches; cold-open fallback unchanged",
-      "author": "Claude",
-      "timestamp": "2026-05-24T01:49:17Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-ccfd5da.md"
-    },
-    {
-      "sha": "3e8011e",
-      "full_sha": "3e8011ebabe282a33fd5250f745c42bab250b4aa",
-      "title": "ComposerLayout dismiss: auto-scroll the ArtifactCard into view when returning to stack so the Send draft approval gate doesn't sit below the fold unnoticed",
-      "author": "Claude",
-      "timestamp": "2026-05-24T00:50:42Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-3e8011e.md"
-    },
-    {
-      "sha": "56a60ad",
-      "full_sha": "56a60ade419cfd3fa2f10c5e920055130979c186",
-      "title": "Phase 2 Slice 4 (compose-in-layout): all 6 compose modals support inline=true mode; openComposeByKind routes to ComposerLayout instead of popups; legacy modal mounts + open booleans removed from tab",
-      "author": "Claude",
-      "timestamp": "2026-05-24T00:19:04Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-56a60ad.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

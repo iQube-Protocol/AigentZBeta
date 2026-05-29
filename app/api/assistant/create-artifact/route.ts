@@ -223,12 +223,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const draftId = (draftResult.output as { draftId?: string } | undefined)?.draftId ?? '';
       const locationUrl = draftId ? `https://mail.google.com/mail/u/0/#drafts/${draftId}` : null;
 
+      // Surface attachment count in the receipt summary so it's clear
+      // post-hoc whether the operator's selected uploads actually rode
+      // with the draft (versus the picker silently rendering empty and
+      // the email shipping without).
+      const draftAttachmentInput = (input as { attachmentUploadIds?: unknown }).attachmentUploadIds;
+      const draftAttachmentCount = Array.isArray(draftAttachmentInput) ? draftAttachmentInput.length : 0;
       const receipt = await createActivityReceipt({
         personaId: context.personaId,
         intentId: body.sourceIntentId ?? null,
         activeCartridge: cartridge,
         actionType: 'artifact_created',
-        summary: `Created Gmail draft: ${derivedTitle}`,
+        summary:
+          draftAttachmentCount > 0
+            ? `Created Gmail draft: ${derivedTitle} (${draftAttachmentCount} attachment${draftAttachmentCount === 1 ? '' : 's'})`
+            : `Created Gmail draft: ${derivedTitle}`,
         agentsInvoked: [
           'aigent-me',
           ...(body.specialistId ? [body.specialistId] : []),
@@ -723,12 +732,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           { status: 400, headers: { 'Cache-Control': 'no-store' } },
         );
       }
+      const marketaAttachmentCount =
+        Array.isArray(input.attachmentUploadIds) ? input.attachmentUploadIds.length : 0;
       const receiptRow = await createActivityReceipt({
         personaId: context.personaId,
         intentId: body.sourceIntentId ?? null,
         activeCartridge: cartridge,
         actionType: 'artifact_created',
-        summary: `Drafted Marketa email: ${input.subject}`,
+        summary:
+          marketaAttachmentCount > 0
+            ? `Drafted Marketa email: ${input.subject} (${marketaAttachmentCount} attachment${marketaAttachmentCount === 1 ? '' : 's'})`
+            : `Drafted Marketa email: ${input.subject}`,
         agentsInvoked: ['aigent-me', 'marketa'],
         toolsUsed: ['runtime'],
         iqubesUsed: ['PersonaQube', 'ExperienceQube', 'IntentQube'],

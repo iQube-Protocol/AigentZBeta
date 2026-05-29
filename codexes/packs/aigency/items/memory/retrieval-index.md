@@ -1509,3 +1509,28 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-d388e2a.md](../build_/COMMITS/COMMIT-d388e2a.md)
 - Message: Phase 7B mint-trigger admin routes + widen env-var aliases (IQUBE_NFT_CONTRACT_ADDRESS accepted for ERC-721 master)
+
+## Commit `ec82d25` — 2026-05-29T05:26:03Z
+- Type: `feat`
+- Brief: [COMMIT-ec82d25.md](../build_/COMMITS/COMMIT-ec82d25.md)
+- Message: Add ContentQubeEditions (ERC-1155) contract + Base mainnet deploy script — closes Phase 7B edition mint loop
+
+## Commit `9700f42` — 2026-05-29T05:54:57Z
+- Type: `push`
+- Brief: [COMMIT-9700f42.md](../build_/COMMITS/COMMIT-9700f42.md)
+- Message: trigger deploy to dev
+
+## Commit `78bea0f` — 2026-05-29T05:54:57Z
+- Type: `push`
+- Brief: [COMMIT-78bea0f.md](../build_/COMMITS/COMMIT-78bea0f.md)
+- Message: draft services: Anthropic primary, OpenAI secondary (was OpenAI-only)
+
+## Commit `52ab4ac` — 2026-05-29T05:57:30Z
+- Type: `push`
+- Brief: [COMMIT-52ab4ac.md](../build_/COMMITS/COMMIT-52ab4ac.md)
+- Message: trigger deploy to dev
+
+## Commit `68482e1` — 2026-05-29T05:57:30Z
+- Type: `push`
+- Brief: [COMMIT-68482e1.md](../build_/COMMITS/COMMIT-68482e1.md)
+- Message: artifact card + receipt: surface attachment count for diagnostics

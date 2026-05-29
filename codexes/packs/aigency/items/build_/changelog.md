@@ -1,4 +1,9 @@
 # Build — Changelog
+- [`68482e1`](https://github.com/iQube-Protocol/AigentZBeta/commit/68482e1723de235ac7822337d469de7a3e5b3fa0) [push] artifact card + receipt: surface attachment count for diagnostics (Claude, 2026-05-29T05:57:30Z)
+- [`52ab4ac`](https://github.com/iQube-Protocol/AigentZBeta/commit/52ab4ace7488030e368adfdb23276d22a3c7359b) [push] trigger deploy to dev (Claude, 2026-05-29T05:57:30Z)
+- [`78bea0f`](https://github.com/iQube-Protocol/AigentZBeta/commit/78bea0fcc98199c82f64829dfc6727ff3952610e) [push] draft services: Anthropic primary, OpenAI secondary (was OpenAI-only) (Claude, 2026-05-29T05:54:57Z)
+- [`9700f42`](https://github.com/iQube-Protocol/AigentZBeta/commit/9700f42986666043052d2deb142d20c34d6fe32b) [push] trigger deploy to dev (Claude, 2026-05-29T05:54:57Z)
+- [`ec82d25`](https://github.com/iQube-Protocol/AigentZBeta/commit/ec82d25c7eb260821d855d8b4535b3013c9a24a2) [feat] Add ContentQubeEditions (ERC-1155) contract + Base mainnet deploy script — closes Phase 7B edition mint loop (Claude, 2026-05-29T05:26:03Z)
 - [`d388e2a`](https://github.com/iQube-Protocol/AigentZBeta/commit/d388e2aa1f3470f27445b66b52d3d166b2413816) [push] Phase 7B mint-trigger admin routes + widen env-var aliases (IQUBE_NFT_CONTRACT_ADDRESS accepted for ERC-721 master) (Claude, 2026-05-29T05:04:32Z)
 - [`1b7d6bd`](https://github.com/iQube-Protocol/AigentZBeta/commit/1b7d6bd25d7e6185d080f8a3d6ab32a0d025e7a9) [push] Mark QCT + iQubeNFT + QCTReserve as source-verified on Basescan (deployment registry) (Claude, 2026-05-29T00:27:23Z)
 - [`395a8f2`](https://github.com/iQube-Protocol/AigentZBeta/commit/395a8f295c88f34fc50c78b5affedaa228b9ba76) [push] Switch hardhat verify config to Etherscan V2 (chain-agnostic single key); V1 endpoints retired May 31, 2025 (Claude, 2026-05-29T00:18:58Z)
