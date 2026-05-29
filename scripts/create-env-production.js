@@ -26,6 +26,11 @@ const envVars = [
   'ANTHROPIC_MODEL',
   // ── Groq — third-tier STT fallback (Whisper-large-v3, OpenAI-compatible) ─
   'GROQ_API_KEY',
+  // ── Cartesia — primary TTS provider (Sonic English, sounds better than OpenAI tts-1) ─
+  'CARTESIA_API_KEY',
+  'CARTESIA_VOICE_ID',
+  'CARTESIA_MODEL',
+  'CARTESIA_VERSION',
   // ── Phase 6.b — Google Workspace OAuth (Aigent Me connectors) ────────
   'GOOGLE_OAUTH_CLIENT_ID',
   'GOOGLE_OAUTH_CLIENT_SECRET',

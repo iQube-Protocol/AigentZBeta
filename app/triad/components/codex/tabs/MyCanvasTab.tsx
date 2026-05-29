@@ -434,13 +434,15 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
       <div className="flex h-full">
         {/* Sidebar: entry list */}
         <aside className="w-64 border-r border-slate-700/50 flex flex-col">
-          <div className="p-3 border-b border-slate-700/50 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <PenSquare className="w-4 h-4 text-violet-400" />
-              <h2 className="text-sm font-semibold">
-                {isWorkbench ? 'myWorkbench' : 'myCanvas'}
-              </h2>
-              <span className="text-[10px] uppercase tracking-wider text-slate-500">
+          <div className="p-3 border-b border-slate-700/50 flex items-start justify-between">
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <div className="flex items-center gap-2">
+                <PenSquare className="w-4 h-4 text-violet-400 shrink-0" />
+                <h2 className="text-sm font-semibold leading-none">
+                  {isWorkbench ? 'myWorkbench' : 'myCanvas'}
+                </h2>
+              </div>
+              <span className="text-[10px] uppercase tracking-wider text-slate-500 pl-6">
                 {isWorkbench ? 'private · internal' : 'public · publishable'}
               </span>
             </div>

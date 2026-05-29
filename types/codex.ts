@@ -58,6 +58,14 @@ export interface TabGroup {
    */
   activationId?: string;
   order: number;       // Position in the primary tab bar (interleaved with standalone tabs)
+  /**
+   * When true, the group nav chip renders only its icon — no label, tight
+   * width. Used for first-class persistent surfaces that don't need a
+   * verbose label (e.g. a web-embed tab pointing at metame.com on the
+   * metaMe cartridge). Independent of density: iconOnly groups stay
+   * icon-only even on `wide`.
+   */
+  iconOnly?: boolean;
 }
 
 export interface CodexTab {

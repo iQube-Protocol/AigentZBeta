@@ -2256,6 +2256,7 @@ export const METAME_CODEX: CodexConfig = {
     tags: ['metame', 'experience', 'pcs', 'sovereignty', 'progression', 'nbe']
   },
   tabGroups: [
+    { id: 'web',          label: 'metame.com',       icon: 'Globe',      order: -1,  iconOnly: true },
     { id: 'aigentme',     label: 'aigentMe',         icon: 'Sparkles',   order: 0 },
     { id: 'activations',  label: 'Activations',      icon: 'Zap',        order: 0.5 },
     { id: 'mycanvas',     label: 'myCanvas',         icon: 'PenSquare',  order: 0.6, activationId: 'mycanvas' },
@@ -2268,6 +2269,34 @@ export const METAME_CODEX: CodexConfig = {
     { id: 'admin',        label: 'Admin',            icon: 'Settings',   order: 6,   adminOnly: true },
   ],
   tabs: [
+    // ── web group (metame.com embed) ─────────────────────────────────────────
+    // First-class persistent tab that renders metame.com inside an iframe.
+    // No label on the group chip (iconOnly: true above) — small Globe icon
+    // sitting before aigentMe. Not gated by activations.
+    //
+    // Hard constraint: metame.com must permit framing from the embedding
+    // host (no X-Frame-Options: DENY/SAMEORIGIN and no CSP
+    // frame-ancestors that excludes our domain). If the page renders
+    // blank, that's the cause — operator action is on the metame.com
+    // server config, not on this tab.
+    {
+      id: 'metame-web-embed',
+      label: 'metame.com',
+      slug: 'metame-web',
+      enabled: true,
+      group: 'web',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'IframeTab',
+        props: { src: 'https://metame.com', title: 'metame.com' },
+      },
+      metadata: {
+        icon: 'Globe',
+        description: 'metame.com website embedded inside the cartridge',
+        color: 'sky',
+      },
+    },
     // ── aigentMe group ───────────────────────────────────────────────────────
     {
       id: 'aigent-me-welcome-classic',

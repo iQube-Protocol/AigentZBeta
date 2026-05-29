@@ -29,6 +29,7 @@ import { Kn0wdZTab } from "./tabs/Kn0wdZTab";
 import { QriptoScrollsTab } from "./tabs/QriptoScrollsTab";
 import { QriptoPapersTab } from "./tabs/QriptoPapersTab";
 import { PlaceholderTab } from "./tabs/PlaceholderTab";
+import { IframeTab } from "./tabs/IframeTab";
 import { AgentiqCartridgeTab } from "./tabs/AgentiqCartridgeTab";
 import { PackBrowserTab } from "./tabs/PackBrowserTab";
 import { MarketaTab } from "./tabs/MarketaTab";
@@ -162,6 +163,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   KnytTab,
   NakamotoTab,
   PlaceholderTab,
+  IframeTab,
   MoneyPennyTab,
   ExperienceDashboardTab,
   AdminAccessRequestsTab,

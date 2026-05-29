@@ -660,14 +660,16 @@ export default function CodexPanelDynamic({
                             <button
                               key={`group-${group.id}`}
                               onClick={() => handleGroupClick(group.id)}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap rounded-lg ${
+                              title={group.iconOnly ? group.label : undefined}
+                              aria-label={group.iconOnly ? group.label : undefined}
+                              className={`flex items-center ${group.iconOnly ? 'gap-0 px-2' : 'gap-1.5 px-3'} py-1.5 text-xs font-medium transition-all whitespace-nowrap rounded-lg ${
                                 isActiveGroup
                                   ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/30 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
                                   : isDark ? 'text-slate-400 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
                               }`}
                             >
                               <Icon className="w-3.5 h-3.5 flex-shrink-0" />
-                              {density === 'wide' && group.label}
+                              {!group.iconOnly && density === 'wide' && group.label}
                             </button>
                           );
                         }
