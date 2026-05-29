@@ -1549,3 +1549,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-477030b.md](../build_/COMMITS/COMMIT-477030b.md)
 - Message: STT timeout + composer state persistence (sub-tab survival)
+
+## Commit `89adda9` — 2026-05-29T08:16:01Z
+- Type: `push`
+- Brief: [COMMIT-89adda9.md](../build_/COMMITS/COMMIT-89adda9.md)
+- Message: Guard rail — baseTokenMint refuses to broadcast unless connected RPC reports chainId 8453 (caught wrong-chain phantom-mint to Sepolia 2026-05-29)

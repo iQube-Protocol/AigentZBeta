@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`89adda9`](https://github.com/iQube-Protocol/AigentZBeta/commit/89adda9ac8f884c10a1c89e2af267f5fd9b940ad) [push] Guard rail — baseTokenMint refuses to broadcast unless connected RPC reports chainId 8453 (caught wrong-chain phantom-mint to Sepolia 2026-05-29) (Claude, 2026-05-29T08:16:01Z)
 - [`477030b`](https://github.com/iQube-Protocol/AigentZBeta/commit/477030b561120cc3d3d56fa80d55f66e48e1b658) [push] STT timeout + composer state persistence (sub-tab survival) (Claude, 2026-05-29T07:21:26Z)
 - [`81104c7`](https://github.com/iQube-Protocol/AigentZBeta/commit/81104c7cc922b3561ae32b59f4050fc7835d733f) [push] trigger deploy to dev (Claude, 2026-05-29T07:21:26Z)
 - [`d36a2ae`](https://github.com/iQube-Protocol/AigentZBeta/commit/d36a2aece3b47d3f92fe9f55e9c7b038260df313) [chore] Record ContentQubeEditions Base mainnet deploy (0x6Ca41CB4… verified) + Amplify env-var update (Claude, 2026-05-29T06:57:06Z)
