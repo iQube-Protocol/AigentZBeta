@@ -1609,3 +1609,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-3cdddb4.md](../build_/COMMITS/COMMIT-3cdddb4.md)
 - Message: ArtifactCard: copy-id button next to truncated receipt prefix
+
+## Commit `bee1d11` — 2026-05-29T14:34:59Z
+- Type: `push`
+- Brief: [COMMIT-bee1d11.md](../build_/COMMITS/COMMIT-bee1d11.md)
+- Message: trigger deploy to dev
+
+## Commit `86d150a` — 2026-05-29T14:34:59Z
+- Type: `feat`
+- Brief: [COMMIT-86d150a.md](../build_/COMMITS/COMMIT-86d150a.md)
+- Message: Qriptopian cartridge: add qriptopia.com iframe tab (mirrors metaMe)
