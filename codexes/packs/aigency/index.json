@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-30T01:00:05.547Z",
+  "last_updated": "2026-05-30T01:12:17.567Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "8c911082f70991a7aa9f4d91036a89ed26e5920f",
-  "latest_commit_short": "8c91108",
-  "latest_commit_title": "Venture iQube v0.2: add studio / iqube-registry / moneypenny / legal-metacommons to cartridgeSlug enum",
+  "latest_commit": "2af7d4366159b3ae93e1cbed542493c154dc42a6",
+  "latest_commit_short": "2af7d43",
+  "latest_commit_title": "Venture iQube Phase A1: ingest route + use_kind enum extension + Operation metaWill fixture",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "2af7d43",
+      "full_sha": "2af7d4366159b3ae93e1cbed542493c154dc42a6",
+      "title": "Venture iQube Phase A1: ingest route + use_kind enum extension + Operation metaWill fixture",
+      "author": "Claude",
+      "timestamp": "2026-05-30T01:10:21Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-2af7d43.md"
+    },
+    {
+      "sha": "71e8a39",
+      "full_sha": "71e8a395d0c15020ed8ed594c67a9a3748ac4623",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-30T01:10:21Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-71e8a39.md"
+    },
     {
       "sha": "8c91108",
       "full_sha": "8c911082f70991a7aa9f4d91036a89ed26e5920f",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-26T08:19:10Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-8dce7e8.md"
-    },
-    {
-      "sha": "2c91b74",
-      "full_sha": "2c91b74f11ac0688e59bd13f1a99389214607365",
-      "title": "spine extension: per-cartridge admin grants → cartridgeFlags.adminCartridges",
-      "author": "Claude",
-      "timestamp": "2026-05-26T04:34:23Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-2c91b74.md"
-    },
-    {
-      "sha": "7dd0dd2",
-      "full_sha": "7dd0dd25d255305b4fdf91669cc202577476edf2",
-      "title": "fix admin-tab visibility: CRM tenant↔cartridge slug alias + 3 more mirrors",
-      "author": "Claude",
-      "timestamp": "2026-05-26T04:19:03Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-7dd0dd2.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

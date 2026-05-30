@@ -1679,3 +1679,13 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-8c91108.md](../build_/COMMITS/COMMIT-8c91108.md)
 - Message: Venture iQube v0.2: add studio / iqube-registry / moneypenny / legal-metacommons to cartridgeSlug enum
+
+## Commit `71e8a39` — 2026-05-30T01:10:21Z
+- Type: `push`
+- Brief: [COMMIT-71e8a39.md](../build_/COMMITS/COMMIT-71e8a39.md)
+- Message: trigger deploy to dev
+
+## Commit `2af7d43` — 2026-05-30T01:10:21Z
+- Type: `push`
+- Brief: [COMMIT-2af7d43.md](../build_/COMMITS/COMMIT-2af7d43.md)
+- Message: Venture iQube Phase A1: ingest route + use_kind enum extension + Operation metaWill fixture

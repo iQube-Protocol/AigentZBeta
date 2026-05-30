@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`2af7d43`](https://github.com/iQube-Protocol/AigentZBeta/commit/2af7d4366159b3ae93e1cbed542493c154dc42a6) [push] Venture iQube Phase A1: ingest route + use_kind enum extension + Operation metaWill fixture (Claude, 2026-05-30T01:10:21Z)
+- [`71e8a39`](https://github.com/iQube-Protocol/AigentZBeta/commit/71e8a395d0c15020ed8ed594c67a9a3748ac4623) [push] trigger deploy to dev (Claude, 2026-05-30T01:10:21Z)
 - [`8c91108`](https://github.com/iQube-Protocol/AigentZBeta/commit/8c911082f70991a7aa9f4d91036a89ed26e5920f) [feat] Venture iQube v0.2: add studio / iqube-registry / moneypenny / legal-metacommons to cartridgeSlug enum (Claude, 2026-05-30T00:58:08Z)
 - [`1994a91`](https://github.com/iQube-Protocol/AigentZBeta/commit/1994a919eee61ca0b8be48bbaa4a5934d3cdd378) [docs] docs: aigentMe voice-loop Phase 2 backlog + Venture iQube schema v0.1 (Claude, 2026-05-30T00:37:00Z)
 - [`3af9161`](https://github.com/iQube-Protocol/AigentZBeta/commit/3af916191e0dd308f952bf9f879c2046713afd9a) [push] TTS: 8s Cartesia abort + 18s OpenAI ceiling + per-provider error JSON (Claude, 2026-05-29T20:43:39Z)
