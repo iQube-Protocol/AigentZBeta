@@ -1689,3 +1689,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-2af7d43.md](../build_/COMMITS/COMMIT-2af7d43.md)
 - Message: Venture iQube Phase A1: ingest route + use_kind enum extension + Operation metaWill fixture
+
+## Commit `ea73f8f` — 2026-05-30T02:46:19Z
+- Type: `push`
+- Brief: [COMMIT-ea73f8f.md](../build_/COMMITS/COMMIT-ea73f8f.md)
+- Message: trigger deploy to dev
+
+## Commit `8c0ad44` — 2026-05-30T02:46:18Z
+- Type: `push`
+- Brief: [COMMIT-8c0ad44.md](../build_/COMMITS/COMMIT-8c0ad44.md)
+- Message: /api/uploads: extend VALID_USE_KINDS allowlist to include attachment + iqube_payload + venture_iqube

@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`8c0ad44`](https://github.com/iQube-Protocol/AigentZBeta/commit/8c0ad44bd484222f184dd06750023e2b419d4963) [push] /api/uploads: extend VALID_USE_KINDS allowlist to include attachment + iqube_payload + venture_iqube (Claude, 2026-05-30T02:46:18Z)
+- [`ea73f8f`](https://github.com/iQube-Protocol/AigentZBeta/commit/ea73f8fd82b3661a0c91b783f42466006f6822e3) [push] trigger deploy to dev (Claude, 2026-05-30T02:46:19Z)
 - [`2af7d43`](https://github.com/iQube-Protocol/AigentZBeta/commit/2af7d4366159b3ae93e1cbed542493c154dc42a6) [push] Venture iQube Phase A1: ingest route + use_kind enum extension + Operation metaWill fixture (Claude, 2026-05-30T01:10:21Z)
 - [`71e8a39`](https://github.com/iQube-Protocol/AigentZBeta/commit/71e8a395d0c15020ed8ed594c67a9a3748ac4623) [push] trigger deploy to dev (Claude, 2026-05-30T01:10:21Z)
 - [`8c91108`](https://github.com/iQube-Protocol/AigentZBeta/commit/8c911082f70991a7aa9f4d91036a89ed26e5920f) [feat] Venture iQube v0.2: add studio / iqube-registry / moneypenny / legal-metacommons to cartridgeSlug enum (Claude, 2026-05-30T00:58:08Z)
