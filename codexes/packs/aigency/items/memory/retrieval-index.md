@@ -1659,3 +1659,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-5cbbec3.md](../build_/COMMITS/COMMIT-5cbbec3.md)
 - Message: metaMe protocol primitive: R/T dots spec + TTS console diagnostics + iframe Open removal
+
+## Commit `3a155b8` — 2026-05-29T20:43:39Z
+- Type: `push`
+- Brief: [COMMIT-3a155b8.md](../build_/COMMITS/COMMIT-3a155b8.md)
+- Message: trigger deploy to dev
+
+## Commit `3af9161` — 2026-05-29T20:43:39Z
+- Type: `push`
+- Brief: [COMMIT-3af9161.md](../build_/COMMITS/COMMIT-3af9161.md)
+- Message: TTS: 8s Cartesia abort + 18s OpenAI ceiling + per-provider error JSON
