@@ -18,7 +18,24 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-const VALID_USE_KINDS: UploadUseKind[] = ['context', 'tool', 'workbench', 'general'];
+// Mirror the full UploadUseKind union. Historically this only carried
+// the original four kinds (context / tool / workbench / general) — when
+// new kinds were added (email_attachment, iqube_payload, venture_iqube)
+// the type union grew but this runtime allowlist did NOT, so the route
+// silently coerced any new use_kind to 'general'. Symptom: operator
+// picks "Ingest as Venture iQube" in UploadDrawer, file lands tagged
+// general, /api/persona/venture-iqube/ingest then refuses with
+// upload-wrong-use-kind. Keep this array in lockstep with
+// `services/uploads/personaUploadService.ts:UploadUseKind`.
+const VALID_USE_KINDS: UploadUseKind[] = [
+  'context',
+  'tool',
+  'workbench',
+  'general',
+  'email_attachment',
+  'iqube_payload',
+  'venture_iqube',
+];
 const VALID_STATUSES: UploadStatus[] = ['parsing', 'ready', 'archived', 'failed'];
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
