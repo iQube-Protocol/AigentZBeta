@@ -1669,3 +1669,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-3af9161.md](../build_/COMMITS/COMMIT-3af9161.md)
 - Message: TTS: 8s Cartesia abort + 18s OpenAI ceiling + per-provider error JSON
+
+## Commit `1994a91` — 2026-05-30T00:37:00Z
+- Type: `docs`
+- Brief: [COMMIT-1994a91.md](../build_/COMMITS/COMMIT-1994a91.md)
+- Message: docs: aigentMe voice-loop Phase 2 backlog + Venture iQube schema v0.1

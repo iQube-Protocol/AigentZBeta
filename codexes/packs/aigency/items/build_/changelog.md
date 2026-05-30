@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`1994a91`](https://github.com/iQube-Protocol/AigentZBeta/commit/1994a919eee61ca0b8be48bbaa4a5934d3cdd378) [docs] docs: aigentMe voice-loop Phase 2 backlog + Venture iQube schema v0.1 (Claude, 2026-05-30T00:37:00Z)
 - [`3af9161`](https://github.com/iQube-Protocol/AigentZBeta/commit/3af916191e0dd308f952bf9f879c2046713afd9a) [push] TTS: 8s Cartesia abort + 18s OpenAI ceiling + per-provider error JSON (Claude, 2026-05-29T20:43:39Z)
 - [`3a155b8`](https://github.com/iQube-Protocol/AigentZBeta/commit/3a155b825cb8f31b41e754b2f663676a29e31072) [push] trigger deploy to dev (Claude, 2026-05-29T20:43:39Z)
 - [`5cbbec3`](https://github.com/iQube-Protocol/AigentZBeta/commit/5cbbec335bace62a43c314be9d7fa044fd27d27b) [push] metaMe protocol primitive: R/T dots spec + TTS console diagnostics + iframe Open removal (Claude, 2026-05-29T17:06:24Z)
