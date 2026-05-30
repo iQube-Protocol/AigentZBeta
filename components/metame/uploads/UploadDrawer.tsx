@@ -55,6 +55,7 @@ const USE_KIND_OPTIONS: Array<{ id: UploadUseKind; label: string; description: s
   { id: 'tool',             label: 'Use as a tool input',         description: 'JSON / CSV exposed as a structured tool the LLM can query.' },
   { id: 'email_attachment', label: 'Attach to a Gmail or Marketa send',  description: 'Surfaces first in both the Gmail compose modal and the Marketa campaign compose modal attachment pickers.' },
   { id: 'iqube_payload',    label: 'Embed inside an iQube',       description: 'Stages the file for embed at iQube mint time (Phase 2 wires the payload writer).' },
+  { id: 'venture_iqube',    label: 'Ingest as Venture iQube',     description: 'JSON file matching venture-iqube/v0.x schema. aigentMe validates + hydrates ExperienceQube and queues IntentQube rows from your strategy + objectives + plan.' },
   { id: 'workbench',        label: 'Save to myWorkbench',         description: 'Lands as a private draft for later reuse.' },
   { id: 'general',          label: 'Just save for now',           description: "No commitment — you can re-route the upload later." },
 ];
