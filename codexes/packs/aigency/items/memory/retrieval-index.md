@@ -1674,3 +1674,8 @@ Top-level retrieval anchors for this pack.
 - Type: `docs`
 - Brief: [COMMIT-1994a91.md](../build_/COMMITS/COMMIT-1994a91.md)
 - Message: docs: aigentMe voice-loop Phase 2 backlog + Venture iQube schema v0.1
+
+## Commit `8c91108` — 2026-05-30T00:58:08Z
+- Type: `feat`
+- Brief: [COMMIT-8c91108.md](../build_/COMMITS/COMMIT-8c91108.md)
+- Message: Venture iQube v0.2: add studio / iqube-registry / moneypenny / legal-metacommons to cartridgeSlug enum
