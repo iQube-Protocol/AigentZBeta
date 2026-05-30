@@ -35,6 +35,7 @@ import {
   AlertCircle,
   Trash2,
   RefreshCw,
+  Sparkles,
 } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import type {
@@ -178,6 +179,49 @@ export function UploadDrawer({ open, onClose, personaId, theme = "dark" }: Props
       }
     },
     [personaId, loadList],
+  );
+
+  // Venture iQube ingest — operator clicks the Sparkles icon on a
+  // `venture_iqube` row to fire POST /api/persona/venture-iqube/ingest.
+  // Phase A1 returns a preview payload (ExperienceQube hydrate target +
+  // IntentQube queue + warnings); Phase A2 will actually commit the
+  // hydration. We log the result to console + show a short status line
+  // beside the row so the operator can verify without DevTools.
+  const [ingestStatus, setIngestStatus] = useState<Record<string, { ok: boolean; message: string } | undefined>>({});
+  const handleIngestVentureIqube = useCallback(
+    async (uploadId: string) => {
+      setIngestStatus((prev) => ({ ...prev, [uploadId]: undefined }));
+      try {
+        const res = await personaFetch('/api/persona/venture-iqube/ingest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uploadId }),
+          personaIdHint: personaId,
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const detail = (json as { detail?: string; error?: string }).detail ?? (json as { error?: string }).error ?? `HTTP ${res.status}`;
+          console.warn('[venture-iqube/ingest] failed', json);
+          setIngestStatus((prev) => ({ ...prev, [uploadId]: { ok: false, message: detail } }));
+          return;
+        }
+        console.info('[venture-iqube/ingest] ok', json);
+        const result = (json as { result?: { intentQubeQueue?: unknown[]; experienceQubeHydrate?: { activeCartridges?: string[] } } }).result;
+        const intentCount = Array.isArray(result?.intentQubeQueue) ? result.intentQubeQueue.length : 0;
+        const cartridgeCount = result?.experienceQubeHydrate?.activeCartridges?.length ?? 0;
+        setIngestStatus((prev) => ({
+          ...prev,
+          [uploadId]: {
+            ok: true,
+            message: `Preview: ${intentCount} objective(s), ${cartridgeCount} cartridge(s). See console for full payload.`,
+          },
+        }));
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setIngestStatus((prev) => ({ ...prev, [uploadId]: { ok: false, message: msg } }));
+      }
+    },
+    [personaId],
   );
 
   if (!open) return null;
@@ -354,7 +398,22 @@ export function UploadDrawer({ open, onClose, personaId, theme = "dark" }: Props
                       <div className={`text-[10px] ${mutedClass}`}>
                         {u.useKind} · {u.status} · {formatBytes(u.sizeBytes)} · {new Date(u.createdAt).toLocaleString()}
                       </div>
+                      {ingestStatus[u.id] && (
+                        <div className={`text-[10px] mt-0.5 ${ingestStatus[u.id]!.ok ? 'text-emerald-400' : 'text-amber-400'}`}>
+                          {ingestStatus[u.id]!.ok ? '✓ ' : '⚠ '}{ingestStatus[u.id]!.message}
+                        </div>
+                      )}
                     </div>
+                    {u.useKind === 'venture_iqube' && u.status === 'ready' && (
+                      <button
+                        onClick={() => void handleIngestVentureIqube(u.id)}
+                        className="p-1 rounded text-violet-300 hover:text-violet-200 hover:bg-violet-500/15"
+                        title="Ingest as Venture iQube — hydrate ExperienceQube + queue IntentQube rows"
+                        aria-label="Ingest as Venture iQube"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                     <button
                       onClick={() => handleArchive(u.id)}
                       className="p-1 rounded hover:bg-slate-800/40"
