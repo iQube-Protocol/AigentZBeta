@@ -152,7 +152,9 @@
                 "updates/2026-05-31_stage-7-close-report.md",
                 "updates/2026-05-31_stage-9-close-report.md",
                 "updates/2026-05-31_dependency-hygiene-backlog.md",
-                "updates/2026-05-31_legacy-registry-canonical-integration-plan.md"
+                "updates/2026-05-31_legacy-registry-canonical-integration-plan.md",
+                "updates/2026-05-31_registry-analytics-backend-backlog.md",
+                "updates/2026-05-31_iqube-score-data-backfill-backlog.md"
       ]
     },
     {

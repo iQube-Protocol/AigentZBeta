@@ -1,9 +1,33 @@
 # Legacy `/registry` → Canonical SoT Integration Plan
 
 **Date:** 2026-05-31
-**Status:** Planning — no code changes. For operator review before implementation.
+**Status:** **Operator-approved scope.** Awaiting explicit go-ahead to begin Phase A on a fresh branch.
 **Reads with:** PRD v1.0 + v1.1 + Stage 0–9 close reports (especially the v1.0 §3 source-of-authority matrix and v0.2 §B.2 view-model redaction).
-**Branch:** would land on a fresh `claude/<session-id>` branch after operator sign-off.
+**Branch:** lands on a fresh `claude/<session-id>` branch when implementation begins.
+
+---
+
+## 0. Operator decisions (confirmed 2026-05-31)
+
+**Framing:** **B1 confirmed.** Keep `/registry` as a top-level page, swap data layer to the canonical resolver, share rich modals with the cartridge. Bonus: B1 also showcases how the same canonical registry can be rendered in different ways for different applications, which is a meaningful product affordance.
+
+**The 7 §5 questions — operator answers:**
+
+| # | Question | Operator decision |
+|---|---|---|
+| 1 | Library = `visibility_state='unlisted'`? | **Yes** — Library is/should be unlisted |
+| 2 | Cart → drop OR build batch mint? | **Build batch mint.** KNYT cartridge already has a cart with multiple items; with iQube + Q¢ + KNYT contracts now live on Base mainnet, batch mint is needed |
+| 3 | Analytics page — retire OR build real backend? | **Retire / comment out NOW; file backlog item to build real backend + re-implement later** |
+| 4 | Identity filter no-op for primitives without the field + tooltip? | **Yes** |
+| 5 | Trust/Validation panels — keep in IngestionFactoryPanel only? | **NO — keep on every iQube card.** All iQubes need risk / sensitivity / verifiability / accuracy scores. Backfill score data for non-legacy iQubes is a fast-follow item |
+| 6 | Preserve mock BlakQube schema inference? | **Yes.** Future: minimum schema templates per iQube primitive type |
+| 7 | Forks → populate `template_lineage` + provenance count = `template_lineage.length`? | **Yes** |
+
+These answers reshape Phase A scope (item 5 — scores on every iQube) and Phase B scope (item 2 — batch mint). Phase C unchanged. The two backlog items below capture the deferred work.
+
+**Backlog items filed:**
+- `2026-05-31_registry-analytics-backend-backlog.md` — real analytics backend (Q3 product workstream)
+- `2026-05-31_iqube-score-data-backfill-backlog.md` — populate the 4 trust/validation axes on non-legacy iQubes (ContentQube / ToolQube / AigentQube / ClusterQube / DataQube)
 
 ---
 
@@ -125,19 +149,23 @@ A3. **Identity filter — wire to canonical primitive enum.** The legacy "Type" 
    - Reputation: AigentQubes only; surface from the Stage 7 governance block `trust_band`.
    - Non-iQube primitives without these fields ignore the filter.
 
-A4. **Card display — extend canonical projections.** The legacy card shows Rel + Trust dot strips. The canonical resolver doesn't surface these today. Two options:
-   - **(preferred)** Add `derived_scores` to the cartridge projection: `{ reliability, trust }` computed server-side via `scoreUtils.calculateReliabilityScore` and `calculateTrustScore` against the source row. Pure derivation; no new data.
-   - Or compute client-side from the source's `sensitivity` / `accuracy` / `verifiability` / `risk` fields — but those fields aren't on the canonical `RegistryCartridgeView` either, so the projection has to surface them first.
+A4. **Card display — extend canonical projections with universal scores.** Per §0 item 5, all iQube cards (not just IngestionFactoryPanel) must surface the 4 trust/validation axes (sensitivity / accuracy / verifiability / risk) + the 2 derived scores (Rel / Trust). Extend `RegistryCartridgeView` with:
+   - `scores?: { sensitivity, accuracy, verifiability, risk }` — read from `iq_meta_qubes.metadata` JSONB when present
+   - `derived_scores?: { reliability, trust }` — server-side computation via `scoreUtils.calculateReliabilityScore` + `calculateTrustScore`
+   
+   When the score data is missing (every non-legacy iQube today — backfill is the fast-follow item per §0), the field is `undefined`. Card components render placeholder dots ("—") + a "score data pending" tooltip.
+
+   `TrustPanel` and `ValidationPanel` also surface on every iQube card (not just ingested). Same scores-undefined → placeholder pattern applies.
 
 A5. **Analytics page — flag as deprecated.** No canonical analytics surface exists. Add a deprecation banner with link to the cartridge `Health` tab; leave the mock data in place until a real analytics surface lands.
 
 **Verification gate:** the existing `tests/registry-authority.test.ts` (Stage 2 C9) is re-run; legacy `/registry` must not introduce any direct SELECT on `persona_token_qube_ownership` or `orchestration_events` from client-bundled code.
 
-### Phase B — Write-path + mint canonicalisation (medium blast radius)
+### Phase B — Write-path + mint canonicalisation + batch mint (medium blast radius)
 
-Goal: every legacy write goes through the canonical write surface; the mock mint becomes a real saga.
+Goal: every legacy write goes through the canonical write surface; the mock mint becomes a real saga; the cart becomes a real batch-mint orchestration.
 
-**Phase B commits (~6 commits, est. 3 days):**
+**Phase B commits (~8 commits, est. 3–4 days):**
 
 B1. **Extend `POST /api/registry/iqube` to accept the full template surface.** Today the route accepts `{name, primitive_type, slug?, description?, tags?, ...}`. Stage 8+ work: add optional fields for `score_axes: {sensitivity, accuracy, verifiability, risk}`, `business_model`, `blakqube_labels`, `metaExtras: [{k, v}]`, `parent_template_id`, `identity_state`, `min_reputation_bucket`, `require_human_proof`, `require_agent_declare`. Store these on the canonical record via `iq_meta_qubes.metadata` JSONB (no schema migration needed).
 
@@ -153,7 +181,16 @@ B5. **`POST /api/registry/library` migration.** The "Save to Library" concept ma
 
 B6. **DELETE → revoke transition.** `/api/registry/templates/[id]` DELETE becomes a canonization queue submission with `decision='revoke'` once the canonization queue handler (Stage 3 C17) is extended to accept revocation requests, OR a direct `POST /api/registry/canonization` with action `'revoke'`. Per Stage 3, revocation requires `platform_admin`. Operator UX changes: "Delete" button becomes "Request revocation" with the explanatory tooltip.
 
-**Verification gate:** every write now produces a `orchestration_events` row (or a `mint_sagas` row for mint flows). After Phase B, querying `/api/registry/receipts?cartridge=<scope>` should show legacy `/registry` write events alongside cartridge-emitted events.
+B7. **Cart → batch mint route.** Per §0 item 2, the cart becomes a real batch-mint orchestration. New route `POST /api/registry/iqube/mint-batch` accepting `{ iqube_ids: string[], visibility?: 'public'|'private' }`:
+   - Validates each iqube_id exists in `iqube_id_map` (HTTP 400 on any missing)
+   - Spawns one mint saga per id via `startSaga()` (idempotent — existing in-flight sagas are reused)
+   - Drives all sagas in parallel via `Promise.allSettled`
+   - Returns `{ batch_id, sagas: SagaSnapshot[], summary: { initiated, already_complete, failed } }`
+   - Emits a single `orchestration_events` row with `event_type='mint_batch_initiated'` + `metadata.batch_id` + `metadata.iqube_ids` so the batch is auditable as a unit (per-iqube saga receipts still emit individually)
+
+B8. **Cart UI wiring — bridge to batch route.** The legacy cart state (localStorage today) becomes a thin client-side selection register; "Mint cart" button calls `POST /api/registry/iqube/mint-batch` with the selection. Mirrors the KNYT cartridge `useKnytCart` ergonomic pattern. Cart counter shows pending-mint count; clicking it opens a confirm dialog listing the selected iQubes + Public/Private radio (same affordance as single mint, applied to the whole batch).
+
+**Verification gate:** every write now produces a `orchestration_events` row (or a `mint_sagas` row for mint flows). Batch mints produce one `mint_batch_initiated` receipt + N per-iqube saga receipts. After Phase B, querying `/api/registry/receipts?event_type=mint_batch_initiated` should return one row per batch operation.
 
 ### Phase C — Shared-component lift + cleanup (largest blast radius)
 
@@ -211,20 +248,20 @@ These need operator sign-off; they shape Phase A/B/C work:
 
 | Phase | Commits | Days | Reversibility | Operator action required |
 |---|---|---|---|---|
-| Phase A — read path | 5 | 2 | Trivial (revert) | Verify cartridge data appears in `/registry` after deploy |
-| Phase B — write + mint | 6 | 3 | Possible per-commit revert; the deployed saga calls are idempotent | Verify Stage 5 saga drives MINT_COMPLETE for a legacy-page mint; canonization queue handles revoke |
+| Phase A — read path + universal score projection | 5 | 2 | Trivial (revert) | Verify cartridge data appears in `/registry` after deploy; confirm score-undefined placeholder UX |
+| Phase B — write + mint + batch | 8 | 3–4 | Possible per-commit revert; saga calls + batch route are idempotent | Verify Stage 5 saga drives MINT_COMPLETE for a legacy-page mint; verify batch-mint of 2+ items produces 1 batch receipt + N per-iqube saga receipts; canonization queue handles revoke |
 | Phase C — shared lift + retire | 5 | 2–3 | Component lift is reversible; endpoint retirement is post-30-day-window | Approve endpoint deprecation timeline; confirm `/registry` redirect strategy if any |
 
-**Total: ~16 commits, ~7–8 working days.** Three deploy windows. Each phase ends with a smoke-test checklist for the operator.
+**Total: ~18 commits, ~8–9 working days.** Three deploy windows. Each phase ends with a smoke-test checklist for the operator.
 
 ---
 
 ## 8. What this plan deliberately does NOT do
 
-- Does not build a new analytics backend (§5 item 3 says retire the page).
-- Does not build batch-mint UI (§5 item 2 says drop the cart).
+- Does not build a new analytics backend (§0 item 3 — filed as a backlog item; UI retired/commented now).
+- Does not backfill score data for non-legacy iQubes — that's the score-data-backfill backlog item (§0 item 5). Phase A surfaces score fields with placeholder UX where data is missing; Phase A doesn't write data.
 - Does not auto-redirect `/registry` to the cartridge (B2 rejected per §3).
-- Does not change the canonical resolver's surface contract — only the projections gain `derived_scores` (Phase A A4).
+- Does not change the canonical resolver's surface contract beyond adding optional `scores` + `derived_scores` to `RegistryCartridgeView` (Phase A A4).
 - Does not touch `IngestionFactoryPanel` until Phase C; the asset intake flow keeps working unchanged through Phases A + B.
 - Does not modify the shipped legibility profile (`docs/iqube-agent-legibility-profile.md`) — that contract stays frozen per Appendix A of PRD v1.0.
 
