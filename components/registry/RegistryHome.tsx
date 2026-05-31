@@ -11,6 +11,7 @@ import { useToast } from "../ui/toaster";
 import { ComponentRegistryPanel } from "./ComponentRegistryPanel";
 import { IngestionFactoryPanel } from "./IngestionFactoryPanel";
 import { fetchRegistryAsLegacyShape } from "@/services/registry/legacy/legacyAdapter";
+import { personaFetch } from "@/utils/personaSpine";
 
 interface IQubeTemplate {
   id: string;
@@ -84,6 +85,9 @@ export function RegistryHome() {
   const [filters, setFilters] = useState<FilterState>({ search: "", type: "", instance: "", businessModel: "", sort: 'newest' });
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [cart, setCart] = useState<string[]>([]);
+  const [batchMintOpen, setBatchMintOpen] = useState(false);
+  const [batchMintVisibility, setBatchMintVisibility] = useState<'public' | 'private'>('private');
+  const [batchMintInFlight, setBatchMintInFlight] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -229,6 +233,42 @@ export function RegistryHome() {
   };
 
   const requestDelete = (id: string) => setDeleteId(id);
+
+  const confirmBatchMint = async () => {
+    if (cart.length === 0) { setBatchMintOpen(false); return; }
+    setBatchMintInFlight(true);
+    try {
+      const res = await personaFetch('/api/registry/iqube/mint-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ iqube_ids: cart, visibility: batchMintVisibility }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (j?.error === 'unknown_iqubes' && Array.isArray(j?.missing)) {
+          throw new Error(`Unknown iQubes: ${j.missing.join(', ')}`);
+        }
+        throw new Error(j?.error || `Batch mint failed (${res.status})`);
+      }
+      const summary = j?.summary || { total: cart.length, completed: 0, pending: 0, failed: 0 };
+      const msg = `Batch mint initiated: ${summary.completed}/${summary.total} complete, ${summary.pending} pending, ${summary.failed} failed`;
+      try { toast(msg, summary.failed > 0 ? 'error' : 'success'); } catch {}
+      // Clear cart on initiation regardless of per-iqube outcome — the
+      // sagas are idempotent so retry-by-re-add works fine.
+      setCart([]);
+      setBatchMintOpen(false);
+      // Refetch list so newly-minted records flip their state
+      try {
+        const result = await fetchRegistryAsLegacyShape(filters, pagination.currentPage, pagination.limit);
+        setTemplates(result.data);
+        setPagination(result.pagination);
+      } catch {}
+    } catch (e) {
+      try { toast(e instanceof Error ? e.message : 'Batch mint failed', 'error'); } catch {}
+    } finally {
+      setBatchMintInFlight(false);
+    }
+  };
 
   const confirmDelete = async () => {
     if (!deleteId) return;
@@ -464,10 +504,17 @@ export function RegistryHome() {
             </button>
             {/* View mode toggles */}
             <ViewModeToggle value={viewMode} onChange={setViewMode} />
-            {/* Cart */}
-            <div
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 ring-1 ring-white/10 text-sm font-medium text-slate-300"
-              title="Items in cart"
+            {/* Cart — Phase B B8: clickable; opens batch-mint confirm */}
+            <button
+              type="button"
+              disabled={cart.length === 0}
+              onClick={() => setBatchMintOpen(true)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                cart.length > 0
+                  ? 'bg-indigo-500/15 ring-1 ring-indigo-500/40 text-indigo-200 hover:bg-indigo-500/25'
+                  : 'bg-white/5 ring-1 ring-white/10 text-slate-400 cursor-not-allowed'
+              }`}
+              title={cart.length === 0 ? 'Cart is empty' : `Mint ${cart.length} iQube${cart.length === 1 ? '' : 's'} as a batch`}
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="9" cy="21" r="1"/>
@@ -475,7 +522,7 @@ export function RegistryHome() {
                 <path d="M1 1h4l2.68 12.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
               </svg>
               <span className="tabular-nums">{cart.length}</span>
-            </div>
+            </button>
           </div>
         </div>
       </div>
@@ -611,6 +658,35 @@ export function RegistryHome() {
             onLimitChange={handleLimitChange}
           />
         )}
+
+        {/* Phase B B8 — Batch mint confirm dialog */}
+        <ConfirmDialog
+          open={batchMintOpen}
+          title={`Mint ${cart.length} iQube${cart.length === 1 ? '' : 's'} as a batch`}
+          confirmText={batchMintInFlight ? 'Minting…' : (batchMintVisibility === 'public' ? 'Proceed: Mint Public' : 'Proceed: Mint Private')}
+          cancelText="Cancel"
+          onConfirm={confirmBatchMint}
+          onCancel={() => { if (!batchMintInFlight) setBatchMintOpen(false); }}
+          confirmClassName={batchMintVisibility === 'public' ? 'bg-emerald-600 text-white hover:bg-emerald-500' : 'bg-purple-600 text-white hover:bg-purple-500'}
+        >
+          <div>
+            <div className="mb-3 text-slate-300 text-sm">
+              The cart contains <span className="font-semibold text-slate-100">{cart.length}</span> iQube{cart.length === 1 ? '' : 's'}.
+              Batch mint drives one Stage 5 saga per iQube in parallel. The selected visibility applies to every iQube in the batch.
+              Sagas are idempotent — if any iQube was already in flight, its existing saga is reused (no duplicate mints).
+            </div>
+            <div className="flex gap-6">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="batchMintVisibility" value="public" checked={batchMintVisibility === 'public'} onChange={() => setBatchMintVisibility('public')} className="text-emerald-500 focus:ring-emerald-500" />
+                <span className="text-slate-200 text-sm">Public</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="batchMintVisibility" value="private" checked={batchMintVisibility === 'private'} onChange={() => setBatchMintVisibility('private')} className="text-purple-500 focus:ring-purple-500" />
+                <span className="text-slate-200 text-sm">Private</span>
+              </label>
+            </div>
+          </div>
+        </ConfirmDialog>
 
         <ConfirmDialog
           open={!!deleteId}
