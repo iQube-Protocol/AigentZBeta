@@ -78,7 +78,7 @@ const CARTRIDGE_LABELS: Record<string, string> = {
   knyt: "KNYT",
   qriptopian: "The Qriptopian",
   marketa: "Marketa",
-  avl: "metaMe Venture Lab",
+  mvl: "metaMe Venture Lab",
 };
 
 const SPECIALIST_LABELS: Record<string, string> = {

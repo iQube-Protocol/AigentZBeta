@@ -23,7 +23,7 @@
  *   - BlakQube editing (strategic notes, IP, KPIs, partners) — Phase 5
  *     specialist routing surfaces will edit these one slice at a time.
  *   - Curated experience-model picker (selecting from the global
- *     experience_models catalogue) — Phase 4 AVL flow uses this.
+ *     experience_models catalogue) — Phase 4 MVL flow uses this.
  */
 
 import React, { useEffect, useRef, useState } from "react";
@@ -69,7 +69,7 @@ type ActiveCartridgeSlug =
   | "knyt"
   | "qriptopian"
   | "marketa"
-  | "avl";
+  | "mvl";
 
 interface FormState {
   experienceName: string;
@@ -115,7 +115,7 @@ const CARTRIDGES: Array<{ slug: ActiveCartridgeSlug; label: string }> = [
   { slug: "knyt",       label: "KNYT" },
   { slug: "qriptopian", label: "The Qriptopian" },
   { slug: "marketa",    label: "Marketa" },
-  { slug: "avl",        label: "metaMe Venture Lab" },
+  { slug: "mvl",        label: "metaMe Venture Lab" },
 ];
 
 const CONFIDENTIALITY_OPTIONS: Array<{ value: ConfidentialityDefault; label: string; hint: string }> = [

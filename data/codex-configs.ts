@@ -799,7 +799,7 @@ export const KNYT_CODEX: CodexConfig = {
       },
       metadata: {
         icon: 'Users',
-        description: 'Partner and customer outreach — 18 AVL partner contacts, KS Prospects funnel, campaign composer for Marketa email dispatch',
+        description: 'Partner and customer outreach — 18 MVL partner contacts, KS Prospects funnel, campaign composer for Marketa email dispatch',
         color: 'violet'
       }
     },
@@ -2097,7 +2097,7 @@ export const VENTURE_LAB_CODEX: CodexConfig = {
       },
       metadata: {
         icon: 'Users',
-        description: 'Partner and customer outreach — AVL partner contacts, KS Prospects funnel, campaign composer, and QubeTalk agent coordination',
+        description: 'Partner and customer outreach — MVL partner contacts, KS Prospects funnel, campaign composer, and QubeTalk agent coordination',
         color: 'violet'
       }
     },
@@ -2984,7 +2984,7 @@ export const MARKETA_CARTRIDGE: CodexConfig = {
       order: 3,
       type: 'static',
       config: { component: 'MarketaPartnersAdminTab', props: {} },
-      metadata: { icon: 'Users', description: 'AVL pipeline, activation actions, wave management' },
+      metadata: { icon: 'Users', description: 'MVL pipeline, activation actions, wave management' },
     },
     {
       id: 'marketa-approvals',

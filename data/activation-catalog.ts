@@ -199,7 +199,7 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
       'Operate your venture through the metaMe Venture Lab α surfaces — track KPIs, manage priority partners and campaigns, generate venture progress reports, and run the alpha-activation checkpoints with Aigent Z.',
     gate: 'gated',
     tabSlug: 'venture-lab',
-    sourceCartridge: 'avl',
+    sourceCartridge: 'mvl',
     icon: 'TrendingUp',
     color: 'emerald',
     metrics: [

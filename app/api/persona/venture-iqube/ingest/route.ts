@@ -30,7 +30,7 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-type SchemaVersion = 'venture-iqube/v0.1' | 'venture-iqube/v0.2';
+type SchemaVersion = 'venture-iqube/v0.1' | 'venture-iqube/v0.2' | 'venture-iqube/v0.3';
 
 interface VentureIqube {
   schemaVersion: SchemaVersion;
@@ -94,8 +94,12 @@ interface IngestPreview {
 function validateShape(payload: unknown): { ok: true; data: VentureIqube } | { ok: false; error: string } {
   if (!payload || typeof payload !== 'object') return { ok: false, error: 'payload must be a JSON object' };
   const p = payload as Partial<VentureIqube>;
-  if (p.schemaVersion !== 'venture-iqube/v0.1' && p.schemaVersion !== 'venture-iqube/v0.2') {
-    return { ok: false, error: `schemaVersion must be 'venture-iqube/v0.1' or 'venture-iqube/v0.2' (got ${JSON.stringify(p.schemaVersion)})` };
+  if (
+    p.schemaVersion !== 'venture-iqube/v0.1' &&
+    p.schemaVersion !== 'venture-iqube/v0.2' &&
+    p.schemaVersion !== 'venture-iqube/v0.3'
+  ) {
+    return { ok: false, error: `schemaVersion must be 'venture-iqube/v0.1', 'v0.2', or 'v0.3' (got ${JSON.stringify(p.schemaVersion)})` };
   }
   if (!p.operator?.displayLabel) return { ok: false, error: 'operator.displayLabel is required' };
   if (!p.strategy?.headline) return { ok: false, error: 'strategy.headline is required' };
@@ -127,6 +131,11 @@ function preview(data: VentureIqube): IngestPreview {
     'iqube-registry': 'agentiq-os',
     'moneypenny': 'metame',
     'legal-metacommons': 'metame',
+    // 2026-05-29 rename: AgentiQ Venture Lab → metaMe Venture Lab.
+    // v0.1 / v0.2 payloads still emit 'avl'; translate so they hydrate
+    // against the current ActiveCartridgeSlug enum which only knows 'mvl'.
+    // v0.4 will drop this and reject any 'avl' binding outright.
+    'avl': 'mvl',
   };
   const mapped = new Set<string>();
   for (const s of allBindings) {

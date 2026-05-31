@@ -1,7 +1,7 @@
 /**
  * GET /api/avl/customers
  *
- * AVL-scoped customer list: persona data joined with nakamoto investment signals
+ * MVL-scoped customer list: persona data joined with nakamoto investment signals
  * and journey ladder stage. Purpose-built for pipeline conversion analysis.
  *
  * Query params:

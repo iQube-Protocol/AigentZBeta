@@ -61,7 +61,7 @@ export type ActiveCartridgeSlug =
   | 'knyt'
   | 'qriptopian'
   | 'marketa'
-  | 'avl';
+  | 'mvl';
 
 /** Public-safe slice — surfaces to the browser. T1. */
 export interface ExperienceQubeMeta {
@@ -152,7 +152,7 @@ const VALID_CONFIDENTIALITY = new Set<ConfidentialityDefault>([
   'private_by_default', 'selective_share', 'open',
 ]);
 const VALID_CARTRIDGES = new Set<ActiveCartridgeSlug>([
-  'metame', 'knyt', 'qriptopian', 'marketa', 'avl',
+  'metame', 'knyt', 'qriptopian', 'marketa', 'mvl',
 ]);
 
 function rowToRecord(row: DbRow): ExperienceQubeRecord {

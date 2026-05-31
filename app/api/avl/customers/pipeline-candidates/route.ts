@@ -1,7 +1,7 @@
 /**
  * GET /api/avl/customers/pipeline-candidates
  *
- * Returns highest-priority AVL pipeline candidates in priority order:
+ * Returns highest-priority MVL pipeline candidates in priority order:
  *   1. Zero KNYT stage + ks_backed
  *   2. First KNYT stage + ks_backed
  *   3. Recruiter campaign_state

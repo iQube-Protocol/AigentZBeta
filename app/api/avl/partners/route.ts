@@ -1,7 +1,7 @@
 /**
  * GET /api/avl/partners
  *
- * Returns all AVL partner contacts from avl_partner_contacts.
+ * Returns all MVL partner contacts from avl_partner_contacts.
  * Sorted by strategic_value_tier ASC then name ASC.
  *
  * Query params:

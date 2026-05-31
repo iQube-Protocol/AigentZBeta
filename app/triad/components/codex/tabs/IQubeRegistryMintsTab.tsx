@@ -62,7 +62,7 @@ const SERIES_FILTERS: Array<{ id: string; label: string; defaultFor?: string }> 
   { id: 'metaKnyts', label: 'metaKnyts (KNYT)' },
   { id: 'qriptopian', label: 'Qriptopian' },
   { id: 'metame', label: 'metaMe activations' },
-  { id: 'avl', label: 'Venture Lab (AVL)' },
+  { id: 'mvl', label: 'Venture Lab (MVL)' },
   { id: 'marketa', label: 'Marketa' },
   { id: 'knyt', label: 'Order of Metayé' },
 ];

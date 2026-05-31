@@ -160,7 +160,7 @@ const PRIORITY_LABELS_BY_CARTRIDGE: Record<ActiveCartridgeSlug, string> = {
   knyt: 'Move KNYT forward',
   qriptopian: 'Advance The Qriptopian',
   marketa: 'Push partner / campaign motion',
-  avl: 'Tighten venture progress',
+  mvl: 'Tighten venture progress',
 };
 
 function buildGuidanceNote(

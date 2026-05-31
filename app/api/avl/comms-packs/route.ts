@@ -1,7 +1,7 @@
 /**
  * GET /api/avl/comms-packs
  *
- * Returns all active AVL comms packs from avl_comms_packs.
+ * Returns all active MVL comms packs from avl_comms_packs.
  */
 
 import { NextResponse } from "next/server";

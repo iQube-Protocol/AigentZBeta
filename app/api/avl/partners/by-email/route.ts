@@ -1,7 +1,7 @@
 /**
  * GET /api/avl/partners/by-email?email=...
  *
- * Lightweight identity check — returns the AVL partner record whose
+ * Lightweight identity check — returns the MVL partner record whose
  * contact_email matches the supplied email address.
  *
  * Used by CodexPanelDynamic to auto-resolve isPartner + partnerId

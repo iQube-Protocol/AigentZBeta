@@ -237,7 +237,7 @@ export function MarketaPartnersAdminTab({ theme = 'dark' }: Props) {
   };
 
   const handleDelete = async (partnerId: string) => {
-    if (!confirm('Remove this partner from the AVL pipeline?')) return;
+    if (!confirm('Remove this partner from the MVL pipeline?')) return;
     setDeletingId(partnerId);
     try {
       const res = await fetch(`/api/avl/partners?id=${partnerId}`, { method: 'DELETE' });
@@ -316,7 +316,7 @@ export function MarketaPartnersAdminTab({ theme = 'dark' }: Props) {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 text-rose-400" />
-            <span className={`text-sm font-semibold ${t.textPrimary}`}>AVL Partner Pipeline</span>
+            <span className={`text-sm font-semibold ${t.textPrimary}`}>MVL Partner Pipeline</span>
           </div>
           <button
             onClick={() => setShowAddForm((v) => !v)}

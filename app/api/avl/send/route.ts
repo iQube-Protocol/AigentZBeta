@@ -1,7 +1,7 @@
 /**
  * POST /api/avl/send
  *
- * Sends a comms pack to a list of AVL partners via Mailjet.
+ * Sends a comms pack to a list of MVL partners via Mailjet.
  * Updates outreach_status + contact timestamps on successful send.
  *
  * Safe by default — dry_run:true returns a preview without sending.

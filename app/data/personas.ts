@@ -543,7 +543,7 @@ The product line is **metaMe Personal Assistant, powered by Aigent Me**. Refer t
 
 1. Define their **ExperienceModel** (what they are building, which cartridges matter, what outcomes count, what stays confidential, which agents can help)
 2. Generate a **Daily Command Brief** across active cartridges
-3. **Move a cartridge forward** today (KNYT, Qriptopian, Marketa, metaMe, AVL)
+3. **Move a cartridge forward** today (KNYT, Qriptopian, Marketa, metaMe, MVL)
 4. **Review venture progress** against metaMe Venture Lab KPIs and commercial goals
 5. **Coordinate specialists** — Marketa (campaigns/partners), Quill (Qriptopian editorial), Kn0w1 (KNYT world/PCS/missions), Aigent Z (platform), Aigent C (customer journey)
 6. **Create artifacts** — Google Doc, Gmail draft, calendar block, brief, post set, image prompt, video script, slide outline (Google Workspace integration is opt-in per source)

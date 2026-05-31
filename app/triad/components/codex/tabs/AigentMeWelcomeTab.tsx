@@ -134,7 +134,7 @@ const CONTEXT_CHIPS = [
   'KNYT',
   'The Qriptopian',
   'Marketa',
-  'AVL',
+  'MVL',
   'Metayé Media',
   'Google Workspace',
 ];
