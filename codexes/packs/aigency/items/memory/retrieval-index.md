@@ -1749,3 +1749,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-e3b0bd0.md](../build_/COMMITS/COMMIT-e3b0bd0.md)
 - Message: AVL → MVL Pass 2: /api/avl/* directory + FE callsites + log tags
+
+## Commit `6db2a85` — 2026-05-31T20:41:17Z
+- Type: `push`
+- Brief: [COMMIT-6db2a85.md](../build_/COMMITS/COMMIT-6db2a85.md)
+- Message: trigger deploy to dev
+
+## Commit `ff63bfe` — 2026-05-31T20:41:16Z
+- Type: `chore`
+- Brief: [COMMIT-ff63bfe.md](../build_/COMMITS/COMMIT-ff63bfe.md)
+- Message: nbeLlmRerank: bump max_tokens 400 → 1500, log parse failures
