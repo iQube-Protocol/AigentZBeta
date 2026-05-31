@@ -1769,3 +1769,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-995f518.md](../build_/COMMITS/COMMIT-995f518.md)
 - Message: myCanvas: remix-from-template button (Qriptopian Agents of Change 15-min sprint)
+
+## Commit `0a9c834` — 2026-05-31T20:58:02Z
+- Type: `push`
+- Brief: [COMMIT-0a9c834.md](../build_/COMMITS/COMMIT-0a9c834.md)
+- Message: metaMe cartridge: swap myArtifacts and Activations top-menu order

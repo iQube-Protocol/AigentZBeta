@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`0a9c834`](https://github.com/iQube-Protocol/AigentZBeta/commit/0a9c8349c11353c82c1a6ba318efd2d53db05abd) [push] metaMe cartridge: swap myArtifacts and Activations top-menu order (Claude, 2026-05-31T20:58:02Z)
 - [`995f518`](https://github.com/iQube-Protocol/AigentZBeta/commit/995f51837a707f5052cb9d74ec707dd2397c8a17) [push] myCanvas: remix-from-template button (Qriptopian Agents of Change 15-min sprint) (Claude, 2026-05-31T20:44:08Z)
 - [`d48b6f2`](https://github.com/iQube-Protocol/AigentZBeta/commit/d48b6f2749924f0196ee91d1d766e26d3792e5d0) [push] trigger deploy to dev (Claude, 2026-05-31T20:44:08Z)
 - [`ff63bfe`](https://github.com/iQube-Protocol/AigentZBeta/commit/ff63bfee9a594938d89d0bec840f450f3bc9d610) [chore] nbeLlmRerank: bump max_tokens 400 → 1500, log parse failures (Claude, 2026-05-31T20:41:16Z)
