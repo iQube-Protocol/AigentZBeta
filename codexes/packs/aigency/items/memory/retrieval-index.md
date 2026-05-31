@@ -1729,3 +1729,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-c502c4c.md](../build_/COMMITS/COMMIT-c502c4c.md)
 - Message: NBA cards: contextual title rewrites via LLM rerank
+
+## Commit `17e0d6b` — 2026-05-31T19:46:35Z
+- Type: `push`
+- Brief: [COMMIT-17e0d6b.md](../build_/COMMITS/COMMIT-17e0d6b.md)
+- Message: trigger deploy to dev
+
+## Commit `b582f2a` — 2026-05-31T19:46:35Z
+- Type: `refactor`
+- Brief: [COMMIT-b582f2a.md](../build_/COMMITS/COMMIT-b582f2a.md)
+- Message: my-space restructure: myArtifacts tabGroup with three sub-tabs
