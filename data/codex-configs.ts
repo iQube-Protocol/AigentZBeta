@@ -2287,8 +2287,8 @@ export const METAME_CODEX: CodexConfig = {
   tabGroups: [
     { id: 'web',          label: 'metame.com',       icon: 'Globe',      order: -1,  iconOnly: true },
     { id: 'aigentme',     label: 'aigentMe',         icon: 'Sparkles',   order: 0 },
-    { id: 'activations',  label: 'Activations',      icon: 'Zap',        order: 0.5 },
-    { id: 'myartifacts',  label: 'myArtifacts',      icon: 'PenSquare',  order: 0.6, activationId: 'mycanvas' },
+    { id: 'myartifacts',  label: 'myArtifacts',      icon: 'PenSquare',  order: 0.5, activationId: 'mycanvas' },
+    { id: 'activations',  label: 'Activations',      icon: 'Zap',        order: 0.6 },
     { id: 'order',        label: 'Order of Metayé',  icon: 'Shield',     order: 0.7, activationId: 'order-of-metaye' },
     { id: 'vl',           label: 'Venture Lab',      icon: 'TrendingUp', order: 1,   activationId: 'venture-lab' },
     { id: 'marketa',      label: 'Marketa',          icon: 'Megaphone',  order: 2,   activationId: 'marketa' },
