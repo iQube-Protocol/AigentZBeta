@@ -201,6 +201,12 @@ export type OrchestrationEventType =
   | 'guardian_suggested'
   | 'guardian_auto_acted'
   | 'access_decision'
+  // Registry write events (Phase B of legacy /registry → canonical SoT)
+  | 'iqube_forked'
+  | 'iqube_edited'
+  | 'iqube_library_added'
+  | 'iqube_revoke_requested'
+  | 'mint_batch_initiated'
 
 export interface OrchestrationEvent {
   event_id: string
