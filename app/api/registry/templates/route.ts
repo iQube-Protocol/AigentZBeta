@@ -65,6 +65,7 @@ const getHandler = async (req: Request) => {
 
       const search = url.searchParams.get('search') || '';
       const type = url.searchParams.get('type') || '';
+      const category = url.searchParams.get('category') || '';
       const instance = url.searchParams.get('instance') || '';
       const businessModel = url.searchParams.get('businessModel') || '';
       const sort = url.searchParams.get('sort'); // newest|oldest
@@ -143,6 +144,7 @@ const getHandler = async (req: Request) => {
               if (!t.name.toLowerCase().includes(s) && !t.description.toLowerCase().includes(s)) return false;
             }
             if (type && t.iQubeType && t.iQubeType !== type) return false;
+            if (category && !((t as any).metaExtras || []).some((x: { k: string; v: string }) => x?.k === 'category' && x?.v === category)) return false;
             if (instance && t.iQubeInstanceType && t.iQubeInstanceType !== instance) return false;
             if (businessModel && t.businessModel && t.businessModel !== businessModel) return false;
             return true;
@@ -208,6 +210,7 @@ const getHandler = async (req: Request) => {
       console.error('[RegistryTemplates] Fetch failed:', error);
       const search = url.searchParams.get('search') || '';
       const type = url.searchParams.get('type') || '';
+      const category = url.searchParams.get('category') || '';
       const instance = url.searchParams.get('instance') || '';
       const businessModel = url.searchParams.get('businessModel') || '';
       const sort = url.searchParams.get('sort');
@@ -220,6 +223,7 @@ const getHandler = async (req: Request) => {
             if (!t.name.toLowerCase().includes(s) && !t.description.toLowerCase().includes(s)) return false;
           }
           if (type && t.iQubeType && t.iQubeType !== type) return false;
+          if (category && !((t as any).metaExtras || []).some((x: { k: string; v: string }) => x?.k === 'category' && x?.v === category)) return false;
           if (instance && t.iQubeInstanceType && t.iQubeInstanceType !== instance) return false;
           if (businessModel && t.businessModel && t.businessModel !== businessModel) return false;
           return true;
