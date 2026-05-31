@@ -26,7 +26,7 @@ import { useKnytCart } from './useKnytCart';
 import { KnytCartDrawer } from './KnytCartDrawer';
 import { ContentPurchaseModal } from '../../content/ContentPurchaseModal';
 import type { ContentType } from '../../content/ContentPurchaseModal';
-import { useOwnedEntitlements } from '@/app/hooks/useOwnedEntitlements';
+import { useRegistryOwnedItems } from '@/app/hooks/useRegistryOwnedItems';
 
 interface Props {
   personaId?: string;
@@ -645,7 +645,7 @@ export function KnytStoreEpisodesTab({ personaId, theme: _theme }: Props) {
   // Single ownership source (matches codex SoT) — covers SKU expansion +
   // direct knyt_purchases via /api/codex/owned. epNum is the pricing-episode
   // number used by the store/codex UI (DB ep N → pricing N-1).
-  const { isEpisodeOwned, isGnVariantOwned } = useOwnedEntitlements(personaId);
+  const { isEpisodeOwned, isGnVariantOwned } = useRegistryOwnedItems(personaId);
 
   const episodes = EPISODE_PRICING
     .filter((e) => e.episodeNumber >= 0)
