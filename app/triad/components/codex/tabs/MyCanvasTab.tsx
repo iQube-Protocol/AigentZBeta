@@ -494,8 +494,43 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
                 <Loader2 className="w-3 h-3 animate-spin" /> Loading…
               </div>
             ) : entries.length === 0 ? (
-              <div className="p-3 text-xs text-slate-500 italic">
-                No entries yet — your private drafts live here.
+              <div className="p-3 space-y-3">
+                <p className="text-xs text-slate-500 italic">
+                  {surface === 'canvas'
+                    ? 'No entries yet — start from a template below or hit New.'
+                    : 'No entries yet — your private drafts live here.'}
+                </p>
+                {surface === 'canvas' && (
+                  <button
+                    type="button"
+                    onClick={() => setRemixSource({
+                      id: 'template-qriptopian-15min-sprint',
+                      entryType: 'experience_origin',
+                      title: 'Qriptopian Agents of Change — 15-min reading sprint',
+                      bodyMd: '',
+                      tags: ['template', 'qriptopian', 'reading-sprint'],
+                      visibility: 'private',
+                      metaJson: {
+                        experienceId: 'exp_1773512145689_1vnt1jcnt',
+                        sourceExperienceId: 'exp_1773512145689_1vnt1jcnt',
+                        seedTemplate: 'qriptopian-agents-of-change-reading-sprint',
+                      },
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    })}
+                    className="w-full text-left rounded-md border border-violet-500/30 bg-violet-500/5 px-3 py-2 hover:border-violet-500/60 hover:bg-violet-500/10 transition"
+                  >
+                    <div className="text-[11px] uppercase tracking-wider text-violet-400 mb-0.5">
+                      Remix template
+                    </div>
+                    <div className="text-xs font-semibold text-white">
+                      Qriptopian Agents of Change
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">
+                      Guided 15-min reading sprint · article or story
+                    </div>
+                  </button>
+                )}
               </div>
             ) : (
               <ul>
@@ -524,6 +559,44 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
                   </li>
                 ))}
               </ul>
+            )}
+            {/* Always-available "remix from template" affordance —
+                visible on canvas surface in both empty + populated
+                states. Short-term: hardcoded Qriptopian Agents of
+                Change seed. Follow-up: pull a list of templates from
+                a registry. */}
+            {surface === 'canvas' && entries.length > 0 && (
+              <div className="border-t border-slate-700/40 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">
+                  Templates
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setRemixSource({
+                    id: 'template-qriptopian-15min-sprint',
+                    entryType: 'experience_origin',
+                    title: 'Qriptopian Agents of Change — 15-min reading sprint',
+                    bodyMd: '',
+                    tags: ['template', 'qriptopian', 'reading-sprint'],
+                    visibility: 'private',
+                    metaJson: {
+                      experienceId: 'exp_1773512145689_1vnt1jcnt',
+                      sourceExperienceId: 'exp_1773512145689_1vnt1jcnt',
+                      seedTemplate: 'qriptopian-agents-of-change-reading-sprint',
+                    },
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  })}
+                  className="w-full text-left rounded-md border border-violet-500/30 bg-violet-500/5 px-2.5 py-1.5 hover:border-violet-500/60 hover:bg-violet-500/10 transition"
+                >
+                  <div className="text-[11px] font-semibold text-white">
+                    Qriptopian Agents of Change
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">
+                    15-min reading sprint · remix
+                  </div>
+                </button>
+              </div>
             )}
           </div>
         </aside>
