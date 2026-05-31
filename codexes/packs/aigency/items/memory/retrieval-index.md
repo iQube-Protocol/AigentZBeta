@@ -1784,3 +1784,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-2e60b85.md](../build_/COMMITS/COMMIT-2e60b85.md)
 - Message: canvasService.listEntries: surface meta_json.surface stamp via JSON-path
+
+## Commit `0d769b7` — 2026-05-31T21:54:59Z
+- Type: `push`
+- Brief: [COMMIT-0d769b7.md](../build_/COMMITS/COMMIT-0d769b7.md)
+- Message: trigger deploy to dev
+
+## Commit `e549a85` — 2026-05-31T21:54:59Z
+- Type: `push`
+- Brief: [COMMIT-e549a85.md](../build_/COMMITS/COMMIT-e549a85.md)
+- Message: myWorkspace: separate myworkspace_entries table for strict canvas/workspace demarcation

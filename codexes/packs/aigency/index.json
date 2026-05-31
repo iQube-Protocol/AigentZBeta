@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-31T21:34:28.506Z",
+  "last_updated": "2026-05-31T21:56:47.598Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "2e60b85c0283d09fbea6fdd7186a5359cdc43ee4",
-  "latest_commit_short": "2e60b85",
-  "latest_commit_title": "canvasService.listEntries: surface meta_json.surface stamp via JSON-path",
+  "latest_commit": "e549a8507875dcae26984042d507b9a4ad345d24",
+  "latest_commit_short": "e549a85",
+  "latest_commit_title": "myWorkspace: separate myworkspace_entries table for strict canvas/workspace demarcation",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "e549a85",
+      "full_sha": "e549a8507875dcae26984042d507b9a4ad345d24",
+      "title": "myWorkspace: separate myworkspace_entries table for strict canvas/workspace demarcation",
+      "author": "Claude",
+      "timestamp": "2026-05-31T21:54:59Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-e549a85.md"
+    },
+    {
+      "sha": "0d769b7",
+      "full_sha": "0d769b77c620e1c0c7bc50770460c5204d1a2979",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-31T21:54:59Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0d769b7.md"
+    },
     {
       "sha": "2e60b85",
       "full_sha": "2e60b85c0283d09fbea6fdd7186a5359cdc43ee4",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-27T05:26:35Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-b83c732.md"
-    },
-    {
-      "sha": "b386014",
-      "full_sha": "b38601486449bf62b1d5a54b3851817b05ce4f63",
-      "title": "Mirror Qripto Codex tabs (Magazines / Papers / Polity) into metaMe qriptopia group",
-      "author": "Claude",
-      "timestamp": "2026-05-27T05:03:53Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-b386014.md"
-    },
-    {
-      "sha": "c52d1aa",
-      "full_sha": "c52d1aa56f1aa70a184bbe2ed9224c5e53c930e2",
-      "title": "Render PDF covers via iframe + adopt KNYT 4-up card grid pattern for Qripto Papers",
-      "author": "Claude",
-      "timestamp": "2026-05-27T04:43:58Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c52d1aa.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
