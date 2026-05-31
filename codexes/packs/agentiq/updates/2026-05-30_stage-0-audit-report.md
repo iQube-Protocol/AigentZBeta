@@ -50,7 +50,66 @@ SELECT COUNT(*) FROM iqube_id_map WHERE source = 'registry_asset';
 -- Each must return zero — anything non-zero is a backfill gap.
 ```
 
-**Row-count snapshot:** This audit cannot query Supabase from sandbox (outbound HTTPS blocked per CLAUDE.md). Operator runs these queries against dev Supabase as the Stage 1 kick-off, attaches counts to a follow-up commit on the audit report.
+**Row-count snapshot (operator-confirmed, 2026-05-30, dev Supabase):**
+
+| Source | Live rows | Notes |
+|---|---:|---|
+| `iq_meta_qubes` | **87** | One orphan meta (no matching blak/token) — see finding F below |
+| `iq_blak_qubes` | **86** | |
+| `iq_token_qubes` | **86** | |
+| `registry_assets` | **28** | Tiny; ToolQube-subtype migration affects 23 rows (see Block 3) |
+| `registry_intakes` | **3** | Ingestion factory barely used |
+| `content_qubes` | **49** | One row per qube; access policy 1:1 |
+| `content_qube_access_policies` | **49** | Perfect 1:1 with content_qubes |
+| `content_qube_editions` | **78,150** | 49 qubes × ~1595 avg (canonical pre-seed target = 1,860; gap suggests some qubes incomplete) |
+| `content_qube_dvn_receipts` | **12,554** | Substantial receipt history; index design important Stage 6 |
+| `master_content_qubes` (legacy) | **16** | Bridged via FK |
+| `codex_media_assets` (legacy) | **120** | Bridged via FK |
+| `personas` | **7,393** | Most personas don't own an iQube — expected |
+| `orchestration_events` | **12,352** | Platform-wide receipts; `iqube_id` column backfill Stage 6 |
+
+**ContentQube lifecycle stratification (49 rows):**
+
+| `lifecycle_state` | Count | Series breakdown |
+|---|---:|---|
+| `canonized` | 48 | metaKnyts: 41 (15 ep + 13 char + 13 powers); activation_tab: 6 (avl 1, knyt 1, marketa 1, metame 2, qriptopian 1); — |
+| `chain_minted` | 1 | metame activation_tab (1) |
+| `semi_minted` | 1 | metaKnyts gn (1) |
+| `draft` / `review_ready` / `canon_pending` / `superseded` / `archived` | **0** | No live rows in these substates today |
+
+**Stage 3 substate-mapping impact:** Only **1 live row** falls into the universal `review_pending` collapse bucket (`semi_minted` metaKnyts gn). Mapping is structurally important for forward compatibility but not migration-blocking — there is no legacy backlog to reshape.
+
+**Registry asset class stratification (28 rows):**
+
+| `asset_class` | Count | Stage 1 `(primitive_type, tool_subtype)` migration |
+|---|---:|---|
+| `SkillQube` | 19 | → `ToolQube`, `skill` |
+| `AigentQube` | 4 | → `AigentQube`, `null` (unchanged) |
+| `WorkflowQube` | 3 | → `ToolQube`, `workflow` |
+| `ConnectorQube` | 1 | → `ToolQube`, `connector` |
+| `DataQube` | 1 | → `DataQube`, `null` (unchanged) |
+| `ToolQube` (generic) | 0 | n/a — no generic ToolQube records today |
+
+**Stage 1 ToolQube-subtype migration size:** 23 rows (19 SkillQube + 3 WorkflowQube + 1 ConnectorQube). Trivial scope.
+
+**Finding F — orphan triad meta:** `iq_meta_qubes`=87 but `iq_blak_qubes`=86 and `iq_token_qubes`=86. One meta record has no matching blak or token. Likely a draft / abandoned mint. **Action for Stage 0 follow-up:** operator runs
+```sql
+SELECT m.id, m.slug, m.created_at
+FROM iq_meta_qubes m
+LEFT JOIN iq_blak_qubes b ON b.meta_qube_id = m.id   -- adjust FK name if different
+WHERE b.id IS NULL;
+```
+and decides whether the orphan record (a) gets a backfilled `(blak, token)` pair, (b) is migrated as a draft into `iqube_id_map` with no triad refs, or (c) is hard-deleted as abandoned. The Stage 1 backfill must handle the meta-without-blak case explicitly (don't error on the JOIN).
+
+**Finding G — incomplete edition pre-seed:** 78,150 editions across 49 qubes = ~1,595 avg, against the 1,860 target per qube (Phase 7 design). Either some qubes were seeded with fewer canonical editions deliberately, or some pre-seed runs didn't complete. **Action for Stage 0 follow-up:** operator runs
+```sql
+SELECT qube_id, count(*) AS editions, MAX(edition_number) AS top_edition
+FROM content_qube_editions
+GROUP BY qube_id
+HAVING count(*) < 1860
+ORDER BY count(*) ASC;
+```
+to identify the under-seeded qubes. Not blocking for Stage 1 schema work — but should be resolved before Stage 5 mint-saga wiring so the saga doesn't claim a non-existent edition row.
 
 **Dedupe-collision matrix (operator-reviewed in Stage 1):**
 
@@ -449,7 +508,7 @@ New tables (per v1.1 §B.4 acceptance): `iqube_id_map`, `persona_token_qube_owne
 
 Before Stage 1 begins, operator should confirm:
 
-- [ ] Per-surface row counts (Deliverable 1) — operator runs the SQL queries against dev Supabase and attaches results to this audit report via follow-up commit.
+- [x] Per-surface row counts (Deliverable 1) — operator-confirmed 2026-05-30; baseline rows table + ContentQube lifecycle stratification + registry asset class stratification folded into Deliverable 1. Two follow-up SQL queries (Finding F orphan triad meta; Finding G under-seeded editions) outstanding before Stage 5.
 - [ ] The 19 LiquidUITemplateArchetypeQube seeds will reclassify as DataQube + `category: 'ui_template_archetype'` (Deliverable 2). Operator reviews the seed list in `app/api/registry/templates/store.ts` for any exceptional records that need different handling.
 - [ ] The ~30 cartridge tabs identified for Stage 8 resolver migration (Deliverable 3) — operator confirms priority order (Stage 4 vs Stage 8).
 - [ ] Action-vocabulary mapping module `services/iqube/legibility/actionMap.ts` is a Stage 1 deliverable (Deliverable 4 finding).
