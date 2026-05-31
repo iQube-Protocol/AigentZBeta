@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`e3b0bd0`](https://github.com/iQube-Protocol/AigentZBeta/commit/e3b0bd05c56ff71d2fc3fd438de5f57cf99fe0c7) [push] AVL → MVL Pass 2: /api/avl/* directory + FE callsites + log tags (Claude, 2026-05-31T19:48:16Z)
+- [`f09ac66`](https://github.com/iQube-Protocol/AigentZBeta/commit/f09ac6603a4e7c75078f694d55ab8279b16026db) [push] trigger deploy to dev (Claude, 2026-05-31T19:48:16Z)
 - [`b582f2a`](https://github.com/iQube-Protocol/AigentZBeta/commit/b582f2a9651df7987406857c41f25c135ae58bec) [refactor] my-space restructure: myArtifacts tabGroup with three sub-tabs (Claude, 2026-05-31T19:46:35Z)
 - [`17e0d6b`](https://github.com/iQube-Protocol/AigentZBeta/commit/17e0d6b30a7219e494eb6e3f472b256cd043c39c) [push] trigger deploy to dev (Claude, 2026-05-31T19:46:35Z)
 - [`c502c4c`](https://github.com/iQube-Protocol/AigentZBeta/commit/c502c4c82975eaf27d99c7a4505f93284f874cb0) [push] NBA cards: contextual title rewrites via LLM rerank (Claude, 2026-05-31T19:41:29Z)

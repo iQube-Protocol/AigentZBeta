@@ -1739,3 +1739,13 @@ Top-level retrieval anchors for this pack.
 - Type: `refactor`
 - Brief: [COMMIT-b582f2a.md](../build_/COMMITS/COMMIT-b582f2a.md)
 - Message: my-space restructure: myArtifacts tabGroup with three sub-tabs
+
+## Commit `f09ac66` — 2026-05-31T19:48:16Z
+- Type: `push`
+- Brief: [COMMIT-f09ac66.md](../build_/COMMITS/COMMIT-f09ac66.md)
+- Message: trigger deploy to dev
+
+## Commit `e3b0bd0` — 2026-05-31T19:48:16Z
+- Type: `push`
+- Brief: [COMMIT-e3b0bd0.md](../build_/COMMITS/COMMIT-e3b0bd0.md)
+- Message: AVL → MVL Pass 2: /api/avl/* directory + FE callsites + log tags
