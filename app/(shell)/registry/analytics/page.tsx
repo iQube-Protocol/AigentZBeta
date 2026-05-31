@@ -62,6 +62,27 @@ export default function RegistryAnalytics() {
     <div className="flex flex-col h-full">
       {/* Sticky Header Section */}
       <div className="sticky top-0 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 z-10 pb-6 space-y-6">
+        {/* Phase A A5 — Deprecation banner. The canonical health surface
+            for the registry is the iqube-registry cartridge Health tab.
+            This page is retained for the Phase A observation window and
+            retired in Phase C per the integration plan §6. */}
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100 flex items-start gap-3">
+          <span aria-hidden className="text-lg leading-none">⚠</span>
+          <div className="flex-1">
+            <div className="font-semibold">This page is deprecated.</div>
+            <div className="mt-1 text-amber-100/85">
+              Registry health, coverage, and score derivation now live in the
+              canonical iqube-registry cartridge. This view will be retired in
+              Phase C of the legacy /registry integration.
+            </div>
+            <a
+              href="/triad/embed/codex/iqube-registry/health"
+              className="mt-2 inline-flex items-center gap-1 text-amber-200 underline hover:text-amber-100"
+            >
+              Open canonical Health tab →
+            </a>
+          </div>
+        </div>
         <h1 className="text-3xl font-semibold">Registry Analytics</h1>
         
         <div className="flex justify-between items-center">
