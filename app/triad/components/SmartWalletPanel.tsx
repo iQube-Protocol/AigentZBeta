@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useBalances } from "@/app/hooks/useBalances";
 import { useDVNEvents } from "@/app/hooks/useDVNEvents";
-import { useOwnedEntitlements } from "@/app/hooks/useOwnedEntitlements";
+import { useEntitlementsList } from "@/app/hooks/useEntitlementsList";
 import {
   Wallet,
   RefreshCw,
@@ -41,7 +41,7 @@ const TAB_CONFIG: Array<{ key: TabType; label: string; icon: React.ComponentType
 export default function SmartWalletPanel({ personaId, theme = 'dark', density = 'wide' }: SmartWalletPanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>("wallet");
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const { entitlements, loading: entitlementsLoading, refresh: refreshEntitlements } = useOwnedEntitlements(personaId);
+  const { entitlements, loading: entitlementsLoading, refresh: refreshEntitlements } = useEntitlementsList(personaId);
 
   // Mock agent addresses - in production, these would come from auth/persona context
   const mockAddresses = {

@@ -10,7 +10,7 @@ const ExternalWalletConnect = dynamic(
 import { useBalances } from "@/app/hooks/useBalances";
 import { useDVNEvents } from "@/app/hooks/useDVNEvents";
 import { useKnytBalance } from "@/app/hooks/useKnytBalance";
-import { useOwnedEntitlements } from "@/app/hooks/useOwnedEntitlements";
+import { useEntitlementsList } from "@/app/hooks/useEntitlementsList";
 import { useBaseQcBalance } from "@/app/hooks/useBaseQcBalance";
 import { useEthPrice } from "@/app/hooks/useEthPrice";
 import { useSupabaseSessionPersonas } from "@/app/hooks/useSupabaseSessionPersonas";
@@ -326,7 +326,7 @@ export default function SmartWalletDrawer({
   const hasAnyPersona = allAvailablePersonas.length > 0 || !!walletNode?.personaContext?.activePersonaId;
   const effectivePersonaId =
     personaId || localPersonaId || ctxActivePersonaId || walletNode?.personaContext?.activePersonaId || activePersona?.id;
-  const { entitlements: ownedEntitlements, loading: ownedEntitlementsLoading } = useOwnedEntitlements(effectivePersonaId);
+  const { entitlements: ownedEntitlements, loading: ownedEntitlementsLoading } = useEntitlementsList(effectivePersonaId);
   const { balance: knytBalance, loading: knytLoading, refreshBalance: refreshKnyt } =
     useKnytBalance(effectivePersonaId, externalEvmAddress);
   const { balance: baseQcBalance } = useBaseQcBalance(effectivePersonaId);
