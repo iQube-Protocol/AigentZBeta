@@ -1699,3 +1699,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-8c0ad44.md](../build_/COMMITS/COMMIT-8c0ad44.md)
 - Message: /api/uploads: extend VALID_USE_KINDS allowlist to include attachment + iqube_payload + venture_iqube
+
+## Commit `d2e9a0d` — 2026-05-31T18:40:44Z
+- Type: `push`
+- Brief: [COMMIT-d2e9a0d.md](../build_/COMMITS/COMMIT-d2e9a0d.md)
+- Message: trigger deploy to dev
+
+## Commit `3853b5f` — 2026-05-31T18:40:44Z
+- Type: `push`
+- Brief: [COMMIT-3853b5f.md](../build_/COMMITS/COMMIT-3853b5f.md)
+- Message: Venture iQube Phase A2: commit ExperienceQube hydration on ingest
