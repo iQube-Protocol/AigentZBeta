@@ -197,6 +197,30 @@ export async function PATCH(
   //   action: 'canonize', mode: 'sync', iqube_id, actor_alias_commitment, ... })
   // Stage 5 mint saga subscribes to this receipt and triggers the chain action.
 
+  // Stage 5 C21: kick off the mint saga in the background. Fire-and-
+  // forget — the saga is idempotent so the canonization response doesn't
+  // block on chain action. Stage 6 wires the orchestrationEvents receipt
+  // emission that the saga would consume; for now we trigger directly.
+  let sagaId: string | undefined;
+  try {
+    const { startSaga } = await import('@/services/registry/mintSaga');
+    const snap = await startSaga({
+      iqube_id: r.iqube_id,
+      initiated_by_persona_id: persona.personaId,
+    });
+    sagaId = snap.saga_id;
+    // Drive in the background; don't await
+    void import('@/services/registry/mintSaga').then(({ driveSagaToCompletion }) =>
+      driveSagaToCompletion(snap.saga_id).catch((err) => {
+        console.error('[canonization] saga drive failed for', snap.saga_id, err);
+      }),
+    );
+  } catch (err) {
+    // Saga kickoff failure is non-fatal — operator can re-trigger via
+    // POST /api/registry/iqube/[id]/mint
+    console.warn('[canonization] saga kickoff failed:', (err as Error).message);
+  }
+
   return NextResponse.json({
     request_id: requestId,
     iqube_id: r.iqube_id,
@@ -204,5 +228,6 @@ export async function PATCH(
     decided_at: decisionTimestamp,
     chain_interaction_pending: true,
     payment_authority_approved: r.payment_authority_proposed ? true : false,
+    saga_id: sagaId,
   });
 }
