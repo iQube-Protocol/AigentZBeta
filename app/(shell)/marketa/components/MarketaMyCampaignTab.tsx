@@ -205,7 +205,7 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
   // ── Restore partner channel prefs ───────────────────────────────────────────
   useEffect(() => {
     if (!partnerId) return;
-    fetch(`/api/avl/partners/${partnerId}`).then((r) => r.json()).then((d) => {
+    fetch(`/api/mvl/partners/${partnerId}`).then((r) => r.json()).then((d) => {
       if (d.ok && d.data?.notes) try {
         const n = JSON.parse(d.data.notes);
         if (Array.isArray(n.preferred_channels)) setSelChannels(n.preferred_channels);
@@ -222,7 +222,7 @@ export function MarketaMyCampaignTab({ theme = "dark", partnerId, personaId, pre
       await bridgePost("join_campaign", { campaignId: selectedId, channels: selChannels, startDate: startDate || new Date().toISOString().split("T")[0], publishingMode: "automation" }, pid);
       setCatalog((prev) => prev.map((c) => c.id === selectedId ? { ...c, is_joined: true } : c));
       if (partnerId) {
-        fetch("/api/avl/partners", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: partnerId, outreach_status: "engaged", notes: JSON.stringify({ preferred_channels: selChannels, campaign_start_date: startDate }) }) }).catch(() => {});
+        fetch("/api/mvl/partners", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: partnerId, outreach_status: "engaged", notes: JSON.stringify({ preferred_channels: selChannels, campaign_start_date: startDate }) }) }).catch(() => {});
       }
       setJoinSuccess(true);
       setDetailTab("sequence");

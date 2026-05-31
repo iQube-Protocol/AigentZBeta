@@ -1,5 +1,5 @@
 /**
- * GET /api/avl/customers/pipeline-candidates
+ * GET /api/mvl/customers/pipeline-candidates
  *
  * Returns highest-priority MVL pipeline candidates in priority order:
  *   1. Zero KNYT stage + ks_backed
@@ -137,7 +137,7 @@ export async function GET() {
       },
     });
   } catch (err) {
-    console.error('[avl/customers/pipeline-candidates] error:', err);
+    console.error('[mvl/customers/pipeline-candidates] error:', err);
     return NextResponse.json({ ok: false, error: 'Failed to load pipeline candidates' }, { status: 500 });
   }
 }

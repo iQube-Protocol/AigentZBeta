@@ -1,5 +1,5 @@
 /**
- * GET /api/avl/partners/by-email?email=...
+ * GET /api/mvl/partners/by-email?email=...
  *
  * Lightweight identity check — returns the MVL partner record whose
  * contact_email matches the supplied email address.
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ ok: true, partner: data });
   } catch (err) {
-    console.error('[avl/partners/by-email] error:', err);
+    console.error('[mvl/partners/by-email] error:', err);
     return NextResponse.json({ ok: false, error: 'Lookup failed' }, { status: 500 });
   }
 }

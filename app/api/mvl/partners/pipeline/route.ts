@@ -1,5 +1,5 @@
 /**
- * GET /api/avl/partners/pipeline
+ * GET /api/mvl/partners/pipeline
  *
  * Returns aggregated BD pipeline stats grouped by stage.
  * Used by the Partners panel pipeline view and Reports panel.
@@ -79,7 +79,7 @@ export async function GET() {
       },
     });
   } catch (err) {
-    console.error('[avl/partners/pipeline] error:', err);
+    console.error('[mvl/partners/pipeline] error:', err);
     return NextResponse.json({ ok: false, error: 'Failed to load pipeline' }, { status: 500 });
   }
 }

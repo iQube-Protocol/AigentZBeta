@@ -144,7 +144,7 @@ export default function MarketaCartridge() {
     try {
       const [campaignRes, partnerRes, kpiRes] = await Promise.all([
         fetch('/api/marketa/campaigns'),
-        fetch('/api/avl/partners'),
+        fetch('/api/mvl/partners'),
         fetch('/api/marketa/kpi').catch(() => null),
       ]);
       if (campaignRes.ok) {

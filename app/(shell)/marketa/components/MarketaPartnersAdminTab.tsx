@@ -145,8 +145,8 @@ export function MarketaPartnersAdminTab({ theme = 'dark' }: Props) {
     setLoading(true);
     try {
       const [pRes, cRes] = await Promise.all([
-        fetch('/api/avl/partners'),
-        fetch('/api/avl/comms-packs'),
+        fetch('/api/mvl/partners'),
+        fetch('/api/mvl/comms-packs'),
       ]);
       if (pRes.ok) {
         const d = await pRes.json();
@@ -177,7 +177,7 @@ export function MarketaPartnersAdminTab({ theme = 'dark' }: Props) {
     if (!selectedPack) return;
     updateSendState(partnerId, { loading: true, preview: null, result: null, error: null });
     try {
-      const res = await fetch('/api/avl/send', {
+      const res = await fetch('/api/mvl/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pack_slug: selectedPack, partner_ids: [partnerId], dry_run: true, subject_index: subjectIndex }),
@@ -197,7 +197,7 @@ export function MarketaPartnersAdminTab({ theme = 'dark' }: Props) {
     if (!selectedPack) return;
     updateSendState(partnerId, { loading: true, preview: null, result: null, error: null });
     try {
-      const res = await fetch('/api/avl/send', {
+      const res = await fetch('/api/mvl/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pack_slug: selectedPack, partner_ids: [partnerId], dry_run: false, subject_index: subjectIndex }),
@@ -216,7 +216,7 @@ export function MarketaPartnersAdminTab({ theme = 'dark' }: Props) {
 
   const handleStatusChange = async (partnerId: string, status: string) => {
     try {
-      await fetch('/api/avl/partners', {
+      await fetch('/api/mvl/partners', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: partnerId, outreach_status: status }),
@@ -227,7 +227,7 @@ export function MarketaPartnersAdminTab({ theme = 'dark' }: Props) {
 
   const handleWaveChange = async (partnerId: string, newWave: number) => {
     try {
-      await fetch('/api/avl/partners', {
+      await fetch('/api/mvl/partners', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: partnerId, wave: newWave }),
@@ -240,7 +240,7 @@ export function MarketaPartnersAdminTab({ theme = 'dark' }: Props) {
     if (!confirm('Remove this partner from the MVL pipeline?')) return;
     setDeletingId(partnerId);
     try {
-      const res = await fetch(`/api/avl/partners?id=${partnerId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/mvl/partners?id=${partnerId}`, { method: 'DELETE' });
       if (res.ok) {
         setPartners((prev) => prev.filter((p) => p.id !== partnerId));
       }
@@ -254,7 +254,7 @@ export function MarketaPartnersAdminTab({ theme = 'dark' }: Props) {
     if (!addForm.name.trim()) return;
     setAddLoading(true);
     try {
-      const res = await fetch('/api/avl/partners', {
+      const res = await fetch('/api/mvl/partners', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -284,7 +284,7 @@ export function MarketaPartnersAdminTab({ theme = 'dark' }: Props) {
     if (!targets.length) return;
     setBulkSending(true);
     try {
-      const res = await fetch('/api/avl/send', {
+      const res = await fetch('/api/mvl/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pack_slug: selectedPack, partner_ids: targets, dry_run: true, subject_index: subjectIndex }),

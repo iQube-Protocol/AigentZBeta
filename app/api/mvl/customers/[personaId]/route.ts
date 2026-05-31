@@ -1,5 +1,5 @@
 /**
- * GET /api/avl/customers/[personaId]
+ * GET /api/mvl/customers/[personaId]
  *
  * Returns full profile for a single customer persona.
  * Joins nakamoto_knyt_personas + crm_personas + journey_states.
@@ -62,7 +62,7 @@ export async function GET(
       },
     });
   } catch (err) {
-    console.error('[avl/customers/[personaId]] error:', err);
+    console.error('[mvl/customers/[personaId]] error:', err);
     return NextResponse.json({ ok: false, error: 'Failed to load customer' }, { status: 500 });
   }
 }

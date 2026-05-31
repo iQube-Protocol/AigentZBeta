@@ -1,5 +1,5 @@
 /**
- * POST /api/avl/partners/[id]/stage
+ * POST /api/mvl/partners/[id]/stage
  *
  * Records a BD stage transition for a partner contact.
  * Updates bd_stage on the contact and inserts a row into avl_partner_stage_events.
@@ -92,7 +92,7 @@ export async function POST(
 
     return NextResponse.json({ ok: true, from_stage, to_stage });
   } catch (err) {
-    console.error('[avl/partners/[id]/stage] error:', err);
+    console.error('[mvl/partners/[id]/stage] error:', err);
     return NextResponse.json({ ok: false, error: 'Stage transition failed' }, { status: 500 });
   }
 }
@@ -116,7 +116,7 @@ export async function GET(
     if (error) throw error;
     return NextResponse.json({ ok: true, data: data ?? [] });
   } catch (err) {
-    console.error('[avl/partners/[id]/stage GET] error:', err);
+    console.error('[mvl/partners/[id]/stage GET] error:', err);
     return NextResponse.json({ ok: false, error: 'Failed to load stage history' }, { status: 500 });
   }
 }

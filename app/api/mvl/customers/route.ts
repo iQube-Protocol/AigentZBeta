@@ -1,5 +1,5 @@
 /**
- * GET /api/avl/customers
+ * GET /api/mvl/customers
  *
  * MVL-scoped customer list: persona data joined with nakamoto investment signals
  * and journey ladder stage. Purpose-built for pipeline conversion analysis.
@@ -142,7 +142,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ ok: true, data: { customers: page, total, offset, limit } });
   } catch (err) {
-    console.error('[avl/customers] error:', err);
+    console.error('[mvl/customers] error:', err);
     return NextResponse.json({ ok: false, error: 'Failed to load customers' }, { status: 500 });
   }
 }

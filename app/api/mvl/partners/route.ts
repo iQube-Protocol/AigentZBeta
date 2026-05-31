@@ -1,5 +1,5 @@
 /**
- * GET /api/avl/partners
+ * GET /api/mvl/partners
  *
  * Returns all MVL partner contacts from avl_partner_contacts.
  * Sorted by strategic_value_tier ASC then name ASC.
@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ ok: true, data: { partners, summary } });
   } catch (err) {
-    console.error("[avl/partners] error:", err);
+    console.error("[mvl/partners] error:", err);
     return NextResponse.json({ ok: false, error: "Failed to load partners" }, { status: 500 });
   }
 }
@@ -95,7 +95,7 @@ export async function PATCH(req: NextRequest) {
     if (error) throw error;
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("[avl/partners PATCH] error:", err);
+    console.error("[mvl/partners PATCH] error:", err);
     return NextResponse.json({ ok: false, error: "Update failed" }, { status: 500 });
   }
 }
@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
     if (error) throw error;
     return NextResponse.json({ ok: true, id: (data as { id: string }).id });
   } catch (err) {
-    console.error("[avl/partners POST] error:", err);
+    console.error("[mvl/partners POST] error:", err);
     return NextResponse.json({ ok: false, error: "Create failed" }, { status: 500 });
   }
 }
@@ -156,7 +156,7 @@ export async function DELETE(req: NextRequest) {
     if (error) throw error;
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("[avl/partners DELETE] error:", err);
+    console.error("[mvl/partners DELETE] error:", err);
     return NextResponse.json({ ok: false, error: "Delete failed" }, { status: 500 });
   }
 }

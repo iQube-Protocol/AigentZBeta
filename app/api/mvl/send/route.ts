@@ -1,5 +1,5 @@
 /**
- * POST /api/avl/send
+ * POST /api/mvl/send
  *
  * Sends a comms pack to a list of MVL partners via Mailjet.
  * Updates outreach_status + contact timestamps on successful send.

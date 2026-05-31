@@ -1,5 +1,5 @@
 /**
- * POST /api/avl/compose
+ * POST /api/mvl/compose
  *
  * Calls Marketa inference to draft outreach copy for a given audience + pack.
  * Returns editable draft — operator reviews before sending.
@@ -114,7 +114,7 @@ Available CTAs: ${JSON.stringify(ctaOptions)}`;
 
     if (!res.ok) {
       const errText = await res.text();
-      console.error('[avl/compose] Anthropic error:', errText);
+      console.error('[mvl/compose] Anthropic error:', errText);
       return NextResponse.json({ ok: false, error: 'AI inference failed' }, { status: 502 });
     }
 
@@ -135,7 +135,7 @@ Available CTAs: ${JSON.stringify(ctaOptions)}`;
 
     return NextResponse.json({ ok: true, data: { ...draft, source: 'marketa_inference' } });
   } catch (err) {
-    console.error('[avl/compose] error:', err);
+    console.error('[mvl/compose] error:', err);
     return NextResponse.json({ ok: false, error: 'Compose failed' }, { status: 500 });
   }
 }

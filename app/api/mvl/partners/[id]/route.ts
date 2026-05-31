@@ -1,5 +1,5 @@
 /**
- * GET /api/avl/partners/[id]
+ * GET /api/mvl/partners/[id]
  *
  * Returns a single partner contact by ID. Used by partner-facing tabs
  * to load the current partner's own record.
@@ -32,7 +32,7 @@ export async function GET(
     if (error) throw error;
     return NextResponse.json({ ok: true, data });
   } catch (err) {
-    console.error('[avl/partners/[id]] error:', err);
+    console.error('[mvl/partners/[id]] error:', err);
     return NextResponse.json({ ok: false, error: 'Partner not found' }, { status: 404 });
   }
 }

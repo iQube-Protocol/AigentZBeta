@@ -1,5 +1,5 @@
 /**
- * GET /api/avl/comms-packs
+ * GET /api/mvl/comms-packs
  *
  * Returns all active MVL comms packs from avl_comms_packs.
  */
@@ -26,7 +26,7 @@ export async function GET() {
 
     return NextResponse.json({ ok: true, data: data ?? [] });
   } catch (err) {
-    console.error("[avl/comms-packs] error:", err);
+    console.error("[mvl/comms-packs] error:", err);
     return NextResponse.json({ ok: false, error: "Failed to load comms packs" }, { status: 500 });
   }
 }
