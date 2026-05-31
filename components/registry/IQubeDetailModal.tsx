@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { X, Pencil } from "lucide-react";
 import { useToast } from "../ui/toaster";
 import { ConfirmDialog } from "../ui/confirm-dialog";
+import { fetchTemplateDetailAsLegacyShape } from "@/services/registry/legacy/legacyAdapter";
 
 interface IQubeDetailModalProps {
   templateId: string;
@@ -249,41 +250,28 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
       setIsLoading(true);
       setError(null);
       try {
-        // Try to load single template by id first (Supabase-backed)
-        const single = await fetch(`/api/registry/templates/${templateId}`);
-        if (single.ok) {
-          const item = await single.json();
+        // Phase A C2: load via canonical resolver admin projection.
+        // Adapter falls back to legacy /api/registry/templates/[id] route
+        // on canonical miss for the observation window. Phase C retires
+        // the legacy route once observation confirms zero traffic.
+        const item = await fetchTemplateDetailAsLegacyShape(templateId);
+        if (item) {
           if (mounted) setTemplate(item);
-          // Initialize BlakQube editor fields from template or mock
           if (mounted) {
             const normalized = normalizeBlakQubeLabels(item?.blakqubeLabels);
             setBqEditFields(normalized.length ? normalized : getBlakQubeMockSchema(item?.name));
           }
-          // Initialize Additional MetaQube Records from template if present
           if (mounted) setMetaEditRows(Array.isArray(item?.metaExtras) && item.metaExtras.length ? item.metaExtras : []);
           return;
         }
-        // If not found and looks like legacy id, show clear guidance
-        if (single.status === 404 && /^template-\d{3}$/i.test(templateId)) {
+        // Legacy-id detection guidance (canonical IDs are uuids; old
+        // 'template-NNN' ids predate the canonical plane).
+        if (/^template-\d{3}$/i.test(templateId)) {
           if (mounted) setError('Legacy template ID detected. Please re-open a template from the list so it uses the new ID.');
           if (mounted) setTemplate(null);
           return;
         }
-        // As a last resort, attempt list + find (dev fallback only)
-        const res = await fetch('/api/registry/templates');
-        if (res.ok) {
-          const data: any[] = await res.json();
-          const item = Array.isArray(data) ? data.find(d => d.id === templateId) || null : null;
-          if (mounted) setTemplate(item);
-          if (mounted && item) {
-            const normalized = normalizeBlakQubeLabels(item?.blakqubeLabels);
-            setBqEditFields(normalized.length ? normalized : getBlakQubeMockSchema(item?.name));
-          }
-      if (mounted && item) setMetaEditRows(Array.isArray(item?.metaExtras) && item.metaExtras.length ? item.metaExtras : []);
-          if (!item) setError('Template not found');
-        } else {
-          setError('Failed to load template details');
-        }
+        if (mounted) setError('Template not found');
       } catch (e) {
         console.error(e);
         if (mounted) setError('Failed to load template details');

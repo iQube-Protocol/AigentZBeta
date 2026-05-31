@@ -236,6 +236,38 @@ export function buildLegacyListResponse(
 // ── Public fetch helpers ─────────────────────────────────────────────────
 
 /**
+ * Fetch a single iQube detail via the canonical resolver (admin
+ * projection), return legacy IQubeTemplate shape. Drop-in replacement
+ * for the legacy GET /api/registry/templates/[id] pattern.
+ *
+ * Phase A C2. Admin projection carries the richer fields (created_at,
+ * version, creator identity) the detail modal needs. Falls back to
+ * legacy template route on canonical miss for the observation window.
+ *
+ * Returns null when neither path returns a record.
+ */
+export async function fetchTemplateDetailAsLegacyShape(
+  templateId: string,
+): Promise<IQubeTemplate | null> {
+  try {
+    const res = await fetch(`/api/registry/iqube/${encodeURIComponent(templateId)}?projection=admin`);
+    if (res.ok) {
+      const entry = (await res.json()) as CanonicalAdminEntry;
+      return adminViewToLegacyTemplate(entry);
+    }
+  } catch {
+    // Fall through to legacy fallback
+  }
+  try {
+    const legacy = await fetch(`/api/registry/templates/${encodeURIComponent(templateId)}`);
+    if (!legacy.ok) return null;
+    return (await legacy.json()) as IQubeTemplate;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Fetch the registry list via the canonical resolver, return legacy
  * shape. Drop-in replacement for the legacy
  * GET /api/registry/templates pattern.
