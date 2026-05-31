@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { CacheManager, CDNCache, CacheInvalidation } from '../../../utils/cache';
 import { withMetrics, BusinessMetrics, HealthMetrics } from '../../../utils/metrics';
 import { getStore } from './store';
+import { withDeprecation } from '@/services/registry/legacy/deprecation';
 
 // Minimal Supabase REST client using fetch so we avoid adding a new dependency.
 function buildUrl(base: string, path: string, params?: Record<string, string>) {
@@ -287,15 +288,19 @@ const getHandler = async (req: Request) => {
     });
   };
 
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   return withMetrics(getHandler, {
     routeName: '/api/registry/templates',
     trackErrors: true,
     trackDuration: true,
   })(request);
 }
+export const GET = withDeprecation(_GET, {
+  route: 'GET /api/registry/templates',
+  replacement: 'GET /api/registry/iqube?expand=cartridge',
+});
 
-export async function POST(request: NextRequest) {
+async function _POST(request: NextRequest) {
   try {
     // Check multiple environment variable patterns for Supabase configuration
     const url = process.env.SUPABASE_URL || 
@@ -470,3 +475,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error?.message || 'Internal server error' }, { status: 500 });
   }
 }
+export const POST = withDeprecation(_POST, {
+  route: 'POST /api/registry/templates',
+  replacement: 'POST /api/registry/iqube',
+});

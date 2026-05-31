@@ -3,7 +3,13 @@ import { randomUUID } from 'crypto';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { emitOrchestrationEvent } from '@/services/orchestration/orchestrationEvents';
 
-// Library API - handles user's private iQube library
+// Library API - handles user's private iQube library.
+//
+// Phase C C5 note: this route is the canonical per-user library SoT
+// (user_library table is the multi-user-friendly membership model).
+// Unlike /api/registry/templates/*, this route is NOT deprecated —
+// it stays through Phase C. POST emits orchestration_events with
+// event_type='iqube_library_added' for canonical audit (Phase B B5).
 export async function GET(request: NextRequest) {
   try {
     const url = process.env.SUPABASE_URL;
