@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`b582f2a`](https://github.com/iQube-Protocol/AigentZBeta/commit/b582f2a9651df7987406857c41f25c135ae58bec) [refactor] my-space restructure: myArtifacts tabGroup with three sub-tabs (Claude, 2026-05-31T19:46:35Z)
+- [`17e0d6b`](https://github.com/iQube-Protocol/AigentZBeta/commit/17e0d6b30a7219e494eb6e3f472b256cd043c39c) [push] trigger deploy to dev (Claude, 2026-05-31T19:46:35Z)
 - [`c502c4c`](https://github.com/iQube-Protocol/AigentZBeta/commit/c502c4c82975eaf27d99c7a4505f93284f874cb0) [push] NBA cards: contextual title rewrites via LLM rerank (Claude, 2026-05-31T19:41:29Z)
 - [`b497263`](https://github.com/iQube-Protocol/AigentZBeta/commit/b4972637aa0dca2757c19a31c1fcf2ec5bdae80e) [push] trigger deploy to dev (Claude, 2026-05-31T19:41:29Z)
 - [`dc9ec96`](https://github.com/iQube-Protocol/AigentZBeta/commit/dc9ec96c1365c22024ee456c08dbecb24aa3d5b6) [refactor] AVL → MVL rename (Pass 1): types, UI labels, NBE catalog, Venture iQube v0.3 (Claude, 2026-05-31T19:24:18Z)

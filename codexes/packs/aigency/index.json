@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-31T19:43:18.659Z",
+  "last_updated": "2026-05-31T19:48:17.348Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "c502c4c82975eaf27d99c7a4505f93284f874cb0",
-  "latest_commit_short": "c502c4c",
-  "latest_commit_title": "NBA cards: contextual title rewrites via LLM rerank",
+  "latest_commit": "b582f2a9651df7987406857c41f25c135ae58bec",
+  "latest_commit_short": "b582f2a",
+  "latest_commit_title": "my-space restructure: myArtifacts tabGroup with three sub-tabs",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "b582f2a",
+      "full_sha": "b582f2a9651df7987406857c41f25c135ae58bec",
+      "title": "my-space restructure: myArtifacts tabGroup with three sub-tabs",
+      "author": "Claude",
+      "timestamp": "2026-05-31T19:46:35Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-b582f2a.md"
+    },
+    {
+      "sha": "17e0d6b",
+      "full_sha": "17e0d6b30a7219e494eb6e3f472b256cd043c39c",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-31T19:46:35Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-17e0d6b.md"
+    },
     {
       "sha": "c502c4c",
       "full_sha": "c502c4c82975eaf27d99c7a4505f93284f874cb0",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-26T19:55:50Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-fd34baa.md"
-    },
-    {
-      "sha": "51d51fa",
-      "full_sha": "51d51fae303507f02a72d2fd6eb7e0679f7decbe",
-      "title": "Qriptopian Cartridge v3 restructure + KNYT Pulse rename",
-      "author": "Claude",
-      "timestamp": "2026-05-26T17:53:08Z",
-      "type": "refactor",
-      "brief": "items/build_/COMMITS/COMMIT-51d51fa.md"
-    },
-    {
-      "sha": "c56ae59",
-      "full_sha": "c56ae59256287ce9c5aa09bc97a39ae13057731a",
-      "title": "copilot: kill KNYT lore bias + thread brief shape + admin grants into LLM context",
-      "author": "Claude",
-      "timestamp": "2026-05-26T14:46:41Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c56ae59.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
