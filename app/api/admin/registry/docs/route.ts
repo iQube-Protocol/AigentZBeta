@@ -164,6 +164,14 @@ const DOC_ALLOWLIST: ReadonlyArray<DocEntry> = [
     order: 10,
     description: 'Read path complete: list + detail + identity filters + score display + analytics banner.',
   },
+  {
+    id: 'legacy-registry-phase-b-close',
+    path: 'codexes/packs/agentiq/updates/2026-05-31_legacy-registry-phase-b-close-report.md',
+    label: 'Legacy /registry Integration — Phase B close',
+    group: 'stage',
+    order: 11,
+    description: 'Write path + mint canonicalisation + batch mint complete. 9 commits.',
+  },
 ];
 
 async function requireAdmin(request: NextRequest) {
