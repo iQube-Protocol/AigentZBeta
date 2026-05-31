@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`995f518`](https://github.com/iQube-Protocol/AigentZBeta/commit/995f51837a707f5052cb9d74ec707dd2397c8a17) [push] myCanvas: remix-from-template button (Qriptopian Agents of Change 15-min sprint) (Claude, 2026-05-31T20:44:08Z)
+- [`d48b6f2`](https://github.com/iQube-Protocol/AigentZBeta/commit/d48b6f2749924f0196ee91d1d766e26d3792e5d0) [push] trigger deploy to dev (Claude, 2026-05-31T20:44:08Z)
 - [`ff63bfe`](https://github.com/iQube-Protocol/AigentZBeta/commit/ff63bfee9a594938d89d0bec840f450f3bc9d610) [chore] nbeLlmRerank: bump max_tokens 400 → 1500, log parse failures (Claude, 2026-05-31T20:41:16Z)
 - [`6db2a85`](https://github.com/iQube-Protocol/AigentZBeta/commit/6db2a855a219a746ea9975681fca4038bae7ee2c) [push] trigger deploy to dev (Claude, 2026-05-31T20:41:17Z)
 - [`e3b0bd0`](https://github.com/iQube-Protocol/AigentZBeta/commit/e3b0bd05c56ff71d2fc3fd438de5f57cf99fe0c7) [push] AVL → MVL Pass 2: /api/avl/* directory + FE callsites + log tags (Claude, 2026-05-31T19:48:16Z)
