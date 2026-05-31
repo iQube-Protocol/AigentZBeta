@@ -3180,13 +3180,7 @@ export const IQUBE_REGISTRY_CARTRIDGE: CodexConfig = {
       group: 'browse',
       order: 0,
       type: 'static',
-      config: {
-        component: 'PlaceholderTab',
-        props: {
-          title: 'Browse iQubes',
-          description: 'Filter, view, and inspect every iQube across primitives — ContentQube, ToolQube, AigentQube, ClusterQube, DataQube. Full surface lands in Stage 8 of the canonical registry operating plane.',
-        },
-      },
+      config: { component: 'IQubeRegistryBrowseTab' },
       metadata: { icon: 'Search', description: 'iQube discovery + filter + detail view', color: 'violet' },
     },
     {
@@ -3269,13 +3263,7 @@ export const IQUBE_REGISTRY_CARTRIDGE: CodexConfig = {
       group: 'admin',
       order: 3,
       type: 'static',
-      config: {
-        component: 'PlaceholderTab',
-        props: {
-          title: 'Registry Health',
-          description: 'Backfill status, orphan triad metas (Stage 0 Finding F), under-seeded edition qubes (Finding G), receipt-writer dual-write reconciliation report, and the per-surface backfill matrix.',
-        },
-      },
+      config: { component: 'IQubeRegistryHealthTab' },
       metadata: { icon: 'Activity', description: 'Registry operational health', color: 'violet' },
     },
     {

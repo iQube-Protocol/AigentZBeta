@@ -97,6 +97,8 @@ import { BoundedDelegationTab } from "./tabs/BoundedDelegationTab";
 import { DevMissionBoardTab } from "./tabs/DevMissionBoardTab";
 import { NanOSBridgeTab } from "./tabs/NanOSBridgeTab";
 import { DevRegistryTab } from "./tabs/DevRegistryTab";
+import { IQubeRegistryBrowseTab } from "./tabs/IQubeRegistryBrowseTab";
+import { IQubeRegistryHealthTab } from "./tabs/IQubeRegistryHealthTab";
 import { RefRuntimeTab } from "./tabs/RefRuntimeTab";
 import { RefStudioTab } from "./tabs/RefStudioTab";
 import { RefAigentTab } from "./tabs/RefAigentTab";
@@ -226,6 +228,8 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   DevMissionBoardTab,
   NanOSBridgeTab,
   DevRegistryTab,
+  IQubeRegistryBrowseTab,
+  IQubeRegistryHealthTab,
   RefRuntimeTab,
   RefStudioTab,
   RefAigentTab,
