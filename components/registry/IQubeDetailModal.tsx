@@ -5,6 +5,7 @@ import { X, Pencil } from "lucide-react";
 import { useToast } from "../ui/toaster";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { fetchTemplateDetailAsLegacyShape } from "@/services/registry/legacy/legacyAdapter";
+import { personaFetch } from "@/utils/personaSpine";
 
 interface IQubeDetailModalProps {
   templateId: string;
@@ -993,23 +994,38 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
             setMintPromptOpen(false);
             setIsMinting(true);
             try {
-              // Include user id if available
-              let body: any = { visibility: mintChoice };
-              try {
-                const r = await fetch('/api/dev/user');
-                if (r.ok) { const j = await r.json(); if (j?.validUuid && j?.devUserId) body.userId = j.devUserId; }
-              } catch {}
-              const res = await fetch(`/api/registry/templates/${templateId}`, {
-                method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+              // Phase B B4 — canonical mint via Stage 5 saga.
+              // Replaces legacy PATCH /api/registry/templates/[id]
+              // {visibility} which only flipped a flag. The saga drives
+              // registry-draft-confirm → chain-mint (skipped when
+              // contracts not configured) → DVN receipt → card publish.
+              const personaToken = (typeof window !== 'undefined')
+                ? (localStorage.getItem('aa_persona_session_token') || '')
+                : '';
+              const res = await personaFetch(`/api/registry/iqube/${templateId}/mint`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(personaToken ? { 'X-Persona-Session': personaToken } : {}) },
+                body: JSON.stringify({ visibility: mintChoice }),
               });
               const { json, text } = await parseResponse(res);
               if (!res.ok) throw new Error(json?.error || text || 'Mint failed');
+
+              // Saga response shape: { saga_id, current_state, is_terminal, is_failure, is_pending, ... }
+              if (json?.is_failure) {
+                throw new Error(json?.last_error || `Mint saga failed at state ${json?.current_state}`);
+              }
+              const isComplete = json?.current_state === 'MINT_COMPLETE' || json?.is_terminal;
+              if (!isComplete && json?.is_pending) {
+                try { toast(`Mint in progress: ${json.current_state}`, 'success'); } catch {}
+              } else {
+                try { toast(mintChoice==='public' ? 'Minted to the Public Registry' : 'Minted to the Registry Privately', 'success'); } catch {}
+              }
+
               setMinted(templateId, true);
               setOwner(templateId, true);
               // Clear library flag so Registry badge shows
               try { localStorage.removeItem(`library_${templateId}`); } catch {}
-              try { toast(mintChoice==='public' ? 'Minted to the Public Registry' : 'Minted to the Registry Privately', 'success'); } catch {}
-              try { window.dispatchEvent(new CustomEvent('registryTemplateUpdated', { detail: json })); } catch {}
+              try { window.dispatchEvent(new CustomEvent('registryTemplateUpdated', { detail: { id: templateId, mintSaga: json } })); } catch {}
               // Close the modal after successful mint
               try { onClose(); } catch {}
             } catch (e) {
