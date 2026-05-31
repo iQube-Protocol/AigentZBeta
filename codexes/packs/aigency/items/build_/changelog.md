@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`2e60b85`](https://github.com/iQube-Protocol/AigentZBeta/commit/2e60b85c0283d09fbea6fdd7186a5359cdc43ee4) [push] canvasService.listEntries: surface meta_json.surface stamp via JSON-path (Claude, 2026-05-31T21:32:31Z)
+- [`a5f865a`](https://github.com/iQube-Protocol/AigentZBeta/commit/a5f865ac1b1f80511ff8d04d9968ffde34795dcb) [push] trigger deploy to dev (Claude, 2026-05-31T21:32:31Z)
 - [`0a9c834`](https://github.com/iQube-Protocol/AigentZBeta/commit/0a9c8349c11353c82c1a6ba318efd2d53db05abd) [push] metaMe cartridge: swap myArtifacts and Activations top-menu order (Claude, 2026-05-31T20:58:02Z)
 - [`995f518`](https://github.com/iQube-Protocol/AigentZBeta/commit/995f51837a707f5052cb9d74ec707dd2397c8a17) [push] myCanvas: remix-from-template button (Qriptopian Agents of Change 15-min sprint) (Claude, 2026-05-31T20:44:08Z)
 - [`d48b6f2`](https://github.com/iQube-Protocol/AigentZBeta/commit/d48b6f2749924f0196ee91d1d766e26d3792e5d0) [push] trigger deploy to dev (Claude, 2026-05-31T20:44:08Z)

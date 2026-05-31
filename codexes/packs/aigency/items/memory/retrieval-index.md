@@ -1774,3 +1774,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-0a9c834.md](../build_/COMMITS/COMMIT-0a9c834.md)
 - Message: metaMe cartridge: swap myArtifacts and Activations top-menu order
+
+## Commit `a5f865a` — 2026-05-31T21:32:31Z
+- Type: `push`
+- Brief: [COMMIT-a5f865a.md](../build_/COMMITS/COMMIT-a5f865a.md)
+- Message: trigger deploy to dev
+
+## Commit `2e60b85` — 2026-05-31T21:32:31Z
+- Type: `push`
+- Brief: [COMMIT-2e60b85.md](../build_/COMMITS/COMMIT-2e60b85.md)
+- Message: canvasService.listEntries: surface meta_json.surface stamp via JSON-path

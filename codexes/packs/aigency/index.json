@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-31T20:59:59.922Z",
+  "last_updated": "2026-05-31T21:34:28.506Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "0a9c8349c11353c82c1a6ba318efd2d53db05abd",
-  "latest_commit_short": "0a9c834",
-  "latest_commit_title": "metaMe cartridge: swap myArtifacts and Activations top-menu order",
+  "latest_commit": "2e60b85c0283d09fbea6fdd7186a5359cdc43ee4",
+  "latest_commit_short": "2e60b85",
+  "latest_commit_title": "canvasService.listEntries: surface meta_json.surface stamp via JSON-path",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "2e60b85",
+      "full_sha": "2e60b85c0283d09fbea6fdd7186a5359cdc43ee4",
+      "title": "canvasService.listEntries: surface meta_json.surface stamp via JSON-path",
+      "author": "Claude",
+      "timestamp": "2026-05-31T21:32:31Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-2e60b85.md"
+    },
+    {
+      "sha": "a5f865a",
+      "full_sha": "a5f865ac1b1f80511ff8d04d9968ffde34795dcb",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-31T21:32:31Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-a5f865a.md"
+    },
     {
       "sha": "0a9c834",
       "full_sha": "0a9c8349c11353c82c1a6ba318efd2d53db05abd",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-27T04:43:58Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c52d1aa.md"
-    },
-    {
-      "sha": "6352ef3",
-      "full_sha": "6352ef3ca5399e596a310146becde5b29d515e2c",
-      "title": "Surface every Qripto upload row in admin (covers + papers) with diagnostics + bust Next cache",
-      "author": "Claude",
-      "timestamp": "2026-05-27T04:39:35Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-6352ef3.md"
-    },
-    {
-      "sha": "95e536c",
-      "full_sha": "95e536c123a2ea1d8a8abfa8363edaa6fda4f1bf",
-      "title": "Skip encryption-at-rest for Qripto WIP uploads + open papers in PDF lite viewer",
-      "author": "Claude",
-      "timestamp": "2026-05-27T03:34:50Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-95e536c.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
