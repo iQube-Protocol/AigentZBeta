@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-31T18:42:58.976Z",
+  "last_updated": "2026-05-31T19:26:23.212Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "3853b5ff6bbaa11c8b902110ee6279e7d55888ad",
-  "latest_commit_short": "3853b5f",
-  "latest_commit_title": "Venture iQube Phase A2: commit ExperienceQube hydration on ingest",
+  "latest_commit": "dc9ec96c1365c22024ee456c08dbecb24aa3d5b6",
+  "latest_commit_short": "dc9ec96",
+  "latest_commit_title": "AVL → MVL rename (Pass 1): types, UI labels, NBE catalog, Venture iQube v0.3",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "dc9ec96",
+      "full_sha": "dc9ec96c1365c22024ee456c08dbecb24aa3d5b6",
+      "title": "AVL → MVL rename (Pass 1): types, UI labels, NBE catalog, Venture iQube v0.3",
+      "author": "Claude",
+      "timestamp": "2026-05-31T19:24:18Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-dc9ec96.md"
+    },
+    {
+      "sha": "7459b1b",
+      "full_sha": "7459b1bd0e7b31daf366b9ffb729b86456634004",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-31T19:24:18Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7459b1b.md"
+    },
     {
       "sha": "3853b5f",
       "full_sha": "3853b5ff6bbaa11c8b902110ee6279e7d55888ad",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-26T10:12:01Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-89d80cf.md"
-    },
-    {
-      "sha": "f9a34db",
-      "full_sha": "f9a34dbad05f7767c10c357a53959f39415c7355",
-      "title": "register TabRendererFallback component + add Admin under Marketa Partner",
-      "author": "Claude",
-      "timestamp": "2026-05-26T10:09:35Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-f9a34db.md"
-    },
-    {
-      "sha": "7c3125f",
-      "full_sha": "7c3125f382b6d9078474b850461a57bdf1549716",
-      "title": "CLAUDE.md: dual-source cartridge registration rule (hand-curated wins)",
-      "author": "Claude",
-      "timestamp": "2026-05-26T09:55:18Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7c3125f.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -1709,3 +1709,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-3853b5f.md](../build_/COMMITS/COMMIT-3853b5f.md)
 - Message: Venture iQube Phase A2: commit ExperienceQube hydration on ingest
+
+## Commit `7459b1b` — 2026-05-31T19:24:18Z
+- Type: `push`
+- Brief: [COMMIT-7459b1b.md](../build_/COMMITS/COMMIT-7459b1b.md)
+- Message: trigger deploy to dev
+
+## Commit `dc9ec96` — 2026-05-31T19:24:18Z
+- Type: `refactor`
+- Brief: [COMMIT-dc9ec96.md](../build_/COMMITS/COMMIT-dc9ec96.md)
+- Message: AVL → MVL rename (Pass 1): types, UI labels, NBE catalog, Venture iQube v0.3
