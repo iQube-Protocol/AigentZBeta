@@ -3221,13 +3221,7 @@ export const IQUBE_REGISTRY_CARTRIDGE: CodexConfig = {
       group: 'admin',
       order: 1,
       type: 'static',
-      config: {
-        component: 'PlaceholderTab',
-        props: {
-          title: 'Canonization Approval Queue',
-          description: 'Operator approval queue for iQube canonization requests (PRD v1.1 §A.7). Approval emits the sync DVN receipt and transitions internal lifecycle published → canonized.',
-        },
-      },
+      config: { component: 'IQubeRegistryCanonizationTab' },
       metadata: { icon: 'CheckCircle', description: 'Canonization governance', color: 'violet' },
     },
     {
