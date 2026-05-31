@@ -69,7 +69,7 @@ export async function POST(
 
   if (!parent.meta_qube_id) {
     return NextResponse.json(
-      { error: 'parent_has_no_meta_qube', detail: 'fork requires a triad-backed parent' },
+      { error: 'parent_has_no_meta_qube', detail: 'fork requires a trinity-backed parent' },
       { status: 422 },
     );
   }

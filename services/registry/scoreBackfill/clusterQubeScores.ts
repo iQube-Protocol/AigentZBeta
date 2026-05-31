@@ -6,7 +6,7 @@
  *     mean of each axis across members
  *   - Risk is weighted toward max member risk (cluster risk = worst-case)
  *
- * Today there are 0 ClusterQubes in iqube_id_map (one orphan triad meta
+ * Today there are 0 ClusterQubes in iqube_id_map (one orphan trinity meta
  * is qube_type='cluster' per Stage 0 Finding F but it isn't yet
  * promoted to a ClusterQube record). This deriver returns empty until
  * cluster records land. The aggregation logic is in place so

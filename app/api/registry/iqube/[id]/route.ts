@@ -149,7 +149,7 @@ export async function PATCH(
   }
   if (!target.meta_qube_id) {
     return NextResponse.json(
-      { error: 'no_meta_qube', detail: 'cannot patch a record without a triad meta row' },
+      { error: 'no_meta_qube', detail: 'cannot patch a record without a trinity meta row' },
       { status: 422 },
     );
   }
