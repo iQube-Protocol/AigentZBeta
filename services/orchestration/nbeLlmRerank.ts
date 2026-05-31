@@ -103,7 +103,7 @@ function stripJsonFences(raw: string): string {
 async function callAnthropic(userPrompt: string): Promise<string | null> {
   if (!ANTHROPIC_API_KEY) return null;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8_000);
+  const timeoutId = setTimeout(() => controller.abort(), 12_000);
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -114,7 +114,13 @@ async function callAnthropic(userPrompt: string): Promise<string | null> {
       },
       body: JSON.stringify({
         model: ANTHROPIC_MODEL,
-        max_tokens: 400,
+        // 1500-token ceiling — old budget was 400, which truncated the
+        // response once nbaContextualTitles joined nbaPromptHints
+        // (≤140 + ≤200 chars per candidate × 5 candidates ≈ 425 tokens
+        // before JSON structure overhead). Truncated JSON → parse fail
+        // → empty {nbaContextualTitles:{}, nbaPromptHints:{}, topNbeReason:null}
+        // in the brief response. 1500 covers 10+ candidates comfortably.
+        max_tokens: 1500,
         temperature: 0.2,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: userPrompt }],
@@ -215,9 +221,14 @@ export async function llmRerankNbeCandidates(
   try {
     parsed = JSON.parse(raw);
   } catch {
+    // Common cause: response truncated by max_tokens before the closing
+    // brace lands. Log the first 200 chars so we can confirm vs blame
+    // a quota / shape issue.
+    console.warn(`[nbeLlmRerank] JSON.parse failed; raw head: ${raw.slice(0, 200)}`);
     return { ranked: candidates, topReason: null, nbaContextualTitles: {}, nbaPromptHints: {}, llmApplied: false };
   }
   if (!parsed || !Array.isArray(parsed.order)) {
+    console.warn(`[nbeLlmRerank] parsed shape missing order array: ${JSON.stringify(parsed).slice(0, 200)}`);
     return { ranked: candidates, topReason: null, nbaContextualTitles: {}, nbaPromptHints: {}, llmApplied: false };
   }
 
