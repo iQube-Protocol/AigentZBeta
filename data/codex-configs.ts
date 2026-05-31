@@ -3209,13 +3209,7 @@ export const IQUBE_REGISTRY_CARTRIDGE: CodexConfig = {
       group: 'admin',
       order: 0,
       type: 'static',
-      config: {
-        component: 'PlaceholderTab',
-        props: {
-          title: 'Mints + Sagas',
-          description: 'Mint-saga monitoring (idempotency, retry, compensation) for triad + non-content primitive mints. Lands in Stage 5; the existing Canonical Mint Panel (KnytCodexAdminTab) migrates here per the 2026-05-29 backlog.',
-        },
-      },
+      config: { component: 'IQubeRegistryMintsTab' },
       metadata: { icon: 'Hammer', description: 'Mint saga state + recovery', color: 'violet' },
     },
     {
