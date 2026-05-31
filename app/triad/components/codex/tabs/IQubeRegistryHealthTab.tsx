@@ -14,8 +14,36 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Activity, RefreshCw, Loader2, CheckCircle2, AlertCircle, Play } from 'lucide-react';
+import { Activity, RefreshCw, Loader2, CheckCircle2, AlertCircle, Play, Gauge, ShieldAlert } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
+
+const SCORE_PRIMITIVES = ['ContentQube', 'ToolQube', 'AigentQube', 'DataQube', 'ClusterQube'] as const;
+type ScorePrimitive = (typeof SCORE_PRIMITIVES)[number];
+
+interface ScoreCoverage {
+  primitive_type: string;
+  total_iqubes: number;
+  scored_iqubes: number;
+  coverage_pct: number;
+  with_overrides: number;
+}
+
+interface ScoreCoverageResponse {
+  coverage: ScoreCoverage[];
+  total_iqubes: number;
+  total_scored: number;
+  total_with_overrides: number;
+}
+
+interface ScoreBackfillReport {
+  primitive_type: string;
+  processed: number;
+  populated: number;
+  preserved_overrides: number;
+  skipped: number;
+  errors: Array<{ iqube_id: string; error: string }>;
+  duration_ms: number;
+}
 
 const SOURCES = [
   'triad_meta',
@@ -56,6 +84,74 @@ export function IQubeRegistryHealthTab() {
   const [loading, setLoading] = useState(false);
   const [actionBusy, setActionBusy] = useState<Source | 'ALL' | null>(null);
   const [actionResult, setActionResult] = useState<string | null>(null);
+
+  // Score backfill state — separate from the main backfill but lives in
+  // the same tab for operator efficiency
+  const [scoreCoverage, setScoreCoverage] = useState<ScoreCoverage[]>([]);
+  const [scoreTotals, setScoreTotals] = useState<{ total: number; scored: number; overrides: number }>({
+    total: 0,
+    scored: 0,
+    overrides: 0,
+  });
+  const [scoreLoading, setScoreLoading] = useState(true);
+  const [scoreBusy, setScoreBusy] = useState<ScorePrimitive | 'ALL' | null>(null);
+  const [scoreMessage, setScoreMessage] = useState<string | null>(null);
+
+  const refreshScores = useCallback(async () => {
+    setScoreLoading(true);
+    try {
+      const res = await personaFetch('/api/admin/registry/score-backfill', { cache: 'no-store' });
+      if (res.ok) {
+        const body = (await res.json()) as ScoreCoverageResponse;
+        setScoreCoverage(Array.isArray(body.coverage) ? body.coverage : []);
+        setScoreTotals({
+          total: body.total_iqubes ?? 0,
+          scored: body.total_scored ?? 0,
+          overrides: body.total_with_overrides ?? 0,
+        });
+      }
+    } catch (e) {
+      // Best-effort — keep tab usable even if scores endpoint fails
+      console.warn('[health] score coverage load failed', (e as Error).message);
+    } finally {
+      setScoreLoading(false);
+    }
+  }, []);
+
+  const runScoreBackfill = useCallback(
+    async (target: ScorePrimitive | 'ALL') => {
+      setScoreBusy(target);
+      setScoreMessage(null);
+      try {
+        const url =
+          target === 'ALL'
+            ? '/api/admin/registry/score-backfill'
+            : `/api/admin/registry/score-backfill?source=${encodeURIComponent(target)}`;
+        const res = await personaFetch(url, { method: 'POST', cache: 'no-store' });
+        if (!res.ok) {
+          setScoreMessage(`Score backfill failed: HTTP ${res.status}`);
+          return;
+        }
+        const body = await res.json();
+        if (target === 'ALL') {
+          setScoreMessage(
+            `Score backfill: ${body.total_populated ?? 0} populated, ${body.total_preserved_overrides ?? 0} overrides preserved, ${body.total_errors ?? 0} errors.`,
+          );
+        } else {
+          const r = body as ScoreBackfillReport;
+          setScoreMessage(
+            `${target}: ${r.populated} populated, ${r.preserved_overrides} overrides preserved, ${r.errors?.length ?? 0} errors.`,
+          );
+        }
+        await refreshScores();
+      } catch (e) {
+        setScoreMessage(`Network error: ${(e as Error).message}`);
+      } finally {
+        setScoreBusy(null);
+      }
+    },
+    [refreshScores],
+  );
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -102,6 +198,10 @@ export function IQubeRegistryHealthTab() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    refreshScores();
+  }, [refreshScores]);
 
   const runBackfill = useCallback(
     async (target: Source | 'ALL') => {
@@ -262,6 +362,140 @@ export function IQubeRegistryHealthTab() {
           </tbody>
         </table>
       </div>
+
+      {/* Score data coverage section — 2026-05-31 backfill backlog */}
+      <section className="pt-4 border-t border-slate-800 space-y-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold flex items-center gap-2">
+              <Gauge className="w-4 h-4 text-violet-400" />
+              Score Coverage
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Trust/Validation axes (sensitivity / accuracy / verifiability / risk) + derived (reliability / trust)
+              per iQube. Backfill is idempotent + preserves any operator overrides.
+            </p>
+          </div>
+          <button
+            onClick={() => runScoreBackfill('ALL')}
+            disabled={scoreBusy !== null}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md bg-violet-600/80 hover:bg-violet-600 text-white disabled:opacity-50"
+          >
+            {scoreBusy === 'ALL' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+            Re-derive all
+          </button>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 text-sm">
+          <SummaryCard label="Total iQubes" value={String(scoreTotals.total)} tone={'green'} />
+          <SummaryCard
+            label="Scored"
+            value={`${scoreTotals.scored} / ${scoreTotals.total}`}
+            hint={
+              scoreTotals.total === 0
+                ? '—'
+                : `${Math.round((scoreTotals.scored / Math.max(scoreTotals.total, 1)) * 100)}%`
+            }
+            tone={
+              scoreTotals.total === 0 || scoreTotals.scored === scoreTotals.total ? 'green' : 'amber'
+            }
+          />
+          <SummaryCard
+            label="Operator overrides"
+            value={String(scoreTotals.overrides)}
+            tone={'green'}
+            hint="Preserved on re-run"
+          />
+        </div>
+
+        {scoreMessage && (
+          <div className="text-xs px-3 py-2 rounded-md bg-slate-800/50 border border-slate-700 text-slate-300">
+            {scoreMessage}
+          </div>
+        )}
+
+        <div className="border border-slate-700/50 rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-800/40 text-slate-400 text-xs uppercase tracking-wide">
+              <tr>
+                <th className="text-left px-3 py-2">Primitive</th>
+                <th className="text-right px-3 py-2">Total</th>
+                <th className="text-right px-3 py-2">Scored</th>
+                <th className="text-right px-3 py-2">Coverage</th>
+                <th className="text-right px-3 py-2">Overrides</th>
+                <th className="text-right px-3 py-2">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {SCORE_PRIMITIVES.map((p) => {
+                const cov = scoreCoverage.find((c) => c.primitive_type === p);
+                const total = cov?.total_iqubes ?? 0;
+                const scored = cov?.scored_iqubes ?? 0;
+                const pct = cov?.coverage_pct ?? 0;
+                const isComplete = total > 0 && scored === total;
+                return (
+                  <tr key={p} className="hover:bg-slate-800/30">
+                    <td className="px-3 py-2 text-slate-200">{p}</td>
+                    <td className="px-3 py-2 text-right text-slate-300">{total}</td>
+                    <td className="px-3 py-2 text-right text-slate-300">{scored}</td>
+                    <td className="px-3 py-2 text-right">
+                      {scoreLoading ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin inline text-slate-500" />
+                      ) : total === 0 ? (
+                        <span className="text-xs text-slate-500">—</span>
+                      ) : (
+                        <span
+                          className={cls(
+                            'inline-block text-xs px-2 py-0.5 rounded',
+                            isComplete
+                              ? 'bg-emerald-700 text-emerald-100'
+                              : pct >= 50
+                                ? 'bg-amber-700 text-amber-100'
+                                : 'bg-rose-700 text-rose-100',
+                          )}
+                        >
+                          {pct}%
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right text-xs text-slate-400">
+                      {cov?.with_overrides ? (
+                        <span className="inline-flex items-center gap-1 text-violet-300">
+                          <ShieldAlert className="w-3 h-3" />
+                          {cov.with_overrides}
+                        </span>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <button
+                        onClick={() => runScoreBackfill(p)}
+                        disabled={scoreBusy !== null}
+                        className={cls(
+                          'text-xs px-2 py-1 rounded',
+                          scoreBusy === p
+                            ? 'bg-slate-700 text-slate-400'
+                            : 'bg-slate-700/50 hover:bg-slate-700 text-slate-200',
+                        )}
+                      >
+                        {scoreBusy === p ? <Loader2 className="w-3 h-3 animate-spin inline" /> : 'Re-derive'}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <p className="text-xs text-slate-500">
+          Each primitive has a derivation strategy (e.g. <code>content_qube_v1</code> from gating + lifecycle;{' '}
+          <code>aigent_qube_v1</code> from governance trust_band + identifiability). Operator overrides on individual
+          axes are sacred — re-runs preserve them. Per-axis override UI lands in the legacy <code>/registry</code>{' '}
+          integration Phase B.
+        </p>
+      </section>
 
       {/* Known notes */}
       <div className="text-xs text-slate-500 space-y-1.5 pt-2 border-t border-slate-800">
