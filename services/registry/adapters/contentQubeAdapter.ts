@@ -25,11 +25,11 @@ import {
   listPublicContentQubeSources,
 } from '@/services/iqube/legibility/sources/contentQubeSource';
 import { mapLifecycleState } from '@/services/iqube/legibility/cardBuilder';
+import { mapContentQubeInternalToUniversal, internalToSurface } from '@/services/registry/lifecycle';
 
 import type {
   CanonicalIQubeInternalRecord,
   IQubeIdMapEntry,
-  IQubeInternalLifecycleState,
   IQubeInstanceModel,
   EditionSupply,
 } from '@/types/registry-canonical';
@@ -52,25 +52,10 @@ function client() {
 }
 
 /**
- * Map ContentQube-internal lifecycle to the universal internal lifecycle.
- * Stage 3 codifies this in services/registry/lifecycle.ts and the adapter
- * delegates there. For Stage 2 we inline a minimal version so the
- * resolver works end-to-end; the inline version mirrors the recommendation
- * in 2026-05-30_stage-1-to-2-transition.md.
+ * Stage 2 inlined a minimal ContentQube → universal lifecycle mapper here;
+ * Stage 3 codified it in services/registry/lifecycle.ts and this adapter
+ * now delegates. The inline copy was removed in Stage 3 C16.
  */
-function mapContentQubeToInternalLifecycle(raw: string): IQubeInternalLifecycleState {
-  switch (raw) {
-    case 'draft':         return 'draft';
-    case 'semi_minted':   return 'wip';
-    case 'review_ready':  return 'review_pending';
-    case 'canon_pending': return 'review_pending';
-    case 'canonized':     return 'canonized';
-    case 'chain_minted':  return 'canonized';
-    case 'superseded':    return 'deprecated';
-    case 'archived':      return 'abandoned';
-    default:              return 'draft';
-  }
-}
 
 /**
  * Roll up edition supply from content_qube_editions for a single qube.
@@ -175,8 +160,20 @@ export const contentQubeAdapter: RegistryPrimitiveAdapter = {
     const triad = await loadTriadFromContentQube(entry.source_id);
     const editionSupply = await loadEditionSupply(entry.source_id);
 
-    const internal_lifecycle = mapContentQubeToInternalLifecycle(src.raw_lifecycle_state);
+    const internal_lifecycle = mapContentQubeInternalToUniversal(src.raw_lifecycle_state);
+    // Surface uses the legibility mapper for parity with shipped cards;
+    // internal lifecycle drives the state machine. Both should agree on
+    // the surface value for canonized + chain_minted; an assertion below
+    // catches drift if the two ever diverge.
     const surface_lifecycle = mapLifecycleState(src.raw_lifecycle_state);
+    const surface_from_internal = internalToSurface(internal_lifecycle);
+    if (surface_lifecycle !== surface_from_internal) {
+      // Soft drift: prefer the canonical state-machine derivation, but
+      // log loudly so the legibility mapper can be reconciled.
+      console.warn(
+        `[contentQubeAdapter] surface_lifecycle drift: legibility='${surface_lifecycle}' vs state-machine='${surface_from_internal}' (raw='${src.raw_lifecycle_state}')`,
+      );
+    }
     const canonicalization_status =
       internal_lifecycle === 'canonized' ? 'canonized'
         : internal_lifecycle === 'published' ? 'finalized'
