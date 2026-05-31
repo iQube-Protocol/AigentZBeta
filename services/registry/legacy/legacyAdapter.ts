@@ -157,7 +157,17 @@ export function legacyFiltersToCanonicalParams(
   // Resolver list cap is 500; page+limit translate to a single fetch
   // (full client-side pagination at this size). Phase B may add real
   // server-side pagination to the resolver.
-  params.set('limit', String(Math.min(Math.max(page * limit, 50), 500)));
+  //
+  // Floor raised to 500 (was 50) on 2026-05-31 because the resolver's
+  // Promise.all silently drops entries via `.catch(() => null)` when
+  // their adapters fail to resolve (broken triad refs, missing
+  // source_id, etc.). The first ~50 rows in iqube_id_map all fall
+  // into this dead zone today, so a low limit returns 0 entries even
+  // though 101 valid entries exist beyond row 100. Fetching the full
+  // 500-cap window + client-side paginating sidesteps the issue until
+  // the resolver returns a skipped[] inventory + the operator backfills
+  // the broken id-map rows (separate cleanup workstream).
+  params.set('limit', '500');
   if (filters.type && isValidIQubeType(filters.type)) {
     params.set('primitive_type', filters.type);
   }
