@@ -76,6 +76,14 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
   // metaJson.surface='workbench' rows to 'workspace'.
   const isWorkbench = surface === 'workspace' || surface === 'workbench';
   const [entries, setEntries] = useState<CanvasEntry[]>([]);
+  // Surface-specific API base — strict separation, sibling tables:
+  //   canvas    → /api/mycanvas/entries     (mycanvas_entries)
+  //   workspace → /api/myworkspace/entries  (myworkspace_entries)
+  // Eliminates the leaky meta_json.surface discriminator — entries
+  // can no longer surface in the wrong tab regardless of how they
+  // were stamped. canvas-only side endpoints (invite, publish-to-pulse)
+  // stay rooted at /api/mycanvas since workspace items don't publish.
+  const entriesApiBase = isWorkbench ? '/api/myworkspace/entries' : '/api/mycanvas/entries';
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -187,7 +195,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
     setLoading(true);
     setError(null);
     try {
-      const res = await personaFetch("/api/mycanvas/entries", { personaIdHint: personaId });
+      const res = await personaFetch(entriesApiBase, { personaIdHint: personaId });
       if (!res.ok) throw new Error(`mycanvas list failed (${res.status})`);
       const data = (await res.json()) as { entries: CanvasEntry[] };
       setEntries(data.entries ?? []);
@@ -220,7 +228,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
     let cancelled = false;
     (async () => {
       try {
-        const res = await personaFetch(`/api/mycanvas/entries/${targetId}`, { personaIdHint: personaId });
+        const res = await personaFetch(`${entriesApiBase}/${targetId}`, { personaIdHint: personaId });
         if (!res.ok) {
           console.error("[MyCanvas] hydration failed", { entryId: targetId, status: res.status });
           if (!cancelled) {
@@ -261,7 +269,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
       //     for legacy data which is treated as canvas)
       const defaultVisibility = isWorkbench ? 'private' : 'invited';
       const surfaceStamp = { surface, ...(seed?.metaJson ?? {}) };
-      const res = await personaFetch("/api/mycanvas/entries", {
+      const res = await personaFetch(entriesApiBase, {
         personaIdHint: personaId,
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -292,7 +300,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
     setSaving(true);
     setError(null);
     try {
-      const res = await personaFetch(`/api/mycanvas/entries/${selected.id}`, {
+      const res = await personaFetch(`${entriesApiBase}/${selected.id}`, {
         personaIdHint: personaId,
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -312,7 +320,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
     if (!personaId) return;
     if (typeof window !== "undefined" && !window.confirm("Delete this entry?")) return;
     try {
-      const res = await personaFetch(`/api/mycanvas/entries/${id}`, {
+      const res = await personaFetch(`${entriesApiBase}/${id}`, {
         personaIdHint: personaId,
         method: "DELETE",
       });
@@ -327,6 +335,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
   const handleInvite = useCallback(async (entryId: string) => {
     if (!personaId || !inviteInput.trim()) return;
     try {
+      // Invite is canvas-only — workspace entries are private by design.
       const res = await personaFetch(`/api/mycanvas/entries/${entryId}/invite`, {
         personaIdHint: personaId,
         method: "POST",
@@ -406,6 +415,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
       setError(null);
       setPublishingId(entry.id);
       try {
+        // publish-to-pulse is canvas-only — workspace entries don't publish.
         const res = await personaFetch(`/api/mycanvas/entries/${entry.id}/publish-to-pulse`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
