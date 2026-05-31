@@ -58,6 +58,14 @@ export interface TabGroup {
    */
   activationId?: string;
   order: number;       // Position in the primary tab bar (interleaved with standalone tabs)
+  /**
+   * When true, the group nav chip renders only its icon — no label, tight
+   * width. Used for first-class persistent surfaces that don't need a
+   * verbose label (e.g. a web-embed tab pointing at metame.com on the
+   * metaMe cartridge). Independent of density: iconOnly groups stay
+   * icon-only even on `wide`.
+   */
+  iconOnly?: boolean;
 }
 
 export interface CodexTab {
@@ -68,6 +76,20 @@ export interface CodexTab {
   adminOnly?: boolean;     // When true, tab is invisible to non-admin users
   partnerOnly?: boolean;   // When true, tab is only visible to partner users (admins also see it)
   investorOnly?: boolean;  // When true, tab is only visible to verified investors (admins also see it)
+  /**
+   * Per-cartridge admin gate. When set, the tab is visible ONLY when the
+   * active persona is an admin of the named cartridge (slug match against
+   * the grants returned by /api/persona/cartridge-admin-grants). Used to
+   * surface a foreign cartridge's Admin tab inside another cartridge's
+   * Activation sub-surface — e.g. metaMe's Order of Metayé group mirrors
+   * the KNYT cartridge's Admin tab so a KNYT admin running in their
+   * metaMe view gets full chief-of-staff visibility without leaving the
+   * surface, while a non-admin sees nothing.
+   *
+   * Independent of `adminOnly`. A global uber/platform admin
+   * (isGlobalAdmin: true) satisfies any adminOfCartridge gate.
+   */
+  adminOfCartridge?: string;
   /**
    * When set, tab is visible only when the persona has an `active` row in
    * `persona_activations` for this activation id (catalog id from

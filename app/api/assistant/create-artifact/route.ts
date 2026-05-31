@@ -102,6 +102,16 @@ interface CreateArtifactSurface {
   message: string;
   createdAt: string;
   locationUrl?: string | null;
+  /**
+   * Optional connector-emitted warning when a partial success
+   * happened (e.g. Drive created the doc but the Docs API was
+   * disabled so the body insert failed 403). Surfaced as an amber
+   * callout on the artifact card. When the warning text contains a
+   * Google Cloud Console URL, the card extracts it as a clickable
+   * "Enable API" CTA so the operator can fix the disabled-API issue
+   * in one click and re-run.
+   */
+  warning?: string | null;
   actionConnectorId?: string;
   actionConnectorLabel?: string;
   actionInput?: Record<string, unknown>;
@@ -213,12 +223,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const draftId = (draftResult.output as { draftId?: string } | undefined)?.draftId ?? '';
       const locationUrl = draftId ? `https://mail.google.com/mail/u/0/#drafts/${draftId}` : null;
 
+      // Surface attachment count in the receipt summary so it's clear
+      // post-hoc whether the operator's selected uploads actually rode
+      // with the draft (versus the picker silently rendering empty and
+      // the email shipping without).
+      const draftAttachmentInput = (input as { attachmentUploadIds?: unknown }).attachmentUploadIds;
+      const draftAttachmentCount = Array.isArray(draftAttachmentInput) ? draftAttachmentInput.length : 0;
       const receipt = await createActivityReceipt({
         personaId: context.personaId,
         intentId: body.sourceIntentId ?? null,
         activeCartridge: cartridge,
         actionType: 'artifact_created',
-        summary: `Created Gmail draft: ${derivedTitle}`,
+        summary:
+          draftAttachmentCount > 0
+            ? `Created Gmail draft: ${derivedTitle} (${draftAttachmentCount} attachment${draftAttachmentCount === 1 ? '' : 's'})`
+            : `Created Gmail draft: ${derivedTitle}`,
         agentsInvoked: [
           'aigent-me',
           ...(body.specialistId ? [body.specialistId] : []),
@@ -477,13 +496,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           status: 'draft',
           receiptId: receipt?.id ?? null,
           intentId: body.sourceIntentId ?? null,
-          message: bodyWarning
-            ? `Doc created (title only). ${bodyWarning}`
-            : firstShare
-              ? `Doc created. Click "Share doc" to grant ${firstShare.email} ${firstShare.role} access — approval required.`
-              : 'Doc created privately in your Drive.',
+          message: firstShare
+            ? `Doc created. Click "Share doc" to grant ${firstShare.email} ${firstShare.role} access — approval required.`
+            : 'Doc created privately in your Drive.',
           createdAt,
           locationUrl,
+          ...(bodyWarning ? { warning: bodyWarning } : {}),
           ...(firstShare && documentId
             ? {
                 actionConnectorId: 'google.drive.share-doc',
@@ -648,19 +666,83 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         fromName?: string;
         campaignId?: string;
         cohortId?: string;
+        /** Persona upload ids selected as attachments by the operator
+         *  in the compose modal. Resolved server-side by the marketa
+         *  connector at send time via the upload service. */
+        attachmentUploadIds?: string[];
       };
+      // Cohort branch — when the operator picked a campaign + cohort,
+      // the artifact targets the marketa.send-cohort connector which
+      // fans out via Mailjet batch to every member. Single approval
+      // for the whole cohort; `to` field becomes optional (and gets
+      // dropped from actionInput since the connector resolves
+      // recipients server-side from the CRM).
+      const isCohortSend = !!input.campaignId && (!!input.cohortId || input.campaignId === 'ks_prospects');
+      if (isCohortSend) {
+        if (!input.subject || !input.bodyText) {
+          return NextResponse.json(
+            { error: 'invalid-connector-input', detail: 'subject + bodyText required for cohort send' },
+            { status: 400, headers: { 'Cache-Control': 'no-store' } },
+          );
+        }
+        const receiptRow = await createActivityReceipt({
+          personaId: context.personaId,
+          intentId: body.sourceIntentId ?? null,
+          activeCartridge: cartridge,
+          actionType: 'artifact_created',
+          summary: `Drafted Marketa cohort email: ${input.subject} → ${input.campaignId}:${input.cohortId ?? 'all'}`,
+          agentsInvoked: ['aigent-me', 'marketa'],
+          toolsUsed: ['runtime'],
+          iqubesUsed: ['PersonaQube', 'ExperienceQube', 'IntentQube'],
+          contextShared: ['intent-summary', 'experience-meta-slice'],
+          artifactsCreated: [`marketa-cohort-email:${input.subject}`],
+          approvalsGranted: body.sourceIntentId ? [body.sourceIntentId] : [],
+        });
+        const cohortLabel = `${input.campaignId}${input.cohortId ? `:${input.cohortId}` : ''}`;
+        const surface: CreateArtifactSurface = {
+          artifactId,
+          artifactType: 'marketa-cohort-email',
+          title: `${input.subject} → ${cohortLabel}`,
+          destination: 'runtime',
+          status: 'draft',
+          receiptId: receiptRow?.id ?? null,
+          intentId: body.sourceIntentId ?? null,
+          message: `Marketa cohort email drafted for ${cohortLabel}. Click "Approve & send" to fan out to every member via Mailjet.`,
+          createdAt,
+          actionConnectorId: 'marketa.send-cohort',
+          actionConnectorLabel: 'Approve & send to cohort',
+          actionInput: {
+            campaignId: input.campaignId,
+            ...(input.cohortId ? { cohortId: input.cohortId } : {}),
+            subject: input.subject,
+            bodyText: input.bodyText,
+            ...(input.fromName ? { fromName: input.fromName } : {}),
+            ...(Array.isArray(input.attachmentUploadIds) && input.attachmentUploadIds.length > 0
+              ? { attachmentUploadIds: input.attachmentUploadIds }
+              : {}),
+          },
+        };
+        return NextResponse.json(surface, { headers: { 'Cache-Control': 'no-store' } });
+      }
+
+      // Single-recipient branch — the legacy transactional path.
       if (!input.to || !input.subject || !input.bodyText) {
         return NextResponse.json(
           { error: 'invalid-connector-input', detail: 'to + subject + bodyText required' },
           { status: 400, headers: { 'Cache-Control': 'no-store' } },
         );
       }
+      const marketaAttachmentCount =
+        Array.isArray(input.attachmentUploadIds) ? input.attachmentUploadIds.length : 0;
       const receiptRow = await createActivityReceipt({
         personaId: context.personaId,
         intentId: body.sourceIntentId ?? null,
         activeCartridge: cartridge,
         actionType: 'artifact_created',
-        summary: `Drafted Marketa email: ${input.subject}`,
+        summary:
+          marketaAttachmentCount > 0
+            ? `Drafted Marketa email: ${input.subject} (${marketaAttachmentCount} attachment${marketaAttachmentCount === 1 ? '' : 's'})`
+            : `Drafted Marketa email: ${input.subject}`,
         agentsInvoked: ['aigent-me', 'marketa'],
         toolsUsed: ['runtime'],
         iqubesUsed: ['PersonaQube', 'ExperienceQube', 'IntentQube'],
@@ -689,6 +771,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           ...(input.fromName ? { fromName: input.fromName } : {}),
           ...(input.campaignId ? { campaignId: input.campaignId } : {}),
           ...(input.cohortId ? { cohortId: input.cohortId } : {}),
+          ...(Array.isArray(input.attachmentUploadIds) && input.attachmentUploadIds.length > 0
+            ? { attachmentUploadIds: input.attachmentUploadIds }
+            : {}),
         },
       };
       return NextResponse.json(surface, { headers: { 'Cache-Control': 'no-store' } });

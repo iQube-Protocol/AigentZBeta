@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-24T03:35:58.125Z",
+  "last_updated": "2026-05-30T02:48:11.168Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "77ab0a68663e68d3e628d2c022f72a169af8b2c2",
-  "latest_commit_short": "77ab0a6",
-  "latest_commit_title": "Phase 2 B.1 (3/3): copilot tools aigentme_add_kpi / set_kpi_value / remove_kpi / open_kpi_detail + readables activeKpis + availableKpiSources (filtered to persona's active activations); copilot refuses bindings to inactive activations and refuses to manually overwrite activation-bound KPIs",
+  "latest_commit": "8c0ad44bd484222f184dd06750023e2b419d4963",
+  "latest_commit_short": "8c0ad44",
+  "latest_commit_title": "/api/uploads: extend VALID_USE_KINDS allowlist to include attachment + iqube_payload + venture_iqube",
   "pr_history": [
     {
       "number": 78,
@@ -354,904 +354,904 @@
   ],
   "commit_history": [
     {
-      "sha": "77ab0a6",
-      "full_sha": "77ab0a68663e68d3e628d2c022f72a169af8b2c2",
-      "title": "Phase 2 B.1 (3/3): copilot tools aigentme_add_kpi / set_kpi_value / remove_kpi / open_kpi_detail + readables activeKpis + availableKpiSources (filtered to persona's active activations); copilot refuses bindings to inactive activations and refuses to manually overwrite activation-bound KPIs",
+      "sha": "8c0ad44",
+      "full_sha": "8c0ad44bd484222f184dd06750023e2b419d4963",
+      "title": "/api/uploads: extend VALID_USE_KINDS allowlist to include attachment + iqube_payload + venture_iqube",
       "author": "Claude",
-      "timestamp": "2026-05-24T03:34:06Z",
+      "timestamp": "2026-05-30T02:46:18Z",
       "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-77ab0a6.md"
+      "brief": "items/build_/COMMITS/COMMIT-8c0ad44.md"
     },
     {
-      "sha": "0e40380",
-      "full_sha": "0e40380451826a1fe30c12099b2287fd34a1424c",
-      "title": "Phase 2 B.1 (2/3): ActiveKpisEditor refactored — source picker reads metricsForActiveActivations(persona), grouped by activation with inactive sources marked; rich KpiRecord shape persists; KpiDetailLayout (new layout, kpi-detail) opens on chip click with hero value + source provenance + manual-value editor",
+      "sha": "ea73f8f",
+      "full_sha": "ea73f8fd82b3661a0c91b783f42466006f6822e3",
+      "title": "trigger deploy to dev",
       "author": "Claude",
-      "timestamp": "2026-05-24T02:59:35Z",
+      "timestamp": "2026-05-30T02:46:19Z",
       "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0e40380.md"
+      "brief": "items/build_/COMMITS/COMMIT-ea73f8f.md"
     },
     {
-      "sha": "498c09a",
-      "full_sha": "498c09a9ebdf67d15efbf6119d8e5bfe56099405",
-      "title": "Activation catalog: add metric class (activity/outcome/standing) + expand each activation with outcome-oriented KPIs — myCanvas likes/sparks/remixes, Order missions-completed/votes/contributions, AgentiQ OS referrals/SDK/forks, Venture Lab milestones/conversions/runway, Marketa meetings/proposals/closes, Qriptopian readership/pickups, Studio launched/remixed/completed-by-users; cockpit chip highlights outcomes with violet+dot",
+      "sha": "2af7d43",
+      "full_sha": "2af7d4366159b3ae93e1cbed542493c154dc42a6",
+      "title": "Venture iQube Phase A1: ingest route + use_kind enum extension + Operation metaWill fixture",
       "author": "Claude",
-      "timestamp": "2026-05-24T02:52:20Z",
+      "timestamp": "2026-05-30T01:10:21Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-2af7d43.md"
+    },
+    {
+      "sha": "71e8a39",
+      "full_sha": "71e8a395d0c15020ed8ed594c67a9a3748ac4623",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-30T01:10:21Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-71e8a39.md"
+    },
+    {
+      "sha": "8c91108",
+      "full_sha": "8c911082f70991a7aa9f4d91036a89ed26e5920f",
+      "title": "Venture iQube v0.2: add studio / iqube-registry / moneypenny / legal-metacommons to cartridgeSlug enum",
+      "author": "Claude",
+      "timestamp": "2026-05-30T00:58:08Z",
       "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-498c09a.md"
+      "brief": "items/build_/COMMITS/COMMIT-8c91108.md"
     },
     {
-      "sha": "4bdd99c",
-      "full_sha": "4bdd99c7cf0b9f41808d55702eda9146cb66b071",
-      "title": "B.1 (1.5/3): metrics + actions move onto ACTIVATION_CATALOG entries — KPIs/NBAs now dynamically driven by the persona's Activations tab; declared all 7 catalog activations with their metrics + actions; metric registry is now a one-row edit per activation, no separate file",
+      "sha": "1994a91",
+      "full_sha": "1994a919eee61ca0b8be48bbaa4a5934d3cdd378",
+      "title": "docs: aigentMe voice-loop Phase 2 backlog + Venture iQube schema v0.1",
       "author": "Claude",
-      "timestamp": "2026-05-24T02:32:00Z",
-      "type": "refactor",
-      "brief": "items/build_/COMMITS/COMMIT-4bdd99c.md"
-    },
-    {
-      "sha": "77aff62",
-      "full_sha": "77aff62253e687c4ea001b037960342b337fb310",
-      "title": "Phase 2 B.1 (1/3): KPI source pipeline activation-bound — KpiRecord/KpiSource schema with ACTIVATION_METRIC_CATALOG; resolver only resolves KPIs whose source activation is active (else unresolvedReason=source-inactive); ventureProgress returns rich activeKpis; cockpit renders KpiChip with current/target/trend instead of empty count badges",
-      "author": "Claude",
-      "timestamp": "2026-05-24T02:16:46Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-77aff62.md"
-    },
-    {
-      "sha": "7d02d7e",
-      "full_sha": "7d02d7e9edd5e64cb6f40b939830f6b5692d90d3",
-      "title": "Slice C parity audit: zero critical violations across all 7 layouts; one DIS contract drift (dismiss X coord rule) amended to match LayoutShell-owned placement; 6 Studio framework frictions captured as improvement backlog",
-      "author": "Claude",
-      "timestamp": "2026-05-24T01:57:20Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7d02d7e.md"
-    },
-    {
-      "sha": "ccfd5da",
-      "full_sha": "ccfd5da6dfac28f1f5334545fd49b0b38b2f7d33",
-      "title": "Phase 2 Slice 7 (A): dual-dispatch chip strip — NbeQuickChip type + onSelect on QuickPrompt + server-driven swap seam on assistant fetches; cold-open fallback unchanged",
-      "author": "Claude",
-      "timestamp": "2026-05-24T01:49:17Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-ccfd5da.md"
-    },
-    {
-      "sha": "3e8011e",
-      "full_sha": "3e8011ebabe282a33fd5250f745c42bab250b4aa",
-      "title": "ComposerLayout dismiss: auto-scroll the ArtifactCard into view when returning to stack so the Send draft approval gate doesn't sit below the fold unnoticed",
-      "author": "Claude",
-      "timestamp": "2026-05-24T00:50:42Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-3e8011e.md"
-    },
-    {
-      "sha": "56a60ad",
-      "full_sha": "56a60ade419cfd3fa2f10c5e920055130979c186",
-      "title": "Phase 2 Slice 4 (compose-in-layout): all 6 compose modals support inline=true mode; openComposeByKind routes to ComposerLayout instead of popups; legacy modal mounts + open booleans removed from tab",
-      "author": "Claude",
-      "timestamp": "2026-05-24T00:19:04Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-56a60ad.md"
-    },
-    {
-      "sha": "5d91086",
-      "full_sha": "5d91086380fadf1b4b9919c47731db9c013339c6",
-      "title": "ApprovalLayout: drop inline NBE ApprovalCard from stack (was rendering behind the Phase-2 overlay) + amber surface/border/primary CTA matching Phase-1 authorization treatment",
-      "author": "Claude",
-      "timestamp": "2026-05-23T22:52:19Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5d91086.md"
-    },
-    {
-      "sha": "754ae53",
-      "full_sha": "754ae53d3703a40351ce8fcd9f32aefbc8046382",
-      "title": "AigentMe: kill auto-open-Gmail-tab on artifact creation — broke HITL flow by popping the external tab BEFORE the in-app approval card appeared. Restores Phase 1 'approve in app, view post-send' contract",
-      "author": "Claude",
-      "timestamp": "2026-05-23T22:26:08Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-754ae53.md"
-    },
-    {
-      "sha": "1c01f6c",
-      "full_sha": "1c01f6c28891503e3bbfb267a9463e2696feb9e6",
-      "title": "ArtifactCard: hide Gmail/Drive 'Open' link pre-approval (only show after status approved|sent|published) — fixes flow-interruption where Open was clicked instead of Send draft",
-      "author": "Claude",
-      "timestamp": "2026-05-23T22:11:27Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1c01f6c.md"
-    },
-    {
-      "sha": "63d8621",
-      "full_sha": "63d8621e0e1387eb18e68ed471952988e840984d",
-      "title": "ApprovalLayout: unify second-tier external-action confirm + NBE approval through one Phase-2 overlay; drop inline SecondTierApprovalCard from stack",
-      "author": "Claude",
-      "timestamp": "2026-05-23T21:35:13Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-63d8621.md"
-    },
-    {
-      "sha": "8f7942f",
-      "full_sha": "8f7942f14a7c38c33cfbaa6bbca2521ce2361870",
-      "title": "Phase 2 color pass: shared accentTokens + glass-fill across Brief / Decision / Venture / Composer / Ledger; Google Drive token cross-persona fallback (auth-profile siblings)",
-      "author": "Claude",
-      "timestamp": "2026-05-23T20:53:17Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-8f7942f.md"
-    },
-    {
-      "sha": "cfa0696",
-      "full_sha": "cfa06962c512ec496189d86ae8c45216fd910061",
-      "title": "VentureCockpit: glass-fill accents (cyan/emerald/violet per row), carousel within body padding (no edge bleed), ApprovalLayout z-40 (above floating compose), body clearance for floating compose strip, compose-modal specific-field error",
-      "author": "Claude",
-      "timestamp": "2026-05-23T19:57:06Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-cfa0696.md"
-    },
-    {
-      "sha": "3aea78f",
-      "full_sha": "3aea78f241e540b42009a8c4780762b8cc4d809f",
-      "title": "ActivityReceiptCard: click header to expand inline JSON drawer (T1-safe payload + copy button)",
-      "author": "Claude",
-      "timestamp": "2026-05-23T19:18:47Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-3aea78f.md"
-    },
-    {
-      "sha": "d08e112",
-      "full_sha": "d08e1128ba4aea31596dc00351e3b0d91872e8ef",
-      "title": "DecisionBoard + VentureCockpit: vertical stack (no columns) — right pane too narrow for multi-column; cockpit uses 3 rows with carousels for KPIs and Active Work",
-      "author": "Claude",
-      "timestamp": "2026-05-23T19:16:09Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d08e112.md"
-    },
-    {
-      "sha": "d1698e5",
-      "full_sha": "d1698e5c1c59d15fa0f2d561939c95fef4af180b",
-      "title": "personas: close OPERATIONAL_HANDBOOK template literal (was escaped backtick — broke Amplify build)",
-      "author": "Claude",
-      "timestamp": "2026-05-23T18:24:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d1698e5.md"
-    },
-    {
-      "sha": "5b08bfe",
-      "full_sha": "5b08bfe0ce5af234fef9092c1b03c95ae1559e99",
-      "title": "Strategy: actionable blockers — clickable chips open Partners + KPIs editors that close the declared-fields gap",
-      "author": "Claude",
-      "timestamp": "2026-05-23T13:25:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5b08bfe.md"
-    },
-    {
-      "sha": "d67b080",
-      "full_sha": "d67b080893384c5b5a6474a4bf803f0cc5bb0f7c",
-      "title": "Operators Handbook v1: canonical surface inventory + privacy seams + change impact checklist (AgentiQ → Operators Manual tab)",
-      "author": "Claude",
-      "timestamp": "2026-05-23T13:51:44Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d67b080.md"
-    },
-    {
-      "sha": "b0a428a",
-      "full_sha": "b0a428a847b91565848cb5a9b69404bb1a56c8b2",
-      "title": "facilitator/verify: add mainnet RPC cases (Base 8453, Eth 1, Arb 42161, OP 10, Polygon 137) so USDC mainnet credit can verify",
-      "author": "Claude",
-      "timestamp": "2026-05-23T14:20:35Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-b0a428a.md"
-    },
-    {
-      "sha": "5fcf602",
-      "full_sha": "5fcf602ed6fc69a02134e64ac9f1ed7642a51905",
-      "title": "personas: inject OPERATIONAL_HANDBOOK into all 7 operational agent system prompts (architectural ground truth, not confidential)",
-      "author": "Claude",
-      "timestamp": "2026-05-23T14:27:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-5fcf602.md"
-    },
-    {
-      "sha": "8d27fc5",
-      "full_sha": "8d27fc562df1dea4b82d62cdca19718769a522ff",
-      "title": "Handbook + agent KB: Design Fidelity posture (PARAMOUNT) — four-axis test, canonical tokens, composition + right-pane symmetry rules",
-      "author": "Claude",
-      "timestamp": "2026-05-23T14:40:33Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-8d27fc5.md"
-    },
-    {
-      "sha": "f8bf182",
-      "full_sha": "f8bf182f4c79e9bb220e88ec8d97f86cc3b520e8",
-      "title": "Phase 2 dog-food: DIS for aigentMe right-pane layouts + handbook §8b (Studio Design Intent / Parity framework as governing contract) + case-study doc",
-      "author": "Claude",
-      "timestamp": "2026-05-23T15:01:18Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f8bf182.md"
-    },
-    {
-      "sha": "c5a8aba",
-      "full_sha": "c5a8aba4dd4011c0ab5e552d861378ef10ecb408",
-      "title": "Phase 2 Slice 0: layout registry scaffold (zero visual change) + dedicated mobile shapes in DIS + /api/design-parity/dis fetch endpoint for dog-food loop",
-      "author": "Claude",
-      "timestamp": "2026-05-23T16:49:00Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c5a8aba.md"
-    },
-    {
-      "sha": "d2f4b9d",
-      "full_sha": "d2f4b9d4c162113d907db0e414d3506f2609e0c2",
-      "title": "Phase 2 Slices 1-6: BriefLayout + DecisionBoard + VentureCockpit + Composer + ApprovalLayout (interrupt) + LedgerLayout + shared LayoutShell + consolidated layoutProps spread",
-      "author": "Claude",
-      "timestamp": "2026-05-23T17:34:19Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d2f4b9d.md"
-    },
-    {
-      "sha": "7e62358",
-      "full_sha": "7e623588967fd109c4129b5edf89a98415406ada",
-      "title": "mic on remaining free-form inputs in metaMe setup + alignment surfaces",
-      "author": "Claude",
-      "timestamp": "2026-05-23T13:13:40Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7e62358.md"
-    },
-    {
-      "sha": "adee0c3",
-      "full_sha": "adee0c3e7b3f63220a2bb730e63ff7460945e54f",
-      "title": "remove redundant mic from aigentMe copilot input — Marketa already handles voice there",
-      "author": "Claude",
-      "timestamp": "2026-05-23T00:44:27Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-adee0c3.md"
-    },
-    {
-      "sha": "f4fd3b4",
-      "full_sha": "f4fd3b4e2869308637103e729cd700e23b22a508",
-      "title": "land at top of capsule/article panel on open, not bottom of chat",
-      "author": "Claude",
-      "timestamp": "2026-05-22T22:41:01Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f4fd3b4.md"
-    },
-    {
-      "sha": "bd16c01",
-      "full_sha": "bd16c017ef32ff6e42b869765d40813587783ead",
-      "title": "remix drafter (idea → title/article/image) + mic on remixer, customizer, aigentMe copilot",
-      "author": "Claude",
-      "timestamp": "2026-05-22T22:04:21Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-bd16c01.md"
-    },
-    {
-      "sha": "cb8bfb4",
-      "full_sha": "cb8bfb4449baeb94be5e066ece6f57ebbcdca72d",
-      "title": "opt embed routes in to microphone via Permissions-Policy + bridge to Lovable",
-      "author": "Claude",
-      "timestamp": "2026-05-22T20:55:54Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-cb8bfb4.md"
-    },
-    {
-      "sha": "1ea306c",
-      "full_sha": "1ea306cf7ecf513323d05ec7f1add9b671da3e07",
-      "title": "switch mic STT from Web Speech API to MediaRecorder + Whisper",
-      "author": "Claude",
-      "timestamp": "2026-05-22T19:54:09Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1ea306c.md"
-    },
-    {
-      "sha": "290ddbf",
-      "full_sha": "290ddbf6c839a5c4290c148867f72467e8a47c6d",
-      "title": "disable Safari email AutoFill on aigentMe compose prompt inputs",
-      "author": "Claude",
-      "timestamp": "2026-05-22T17:54:40Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-290ddbf.md"
-    },
-    {
-      "sha": "8c31614",
-      "full_sha": "8c3161468b4264bed3ac9e64413197db46ca1042",
-      "title": "add microphone to runtime iframe allow attr + log persona-stream errors",
-      "author": "Claude",
-      "timestamp": "2026-05-22T17:50:40Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-8c31614.md"
-    },
-    {
-      "sha": "5b8f9fb",
-      "full_sha": "5b8f9fb2c5efd69f53aa5ea040b2bfdfc4cbdd1f",
-      "title": "add STT mic affordance to compose modals and expGuide textareas",
-      "author": "Claude",
-      "timestamp": "2026-05-22T16:48:23Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-5b8f9fb.md"
-    },
-    {
-      "sha": "bbaff66",
-      "full_sha": "bbaff669de9a0ff92090011f6632a5bd69379f8e",
-      "title": "fix activation toggle: explicit SELECT→INSERT/UPDATE (PostgREST upsert can't target partial unique index)",
-      "author": "Claude",
-      "timestamp": "2026-05-21T22:45:45Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-bbaff66.md"
-    },
-    {
-      "sha": "0e8264f",
-      "full_sha": "0e8264f66ad3d431630fdfe45d871349cde8b9e7",
-      "title": "activation toggle: dedicated rarity='activation' + partial unique index + atomic UPSERT/UPDATE",
-      "author": "Claude",
-      "timestamp": "2026-05-21T22:30:59Z",
-      "type": "chore",
-      "brief": "items/build_/COMMITS/COMMIT-0e8264f.md"
-    },
-    {
-      "sha": "6e1f210",
-      "full_sha": "6e1f210a03bcaa30d19e0628390afec8d1855bb7",
-      "title": "remove all auto-grant logic. Activations are simple toggles: no row=off, row+null=on, row+timestamp=off",
-      "author": "Claude",
-      "timestamp": "2026-05-21T21:49:36Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-6e1f210.md"
-    },
-    {
-      "sha": "c4fcf0b",
-      "full_sha": "c4fcf0b2e518b61eaae7a9eca7558cae5b0fa134",
-      "title": "remove read-side auto-grant: virtual via rowToSurface; revoke persists deactivation for autoGrant entries",
-      "author": "Claude",
-      "timestamp": "2026-05-21T21:42:53Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c4fcf0b.md"
-    },
-    {
-      "sha": "d507119",
-      "full_sha": "d5071196afea61e558740caf1695f87c3a2e8a39",
-      "title": "activations: prefer ACTIVE row when multiple editions exist (fixes stale revokedAt timestamp on display)",
-      "author": "Claude",
-      "timestamp": "2026-05-21T20:53:14Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d507119.md"
-    },
-    {
-      "sha": "4dabf9f",
-      "full_sha": "4dabf9f3dfee569f40a318f5a9494fa1c262a2f0",
-      "title": "trigger deploy to dev: re-trigger activations soft-release fix (45fe2a8 already on dev)",
-      "author": "Claude",
-      "timestamp": "2026-05-21T18:42:22Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-4dabf9f.md"
-    },
-    {
-      "sha": "78a2cda",
-      "full_sha": "78a2cda8c5c62167d2ff7f88726e7bceb98ac39c",
-      "title": "backlog: generalise claimEdition to iqube-universal claim primitive (post-comic expansion)",
-      "author": "Claude",
-      "timestamp": "2026-05-21T17:13:10Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-78a2cda.md"
-    },
-    {
-      "sha": "d273247",
-      "full_sha": "d27324754d70ee3936b07b244c7450e2776ea67a",
-      "title": "fix activation bounce: soft-release editions (released_at) so auto-grant doesn't resurrect deactivated tabs",
-      "author": "Claude",
-      "timestamp": "2026-05-21T17:34:24Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-d273247.md"
-    },
-    {
-      "sha": "b0659f1",
-      "full_sha": "b0659f1c43270cd92bce7ce0a00e68e4096a2356",
-      "title": "diag: surface edition rows + released_at column presence (catches missing migration)",
-      "author": "Claude",
-      "timestamp": "2026-05-21T17:51:51Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-b0659f1.md"
-    },
-    {
-      "sha": "1dcc609",
-      "full_sha": "1dcc60979d580738ec47450486e18cf1d1804edf",
-      "title": "releaseEdition surfaces schema-cache failures + appendCommon collapses dup rows onto latest edition",
-      "author": "Claude",
-      "timestamp": "2026-05-21T18:16:49Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1dcc609.md"
-    },
-    {
-      "sha": "e4352e4",
-      "full_sha": "e4352e4f11615851da616cd284f67bbc588e0886",
-      "title": "trigger deploy: activations soft-release fix (d273247..1dcc609)",
-      "author": "Claude",
-      "timestamp": "2026-05-21T18:24:56Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-e4352e4.md"
-    },
-    {
-      "sha": "813b74c",
-      "full_sha": "813b74c4a3df932fd6453909257debe06b2bee3f",
-      "title": "knyt retail bundles tab: drop 4 single non-bundled GN offers (gn-investor-{qripto,digital,paperback,hardcover}) — they belong on the investor tab where they're discounted; rename tab 'Bundles & GN' → 'Bundles'; section header 'Graphic Novel, Episode & Character Bundles' → 'Premium Bundles' (investor tab unchanged)",
-      "author": "Claude",
-      "timestamp": "2026-05-19T05:55:17Z",
-      "type": "refactor",
-      "brief": "items/build_/COMMITS/COMMIT-813b74c.md"
-    },
-    {
-      "sha": "fdbd1b5",
-      "full_sha": "fdbd1b56697d84668a63347b44b136c0b28ad5c2",
-      "title": "knyt store bundles tab: strip investor copy and show retail price on the retail surface (no 'Investor Bundle' header, no 'Investor Only' pill, no 'Investor pricing' label, no member-price line; KnytPricePill + savings + cart all key off retailPrice ?? digitalPrice — investor tab unchanged)",
-      "author": "Claude",
-      "timestamp": "2026-05-19T05:50:08Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-fdbd1b5.md"
-    },
-    {
-      "sha": "21de6d9",
-      "full_sha": "21de6d9abd7ff5f4233678b563826d9627f37998",
-      "title": "knyt store: drop $600 ZeroKNYT memberPrice (was leaking to all visitors); investor stays $800, retail stays $1000 — cohort-gated ZeroKNYT offer to ship separately",
-      "author": "Claude",
-      "timestamp": "2026-05-19T05:41:20Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-21de6d9.md"
-    },
-    {
-      "sha": "3e039bb",
-      "full_sha": "3e039bb94a2780120b670cbcb1c6240ce0e72d53",
-      "title": "knyt pricing: last-derived fallback + indicative-pricing badge",
-      "author": "Claude",
-      "timestamp": "2026-05-19T04:16:20Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-3e039bb.md"
-    },
-    {
-      "sha": "621ec0c",
-      "full_sha": "621ec0cc4e332123ea5f71b957661cd52fd20325",
-      "title": "knyt pricing: align store UI + server debit with live KNYT→USD rate",
-      "author": "Claude",
-      "timestamp": "2026-05-19T03:58:27Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-621ec0c.md"
-    },
-    {
-      "sha": "7228c5c",
-      "full_sha": "7228c5c2be8364260fec7f9922427a818ac96100",
-      "title": "knyt characters: per-asset digiterra label — use terra when digiterra doesn't appear in title (fixes Deji Ifada/Kn0w1 first-card label)",
-      "author": "Claude",
-      "timestamp": "2026-05-19T03:11:40Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-7228c5c.md"
-    },
-    {
-      "sha": "d5ca6b9",
-      "full_sha": "d5ca6b9bfead1c6656a83ee1f589786faadee208",
-      "title": "knyt characters: align 0-indexed convention end-to-end + score-based character matching",
-      "author": "Claude",
-      "timestamp": "2026-05-19T01:30:21Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d5ca6b9.md"
-    },
-    {
-      "sha": "c753039",
-      "full_sha": "c753039de38ce5113b3a76764de26de1c5bdd780",
-      "title": "knyt: gate GN + Ep #0 like every other episode; document PDF render pipeline",
-      "author": "Claude",
-      "timestamp": "2026-05-18T23:35:09Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c753039.md"
-    },
-    {
-      "sha": "f0c3a42",
-      "full_sha": "f0c3a422a8c9e4ce3e2bd9309c20895fe1f76cb9",
-      "title": "revert: AGN card back to PDFLiteReader (masterId proxy approach fails on 430MB GN — Lambda OOM)",
-      "author": "Claude",
-      "timestamp": "2026-05-16T22:27:57Z",
-      "type": "revert",
-      "brief": "items/build_/COMMITS/COMMIT-f0c3a42.md"
-    },
-    {
-      "sha": "a6c2ee8",
-      "full_sha": "a6c2ee8fb211c24be9f511c666e1517f2ad5fa04",
-      "title": "pdf viewer: surface page-load HTTP status + response body in the UI instead of forcing operator to dig through devtools",
-      "author": "Claude",
-      "timestamp": "2026-05-16T22:22:50Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-a6c2ee8.md"
-    },
-    {
-      "sha": "6d0f74d",
-      "full_sha": "6d0f74d72a8a3dc5df59d933bf64e3ce18bfb72a",
-      "title": "codex GN: set maxDuration=60 on pdf-page-by-master route (Lambda's 10s default kills the 430MB fetch mid-flight)",
-      "author": "Claude",
-      "timestamp": "2026-05-16T22:18:19Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-6d0f74d.md"
-    },
-    {
-      "sha": "af22afd",
-      "full_sha": "af22afd4f904707339fbbe04f7ba04cc11ba5158",
-      "title": "codex GN: restore masterId-proxy page-by-page rendering (from 0feeb548)",
-      "author": "Claude",
-      "timestamp": "2026-05-16T22:06:10Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-af22afd.md"
-    },
-    {
-      "sha": "6131ef3",
-      "full_sha": "6131ef306f8c69c2401b79f1bca20966577f2342",
-      "title": "add aigentMe split-screen welcome tab with persistent CopilotKit AG-UI bridge",
-      "author": "Claude",
-      "timestamp": "2026-05-14T23:33:20Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-6131ef3.md"
-    },
-    {
-      "sha": "10db221",
-      "full_sha": "10db221fa89fb080e0fcee2a4aa7ca514bfd461b",
-      "title": "feat: thin-client active-persona integration — surface ownFioHandle + parent broadcast + integration doc",
-      "author": "Claude",
-      "timestamp": "2026-05-08T01:45:25Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-10db221.md"
-    },
-    {
-      "sha": "2d81f86",
-      "full_sha": "2d81f86cc10342037812083f85683ee486ad1e15",
-      "title": "trigger amplify rebuild: sprint 3+4 investor dashboard + admin investments tab",
-      "author": "Claude",
-      "timestamp": "2026-05-08T00:24:54Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-2d81f86.md"
-    },
-    {
-      "sha": "d2c4645",
-      "full_sha": "d2c46454970e0e0f00cd510168d5e0ce82f73d26",
-      "title": "add dev note: supabase postgrest silent column error + episode thumbnail fix pattern",
-      "author": "Claude",
-      "timestamp": "2026-05-06T05:33:01Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-d2c4645.md"
-    },
-    {
-      "sha": "e09bfed",
-      "full_sha": "e09bfed180980a917574098f424aa83c4a90c133",
-      "title": "wire wallet tasks/reputation/rewards tabs to /api/wallet/tasks",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:29:58Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-e09bfed.md"
-    },
-    {
-      "sha": "49d9905",
-      "full_sha": "49d9905135a7e72919532b200ebaf6eb3de34df6",
-      "title": "migrate entitlements/list route to getSupabaseServer (timeout-guarded)",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:43:23Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-49d9905.md"
-    },
-    {
-      "sha": "69da15a",
-      "full_sha": "69da15a4abbe119fb57135ffea9258f204fb99ae",
-      "title": "migrate codex/owned route to getSupabaseServer (timeout-guarded)",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:43:36Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-69da15a.md"
-    },
-    {
-      "sha": "ff8a4f9",
-      "full_sha": "ff8a4f959579609485a7cec22364602b9409a3ca",
-      "title": "migrate wallet/personas DB client to getSupabaseServer (timeout-guarded)",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:44:10Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-ff8a4f9.md"
-    },
-    {
-      "sha": "1b0d145",
-      "full_sha": "1b0d1450aa384e6b1345e2341ca909e538b3ccff",
-      "title": "migrate wallet/knyt/balance route to getSupabaseServer (timeout-guarded)",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:44:40Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1b0d145.md"
-    },
-    {
-      "sha": "244ff4f",
-      "full_sha": "244ff4f6bc5b4c2b893ffc3db9918d60c283eadc",
-      "title": "migrate wallet/identity/profile DB client to getSupabaseServer (timeout-guarded)",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:45:14Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-244ff4f.md"
-    },
-    {
-      "sha": "eaad44a",
-      "full_sha": "eaad44a6b29e30cfbf6bd95948a15cbf91e09ef2",
-      "title": "migrate wallet/identity/consolidate DB client to getSupabaseServer (timeout-guarded)",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:46:08Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-eaad44a.md"
-    },
-    {
-      "sha": "71dbc5a",
-      "full_sha": "71dbc5a454f26969c56c1eff750c9eddf902b0d2",
-      "title": "sprint 3: add investor dashboard tables, RLS, and read/admin APIs",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:57:07Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-71dbc5a.md"
-    },
-    {
-      "sha": "b06e8df",
-      "full_sha": "b06e8df9f3698a6c12df7c77a9e60977bb9fc82a",
-      "title": "sprint 3: add KnytInvestorDashboardTab + investorOnly gating + tab wiring",
-      "author": "Claude",
-      "timestamp": "2026-05-06T20:57:12Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-b06e8df.md"
-    },
-    {
-      "sha": "37baf80",
-      "full_sha": "37baf80729073eaf0d48b39d060896894254cc52",
-      "title": "sprint 4: add KnytInvestmentsAdminTab — per-investor expandable rows + add event/doc + visibility toggle",
-      "author": "Claude",
-      "timestamp": "2026-05-06T21:05:50Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-37baf80.md"
-    },
-    {
-      "sha": "fded607",
-      "full_sha": "fded6075707a21c8c69aaadb8a5b17356f490712",
-      "title": "fix: add getOwnedAssetIds enumeration fallback to userOwnsAsset + deploy trigger",
-      "author": "Claude",
-      "timestamp": "2026-05-05T00:44:47Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-fded607.md"
-    },
-    {
-      "sha": "388cd07",
-      "full_sha": "388cd07a00682088200eb4d76c46304656de2d2d",
-      "title": "backlog: add entitlement format divergence + isEpisodeLocked redesign to Phase 2",
-      "author": "Claude",
-      "timestamp": "2026-05-05T00:25:20Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-388cd07.md"
-    },
-    {
-      "sha": "c1cd1d4",
-      "full_sha": "c1cd1d4f1cb0c69549ec48f321343cd4217826f1",
-      "title": "docs: Phase 2 SmartTriad ownership unification backlog + KNYT stabilization session update",
-      "author": "Claude",
-      "timestamp": "2026-05-04T21:57:53Z",
+      "timestamp": "2026-05-30T00:37:00Z",
       "type": "docs",
-      "brief": "items/build_/COMMITS/COMMIT-c1cd1d4.md"
+      "brief": "items/build_/COMMITS/COMMIT-1994a91.md"
     },
     {
-      "sha": "bc6c7cc",
-      "full_sha": "bc6c7cc508c72d85516bd8910e540def9e14e382",
-      "title": "fix: isEpisodeLocked() now checks metadata.owned first, eliminating badge/lock divergence",
+      "sha": "3af9161",
+      "full_sha": "3af916191e0dd308f952bf9f879c2046713afd9a",
+      "title": "TTS: 8s Cartesia abort + 18s OpenAI ceiling + per-provider error JSON",
       "author": "Claude",
-      "timestamp": "2026-05-04T21:37:47Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-bc6c7cc.md"
-    },
-    {
-      "sha": "ad4d1e5",
-      "full_sha": "ad4d1e52f0d4fd4dc67182cc720326c6a2a5d1ac",
-      "title": "trigger deploy: persona hydration + PDF meta + video mobile + admin dispatch fixes",
-      "author": "Claude",
-      "timestamp": "2026-05-04T20:40:11Z",
+      "timestamp": "2026-05-29T20:43:39Z",
       "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-ad4d1e5.md"
+      "brief": "items/build_/COMMITS/COMMIT-3af9161.md"
     },
     {
-      "sha": "d271662",
-      "full_sha": "d2716629e7be5fdaa4d88f703cbacfeaf1297015",
-      "title": "prevent pdf download on mobile: route to PDFPageViewer on mobile when CID available; replace mobile download link with iframe in PDFLiteReaderModal",
+      "sha": "3a155b8",
+      "full_sha": "3a155b825cb8f31b41e754b2f663676a29e31072",
+      "title": "trigger deploy to dev",
       "author": "Claude",
-      "timestamp": "2026-05-04T02:57:47Z",
+      "timestamp": "2026-05-29T20:43:39Z",
       "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d271662.md"
+      "brief": "items/build_/COMMITS/COMMIT-3a155b8.md"
     },
     {
-      "sha": "7389c24",
-      "full_sha": "7389c24a4b5640b88a932978f3fe9d2efb3864dd",
-      "title": "fix runtime remix modal: seed activePersonaId from PersonaContext in standalone page mode",
+      "sha": "5cbbec3",
+      "full_sha": "5cbbec335bace62a43c314be9d7fa044fd27d27b",
+      "title": "metaMe protocol primitive: R/T dots spec + TTS console diagnostics + iframe Open removal",
       "author": "Claude",
-      "timestamp": "2026-05-03T23:39:22Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-7389c24.md"
+      "timestamp": "2026-05-29T17:06:24Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5cbbec3.md"
     },
     {
-      "sha": "2d2851e",
-      "full_sha": "2d2851eae8bb80f8b1bfbb66b3ef0c7252103418",
-      "title": "add knyt token gating workstream handover notes",
+      "sha": "1cfe1c1",
+      "full_sha": "1cfe1c156ae191bc88157f20c74ad78f30ac1d33",
+      "title": "trigger deploy to dev",
       "author": "Claude",
-      "timestamp": "2026-05-02T23:16:39Z",
+      "timestamp": "2026-05-29T17:06:24Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1cfe1c1.md"
+    },
+    {
+      "sha": "da0c735",
+      "full_sha": "da0c735747325c937786704a32ed138ae41bde55",
+      "title": "TTS: expose Cartesia error in response header + pulse R/T dots during loading",
+      "author": "Claude",
+      "timestamp": "2026-05-29T15:48:14Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-da0c735.md"
+    },
+    {
+      "sha": "88d41a1",
+      "full_sha": "88d41a11c96b8b681dfdfe96f6509e650bc1ade1",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-29T15:48:14Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-88d41a1.md"
+    },
+    {
+      "sha": "3dd18ed",
+      "full_sha": "3dd18edd85219013742d0bbfa5667a65efbc9298",
+      "title": "IframeTab: move Open-in-new-tab link out of iframe overlay into chrome strip",
+      "author": "Claude",
+      "timestamp": "2026-05-29T15:03:03Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-3dd18ed.md"
+    },
+    {
+      "sha": "5088f07",
+      "full_sha": "5088f07151b95d5451bc66a3670dd03ad4d47222",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-29T15:03:03Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-5088f07.md"
+    },
+    {
+      "sha": "e5c5a1b",
+      "full_sha": "e5c5a1b719d1669665288482f1b10c5f9cf266f1",
+      "title": "copilot speaker icon: swap browser-native TTS → /api/skills/tts (Cartesia)",
+      "author": "Claude",
+      "timestamp": "2026-05-29T14:49:44Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-e5c5a1b.md"
+    },
+    {
+      "sha": "03c66b8",
+      "full_sha": "03c66b83cc5d9776a6de31e0c57e7b28c8b5cbcb",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-29T14:49:44Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-03c66b8.md"
+    },
+    {
+      "sha": "86d150a",
+      "full_sha": "86d150a417b33b2a91ec52bd177b27d0939894aa",
+      "title": "Qriptopian cartridge: add qriptopia.com iframe tab (mirrors metaMe)",
+      "author": "Claude",
+      "timestamp": "2026-05-29T14:34:59Z",
       "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-2d2851e.md"
+      "brief": "items/build_/COMMITS/COMMIT-86d150a.md"
     },
     {
-      "sha": "1ec0495",
-      "full_sha": "1ec04957d2f5e7596c4fe4f46cad5a9d4a8f338e",
-      "title": "fix entitlements enrichment for all asset id formats",
+      "sha": "bee1d11",
+      "full_sha": "bee1d11bdb79cfd2f4f7b02f7a4267e944058484",
+      "title": "trigger deploy to dev",
       "author": "Claude",
-      "timestamp": "2026-05-02T17:02:07Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-1ec0495.md"
+      "timestamp": "2026-05-29T14:34:59Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-bee1d11.md"
     },
     {
-      "sha": "91addc8",
-      "full_sha": "91addc84e3e431d2124fe6edc0eb044a2b3cb213",
-      "title": "fix build timeout: add force-dynamic to agent-llm-options route",
+      "sha": "3cdddb4",
+      "full_sha": "3cdddb486f9b195582a61f5e526379bbc4dbafd0",
+      "title": "ArtifactCard: copy-id button next to truncated receipt prefix",
       "author": "Claude",
-      "timestamp": "2026-05-02T15:21:49Z",
+      "timestamp": "2026-05-29T14:20:39Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-3cdddb4.md"
+    },
+    {
+      "sha": "7306936",
+      "full_sha": "730693658b341a326d463a55fc19e8c6346f15e9",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-29T14:20:39Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7306936.md"
+    },
+    {
+      "sha": "f9cfb44",
+      "full_sha": "f9cfb44edb9ca2441af7d0d9ef74c41606b71dd2",
+      "title": "metaMe: Cartesia TTS primary + myCanvas two-row header + metame.com iframe tab",
+      "author": "Claude",
+      "timestamp": "2026-05-29T14:10:00Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f9cfb44.md"
+    },
+    {
+      "sha": "d8ea55d",
+      "full_sha": "d8ea55d3bf40b9c240ded9e464c4066b88ca3dcf",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-29T14:10:00Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d8ea55d.md"
+    },
+    {
+      "sha": "b9e2e08",
+      "full_sha": "b9e2e083f3507bb730b7dd8ee68b2b6b0e543a8f",
+      "title": "STT: add Groq Whisper-large-v3 as fallback when OpenAI fails",
+      "author": "Claude",
+      "timestamp": "2026-05-29T09:36:27Z",
       "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-91addc8.md"
+      "brief": "items/build_/COMMITS/COMMIT-b9e2e08.md"
     },
     {
-      "sha": "9507817",
-      "full_sha": "9507817b30fbfed0b012a62876c4a5495e4f76d0",
-      "title": "fix purchase modal showing sign-in screen to authenticated users",
+      "sha": "c2b0b5f",
+      "full_sha": "c2b0b5fba1c1306b456c7d5ff331cf007a3bb978",
+      "title": "trigger deploy to dev",
       "author": "Claude",
-      "timestamp": "2026-05-02T15:18:39Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-9507817.md"
+      "timestamp": "2026-05-29T09:36:27Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c2b0b5f.md"
     },
     {
-      "sha": "960838f",
-      "full_sha": "960838f3f7538b7dabeaceb8d8f24d6ba01ae209",
-      "title": "fix persona identity persistence and library thumbnails",
+      "sha": "bebbf22",
+      "full_sha": "bebbf22991c4646aad717fd0dec35521e899ea78",
+      "title": "Phase 7B admin UI: CanonicalMintPanel mounted in KNYT Codex Admin + Registry-integration backlog",
       "author": "Claude",
-      "timestamp": "2026-05-02T14:59:59Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-960838f.md"
+      "timestamp": "2026-05-29T09:02:57Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-bebbf22.md"
     },
     {
-      "sha": "9bf2293",
-      "full_sha": "9bf229332d417c0e3b4e319a4b2fc88e737e8c48",
-      "title": "fix drawer z-index, KNYT store link, copilot on store tabs, investor tab visibility",
+      "sha": "9dce3d2",
+      "full_sha": "9dce3d294f1c2d5e6cd9273bc3b84326b031ce4e",
+      "title": "llmDraftHelper: add Venice (Llama 3.3 70B) as third-tier fallback",
       "author": "Claude",
-      "timestamp": "2026-05-01T17:21:01Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-9bf2293.md"
-    },
-    {
-      "sha": "5d9c6d7",
-      "full_sha": "5d9c6d737b221d198d43ba0526fe17a76901eb27",
-      "title": "add RaBadges asset type + editable tier/variant + upload completion feedback",
-      "author": "Claude",
-      "timestamp": "2026-05-01T15:34:43Z",
+      "timestamp": "2026-05-29T08:52:52Z",
       "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-5d9c6d7.md"
+      "brief": "items/build_/COMMITS/COMMIT-9dce3d2.md"
     },
     {
-      "sha": "738b6cc",
-      "full_sha": "738b6cc2f8af0fc183971d7a35b53d4fe902bf6c",
-      "title": "fix: migrate remaining persona ID reads to usePersonaSafe() context",
+      "sha": "f2ef1a7",
+      "full_sha": "f2ef1a78dec6da9db80076f2c8678cd1a4170ca2",
+      "title": "trigger deploy to dev",
       "author": "Claude",
-      "timestamp": "2026-05-01T14:30:15Z",
+      "timestamp": "2026-05-29T08:52:52Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f2ef1a7.md"
+    },
+    {
+      "sha": "6903e15",
+      "full_sha": "6903e15b6b0524bf4159fcbd8d9aa0716b4897cb",
+      "title": "draftLlmHelper: fix Anthropic model id — claude-sonnet-4-5 → claude-sonnet-4-6",
+      "author": "Claude",
+      "timestamp": "2026-05-29T08:40:55Z",
       "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-738b6cc.md"
+      "brief": "items/build_/COMMITS/COMMIT-6903e15.md"
     },
     {
-      "sha": "37757fa",
-      "full_sha": "37757fa4cdb9694cf9d036c834b5864e4d5e4300",
-      "title": "fix episode-0 GN upload: allow episodeNumber 0 in validation + handle non-JSON error responses",
+      "sha": "a203a05",
+      "full_sha": "a203a05d57cd6daa5b810036b14b8c82e3c0760b",
+      "title": "trigger deploy to dev",
       "author": "Claude",
-      "timestamp": "2026-05-01T14:17:25Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-37757fa.md"
+      "timestamp": "2026-05-29T08:40:55Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-a203a05.md"
     },
     {
-      "sha": "a3536fd",
-      "full_sha": "a3536fd94e1a1ad8508b9539317d46b2808222d6",
-      "title": "add asset detail drilldown to Codex Manager dashboard",
+      "sha": "89adda9",
+      "full_sha": "89adda9ac8f884c10a1c89e2af267f5fd9b940ad",
+      "title": "Guard rail — baseTokenMint refuses to broadcast unless connected RPC reports chainId 8453 (caught wrong-chain phantom-mint to Sepolia 2026-05-29)",
       "author": "Claude",
-      "timestamp": "2026-05-01T14:06:19Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-a3536fd.md"
+      "timestamp": "2026-05-29T08:16:01Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-89adda9.md"
     },
     {
-      "sha": "f0315bc",
-      "full_sha": "f0315bc42f43174e729bbd4e2fb574229badbe5b",
-      "title": "fix: KNYT store sign-in gate, balance flicker, and EVM KNYT display",
+      "sha": "477030b",
+      "full_sha": "477030b561120cc3d3d56fa80d55f66e48e1b658",
+      "title": "STT timeout + composer state persistence (sub-tab survival)",
       "author": "Claude",
-      "timestamp": "2026-05-01T14:00:19Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-f0315bc.md"
+      "timestamp": "2026-05-29T07:21:26Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-477030b.md"
     },
     {
-      "sha": "e44f7f6",
-      "full_sha": "e44f7f6608623af235c0d69e912f078fb6f0a71f",
-      "title": "fix Brave compatibility — storage guards, fetch timeouts, static fallbacks",
+      "sha": "81104c7",
+      "full_sha": "81104c7cc922b3561ae32b59f4050fc7835d733f",
+      "title": "trigger deploy to dev",
       "author": "Claude",
-      "timestamp": "2026-05-01T06:44:19Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-e44f7f6.md"
+      "timestamp": "2026-05-29T07:21:26Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-81104c7.md"
     },
     {
-      "sha": "e7b0bda",
-      "full_sha": "e7b0bda4895da2d6229ef830387e38367d35c9ea",
-      "title": "fix: SmartWalletDrawer hook-order TDZ — declare archived-persona useState before allAvailablePersonas useMemo",
+      "sha": "d36a2ae",
+      "full_sha": "d36a2aece3b47d3f92fe9f55e9c7b038260df313",
+      "title": "Record ContentQubeEditions Base mainnet deploy (0x6Ca41CB4… verified) + Amplify env-var update",
       "author": "Claude",
-      "timestamp": "2026-05-01T04:17:07Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-e7b0bda.md"
-    },
-    {
-      "sha": "4aade85",
-      "full_sha": "4aade85e3775e7d77bab1c7d0c43f8818798b8ba",
-      "title": "fix: remove dead default imports from wallet barrel to break TDZ chain",
-      "author": "Claude",
-      "timestamp": "2026-05-01T03:17:09Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-4aade85.md"
-    },
-    {
-      "sha": "59216d8",
-      "full_sha": "59216d8665642b76d5df47f402d19fea18c6a4f6",
-      "title": "chore: update next-env.d.ts — remove stale navigation compat reference",
-      "author": "Claude",
-      "timestamp": "2026-05-01T02:56:02Z",
+      "timestamp": "2026-05-29T06:57:06Z",
       "type": "chore",
-      "brief": "items/build_/COMMITS/COMMIT-59216d8.md"
+      "brief": "items/build_/COMMITS/COMMIT-d36a2ae.md"
     },
     {
-      "sha": "73f4581",
-      "full_sha": "73f458158c5a80667aa1ec7593eb51edf622c07e",
-      "title": "KNYT cart Phase 3b — buy-more-KNYT panel when KNYT rail is short",
+      "sha": "68482e1",
+      "full_sha": "68482e1723de235ac7822337d469de7a3e5b3fa0",
+      "title": "artifact card + receipt: surface attachment count for diagnostics",
       "author": "Claude",
-      "timestamp": "2026-04-30T23:01:48Z",
+      "timestamp": "2026-05-29T05:57:30Z",
       "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-73f4581.md"
+      "brief": "items/build_/COMMITS/COMMIT-68482e1.md"
     },
     {
-      "sha": "0008bf6",
-      "full_sha": "0008bf684abd7b1416590185a3586f9fb45ec4bf",
-      "title": "KNYT cart Phase 2c — multi-item KnytCartCheckoutModal replaces per-item iteration",
+      "sha": "52ab4ac",
+      "full_sha": "52ab4ace7488030e368adfdb23276d22a3c7359b",
+      "title": "trigger deploy to dev",
       "author": "Claude",
-      "timestamp": "2026-04-30T22:51:53Z",
+      "timestamp": "2026-05-29T05:57:30Z",
       "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0008bf6.md"
+      "brief": "items/build_/COMMITS/COMMIT-52ab4ac.md"
     },
     {
-      "sha": "feea823",
-      "full_sha": "feea8234cd7c2690a3ede44c295d11456f456179",
-      "title": "KNYT cart Phase 2b — server-side /api/cart/{quote,complete} endpoints",
+      "sha": "78bea0f",
+      "full_sha": "78bea0fcc98199c82f64829dfc6727ff3952610e",
+      "title": "draft services: Anthropic primary, OpenAI secondary (was OpenAI-only)",
       "author": "Claude",
-      "timestamp": "2026-04-30T22:48:41Z",
+      "timestamp": "2026-05-29T05:54:57Z",
       "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-feea823.md"
+      "brief": "items/build_/COMMITS/COMMIT-78bea0f.md"
     },
     {
-      "sha": "dcb38e6",
-      "full_sha": "dcb38e631287046eaa3fa7fe5b00b03d04366412",
-      "title": "KNYT cart Phase 2a — carry contentType + productType-mapper on cart lines",
+      "sha": "9700f42",
+      "full_sha": "9700f42986666043052d2deb142d20c34d6fe32b",
+      "title": "trigger deploy to dev",
       "author": "Claude",
-      "timestamp": "2026-04-30T22:45:54Z",
+      "timestamp": "2026-05-29T05:54:57Z",
       "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-dcb38e6.md"
+      "brief": "items/build_/COMMITS/COMMIT-9700f42.md"
     },
     {
-      "sha": "473ad62",
-      "full_sha": "473ad62a92c619967a12c7db4001cdf6513993f1",
-      "title": "KNYT cart Phase 1.2 — close drawer on checkout + cart context in payment modal",
+      "sha": "ec82d25",
+      "full_sha": "ec82d25c7eb260821d855d8b4535b3013c9a24a2",
+      "title": "Add ContentQubeEditions (ERC-1155) contract + Base mainnet deploy script — closes Phase 7B edition mint loop",
       "author": "Claude",
-      "timestamp": "2026-04-30T22:25:33Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-473ad62.md"
+      "timestamp": "2026-05-29T05:26:03Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-ec82d25.md"
     },
     {
-      "sha": "1df879d",
-      "full_sha": "1df879d82d14367f421511c5051f8a99a05cb356",
-      "title": "KNYT cart Phase 1.1 — split Buy/+Cart buttons across all 4 store tabs",
+      "sha": "d388e2a",
+      "full_sha": "d388e2aa1f3470f27445b66b52d3d166b2413816",
+      "title": "Phase 7B mint-trigger admin routes + widen env-var aliases (IQUBE_NFT_CONTRACT_ADDRESS accepted for ERC-721 master)",
       "author": "Claude",
-      "timestamp": "2026-04-30T21:43:10Z",
+      "timestamp": "2026-05-29T05:04:32Z",
       "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1df879d.md"
+      "brief": "items/build_/COMMITS/COMMIT-d388e2a.md"
+    },
+    {
+      "sha": "1b7d6bd",
+      "full_sha": "1b7d6bd25d7e6185d080f8a3d6ab32a0d025e7a9",
+      "title": "Mark QCT + iQubeNFT + QCTReserve as source-verified on Basescan (deployment registry)",
+      "author": "Claude",
+      "timestamp": "2026-05-29T00:27:23Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1b7d6bd.md"
+    },
+    {
+      "sha": "395a8f2",
+      "full_sha": "395a8f295c88f34fc50c78b5affedaa228b9ba76",
+      "title": "Switch hardhat verify config to Etherscan V2 (chain-agnostic single key); V1 endpoints retired May 31, 2025",
+      "author": "Claude",
+      "timestamp": "2026-05-29T00:18:58Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-395a8f2.md"
+    },
+    {
+      "sha": "2bd4971",
+      "full_sha": "2bd4971b651f4b4e655aad6b710c9b08474900fa",
+      "title": "Record Base mainnet deploy artefacts + add basescan verify config (etherscan.apiKey.base, customChains for chainId 8453)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T23:58:20Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-2bd4971.md"
+    },
+    {
+      "sha": "125b99e",
+      "full_sha": "125b99ecd34223386faa432f7e0d9265a81c3634",
+      "title": "Record live Base mainnet addresses: QCT, iQubeNFT, QCTReserve (deployed 2026-05-28)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T23:45:56Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-125b99e.md"
+    },
+    {
+      "sha": "7c30d2e",
+      "full_sha": "7c30d2ec4bb2afeded912c206d648663e630416c",
+      "title": "Set hardhat evmVersion: 'cancun' (default is 'paris'; OpenZeppelin Bytes.sol mcopy needs Cancun, Base mainnet supports it)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T23:33:41Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7c30d2e.md"
+    },
+    {
+      "sha": "5c63350",
+      "full_sha": "5c63350364acdf04dba1593ce02d1d095672289b",
+      "title": "Bump hardhat solidity compiler 0.8.20 → 0.8.24 (OpenZeppelin v5 requires ^0.8.24)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T23:30:40Z",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-5c63350.md"
+    },
+    {
+      "sha": "2e4ee0b",
+      "full_sha": "2e4ee0bf67fd2a377f9f706d8cd7a1e1ea5eec43",
+      "title": "Add scripts/deploy-qct-reserve-base-mainnet.js — chain-pinned QCTReserve deploy with canonical Circle USDC + setReserve linking",
+      "author": "Claude",
+      "timestamp": "2026-05-28T22:41:48Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-2e4ee0b.md"
+    },
+    {
+      "sha": "f517444",
+      "full_sha": "f517444cd52117ed03cc53c790f29948e744171b",
+      "title": "Add scripts/verify-deployer-key.js — local key→address derivation, no RPC, pre-deploy sanity check",
+      "author": "Claude",
+      "timestamp": "2026-05-28T22:16:32Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-f517444.md"
+    },
+    {
+      "sha": "b41253f",
+      "full_sha": "b41253fc1664d19fdffb96f5e9f5dda6c8dd7299",
+      "title": "Add chain-pinned + balance-prechecked Base mainnet deploy scripts for QCT + iQubeNFT (single-network, no multi-deploy bug)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T22:12:53Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-b41253f.md"
+    },
+    {
+      "sha": "9ddf15d",
+      "full_sha": "9ddf15d9dbe5ed9097b2c057462735aa23748e18",
+      "title": "KNYT store: surface-scoped includes + initialClaimed in sku-supply + retail X-of-Y badge",
+      "author": "Claude",
+      "timestamp": "2026-05-28T21:14:28Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-9ddf15d.md"
+    },
+    {
+      "sha": "51be5ac",
+      "full_sha": "51be5ac706de3e8dfab07ab81bcd79931b180b3f",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-28T21:14:28Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-51be5ac.md"
+    },
+    {
+      "sha": "9294258",
+      "full_sha": "9294258385854d28b253003fd0ad83389bbb999e",
+      "title": "KNYT store: Franchisee PoA 15 of 21 + First KNYT investor signed-AGN gate",
+      "author": "Claude",
+      "timestamp": "2026-05-28T18:21:59Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-9294258.md"
+    },
+    {
+      "sha": "0ccf0e0",
+      "full_sha": "0ccf0e04d7a4a5e3bef6f2fecde976a8df857e9f",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-28T18:21:59Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0ccf0e0.md"
+    },
+    {
+      "sha": "28cb0d4",
+      "full_sha": "28cb0d4e0cb8309e40c6a56e128b109b1013f694",
+      "title": "compose modals: thread personaId to UploadAttachmentPicker",
+      "author": "Claude",
+      "timestamp": "2026-05-28T16:49:46Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-28cb0d4.md"
+    },
+    {
+      "sha": "aa1d41a",
+      "full_sha": "aa1d41aa3f274f12f000d93919f720923413fe4f",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-28T16:49:46Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-aa1d41a.md"
+    },
+    {
+      "sha": "a7cce75",
+      "full_sha": "a7cce75b6c219eb6aa70e7e702738edd3944f43e",
+      "title": "Fix Qube tool id encoding: tool-<name> canonical, tool_<name> legacy fallback (registered names use hyphens, not underscores)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T16:34:26Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-a7cce75.md"
+    },
+    {
+      "sha": "3bdae27",
+      "full_sha": "3bdae274891dcb57df8bf86d295488a89d4a284f",
+      "title": "uploads: keep status='ready' on enrichment failure + clarify Marketa label",
+      "author": "Claude",
+      "timestamp": "2026-05-28T16:22:20Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-3bdae27.md"
+    },
+    {
+      "sha": "ef74414",
+      "full_sha": "ef7441484ee38433cb55c919b0077b63d0312f68",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-28T16:22:20Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-ef74414.md"
+    },
+    {
+      "sha": "2deac7d",
+      "full_sha": "2deac7d1196005083f433fb2bb2567a7f55367b8",
+      "title": "add persona-uploads bucket setup runbook",
+      "author": "Claude",
+      "timestamp": "2026-05-28T16:11:00Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-2deac7d.md"
+    },
+    {
+      "sha": "9754fe6",
+      "full_sha": "9754fe68951ff0635100c92b5beca363881b14f9",
+      "title": "iQube Legibility Profile v0.1 — Commit 6/6: well-known catalog route + vitest suite + docs",
+      "author": "Claude",
+      "timestamp": "2026-05-28T15:45:51Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-9754fe6.md"
+    },
+    {
+      "sha": "1e657ab",
+      "full_sha": "1e657ab9eb63f541449c567fb831baef420ee559",
+      "title": "iQube Legibility Profile v0.1 — Commit 5/6: GET /policy + /actions routes (with private_payload_exposed structural lock)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T15:43:33Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1e657ab.md"
+    },
+    {
+      "sha": "d5b2194",
+      "full_sha": "d5b2194a78cdbbfeca78d07911d0eecfbb4f51e3",
+      "title": "iQube Legibility Profile v0.1 — Commit 2/6: card builder + lifecycle/visibility/permission mappers",
+      "author": "Claude",
+      "timestamp": "2026-05-28T15:39:31Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d5b2194.md"
+    },
+    {
+      "sha": "b317316",
+      "full_sha": "b3173162713c3a93dee28e0a283019da3a06d310",
+      "title": "reinstate persona-uploads frontend wiring (lost in stable-build revert)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T15:21:08Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b317316.md"
+    },
+    {
+      "sha": "808e230",
+      "full_sha": "808e230cc244296acc8a70c8a0d1a4d2f5185031",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-28T15:21:13Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-808e230.md"
+    },
+    {
+      "sha": "1b7c2f8",
+      "full_sha": "1b7c2f815589b2c32b83164cec12a0b79e7df571",
+      "title": "harden aigentMe Capsule/Layout contract — single activator + guardrails",
+      "author": "Claude",
+      "timestamp": "2026-05-28T15:13:58Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1b7c2f8.md"
+    },
+    {
+      "sha": "29b5492",
+      "full_sha": "29b5492eaab95029b48cc271f3194d2adddc13dc",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-28T15:13:58Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-29b5492.md"
+    },
+    {
+      "sha": "614526f",
+      "full_sha": "614526f4b5f73f138b61b0477c5df0d8b2c10514",
+      "title": "Backlog: 21 Sats Franchises store_skus seed + KNYT COYN bonus payout wiring",
+      "author": "Claude",
+      "timestamp": "2026-05-28T15:12:14Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-614526f.md"
+    },
+    {
+      "sha": "b226c88",
+      "full_sha": "b226c88aa765d6e244364132ef53e2951f5d8d25",
+      "title": "fix capsule disappearance + restore Pill pattern to Move-forward + Venture",
+      "author": "Claude",
+      "timestamp": "2026-05-28T05:43:50Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-b226c88.md"
+    },
+    {
+      "sha": "6ce6085",
+      "full_sha": "6ce60855cc5da589f07892b3a6784f1fed8ba046",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-28T05:43:54Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-6ce6085.md"
+    },
+    {
+      "sha": "d52a3a5",
+      "full_sha": "d52a3a5f4295f08ea59c7d9b202f41c3c7cbb0b7",
+      "title": "Suppress 21 Sats Franchises in retail Premium Bundles + use personaFetch for purchase complete + paypal (fix 401)",
+      "author": "Claude",
+      "timestamp": "2026-05-28T03:53:24Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-d52a3a5.md"
+    },
+    {
+      "sha": "f40facd",
+      "full_sha": "f40facd5b5f8cdfa7b030783c18584eec135bc5a",
+      "title": "Use Satoshi gold seal for 21 Sats Franchise cards + admin override on investor-tab + cohort gates",
+      "author": "Claude",
+      "timestamp": "2026-05-28T02:59:24Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f40facd.md"
+    },
+    {
+      "sha": "7f85e60",
+      "full_sha": "7f85e60de82fed0e2ebde2f2422581d490398fce",
+      "title": "Add 21 Sats Franchises section to KNYT investor tab — 3 gold cards, ZeroKNYT cohort gate, PoA mailto, no-KNYT-rail flag, tab investor-gated",
+      "author": "Claude",
+      "timestamp": "2026-05-28T02:00:33Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-7f85e60.md"
+    },
+    {
+      "sha": "d6a7362",
+      "full_sha": "d6a73629b42b74c009c1e4da7e6826eec66b6027",
+      "title": "Reorder Qripto Papers grid — Experience Sovereignty, COYN Thesis, The Polity at the top",
+      "author": "Claude",
+      "timestamp": "2026-05-28T00:35:47Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d6a7362.md"
+    },
+    {
+      "sha": "f6143da",
+      "full_sha": "f6143daf264a210d110196500c8e6b3555e3748d",
+      "title": "Add editorial scope order — Experience Sovereignty now sits above COYN Thesis in Qripto Papers grid",
+      "author": "Claude",
+      "timestamp": "2026-05-27T22:30:29Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-f6143da.md"
+    },
+    {
+      "sha": "b82bb3a",
+      "full_sha": "b82bb3a87c6fdba4a46c898196b7d8c1e9a9b214",
+      "title": "Pair Qripto covers to papers by shared title stem (case+punct normalised) — works when covers have headings but no leading number",
+      "author": "Claude",
+      "timestamp": "2026-05-27T20:58:22Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b82bb3a.md"
+    },
+    {
+      "sha": "c305db9",
+      "full_sha": "c305db9bc61d5afe72a79e731d26b5c3ffe7749d",
+      "title": "Sort Qripto Papers grid by leading sequence number in title so #1 sits left of each series row",
+      "author": "Claude",
+      "timestamp": "2026-05-27T20:54:33Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c305db9.md"
+    },
+    {
+      "sha": "e0e0470",
+      "full_sha": "e0e0470958421d0ab7f4fce6bfa261d7cef776ca",
+      "title": "Pair Qripto covers to papers by created_at index + add ID + URL columns to admin table (KNYT parity)",
+      "author": "Claude",
+      "timestamp": "2026-05-27T19:24:25Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-e0e0470.md"
+    },
+    {
+      "sha": "47347c4",
+      "full_sha": "47347c40af2ff2046edd5aa3357b84b3e75e36a1",
+      "title": "Remove cover_pdf upload option + add CLAUDE.md must-read on PDF-grid-with-image-cover pattern",
+      "author": "Claude",
+      "timestamp": "2026-05-27T18:50:28Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-47347c4.md"
+    },
+    {
+      "sha": "df780ef",
+      "full_sha": "df780eff29c51ac0c493de83a153170a9c55388c",
+      "title": "Match KNYT cover pattern exactly: covers are images, no pdfjs rasteriser, no fake worker",
+      "author": "Claude",
+      "timestamp": "2026-05-27T18:41:54Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-df780ef.md"
+    },
+    {
+      "sha": "51f6a32",
+      "full_sha": "51f6a32f6652ecec53bceb42d60f131cc9e2993c",
+      "title": "Use pdfjs-dist legacy build (no worker) in PDF-thumb route so Lambda doesnt look for pdf.worker.mjs",
+      "author": "Claude",
+      "timestamp": "2026-05-27T15:26:46Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-51f6a32.md"
+    },
+    {
+      "sha": "31d3a6a",
+      "full_sha": "31d3a6a0a3b762e7809ff6a62487620ea051e739",
+      "title": "Polyfill Promise.withResolvers in PDF-thumb route (pdfjs-dist 4.x needs Node 22 method on Amplify Node 20)",
+      "author": "Claude",
+      "timestamp": "2026-05-27T14:50:45Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-31d3a6a.md"
+    },
+    {
+      "sha": "b83c732",
+      "full_sha": "b83c7325a5f9aaa7198495ca6cfd273b5f2ba2de",
+      "title": "Rasterise PDF covers server-side to WebP so they render as real thumbnails",
+      "author": "Claude",
+      "timestamp": "2026-05-27T05:26:35Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b83c732.md"
+    },
+    {
+      "sha": "b386014",
+      "full_sha": "b38601486449bf62b1d5a54b3851817b05ce4f63",
+      "title": "Mirror Qripto Codex tabs (Magazines / Papers / Polity) into metaMe qriptopia group",
+      "author": "Claude",
+      "timestamp": "2026-05-27T05:03:53Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b386014.md"
+    },
+    {
+      "sha": "c52d1aa",
+      "full_sha": "c52d1aa56f1aa70a184bbe2ed9224c5e53c930e2",
+      "title": "Render PDF covers via iframe + adopt KNYT 4-up card grid pattern for Qripto Papers",
+      "author": "Claude",
+      "timestamp": "2026-05-27T04:43:58Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c52d1aa.md"
+    },
+    {
+      "sha": "6352ef3",
+      "full_sha": "6352ef3ca5399e596a310146becde5b29d515e2c",
+      "title": "Surface every Qripto upload row in admin (covers + papers) with diagnostics + bust Next cache",
+      "author": "Claude",
+      "timestamp": "2026-05-27T04:39:35Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-6352ef3.md"
+    },
+    {
+      "sha": "95e536c",
+      "full_sha": "95e536c123a2ea1d8a8abfa8363edaa6fda4f1bf",
+      "title": "Skip encryption-at-rest for Qripto WIP uploads + open papers in PDF lite viewer",
+      "author": "Claude",
+      "timestamp": "2026-05-27T03:34:50Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-95e536c.md"
+    },
+    {
+      "sha": "0e1fe66",
+      "full_sha": "0e1fe6681e3c77d69719e6cdf8e8b7d082ead602",
+      "title": "Wire Qriptopian Papers tab + admin codex list to actual asset data",
+      "author": "Claude",
+      "timestamp": "2026-05-27T01:55:18Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-0e1fe66.md"
+    },
+    {
+      "sha": "9f14330",
+      "full_sha": "9f14330f44a8696d174ec644f4ccf4a9d1666d5d",
+      "title": "Add Qripto Cover content type + fix upload preview link for Supabase URLs",
+      "author": "Claude",
+      "timestamp": "2026-05-27T01:31:26Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-9f14330.md"
+    },
+    {
+      "sha": "ddadc89",
+      "full_sha": "ddadc89d29ab2d98801f3803542c79ced24f142e",
+      "title": "Replace Qripto assetKind dropdown with Standalone | Part of a Series + X of Y inputs",
+      "author": "Claude",
+      "timestamp": "2026-05-27T00:21:51Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-ddadc89.md"
+    },
+    {
+      "sha": "0929def",
+      "full_sha": "0929defe329a50b4aafb64ab20133def0b25edc1",
+      "title": "Qripto-aware Codex Upload modal — Series + Content Types live",
+      "author": "Claude",
+      "timestamp": "2026-05-26T23:14:25Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0929def.md"
+    },
+    {
+      "sha": "6997901",
+      "full_sha": "6997901e0c04a54bf5f02612089cc8179fc86b1f",
+      "title": "Qriptopian Pulse — wire live + clone admin moderation + drop \"Admin\" labels",
+      "author": "Claude",
+      "timestamp": "2026-05-26T22:32:43Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-6997901.md"
+    },
+    {
+      "sha": "41c69e5",
+      "full_sha": "41c69e5e2541419c0984af0d68a7ae27a9b652ab",
+      "title": "myCanvas → Pulse publish + cartridge split end-to-end",
+      "author": "Claude",
+      "timestamp": "2026-05-26T20:49:13Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-41c69e5.md"
+    },
+    {
+      "sha": "fd34baa",
+      "full_sha": "fd34baa4a7e05b89c58e3e360219aeff46868e44",
+      "title": "Qriptopian Cartridge v3.1 refinement — Store, Qriptopia, Admin reorder + Community Correspondent",
+      "author": "Claude",
+      "timestamp": "2026-05-26T19:55:50Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-fd34baa.md"
+    },
+    {
+      "sha": "51d51fa",
+      "full_sha": "51d51fae303507f02a72d2fd6eb7e0679f7decbe",
+      "title": "Qriptopian Cartridge v3 restructure + KNYT Pulse rename",
+      "author": "Claude",
+      "timestamp": "2026-05-26T17:53:08Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-51d51fa.md"
+    },
+    {
+      "sha": "c56ae59",
+      "full_sha": "c56ae59256287ce9c5aa09bc97a39ae13057731a",
+      "title": "copilot: kill KNYT lore bias + thread brief shape + admin grants into LLM context",
+      "author": "Claude",
+      "timestamp": "2026-05-26T14:46:41Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c56ae59.md"
+    },
+    {
+      "sha": "f32d517",
+      "full_sha": "f32d51767fafb82350355a26b99a64695f2a1d13",
+      "title": "copilot: wire mic to STT + add Listen TTS + persist messages + clear affordance",
+      "author": "Claude",
+      "timestamp": "2026-05-26T14:19:24Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-f32d517.md"
+    },
+    {
+      "sha": "89d80cf",
+      "full_sha": "89d80cfd47367eb3754cc9a1afc9ce24fc82007e",
+      "title": "AgentiQ OS: stub Admin tabGroup so the mirror has content",
+      "author": "Claude",
+      "timestamp": "2026-05-26T10:12:01Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-89d80cf.md"
+    },
+    {
+      "sha": "f9a34db",
+      "full_sha": "f9a34dbad05f7767c10c357a53959f39415c7355",
+      "title": "register TabRendererFallback component + add Admin under Marketa Partner",
+      "author": "Claude",
+      "timestamp": "2026-05-26T10:09:35Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-f9a34db.md"
+    },
+    {
+      "sha": "7c3125f",
+      "full_sha": "7c3125f382b6d9078474b850461a57bdf1549716",
+      "title": "CLAUDE.md: dual-source cartridge registration rule (hand-curated wins)",
+      "author": "Claude",
+      "timestamp": "2026-05-26T09:55:18Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7c3125f.md"
+    },
+    {
+      "sha": "ea60f8e",
+      "full_sha": "ea60f8e87e08db5782fe0bf1bf1be7d34765de13",
+      "title": "CLAUDE.md: document spine-fetch auth contract + per-cartridge admin grants",
+      "author": "Claude",
+      "timestamp": "2026-05-26T09:53:25Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-ea60f8e.md"
+    },
+    {
+      "sha": "41d1079",
+      "full_sha": "41d107988fae82afb82700340424a2d554ddcac2",
+      "title": "fix admin-tab visibility: hook uses personaFetch (Bearer token), not raw fetch",
+      "author": "Claude",
+      "timestamp": "2026-05-26T09:47:13Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-41d1079.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

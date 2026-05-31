@@ -27,7 +27,10 @@ const SYSTEM_PROMPT = `You rerank an eligible Next-Best-Experience (NBE) candida
 Return ONE JSON object exactly:
 {
   "order": [ "<nbe id>", ... ],
-  "topReason": "<one short sentence — why the new #1 is the strongest move right now>"
+  "topReason": "<one short sentence — why the new #1 is the strongest move right now>",
+  "nbaPromptHints": {
+    "<nbe id>": "<≤200-char concrete compose / action prompt tailored to this persona — see Rules>"
+  }
 }
 
 Rules:
@@ -37,8 +40,27 @@ Rules:
   1. clears the persona's biggest current blocker, OR
   2. directly serves the inferred-strategy headline / primary goal, OR
   3. unlocks compounding moves (e.g. workspace draft → outreach).
+- When a "liveContext" string is provided, treat it as a fresh signal
+  from a capability tool (e.g. web-search, owned-content-scan). Use it
+  to break ties or boost a candidate whose rationale lines up with the
+  signal — but never let it override the deterministic eligibility set,
+  and never invent ids. If it's noise, ignore it.
 - Penalise candidates that duplicate work the persona has already done.
-- topReason: ≤ 140 chars, concrete (reference the actual blocker or goal). No markdown.`;
+- topReason: ≤ 140 chars, concrete (reference the actual blocker or goal, or the live signal when it drove the pick). No markdown.
+- nbaPromptHints — for EACH id in your "order" array, emit one short
+  prompt string the operator could feed straight into a compose modal
+  (or use as a starting frame for non-compose actions). Each hint MUST:
+    * Reference the persona's actual primary goal, stage, active
+      cartridges, or experienceGoals — never generic copy.
+    * Be ≤ 200 chars.
+    * Sound like instructions to a drafting assistant ("Draft an
+      outreach to <named partner> about <specific situation>…",
+      "Working spec for <specific deliverable> anchored to <named
+      goal>…", "Add a KPI for <specific metric> targeting <number>…").
+    * Skip the hint (omit the key) ONLY when you genuinely have no
+      grounded signal for that NBA — never invent a name or number.
+    * No markdown, no JSON-escaped newlines, no T0 ids (personaId /
+      auth_profile_id / tenant_id / kybe_did).`;
 
 interface RerankContext {
   currentStage: ExperienceStage;
@@ -46,6 +68,13 @@ interface RerankContext {
   primaryGoal: string | null;
   experienceGoals: string[];
   strategy: InferredStrategy | null;
+  /**
+   * Optional Capability Gateway pre-flight summary (e.g. web-search
+   * digest, owned-content-scan finding). Surfaces as a `liveContext`
+   * field in the prompt body. Empty / null => omitted entirely so the
+   * prompt shape stays stable for callers that don't have a gather.
+   */
+  liveContext?: string | null;
 }
 
 function stripJsonFences(raw: string): string {
@@ -88,6 +117,10 @@ function summariseForPrompt(
   candidates: NbeCandidate[],
   ctx: RerankContext,
 ): string {
+  const liveContext =
+    typeof ctx.liveContext === 'string' && ctx.liveContext.trim().length > 0
+      ? ctx.liveContext.trim().slice(0, 600)
+      : null;
   return JSON.stringify(
     {
       persona: {
@@ -104,6 +137,7 @@ function summariseForPrompt(
             coherence: ctx.strategy.coherenceNote,
           }
         : null,
+      ...(liveContext ? { liveContext } : {}),
       candidates: candidates.map((c) => ({
         id: c.id,
         label: c.label,
@@ -126,6 +160,12 @@ export interface NbeRerankResult {
   ranked: NbeCandidate[];
   /** ≤140-char rationale for the new top pick. Null when no LLM pass ran. */
   topReason: string | null;
+  /**
+   * Optional per-NBA compose / action prompt hints, keyed by NBE id.
+   * Renders as the italic "aigentMe's take" line on the NBA card and
+   * doubles as composerInitialPrompt when Act maps to a compose modal.
+   */
+  nbaPromptHints: Record<string, string>;
   /** True when the LLM call succeeded and produced a usable order. */
   llmApplied: boolean;
 }
@@ -138,20 +178,20 @@ export async function llmRerankNbeCandidates(
   candidates: NbeCandidate[],
   ctx: RerankContext,
 ): Promise<NbeRerankResult> {
-  if (!ANTHROPIC_API_KEY) return { ranked: candidates, topReason: null, llmApplied: false };
-  if (candidates.length < 2) return { ranked: candidates, topReason: null, llmApplied: false };
+  if (!ANTHROPIC_API_KEY) return { ranked: candidates, topReason: null, nbaPromptHints: {}, llmApplied: false };
+  if (candidates.length < 2) return { ranked: candidates, topReason: null, nbaPromptHints: {}, llmApplied: false };
 
   const raw = await callAnthropic(summariseForPrompt(candidates, ctx));
-  if (!raw) return { ranked: candidates, topReason: null, llmApplied: false };
+  if (!raw) return { ranked: candidates, topReason: null, nbaPromptHints: {}, llmApplied: false };
 
-  let parsed: { order?: unknown; topReason?: unknown };
+  let parsed: { order?: unknown; topReason?: unknown; nbaPromptHints?: unknown };
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return { ranked: candidates, topReason: null, llmApplied: false };
+    return { ranked: candidates, topReason: null, nbaPromptHints: {}, llmApplied: false };
   }
   if (!parsed || !Array.isArray(parsed.order)) {
-    return { ranked: candidates, topReason: null, llmApplied: false };
+    return { ranked: candidates, topReason: null, nbaPromptHints: {}, llmApplied: false };
   }
 
   const validIds = new Set(candidates.map((c) => c.id));
@@ -175,5 +215,16 @@ export async function llmRerankNbeCandidates(
       ? parsed.topReason.trim().slice(0, 200)
       : null;
 
-  return { ranked, topReason, llmApplied: true };
+  const nbaPromptHints: Record<string, string> = {};
+  if (parsed.nbaPromptHints && typeof parsed.nbaPromptHints === 'object' && !Array.isArray(parsed.nbaPromptHints)) {
+    for (const [id, hint] of Object.entries(parsed.nbaPromptHints as Record<string, unknown>)) {
+      if (!validIds.has(id)) continue;
+      if (typeof hint !== 'string') continue;
+      const trimmed = hint.trim();
+      if (trimmed.length === 0) continue;
+      nbaPromptHints[id] = trimmed.slice(0, 200);
+    }
+  }
+
+  return { ranked, topReason, nbaPromptHints, llmApplied: true };
 }

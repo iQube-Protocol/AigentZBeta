@@ -410,6 +410,11 @@ export const KNYT_CODEX: CodexConfig = {
       label: 'Investor KNYT',
       slug: 'store-investor',
       enabled: true,
+      // CRM-investor gated — hidden from the public pill rail until the
+      // persona resolves to a nakamoto_knyt_personas row. Tab component
+      // also runs the same check server-side and refuses to render
+      // purchase actions for non-investors (defence in depth).
+      investorOnly: true,
       group: 'store',
       order: 3,
       type: 'static',
@@ -638,19 +643,71 @@ export const KNYT_CODEX: CodexConfig = {
     // ── Community Generated Content (under Order — surfaces in metaMe's
     // Order of Metayé via knytOrderTabs() mirror) ──────────────────────
     {
+      // Rebrand 2026-05-26: "Community" → "KNYT Pulse" per the Qriptopian
+      // restructure brief. The id stays `community-content` for slug /
+      // permalink stability; the user-visible label and route slug both
+      // move to "pulse". The deeper 21 Sats voting handoff nuance lands
+      // separately — see codexes/packs/agentiq/updates/
+      // 2026-05-26_knyt-pulse-21sats-handoff-backlog.md.
       id: 'community-content',
-      label: 'Community',
-      slug: 'community-content',
+      label: 'KNYT Pulse',
+      slug: 'pulse',
       enabled: true,
       group: 'order-group',
       order: 6,
       type: 'static',
       config: { component: 'KnytCommunityContentTab' },
       metadata: {
-        icon: 'Sparkles',
-        description: 'Community-remixed articles and KNYT stories',
+        icon: 'Radio',
+        description: 'KNYT Pulse — community-remixed articles and KNYT stories',
         color: 'violet'
       }
+    },
+
+    // Admin under Order — KNYT cartridge owns the inclusion logic
+    // natively. The mirror in metaMe (`knytOrderTabs()`) picks this up
+    // automatically, so the same Admin sub-menu appears inside metaMe's
+    // Order of Metayé tier-3 nav without any metaMe-side wiring.
+    //
+    // Per-cartridge gate: only personas listed as admins of KNYT in CRM
+    // see this tab (via cartridgeFlags.adminCartridges from the spine).
+    // Global uber/platform admins satisfy the gate too. The cloned
+    // subTabs inherit the same gate as defense in depth.
+    {
+      id: 'order-admin',
+      label: 'Admin',
+      slug: 'order-admin',
+      enabled: true,
+      adminOfCartridge: 'knyt-codex',
+      group: 'order-group',
+      order: 7,
+      type: 'static',
+      config: { component: 'TabRendererFallback', props: {} },
+      metadata: {
+        icon: 'Settings',
+        description: 'KNYT admin surface — visible only to KNYT cartridge admins',
+        color: 'indigo'
+      },
+      // Reference the same admin tab definitions used by the standalone
+      // KNYT Admin tabGroup — but clone with adminOnly dropped and the
+      // per-cartridge gate applied so tenant-admins (not just global
+      // uber-admins) see them.
+      get subTabs() {
+        // Lazy getter — KNYT_CODEX.tabs isn't fully constructed when
+        // this object literal evaluates inside the same tabs array.
+        // Reading via a getter defers until KNYT_CODEX is complete.
+        return KNYT_CODEX.tabs
+          .filter((t) => t.group === 'admin' && t.enabled)
+          .sort((a, b) => a.order - b.order)
+          .map((t) => ({
+            ...t,
+            id: `order-admin-${t.id}`,
+            slug: `order-admin-${t.slug}`,
+            adminOnly: false,
+            adminOfCartridge: 'knyt-codex',
+            group: 'order-group',
+          }));
+      },
     },
 
     // ── Admin group (admin-gated) ──────────────────────────────
@@ -815,7 +872,7 @@ export const QRIPTO_CODEX: CodexConfig = {
   name: 'Qriptopian Cartridge',
   slug: 'qripto',
   enabled: true,
-  version: '1.0.0',
+  version: '2.0.0',
   owner: 'qriptopian',
   metadata: {
     description: 'The Qriptopian knowledge base, features, and community',
@@ -824,12 +881,64 @@ export const QRIPTO_CODEX: CodexConfig = {
     category: 'publication',
     tags: ['qriptopian', 'news', 'features', 'community']
   },
+  // ─── 2026-05-26 restructure ────────────────────────────────────────────────
+  // Five top-level menu items per the agreed brief:
+  //   1. Codex          — canonical, finished content (Magazines · Papers · Polity)
+  //   2. Live Magazine  — works-in-progress, community-evolving editorial
+  //   3. Store          — Premium Content + Affiliates and Partners
+  //   4. Qriptopia      — Community (21 Sats cluster mirror) · Qriptopian Pulse · PCS Ladder
+  //   5. Admin          — first-class, admin-gated (Pulse / Premium / Partners /
+  //                       Polity / Magazine and Codex admin views)
+  // The deeper KNYT Pulse ↔ 21 Sats handoff nuance is backlogged separately —
+  // see codexes/packs/agentiq/updates/2026-05-26_knyt-pulse-21sats-handoff-backlog.md.
+  tabGroups: [
+    { id: 'web',           label: 'qriptopia.com', icon: 'Globe',     order: -1, iconOnly: true },
+    { id: 'codex',         label: 'Codex',         icon: 'BookOpen',  order: 0 },
+    { id: 'live-magazine', label: 'Live Magazine', icon: 'Newspaper', order: 1 },
+    { id: 'store',         label: 'Store',         icon: 'ShoppingBag', order: 2 },
+    { id: 'qriptopia',     label: 'Qriptopia',     icon: 'Sparkles',  order: 3 },
+    { id: 'admin',         label: 'Admin',         icon: 'Settings',  order: 4, adminOnly: true },
+  ],
   tabs: [
+    // ── web group (qriptopia.com embed) ───────────────────────────────────
+    // First-class persistent tab that renders qriptopia.com inside an
+    // iframe. Mirrors the metaMe cartridge's metame.com tab pattern (same
+    // iconOnly group chip, same IframeTab component, no activation
+    // gating).
+    //
+    // Hard constraint: qriptopia.com must permit framing from the
+    // embedding host. If the page renders blank, the cause is on the
+    // qriptopia.com server config (X-Frame-Options / CSP
+    // frame-ancestors) — not on this tab.
     {
-      id: 'codex',
-      label: 'Codex',
-      slug: 'codex',
+      id: 'qriptopia-web-embed',
+      label: 'qriptopia.com',
+      slug: 'qriptopia-web',
       enabled: true,
+      group: 'web',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'IframeTab',
+        props: { src: 'https://qriptopia.com', title: 'qriptopia.com' },
+      },
+      metadata: {
+        icon: 'Globe',
+        description: 'qriptopia.com website embedded inside the cartridge',
+        color: 'sky',
+      },
+    },
+    // ── Codex group — canonical / finished content ─────────────────────────
+    {
+      // Existing 'codex' tab kept verbatim, relabelled "Magazines" and re-homed.
+      // The current issue-number toggle stays exactly as it functions today;
+      // it now scopes to "canonical magazine editions" rather than acting as
+      // a global cartridge filter.
+      id: 'codex',
+      label: 'Magazines',
+      slug: 'magazines',
+      enabled: true,
+      group: 'codex',
       order: 0,
       type: 'liquid-ui',
       config: {
@@ -837,23 +946,64 @@ export const QRIPTO_CODEX: CodexConfig = {
         dataSource: '/api/codex/qripto/home'
       },
       metadata: {
-        icon: 'Home',
-        description: 'Qripto Codex home and overview',
+        icon: 'BookOpen',
+        description: 'Canonical Qriptopian magazine editions',
         color: 'indigo'
       }
     },
+    {
+      id: 'papers',
+      label: 'Papers',
+      slug: 'papers',
+      enabled: true,
+      group: 'codex',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'QriptoPapersTab',
+        props: {
+          group: 'papers',
+        },
+      },
+      metadata: {
+        icon: 'FileText',
+        description: 'Codex-grade white papers — Polity and Qriptopian series',
+        color: 'indigo'
+      }
+    },
+    {
+      id: 'polity',
+      label: 'Polity',
+      slug: 'polity',
+      enabled: true,
+      group: 'codex',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'Polity',
+          description: 'The Qriptopian Polity — governance, principles, and the steward circle. Content surface coming soon.',
+        },
+      },
+      metadata: {
+        icon: 'Landmark',
+        description: 'Qriptopian Polity — governance and principles',
+        color: 'indigo'
+      }
+    },
+
+    // ── Live Magazine group — works-in-progress editorial ──────────────────
     {
       id: 'features',
       label: 'Features',
       slug: 'features',
       enabled: true,
-      order: 1,
+      group: 'live-magazine',
+      order: 0,
       type: 'static',
       config: {
         component: 'FeaturesTab',
-        // Integrates Qriptopian home content: hero articles, latest news, second hero
-        // Backward compatible with existing Supabase content structure
-        // Uses APIs: /api/content/section/home-hero, /api/content/section/latest-news, /api/content/section/second-hero
       },
       metadata: {
         icon: 'Star',
@@ -865,7 +1015,8 @@ export const QRIPTO_CODEX: CodexConfig = {
       label: 'PennyDrops',
       slug: 'pennydrops',
       enabled: true,
-      order: 2,
+      group: 'live-magazine',
+      order: 1,
       type: 'dynamic',
       config: {
         component: 'PennyDropsTab',
@@ -882,7 +1033,8 @@ export const QRIPTO_CODEX: CodexConfig = {
       label: 'Scrolls',
       slug: 'scrolls',
       enabled: true,
-      order: 3,
+      group: 'live-magazine',
+      order: 2,
       type: 'static',
       config: {
         component: 'QriptoScrollsTab'
@@ -897,7 +1049,8 @@ export const QRIPTO_CODEX: CodexConfig = {
       label: 'Kn0wdZ',
       slug: 'kn0wdz',
       enabled: true,
-      order: 4,
+      group: 'live-magazine',
+      order: 3,
       type: 'static',
       config: {
         component: 'Kn0wdZTab'
@@ -907,44 +1060,293 @@ export const QRIPTO_CODEX: CodexConfig = {
         description: 'Knowledge base and learning resources'
       }
     },
+
+    // ── Store group ────────────────────────────────────────────────────────
     {
-      id: 'rewards',
-      label: 'Rewards',
-      slug: 'rewards',
+      id: 'premium-content',
+      label: 'Premium Content',
+      slug: 'premium-content',
       enabled: true,
-      order: 5,
-      type: 'dynamic',
-      config: {
-        component: 'RewardsTab',
-        dataSource: '/api/codex/qripto/rewards'
-      },
-      metadata: {
-        icon: 'Gift',
-        description: 'Community rewards and achievements'
-      }
-    },
-    {
-      id: 'qriptopia',
-      label: 'Qriptopia',
-      slug: 'qriptopia',
-      enabled: true,
-      order: 6,
+      group: 'store',
+      order: 0,
       type: 'static',
       config: {
-        component: 'QriptopiaTab'
+        component: 'PlaceholderTab',
+        props: {
+          title: 'Premium Content',
+          description: 'Gated Qriptopian content. Entitlement pattern mirrors metaKnyts in the KNYT cartridge. First premium pieces coming soon.',
+        },
       },
       metadata: {
-        icon: 'Sparkles',
-        description: 'The vision of Qriptopia'
+        icon: 'Lock',
+        description: 'Gated Qriptopian premium content',
+        color: 'indigo'
       }
     },
     {
+      // KNYT promoted to its own top-level Store sub-tab per the v3.1
+      // refinement (was previously nested inside Affiliates & Partners).
+      // Renders the canonical KnytStoreBundlesTab directly — no host
+      // wrapper needed.
+      id: 'store-knyt',
+      label: 'KNYT',
+      slug: 'knyt',
+      enabled: true,
+      group: 'store',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'KnytStoreBundlesTab'
+      },
+      metadata: {
+        icon: 'Layers',
+        description: 'KNYT episode and card bundles available to the Qriptopian audience',
+        color: 'violet'
+      }
+    },
+    {
+      id: 'partners-affiliates',
+      label: 'Affiliates & Partners',
+      slug: 'partners-affiliates',
+      enabled: true,
+      group: 'store',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'Affiliates & Partners',
+          description: 'Future partner offerings will surface here alongside KNYT (now its own sub-tab). Roster managed via Admin › Partners Admin.',
+        },
+      },
+      metadata: {
+        icon: 'Handshake',
+        description: 'Cross-cartridge partner offerings — future partners',
+        color: 'indigo'
+      }
+    },
+
+    // ── Qriptopia group — community surfaces ──────────────────────────────
+    // Order per v3.1: Features → Qriptopian Pulse → Community Correspondent
+    // → PCS Ladder. Features is the same component as Live Magazine ›
+    // Features (component re-use); it surfaces here too so the Qriptopia
+    // group travels cleanly when mirrored into the metaMe cartridge.
+    {
+      id: 'qriptopia-features',
+      label: 'Features',
+      slug: 'qriptopia-features',
+      enabled: true,
+      group: 'qriptopia',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'FeaturesTab',
+      },
+      metadata: {
+        icon: 'Star',
+        description: 'Featured articles — same as Live Magazine › Features, repeated in Qriptopia for cross-cartridge travel',
+        color: 'indigo'
+      }
+    },
+    {
+      id: 'pulse',
+      label: 'Qriptopian Pulse',
+      slug: 'pulse',
+      enabled: true,
+      group: 'qriptopia',
+      order: 1,
+      type: 'static',
+      config: {
+        // Live wiring: renders the existing KnytCommunityContentTab
+        // with cartridge='qripto' so the list endpoint scopes to
+        // Qriptopian rows only. Notes published from myCanvas › New
+        // Ideas with destination=Qriptopian Pulse appear here.
+        component: 'QriptoPulseTab'
+      },
+      metadata: {
+        icon: 'Radio',
+        description: 'Qriptopian publishing surface — community contributions',
+        color: 'indigo'
+      }
+    },
+    {
+      id: 'community-correspondent',
+      label: 'Community Correspondent',
+      slug: 'community-correspondent',
+      enabled: true,
+      group: 'qriptopia',
+      order: 2,
+      type: 'static',
+      config: {
+        // QriptoCommunityCorrespondentTab renders the three-pill structure
+        // (Canon · Community · Correspondent) mirroring the KNYT 21 Sats
+        // Living Canon cluster, but scoped to Qriptopian Pulse content.
+        // Real data pipe lands when the cartridge-parameterized Living
+        // Canon refactor + Qriptopian Pulse publish wiring ships (see
+        // codexes/packs/agentiq/updates/
+        // 2026-05-26_qriptopian-pulse-wiring-and-moderation-backlog.md).
+        component: 'QriptoCommunityCorrespondentTab'
+      },
+      metadata: {
+        icon: 'Megaphone',
+        description: 'Canon / Community / Correspondent — Qriptopian voting and curation',
+        color: 'indigo'
+      }
+    },
+    {
+      id: 'pcs-ladder',
+      label: 'PCS Ladder',
+      slug: 'pcs-ladder',
+      enabled: true,
+      group: 'qriptopia',
+      order: 3,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'PCS Ladder',
+          description: 'Progressive Creative Sovereignty Ladder — tracks the user\'s tasks completed in the Polity, badges earned, and ladder rungs achieved. Clones the KNYT Order tab pattern, Polity-progress-flavoured.',
+        },
+      },
+      metadata: {
+        icon: 'TrendingUp',
+        description: 'Progressive Creative Sovereignty progression',
+        color: 'indigo'
+      }
+    },
+    {
+      // Replicated admin surface inside Qriptopia per operator request —
+      // 5th tab, admin-gated. Renders the canonical Qriptopian content
+      // management view (QriptopianAdminTab) so admins working inside
+      // the Qriptopia user-facing area can reach moderation without
+      // context-switching to the standalone Admin group. Non-admins
+      // don't see this tab.
+      id: 'qriptopia-admin',
+      label: 'Admin',
+      slug: 'qriptopia-admin',
+      enabled: true,
+      adminOnly: true,
+      group: 'qriptopia',
+      order: 4,
+      type: 'static',
+      config: { component: 'QriptopianAdminTab' },
+      metadata: {
+        icon: 'Settings',
+        description: 'Qriptopian admin shortcut — same surface as Admin › Magazine and Codex',
+        color: 'indigo'
+      }
+    },
+
+    // ── Admin group — first-class, admin-gated ────────────────────────────
+    // Order per v3.1 refinement: Magazine and Codex Admin first (existing
+    // QriptopianAdminTab — anchors the admin surface for backwards
+    // continuity), then Pulse Admin (with moderation duties — see backlog),
+    // then Premium, Partners, Polity, Edit.
+    // Admin sub-tab labels intentionally drop the word "Admin" — every
+    // tab in this group is admin-only, so the suffix is redundant. Per
+    // operator: "for all these Admin sub tabs we can remove the word
+    // Admin as its redundant being they are all admin sub menu items".
+    {
+      id: 'admin-magazine-codex',
+      label: 'Magazine and Codex',
+      slug: 'admin-magazine-codex',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'QriptopianAdminTab'
+      },
+      metadata: {
+        icon: 'Settings',
+        description: 'Magazine and Codex content management',
+        color: 'indigo'
+      }
+    },
+    {
+      id: 'admin-pulse',
+      label: 'Pulse',
+      slug: 'admin-pulse',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 1,
+      type: 'static',
+      config: {
+        // Live wiring — clone of KnytCommunityContentAdminTab with
+        // cartridge='qripto'. Inherits Promote / Reject / Delete actions.
+        // Delete is real (DELETE /api/community-content/[id], admin-gated,
+        // also clears the matching publication-state mirror).
+        component: 'QriptoPulseAdminTab'
+      },
+      metadata: { icon: 'Shield', description: 'Qriptopian Pulse moderation queue', color: 'indigo' }
+    },
+    {
+      id: 'admin-premium',
+      label: 'Premium',
+      slug: 'admin-premium',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'Premium',
+          description: 'Manage gated Qriptopian content — entitlement bindings, pricing, and Q¢ rails.',
+        },
+      },
+      metadata: { icon: 'Lock', description: 'Premium content gating administration', color: 'indigo' }
+    },
+    {
+      id: 'admin-partners',
+      label: 'Partners',
+      slug: 'admin-partners',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 3,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'Partners & Affiliates',
+          description: 'Manage the partner roster surfaced in Store › Affiliates and Partners — KNYT (now its own Store sub-tab) and any future partners.',
+        },
+      },
+      metadata: { icon: 'Handshake', description: 'Partner roster administration', color: 'indigo' }
+    },
+    {
+      id: 'admin-polity',
+      label: 'Polity',
+      slug: 'admin-polity',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 4,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'Polity',
+          description: 'Rewards and PCS status ascension management — configure tasks, badges, and ladder rungs for the Polity progression.',
+        },
+      },
+      metadata: { icon: 'Landmark', description: 'Polity rewards and PCS ascension administration', color: 'indigo' }
+    },
+    {
+      // Edit was previously a standalone admin tab. Re-homed into the Admin
+      // group so the content-authoring surface sits alongside the new admin
+      // views. Component unchanged.
       id: 'edit',
       label: 'Edit',
       slug: 'edit',
       enabled: true,
       adminOnly: true,
-      order: 7,
+      group: 'admin',
+      order: 5,
       type: 'static',
       config: {
         component: 'QriptopianEditTab'
@@ -952,23 +1354,6 @@ export const QRIPTO_CODEX: CodexConfig = {
       metadata: {
         icon: 'FileEdit',
         description: 'Create, edit and publish articles to the Qriptopian cartridge',
-        color: 'indigo'
-      }
-    },
-    {
-      id: 'admin',
-      label: 'Admin',
-      slug: 'admin',
-      enabled: true,
-      adminOnly: true,
-      order: 8,
-      type: 'static',
-      config: {
-        component: 'QriptopianAdminTab'
-      },
-      metadata: {
-        icon: 'Settings',
-        description: 'Content management admin portal',
         color: 'indigo'
       }
     }
@@ -1364,6 +1749,12 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
     { id: 'deploy',    label: 'Deploy',    icon: 'Rocket',   order: 4 },
     { id: 'missions',  label: 'Missions',  icon: 'Target',   order: 5 },
     { id: 'community', label: 'Community', icon: 'Users',    order: 6 },
+    // Admin group — stubbed 2026-05-26 so the chief-of-staff
+    // unlock has a real surface to mirror into metaMe's agentiqos
+    // group. Hidden from non-admins via the standard adminOnly gate;
+    // when AgentiQ OS grows real admin content, populate the existing
+    // 'aiqos-admin-home' stub with the proper tabs.
+    { id: 'admin',     label: 'Admin',     icon: 'Settings', order: 7, adminOnly: true },
   ],
   tabs: [
     // ── Home group ─────────────────────────────────────────────
@@ -1599,6 +1990,33 @@ export const AGENTIQ_OS_CARTRIDGE: CodexConfig = {
       config: { component: 'FeaturesTab', props: {} },
       metadata: { icon: 'Sparkles', description: 'Qriptopian editorial features' },
     },
+
+    // ── Admin group (stubbed 2026-05-26) ───────────────────────
+    // AgentiQ OS doesn't yet have admin content of its own. The
+    // placeholder below keeps the tabGroup non-empty so the
+    // chief-of-staff mirror into metaMe has something to render,
+    // and so the per-cartridge admin gate (adminOfCartridge:
+    // 'agentiq-os') has a concrete target. When real admin
+    // content lands, swap PlaceholderTab for the real component
+    // and add siblings here.
+    {
+      id: 'agentiq-os-admin-home',
+      label: 'AgentiQ OS Admin',
+      slug: 'admin-home',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'AgentiQ OS Admin',
+          description: 'AgentiQ OS admin surface — stubbed. Real admin content lands when the cartridge ships its first admin workflow (registry ops, agent lifecycle, etc.).',
+        },
+      },
+      metadata: { icon: 'Settings', description: 'AgentiQ OS admin surface (stub)', color: 'indigo' },
+    },
   ],
   permissions: {
     view: ['*'],
@@ -1765,6 +2183,93 @@ const knytOrderTabs = () =>
     .filter((t) => t.group === 'order-group' && t.enabled)
     .sort((a, b) => a.order - b.order);
 
+// (knytAdminTabsForMetameOrder removed 2026-05-26 — admin is now a
+// native sub-item under KNYT's Order group via the order-admin tab,
+// so the existing knytOrderTabs() mirror flows it through into metaMe
+// automatically. The per-cartridge admin gate stays — it's set on the
+// order-admin tab inside KNYT, not in the metaMe mirror.)
+
+// Qriptopian admin tabs mirrored into metaMe's qriptopia group. Qripto's
+// admin tabs live at top level (no group), gated by adminOnly: true. We
+// filter on adminOnly === true to pick them up. Same clone pattern as
+// the KNYT mirror — drop adminOnly, set adminOfCartridge gate, prefix
+// slug to avoid collision in metaMe's namespace.
+const qriptoAdminTabsForMetameQriptopia = () =>
+  QRIPTO_CODEX.tabs
+    .filter((t) => t.adminOnly === true && t.enabled && !t.group)
+    .sort((a, b) => a.order - b.order)
+    .map((t) => ({
+      ...t,
+      id: `metame-qripto-admin-${t.id}`,
+      slug: `qripto-admin-${t.slug}`,
+      adminOnly: false,
+      adminOfCartridge: 'qripto',
+      group: 'qriptopia',
+    }));
+
+// Qriptopian Codex group (Magazines, Papers, Polity, …) mirrored into
+// metaMe's qriptopia surface so the metaMe view stays in sync with the
+// canonical Qripto cartridge. Without this, metaMe shows only the
+// stub Features / Community / 21 Sats tabs and the operator has to
+// jump cartridges to read a paper. Slug-prefixed to avoid namespace
+// collision; order rebased so they appear before the existing stubs.
+const qriptoCodexTabsForMetameQriptopia = () =>
+  QRIPTO_CODEX.tabs
+    .filter((t) => t.group === 'codex' && t.enabled)
+    .sort((a, b) => a.order - b.order)
+    .map((t, idx) => ({
+      ...t,
+      id: `metame-qripto-codex-${t.id}`,
+      slug: `qripto-codex-${t.slug}`,
+      group: 'qriptopia',
+      order: 40 + idx, // Sits ABOVE Features (50), Community (51), 21 Sats (52)
+    }));
+
+// AgentiQ OS admin tabs mirrored into metaMe's agentiqos group.
+// Pulls from the AgentiQ OS cartridge's `admin` tabGroup (added
+// 2026-05-26) — currently a single stub PlaceholderTab; real
+// content lands when AgentiQ OS ships its admin workflows. Same
+// clone pattern as the KNYT mirror.
+const agentiqOsAdminTabsForMetameAgentiqos = () =>
+  AGENTIQ_OS_CARTRIDGE.tabs
+    .filter((t) => t.group === 'admin' && t.enabled)
+    .sort((a, b) => a.order - b.order)
+    .map((t) => ({
+      ...t,
+      id: `metame-aiqos-admin-${t.id}`,
+      slug: `aiqos-admin-${t.slug}`,
+      adminOnly: false,
+      adminOfCartridge: 'agentiq-os',
+      group: 'agentiqos',
+    }));
+
+// Venture Lab α currently has no top-level "Admin" tab — every tab on
+// the cartridge is adminOnly already. To keep the metaMe activation
+// surface consistent with the protocol (every cartridge with admin
+// content exposes it inside its metaMe activation group when the
+// persona is admin of that cartridge), we synthesise a single
+// placeholder "VL Admin" entry for now. When VL grows a proper
+// adminOnly tabGroup like KNYT's, swap this stub for the same clone
+// pattern used above.
+const ventureLabAdminTabsForMetameVl = () => [
+  {
+    id: 'metame-vl-admin-placeholder',
+    label: 'Venture Lab Admin',
+    slug: 'vl-admin-placeholder',
+    enabled: true,
+    adminOfCartridge: 'venture-lab',
+    group: 'vl',
+    order: 0,
+    type: 'static' as const,
+    config: { component: 'TabRendererFallback', props: {} },
+    metadata: {
+      icon: 'Settings',
+      description: 'Placeholder Venture Lab admin surface — full admin tabs to be wired when the VL cartridge ships its adminOnly tabGroup.',
+      color: 'amber',
+    },
+  },
+];
+
 export const METAME_CODEX: CodexConfig = {
   id: 'metame-codex',
   name: 'metaMe Cartridge',
@@ -1780,6 +2285,7 @@ export const METAME_CODEX: CodexConfig = {
     tags: ['metame', 'experience', 'pcs', 'sovereignty', 'progression', 'nbe']
   },
   tabGroups: [
+    { id: 'web',          label: 'metame.com',       icon: 'Globe',      order: -1,  iconOnly: true },
     { id: 'aigentme',     label: 'aigentMe',         icon: 'Sparkles',   order: 0 },
     { id: 'activations',  label: 'Activations',      icon: 'Zap',        order: 0.5 },
     { id: 'mycanvas',     label: 'myCanvas',         icon: 'PenSquare',  order: 0.6, activationId: 'mycanvas' },
@@ -1792,6 +2298,34 @@ export const METAME_CODEX: CodexConfig = {
     { id: 'admin',        label: 'Admin',            icon: 'Settings',   order: 6,   adminOnly: true },
   ],
   tabs: [
+    // ── web group (metame.com embed) ─────────────────────────────────────────
+    // First-class persistent tab that renders metame.com inside an iframe.
+    // No label on the group chip (iconOnly: true above) — small Globe icon
+    // sitting before aigentMe. Not gated by activations.
+    //
+    // Hard constraint: metame.com must permit framing from the embedding
+    // host (no X-Frame-Options: DENY/SAMEORIGIN and no CSP
+    // frame-ancestors that excludes our domain). If the page renders
+    // blank, that's the cause — operator action is on the metame.com
+    // server config, not on this tab.
+    {
+      id: 'metame-web-embed',
+      label: 'metame.com',
+      slug: 'metame-web',
+      enabled: true,
+      group: 'web',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'IframeTab',
+        props: { src: 'https://metame.com', title: 'metame.com' },
+      },
+      metadata: {
+        icon: 'Globe',
+        description: 'metame.com website embedded inside the cartridge',
+        color: 'sky',
+      },
+    },
     // ── aigentMe group ───────────────────────────────────────────────────────
     {
       id: 'aigent-me-welcome-classic',
@@ -1925,6 +2459,22 @@ export const METAME_CODEX: CodexConfig = {
         color: 'violet',
       },
     },
+    {
+      id: 'myworkbench',
+      label: 'myWorkbench',
+      slug: 'my-workbench',
+      enabled: true,
+      activationId: 'mycanvas',
+      group: 'mycanvas',
+      order: 1,
+      type: 'static',
+      config: { component: 'MyWorkbenchTab', props: {} },
+      metadata: {
+        icon: 'Hammer',
+        description: 'Workbench — works in active development, scratch space, drafts pre-publication',
+        color: 'violet',
+      },
+    },
 
     // ── Order of Metayé group (activation-gated; auto-granted) ───────────────
     // Mirrors the KNYT codex Order group + sub-tabs via the subTabs mechanism.
@@ -1944,6 +2494,10 @@ export const METAME_CODEX: CodexConfig = {
         description: 'Active surface of the KNYT world inside metaMe',
         color: 'amber',
       },
+      // KNYT now owns the Admin sub-menu under its own order-group
+      // (see KNYT_CODEX 'order-admin' tab). knytOrderTabs() flows it
+      // through here automatically — no metaMe-side admin mirror needed
+      // for KNYT. Per-cartridge gate stays at the source declaration.
       subTabs: knytOrderTabs(),
     },
 
@@ -1969,6 +2523,24 @@ export const METAME_CODEX: CodexConfig = {
       type: 'static',
       config: { component: 'RelationshipBuilderTab', props: {} },
       metadata: { icon: 'Users', description: 'Partner / relationship builder', color: 'violet' }
+    },
+    // Venture Lab admin stub — VL doesn't yet have a dedicated
+    // adminOnly tabGroup on its own cartridge, so we ship a single
+    // placeholder admin tab here gated by adminOfCartridge: 'venture-lab'.
+    // When VL grows a proper admin surface, replace the placeholder
+    // child with the same clone pattern used for KNYT / Qripto / AIQ OS.
+    {
+      id: 'vl-admin',
+      label: 'VL Admin',
+      slug: 'vl-admin',
+      enabled: true,
+      adminOfCartridge: 'venture-lab',
+      group: 'vl',
+      order: 12,
+      type: 'static',
+      config: { component: 'TabRendererFallback', props: {} },
+      metadata: { icon: 'Settings', description: 'Venture Lab admin surface — stubbed until VL ships its own adminOnly tabGroup. Visible only when the active persona admins the Venture Lab cartridge.', color: 'amber' },
+      subTabs: ventureLabAdminTabsForMetameVl(),
     },
 
     // ── Marketa group (admin-gated; Partner sub-tabs) ────────────────────────
@@ -2027,6 +2599,37 @@ export const METAME_CODEX: CodexConfig = {
       config: { component: 'MarketaQubeTalk', props: {} },
       metadata: { icon: 'MessageSquare', description: 'Marketa coordination channel', color: 'violet' }
     },
+    // Chief-of-staff unlock: Marketa Admin mirrored into metaMe's
+    // marketa group. metaMe's marketa group is hand-written (no pure
+    // mirror), so we declare the Admin sub-tab explicitly here.
+    // subTabs reuse the same helper Marketa cartridge uses internally
+    // (the partner-admin definition lives inside MARKETA_CARTRIDGE) by
+    // cloning admin tabGroup tabs with the per-cartridge gate.
+    {
+      id: 'marketa-admin',
+      label: 'Admin',
+      slug: 'marketa-admin',
+      enabled: true,
+      adminOfCartridge: 'marketa',
+      group: 'marketa',
+      order: 25,
+      type: 'static',
+      config: { component: 'TabRendererFallback', props: {} },
+      metadata: { icon: 'Settings', description: 'Marketa admin surface — visible only to Marketa cartridge admins', color: 'indigo' },
+      get subTabs() {
+        return MARKETA_CARTRIDGE.tabs
+          .filter((t) => t.group === 'admin' && t.enabled)
+          .sort((a, b) => a.order - b.order)
+          .map((t) => ({
+            ...t,
+            id: `metame-marketa-admin-${t.id}`,
+            slug: `marketa-admin-${t.slug}`,
+            adminOnly: false,
+            adminOfCartridge: 'marketa',
+            group: 'marketa',
+          }));
+      },
+    },
 
     // ── metaMe Studio group (admin-gated) ────────────────────────────────────
     {
@@ -2039,6 +2642,32 @@ export const METAME_CODEX: CodexConfig = {
       type: 'static',
       config: { component: 'MetaMeStudioTab', props: {} },
       metadata: { icon: 'Wand2', description: 'Build Experiences using guided templates, the Composer API and receipt pipeline.', color: 'violet' }
+    },
+    // Studio Admin stub — metaMe Studio is the active surface for the
+    // Composer Copilot / Experience Template authoring flow; it has no
+    // tier-2 sub-tabs today. Adding an Admin sub-tab here makes the
+    // chief-of-staff protocol consistent across every metaMe activation
+    // group: admins always have an Admin entry to reach
+    // configuration / governance. Stubbed via PlaceholderTab until real
+    // Studio admin tooling lands (template publishing controls, bundle
+    // versioning, surface plan review queues, etc.).
+    {
+      id: 'studio-admin',
+      label: 'Studio Admin',
+      slug: 'studio-admin',
+      enabled: true,
+      adminOfCartridge: 'metame',
+      group: 'studio',
+      order: 31,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'metaMe Studio Admin',
+          description: 'Studio admin surface — stub. Real admin tooling (template publishing, bundle versioning, surface-plan review) lands when the first Studio admin workflow ships.',
+        },
+      },
+      metadata: { icon: 'Settings', description: 'metaMe Studio admin surface — visible only to metaMe cartridge admins', color: 'indigo' },
     },
 
     // ── AgentiQ OS group (admin-gated) — mirrors AgentiQ OS cartridge top groups ──
@@ -2126,8 +2755,29 @@ export const METAME_CODEX: CodexConfig = {
       metadata: { icon: 'Users', description: 'Community resources and Kn0wdZ', color: 'emerald' },
       subTabs: aiqOsTabsByGroup('community'),
     },
+    // Chief-of-staff unlock: AgentiQ OS admin tabs mirrored into the
+    // metaMe agentiqos group. Visible only to personas admin of the
+    // agentiq-os cartridge.
+    {
+      id: 'agentiqos-admin',
+      label: 'AgentiQ OS Admin',
+      slug: 'agentiqos-admin',
+      enabled: true,
+      adminOfCartridge: 'agentiq-os',
+      group: 'agentiqos',
+      order: 47,
+      type: 'static',
+      config: { component: 'TabRendererFallback', props: {} },
+      metadata: { icon: 'Settings', description: 'AgentiQ OS admin surface — visible only when the active persona admins the AgentiQ OS cartridge', color: 'indigo' },
+      subTabs: agentiqOsAdminTabsForMetameAgentiqos(),
+    },
 
     // ── Qriptopia group ──────────────────────────────────────────────────────
+    // Canonical Qripto Codex tabs (Magazines, Papers, Polity) are mirrored
+    // in from QRIPTO_CODEX so metaMe stays in lock-step with the cartridge.
+    // The mirror sits at order 40..49 so it appears BEFORE the existing
+    // Features / Community / 21 Sats / Admin stubs without renumbering them.
+    ...qriptoCodexTabsForMetameQriptopia(),
     {
       id: 'qriptopia-features',
       label: 'Features',
@@ -2167,15 +2817,78 @@ export const METAME_CODEX: CodexConfig = {
       },
       metadata: { icon: 'Bitcoin', description: '21 Sats rewards', color: 'violet' }
     },
+    // Chief-of-staff unlock: Qriptopian admin tabs mirrored into the
+    // metaMe qriptopia group. Visible only to personas admin of the
+    // qripto cartridge.
+    {
+      id: 'qriptopia-admin',
+      label: 'Qriptopian Admin',
+      slug: 'qriptopia-admin',
+      enabled: true,
+      adminOfCartridge: 'qripto',
+      group: 'qriptopia',
+      order: 53,
+      type: 'static',
+      config: { component: 'TabRendererFallback', props: {} },
+      metadata: { icon: 'Settings', description: 'Qriptopian admin surface — visible only when the active persona admins the Qripto cartridge', color: 'indigo' },
+      subTabs: qriptoAdminTabsForMetameQriptopia(),
+    },
 
     // ── Admin group (admin-gated) ────────────────────────────────────────────
+    // 2026-05-27 — Journey Dashboard surfaces first so admins land on the
+    // live operational view; Experience Framework moves last as
+    // canonical reference reading. Order numbers shifted accordingly.
+    {
+      id: 'admin-journey-dashboard',
+      label: 'Journey Dashboard',
+      slug: 'experience-dashboard',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 60,
+      type: 'static',
+      config: { component: 'ExperienceDashboardTab', props: { tenantId: 'metame' } },
+      metadata: { icon: 'BarChart3', description: 'User journey states, progression, NBE opportunities', color: 'violet' }
+    },
+    {
+      id: 'admin-access-requests',
+      label: 'Access Requests',
+      slug: 'access-requests',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 61,
+      type: 'static',
+      config: { component: 'AdminAccessRequestsTab', props: {} },
+      metadata: {
+        icon: 'ShieldCheck',
+        description: 'Review persona-submitted cartridge access + admin requests',
+        color: 'emerald'
+      }
+    },
+    {
+      id: 'admin-persona-360',
+      label: 'Persona 360',
+      slug: 'persona-360',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 62,
+      type: 'static',
+      config: { component: 'Persona360InspectorTab', props: {} },
+      metadata: {
+        icon: 'User',
+        description: 'Look up any persona and inspect the full identity / asset graph',
+        color: 'violet'
+      }
+    },
     {
       id: 'admin-experience-framework',
       label: 'Experience Framework',
       slug: 'experience-framework',
       enabled: true,
       group: 'admin',
-      order: 60,
+      order: 63,
       type: 'static',
       config: {
         component: 'AgentiqCartridgeTab',
@@ -2190,18 +2903,6 @@ export const METAME_CODEX: CodexConfig = {
         description: 'Canonical experience framework — strategy, model, matrix, ladder, governance',
         color: 'violet'
       }
-    },
-    {
-      id: 'admin-journey-dashboard',
-      label: 'Journey Dashboard',
-      slug: 'experience-dashboard',
-      enabled: true,
-      adminOnly: true,
-      group: 'admin',
-      order: 61,
-      type: 'static',
-      config: { component: 'ExperienceDashboardTab', props: { tenantId: 'metame' } },
-      metadata: { icon: 'BarChart3', description: 'User journey states, progression, NBE opportunities', color: 'violet' }
     }
   ],
   permissions: {
@@ -2394,6 +3095,44 @@ export const MARKETA_CARTRIDGE: CodexConfig = {
       config: { component: 'MarketaQubeTalk', props: { scopedToPartner: true } },
       metadata: { icon: 'MessageSquare', description: 'Direct comms with Marketa agent' },
     },
+    // Chief-of-staff unlock: Admin sub-menu inside the Partner group,
+    // visible only to personas listed as Marketa cartridge admins
+    // (cartridgeFlags.adminCartridges includes 'marketa'). Global
+    // uber/platform admins satisfy the gate too. Native to Marketa
+    // — any future cartridge that mirrors the Marketa partner group
+    // would inherit this Admin sub-menu for free via the same
+    // mechanism. Same protocol as KNYT order > Admin.
+    {
+      id: 'partner-admin',
+      label: 'Admin',
+      slug: 'partner-admin',
+      enabled: true,
+      adminOfCartridge: 'marketa',
+      group: 'partner',
+      order: 5,
+      type: 'static',
+      config: { component: 'TabRendererFallback', props: {} },
+      metadata: {
+        icon: 'Settings',
+        description: 'Marketa admin surface — visible only to Marketa cartridge admins',
+      },
+      // Lazy getter — MARKETA_CARTRIDGE.tabs isn't fully constructed
+      // when this literal evaluates. Reading via a getter defers until
+      // tab.subTabs is consumed at render time.
+      get subTabs() {
+        return MARKETA_CARTRIDGE.tabs
+          .filter((t) => t.group === 'admin' && t.enabled)
+          .sort((a, b) => a.order - b.order)
+          .map((t) => ({
+            ...t,
+            id: `partner-admin-${t.id}`,
+            slug: `partner-admin-${t.slug}`,
+            adminOnly: false,
+            adminOfCartridge: 'marketa',
+            group: 'partner',
+          }));
+      },
+    },
   ],
   permissions: {
     view: ['*'],
@@ -2409,6 +3148,16 @@ export const CODEX_DEFINITIONS: CodexConfig[] = [
   KNYT_CODEX,
   QRIPTO_CODEX,
   AGENTIQ_CARTRIDGE,
+  // AGENTIQ_OS_CARTRIDGE is restored 2026-05-26: the previous archive
+  // dropped the hand-curated registration in favour of the pack-driven
+  // duplicate (`agentiq-os-codex` auto-generated by packRegistry from
+  // codexes/packs/agentiq-os/). The wrong one ended up visible. The
+  // hand-curated cartridge below is the canonical surface — it carries
+  // the rich tab structure (Home/Docs/Build/Bind/Deploy/Missions/
+  // Community) with interactive React components, and metaMe's
+  // QuickLinksCard targets its slug ('agentiq-os-cartridge'). The
+  // pack-driven duplicate is now suppressed in packRegistry's skip
+  // list (see app/api/codex/registry/_lib/packRegistry.ts).
   AGENTIQ_OS_CARTRIDGE,
   VENTURE_LAB_CODEX,
   METAME_CODEX,

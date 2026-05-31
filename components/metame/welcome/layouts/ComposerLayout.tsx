@@ -11,10 +11,28 @@
  * Mobile: full-screen editor; thread context collapses to a chip; sticky
  * bottom action bar (DIS `mobileShapes.composer-layout-v1`).
  *
- * Activator wiring: future slices will add a "Compose" chip and an
- * "Open in composer" action on artifact cards. For now the layout is
- * registered + reachable by `setActiveLayoutId('composer')` and
- * gracefully renders the most-recent-draft state.
+ * ─── OVERLAY CONTRACT — READ BEFORE EDITING ────────────────────────
+ * ComposerLayout mounts ONLY as a transparent overlay on top of the
+ * active Capsule foreground (Brief / Move-forward / Venture / Specialists).
+ * The Capsule layout stays mounted underneath so the operator can return
+ * to it after the compose form closes — its Pills, queued state, drafted
+ * artifacts, and second-tier approvals are preserved across the compose
+ * round-trip.
+ *
+ * DO NOT call `onRequestLayout('stack')` (or any other layout swap) from
+ * this component's dismiss/close/onCreate/cancel handlers. Doing so
+ * unmounts whatever Capsule layout was foreground and the operator's
+ * work vanishes. This was the 2026-05-28 "capsule disappears after Act"
+ * regression — capsule data persisted in parent state but the dedicated
+ * layout was gone, and the only way to recover was to click the
+ * quick-action chip to re-mount. The legacy `onRequestLayout('stack')`
+ * calls were vestigial from when ComposerLayout was a foreground
+ * surface, before the overlay refactor.
+ *
+ * Dismiss path: call `onComposerClose?.()` only. The parent's
+ * `setComposerKind(null)` unmounts the overlay; the foreground Capsule
+ * remains intact.
+ * ───────────────────────────────────────────────────────────────────
  *
  * DIS template id: `composer-layout-v1`.
  */
@@ -51,9 +69,11 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
     actionErrors,
     onSendArtifact,
     onDismissArtifact,
-    onRequestLayout,
     composerKind,
     composerHandlers,
+    composerInitialPrompt,
+    onComposerClose,
+    personaId,
   } = props;
 
   const isDark = theme === "dark";
@@ -66,9 +86,15 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
   const pending = draft ? actionPendingArtifactId === draft.id : false;
   const err = draft ? actionErrors?.[draft.id] : null;
 
+  // Composer mounts only as an overlay now. Dismiss clears composerKind
+  // so the overlay unmounts; the foreground Capsule (Brief / Move-forward
+  // / Venture / Specialists) stays mounted underneath. The earlier
+  // onRequestLayout('stack') call was a legacy fallback from when the
+  // composer was a foreground layout — it actively broke the active
+  // Capsule by swapping activeLayoutId out from under it after compose.
   const handleDismiss = useCallback(() => {
-    onRequestLayout?.("stack");
-  }, [onRequestLayout]);
+    onComposerClose?.();
+  }, [onComposerClose]);
 
   // Inline form factory — when a composerKind is selected, render the
   // matching modal in `inline` mode (no overlay chrome) so the form
@@ -77,7 +103,12 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
   // via the handler the tab passed down.
   const inlineForm = (() => {
     if (!composerKind || !composerHandlers) return null;
-    const closeToStack = () => onRequestLayout?.("stack");
+    // Modal X / Cancel → clear composerKind so the overlay unmounts.
+    // No foreground layout swap — the active Capsule (Brief / Move
+    // forward / Venture / Specialists) stays mounted underneath.
+    const closeToStack = () => {
+      onComposerClose?.();
+    };
     switch (composerKind) {
       case "gmail":
         if (!composerHandlers.onCreateGmail || !composerHandlers.onDraftGmail) return null;
@@ -89,6 +120,8 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
             onCreate={composerHandlers.onCreateGmail}
             onDraftWithAigentMe={composerHandlers.onDraftGmail}
             theme={theme}
+            initialPrompt={composerInitialPrompt ?? undefined}
+            personaId={personaId}
           />
         );
       case "event":
@@ -103,6 +136,7 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onDraftWithAigentMe={composerHandlers.onDraftCalendar as any}
             theme={theme}
+            initialPrompt={composerInitialPrompt ?? undefined}
           />
         );
       case "doc":
@@ -117,6 +151,7 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onDraftWithAigentMe={composerHandlers.onDraftDoc as any}
             theme={theme}
+            initialPrompt={composerInitialPrompt ?? undefined}
           />
         );
       case "sheet":
@@ -131,6 +166,7 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onDraftWithAigentMe={composerHandlers.onDraftSheet as any}
             theme={theme}
+            initialPrompt={composerInitialPrompt ?? undefined}
           />
         );
       case "slides":
@@ -145,6 +181,7 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onDraftWithAigentMe={composerHandlers.onDraftSlides as any}
             theme={theme}
+            initialPrompt={composerInitialPrompt ?? undefined}
           />
         );
       case "marketa":
@@ -159,6 +196,8 @@ function ComposerLayoutComponent(props: RightPaneLayoutProps) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onDraftWithAigentMe={composerHandlers.onDraftMarketa as any}
             theme={theme}
+            initialPrompt={composerInitialPrompt ?? undefined}
+            personaId={personaId}
           />
         );
       default:

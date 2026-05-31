@@ -6,10 +6,14 @@
  * advanced inference rendering capabilities.
  */
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useMetaAvatar } from "@/app/contexts/MetaAvatarContext";
 import { useIsMobile } from "@/app/hooks/use-mobile";
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
+import { useSpeechSynthesis } from "@/hooks/useSpeechSynthesis";
+import { useTTSPlayer } from "@/app/hooks/useTTSPlayer";
 import { SmartTriadInferenceRenderer, type SmartTriadMessage } from "./SmartTriadInferenceRenderer";
+import { UploadAttachmentPicker } from "@/components/metame/uploads/UploadAttachmentPicker";
 import {
   Bot,
   User,
@@ -20,6 +24,10 @@ import {
   Mic,
   MicOff,
   PanelRightClose,
+  Paperclip,
+  Volume2,
+  VolumeX,
+  RotateCcw,
 } from "lucide-react";
 
 // Import CSS
@@ -78,6 +86,16 @@ interface SmartTriadCopilotLayerProps {
     accentColor?: string;
   };
   enableAdvancedRendering?: boolean;
+  /**
+   * Optional T1-safe snapshot of what the host surface is currently
+   * rendering (e.g. the live brief shape on aigentMe welcome). Forwarded
+   * verbatim to the chat route as `groundContext` so the LLM can
+   * narrate the same rows the right pane is showing instead of
+   * inventing a generic template. Read via a ref inside handleSend so
+   * the latest value is always used, even when the parent populates it
+   * asynchronously after a chip click.
+   */
+  groundContext?: Record<string, unknown> | null;
 }
 
 type CopilotMode = "chat" | "avatar";
@@ -105,6 +123,23 @@ type QuickPrompt =
        * triggers the right pane action.
        */
       onSelect?: () => void;
+      /**
+       * Optional fetch dispatcher that runs ON SEND rather than ON
+       * CLICK. When a chip carries this, clicking the chip only sets
+       * the input + (optionally) switches the layout via onSelect;
+       * the actual right-pane data fetch runs inside handleSend so
+       * the chat POST sees the freshest groundContext snapshot. Fixes
+       * the alpha sequencing where chip click fired the fetch and
+       * the chat 100ms later — leaving the LLM with no ground truth.
+       */
+      onDispatchOnSend?: () => Promise<void> | void;
+      /**
+       * Render the chip with a subtle pulse highlight to draw the
+       * operator's attention. Used by the "Request access" chip when
+       * the active persona has no admin grants — the affordance is
+       * easy to miss inside the chip strip otherwise.
+       */
+      highlight?: boolean;
     };
 
 export function SmartTriadCopilotLayer({
@@ -146,11 +181,21 @@ export function SmartTriadCopilotLayer({
   personaId,
   tenantConfig,
   enableAdvancedRendering = true,
+  groundContext,
 }: SmartTriadCopilotLayerProps) {
   
   // Core state
   const [mode, setMode] = useState<CopilotMode>("chat");
   const [input, setInput] = useState("");
+  // Persona upload ids attached to the next message. Picker UI lives in
+  // the chat input footer; selected ids ride through the /api/codex/chat
+  // POST as `attachedUploadIds`. Cleared after a successful send so each
+  // turn starts fresh.
+  const [attachedUploadIds, setAttachedUploadIds] = useState<string[]>([]);
+  // Picker open state — paperclip in the chat footer (next to model
+  // selector) toggles this. Kept minimal: the picker bar only renders
+  // when open or when there are chips to display.
+  const [attachmentsPickerOpen, setAttachmentsPickerOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<string>("anthropic");
   const [showQuickPrompts, setShowQuickPrompts] = useState(true);
@@ -168,9 +213,40 @@ export function SmartTriadCopilotLayer({
   const isAvatarActive = mode === "avatar" && activeContainer === avatarContainer;
   const isMobile = useIsMobile();
   
-  // Messages state
+  // Session-storage key — scoped to the persona so different personas
+  // don't leak each other's copilot history when switching accounts on
+  // the same browser. Falls back to 'anon' so the hook still rehydrates
+  // when personaId is undefined (single-persona contexts).
+  const persistKey = useMemo(
+    () => `smarttriad.copilot.messages.${personaId ?? 'anon'}`,
+    [personaId],
+  );
+
+  // Messages state — seeded from sessionStorage on mount so a persona
+  // who navigates away and comes back keeps their conversation.
+  // Cleared explicitly via the refresh affordance in the toggle row.
   const [internalMessages, setInternalMessages] = useState<SmartTriadMessage[]>(() => {
     const initialMsgs: SmartTriadMessage[] = [];
+
+    // Try session storage first; if present, return it verbatim and
+    // skip the welcome/initial seeds (those are first-mount only).
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = window.sessionStorage.getItem(persistKey);
+        if (raw) {
+          const parsed = JSON.parse(raw) as SmartTriadMessage[];
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            // Rehydrate Date instances — JSON loses the type.
+            return parsed.map((m) => ({
+              ...m,
+              timestamp: m.timestamp ? new Date(m.timestamp) : new Date(),
+            }));
+          }
+        }
+      } catch {
+        // Corrupt storage — fall through to seed messages.
+      }
+    }
     
     // Add welcome message for first visit
     if (isFirstVisit && !initialMessage) {
@@ -210,6 +286,32 @@ export function SmartTriadCopilotLayer({
   
   // Use external messages if provided, otherwise use internal state
   const messages = externalMessages || internalMessages;
+
+  // Persist the in-memory messages to sessionStorage on every change
+  // so a persona returning to the surface sees their conversation
+  // restored. Skipped when the caller owns the message state via
+  // externalMessages + onMessagesChange (their concern, not ours).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (externalMessages) return;
+    try {
+      window.sessionStorage.setItem(persistKey, JSON.stringify(internalMessages));
+    } catch {
+      // Quota exceeded / storage disabled — silent best-effort.
+    }
+  }, [internalMessages, persistKey, externalMessages]);
+
+  // Clear handler — drops persisted history and resets to seed.
+  // Wired to the refresh icon next to the chat/avatar toggle so the
+  // operator can reset the conversation explicitly.
+  const handleClearMessages = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      try { window.sessionStorage.removeItem(persistKey); } catch { /* ignore */ }
+    }
+    setInternalMessages([...seedMessages]);
+    if (onMessagesChange) onMessagesChange([...seedMessages]);
+  }, [persistKey, seedMessages, onMessagesChange]);
+
   const updateMessages = useCallback(
     (updater: (prev: SmartTriadMessage[]) => SmartTriadMessage[]) => {
       const next = updater([...messages]);
@@ -225,6 +327,19 @@ export function SmartTriadCopilotLayer({
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Latest groundContext snapshot — read by handleSend at the moment
+  // the POST goes out, so the LLM always sees the freshest right-pane
+  // state (e.g. a brief that finished loading between chip click and
+  // send). Stable callback identity is preserved.
+  const groundContextRef = useRef<Record<string, unknown> | null | undefined>(groundContext);
+  useEffect(() => {
+    groundContextRef.current = groundContext;
+  }, [groundContext]);
+  // Pending dispatch — populated when a quick-prompt chip carries an
+  // `onDispatchOnSend` callback. The dispatch fires inside handleSend
+  // BEFORE the chat POST so the right-pane fetch lands first and the
+  // chat sees the fresh groundContext. Cleared after dispatch.
+  const pendingDispatchRef = useRef<(() => Promise<void> | void) | null>(null);
   
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -268,9 +383,27 @@ export function SmartTriadCopilotLayer({
 
     updateMessages((prev) => [...prev, userMessage]);
     setInput("");
+    // Snapshot attachments for this turn THEN clear them so the next
+    // turn starts fresh. The chat POST below uses the dependency-closure
+    // snapshot; actual ids are already serialised into the request body.
+    setAttachedUploadIds([]);
     setIsProcessing(true);
 
     try {
+      // Run any pending chip dispatch FIRST — when a chip carries an
+      // onDispatchOnSend the right-pane fetch happens here so the
+      // chat POST captures the freshest groundContext. Errors swallow:
+      // a failed dispatch shouldn't block the chat send.
+      const dispatch = pendingDispatchRef.current;
+      pendingDispatchRef.current = null;
+      if (dispatch) {
+        try {
+          await dispatch();
+        } catch (err) {
+          console.error('[copilot] pending dispatch failed', err);
+        }
+      }
+
       const chatHistory = messages
         .filter((m) => m.role !== 'system')
         .slice(-10)
@@ -279,16 +412,38 @@ export function SmartTriadCopilotLayer({
           content: typeof m.content === 'string' ? m.content : '',
         }));
 
-      // Map persona to the correct KB search domain:
-      // KNYT agents search the metaKnyts codex; MoneyPenny searches Qriptopian;
-      // platform agents (Aigent Z/C) pass 'agentiq' — the route treats unknown domains
-      // as platform-only and skips KNYT codex injection.
-      const resolvedPersona = personaId ?? 'aigent-kn0w1';
+      // Resolve which AGENT IDENTITY this chat turn should adopt.
+      //
+      // 2026-05-26 fix #2: the prior implementation used
+      //   const resolvedPersona = personaId ?? agent?.id ?? 'aigent-z';
+      // which conflated two distinct concerns:
+      //   - personaId: the SPINE persona UUID (e.g. 'info2knyt-...')
+      //   - agent.id: the AGENT identifier (e.g. 'aigent-me')
+      // When personaId was a UUID it bled into the persona field on
+      // the chat POST. The chat route's defaultAgentIdForPersona()
+      // sees a value that doesn't start with 'aigent-' and falls back
+      // to 'aigent-kn0w1' — the KNYT-focused agent. Result: aigentMe
+      // surface responses came back in Kn0w1's voice with KNYT lore
+      // framing ('passionate story enthusiast in the metaKnyts
+      // universe...'). The spine persona id is sent separately in the
+      // body as `personaId` for live-context lookups — it must NEVER
+      // be used as an agent identifier.
+      const resolvedPersona = (() => {
+        if (agent?.id && agent.id.startsWith('aigent-')) return agent.id;
+        if (typeof personaId === 'string' && personaId.startsWith('aigent-')) return personaId;
+        return 'aigent-z';
+      })();
       const domainForPersona = (() => {
         if (resolvedPersona === 'aigent-kn0w1' || resolvedPersona === 'aigent-marketa') return 'metaKnyts';
         if (resolvedPersona === 'aigent-moneypenny') return 'qriptopian';
         return 'agentiq'; // aigent-z, aigent-c, metaMe, etc.
       })();
+
+      // Read the freshest groundContext at POST time — a chip click
+      // typically triggers a right-pane fetch in parallel with this
+      // send; without the ref we'd capture the snapshot from when the
+      // chip fired, which is empty.
+      const currentGroundContext = groundContextRef.current ?? null;
 
       const res = await fetch('/api/codex/chat', {
         method: 'POST',
@@ -300,6 +455,12 @@ export function SmartTriadCopilotLayer({
           aigentId: resolvedPersona,
           domain: domainForPersona,
           provider_id: selectedProvider,
+          personaId,
+          groundContext: currentGroundContext,
+          // Operator-attached uploads — server fetches indexed content
+          // for each, injects as <attached_file> blocks in the system
+          // prompt so the LLM sees the file content this turn.
+          ...(attachedUploadIds.length > 0 ? { attachedUploadIds } : {}),
         }),
       });
 
@@ -335,28 +496,42 @@ export function SmartTriadCopilotLayer({
     } finally {
       setIsProcessing(false);
     }
-  }, [input, isProcessing, updateMessages, messages, personaId, selectedProvider]);
+  }, [input, isProcessing, updateMessages, messages, personaId, selectedProvider, attachedUploadIds]);
   
-  // Handle quick prompt selection
+  // Handle quick prompt selection.
+  //
+  // 2026-05-26 sequencing fix — chip click previously fired both
+  // onSelect (right-pane fetch) AND the chat 100ms later. The chat
+  // raced ahead of the fetch and the LLM got no ground truth.
+  //
+  // New behaviour:
+  //   - Chip click sets the input + fires onSelect (which typically
+  //     switches the right-pane layout to its loading skeleton). It
+  //     does NOT auto-send.
+  //   - If the chip carries onDispatchOnSend, we capture it into the
+  //     pendingDispatchRef so handleSend runs it BEFORE the chat
+  //     POST and the chat sees fresh groundContext.
+  //   - The user is free to edit the prompt before pressing Send.
+  //     Pressing Send fires the right-pane fetch + chat with proper
+  //     sequencing.
+  //   - Pure layout chips (skipInference: true, no onDispatchOnSend)
+  //     just switch the layout and stop — same as before.
   const handleQuickPrompt = useCallback((prompt: QuickPrompt) => {
     const promptText = typeof prompt === 'string' ? prompt : prompt.prompt || prompt.label;
     setInput(promptText);
     onPrompt?.(promptText);
 
-    // Phase 2 Slice 7: dual-dispatch. Whatever the chip's onSelect
-    // wants to do on the right pane (most commonly setActiveLayoutId
-    // + a data fetch) runs in parallel with the copilot prompt above.
-    // Fires for every chip click regardless of skipInference — pure
-    // layout chips skip the auto-send below but still trigger this.
     if (typeof prompt !== 'string' && prompt.onSelect) {
       prompt.onSelect();
     }
 
-    // Auto-send if skipInference is not set
-    if (typeof prompt !== 'string' && !prompt.skipInference) {
-      setTimeout(() => handleSend(), 100);
+    if (typeof prompt !== 'string' && prompt.onDispatchOnSend) {
+      pendingDispatchRef.current = prompt.onDispatchOnSend;
     }
-  }, [onPrompt, handleSend]);
+
+    // Focus the input so the operator can immediately edit / press Enter.
+    setTimeout(() => inputRef.current?.focus(), 30);
+  }, [onPrompt]);
   
   // Provider change is handled via selectedProvider state lifted to this component
   // and forwarded to FloatingCopilot which updates it via setSelectedProvider
@@ -431,6 +606,11 @@ export function SmartTriadCopilotLayer({
           agentSubtitle={agentSubtitle}
           selectedProvider={selectedProvider}
           setSelectedProvider={setSelectedProvider}
+          onClearMessages={handleClearMessages}
+          attachedUploadIds={attachedUploadIds}
+          setAttachedUploadIds={setAttachedUploadIds}
+          attachmentsPickerOpen={attachmentsPickerOpen}
+          setAttachmentsPickerOpen={setAttachmentsPickerOpen}
         />
       ) : (
         <EmbeddedCopilot
@@ -509,6 +689,11 @@ function FloatingCopilot({
   selectedProvider,
   setSelectedProvider,
   inlineMode = false,
+  onClearMessages,
+  attachedUploadIds,
+  setAttachedUploadIds,
+  attachmentsPickerOpen,
+  setAttachmentsPickerOpen,
 }: {
   messages: SmartTriadMessage[];
   input: string;
@@ -520,6 +705,7 @@ function FloatingCopilot({
   setShowQuickPrompts: (show: boolean) => void;
   onQuickPrompt: (prompt: any) => void;
   onClose: () => void;
+  onClearMessages?: () => void;
   mode: CopilotMode;
   setMode: (mode: CopilotMode) => void;
   isAvatarActive: boolean;
@@ -541,9 +727,68 @@ function FloatingCopilot({
   inlineMode?: boolean;
   selectedProvider: string;
   setSelectedProvider: (p: string) => void;
+  /** Persona upload ids attached to the next message — picker mounts
+   *  inside the input row. Cleared by the parent on send. */
+  attachedUploadIds: string[];
+  setAttachedUploadIds: (next: string[]) => void;
+  /** Picker open state — driven by the paperclip toggle next to the
+   *  model selector. Lifted so the chrome stays minimal: only the
+   *  paperclip is visible by default; the picker bar renders only when
+   *  open (or when there are selected chips to surface). */
+  attachmentsPickerOpen: boolean;
+  setAttachmentsPickerOpen: (next: boolean) => void;
 }) {
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
-  const [micActive, setMicActive] = useState(false);
+
+  // STT — replaces the prior cosmetic micActive toggle that didn't
+  // actually wire to any transcription path. The mic button now
+  // delegates to useSpeechRecognition which records via MediaRecorder
+  // and POSTs to /api/skills/stt for Whisper transcription. The
+  // transcript is appended to the prompt input.
+  const stt = useSpeechRecognition({
+    onFinalResult: (text) => {
+      const trimmed = text.trim();
+      if (!trimmed) return;
+      // Preserve any partially-typed prompt + add a space.
+      setInput(input ? `${input.trimEnd()} ${trimmed}` : trimmed);
+    },
+  });
+  const micActive = stt.isListening;
+
+  // TTS — wired to the Listen icon next to the trust/reliability
+  // dots. Reads the latest assistant message aloud; cancels if the
+  // operator clicks again while speaking.
+  //
+  // useTTSPlayer hits /api/skills/tts which serves Cartesia Sonic
+  // English (Marketa voice) as the primary, OpenAI tts-1 as the
+  // fallback — same Cartesia voice the VAPI / CodexCopilotLayer
+  // surface uses. Browser-native window.speechSynthesis (useSpeechSynthesis)
+  // is kept around as a third-tier fallback only — feature-detect via
+  // browserTts.isSupported below. The previous Volume2 icon wiring
+  // talked to browser-native TTS directly, so the operator never
+  // heard the Cartesia voice on this surface.
+  const lastAssistantMessage = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant' && typeof messages[i].content === 'string') {
+        return messages[i].content as string;
+      }
+    }
+    return '';
+  }, [messages]);
+  const lastAssistantMessageRef = useRef(lastAssistantMessage);
+  useEffect(() => { lastAssistantMessageRef.current = lastAssistantMessage; }, [lastAssistantMessage]);
+  const tts = useTTSPlayer({
+    getText: () => lastAssistantMessageRef.current,
+    voice: 'nova',
+  });
+  const browserTts = useSpeechSynthesis();
+  const handleListenToggle = useCallback(() => {
+    if (!lastAssistantMessage) return;
+    void tts.handleListen();
+  }, [tts, lastAssistantMessage]);
+  const ttsIsSpeaking = tts.ttsState === 'playing';
+  const ttsIsLoading = tts.ttsState === 'loading';
+
   const visibleQuickPrompts = showQuickPrompts && quickPrompts.length > 0;
 
   // Dark-mode CSS variable overrides so SmartTriad CSS renders on dark background
@@ -563,6 +808,10 @@ function FloatingCopilot({
   // Render R/T score dots
   const renderDots = (value: number, type: "trust" | "reliability") => {
     const dotCount = Math.ceil(value / 2);
+    // Pulse while the chat round-trip is in flight OR while we're
+    // fetching TTS audio (Cartesia/OpenAI). Gives the operator a single
+    // "the copilot is working" signal across both paths.
+    const isBusy = isProcessing || ttsIsLoading;
     return (
       <div className="flex items-center gap-0.5">
         {Array.from({ length: 5 }, (_, i) => {
@@ -575,8 +824,8 @@ function FloatingCopilot({
           return (
             <span
               key={i}
-              className={`h-1.5 w-1.5 rounded-full ${colorClass} ${isProcessing ? "animate-pulse" : "transition-all duration-300"}`}
-              style={isProcessing ? { animationDelay: `${i * 0.15}s` } : undefined}
+              className={`h-1.5 w-1.5 rounded-full ${colorClass} ${isBusy ? "animate-pulse" : "transition-all duration-300"}`}
+              style={isBusy ? { animationDelay: `${i * 0.15}s` } : undefined}
             />
           );
         })}
@@ -603,6 +852,35 @@ function FloatingCopilot({
               )}
             </div>
             <div className="flex items-center gap-3">
+              {/* Listen — read the latest assistant message aloud via
+                  window.speechSynthesis. Click again while speaking to
+                  cancel. Disabled when no assistant message exists yet
+                  or TTS isn't supported in this browser. Sits to the
+                  left of the R/T dots so the trust/reliability glance
+                  stays uncluttered. */}
+              {(browserTts.isSupported || true) && (
+                <button
+                  type="button"
+                  onClick={handleListenToggle}
+                  disabled={!lastAssistantMessage || ttsIsLoading}
+                  title={
+                    !lastAssistantMessage
+                      ? 'No reply to read yet'
+                      : ttsIsLoading
+                        ? 'Fetching Cartesia voice…'
+                        : ttsIsSpeaking
+                          ? 'Stop reading'
+                          : 'Read the latest reply aloud (Cartesia voice)'
+                  }
+                  className={`p-1 rounded-md transition-colors ${
+                    ttsIsSpeaking
+                      ? 'text-cyan-300 bg-cyan-500/15'
+                      : 'text-white/50 hover:text-cyan-300 hover:bg-white/5'
+                  } disabled:opacity-30 disabled:cursor-not-allowed`}
+                >
+                  {ttsIsSpeaking ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                </button>
+              )}
               <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-white/70">
                 <span className="text-[10px] text-white/60">R</span>
                 {renderDots(7.8, "reliability")}
@@ -652,13 +930,21 @@ function FloatingCopilot({
           {/* Quick prompts strip — above input, below messages */}
           {visibleQuickPrompts && (
             <div className="px-3 pt-2 pb-1 flex gap-1.5 flex-wrap flex-shrink-0">
-              {quickPrompts.slice(0, 4).map((qp, i) => {
+              {quickPrompts.slice(0, 5).map((qp, i) => {
                 const label = typeof qp === "string" ? qp : qp.label;
+                const highlight = typeof qp !== "string" && qp.highlight === true;
+                // Highlighted chips get an emerald ring + slow pulse so
+                // they stand out without animating distractingly. Plain
+                // chips keep the existing low-contrast neutral style.
+                const base = highlight
+                  ? "bg-emerald-500/15 text-emerald-100 ring-1 ring-emerald-400/60 hover:bg-emerald-500/25 hover:text-white shadow-[0_0_0_0_rgba(16,185,129,0.4)] animate-[pulse_2s_ease-in-out_infinite]"
+                  : "bg-white/5 text-white/70 ring-1 ring-white/10 hover:bg-white/10 hover:text-white";
                 return (
                   <button
                     key={i}
                     onClick={() => onQuickPrompt(qp)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-white/5 text-white/70 ring-1 ring-white/10 hover:bg-white/10 hover:text-white transition-colors"
+                    title={typeof qp !== "string" ? qp.prompt : undefined}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium transition-colors ${base}`}
                   >
                     {label}
                   </button>
@@ -696,35 +982,102 @@ function FloatingCopilot({
                   {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </button>
               </div>
+              {/* Chat attachment row — only renders when the operator
+                  opened the picker via the paperclip OR when there are
+                  selected chips to surface. Keeps the prompt area
+                  minimal by default. The picker component itself returns
+                  null when uncontrolled-closed AND empty. */}
+              {(attachmentsPickerOpen || attachedUploadIds.length > 0) && (
+                <div className="mt-2">
+                  <UploadAttachmentPicker
+                    personaId={personaId}
+                    value={attachedUploadIds}
+                    onChange={setAttachedUploadIds}
+                    open={attachmentsPickerOpen}
+                    onOpenChange={setAttachmentsPickerOpen}
+                    theme="dark"
+                  />
+                </div>
+              )}
             </div>
           )}
 
-          {/* Bottom nav row: mode toggle + model selector + mic */}
+          {/* Bottom nav row: mode toggle + refresh + model selector + mic */}
           <div className="px-3 pb-3 pt-1 flex items-center justify-between flex-shrink-0">
-            {/* Left: chat/avatar mode toggle */}
-            {!hideAvatarToggle ? (
-              <div className="flex items-center gap-0.5 bg-white/5 rounded-lg p-0.5 ring-1 ring-white/10">
+            {/* Left: chat/avatar mode toggle + refresh */}
+            <div className="flex items-center gap-2">
+              {!hideAvatarToggle ? (
+                <div className="flex items-center gap-0.5 bg-white/5 rounded-lg p-0.5 ring-1 ring-white/10">
+                  <button
+                    onClick={() => setMode("avatar")}
+                    className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
+                      mode === "avatar" ? "bg-purple-500/20 text-purple-400" : "text-white/50 hover:text-white/80"
+                    }`}
+                  >
+                    <User className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() => setMode("chat")}
+                    className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
+                      mode === "chat" ? "bg-cyan-500/20 text-cyan-400" : "text-white/50 hover:text-white/80"
+                    }`}
+                  >
+                    <MessageSquare className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : null}
+              {/* Refresh — drops persisted conversation history and
+                  resets to the seed/welcome message. Sits to the
+                  right of the chat/avatar toggle so it's near the
+                  primary mode controls without competing with them.
+                  Only renders when the parent gave us an
+                  onClearMessages handler (the case for all internally-
+                  managed message stores; externalMessages owners
+                  manage their own clear path). */}
+              {onClearMessages && (
                 <button
-                  onClick={() => setMode("avatar")}
-                  className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
-                    mode === "avatar" ? "bg-purple-500/20 text-purple-400" : "text-white/50 hover:text-white/80"
-                  }`}
+                  onClick={onClearMessages}
+                  title="Clear conversation history"
+                  className="p-1 rounded-md text-white/40 hover:text-white/80 hover:bg-white/5 transition-colors"
                 >
-                  <User className="w-3 h-3" />
+                  <RotateCcw className="w-3.5 h-3.5" />
                 </button>
-                <button
-                  onClick={() => setMode("chat")}
-                  className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs transition-all ${
-                    mode === "chat" ? "bg-cyan-500/20 text-cyan-400" : "text-white/50 hover:text-white/80"
-                  }`}
-                >
-                  <MessageSquare className="w-3 h-3" />
-                </button>
-              </div>
-            ) : <div />}
+              )}
+            </div>
 
-            {/* Right: model selector + mic */}
+            {/* Right: paperclip (attachments) + model selector + mic */}
             <div className="relative flex items-center gap-2">
+              {/* Paperclip — toggles the attachment picker bar.
+                  Highlighted when there are selections so the operator
+                  can see attachments are queued for the next send. */}
+              <button
+                type="button"
+                onClick={() => setAttachmentsPickerOpen(!attachmentsPickerOpen)}
+                title={
+                  attachedUploadIds.length > 0
+                    ? `${attachedUploadIds.length} file(s) attached — click to manage`
+                    : attachmentsPickerOpen
+                      ? 'Hide attachment library'
+                      : 'Attach files from your upload library'
+                }
+                aria-label="Toggle attachment picker"
+                aria-pressed={attachmentsPickerOpen}
+                className={`relative p-1.5 rounded-lg transition-colors ${
+                  attachedUploadIds.length > 0
+                    ? 'text-violet-300 bg-violet-500/15'
+                    : attachmentsPickerOpen
+                      ? 'text-violet-300 bg-violet-500/10'
+                      : 'text-slate-400 hover:text-violet-300 hover:bg-violet-500/10'
+                }`}
+              >
+                <Paperclip className="w-4 h-4" />
+                {attachedUploadIds.length > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-1 rounded-full bg-violet-500 text-white text-[9px] leading-[14px] text-center font-semibold">
+                    {attachedUploadIds.length}
+                  </span>
+                )}
+              </button>
+
               {/* LLM provider icon dropdown */}
               <div className="relative">
                 <button
@@ -769,16 +1122,36 @@ function FloatingCopilot({
                 )}
               </div>
 
-              {/* Mic toggle */}
+              {/* Mic toggle — wired to useSpeechRecognition (MediaRecorder +
+                  Whisper via /api/skills/stt). Disabled when MediaRecorder
+                  isn't supported (very old browsers) or while a prior clip
+                  is still being transcribed. */}
               <button
                 type="button"
-                onClick={() => setMicActive((prev) => !prev)}
-                title={micActive ? "Stop microphone" : "Start microphone"}
+                onClick={() => stt.toggle()}
+                disabled={!stt.isSupported || stt.isProcessing}
+                title={
+                  !stt.isSupported
+                    ? 'Speech recognition unavailable in this browser'
+                    : stt.isProcessing
+                      ? 'Transcribing…'
+                      : micActive
+                        ? 'Stop microphone'
+                        : 'Start microphone'
+                }
                 className={`p-1.5 rounded-lg transition-colors ${
-                  micActive ? "text-cyan-300 bg-cyan-500/10" : "text-slate-400 hover:text-fuchsia-300 hover:bg-fuchsia-500/10"
-                }`}
+                  micActive
+                    ? 'text-cyan-300 bg-cyan-500/10'
+                    : stt.isProcessing
+                      ? 'text-amber-300 bg-amber-500/10'
+                      : 'text-slate-400 hover:text-fuchsia-300 hover:bg-fuchsia-500/10'
+                } disabled:opacity-40 disabled:cursor-not-allowed`}
               >
-                {micActive ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+                {stt.isProcessing
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : micActive
+                    ? <Mic className="w-4 h-4" />
+                    : <MicOff className="w-4 h-4" />}
               </button>
             </div>
           </div>

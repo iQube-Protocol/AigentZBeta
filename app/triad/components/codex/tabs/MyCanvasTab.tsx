@@ -9,7 +9,7 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Check, Cpu, Loader2, Plus, PenSquare, Share2, Sparkles, Trash2, Save, X, UserPlus } from "lucide-react";
+import { Check, Cpu, Loader2, Plus, PenSquare, Radio, Share2, Sparkles, Trash2, Save, X, UserPlus } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { RemixDialog } from "@/components/metame/runtime/RemixDialog";
 import { SocialSharingModal } from "@/packages/smarttriad/src/SocialSharingModal";
@@ -31,12 +31,34 @@ interface CanvasEntry {
   updatedAt: string;
 }
 
+/**
+ * Surface mode — distinguishes the two consumers of this component.
+ *
+ *   - 'canvas' (default): PUBLIC publishing surface. Entries default
+ *     to visibility 'invited' (shareable) and the heading nudges the
+ *     operator toward publishing to KNYT Pulse / Qriptopian Pulse.
+ *   - 'workbench': PRIVATE working surface. Entries default to
+ *     visibility 'private' and the heading frames the surface as
+ *     internal work (partner briefs, reports, decks, drafts pre-
+ *     publication). Entries are stamped metaJson.surface='workbench'
+ *     so the list filter can scope them separately from canvas
+ *     entries.
+ *
+ * The two surfaces share the same backing /api/mycanvas/entries
+ * endpoint and the same editor — only the defaults + chrome differ.
+ * Per operator: 'myCanvas is for public publishing... myWorkbench
+ * is for private confidential work'.
+ */
+type MyCanvasSurface = 'canvas' | 'workbench';
+
 interface Props {
   personaId?: string;
   theme?: "light" | "dark";
+  surface?: MyCanvasSurface;
 }
 
-export function MyCanvasTab({ personaId, theme = "dark" }: Props) {
+export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: Props) {
+  const isWorkbench = surface === 'workbench';
   const [entries, setEntries] = useState<CanvasEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -58,11 +80,84 @@ export function MyCanvasTab({ personaId, theme = "dark" }: Props) {
   // re-hydrates from a clean slate.
   const hydratedRef = useRef<Set<string>>(new Set());
   useEffect(() => { hydratedRef.current = new Set(); }, [personaId]);
+
+  /**
+   * Consumer for the dispatch-from-elsewhere URL params (Phase F.1):
+   *
+   *   /codex/viewer?slug=metame&tab=mycanvas&remix=<encoded JSON>
+   *   /codex/viewer?slug=metame&tab=my-workbench&draft=<encoded JSON>
+   *
+   * Both forms carry a payload of
+   *   { source, specialistId, title, summary, recommendations }
+   * from dispatchArtifact() in the welcome surface. When detected,
+   * we auto-create an entry seeded with the payload + a metaJson
+   * flag pointing back to the originator (specialist id / source).
+   *
+   * Runs once per personaId+surface and clears the URL param so a
+   * refresh doesn't re-create the entry. Skipped when personaId
+   * isn't ready yet (the create needs it).
+   */
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (!personaId || seededRef.current) return;
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    const paramName = isWorkbench ? 'draft' : 'remix';
+    const raw = url.searchParams.get(paramName);
+    if (!raw) return;
+    let payload: {
+      source?: string;
+      specialistId?: string;
+      title?: string;
+      summary?: string;
+      recommendations?: string[];
+    } | null = null;
+    try {
+      payload = JSON.parse(decodeURIComponent(raw));
+    } catch {
+      payload = null;
+    }
+    if (!payload || !payload.title) return;
+    seededRef.current = true;
+    const lines: string[] = [];
+    if (payload.summary) lines.push(payload.summary, '');
+    if (payload.recommendations && payload.recommendations.length > 0) {
+      lines.push('## Recommendations', '');
+      for (const r of payload.recommendations) lines.push(`- ${r}`);
+    }
+    void handleCreate({
+      title: payload.title,
+      bodyMd: lines.join('\n'),
+      metaJson: {
+        source: payload.source ?? 'unknown',
+        specialistId: payload.specialistId ?? null,
+        // Creator tag — flag the persona as the entry's creator so
+        // the publishing surface (KNYT Pulse / Qriptopian Pulse)
+        // can render the byline correctly. Operator: 'the surfaces
+        // currently publish to does have Creator/created by field
+        // which the user should be able to tag with their persona'.
+        createdByPersonaId: personaId,
+      },
+    });
+    // Clear the URL param so refresh doesn't re-seed.
+    url.searchParams.delete(paramName);
+    window.history.replaceState({}, '', url.toString());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personaId, isWorkbench]);
   // Per-entry hydration state for visible diagnostics. Lets the right
   // panel show whether a fetch is in flight, errored, or finished
   // empty — so we can tell at a glance whether missing body content
   // is "fetch never fired", "fetch failed", or "entry truly empty".
   const [hydrationState, setHydrationState] = useState<Record<string, { status: "loading" | "ok" | "error"; code?: number }>>({});
+
+  // Surface-aware list filter. Each entry's metaJson.surface is the
+  // primary signal; if absent, fall back to 'canvas' (legacy entries
+  // created before the workbench split was introduced).
+  const filteredEntries = entries.filter((e) => {
+    const stamped = (e.metaJson as { surface?: string } | undefined)?.surface;
+    const effectiveSurface: MyCanvasSurface = stamped === 'workbench' ? 'workbench' : 'canvas';
+    return effectiveSurface === surface;
+  });
 
   const fetchEntries = useCallback(async () => {
     if (!personaId) { setLoading(false); return; }
@@ -127,16 +222,32 @@ export function MyCanvasTab({ personaId, theme = "dark" }: Props) {
     return () => { cancelled = true; };
   }, [personaId, selected]);
 
-  const handleCreate = useCallback(async () => {
+  const handleCreate = useCallback(async (seed?: {
+    title?: string;
+    bodyMd?: string;
+    metaJson?: Record<string, unknown>;
+  }) => {
     if (!personaId) return;
     setCreating(true);
     setError(null);
     try {
+      // Surface-aware defaults:
+      //   workbench → private + metaJson.surface='workbench' so the
+      //     list filter scopes correctly
+      //   canvas    → invited + metaJson.surface='canvas' (or absent
+      //     for legacy data which is treated as canvas)
+      const defaultVisibility = isWorkbench ? 'private' : 'invited';
+      const surfaceStamp = { surface, ...(seed?.metaJson ?? {}) };
       const res = await personaFetch("/api/mycanvas/entries", {
         personaIdHint: personaId,
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: "Untitled draft", bodyMd: "" }),
+        body: JSON.stringify({
+          title: seed?.title ?? (isWorkbench ? 'Untitled workbench draft' : 'Untitled draft'),
+          bodyMd: seed?.bodyMd ?? '',
+          visibility: defaultVisibility,
+          metaJson: surfaceStamp,
+        }),
       });
       if (!res.ok) throw new Error(`create failed (${res.status})`);
       const data = (await res.json()) as { entry: CanvasEntry };
@@ -147,7 +258,7 @@ export function MyCanvasTab({ personaId, theme = "dark" }: Props) {
     } finally {
       setCreating(false);
     }
-  }, [personaId]);
+  }, [personaId, isWorkbench, surface]);
 
   const handleSave = useCallback(async () => {
     if (!personaId || !selected) return;
@@ -254,6 +365,66 @@ export function MyCanvasTab({ personaId, theme = "dark" }: Props) {
     [personaId],
   );
 
+  // Per-entry "publish to Pulse" state — open dropdown picks the
+  // destination cartridge (KNYT Pulse / Qriptopian Pulse). For 'note'
+  // entries the route materialises a stub community_generated_content
+  // row (skill='note', qc_cost=0, image_url=null) then flips it to
+  // 'shared'. For 'experience_derived' entries the existing
+  // /api/community-content/[id]/publish path is used — the row already
+  // exists with its own cartridge stamp.
+  const [publishOpenForId, setPublishOpenForId] = useState<string | null>(null);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
+  const handlePublishNoteToPulse = useCallback(
+    async (entry: CanvasEntry, cartridge: "knyt" | "qripto") => {
+      setError(null);
+      setPublishingId(entry.id);
+      try {
+        const res = await personaFetch(`/api/mycanvas/entries/${entry.id}/publish-to-pulse`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cartridge }),
+          personaIdHint: personaId ?? undefined,
+        });
+        const j = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          contentId?: string;
+          cartridge?: string;
+        };
+        if (!res.ok || !j.ok) {
+          setError(j.error ?? `publish failed (${res.status})`);
+          return;
+        }
+        // Refresh the entry list so the metaJson.contentId stamp
+        // appears immediately (drives the existing republish path on
+        // subsequent clicks). Closed publish dropdown either way.
+        setPublishOpenForId(null);
+        if (j.contentId) {
+          setEntries((prev) =>
+            prev.map((e) =>
+              e.id === entry.id
+                ? {
+                    ...e,
+                    metaJson: {
+                      ...e.metaJson,
+                      contentId: j.contentId!,
+                      cartridge: j.cartridge ?? cartridge,
+                      publishedAt: new Date().toISOString(),
+                    },
+                  }
+                : e,
+            ),
+          );
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setPublishingId(null);
+      }
+    },
+    [personaId],
+  );
+
   const isDark = theme === "dark";
   const panelClass = isDark ? "bg-slate-900 text-slate-100" : "bg-white text-slate-900";
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
@@ -263,14 +434,21 @@ export function MyCanvasTab({ personaId, theme = "dark" }: Props) {
       <div className="flex h-full">
         {/* Sidebar: entry list */}
         <aside className="w-64 border-r border-slate-700/50 flex flex-col">
-          <div className="p-3 border-b border-slate-700/50 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <PenSquare className="w-4 h-4 text-violet-400" />
-              <h2 className="text-sm font-semibold">myCanvas</h2>
+          <div className="p-3 border-b border-slate-700/50 flex items-start justify-between">
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <div className="flex items-center gap-2">
+                <PenSquare className="w-4 h-4 text-violet-400 shrink-0" />
+                <h2 className="text-sm font-semibold leading-none">
+                  {isWorkbench ? 'myWorkbench' : 'myCanvas'}
+                </h2>
+              </div>
+              <span className="text-[10px] uppercase tracking-wider text-slate-500 pl-6">
+                {isWorkbench ? 'private · internal' : 'public · publishable'}
+              </span>
             </div>
             <button
               type="button"
-              onClick={handleCreate}
+              onClick={() => void handleCreate()}
               disabled={creating}
               title="New entry"
               className="flex items-center gap-1 px-2 py-1 rounded border border-violet-500/40 bg-violet-500/10 hover:bg-violet-500/20 text-violet-100 text-xs disabled:opacity-50"
@@ -290,7 +468,7 @@ export function MyCanvasTab({ personaId, theme = "dark" }: Props) {
               </div>
             ) : (
               <ul>
-                {entries.map((e) => (
+                {filteredEntries.map((e) => (
                   <li key={e.id}>
                     <button
                       type="button"
@@ -382,6 +560,36 @@ export function MyCanvasTab({ personaId, theme = "dark" }: Props) {
                 >
                   <UserPlus className="w-3 h-3" /> Invite
                 </button>
+                {/* Publish to Pulse — note entries only. experience_derived
+                    entries already have a publish path via metaJson.contentId
+                    (handlePublishToCommunity below). Adds a cartridge picker
+                    so the user chooses KNYT Pulse or Qriptopian Pulse. Once
+                    published, the entry is stamped with contentId so it can
+                    re-publish idempotently via the existing path. */}
+                {selected.entryType === "note" && (
+                  <button
+                    type="button"
+                    onClick={() => setPublishOpenForId(publishOpenForId === selected.id ? null : selected.id)}
+                    disabled={publishingId === selected.id}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded border text-xs disabled:opacity-50 ${
+                      selected.metaJson?.contentId
+                        ? "border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/10"
+                        : "border-slate-600 text-slate-300 hover:border-violet-500/40"
+                    }`}
+                    title={
+                      selected.metaJson?.contentId
+                        ? "Already published — publishing again is idempotent"
+                        : "Publish this note to KNYT Pulse or Qriptopian Pulse"
+                    }
+                  >
+                    {publishingId === selected.id ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Radio className="w-3 h-3" />
+                    )}
+                    {selected.metaJson?.contentId ? "Published" : "Publish"}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => void handleDelete(selected.id)}
@@ -390,6 +598,34 @@ export function MyCanvasTab({ personaId, theme = "dark" }: Props) {
                   <Trash2 className="w-3 h-3" /> Delete
                 </button>
               </div>
+              {publishOpenForId === selected.id && selected.entryType === "note" && (
+                <div className="p-3 border-b border-slate-700/50 bg-slate-800/40 flex items-center gap-2">
+                  <span className="text-xs text-slate-400">Publish to:</span>
+                  <button
+                    type="button"
+                    onClick={() => void handlePublishNoteToPulse(selected, "knyt")}
+                    disabled={publishingId === selected.id}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded border border-violet-500/40 bg-violet-500/10 hover:bg-violet-500/20 text-violet-100 text-xs disabled:opacity-50"
+                  >
+                    <Radio className="w-3 h-3" /> KNYT Pulse
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handlePublishNoteToPulse(selected, "qripto")}
+                    disabled={publishingId === selected.id}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded border border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-100 text-xs disabled:opacity-50"
+                  >
+                    <Radio className="w-3 h-3" /> Qriptopian Pulse
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPublishOpenForId(null)}
+                    className="ml-auto text-xs text-slate-400 hover:text-slate-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
               {inviteOpenForId === selected.id && (
                 <div className="p-3 border-b border-slate-700/50 flex items-center gap-2 bg-slate-800/40">
                   <input

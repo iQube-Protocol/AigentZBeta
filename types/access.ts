@@ -63,10 +63,27 @@ export interface ActivePersonaContext {
 
   identifiability: Identifiability;
 
-  /** Cartridge-role flags. Booleans only — no underlying handle exposed. */
+  /**
+   * Cartridge-role flags. Booleans + the per-cartridge admin scope
+   * array. T1-safe content only — slugs and booleans, no underlying
+   * tenant/franchise ids or CRM row references.
+   *
+   * `adminCartridges` was added 2026-05-26 (spine admin extension —
+   * see codexes/packs/agentiq/updates/2026-05-26_spine-admin-grants-extension.md):
+   * persona admin scope is now first-class on the spine, resolved by
+   * getActivePersona() in the same pass as `isAdmin`. Replaces the
+   * prior bespoke route-level lookup (parallel resolver pattern that
+   * violated the "single source of truth" contract).
+   *
+   * `isAdmin` (global uber/platform-tier) overrides any specific
+   * adminCartridges check. The two are independent; a tenant-admin
+   * of KNYT has adminCartridges: ['knyt-codex'] + isAdmin: false.
+   */
   cartridgeFlags: {
     isAdmin: boolean;
     isPartner: boolean;
+    /** Cartridge slugs the persona is explicitly admin of. T1-safe. */
+    adminCartridges: string[];
   };
 
   /** Cohort group ids the persona is a member of (no aliases at rest). */
@@ -107,9 +124,16 @@ export interface ActivePersonaSurface {
 
   identifiability: Identifiability;
 
+  /**
+   * T1 cartridge flags. Mirrors the T0 `ActivePersonaContext.cartridgeFlags`
+   * shape but exposed across the wire — slugs only, never tenant ids.
+   * `adminCartridges` added 2026-05-26 alongside the spine extension.
+   */
   cartridgeFlags: {
     isAdmin: boolean;
     isPartner: boolean;
+    /** Cartridge slugs the persona admins. T1-safe slug strings only. */
+    adminCartridges: string[];
   };
 
   /**
@@ -247,9 +271,19 @@ export interface ContentGatingDescriptor {
   kind: GatingKind;
   /**
    * Credential id when kind='credential'. Examples:
-   *   'admin' | 'partner' | 'investor'
-   *   'cohort:<cohort_id>'
-   *   'token:<chain>:<contract>'    // ERC-721/1155 holder check
+   *   'admin'                       — global uber/platform-tier admin
+   *                                    (cartridgeFlags.isAdmin)
+   *   'partner' | 'investor'        — other cartridgeFlags booleans
+   *   'admin-cartridge:<slug>'      — per-cartridge admin grant
+   *                                    (cartridgeFlags.adminCartridges
+   *                                    contains the slug, OR global
+   *                                    isAdmin satisfies the gate).
+   *                                    Added 2026-05-26 as Layer 3 of
+   *                                    the spine admin-grants
+   *                                    extension — see
+   *                                    codexes/packs/agentiq/updates/2026-05-26_spine-admin-grants-extension.md.
+   *   'cohort:<cohort_id>'          — cohort membership via RQH
+   *   'token:<chain>:<contract>'    — ERC-721/1155 holder check
    */
   credential?: string;
   priceUsd?: number;

@@ -17,11 +17,12 @@
  * DIS template id: `venture-cockpit-layout-v1`.
  */
 
-import React, { useCallback } from "react";
-import { Briefcase, AlertCircle, Loader2 } from "lucide-react";
+import React, { useCallback, useMemo } from "react";
+import { Briefcase, AlertCircle, Loader2, RefreshCw, SlidersHorizontal, ChevronRight, Plus } from "lucide-react";
 import {
   NextBestActionCard,
 } from "@/components/metame/cards/NextBestActionCard";
+import { ExpandedNBEPill } from "@/components/metame/cards/ExpandedNBEPill";
 import { LayoutShell } from "./LayoutShell";
 import { accent, type Accent } from "./accentTokens";
 import type {
@@ -46,9 +47,31 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
     onNbeAct,
     onDismissVenture,
     onRequestLayout,
+    artifacts,
+    actionPendingArtifactId,
+    actionErrors,
+    secondTierApproval,
+    onSendArtifact,
+    onDismissArtifact,
+    onApproveSecondTier,
+    onCancelSecondTier,
+    onDismissQueued,
+    onMarkPillComplete,
+    queuedIntents,
   } = props;
 
   const isDark = theme === "dark";
+
+  // Group artifacts by parent intent so each queued Pill folds its own
+  // drafted artifact (same pattern as BriefLayout / DecisionBoardLayout).
+  const artifactsByIntent = useMemo<Record<string, Array<typeof artifacts[number]>>>(() => {
+    const map: Record<string, Array<typeof artifacts[number]>> = {};
+    for (const a of artifacts ?? []) {
+      if (!a.intentId) continue;
+      (map[a.intentId] ??= []).push(a);
+    }
+    return map;
+  }, [artifacts]);
   const mutedClass = isDark ? "text-slate-400" : "text-slate-600";
   const stripClass = isDark
     ? "bg-slate-900/60 border-slate-800/60"
@@ -62,16 +85,42 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
   const data = ventureProgress;
   const stageLabel = data ? STAGE_LABELS[data.currentStage] ?? data.currentStage : "—";
 
-  const headerActions = data && data.blockersCount > 0 ? (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] ${
-      isDark
-        ? "border-amber-500/40 bg-amber-500/10 text-amber-300"
-        : "border-amber-300 bg-amber-50 text-amber-700"
-    }`}>
-      <AlertCircle className="h-3 w-3" />
-      {data.blockersCount} blocker{data.blockersCount === 1 ? "" : "s"}
-    </span>
-  ) : undefined;
+  const headerActions = (
+    <div className="flex items-center gap-1.5">
+      {data && data.blockersCount > 0 && (
+        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] ${
+          isDark
+            ? "border-amber-500/40 bg-amber-500/10 text-amber-300"
+            : "border-amber-300 bg-amber-50 text-amber-700"
+        }`}>
+          <AlertCircle className="h-3 w-3" />
+          {data.blockersCount} blocker{data.blockersCount === 1 ? "" : "s"}
+        </span>
+      )}
+      {/* Phase 2 B.3 — live sync indicator + force-refresh. */}
+      <LiveSyncIndicator
+        lastSyncedAt={props.ventureLastSyncedAt ?? null}
+        onForceSync={props.onForceSync}
+        isDark={isDark}
+      />
+      {props.onEditKpis && (
+        <button
+          type="button"
+          onClick={props.onEditKpis}
+          aria-label="Edit KPIs"
+          title="Edit KPIs"
+          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[11px] transition-colors ${
+            isDark
+              ? "border-slate-700/70 text-slate-300 hover:text-slate-100 hover:bg-slate-800/60"
+              : "border-slate-300 text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+          }`}
+        >
+          <SlidersHorizontal className="h-3 w-3" />
+          Edit KPIs
+        </button>
+      )}
+    </div>
+  );
 
   return (
     <LayoutShell
@@ -136,6 +185,9 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
                   ))
                 ) : (
                   <>
+                    {props.onEditKpis && (
+                      <AddKpisChip isDark={isDark} onClick={props.onEditKpis} />
+                    )}
                     <StatChip label="Active KPIs" value={data.kpiSummary.activeKpisCount} isDark={isDark} accentId="cyan" />
                     <StatChip label="Operational goals" value={data.operationalGoalsCount} isDark={isDark} accentId="cyan" />
                     <StatChip label="Commercial goals" value={data.commercialGoalsCount} isDark={isDark} accentId="cyan" />
@@ -160,7 +212,12 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
               ) : (
                 <Carousel>
                   {data.recentActivity.slice(0, 12).map((a) => (
-                    <ActivityChip key={a.intentId} activity={a} isDark={isDark} />
+                    <ActivityChip
+                      key={a.intentId}
+                      activity={a}
+                      isDark={isDark}
+                      onSelect={() => props.onSelectActiveWork?.(a.intentId)}
+                    />
                   ))}
                 </Carousel>
               )}
@@ -176,14 +233,46 @@ function VentureCockpitLayoutComponent(props: RightPaneLayoutProps) {
                 <EmptyLine isDark={isDark} text="Nothing recommended right now." />
               ) : (
                 <div className="space-y-2">
-                  {data.recommendedActions.slice(0, 3).map((a) => (
-                    <NextBestActionCard
-                      key={a.id}
-                      action={a}
-                      onAct={onNbeAct}
-                      theme={theme}
-                    />
-                  ))}
+                  {data.recommendedActions.slice(0, 3).map((a) => {
+                    const queued = queuedIntents?.[a.id];
+                    if (queued) {
+                      const artifactsForPill = artifactsByIntent[queued.intentId] ?? [];
+                      const matchedSecondTier =
+                        secondTierApproval &&
+                        artifactsForPill.some((af) => af.artifactId === secondTierApproval.artifactId)
+                          ? secondTierApproval
+                          : null;
+                      return (
+                        <ExpandedNBEPill
+                          key={a.id}
+                          action={a}
+                          queued={queued}
+                          artifacts={artifactsForPill}
+                          secondTierApproval={matchedSecondTier}
+                          actionPendingArtifactId={actionPendingArtifactId}
+                          actionErrors={actionErrors}
+                          onDismissQueued={() => onDismissQueued?.(a.id)}
+                          onSendArtifact={(id) => onSendArtifact?.(id)}
+                          onDismissArtifact={(id) => onDismissArtifact?.(id)}
+                          onApproveSecondTier={onApproveSecondTier}
+                          onCancelSecondTier={onCancelSecondTier}
+                          onMarkComplete={
+                            onMarkPillComplete ? () => onMarkPillComplete(a.id) : undefined
+                          }
+                          theme={theme}
+                        />
+                      );
+                    }
+                    return (
+                      <NextBestActionCard
+                        key={a.id}
+                        action={a}
+                        onAct={onNbeAct}
+                        queued={false}
+                        theme={theme}
+                      />
+                    );
+                  })}
                 </div>
               )}
             </Row>
@@ -303,6 +392,7 @@ function KpiChip({
         <div className={`text-xs truncate ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
           {kpi.name}
         </div>
+        <ChevronRight className={`h-3 w-3 ml-auto shrink-0 ${isDark ? 'text-slate-500' : 'text-slate-400'}`} aria-hidden />
       </div>
       <div className="flex items-baseline gap-1 mt-0.5">
         <div className={`text-lg font-semibold leading-tight ${hasValue ? tint.text : (isDark ? 'text-slate-400' : 'text-slate-500')}`}>
@@ -370,6 +460,29 @@ function StatChip({
   );
 }
 
+function AddKpisChip({ isDark, onClick }: { isDark: boolean; onClick: () => void }) {
+  // Empty-state CTA in the KPIs row. Mirrors StatChip footprint so the
+  // row reads as a coherent strip — but uses violet (the "actionable"
+  // accent in this surface) + a dashed border to signal "do this to
+  // populate the row".
+  const tint = accent('violet', isDark ? 'dark' : 'light');
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`text-left rounded-lg border border-dashed p-2.5 min-w-[10rem] backdrop-blur-sm transition-colors hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-violet-500/40 ${tint.border} ${tint.fillSoft}`}
+    >
+      <div className={`flex items-center gap-1.5 text-xs ${tint.text}`}>
+        <Plus className="h-3.5 w-3.5" />
+        Add KPIs
+      </div>
+      <div className={`text-[10px] leading-snug mt-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+        Bind outcomes to your active cartridges.
+      </div>
+    </button>
+  );
+}
+
 function PillChip({ label, isDark, accentId }: { label: string; isDark: boolean; accentId: Accent }) {
   const tint = accent(accentId, isDark ? "dark" : "light");
   return (
@@ -379,16 +492,78 @@ function PillChip({ label, isDark, accentId }: { label: string; isDark: boolean;
   );
 }
 
+function LiveSyncIndicator({
+  lastSyncedAt,
+  onForceSync,
+  isDark,
+}: {
+  lastSyncedAt: Date | null;
+  onForceSync?: () => void;
+  isDark: boolean;
+}) {
+  // Re-render every 15s so the "Synced Ns ago" label stays accurate.
+  // Lightweight — only mounted while the cockpit is open.
+  const [, force] = React.useReducer((n: number) => n + 1, 0);
+  React.useEffect(() => {
+    const id = window.setInterval(force, 15_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const label = lastSyncedAt ? formatAgo(lastSyncedAt) : "—";
+  const fresh = lastSyncedAt && Date.now() - lastSyncedAt.getTime() < 30_000;
+  const dotClass = fresh
+    ? (isDark ? "bg-emerald-400" : "bg-emerald-500")
+    : (isDark ? "bg-slate-600" : "bg-slate-400");
+  const textClass = isDark ? "text-slate-400" : "text-slate-600";
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 text-[11px] ${textClass}`}
+      title={lastSyncedAt ? `Last synced ${lastSyncedAt.toLocaleTimeString()}` : "Not yet synced"}
+    >
+      <span className={`inline-block h-1.5 w-1.5 rounded-full ${dotClass}`} />
+      Synced {label}
+      {onForceSync && (
+        <button
+          type="button"
+          onClick={onForceSync}
+          aria-label="Refresh now"
+          title="Refresh now"
+          className={`ml-0.5 inline-flex items-center justify-center h-5 w-5 rounded-md transition-colors ${
+            isDark ? "text-slate-500 hover:text-slate-200 hover:bg-slate-800/60" : "text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+          }`}
+        >
+          <RefreshCw className="h-3 w-3" />
+        </button>
+      )}
+    </span>
+  );
+}
+
+function formatAgo(d: Date): string {
+  const sec = Math.max(0, Math.round((Date.now() - d.getTime()) / 1000));
+  if (sec < 5)   return "just now";
+  if (sec < 60)  return `${sec}s ago`;
+  const min = Math.round(sec / 60);
+  if (min < 60)  return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24)   return `${hr}h ago`;
+  return d.toLocaleDateString();
+}
+
 function ActivityChip({
   activity,
   isDark,
+  onSelect,
 }: {
   activity: { intentId: string; intentName: string; cartridge: string; status: string };
   isDark: boolean;
+  onSelect?: () => void;
 }) {
   // Glass-fill emerald (Active Work accent). Status colors the bottom
   // line so the eye can scan completed / in-progress / failed without
-  // re-reading.
+  // re-reading. Phase 2 B.2 (2/2): now a button — clicking opens the
+  // ActiveWorkDetailLayout for the underlying intent.
   const tint = accent("emerald", isDark ? "dark" : "light");
   const status = activity.status.toLowerCase();
   const statusClass =
@@ -401,7 +576,11 @@ function ActivityChip({
           : isDark ? "text-slate-400" : "text-slate-500";
   const cartridgeClass = isDark ? "text-slate-400" : "text-slate-600";
   return (
-    <div className={`rounded-lg border p-2.5 min-w-[12rem] max-w-[16rem] backdrop-blur-sm ${tint.border} ${tint.fillSoft}`}>
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`text-left rounded-lg border p-2.5 min-w-[12rem] max-w-[16rem] backdrop-blur-sm transition-colors hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-violet-500/40 ${tint.border} ${tint.fillSoft}`}
+    >
       <div className={`text-xs font-medium truncate ${isDark ? "text-slate-100" : "text-slate-900"}`}>
         {activity.intentName}
       </div>
@@ -411,7 +590,7 @@ function ActivityChip({
       <div className={`text-[10px] uppercase tracking-[0.16em] mt-1 font-medium ${statusClass}`}>
         {activity.status}
       </div>
-    </div>
+    </button>
   );
 }
 

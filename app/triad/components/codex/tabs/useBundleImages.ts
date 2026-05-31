@@ -38,8 +38,11 @@ export const BUNDLE_ID_TO_TIER: Record<string, BundleTier> = {
   'first-knyt-investor':   'silver',
   'zero-knyt-investor':    'silver',
   'digital-first-knyt':    'silver',
-  // Gold — Satoshi-tier flagship
+  // Gold — Satoshi-tier flagship + 21 Sats Franchises (share the gold logo).
   'satoshi-knyt-investor': 'gold',
+  'franchise-21sats-guild-zeroknyt':   'gold',
+  'franchise-21sats-guild-triadknyt':  'gold',
+  'franchise-21sats-franchisee-poa':   'gold',
 };
 
 export function getBundleTier(bundleId: string): BundleTier | null {

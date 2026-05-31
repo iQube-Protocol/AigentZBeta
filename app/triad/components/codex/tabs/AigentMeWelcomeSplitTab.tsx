@@ -36,11 +36,20 @@ import {
 } from "@/services/strategy/kpiTypes";
 import { ACTIVATION_CATALOG } from "@/data/activation-catalog";
 import {
+  getActiveCartridge,
+  tryOpenInMountedCartridge,
+} from "@/services/cartridge/CartridgePresenceRegistry";
+import { ActiveKpisEditor } from "@/components/metame/setup/ActiveKpisEditor";
+import {
   usePersonaSpine,
   personaFetch,
   PersonaSpineGate,
 } from "@/utils/personaSpine";
 import { SmartTriadCopilotLayer } from "@/components/smarttriad/copilot/SmartTriadCopilotLayer";
+import { useCartridgeAdminGrants } from "@/app/hooks/useCartridgeAdminGrants";
+// RequestAdminAccessButton now mounted inside WelcomeRightPane (right-
+// pane badge carousel). Import removed when the left-strip chip
+// moved out per 2026-05-26 operator feedback.
 
 import {
   ExperienceModelCard,
@@ -65,6 +74,7 @@ import type { StageEvaluation } from "@/services/strategy/stageProgression";
 
 import { ComposeQuickActionsStrip, type ComposeKind } from "@/components/metame/copilot/ComposeQuickActionsStrip";
 import AgentWalletDrawer from "@/components/AgentWalletDrawer";
+import { UploadDrawer } from "@/components/metame/uploads/UploadDrawer";
 // WelcomeRightPane is composed by the layout registry now — `StackLayout`
 // wraps it identically so Phase 1 behavior is preserved while Phase 2
 // slices add intent-specific layouts alongside.
@@ -143,6 +153,43 @@ function autoOpenArtifact(_data: { locationUrl?: string | null; artifactType?: s
  * modal that should open right after approval. Returns null when no
  * compose hand-off makes sense — those NBEs stay queued only.
  */
+/**
+ * Class-wide unified dispatcher — single source of truth for
+ * progressing ANY artifact (NBE Act / specialist chip / "create a
+ * doc / report / deck" affordances) to the right destination.
+ *
+ * Routes through classifySuggestedArtifact and returns a normalised
+ * dispatch instruction. Callers turn the instruction into the
+ * actual surface change (open composer modal / navigate to canvas /
+ * navigate to studio).
+ *
+ * Why this matters: operator feedback was 'the class-wide artifact
+ * progression has to span specialists AND NBE Act AND the Compose
+ * strip AND any "create a doc / report / deck" chips — not just
+ * specialists piece-meal'. Centralising the classifier here keeps
+ * every dispatch consistent so a 'create a partner brief' from any
+ * surface always lands in myWorkbench, 'compose a deck' always
+ * lands in the slides composer, 'generate a report' lands as a doc,
+ * etc.
+ */
+export interface ArtifactDispatchPayload {
+  /** The artifact label (e.g. 'partner-brief', 'image-prompt'). */
+  artifactType: string;
+  /** Title for the inferred draft prompt. */
+  title: string;
+  /** Summary for the inferred draft prompt. */
+  summary?: string;
+  /** Bulleted recommendations to seed the draft. */
+  recommendations?: string[];
+  /** Originating surface — used for navigation source-of-truth. */
+  source: 'specialist' | 'nbe-act' | 'compose-chip' | 'chat';
+  /** Optional specialist id for downstream telemetry. */
+  specialistId?: string;
+}
+
+// Back-compat — kept for the few callers that explicitly want a
+// ComposeKind. Prefer classifyNbeAction for new code so NBE Act
+// dispatch and specialist-chip dispatch share the same router.
 function composeKindForAction(action: NextBestActionData): ComposeKind | null {
   // Explicit workspace NBEs.
   if (action.id === 'metame.use-workspace-gmail') return 'gmail';
@@ -156,6 +203,157 @@ function composeKindForAction(action: NextBestActionData): ComposeKind | null {
     case 'slide-outline': return 'slides';
     default:              return null;
   }
+}
+
+/**
+ * Specialist-response → ComposeKind resolver. Free-form artifact
+ * labels coming back from the LLM (e.g. "Partner proposal", "Article
+ * brief", "Campaign deck") are normalised to lowercase and matched
+ * against keyword patterns. Returns null when no compose surface is
+ * a sensible fit — the SpecialistResponseCard then renders the chip
+ * as a non-clickable label.
+ */
+/**
+ * Artifact routing — class-wide progression contract.
+ *
+ * Specialists emit a small set of suggestedArtifacts; the operator
+ * clicks a chip on the SpecialistResponseCard and the artifact has
+ * to land somewhere actionable. We have FOUR destinations:
+ *
+ *   1. Composer modal (gmail, event, doc, sheet, slides, marketa)
+ *      — for artifacts the operator drafts inside a modal.
+ *   2. myCanvas remix dialog (mycanvas-remix) — for publishing-bound
+ *      artifacts that should be staged onto the persona's canvas
+ *      before going to KNYT Pulse / Qriptopian Pulse.
+ *   3. myWorkbench (myworkbench-draft) — for PRIVATE working
+ *      artifacts (partner briefs, internal reports, decks pre-share).
+ *   4. metaMe Studio (image-prompt, video-script, post-set) — for
+ *      generative skills that produce media. Routes to the studio
+ *      composer with a prefilled prompt.
+ *
+ * The classifier below maps each artifact string (often free-text
+ * from the LLM) to one of the four classes. Keeping this single
+ * function as the SoT means adding a new artifact type only needs a
+ * regex update here + a route in handleUseSuggestedArtifact.
+ */
+export type SuggestedArtifactClass =
+  | { kind: 'composer'; composeKind: ComposeKind }
+  | { kind: 'mycanvas-remix' }
+  | { kind: 'myworkbench-draft' }
+  | { kind: 'studio'; skill: 'image' | 'video' | 'post-set' }
+  | { kind: 'marketa-campaign' }
+  | { kind: 'partner-brief' }
+  | { kind: 'unknown' };
+
+function classifySuggestedArtifact(artifactType: string): SuggestedArtifactClass {
+  const t = artifactType.toLowerCase();
+
+  // myCanvas remix — explicit publishing path. Highest specificity
+  // first because 'canvas' could otherwise be caught by later regexes.
+  if (/(mycanvas|canvas-remix|remix-canvas|canvas remix)/.test(t)) return { kind: 'mycanvas-remix' };
+
+  // myWorkbench — private internal artifacts (workbench draft, partner-private).
+  if (/(myworkbench|workbench-draft|workbench draft|private[- ]?draft)/.test(t)) {
+    return { kind: 'myworkbench-draft' };
+  }
+
+  // Marketa campaign (different from a Marketa email — campaign is
+  // the full send-pipeline; the email is just the message body).
+  if (/(marketa.?campaign|campaign send|send-set|marketa send)/.test(t)) {
+    return { kind: 'marketa-campaign' };
+  }
+
+  // Partner brief — Marketa private brief. Maps to a private working
+  // doc the user can review with their team before sharing.
+  if (/(partner.?brief)/.test(t)) {
+    return { kind: 'partner-brief' };
+  }
+
+  // Studio skills — image / video / post-set generation pipelines.
+  if (/(image[- ]?prompt|image[- ]?gen|hero[- ]?image|illustration)/.test(t)) {
+    return { kind: 'studio', skill: 'image' };
+  }
+  if (/(video[- ]?script|video[- ]?gen|video[- ]?clip|trailer|motion)/.test(t)) {
+    return { kind: 'studio', skill: 'video' };
+  }
+  if (/(post[- ]?set|social[- ]?posts|tweet[- ]?thread)/.test(t)) {
+    return { kind: 'studio', skill: 'post-set' };
+  }
+
+  // Standard composer surfaces — preserve the existing classifier.
+  if (/(email|outreach|gmail|note to|reply|message)/.test(t)) {
+    return { kind: 'composer', composeKind: /(marketa|campaign send)/.test(t) ? 'marketa' : 'gmail' };
+  }
+  if (/(meeting|calendar|event|invite|sync\b)/.test(t)) return { kind: 'composer', composeKind: 'event' };
+  if (/(slide|deck|presentation|pitch)/.test(t)) return { kind: 'composer', composeKind: 'slides' };
+  if (/(sheet|spreadsheet|tracker|csv|table)/.test(t)) return { kind: 'composer', composeKind: 'sheet' };
+  if (/(doc|brief|memo|proposal|article|outline|narrative|write-up|writeup|spec|plan|venture[- ]?report)/.test(t)) {
+    return { kind: 'composer', composeKind: 'doc' };
+  }
+
+  return { kind: 'unknown' };
+}
+
+// Back-compat helpers — kept as thin wrappers around classifySuggestedArtifact
+// so existing callers (if any) don't break. Prefer the classifier in new code.
+function composeKindForSuggestedArtifact(artifactType: string): ComposeKind | null {
+  const cls = classifySuggestedArtifact(artifactType);
+  return cls.kind === 'composer' ? cls.composeKind : null;
+}
+
+function isMyCanvasRemixArtifact(artifactType: string): boolean {
+  return classifySuggestedArtifact(artifactType).kind === 'mycanvas-remix';
+}
+
+/**
+ * Build the inferred draft prompt the ComposerLayout fires on mount.
+ * Combines the specialist response's title + summary + top
+ * recommendations + chosen artifact into a single, concrete brief so
+ * the modal's draft handler can produce a populated form.
+ */
+function buildPromptForSuggestedArtifact(
+  artifactType: string,
+  response: import('@/components/metame/cards/SpecialistResponseCard').SpecialistResponseData,
+): string {
+  const lines: string[] = [];
+  lines.push(`Draft a ${artifactType.toLowerCase()} that operationalises ${response.specialistLabel}'s recommendation: "${response.title}".`);
+  if (response.summary) lines.push(`Context: ${response.summary}`);
+  const topRecs = response.recommendations.slice(0, 4);
+  if (topRecs.length > 0) {
+    lines.push(`Key points to cover:`);
+    for (const r of topRecs) lines.push(`- ${r}`);
+  }
+  lines.push(`Keep it concrete, action-oriented, and ready for the operator to review, edit, and send.`);
+  return lines.join('\n');
+}
+
+/**
+ * NBE-action variant of the directive-style prompt builder. Used by
+ * the post-approve flow when the LLM rerank did NOT emit a
+ * nbaPromptHints entry for the action — without this, the composer
+ * modal would open empty and the operator would have to type a prompt
+ * manually. With this fallback the modal always auto-populates from
+ * the action's own label + rationale, mirroring the prompt shape
+ * buildPromptForSuggestedArtifact emits for specialist chips so the
+ * doc-draft / sheet-draft / slides-draft endpoints all produce
+ * useful drafts.
+ *
+ * Operator: 'the act button is no longer auto populating the
+ * generate/composer modal. None of them are. this part of the
+ * workflow broke.' — this builder restores the autopopulate.
+ */
+function buildPromptForNbeAction(
+  artifactType: string,
+  action: NextBestActionData,
+): string {
+  const kind = artifactType.toLowerCase() || 'doc';
+  const lines: string[] = [];
+  lines.push(`Draft a ${kind} that operationalises this next-best action: "${action.label}".`);
+  if (action.rationale) lines.push(`Context: ${action.rationale}`);
+  if (action.cartridge) lines.push(`Cartridge: ${action.cartridge}.`);
+  if (action.suggestedArtifact) lines.push(`Artifact type requested: ${action.suggestedArtifact}.`);
+  lines.push(`Keep it concrete, action-oriented, and ready for the operator to review, edit, and send.`);
+  return lines.join('\n');
 }
 
 interface Props {
@@ -188,11 +386,17 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     topAction: NextBestActionData | null;
     alternates: NextBestActionData[];
     topActionReason?: string | null;
+    nbaPromptHints?: Record<string, string>;
+    preflightContext?: import("@/services/capabilities/preflight").PreflightContext;
   } | null>(null);
   const [moveForwardLoading, setMoveForwardLoading] = useState(false);
 
   const [ventureProgress, setVentureProgress] = useState<VentureProgressData | null>(null);
   const [ventureProgressLoading, setVentureProgressLoading] = useState(false);
+  // Phase 2 B.3 — timestamp of the most recent successful venture
+  // progress fetch. Surfaced in the cockpit header as "Synced Ns ago"
+  // so the operator can see freshness at a glance.
+  const [ventureLastSyncedAt, setVentureLastSyncedAt] = useState<Date | null>(null);
   const [ventureProgressError, setVentureProgressError] = useState<string | null>(null);
 
   const [specialistResponses, setSpecialistResponses] = useState<Record<string, SpecialistResponseData>>({});
@@ -235,6 +439,11 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
 
   // Wallet drawer.
   const [walletOpen, setWalletOpen] = useState(false);
+  // Upload drawer — opens via the Upload icon in the compose strip.
+  // Drives /api/uploads (persona_uploads + Supabase Storage) and the
+  // parse-on-upload indexer that backs chat-context attach + email
+  // attachment + iqube embed flows.
+  const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
 
   // Compose modal open/close booleans.
   // Phase 2 Slice 4: compose-modal open booleans removed. The single
@@ -248,6 +457,25 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const [askSpecialistResponses, setAskSpecialistResponses] = useState<Record<string, SpecialistResponseData>>({});
   const [askSpecialistErrors, setAskSpecialistErrors] = useState<Record<string, string>>({});
 
+  // Phase 2 — SpecialistsLayout state. Recommendation comes from
+  // /api/assistant/specialist-recommend; thread comes from
+  // /api/assistant/specialist-thread (reads activity_receipts).
+  const [selectedSpecialistId, setSelectedSpecialistId] = useState<
+    import("@/services/agents/specialistRouter").SpecialistId | null
+  >(null);
+  const [specialistRecommendation, setSpecialistRecommendation] = useState<
+    import("@/services/orchestration/specialistRecommender").SpecialistRecommendation | null
+  >(null);
+  const [specialistRecommendationLoading, setSpecialistRecommendationLoading] = useState(false);
+  const [specialistRecommendationError, setSpecialistRecommendationError] = useState<string | null>(null);
+  const [specialistRecommendationPreflight, setSpecialistRecommendationPreflight] = useState<
+    import("@/services/capabilities/preflight").PreflightContext | undefined
+  >(undefined);
+  const [specialistThread, setSpecialistThread] = useState<
+    NonNullable<import("@/components/metame/welcome/layouts/types").RightPaneLayoutProps["specialistsLayout"]>["thread"]
+  >([]);
+  const [specialistThreadLoading, setSpecialistThreadLoading] = useState(false);
+
   // Activity receipts.
   const [receipts, setReceipts] = useState<ActivityReceiptData[]>([]);
   const [receiptsLoading, setReceiptsLoading] = useState(false);
@@ -258,11 +486,63 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
 
   // Approval + queued intents.
   const [pendingApprovalNbe, setPendingApprovalNbe] = useState<NextBestActionData | null>(null);
+  // Move D — when Act fires on an NBA that carries a `promptHint`, we
+  // stash it here so the post-approval composer hand-off can seed
+  // composerInitialPrompt with the LLM's "aigentMe's take" framing.
+  const [pendingApprovalHint, setPendingApprovalHint] = useState<string | null>(null);
   const [submittingApproval, setSubmittingApproval] = useState(false);
   const [approvalError, setApprovalError] = useState<string | null>(null);
   const [queuedIntents, setQueuedIntents] = useState<
-    Record<string, { intentId: string; status: string; queueMessage: string }>
+    Record<string, { intentId: string; status: string; queueMessage: string; manuallyComplete?: boolean }>
   >({});
+  // Session registry of NBA definitions for every NBE the operator has
+  // Acted on. Survives brief / move-forward refetches so the Brief
+  // Capsule can render expanded Pills even after the source NBA is no
+  // longer in brief.nextBestActions. Keyed by NBE id.
+  const [actedNbeRegistry, setActedNbeRegistry] = useState<
+    Record<string, NextBestActionData>
+  >({});
+
+  // Active Capsule template — one engaged at a time. Each Capsule
+  // (Brief, Move forward, Venture progress, Ask specialists) is its
+  // own bounded surface; the operator engages one, completes their
+  // work, then moves to the next. Previous Capsules collapse into
+  // the session-history strip and can be restored by click.
+  type CapsuleId = "brief" | "move-forward" | "venture-progress" | "ask-specialists";
+  // CANONICAL Capsule → Layout mapping. Every Capsule template owns
+  // exactly one dedicated foreground layout. Activating a Capsule MUST
+  // mount its layout (both states stay in lockstep) — otherwise the
+  // operator lands on the stack/manual fallback while activeCapsuleId
+  // claims a Capsule is engaged. This was the 2026-05-28 Ask Specialists
+  // regression: the chip set activeCapsuleId but not activeLayoutId, so
+  // the specialist response + suggested-artifact CTAs rendered on the
+  // manual surface instead of inside the Capsule.
+  //
+  // DO NOT activate a Capsule without also setting its layout. Always
+  // route through `engageCapsuleAndMount` below. If you add a fifth
+  // Capsule, extend this mapping AND the type union.
+  const CAPSULE_LAYOUT: Record<CapsuleId, RightPaneLayoutId> = {
+    "brief": "brief",
+    "move-forward": "decision-board",
+    "venture-progress": "venture-cockpit",
+    "ask-specialists": "specialists",
+  };
+  const [activeCapsuleId, setActiveCapsuleId] = useState<CapsuleId | null>(null);
+  const [capsuleHistory, setCapsuleHistory] = useState<CapsuleId[]>([]);
+  const engageCapsule = useCallback((next: CapsuleId) => {
+    setActiveCapsuleId((cur) => {
+      if (cur === next) return cur;
+      if (cur) {
+        // Push the previous Capsule into history (dedup so the strip
+        // doesn't accumulate duplicate entries when bouncing between
+        // two templates).
+        setCapsuleHistory((h) => (h[h.length - 1] === cur ? h : [...h.filter((x) => x !== cur), cur]));
+      }
+      // Drop `next` from history so it doesn't appear in both places.
+      setCapsuleHistory((h) => h.filter((x) => x !== next));
+      return next;
+    });
+  }, []);
 
   // Accordion: which right-pane config section is expanded.
   const [expandedSectionId, setExpandedSectionId] = useState<SectionId | null>(null);
@@ -274,6 +554,22 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // and the activator chips set this state to route the pane.
   // DIS: codexes/packs/agentiq/items/dis/aigentme-phase-2.dis.json
   const [activeLayoutId, setActiveLayoutId] = useState<RightPaneLayoutId>(DEFAULT_LAYOUT_ID);
+
+  // Capsule activator — engages the Capsule AND mounts its canonical
+  // dedicated layout in one atomic call. Every Capsule chip (left-pane
+  // handleCtaClick AND chat-copilot quickPrompt onSelect) MUST route
+  // through this helper. Calling engageCapsule alone leaves
+  // activeLayoutId pinned to whatever it was (often 'stack'), and the
+  // operator lands on the manual-fallback surface while activeCapsuleId
+  // claims a Capsule is engaged — the 2026-05-28 Ask Specialists
+  // regression. The mapping lives in CAPSULE_LAYOUT above; if you add a
+  // fifth Capsule, extend the mapping and the type union (not this
+  // helper).
+  const engageCapsuleAndMount = useCallback((next: CapsuleId) => {
+    engageCapsule(next);
+    setActiveLayoutId(CAPSULE_LAYOUT[next]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engageCapsule]);
 
   // Phase 2 Slice 7 — server-driven chip set.
   // Null = use the cold-open static fallback below. Each /api/assistant/*
@@ -438,6 +734,8 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         topAction: NextBestActionData | null;
         alternates: NextBestActionData[];
         topActionReason?: string | null;
+        nbaPromptHints?: Record<string, string>;
+        preflightContext?: import("@/services/capabilities/preflight").PreflightContext;
         quickChips?: NbeQuickChip[];
       };
       setMoveForwardResult(payload);
@@ -449,10 +747,17 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
   }, [personaId]);
 
-  const fetchVentureProgress = useCallback(async () => {
-    setVentureProgressLoading(true);
-    setVentureProgressError(null);
-    setVentureProgress(null);
+  const fetchVentureProgress = useCallback(async (opts?: { silent?: boolean }) => {
+    // Phase 2 B.3 — silent mode lets background polls + post-mutation
+    // refreshes update in place without flashing the loading skeleton.
+    // Chip-driven fetches still set loading so the operator sees the
+    // surface acknowledge their click.
+    const silent = !!opts?.silent;
+    if (!silent) {
+      setVentureProgressLoading(true);
+      setVentureProgressError(null);
+      setVentureProgress(null);
+    }
     try {
       const res = await personaFetch('/api/assistant/venture-progress', {
         method: 'POST',
@@ -466,11 +771,17 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       }
       const payload = (await res.json()) as VentureProgressData & { quickChips?: NbeQuickChip[] };
       setVentureProgress(payload);
+      setVentureLastSyncedAt(new Date());
       if (Array.isArray(payload.quickChips)) setServerChips(payload.quickChips);
     } catch (err) {
-      setVentureProgressError(err instanceof Error ? err.message : String(err));
+      if (!silent) {
+        setVentureProgressError(err instanceof Error ? err.message : String(err));
+      }
+      // Silent polls swallow errors — the operator already has the
+      // last good snapshot on screen and a transient error shouldn't
+      // wipe the cockpit.
     } finally {
-      setVentureProgressLoading(false);
+      if (!silent) setVentureProgressLoading(false);
     }
   }, [personaId]);
 
@@ -492,29 +803,55 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
 
   const handleCtaClick = useCallback((ctaId: string) => {
     if (ctaId === 'set-up-experience-model') { setWizardOpen(true); return; }
-    // Phase 2 Slice 1: 'brief-me' now selects the BriefLayout AND fires
-    // the fetch. The layout owns the rendering; the stack no longer
-    // accumulates a brief card.
+    // Each Capsule chip engages exactly one Capsule. Previous
+    // Capsule (if any) is pushed to the session-history strip via
+    // engageCapsule so the operator can return to it later. Sibling
+    // template state is cleared so the stack pane never shows two
+    // Capsules side-by-side — only the newly-engaged one renders.
     if (ctaId === 'brief-me') {
-      setActiveLayoutId('brief');
+      engageCapsuleAndMount('brief');
+      setVentureProgress(null);
+      setVentureProgressError(null);
+      setVentureProgressLoading(false);
+      setMoveForwardResult(null);
+      setMoveForwardLoading(false);
       void fetchBrief();
       return;
     }
-    // Move-forward + venture-progress request their intent-layouts.
-    // Until Slices 2 + 3 land, the registry falls back to StackLayout
-    // so the cards still render in the stack; once the layouts ship,
-    // these calls activate them automatically.
     if (ctaId === 'move-this-forward') {
-      setActiveLayoutId('decision-board');
+      engageCapsuleAndMount('move-forward');
+      setBrief(null);
+      setBriefError(null);
+      setBriefLoading(false);
+      setVentureProgress(null);
+      setVentureProgressError(null);
+      setVentureProgressLoading(false);
       void fetchMoveForward();
       return;
     }
     if (ctaId === 'review-venture-progress') {
-      setActiveLayoutId('venture-cockpit');
+      engageCapsuleAndMount('venture-progress');
+      setBrief(null);
+      setBriefError(null);
+      setBriefLoading(false);
+      setMoveForwardResult(null);
+      setMoveForwardLoading(false);
       void fetchVentureProgress();
       return;
     }
-  }, [fetchBrief, fetchMoveForward, fetchVentureProgress]);
+    if (ctaId === 'ask-specialists') {
+      engageCapsuleAndMount('ask-specialists');
+      setBrief(null);
+      setBriefError(null);
+      setBriefLoading(false);
+      setVentureProgress(null);
+      setVentureProgressError(null);
+      setVentureProgressLoading(false);
+      setMoveForwardResult(null);
+      setMoveForwardLoading(false);
+      return;
+    }
+  }, [fetchBrief, fetchMoveForward, fetchVentureProgress, engageCapsuleAndMount]);
 
   const handleWizardSaved = useCallback((saved: ExperienceModelCardData) => {
     setExpModel(saved);
@@ -524,14 +861,59 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // ── Approval / NBE flow ────────────────────────────────────────────
   const handleNbeAct = useCallback((action: NextBestActionData) => {
     if (queuedIntents[action.id]) return;
-    // Short-circuit: the "update goals" NBE opens the goals editor directly
-    // rather than going through the generic approval → intent path.
+    // Capture the NBA definition into the session registry so the
+    // brief Capsule can still render this Pill even if a subsequent
+    // brief refetch drops the NBA from its nextBestActions list, or
+    // if the Pill came from a different surface (move-forward,
+    // venture-progress). Without this, only NBAs currently in
+    // brief.nextBestActions render — so a user who acted on 3 CTAs
+    // sees only the ones the brief still lists.
+    setActedNbeRegistry((prev) =>
+      prev[action.id] ? prev : { ...prev, [action.id]: action },
+    );
+    // Short-circuit: the "update goals" NBE opens the goals editor
+    // directly rather than going through the generic approval → intent
+    // path. Lifecycle feedback: register a queued intent immediately
+    // (manuallyComplete=false) so the Pill flips Blue while the editor
+    // is open; the editor's onSaved callback then flips it to Green so
+    // the operator sees the work landed. Without this the Pill stayed
+    // pending and the operator had no signal the save succeeded.
     if (action.id === 'metame.update-experience-goals') {
+      const optimisticIntentId = `update-goals-${Date.now()}`;
+      setQueuedIntents((prev) => ({
+        ...prev,
+        [action.id]: {
+          intentId: optimisticIntentId,
+          status: 'in_progress',
+          queueMessage: 'Editing active ExperienceGoals…',
+          manuallyComplete: false,
+        },
+      }));
+      setActedNbeRegistry((prev) =>
+        prev[action.id] ? prev : { ...prev, [action.id]: action },
+      );
       setGoalsEditorOpen(true);
       return;
     }
     // Stage-advance NBE → POST /api/assistant/stage-progression directly.
+    // Surface immediate visual feedback: register a queued intent
+    // (manuallyComplete so the Pill flips straight to Green per the
+    // internal-action lifecycle), refresh receipts + brief so the new
+    // stage context propagates.
     if (action.id === 'metame.advance-stage') {
+      const optimisticIntentId = `stage-advance-${Date.now()}`;
+      setQueuedIntents((prev) => ({
+        ...prev,
+        [action.id]: {
+          intentId: optimisticIntentId,
+          status: 'complete',
+          queueMessage: 'Stage advance requested — refreshing context.',
+          manuallyComplete: true,
+        },
+      }));
+      setActedNbeRegistry((prev) =>
+        prev[action.id] ? prev : { ...prev, [action.id]: action },
+      );
       void (async () => {
         try {
           await personaFetch('/api/assistant/stage-progression', {
@@ -541,12 +923,35 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
             body: JSON.stringify({ trigger: 'nbe' }),
           });
           void fetchReceipts();
-        } catch { /* surfaced through stale state */ }
+          void fetchBrief();
+        } catch (err) {
+          // Surface failure inline by reverting the optimistic pill
+          // and stashing the error on the queue entry.
+          const msg = err instanceof Error ? err.message : String(err);
+          setQueuedIntents((prev) => {
+            const cur = prev[action.id];
+            if (!cur || cur.intentId !== optimisticIntentId) return prev;
+            return {
+              ...prev,
+              [action.id]: { ...cur, status: 'failed', queueMessage: `Stage advance failed: ${msg}`, manuallyComplete: false },
+            };
+          });
+        }
       })();
       return;
     }
     setApprovalError(null);
     setPendingApprovalNbe(action);
+    // Move D — look up the per-NBA prompt hint emitted by the LLM
+    // rerank pass (lives on either the brief or the move-forward
+    // result, depending on which surface fired the Act). When the
+    // approval flow hands off to a compose modal, this seeds
+    // composerInitialPrompt so the form lands populated.
+    const hint =
+      brief?.nbaPromptHints?.[action.id] ??
+      moveForwardResult?.nbaPromptHints?.[action.id] ??
+      null;
+    setPendingApprovalHint(hint && hint.trim().length > 0 ? hint.trim() : null);
     // Phase 2 Slice 5: ApprovalLayout overlays the current layout
     // automatically via the render — see the right-pane wrapper below.
     // We don't swap `activeLayoutId` so the foreground stays mounted.
@@ -555,10 +960,11 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     window.requestAnimationFrame(() => {
       approvalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
-  }, [queuedIntents, personaId, fetchReceipts]);
+  }, [queuedIntents, personaId, fetchReceipts, brief, moveForwardResult]);
 
   const handleApprovalCancel = useCallback(() => {
     setPendingApprovalNbe(null);
+    setPendingApprovalHint(null);
     setApprovalError(null);
     // Foreground layout remains as-is; the approval overlay unmounts.
   }, []);
@@ -584,25 +990,100 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         ...prev,
         [action.id]: { intentId: intentData.intentId, status: intentData.status, queueMessage: intentData.queueMessage },
       }));
+      const handoffHint = pendingApprovalHint;
       setPendingApprovalNbe(null);
       // Foreground layout remains as-is; approval overlay unmounts.
       void fetchReceipts();
+      // Phase 2 B.3 — refresh the cockpit so the just-queued intent
+      // appears in Active Work without waiting for the next 20s poll.
+      // Gated on the active Capsule: only fetch when the operator is
+      // actually engaged in the Venture Capsule — otherwise the
+      // populated state causes the VentureProgressCard to render in
+      // the stack pane alongside the Brief Capsule (the regression
+      // the operator just flagged).
+      if (activeCapsuleId === 'venture-progress') {
+        void fetchVentureProgress({ silent: true });
+      }
 
-      // Workspace-flavoured NBEs (gmail/doc/event/etc.) hand off to the
-      // corresponding compose modal so the user can actually do the action
-      // they just approved. Without this the queue grows but nothing happens.
-      const composeKind = composeKindForAction(action);
-      if (composeKind) {
-        openComposeByKind(composeKind);
+      // Class-wide artifact dispatch — same router every other surface
+      // (specialist chips, future "create a doc / report / deck"
+      // chips) uses, so approved NBE actions land in the right
+      // destination automatically:
+      //   workspace gmail / doc / sheet / slides / event → composer modal
+      //   partner-brief / report → myWorkbench (private)
+      //   article / mycanvas-remix → myCanvas (public publishing)
+      //   image-prompt / video-script / post-set → metaMe Studio
+      //   marketa-campaign → marketa composer
+      //
+      // 2026-05-26 regression-restore: the previous unification
+      // routed ALL composer-class artifacts through dispatchArtifact's
+      // buildPromptFromPayload step, which auto-fired a draft with a
+      // synthetic title+rationale prompt. That broke the alpha doc
+      // generation flow — the modal opened but the draft never
+      // populated correctly (the synthetic prompt isn't structured
+      // like the rerank's nbaPromptHints and the doc-draft endpoint
+      // didn't produce useful output). For composer destinations we
+      // now use the EXACT same path that worked before Phase F.1:
+      //   - setComposerInitialPrompt(handoffHint || null)
+      //   - setComposerKind(<kind>)
+      //   - setActiveLayoutId('composer')
+      // Modal's existing useEffect handles the auto-fire when
+      // handoffHint is present; otherwise the operator types a
+      // prompt and clicks Draft — same as alpha. Non-composer
+      // destinations (canvas / workbench / studio / marketa-campaign)
+      // still go through dispatchArtifact since those are NEW paths
+      // and aren't affected by the regression.
+      setPendingApprovalHint(null);
+      const artifactType = action.suggestedArtifact ?? '';
+      const cls = classifySuggestedArtifact(artifactType);
+
+      if (cls.kind === 'composer' || cls.kind === 'unknown') {
+        // Composer destinations (including legacy id-based ones that
+        // classifier returns 'unknown' on). Always seed the composer
+        // with SOMETHING — handoffHint when the LLM rerank emitted
+        // one, otherwise the directive fallback built from the
+        // action's own label + rationale. Without this fallback the
+        // modal opens empty when the rerank doesn't produce a hint
+        // (which is most of the time in alpha) and the operator has
+        // to type a prompt manually — the autopopulate regression.
+        const composeKind =
+          cls.kind === 'composer' ? cls.composeKind : composeKindForAction(action);
+        if (composeKind) {
+          const seedPrompt =
+            handoffHint && handoffHint.trim().length > 0
+              ? handoffHint
+              : buildPromptForNbeAction(artifactType, action);
+          setComposerInitialPrompt(seedPrompt);
+          setComposerKind(composeKind);
+          // Bind the composer to this queued intent so the drafted
+          // artifact nests inside the Pill instead of going orphan.
+          setComposerSourceIntentId(intentData.intentId);
+          // No more setActiveLayoutId('composer') — swapping the
+          // layout away from the active Capsule (Brief / Move-forward
+          // / Venture) hides every other Pill in the bundle and
+          // collapses the Capsule view. The composer needs to open
+          // as an overlay on top of the active Capsule so the rest
+          // of the Pills remain visible and the operator can return
+          // to the Capsule after composing. ComposerOverlayLayout
+          // mounts on top of ForegroundLayout when composerKind !==
+          // null; see the layout overlay block in render below.
+        } else {
+          // True no-handoff NBE — scroll to the queued card so the
+          // state change is visible.
+          window.setTimeout(() => {
+            const el = document.querySelector(`[data-queued-nbe-id="${action.id}"]`);
+            el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 50);
+        }
       } else {
-        // No compose hand-off — scroll the right pane to the freshly queued
-        // card so the state change is obvious. The approval card has just
-        // unmounted; without this scroll the user often misses the queue
-        // indicator (which renders in the queued-intents zone above).
-        window.setTimeout(() => {
-          const el = document.querySelector(`[data-queued-nbe-id="${action.id}"]`);
-          el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 50);
+        // Non-composer destinations (canvas / workbench / studio /
+        // marketa-campaign) — route through the dispatcher.
+        dispatchArtifact({
+          artifactType,
+          title: action.label,
+          summary: action.rationale,
+          source: 'nbe-act',
+        });
       }
 
       if (action.specialist) {
@@ -636,7 +1117,44 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     } finally {
       setSubmittingApproval(false);
     }
-  }, [pendingApprovalNbe, personaId, fetchReceipts]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingApprovalNbe, pendingApprovalHint, personaId, fetchReceipts, fetchVentureProgress, activeCapsuleId]);
+
+  // Parent IntentQube id for the composer flow. Set when the composer
+  // is opened in response to an Act on a queued NBE; threaded into
+  // /api/assistant/create-artifact via `sourceIntentId` so the drafted
+  // artifact nests inside its parent Pill instead of falling through
+  // to the orphan-artifact bucket. Declared HERE (above the compose
+  // handlers) so its binding exists by the time their useCallback
+  // dependency arrays are evaluated — declaring it further down in
+  // the file alongside composerKind put it in the TDZ at render time
+  // and crashed the cartridge with "can't access lexical declaration
+  // before initialization".
+  //
+  // Persisted alongside composerKind + composerInitialPrompt (see
+  // those state hooks for the rationale) so the artifact that
+  // eventually surfaces still nests inside the Pill the operator
+  // originally Acted from, even if they sub-tab-navigate mid-compose.
+  const [composerSourceIntentId, setComposerSourceIntentId] = useState<string | null>(() => {
+    if (typeof window === 'undefined' || !personaId) return null;
+    try {
+      const raw = window.sessionStorage.getItem(`aigentme:split:composerSourceIntentId:${personaId}`);
+      return raw ? (JSON.parse(raw) as string | null) : null;
+    } catch { return null; }
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined' || !personaId) return;
+    try {
+      if (composerSourceIntentId === null) {
+        window.sessionStorage.removeItem(`aigentme:split:composerSourceIntentId:${personaId}`);
+      } else {
+        window.sessionStorage.setItem(
+          `aigentme:split:composerSourceIntentId:${personaId}`,
+          JSON.stringify(composerSourceIntentId),
+        );
+      }
+    } catch { /* quota — silently degrade */ }
+  }, [composerSourceIntentId, personaId]);
 
   // ── Compose handlers — all 6 mirror the classic tab pattern ────────
   const handleDraftEmail = useCallback(async (prompt: string) => {
@@ -651,10 +1169,10 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     return (await res.json()) as { to: string; cc: string; bcc: string; subject: string; bodyText: string; rationale: string; source: 'llm' | 'template' };
   }, [personaId]);
 
-  const handleComposeGmailDraft = useCallback(async (input: { to: string; subject: string; bodyText: string; cc?: string; bcc?: string }) => {
+  const handleComposeGmailDraft = useCallback(async (input: { to: string; subject: string; bodyText: string; cc?: string; bcc?: string; attachmentUploadIds?: string[] }) => {
     const res = await personaFetch('/api/assistant/create-artifact', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ artifactType: 'gmail-draft', destination: 'gmail', title: input.subject, connectorInput: input }),
+      body: JSON.stringify({ artifactType: 'gmail-draft', destination: 'gmail', title: input.subject, connectorInput: input, sourceIntentId: composerSourceIntentId }),
       personaIdHint: personaId,
     });
     if (!res.ok) {
@@ -663,7 +1181,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
     const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10)); autoOpenArtifact(data);
     void fetchReceipts();
-  }, [personaId, fetchReceipts]);
+  }, [personaId, fetchReceipts, composerSourceIntentId]);
 
   const handleDraftEvent = useCallback(async (prompt: string) => {
     const res = await personaFetch('/api/assistant/draft-event', {
@@ -680,7 +1198,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const handleComposeCalendarEvent = useCallback(async (input: { summary: string; description: string; startIso: string; endIso: string; timeZone: string; attendeeEmails: string[] }) => {
     const res = await personaFetch('/api/assistant/create-artifact', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ artifactType: 'calendar-block', destination: 'calendar', title: input.summary, connectorInput: input }),
+      body: JSON.stringify({ artifactType: 'calendar-block', destination: 'calendar', title: input.summary, connectorInput: input, sourceIntentId: composerSourceIntentId }),
       personaIdHint: personaId,
     });
     if (!res.ok) {
@@ -689,7 +1207,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
     const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10)); autoOpenArtifact(data);
     void fetchReceipts();
-  }, [personaId, fetchReceipts]);
+  }, [personaId, fetchReceipts, composerSourceIntentId]);
 
   const handleDraftDoc = useCallback(async (prompt: string) => {
     const res = await personaFetch('/api/assistant/draft-doc', {
@@ -706,7 +1224,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const handleComposeGoogleDoc = useCallback(async (input: { title: string; bodyText: string; shareSuggestions: Array<{ email: string; role: 'reader' | 'commenter' | 'writer' }> }) => {
     const res = await personaFetch('/api/assistant/create-artifact', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ artifactType: 'google-doc', destination: 'drive', title: input.title, connectorInput: input }),
+      body: JSON.stringify({ artifactType: 'google-doc', destination: 'drive', title: input.title, connectorInput: input, sourceIntentId: composerSourceIntentId }),
       personaIdHint: personaId,
     });
     if (!res.ok) {
@@ -715,7 +1233,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
     const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10)); autoOpenArtifact(data);
     void fetchReceipts();
-  }, [personaId, fetchReceipts]);
+  }, [personaId, fetchReceipts, composerSourceIntentId]);
 
   const handleDraftSlides = useCallback(async (prompt: string) => {
     const res = await personaFetch('/api/assistant/draft-slides', {
@@ -732,7 +1250,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const handleComposeSlides = useCallback(async (input: { title: string; outline: string[]; sections?: Array<{ title: string; bullets: string[]; diagramConcept?: string }> }) => {
     const res = await personaFetch('/api/assistant/create-artifact', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ artifactType: 'slide-outline', destination: 'drive', title: input.title, connectorInput: input }),
+      body: JSON.stringify({ artifactType: 'slide-outline', destination: 'drive', title: input.title, connectorInput: input, sourceIntentId: composerSourceIntentId }),
       personaIdHint: personaId,
     });
     if (!res.ok) {
@@ -741,7 +1259,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
     const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10)); autoOpenArtifact(data);
     void fetchReceipts();
-  }, [personaId, fetchReceipts]);
+  }, [personaId, fetchReceipts, composerSourceIntentId]);
 
   const handleDraftSheet = useCallback(async (prompt: string) => {
     const res = await personaFetch('/api/assistant/draft-sheet', {
@@ -758,7 +1276,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   const handleComposeGoogleSheet = useCallback(async (input: { title: string; sheetName: string; rows: string[][] }) => {
     const res = await personaFetch('/api/assistant/create-artifact', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ artifactType: 'google-sheet', destination: 'drive', title: input.title, connectorInput: input }),
+      body: JSON.stringify({ artifactType: 'google-sheet', destination: 'drive', title: input.title, connectorInput: input, sourceIntentId: composerSourceIntentId }),
       personaIdHint: personaId,
     });
     if (!res.ok) {
@@ -767,7 +1285,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
     const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10)); autoOpenArtifact(data);
     void fetchReceipts();
-  }, [personaId, fetchReceipts]);
+  }, [personaId, fetchReceipts, composerSourceIntentId]);
 
   const handleDraftMarketa = useCallback(async (prompt: string) => {
     const res = await personaFetch('/api/assistant/draft-marketa-email', {
@@ -781,10 +1299,10 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     return (await res.json()) as { to: string; cc: string; bcc: string; subject: string; bodyText: string; rationale: string; source: 'llm' | 'template' };
   }, [personaId]);
 
-  const handleComposeMarketa = useCallback(async (input: { to: string; subject: string; bodyText: string; cc?: string; bcc?: string; fromName?: string; campaignId?: string; cohortId?: string }) => {
+  const handleComposeMarketa = useCallback(async (input: { to: string; subject: string; bodyText: string; cc?: string; bcc?: string; fromName?: string; campaignId?: string; cohortId?: string; attachmentUploadIds?: string[] }) => {
     const res = await personaFetch('/api/assistant/create-artifact', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ artifactType: 'marketa-email', destination: 'runtime', title: input.subject, connectorInput: input }),
+      body: JSON.stringify({ artifactType: 'marketa-email', destination: 'runtime', title: input.subject, connectorInput: input, sourceIntentId: composerSourceIntentId }),
       personaIdHint: personaId,
     });
     if (!res.ok) {
@@ -793,7 +1311,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
     const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10)); autoOpenArtifact(data);
     void fetchReceipts();
-  }, [personaId, fetchReceipts]);
+  }, [personaId, fetchReceipts, composerSourceIntentId]);
 
   // ── Artifact externalisation flow ──────────────────────────────────
   const handleDismissArtifact = useCallback((artifactId: string) => {
@@ -905,14 +1423,36 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     setQueuedIntents((prev) => { const next = { ...prev }; delete next[nbeId]; return next; });
   }, []);
 
-  const handleAskSpecialist = useCallback(async (specialistId: string, prompt: string) => {
+  // Mark complete — flips a queued pill to the green "complete" state
+  // without needing a real connector-success signal. In alpha (where
+  // Phase 5/6 specialist routing isn't live yet) this gives the
+  // operator explicit lifecycle control. When real execution lands the
+  // pill will auto-flip on the artifact status check; this manual
+  // path stays as a fallback.
+  const handleMarkPillComplete = useCallback((nbeId: string) => {
+    setQueuedIntents((prev) => {
+      const cur = prev[nbeId];
+      if (!cur) return prev;
+      return { ...prev, [nbeId]: { ...cur, manuallyComplete: true } };
+    });
+  }, []);
+
+  const handleAskSpecialist = useCallback(async (
+    specialistId: string,
+    prompt: string,
+    handoff?: { fromSpecialistId: string; priorTitle?: string; priorReceiptId?: string },
+  ) => {
     const key = specialistId;
     setAskSpecialistLoadingId(key);
     setAskSpecialistErrors((prev) => { const next = { ...prev }; delete next[key]; return next; });
     try {
       const res = await personaFetch('/api/assistant/ask-agent', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ specialistId, ...(prompt.trim() ? { prompt: prompt.trim() } : {}) }),
+        body: JSON.stringify({
+          specialistId,
+          ...(prompt.trim() ? { prompt: prompt.trim() } : {}),
+          ...(handoff ? { handoff } : {}),
+        }),
         personaIdHint: personaId,
       });
       if (!res.ok) {
@@ -928,27 +1468,337 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     } finally {
       setAskSpecialistLoadingId(null);
     }
-  }, [personaId, fetchReceipts]);
+  }, [personaId, fetchReceipts, composerSourceIntentId]);
+
+  // Phase 2 — SpecialistsLayout fetchers + handlers.
+  const fetchSpecialistRecommendation = useCallback(async (query?: string) => {
+    if (!personaId) return;
+    setSpecialistRecommendationLoading(true);
+    setSpecialistRecommendationError(null);
+    try {
+      const res = await personaFetch('/api/assistant/specialist-recommend', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(query ? { query } : {}),
+        personaIdHint: personaId,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.detail || body?.error || `specialist-recommend failed (${res.status})`);
+      }
+      const payload = (await res.json()) as
+        import("@/services/orchestration/specialistRecommender").SpecialistRecommendation
+        & { preflightContext?: import("@/services/capabilities/preflight").PreflightContext };
+      setSpecialistRecommendation(payload);
+      setSpecialistRecommendationPreflight(payload.preflightContext);
+      // Auto-select the recommended specialist if none is selected yet,
+      // so the operator lands on a primed composer instead of an empty
+      // canvas. They can still pick another from the roster.
+      setSelectedSpecialistId((prev) => prev ?? payload.topSpecialistId);
+    } catch (err) {
+      setSpecialistRecommendationError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSpecialistRecommendationLoading(false);
+    }
+  }, [personaId]);
+
+  const fetchSpecialistThread = useCallback(async (
+    specialistId: import("@/services/agents/specialistRouter").SpecialistId,
+  ) => {
+    if (!personaId) return;
+    setSpecialistThreadLoading(true);
+    try {
+      const res = await personaFetch(
+        `/api/assistant/specialist-thread?specialistId=${specialistId}&limit=20`,
+        { personaIdHint: personaId },
+      );
+      if (!res.ok) {
+        setSpecialistThread([]);
+        return;
+      }
+      const payload = (await res.json()) as {
+        entries: NonNullable<import("@/components/metame/welcome/layouts/types").RightPaneLayoutProps["specialistsLayout"]>["thread"];
+      };
+      setSpecialistThread(payload.entries ?? []);
+    } catch {
+      setSpecialistThread([]);
+    } finally {
+      setSpecialistThreadLoading(false);
+    }
+  }, [personaId]);
+
+  const handleSelectSpecialist = useCallback((
+    id: import("@/services/agents/specialistRouter").SpecialistId,
+  ) => {
+    setSelectedSpecialistId(id);
+    setAskSpecialistPrompt("");
+    void fetchSpecialistThread(id);
+  }, [fetchSpecialistThread]);
+
+  const handleAskSelectedSpecialist = useCallback((prompt: string) => {
+    if (!selectedSpecialistId) return;
+    void handleAskSpecialist(selectedSpecialistId, prompt);
+  }, [selectedSpecialistId, handleAskSpecialist]);
+
+  const handleHandoffSpecialist = useCallback((
+    target: import("@/services/agents/specialistRouter").SpecialistId,
+  ) => {
+    if (!selectedSpecialistId || selectedSpecialistId === target) return;
+    const prior = askSpecialistResponses[selectedSpecialistId];
+    // Inherit the previous prompt verbatim; the route prefixes it
+    // with a hand-off note so the receiving specialist sees framing.
+    const carriedPrompt = askSpecialistPrompt.trim() || prior?.title || 'continue this consultation';
+    setSelectedSpecialistId(target);
+    void fetchSpecialistThread(target);
+    void handleAskSpecialist(target, carriedPrompt, {
+      fromSpecialistId: selectedSpecialistId,
+      priorTitle: prior?.title,
+    });
+  }, [selectedSpecialistId, askSpecialistResponses, askSpecialistPrompt, fetchSpecialistThread, handleAskSpecialist]);
+
+  const handleOpenActivationsForSpecialist = useCallback((_activationId: string) => {
+    // Deep-link the operator to the cartridge's Activations top-nav
+    // tab via the canonical CartridgePresenceRegistry. The mounted
+    // cartridge's setTab callback (registered by CodexPanelDynamic
+    // through useCartridgePresence) switches the surface directly,
+    // no URL navigation required.
+    const active = getActiveCartridge();
+    if (active) {
+      const switched = tryOpenInMountedCartridge({
+        cartridgeId: active.cartridgeId,
+        tab: 'activations',
+      });
+      if (switched) return;
+    }
+    // Fallback: if the registry has no active cartridge (mount race or
+    // standalone embed), surface the Experience accordion in the
+    // stack layout so the operator still lands on something coherent.
+    setActiveLayoutId('stack');
+    setExpandedSectionId('experience');
+  }, []);
 
   // Phase 2 Slice 4: which compose form ComposerLayout should render
   // inline. Null when the layout is preview-only.
-  const [composerKind, setComposerKind] = useState<ComposeKind | null>(null);
+  //
+  // Persisted to sessionStorage so the composer survives sub-tab
+  // navigation (TabRenderer fully unmounts AigentMeWelcomeSplitTab when
+  // the operator switches to Strategy / NBE / Analysis / etc., the way
+  // it does for any codex sub-tab). Same pattern as `artifacts` above.
+  // On remount, the modal re-mounts via composerKind + auto-redrafts
+  // from composerInitialPrompt; the operator's typed field edits are
+  // still lost (modal local state) — that lift is a follow-up.
+  const [composerKind, setComposerKind] = useState<ComposeKind | null>(() => {
+    if (typeof window === 'undefined' || !personaId) return null;
+    try {
+      const raw = window.sessionStorage.getItem(`aigentme:split:composerKind:${personaId}`);
+      return raw ? (JSON.parse(raw) as ComposeKind | null) : null;
+    } catch { return null; }
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined' || !personaId) return;
+    try {
+      if (composerKind === null) {
+        window.sessionStorage.removeItem(`aigentme:split:composerKind:${personaId}`);
+      } else {
+        window.sessionStorage.setItem(
+          `aigentme:split:composerKind:${personaId}`,
+          JSON.stringify(composerKind),
+        );
+      }
+    } catch { /* quota — silently degrade */ }
+  }, [composerKind, personaId]);
+  // Optional pre-baked aigentMe draft prompt — when set, the inline
+  // compose form pre-fills its AI prompt textarea AND auto-fires the
+  // draft on mount so the operator lands on a populated form. Used by
+  // the SpecialistsLayout suggested-artifact buttons.
+  const [composerInitialPrompt, setComposerInitialPrompt] = useState<string | null>(() => {
+    if (typeof window === 'undefined' || !personaId) return null;
+    try {
+      const raw = window.sessionStorage.getItem(`aigentme:split:composerInitialPrompt:${personaId}`);
+      return raw ? (JSON.parse(raw) as string | null) : null;
+    } catch { return null; }
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined' || !personaId) return;
+    try {
+      if (composerInitialPrompt === null) {
+        window.sessionStorage.removeItem(`aigentme:split:composerInitialPrompt:${personaId}`);
+      } else {
+        window.sessionStorage.setItem(
+          `aigentme:split:composerInitialPrompt:${personaId}`,
+          JSON.stringify(composerInitialPrompt),
+        );
+      }
+    } catch { /* quota — silently degrade */ }
+  }, [composerInitialPrompt, personaId]);
+
+  // Clear the composer's parent-intent binding whenever the composer
+  // is dismissed (composerKind flips to null on backdrop click,
+  // onCreate success, overlay X). Without this, a subsequent
+  // compose-strip draft could inherit the prior Pill's intent id and
+  // appear nested in a stale Pill.
+  useEffect(() => {
+    if (composerKind === null) setComposerSourceIntentId(null);
+  }, [composerKind]);
 
   // Phase 2 B.1: selected KPI for KpiDetailLayout. The cockpit chip's
   // onClick sets this + activates 'kpi-detail'.
   const [selectedKpiId, setSelectedKpiId] = useState<string | null>(null);
 
+  // Phase 2 B.2 (2/2): selected intent for ActiveWorkDetailLayout.
+  // ActivityChip onClick sets this + activates 'active-work-detail'.
+  const [selectedIntentId, setSelectedIntentId] = useState<string | null>(null);
+
+  // Phase 2 B.1 polish: KPI editor mounted on the aigentMe tab so it
+  // can be opened directly from the cockpit's "Edit KPIs" affordance,
+  // not just from the Strategy tab. Same component, same persistence.
+  const [kpisEditorOpen, setKpisEditorOpen] = useState(false);
+
   // ── AG-UI bridge: copilot → right pane ─────────────────────────────
-  // Compose footer / copilot bridge now routes ALL compose intents
-  // through the Phase 2 ComposerLayout — no popup modals over the
-  // right pane. The compose form hosts inline in the layout's body;
-  // submit creates the artifact + clears composerKind so the same
-  // surface flips to the draft preview with Send draft → Phase 2
-  // ApprovalLayout overlay (the unified HITL gate).
+  // Compose footer / copilot bridge routes ALL compose intents
+  // through the composer overlay. The compose form hosts inline in
+  // the overlay; submit creates the artifact + clears composerKind so
+  // the overlay unmounts and the active Capsule remains visible
+  // underneath (Brief / Move forward / Venture).
   const openComposeByKind = useCallback((kind: ComposeKind) => {
+    // Clear any prior auto-draft prompt — manual chip-fired composer
+    // opens should land on an empty form, not re-run a previous draft.
+    setComposerInitialPrompt(null);
     setComposerKind(kind);
-    setActiveLayoutId('composer');
+    // No more setActiveLayoutId('composer') — the overlay handles
+    // rendering on top of whatever foreground layout is active. The
+    // previous double-call mounted the composer twice (once via the
+    // foreground swap, once via the overlay), leaving an unresponsive
+    // second modal stuck behind the first when the operator closed it.
   }, []);
+
+  // SpecialistsLayout suggested-artifact button → open ComposerLayout
+  // with a pre-baked aigentMe draft prompt so the inline form
+  // auto-populates. No-op when the artifact label doesn't map to any
+  // compose surface (e.g. "Strategy memo PDF" — we leave the chip
+  // non-clickable and the operator can ask the specialist to refine).
+  // Class-wide artifact dispatcher — the single SoT every surface
+  // calls when the operator wants to progress an artifact. Specialist
+  // chips, NBE Act buttons, future "create a doc / report / deck"
+  // chips all funnel through here so a partner-brief always lands in
+  // myWorkbench, a deck always in the slides composer, an image
+  // always at the metaMe Studio, etc.
+  const dispatchArtifact = useCallback((payload: ArtifactDispatchPayload) => {
+    const cls = classifySuggestedArtifact(payload.artifactType);
+
+    const encodedPayload = encodeURIComponent(
+      JSON.stringify({
+        source: payload.source,
+        specialistId: payload.specialistId,
+        title: payload.title,
+        summary: payload.summary,
+        recommendations: payload.recommendations,
+      }),
+    );
+
+    // Build a doc-ready prompt for composer surfaces from whatever
+    // context the caller supplied. Matches the shape
+    // buildPromptForSuggestedArtifact used to build, but adapted to
+    // run off a plain payload instead of a SpecialistResponseData.
+    const buildPromptFromPayload = (): string => {
+      const lines: string[] = [];
+      lines.push(`# ${payload.title}`);
+      if (payload.summary) lines.push('', payload.summary);
+      if (payload.recommendations && payload.recommendations.length > 0) {
+        lines.push('', '## Recommendations');
+        for (const r of payload.recommendations) lines.push(`- ${r}`);
+      }
+      lines.push('', `## Artifact requested`, `- ${payload.artifactType}`);
+      if (payload.source === 'specialist' && payload.specialistId) {
+        lines.push('', `_via ${payload.specialistId}_`);
+      }
+      return lines.join('\n');
+    };
+
+    switch (cls.kind) {
+      case 'mycanvas-remix':
+        // Public publishing path — KNYT Pulse / Qriptopian Pulse.
+        try {
+          const url = `/codex/viewer?slug=metame&tab=mycanvas&remix=${encodedPayload}`;
+          if (typeof window !== 'undefined') window.location.assign(url);
+        } catch { /* best-effort */ }
+        return;
+
+      case 'myworkbench-draft':
+      case 'partner-brief':
+        // PRIVATE working surface — partner briefs, internal reports,
+        // decks pre-share. Per operator: 'myWorkbench is for private
+        // confidential work — emails, partner-briefs, reports, decks'.
+        try {
+          const url = `/codex/viewer?slug=metame&tab=my-workbench&draft=${encodedPayload}`;
+          if (typeof window !== 'undefined') window.location.assign(url);
+        } catch { /* best-effort */ }
+        return;
+
+      case 'marketa-campaign':
+        setComposerInitialPrompt(buildPromptFromPayload());
+        setComposerKind('marketa');
+        // Composer overlay handles rendering on top of the active
+        // Capsule — no foreground layout swap (the swap was causing
+        // the brief / venture to vanish on Act and then re-appear
+        // wrongly when the overlay closed).
+        return;
+
+      case 'studio':
+        try {
+          const promptText = buildPromptFromPayload();
+          const skillParam =
+            cls.skill === 'image' ? 'image' :
+            cls.skill === 'video' ? 'video' :
+            'post-set';
+          const url = `/codex/viewer?slug=metame&tab=studio&skill=${encodeURIComponent(skillParam)}&prompt=${encodeURIComponent(promptText)}`;
+          if (typeof window !== 'undefined') window.location.assign(url);
+        } catch { /* best-effort */ }
+        return;
+
+      case 'composer':
+        setComposerInitialPrompt(buildPromptFromPayload());
+        setComposerKind(cls.composeKind);
+        // Composer overlay handles rendering on top of the active
+        // Capsule — no foreground layout swap.
+        return;
+
+      case 'unknown':
+      default:
+        // Silent no-op for novel labels from the LLM. The chip stays
+        // visible but the click is benign.
+        return;
+    }
+  }, [setComposerInitialPrompt, setComposerKind, setActiveLayoutId]);
+
+  // Specialist-chip entry point. 2026-05-26 regression-restore: for
+  // COMPOSER destinations we use the alpha buildPromptForSuggestedArtifact()
+  // path that worked end-to-end before Phase F.1 — directive prompts
+  // produce richer doc drafts than the synthetic markdown the unified
+  // dispatcher emits. For non-composer destinations (canvas /
+  // workbench / studio / marketa-campaign) we still funnel through
+  // dispatchArtifact since those are new paths.
+  const handleUseSuggestedArtifact = useCallback((
+    artifactType: string,
+    response: import('@/components/metame/cards/SpecialistResponseCard').SpecialistResponseData,
+  ) => {
+    const cls = classifySuggestedArtifact(artifactType);
+    if (cls.kind === 'composer') {
+      const prompt = buildPromptForSuggestedArtifact(artifactType, response);
+      setComposerInitialPrompt(prompt);
+      setComposerKind(cls.composeKind);
+      // Composer overlay handles rendering on top of the active Capsule.
+      return;
+    }
+    // Non-composer destinations route through the unified dispatcher.
+    dispatchArtifact({
+      artifactType,
+      title: response.title,
+      summary: response.summary,
+      recommendations: response.recommendations,
+      source: 'specialist',
+      specialistId: response.specialistId,
+    });
+  }, [dispatchArtifact]);
 
   const focusCard = useCallback((kind: CardKind) => {
     const refMap: Record<CardKind, React.RefObject<HTMLDivElement>> = {
@@ -963,6 +1813,69 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
 
   const latestArtifact = artifacts[0] ?? null;
   const activeCartridges = (data?.availableCartridges ?? []).map((c) => c.slug);
+
+  /**
+   * Phase F.2 — CONTEXTUAL Request alpha access recommendation.
+   *
+   * Scans the brief.nextBestActions + moveForwardResult.alternates
+   * for any NBA whose target cartridge ISN'T in the persona's active
+   * set. Returns the first such cartridge (slug + display label) so
+   * the RequestAccessChip in the right-pane carousel can surface it
+   * with the appropriate framing.
+   *
+   * Returns null when:
+   *   - no NBAs are loaded yet
+   *   - every NBA's cartridge IS in the active set
+   *   - the persona is a global admin (covered by chip's render gate)
+   *
+   * Normalises cartridge slugs the same way RequestAccessChip used
+   * to (knyt -> knyt-codex, qriptopian -> qripto) so the compare
+   * doesn't false-fire on slug-form mismatches.
+   */
+  const recommendedAccessCartridge = useMemo<
+    { slug: string; label: string } | null
+  >(() => {
+    const normaliseToCartridge = (s: string): string => {
+      if (s === 'knyt') return 'knyt-codex';
+      if (s === 'qriptopian') return 'qripto';
+      return s;
+    };
+    const labelFor = (slug: string): string => {
+      switch (slug) {
+        case 'knyt-codex':  return 'KNYT';
+        case 'qripto':      return 'The Qriptopian';
+        case 'marketa':     return 'Marketa';
+        case 'venture-lab': return 'metaMe Venture Lab';
+        case 'agentiq-os':  return 'AgentiQ OS';
+        case 'metame':      return 'metaMe';
+        default:            return slug;
+      }
+    };
+    const activeSet = new Set(activeCartridges.map(normaliseToCartridge));
+    // Don't suggest a cartridge the persona is ALREADY on. Pull
+    // candidates from both surfaces; brief first, moveForward
+    // alternates second.
+    const candidates: string[] = [];
+    for (const nba of brief?.nextBestActions ?? []) {
+      if (typeof nba.cartridge === 'string') candidates.push(normaliseToCartridge(nba.cartridge));
+    }
+    if (moveForwardResult?.topAction?.cartridge) {
+      candidates.push(normaliseToCartridge(moveForwardResult.topAction.cartridge));
+    }
+    for (const alt of moveForwardResult?.alternates ?? []) {
+      if (typeof alt.cartridge === 'string') candidates.push(normaliseToCartridge(alt.cartridge));
+    }
+    // metaMe and the always-on platform cartridges aren't gated;
+    // never recommend requesting access to them.
+    const skip = new Set(['metame', 'agentiq-os']);
+    for (const slug of candidates) {
+      if (skip.has(slug)) continue;
+      if (!activeSet.has(slug)) {
+        return { slug, label: labelFor(slug) };
+      }
+    }
+    return null;
+  }, [brief, moveForwardResult, activeCartridges]);
 
   // Phase 2 B.1 3/3 — load the persona's active activation ids so the
   // copilot bridge can expose the available KPI sources filtered to
@@ -983,6 +1896,50 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       .catch(() => undefined);
     return () => { cancelled = true; };
   }, [personaId]);
+
+  // Phase 2 B.3 — live cockpit sync.
+  //
+  // Background polls `fetchVentureProgress({ silent: true })` on a 20s
+  // cadence while the operator is on a cockpit-related layout AND the
+  // tab is visible. Pauses immediately on `document.hidden`; resumes
+  // on the next visibility-change event. Silent mode means the
+  // skeleton never flashes — the cockpit updates in place.
+  //
+  // Mutation paths (KPI edit, intent action, NBE approval) already
+  // call `fetchVentureProgress()` synchronously after their writes;
+  // this polling layer covers everything else (cartridge-side events
+  // that wrote a receipt without going through the cockpit). Phase 3
+  // replaces polling with a Supabase realtime subscription on
+  // `dvn_receipt_events` filtered to the persona.
+  useEffect(() => {
+    if (!personaId) return;
+    const isCockpitLayout =
+      activeLayoutId === 'venture-cockpit' ||
+      activeLayoutId === 'kpi-detail' ||
+      activeLayoutId === 'active-work-detail';
+    if (!isCockpitLayout) return;
+    if (typeof document !== 'undefined' && document.hidden) return;
+
+    const interval = window.setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      void fetchVentureProgress({ silent: true });
+    }, 20_000);
+
+    const onVisibility = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        void fetchVentureProgress({ silent: true });
+      }
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', onVisibility);
+    }
+    return () => {
+      window.clearInterval(interval);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', onVisibility);
+      }
+    };
+  }, [personaId, activeLayoutId, fetchVentureProgress]);
 
   // Phase 2 B.1 3/3 — KPI mutation handlers passed to the copilot
   // bridge. Reuse the same /api/assistant/experience-model path the
@@ -1111,6 +2068,12 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     setActiveLayoutId('kpi-detail');
   }, []);
 
+  // Phase 2 B.2 (2/2) — ActiveWork chip click handler.
+  const handleSelectActiveWork = useCallback((intentId: string) => {
+    setSelectedIntentId(intentId);
+    setActiveLayoutId('active-work-detail');
+  }, []);
+
   // T1-safe KPI snapshot for the copilot readable.
   const copilotActiveKpis = useMemo(() => {
     const rows = ventureProgress?.activeKpis ?? [];
@@ -1168,6 +2131,12 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     return out;
   }, [activeActivationIds]);
 
+  // 2026-05-26 chief-of-staff: feed admin grant scope into the
+  // copilot's readable bundle so the LLM biases recommendations
+  // toward admin-tier moves when the persona qualifies. Hook resolves
+  // server-side via the spine — never trusts a client claim.
+  const adminGrants = useCartridgeAdminGrants();
+
   useAigentMeCopilotBridge({
     openCompose: openComposeByKind,
     fireCta: handleCtaClick,
@@ -1188,13 +2157,35 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     removeKpi: handleRemoveKpi,
     openKpiDetail: handleOpenKpiDetail,
     readable: {
-      activeBrief: { hasBrief: !!brief, summary: brief?.summary ?? null },
+      activeBrief: {
+        hasBrief: !!brief,
+        briefType: brief?.briefType ?? null,
+        primaryGoal: brief?.context?.primaryGoal ?? null,
+        experienceName: brief?.context?.experienceName ?? null,
+        currentStage: brief?.context?.currentStage ?? null,
+        topPriorities: brief?.topPriorities ?? [],
+        nextBestActions: (brief?.nextBestActions ?? []).map((a) => ({
+          id: a.id,
+          label: a.label,
+          rationale: a.rationale,
+          cartridge: a.cartridge,
+          effort: a.effort,
+          impact: a.impact,
+          approvalRequired: a.approvalRequired,
+          suggestedArtifact: a.suggestedArtifact ?? null,
+        })),
+      },
       pendingApproval: { has: !!pendingApprovalNbe, cartridge: pendingApprovalNbe?.cartridge ?? null },
       experienceModelStatus: {
         configured: !!expModel?.configured,
         stage: (expModel?.meta?.currentStage as string | null) ?? null,
+        primaryGoal: (expModel?.meta?.primaryGoal as string | null) ?? null,
       },
       activeCartridges,
+      cartridgeAdminGrants: {
+        isGlobalAdmin: adminGrants.isGlobalAdmin,
+        adminCartridges: Array.from(adminGrants.cartridgeSlugs),
+      },
       latestArtifact: {
         kind: latestArtifact?.artifactType ?? null,
         title: latestArtifact?.title ?? null,
@@ -1207,6 +2198,77 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       availableKpiSources: copilotAvailableKpiSources,
     },
   });
+
+  // T1-safe snapshot of what the right pane is currently showing —
+  // forwarded into the copilot via `groundContext` and threaded into
+  // the /api/codex/chat POST body so the chat LLM grounds its
+  // narrative in the same rows the right pane is rendering. Replaces
+  // the prior behaviour where the chat had no idea what brief / NBAs
+  // were on screen and would invent generic `[Priority 1]` /
+  // `[Action 1]` placeholders. Null fields are omitted by the route.
+  const copilotGroundContext = useMemo(() => {
+    const brief_ = brief
+      ? {
+          briefType: brief.briefType,
+          primaryGoal: brief.context?.primaryGoal ?? null,
+          experienceName: brief.context?.experienceName ?? null,
+          currentStage: brief.context?.currentStage ?? null,
+          activeCartridges: brief.context?.activeCartridges ?? [],
+          topPriorities: brief.topPriorities ?? [],
+          nextBestActions: (brief.nextBestActions ?? []).map((a) => ({
+            id: a.id,
+            label: a.label,
+            rationale: a.rationale,
+            cartridge: a.cartridge,
+            effort: a.effort,
+            impact: a.impact,
+            approvalRequired: a.approvalRequired,
+            suggestedArtifact: a.suggestedArtifact ?? null,
+            promptHint: brief.nbaPromptHints?.[a.id] ?? null,
+          })),
+        }
+      : null;
+    const moveForward_ = moveForwardResult
+      ? {
+          cartridge: moveForwardResult.cartridge,
+          topActionReason: moveForwardResult.topActionReason ?? null,
+          topAction: moveForwardResult.topAction
+            ? {
+                id: moveForwardResult.topAction.id,
+                label: moveForwardResult.topAction.label,
+                rationale: moveForwardResult.topAction.rationale,
+                cartridge: moveForwardResult.topAction.cartridge,
+                impact: moveForwardResult.topAction.impact,
+                suggestedArtifact: moveForwardResult.topAction.suggestedArtifact ?? null,
+                promptHint:
+                  moveForwardResult.nbaPromptHints?.[moveForwardResult.topAction.id] ?? null,
+              }
+            : null,
+          alternates: (moveForwardResult.alternates ?? []).map((a) => ({
+            id: a.id,
+            label: a.label,
+            rationale: a.rationale,
+            cartridge: a.cartridge,
+            impact: a.impact,
+            promptHint: moveForwardResult.nbaPromptHints?.[a.id] ?? null,
+          })),
+        }
+      : null;
+    return {
+      brief: brief_,
+      moveForward: moveForward_,
+      experienceModel: {
+        configured: !!expModel?.configured,
+        stage: (expModel?.meta?.currentStage as string | null) ?? null,
+        primaryGoal: (expModel?.meta?.primaryGoal as string | null) ?? null,
+      },
+      activeCartridges,
+      pendingApproval: pendingApprovalNbe
+        ? { id: pendingApprovalNbe.id, label: pendingApprovalNbe.label, cartridge: pendingApprovalNbe.cartridge }
+        : null,
+      queuedIntentIds: Object.keys(queuedIntents ?? {}),
+    };
+  }, [brief, moveForwardResult, expModel, activeCartridges, pendingApprovalNbe, queuedIntents]);
 
   // ── Render ──────────────────────────────────────────────────────────
   // Static seed prompts for the copilot (the right pane's CTAs are
@@ -1227,20 +2289,37 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
   // mapper below converts an NbeQuickChip's `layoutDispatch` into the
   // local onSelect closure so the right-pane dispatch stays generic
   // on the server side.
+  // 2026-05-26 sequencing fix — chips now expose two callbacks:
+  //   - onSelect runs synchronously on click. It only switches the
+  //     right-pane layout to its loading skeleton.
+  //   - onDispatchOnSend runs async inside handleSend, BEFORE the chat
+  //     POST. It performs the actual right-pane fetch. By the time the
+  //     LLM call goes out, brief / moveForward / venture state has
+  //     landed in the parent and the groundContext snapshot is fresh.
+  // Effect: clicking "Brief me" no longer races the chat ahead of the
+  // brief — the prompt loads into the input, the right pane shows a
+  // skeleton, the user can edit, and Send fires both panes in sync.
   const copilotQuickPrompts = useMemo(() => {
-    const dispatchFor = (chip: NbeQuickChip) => () => {
+    const layoutDispatchFor = (chip: NbeQuickChip) => () => {
       if (!chip.layoutDispatch) return;
-      const { activate, fetch: fetchKind } = chip.layoutDispatch;
+      const { activate } = chip.layoutDispatch;
       setActiveLayoutId(activate);
-      switch (fetchKind) {
-        case 'brief':            void fetchBrief(); break;
-        case 'move-forward':     void fetchMoveForward(); break;
-        case 'venture-progress': void fetchVentureProgress(); break;
-        case 'receipts':         void fetchReceipts(); break;
-        case null: case undefined: /* no fetch */ break;
-      }
       if (chip.layoutDispatch.composerKind) {
+        // Chip-driven composer opens land on an empty form — only the
+        // suggested-artifact path sets composerInitialPrompt.
+        setComposerInitialPrompt(null);
         setComposerKind(chip.layoutDispatch.composerKind);
+      }
+    };
+    const fetchDispatchFor = (chip: NbeQuickChip) => async () => {
+      if (!chip.layoutDispatch) return;
+      const { fetch: fetchKind } = chip.layoutDispatch;
+      switch (fetchKind) {
+        case 'brief':            await fetchBrief(); break;
+        case 'move-forward':     await fetchMoveForward(); break;
+        case 'venture-progress': await fetchVentureProgress(); break;
+        case 'receipts':         await fetchReceipts(); break;
+        case null: case undefined: /* no fetch */ break;
       }
     };
 
@@ -1250,47 +2329,67 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         label: chip.label,
         prompt: chip.copilotPrompt ?? "",
         skipInference: !chip.copilotPrompt,
-        onSelect: dispatchFor(chip),
+        onSelect: layoutDispatchFor(chip),
+        onDispatchOnSend: fetchDispatchFor(chip),
       }));
     }
+
+    // 2026-05-26 follow-up: the Request alpha access chip moved out
+    // of the left chip strip and into the right-pane badge carousel
+    // (WelcomeRightPane.RequestAccessChip). The left strip is for
+    // generative quick prompts; manual / admin affordances belong on
+    // the right. The controlled modal mount in this tab is no longer
+    // driven from here, but stays mounted at the tab root so the
+    // legacy uncontrolled trigger (if any future surface uses it)
+    // still works.
 
     return [
       {
         id: 'brief',
         label: 'Brief me',
         prompt: 'Give me my daily brief.',
-        onSelect: () => {
-          setActiveLayoutId('brief');
-          void fetchBrief();
-        },
+        onSelect: () => engageCapsuleAndMount('brief'),
+        onDispatchOnSend: async () => { await fetchBrief(); },
       },
       {
         id: 'move',
         label: 'Move forward',
         prompt: 'What is the next best action I should take right now?',
-        onSelect: () => {
-          setActiveLayoutId('decision-board');
-          void fetchMoveForward();
-        },
+        onSelect: () => engageCapsuleAndMount('move-forward'),
+        onDispatchOnSend: async () => { await fetchMoveForward(); },
       },
       {
         id: 'venture',
         label: 'Venture progress',
         prompt: 'Where am I on my venture progress?',
-        onSelect: () => {
-          setActiveLayoutId('venture-cockpit');
-          void fetchVentureProgress();
-        },
+        onSelect: () => engageCapsuleAndMount('venture-progress'),
+        onDispatchOnSend: async () => { await fetchVentureProgress(); },
+      },
+      {
+        id: 'ask-specialists',
+        label: 'Ask specialists',
+        // The copilot prompt frames the specialist roster so the LLM
+        // knows what's available; the right pane mounts the Phase 2
+        // SpecialistsLayout and fires the server-side recommender so
+        // the operator lands on a primed consultation surface.
+        prompt: 'Which specialist should I consult right now — Marketa, Quill, Kn0w1, Aigent Z, Aigent C, Aigent Nakamoto, Moneypenny, or metaYe — and why?',
+        onSelect: () => engageCapsuleAndMount('ask-specialists'),
+        onDispatchOnSend: async () => { await fetchSpecialistRecommendation(); },
       },
     ];
-  }, [serverChips, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts]);
+  }, [serverChips, fetchBrief, fetchMoveForward, fetchVentureProgress, fetchReceipts, fetchSpecialistRecommendation, engageCapsuleAndMount]);
 
   return (
     <>
       <PersonaSpineGate state={spine}>
         <div className="h-[calc(100vh-96px)] flex flex-col lg:flex-row gap-2 px-2 pr-3 overflow-hidden">
-          {/* ── LEFT: persistent copilot ─────────────────────────── */}
-          <div className="lg:w-[55%] w-full h-full min-h-0 flex flex-col">
+          {/* ── LEFT: persistent copilot (50/50 with the right pane —
+              the right pane is the busier surface and deserves
+              equal width; the metaVatar rendering layer reads the
+              copilot's getBoundingClientRect via the
+              --metaavatar-copilot-w CSS variable so it rescales
+              automatically when this changes). ─────────────────── */}
+          <div className="lg:w-1/2 w-full h-full min-h-0 flex flex-col">
             <SmartTriadCopilotLayer
               isOpen
               variant="panel"
@@ -1298,12 +2397,19 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               promptPlaceholder="Ask aigentMe — brief, move forward, draft an email…"
               agent={{ id: 'aigent-me', name: 'aigentMe' }}
               agentSubtitle="metaMe · personal assistant"
+              personaId={personaId}
+              groundContext={copilotGroundContext}
               onClose={() => undefined}
             />
           </div>
 
-          {/* ── RIGHT: dynamic surface ───────────────────────────── */}
-          <div className="lg:w-[45%] w-full h-full min-h-0 relative">
+          {/* ── RIGHT: dynamic surface (50/50 with the copilot). ── */}
+          <div className="lg:w-1/2 w-full h-full min-h-0 relative">
+            {/* RequestAdminAccessButton now mounted inside the
+                right-pane badge carousel (WelcomeRightPane
+                RequestAccessChip) — operator feedback: manual /
+                admin affordances belong on the right, not in the
+                generative quick-prompt strip. */}
             {bootstrapLoading && !data && (
               <div className="h-full flex items-center justify-center text-sm opacity-60">
                 Loading aigentMe…
@@ -1327,9 +2433,39 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               // Phase 2 Slice 5b: second-tier is no longer rendered
               // inline in the stack; it lives in this same overlay so
               // the operator's flow stays in-app for every gate.
-              const ApprovalOverlayLayout = (pendingApprovalNbe || secondTierApproval)
-                ? getLayout('approval-interrupt').component
-                : null;
+              //
+              // Capsule-folded follow-up: when the artifact awaiting
+              // second-tier approval was drafted from a queued NBE
+              // (intent id matches an entry in queuedIntents), the
+              // SecondTierApprovalCard renders inline inside the
+              // emerald capsule next to its artifact — the operator
+              // sees Queued → Recommendation → Artifact → Approve & send
+              // as one continuous unit. Mounting the overlay too would
+              // double-render the same gate; suppress it in that case.
+              // The overlay still handles orphan artifacts (no matching
+              // capsule) and every NBE approval.
+              const secondTierInCapsule = (() => {
+                if (!secondTierApproval) return false;
+                const queuedIntentIds = new Set(
+                  Object.values(queuedIntents).map((q) => q.intentId),
+                );
+                const artifact = artifacts.find(
+                  (a) => a.artifactId === secondTierApproval.artifactId,
+                );
+                return !!(artifact?.intentId && queuedIntentIds.has(artifact.intentId));
+              })();
+              const ApprovalOverlayLayout =
+                pendingApprovalNbe || (secondTierApproval && !secondTierInCapsule)
+                  ? getLayout('approval-interrupt').component
+                  : null;
+              // Composer overlays the active Capsule when composerKind
+              // is set — never swaps the foreground layout, so the
+              // Brief / Move-forward / Venture Capsule remains intact
+              // and the operator can return to it after composing.
+              const ComposerOverlayLayout =
+                composerKind && activeLayoutId !== 'composer'
+                  ? getLayout('composer').component
+                  : null;
               // Single source of truth for layout inputs — passed identically
               // to foreground and overlay.
               const layoutProps = {
@@ -1340,6 +2476,17 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 ctas: data.primaryCtas,
                 specialists: data.availableSpecialists,
                 isAdmin: isAdmin ?? data.cartridgeFlags?.isAdmin,
+                // Phase E follow-up: pass admin grants + active
+                // cartridges into the right-pane chip carousel.
+                isGlobalAdmin: adminGrants.isGlobalAdmin,
+                hasCartridgeAdminGrant: adminGrants.cartridgeSlugs.size > 0,
+                activeCartridges,
+                // Phase F.2 — CONTEXTUAL Request access nudge. Only
+                // populated when a brief/move-forward NBA targets a
+                // cartridge the persona isn't on. The chip in
+                // WelcomeRightPane renders nothing when this is null.
+                recommendedAccessCartridgeSlug: recommendedAccessCartridge?.slug ?? null,
+                recommendedAccessCartridgeLabel: recommendedAccessCartridge?.label ?? null,
                 brief,
                 briefLoading,
                 briefError,
@@ -1378,6 +2525,11 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 onCancelSecondTier: handleCancelSecondTier,
                 onDismissSpecialist: handleDismissSpecialist,
                 onDismissQueued: handleDismissQueued,
+                onMarkPillComplete: handleMarkPillComplete,
+                actedNbeRegistry,
+                activeCapsuleId,
+                capsuleHistory,
+                onEngageCapsule: engageCapsule,
                 onDismissBrief: () => {
                   setBrief(null);
                   setBriefError(null);
@@ -1416,11 +2568,51 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 // draft-preview without surface switching.
                 composerKind,
                 selectedKpiId,
+                selectedIntentId,
                 onSelectKpi: (kpiId: string) => {
                   setSelectedKpiId(kpiId);
                   setActiveLayoutId('kpi-detail');
                 },
-                onKpiEdited: () => { void fetchVentureProgress(); },
+                onSelectActiveWork: handleSelectActiveWork,
+                onKpiEdited: () => { void fetchVentureProgress({ silent: true }); },
+                onIntentEdited: () => { void fetchVentureProgress({ silent: true }); },
+                // Phase 2 B.3 — live sync header indicator + manual force.
+                ventureLastSyncedAt,
+                onForceSync: () => { void fetchVentureProgress({ silent: true }); },
+                // KPI editor entry point — header button + empty-state CTA.
+                onEditKpis: () => setKpisEditorOpen(true),
+                // Phase 2 — SpecialistsLayout state bundle.
+                specialistsLayout: {
+                  selectedSpecialistId,
+                  recommendation: specialistRecommendation,
+                  recommendationLoading: specialistRecommendationLoading,
+                  recommendationError: specialistRecommendationError,
+                  sessionResponses: askSpecialistResponses,
+                  thread: specialistThread,
+                  threadLoading: specialistThreadLoading,
+                  askPrompt: askSpecialistPrompt,
+                  askLoadingId: askSpecialistLoadingId,
+                  askError: selectedSpecialistId ? (askSpecialistErrors[selectedSpecialistId] ?? null) : null,
+                  preflightContext: specialistRecommendationPreflight,
+                },
+                onSelectSpecialist: handleSelectSpecialist,
+                onAskSelectedSpecialist: handleAskSelectedSpecialist,
+                onSetSpecialistPrompt: setAskSpecialistPrompt,
+                onHandoffSpecialist: handleHandoffSpecialist,
+                onOpenActivationsForSpecialist: handleOpenActivationsForSpecialist,
+                onUseSuggestedArtifact: handleUseSuggestedArtifact,
+                // Pre-baked aigentMe draft prompt for the ComposerLayout
+                // when the operator fired a suggested-artifact button.
+                // Cleared by every non-suggested-artifact composer open
+                // path so the next composer mount starts empty unless a
+                // suggested-artifact explicitly seeded a prompt.
+                composerInitialPrompt,
+                // ComposerLayout's X / Cancel calls this to clear the
+                // overlay state so the composer unmounts. Without it,
+                // the dismiss only swapped foreground layouts — a
+                // no-op when the composer is mounted as an overlay
+                // on top of the active Capsule.
+                onComposerClose: () => setComposerKind(null),
                 composerHandlers: {
                   onCreateGmail: async (input) => {
                     await handleComposeGmailDraft(input);
@@ -1457,6 +2649,17 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
               return (
               <>
               <ForegroundLayout {...layoutProps} />
+              {ComposerOverlayLayout && (
+                <div className="absolute inset-0 z-30 flex md:items-center md:justify-center">
+                  <div
+                    className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                    onClick={() => setComposerKind(null)}
+                  />
+                  <div className="relative z-10 w-full md:max-w-2xl md:mx-4 max-h-[90%] overflow-auto">
+                    <ComposerOverlayLayout {...layoutProps} />
+                  </div>
+                </div>
+              )}
               {ApprovalOverlayLayout && <ApprovalOverlayLayout {...layoutProps} />}
               </>
               );
@@ -1467,6 +2670,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
                 <ComposeQuickActionsStrip
                   onOpen={openComposeByKind}
                   onWalletOpen={() => setWalletOpen(true)}
+                  onUploadOpen={() => setUploadDrawerOpen(true)}
                   theme={theme}
                 />
               </div>
@@ -1478,11 +2682,37 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       {/* ── Modals (mounted at root, single source of truth) ─────── */}
       <ExperienceGoalsEditor
         open={goalsEditorOpen}
-        onOpenChange={setGoalsEditorOpen}
+        onOpenChange={(open) => {
+          // When the editor closes WITHOUT saving (operator hit X /
+          // cancelled), clear the optimistic queued Pill so the brief
+          // doesn't sit on a Blue chip forever. The save path handles
+          // its own completion via onSaved below.
+          setGoalsEditorOpen(open);
+          if (!open) {
+            setQueuedIntents((prev) => {
+              const cur = prev['metame.update-experience-goals'];
+              if (!cur || cur.manuallyComplete) return prev;
+              const next = { ...prev };
+              delete next['metame.update-experience-goals'];
+              return next;
+            });
+          }
+        }}
         personaId={personaId}
         onSaved={() => {
-          // Re-fetch the bootstrap so the right pane reflects new goal count.
+          // Flip the queued Pill to Green so the operator sees the
+          // save landed, then re-fetch receipts + venture progress
+          // (where Operational Goals lives) so the count chip on the
+          // Venture Capsule reflects the new state without a manual
+          // refresh.
+          setQueuedIntents((prev) => {
+            const cur = prev['metame.update-experience-goals'];
+            if (!cur) return prev;
+            return { ...prev, ['metame.update-experience-goals']: { ...cur, manuallyComplete: true, status: 'completed', queueMessage: 'ExperienceGoals updated.' } };
+          });
           void fetchReceipts();
+          void fetchVentureProgress({ silent: true });
+          void fetchBrief();
         }}
       />
       <ExperienceModelSetupWizard
@@ -1499,6 +2729,16 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         } : undefined}
         onSaved={handleWizardSaved}
       />
+      {/* Phase 2 B.1 polish: KPI editor mount. Opened from the cockpit
+          header "Edit KPIs" button + the empty-state CTA when the
+          persona has no rich KPIs declared yet. Save triggers a silent
+          venture-progress refetch so the cockpit picks up the change. */}
+      <ActiveKpisEditor
+        open={kpisEditorOpen}
+        onOpenChange={setKpisEditorOpen}
+        personaId={personaId}
+        onSaved={() => { void fetchVentureProgress({ silent: true }); }}
+      />
       {/* Phase 2 Slice 4: Compose popups removed. All six compose
           surfaces (Email / Event / Doc / Sheet / Slides / Marketa)
           now render INLINE inside ComposerLayout via its `inline=true`
@@ -1511,6 +2751,12 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         open={walletOpen}
         onClose={() => setWalletOpen(false)}
         agent={{ id: 'aigent-me', name: 'aigentMe' }}
+      />
+      <UploadDrawer
+        open={uploadDrawerOpen}
+        onClose={() => setUploadDrawerOpen(false)}
+        personaId={personaId}
+        theme={theme}
       />
     </>
   );

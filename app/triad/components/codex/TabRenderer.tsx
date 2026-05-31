@@ -27,7 +27,9 @@ import { FeaturesTab } from "./tabs/FeaturesTab";
 import { PennyDropsTab } from "./tabs/PennyDropsTab";
 import { Kn0wdZTab } from "./tabs/Kn0wdZTab";
 import { QriptoScrollsTab } from "./tabs/QriptoScrollsTab";
+import { QriptoPapersTab } from "./tabs/QriptoPapersTab";
 import { PlaceholderTab } from "./tabs/PlaceholderTab";
+import { IframeTab } from "./tabs/IframeTab";
 import { AgentiqCartridgeTab } from "./tabs/AgentiqCartridgeTab";
 import { PackBrowserTab } from "./tabs/PackBrowserTab";
 import { MarketaTab } from "./tabs/MarketaTab";
@@ -35,10 +37,13 @@ import { KnytTab } from "./tabs/KnytTab";
 import { MoneyPennyTab } from "./tabs/MoneyPennyTab";
 import { NakamotoTab } from "./tabs/NakamotoTab";
 import { ExperienceDashboardTab } from "./tabs/ExperienceDashboardTab";
+import { AdminAccessRequestsTab } from "./tabs/AdminAccessRequestsTab";
+import { Persona360InspectorTab } from "./tabs/Persona360InspectorTab";
 import { AigentMeWelcomeTab } from "./tabs/AigentMeWelcomeTab";
 import { AigentMeWelcomeSplitTab } from "./tabs/AigentMeWelcomeSplitTab";
 import { ActivationsTab } from "./tabs/ActivationsTab";
 import { MyCanvasTab } from "./tabs/MyCanvasTab";
+import { MyWorkbenchTab } from "./tabs/MyWorkbenchTab";
 import { InvestorDirectoryTab } from "./tabs/InvestorDirectoryTab";
 import { ArtifactTraceabilityTab } from "./tabs/ArtifactTraceabilityTab";
 import { FactoryIntakeTab } from "./tabs/FactoryIntakeTab";
@@ -68,6 +73,10 @@ import { VentureLabGrowthMatrixTab } from "./tabs/VentureLabGrowthMatrixTab";
 import { VentureLabPortfolioTab } from "./tabs/VentureLabPortfolioTab";
 import { QriptopianEditTab } from "./tabs/QriptopianEditTab";
 import { QriptopianAdminTab } from "./tabs/QriptopianAdminTab";
+import { QriptoAffiliatesPartnersTab } from "./tabs/QriptoAffiliatesPartnersTab";
+import { QriptoCommunityCorrespondentTab } from "./tabs/QriptoCommunityCorrespondentTab";
+import { QriptoPulseTab } from "./tabs/QriptoPulseTab";
+import { QriptoPulseAdminTab } from "./tabs/QriptoPulseAdminTab";
 import { KnytStoreEpisodesTab } from "./tabs/KnytStoreEpisodesTab";
 import { KnytStoreCardsTab } from "./tabs/KnytStoreCardsTab";
 import { KnytStoreBundlesTab } from "./tabs/KnytStoreBundlesTab";
@@ -117,7 +126,26 @@ interface TabRendererProps {
 }
 
 // Component registry for static tabs
+//
+// `TabRendererFallback` is a no-op placeholder used when a tab acts
+// purely as a parent container — it has no content of its own, just
+// holds subTabs that render via the tier-3 sub-tab mechanism in
+// CodexPanelDynamic. The fallback renders a thin "pick a sub-tab"
+// hint when somehow no subTab is selected (which the panel should
+// auto-resolve to subTabs[0]). Registered as a real component so the
+// "Component not found" error doesn't fire on KNYT order group's
+// admin parent tab or any future parent-only tab — bug surfaced
+// 2026-05-26 when an operator landed on /knyt-codex/order.
+function TabRendererFallback() {
+  return (
+    <div className="p-8 text-center text-slate-500 text-sm">
+      Select a sub-tab to continue.
+    </div>
+  );
+}
+
 const componentRegistry: Record<string, React.ComponentType<any>> = {
+  TabRendererFallback,
   ScrollsTab,
   CharactersTab,
   LoreTab,
@@ -129,17 +157,22 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   PennyDropsTab,
   Kn0wdZTab,
   QriptoScrollsTab,
+  QriptoPapersTab,
   AgentiqCartridgeTab,
   MarketaTab,
   KnytTab,
   NakamotoTab,
   PlaceholderTab,
+  IframeTab,
   MoneyPennyTab,
   ExperienceDashboardTab,
+  AdminAccessRequestsTab,
+  Persona360InspectorTab,
   AigentMeWelcomeTab,
   AigentMeWelcomeSplitTab,
   ActivationsTab,
   MyCanvasTab,
+  MyWorkbenchTab,
   InvestorDirectoryTab,
   ArtifactTraceabilityTab,
   FactoryIntakeTab,
@@ -169,6 +202,10 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   VentureLabPortfolioTab,
   QriptopianEditTab,
   QriptopianAdminTab,
+  QriptoAffiliatesPartnersTab,
+  QriptoCommunityCorrespondentTab,
+  QriptoPulseTab,
+  QriptoPulseAdminTab,
   KnytStoreEpisodesTab,
   KnytStoreCardsTab,
   KnytStoreBundlesTab,

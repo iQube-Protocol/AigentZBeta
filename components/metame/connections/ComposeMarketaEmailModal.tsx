@@ -10,10 +10,11 @@
  * /api/connectors/execute flow.
  */
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Loader2, X, Send, Sparkles } from "lucide-react";
 import { MicButton } from "@/components/ui/MicButton";
 import { transformEmailDictation } from "@/hooks/useSpeechRecognition";
+import { UploadAttachmentPicker } from "@/components/metame/uploads/UploadAttachmentPicker";
 
 interface CampaignOption {
   id: string;
@@ -33,6 +34,9 @@ interface Props {
     fromName?: string;
     campaignId?: string;
     cohortId?: string;
+    /** Persona upload ids to attach. Resolved by the marketa
+     *  connector at send time via the upload service. */
+    attachmentUploadIds?: string[];
   }) => Promise<void>;
   onDraftWithAigentMe: (prompt: string) => Promise<{
     to: string;
@@ -46,9 +50,15 @@ interface Props {
   theme?: "light" | "dark";
   /** See ComposeGmailDraftModal — Phase 2 inline host mode. */
   inline?: boolean;
+  /** See ComposeGoogleDocModal — auto-fires draft on mount when set. */
+  initialPrompt?: string;
+  /** Active persona — required by UploadAttachmentPicker so it fetches
+   *  the operator's uploads (not the spine's default persona). See
+   *  ComposeGmailDraftModal Props for the failure mode. */
+  personaId?: string;
 }
 
-export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithAigentMe, theme = "dark", inline = false }: Props) {
+export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithAigentMe, theme = "dark", inline = false, initialPrompt, personaId }: Props) {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiDrafting, setAiDrafting] = useState(false);
   const [aiRationale, setAiRationale] = useState<string | null>(null);
@@ -65,6 +75,10 @@ export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithA
   const [campaignsLoading, setCampaignsLoading] = useState(false);
   const [campaignId, setCampaignId] = useState("");
   const [cohortId, setCohortId] = useState("");
+  // Persona upload ids selected as attachments. UploadPicker mounts
+  // inline below the campaign/cohort row; selected ids ride through
+  // to onCreate → create-artifact → marketa connector at send time.
+  const [attachmentUploadIds, setAttachmentUploadIds] = useState<string[]>([]);
 
   // Fetch campaigns + their cohorts when the modal opens. Live shape comes
   // from /api/marketa/campaigns (KS Prospects, KNYT Codex, Partners).
@@ -114,15 +128,13 @@ export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithA
     ? "border border-slate-700 text-slate-300 hover:border-slate-500"
     : "border border-slate-300 text-slate-700 hover:border-slate-500";
 
-  const handleDraft = useCallback(async () => {
+  const draftWithPrompt = useCallback(async (promptToUse: string) => {
+    const trimmed = promptToUse.trim();
+    if (!trimmed) return;
     setError(null);
-    if (!aiPrompt.trim()) {
-      setError('Tell aigentMe what the outreach is for.');
-      return;
-    }
     setAiDrafting(true);
     try {
-      const draft = await onDraftWithAigentMe(aiPrompt.trim());
+      const draft = await onDraftWithAigentMe(trimmed);
       setTo(draft.to ?? "");
       setCc(draft.cc ?? "");
       setBcc(draft.bcc ?? "");
@@ -135,7 +147,25 @@ export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithA
     } finally {
       setAiDrafting(false);
     }
-  }, [aiPrompt, onDraftWithAigentMe]);
+  }, [onDraftWithAigentMe]);
+
+  const handleDraft = useCallback(() => {
+    if (!aiPrompt.trim()) {
+      setError('Tell aigentMe what the outreach is for.');
+      return;
+    }
+    void draftWithPrompt(aiPrompt);
+  }, [aiPrompt, draftWithPrompt]);
+
+  // Mount-fire from initialPrompt — see ComposeGoogleDocModal.
+  const lastInitialPromptRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialPrompt || !initialPrompt.trim()) return;
+    if (lastInitialPromptRef.current === initialPrompt) return;
+    lastInitialPromptRef.current = initialPrompt;
+    setAiPrompt(initialPrompt);
+    void draftWithPrompt(initialPrompt);
+  }, [initialPrompt, draftWithPrompt]);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,10 +194,12 @@ export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithA
         ...(fromName.trim() ? { fromName: fromName.trim() } : {}),
         ...(campaignId ? { campaignId } : {}),
         ...(cohortId ? { cohortId } : {}),
+        ...(attachmentUploadIds.length > 0 ? { attachmentUploadIds } : {}),
       });
       setAiPrompt(""); setAiRationale(null); setAiSource(null);
       setTo(""); setSubject(""); setBodyText(""); setCc(""); setBcc(""); setFromName("");
       setCampaignId(""); setCohortId("");
+      setAttachmentUploadIds([]);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -271,6 +303,16 @@ export function ComposeMarketaEmailModal({ open, onClose, onCreate, onDraftWithA
               </select>
             </label>
           </div>
+          {/* Attachment picker — persona uploads selected here ride
+              through onCreate into the Marketa connector as
+              attachmentUploadIds. The connector resolves them to
+              base64 payloads at send time. */}
+          <UploadAttachmentPicker
+            personaId={personaId}
+            value={attachmentUploadIds}
+            onChange={setAttachmentUploadIds}
+            theme={theme}
+          />
           <label className="block">
             <span className={`block text-xs mb-1 ${labelClass}`}>To</span>
             <input type="text" value={to} onChange={(e) => setTo(e.target.value)} placeholder="recipient@example.com" className={`w-full px-3 py-2 rounded ${inputClass}`} disabled={submitting} />

@@ -22,6 +22,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { buildVentureProgress } from '@/services/orchestration/ventureProgressBuilder';
+import { runPreflightGather } from '@/services/capabilities/preflight';
 import type { ActiveCartridgeSlug } from '@/services/iqube/experienceQube';
 
 export const dynamic = 'force-dynamic';
@@ -67,14 +68,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       : undefined;
 
   try {
+    // Capability Gateway — Pattern A pre-flight gather. Surface id is
+    // 'venture-progress' so the env allowlist can target this
+    // independently of the other two aigentMe experience-model
+    // progression surfaces.
+    const preflight = await runPreflightGather({
+      persona: context,
+      surfaceId: 'venture-progress',
+      query: `venture progress review${cartridge ? ` for ${cartridge} cartridge` : ''}`,
+      cartridge: cartridge ?? 'metame',
+    });
+
     const result = await buildVentureProgress({
       personaId: context.personaId,
       ...(cartridge ? { cartridge } : {}),
       ...(recentLimit ? { recentLimit } : {}),
     });
-    return NextResponse.json(result, {
-      headers: { 'Cache-Control': 'no-store' },
-    });
+    return NextResponse.json(
+      preflight ? { ...result, preflightContext: preflight } : result,
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[assistant/venture-progress] build failed: ${msg}`);

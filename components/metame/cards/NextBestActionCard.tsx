@@ -25,7 +25,10 @@ import {
   Zap,
   ShieldAlert,
   X,
+  Check,
 } from "lucide-react";
+import { PreflightByline, PreflightChip } from "@/components/metame/cards/PreflightByline";
+import type { PreflightContext } from "@/services/capabilities/preflight";
 
 export interface NextBestActionData {
   id: string;
@@ -44,10 +47,33 @@ interface Props {
   variant?: "compact" | "hero";
   /** Click handler for the "Act" button. Phase 6 wires execution. */
   onAct?: (action: NextBestActionData) => void;
+  /**
+   * When true, the action has already been queued as an IntentQube
+   * (handler short-circuits server-side). The Act button is replaced
+   * with a non-clickable "Queued" badge so the operator gets explicit
+   * feedback that their click landed — fixes the previous regression
+   * where Act stayed enabled but did nothing until the tab remounted.
+   */
+  queued?: boolean;
   /** Hero variant only — renders an inline X that lets the user clear
    *  the whole move-forward bundle (topAction + alternates) so the
    *  right pane doesn't pile up. Re-firing the chip re-opens it. */
   onDismiss?: () => void;
+  /**
+   * Hero variant only — Capability Gateway pre-flight result for the
+   * move-forward bundle that contains this NBA. Surfaces as a
+   * "🔍 researched" chip in the header + a small byline under the title.
+   * Lives on the move-forward parent shape, not on the per-NBA shape,
+   * so callers thread it explicitly to the hero card.
+   */
+  preflightContext?: PreflightContext | null;
+  /**
+   * Optional ≤200-char compose / action prompt hint produced by the LLM
+   * rerank pass. Renders as an italic "aigentMe's take" line under the
+   * rationale and is forwarded to `onAct` so callers can seed
+   * composerInitialPrompt when Act maps to a compose modal.
+   */
+  promptHint?: string | null;
   theme?: "light" | "dark";
 }
 
@@ -84,7 +110,10 @@ export function NextBestActionCard({
   action,
   variant = "compact",
   onAct,
+  queued = false,
   onDismiss,
+  preflightContext,
+  promptHint,
   theme = "dark",
 }: Props) {
   const isDark = theme === "dark";
@@ -109,7 +138,7 @@ export function NextBestActionCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <Sparkles className={`w-3.5 h-3.5 ${accentClass}`} />
             <span className={`text-xs uppercase tracking-wider ${mutedClass}`}>
               {CARTRIDGE_LABELS[action.cartridge] ?? action.cartridge}
@@ -124,11 +153,26 @@ export function NextBestActionCard({
                 </span>
               </>
             )}
+            {isHero && <PreflightChip preflight={preflightContext} theme={theme} />}
           </div>
           <h4 className={`${isHero ? "text-lg" : "text-base"} font-semibold leading-tight`}>
             {action.label}
           </h4>
+          {isHero && <PreflightByline preflight={preflightContext} theme={theme} />}
           <p className={`text-sm mt-1 ${mutedClass}`}>{action.rationale}</p>
+          {promptHint && promptHint.trim().length > 0 && (
+            <p
+              className={`text-xs mt-2 italic leading-snug ${
+                isDark ? "text-violet-200/80" : "text-violet-700"
+              }`}
+              title="aigentMe's take — used as the starting frame when you Act"
+            >
+              <span className="not-italic font-medium opacity-70 mr-1">
+                aigentMe&rsquo;s take:
+              </span>
+              {promptHint}
+            </p>
+          )}
 
           <div className="flex flex-wrap items-center gap-2 mt-3">
             <span className={`px-2 py-0.5 text-[11px] rounded-full border ${chipClass}`}>
@@ -156,7 +200,7 @@ export function NextBestActionCard({
         </div>
 
         <div className="flex items-start gap-2 shrink-0">
-          {onAct && (
+          {onAct && !queued && (
             <button
               onClick={() => onAct(action)}
               className={`flex items-center gap-1 px-3 py-1.5 rounded-md border text-xs font-medium transition ${buttonClass}`}
@@ -164,6 +208,19 @@ export function NextBestActionCard({
               Act
               <ArrowRight className="w-3 h-3" />
             </button>
+          )}
+          {queued && (
+            <span
+              className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-md border text-xs font-medium ${
+                isDark
+                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
+                  : "border-emerald-500/40 bg-emerald-50 text-emerald-700"
+              }`}
+              title="Queued as an IntentQube — awaiting review / execution"
+            >
+              <Check className="w-3 h-3" />
+              Queued
+            </span>
           )}
           {isHero && onDismiss && (
             <button

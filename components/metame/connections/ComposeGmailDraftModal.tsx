@@ -18,9 +18,10 @@
  * artifacts list by the parent.
  */
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Loader2, X, Mail, Sparkles } from "lucide-react";
 import { MicButton } from "@/components/ui/MicButton";
+import { UploadAttachmentPicker } from "@/components/metame/uploads/UploadAttachmentPicker";
 import { transformEmailDictation } from "@/hooks/useSpeechRecognition";
 
 interface Props {
@@ -37,6 +38,11 @@ interface Props {
     bodyText: string;
     cc?: string;
     bcc?: string;
+    /** Persona upload ids — picker mounts inline; Phase 2 wires the
+     *  Gmail multipart MIME builder so attachments ride with the
+     *  draft. Until then they round-trip as actionInput metadata so
+     *  the artifact record remembers the operator's selections. */
+    attachmentUploadIds?: string[];
   }) => Promise<void>;
   /**
    * Phase 6.b Part 2.5b — aigentMe drafts a full email from a one-liner
@@ -61,6 +67,14 @@ interface Props {
    * always renders when the layout mounts it.
    */
   inline?: boolean;
+  /** See ComposeGoogleDocModal — auto-fires draft on mount when set. */
+  initialPrompt?: string;
+  /** Active persona — required by UploadAttachmentPicker so it fetches
+   *  the operator's uploads (not the spine's default persona). Without
+   *  this prop the picker falls back to localStorage-based persona
+   *  resolution and can render an empty / wrong-persona list, leaving
+   *  attachmentUploadIds silently empty at submit time. */
+  personaId?: string;
 }
 
 export function ComposeGmailDraftModal({
@@ -70,6 +84,8 @@ export function ComposeGmailDraftModal({
   onDraftWithAigentMe,
   theme = "dark",
   inline = false,
+  initialPrompt,
+  personaId,
 }: Props) {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiDrafting, setAiDrafting] = useState(false);
@@ -78,20 +94,19 @@ export function ComposeGmailDraftModal({
   const [to, setTo] = useState("");
   const [subject, setSubject] = useState("");
   const [bodyText, setBodyText] = useState("");
+  const [attachmentUploadIds, setAttachmentUploadIds] = useState<string[]>([]);
   const [cc, setCc] = useState("");
   const [bcc, setBcc] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleDraft = useCallback(async () => {
+  const draftWithPrompt = useCallback(async (promptToUse: string) => {
+    const trimmed = promptToUse.trim();
+    if (!trimmed) return;
     setError(null);
-    if (!aiPrompt.trim()) {
-      setError('Tell aigentMe what the email is for (one sentence).');
-      return;
-    }
     setAiDrafting(true);
     try {
-      const draft = await onDraftWithAigentMe(aiPrompt.trim());
+      const draft = await onDraftWithAigentMe(trimmed);
       setTo(draft.to ?? "");
       setCc(draft.cc ?? "");
       setBcc(draft.bcc ?? "");
@@ -104,7 +119,25 @@ export function ComposeGmailDraftModal({
     } finally {
       setAiDrafting(false);
     }
-  }, [aiPrompt, onDraftWithAigentMe]);
+  }, [onDraftWithAigentMe]);
+
+  const handleDraft = useCallback(() => {
+    if (!aiPrompt.trim()) {
+      setError('Tell aigentMe what the email is for (one sentence).');
+      return;
+    }
+    void draftWithPrompt(aiPrompt);
+  }, [aiPrompt, draftWithPrompt]);
+
+  // Mount-fire from initialPrompt — see ComposeGoogleDocModal.
+  const lastInitialPromptRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialPrompt || !initialPrompt.trim()) return;
+    if (lastInitialPromptRef.current === initialPrompt) return;
+    lastInitialPromptRef.current = initialPrompt;
+    setAiPrompt(initialPrompt);
+    void draftWithPrompt(initialPrompt);
+  }, [initialPrompt, draftWithPrompt]);
 
   const isDark = theme === "dark";
   const overlayClass = "fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4";
@@ -148,6 +181,7 @@ export function ComposeGmailDraftModal({
         bodyText,
         ...(cc.trim() ? { cc: cc.trim() } : {}),
         ...(bcc.trim() ? { bcc: bcc.trim() } : {}),
+        ...(attachmentUploadIds.length > 0 ? { attachmentUploadIds } : {}),
       });
       // Reset on success so the modal is clean next time.
       setAiPrompt("");
@@ -158,6 +192,7 @@ export function ComposeGmailDraftModal({
       setBodyText("");
       setCc("");
       setBcc("");
+      setAttachmentUploadIds([]);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -297,6 +332,16 @@ export function ComposeGmailDraftModal({
               />
             </label>
           </div>
+          {/* Attachment picker — Phase 1 surfaces the affordance and
+              persists the upload ids onto the artifact actionInput.
+              Phase 2 wires the Gmail multipart MIME builder to send
+              the bytes as draft attachments. */}
+          <UploadAttachmentPicker
+            personaId={personaId}
+            value={attachmentUploadIds}
+            onChange={setAttachmentUploadIds}
+            theme={theme}
+          />
           <label className="block">
             <span className={`block text-xs mb-1 ${labelClass}`}>Subject</span>
             <input

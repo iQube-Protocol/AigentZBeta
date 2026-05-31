@@ -152,8 +152,56 @@ Tests in `tests/persona-broadcast-handshake.test.ts` and `tests/access-spine.tes
 | Your own auth gate before granting rewards | `evaluateAccess(persona, descriptor, 'transfer')` |
 | Your own FIO-handle-required check | The spine denies with `reason='fio-handle-required'`; surface that |
 | Your own admin / partner role checker | `persona.cartridgeFlags.{isAdmin,isPartner}` (server-resolved) |
+| Your own per-cartridge admin role checker | `persona.cartridgeFlags.adminCartridges: string[]` (server-resolved). Slugs only. `isAdmin: true` satisfies any per-cartridge check. Credential class: `admin-cartridge:<slug>` |
+| Your own client-side `fetch(/api/...)` for spine endpoints | `personaFetch` from `utils/personaSpine` — see "Client-side spine fetches" below |
 | Your own decryption for state-C content | `streamStateCPlaintext` from `services/content/stateCDelivery` |
 | Your own persona-switch listener | Subscribe to the `aa-persona-change-v1` postMessage |
+
+### Client-side spine fetches — MUST use `personaFetch`, never raw `fetch` (PARAMOUNT)
+
+Any client-side call to a route that resolves the caller through the spine (`getActivePersona` or `getCallerIdentityContext`) requires the Supabase Bearer token in the `Authorization` header. Cookies + `credentials: 'same-origin'` are **NOT** sufficient — the spine ignores cookies entirely for auth.
+
+Routes that fall under this rule include (non-exhaustive):
+- `/api/wallet/active-persona`
+- `/api/persona/*`
+- `/api/assistant/*` (bootstrap, brief, move-forward, ask-agent, intent, etc.)
+- `/api/admin/*` (every diagnostic + admin route)
+- `/api/access/*`
+- `/api/connectors/*`
+
+**Use this:**
+
+```ts
+import { personaFetch } from "@/utils/personaSpine";
+
+const res = await personaFetch("/api/persona/cartridge-admin-grants", {
+  cache: "no-store",
+});
+```
+
+`personaFetch` calls `getSupabaseAccessToken()` and attaches it as `Authorization: Bearer <token>` before delegating to fetch. It's the single canonical client surface for spine-aware HTTP.
+
+**Never use this for spine endpoints:**
+
+```ts
+// ❌ ALWAYS RETURNS 401 — no Bearer token attached
+fetch("/api/persona/...", { credentials: "same-origin" });
+fetch("/api/persona/...");  // same problem
+```
+
+The bug pattern: when a hook / utility uses raw `fetch`, every spine endpoint returns 401, the hook silently falls into its empty / fail-closed state, and downstream gates (admin tabs, paywalls, persona switches) deny without any console error. Symptoms feel like "the feature just doesn't work for this user" — but the operator IS authenticated; the FE is just failing to attach the token. Cost the team a multi-hour debug loop on 2026-05-26 with the admin-tab visibility regression.
+
+**Debugging from DevTools / a browser URL bar** — neither sends the Authorization header. Pull the token from `localStorage` and attach it manually:
+
+```js
+(async () => {
+  const k = Object.keys(localStorage).find(k => k.includes('auth-token'));
+  const parsed = JSON.parse(localStorage.getItem(k));
+  const token = parsed?.access_token ?? parsed?.currentSession?.access_token;
+  const r = await fetch('/api/<path>', { headers: { Authorization: `Bearer ${token}` } });
+  console.log(JSON.stringify(await r.json(), null, 2));
+})();
+```
 
 ### Files you MUST NOT modify without operator approval
 
@@ -367,6 +415,128 @@ This eliminates the URL-leakage window without requiring `pdfjs-dist` or full-PD
 
 ---
 
+## metaMe Client Protocol Primitive — R/T scoring dots + busy pulse
+
+**Every copilot surface (server-rendered, thin-client, embed) MUST render reliability + trust scores using the same dot strip, colour ramp, and busy-pulse animation. Diverging on dot count, colour, or pulse semantics breaks the trust glance the strip exists to deliver, and the operator's mental model no longer travels intact between cartridges.**
+
+Full spec: `codexes/packs/agentiq/updates/2026-05-29_metame-client-rt-dots-spec.md` — read end-to-end before implementing or refactoring.
+
+### Quick rules
+
+- **5 dots per strip**, lit count = `Math.ceil(value / 2)` where `value ∈ 0..10`. Unlit dots stay rendered in `bg-slate-600`.
+- **Colour ramps** (lit dots only):
+  - R (reliability): `≤3 red-500`, `3.01-6 yellow-500`, `>6 purple-500`
+  - T (trust):       `≤3 red-500`, `3.01-6 yellow-500`, `>6 green-500`
+- **Dot geometry**: `h-1.5 w-1.5 rounded-full`, strip is `flex items-center gap-0.5`.
+- **Busy pulse** — Tailwind `animate-pulse` fires when the copilot is doing work the operator should wait on. Two independent signals share the same pulse:
+  1. `isProcessing === true` (chat round-trip in flight via `/api/codex/chat`)
+  2. `ttsState === 'loading'` (TTS audio being fetched via `/api/skills/tts`)
+  Either ⇒ `isBusy = true`. Per-dot staggered `animation-delay: ${i * 0.15}s` produces a ripple, not a synchronous blink.
+- **Idle state** uses `transition-all duration-300` instead of `animate-pulse` so colour changes (score updates) animate smoothly.
+
+### Canonical implementation
+
+Reference: `components/smarttriad/copilot/SmartTriadCopilotLayer.tsx:renderDots`. Mirror the helper exactly; don't fork the colour logic or the pulse condition.
+
+### Why this matters
+
+The R/T strip is read at a flicker — the operator never reads the value, they read the colour + pulse posture. Forks that drop the staggered delay (synchronous blink) or omit the TTS-loading signal silently break the "is the copilot working" feedback loop. Thin-clients (Lovable, etc.) implementing the metaMe client protocol must replicate this primitive line-for-line.
+
+---
+
+## aigentMe Capsule ↔ Layout Contract — MUST READ (PARAMOUNT)
+
+**The aigentMe right pane has two paired states (`activeCapsuleId` + `activeLayoutId`) that MUST stay in lockstep. Activating a Capsule without mounting its dedicated layout — or unmounting the layout while the Capsule is still engaged — drops the operator on the manual/stack fallback while parent state still claims a Capsule is in flight. This costs hours of debug time and surfaces as "capsule disappeared", "CTAs render in the wrong window", or "after Act the artifact lands on the wrong surface".**
+
+### Canonical mapping (all four Capsule chips)
+
+| Capsule chip | `activeCapsuleId` | `activeLayoutId` | Dedicated layout file |
+|---|---|---|---|
+| Brief me | `brief` | `brief` | `components/metame/welcome/layouts/BriefLayout.tsx` |
+| Move forward | `move-forward` | `decision-board` | `components/metame/welcome/layouts/DecisionBoardLayout.tsx` |
+| Venture progress | `venture-progress` | `venture-cockpit` | `components/metame/welcome/layouts/VentureCockpitLayout.tsx` |
+| Ask specialists | `ask-specialists` | `specialists` | `components/metame/welcome/layouts/SpecialistsLayout.tsx` |
+
+Mapping is defined once at `app/triad/components/codex/tabs/AigentMeWelcomeSplitTab.tsx:CAPSULE_LAYOUT`. Adding a fifth Capsule means extending that constant + the `CapsuleId` type union.
+
+### Rules
+
+1. **Every Capsule activator routes through `engageCapsuleAndMount(capsuleId)`.** That helper sets both states atomically. Call sites include the left-pane `handleCtaClick` chip strip AND the chat-copilot `quickPrompts.onSelect` handlers — both paths must use the helper. Never call `engageCapsule` without also setting the layout, and never `setActiveLayoutId('brief' | 'decision-board' | 'venture-cockpit' | 'specialists')` without also engaging the Capsule.
+
+2. **ComposerLayout is an OVERLAY, not a foreground.** It mounts on top of whatever Capsule is engaged when `composerKind !== null`. Its dismiss/close/onCreate/cancel handlers MUST call `onComposerClose?.()` ONLY — never `onRequestLayout('stack')` and never any other layout swap. Calling a layout swap from ComposerLayout unmounts the underlying Capsule and the operator's work vanishes. The legacy `onRequestLayout('stack')` lines were vestigial from when ComposerLayout was a foreground surface; do not reintroduce them, even "as a fallback".
+
+3. **Dedicated layouts must thread Pill-lifecycle props through to their cards.** BriefLayout, DecisionBoardLayout, VentureCockpitLayout, and SpecialistsLayout all need: `artifacts`, `actionPendingArtifactId`, `actionErrors`, `secondTierApproval`, `onSendArtifact`, `onDismissArtifact`, `onApproveSecondTier`, `onCancelSecondTier`, `onDismissQueued`, `onMarkPillComplete`. Queued NBAs MUST render as `ExpandedNBEPill` (with the drafted artifact + second-tier approval folded inline) — never as `NextBestActionCard queued={true}` (the legacy "Queued" badge that bombs without lifecycle props).
+
+4. **Don't add an effect that resets `activeLayoutId` to `'stack'`.** If you need a "go home" affordance, route it through a Capsule dismiss handler (e.g. `onDismissBrief`) that clears the relevant capsule data AND only then swaps the layout — never a blanket reset that runs on every render or on every receipt of an artifact event.
+
+### Failure history
+
+- **2026-05-28 Capsule disappearance**: ComposerLayout's `handleDismiss` and `closeToStack` fired `onRequestLayout('stack')`. Every time an operator completed a compose modal (or hit X), the underlying Capsule layout unmounted. Data persisted in parent state, so clicking the quick-action chip resurfaced it — masking the real bug as "intermittent disappearance". Fix in `b226c88a`: drop the layout swap from ComposerLayout dismiss paths.
+- **2026-05-28 Ask Specialists fallback**: the left-pane Ask Specialists chip called `engageCapsule('ask-specialists')` but skipped `setActiveLayoutId('specialists')`. Specialist responses and suggested-artifact chips rendered on the stack/manual fallback instead of inside the Specialists Capsule. Fix in `e7d79742`: add the missing layout mount.
+- **2026-05-28 Move-forward + Venture legacy NBA cards**: DecisionBoardLayout + VentureCockpitLayout had been reverted to `NextBestActionCard queued={true}` without the Pill-lifecycle props wired. Queued items rendered with the legacy "Queued" badge and threw on second-tier approval. Fix in `b226c88a`: restore the `ExpandedNBEPill` pattern with full prop threading.
+
+### Reference docs
+
+- Architecture + repro recipe: `codexes/packs/agentiq/updates/2026-05-28_aigentme-capsule-layout-contract.md`
+- Layout registry types: `components/metame/welcome/layouts/types.ts`
+- Pill primitive: `components/metame/cards/ExpandedNBEPill.tsx`
+
+---
+
+## Grids of PDF Assets with Covers — MUST READ (PARAMOUNT)
+
+**Whenever you build a grid of PDF assets (papers, magazines, episodes, scrolls, anything with a thumbnail card that opens a PDF), follow this pattern exactly. Do not invent variants. Do not try to render PDFs as image thumbnails server-side. Three sessions of work were lost trying to bolt a PDF rasteriser onto Lambda before this rule was written down.**
+
+### The canonical pattern (KNYT)
+
+The KNYT cartridge is the reference implementation. Mirror it.
+
+1. **Cover = image. Body = PDF. Two separate uploads, two separate rows.**
+   - Cover: `asset_kind = 'cover_image'`, `mime_type = image/*` (JPG / PNG / WebP). Stored as-is on Supabase; `cover_thumb_url` is set to the public storage URL.
+   - PDF body: `asset_kind = 'episode_print'` / `'background_lore_doc'` / etc., `mime_type = 'application/pdf'`.
+2. **The two are paired in software, not via FK.** Group by series scope / episode number / display position. The most recent image cover in the same scope is the thumbnail.
+3. **The card thumbnail is `<img src={cover_thumb_url}>`.** No proxy. No iframe. No worker.
+4. **The card click opens `PDFLiteReaderModal`** pointed at the PDF body's public Supabase URL (`pdf_lite_url` for KNYT episodes; `auto_drive_cid` for codex_media_assets rows). The modal uses `<object>` (desktop) or `<iframe>` (mobile) for native PDF rendering — no pdfjs, no canvas.
+
+This works in every browser, has zero server dependencies, and is the path that has shipped to production.
+
+### What does NOT work — do not try these again
+
+- **`asset_kind = 'cover_pdf'`.** The enum exists for legacy reasons but no production cartridge renders it as a thumbnail. The upload modals' Cover content type must not list it as an option. (Removed 2026-05-27 from `app/(shell)/admin/codex/components/CodexUploadModal.tsx` for both KNYT and Qripto.)
+- **Cross-origin `<iframe>` thumbnails of PDFs.** Browsers either paint blank or trigger a download — the iframe-load itself kicks off the browser's download flow even with `pointer-events-none`. Symptom: card click "downloads the PDF instead of opening the viewer".
+- **Server-side rasterising a PDF first page to PNG/WebP on Lambda using `pdfjs-dist`.** Three failure modes stack:
+  1. `Promise.withResolvers is not a function` — pdfjs-dist 4.x needs Node 22; Amplify runs Node 20. Polyfillable.
+  2. `Setting up fake worker failed: Cannot find module pdf.worker.mjs` — pdfjs's fake-worker fallback does a relative `import("./pdf.worker.mjs")` that resolves to `/var/task/.next/server/chunks/pdf.worker.mjs`. The worker file isn't traced into the chunks dir even with `serverExternalPackages: ["pdfjs-dist"]` and `outputFileTracingIncludes` pinning it. Both fixes were attempted and both still fail in Lambda. The legacy build (`pdfjs-dist/legacy/build/pdf.mjs`) and the `disableWorker: true` flag both still trigger the fake-worker code path.
+  3. Even if you bundle it, `@napi-rs/canvas` adds ~30 MB to the Lambda deploy.
+
+If anyone asks "can we just render PDF page 1 as the cover server-side?" — **the answer is no, upload an image cover instead**. The operator's editorial workflow is the source of the thumbnail; it's not derived from the PDF.
+
+### Operator workflow for new cartridges
+
+When a new cartridge needs a grid of PDF assets (e.g. the Qriptopian Papers tab):
+
+1. Upload modal exposes two content types: **Cover** (image only — `.jpg .jpeg .png .webp`) and **<body type>** (PDF).
+2. API route reads both `codex_media_assets` rows for the series scope and returns `{ pdfUrl, coverUrl }` per card. coverUrl is plain text — no proxy URL, no rasteriser URL.
+3. Card component:
+   ```tsx
+   <button onClick={() => setActivePdf({ url: p.pdfUrl, title: p.title })}>
+     <img src={p.coverUrl} alt={p.title} />
+     {/* ... title overlay ... */}
+   </button>
+   <PDFLiteReaderModal open={activePdf !== null} pdfUrl={activePdf?.url ?? ''} title={activePdf?.title} onClose={() => setActivePdf(null)} />
+   ```
+4. Grid layout follows the KNYT shape: `grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4`, `aspect-[3/4]` cards, full-bleed cover with bottom-up black gradient carrying the title, top-right backdrop-blur badge.
+
+### Reference files
+
+- Pattern source: `app/triad/components/codex/tabs/KnytTab.tsx` — the canonical KNYT episode grid (search for `grid-cols-2 md:grid-cols-3 lg:grid-cols-4`).
+- Pattern copy: `app/triad/components/codex/tabs/QriptoPapersTab.tsx` — Qripto Papers grid using the same shape.
+- Modal: `app/triad/components/content/PDFLiteReaderModal.tsx` — the canonical PDF viewer. Never replace with pdfjs in the renderer.
+- Upload modal: `app/(shell)/admin/codex/components/CodexUploadModal.tsx` — Cover content type is image-only.
+- Failure history: `codexes/packs/agentiq/updates/2026-05-27_qripto-cover-upload-and-wip-contentqube-backlog.md`.
+
+---
+
 ## Architecture Layers (respect the boundaries)
 
 | Layer | Responsibility | Technologies |
@@ -430,6 +600,35 @@ link: buildCodexUrl("knyt-codex", { tab: "knyt-alpha", personaId, from: "alpha-k
 | `utils/codex-nav.ts` | Canonical `buildCodexUrl()` helper — use this everywhere |
 | `app/(embed)/triad/embed/codex/[codexSlug]/page.tsx` | Reads and forwards all identity params |
 | `app/(embed)/triad/embed/codex/_lib/useCodexEmbedAuthBridge.ts` | Resolves personaId from URL or localStorage |
+
+---
+
+## Cartridge / Codex Registration — Dual-Source Pattern (READ BEFORE DELETING)
+
+Cartridges in the codex registry come from **two sources** that can collide:
+
+1. **Hand-curated** in `data/codex-configs.ts` (`CODEX_DEFINITIONS` array). These carry rich tab structures, interactive React components (`BoundedDelegationTab`, `DevPersonaTab`, etc.), and the slugs that other surfaces (e.g. `QuickLinksCard`) target.
+2. **Auto-generated** from `codexes/packs/<name>/` directories by `app/api/codex/registry/_lib/packRegistry.ts::loadPackCodexes()`. These produce simple markdown-viewer cartridges with tabs derived from `collections.json`.
+
+**If you see two cartridges with the same name in the picker, DO NOT remove the one in `CODEX_DEFINITIONS`.** That is almost always the canonical one. Suppress the auto-generated duplicate by adding the pack directory name to the skip list in `packRegistry.ts`:
+
+```ts
+// app/api/codex/registry/_lib/packRegistry.ts
+if (lowered === "agentiq" || lowered === "aigentiq" || lowered === "aigency" || lowered === "agentiq-os") continue;
+```
+
+The hand-curated cartridge can still consume the pack's markdown content via `AgentiqCartridgeTab` props inside its tabs — pack docs are not lost, only the duplicate registration is. This pattern preserves:
+
+- The hand-curated tab structure and interactive components
+- The slug that `QuickLinksCard` / inter-cartridge nav targets
+- The constant export (e.g. `AGENTIQ_OS_CARTRIDGE`) used by helpers like `aiqOsTabsByGroup()` to mirror tabs into other cartridges
+
+How to tell which is which when both exist:
+- Hand-curated id ends in `-cartridge` (e.g. `agentiq-os-cartridge`); pack-generated ends in `-codex` (e.g. `agentiq-os-codex`).
+- Hand-curated has interactive tabs; pack-generated has only markdown.
+- `QuickLinksCard` and metaMe's `aiqOsTabsByGroup()` target the hand-curated slug.
+
+Historical example: commit `b907029f` (2026-05-26) archived the hand-curated `AGENTIQ_OS_CARTRIDGE` thinking it was the duplicate. The pack-driven version took over the picker, lost all interactivity, and broke the slug that metaMe targets. Reverted by `fb9f56bd` — restore + skip-list pattern.
 
 ---
 

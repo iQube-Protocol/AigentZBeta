@@ -70,14 +70,42 @@ export function credentialRequiresExternalVerifier(credential: string | undefine
 /**
  * Cartridge-flag credentials that resolve from ActivePersonaContext
  * directly (no canister or chain lookup). Phase 1 baseline.
+ *
+ * Supported credentials:
+ *   'admin'                       — global uber/platform-tier admin
+ *                                    (cartridgeFlags.isAdmin)
+ *   'partner'                     — partner cartridge flag
+ *                                    (cartridgeFlags.isPartner)
+ *   'admin-cartridge:<slug>'      — per-cartridge admin grant. Matches
+ *                                    when the persona's
+ *                                    cartridgeFlags.adminCartridges
+ *                                    array contains the slug, OR when
+ *                                    the global isAdmin flag is true
+ *                                    (uber-admin override). Added
+ *                                    2026-05-26 as part of the spine
+ *                                    admin-grants extension — see
+ *                                    codexes/packs/agentiq/updates/2026-05-26_spine-admin-grants-extension.md.
+ *
+ * Backwards compatible — the `flags` parameter accepts the legacy
+ * { isAdmin, isPartner } shape and treats a missing adminCartridges
+ * field as the no-grants posture (fail-closed).
  */
 export function credentialMatchesCartridgeFlag(
   credential: string | undefined,
-  flags: { isAdmin: boolean; isPartner: boolean },
+  flags: { isAdmin: boolean; isPartner: boolean; adminCartridges?: string[] },
 ): boolean {
   if (!credential) return false;
   if (credential === 'admin')   return flags.isAdmin;
   if (credential === 'partner') return flags.isPartner;
+  if (credential.startsWith('admin-cartridge:')) {
+    const slug = credential.slice('admin-cartridge:'.length).trim();
+    if (!slug) return false;
+    // Global isAdmin satisfies any per-cartridge admin gate (uber/
+    // platform-tier override). Otherwise the slug must appear in the
+    // persona's explicit grant list.
+    if (flags.isAdmin) return true;
+    return Array.isArray(flags.adminCartridges) && flags.adminCartridges.includes(slug);
+  }
   return false;
 }
 

@@ -292,8 +292,13 @@ export async function loadPackCodexes(): Promise<CodexConfig[]> {
 
       // Skip AgentiQ pack directories — AGENTIQ_CARTRIDGE in data/codex-configs.ts is the
       // single canonical definition and merges content from both aigency + agentiq pack files.
+      // Skip "agentiq-os" too: AGENTIQ_OS_CARTRIDGE in data/codex-configs.ts is the canonical
+      // hand-curated registration (rich tab structure + interactive components, slug
+      // `agentiq-os-cartridge` that metaMe's QuickLinksCard targets). The pack content under
+      // codexes/packs/agentiq-os/ is still consumed via AgentiqCartridgeTab props inside the
+      // hand-curated tabs — pack docs are not lost, only the duplicate auto-registration is.
       const lowered = dirent.name.toLowerCase();
-      if (lowered === "agentiq" || lowered === "aigentiq" || lowered === "aigency") continue;
+      if (lowered === "agentiq" || lowered === "aigentiq" || lowered === "aigency" || lowered === "agentiq-os") continue;
 
       const codex = await buildCodexConfigFromPack(dirent.name);
       if (!codex) continue;

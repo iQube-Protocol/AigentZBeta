@@ -18,7 +18,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { getActivePersona } from '@/services/identity/getActivePersona';
+import { requireCartridgeAdmin } from '@/services/access/requireCartridgeAdmin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -69,20 +69,14 @@ interface TaskTemplateRowOut extends TaskTemplateRow {
   reward_task_types: string[];
 }
 
-async function assertAdmin(request: NextRequest) {
-  const persona = await getActivePersona(request);
-  if (!persona) {
-    return { ok: false as const, status: 401, error: 'Unauthorized' };
-  }
-  if (!persona.cartridgeFlags?.isAdmin) {
-    return { ok: false as const, status: 403, error: 'Admin required' };
-  }
-  return { ok: true as const, persona };
-}
+// Cartridge-scoped admin gate. Replaces the prior global-isAdmin
+// check with requireCartridgeAdmin, which honours the spine's
+// per-cartridge adminCartridges set. KNYT tenant-admins (not just
+// uber-admins) can now manage their tasks/rewards table here.
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  const auth = await assertAdmin(request);
-  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const gate = await requireCartridgeAdmin(request, 'knyt-codex');
+  if (gate instanceof NextResponse) return gate;
   const db = sb();
 
   const { data: templates, error: tErr } = await db
@@ -175,8 +169,8 @@ interface PatchPayload {
 }
 
 export async function PATCH(request: NextRequest): Promise<NextResponse> {
-  const auth = await assertAdmin(request);
-  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const gate = await requireCartridgeAdmin(request, 'knyt-codex');
+  if (gate instanceof NextResponse) return gate;
 
   const body = (await request.json().catch(() => ({}))) as PatchPayload;
   if (!body.taskTemplateId || !body.patch || typeof body.patch !== 'object') {

@@ -31,6 +31,7 @@
  */
 
 import { personas } from '@/app/data/personas';
+import type { PreflightContext } from '@/services/capabilities/preflight';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Types — public surface.
@@ -98,6 +99,22 @@ export interface SpecialistResponse {
   source: 'llm' | 'template';
   /** When the response was generated. */
   generatedAt: string;
+  /**
+   * Capability Gateway pre-flight result. Present only when
+   * CAPABILITY_GATEWAY_PREFLIGHT covers the specialist and the gather
+   * succeeded. The aigentMe response surface today also prepends the
+   * summary into the rationale; this field lets the UI render it as a
+   * dedicated byline going forward.
+   */
+  preflightContext?: PreflightContext;
+  /**
+   * Set by the ask-agent route when the consultation was a hand-off
+   * from another specialist. The SpecialistsLayout renders a "← from X"
+   * pill on the response card and threads the prior title into the
+   * specialist's framing so the back-and-forth reads as a conversation
+   * rather than a fresh ask.
+   */
+  handoffFrom?: { specialistId: SpecialistId; priorTitle: string };
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -200,7 +217,9 @@ function userPromptFor(ctx: SpecialistContext, requestType: SpecialistRequestTyp
         title: 'string — 6-12 word headline',
         summary: 'string — 1-3 sentence framing',
         recommendations: ['string — 3-6 actionable bullets'],
-        suggestedArtifacts: ['string — 0-4 artifact types: brief, google-doc, gmail-draft, calendar-block, post-set, image-prompt, video-script, slide-outline, venture-report'],
+        suggestedArtifacts: [
+          'string — 0-4 artifact types from this set: article, brief, google-doc, gmail-draft, calendar-block, post-set, image-prompt, video-script, slide-outline, venture-report, partner-brief, marketa-campaign, mycanvas-remix, myworkbench-draft. Pick artifacts the persona can immediately progress on the aigentMe welcome surface. Routing: gmail-draft / partner-brief / brief / article / google-doc / slide-outline / venture-report -> composer modal; image-prompt / video-script / post-set -> metaMe Studio; mycanvas-remix -> myCanvas remix dialog; myworkbench-draft -> myWorkbench (private internal artifacts); marketa-campaign -> Marketa composer.',
+        ],
         requiresApproval: 'boolean — true if implementing this requires send/share/publish',
         confidence: '"low" | "medium" | "high"',
       },
@@ -395,7 +414,10 @@ function templateResponse(
         `Stage the offer in three tiers (light / standard / deep) to give the partner a clear lane.`,
         `Close with an activation action — "claim your slot" or "book a 15-minute alignment."`,
       ],
-      suggestedArtifacts: ['brief', 'google-doc', 'gmail-draft'],
+      // Marketa's natural progressions: partner pitch (private brief), the
+      // outbound email itself, a campaign in Marketa proper, and a deck
+      // for the pitch meeting. All four are "act on the recommendation".
+      suggestedArtifacts: ['partner-brief', 'gmail-draft', 'marketa-campaign', 'slide-outline'],
       requiresApproval: true,
       confidence: 'medium',
     };
@@ -412,7 +434,13 @@ function templateResponse(
         `Anchor the piece with a single quote or scene; avoid feature-list narration.`,
         `Close with the next reader move — a deeper article, a participation moment, or a collector path.`,
       ],
-      suggestedArtifacts: ['brief', 'google-doc'],
+      // Quill's editorial responses default to surfaceable artifacts the
+      // user can immediately progress to. 'article' opens the doc
+      // composer pre-seeded with Quill's framing; 'mycanvas-remix'
+      // routes into the RemixDialog so the angle can be staged onto
+      // the persona's myCanvas. Both are picked up by the welcome
+      // surface's artifact-router (composeKindForSuggestedArtifact).
+      suggestedArtifacts: ['article', 'mycanvas-remix', 'brief'],
       requiresApproval: false,
       confidence: 'medium',
     };
@@ -429,7 +457,10 @@ function templateResponse(
         `Acknowledge what's provisional vs finalised in the reward layer.`,
         `Offer one deeper path (correspondent contribution) only if the user is already participant-stage.`,
       ],
-      suggestedArtifacts: ['post-set', 'brief'],
+      // Kn0w1's natural progressions: a social post-set for the KNYT
+      // community, hero art for the moment, a remix onto myCanvas
+      // (publishable to KNYT Pulse), and the article itself.
+      suggestedArtifacts: ['post-set', 'image-prompt', 'mycanvas-remix', 'article'],
       requiresApproval: false,
       confidence: 'medium',
     };
@@ -446,7 +477,9 @@ function templateResponse(
         `Flag any spine constraints (T0/T1 boundaries) that apply.`,
         `Hand back to Aigent Me with a precise next step.`,
       ],
-      suggestedArtifacts: ['brief'],
+      // Aigent Z's progressions are internal: spec/plan doc, brief, and a
+      // workbench draft (private) so the user can iterate before sharing.
+      suggestedArtifacts: ['google-doc', 'brief', 'myworkbench-draft'],
       requiresApproval: false,
       confidence: 'high',
     };
@@ -463,7 +496,9 @@ function templateResponse(
         `Translate platform vocabulary into ordinary language.`,
         `Route to the specialist whose territory the next step lands in.`,
       ],
-      suggestedArtifacts: ['brief'],
+      // Aigent C is the customer-journey lens: a brief, a journey-stage
+      // post-set, an outreach email, and a slide if it's a partner pitch.
+      suggestedArtifacts: ['brief', 'post-set', 'gmail-draft', 'slide-outline'],
       requiresApproval: false,
       confidence: 'medium',
     };
@@ -480,7 +515,9 @@ function templateResponse(
         `If the action settles on-chain, name the settlement assurance you want (provenance, finality, censorship-resistance).`,
         `Spell out the key-management implication for the persona — what they hold, what they delegate, what they should never expose.`,
       ],
-      suggestedArtifacts: ['brief'],
+      // Nakamoto-side artifacts are policy memos, articles framing the
+      // sovereignty implications, and private working drafts.
+      suggestedArtifacts: ['brief', 'article', 'myworkbench-draft'],
       requiresApproval: false,
       confidence: 'high',
     };
@@ -497,7 +534,10 @@ function templateResponse(
         `Surface any approval thresholds and the second-tier approval flow that applies.`,
         `Suggest one micro-billing improvement (batch, prepay, streaming) if traffic is high enough to warrant it.`,
       ],
-      suggestedArtifacts: ['brief', 'google-doc'],
+      // MoneyPenny artifacts are pricing memos (doc), a spreadsheet with
+      // the unit-economics math, and an outreach email if pricing needs
+      // counterparty alignment.
+      suggestedArtifacts: ['google-doc', 'sheet', 'gmail-draft', 'myworkbench-draft'],
       requiresApproval: true,
       confidence: 'medium',
     };
@@ -514,7 +554,9 @@ function templateResponse(
       `Surface the sovereignty implication — what the user retains, delegates, or risks exposing.`,
       `Recommend one civic next step that strengthens the polity rather than narrows it.`,
     ],
-    suggestedArtifacts: ['brief'],
+    // Metayé's natural artifacts are governance proposals (doc), public
+    // sovereignty articles, and the brief that triggers the civic event.
+    suggestedArtifacts: ['google-doc', 'article', 'brief'],
     requiresApproval: false,
     confidence: 'medium',
   };
@@ -583,7 +625,6 @@ export async function askSpecialist(
   return {
     specialistId,
     specialistLabel,
-    requestType,
     ...tpl,
     source: 'template',
     generatedAt,

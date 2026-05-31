@@ -1054,3 +1054,648 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-77ab0a6.md](../build_/COMMITS/COMMIT-77ab0a6.md)
 - Message: Phase 2 B.1 (3/3): copilot tools aigentme_add_kpi / set_kpi_value / remove_kpi / open_kpi_detail + readables activeKpis + availableKpiSources (filtered to persona's active activations); copilot refuses bindings to inactive activations and refuses to manually overwrite activation-bound KPIs
+
+## Commit `1fc9328` — 2026-05-24T04:46:42Z
+- Type: `push`
+- Brief: [COMMIT-1fc9328.md](../build_/COMMITS/COMMIT-1fc9328.md)
+- Message: Phase 2 B.2 (1/2): cockpit Recommended row now activation-driven — NBAs sourced from actionsForActiveActivations(persona) first, static NBE catalog kept as fallback when activations haven't declared actions; catalog actions map to BriefNextBestAction with outcome-bearing actions surfacing as high impact
+
+## Commit `14e609c` — 2026-05-24T04:52:37Z
+- Type: `push`
+- Brief: [COMMIT-14e609c.md](../build_/COMMITS/COMMIT-14e609c.md)
+- Message: Phase 2 B.2 (2/2): ActiveWorkDetailLayout (per-intent surface with Cancel/Handoff/Resume actions) + ActivityChip becomes clickable; recentActivity enriched server-side with canResume/canHandOff/canCancel/specialist/nextActionHint derived from intent status; action endpoints expected at /api/assistant/intents/[id]/{cancel,handoff,resume} — 404 surfaced as backlog note rather than failure
+
+## Commit `328bbf4` — 2026-05-24T06:24:05Z
+- Type: `push`
+- Brief: [COMMIT-328bbf4.md](../build_/COMMITS/COMMIT-328bbf4.md)
+- Message: Phase 2 B.3: live cockpit sync — silent background polling at 20s on cockpit layouts (pauses on document.hidden); LiveSyncIndicator in cockpit header shows 'Synced Ns ago' + manual refresh button; all mutation paths (KPI edit / intent action / NBE approval) trigger silent refetch so the cockpit reacts immediately without skeleton flash. Phase 3 will replace polling with Supabase realtime subscription
+
+## Commit `24a86f3` — 2026-05-24T07:06:39Z
+- Type: `push`
+- Brief: [COMMIT-24a86f3.md](../build_/COMMITS/COMMIT-24a86f3.md)
+- Message: intent route: accept activation-driven nbeIds — resolveCandidate parses 'activation:<id>:<action>' from ACTIVATION_CATALOG so the cockpit's Recommended NBAs (Phase 2 B.2 1/2) can queue intents; static NBE_CATALOGUE entries unchanged. Fixes 'unknown-nbeId' error when acting on activation-sourced rows in venture progress
+
+## Commit `fdfa189` — 2026-05-24T08:15:26Z
+- Type: `push`
+- Brief: [COMMIT-fdfa189.md](../build_/COMMITS/COMMIT-fdfa189.md)
+- Message: VentureCockpit: surface KPI editor from cockpit chips + header
+
+## Commit `828d5b8` — 2026-05-24T08:42:04Z
+- Type: `push`
+- Brief: [COMMIT-828d5b8.md](../build_/COMMITS/COMMIT-828d5b8.md)
+- Message: capability gateway phase 1 — types, policy compiler, gateway, receipt wrapper
+
+## Commit `ddff517` — 2026-05-24T08:56:28Z
+- Type: `feat`
+- Brief: [COMMIT-ddff517.md](../build_/COMMITS/COMMIT-ddff517.md)
+- Message: capability gateway — add CapabilityIntent axis + log B/C backlog
+
+## Commit `d2bb41f` — 2026-05-24T09:04:38Z
+- Type: `push`
+- Brief: [COMMIT-d2bb41f.md](../build_/COMMITS/COMMIT-d2bb41f.md)
+- Message: capability gateway phase 2a — adapter pattern, openclaw shim, kn0w1 wiring
+
+## Commit `e968318` — 2026-05-24T09:13:42Z
+- Type: `push`
+- Brief: [COMMIT-e968318.md](../build_/COMMITS/COMMIT-e968318.md)
+- Message: capability gateway phase 2b — widen pre-flight gather to all specialists
+
+## Commit `c2bfdc4` — 2026-05-24T09:21:28Z
+- Type: `push`
+- Brief: [COMMIT-c2bfdc4.md](../build_/COMMITS/COMMIT-c2bfdc4.md)
+- Message: capability gateway phase 2c — pre-flight gather on aigentMe progression surfaces
+
+## Commit `1c86dae` — 2026-05-24T09:51:12Z
+- Type: `feat`
+- Brief: [COMMIT-1c86dae.md](../build_/COMMITS/COMMIT-1c86dae.md)
+- Message: aigentMe: surface Capability Gateway preflight + add Ask specialists chip
+
+## Commit `ac27250` — 2026-05-24T09:58:46Z
+- Type: `push`
+- Brief: [COMMIT-ac27250.md](../build_/COMMITS/COMMIT-ac27250.md)
+- Message: capability gateway phase 2b — openclawCore extract, real web-search + owned-content-scan
+
+## Commit `d0825fd` — 2026-05-24T10:09:51Z
+- Type: `push`
+- Brief: [COMMIT-d0825fd.md](../build_/COMMITS/COMMIT-d0825fd.md)
+- Message: nbe rerank: fold Capability Gateway preflight summary into LLM rerank prompt
+
+## Commit `e4cf0a0` — 2026-05-24T17:35:36Z
+- Type: `push`
+- Brief: [COMMIT-e4cf0a0.md](../build_/COMMITS/COMMIT-e4cf0a0.md)
+- Message: aigentMe: SpecialistsLayout v1 — server recommender, thread, hand-off
+
+## Commit `d45e06c` — 2026-05-24T18:28:47Z
+- Type: `push`
+- Brief: [COMMIT-d45e06c.md](../build_/COMMITS/COMMIT-d45e06c.md)
+- Message: SpecialistsLayout: unify composer + reply into a single emerald consultation card
+
+## Commit `052d9fd` — 2026-05-24T18:48:05Z
+- Type: `push`
+- Brief: [COMMIT-052d9fd.md](../build_/COMMITS/COMMIT-052d9fd.md)
+- Message: SpecialistsLayout: suggested-artifact chips open composer pre-populated
+
+## Commit `83830fa` — 2026-05-24T20:50:48Z
+- Type: `push`
+- Brief: [COMMIT-83830fa.md](../build_/COMMITS/COMMIT-83830fa.md)
+- Message: ArtifactCard: surface pop-out link for live artifacts + Enable-API CTA
+
+## Commit `a07c460` — 2026-05-24T20:59:10Z
+- Type: `push`
+- Brief: [COMMIT-a07c460.md](../build_/COMMITS/COMMIT-a07c460.md)
+- Message: google: write Doc body via Drive multipart upload — bypass Docs API
+
+## Commit `0a8fa17` — 2026-05-25T17:52:35Z
+- Type: `push`
+- Brief: [COMMIT-0a8fa17.md](../build_/COMMITS/COMMIT-0a8fa17.md)
+- Message: runtime: aigent-z → aigent-me in agent dropdown + default, alias-based
+
+## Commit `99e2175` — 2026-05-25T18:55:28Z
+- Type: `push`
+- Brief: [COMMIT-99e2175.md](../build_/COMMITS/COMMIT-99e2175.md)
+- Message: aigent-me chat: load metaMe cartridge state into system prompt
+
+## Commit `f85dac0` — 2026-05-26T00:42:07Z
+- Type: `push`
+- Brief: [COMMIT-f85dac0.md](../build_/COMMITS/COMMIT-f85dac0.md)
+- Message: NBE Act → Queued badge after queue + clickable artifact links in receipts
+
+## Commit `e24ca0b` — 2026-05-26T02:32:30Z
+- Type: `push`
+- Brief: [COMMIT-e24ca0b.md](../build_/COMMITS/COMMIT-e24ca0b.md)
+- Message: Queued badge propagation to BriefCard + VentureCockpit + VentureProgressCard
+
+## Commit `b907029` — 2026-05-26T03:33:08Z
+- Type: `push`
+- Brief: [COMMIT-b907029.md](../build_/COMMITS/COMMIT-b907029.md)
+- Message: archive duplicate AgentiQ OS codex + restore 3rd-tier sub-tab nav row
+
+## Commit `784c4bf` — 2026-05-26T03:36:40Z
+- Type: `push`
+- Brief: [COMMIT-784c4bf.md](../build_/COMMITS/COMMIT-784c4bf.md)
+- Message: access spine: per-persona cartridge-admin grants resolver + canary
+
+## Commit `fee30e8` — 2026-05-26T03:44:02Z
+- Type: `push`
+- Brief: [COMMIT-fee30e8.md](../build_/COMMITS/COMMIT-fee30e8.md)
+- Message: admin-tab in activation: per-cartridge gating + KNYT Admin mirror in metaMe
+
+## Commit `7dd0dd2` — 2026-05-26T04:19:03Z
+- Type: `fix`
+- Brief: [COMMIT-7dd0dd2.md](../build_/COMMITS/COMMIT-7dd0dd2.md)
+- Message: fix admin-tab visibility: CRM tenant↔cartridge slug alias + 3 more mirrors
+
+## Commit `2c91b74` — 2026-05-26T04:34:23Z
+- Type: `push`
+- Brief: [COMMIT-2c91b74.md](../build_/COMMITS/COMMIT-2c91b74.md)
+- Message: spine extension: per-cartridge admin grants → cartridgeFlags.adminCartridges
+
+## Commit `8dce7e8` — 2026-05-26T08:19:10Z
+- Type: `fix`
+- Brief: [COMMIT-8dce7e8.md](../build_/COMMITS/COMMIT-8dce7e8.md)
+- Message: fix admin-tab visibility: email-alias fallback in grants resolver + diag route
+
+## Commit `0ece4a6` — 2026-05-26T08:55:46Z
+- Type: `push`
+- Brief: [COMMIT-0ece4a6.md](../build_/COMMITS/COMMIT-0ece4a6.md)
+- Message: KNYT owns Admin under Order — metaMe inherits via existing mirror
+
+## Commit `41d1079` — 2026-05-26T09:47:13Z
+- Type: `fix`
+- Brief: [COMMIT-41d1079.md](../build_/COMMITS/COMMIT-41d1079.md)
+- Message: fix admin-tab visibility: hook uses personaFetch (Bearer token), not raw fetch
+
+## Commit `ea60f8e` — 2026-05-26T09:53:25Z
+- Type: `push`
+- Brief: [COMMIT-ea60f8e.md](../build_/COMMITS/COMMIT-ea60f8e.md)
+- Message: CLAUDE.md: document spine-fetch auth contract + per-cartridge admin grants
+
+## Commit `7c3125f` — 2026-05-26T09:55:18Z
+- Type: `push`
+- Brief: [COMMIT-7c3125f.md](../build_/COMMITS/COMMIT-7c3125f.md)
+- Message: CLAUDE.md: dual-source cartridge registration rule (hand-curated wins)
+
+## Commit `f9a34db` — 2026-05-26T10:09:35Z
+- Type: `feat`
+- Brief: [COMMIT-f9a34db.md](../build_/COMMITS/COMMIT-f9a34db.md)
+- Message: register TabRendererFallback component + add Admin under Marketa Partner
+
+## Commit `89d80cf` — 2026-05-26T10:12:01Z
+- Type: `push`
+- Brief: [COMMIT-89d80cf.md](../build_/COMMITS/COMMIT-89d80cf.md)
+- Message: AgentiQ OS: stub Admin tabGroup so the mirror has content
+
+## Commit `f32d517` — 2026-05-26T14:19:24Z
+- Type: `feat`
+- Brief: [COMMIT-f32d517.md](../build_/COMMITS/COMMIT-f32d517.md)
+- Message: copilot: wire mic to STT + add Listen TTS + persist messages + clear affordance
+
+## Commit `c56ae59` — 2026-05-26T14:46:41Z
+- Type: `push`
+- Brief: [COMMIT-c56ae59.md](../build_/COMMITS/COMMIT-c56ae59.md)
+- Message: copilot: kill KNYT lore bias + thread brief shape + admin grants into LLM context
+
+## Commit `51d51fa` — 2026-05-26T17:53:08Z
+- Type: `refactor`
+- Brief: [COMMIT-51d51fa.md](../build_/COMMITS/COMMIT-51d51fa.md)
+- Message: Qriptopian Cartridge v3 restructure + KNYT Pulse rename
+
+## Commit `fd34baa` — 2026-05-26T19:55:50Z
+- Type: `push`
+- Brief: [COMMIT-fd34baa.md](../build_/COMMITS/COMMIT-fd34baa.md)
+- Message: Qriptopian Cartridge v3.1 refinement — Store, Qriptopia, Admin reorder + Community Correspondent
+
+## Commit `41c69e5` — 2026-05-26T20:49:13Z
+- Type: `push`
+- Brief: [COMMIT-41c69e5.md](../build_/COMMITS/COMMIT-41c69e5.md)
+- Message: myCanvas → Pulse publish + cartridge split end-to-end
+
+## Commit `6997901` — 2026-05-26T22:32:43Z
+- Type: `feat`
+- Brief: [COMMIT-6997901.md](../build_/COMMITS/COMMIT-6997901.md)
+- Message: Qriptopian Pulse — wire live + clone admin moderation + drop "Admin" labels
+
+## Commit `0929def` — 2026-05-26T23:14:25Z
+- Type: `push`
+- Brief: [COMMIT-0929def.md](../build_/COMMITS/COMMIT-0929def.md)
+- Message: Qripto-aware Codex Upload modal — Series + Content Types live
+
+## Commit `ddadc89` — 2026-05-27T00:21:51Z
+- Type: `push`
+- Brief: [COMMIT-ddadc89.md](../build_/COMMITS/COMMIT-ddadc89.md)
+- Message: Replace Qripto assetKind dropdown with Standalone | Part of a Series + X of Y inputs
+
+## Commit `9f14330` — 2026-05-27T01:31:26Z
+- Type: `feat`
+- Brief: [COMMIT-9f14330.md](../build_/COMMITS/COMMIT-9f14330.md)
+- Message: Add Qripto Cover content type + fix upload preview link for Supabase URLs
+
+## Commit `0e1fe66` — 2026-05-27T01:55:18Z
+- Type: `feat`
+- Brief: [COMMIT-0e1fe66.md](../build_/COMMITS/COMMIT-0e1fe66.md)
+- Message: Wire Qriptopian Papers tab + admin codex list to actual asset data
+
+## Commit `95e536c` — 2026-05-27T03:34:50Z
+- Type: `push`
+- Brief: [COMMIT-95e536c.md](../build_/COMMITS/COMMIT-95e536c.md)
+- Message: Skip encryption-at-rest for Qripto WIP uploads + open papers in PDF lite viewer
+
+## Commit `6352ef3` — 2026-05-27T04:39:35Z
+- Type: `push`
+- Brief: [COMMIT-6352ef3.md](../build_/COMMITS/COMMIT-6352ef3.md)
+- Message: Surface every Qripto upload row in admin (covers + papers) with diagnostics + bust Next cache
+
+## Commit `c52d1aa` — 2026-05-27T04:43:58Z
+- Type: `push`
+- Brief: [COMMIT-c52d1aa.md](../build_/COMMITS/COMMIT-c52d1aa.md)
+- Message: Render PDF covers via iframe + adopt KNYT 4-up card grid pattern for Qripto Papers
+
+## Commit `b386014` — 2026-05-27T05:03:53Z
+- Type: `push`
+- Brief: [COMMIT-b386014.md](../build_/COMMITS/COMMIT-b386014.md)
+- Message: Mirror Qripto Codex tabs (Magazines / Papers / Polity) into metaMe qriptopia group
+
+## Commit `b83c732` — 2026-05-27T05:26:35Z
+- Type: `push`
+- Brief: [COMMIT-b83c732.md](../build_/COMMITS/COMMIT-b83c732.md)
+- Message: Rasterise PDF covers server-side to WebP so they render as real thumbnails
+
+## Commit `31d3a6a` — 2026-05-27T14:50:45Z
+- Type: `push`
+- Brief: [COMMIT-31d3a6a.md](../build_/COMMITS/COMMIT-31d3a6a.md)
+- Message: Polyfill Promise.withResolvers in PDF-thumb route (pdfjs-dist 4.x needs Node 22 method on Amplify Node 20)
+
+## Commit `51f6a32` — 2026-05-27T15:26:46Z
+- Type: `push`
+- Brief: [COMMIT-51f6a32.md](../build_/COMMITS/COMMIT-51f6a32.md)
+- Message: Use pdfjs-dist legacy build (no worker) in PDF-thumb route so Lambda doesnt look for pdf.worker.mjs
+
+## Commit `df780ef` — 2026-05-27T18:41:54Z
+- Type: `push`
+- Brief: [COMMIT-df780ef.md](../build_/COMMITS/COMMIT-df780ef.md)
+- Message: Match KNYT cover pattern exactly: covers are images, no pdfjs rasteriser, no fake worker
+
+## Commit `47347c4` — 2026-05-27T18:50:28Z
+- Type: `feat`
+- Brief: [COMMIT-47347c4.md](../build_/COMMITS/COMMIT-47347c4.md)
+- Message: Remove cover_pdf upload option + add CLAUDE.md must-read on PDF-grid-with-image-cover pattern
+
+## Commit `e0e0470` — 2026-05-27T19:24:25Z
+- Type: `feat`
+- Brief: [COMMIT-e0e0470.md](../build_/COMMITS/COMMIT-e0e0470.md)
+- Message: Pair Qripto covers to papers by created_at index + add ID + URL columns to admin table (KNYT parity)
+
+## Commit `c305db9` — 2026-05-27T20:54:33Z
+- Type: `push`
+- Brief: [COMMIT-c305db9.md](../build_/COMMITS/COMMIT-c305db9.md)
+- Message: Sort Qripto Papers grid by leading sequence number in title so #1 sits left of each series row
+
+## Commit `b82bb3a` — 2026-05-27T20:58:22Z
+- Type: `push`
+- Brief: [COMMIT-b82bb3a.md](../build_/COMMITS/COMMIT-b82bb3a.md)
+- Message: Pair Qripto covers to papers by shared title stem (case+punct normalised) — works when covers have headings but no leading number
+
+## Commit `f6143da` — 2026-05-27T22:30:29Z
+- Type: `feat`
+- Brief: [COMMIT-f6143da.md](../build_/COMMITS/COMMIT-f6143da.md)
+- Message: Add editorial scope order — Experience Sovereignty now sits above COYN Thesis in Qripto Papers grid
+
+## Commit `d6a7362` — 2026-05-28T00:35:47Z
+- Type: `push`
+- Brief: [COMMIT-d6a7362.md](../build_/COMMITS/COMMIT-d6a7362.md)
+- Message: Reorder Qripto Papers grid — Experience Sovereignty, COYN Thesis, The Polity at the top
+
+## Commit `7f85e60` — 2026-05-28T02:00:33Z
+- Type: `feat`
+- Brief: [COMMIT-7f85e60.md](../build_/COMMITS/COMMIT-7f85e60.md)
+- Message: Add 21 Sats Franchises section to KNYT investor tab — 3 gold cards, ZeroKNYT cohort gate, PoA mailto, no-KNYT-rail flag, tab investor-gated
+
+## Commit `f40facd` — 2026-05-28T02:59:24Z
+- Type: `push`
+- Brief: [COMMIT-f40facd.md](../build_/COMMITS/COMMIT-f40facd.md)
+- Message: Use Satoshi gold seal for 21 Sats Franchise cards + admin override on investor-tab + cohort gates
+
+## Commit `d52a3a5` — 2026-05-28T03:53:24Z
+- Type: `fix`
+- Brief: [COMMIT-d52a3a5.md](../build_/COMMITS/COMMIT-d52a3a5.md)
+- Message: Suppress 21 Sats Franchises in retail Premium Bundles + use personaFetch for purchase complete + paypal (fix 401)
+
+## Commit `6ce6085` — 2026-05-28T05:43:54Z
+- Type: `push`
+- Brief: [COMMIT-6ce6085.md](../build_/COMMITS/COMMIT-6ce6085.md)
+- Message: trigger deploy to dev
+
+## Commit `b226c88` — 2026-05-28T05:43:50Z
+- Type: `fix`
+- Brief: [COMMIT-b226c88.md](../build_/COMMITS/COMMIT-b226c88.md)
+- Message: fix capsule disappearance + restore Pill pattern to Move-forward + Venture
+
+## Commit `614526f` — 2026-05-28T15:12:14Z
+- Type: `push`
+- Brief: [COMMIT-614526f.md](../build_/COMMITS/COMMIT-614526f.md)
+- Message: Backlog: 21 Sats Franchises store_skus seed + KNYT COYN bonus payout wiring
+
+## Commit `29b5492` — 2026-05-28T15:13:58Z
+- Type: `push`
+- Brief: [COMMIT-29b5492.md](../build_/COMMITS/COMMIT-29b5492.md)
+- Message: trigger deploy to dev
+
+## Commit `1b7c2f8` — 2026-05-28T15:13:58Z
+- Type: `push`
+- Brief: [COMMIT-1b7c2f8.md](../build_/COMMITS/COMMIT-1b7c2f8.md)
+- Message: harden aigentMe Capsule/Layout contract — single activator + guardrails
+
+## Commit `808e230` — 2026-05-28T15:21:13Z
+- Type: `push`
+- Brief: [COMMIT-808e230.md](../build_/COMMITS/COMMIT-808e230.md)
+- Message: trigger deploy to dev
+
+## Commit `b317316` — 2026-05-28T15:21:08Z
+- Type: `push`
+- Brief: [COMMIT-b317316.md](../build_/COMMITS/COMMIT-b317316.md)
+- Message: reinstate persona-uploads frontend wiring (lost in stable-build revert)
+
+## Commit `d5b2194` — 2026-05-28T15:39:31Z
+- Type: `push`
+- Brief: [COMMIT-d5b2194.md](../build_/COMMITS/COMMIT-d5b2194.md)
+- Message: iQube Legibility Profile v0.1 — Commit 2/6: card builder + lifecycle/visibility/permission mappers
+
+## Commit `1e657ab` — 2026-05-28T15:43:33Z
+- Type: `push`
+- Brief: [COMMIT-1e657ab.md](../build_/COMMITS/COMMIT-1e657ab.md)
+- Message: iQube Legibility Profile v0.1 — Commit 5/6: GET /policy + /actions routes (with private_payload_exposed structural lock)
+
+## Commit `9754fe6` — 2026-05-28T15:45:51Z
+- Type: `push`
+- Brief: [COMMIT-9754fe6.md](../build_/COMMITS/COMMIT-9754fe6.md)
+- Message: iQube Legibility Profile v0.1 — Commit 6/6: well-known catalog route + vitest suite + docs
+
+## Commit `2deac7d` — 2026-05-28T16:11:00Z
+- Type: `feat`
+- Brief: [COMMIT-2deac7d.md](../build_/COMMITS/COMMIT-2deac7d.md)
+- Message: add persona-uploads bucket setup runbook
+
+## Commit `ef74414` — 2026-05-28T16:22:20Z
+- Type: `push`
+- Brief: [COMMIT-ef74414.md](../build_/COMMITS/COMMIT-ef74414.md)
+- Message: trigger deploy to dev
+
+## Commit `3bdae27` — 2026-05-28T16:22:20Z
+- Type: `push`
+- Brief: [COMMIT-3bdae27.md](../build_/COMMITS/COMMIT-3bdae27.md)
+- Message: uploads: keep status='ready' on enrichment failure + clarify Marketa label
+
+## Commit `a7cce75` — 2026-05-28T16:34:26Z
+- Type: `fix`
+- Brief: [COMMIT-a7cce75.md](../build_/COMMITS/COMMIT-a7cce75.md)
+- Message: Fix Qube tool id encoding: tool-<name> canonical, tool_<name> legacy fallback (registered names use hyphens, not underscores)
+
+## Commit `aa1d41a` — 2026-05-28T16:49:46Z
+- Type: `push`
+- Brief: [COMMIT-aa1d41a.md](../build_/COMMITS/COMMIT-aa1d41a.md)
+- Message: trigger deploy to dev
+
+## Commit `28cb0d4` — 2026-05-28T16:49:46Z
+- Type: `push`
+- Brief: [COMMIT-28cb0d4.md](../build_/COMMITS/COMMIT-28cb0d4.md)
+- Message: compose modals: thread personaId to UploadAttachmentPicker
+
+## Commit `0ccf0e0` — 2026-05-28T18:21:59Z
+- Type: `push`
+- Brief: [COMMIT-0ccf0e0.md](../build_/COMMITS/COMMIT-0ccf0e0.md)
+- Message: trigger deploy to dev
+
+## Commit `9294258` — 2026-05-28T18:21:59Z
+- Type: `push`
+- Brief: [COMMIT-9294258.md](../build_/COMMITS/COMMIT-9294258.md)
+- Message: KNYT store: Franchisee PoA 15 of 21 + First KNYT investor signed-AGN gate
+
+## Commit `51be5ac` — 2026-05-28T21:14:28Z
+- Type: `push`
+- Brief: [COMMIT-51be5ac.md](../build_/COMMITS/COMMIT-51be5ac.md)
+- Message: trigger deploy to dev
+
+## Commit `9ddf15d` — 2026-05-28T21:14:28Z
+- Type: `push`
+- Brief: [COMMIT-9ddf15d.md](../build_/COMMITS/COMMIT-9ddf15d.md)
+- Message: KNYT store: surface-scoped includes + initialClaimed in sku-supply + retail X-of-Y badge
+
+## Commit `b41253f` — 2026-05-28T22:12:53Z
+- Type: `feat`
+- Brief: [COMMIT-b41253f.md](../build_/COMMITS/COMMIT-b41253f.md)
+- Message: Add chain-pinned + balance-prechecked Base mainnet deploy scripts for QCT + iQubeNFT (single-network, no multi-deploy bug)
+
+## Commit `f517444` — 2026-05-28T22:16:32Z
+- Type: `feat`
+- Brief: [COMMIT-f517444.md](../build_/COMMITS/COMMIT-f517444.md)
+- Message: Add scripts/verify-deployer-key.js — local key→address derivation, no RPC, pre-deploy sanity check
+
+## Commit `2e4ee0b` — 2026-05-28T22:41:48Z
+- Type: `feat`
+- Brief: [COMMIT-2e4ee0b.md](../build_/COMMITS/COMMIT-2e4ee0b.md)
+- Message: Add scripts/deploy-qct-reserve-base-mainnet.js — chain-pinned QCTReserve deploy with canonical Circle USDC + setReserve linking
+
+## Commit `5c63350` — 2026-05-28T23:30:40Z
+- Type: `chore`
+- Brief: [COMMIT-5c63350.md](../build_/COMMITS/COMMIT-5c63350.md)
+- Message: Bump hardhat solidity compiler 0.8.20 → 0.8.24 (OpenZeppelin v5 requires ^0.8.24)
+
+## Commit `7c30d2e` — 2026-05-28T23:33:41Z
+- Type: `push`
+- Brief: [COMMIT-7c30d2e.md](../build_/COMMITS/COMMIT-7c30d2e.md)
+- Message: Set hardhat evmVersion: 'cancun' (default is 'paris'; OpenZeppelin Bytes.sol mcopy needs Cancun, Base mainnet supports it)
+
+## Commit `125b99e` — 2026-05-28T23:45:56Z
+- Type: `push`
+- Brief: [COMMIT-125b99e.md](../build_/COMMITS/COMMIT-125b99e.md)
+- Message: Record live Base mainnet addresses: QCT, iQubeNFT, QCTReserve (deployed 2026-05-28)
+
+## Commit `2bd4971` — 2026-05-28T23:58:20Z
+- Type: `feat`
+- Brief: [COMMIT-2bd4971.md](../build_/COMMITS/COMMIT-2bd4971.md)
+- Message: Record Base mainnet deploy artefacts + add basescan verify config (etherscan.apiKey.base, customChains for chainId 8453)
+
+## Commit `395a8f2` — 2026-05-29T00:18:58Z
+- Type: `push`
+- Brief: [COMMIT-395a8f2.md](../build_/COMMITS/COMMIT-395a8f2.md)
+- Message: Switch hardhat verify config to Etherscan V2 (chain-agnostic single key); V1 endpoints retired May 31, 2025
+
+## Commit `1b7d6bd` — 2026-05-29T00:27:23Z
+- Type: `push`
+- Brief: [COMMIT-1b7d6bd.md](../build_/COMMITS/COMMIT-1b7d6bd.md)
+- Message: Mark QCT + iQubeNFT + QCTReserve as source-verified on Basescan (deployment registry)
+
+## Commit `d388e2a` — 2026-05-29T05:04:32Z
+- Type: `push`
+- Brief: [COMMIT-d388e2a.md](../build_/COMMITS/COMMIT-d388e2a.md)
+- Message: Phase 7B mint-trigger admin routes + widen env-var aliases (IQUBE_NFT_CONTRACT_ADDRESS accepted for ERC-721 master)
+
+## Commit `ec82d25` — 2026-05-29T05:26:03Z
+- Type: `feat`
+- Brief: [COMMIT-ec82d25.md](../build_/COMMITS/COMMIT-ec82d25.md)
+- Message: Add ContentQubeEditions (ERC-1155) contract + Base mainnet deploy script — closes Phase 7B edition mint loop
+
+## Commit `9700f42` — 2026-05-29T05:54:57Z
+- Type: `push`
+- Brief: [COMMIT-9700f42.md](../build_/COMMITS/COMMIT-9700f42.md)
+- Message: trigger deploy to dev
+
+## Commit `78bea0f` — 2026-05-29T05:54:57Z
+- Type: `push`
+- Brief: [COMMIT-78bea0f.md](../build_/COMMITS/COMMIT-78bea0f.md)
+- Message: draft services: Anthropic primary, OpenAI secondary (was OpenAI-only)
+
+## Commit `52ab4ac` — 2026-05-29T05:57:30Z
+- Type: `push`
+- Brief: [COMMIT-52ab4ac.md](../build_/COMMITS/COMMIT-52ab4ac.md)
+- Message: trigger deploy to dev
+
+## Commit `68482e1` — 2026-05-29T05:57:30Z
+- Type: `push`
+- Brief: [COMMIT-68482e1.md](../build_/COMMITS/COMMIT-68482e1.md)
+- Message: artifact card + receipt: surface attachment count for diagnostics
+
+## Commit `d36a2ae` — 2026-05-29T06:57:06Z
+- Type: `chore`
+- Brief: [COMMIT-d36a2ae.md](../build_/COMMITS/COMMIT-d36a2ae.md)
+- Message: Record ContentQubeEditions Base mainnet deploy (0x6Ca41CB4… verified) + Amplify env-var update
+
+## Commit `81104c7` — 2026-05-29T07:21:26Z
+- Type: `push`
+- Brief: [COMMIT-81104c7.md](../build_/COMMITS/COMMIT-81104c7.md)
+- Message: trigger deploy to dev
+
+## Commit `477030b` — 2026-05-29T07:21:26Z
+- Type: `push`
+- Brief: [COMMIT-477030b.md](../build_/COMMITS/COMMIT-477030b.md)
+- Message: STT timeout + composer state persistence (sub-tab survival)
+
+## Commit `89adda9` — 2026-05-29T08:16:01Z
+- Type: `push`
+- Brief: [COMMIT-89adda9.md](../build_/COMMITS/COMMIT-89adda9.md)
+- Message: Guard rail — baseTokenMint refuses to broadcast unless connected RPC reports chainId 8453 (caught wrong-chain phantom-mint to Sepolia 2026-05-29)
+
+## Commit `a203a05` — 2026-05-29T08:40:55Z
+- Type: `push`
+- Brief: [COMMIT-a203a05.md](../build_/COMMITS/COMMIT-a203a05.md)
+- Message: trigger deploy to dev
+
+## Commit `6903e15` — 2026-05-29T08:40:55Z
+- Type: `fix`
+- Brief: [COMMIT-6903e15.md](../build_/COMMITS/COMMIT-6903e15.md)
+- Message: draftLlmHelper: fix Anthropic model id — claude-sonnet-4-5 → claude-sonnet-4-6
+
+## Commit `f2ef1a7` — 2026-05-29T08:52:52Z
+- Type: `push`
+- Brief: [COMMIT-f2ef1a7.md](../build_/COMMITS/COMMIT-f2ef1a7.md)
+- Message: trigger deploy to dev
+
+## Commit `9dce3d2` — 2026-05-29T08:52:52Z
+- Type: `feat`
+- Brief: [COMMIT-9dce3d2.md](../build_/COMMITS/COMMIT-9dce3d2.md)
+- Message: llmDraftHelper: add Venice (Llama 3.3 70B) as third-tier fallback
+
+## Commit `bebbf22` — 2026-05-29T09:02:57Z
+- Type: `push`
+- Brief: [COMMIT-bebbf22.md](../build_/COMMITS/COMMIT-bebbf22.md)
+- Message: Phase 7B admin UI: CanonicalMintPanel mounted in KNYT Codex Admin + Registry-integration backlog
+
+## Commit `c2b0b5f` — 2026-05-29T09:36:27Z
+- Type: `push`
+- Brief: [COMMIT-c2b0b5f.md](../build_/COMMITS/COMMIT-c2b0b5f.md)
+- Message: trigger deploy to dev
+
+## Commit `b9e2e08` — 2026-05-29T09:36:27Z
+- Type: `feat`
+- Brief: [COMMIT-b9e2e08.md](../build_/COMMITS/COMMIT-b9e2e08.md)
+- Message: STT: add Groq Whisper-large-v3 as fallback when OpenAI fails
+
+## Commit `d8ea55d` — 2026-05-29T14:10:00Z
+- Type: `push`
+- Brief: [COMMIT-d8ea55d.md](../build_/COMMITS/COMMIT-d8ea55d.md)
+- Message: trigger deploy to dev
+
+## Commit `f9cfb44` — 2026-05-29T14:10:00Z
+- Type: `push`
+- Brief: [COMMIT-f9cfb44.md](../build_/COMMITS/COMMIT-f9cfb44.md)
+- Message: metaMe: Cartesia TTS primary + myCanvas two-row header + metame.com iframe tab
+
+## Commit `7306936` — 2026-05-29T14:20:39Z
+- Type: `push`
+- Brief: [COMMIT-7306936.md](../build_/COMMITS/COMMIT-7306936.md)
+- Message: trigger deploy to dev
+
+## Commit `3cdddb4` — 2026-05-29T14:20:39Z
+- Type: `push`
+- Brief: [COMMIT-3cdddb4.md](../build_/COMMITS/COMMIT-3cdddb4.md)
+- Message: ArtifactCard: copy-id button next to truncated receipt prefix
+
+## Commit `bee1d11` — 2026-05-29T14:34:59Z
+- Type: `push`
+- Brief: [COMMIT-bee1d11.md](../build_/COMMITS/COMMIT-bee1d11.md)
+- Message: trigger deploy to dev
+
+## Commit `86d150a` — 2026-05-29T14:34:59Z
+- Type: `feat`
+- Brief: [COMMIT-86d150a.md](../build_/COMMITS/COMMIT-86d150a.md)
+- Message: Qriptopian cartridge: add qriptopia.com iframe tab (mirrors metaMe)
+
+## Commit `03c66b8` — 2026-05-29T14:49:44Z
+- Type: `push`
+- Brief: [COMMIT-03c66b8.md](../build_/COMMITS/COMMIT-03c66b8.md)
+- Message: trigger deploy to dev
+
+## Commit `e5c5a1b` — 2026-05-29T14:49:44Z
+- Type: `push`
+- Brief: [COMMIT-e5c5a1b.md](../build_/COMMITS/COMMIT-e5c5a1b.md)
+- Message: copilot speaker icon: swap browser-native TTS → /api/skills/tts (Cartesia)
+
+## Commit `5088f07` — 2026-05-29T15:03:03Z
+- Type: `push`
+- Brief: [COMMIT-5088f07.md](../build_/COMMITS/COMMIT-5088f07.md)
+- Message: trigger deploy to dev
+
+## Commit `3dd18ed` — 2026-05-29T15:03:03Z
+- Type: `refactor`
+- Brief: [COMMIT-3dd18ed.md](../build_/COMMITS/COMMIT-3dd18ed.md)
+- Message: IframeTab: move Open-in-new-tab link out of iframe overlay into chrome strip
+
+## Commit `88d41a1` — 2026-05-29T15:48:14Z
+- Type: `push`
+- Brief: [COMMIT-88d41a1.md](../build_/COMMITS/COMMIT-88d41a1.md)
+- Message: trigger deploy to dev
+
+## Commit `da0c735` — 2026-05-29T15:48:14Z
+- Type: `push`
+- Brief: [COMMIT-da0c735.md](../build_/COMMITS/COMMIT-da0c735.md)
+- Message: TTS: expose Cartesia error in response header + pulse R/T dots during loading
+
+## Commit `1cfe1c1` — 2026-05-29T17:06:24Z
+- Type: `push`
+- Brief: [COMMIT-1cfe1c1.md](../build_/COMMITS/COMMIT-1cfe1c1.md)
+- Message: trigger deploy to dev
+
+## Commit `5cbbec3` — 2026-05-29T17:06:24Z
+- Type: `push`
+- Brief: [COMMIT-5cbbec3.md](../build_/COMMITS/COMMIT-5cbbec3.md)
+- Message: metaMe protocol primitive: R/T dots spec + TTS console diagnostics + iframe Open removal
+
+## Commit `3a155b8` — 2026-05-29T20:43:39Z
+- Type: `push`
+- Brief: [COMMIT-3a155b8.md](../build_/COMMITS/COMMIT-3a155b8.md)
+- Message: trigger deploy to dev
+
+## Commit `3af9161` — 2026-05-29T20:43:39Z
+- Type: `push`
+- Brief: [COMMIT-3af9161.md](../build_/COMMITS/COMMIT-3af9161.md)
+- Message: TTS: 8s Cartesia abort + 18s OpenAI ceiling + per-provider error JSON
+
+## Commit `1994a91` — 2026-05-30T00:37:00Z
+- Type: `docs`
+- Brief: [COMMIT-1994a91.md](../build_/COMMITS/COMMIT-1994a91.md)
+- Message: docs: aigentMe voice-loop Phase 2 backlog + Venture iQube schema v0.1
+
+## Commit `8c91108` — 2026-05-30T00:58:08Z
+- Type: `feat`
+- Brief: [COMMIT-8c91108.md](../build_/COMMITS/COMMIT-8c91108.md)
+- Message: Venture iQube v0.2: add studio / iqube-registry / moneypenny / legal-metacommons to cartridgeSlug enum
+
+## Commit `71e8a39` — 2026-05-30T01:10:21Z
+- Type: `push`
+- Brief: [COMMIT-71e8a39.md](../build_/COMMITS/COMMIT-71e8a39.md)
+- Message: trigger deploy to dev
+
+## Commit `2af7d43` — 2026-05-30T01:10:21Z
+- Type: `push`
+- Brief: [COMMIT-2af7d43.md](../build_/COMMITS/COMMIT-2af7d43.md)
+- Message: Venture iQube Phase A1: ingest route + use_kind enum extension + Operation metaWill fixture
+
+## Commit `ea73f8f` — 2026-05-30T02:46:19Z
+- Type: `push`
+- Brief: [COMMIT-ea73f8f.md](../build_/COMMITS/COMMIT-ea73f8f.md)
+- Message: trigger deploy to dev
+
+## Commit `8c0ad44` — 2026-05-30T02:46:18Z
+- Type: `push`
+- Brief: [COMMIT-8c0ad44.md](../build_/COMMITS/COMMIT-8c0ad44.md)
+- Message: /api/uploads: extend VALID_USE_KINDS allowlist to include attachment + iqube_payload + venture_iqube

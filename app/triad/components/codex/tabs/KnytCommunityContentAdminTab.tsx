@@ -20,6 +20,7 @@ import {
   RefreshCw,
   Save,
   Sparkles,
+  Trash2,
   X as XIcon,
 } from "lucide-react";
 
@@ -47,9 +48,16 @@ interface Settings {
 interface Props {
   isAdmin?: boolean;
   personaId?: string;
+  /**
+   * Cartridge filter — drives /api/community-content/list?cartridge=
+   * so KNYT admin sees only KNYT rows and Qripto admin sees only
+   * Qripto rows. Defaults to undefined (no filter) for back-compat
+   * with the existing KNYT mount.
+   */
+  cartridge?: "knyt" | "qripto";
 }
 
-export function KnytCommunityContentAdminTab({ isAdmin, personaId }: Props) {
+export function KnytCommunityContentAdminTab({ isAdmin, personaId, cartridge }: Props) {
   if (!isAdmin) {
     return (
       <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 m-4 text-xs text-red-300">
@@ -58,10 +66,10 @@ export function KnytCommunityContentAdminTab({ isAdmin, personaId }: Props) {
       </div>
     );
   }
-  return <AdminContent personaId={personaId} />;
+  return <AdminContent personaId={personaId} cartridge={cartridge} />;
 }
 
-function AdminContent({ personaId }: { personaId?: string }) {
+function AdminContent({ personaId, cartridge }: { personaId?: string; cartridge?: "knyt" | "qripto" }) {
   const [queue, setQueue] = useState<ContentItem[]>([]);
   const [loadingQueue, setLoadingQueue] = useState(true);
   const [actionPending, setActionPending] = useState<string | null>(null);
@@ -74,7 +82,9 @@ function AdminContent({ personaId }: { personaId?: string }) {
   const loadQueue = useCallback(async () => {
     setLoadingQueue(true);
     try {
-      const res = await fetch("/api/community-content/list?status=shared&limit=100", { cache: "no-store" });
+      const params = new URLSearchParams({ status: "shared", limit: "100" });
+      if (cartridge) params.set("cartridge", cartridge);
+      const res = await fetch(`/api/community-content/list?${params.toString()}`, { cache: "no-store" });
       const json = await res.json();
       if (!res.ok || !json.ok) {
         setError(json.error || `Failed to load queue (${res.status})`);
@@ -86,7 +96,7 @@ function AdminContent({ personaId }: { personaId?: string }) {
     } finally {
       setLoadingQueue(false);
     }
-  }, []);
+  }, [cartridge]);
 
   const loadSettings = useCallback(async () => {
     try {
@@ -143,6 +153,40 @@ function AdminContent({ personaId }: { personaId?: string }) {
         return;
       }
       setQueue((prev) => prev.filter((q) => q.id !== id));
+    } finally {
+      setActionPending(null);
+    }
+  };
+
+  // Hard delete — admin-only. Confirms before firing so a misclick
+  // doesn't nuke a row. Removes the row + its publication-state mirror
+  // (route picks the right table based on row.cartridge). Use Reject
+  // for soft-rejection (status='rejected'); Delete is for spam / abuse
+  // where the row should disappear entirely.
+  const deleteRow = async (id: string, title: string) => {
+    if (!personaId) return;
+    if (typeof window !== "undefined") {
+      const ok = window.confirm(
+        `Delete "${title}" permanently? This removes the row and its publication-state mirror. Use Reject if you only want to hide it.`,
+      );
+      if (!ok) return;
+    }
+    setActionPending(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/community-content/${id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminPersonaId: personaId }),
+      });
+      const json = await res.json().catch(() => ({ ok: false, error: "invalid response" }));
+      if (!res.ok || !json.ok) {
+        setError(json.error || `Delete failed (${res.status})`);
+        return;
+      }
+      setQueue((prev) => prev.filter((q) => q.id !== id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Delete failed");
     } finally {
       setActionPending(null);
     }
@@ -216,6 +260,7 @@ function AdminContent({ personaId }: { personaId?: string }) {
                 pending={actionPending === item.id}
                 onPromote={() => void promote(item.id)}
                 onReject={() => void reject(item.id)}
+                onDelete={() => void deleteRow(item.id, item.title)}
               />
             ))}
           </div>
@@ -299,12 +344,13 @@ function AdminContent({ personaId }: { personaId?: string }) {
 }
 
 function QueueRow({
-  item, pending, onPromote, onReject,
+  item, pending, onPromote, onReject, onDelete,
 }: {
   item: ContentItem;
   pending: boolean;
   onPromote: () => void;
   onReject: () => void;
+  onDelete: () => void;
 }) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 flex items-start gap-3">
@@ -336,10 +382,21 @@ function QueueRow({
           type="button"
           onClick={onReject}
           disabled={pending}
-          className="inline-flex items-center gap-1 rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[11px] text-red-300 hover:bg-red-500/20 disabled:opacity-30"
+          className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[11px] text-amber-200 hover:bg-amber-500/20 disabled:opacity-30"
+          title="Soft reject — sets status='rejected', row is preserved for audit"
         >
           {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <XIcon className="h-3 w-3" />}
           Reject
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={pending}
+          className="inline-flex items-center gap-1 rounded-lg border border-red-500/40 bg-red-500/15 px-2.5 py-1 text-[11px] text-red-300 hover:bg-red-500/25 disabled:opacity-30"
+          title="Hard delete — removes the row and its publication-state mirror"
+        >
+          {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+          Delete
         </button>
       </div>
     </div>

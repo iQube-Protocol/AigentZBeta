@@ -65,7 +65,10 @@ type RuntimeContext = {
 };
 
 const AGENT_OPTIONS: SelectorOption[] = [
-  { id: "aigent-z", label: "Aigent Z", icon: "bot", tooltip: "System orchestrator", color: "#67e8f9" },
+  // aigentMe — replaces the prior "Aigent Z" runtime label. Reads from
+  // the user's metaMe cartridge (PersonalGuide, ExperienceModel,
+  // ExperienceQube) when composing replies.
+  { id: "aigent-me", label: "aigentMe", icon: "bot", tooltip: "Your personal aigentMe — draws from your metaMe cartridge", color: "#67e8f9" },
   { id: "aigent-kn0w1", label: "Kn0w1", icon: "brain", tooltip: "Knowledge specialist", color: "#6ee7b7" },
   { id: "aigent-moneypenny", label: "MoneyPenny", icon: "coins", tooltip: "Treasury and settlement agent", color: "#c4b5fd" },
   { id: "aigent-nakamoto", label: "Nakamoto", icon: "hexagon", tooltip: "Crypto and protocol specialist", color: "#fcd34d" },
@@ -73,7 +76,7 @@ const AGENT_OPTIONS: SelectorOption[] = [
 ];
 
 const LLM_OPTIONS_BY_AGENT: Record<string, SelectorOption[]> = {
-  "aigent-z": [
+  "aigent-me": [
     { id: "gpt-4o", label: "GPT-4o", icon: "openai", tooltip: "General orchestration", provider_id: "openai" },
     { id: "gpt-4o-mini", label: "GPT-4o Mini", icon: "openai", tooltip: "Fast responses", provider_id: "openai" },
     { id: "claude-3-5-sonnet", label: "Claude 3.5 Sonnet", icon: "anthropic", tooltip: "Reasoning + reliability", provider_id: "anthropic" },
@@ -321,7 +324,7 @@ function getAgentById(agentId: string): SelectorOption {
 }
 
 function getLlmOptionsForAgent(agentId: string): SelectorOption[] {
-  return LLM_OPTIONS_BY_AGENT[agentId] || LLM_OPTIONS_BY_AGENT["aigent-z"];
+  return LLM_OPTIONS_BY_AGENT[agentId] || LLM_OPTIONS_BY_AGENT["aigent-me"];
 }
 
 function getLlmById(agentId: string, llmId: string): SelectorOption {
@@ -340,11 +343,11 @@ function trustStateFromScore(score: number): TrustState {
 }
 
 function defaultRuntimeState(): RuntimeState {
-  // LAUNCH OVERRIDE (KNYT activation campaign): default lead agent on arrival
-  // is Kn0w1 (KNYT-aligned). Reverts to AGENT_OPTIONS[0] (Aigent Z / metaMe)
-  // post-launch.
+  // Default lead agent for fresh runtime arrivals is aigentMe — the
+  // user's personal aigent wired to their metaMe cartridge. Persisted
+  // selections still win for returning users.
   const defaultAgent =
-    AGENT_OPTIONS.find((a) => a.id === "aigent-kn0w1") ?? AGENT_OPTIONS[0];
+    AGENT_OPTIONS.find((a) => a.id === "aigent-me") ?? AGENT_OPTIONS[0];
   const defaultModel = getLlmOptionsForAgent(defaultAgent.id)[0];
   return {
     selected_aigent_id: defaultAgent.id,

@@ -10,7 +10,7 @@
  * sharing happens through the Drive surface, just like Slides.
  */
 
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Sparkles, X, Sheet, Plus, Minus } from "lucide-react";
 import { MicButton } from "@/components/ui/MicButton";
 import { transformEmailDictation } from "@/hooks/useSpeechRecognition";
@@ -33,13 +33,15 @@ interface Props {
   theme?: "light" | "dark";
   /** See ComposeGmailDraftModal — Phase 2 inline host mode. */
   inline?: boolean;
+  /** See ComposeGoogleDocModal — auto-fires draft on mount when set. */
+  initialPrompt?: string;
 }
 
 function emptyRow(width: number): string[] {
   return new Array(width).fill("");
 }
 
-export function ComposeGoogleSheetModal({ open, onClose, onCreate, onDraftWithAigentMe, theme = "dark", inline = false }: Props) {
+export function ComposeGoogleSheetModal({ open, onClose, onCreate, onDraftWithAigentMe, theme = "dark", inline = false, initialPrompt }: Props) {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiDrafting, setAiDrafting] = useState(false);
   const [aiRationale, setAiRationale] = useState<string | null>(null);
@@ -69,15 +71,13 @@ export function ComposeGoogleSheetModal({ open, onClose, onCreate, onDraftWithAi
 
   const width = header.length;
 
-  const handleDraft = useCallback(async () => {
+  const draftWithPrompt = useCallback(async (promptToUse: string) => {
+    const trimmed = promptToUse.trim();
+    if (!trimmed) return;
     setError(null);
-    if (!aiPrompt.trim()) {
-      setError('Tell aigentMe what the spreadsheet is for.');
-      return;
-    }
     setAiDrafting(true);
     try {
-      const draft = await onDraftWithAigentMe(aiPrompt.trim());
+      const draft = await onDraftWithAigentMe(trimmed);
       setTitle(draft.title ?? "");
       setSheetName(draft.sheetName?.trim() || "Sheet1");
       if (Array.isArray(draft.rows) && draft.rows.length > 0) {
@@ -95,7 +95,25 @@ export function ComposeGoogleSheetModal({ open, onClose, onCreate, onDraftWithAi
     } finally {
       setAiDrafting(false);
     }
-  }, [aiPrompt, onDraftWithAigentMe]);
+  }, [onDraftWithAigentMe]);
+
+  const handleDraft = useCallback(() => {
+    if (!aiPrompt.trim()) {
+      setError('Tell aigentMe what the spreadsheet is for.');
+      return;
+    }
+    void draftWithPrompt(aiPrompt);
+  }, [aiPrompt, draftWithPrompt]);
+
+  // Mount-fire from initialPrompt — see ComposeGoogleDocModal.
+  const lastInitialPromptRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialPrompt || !initialPrompt.trim()) return;
+    if (lastInitialPromptRef.current === initialPrompt) return;
+    lastInitialPromptRef.current = initialPrompt;
+    setAiPrompt(initialPrompt);
+    void draftWithPrompt(initialPrompt);
+  }, [initialPrompt, draftWithPrompt]);
 
   function updateHeaderCell(i: number, v: string) {
     setHeader((h) => h.map((c, idx) => (idx === i ? v : c)));

@@ -30,7 +30,9 @@ export type RightPaneLayoutId =
   | "composer"
   | "approval-interrupt"
   | "ledger"
-  | "kpi-detail";
+  | "kpi-detail"
+  | "active-work-detail"
+  | "specialists";
 
 /**
  * Compose handler shapes — each onCreate matches the corresponding
@@ -75,6 +77,26 @@ export type RightPaneLayoutProps = WelcomeRightPaneProps & {
   composerKind?: ComposeKind | null;
   composerHandlers?: ComposerHandlers;
   /**
+   * Close handler for the composer surface. When the composer is
+   * mounted as an OVERLAY on top of an active Capsule (Brief / Move
+   * forward / Venture), the layout's onRequestLayout('stack') is a
+   * no-op because the foreground isn't the composer — it's the
+   * Capsule layout that's still active underneath. The parent tab
+   * wires this to setComposerKind(null) so the overlay unmounts
+   * cleanly regardless of which layout is foreground.
+   */
+  onComposerClose?: () => void;
+  /**
+   * Optional pre-baked aigentMe draft prompt — when ComposerLayout
+   * mounts with this set, the inline compose form pre-fills its AI
+   * prompt textarea AND auto-fires the draft once so the operator
+   * lands on a populated form. Used by the SpecialistsLayout
+   * suggested-artifact buttons (e.g. Marketa proposes "Partner
+   * proposal" → click → composer opens with subject/body/recipients
+   * already drafted from Marketa's response).
+   */
+  composerInitialPrompt?: string | null;
+  /**
    * B.1: selected KPI id for the KpiDetailLayout. The cockpit chip
    * onClick sets this + activates 'kpi-detail'.
    */
@@ -83,6 +105,64 @@ export type RightPaneLayoutProps = WelcomeRightPaneProps & {
   onSelectKpi?: (kpiId: string) => void;
   /** Fired after a KPI manual value save so the cockpit re-fetches. */
   onKpiEdited?: () => void;
+  /** B.2 (2/2): selected intent id for ActiveWorkDetailLayout. */
+  selectedIntentId?: string | null;
+  /** Cockpit-side ActivityChip click handler. */
+  onSelectActiveWork?: (intentId: string) => void;
+  /** Fired after an intent action (cancel/handoff/resume) succeeds. */
+  onIntentEdited?: () => void;
+  /**
+   * B.3 — live sync state for the cockpit. `lastSyncedAt` drives the
+   * "Synced Ns ago" indicator; `onForceSync` lets the operator force
+   * a refresh from the header.
+   */
+  ventureLastSyncedAt?: Date | null;
+  onForceSync?: () => void;
+  /** Open the ActiveKpisEditor (modal). Cockpit's "Edit KPIs" button + empty-state CTA fire this. */
+  onEditKpis?: () => void;
+  /**
+   * Phase 2 — SpecialistsLayout state. The tab owns the recommender +
+   * thread fetches and the in-memory askResponses map; the layout
+   * renders + dispatches.
+   */
+  specialistsLayout?: {
+    selectedSpecialistId: import("@/services/agents/specialistRouter").SpecialistId | null;
+    recommendation: import("@/services/orchestration/specialistRecommender").SpecialistRecommendation | null;
+    recommendationLoading: boolean;
+    recommendationError: string | null;
+    /** In-memory responses for the current session, keyed by specialist id. */
+    sessionResponses: Record<string, import("@/components/metame/cards/SpecialistResponseCard").SpecialistResponseData>;
+    /** Prior consultations for the selected specialist (from activity_receipts). */
+    thread: Array<{
+      receiptId: string;
+      specialistId: import("@/services/agents/specialistRouter").SpecialistId;
+      summary: string;
+      activeCartridge: string;
+      createdAt: string;
+      intentId: string | null;
+      fromHandoff: boolean;
+    }>;
+    threadLoading: boolean;
+    askPrompt: string;
+    askLoadingId: string | null;
+    askError: string | null;
+    preflightContext?: import("@/services/capabilities/preflight").PreflightContext;
+  };
+  onSelectSpecialist?: (id: import("@/services/agents/specialistRouter").SpecialistId) => void;
+  onAskSelectedSpecialist?: (prompt: string) => void;
+  onSetSpecialistPrompt?: (prompt: string) => void;
+  /** Operator-driven hand-off: re-ask the prior question to a different specialist. */
+  onHandoffSpecialist?: (target: import("@/services/agents/specialistRouter").SpecialistId) => void;
+  /** Activations tab CTA — for specialists whose source is "needs-activation". */
+  onOpenActivationsForSpecialist?: (activationId: string) => void;
+  /**
+   * Suggested-artifact chip → open composer pre-populated. The handler
+   * maps the artifact label (e.g. "Partner proposal", "Article brief",
+   * "Email draft") to a ComposeKind, builds an inferred prompt from
+   * the response shape, and opens ComposerLayout with that prompt set
+   * as composerInitialPrompt so the inline form auto-drafts on mount.
+   */
+  onUseSuggestedArtifact?: (artifactType: string, response: import("@/components/metame/cards/SpecialistResponseCard").SpecialistResponseData) => void;
 };
 
 export interface RightPaneLayoutDefinition {

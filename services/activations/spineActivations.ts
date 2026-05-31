@@ -149,20 +149,25 @@ function rowToSurface(
   edition: EditionRow | undefined,
   qube: ActivationQubeRow | undefined,
   isAdmin: boolean,
+  hasPendingRequest: boolean = false,
 ): ActivationSurface {
   const gateFromPolicy: ActivationGate =
     qube?.gating_kind === 'free' ? 'open' : 'gated';
   const gate: ActivationGate = entry.gate ?? gateFromPolicy;
   const canSelfActivate = gate === 'open' || isAdmin || !!edition;
 
-  // The world's simplest truth table:
+  // Truth table:
   //   row present, released_at NULL    → active
   //   row present, released_at NOT NULL → revoked
-  //   no row                            → null  (never activated)
-  // That's it. No magic, no auto-grant, no virtual states.
+  //   no row, persona has pending req  → pending (gated, awaiting admin)
+  //   no row, no pending req           → null  (never activated)
+  // Edition state (granted) always wins over a pending request — if a
+  // grant comes through while a request was queued, the surface
+  // immediately reads as active.
   const status: ActivationStatus | null =
     edition && !edition.released_at ? 'active'
     : edition && edition.released_at ? 'revoked'
+    : hasPendingRequest ? 'pending'
     : null;
 
   return {
@@ -335,12 +340,50 @@ export async function listActivations(
     personaId,
     Array.from(qubeIndex.values()).map((q) => q.qube_id),
   );
+  // Read any pending requests this persona has filed so gated rows
+  // show an amber "Pending" chip after the request lands and survives
+  // a refresh. persona_activations is the parallel-state companion to
+  // content_qube_editions for non-granted lifecycle states (pending).
+  const pendingIds = await readPendingActivationIds(personaId);
 
   return ACTIVATION_CATALOG.map((entry) => {
     const qube = qubeIndex.get(entry.id);
     const edition = qube ? heldEditions.get(qube.qube_id) : undefined;
-    return rowToSurface(entry, edition, qube, options?.isAdmin ?? false);
+    return rowToSurface(
+      entry,
+      edition,
+      qube,
+      options?.isAdmin ?? false,
+      pendingIds.has(entry.id),
+    );
   });
+}
+
+/**
+ * Read the set of activation ids where this persona has a pending
+ * (admin-awaited) request. Used to flip the surface status to
+ * 'pending' so the UI shows amber instead of the default
+ * "Request access" CTA.
+ */
+async function readPendingActivationIds(personaId: string): Promise<Set<string>> {
+  const out = new Set<string>();
+  if (!personaId) return out;
+  try {
+    const admin = getSupabaseServer();
+    if (!admin) return out;
+    const { data, error } = await admin
+      .from('persona_activations')
+      .select('activation_id, status')
+      .eq('persona_id', personaId)
+      .eq('status', 'pending');
+    if (error || !data) return out;
+    for (const row of data as Array<{ activation_id: string }>) {
+      if (row?.activation_id) out.add(row.activation_id);
+    }
+  } catch {
+    // Swallow — pending tracking is best-effort.
+  }
+  return out;
 }
 
 export async function getActiveActivationIds(personaId: string): Promise<Set<string>> {
@@ -381,20 +424,100 @@ export async function activate(
   return { ok: true, activationId };
 }
 
+/**
+ * Map an activation id to the cartridge slug the admin_access_requests
+ * table expects. Activations share most of their ids with cartridge
+ * slugs, but the spelling diverges for KNYT (knyt → knyt-codex) and
+ * Qriptopian (qriptopian → qripto). When no mapping exists, fall back
+ * to the activation id itself — the admin reviewer can still resolve
+ * it via the surfaced label.
+ */
+function activationIdToCartridgeSlug(entry: ActivationCatalogEntry): string {
+  const cart = entry.sourceCartridge;
+  if (cart === 'knyt') return 'knyt-codex';
+  if (cart === 'qriptopian') return 'qripto';
+  if (cart === 'avl') return 'venture-lab';
+  if (cart === 'marketa') return 'marketa';
+  if (cart === 'metame') return 'metame';
+  return entry.id;
+}
+
+export interface RequestAccessContext {
+  authProfileId?: string | null;
+  email?: string | null;
+  displayLabel?: string | null;
+}
+
 export async function requestAccess(
   personaId: string,
   activationId: string,
+  ctx: RequestAccessContext = {},
 ): Promise<{ ok: true; activationId: string } | { ok: false; reason: string }> {
-  // Pending state for gated activations isn't yet represented in the spine
-  // (no claim row until granted). For now, a request is a no-op that the
-  // future cohort/invite/payment layer will fulfil. Return ok so the UI can
-  // show "Request submitted" without persisting parallel state.
   const entry = catalogEntryFor(activationId);
   if (!entry) return { ok: false, reason: 'unknown-activation' };
   if (entry.gate !== 'gated') return { ok: false, reason: 'activation is open — activate directly' };
-  // TODO Phase 4.c — persist the request as a content_qube_dvn_receipt
-  // with receipt_kind='access' so admin grants can resolve it.
-  void personaId;
+
+  const admin = getSupabaseServer();
+  if (!admin) return { ok: false, reason: 'supabase-unavailable' };
+
+  // 1) Persist the pending state on persona_activations so the
+  //    Activations tab can show an amber "Pending" chip on refresh.
+  //    UNIQUE (persona_id, activation_id) means upsert is safe and
+  //    idempotent — a second click while already pending stays pending.
+  try {
+    const { error: paErr } = await admin
+      .from('persona_activations')
+      .upsert(
+        {
+          persona_id: personaId,
+          activation_id: activationId,
+          status: 'pending',
+          granted_via: 'self',
+        },
+        { onConflict: 'persona_id,activation_id' },
+      );
+    if (paErr) {
+      console.warn('[requestAccess] persona_activations upsert error', paErr);
+      // Continue — the admin_access_requests insert is still useful.
+    }
+  } catch (err) {
+    console.warn('[requestAccess] persona_activations upsert exception', err);
+  }
+
+  // 2) Mirror into admin_access_requests so the metaMe Admin → Access
+  //    Requests tab surfaces it. Carries caller email + display label
+  //    from the route's identity context. Duplicate-pending requests
+  //    are surfaced as ok (idempotent click).
+  try {
+    const cartridgeSlug = activationIdToCartridgeSlug(entry);
+    const insertRow: Record<string, unknown> = {
+      persona_id: personaId,
+      auth_profile_id: ctx.authProfileId ?? null,
+      requester_display_label: ctx.displayLabel ?? null,
+      requester_email: ctx.email ?? null,
+      requested_cartridge_slug: cartridgeSlug,
+      request_type: 'cartridge_access',
+      message: `Activation request — ${entry.label}`,
+      status: 'pending',
+    };
+    let { error: arErr } = await admin
+      .from('admin_access_requests')
+      .insert(insertRow);
+    // Migration 20260526020000 fallback — drop request_type when absent.
+    if (arErr && (arErr.code === '42703' || /column .*request_type/i.test(arErr.message ?? ''))) {
+      const { request_type, ...rowSansType } = insertRow;
+      const retry = await admin.from('admin_access_requests').insert(rowSansType);
+      arErr = retry.error;
+    }
+    // 23505 = unique-pending index trip → existing pending request,
+    // perfectly fine to swallow (idempotent).
+    if (arErr && arErr.code !== '23505') {
+      console.warn('[requestAccess] admin_access_requests insert error', arErr);
+    }
+  } catch (err) {
+    console.warn('[requestAccess] admin_access_requests insert exception', err);
+  }
+
   return { ok: true, activationId };
 }
 

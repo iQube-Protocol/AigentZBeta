@@ -46,7 +46,7 @@ const LLM_PROVIDER_LABELS: Record<LlmProviderId, string> = {
 const LLM_PROVIDERS = new Set<LlmProviderId>(["openai", "venice", "chaingpt", "thirdweb", "anthropic"]);
 
 export const RUNTIME_AGENT_IDS = [
-  "aigent-z",
+  "aigent-me",
   "aigent-kn0w1",
   "aigent-moneypenny",
   "aigent-nakamoto",
@@ -54,9 +54,17 @@ export const RUNTIME_AGENT_IDS = [
 ] as const;
 
 const AGENT_ALIASES: Record<string, (typeof RUNTIME_AGENT_IDS)[number]> = {
-  "aigent-z": "aigent-z",
-  "aigent z": "aigent-z",
-  copilot: "aigent-z",
+  // aigentMe is the new canonical runtime agent (replaces the old
+  // "aigent-z" label). The previous id is kept as an alias so internal
+  // references (Sidebar links, AigentZSystemChat component, smartWallet
+  // metadata, etc.) continue to resolve through the orchestra.
+  "aigent-me": "aigent-me",
+  "aigentme": "aigent-me",
+  "aigent me": "aigent-me",
+  "metame": "aigent-me",
+  "aigent-z": "aigent-me",
+  "aigent z": "aigent-me",
+  copilot: "aigent-me",
   "aigent-kn0w1": "aigent-kn0w1",
   kn0w1: "aigent-kn0w1",
   know1: "aigent-kn0w1",
@@ -137,13 +145,13 @@ function pushModel(
 // Active iQube records attached to each orchestrator/agent.
 // Only ModelQube + providerKind=llm are considered valid for runtime model switching.
 const ACTIVE_IQUBES: ActiveIQubeRecord[] = [
-  // Aigent Z
-  { id: "iq_openai_gpt4o", agentId: "aigent-z", iQubeType: "ModelQube", enabled: true, providerId: "openai", providerKind: "llm", modelId: "gpt-4o", modelLabel: "GPT-4o" },
-  { id: "iq_openai_gpt4o_mini", agentId: "aigent-z", iQubeType: "ModelQube", enabled: true, providerId: "openai", providerKind: "llm", modelId: "gpt-4o-mini", modelLabel: "GPT-4o Mini" },
-  { id: "iq_venice_uncensored", agentId: "aigent-z", iQubeType: "ModelQube", enabled: true, providerId: "venice", providerKind: "llm", modelId: "venice-uncensored", modelLabel: "Venice Uncensored" },
-  { id: "iq_chaingpt_general", agentId: "aigent-z", iQubeType: "ModelQube", enabled: true, providerId: "chaingpt", providerKind: "llm", modelId: "chaingpt-general", modelLabel: "ChainGPT General" },
-  { id: "iq_thirdweb_llm", agentId: "aigent-z", iQubeType: "ModelQube", enabled: true, providerId: "thirdweb", providerKind: "llm", modelId: "thirdweb-web3-llm", modelLabel: "ThirdWeb Web3 LLM" },
-  { id: "iq_anthropic_sonnet", agentId: "aigent-z", iQubeType: "ModelQube", enabled: true, providerId: "anthropic", providerKind: "llm", modelId: "claude-3-5-sonnet", modelLabel: "Claude 3.5 Sonnet" },
+  // aigentMe (new runtime canonical; replaces former "aigent-z" rows)
+  { id: "iq_me_openai_gpt4o", agentId: "aigent-me", iQubeType: "ModelQube", enabled: true, providerId: "openai", providerKind: "llm", modelId: "gpt-4o", modelLabel: "GPT-4o" },
+  { id: "iq_me_openai_gpt4o_mini", agentId: "aigent-me", iQubeType: "ModelQube", enabled: true, providerId: "openai", providerKind: "llm", modelId: "gpt-4o-mini", modelLabel: "GPT-4o Mini" },
+  { id: "iq_me_venice_uncensored", agentId: "aigent-me", iQubeType: "ModelQube", enabled: true, providerId: "venice", providerKind: "llm", modelId: "venice-uncensored", modelLabel: "Venice Uncensored" },
+  { id: "iq_me_chaingpt_general", agentId: "aigent-me", iQubeType: "ModelQube", enabled: true, providerId: "chaingpt", providerKind: "llm", modelId: "chaingpt-general", modelLabel: "ChainGPT General" },
+  { id: "iq_me_thirdweb_llm", agentId: "aigent-me", iQubeType: "ModelQube", enabled: true, providerId: "thirdweb", providerKind: "llm", modelId: "thirdweb-web3-llm", modelLabel: "ThirdWeb Web3 LLM" },
+  { id: "iq_me_anthropic_sonnet", agentId: "aigent-me", iQubeType: "ModelQube", enabled: true, providerId: "anthropic", providerKind: "llm", modelId: "claude-3-5-sonnet", modelLabel: "Claude 3.5 Sonnet" },
 
   // Kn0w1
   { id: "iq_kn0w1_openai_gpt4o_mini", agentId: "aigent-kn0w1", iQubeType: "ModelQube", enabled: true, providerId: "openai", providerKind: "llm", modelId: "gpt-4o-mini", modelLabel: "GPT-4o Mini" },

@@ -15,6 +15,8 @@
  */
 
 import type { GoogleConnector, ConnectorExecuteResult } from '@/services/google/connectors';
+import { expandCohortToRecipients, type CohortRecipient } from '@/services/marketa/cohortExpansion';
+import { resolveAttachments } from '@/services/uploads/uploadAttachmentHelper';
 
 interface MarketaSendInput {
   to: string;
@@ -24,6 +26,13 @@ interface MarketaSendInput {
   bcc?: string;
   /** Optional override of the From name (defaults to MAILJET_FROM_NAME). */
   fromName?: string;
+  /** Persona upload ids to attach. Resolved server-side via
+   *  resolveAttachments; each becomes a Mailjet `Attachments` entry
+   *  with the upload's filename + mime + base64 bytes. */
+  attachmentUploadIds?: string[];
+  /** Active persona id — required when attachmentUploadIds is set.
+   *  Pulled from the route's auth context, never from the form. */
+  personaId?: string;
 }
 
 interface MarketaSendOutput {
@@ -69,11 +78,15 @@ export const marketaSendTransactional: GoogleConnector<MarketaSendInput, Marketa
     to: { type: 'string', description: 'Resolved recipient list' },
     subject: { type: 'string', description: 'Subject used' },
   },
-  async execute(input): Promise<ConnectorExecuteResult<MarketaSendOutput>> {
+  async execute(input, ctx): Promise<ConnectorExecuteResult<MarketaSendOutput>> {
     const apiKey = process.env.MAILJET_API_KEY;
     const secretKey = process.env.MAILJET_SECRET_KEY;
     const fromEmail = process.env.MAILJET_FROM_EMAIL;
     const fromName = (input.fromName?.trim() || process.env.MAILJET_FROM_NAME || 'Marketa').trim();
+    // Server-trusted persona id from the connector context — never
+    // read from client-supplied input. The attachment resolver
+    // enforces persona ownership on every read.
+    const personaId = ctx.personaId;
     if (!apiKey || !secretKey || !fromEmail) {
       return {
         ok: false,
@@ -100,6 +113,23 @@ export const marketaSendTransactional: GoogleConnector<MarketaSendInput, Marketa
     };
     if (Cc.length > 0) message.Cc = Cc;
     if (Bcc.length > 0) message.Bcc = Bcc;
+
+    // Optional attachments — resolved from the persona upload library.
+    // Mailjet v3.1 `Attachments` entries: ContentType, Filename,
+    // Base64Content. The route guarantees personaId is present when
+    // upload ids are passed; if it's missing we treat the field as
+    // empty (silently — defensive only; the route is the gate).
+    if (Array.isArray(input.attachmentUploadIds) && input.attachmentUploadIds.length > 0 && personaId) {
+      const resolved = await resolveAttachments(personaId, input.attachmentUploadIds);
+      if (!resolved.ok) {
+        return { ok: false, code: 'invalid-input', reason: `attachment resolve failed: ${resolved.reason}` };
+      }
+      message.Attachments = resolved.attachments.map((a) => ({
+        ContentType: a.mimeType,
+        Filename: a.filename,
+        Base64Content: a.base64Content,
+      }));
+    }
 
     try {
       const auth = Buffer.from(`${apiKey}:${secretKey}`).toString('base64');
@@ -139,8 +169,216 @@ export const marketaSendTransactional: GoogleConnector<MarketaSendInput, Marketa
   },
 };
 
+// ── Cohort batch send ───────────────────────────────────────────────
+//
+// Sends a single Mailjet batch (chunked to MAILJET_BATCH_LIMIT) to
+// every member of a CRM cohort. Operator approves ONCE for the whole
+// cohort. Personalisation lands via Mailjet's `Variables` per-message
+// substitution against `{{first_name}}` / `{{full_name}}` tokens in
+// the subject + body text the operator drafted in the compose modal.
+//
+// CustomID = `cohort:<campaign>:<cohort>|<recipient_id>` echoes back
+// in every Mailjet webhook event (open / click / bounce / spam) so
+// the existing `/api/crm/webhooks/mailjet` handler can attribute
+// per-recipient state without a lookup. The receipt the activity
+// log writes references the cohort + total count — individual
+// metrics surface later via a workbench dashboard reading the
+// webhook events.
+//
+// 2026-05-27 — operator chose batch (cheaper + faster, single
+// approval). Per-recipient receipts are stubbed; cohort-level
+// receipt is the canonical record.
+
+interface MarketaSendCohortInput {
+  campaignId: string;
+  cohortId: string | null;
+  subject: string;
+  bodyText: string;
+  fromName?: string;
+  /** Persona upload ids — same attachments sent to every member of
+   *  the cohort. Resolved once before the fanout so per-batch sends
+   *  reuse the same Base64Content. */
+  attachmentUploadIds?: string[];
+  personaId?: string;
+}
+
+interface MarketaSendCohortOutput {
+  campaignLabel: string;
+  cohortLabel: string;
+  totalRecipients: number;
+  sent: number;
+  failed: number;
+  batches: number;
+  /** First Mailjet message id from the first batch — for the receipt. */
+  firstMessageId: string | null;
+}
+
+const MARKETA_SEND_COHORT_ID = 'marketa.send-cohort';
+const MAILJET_BATCH_LIMIT = 50;
+
+/**
+ * Apply `{{first_name}}` / `{{full_name}}` / `{{email}}` substitution
+ * to the template text against a recipient row. Mailjet ALSO supports
+ * server-side substitution via Variables, but doing it here lets the
+ * preview-then-send flow show the resolved text to the operator
+ * before submission, and means we don't depend on Mailjet's template
+ * language for a one-off send.
+ */
+function applySubstitution(template: string, r: CohortRecipient): string {
+  return template
+    .replace(/{{\s*first_name\s*}}/gi, r.firstName ?? '')
+    .replace(/{{\s*full_name\s*}}/gi, r.fullName)
+    .replace(/{{\s*email\s*}}/gi, r.email);
+}
+
+function chunkRecipients<T>(rs: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < rs.length; i += size) out.push(rs.slice(i, i + size));
+  return out;
+}
+
+export const marketaSendCohort: GoogleConnector<MarketaSendCohortInput, MarketaSendCohortOutput> = {
+  id: MARKETA_SEND_COHORT_ID as unknown as GoogleConnector['id'],
+  label: 'Marketa · Send to cohort',
+  description:
+    'Send a personalised email batch to every member of a Marketa CRM cohort via Mailjet. Operator approves once for the whole cohort. Per-recipient tracking flows through the Mailjet webhook.',
+  category: 'communication',
+  source: 'gmail' as unknown as GoogleConnector['source'],
+  requiredScopes: [],
+  requiresApproval: true,
+  inputSchema: {
+    campaignId: { type: 'string', description: 'Marketa campaign id (knyt_codex / knyt_partners / ks_prospects)', required: true },
+    cohortId: { type: 'string', description: 'Cohort id within the campaign (top_shelf / wave_1 / etc.)' },
+    subject: { type: 'string', description: 'Email subject (supports {{first_name}} etc.)', required: true },
+    bodyText: { type: 'string', description: 'Plain-text body (supports {{first_name}} etc.)', required: true },
+    fromName: { type: 'string', description: 'Override From name' },
+  },
+  outputSchema: {
+    campaignLabel:    { type: 'string',  description: 'Human label for the campaign' },
+    cohortLabel:      { type: 'string',  description: 'Human label for the cohort' },
+    totalRecipients:  { type: 'number',  description: 'Recipients resolved from the CRM' },
+    sent:             { type: 'number',  description: 'Successful Mailjet sends' },
+    failed:           { type: 'number',  description: 'Failed Mailjet sends' },
+    batches:          { type: 'number',  description: 'Number of Mailjet API calls used' },
+    firstMessageId:   { type: 'string',  description: 'First message id (for receipt anchoring)' },
+  },
+  async execute(input, ctx): Promise<ConnectorExecuteResult<MarketaSendCohortOutput>> {
+    const apiKey = process.env.MAILJET_API_KEY;
+    const secretKey = process.env.MAILJET_SECRET_KEY;
+    const fromEmail = process.env.MAILJET_FROM_EMAIL;
+    const fromName = (input.fromName?.trim() || process.env.MAILJET_FROM_NAME || 'Marketa').trim();
+    const personaId = ctx.personaId;
+    if (!apiKey || !secretKey || !fromEmail) {
+      return {
+        ok: false,
+        code: 'not-configured',
+        reason: 'Mailjet env vars missing (MAILJET_API_KEY / MAILJET_SECRET_KEY / MAILJET_FROM_EMAIL).',
+        hint: 'Operator action — set the three vars in Amplify env.',
+      };
+    }
+    if (!input.campaignId || !input.subject || !input.bodyText) {
+      return { ok: false, code: 'invalid-input', reason: 'campaignId + subject + bodyText required' };
+    }
+
+    const expansion = await expandCohortToRecipients(input.campaignId, input.cohortId);
+    if (!expansion.ok) {
+      return { ok: false, code: 'invalid-input', reason: `Cohort expansion failed: ${expansion.reason}` };
+    }
+    if (expansion.totalRecipients === 0) {
+      return {
+        ok: false,
+        code: 'invalid-input',
+        reason: `Cohort '${expansion.cohortLabel}' has no recipients with valid email addresses.`,
+      };
+    }
+
+    const auth = Buffer.from(`${apiKey}:${secretKey}`).toString('base64');
+    const cohortTag = `cohort:${expansion.campaignId}:${expansion.cohortId ?? 'all'}`;
+
+    // Resolve attachments ONCE — same payload broadcasts to every
+    // recipient, so we save the per-recipient read by hoisting the
+    // base64 conversion outside the fanout loop.
+    let attachments: Array<{ ContentType: string; Filename: string; Base64Content: string }> = [];
+    if (Array.isArray(input.attachmentUploadIds) && input.attachmentUploadIds.length > 0 && personaId) {
+      const resolved = await resolveAttachments(personaId, input.attachmentUploadIds);
+      if (!resolved.ok) {
+        return { ok: false, code: 'invalid-input', reason: `attachment resolve failed: ${resolved.reason}` };
+      }
+      attachments = resolved.attachments.map((a) => ({
+        ContentType: a.mimeType,
+        Filename: a.filename,
+        Base64Content: a.base64Content,
+      }));
+    }
+
+    const batches = chunkRecipients(expansion.recipients, MAILJET_BATCH_LIMIT);
+    let sent = 0;
+    let failed = 0;
+    let firstMessageId: string | null = null;
+
+    for (const batch of batches) {
+      const messages = batch.map((r) => {
+        const msg: Record<string, unknown> = {
+          From: { Email: fromEmail, Name: fromName },
+          To: [{ Email: r.email, Name: r.fullName }],
+          Subject: applySubstitution(input.subject, r),
+          TextPart: applySubstitution(input.bodyText, r),
+          // CustomID echoed back on every Mailjet webhook event for
+          // per-recipient attribution without a DB lookup. Same format
+          // the campaign sequence pipeline uses.
+          CustomID: `${cohortTag}|${r.id}`,
+        };
+        if (attachments.length > 0) msg.Attachments = attachments;
+        return msg;
+      });
+
+      try {
+        const res = await fetch('https://api.mailjet.com/v3.1/send', {
+          method: 'POST',
+          headers: {
+            Authorization: `Basic ${auth}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ Messages: messages }),
+        });
+        if (!res.ok) {
+          const text = await res.text().catch(() => '');
+          console.error(`[marketa.send-cohort] batch failed (${res.status}): ${text.slice(0, 200)}`);
+          failed += batch.length;
+          continue;
+        }
+        const data = (await res.json()) as {
+          Messages?: Array<{ Status?: string; To?: Array<{ MessageID?: string }> }>;
+        };
+        for (const m of data.Messages ?? []) {
+          if (m?.Status === 'success') sent += 1;
+          else failed += 1;
+          if (!firstMessageId && m?.To?.[0]?.MessageID) firstMessageId = m.To[0].MessageID;
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`[marketa.send-cohort] batch exception: ${msg}`);
+        failed += batch.length;
+      }
+    }
+
+    return {
+      ok: true,
+      output: {
+        campaignLabel: expansion.campaignLabel,
+        cohortLabel: expansion.cohortLabel,
+        totalRecipients: expansion.totalRecipients,
+        sent,
+        failed,
+        batches: batches.length,
+        firstMessageId,
+      },
+    };
+  },
+};
+
 export function getMarketaConnector(id: string): GoogleConnector | null {
-  return id === MARKETA_SEND_ID
-    ? (marketaSendTransactional as unknown as GoogleConnector)
-    : null;
+  if (id === MARKETA_SEND_ID) return marketaSendTransactional as unknown as GoogleConnector;
+  if (id === MARKETA_SEND_COHORT_ID) return marketaSendCohort as unknown as GoogleConnector;
+  return null;
 }

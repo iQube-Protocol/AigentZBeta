@@ -27,6 +27,7 @@ import { getConnectionStatuses, type GoogleSource } from '@/services/google/oaut
 import { inferStrategy } from '@/services/strategy/strategyInference';
 import { evaluateStageProgression } from '@/services/strategy/stageProgression';
 import { llmRerankNbeCandidates } from '@/services/orchestration/nbeLlmRerank';
+import type { PreflightContext } from '@/services/capabilities/preflight';
 import {
   ALIGNMENT_LABEL,
   SPHERE_LABEL,
@@ -106,12 +107,28 @@ export interface BriefShape {
    * call ran or the call failed.
    */
   topNbeReason?: string | null;
+  /**
+   * Optional per-NBA compose / action prompt hints keyed by NBA id.
+   * Produced by the LLM rerank pass alongside `topNbeReason`. Empty
+   * record when no LLM call ran or the call returned no usable hints.
+   * Surfaces as the "aigentMe's take" italic line under each NBA card
+   * and seeds composerInitialPrompt when Act maps to a compose modal.
+   */
+  nbaPromptHints?: Record<string, string>;
   /** Counts of pending approvals. Surfaced in the brief header. */
   pendingApprovalsCount: number;
   /** iQube usage disclosure for the calling surface to render. */
   using: ('PersonaQube' | 'ExperienceQube' | 'IntentQube')[];
   /** Categories explicitly NOT shared. */
   notShared: string[];
+  /**
+   * Capability Gateway pre-flight result. Present only when
+   * CAPABILITY_GATEWAY_PREFLIGHT is enabled for the `brief` surface and
+   * the gather succeeded. Cards render `summary` as a small
+   * "aigentMe researched: …" byline; `workOrderId` is for receipt
+   * correlation, never displayed as a primary identifier.
+   */
+  preflightContext?: PreflightContext;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -128,6 +145,14 @@ export interface BuildBriefInput {
   scopedCartridge?: ActiveCartridgeSlug;
   /** Defaults — if no ExperienceQube configured we still produce a useful brief. */
   defaultActiveCartridges?: ActiveCartridgeSlug[];
+  /**
+   * Optional fresh signal from the Capability Gateway pre-flight pass
+   * (e.g. web-search digest). Routed into the LLM rerank prompt as
+   * `liveContext` so the model can use it to break ties / boost a
+   * candidate whose rationale lines up with the signal. Ignored when
+   * the LLM rerank pass is off or the value is empty.
+   */
+  liveContext?: string | null;
 }
 
 const PRIORITY_LABELS_BY_CARTRIDGE: Record<ActiveCartridgeSlug, string> = {
@@ -213,9 +238,11 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
     primaryGoal,
     experienceGoals,
     strategy,
+    liveContext: input.liveContext ?? null,
   });
   nbeCandidates = rerank.ranked;
   const topNbeReason = rerank.topReason;
+  const nbaPromptHints = rerank.nbaPromptHints;
 
   const nextBestActions: BriefNextBestAction[] = nbeCandidates.map((c) => ({
     id: c.id,
@@ -263,6 +290,7 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
     topPriorities,
     nextBestActions,
     topNbeReason,
+    nbaPromptHints,
     pendingApprovalsCount: 0, // Phase 6 wires this.
     using,
     notShared: [
@@ -285,8 +313,12 @@ export interface MoveForwardShape {
   alternates: BriefNextBestAction[];
   /** ≤140-char rationale for the top pick from the LLM rerank pass. */
   topActionReason?: string | null;
+  /** See `BriefShape.nbaPromptHints` — same shape, same meaning. */
+  nbaPromptHints?: Record<string, string>;
   using: BriefShape['using'];
   notShared: string[];
+  /** See `BriefShape.preflightContext` — same shape, same meaning. */
+  preflightContext?: PreflightContext;
 }
 
 export async function buildMoveForward(input: {
@@ -297,6 +329,8 @@ export async function buildMoveForward(input: {
    * Use the explicit form when the user has steered to a specific cartridge.
    */
   cartridge?: ActiveCartridgeSlug;
+  /** See `BuildBriefInput.liveContext` — same meaning. */
+  liveContext?: string | null;
 }): Promise<MoveForwardShape> {
   const [qube, guide, workspaceConnected, strategy, stageEval] = await Promise.all([
     getExperienceQube(input.personaId),
@@ -323,6 +357,7 @@ export async function buildMoveForward(input: {
   let topCandidate: NbeCandidate | null;
   let altsRaw: NbeCandidate[];
   let topActionReason: string | null = null;
+  let nbaPromptHints: Record<string, string> = {};
 
   if (input.cartridge) {
     topCandidate = selectTopNbeForCartridge(input.cartridge, currentStage, {
@@ -354,10 +389,12 @@ export async function buildMoveForward(input: {
       primaryGoal,
       experienceGoals,
       strategy,
+      liveContext: input.liveContext ?? null,
     });
     topCandidate = rerank.ranked[0] ?? null;
     altsRaw = rerank.ranked.slice(1);
     topActionReason = rerank.topReason;
+    nbaPromptHints = rerank.nbaPromptHints;
   }
 
   const resolvedCartridge: ActiveCartridgeSlug =
@@ -401,6 +438,7 @@ export async function buildMoveForward(input: {
     topAction: topCandidate ? toAction(topCandidate) : null,
     alternates: altsRaw.slice(0, 2).map(toAction),
     topActionReason,
+    nbaPromptHints,
     using: experienceConfigured
       ? ['PersonaQube', 'ExperienceQube', 'IntentQube']
       : ['PersonaQube', 'IntentQube'],

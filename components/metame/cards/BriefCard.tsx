@@ -23,6 +23,14 @@ import {
   type NextBestActionData,
 } from "@/components/metame/cards/NextBestActionCard";
 import { IqubeContextDisclosure } from "@/components/metame/cards/IqubeContextDisclosure";
+import { PreflightByline, PreflightChip } from "@/components/metame/cards/PreflightByline";
+import type { PreflightContext } from "@/services/capabilities/preflight";
+import {
+  ExpandedNBEPill,
+  type ExpandedNBEPillQueuedState,
+  type ExpandedNBEPillSecondTier,
+} from "@/components/metame/cards/ExpandedNBEPill";
+import type { ArtifactCardData } from "@/components/metame/cards/ArtifactCard";
 
 export interface BriefCardData {
   briefType: "daily" | "project" | "cartridge";
@@ -45,6 +53,13 @@ export interface BriefCardData {
   pendingApprovalsCount: number;
   using: ("PersonaQube" | "ExperienceQube" | "IntentQube")[];
   notShared: string[];
+  preflightContext?: PreflightContext;
+  /**
+   * Optional per-NBA compose / action prompt hints, keyed by NBA id —
+   * produced by the LLM rerank pass alongside `topNbeReason`. Threads
+   * into each `NextBestActionCard.promptHint`.
+   */
+  nbaPromptHints?: Record<string, string>;
 }
 
 interface Props {
@@ -52,6 +67,34 @@ interface Props {
   loading?: boolean;
   error?: string | null;
   onActOnNbe?: (action: NextBestActionData) => void;
+  /**
+   * NBE ids that have already been queued as IntentQubes, keyed to the
+   * full queued state. When a row's id is in this map, the NBA card is
+   * replaced inline by an ExpandedNBEPill so the brief becomes the
+   * single Capsule containing every Pill it spawned.
+   */
+  queuedIntents?: Record<string, ExpandedNBEPillQueuedState>;
+  /** Artifacts grouped by their originating intent id. */
+  artifactsByIntent?: Record<string, ArtifactCardData[]>;
+  /** Active second-tier approval (folded into the matching Pill). */
+  secondTierApproval?: ExpandedNBEPillSecondTier | null;
+  actionPendingArtifactId?: string | null;
+  actionErrors?: Record<string, string>;
+  onDismissQueued?: (nbeId: string) => void;
+  onSendArtifact?: (artifactId: string) => void;
+  onDismissArtifact?: (artifactId: string) => void;
+  onApproveSecondTier?: () => void;
+  onCancelSecondTier?: () => void;
+  onMarkPillComplete?: (nbeId: string) => void;
+  /**
+   * Session registry of NBA definitions for NBEs the operator has
+   * already acted on. The brief endpoint isn't guaranteed to keep a
+   * queued NBA in its nextBestActions list (refetch can drop it; a
+   * different surface may have produced it). This registry is the
+   * fallback source so every queued Pill renders inside the brief
+   * Capsule regardless.
+   */
+  actedNbeRegistry?: Record<string, NextBestActionData>;
   /** When provided, renders a close (X) control in the header so the
    *  user can dismiss the brief instead of scrolling past it. The chip
    *  that triggered the brief can re-open it. */
@@ -67,7 +110,26 @@ const STAGE_LABELS: Record<string, string> = {
   scale: "Scale",
 };
 
-export function BriefCard({ data, loading, error, onActOnNbe, onDismiss, theme = "dark" }: Props) {
+export function BriefCard({
+  data,
+  loading,
+  error,
+  onActOnNbe,
+  queuedIntents,
+  artifactsByIntent,
+  secondTierApproval,
+  actionPendingArtifactId,
+  actionErrors,
+  onDismissQueued,
+  onSendArtifact,
+  onDismissArtifact,
+  onApproveSecondTier,
+  onCancelSecondTier,
+  onMarkPillComplete,
+  actedNbeRegistry,
+  onDismiss,
+  theme = "dark",
+}: Props) {
   const isDark = theme === "dark";
   const surfaceClass = isDark
     ? "bg-slate-900/50 border-slate-700/60 text-slate-100"
@@ -138,10 +200,12 @@ export function BriefCard({ data, loading, error, onActOnNbe, onDismiss, theme =
             <span className={`text-xs uppercase tracking-wider ${mutedClass}`}>
               {briefHeading}
             </span>
+            <PreflightChip preflight={data.preflightContext} theme={theme} />
           </div>
           <h3 className="text-xl font-semibold leading-tight">
             {data.context.experienceName || "Your active work"}
           </h3>
+          <PreflightByline preflight={data.preflightContext} theme={theme} />
           {data.context.primaryGoal && (
             <p className={`text-sm mt-1 ${mutedClass}`}>
               <span className={accentClass}>Primary goal:</span>{" "}
@@ -203,20 +267,77 @@ export function BriefCard({ data, loading, error, onActOnNbe, onDismiss, theme =
           Suggested next moves
         </h4>
         <div className="space-y-2">
-          {data.nextBestActions.length === 0 ? (
+          {data.nextBestActions.length === 0 && !queuedIntents ? (
             <p className={`text-sm ${mutedClass}`}>
               No actions in the catalogue match your current stage. Try a
               different cartridge or update your ExperienceModel.
             </p>
           ) : (
-            data.nextBestActions.map((action) => (
-              <NextBestActionCard
-                key={action.id}
-                action={action}
-                onAct={onActOnNbe}
-                theme={theme}
-              />
-            ))
+            // Merge brief NBAs with registry NBAs for any queued NBE
+            // that isn't in brief.nextBestActions (refetch dropped it,
+            // or it was queued from a different surface). Then promote
+            // queued Pills to the top so the operator sees in-flight
+            // work first. Preserves original ordering within each
+            // bucket.
+            (() => {
+              const briefIds = new Set(data.nextBestActions.map((a) => a.id));
+              const orphanQueued: NextBestActionData[] = [];
+              if (queuedIntents && actedNbeRegistry) {
+                for (const nbeId of Object.keys(queuedIntents)) {
+                  if (briefIds.has(nbeId)) continue;
+                  const recovered = actedNbeRegistry[nbeId];
+                  if (recovered) orphanQueued.push(recovered);
+                }
+              }
+              return [...data.nextBestActions, ...orphanQueued];
+            })()
+              .sort((a, b) => {
+                const aq = queuedIntents?.[a.id] ? 1 : 0;
+                const bq = queuedIntents?.[b.id] ? 1 : 0;
+                return bq - aq;
+              })
+              .map((action) => {
+                const queued = queuedIntents?.[action.id] ?? null;
+                if (queued) {
+                  const artifactsForPill =
+                    (artifactsByIntent && artifactsByIntent[queued.intentId]) ?? [];
+                  const matchedSecondTier =
+                    secondTierApproval &&
+                    artifactsForPill.some((a) => a.artifactId === secondTierApproval.artifactId)
+                      ? secondTierApproval
+                      : null;
+                  return (
+                    <ExpandedNBEPill
+                      key={action.id}
+                      action={action}
+                      queued={queued}
+                      artifacts={artifactsForPill}
+                      secondTierApproval={matchedSecondTier}
+                      actionPendingArtifactId={actionPendingArtifactId}
+                      actionErrors={actionErrors}
+                      onDismissQueued={() => onDismissQueued?.(action.id)}
+                      onSendArtifact={(id) => onSendArtifact?.(id)}
+                      onDismissArtifact={(id) => onDismissArtifact?.(id)}
+                      onApproveSecondTier={onApproveSecondTier}
+                      onCancelSecondTier={onCancelSecondTier}
+                      onMarkComplete={
+                        onMarkPillComplete ? () => onMarkPillComplete(action.id) : undefined
+                      }
+                      theme={theme}
+                    />
+                  );
+                }
+                return (
+                  <NextBestActionCard
+                    key={action.id}
+                    action={action}
+                    onAct={onActOnNbe}
+                    queued={false}
+                    promptHint={data.nbaPromptHints?.[action.id] ?? null}
+                    theme={theme}
+                  />
+                );
+              })
           )}
         </div>
       </section>

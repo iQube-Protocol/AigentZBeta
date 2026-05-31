@@ -21,9 +21,18 @@
  *
  * Configuration (env vars):
  *   BASE_MINTER_PRIVATE_KEY        — server-side minter wallet private key
- *   IQUBE_NFT_RPC_URL / BASE_RPC_URL — Base RPC endpoint
+ *     (in v0 this is the AigentZ EOA itself, which owns iQubeNFT and
+ *     therefore holds the only mint authority; long-term a separate
+ *     minter EOA with a granted role would be safer)
+ *   IQUBE_NFT_RPC_URL / BASE_RPC_URL / NEXT_PUBLIC_RPC_BASE_MAINNET
+ *                                  — Base RPC endpoint (any one is read)
  *   CONTENT_QUBE_ERC1155_ADDRESS   — ERC-1155 editions contract on Base
- *   CONTENT_QUBE_ERC721_ADDRESS    — ERC-721 master contract on Base
+ *                                    (DEFERRED — not yet deployed; edition
+ *                                    mints no-op until this is set)
+ *   CONTENT_QUBE_ERC721_ADDRESS / IQUBE_NFT_CONTRACT_ADDRESS
+ *                                  — ERC-721 master contract on Base
+ *                                    (the legacy name is kept for forward-
+ *                                    compat; either env var works)
  *
  * When contract addresses or the minter key are not yet configured the
  * functions return { ok: true, skipped: 'contract_unconfigured' } without
@@ -90,11 +99,67 @@ function deriveMasterTokenId(contentQubeId: string): bigint {
 // ─── Signer builder ───────────────────────────────────────────────────────────
 
 function buildBaseSigner(): { signer: Wallet; provider: JsonRpcProvider } | null {
-  const pk  = process.env.BASE_MINTER_PRIVATE_KEY;
-  const rpc = process.env.IQUBE_NFT_RPC_URL || process.env.BASE_RPC_URL;
-  if (!pk || !rpc) return null;
+  // Minter key — Amplify holds this server-side; do NOT add a
+  // NEXT_PUBLIC_ alias, ever.
+  const pk = process.env.BASE_MINTER_PRIVATE_KEY;
+  // RPC — accept any of the three names that already exist in the
+  // codebase. `NEXT_PUBLIC_RPC_BASE_MAINNET` is also writable from the
+  // browser side, but for the server-side signer we just read it here.
+  const rpc =
+    process.env.IQUBE_NFT_RPC_URL
+    || process.env.BASE_RPC_URL
+    || process.env.NEXT_PUBLIC_RPC_BASE_MAINNET
+    || 'https://mainnet.base.org';
+  if (!pk) return null;
   const provider = new JsonRpcProvider(rpc);
   return { signer: new Wallet(pk, provider), provider };
+}
+
+/**
+ * Base mainnet chainId. Asserted before every signed tx so a
+ * misconfigured RPC (e.g. one of the *_RPC_URL env vars pointing at
+ * Base Sepolia by mistake) fails loud rather than silently submitting
+ * the tx to the wrong chain. The wrong-chain failure mode is silent
+ * because EVMs accept any calldata sent to any address — so a call
+ * to a mainnet contract address on Sepolia "succeeds" but does
+ * nothing, and the route returns ok=true with a real-looking tx hash.
+ * Caught the hard way on 2026-05-29 (one phantom mint to Sepolia
+ * burned ~$0.000... of testnet ETH, no real harm).
+ */
+const BASE_MAINNET_CHAIN_ID = 8453n;
+
+async function assertConnectedToBaseMainnet(
+  provider: JsonRpcProvider,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const net = await provider.getNetwork();
+    if (net.chainId !== BASE_MAINNET_CHAIN_ID) {
+      return {
+        ok: false,
+        error:
+          `Connected RPC is chainId ${net.chainId} (${net.name}), expected `
+          + `${BASE_MAINNET_CHAIN_ID} (Base mainnet). Check IQUBE_NFT_RPC_URL / `
+          + `BASE_RPC_URL / NEXT_PUBLIC_RPC_BASE_MAINNET env vars.`,
+      };
+    }
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error: `Failed to query RPC chainId: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
+/**
+ * Resolve the ERC-721 master-qube contract address. Accepts the legacy
+ * `CONTENT_QUBE_ERC721_ADDRESS` name AND the newer
+ * `IQUBE_NFT_CONTRACT_ADDRESS` name (which is what the Amplify env vars
+ * actually use after the 2026-05-28 Base mainnet deploy). Either works.
+ */
+function resolveErc721Address(): string | undefined {
+  return process.env.CONTENT_QUBE_ERC721_ADDRESS
+      || process.env.IQUBE_NFT_CONTRACT_ADDRESS;
 }
 
 // ─── Input / result types ─────────────────────────────────────────────────────
@@ -172,6 +237,14 @@ export async function mintCanonicalEdition(
     return { ok: true, skipped: 'contract_unconfigured' };
   }
 
+  // Chain assertion — refuse to broadcast if the connected RPC isn't
+  // Base mainnet. See assertConnectedToBaseMainnet() for context.
+  const chainCheck = await assertConnectedToBaseMainnet(conn.provider);
+  if (!chainCheck.ok) {
+    console.error('[baseTokenMint] wrong-chain refusal (edition):', chainCheck.error);
+    return { ok: false, error: chainCheck.error };
+  }
+
   const tokenId    = deriveEditionTokenId(contentQubeId, editionNumber);
   const tokenIdHex = '0x' + tokenId.toString(16);
 
@@ -219,9 +292,9 @@ export async function mintCanonicalEdition(
 export async function mintMasterQube(input: MintMasterInput): Promise<MintMasterResult> {
   const { contentQubeId, ownerAddress, aliasCommitment } = input;
 
-  const contractAddress = process.env.CONTENT_QUBE_ERC721_ADDRESS;
+  const contractAddress = resolveErc721Address();
   if (!contractAddress) {
-    console.warn('[baseTokenMint] CONTENT_QUBE_ERC721_ADDRESS not configured; master mint deferred');
+    console.warn('[baseTokenMint] ERC-721 master contract address not configured (CONTENT_QUBE_ERC721_ADDRESS / IQUBE_NFT_CONTRACT_ADDRESS); master mint deferred');
     return { ok: true, skipped: 'contract_unconfigured' };
   }
 
@@ -229,6 +302,14 @@ export async function mintMasterQube(input: MintMasterInput): Promise<MintMaster
   if (!conn) {
     console.warn('[baseTokenMint] BASE_MINTER_PRIVATE_KEY / RPC not configured; master mint deferred');
     return { ok: true, skipped: 'contract_unconfigured' };
+  }
+
+  // Chain assertion — refuse to broadcast if the connected RPC isn't
+  // Base mainnet. See assertConnectedToBaseMainnet() for context.
+  const chainCheck = await assertConnectedToBaseMainnet(conn.provider);
+  if (!chainCheck.ok) {
+    console.error('[baseTokenMint] wrong-chain refusal (master):', chainCheck.error);
+    return { ok: false, error: chainCheck.error };
   }
 
   const tokenId    = deriveMasterTokenId(contentQubeId);

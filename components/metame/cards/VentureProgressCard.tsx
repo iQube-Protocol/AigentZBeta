@@ -31,6 +31,8 @@ import {
   type NextBestActionData,
 } from "@/components/metame/cards/NextBestActionCard";
 import { IqubeContextDisclosure } from "@/components/metame/cards/IqubeContextDisclosure";
+import { PreflightByline, PreflightChip } from "@/components/metame/cards/PreflightByline";
+import type { PreflightContext } from "@/services/capabilities/preflight";
 
 export interface VentureProgressKpiSummary {
   activeKpisCount: number;
@@ -46,6 +48,13 @@ export interface VentureProgressRecentActivity {
   cartridge: string;
   status: string;
   createdAt: string;
+  // Phase 2 B.2 (2/2) — derived action capabilities.
+  canResume?: boolean;
+  canHandOff?: boolean;
+  canCancel?: boolean;
+  specialist?: string | null;
+  nextActionHint?: string | null;
+  blockers?: string[];
 }
 
 export interface VentureProgressData {
@@ -66,6 +75,7 @@ export interface VentureProgressData {
   suggestedArtifacts: string[];
   using: ("PersonaQube" | "ExperienceQube" | "IntentQube")[];
   notShared: string[];
+  preflightContext?: PreflightContext;
 }
 
 interface Props {
@@ -73,6 +83,9 @@ interface Props {
   loading?: boolean;
   error?: string | null;
   onActOnNbe?: (action: NextBestActionData) => void;
+  /** Same shape as BriefCard.queuedIntents — once an NBA is queued
+   *  its Act button flips to a non-clickable "Queued" badge. */
+  queuedIntents?: Record<string, unknown>;
   /** When provided, renders a close (X) control in the header so the
    *  user can dismiss the venture-progress card. The chip that opened
    *  it (Venture progress) can re-open it. */
@@ -93,7 +106,7 @@ const CARTRIDGE_LABELS: Record<string, string> = {
   knyt: "KNYT",
   qriptopian: "The Qriptopian",
   marketa: "Marketa",
-  avl: "AgentiQ Venture Lab",
+  avl: "metaMe Venture Lab",
 };
 
 export function VentureProgressCard({
@@ -101,6 +114,7 @@ export function VentureProgressCard({
   loading,
   error,
   onActOnNbe,
+  queuedIntents,
   onDismiss,
   theme = "dark",
 }: Props) {
@@ -171,12 +185,14 @@ export function VentureProgressCard({
           <div className="flex items-center gap-2 mb-1">
             <Briefcase className={`w-4 h-4 ${accentClass}`} />
             <span className={`text-xs uppercase tracking-wider ${mutedClass}`}>
-              Venture Progress · AgentiQ Venture Lab
+              Venture Progress · metaMe Venture Lab
             </span>
+            <PreflightChip preflight={data.preflightContext} theme={theme} />
           </div>
           <h3 className="text-xl font-semibold leading-tight">
             {data.ventureName || "Your active venture"}
           </h3>
+          <PreflightByline preflight={data.preflightContext} theme={theme} />
           {data.primaryGoal && (
             <p className={`text-sm mt-1 ${mutedClass}`}>
               <span className={accentClass}>Primary goal:</span>{" "}
@@ -312,6 +328,7 @@ export function VentureProgressCard({
                 key={action.id}
                 action={action}
                 onAct={onActOnNbe}
+                queued={!!queuedIntents?.[action.id]}
                 theme={theme}
               />
             ))}

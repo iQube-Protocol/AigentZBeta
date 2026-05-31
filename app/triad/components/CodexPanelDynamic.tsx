@@ -23,6 +23,7 @@ import { SmartTriadProvider } from "@/app/components/content/SmartTriadProvider"
 import { SmartTriadSurfaces } from "@/app/components/content/SmartTriadSurfaces";
 import { personaFetch } from "@/utils/personaSpine";
 import { useActivations } from "@/services/activations/ActivationsContext";
+import { useCartridgeAdminGrants } from "@/app/hooks/useCartridgeAdminGrants";
 import { useActivePersona } from "@/app/hooks/useActivePersona";
 import { TabRenderer } from "./codex/TabRenderer";
 import { SubHeaderSlotContext } from "./codex/SubHeaderSlot";
@@ -204,9 +205,15 @@ export default function CodexPanelDynamic({
   // through React's render cycle (no window events, no fetch race).
   const { activeIds: activeActivations } = useActivations();
 
+  // Per-cartridge admin grants — fail-CLOSED while loading so the
+  // adminOfCartridge tabs (e.g. mirrored KNYT Admin inside metaMe's
+  // Order group) stay hidden during the brief fetch window for
+  // non-admin personas.
+  const cartridgeAdminGrants = useCartridgeAdminGrants();
+
   const enabledTabs = useMemo(
-    () => getEnabledTabs(codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
-    [codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, hiddenTabSet]
+    () => getEnabledTabs(codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, cartridgeAdminGrants).filter((tab) => !hiddenTabSet.has(tab.slug.toLowerCase())),
+    [codex, isAdmin, effectiveIsPartner, isInvestor, activeActivations, cartridgeAdminGrants, hiddenTabSet]
   );
   
   const [activeTabSlug, setActiveTabSlug] = useState<string>(
@@ -315,6 +322,11 @@ export default function CodexPanelDynamic({
   // Third-tier (sub-sub-tab) active slug, keyed by parent tab slug. Resets
   // when the user navigates to a different parent tab.
   const [activeSubSubTabSlug, setActiveSubSubTabSlug] = useState<string | null>(null);
+  // Fourth-tier (sub-sub-sub-tab) active slug — surfaces when a tier-3 tab
+  // has its own subTabs (e.g. metaMe's Order of Metayé → Admin → KNYT
+  // admin sub-items, where Order of Metayé is the single-tab parent group
+  // and Admin is the tier-3 tab whose subTabs need their own row).
+  const [activeSubSubSubTabSlug, setActiveSubSubSubTabSlug] = useState<string | null>(null);
 
   const activeTab = useMemo(
     () => enabledTabs.find(tab => tab.slug === activeTabSlug) || enabledTabs[0],
@@ -322,9 +334,21 @@ export default function CodexPanelDynamic({
   );
 
   // Resolve the third-tier active tab when the parent has subTabs.
+  // Defense in depth — the same gates that apply to top-level tabs in
+  // getEnabledTabs are mirrored here so a mis-configured parent tab
+  // can't accidentally surface gated sub-tabs.
   const activeSubTabs = useMemo(
-    () => (activeTab?.subTabs ?? []).filter((t) => t.enabled && (!t.adminOnly || isAdmin)),
-    [activeTab, isAdmin]
+    () => (activeTab?.subTabs ?? []).filter((t) => {
+      if (!t.enabled) return false;
+      if (t.adminOnly && !isAdmin) return false;
+      if (t.adminOfCartridge) {
+        if (!cartridgeAdminGrants.isGlobalAdmin && !cartridgeAdminGrants.cartridgeSlugs.has(t.adminOfCartridge)) {
+          return false;
+        }
+      }
+      return true;
+    }),
+    [activeTab, isAdmin, cartridgeAdminGrants]
   );
   const activeSubSubTab = useMemo(() => {
     if (activeSubTabs.length === 0) return null;
@@ -334,11 +358,42 @@ export default function CodexPanelDynamic({
     );
   }, [activeSubTabs, activeSubSubTabSlug]);
 
+  // Tier-4: subTabs of the currently-active tier-3 tab. Filtered by the
+  // same gates as tier-3 so admin/per-cartridge tabs don't leak through
+  // the deeper nesting (defense in depth).
+  const activeSubSubTabSubTabs = useMemo(
+    () => (activeSubSubTab?.subTabs ?? []).filter((t) => {
+      if (!t.enabled) return false;
+      if (t.adminOnly && !isAdmin) return false;
+      if (t.adminOfCartridge) {
+        if (!cartridgeAdminGrants.isGlobalAdmin && !cartridgeAdminGrants.cartridgeSlugs.has(t.adminOfCartridge)) {
+          return false;
+        }
+      }
+      return true;
+    }),
+    [activeSubSubTab, isAdmin, cartridgeAdminGrants]
+  );
+  const activeSubSubSubTab = useMemo(() => {
+    if (activeSubSubTabSubTabs.length === 0) return null;
+    return (
+      activeSubSubTabSubTabs.find((t) => t.slug === activeSubSubSubTabSlug) ||
+      activeSubSubTabSubTabs[0]
+    );
+  }, [activeSubSubTabSubTabs, activeSubSubSubTabSlug]);
+
   // When the parent active tab changes, reset the third-tier slug so the
   // next parent opens at its first subTab.
   useEffect(() => {
     setActiveSubSubTabSlug(null);
+    setActiveSubSubSubTabSlug(null);
   }, [activeTabSlug]);
+
+  // When the tier-3 selection changes, reset tier-4 so the new tier-3
+  // tab opens at its own first leaf.
+  useEffect(() => {
+    setActiveSubSubSubTabSlug(null);
+  }, [activeSubSubTabSlug]);
 
   // Publish this codex into the CartridgePresenceRegistry so the wallet
   // + cross-cartridge callers can switch tabs in place (instead of a full
@@ -587,7 +642,15 @@ export default function CodexPanelDynamic({
                       )}
                       {displayCodexName}
                     </h2>
-                    <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
+                    {/* Top nav carousel — matches the tier-2/3/4 rows below
+                        with `no-scrollbar` so the persistent scrollbar stub
+                        doesn't render on platforms that show a placeholder
+                        track even when overflow isn't active. Reported
+                        2026-05-26: metaMe cartridge top menu carousel scroll
+                        bar was sticking and not disappearing because the
+                        outer container missed the same scrollbar-hide class
+                        every inner row uses. */}
+                    <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto no-scrollbar">
                       {topItems.map((item) => {
                         if (item.kind === 'group') {
                           const { group } = item;
@@ -597,14 +660,16 @@ export default function CodexPanelDynamic({
                             <button
                               key={`group-${group.id}`}
                               onClick={() => handleGroupClick(group.id)}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap rounded-lg ${
+                              title={group.iconOnly ? group.label : undefined}
+                              aria-label={group.iconOnly ? group.label : undefined}
+                              className={`flex items-center ${group.iconOnly ? 'gap-0 px-2' : 'gap-1.5 px-3'} py-1.5 text-xs font-medium transition-all whitespace-nowrap rounded-lg ${
                                 isActiveGroup
                                   ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/30 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
                                   : isDark ? 'text-slate-400 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
                               }`}
                             >
                               <Icon className="w-3.5 h-3.5 flex-shrink-0" />
-                              {density === 'wide' && group.label}
+                              {!group.iconOnly && density === 'wide' && group.label}
                             </button>
                           );
                         }
@@ -795,6 +860,78 @@ export default function CodexPanelDynamic({
                   )}
                 </div>
               </div>
+
+              {/*
+                Tier-3 sub-sub-tab row — rendered as a SEPARATE row below
+                the tier-2 nav when BOTH conditions hold:
+                  - the active group has multiple sibling tabs (tier-2 is
+                    rendering the siblings in the bar above), AND
+                  - the active tab has its own subTabs (tier-3).
+                Prior behaviour collapsed tier-3 into the tier-2 slot via
+                an `else if` — that only fired for single-tab groups, so
+                multi-tab groups whose active tab also had subTabs (e.g.
+                AgentiQ OS Home → its 3rd-tier sub-tabs) silently dropped
+                the third row after the ed2ad425 refactor. This second
+                row restores the missing tier without disturbing the
+                single-tab-group inline path above.
+              */}
+              {activeGroup && activeGroupSubTabs.length > 1 && activeSubTabs.length > 0 && (
+                <div className={`flex-shrink-0 border-b px-4 py-1 flex items-center gap-1 min-w-0 overflow-x-auto no-scrollbar ${isDark ? 'border-white/[0.04] bg-white/[0.01]' : 'border-slate-100 bg-slate-50/60'}`}>
+                  {activeSubTabs.map((sub) => {
+                    const isActive = (activeSubSubTab?.slug ?? activeSubTabs[0].slug) === sub.slug;
+                    const Icon = getIconComponent(sub.metadata?.icon || 'Circle');
+                    return (
+                      <button
+                        key={sub.id}
+                        onClick={() => setActiveSubSubTabSlug(sub.slug)}
+                        className={`flex items-center gap-1.5 px-2.5 py-0.5 text-[10px] font-medium transition-all whitespace-nowrap rounded-md flex-shrink-0 ${
+                          isActive
+                            ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/25 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
+                            : isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+                        }`}
+                        title={sub.metadata?.description}
+                      >
+                        <Icon className="w-3 h-3 flex-shrink-0" />
+                        {sub.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {/*
+                Tier-4 sub-sub-sub-tab row — surfaces when the currently
+                selected tier-3 tab has its own subTabs. Catches BOTH the
+                single-tab parent group case (Order of Metayé → Admin →
+                KNYT admin children inside metaMe) AND the multi-tab
+                parent group case (e.g. AgentiQ OS group → Home → its own
+                deep children if any). Without this row, deep-nested
+                admin-tier surfaces render as the "Select a sub-tab"
+                fallback because TabRenderer falls through to the
+                placeholder for a parent tab with no leaf selected.
+              */}
+              {activeSubSubTabSubTabs.length > 0 && (
+                <div className={`flex-shrink-0 border-b px-4 py-1 flex items-center gap-1 min-w-0 overflow-x-auto no-scrollbar ${isDark ? 'border-white/[0.03] bg-white/[0.005]' : 'border-slate-100 bg-slate-50/40'}`}>
+                  {activeSubSubTabSubTabs.map((leaf) => {
+                    const isActive = (activeSubSubSubTab?.slug ?? activeSubSubTabSubTabs[0].slug) === leaf.slug;
+                    const Icon = getIconComponent(leaf.metadata?.icon || 'Circle');
+                    return (
+                      <button
+                        key={leaf.id}
+                        onClick={() => setActiveSubSubSubTabSlug(leaf.slug)}
+                        className={`flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-medium transition-all whitespace-nowrap rounded-md flex-shrink-0 ${
+                          isActive
+                            ? `bg-${accentColor}-500/10 ring-1 ring-${accentColor}-500/25 ${isDark ? `text-${accentColor}-300` : `text-${accentColor}-600`}`
+                            : isDark ? 'text-slate-500 hover:text-slate-300 hover:bg-white/4' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+                        }`}
+                        title={leaf.metadata?.description}
+                      >
+                        <Icon className="w-3 h-3 flex-shrink-0" />
+                        {leaf.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </>
           );
         })()}
@@ -838,7 +975,7 @@ export default function CodexPanelDynamic({
             {activeTab && (
               <SubHeaderSlotContext.Provider value={subHeaderSlotEl}>
                 <TabRenderer
-                  tab={activeSubSubTab ?? activeTab}
+                  tab={activeSubSubSubTab ?? activeSubSubTab ?? activeTab}
                   codexId={codexId}
                   theme={resolvedTheme}
                   density={density}
