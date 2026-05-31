@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`c502c4c`](https://github.com/iQube-Protocol/AigentZBeta/commit/c502c4c82975eaf27d99c7a4505f93284f874cb0) [push] NBA cards: contextual title rewrites via LLM rerank (Claude, 2026-05-31T19:41:29Z)
+- [`b497263`](https://github.com/iQube-Protocol/AigentZBeta/commit/b4972637aa0dca2757c19a31c1fcf2ec5bdae80e) [push] trigger deploy to dev (Claude, 2026-05-31T19:41:29Z)
 - [`dc9ec96`](https://github.com/iQube-Protocol/AigentZBeta/commit/dc9ec96c1365c22024ee456c08dbecb24aa3d5b6) [refactor] AVL → MVL rename (Pass 1): types, UI labels, NBE catalog, Venture iQube v0.3 (Claude, 2026-05-31T19:24:18Z)
 - [`7459b1b`](https://github.com/iQube-Protocol/AigentZBeta/commit/7459b1bd0e7b31daf366b9ffb729b86456634004) [push] trigger deploy to dev (Claude, 2026-05-31T19:24:18Z)
 - [`3853b5f`](https://github.com/iQube-Protocol/AigentZBeta/commit/3853b5ff6bbaa11c8b902110ee6279e7d55888ad) [push] Venture iQube Phase A2: commit ExperienceQube hydration on ingest (Claude, 2026-05-31T18:40:44Z)
