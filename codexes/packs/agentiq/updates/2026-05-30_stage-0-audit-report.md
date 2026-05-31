@@ -27,7 +27,7 @@ The canonical `iqube_id` UUID is a new identifier. Every existing source surface
 | **Memory iQubes** | (memory_iqubes migration) | `memory_iqube_id` | `SELECT count(*) FROM memory_iqubes` | persona+memory_class composite | Low | Ready Stage 1 |
 | **AigentQube (hand-seeded)** | `RUNTIME_AGENT_IDS` (code, not DB) | runtime id string | 5 hand-seeded (`aigent-me`, `aigent-marketa`, `aigent-kn0w1`, `aigent-moneypenny`, `aigent-nakamoto`) | None — runtime constants | No backfill needed Stage 1; deferred to legibility fast-follow #3 (DB promotion) | Code-only; flag for promotion |
 | **ToolQube (openclawCore)** | `openclawCore` (code) | `tool_id` string | runtime-registered (see toolQubeSource.ts) | None — runtime registry | Same as AigentQube — code only Stage 1 | Code-only; flag for promotion |
-| **LiquidUITemplateArchetypeQube seeds** | `app/api/registry/templates/store.ts` | template id string | 19 hardcoded seeds | seed-list uniqueness in source | Migration is reclassification, not row-by-row backfill | See Deliverable 2 |
+| **LiquidUITemplateArchetypeQube seeds** | `app/api/registry/templates/store.ts` | template id string | 20 hardcoded seeds | seed-list uniqueness in source | Migration is reclassification, not row-by-row backfill | See Deliverable 2 |
 
 **Per-surface verification queries** (operator runs in Stage 1 to confirm backfill completeness):
 
@@ -92,24 +92,47 @@ SELECT COUNT(*) FROM iqube_id_map WHERE source = 'registry_asset';
 
 **Stage 1 ToolQube-subtype migration size:** 23 rows (19 SkillQube + 3 WorkflowQube + 1 ConnectorQube). Trivial scope.
 
-**Finding F — orphan triad meta:** `iq_meta_qubes`=87 but `iq_blak_qubes`=86 and `iq_token_qubes`=86. One meta record has no matching blak or token. Likely a draft / abandoned mint. **Action for Stage 0 follow-up:** operator runs
-```sql
-SELECT m.id, m.slug, m.created_at
-FROM iq_meta_qubes m
-LEFT JOIN iq_blak_qubes b ON b.meta_qube_id = m.id   -- adjust FK name if different
-WHERE b.id IS NULL;
-```
-and decides whether the orphan record (a) gets a backfilled `(blak, token)` pair, (b) is migrated as a draft into `iqube_id_map` with no triad refs, or (c) is hard-deleted as abandoned. The Stage 1 backfill must handle the meta-without-blak case explicitly (don't error on the JOIN).
+**Finding F — orphan triad metas (operator-confirmed, 2026-05-30):**
 
-**Finding G — incomplete edition pre-seed:** 78,150 editions across 49 qubes = ~1,595 avg, against the 1,860 target per qube (Phase 7 design). Either some qubes were seeded with fewer canonical editions deliberately, or some pre-seed runs didn't complete. **Action for Stage 0 follow-up:** operator runs
-```sql
-SELECT qube_id, count(*) AS editions, MAX(edition_number) AS top_edition
-FROM content_qube_editions
-GROUP BY qube_id
-HAVING count(*) < 1860
-ORDER BY count(*) ASC;
-```
-to identify the under-seeded qubes. Not blocking for Stage 1 schema work — but should be resolved before Stage 5 mint-saga wiring so the saga doesn't claim a non-existent edition row.
+`iq_meta_qubes`=87 vs `iq_blak_qubes`=86. The owning-row query (`LEFT JOIN master_content_qubes + codex_media_assets`) returned **4 metas** with no owner:
+
+| `id` | `slug` | `qube_type` | `created_at` |
+|---|---|---|---|
+| `a0000000-...-000001` | `metaknyts-codex` | `cluster` | 2025-12-09 |
+| `fa3cbf8f-...` | `mk-ep01-motion` | `master_content` | 2025-12-12 |
+| `075aa8d6-...` | `mk-ep03-motion` | `master_content` | 2025-12-12 |
+| `03539a11-...` | `mk-bronze-knyt-1-` | `media_asset` | 2026-05-01 |
+
+**Critical finding:** Two of the orphans (`mk-ep01-motion`, `mk-ep03-motion`) are **the exact records named in the known "missing motion tiles for episodes 1 and 3" operator complaint** documented in `codexes/packs/agentiq/updates/2026-05-14_contentqube-registry-as-sot-shelf-tab-canonicalization.md`. The 2026-05-14 work added variant-aware filtering (Phase A) and registry-side rights synthesis (Phase B) to mitigate the symptom, but the **root cause is now confirmed in the data: these meta records exist but were never linked to a `master_content_qubes` row.** The fix landed in Phase A/B works around this; the canonical resolution is to either backfill the missing master_content_qubes rows or hard-delete the unbound metas.
+
+**Other two orphans:**
+- `metaknyts-codex` (qube_type=`cluster`) — likely the cluster qube intended to hold the entire metaKnyts codex. Per v1.0 §5.1 ClusterQube schema this is a legitimate-but-unbound cluster record; should be linked to a `master_content_qubes`-equivalent ClusterQube owning surface (or registered directly via `iqube_id_map` as a ClusterQube primitive in Stage 1).
+- `mk-bronze-knyt-1-` (qube_type=`media_asset`, trailing dash suggests empty index) — likely a malformed character card slug; operator review recommended.
+
+**Action for Stage 5 mint-saga design:**
+- Mint saga MUST handle "meta exists without paired master_content/codex_media owner" as a recoverable state, not an error.
+- Stage 1 `iqube_id_map` backfill writes a row for each orphan meta with `source='triad_meta'` but flags via `notes` column that no owning record exists.
+- Pre-Stage 5: operator decides per-orphan disposition (backfill missing master row, delete, or register as standalone iQube).
+
+**Finding G — under-seeded edition qubes (operator-confirmed, 2026-05-30):**
+
+7 of 49 content_qubes have fewer than 1,860 editions:
+
+| `content_qube_id` | `series` | `content_kind` | `title` | `editions` | `top_edition` |
+|---|---|---|---|---:|---:|
+| `00000000-...-ac1001` | metame | activation_tab | myCanvas | 8 | 8 |
+| `00000000-...-ac1002` | knyt | activation_tab | Order of Metayé | 6 | 6 |
+| `00000000-...-ac1004` | qriptopian | activation_tab | Qriptopian | 5 | 5 |
+| `00000000-...-ac1005` | avl | activation_tab | Venture Lab | 3 | 3 |
+| `00000000-...-ac1006` | marketa | activation_tab | Marketa | 3 | 3 |
+| `00000000-...-ac1003` | metame | activation_tab | AgentiQ OS | 3 | 3 |
+| `00000000-...-ac1007` | metame | activation_tab | metaMe Studio | 2 | 2 |
+
+**Resolution: NOT an under-seeding problem.** Every under-seeded qube has `content_kind='activation_tab'`. These are activation/navigation surfaces, not canonical art/content qubes — they follow a different seeding pattern (one edition per activation event per persona, append-only). The 1,860 canonical pre-seed target applies to `content_kind ∈ {episode, character, powers_sheet, gn, lore_scroll, bundle}`, not to `activation_tab`.
+
+The 41 metaKnyts qubes (15 episode + 13 character + 13 powers_sheet) have `78,150 − 30 = 78,120` editions across them = **~1,905 avg per qube**, slightly OVER 1,860 (consistent with Phase 7 design where commons are open-supply appended past 1860). All canonical-class qubes are healthy.
+
+**Action for Stage 5 mint-saga:** the saga's edition-claim path must short-circuit for `content_kind='activation_tab'` — these don't use `claimEditionForPurchase`. The existing Phase 9.2 `purchaseHandler.processPurchase` only fires `claimContentQubeEditions` for matched master_qube_id / media_asset_id, so activation_tab qubes are naturally excluded. Stage 5 saga must preserve this distinction.
 
 **Dedupe-collision matrix (operator-reviewed in Stage 1):**
 
@@ -133,20 +156,20 @@ to identify the under-seeded qubes. Not blocking for Stage 1 schema work — but
 | `app/types/knytLiquidUI.ts:275` | `KnytLiquidUITemplatePack` interface | **Unaffected** — same as above |
 | `app/services/knyt/knytLiquidUIService.ts:19,30,38` | Uses KNYT-specific types | **Unaffected** |
 | `app/(shell)/content/demo/page.tsx:156,161` | Fetches `/api/registry/templates?type=LiquidUITemplateArchetypeQube` | **Migrate** — query param becomes `?type=DataQube&category=ui_template_archetype` (new filter field), or alternative discriminator |
-| `app/api/registry/templates/store.ts` | **19 hardcoded seed records** with `iQubeType: 'LiquidUITemplateArchetypeQube'` | **Migrate** — all 19 records' `iQubeType` becomes `'DataQube'` with a new `category: 'ui_template_archetype'` field (or `subtype` field) added to the template schema |
+| `app/api/registry/templates/store.ts` | **20 hardcoded seed records** with `iQubeType: 'LiquidUITemplateArchetypeQube'` | **Migrate** — all 20 records' `iQubeType` becomes `'DataQube'` + `metaExtras` gains a `{ k: 'category', v: 'ui_template_archetype' }` entry |
 
 **Reclassification rule (operator-confirmed per v1.1 §A.2):**
 
-> "LiquidUITemplateArchetypeQube" records describe template / schema / archetype definitions for UI surfaces. They don't carry content payloads. Reclassify all 19 as `DataQube` (since they're schema/template definitions, not renderable content surfaces in the ContentQube sense).
+> "LiquidUITemplateArchetypeQube" records describe template / schema / archetype definitions for UI surfaces. They don't carry content payloads. Reclassify all 20 as `DataQube` (since they're schema/template definitions, not renderable content surfaces in the ContentQube sense).
 
-**Single-source-of-truth records to reclassify (19, all in `app/api/registry/templates/store.ts`):**
+**Single-source-of-truth records to reclassify (20, all in `app/api/registry/templates/store.ts`):**
 
-Detected at lines: 51, 69, 87, 105, 123, 141, 158, 175, 192, 209, 226, 243, 260, 277, 294, 311, 328, 345, 362. Operator should review the seed list (template names, intended use cases) before Stage 1 commits the reclassification — though since these are dev seed data with no chain anchor, the migration is reversible.
+Detected at lines: 51, 69, 87, 105, 123, 141, 158, 175, 192, 209, 226, 243, 260, 277, 294, 311, 328, 345, 362, 379. Operator should review the seed list (template names, intended use cases) before Stage 1 commits the reclassification — though since these are dev seed data with no chain anchor, the migration is reversible.
 
 **Migration plan (Stage 1):**
 
 1. Add `category: string | null` field to template schema (additive).
-2. Replace `iQubeType: 'LiquidUITemplateArchetypeQube'` with `iQubeType: 'DataQube', category: 'ui_template_archetype'` across all 19 seeds.
+2. Replace `iQubeType: 'LiquidUITemplateArchetypeQube'` with `iQubeType: 'DataQube'` AND add `{ k: 'category', v: 'ui_template_archetype' }` to each seed's `metaExtras` array across all 20 seeds (uses the existing `metaExtras` k/v pattern; no new schema field needed).
 3. Update `/api/registry/templates` filter logic to recognize both query patterns during transition.
 4. Update `app/(shell)/content/demo/page.tsx` to query `?type=DataQube&category=ui_template_archetype`.
 5. Remove `'LiquidUITemplateArchetypeQube'` from `types/registry.ts::IQubeType`.
@@ -493,7 +516,7 @@ Stage 1 backfill order:
   7. memory_iqubes        (independent)
   8. AigentQube synthetic (independent; derives UUIDs from code constants)
   9. ToolQube synthetic   (independent; same)
-  10. legacy_primitive_type backfill for the 19 LiquidUITemplateArchetypeQube seeds
+  10. legacy_primitive_type backfill for the 20 LiquidUITemplateArchetypeQube seeds
 ```
 
 Steps 1-3 must complete before any triad-reading caller flips to the resolver. Steps 4-10 are parallelizable.
@@ -509,7 +532,7 @@ New tables (per v1.1 §B.4 acceptance): `iqube_id_map`, `persona_token_qube_owne
 Before Stage 1 begins, operator should confirm:
 
 - [x] Per-surface row counts (Deliverable 1) — operator-confirmed 2026-05-30; baseline rows table + ContentQube lifecycle stratification + registry asset class stratification folded into Deliverable 1. Two follow-up SQL queries (Finding F orphan triad meta; Finding G under-seeded editions) outstanding before Stage 5.
-- [ ] The 19 LiquidUITemplateArchetypeQube seeds will reclassify as DataQube + `category: 'ui_template_archetype'` (Deliverable 2). Operator reviews the seed list in `app/api/registry/templates/store.ts` for any exceptional records that need different handling.
+- [x] The 20 LiquidUITemplateArchetypeQube seeds will reclassify as DataQube + `metaExtras: [{ k: 'category', v: 'ui_template_archetype' }, ...]` (Deliverable 2). Stage 1 commits the change.
 - [ ] The ~30 cartridge tabs identified for Stage 8 resolver migration (Deliverable 3) — operator confirms priority order (Stage 4 vs Stage 8).
 - [ ] Action-vocabulary mapping module `services/iqube/legibility/actionMap.ts` is a Stage 1 deliverable (Deliverable 4 finding).
 - [ ] `iqube-registry` cartridge slug reserved in Stage 1 by adding the stub to `data/codex-configs.ts` (Deliverable 5).
@@ -548,7 +571,7 @@ Before Stage 1 begins, operator should confirm:
 | `app/api/registry/analytics/route.ts` | Mock analytics data | D6 |
 | `app/api/registry/publish/route.ts` | Receipt stub | D6 |
 | `app/api/registry/content-qube/series/route.ts` | Possibly-stale "mock" comment | D6 |
-| `app/api/registry/templates/store.ts` | 19 LiquidUI seeds | D2 |
+| `app/api/registry/templates/store.ts` | 20 LiquidUI seeds | D2 |
 | `app/(shell)/content/demo/page.tsx` | Demo consumer of LiquidUI | D2 |
 | `app/triad/components/codex/tabs/` (~50 files) | Cartridge tabs surveyed | D3 |
 | `supabase/migrations/20260513010000_content_qubes_schema.sql` | ContentQube schema (lifecycle CHECK) | D1, B |
