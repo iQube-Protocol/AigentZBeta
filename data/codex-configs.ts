@@ -3227,13 +3227,7 @@ export const IQUBE_REGISTRY_CARTRIDGE: CodexConfig = {
       group: 'admin',
       order: 2,
       type: 'static',
-      config: {
-        component: 'PlaceholderTab',
-        props: {
-          title: 'Action Vocabulary Review',
-          description: 'Surface for reviewing pending AccessAction ↔ IQubeAgentAction mapping additions (PRD v1.1 §A.6). CI gate at services/iqube/legibility/actionMap.ts blocks merges without an updated mapping.',
-        },
-      },
+      config: { component: 'IQubeRegistryVocabularyTab' },
       metadata: { icon: 'Code2', description: 'Action vocabulary governance', color: 'violet' },
     },
     {
@@ -3256,13 +3250,7 @@ export const IQUBE_REGISTRY_CARTRIDGE: CodexConfig = {
       group: 'docs',
       order: 0,
       type: 'static',
-      config: {
-        component: 'PlaceholderTab',
-        props: {
-          title: 'Registry Documentation',
-          description: 'Links to docs/iqube-agent-legibility-profile.md (agent-facing contract) and the codexes/packs/agentiq/updates/ PRD trail (v0.1 → v1.1 + Stage 0 audit).',
-        },
-      },
+      config: { component: 'IQubeRegistryDocsTab' },
       metadata: { icon: 'FileText', description: 'Registry PRDs + reference docs', color: 'violet' },
     },
   ],
