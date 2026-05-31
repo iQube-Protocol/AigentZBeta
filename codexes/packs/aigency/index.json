@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-31T20:43:15.420Z",
+  "last_updated": "2026-05-31T20:46:06.717Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "ff63bfee9a594938d89d0bec840f450f3bc9d610",
-  "latest_commit_short": "ff63bfe",
-  "latest_commit_title": "nbeLlmRerank: bump max_tokens 400 → 1500, log parse failures",
+  "latest_commit": "995f51837a707f5052cb9d74ec707dd2397c8a17",
+  "latest_commit_short": "995f518",
+  "latest_commit_title": "myCanvas: remix-from-template button (Qriptopian Agents of Change 15-min sprint)",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "995f518",
+      "full_sha": "995f51837a707f5052cb9d74ec707dd2397c8a17",
+      "title": "myCanvas: remix-from-template button (Qriptopian Agents of Change 15-min sprint)",
+      "author": "Claude",
+      "timestamp": "2026-05-31T20:44:08Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-995f518.md"
+    },
+    {
+      "sha": "d48b6f2",
+      "full_sha": "d48b6f2749924f0196ee91d1d766e26d3792e5d0",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-31T20:44:08Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d48b6f2.md"
+    },
     {
       "sha": "ff63bfe",
       "full_sha": "ff63bfee9a594938d89d0bec840f450f3bc9d610",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-27T01:55:18Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-0e1fe66.md"
-    },
-    {
-      "sha": "9f14330",
-      "full_sha": "9f14330f44a8696d174ec644f4ccf4a9d1666d5d",
-      "title": "Add Qripto Cover content type + fix upload preview link for Supabase URLs",
-      "author": "Claude",
-      "timestamp": "2026-05-27T01:31:26Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-9f14330.md"
-    },
-    {
-      "sha": "ddadc89",
-      "full_sha": "ddadc89d29ab2d98801f3803542c79ced24f142e",
-      "title": "Replace Qripto assetKind dropdown with Standalone | Part of a Series + X of Y inputs",
-      "author": "Claude",
-      "timestamp": "2026-05-27T00:21:51Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-ddadc89.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
