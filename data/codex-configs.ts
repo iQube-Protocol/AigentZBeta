@@ -2288,7 +2288,7 @@ export const METAME_CODEX: CodexConfig = {
     { id: 'web',          label: 'metame.com',       icon: 'Globe',      order: -1,  iconOnly: true },
     { id: 'aigentme',     label: 'aigentMe',         icon: 'Sparkles',   order: 0 },
     { id: 'activations',  label: 'Activations',      icon: 'Zap',        order: 0.5 },
-    { id: 'mycanvas',     label: 'myCanvas',         icon: 'PenSquare',  order: 0.6, activationId: 'mycanvas' },
+    { id: 'myartifacts',  label: 'myArtifacts',      icon: 'PenSquare',  order: 0.6, activationId: 'mycanvas' },
     { id: 'order',        label: 'Order of Metayé',  icon: 'Shield',     order: 0.7, activationId: 'order-of-metaye' },
     { id: 'vl',           label: 'Venture Lab',      icon: 'TrendingUp', order: 1,   activationId: 'venture-lab' },
     { id: 'marketa',      label: 'Marketa',          icon: 'Megaphone',  order: 2,   activationId: 'marketa' },
@@ -2442,36 +2442,65 @@ export const METAME_CODEX: CodexConfig = {
       },
     },
 
-    // ── myCanvas group (activation-gated; auto-granted) ──────────────────────
+    // ── myArtifacts group (activation-gated; auto-granted) ─────────────────
+    //
+    // Three sub-tabs under one group chip:
+    //   myCanvas    — public-publishable experiences (articles, stories,
+    //                 remixable templates). Includes the Qriptopian Agents
+    //                 of Change 15-min reading-sprint seed
+    //                 (exp_1773512145689_1vnt1jcnt) as a remix-from-empty
+    //                 affordance.
+    //   myWorkspace — private work artifacts (docs, reports, tools,
+    //                 workflows, briefs). Separate kind column on the
+    //                 entries table to prevent leak risk between public
+    //                 + private surfaces.
+    //   myLedger    — the persona's personal ledger of canvas + workspace
+    //                 artifacts (formerly myWorkbench's content).
     {
       id: 'mycanvas',
       label: 'myCanvas',
       slug: 'mycanvas',
       enabled: true,
       activationId: 'mycanvas',
-      group: 'mycanvas',
+      group: 'myartifacts',
       order: 0,
       type: 'static',
       config: { component: 'MyCanvasTab', props: {} },
       metadata: {
         icon: 'PenSquare',
-        description: 'Personal publishing surface — drafts, ideas, works-in-progress',
+        description: 'Personal publishing surface — articles, stories, remixable experiences',
         color: 'violet',
       },
     },
     {
-      id: 'myworkbench',
-      label: 'myWorkbench',
-      slug: 'my-workbench',
+      id: 'myworkspace',
+      label: 'myWorkspace',
+      slug: 'my-workspace',
       enabled: true,
       activationId: 'mycanvas',
-      group: 'mycanvas',
+      group: 'myartifacts',
       order: 1,
       type: 'static',
-      config: { component: 'MyWorkbenchTab', props: {} },
+      config: { component: 'MyWorkspaceTab', props: {} },
       metadata: {
         icon: 'Hammer',
-        description: 'Workbench — works in active development, scratch space, drafts pre-publication',
+        description: 'Private work artifacts — docs, reports, tools, workflows, briefs',
+        color: 'violet',
+      },
+    },
+    {
+      id: 'myledger',
+      label: 'myLedger',
+      slug: 'my-ledger',
+      enabled: true,
+      activationId: 'mycanvas',
+      group: 'myartifacts',
+      order: 2,
+      type: 'static',
+      config: { component: 'MyLedgerTab', props: {} },
+      metadata: {
+        icon: 'BookMarked',
+        description: 'Personal ledger of canvas + workspace artifacts — activity, receipts, audit',
         color: 'violet',
       },
     },

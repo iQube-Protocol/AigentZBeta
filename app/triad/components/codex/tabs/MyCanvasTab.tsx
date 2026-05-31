@@ -49,7 +49,19 @@ interface CanvasEntry {
  * Per operator: 'myCanvas is for public publishing... myWorkbench
  * is for private confidential work'.
  */
-type MyCanvasSurface = 'canvas' | 'workbench';
+// 2026-05-29 myArtifacts restructure:
+//   - 'canvas'    — public-publishable experiences (default).
+//   - 'workspace' — private work artifacts (docs, reports, tools,
+//                   workflows, briefs). NEW. Separate kind value so
+//                   work-artifact entries never leak into the public
+//                   canvas list and vice versa.
+//   - 'workbench' — legacy alias kept for back-compat with stamped
+//                   metaJson.surface='workbench' rows from before the
+//                   workspace split. Treated identically to 'workspace'
+//                   at the entries-filter layer; will be retired in a
+//                   follow-up migration that rewrites stamped rows to
+//                   'workspace'.
+type MyCanvasSurface = 'canvas' | 'workspace' | 'workbench';
 
 interface Props {
   personaId?: string;
@@ -58,7 +70,11 @@ interface Props {
 }
 
 export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: Props) {
-  const isWorkbench = surface === 'workbench';
+  // Internal alias: 'workspace' (new) and 'workbench' (legacy alias)
+  // share the same private-entries codepath. The distinction will be
+  // erased entirely once a follow-up migration rewrites stamped
+  // metaJson.surface='workbench' rows to 'workspace'.
+  const isWorkbench = surface === 'workspace' || surface === 'workbench';
   const [entries, setEntries] = useState<CanvasEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -152,11 +168,18 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
 
   // Surface-aware list filter. Each entry's metaJson.surface is the
   // primary signal; if absent, fall back to 'canvas' (legacy entries
-  // created before the workbench split was introduced).
+  // created before the workspace split was introduced). 'workspace'
+  // and 'workbench' (legacy alias) share the same private-entries set,
+  // so a stamped 'workbench' row surfaces under the new 'workspace'
+  // tab and vice versa.
   const filteredEntries = entries.filter((e) => {
     const stamped = (e.metaJson as { surface?: string } | undefined)?.surface;
-    const effectiveSurface: MyCanvasSurface = stamped === 'workbench' ? 'workbench' : 'canvas';
-    return effectiveSurface === surface;
+    const stampedIsPrivate = stamped === 'workbench' || stamped === 'workspace';
+    const surfaceIsPrivate = surface === 'workbench' || surface === 'workspace';
+    if (surfaceIsPrivate) return stampedIsPrivate;
+    // surface === 'canvas' — only show entries that are NOT stamped
+    // private. Legacy entries with no stamp default to canvas too.
+    return !stampedIsPrivate;
   });
 
   const fetchEntries = useCallback(async () => {
@@ -243,7 +266,11 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: seed?.title ?? (isWorkbench ? 'Untitled workbench draft' : 'Untitled draft'),
+          title: seed?.title ?? (
+            isWorkbench
+              ? (surface === 'workspace' ? 'Untitled workspace draft' : 'Untitled workbench draft')
+              : 'Untitled draft'
+          ),
           bodyMd: seed?.bodyMd ?? '',
           visibility: defaultVisibility,
           metaJson: surfaceStamp,
@@ -439,7 +466,11 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
               <div className="flex items-center gap-2">
                 <PenSquare className="w-4 h-4 text-violet-400 shrink-0" />
                 <h2 className="text-sm font-semibold leading-none">
-                  {isWorkbench ? 'myWorkbench' : 'myCanvas'}
+                  {surface === 'workspace'
+                    ? 'myWorkspace'
+                    : surface === 'workbench'
+                      ? 'myWorkbench'
+                      : 'myCanvas'}
                 </h2>
               </div>
               <span className="text-[10px] uppercase tracking-wider text-slate-500 pl-6">
