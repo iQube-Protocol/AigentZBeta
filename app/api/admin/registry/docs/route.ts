@@ -36,6 +36,14 @@ const DOC_ALLOWLIST: ReadonlyArray<DocEntry> = [
     order: 0,
     description: 'Canonical agent-facing contract. Read first.',
   },
+  {
+    id: 'score-derivation',
+    path: 'docs/iqube-score-derivation.md',
+    label: 'iQube Score Derivation Reference',
+    group: 'primary',
+    order: 1,
+    description: 'Per-primitive sensitivity/accuracy/verifiability/risk derivation rules.',
+  },
 
   // PRD trail
   {

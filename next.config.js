@@ -27,6 +27,7 @@ const nextConfig = {
       // returns HTTP 500 read_failed.
       "/api/admin/registry/docs": [
         "./docs/iqube-agent-legibility-profile.md",
+        "./docs/iqube-score-derivation.md",
         "./codexes/packs/agentiq/updates/**/*.md",
       ],
     },
