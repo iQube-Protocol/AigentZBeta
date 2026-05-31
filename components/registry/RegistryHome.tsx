@@ -234,22 +234,37 @@ export function RegistryHome() {
     if (!deleteId) return;
     const id = deleteId;
     try {
-      // Phase A — DELETE still goes through legacy route until Phase B
-      // canonicalises it via the canonization-queue revoke transition
-      // (per integration plan B6). Phase A keeps the UX intact; Phase B
-      // changes the button to 'Request revocation' with platform-admin gate.
-      const res = await fetch(`/api/registry/templates/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete');
-      // Refetch the list via the canonical resolver
+      // Phase B B6 — Delete now submits a canonical revocation request
+      // through the canonization queue (Stage 3) rather than hard-
+      // deleting. The iQube remains in iqube_id_map for audit; the
+      // canonical lifecycle transitions to `revoked` only after a
+      // platform-admin approves the request via the canonization queue
+      // PATCH path. Preserves full audit trail.
+      const res = await fetch(`/api/registry/iqube/${id}/revoke`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'legacy /registry delete-button submission' }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        if (res.status === 409) {
+          try { toast('A revocation is already pending for this iQube', 'success'); } catch {}
+          setDeleteId(null);
+          return;
+        }
+        throw new Error(j?.error || 'Failed to request revocation');
+      }
+      // The iQube is still in the list until the canonization queue
+      // approves the revocation; refetch reflects current state.
       const result = await fetchRegistryAsLegacyShape(filters, pagination.currentPage, pagination.limit);
       setTemplates(result.data);
       setPagination(result.pagination);
       setCart(prev => prev.filter(cid => cid !== id));
       setDeleteId(null);
-      try { toast('Template deleted', 'success'); } catch {}
+      try { toast('Revocation requested. Awaiting platform-admin approval.', 'success'); } catch {}
     } catch (err) {
-      console.error('Delete failed:', err);
-      try { toast('Delete failed', 'error'); } catch {}
+      console.error('Revoke request failed:', err);
+      try { toast('Revoke request failed', 'error'); } catch {}
     }
   };
 
@@ -599,9 +614,9 @@ export function RegistryHome() {
 
         <ConfirmDialog
           open={!!deleteId}
-          title="Delete Template"
-          description="Are you sure you want to delete this iQube template? This action cannot be undone."
-          confirmText="Delete"
+          title="Request Revocation"
+          description="This submits a canonical revocation request to the canonization queue. The iQube remains in the registry until a platform-admin approves the request. The action is audit-trailed and never hard-deletes the canonical record."
+          confirmText="Request revocation"
           cancelText="Cancel"
           onConfirm={confirmDelete}
           onCancel={() => setDeleteId(null)}
