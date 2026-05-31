@@ -363,23 +363,61 @@ const STEPS: Partial<Record<SagaState, StepRunner>> = {
 
   /**
    * anchor_persisted → receipt_emitting → receipt_emitted
-   * DVN receipt placeholder. Stage 6 wires orchestrationEvents.emitDecisionReceipt
-   * with action='mint', mode='sync'. For Stage 5, advance through without
-   * the actual emission so the saga can reach MINT_COMPLETE — Stage 6
-   * back-fills receipts for sagas that ran pre-emission.
+   * Stage 6 wires real DVN emission. emitOrchestrationEvent inserts into
+   * orchestration_events (with iqube_id) and appends to dvn_receipt_blocks
+   * via the writer integration in services/orchestration/orchestrationEvents.ts.
    */
-  anchor_persisted: async (row) => {
+  anchor_persisted: async (_row) => {
     return {
       next_state: 'receipt_emitting',
-      idempotency_key: { step: 'receipt_emitting', value: { deferred_to_stage_6: true } },
+      idempotency_key: { step: 'receipt_emitting', value: { ready_at: new Date().toISOString() } },
     };
   },
 
-  receipt_emitting: async (_row) => {
-    return {
-      next_state: 'receipt_emitted',
-      idempotency_key: { step: 'receipt_emitted', value: { deferred_to_stage_6: true } },
-    };
+  receipt_emitting: async (row) => {
+    // Idempotency: if a previous run already emitted, the recorded
+    // event_id short-circuits a re-emit.
+    const recorded = (row.idempotency_keys as Record<string, unknown>)?.['receipt_emitted'] as
+      | { event_id?: string }
+      | undefined;
+    if (recorded?.event_id) {
+      return {
+        next_state: 'receipt_emitted',
+        idempotency_key: { step: 'receipt_emitted', value: recorded },
+      };
+    }
+    try {
+      const { emitOrchestrationEvent } = await import('@/services/orchestration/orchestrationEvents');
+      const event_id = `mint:${row.saga_id}`;
+      await emitOrchestrationEvent({
+        event_id,
+        event_type: 'mint_canonized',
+        from_role: 'aigent_z',
+        to_role: 'aigent_z',
+        reason: 'mint_complete',
+        journey_stage: 'mint',
+        active_cartridge: null,
+        active_codex: null,
+        receipt_eligible: true,
+        timestamp: new Date().toISOString(),
+        metadata: {
+          iqube_id: row.iqube_id,
+          saga_id: row.saga_id,
+          receipt_mode: 'sync',
+          ...((row.idempotency_keys as Record<string, unknown>)?.['chain_minting'] as Record<string, unknown> ?? {}),
+        },
+      } as any);
+      return {
+        next_state: 'receipt_emitted',
+        idempotency_key: { step: 'receipt_emitted', value: { event_id, emitted_at: new Date().toISOString() } },
+      };
+    } catch (err) {
+      // Best-effort: advance to receipt_pending so the reconciler retries.
+      return {
+        next_state: 'receipt_pending',
+        error: (err as Error).message,
+      };
+    }
   },
 
   /**

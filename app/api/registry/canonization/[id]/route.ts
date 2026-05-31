@@ -197,10 +197,36 @@ export async function PATCH(
   //   action: 'canonize', mode: 'sync', iqube_id, actor_alias_commitment, ... })
   // Stage 5 mint saga subscribes to this receipt and triggers the chain action.
 
+  // Stage 6: emit a canonization DVN receipt before kicking off the saga.
+  // The receipt is the auditable "operator approved" record; the saga is
+  // the follow-on chain action. Best-effort — receipt failure doesn't
+  // block the approval response.
+  try {
+    const { emitOrchestrationEvent } = await import('@/services/orchestration/orchestrationEvents');
+    await emitOrchestrationEvent({
+      event_id: `canonize:${requestId}`,
+      event_type: 'iqube_canonized',
+      from_role: 'aigent_z',
+      to_role: 'aigent_z',
+      reason: 'canonization_approved',
+      journey_stage: 'canonize',
+      active_cartridge: null,
+      active_codex: null,
+      receipt_eligible: true,
+      timestamp: decisionTimestamp,
+      metadata: {
+        iqube_id: r.iqube_id,
+        request_id: requestId,
+        receipt_mode: 'sync',
+      },
+    } as any);
+  } catch (err) {
+    console.warn('[canonization] receipt emission failed:', (err as Error).message);
+  }
+
   // Stage 5 C21: kick off the mint saga in the background. Fire-and-
   // forget — the saga is idempotent so the canonization response doesn't
-  // block on chain action. Stage 6 wires the orchestrationEvents receipt
-  // emission that the saga would consume; for now we trigger directly.
+  // block on chain action.
   let sagaId: string | undefined;
   try {
     const { startSaga } = await import('@/services/registry/mintSaga');
