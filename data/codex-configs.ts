@@ -3144,6 +3144,168 @@ export const MARKETA_CARTRIDGE: CodexConfig = {
   updatedAt: new Date().toISOString(),
 };
 
+// ───────────────────────────────────────────────────────────────────────────
+// IQUBE_REGISTRY_CARTRIDGE — Stage 1 stub (PRD v1.1 §A.1)
+// Reserves the 'iqube-registry' slug as a top-level cartridge. Tabs are
+// PlaceholderTab stubs; real components land in Stage 8 of the registry
+// operating-plane plan. The slug is verified free of collision (Stage 0
+// audit Deliverable 5). Operator confirmed standalone + deep-link from
+// AgentiQ OS Registry tab.
+// ───────────────────────────────────────────────────────────────────────────
+export const IQUBE_REGISTRY_CARTRIDGE: CodexConfig = {
+  id: 'iqube-registry-cartridge',
+  name: 'iQube Registry',
+  slug: 'iqube-registry',
+  enabled: true,
+  version: '0.1.0',
+  owner: 'aigent-z',
+  metadata: {
+    description: 'Canonical orientation layer for every iQube — browse, receipts, mints, governance.',
+    icon: 'Database',
+    color: 'violet',
+    category: 'platform',
+    tags: ['registry', 'iqube', 'governance', 'dvn'],
+  },
+  tabGroups: [
+    { id: 'browse', label: 'Browse', icon: 'Search',   order: 0 },
+    { id: 'admin',  label: 'Admin',  icon: 'Settings', order: 1, adminOnly: true },
+    { id: 'docs',   label: 'Docs',   icon: 'FileText', order: 2 },
+  ],
+  tabs: [
+    {
+      id: 'iqube-registry-browse',
+      label: 'Browse iQubes',
+      slug: 'browse',
+      enabled: true,
+      group: 'browse',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'Browse iQubes',
+          description: 'Filter, view, and inspect every iQube across primitives — ContentQube, ToolQube, AigentQube, ClusterQube, DataQube. Full surface lands in Stage 8 of the canonical registry operating plane.',
+        },
+      },
+      metadata: { icon: 'Search', description: 'iQube discovery + filter + detail view', color: 'violet' },
+    },
+    {
+      id: 'iqube-registry-receipts',
+      label: 'DVN Receipts',
+      slug: 'receipts',
+      enabled: true,
+      group: 'browse',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'DVN Receipts',
+          description: 'Block-level + per-iQube + per-cartridge DVN receipt analysis. Powered by the dvn_receipt_blocks ledger landing in Stage 6.',
+        },
+      },
+      metadata: { icon: 'Receipt', description: 'DVN receipt audit + block analysis', color: 'violet' },
+    },
+    {
+      id: 'iqube-registry-mints',
+      label: 'Mints + Sagas',
+      slug: 'mints',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'Mints + Sagas',
+          description: 'Mint-saga monitoring (idempotency, retry, compensation) for triad + non-content primitive mints. Lands in Stage 5; the existing Canonical Mint Panel (KnytCodexAdminTab) migrates here per the 2026-05-29 backlog.',
+        },
+      },
+      metadata: { icon: 'Hammer', description: 'Mint saga state + recovery', color: 'violet' },
+    },
+    {
+      id: 'iqube-registry-canonization',
+      label: 'Canonization Queue',
+      slug: 'canonization',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 1,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'Canonization Approval Queue',
+          description: 'Operator approval queue for iQube canonization requests (PRD v1.1 §A.7). Approval emits the sync DVN receipt and transitions internal lifecycle published → canonized.',
+        },
+      },
+      metadata: { icon: 'CheckCircle', description: 'Canonization governance', color: 'violet' },
+    },
+    {
+      id: 'iqube-registry-vocabulary',
+      label: 'Action Vocabulary',
+      slug: 'vocabulary',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 2,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'Action Vocabulary Review',
+          description: 'Surface for reviewing pending AccessAction ↔ IQubeAgentAction mapping additions (PRD v1.1 §A.6). CI gate at services/iqube/legibility/actionMap.ts blocks merges without an updated mapping.',
+        },
+      },
+      metadata: { icon: 'Code2', description: 'Action vocabulary governance', color: 'violet' },
+    },
+    {
+      id: 'iqube-registry-health',
+      label: 'Registry Health',
+      slug: 'health',
+      enabled: true,
+      adminOnly: true,
+      group: 'admin',
+      order: 3,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'Registry Health',
+          description: 'Backfill status, orphan triad metas (Stage 0 Finding F), under-seeded edition qubes (Finding G), receipt-writer dual-write reconciliation report, and the per-surface backfill matrix.',
+        },
+      },
+      metadata: { icon: 'Activity', description: 'Registry operational health', color: 'violet' },
+    },
+    {
+      id: 'iqube-registry-docs',
+      label: 'PRD + Docs',
+      slug: 'docs',
+      enabled: true,
+      group: 'docs',
+      order: 0,
+      type: 'static',
+      config: {
+        component: 'PlaceholderTab',
+        props: {
+          title: 'Registry Documentation',
+          description: 'Links to docs/iqube-agent-legibility-profile.md (agent-facing contract) and the codexes/packs/agentiq/updates/ PRD trail (v0.1 → v1.1 + Stage 0 audit).',
+        },
+      },
+      metadata: { icon: 'FileText', description: 'Registry PRDs + reference docs', color: 'violet' },
+    },
+  ],
+  permissions: {
+    view: ['*'],
+    edit: ['aigent-z', 'admin'],
+    admin: ['aigent-z', 'admin'],
+  },
+  liquidUI: { enabled: false },
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
+
 export const CODEX_DEFINITIONS: CodexConfig[] = [
   KNYT_CODEX,
   QRIPTO_CODEX,
@@ -3162,6 +3324,7 @@ export const CODEX_DEFINITIONS: CodexConfig[] = [
   VENTURE_LAB_CODEX,
   METAME_CODEX,
   MARKETA_CARTRIDGE,
+  IQUBE_REGISTRY_CARTRIDGE,
 ];
 
 export function getCodexById(id: string): CodexConfig | undefined {
