@@ -204,6 +204,21 @@ export function buildLegacyListResponse(
     );
   }
 
+  // Phase A C3 — Persona filter: no-op today. Server-side ownership
+  // filter (caller_owns true for a passed persona context) is Phase B
+  // work. The selection is tracked so Phase B can wire it without UI
+  // changes; the UI tooltip explains the current limitation.
+
+  // Phase A C3 — Reputation filter: applies to AigentQubes only per
+  // operator decision (integration plan §5 item 4). Other primitives
+  // don't carry a trust_band field; they pass through. The cartridge
+  // projection doesn't yet surface trust_band, so this remains best-
+  // effort until Stage 7 governance block surfaces on the view. When
+  // it does, the filter becomes:
+  //   filtered = filtered.filter(t =>
+  //     t.iQubeType !== 'AigentQube' || (t.trust_band ?? 0) >= filters.reputation
+  //   );
+
   if (filters.sort) {
     filtered = [...filtered].sort((a, b) => {
       const ta = Date.parse(a.createdAt || '') || 0;

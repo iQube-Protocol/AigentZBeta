@@ -52,6 +52,13 @@ interface FilterState {
   instance: string;
   businessModel: string;
   sort: 'newest' | 'oldest';
+  // Phase A C3 — identity filter values surface here so the legacyAdapter
+  // can pass them through to the canonical resolver. Persona + Reputation
+  // are tracked + forwarded but server-side filtering for them is Phase B
+  // work; today these are best-effort (tooltips on the inline selects
+  // explain the limitation).
+  persona?: string;
+  reputation?: number;
 }
 
 const filterInputCls =
@@ -334,12 +341,18 @@ export function RegistryHome() {
             </select>
           </div>
 
-          {/* Persona */}
-          <div className="snap-start shrink-0 min-w-[145px] lg:min-w-0">
+          {/* Persona — Phase A C3: surfaces but server-side filter is
+              Phase B work (canonical resolver doesn't filter by
+              creator-persona ownership today; the spine reads the active
+              persona from the Bearer token, not a URL param). */}
+          <div className="snap-start shrink-0 min-w-[145px] lg:min-w-0" title="Phase A: selection is tracked but server-side ownership filtering lands in Phase B. Today the list shows all iQubes regardless of persona selection.">
             <label className={filterLabelCls}>Persona</label>
             <select
               value={selectedPersona}
-              onChange={(e) => setSelectedPersona(e.target.value)}
+              onChange={(e) => {
+                setSelectedPersona(e.target.value);
+                setFilters(f => ({ ...f, persona: e.target.value || undefined }));
+              }}
               className={filterInputCls}
               disabled={personasLoading}
               aria-label="Persona"
@@ -353,12 +366,19 @@ export function RegistryHome() {
             </select>
           </div>
 
-          {/* Reputation */}
-          <div className="snap-start shrink-0 min-w-[145px] lg:min-w-0">
+          {/* Reputation — Phase A C3: AigentQube trust_band 0..4. Other
+              primitives don't carry a reputation/trust_band; the filter
+              is a no-op for them per the integration plan §5 item 4
+              (operator-confirmed scope). */}
+          <div className="snap-start shrink-0 min-w-[145px] lg:min-w-0" title="Filters AigentQubes by trust_band ≥ selected bucket. Non-Aigent primitives don't carry a trust band; they appear regardless of this filter (Phase A scope).">
             <label className={filterLabelCls}>Reputation</label>
             <select
               value={minReputationBucket}
-              onChange={(e) => setMinReputationBucket(Number(e.target.value))}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setMinReputationBucket(v);
+                setFilters(f => ({ ...f, reputation: v || undefined }));
+              }}
               className={filterInputCls}
               aria-label="Min Reputation"
             >
