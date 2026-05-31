@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`dc9ec96`](https://github.com/iQube-Protocol/AigentZBeta/commit/dc9ec96c1365c22024ee456c08dbecb24aa3d5b6) [refactor] AVL → MVL rename (Pass 1): types, UI labels, NBE catalog, Venture iQube v0.3 (Claude, 2026-05-31T19:24:18Z)
+- [`7459b1b`](https://github.com/iQube-Protocol/AigentZBeta/commit/7459b1bd0e7b31daf366b9ffb729b86456634004) [push] trigger deploy to dev (Claude, 2026-05-31T19:24:18Z)
 - [`3853b5f`](https://github.com/iQube-Protocol/AigentZBeta/commit/3853b5ff6bbaa11c8b902110ee6279e7d55888ad) [push] Venture iQube Phase A2: commit ExperienceQube hydration on ingest (Claude, 2026-05-31T18:40:44Z)
 - [`d2e9a0d`](https://github.com/iQube-Protocol/AigentZBeta/commit/d2e9a0deb0c7c32dea9c23896b8876ee6819deee) [push] trigger deploy to dev (Claude, 2026-05-31T18:40:44Z)
 - [`8c0ad44`](https://github.com/iQube-Protocol/AigentZBeta/commit/8c0ad44bd484222f184dd06750023e2b419d4963) [push] /api/uploads: extend VALID_USE_KINDS allowlist to include attachment + iqube_payload + venture_iqube (Claude, 2026-05-30T02:46:18Z)
