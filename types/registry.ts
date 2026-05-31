@@ -40,3 +40,31 @@ export interface ApiResult<T> {
   error?: string;
   status?: number;
 }
+
+// Canonical iQube registry plane (Stage 1) — see types/registry-canonical.ts
+// Re-exported here so consumers can `from '@/types/registry'` without
+// remembering the file split. The internal record and projections live in
+// the dedicated file to keep this module focused on the legacy IQubeTemplate
+// surface that the existing registry UI / template store consume.
+export type {
+  CanonicalIQubeInternalRecord,
+  RegistryAdminView,
+  RegistryCartridgeView,
+  RegistryPublicView,
+  IQubeInternalLifecycleState,
+  ToolSubtype,
+  WrapperStrategy,
+  IQubeInstanceModel,
+  MintSagaState,
+  MintStatus,
+  CanonicalToolBlock,
+  CanonicalAigentBlock,
+  AigentQubeGovernance,
+  CanonicalClusterBlock,
+  ChainAnchor,
+  EditionSupply,
+  ShardSpec,
+  ContentHierarchy,
+  IQubeIdMapSource,
+  IQubeIdMapEntry,
+} from './registry-canonical';
