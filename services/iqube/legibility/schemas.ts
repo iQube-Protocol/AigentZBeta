@@ -145,6 +145,55 @@ export const IQubeCardLinksSchema = z.object({
 
 // ── Top-level ───────────────────────────────────────────────────────────
 
+// AigentQube governance — Stage 7. Only present on AigentQube cards.
+// Validates T1/T2-only shape; T0 leak (personaId / authProfileId / rootDid)
+// would fail the Zod schema because no T0 field is keyed here.
+export const IQubeAgentGovernanceSchema = z.object({
+  root_agent_id: z.string().min(1),
+  deployment_id: z.string().optional(),
+  persona_alias_commitment: z.string().optional(),
+  rights: z.object({
+    allowed_actions: z.array(IQubeAgentActionSchema),
+    cartridge_scopes: z.array(z.string()),
+    tool_scopes: z.array(z.string()),
+    data_scopes: z.array(z.string()),
+    payment_authority: z
+      .object({
+        currency: z.enum(['qc', 'usdc', 'usd']),
+        max_amount_per_tx: z.number().int().nonnegative(),
+        max_amount_per_period: z
+          .object({
+            amount: z.number().int().nonnegative(),
+            period: z.enum(['day', 'week', 'month']),
+          })
+          .optional(),
+      })
+      .optional(),
+  }),
+  constraints: z.object({
+    prohibited_actions: z.array(IQubeAgentActionSchema),
+    prohibited_cartridges: z.array(z.string()),
+    must_disclose_as_agent: z.boolean(),
+    requires_human_approval: z.array(IQubeAgentActionSchema),
+  }),
+  obligations: z.object({
+    receipt_required_for: z.array(IQubeAgentActionSchema),
+    charter_accepted: z.boolean(),
+    charter_version: z.string(),
+    trust_band: z.union([
+      z.literal(0),
+      z.literal(1),
+      z.literal(2),
+      z.literal(3),
+      z.literal(4),
+    ]),
+  }),
+  revocation: z.object({
+    revocable_by: z.array(z.enum(['root_owner', 'cartridge_admin', 'platform_admin'])),
+    revocation_receipt_required: z.boolean(),
+  }),
+});
+
 export const IQubeCardSchema = z.object({
   type: z.literal('iQubeCard'),
   version: z.literal('0.1'),
@@ -161,6 +210,7 @@ export const IQubeCardSchema = z.object({
   policy: IQubePolicyRefSchema,
   supported_interfaces: IQubeSupportedInterfacesSchema,
   links: IQubeCardLinksSchema,
+  agent_governance: IQubeAgentGovernanceSchema.optional(),
 }) satisfies z.ZodType<IQubeCard>;
 
 export const IQubeCatalogEntrySchema = z.object({

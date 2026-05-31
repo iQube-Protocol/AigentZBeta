@@ -422,21 +422,51 @@ const STEPS: Partial<Record<SagaState, StepRunner>> = {
 
   /**
    * receipt_emitted → card_publishing → card_published
-   * Agent-legibility card publish placeholder. Stage 7 generates/refreshes
-   * /api/iqubes/[id]/card after mint. For Stage 5 we just advance.
+   *
+   * Stage 7 flip. The legibility card surface
+   * (/api/iqubes/[id]/card) builds on-demand from sources — there is no
+   * separate "publish" durability step required. This stage performs:
+   *   1. A best-effort warmup fetch of the card so the response is in
+   *      the runtime cache when an agent next queries it.
+   *   2. An idempotency_keys record showing the published URL + a
+   *      timestamp so the operator surface can confirm the card was
+   *      observed post-mint.
+   *
+   * Failure path: advances to card_publish_pending (transient state)
+   * so the reconciler retries.
    */
   receipt_emitted: async (_row) => {
     return {
       next_state: 'card_publishing',
-      idempotency_key: { step: 'card_publishing', value: { deferred_to_stage_7: true } },
+      idempotency_key: { step: 'card_publishing', value: { ready_at: new Date().toISOString() } },
     };
   },
 
-  card_publishing: async (_row) => {
-    return {
-      next_state: 'card_published',
-      idempotency_key: { step: 'card_published', value: { deferred_to_stage_7: true } },
-    };
+  card_publishing: async (row) => {
+    if (!row.iqube_id) {
+      return { next_state: 'card_published', idempotency_key: { step: 'card_published', value: { skipped: 'no_iqube_id' } } };
+    }
+    const url = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://dev-beta.aigentz.me'}/api/iqubes/${row.iqube_id}/card`;
+    try {
+      // Warmup fetch — best-effort. Failure is non-fatal; the card route
+      // rebuilds on the next real request.
+      // Stage 7 + agent-legibility extension may add a refresh signal
+      // here for downstream caches.
+      const res = await fetch(url, { cache: 'no-store' });
+      const observed_status = res.status;
+      return {
+        next_state: 'card_published',
+        idempotency_key: {
+          step: 'card_published',
+          value: { card_url: url, observed_status, observed_at: new Date().toISOString() },
+        },
+      };
+    } catch (err) {
+      return {
+        next_state: 'card_publish_pending',
+        error: (err as Error).message,
+      };
+    }
   },
 
   card_published: async (_row) => {

@@ -128,6 +128,18 @@ export interface LegibilitySource {
 
   /** Public payload URL when `payload_disclosure === 'open'`. */
   canonical_content_url?: string;
+
+  /**
+   * AigentQube governance block — Stage 7. Surfaces the KNYT framework
+   * three-layer identity + rights/constraints/obligations on AigentQube
+   * cards. Sources can either populate this directly (preferred for live
+   * data) or leave it unset and let the card builder synthesise a
+   * minimal default via defaultAigentGovernance().
+   *
+   * Optional and primitive-specific — only consulted when
+   * primitive_type === 'AigentQube'.
+   */
+  agent_governance?: import('@/types/iqube/legibility').IQubeAgentGovernance;
 }
 
 // ── Mappers ──────────────────────────────────────────────────────────────
@@ -397,7 +409,58 @@ export function buildIQubeCard(src: LegibilitySource): IQubeCard {
     },
   };
 
+  // Stage 7: surface AigentQube governance when the source carries it,
+  // OR synthesise a sensible default for canonical aigents. ContentQube
+  // / ToolQube / DataQube / ClusterQube cards never carry this field.
+  if (src.primitive_type === 'AigentQube') {
+    card.agent_governance = src.agent_governance ?? defaultAigentGovernance(src);
+  }
+
   return card;
+}
+
+/**
+ * Synthesise a minimal AigentQube governance block for cards whose
+ * source adapter hasn't populated the field. Conservative defaults per
+ * PRD v1.1 §B.6 / §B.10:
+ *   - payment_authority omitted (NULL)
+ *   - must_disclose_as_agent: true
+ *   - trust_band: 0 (lowest until a charter is accepted via the
+ *     canonization queue)
+ *   - revocable_by: platform_admin only
+ *
+ * No T0 fields are populated here — root_agent_id is the public iqube
+ * identifier (e.g. 'aigent-marketa'), never a personaId.
+ */
+function defaultAigentGovernance(src: LegibilitySource): import('@/types/iqube/legibility').IQubeAgentGovernance {
+  return {
+    root_agent_id: src.iqube_id,
+    deployment_id: undefined,
+    persona_alias_commitment: undefined,
+    rights: {
+      allowed_actions: ['discover', 'read_meta', 'read_summary', 'cite'],
+      cartridge_scopes: [],
+      tool_scopes: [],
+      data_scopes: [],
+      payment_authority: undefined,
+    },
+    constraints: {
+      prohibited_actions: ['mint_derivative', 'fork', 'revoke_access'],
+      prohibited_cartridges: [],
+      must_disclose_as_agent: true,
+      requires_human_approval: ['mint_derivative', 'fork', 'revoke_access'],
+    },
+    obligations: {
+      receipt_required_for: ['mint_derivative', 'revoke_access'],
+      charter_accepted: false,
+      charter_version: '0.0',
+      trust_band: 0,
+    },
+    revocation: {
+      revocable_by: ['platform_admin'],
+      revocation_receipt_required: true,
+    },
+  };
 }
 
 // ── Action menu derivation ──────────────────────────────────────────────
