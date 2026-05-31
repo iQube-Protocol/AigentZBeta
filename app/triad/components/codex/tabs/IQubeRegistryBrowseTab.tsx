@@ -20,8 +20,12 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Database, Filter, ChevronRight, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Database, Filter, ChevronRight, Loader2, AlertCircle, RefreshCw, LayoutGrid, List } from 'lucide-react';
 import { personaFetch } from '@/utils/personaSpine';
+import { IQubeCard } from '@/components/iqube/IQubeCard';
+import { IQubeDetailModal } from '@/components/iqube/IQubeDetailModal';
+import { cartridgeViewToLegacyTemplate } from '@/services/registry/legacy/legacyAdapter';
+import type { RegistryCartridgeView } from '@/types/registry-canonical';
 
 type Primitive = 'DataQube' | 'ContentQube' | 'ToolQube' | 'ModelQube' | 'AigentQube' | 'ClusterQube';
 
@@ -85,6 +89,10 @@ export function IQubeRegistryBrowseTab() {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [adminCache, setAdminCache] = useState<Record<string, AdminEntry>>({});
   const [adminLoading, setAdminLoading] = useState<string | null>(null);
+
+  // Phase C C2/C3 — view mode + shared modal mount
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [modalTemplateId, setModalTemplateId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -161,13 +169,46 @@ export function IQubeRegistryBrowseTab() {
             <code className="text-violet-300">services/registry/resolver.ts</code>. Click a row to expand the admin projection.
           </p>
         </div>
-        <button
-          onClick={load}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md bg-slate-700/50 hover:bg-slate-700 text-slate-200 border border-slate-600"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Phase C C2 — view mode toggle */}
+          <div className="inline-flex items-center rounded-md border border-slate-700 overflow-hidden" role="group" aria-label="View mode">
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={classNames(
+                'px-2.5 py-1.5 text-xs inline-flex items-center gap-1.5 transition-colors',
+                viewMode === 'table'
+                  ? 'bg-violet-500/20 text-violet-200'
+                  : 'bg-slate-800/40 text-slate-400 hover:text-slate-200',
+              )}
+              aria-pressed={viewMode === 'table'}
+              title="Table view"
+            >
+              <List className="w-3.5 h-3.5" /> Table
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('grid')}
+              className={classNames(
+                'px-2.5 py-1.5 text-xs inline-flex items-center gap-1.5 transition-colors border-l border-slate-700',
+                viewMode === 'grid'
+                  ? 'bg-violet-500/20 text-violet-200'
+                  : 'bg-slate-800/40 text-slate-400 hover:text-slate-200',
+              )}
+              aria-pressed={viewMode === 'grid'}
+              title="Grid view"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" /> Grid
+            </button>
+          </div>
+          <button
+            onClick={load}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md bg-slate-700/50 hover:bg-slate-700 text-slate-200 border border-slate-600"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Refresh
+          </button>
+        </div>
       </header>
 
       {/* Filter chips */}
@@ -228,7 +269,38 @@ export function IQubeRegistryBrowseTab() {
         </div>
       )}
 
-      {!loading && !error && entries.length > 0 && (
+      {/* Phase C C2 — grid view using the lifted IQubeCard. Same data
+          source as the table; cartridgeViewToLegacyTemplate maps the
+          canonical view to the legacy template shape IQubeCard expects
+          (scores included so Rel + Trust dots render from real data). */}
+      {!loading && !error && entries.length > 0 && viewMode === 'grid' && (
+        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {entries.map((e) => {
+            const t = cartridgeViewToLegacyTemplate(e as unknown as RegistryCartridgeView);
+            return (
+              <IQubeCard
+                key={t.id}
+                id={t.id}
+                name={t.name}
+                description={t.description}
+                sensitivityScore={t.sensitivityScore}
+                riskScore={t.riskScore}
+                accuracyScore={t.accuracyScore}
+                verifiabilityScore={t.verifiabilityScore}
+                iQubeType={t.iQubeType as 'DataQube' | 'ContentQube' | 'ToolQube' | 'ModelQube' | 'AigentQube'}
+                iQubeInstanceType={t.iQubeInstanceType}
+                businessModel={t.businessModel}
+                price={t.price}
+                provenance={t.provenance}
+                visibility={e.visibility_state === 'public' ? 'public' : 'private'}
+                onClick={(id) => setModalTemplateId(id)}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {!loading && !error && entries.length > 0 && viewMode === 'table' && (
         <div className="border border-slate-700/50 rounded-lg overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-slate-800/40 text-slate-400 text-xs uppercase tracking-wide">
@@ -330,6 +402,16 @@ export function IQubeRegistryBrowseTab() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* Phase C C3 — shared detail modal. Same component the legacy
+          /registry mounts, so Fork / Mint / Edit flows are identical
+          across both surfaces (all canonical write routes from Phase B). */}
+      {modalTemplateId && (
+        <IQubeDetailModal
+          templateId={modalTemplateId}
+          onClose={() => setModalTemplateId(null)}
+        />
       )}
     </div>
   );
