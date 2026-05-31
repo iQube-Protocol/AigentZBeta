@@ -3153,7 +3153,7 @@ export const MARKETA_CARTRIDGE: CodexConfig = {
 // AgentiQ OS Registry tab.
 // ───────────────────────────────────────────────────────────────────────────
 export const IQUBE_REGISTRY_CARTRIDGE: CodexConfig = {
-  id: 'iqube-registry-cartridge',
+  id: 'iqube-registry-codex',
   name: 'iQube Registry',
   slug: 'iqube-registry',
   enabled: true,
