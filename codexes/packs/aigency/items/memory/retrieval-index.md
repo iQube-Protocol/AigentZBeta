@@ -1794,3 +1794,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-e549a85.md](../build_/COMMITS/COMMIT-e549a85.md)
 - Message: myWorkspace: separate myworkspace_entries table for strict canvas/workspace demarcation
+
+## Commit `4e01b23` — 2026-05-31T22:32:06Z
+- Type: `push`
+- Brief: [COMMIT-4e01b23.md](../build_/COMMITS/COMMIT-4e01b23.md)
+- Message: trigger deploy to dev
+
+## Commit `609c885` — 2026-05-31T22:32:06Z
+- Type: `push`
+- Brief: [COMMIT-609c885.md](../build_/COMMITS/COMMIT-609c885.md)
+- Message: MyWorkspaceTab: 5-item sub-menu nav matching standard cartridge pattern
