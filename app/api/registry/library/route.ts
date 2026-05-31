@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
+import { getActivePersona } from '@/services/identity/getActivePersona';
+import { emitOrchestrationEvent } from '@/services/orchestration/orchestrationEvents';
 
 // Library API - handles user's private iQube library
 export async function GET(request: NextRequest) {
@@ -108,6 +111,41 @@ export async function POST(request: NextRequest) {
     }
 
     const created = await insertRes.json();
+
+    // Phase B B5 — Library add audit trail.
+    //
+    // Per the legacy /registry → canonical SoT integration plan §0
+    // item 5, save-to-library is a per-user concept that maps to
+    // membership of a private personal collection, not a global
+    // visibility flip on the canonical iQube. The user_library table
+    // continues to own per-user membership (multi-user friendly).
+    // What's new in B5: every successful add emits an
+    // orchestration_events row with event_type='iqube_library_added'
+    // for the audit trail, with iqube_id correlation so the canonical
+    // resolver can report library-member counts in Phase C.
+    try {
+      const persona = await getActivePersona(request);
+      void emitOrchestrationEvent({
+        event_id: randomUUID(),
+        event_type: 'iqube_library_added',
+        from_role: 'aigent-z',
+        to_role: 'aigent-z',
+        reason: 'legacy_registry_library_add',
+        journey_stage: 'prospect',
+        active_cartridge: null,
+        active_codex: null,
+        receipt_eligible: false,
+        timestamp: new Date().toISOString(),
+        metadata: {
+          iqube_id: templateId,
+          user_id: userId,
+          actor_cohort_id: persona?.cohortMemberships?.[0] ?? null,
+        },
+      });
+    } catch {
+      // Non-fatal — library add is the deliverable.
+    }
+
     return NextResponse.json(created[0]);
   } catch (error: any) {
     console.error('Error adding to library:', error);
