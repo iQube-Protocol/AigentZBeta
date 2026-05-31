@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-31T19:50:12.459Z",
+  "last_updated": "2026-05-31T20:43:15.420Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "e3b0bd05c56ff71d2fc3fd438de5f57cf99fe0c7",
-  "latest_commit_short": "e3b0bd0",
-  "latest_commit_title": "AVL → MVL Pass 2: /api/avl/* directory + FE callsites + log tags",
+  "latest_commit": "ff63bfee9a594938d89d0bec840f450f3bc9d610",
+  "latest_commit_short": "ff63bfe",
+  "latest_commit_title": "nbeLlmRerank: bump max_tokens 400 → 1500, log parse failures",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "ff63bfe",
+      "full_sha": "ff63bfee9a594938d89d0bec840f450f3bc9d610",
+      "title": "nbeLlmRerank: bump max_tokens 400 → 1500, log parse failures",
+      "author": "Claude",
+      "timestamp": "2026-05-31T20:41:16Z",
+      "type": "chore",
+      "brief": "items/build_/COMMITS/COMMIT-ff63bfe.md"
+    },
+    {
+      "sha": "6db2a85",
+      "full_sha": "6db2a855a219a746ea9975681fca4038bae7ee2c",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-31T20:41:17Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-6db2a85.md"
+    },
     {
       "sha": "e3b0bd0",
       "full_sha": "e3b0bd05c56ff71d2fc3fd438de5f57cf99fe0c7",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-27T00:21:51Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-ddadc89.md"
-    },
-    {
-      "sha": "0929def",
-      "full_sha": "0929defe329a50b4aafb64ab20133def0b25edc1",
-      "title": "Qripto-aware Codex Upload modal — Series + Content Types live",
-      "author": "Claude",
-      "timestamp": "2026-05-26T23:14:25Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0929def.md"
-    },
-    {
-      "sha": "6997901",
-      "full_sha": "6997901e0c04a54bf5f02612089cc8179fc86b1f",
-      "title": "Qriptopian Pulse — wire live + clone admin moderation + drop \"Admin\" labels",
-      "author": "Claude",
-      "timestamp": "2026-05-26T22:32:43Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-6997901.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`ff63bfe`](https://github.com/iQube-Protocol/AigentZBeta/commit/ff63bfee9a594938d89d0bec840f450f3bc9d610) [chore] nbeLlmRerank: bump max_tokens 400 → 1500, log parse failures (Claude, 2026-05-31T20:41:16Z)
+- [`6db2a85`](https://github.com/iQube-Protocol/AigentZBeta/commit/6db2a855a219a746ea9975681fca4038bae7ee2c) [push] trigger deploy to dev (Claude, 2026-05-31T20:41:17Z)
 - [`e3b0bd0`](https://github.com/iQube-Protocol/AigentZBeta/commit/e3b0bd05c56ff71d2fc3fd438de5f57cf99fe0c7) [push] AVL → MVL Pass 2: /api/avl/* directory + FE callsites + log tags (Claude, 2026-05-31T19:48:16Z)
 - [`f09ac66`](https://github.com/iQube-Protocol/AigentZBeta/commit/f09ac6603a4e7c75078f694d55ab8279b16026db) [push] trigger deploy to dev (Claude, 2026-05-31T19:48:16Z)
 - [`b582f2a`](https://github.com/iQube-Protocol/AigentZBeta/commit/b582f2a9651df7987406857c41f25c135ae58bec) [refactor] my-space restructure: myArtifacts tabGroup with three sub-tabs (Claude, 2026-05-31T19:46:35Z)
