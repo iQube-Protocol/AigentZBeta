@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { X, Pencil } from "lucide-react";
 import { useToast } from "../ui/toaster";
 import { ConfirmDialog } from "../ui/confirm-dialog";
-import { fetchTemplateDetailAsLegacyShape } from "@/services/registry/legacy/legacyAdapter";
+import { adminViewToLegacyTemplate, fetchTemplateDetailAsLegacyShape } from "@/services/registry/legacy/legacyAdapter";
 import { personaFetch } from "@/utils/personaSpine";
 
 interface IQubeDetailModalProps {
@@ -251,11 +251,29 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
       setIsLoading(true);
       setError(null);
       try {
-        // Phase A C2: load via canonical resolver admin projection.
-        // Adapter falls back to legacy /api/registry/templates/[id] route
-        // on canonical miss for the observation window. Phase C retires
-        // the legacy route once observation confirms zero traffic.
-        const item = await fetchTemplateDetailAsLegacyShape(templateId);
+        // Phase A C2 + 2026-05-31 hotfix: load via canonical resolver
+        // admin projection. Must use personaFetch — the admin projection
+        // is spine-gated (requires Bearer token); raw fetch returns 401
+        // and the page silently shows "Template not found" per the
+        // CLAUDE.md client-side spine fetch rule.
+        //
+        // Falls back to the legacy adapter (which itself falls through
+        // to /api/registry/templates/[id]) only if the canonical admin
+        // fetch errors with a non-401 — keeps the legacy observation
+        // window working for any pre-canonical IDs.
+        let item: any = null;
+        try {
+          const res = await personaFetch(`/api/registry/iqube/${encodeURIComponent(templateId)}?projection=admin`);
+          if (res.ok) {
+            const entry = await res.json();
+            item = adminViewToLegacyTemplate(entry);
+          }
+        } catch {
+          // fall through
+        }
+        if (!item) {
+          item = await fetchTemplateDetailAsLegacyShape(templateId);
+        }
         if (item) {
           if (mounted) setTemplate(item);
           if (mounted) {
