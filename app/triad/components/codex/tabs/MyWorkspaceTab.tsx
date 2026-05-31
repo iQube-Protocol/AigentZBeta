@@ -3,38 +3,37 @@
 /**
  * MyWorkspaceTab — private work-artifact surface for the persona.
  *
- * Three sub-sections, ordered per operator's mental model
- * (most-operationally-current first):
+ * Standard cartridge sub-menu pattern: horizontal tab bar at the top
+ * with five entries (one action + four content panels), each panel
+ * paginated for long lists. Matches the visual treatment used across
+ * other cartridges' internal navs so the operator doesn't have to
+ * learn a new layout.
  *
- *   1. Active intents     — queued / awaiting_approval / completed CTAs
- *                            from intent_qubes + activity_receipts.
- *                            Sourced from /api/assistant/workbench-ledger
- *                            (the same endpoint that powered the legacy
- *                            WorkbenchLedger).
- *   2. Working drafts     — surface='workspace' entries from the
- *                            mycanvas entries table. Operator-authored
- *                            free-text drafts, briefs, reports, etc.
- *                            Leverages MyCanvasTab in workspace mode.
- *   3. Strategic uploads  — persona_uploads tagged use_kind in
- *                            (venture_iqube, iqube_payload, workbench).
- *                            Sourced from /api/uploads filtered by
- *                            use_kind.
+ *   + New          — quick-action button. Switches to Working drafts
+ *                    and creates a new entry via MyCanvasTab's own
+ *                    "+ New" plumbing.
+ *   Active Intents — queued / awaiting_approval / completed CTAs from
+ *                    /api/assistant/workbench-ledger. Paginated 20/page.
+ *   Working Drafts — embeds MyCanvasTab(surface='workspace') which now
+ *                    talks to /api/myworkspace/entries exclusively.
+ *   Uploads        — persona_uploads filtered to use_kind in
+ *                    (venture_iqube / iqube_payload / workbench).
+ *                    Paginated 20/page.
+ *   Cohorts        — restored cohort intel (CohortMetricsCard) —
+ *                    operator-requested per "the cohort intel we had
+ *                    in place before… can be surfaced in that tab".
  *
- * Each section is independently collapsible. The right pane shows the
- * selected item's detail for whichever section the operator drilled
- * into.
- *
- * Mental model demarcation:
- *   - myCanvas    — social / creative content (remixes + public ideas)
- *   - myWorkspace — THIS — private work artifacts (intents, drafts,
- *                   strategic uploads)
- *   - myLedger    — DVN-receipted activities cross-surface
+ * Mental model demarcation (unchanged):
+ *   myCanvas    — social / creative content (remixes + public ideas)
+ *   myWorkspace — THIS — private work artifacts
+ *   myLedger    — DVN-receipted activities cross-surface
  */
 
-import React, { useCallback, useEffect, useState } from "react";
-import { Loader2, ChevronDown, ChevronRight, Sparkles, FileText, UploadCloud, Hammer, BookMarked } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Loader2, Plus, Sparkles, Hammer, UploadCloud, Users, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import { MyCanvasTab } from "./MyCanvasTab";
+import { CohortMetricsCard } from "@/components/metame/workbench/CohortMetricsCard";
 
 interface Props {
   personaId?: string;
@@ -58,16 +57,20 @@ interface StrategicUpload {
   createdAt: string;
 }
 
-type Section = 'intents' | 'drafts' | 'uploads';
+type WorkspaceSubTab = 'intents' | 'drafts' | 'uploads' | 'cohorts';
+
+const PAGE_SIZE = 20;
 
 export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
-  const [openSections, setOpenSections] = useState<Record<Section, boolean>>({
-    intents: true,
-    drafts: true,
-    uploads: false,
-  });
-  const toggleSection = useCallback((s: Section) => {
-    setOpenSections((prev) => ({ ...prev, [s]: !prev[s] }));
+  const [activeSubTab, setActiveSubTab] = useState<WorkspaceSubTab>('drafts');
+  const [intentsPage, setIntentsPage] = useState(0);
+  const [uploadsPage, setUploadsPage] = useState(0);
+  // When the operator hits "+ New", switch to drafts and tag a
+  // request-new flag — MyCanvasTab reads this through its own
+  // empty-state CTA. For now we just route to drafts and let the
+  // existing "+ New" button take it from there.
+  const handleNew = useCallback(() => {
+    setActiveSubTab('drafts');
   }, []);
 
   // ── Active intents ────────────────────────────────────────────────
@@ -75,12 +78,12 @@ export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
   const [intentsLoading, setIntentsLoading] = useState(false);
   const [intentsError, setIntentsError] = useState<string | null>(null);
   useEffect(() => {
-    if (!personaId) return;
+    if (!personaId || activeSubTab !== 'intents') return;
     setIntentsLoading(true);
     setIntentsError(null);
     void (async () => {
       try {
-        const res = await personaFetch('/api/assistant/workbench-ledger?limit=50', { personaIdHint: personaId });
+        const res = await personaFetch('/api/assistant/workbench-ledger?limit=200', { personaIdHint: personaId });
         if (!res.ok) { setIntentsError(`HTTP ${res.status}`); return; }
         const json = await res.json() as { entries?: Array<{ kind: string; intentId?: string; intentName?: string; status?: string; cartridge?: string; createdAt?: string }> };
         const pills = (json.entries ?? []).filter((e) => e.kind === 'pill').map((e) => ({
@@ -97,19 +100,19 @@ export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
         setIntentsLoading(false);
       }
     })();
-  }, [personaId]);
+  }, [personaId, activeSubTab]);
 
   // ── Strategic uploads ─────────────────────────────────────────────
   const [uploads, setUploads] = useState<StrategicUpload[]>([]);
   const [uploadsLoading, setUploadsLoading] = useState(false);
   const [uploadsError, setUploadsError] = useState<string | null>(null);
   useEffect(() => {
-    if (!personaId) return;
+    if (!personaId || activeSubTab !== 'uploads') return;
     setUploadsLoading(true);
     setUploadsError(null);
     void (async () => {
       try {
-        const res = await personaFetch('/api/uploads?limit=50', { personaIdHint: personaId });
+        const res = await personaFetch('/api/uploads?limit=200', { personaIdHint: personaId });
         if (!res.ok) { setUploadsError(`HTTP ${res.status}`); return; }
         const json = await res.json() as { uploads?: StrategicUpload[] };
         const strategic = (json.uploads ?? []).filter((u) =>
@@ -122,7 +125,19 @@ export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
         setUploadsLoading(false);
       }
     })();
-  }, [personaId]);
+  }, [personaId, activeSubTab]);
+
+  // Pagination slices
+  const intentsPaged = useMemo(
+    () => intents.slice(intentsPage * PAGE_SIZE, (intentsPage + 1) * PAGE_SIZE),
+    [intents, intentsPage],
+  );
+  const intentsPageCount = Math.max(1, Math.ceil(intents.length / PAGE_SIZE));
+  const uploadsPaged = useMemo(
+    () => uploads.slice(uploadsPage * PAGE_SIZE, (uploadsPage + 1) * PAGE_SIZE),
+    [uploads, uploadsPage],
+  );
+  const uploadsPageCount = Math.max(1, Math.ceil(uploads.length / PAGE_SIZE));
 
   const statusChip = (status: ActiveIntent['status']) => {
     const map: Record<ActiveIntent['status'], string> = {
@@ -135,118 +150,157 @@ export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
     return map[status];
   };
 
+  const tabBtn = (tabId: WorkspaceSubTab, label: string, Icon: typeof Sparkles, count?: number) => (
+    <button
+      type="button"
+      onClick={() => setActiveSubTab(tabId)}
+      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all rounded-lg whitespace-nowrap ${
+        activeSubTab === tabId
+          ? 'bg-violet-500/10 ring-1 ring-violet-500/30 text-violet-300'
+          : 'text-slate-400 hover:text-slate-300 hover:bg-white/4'
+      }`}
+    >
+      <Icon className="w-3.5 h-3.5 flex-shrink-0" />
+      <span>{label}</span>
+      {typeof count === 'number' && count > 0 && (
+        <span className="ml-1 text-[10px] text-slate-500">{count}</span>
+      )}
+    </button>
+  );
+
   return (
     <div className="flex flex-col h-full bg-slate-950 text-slate-100">
-      {/* Section: Active intents */}
-      <section className="border-b border-slate-700/40">
+      {/* Standard sub-menu nav bar — five entries, matches other cartridges' internal nav */}
+      <div className="flex items-center gap-1 px-3 py-2 border-b border-slate-700/40 bg-slate-950/60">
         <button
           type="button"
-          onClick={() => toggleSection('intents')}
-          className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-800/40"
+          onClick={handleNew}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-violet-500/40 bg-violet-500/10 text-violet-200 hover:bg-violet-500/20 transition"
         >
-          {openSections.intents ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
-          <Sparkles className="w-4 h-4 text-violet-400" />
-          <span className="text-sm font-semibold">Active intents</span>
-          <span className="text-[10px] text-slate-500">queued · approved · executed</span>
-          {intents.length > 0 && (
-            <span className="ml-auto text-[10px] text-slate-400">{intents.length}</span>
-          )}
+          <Plus className="w-3.5 h-3.5" />
+          New
         </button>
-        {openSections.intents && (
-          <div className="px-4 pb-3">
+        <div className="mx-1 h-4 w-px bg-slate-700/60" />
+        {tabBtn('intents', 'Active Intents', Sparkles, intents.length)}
+        {tabBtn('drafts', 'Working Drafts', Hammer)}
+        {tabBtn('uploads', 'Uploads', UploadCloud, uploads.length)}
+        {tabBtn('cohorts', 'Cohorts', Users)}
+      </div>
+
+      {/* Panel content — single active panel at a time */}
+      <div className="flex-1 overflow-y-auto">
+        {activeSubTab === 'intents' && (
+          <div className="px-4 py-3">
             {intentsLoading ? (
               <div className="text-xs text-slate-400 flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Loading…</div>
             ) : intentsError ? (
               <div className="text-xs text-rose-300">Load failed: {intentsError}</div>
             ) : intents.length === 0 ? (
-              <div className="text-xs text-slate-500 italic">No active intents yet. Act on a Brief NBA in aigentMe to queue one.</div>
+              <div className="text-xs text-slate-500 italic">
+                No active intents yet. Act on a Brief NBA in aigentMe to queue one.
+              </div>
             ) : (
-              <ul className="space-y-1">
-                {intents.map((i) => (
-                  <li
-                    key={i.intentId}
-                    className="rounded-md border border-slate-700/50 bg-slate-900/40 px-3 py-2 hover:border-slate-600"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${statusChip(i.status)}`}>
-                        {i.status.replace(/_/g, ' ')}
-                      </span>
-                      <span className="text-[10px] uppercase tracking-wider text-slate-500">{i.cartridge}</span>
-                      <span className="text-[10px] text-slate-500 ml-auto">{new Date(i.createdAt).toLocaleDateString()}</span>
-                    </div>
-                    <div className="text-xs text-white mt-1 truncate">{i.intentName}</div>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <ul className="space-y-1.5">
+                  {intentsPaged.map((i) => (
+                    <li
+                      key={i.intentId}
+                      className="rounded-md border border-slate-700/50 bg-slate-900/40 px-3 py-2 hover:border-slate-600"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${statusChip(i.status)}`}>
+                          {i.status.replace(/_/g, ' ')}
+                        </span>
+                        <span className="text-[10px] uppercase tracking-wider text-slate-500">{i.cartridge}</span>
+                        <span className="text-[10px] text-slate-500 ml-auto">{new Date(i.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      <div className="text-xs text-white mt-1 truncate">{i.intentName}</div>
+                    </li>
+                  ))}
+                </ul>
+                {intentsPageCount > 1 && (
+                  <Pager page={intentsPage} pageCount={intentsPageCount} onChange={setIntentsPage} />
+                )}
+              </>
             )}
           </div>
         )}
-      </section>
 
-      {/* Section: Working drafts (legacy MyCanvasTab in workspace mode) */}
-      <section className="border-b border-slate-700/40 flex-1 min-h-0">
-        <button
-          type="button"
-          onClick={() => toggleSection('drafts')}
-          className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-800/40"
-        >
-          {openSections.drafts ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
-          <Hammer className="w-4 h-4 text-violet-400" />
-          <span className="text-sm font-semibold">Working drafts</span>
-          <span className="text-[10px] text-slate-500">docs · reports · briefs · tools · workflows</span>
-        </button>
-        {openSections.drafts && (
-          <div className="h-[600px]">
+        {activeSubTab === 'drafts' && (
+          <div className="h-full">
             <MyCanvasTab personaId={personaId} theme={theme} surface="workspace" />
           </div>
         )}
-      </section>
 
-      {/* Section: Strategic uploads */}
-      <section>
-        <button
-          type="button"
-          onClick={() => toggleSection('uploads')}
-          className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-slate-800/40"
-        >
-          {openSections.uploads ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
-          <UploadCloud className="w-4 h-4 text-violet-400" />
-          <span className="text-sm font-semibold">Strategic uploads</span>
-          <span className="text-[10px] text-slate-500">venture iQube · iQube payload · workbench</span>
-          {uploads.length > 0 && (
-            <span className="ml-auto text-[10px] text-slate-400">{uploads.length}</span>
-          )}
-        </button>
-        {openSections.uploads && (
-          <div className="px-4 pb-3">
+        {activeSubTab === 'uploads' && (
+          <div className="px-4 py-3">
             {uploadsLoading ? (
               <div className="text-xs text-slate-400 flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Loading…</div>
             ) : uploadsError ? (
               <div className="text-xs text-rose-300">Load failed: {uploadsError}</div>
             ) : uploads.length === 0 ? (
-              <div className="text-xs text-slate-500 italic">No strategic uploads yet. Drop a Venture iQube JSON into the upload drawer to populate.</div>
+              <div className="text-xs text-slate-500 italic">
+                No strategic uploads yet. Drop a Venture iQube JSON into the upload drawer to populate.
+              </div>
             ) : (
-              <ul className="space-y-1">
-                {uploads.map((u) => (
-                  <li
-                    key={u.id}
-                    className="rounded-md border border-slate-700/50 bg-slate-900/40 px-3 py-2 hover:border-slate-600"
-                  >
-                    <div className="flex items-center gap-2">
-                      <FileText className="w-3.5 h-3.5 text-violet-300" />
-                      <span className="text-xs font-medium text-white truncate flex-1 min-w-0">{u.filename}</span>
-                      <span className="text-[10px] uppercase tracking-wider text-violet-300">{u.useKind.replace(/_/g, ' ')}</span>
-                    </div>
-                    <div className="text-[10px] text-slate-500 mt-0.5 pl-5">
-                      {u.status} · {(u.sizeBytes / 1024).toFixed(1)} KB · {new Date(u.createdAt).toLocaleString()}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <ul className="space-y-1.5">
+                  {uploadsPaged.map((u) => (
+                    <li
+                      key={u.id}
+                      className="rounded-md border border-slate-700/50 bg-slate-900/40 px-3 py-2 hover:border-slate-600"
+                    >
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-3.5 h-3.5 text-violet-300" />
+                        <span className="text-xs font-medium text-white truncate flex-1 min-w-0">{u.filename}</span>
+                        <span className="text-[10px] uppercase tracking-wider text-violet-300">{u.useKind.replace(/_/g, ' ')}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-0.5 pl-5">
+                        {u.status} · {(u.sizeBytes / 1024).toFixed(1)} KB · {new Date(u.createdAt).toLocaleString()}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                {uploadsPageCount > 1 && (
+                  <Pager page={uploadsPage} pageCount={uploadsPageCount} onChange={setUploadsPage} />
+                )}
+              </>
             )}
           </div>
         )}
-      </section>
+
+        {activeSubTab === 'cohorts' && (
+          <div className="px-4 py-3">
+            <CohortMetricsCard personaId={personaId} theme={theme} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Pager({ page, pageCount, onChange }: { page: number; pageCount: number; onChange: (next: number) => void }) {
+  return (
+    <div className="flex items-center justify-center gap-3 mt-3 text-xs text-slate-400">
+      <button
+        type="button"
+        onClick={() => onChange(Math.max(0, page - 1))}
+        disabled={page === 0}
+        className="p-1 rounded hover:bg-slate-800/40 disabled:opacity-30"
+      >
+        <ChevronLeft className="w-3.5 h-3.5" />
+      </button>
+      <span className="tabular-nums">
+        Page {page + 1} of {pageCount}
+      </span>
+      <button
+        type="button"
+        onClick={() => onChange(Math.min(pageCount - 1, page + 1))}
+        disabled={page >= pageCount - 1}
+        className="p-1 rounded hover:bg-slate-800/40 disabled:opacity-30"
+      >
+        <ChevronRight className="w-3.5 h-3.5" />
+      </button>
     </div>
   );
 }
