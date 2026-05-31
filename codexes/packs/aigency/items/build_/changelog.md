@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`3853b5f`](https://github.com/iQube-Protocol/AigentZBeta/commit/3853b5ff6bbaa11c8b902110ee6279e7d55888ad) [push] Venture iQube Phase A2: commit ExperienceQube hydration on ingest (Claude, 2026-05-31T18:40:44Z)
+- [`d2e9a0d`](https://github.com/iQube-Protocol/AigentZBeta/commit/d2e9a0deb0c7c32dea9c23896b8876ee6819deee) [push] trigger deploy to dev (Claude, 2026-05-31T18:40:44Z)
 - [`8c0ad44`](https://github.com/iQube-Protocol/AigentZBeta/commit/8c0ad44bd484222f184dd06750023e2b419d4963) [push] /api/uploads: extend VALID_USE_KINDS allowlist to include attachment + iqube_payload + venture_iqube (Claude, 2026-05-30T02:46:18Z)
 - [`ea73f8f`](https://github.com/iQube-Protocol/AigentZBeta/commit/ea73f8fd82b3661a0c91b783f42466006f6822e3) [push] trigger deploy to dev (Claude, 2026-05-30T02:46:19Z)
 - [`2af7d43`](https://github.com/iQube-Protocol/AigentZBeta/commit/2af7d4366159b3ae93e1cbed542493c154dc42a6) [push] Venture iQube Phase A1: ingest route + use_kind enum extension + Operation metaWill fixture (Claude, 2026-05-30T01:10:21Z)

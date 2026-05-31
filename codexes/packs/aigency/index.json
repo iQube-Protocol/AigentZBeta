@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-30T02:48:11.168Z",
+  "last_updated": "2026-05-31T18:42:58.976Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "8c0ad44bd484222f184dd06750023e2b419d4963",
-  "latest_commit_short": "8c0ad44",
-  "latest_commit_title": "/api/uploads: extend VALID_USE_KINDS allowlist to include attachment + iqube_payload + venture_iqube",
+  "latest_commit": "3853b5ff6bbaa11c8b902110ee6279e7d55888ad",
+  "latest_commit_short": "3853b5f",
+  "latest_commit_title": "Venture iQube Phase A2: commit ExperienceQube hydration on ingest",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "3853b5f",
+      "full_sha": "3853b5ff6bbaa11c8b902110ee6279e7d55888ad",
+      "title": "Venture iQube Phase A2: commit ExperienceQube hydration on ingest",
+      "author": "Claude",
+      "timestamp": "2026-05-31T18:40:44Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-3853b5f.md"
+    },
+    {
+      "sha": "d2e9a0d",
+      "full_sha": "d2e9a0deb0c7c32dea9c23896b8876ee6819deee",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-31T18:40:44Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d2e9a0d.md"
+    },
     {
       "sha": "8c0ad44",
       "full_sha": "8c0ad44bd484222f184dd06750023e2b419d4963",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-26T09:55:18Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-7c3125f.md"
-    },
-    {
-      "sha": "ea60f8e",
-      "full_sha": "ea60f8e87e08db5782fe0bf1bf1be7d34765de13",
-      "title": "CLAUDE.md: document spine-fetch auth contract + per-cartridge admin grants",
-      "author": "Claude",
-      "timestamp": "2026-05-26T09:53:25Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-ea60f8e.md"
-    },
-    {
-      "sha": "41d1079",
-      "full_sha": "41d107988fae82afb82700340424a2d554ddcac2",
-      "title": "fix admin-tab visibility: hook uses personaFetch (Bearer token), not raw fetch",
-      "author": "Claude",
-      "timestamp": "2026-05-26T09:47:13Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-41d1079.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
