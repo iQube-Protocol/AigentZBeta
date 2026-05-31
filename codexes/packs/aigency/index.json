@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-30T01:12:17.567Z",
+  "last_updated": "2026-05-30T02:48:11.168Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "2af7d4366159b3ae93e1cbed542493c154dc42a6",
-  "latest_commit_short": "2af7d43",
-  "latest_commit_title": "Venture iQube Phase A1: ingest route + use_kind enum extension + Operation metaWill fixture",
+  "latest_commit": "8c0ad44bd484222f184dd06750023e2b419d4963",
+  "latest_commit_short": "8c0ad44",
+  "latest_commit_title": "/api/uploads: extend VALID_USE_KINDS allowlist to include attachment + iqube_payload + venture_iqube",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "8c0ad44",
+      "full_sha": "8c0ad44bd484222f184dd06750023e2b419d4963",
+      "title": "/api/uploads: extend VALID_USE_KINDS allowlist to include attachment + iqube_payload + venture_iqube",
+      "author": "Claude",
+      "timestamp": "2026-05-30T02:46:18Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-8c0ad44.md"
+    },
+    {
+      "sha": "ea73f8f",
+      "full_sha": "ea73f8fd82b3661a0c91b783f42466006f6822e3",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-30T02:46:19Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-ea73f8f.md"
+    },
     {
       "sha": "2af7d43",
       "full_sha": "2af7d4366159b3ae93e1cbed542493c154dc42a6",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-26T09:47:13Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-41d1079.md"
-    },
-    {
-      "sha": "0ece4a6",
-      "full_sha": "0ece4a625172abbbcd274f680b1e920fd517ea66",
-      "title": "KNYT owns Admin under Order — metaMe inherits via existing mirror",
-      "author": "Claude",
-      "timestamp": "2026-05-26T08:55:46Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0ece4a6.md"
-    },
-    {
-      "sha": "8dce7e8",
-      "full_sha": "8dce7e897b3d9476640bca271e9ab1b3fe43742b",
-      "title": "fix admin-tab visibility: email-alias fallback in grants resolver + diag route",
-      "author": "Claude",
-      "timestamp": "2026-05-26T08:19:10Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-8dce7e8.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

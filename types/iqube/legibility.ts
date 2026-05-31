@@ -224,6 +224,67 @@ export interface IQubeCardLinks {
  * `IQubeCardSchema` (see services/iqube/legibility/schemas.ts)
  * before serialisation.
  */
+/**
+ * AigentQube governance block — surfaces the KNYT framework §10/11/12/14
+ * three-layer identity + rights/constraints/obligations on AigentQube
+ * cards. Stage 7 addition.
+ *
+ * All identifiers here are T1/T2-safe:
+ *   - root_agent_id is the public agent identifier (not a personaId)
+ *   - persona_alias_commitment is the T2 cohort alias (not a personaId)
+ *   - charter_accepted + charter_version are public commitments
+ *   - trust_band is the 0..4 KNYT progression (§14)
+ *
+ * Optional: only present when primitive_type === 'AigentQube' AND the
+ * source adapter populates the block. ContentQube/ToolQube/etc cards
+ * omit this field entirely.
+ *
+ * payment_authority defaults to NULL per PRD v1.1 §B.6 — non-null
+ * requires explicit operator approval at canonization time. Period
+ * counter enforcement lives in a future runtime payment service, not
+ * here; the card just declares the policy.
+ */
+export interface IQubeAgentGovernance {
+  /** KNYT framework §10.1 — durable trust anchor across deployments + personas. */
+  root_agent_id: string;
+  /** KNYT framework §10.2 — running instance identity. */
+  deployment_id?: string;
+  /** T2 — public-network safe handle for the mission-facing persona. */
+  persona_alias_commitment?: string;
+
+  rights: {
+    allowed_actions: IQubeAgentAction[];
+    cartridge_scopes: string[];
+    tool_scopes: string[];
+    data_scopes: string[];
+    payment_authority?: {
+      currency: 'qc' | 'usdc' | 'usd';
+      max_amount_per_tx: number;
+      max_amount_per_period?: { amount: number; period: 'day' | 'week' | 'month' };
+    };
+  };
+
+  constraints: {
+    prohibited_actions: IQubeAgentAction[];
+    prohibited_cartridges: string[];
+    must_disclose_as_agent: boolean;
+    requires_human_approval: IQubeAgentAction[];
+  };
+
+  obligations: {
+    receipt_required_for: IQubeAgentAction[];
+    charter_accepted: boolean;
+    charter_version: string;
+    /** KNYT framework §14 — five-band trust progression. */
+    trust_band: 0 | 1 | 2 | 3 | 4;
+  };
+
+  revocation: {
+    revocable_by: Array<'root_owner' | 'cartridge_admin' | 'platform_admin'>;
+    revocation_receipt_required: boolean;
+  };
+}
+
 export interface IQubeCard {
   type: 'iQubeCard';
   version: '0.1';
@@ -243,6 +304,11 @@ export interface IQubeCard {
   policy: IQubePolicyRef;
   supported_interfaces?: IQubeSupportedInterfaces;
   links?: IQubeCardLinks;
+  /**
+   * AigentQube governance — only populated when primitive_type='AigentQube'.
+   * Other primitives omit. Stage 7 addition.
+   */
+  agent_governance?: IQubeAgentGovernance;
 }
 
 // ── Catalog ──────────────────────────────────────────────────────────────

@@ -51,6 +51,15 @@ export async function emitOrchestrationEvent(event: OrchestrationEvent): Promise
       ? meta.receipt_mode
       : null;
 
+    // Stage 6: iqube_id surfaces from metadata.iqube_id (preferred) or
+    // metadata.asset_id (legacy). The column was added in Stage 1 C4 but
+    // not previously populated; we backfill on every new write.
+    const iqubeId = typeof meta.iqube_id === 'string'
+      ? (meta.iqube_id as string)
+      : typeof meta.asset_id === 'string'
+        ? (meta.asset_id as string)
+        : null;
+
     const { error } = await db.from('orchestration_events').insert({
       event_id: event.event_id,
       event_type: event.event_type,
@@ -66,6 +75,7 @@ export async function emitOrchestrationEvent(event: OrchestrationEvent): Promise
       actor_alias_commitment: aliasCommitment,
       cohort_id: cohortId,
       receipt_mode: receiptMode,
+      iqube_id: iqubeId,
     });
     if (error) {
       // Surface the error — silent failures here mean receipts are
@@ -77,6 +87,34 @@ export async function emitOrchestrationEvent(event: OrchestrationEvent): Promise
         message: error.message,
         details: error.details,
       });
+      return;
+    }
+
+    // Stage 6: append the just-written receipt to dvn_receipt_blocks so
+    // block-level analysis works. Best-effort — if the block append fails
+    // the receipt is still durable in orchestration_events; a future
+    // reconciler can backfill.
+    if (event.receipt_eligible) {
+      try {
+        const { appendReceiptToBlock } = await import('@/services/registry/dvnBlocks');
+        const scope = event.active_cartridge ?? 'platform';
+        await appendReceiptToBlock({
+          cartridge_scope: scope,
+          receipt_source: 'orchestration_events',
+          receipt_id: event.event_id,
+          item_payload: JSON.stringify({
+            event_id: event.event_id,
+            event_type: event.event_type,
+            iqube_id: iqubeId,
+            actor_alias_commitment: aliasCommitment,
+            cohort_id: cohortId,
+            receipt_mode: receiptMode,
+            timestamp: event.timestamp,
+          }),
+        });
+      } catch (blockErr) {
+        console.warn('[orchestrationEvents] block append failed', (blockErr as Error).message);
+      }
     }
   } catch (e) {
     console.error('[orchestrationEvents] threw', e);

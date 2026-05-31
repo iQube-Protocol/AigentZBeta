@@ -3,12 +3,13 @@ import { getSupabaseServer } from '../../../_lib/supabaseServer';
 import { getStore, setStore } from '../store';
 import { IQubeTemplate } from '../../../../../types/registry';
 import { CacheInvalidation } from '../../../../utils/cache';
+import { withDeprecation } from '@/services/registry/legacy/deprecation';
 
 function notFound() {
   return NextResponse.json({ error: 'Not found' }, { status: 404 });
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+async function _GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const { id } = params;
   try {
     const supabase = getSupabaseServer();
@@ -58,7 +59,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+async function _PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const { id } = params;
   try {
     const body = await req.json();
@@ -207,7 +208,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+async function _DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
   const { id } = params;
   try {
     const supabase = getSupabaseServer();
@@ -235,3 +236,16 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+export const GET = withDeprecation(_GET as any, {
+  route: 'GET /api/registry/templates/[id]',
+  replacement: 'GET /api/registry/iqube/[id]?projection=admin',
+});
+export const PATCH = withDeprecation(_PATCH as any, {
+  route: 'PATCH /api/registry/templates/[id]',
+  replacement: 'PATCH /api/registry/iqube/[id]',
+});
+export const DELETE = withDeprecation(_DELETE as any, {
+  route: 'DELETE /api/registry/templates/[id]',
+  replacement: 'POST /api/registry/iqube/[id]/revoke',
+});

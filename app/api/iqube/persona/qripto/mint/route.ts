@@ -1,8 +1,27 @@
 /**
+ * @deprecated
  * POST /api/iqube/persona/qripto/mint
  *
  * Stages a Qripto Persona iQube for on-chain minting.
- * TODO: wire PERSONA_IQUBE_ENCRYPTION_KEY to FIO handle PPK for production.
+ *
+ * DEPRECATION (Stage 2 C8, PRD v1.1 §A close-report checklist #4):
+ * This is a parallel path that duplicates the canonical persona-iQube
+ * staging surface at /api/iqube/persona/knyt/mint. Per Stage 0 audit
+ * Deliverable 6, no live production consumer was identified. Operator
+ * confirmed disposition as "defer to recommendation"; recommendation
+ * is to mark @deprecated now and remove after the 30-day observation
+ * window (parallel with the receipt-writer deprecation per v1.1 §A.4).
+ *
+ * Stage 5 mint saga supersedes this entire flow with a unified
+ * services/registry/mintSaga.ts driver that handles every primitive
+ * via the canonical resolver. New mint calls should target
+ * POST /api/registry/iqube/[id]/mint (lands in Stage 5).
+ *
+ * Removal scheduled: 30 days after 2026-05-30, gated on operator
+ * confirming no traffic against this route in dev/prod logs.
+ *
+ * TODO (legacy): wire PERSONA_IQUBE_ENCRYPTION_KEY to FIO handle PPK
+ * for production.
  */
 
 import { NextRequest, NextResponse } from "next/server";
