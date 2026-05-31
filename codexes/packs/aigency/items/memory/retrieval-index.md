@@ -1804,3 +1804,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-609c885.md](../build_/COMMITS/COMMIT-609c885.md)
 - Message: MyWorkspaceTab: 5-item sub-menu nav matching standard cartridge pattern
+
+## Commit `05a8d6c` — 2026-05-31T23:37:11Z
+- Type: `push`
+- Brief: [COMMIT-05a8d6c.md](../build_/COMMITS/COMMIT-05a8d6c.md)
+- Message: trigger deploy to dev
+
+## Commit `48086c8` — 2026-05-31T23:37:11Z
+- Type: `push`
+- Brief: [COMMIT-48086c8.md](../build_/COMMITS/COMMIT-48086c8.md)
+- Message: SmartWalletDrawer: remove mandatory persona-creation gate on sign-in
