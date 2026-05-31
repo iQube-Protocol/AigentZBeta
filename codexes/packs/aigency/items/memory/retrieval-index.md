@@ -1719,3 +1719,13 @@ Top-level retrieval anchors for this pack.
 - Type: `refactor`
 - Brief: [COMMIT-dc9ec96.md](../build_/COMMITS/COMMIT-dc9ec96.md)
 - Message: AVL → MVL rename (Pass 1): types, UI labels, NBE catalog, Venture iQube v0.3
+
+## Commit `b497263` — 2026-05-31T19:41:29Z
+- Type: `push`
+- Brief: [COMMIT-b497263.md](../build_/COMMITS/COMMIT-b497263.md)
+- Message: trigger deploy to dev
+
+## Commit `c502c4c` — 2026-05-31T19:41:29Z
+- Type: `push`
+- Brief: [COMMIT-c502c4c.md](../build_/COMMITS/COMMIT-c502c4c.md)
+- Message: NBA cards: contextual title rewrites via LLM rerank

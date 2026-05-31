@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-31T19:26:23.212Z",
+  "last_updated": "2026-05-31T19:43:18.659Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "dc9ec96c1365c22024ee456c08dbecb24aa3d5b6",
-  "latest_commit_short": "dc9ec96",
-  "latest_commit_title": "AVL → MVL rename (Pass 1): types, UI labels, NBE catalog, Venture iQube v0.3",
+  "latest_commit": "c502c4c82975eaf27d99c7a4505f93284f874cb0",
+  "latest_commit_short": "c502c4c",
+  "latest_commit_title": "NBA cards: contextual title rewrites via LLM rerank",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "c502c4c",
+      "full_sha": "c502c4c82975eaf27d99c7a4505f93284f874cb0",
+      "title": "NBA cards: contextual title rewrites via LLM rerank",
+      "author": "Claude",
+      "timestamp": "2026-05-31T19:41:29Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c502c4c.md"
+    },
+    {
+      "sha": "b497263",
+      "full_sha": "b4972637aa0dca2757c19a31c1fcf2ec5bdae80e",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-31T19:41:29Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b497263.md"
+    },
     {
       "sha": "dc9ec96",
       "full_sha": "dc9ec96c1365c22024ee456c08dbecb24aa3d5b6",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-26T14:46:41Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c56ae59.md"
-    },
-    {
-      "sha": "f32d517",
-      "full_sha": "f32d51767fafb82350355a26b99a64695f2a1d13",
-      "title": "copilot: wire mic to STT + add Listen TTS + persist messages + clear affordance",
-      "author": "Claude",
-      "timestamp": "2026-05-26T14:19:24Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-f32d517.md"
-    },
-    {
-      "sha": "89d80cf",
-      "full_sha": "89d80cfd47367eb3754cc9a1afc9ce24fc82007e",
-      "title": "AgentiQ OS: stub Admin tabGroup so the mirror has content",
-      "author": "Claude",
-      "timestamp": "2026-05-26T10:12:01Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-89d80cf.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
