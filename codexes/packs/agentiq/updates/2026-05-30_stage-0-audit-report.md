@@ -94,6 +94,8 @@ SELECT COUNT(*) FROM iqube_id_map WHERE source = 'registry_asset';
 
 **Finding F — orphan triad metas (operator-confirmed, 2026-05-30):**
 
+**RESOLUTION (operator-confirmed, post-Stage-1):** These 4 records are **test/dev fixtures**, not canonical content. No backfill or hard-delete required. Stage 2 backfill writes `iqube_id_map` rows for them with `notes='legacy_test_fixture'` so they're discoverable but flagged. The "missing motion tiles for ep1/ep3" symptom is unrelated to these test records — it was addressed by the Phase A/B variant-aware fix in 2026-05-14.
+
 `iq_meta_qubes`=87 vs `iq_blak_qubes`=86. The owning-row query (`LEFT JOIN master_content_qubes + codex_media_assets`) returned **4 metas** with no owner:
 
 | `id` | `slug` | `qube_type` | `created_at` |
