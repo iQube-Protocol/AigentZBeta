@@ -3191,13 +3191,7 @@ export const IQUBE_REGISTRY_CARTRIDGE: CodexConfig = {
       group: 'browse',
       order: 1,
       type: 'static',
-      config: {
-        component: 'PlaceholderTab',
-        props: {
-          title: 'DVN Receipts',
-          description: 'Block-level + per-iQube + per-cartridge DVN receipt analysis. Powered by the dvn_receipt_blocks ledger landing in Stage 6.',
-        },
-      },
+      config: { component: 'IQubeRegistryReceiptsTab' },
       metadata: { icon: 'Receipt', description: 'DVN receipt audit + block analysis', color: 'violet' },
     },
     {

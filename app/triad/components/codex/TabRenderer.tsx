@@ -101,6 +101,7 @@ import { IQubeRegistryBrowseTab } from "./tabs/IQubeRegistryBrowseTab";
 import { IQubeRegistryHealthTab } from "./tabs/IQubeRegistryHealthTab";
 import { IQubeRegistryMintsTab } from "./tabs/IQubeRegistryMintsTab";
 import { IQubeRegistryCanonizationTab } from "./tabs/IQubeRegistryCanonizationTab";
+import { IQubeRegistryReceiptsTab } from "./tabs/IQubeRegistryReceiptsTab";
 import { RefRuntimeTab } from "./tabs/RefRuntimeTab";
 import { RefStudioTab } from "./tabs/RefStudioTab";
 import { RefAigentTab } from "./tabs/RefAigentTab";
@@ -234,6 +235,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   IQubeRegistryHealthTab,
   IQubeRegistryMintsTab,
   IQubeRegistryCanonizationTab,
+  IQubeRegistryReceiptsTab,
   RefRuntimeTab,
   RefStudioTab,
   RefAigentTab,
