@@ -853,32 +853,22 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
             onClick={async () => {
               if (!template) return onClose();
               try {
-                const baseName = (template.name || 'Untitled').replace(/(\s*\(fork\)\s*)+$/i, '');
-                const payload: any = {
-                  name: `${baseName} (fork)`,
-                  description: template.description || '',
-                  iQubeType: template.iQubeType,
-                  iQubeInstanceType: 'template' as const,
-                  businessModel: template.businessModel,
-                  price: typeof template.price === 'number' ? template.price : undefined,
-                  version: template.version || '1.0',
-                  parentTemplateId: templateId,
-                  blakqubeLabels: template.blakqubeLabels || undefined,
-                  sensitivityScore: Number(template.sensitivityScore ?? 0),
-                  accuracyScore: Number(template.accuracyScore ?? 0),
-                  verifiabilityScore: Number(template.verifiabilityScore ?? 0),
-                  riskScore: Number(template.riskScore ?? 0),
-                };
-                const res = await fetch('/api/registry/templates', {
+                // Phase B B2+B9 — canonical fork route handles
+                // provenance increment, lineage tracking, score
+                // inheritance, and the orchestration_events audit row
+                // atomically on the server. Body is optional override
+                // (name + description); the server reads the parent's
+                // full surface from the resolver.
+                const res = await personaFetch(`/api/registry/iqube/${templateId}/fork`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(payload),
+                  body: JSON.stringify({}),
                 });
                 const { json: created, text } = await parseResponse(res);
                 if (!res.ok) throw new Error(created?.error || text || 'Fork failed');
                 window.dispatchEvent(new CustomEvent('registryTemplateUpdated', { detail: created }));
                 try { toast('Fork created', 'success'); } catch {}
-                router.push(`/registry?template=${created.id}&edit=1`);
+                router.push(`/registry?template=${created.iqube_id}&edit=1`);
                 return;
               } catch (e) {
                 console.error('Fork failed', e);
@@ -897,25 +887,29 @@ export const IQubeDetailModal: React.FC<IQubeDetailModalProps> = ({ templateId, 
                 onClick={async () => {
                   if (!template) return;
                   try {
-                    // Update the template via PATCH first with current simple editable fields
+                    // Phase B B3+B9 — canonical PATCH /api/registry/iqube/[id].
+                    // Server merges legacy extras into
+                    // metadata.legacyTemplateExtras and upserts score
+                    // axes into iqube_scores with operator_override
+                    // source. Emits orchestration_events with
+                    // event_type='iqube_edited'.
                     const root = containerRef.current!;
                     const get = (sel: string) => (root.querySelector(sel) as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null);
-                    const payload: any = {
+                    const payload: Record<string, unknown> = {
                       name: get('input[placeholder="Enter name"]')?.value || template.name,
                       description: (root.querySelector('textarea[placeholder="Enter description"]') as HTMLTextAreaElement | null)?.value ?? template.description,
-                      iQubeType: (get('select[aria-label="iQube Type"]')?.value || template.iQubeType),
-                      iQubeInstanceType: (get('select[aria-label="Instance Type"]')?.value || template.iQubeInstanceType),
-                      businessModel: (get('select[aria-label="Business Model"]')?.value || template.businessModel),
+                      business_model: (get('select[aria-label="Business Model"]')?.value || template.businessModel),
                       price: Number((get('input[aria-label="Price"]') as HTMLInputElement | null)?.value || template.price || 0),
-                      version: (get('input[placeholder="1.0"]') as HTMLInputElement | null)?.value || template.version || '1.0',
-                      sensitivityScore: Number((get('input[aria-label="Sensitivity Score"]') as HTMLInputElement | null)?.value ?? template.sensitivityScore ?? 0),
-                      accuracyScore: Number((get('input[aria-label="Accuracy Score"]') as HTMLInputElement | null)?.value ?? template.accuracyScore ?? 5),
-                      verifiabilityScore: Number((get('input[aria-label="Verifiability Score"]') as HTMLInputElement | null)?.value ?? template.verifiabilityScore ?? 5),
-                      riskScore: Number((get('input[aria-label="Risk Score"]') as HTMLInputElement | null)?.value ?? template.riskScore ?? 5),
-                      metaExtras: (metaEditRows.length ? metaEditRows : metaExtras),
-                      blakqubeLabels: bqEditFields,
+                      score_axes: {
+                        sensitivity: Number((get('input[aria-label="Sensitivity Score"]') as HTMLInputElement | null)?.value ?? template.sensitivityScore ?? 0),
+                        accuracy: Number((get('input[aria-label="Accuracy Score"]') as HTMLInputElement | null)?.value ?? template.accuracyScore ?? 5),
+                        verifiability: Number((get('input[aria-label="Verifiability Score"]') as HTMLInputElement | null)?.value ?? template.verifiabilityScore ?? 5),
+                        risk: Number((get('input[aria-label="Risk Score"]') as HTMLInputElement | null)?.value ?? template.riskScore ?? 5),
+                      },
+                      meta_extras: (metaEditRows.length ? metaEditRows : metaExtras),
+                      blakqube_labels: bqEditFields,
                     };
-                    const res = await fetch(`/api/registry/templates/${templateId}`, {
+                    const res = await personaFetch(`/api/registry/iqube/${templateId}`, {
                       method: 'PATCH',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify(payload),

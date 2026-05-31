@@ -7,6 +7,7 @@ import { SimpleSelect as Select } from "../ui/simple-select";
 import { Textarea } from "../ui/textarea";
 import { useToast } from "../ui/toaster";
 import { DotsInline } from "./scoreUtils";
+import { personaFetch } from "@/utils/personaSpine";
 
 interface MetaQubeData {
   identifier: string;
@@ -106,20 +107,27 @@ export function AddIQuBeForm() {
         Aigent: 'AigentQube',
         Credential: 'ToolQube', // closest match in current enum
       };
+      // Phase B B1+B9 — canonical create surface.
+      // POST /api/registry/iqube accepts the full legacy template field
+      // set (business_model, score_axes, etc.); legacy extras fold into
+      // metadata.legacyTemplateExtras, score axes upsert into
+      // iqube_scores with operator_override source.
       const payload = {
         name: meta.identifier || `${meta.creator || 'Untitled'} iQube`,
         description: meta.description || '',
-        iQubeType: iQubeTypeMap[meta.contentType] || 'DataQube',
-        iQubeInstanceType: 'template' as const,
-        businessModel: businessModel || undefined,
+        primitive_type: iQubeTypeMap[meta.contentType] || 'DataQube',
+        instance_type: 'template' as const,
+        business_model: businessModel || undefined,
         price: price === "" ? undefined : Number(price),
-        sensitivityScore: Number(meta.sensitivity) || 0,
-        accuracyScore: Number(meta.accuracy) || 0,
-        verifiabilityScore: Number(meta.verifiable) || 0,
-        riskScore: Number(meta.risk) || 0,
+        score_axes: {
+          sensitivity: Number(meta.sensitivity) || 0,
+          accuracy: Number(meta.accuracy) || 0,
+          verifiability: Number(meta.verifiable) || 0,
+          risk: Number(meta.risk) || 0,
+        },
       };
 
-      const res = await fetch('/api/registry/templates', {
+      const res = await personaFetch('/api/registry/iqube', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
