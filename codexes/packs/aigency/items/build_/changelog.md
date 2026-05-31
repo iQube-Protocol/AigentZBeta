@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`609c885`](https://github.com/iQube-Protocol/AigentZBeta/commit/609c885d6cdb7f7720402589ce70787cebc4d4a6) [push] MyWorkspaceTab: 5-item sub-menu nav matching standard cartridge pattern (Claude, 2026-05-31T22:32:06Z)
+- [`4e01b23`](https://github.com/iQube-Protocol/AigentZBeta/commit/4e01b23bfb637e617cc92d0b1144989bc7baf9fe) [push] trigger deploy to dev (Claude, 2026-05-31T22:32:06Z)
 - [`e549a85`](https://github.com/iQube-Protocol/AigentZBeta/commit/e549a8507875dcae26984042d507b9a4ad345d24) [push] myWorkspace: separate myworkspace_entries table for strict canvas/workspace demarcation (Claude, 2026-05-31T21:54:59Z)
 - [`0d769b7`](https://github.com/iQube-Protocol/AigentZBeta/commit/0d769b77c620e1c0c7bc50770460c5204d1a2979) [push] trigger deploy to dev (Claude, 2026-05-31T21:54:59Z)
 - [`2e60b85`](https://github.com/iQube-Protocol/AigentZBeta/commit/2e60b85c0283d09fbea6fdd7186a5359cdc43ee4) [push] canvasService.listEntries: surface meta_json.surface stamp via JSON-path (Claude, 2026-05-31T21:32:31Z)
