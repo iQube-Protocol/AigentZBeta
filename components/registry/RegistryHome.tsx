@@ -10,6 +10,7 @@ import { ConfirmDialog } from "../ui/confirm-dialog";
 import { useToast } from "../ui/toaster";
 import { ComponentRegistryPanel } from "./ComponentRegistryPanel";
 import { IngestionFactoryPanel } from "./IngestionFactoryPanel";
+import { fetchRegistryAsLegacyShape } from "@/services/registry/legacy/legacyAdapter";
 
 interface IQubeTemplate {
   id: string;
@@ -127,21 +128,16 @@ export function RegistryHome() {
       .catch(() => setPersonasLoading(false));
   }, []);
 
-  // Listen for updates from the modal and refetch via HTTP
+  // Listen for updates from the modal and refetch via the canonical resolver
+  // (Phase A A1: was GET /api/registry/templates; now via legacyAdapter
+  // which prefers canonical /api/registry/iqube with legacy fallback).
   useEffect(() => {
     const handler = async (e: any) => {
       const updated = e.detail;
       if (!updated?.id) return;
       try {
-        const params = new URLSearchParams();
-        if (filters.search) params.set('search', filters.search);
-        if (filters.type) params.set('type', filters.type);
-        if (filters.instance) params.set('instance', filters.instance);
-        if (filters.businessModel) params.set('businessModel', filters.businessModel);
-        if (filters.sort) params.set('sort', filters.sort);
-        const res = await fetch(`/api/registry/templates?${params.toString()}`);
-        const data = await res.json();
-        if (res.ok && Array.isArray(data)) setTemplates(data);
+        const result = await fetchRegistryAsLegacyShape(filters, pagination.currentPage, pagination.limit);
+        if (result.data) setTemplates(result.data);
         try { toast('Template updated', 'success'); } catch {}
       } catch (err) {
         console.error('Failed to refresh templates after update', err);
@@ -150,38 +146,22 @@ export function RegistryHome() {
     };
     window.addEventListener('registryTemplateUpdated', handler as any);
     return () => window.removeEventListener('registryTemplateUpdated', handler as any);
-  }, [filters]);
+  }, [filters, pagination.currentPage, pagination.limit]);
 
-  // Hydrate list from service and refetch on filter changes
+  // Hydrate list from canonical resolver (Phase A A1) + refetch on filter
+  // changes. Adapter prefers /api/registry/iqube and falls back to legacy
+  // /api/registry/templates if the canonical fetch fails — single observation
+  // window per the integration plan.
   useEffect(() => {
     let mounted = true;
     const fetchList = async (f: FilterState, page: number = pagination.currentPage, limit: number = pagination.limit) => {
-      const params = new URLSearchParams();
-      if (f.search) params.set('search', f.search);
-      if (f.type) params.set('type', f.type);
-      if (f.instance) params.set('instance', f.instance);
-      if (f.businessModel) params.set('businessModel', f.businessModel);
-      if (f.sort) params.set('sort', f.sort);
-      params.set('page', page.toString());
-      params.set('limit', limit.toString());
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/registry/templates?${params.toString()}`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || 'Failed to load templates');
-        if (data.data && data.pagination) {
-          setTemplates(Array.isArray(data.data) ? data.data : []);
-          setPagination(data.pagination);
-          setWarning(data.error || null);
-        } else {
-          setTemplates(Array.isArray(data) ? data : []);
-          setPagination(prev => ({
-            ...prev,
-            totalCount: Array.isArray(data) ? data.length : 0,
-            totalPages: 1,
-          }));
-          setWarning(null);
-        }
+        const result = await fetchRegistryAsLegacyShape(f, page, limit);
+        if (!mounted) return;
+        setTemplates(result.data);
+        setPagination(result.pagination);
+        setWarning(result.error || null);
       } catch (e: any) {
         setError(e?.message || 'Failed to load templates');
       } finally {
@@ -247,16 +227,16 @@ export function RegistryHome() {
     if (!deleteId) return;
     const id = deleteId;
     try {
+      // Phase A — DELETE still goes through legacy route until Phase B
+      // canonicalises it via the canonization-queue revoke transition
+      // (per integration plan B6). Phase A keeps the UX intact; Phase B
+      // changes the button to 'Request revocation' with platform-admin gate.
       const res = await fetch(`/api/registry/templates/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete');
-      const params = new URLSearchParams();
-      if (filters.search) params.set('search', filters.search);
-      if (filters.type) params.set('type', filters.type);
-      if (filters.instance) params.set('instance', filters.instance);
-      if (filters.businessModel) params.set('businessModel', filters.businessModel);
-      const listRes = await fetch(`/api/registry/templates?${params.toString()}`);
-      const data = await listRes.json();
-      if (listRes.ok && Array.isArray(data)) setTemplates(data);
+      // Refetch the list via the canonical resolver
+      const result = await fetchRegistryAsLegacyShape(filters, pagination.currentPage, pagination.limit);
+      setTemplates(result.data);
+      setPagination(result.pagination);
       setCart(prev => prev.filter(cid => cid !== id));
       setDeleteId(null);
       try { toast('Template deleted', 'success'); } catch {}
