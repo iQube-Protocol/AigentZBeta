@@ -104,6 +104,7 @@ import { IQubeRegistryCanonizationTab } from "./tabs/IQubeRegistryCanonizationTa
 import { IQubeRegistryReceiptsTab } from "./tabs/IQubeRegistryReceiptsTab";
 import { IQubeRegistryVocabularyTab } from "./tabs/IQubeRegistryVocabularyTab";
 import { IQubeRegistryDocsTab } from "./tabs/IQubeRegistryDocsTab";
+import { IQubeRegistryIntakeTab } from "./tabs/IQubeRegistryIntakeTab";
 import { RefRuntimeTab } from "./tabs/RefRuntimeTab";
 import { RefStudioTab } from "./tabs/RefStudioTab";
 import { RefAigentTab } from "./tabs/RefAigentTab";
@@ -240,6 +241,7 @@ const componentRegistry: Record<string, React.ComponentType<any>> = {
   IQubeRegistryReceiptsTab,
   IQubeRegistryVocabularyTab,
   IQubeRegistryDocsTab,
+  IQubeRegistryIntakeTab,
   RefRuntimeTab,
   RefStudioTab,
   RefAigentTab,

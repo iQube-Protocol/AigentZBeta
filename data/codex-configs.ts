@@ -3184,6 +3184,18 @@ export const IQUBE_REGISTRY_CARTRIDGE: CodexConfig = {
       metadata: { icon: 'Search', description: 'iQube discovery + filter + detail view', color: 'violet' },
     },
     {
+      id: 'iqube-registry-intake',
+      label: 'Intake',
+      slug: 'intake',
+      enabled: true,
+      adminOnly: true,
+      group: 'browse',
+      order: 1,
+      type: 'static',
+      config: { component: 'IQubeRegistryIntakeTab' },
+      metadata: { icon: 'Factory', description: 'Ingestion Factory — canonical intake', color: 'violet' },
+    },
+    {
       id: 'iqube-registry-receipts',
       label: 'DVN Receipts',
       slug: 'receipts',
