@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`48086c8`](https://github.com/iQube-Protocol/AigentZBeta/commit/48086c86e4c463e99febc53db606dd7065b84408) [push] SmartWalletDrawer: remove mandatory persona-creation gate on sign-in (Claude, 2026-05-31T23:37:11Z)
+- [`05a8d6c`](https://github.com/iQube-Protocol/AigentZBeta/commit/05a8d6c04997d79c1515e9f1163861da87fca337) [push] trigger deploy to dev (Claude, 2026-05-31T23:37:11Z)
 - [`609c885`](https://github.com/iQube-Protocol/AigentZBeta/commit/609c885d6cdb7f7720402589ce70787cebc4d4a6) [push] MyWorkspaceTab: 5-item sub-menu nav matching standard cartridge pattern (Claude, 2026-05-31T22:32:06Z)
 - [`4e01b23`](https://github.com/iQube-Protocol/AigentZBeta/commit/4e01b23bfb637e617cc92d0b1144989bc7baf9fe) [push] trigger deploy to dev (Claude, 2026-05-31T22:32:06Z)
 - [`e549a85`](https://github.com/iQube-Protocol/AigentZBeta/commit/e549a8507875dcae26984042d507b9a4ad345d24) [push] myWorkspace: separate myworkspace_entries table for strict canvas/workspace demarcation (Claude, 2026-05-31T21:54:59Z)

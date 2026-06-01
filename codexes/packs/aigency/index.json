@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-31T22:34:00.898Z",
+  "last_updated": "2026-05-31T23:39:12.308Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "609c885d6cdb7f7720402589ce70787cebc4d4a6",
-  "latest_commit_short": "609c885",
-  "latest_commit_title": "MyWorkspaceTab: 5-item sub-menu nav matching standard cartridge pattern",
+  "latest_commit": "48086c86e4c463e99febc53db606dd7065b84408",
+  "latest_commit_short": "48086c8",
+  "latest_commit_title": "SmartWalletDrawer: remove mandatory persona-creation gate on sign-in",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "48086c8",
+      "full_sha": "48086c86e4c463e99febc53db606dd7065b84408",
+      "title": "SmartWalletDrawer: remove mandatory persona-creation gate on sign-in",
+      "author": "Claude",
+      "timestamp": "2026-05-31T23:37:11Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-48086c8.md"
+    },
+    {
+      "sha": "05a8d6c",
+      "full_sha": "05a8d6c04997d79c1515e9f1163861da87fca337",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-05-31T23:37:11Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-05a8d6c.md"
+    },
     {
       "sha": "609c885",
       "full_sha": "609c885d6cdb7f7720402589ce70787cebc4d4a6",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-27T18:50:28Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-47347c4.md"
-    },
-    {
-      "sha": "df780ef",
-      "full_sha": "df780eff29c51ac0c493de83a153170a9c55388c",
-      "title": "Match KNYT cover pattern exactly: covers are images, no pdfjs rasteriser, no fake worker",
-      "author": "Claude",
-      "timestamp": "2026-05-27T18:41:54Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-df780ef.md"
-    },
-    {
-      "sha": "51f6a32",
-      "full_sha": "51f6a32f6652ecec53bceb42d60f131cc9e2993c",
-      "title": "Use pdfjs-dist legacy build (no worker) in PDF-thumb route so Lambda doesnt look for pdf.worker.mjs",
-      "author": "Claude",
-      "timestamp": "2026-05-27T15:26:46Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-51f6a32.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
