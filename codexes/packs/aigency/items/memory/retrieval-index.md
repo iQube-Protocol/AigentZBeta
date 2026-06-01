@@ -1884,3 +1884,13 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-5c07dab.md](../build_/COMMITS/COMMIT-5c07dab.md)
 - Message: fix(ops): add CRON_TRIGGER_TOKEN to env allowlist
+
+## Commit `c98ed5e` — 2026-06-01T15:33:36Z
+- Type: `push`
+- Brief: [COMMIT-c98ed5e.md](../build_/COMMITS/COMMIT-c98ed5e.md)
+- Message: trigger deploy to dev
+
+## Commit `f6455ca` — 2026-06-01T15:33:36Z
+- Type: `push`
+- Brief: [COMMIT-f6455ca.md](../build_/COMMITS/COMMIT-f6455ca.md)
+- Message: MyCanvasTab: Edit button + in-panel edit-mode on saved experience_derived entries

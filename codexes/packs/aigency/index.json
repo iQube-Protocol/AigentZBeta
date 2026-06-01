@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-01T13:39:51.257Z",
+  "last_updated": "2026-06-01T15:36:02.280Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "5c07dab75546242781f18d152735423c2f5d657d",
-  "latest_commit_short": "5c07dab",
-  "latest_commit_title": "fix(ops): add CRON_TRIGGER_TOKEN to env allowlist",
+  "latest_commit": "f6455cacc09e14e1c906ca28d0e5553a95a1da05",
+  "latest_commit_short": "f6455ca",
+  "latest_commit_title": "MyCanvasTab: Edit button + in-panel edit-mode on saved experience_derived entries",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "f6455ca",
+      "full_sha": "f6455cacc09e14e1c906ca28d0e5553a95a1da05",
+      "title": "MyCanvasTab: Edit button + in-panel edit-mode on saved experience_derived entries",
+      "author": "Claude",
+      "timestamp": "2026-06-01T15:33:36Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-f6455ca.md"
+    },
+    {
+      "sha": "c98ed5e",
+      "full_sha": "c98ed5e843f11495aa338a2c396229d5c321cda7",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-06-01T15:33:36Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-c98ed5e.md"
+    },
     {
       "sha": "5c07dab",
       "full_sha": "5c07dab75546242781f18d152735423c2f5d657d",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-28T15:39:31Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-d5b2194.md"
-    },
-    {
-      "sha": "b317316",
-      "full_sha": "b3173162713c3a93dee28e0a283019da3a06d310",
-      "title": "reinstate persona-uploads frontend wiring (lost in stable-build revert)",
-      "author": "Claude",
-      "timestamp": "2026-05-28T15:21:08Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-b317316.md"
-    },
-    {
-      "sha": "808e230",
-      "full_sha": "808e230cc244296acc8a70c8a0d1a4d2f5185031",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-28T15:21:13Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-808e230.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
