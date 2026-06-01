@@ -1868,7 +1868,7 @@ export default function SmartWalletDrawer({
             </button>
 
             {personaMenuOpen && (
-              <div className="absolute top-full left-0 mt-1 min-w-[240px] bg-slate-950 rounded-lg border border-white/20 shadow-2xl z-[200] overflow-hidden">
+              <div className="absolute top-full left-0 mt-1 min-w-[240px] max-h-[calc(100vh-120px)] bg-slate-950 rounded-lg border border-white/20 shadow-2xl z-[200] overflow-y-auto overscroll-contain">
 
                 {/* Signed-in account header */}
                 {sessionEmail && (

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-01T02:09:31.161Z",
+  "last_updated": "2026-06-01T13:23:10.946Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "a875f3e5d2d6ad220b59329a817ee2297ba2d54a",
-  "latest_commit_short": "a875f3e",
-  "latest_commit_title": "metaMe: KNYT rename + ExpandedNBEPill contextualTitle + markdown strip on email drafts",
+  "latest_commit": "cdcf11569eef7dc90930350bc5f3df26aa9d18cf",
+  "latest_commit_short": "cdcf115",
+  "latest_commit_title": "RemixDialog + wallet drawer: tablet-landscape scroll + close-confirm + Edit mode",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,96 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "cdcf115",
+      "full_sha": "cdcf11569eef7dc90930350bc5f3df26aa9d18cf",
+      "title": "RemixDialog + wallet drawer: tablet-landscape scroll + close-confirm + Edit mode",
+      "author": "Claude",
+      "timestamp": "2026-06-01T13:20:49Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-cdcf115.md"
+    },
+    {
+      "sha": "df33f1f",
+      "full_sha": "df33f1f8efdfa2a1b63bcd36b1f7d05812103d96",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-06-01T13:20:49Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-df33f1f.md"
+    },
+    {
+      "sha": "d0d5618",
+      "full_sha": "d0d561824e882545f08daceb4ab095c8d2bea23c",
+      "title": "trinity rename: code surface — disambiguate iQube primitives from SmartTriad",
+      "author": "Claude",
+      "timestamp": "2026-05-31T19:47:03Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-d0d5618.md"
+    },
+    {
+      "sha": "99783e1",
+      "full_sha": "99783e119f7093ef0052080579a4c10b9f9581e6",
+      "title": "trigger deploy to dev: trinity rename (code-surface only; DB enum values preserved)",
+      "author": "Claude",
+      "timestamp": "2026-05-31T19:47:04Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-99783e1.md"
+    },
+    {
+      "sha": "3138ef5",
+      "full_sha": "3138ef5bf8a893048e4e1410cab9775f53b11114",
+      "title": "ops: anchor cron + K/T policy backend — schema, cron-tick, calibration, history",
+      "author": "Claude",
+      "timestamp": "2026-06-01T12:36:24Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-3138ef5.md"
+    },
+    {
+      "sha": "d7eab2f",
+      "full_sha": "d7eab2f95dc4bf72ed82850bc8577d98eb91785b",
+      "title": "ops: AnchorCalibrationCard — runtime tuning panel on /ops",
+      "author": "Claude",
+      "timestamp": "2026-06-01T12:38:16Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-d7eab2f.md"
+    },
+    {
+      "sha": "fbf7823",
+      "full_sha": "fbf7823ec47bdba78cd5c3174b688869324baa11",
+      "title": "docs: AgentiQ Network Costs — first-class reference doc + cartridge collection",
+      "author": "Claude",
+      "timestamp": "2026-06-01T12:39:45Z",
+      "type": "docs",
+      "brief": "items/build_/COMMITS/COMMIT-fbf7823.md"
+    },
+    {
+      "sha": "72e03a8",
+      "full_sha": "72e03a8d725c25afcb8a21d2ceb41a2248222962",
+      "title": "trigger deploy to dev: ops anchor cron + K/T policy + calibration card + network-costs doc",
+      "author": "Claude",
+      "timestamp": "2026-06-01T12:39:46Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-72e03a8.md"
+    },
+    {
+      "sha": "7538ba5",
+      "full_sha": "7538ba53f3cd63ecb70246eccb1267e92b4fdd31",
+      "title": "ops page: anchor calibration repositioned + Base mainnet card added",
+      "author": "Claude",
+      "timestamp": "2026-06-01T12:41:57Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7538ba5.md"
+    },
+    {
+      "sha": "09a18bf",
+      "full_sha": "09a18bf3645901162d7f3cec5f2208a11a81d1db",
+      "title": "trigger deploy to dev: ops layout — anchor calibration repositioned + Base mainnet card",
+      "author": "Claude",
+      "timestamp": "2026-06-01T12:41:57Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-09a18bf.md"
+    },
     {
       "sha": "a875f3e",
       "full_sha": "a875f3e5d2d6ad220b59329a817ee2297ba2d54a",
@@ -1162,96 +1252,6 @@
       "timestamp": "2026-05-28T15:13:58Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-29b5492.md"
-    },
-    {
-      "sha": "614526f",
-      "full_sha": "614526f4b5f73f138b61b0477c5df0d8b2c10514",
-      "title": "Backlog: 21 Sats Franchises store_skus seed + KNYT COYN bonus payout wiring",
-      "author": "Claude",
-      "timestamp": "2026-05-28T15:12:14Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-614526f.md"
-    },
-    {
-      "sha": "b226c88",
-      "full_sha": "b226c88aa765d6e244364132ef53e2951f5d8d25",
-      "title": "fix capsule disappearance + restore Pill pattern to Move-forward + Venture",
-      "author": "Claude",
-      "timestamp": "2026-05-28T05:43:50Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-b226c88.md"
-    },
-    {
-      "sha": "6ce6085",
-      "full_sha": "6ce60855cc5da589f07892b3a6784f1fed8ba046",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-28T05:43:54Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-6ce6085.md"
-    },
-    {
-      "sha": "d52a3a5",
-      "full_sha": "d52a3a5f4295f08ea59c7d9b202f41c3c7cbb0b7",
-      "title": "Suppress 21 Sats Franchises in retail Premium Bundles + use personaFetch for purchase complete + paypal (fix 401)",
-      "author": "Claude",
-      "timestamp": "2026-05-28T03:53:24Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-d52a3a5.md"
-    },
-    {
-      "sha": "f40facd",
-      "full_sha": "f40facd5b5f8cdfa7b030783c18584eec135bc5a",
-      "title": "Use Satoshi gold seal for 21 Sats Franchise cards + admin override on investor-tab + cohort gates",
-      "author": "Claude",
-      "timestamp": "2026-05-28T02:59:24Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-f40facd.md"
-    },
-    {
-      "sha": "7f85e60",
-      "full_sha": "7f85e60de82fed0e2ebde2f2422581d490398fce",
-      "title": "Add 21 Sats Franchises section to KNYT investor tab — 3 gold cards, ZeroKNYT cohort gate, PoA mailto, no-KNYT-rail flag, tab investor-gated",
-      "author": "Claude",
-      "timestamp": "2026-05-28T02:00:33Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-7f85e60.md"
-    },
-    {
-      "sha": "d6a7362",
-      "full_sha": "d6a73629b42b74c009c1e4da7e6826eec66b6027",
-      "title": "Reorder Qripto Papers grid — Experience Sovereignty, COYN Thesis, The Polity at the top",
-      "author": "Claude",
-      "timestamp": "2026-05-28T00:35:47Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-d6a7362.md"
-    },
-    {
-      "sha": "f6143da",
-      "full_sha": "f6143daf264a210d110196500c8e6b3555e3748d",
-      "title": "Add editorial scope order — Experience Sovereignty now sits above COYN Thesis in Qripto Papers grid",
-      "author": "Claude",
-      "timestamp": "2026-05-27T22:30:29Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-f6143da.md"
-    },
-    {
-      "sha": "b82bb3a",
-      "full_sha": "b82bb3a87c6fdba4a46c898196b7d8c1e9a9b214",
-      "title": "Pair Qripto covers to papers by shared title stem (case+punct normalised) — works when covers have headings but no leading number",
-      "author": "Claude",
-      "timestamp": "2026-05-27T20:58:22Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-b82bb3a.md"
-    },
-    {
-      "sha": "c305db9",
-      "full_sha": "c305db9bc61d5afe72a79e731d26b5c3ffe7749d",
-      "title": "Sort Qripto Papers grid by leading sequence number in title so #1 sits left of each series row",
-      "author": "Claude",
-      "timestamp": "2026-05-27T20:54:33Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-c305db9.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
