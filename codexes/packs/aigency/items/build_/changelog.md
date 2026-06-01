@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`5c07dab`](https://github.com/iQube-Protocol/AigentZBeta/commit/5c07dab75546242781f18d152735423c2f5d657d) [fix] fix(ops): add CRON_TRIGGER_TOKEN to env allowlist (Claude, 2026-06-01T13:37:53Z)
+- [`4a36c1f`](https://github.com/iQube-Protocol/AigentZBeta/commit/4a36c1fb2a8728f7414a1b570042d00b72d87f32) [fix] trigger deploy to dev: env allowlist fix for CRON_TRIGGER_TOKEN (Claude, 2026-06-01T13:37:53Z)
 - [`cdcf115`](https://github.com/iQube-Protocol/AigentZBeta/commit/cdcf11569eef7dc90930350bc5f3df26aa9d18cf) [push] RemixDialog + wallet drawer: tablet-landscape scroll + close-confirm + Edit mode (Claude, 2026-06-01T13:20:49Z)
 - [`df33f1f`](https://github.com/iQube-Protocol/AigentZBeta/commit/df33f1f8efdfa2a1b63bcd36b1f7d05812103d96) [push] trigger deploy to dev (Claude, 2026-06-01T13:20:49Z)
 - [`d0d5618`](https://github.com/iQube-Protocol/AigentZBeta/commit/d0d561824e882545f08daceb4ab095c8d2bea23c) [refactor] trinity rename: code surface — disambiguate iQube primitives from SmartTriad (Claude, 2026-05-31T19:47:03Z)
