@@ -40,6 +40,8 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-06-01_mycartridge-prd-draft.md",
+        "updates/2026-06-01_mobile-landscape-iframe-truncation-backlog.md",
         "updates/2026-05-29_venture-iqube-schema-v0.3.md",
         "updates/2026-05-29_venture-iqube-schema-v0.2.md",
         "updates/2026-05-29_venture-iqube-schema-v0.1.md",

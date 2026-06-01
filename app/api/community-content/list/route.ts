@@ -104,24 +104,58 @@ export async function GET(req: NextRequest) {
     const rows = (data ?? []) as ContentRow[];
 
     // Hydrate creator display info in a single batched query.
+    //
+    // Two parallel reads, merged into one map:
+    //   1. nakamoto_knyt_personas — legacy KNYT social handles
+    //      (First-Name, Twitter-Handle, Telegram-Handle, Discord-Handle)
+    //   2. personas — canonical persona row with the FIO handle (e.g.
+    //      `inquisitor@knyt`, `aigentz@aigent`) which is the operator's
+    //      actual sovereign-identity byline.
+    //
+    // 2026-06-01 operator decision: byline on published articles /
+    // stories should surface the persona's FIO handle as the
+    // canonical "By <…>" identifier — not "Creator" and not a
+    // first-name. FIO handle is the persona's chosen identity in the
+    // metaMe / KNYT mythos, so it's what readers should see.
+    //
+    // Resolution priority (applied at FE render time):
+    //   fioHandle → handle (social) → firstName → "Creator"
     const creatorIds = Array.from(new Set(rows.map((r) => r.creator_persona_id)));
-    let creatorMap: Record<string, { firstName: string | null; handle: string | null }> = {};
+    let creatorMap: Record<string, { firstName: string | null; handle: string | null; fioHandle: string | null }> = {};
     if (creatorIds.length > 0) {
-      const { data: personas } = await supabase
-        .from('nakamoto_knyt_personas')
-        .select('id, "First-Name", "Twitter-Handle", "Telegram-Handle", "Discord-Handle"')
-        .in('id', creatorIds);
-      const personaList = (personas ?? []) as PersonaRow[];
+      const [knytRes, personaRes] = await Promise.all([
+        supabase
+          .from('nakamoto_knyt_personas')
+          .select('id, "First-Name", "Twitter-Handle", "Telegram-Handle", "Discord-Handle"')
+          .in('id', creatorIds),
+        supabase
+          .from('personas')
+          .select('id, fio_handle')
+          .in('id', creatorIds),
+      ]);
+      const knytList = (knytRes.data ?? []) as PersonaRow[];
+      const personaList = (personaRes.data ?? []) as Array<{ id: string; fio_handle: string | null }>;
+      const fioByPersonaId = Object.fromEntries(
+        personaList.map((p) => [p.id, p.fio_handle ?? null]),
+      );
       creatorMap = Object.fromEntries(
-        personaList.map((p) => [
+        knytList.map((p) => [
           p.id,
           {
             firstName: (p['First-Name'] ?? null) || null,
             handle:
               (p['Twitter-Handle'] || p['Telegram-Handle'] || p['Discord-Handle'] || null) || null,
+            fioHandle: fioByPersonaId[p.id] ?? null,
           },
         ]),
       );
+      // Some personas only exist on the personas table (no KNYT social
+      // handles row). Still expose their FIO handle for the byline.
+      for (const p of personaList) {
+        if (!creatorMap[p.id]) {
+          creatorMap[p.id] = { firstName: null, handle: null, fioHandle: p.fio_handle ?? null };
+        }
+      }
     }
 
     const items = rows.map((r) => ({
@@ -142,6 +176,7 @@ export async function GET(req: NextRequest) {
         personaId: r.creator_persona_id,
         firstName: creatorMap[r.creator_persona_id]?.firstName ?? null,
         handle:    creatorMap[r.creator_persona_id]?.handle    ?? null,
+        fioHandle: creatorMap[r.creator_persona_id]?.fioHandle ?? null,
         isMe:      personaId ? r.creator_persona_id === personaId : false,
       },
       promotedToRuntime:   r.status === 'runtime_promoted',

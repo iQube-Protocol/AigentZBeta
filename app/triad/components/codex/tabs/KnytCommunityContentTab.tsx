@@ -46,6 +46,7 @@ interface CommunityContentItem {
     personaId: string;
     firstName: string | null;
     handle: string | null;
+    fioHandle: string | null;
     isMe: boolean;
   };
   promotedToRuntime: boolean;
@@ -273,7 +274,7 @@ function ContentCard({
           <p className="text-sm font-semibold text-white leading-tight line-clamp-2">{item.title}</p>
           <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
             <User className="h-3 w-3" />
-            {item.creator.firstName ?? item.creator.handle ?? "Creator"}
+            {item.creator.fioHandle ?? item.creator.handle ?? item.creator.firstName ?? "Creator"}
             {item.qcCost > 0 && (
               <span className="ml-auto inline-flex items-center gap-0.5">
                 <Coins className="h-3 w-3 text-amber-400/60" />
@@ -351,7 +352,7 @@ function ContentDetail({ item, personaId }: { item: CommunityContentItem; person
           </p>
           <h1 className="text-xl font-bold text-white leading-tight">{item.title}</h1>
           <p className="text-xs text-slate-500 mt-1">
-            By {item.creator.firstName ?? item.creator.handle ?? "Creator"}
+            By {item.creator.fioHandle ?? item.creator.handle ?? item.creator.firstName ?? "Creator"}
           </p>
         </div>
         <div className="flex items-center gap-2">
