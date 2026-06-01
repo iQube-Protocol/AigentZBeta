@@ -1894,3 +1894,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-f6455ca.md](../build_/COMMITS/COMMIT-f6455ca.md)
 - Message: MyCanvasTab: Edit button + in-panel edit-mode on saved experience_derived entries
+
+## Commit `336eacc` — 2026-06-01T23:26:40Z
+- Type: `fix`
+- Brief: [COMMIT-336eacc.md](../build_/COMMITS/COMMIT-336eacc.md)
+- Message: backlog: auto-merge workflow repair + anchor cron scheduler wiring
