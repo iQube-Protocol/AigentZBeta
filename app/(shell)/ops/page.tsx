@@ -35,6 +35,7 @@ import { A2ADVNCard } from "@/components/ops/A2ADVNCard";
 import { DiDQubeIdentityCard } from "@/components/ops/DiDQubeIdentityCard";
 import { DiDQubeReputationCard } from "@/components/ops/DiDQubeReputationCard";
 import { FundingStatusCard } from "@/components/ops/FundingStatusCard";
+import { AnchorCalibrationCard } from "@/components/ops/AnchorCalibrationCard";
 import { Connection, Transaction, SystemProgram, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { getPhantomWallet } from '@/services/wallet/phantom';
 import { getUnisatWallet } from '@/services/wallet/unisat';
@@ -555,6 +556,7 @@ export default function OpsPage() {
     { key: "funding_status", title: "Ops Gas Status" },
     { key: "btc_anchor", title: "BTC Anchor Status" },
     { key: "sync_status", title: "Canister Sync Status" },
+    { key: "anchor_calibration", title: "Anchor Calibration (K / T / cron)" },
     { key: "icp_dvn", title: "ICP DVN" },
     { key: "dvn_mint_tests", title: "DVN Mint Tests" },
     { key: "didqube_identity", title: "DiDQube Identity" },
@@ -626,6 +628,9 @@ export default function OpsPage() {
         {cards.map(({ key, title }) => {
           if (key === "funding_status") {
             return <FundingStatusCard key={key} title={title} />;
+          }
+          if (key === "anchor_calibration") {
+            return <AnchorCalibrationCard key={key} title={title} />;
           }
           if (key === "a2a_tests") {
             return <A2ATestCard key={key} title={title} />;
