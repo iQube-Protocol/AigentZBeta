@@ -2287,7 +2287,7 @@ export const METAME_CODEX: CodexConfig = {
   tabGroups: [
     { id: 'web',          label: 'metame.com',       icon: 'Globe',      order: -1,  iconOnly: true },
     { id: 'aigentme',     label: 'aigentMe',         icon: 'Sparkles',   order: 0 },
-    { id: 'myartifacts',  label: 'myArtifacts',      icon: 'PenSquare',  order: 0.5, activationId: 'mycanvas' },
+    { id: 'mycluster',    label: 'myCluster',        icon: 'PenSquare',  order: 0.5, activationId: 'mycanvas' },
     { id: 'activations',  label: 'Activations',      icon: 'Zap',        order: 0.6 },
     { id: 'order',        label: 'KNYT',             icon: 'Shield',     order: 0.7, activationId: 'order-of-metaye' },
     { id: 'vl',           label: 'Venture Lab',      icon: 'TrendingUp', order: 1,   activationId: 'venture-lab' },
@@ -2442,9 +2442,12 @@ export const METAME_CODEX: CodexConfig = {
       },
     },
 
-    // ── myArtifacts group (activation-gated; auto-granted) ─────────────────
+    // ── myCluster group (activation-gated; auto-granted) ──────────────────
     //
-    // Three sub-tabs under one group chip:
+    // Renamed from "myArtifacts" 2026-06-01 per myCartridge PRD v0.2 — adds
+    // myCartridge as a fourth sub-tab between Workspace and Ledger.
+    //
+    // Four sub-tabs under one group chip:
     //   myCanvas    — public-publishable experiences (articles, stories,
     //                 remixable templates). Includes the Qriptopian Agents
     //                 of Change 15-min reading-sprint seed
@@ -2454,6 +2457,9 @@ export const METAME_CODEX: CodexConfig = {
     //                 workflows, briefs). Separate kind column on the
     //                 entries table to prevent leak risk between public
     //                 + private surfaces.
+    //   myCartridge — owner-side view of the user's cartridge engagement
+    //                 estate. Wizard CTA when unconfigured. External-facing
+    //                 summary when configured.
     //   myLedger    — the persona's personal ledger of canvas + workspace
     //                 artifacts (formerly myWorkbench's content).
     {
@@ -2462,7 +2468,7 @@ export const METAME_CODEX: CodexConfig = {
       slug: 'mycanvas',
       enabled: true,
       activationId: 'mycanvas',
-      group: 'myartifacts',
+      group: 'mycluster',
       order: 0,
       type: 'static',
       config: { component: 'MyCanvasTab', props: {} },
@@ -2478,7 +2484,7 @@ export const METAME_CODEX: CodexConfig = {
       slug: 'my-workspace',
       enabled: true,
       activationId: 'mycanvas',
-      group: 'myartifacts',
+      group: 'mycluster',
       order: 1,
       type: 'static',
       config: { component: 'MyWorkspaceTab', props: {} },
@@ -2489,13 +2495,29 @@ export const METAME_CODEX: CodexConfig = {
       },
     },
     {
+      id: 'mycartridge',
+      label: 'myCartridge',
+      slug: 'my-cartridge',
+      enabled: true,
+      activationId: 'mycanvas',
+      group: 'mycluster',
+      order: 2,
+      type: 'static',
+      config: { component: 'MyCartridgeTab', props: {} },
+      metadata: {
+        icon: 'Boxes',
+        description: 'The owner-side view of your cartridge — identity, primary tab, copilot stance, wallet stance, activation requests',
+        color: 'violet',
+      },
+    },
+    {
       id: 'myledger',
       label: 'myLedger',
       slug: 'my-ledger',
       enabled: true,
       activationId: 'mycanvas',
-      group: 'myartifacts',
-      order: 2,
+      group: 'mycluster',
+      order: 3,
       type: 'static',
       config: { component: 'MyLedgerTab', props: {} },
       metadata: {
