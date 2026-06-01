@@ -195,7 +195,9 @@ export function ExpandedNBEPill({
             )}
           </div>
           <h4 className={`text-base font-semibold leading-tight ${isDark ? "text-slate-100" : "text-slate-900"}`}>
-            {action.label}
+            {action.contextualTitle && action.contextualTitle.trim().length > 0
+              ? action.contextualTitle
+              : action.label}
           </h4>
           <p className={`text-sm mt-1 ${mutedClass}`}>{queued.queueMessage}</p>
           <p className={`text-[11px] mt-1.5 ${mutedClass}`}>

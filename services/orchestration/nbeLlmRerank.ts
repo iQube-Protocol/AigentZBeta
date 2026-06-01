@@ -258,9 +258,18 @@ export async function llmRerankNbeCandidates(
     for (const [id, title] of Object.entries(parsed.nbaContextualTitles as Record<string, unknown>)) {
       if (!validIds.has(id)) continue;
       if (typeof title !== 'string') continue;
-      const trimmed = title.trim();
-      if (trimmed.length === 0) continue;
-      nbaContextualTitles[id] = trimmed.slice(0, 140);
+      // Strip Markdown emphasis — Sonnet sometimes wraps the contextual
+      // title in **bold** even after a "no markdown" instruction. The
+      // NBA card renders the title verbatim as an h4, so unstripped
+      // asterisks ship as visible chrome.
+      const stripped = title
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .replace(/__([^_]+)__/g, '$1')
+        .replace(/`([^`\n]+)`/g, '$1')
+        .replace(/^#{1,6}\s+/g, '')
+        .trim();
+      if (stripped.length === 0) continue;
+      nbaContextualTitles[id] = stripped.slice(0, 140);
     }
   }
 

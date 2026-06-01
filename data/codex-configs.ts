@@ -2289,7 +2289,7 @@ export const METAME_CODEX: CodexConfig = {
     { id: 'aigentme',     label: 'aigentMe',         icon: 'Sparkles',   order: 0 },
     { id: 'myartifacts',  label: 'myArtifacts',      icon: 'PenSquare',  order: 0.5, activationId: 'mycanvas' },
     { id: 'activations',  label: 'Activations',      icon: 'Zap',        order: 0.6 },
-    { id: 'order',        label: 'Order of Metayé',  icon: 'Shield',     order: 0.7, activationId: 'order-of-metaye' },
+    { id: 'order',        label: 'KNYT',             icon: 'Shield',     order: 0.7, activationId: 'order-of-metaye' },
     { id: 'vl',           label: 'Venture Lab',      icon: 'TrendingUp', order: 1,   activationId: 'venture-lab' },
     { id: 'marketa',      label: 'Marketa',          icon: 'Megaphone',  order: 2,   activationId: 'marketa' },
     { id: 'studio',       label: 'metaMe Studio',    icon: 'Wand2',      order: 3,   activationId: 'metame-studio' },
@@ -2510,7 +2510,7 @@ export const METAME_CODEX: CodexConfig = {
     // Source KNYT cartridge is not modified.
     {
       id: 'order-of-metaye',
-      label: 'Order of Metayé',
+      label: 'KNYT',
       slug: 'order-of-metaye',
       enabled: true,
       activationId: 'order-of-metaye',
