@@ -249,6 +249,14 @@
         "updates/2026-05-08_phase-1-iam-spine-closure.md",
         "updates/2026-05-08_thin-client-handshake-spec.md"
       ]
+    },
+    {
+      "id": "col_network_economics",
+      "title": "Network Economics",
+      "description": "Canonical reference for what it costs to run the AgentiQ network — anchor + cross-chain cost model, K/T policy, calibration knobs, and cost-per-receipt projections at mainnet cutover.",
+      "items": [
+        "items/AGENTIQ_NETWORK_COSTS.md"
+      ]
     }
   ]
 }
