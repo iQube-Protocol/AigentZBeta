@@ -1,4 +1,12 @@
 # Build — Changelog
+- [`d0d5618`](https://github.com/iQube-Protocol/AigentZBeta/commit/d0d561824e882545f08daceb4ab095c8d2bea23c) [refactor] trinity rename: code surface — disambiguate iQube primitives from SmartTriad (Claude, 2026-05-31T19:47:03Z)
+- [`99783e1`](https://github.com/iQube-Protocol/AigentZBeta/commit/99783e119f7093ef0052080579a4c10b9f9581e6) [refactor] trigger deploy to dev: trinity rename (code-surface only; DB enum values preserved) (Claude, 2026-05-31T19:47:04Z)
+- [`3138ef5`](https://github.com/iQube-Protocol/AigentZBeta/commit/3138ef5bf8a893048e4e1410cab9775f53b11114) [push] ops: anchor cron + K/T policy backend — schema, cron-tick, calibration, history (Claude, 2026-06-01T12:36:24Z)
+- [`d7eab2f`](https://github.com/iQube-Protocol/AigentZBeta/commit/d7eab2f95dc4bf72ed82850bc8577d98eb91785b) [push] ops: AnchorCalibrationCard — runtime tuning panel on /ops (Claude, 2026-06-01T12:38:16Z)
+- [`fbf7823`](https://github.com/iQube-Protocol/AigentZBeta/commit/fbf7823ec47bdba78cd5c3174b688869324baa11) [docs] docs: AgentiQ Network Costs — first-class reference doc + cartridge collection (Claude, 2026-06-01T12:39:45Z)
+- [`72e03a8`](https://github.com/iQube-Protocol/AigentZBeta/commit/72e03a8d725c25afcb8a21d2ceb41a2248222962) [push] trigger deploy to dev: ops anchor cron + K/T policy + calibration card + network-costs doc (Claude, 2026-06-01T12:39:46Z)
+- [`7538ba5`](https://github.com/iQube-Protocol/AigentZBeta/commit/7538ba53f3cd63ecb70246eccb1267e92b4fdd31) [push] ops page: anchor calibration repositioned + Base mainnet card added (Claude, 2026-06-01T12:41:57Z)
+- [`09a18bf`](https://github.com/iQube-Protocol/AigentZBeta/commit/09a18bf3645901162d7f3cec5f2208a11a81d1db) [push] trigger deploy to dev: ops layout — anchor calibration repositioned + Base mainnet card (Claude, 2026-06-01T12:41:57Z)
 - [`a875f3e`](https://github.com/iQube-Protocol/AigentZBeta/commit/a875f3e5d2d6ad220b59329a817ee2297ba2d54a) [refactor] metaMe: KNYT rename + ExpandedNBEPill contextualTitle + markdown strip on email drafts (Claude, 2026-06-01T02:07:36Z)
 - [`1ce6738`](https://github.com/iQube-Protocol/AigentZBeta/commit/1ce6738deb0bbf77ba0384683ad71b3b7e4ffd39) [push] trigger deploy to dev (Claude, 2026-06-01T02:07:36Z)
 - [`48086c8`](https://github.com/iQube-Protocol/AigentZBeta/commit/48086c86e4c463e99febc53db606dd7065b84408) [push] SmartWalletDrawer: remove mandatory persona-creation gate on sign-in (Claude, 2026-05-31T23:37:11Z)
