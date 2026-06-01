@@ -1,6 +1,6 @@
-# myCartridge PRD — Draft v0.1
+# myCartridge PRD — Draft v0.2
 
-**Date:** 2026-06-01
+**Date:** 2026-06-01 (v0.1) · 2026-06-01 v0.2 (operator refinements folded)
 **Status:** Draft for review — pre-implementation
 **Owner:** dele@metame.com
 **Sibling rails:** myWorkspace · myCanvas · myLedger · myCluster · myCartridge
@@ -8,6 +8,8 @@
 **Schema:** ventureQube v0.3 → v0.4 (extension proposed below)
 
 > **Anchor framing.** myWorkspace is where the user works. myCanvas is where the user creates. myLedger is where the user verifies. myCartridge is where the user engages. myCluster is where the user organizes what they own.
+
+> **System-level Triad (canonical, set in v0.2):** every engagement surface is a **Triad of {Cartridge, Copilot, Wallet}**. The Cartridge primitive itself decomposes into **Codex · Content · Menu · SmartActions** as sub-classes. The legacy "SmartTriad" label (SmartContent + SmartWallet + SmartMenu) is superseded — those become Cartridge sub-classes (Content, Menu) and a sibling rail (Wallet).
 
 ---
 
@@ -236,23 +238,25 @@ The Codex Manager is the right substrate. It already models cartridges, tabs, pe
 
 ## 9. MVP Scope
 
-1. **Rebrand** the admin Codex Manager surface label to "myCartridge and Codex Manager" (super-admin tier).
-2. **Mount** an operator-tier `MyCartridgeManagerTab` inside the metaMe runtime.
-3. **CartridgeSetupWizard** — 5-step wizard mirroring the Experience Model wizard pattern.
-4. **CartridgeTemplate** — promote KNYT / Qriptopian / Venture Lab as templates (operator selects from a small starter set: Community, Venture, Knowledge Estate, Creative Universe).
-5. **Tab templates** — Pulse, Codex, Experience, Active, Wallet, Ledger, Community, Members, Settings — each declared as `type: 'template'` with `templateId` in the cartridge config; rendered by extending `TabRenderer`.
-6. **One declared `primaryTabSlug` per cartridge** — add the field to `CodexConfig`, default to first enabled.
+1. **Rebrand** the admin Codex Manager surface label to "myCartridge and Codex Manager" (super-admin tier; still gated by `isAdmin: true`).
+2. **Mount** an operator-tier `MyCartridgeManagerTab` as a sub-tab in the **metaMe Admin group** (NOT a new top-level tab). Owner-scoped queries only — cannot see system cartridges.
+3. **CartridgeSetupWizard** — 5-step wizard mirroring the Experience Model wizard pattern (Identity, Purpose, Tabs, Audience, Triad+ActiveTab+CatalogueOptIn).
+4. **CartridgeTemplate** — promote KNYT / Qriptopian / Venture Lab as templates (operator selects from a starter set: Community, Venture, Knowledge Estate, Creative Universe).
+5. **Tab templates** — Pulse, Codex, Active, Overview first; Wallet, Ledger, Community, Members, Settings, Admin, Experience, Venture stubbed.
+6. **`primaryTabSlug` per cartridge** — auto-derived from category template, editable in wizard Step 4.
 7. **Tab-level demarcation** — extend `CodexTab` with `memberOnly`, `inviteOnly`, `tokenGated`, `roleRequired`.
-8. **Cartridge ownership** — add `ownerPersonaId` to `CodexConfig`; add a `cartridge_memberships` table (`{cartridge_slug, persona_id, role, granted_at}`).
-9. **Activation surfacing** — the cartridge's Active Tab auto-registers in the Activation Catalogue (DB-backed catalogue alongside the static `data/activation-catalog.ts`).
-10. **Codex inside cartridge** — every new myCartridge gets a default Codex tab; myCanvas entries can be published into it.
-11. **Cartridge KB stub** — extend `/api/codex/chat` to accept optional `cartridgeSlug` and pass through to `embeddingService.hybridSearch` (cartridge-scoped filter; if no embeddings yet, fall back to domain).
-12. **Smart wallet stub** — mount `SmartWalletDrawer` with `cartridgeSlug` in the cartridge's Wallet tab. Crypto-send works via existing `TransactionModal`. Token whitelist defaults to {Q¢, USDC, KNYT} until v0.5 introduces per-cartridge tokens.
-13. **Specialist stub** — every cartridge declares an `availableSpecialists: SpecialistId[]` array; the cartridge co-pilot surfaces only those.
-14. **myCluster rebrand** — `data/codex-configs.ts:2290` TabGroup `myartifacts` → `mycluster`; three sub-tab `group:` references updated; new `myCartridge` sub-tab added inside the same group.
-15. **ventureQube v0.4** — schema extension with a `myCartridge` block (see §27).
-16. **State change receipts** — every cartridge creation, member invite, tab visibility change, crypto-send, catalogue submission, and catalogue review decision emits a DVN receipt to myLedger.
-17. **Active Surface Approval gate (§21a)** — a user-created myCartridge active tab is `pending` by default; only metaMe admins can flip it to `approved`; the public Activation Catalogue renders approved entries only.
+8. **Cartridge ownership** — add `ownerPersonaId` to `CodexConfig`; add a `cartridge_memberships` table.
+9. **Activation surfacing** — opt-in at wizard time; enters `pending_metame` (MVP) or `pending_registry` (post-pilot).
+10. **Codex inside cartridge** — every new myCartridge gets a default Codex tab; **myCanvas AND myWorkspace** entries can be published into it OR the Community tab.
+11. **Cartridge KB stub** — extend `/api/codex/chat` with `cartridgeSlug`; support **JSON blob upload as a KB source**; embedding pipeline ships in v0.5.
+12. **Cartridge Wallet** — `SmartWalletDrawer` with `cartridgeSlug` in the cartridge's Wallet tab. Send + receive + payment-request + reward primitives. Token whitelist defaults to **{Q¢, USDC}** with KNYT opt-in.
+13. **Specialist stub with free-tier gate** — `availableSpecialists` capped at ≤3 in free tier; 4th+ payment-gated (UI ships in MVP; payment flow stubbed).
+14. **Triad nomenclature** — system-level rename from "SmartTriad" to **Triad = {Cartridge, Copilot, Wallet}**; Codex/Content/Menu/SmartActions become Cartridge sub-classes.
+15. **myCluster rebrand** — `data/codex-configs.ts:2290` TabGroup rename + sub-tab `group:` updates + new `myCartridge` sub-tab. Order: **myCanvas / myWorkspace / myCartridge / myLedger**.
+16. **ventureQube v0.4** — schema extension with `myCartridge` block **nested under `ventures[]`** (1 venture per persona for MVP; sys-admins may exceed); see §27.
+17. **State change receipts** — every cartridge creation, tab visibility change, crypto-send, payment-request, reward, catalogue submission, and stage transition emits a DVN receipt to myLedger.
+18. **Active Surface Access / Requests (§21a)** — MVP runs **metaMe stage only** with Registry + Studio stages typed but auto-approved via `CARTRIDGE_APPROVAL_STAGES = 'metame-only'`; pilot flips to full three-stage chain. Owner-side primary surface is `MyCartridgeTab → Activation Requests` sub-tab + new `admin-active-surface-access-requests` sub-tab in metaMe Admin (extending the existing `admin-access-requests` non-admin-extended pattern).
+19. **System cartridge isolation** — operator-tier `MyCartridgeManagerTab` cannot list system cartridges. RLS + tokenQube + `isAdmin` gate compounded.
 
 ---
 
@@ -280,15 +284,15 @@ metaMe cartridge top-level tab strip (data/codex-configs.ts:2287):
   ├── metame.com (web)
   ├── aigentMe
   ├── myCluster ◄── RENAMED from myArtifacts (tabGroups[2290])
-  │     ├── myCanvas        (existing sub-tab — group changes from 'myartifacts' to 'mycluster')
-  │     ├── myWorkspace     (existing sub-tab — group rename)
-  │     ├── myLedger        (existing sub-tab — group rename)
-  │     └── myCartridge     ◄── NEW sub-tab in the same group
-  │           ├── (if no cartridge) → CartridgeSetupWizard CTA
-  │           └── (if configured)   → owner view of the user's cartridge:
-  │                 ├── index landing (cartridge identity, members, active tab, KB status)
-  │                 ├── pointer rows to canvases published to this cartridge
-  │                 └── pointer rows to ledger receipts scoped to this cartridge
+  │     ├── myCanvas        (existing — group rename)
+  │     ├── myWorkspace     (existing — group rename)
+  │     ├── myCartridge     ◄── NEW sub-tab (order matters: between Workspace and Ledger)
+  │     │     ├── (if no cartridge) → CartridgeSetupWizard CTA
+  │     │     └── (if configured)   → owner view (mostly external-facing summary):
+  │     │           ├── identity, primary tab, copilot stance, wallet stance
+  │     │           ├── public-facing card preview (what visitors see)
+  │     │           └── shortcut to Cartridge runtime + Activation Requests sub-tab
+  │     └── myLedger        (existing — group rename; moved AFTER myCartridge)
   ├── Activations
   ├── KNYT          (activation-gated)
   ├── Venture Lab   (activation-gated)
@@ -296,11 +300,21 @@ metaMe cartridge top-level tab strip (data/codex-configs.ts:2287):
   ├── metaMe Studio (activation-gated)
   ├── AgentiQ OS    (activation-gated)
   ├── Qriptopia     (activation-gated)
-  └── Admin         (admin-gated)
+  └── Admin         (admin-gated — operator's own admin panel for their cartridge(s))
         ├── Journey Dashboard
-        ├── Access Requests
-        ├── Active Surface Approvals  ◄── NEW sub-tab (§28a)
-        └── (other admin sub-tabs)
+        ├── Access Requests (existing — already extended to non-admin user requests)
+        ├── Active Surface Access / Requests ◄── NEW sub-tab — owner-side primary surface (§21a)
+        ├── My Cartridge Manager ◄── NEW sub-tab — operator-tier cartridge admin:
+        │     ├── Identity edit (name, description, purpose, icon)
+        │     ├── Tabs edit (visibility, reorder, primaryTabSlug)
+        │     ├── Members & roles (invite, role change, revoke)
+        │     ├── Copilot config (source, KB sources, JSON blob upload)
+        │     ├── Wallet config (token whitelist, primitives)
+        │     ├── Specialists (≤3 free; payment-gated above)
+        │     ├── Activated foreign tabs (cartridges I've activated tabs from)
+        │     ├── Published content pointers (canvases/workspace published here)
+        │     └── Ledger receipts scoped to this cartridge
+        └── (other system admin sub-tabs)
 
 Cartridge runtime (per-cartridge, reachable at /triad/embed/codex/{slug}):
   ├── Overview        (template)
@@ -328,16 +342,34 @@ Super-admin surface:
 
 ## 12. myCluster Integration
 
-myCluster is the rebranded TabGroup that holds myCanvas / myWorkspace / myLedger / myCartridge. The rail itself is implemented as a one-line edit in `data/codex-configs.ts:2290` (group id + label) and three one-line edits to the existing sub-tabs (`group: 'myartifacts'` → `'mycluster'` at lines 2465 / 2481 / 2497).
+myCluster is the rebranded TabGroup that holds **myCanvas / myWorkspace / myCartridge / myLedger** (in that order, v0.2). The rail itself is implemented as a one-line edit in `data/codex-configs.ts:2290` (group id + label) plus updates to the existing sub-tabs (`group: 'myartifacts'` → `'mycluster'` at lines 2465 / 2481 / 2497) and one new sub-tab insertion.
 
-The **net-new sub-tab** inside myCluster is `myCartridge`:
+### 12.1 Sub-tab order and intent
 
-- Component: `MyCartridgeTab.tsx`, registered in `TabRenderer.tsx` alongside MyCanvas/MyWorkspace/MyLedger.
-- Position: fourth sub-tab in the myCluster group (order: 3, after myLedger which is at order 2).
+The order matters — it mirrors the user's workflow:
+1. **myCanvas** (create) — the user makes something.
+2. **myWorkspace** (refine) — the user works on it privately.
+3. **myCartridge** (engage) — the user surfaces what they own as an external-facing engagement estate.
+4. **myLedger** (verify) — the user reviews receipts for everything that happened.
+
+The myCartridge sub-tab is **mostly external-facing** — it shows what visitors to the user's cartridge see. The heavy operational content (owned cartridges list, activated foreign tabs, published content pointers, ledger receipts scoped to a cartridge) lives in the **metaMe Admin → My Cartridge Manager** sub-tab (see §11 IA). That separation reflects an operator framing: the cartridge surface is public-facing posture; the admin surface is the operator's private control room.
+
+### 12.2 What lives where
+
+| Surface | Primary audience | Content |
+|---|---|---|
+| myCluster → myCartridge sub-tab | Cartridge owner reviewing their external posture | Identity card, primary tab summary, public-facing preview, copilot/wallet stance, shortcut to cartridge runtime, shortcut to Activation Requests |
+| metaMe Admin → My Cartridge Manager | Cartridge owner operating their cartridge | Identity edit, tabs edit, members + roles, copilot config + KB sources + JSON blob upload, wallet config, specialist whitelist, activated foreign tabs list, published-here pointers, ledger receipts filtered by cartridge |
+| Cartridge runtime (`/triad/embed/codex/{slug}`) | Visitors AND owner | The cartridge as anyone sees it — Overview, Active Tab, Codex, Pulse, etc. |
+
+### 12.3 Implementation surface
+
+- Component: `MyCartridgeTab.tsx`, registered in `TabRenderer.tsx`.
+- Position: third sub-tab in the myCluster group (order: 2; myLedger shifts to order 3).
 - Behavior:
-  - If the active persona has no cartridge configured (`ventureQube.myCartridge.configured !== true` AND no row in `codex_configs WHERE owner_persona_id = $personaId`) → show the CartridgeSetupWizard CTA.
-  - If configured → show the owner view: cartridge identity card, member roster, active tab summary, KB status, links to canvases published to this cartridge, links to ledger receipts scoped to it, and a button to open the cartridge runtime at `/triad/embed/codex/{slug}?personaId=...` via `buildCodexUrl`.
-- Backing API: `GET /api/mycartridge/owner-view?personaId=...` returns `{cartridge, members, activeTab, kbStatus, publishedEntries[], ledgerReceipts[]}` (the contents are pointers — never copies).
+  - If the active persona has no cartridge configured → CartridgeSetupWizard CTA.
+  - If configured → external-facing summary (per 12.2 row 1).
+- Backing API: `GET /api/mycartridge/owner-summary?personaId=...` returns the external-facing fields only. Owner-tier control fields go to `GET /api/mycartridge/admin-detail?personaId=...` (called from MyCartridgeManagerTab inside the metaMe Admin group).
 
 The myCluster TabGroup does NOT need its own dedicated API or container component; its identity is a TabGroup row in codex-configs, which the existing CodexPanelDynamic / TabRenderer chain already handles.
 
@@ -371,77 +403,181 @@ The myCluster TabGroup does NOT need its own dedicated API or container componen
 
 ---
 
-## 15. Smart Triad Requirements
+## 15. Triad Requirements (Cartridge + Copilot + Wallet)
 
-Every myCartridge is a Smart Triad. The cartridge config declares:
+**Naming correction (v0.2):** the system-level engagement Triad is **Cartridge + Copilot + Wallet**. The Cartridge primitive contains **Codex · Content · Menu · SmartActions** as sub-classes. The previously-named "SmartTriad" (SmartContent / SmartWallet / SmartMenu) is retired as a top-level concept; its members fold into this taxonomy.
+
+### 15.1 The three Triad primitives
 
 ```ts
-smartTriad: {
-  copilot: {
-    specialistId?: SpecialistId;        // default: aigentMe (the user's own)
-    promptContext: string;              // cartridge purpose summary
-    kbDomainOverride?: ContentDomain;   // fallback when cartridge KB has no hits
-  };
-  knowledgeBase: {
-    sources: KBSource[];                // myCanvas entries, uploaded docs, Codex pages
-    embeddingStatus: 'pending' | 'ready' | 'stale';
-  };
-  codex: {
-    enabled: boolean;
-    rootTabSlug: 'codex';
-  };
-  wallet: {
-    enabled: boolean;
-    tokenWhitelist: TokenId[];
-    cartridgeScopedPersona?: PersonaId;
-  };
-}
+type Triad = {
+  cartridge: CartridgePrimitive;   // the engagement estate
+  copilot:   CopilotPrimitive;     // the operator + KB
+  wallet:    WalletPrimitive;      // the value rail
+};
 ```
 
-These five blocks (copilot, KB, Codex, wallet, identity-via-spine) ride together. Removing one without the others breaks the Triad contract.
+### 15.2 Cartridge sub-classes
+
+A Cartridge decomposes into four sub-classes — each addressable independently in code, but all riding under the cartridge identity:
+
+```ts
+type CartridgePrimitive = {
+  identity: {                       // who/what the cartridge is
+    slug: string;
+    title: string;
+    description: string;
+    purpose: string;
+    category: CartridgeCategory;
+    visibility: 'public' | 'private' | 'invite-only' | 'member-only';
+    ownerPersonaId: string;         // T0 — server-only
+  };
+  codex: {                          // canonical, structured assets — INCLUDES DVN receipts
+    enabled: boolean;
+    rootTabSlug: 'codex';
+    receiptKinds: ReceiptKind[];    // DVN receipts surfaced inside Codex
+    registryEligible: boolean;      // cartridge active tab is iQube-eligible — gates §21a chain
+    mintingEnabled: boolean;        // ContentQube minting from Codex entries (v0.5)
+  };
+  content: {                        // myCanvas + myWorkspace publishing surface
+    publishSources: ('mycanvas' | 'myworkspace')[];  // both can publish
+    publishTargets: ('codex' | 'community')[];       // tabs that accept publishes
+  };
+  menu: {                           // tab strip + navigation
+    tabs: CartridgeTabSpec[];
+    primaryTabSlug: string;
+  };
+  smartActions: {                   // action chips, NBE invocations, specialist routing
+    availableSpecialists: SpecialistId[];   // gated: free tier ≤3 (see §35 R7)
+    actionWhitelist: string[];
+  };
+};
+```
+
+### 15.3 Copilot primitive
+
+```ts
+type CopilotPrimitive = {
+  // MVP: default is the user's own aigentMe operating the cartridge
+  // Future stub: cartridge-level copilot persona separate from owner's aigentMe
+  source: 'aigentMe' | 'cartridge-copilot' | 'specialist';
+  cartridgeCopilotPersonaId?: string;   // STUB for future; null in MVP
+  promptContext: string;                // derived from cartridge.identity.purpose
+  knowledgeBase: {
+    sources: KBSource[];
+    // NEW (v0.2): JSON blob upload as a first-class KB source
+    jsonBlob?: { uri: string; uploadedAt: string; sizeBytes: number };
+    embeddingStatus: 'pending' | 'ready' | 'stale';
+  };
+};
+```
+
+**MVP default:** `source = 'aigentMe'`. The user's own regent operates the cartridge. **Future stub (typed but not wired):** `source = 'cartridge-copilot'` lets a cartridge owner spin up a cartridge-scoped copilot persona with its own KB, separate from their personal aigentMe. Stub the field; defer the wiring.
+
+**KB sources (v0.2):**
+- `mycanvas` entries published into the cartridge.
+- `myworkspace` entries the owner explicitly tags `kb-include`.
+- Uploaded docs (≤5 in MVP).
+- **NEW:** uploaded JSON blob (single file, schema-free, treated as opaque text for embedding). Cartridge owner picks the upload in Step 5 of the wizard or later from MyCartridgeManagerTab.
+
+### 15.4 Wallet primitive
+
+```ts
+type WalletPrimitive = {
+  enabled: boolean;
+  tokenWhitelist: TokenId[];                            // MVP: {Q¢, USDC, KNYT (KNYT opt-in)}
+  cartridgeScopedPersonaId?: string;
+  primitives: {
+    cryptoSend: boolean;                                // rewards + payments
+    cryptoReceive: boolean;                             // owner can receive
+    paymentRequest: boolean;                            // owner can request payment from visitor
+    rewardPayout: boolean;                              // owner can issue rewards
+  };
+};
+```
+
+**Wallet primitives MVP scope:** crypto-send (for rewards and payments), crypto-receive, and payment-request (the cartridge owner can request payment from a visiting persona inside the cartridge Wallet tab — the visitor sees the request as a TransactionModal pre-fill).
+
+### 15.5 Triad contract
+
+The three primitives ride together. You cannot configure a Cartridge without declaring its Copilot and Wallet stance — even if Wallet is `enabled: false`, the cartridge config records that explicit choice. The wizard collects all three in Step 5.
+
+Removing or stubbing any primitive without the others breaks the Triad contract.
 
 ---
 
-## 16. Cartridge Co-Pilot Model
+## 16. Cartridge Copilot Model
 
 Reuse `CodexCopilotLayer`. Extend by:
 - Passing `cartridgeSlug` to `getChatRequestContext()` so `/api/codex/chat` can scope KB + system prompt.
 - Adding a `cartridgePromptContext` string to the chat request (cartridge purpose, audience, owner's stated intent) — sourced from ventureQube v0.4 `myCartridge.purpose`.
-- The cartridge co-pilot can be **aigentMe** (default — the user's own regent operating their cartridge), a specialist (e.g., Kn0w1 for community cartridges), or a stubbed cartridge-specific assistant.
+
+**MVP default — `source: 'aigentMe'`:** the cartridge copilot IS the cartridge owner's own aigentMe operating their cartridge with cartridge-scoped context. No new persona is created. Visitors to the cartridge see the owner's aigentMe in the copilot drawer.
+
+**Future stub — `source: 'cartridge-copilot'`:** the cartridge owner can spin up a cartridge-scoped copilot persona separate from their personal aigentMe. This copilot has its own KB, its own prompt context, and visitors see it (not the owner's aigentMe) when they invoke the copilot drawer. The field is TYPED in v0.4 schema but UNWIRED in MVP — see §29.6.
+
+**Future stub — `source: 'specialist'`:** the cartridge owner can pin a specialist (Kn0w1 for community, Marketa for partner, etc.) as the primary copilot voice. Stub in v0.4 schema; specialist routing already exists in `specialistRouter.ts` so wiring is straightforward in v0.5.
 
 **Server-side:** `/api/codex/chat` accepts optional `cartridgeSlug`. If provided:
 - `embeddingService.hybridSearch(query, domain, { cartridgeSlug })` (extended signature).
 - System prompt prepends `cartridgePromptContext` and the cartridge's `availableSpecialists` list (so the model can suggest handoffs).
+- The aigentMe persona resolves to the cartridge owner (not the visitor) for MVP — so the copilot speaks as the owner's regent on their behalf.
 
 ---
 
 ## 17. Cartridge Knowledge Base Model
 
-MVP: cartridge KB is a thin index over (a) the cartridge's Codex entries, (b) the owner's myCanvas entries published into the cartridge, (c) uploaded docs (MVP: 5 docs per cartridge limit).
+MVP: cartridge KB is a thin index over the following sources:
+- **a)** the cartridge's Codex entries,
+- **b)** the owner's **myCanvas** entries published into the cartridge,
+- **c)** the owner's **myWorkspace** entries explicitly tagged `kb-include`,
+- **d)** uploaded docs (MVP: 5 docs per cartridge limit),
+- **e)** **NEW (v0.2):** uploaded **JSON blob** (single file, schema-free, embedded as opaque text). The blob is the simplest path for a cartridge owner to seed KB with structured domain knowledge they already maintain elsewhere (FAQ JSON, product catalogue JSON, lore bible JSON, etc.).
 
-Storage: a `cartridge_kb_sources` table `{cartridge_slug, source_type, source_id, embedded_at, status}`. Embeddings live alongside existing `content_embeddings` but with a `cartridge_slug` column for scoping.
+Storage:
+- `cartridge_kb_sources` table `{cartridge_slug, source_type, source_id, embedded_at, status}` — `source_type` includes `'codex' | 'mycanvas' | 'myworkspace' | 'upload' | 'json_blob'`.
+- Embeddings live alongside existing `content_embeddings` but with a `cartridge_slug` column for scoping.
+- JSON blob storage: a single row per cartridge in `cartridge_kb_sources` with `source_type = 'json_blob'`; the blob itself goes to Supabase Storage at `cartridge-kb/{cartridge_slug}/blob.json` (RLS: owner read/write, no public read).
 
-Per-cartridge KB is a v0.5 deliverable. MVP falls back to domain-scoped KB if the cartridge KB is empty.
+Per-cartridge KB is a v0.5 deliverable in full. MVP wires the JSON blob upload path and the source-type column; embedding pipeline + RAG retrieval against cartridge-scoped KB ships in v0.5. MVP fallback: if cartridge KB is empty, copilot falls back to domain-scoped KB.
 
 ---
 
 ## 18. Cartridge Codex Model
 
-Every myCartridge auto-gets a Codex tab. The Codex tab is a thin viewer over `cartridge_codex_entries` (new table) `{cartridge_slug, entry_id, title, body_md, published_at, status, source}` where `source` can be `mycanvas | upload | direct`.
+Every myCartridge auto-gets a Codex tab. The Codex tab is a thin viewer over `cartridge_codex_entries` (new table) `{cartridge_slug, entry_id, title, body_md, published_at, status, source, source_id, dvn_receipt_id}` where:
+- `source` ∈ `'mycanvas' | 'myworkspace' | 'upload' | 'direct'`
+- `dvn_receipt_id` (nullable) — when set, the Codex entry surfaces its DVN receipt inline. Codex is the canonical surface for cartridge state-change receipts visible to members; the underlying receipt also lives in myLedger for the owner.
 
-Publishing path from myCanvas: extend `MyCanvasTab` "Publish" action with an optional `targetCartridgeSlug` selector. POST to `/api/mycanvas/publish-to-cartridge` writes the row.
+**Publishing paths (v0.2):**
+
+1. **From myCanvas** — extend `MyCanvasTab` "Publish" action with `targetCartridgeSlug` + `targetTabSlug` selectors (`codex` or `community`). POST to `/api/mycanvas/publish-to-cartridge` writes either a `cartridge_codex_entries` row (Codex target) or a `cartridge_community_posts` row (Community target).
+2. **From myWorkspace** — same path, extended on `MyWorkspaceTab`. The owner can promote a private workspace entry into the cartridge Codex or Community tab; the entry stays in myWorkspace as the working copy with a "published" badge.
+3. **Direct authoring** — owner can author directly in the Codex tab via a markdown editor.
+
+**Registry / Studio / metaMe approval chain (see §21a):** Codex entries flagged `registryEligible: true` (e.g., the cartridge's active tab promotion to the metaMe Activations Catalogue) must clear the three-stage approval chain before they become discoverable beyond the cartridge.
 
 ---
 
-## 19. Smart Wallet / Crypto-Send Requirements
+## 19. Cartridge Wallet — Send / Receive / Request / Reward
 
-MVP wallet primitive: **crypto-send via existing `TransactionModal`**.
+MVP wallet primitives in the cartridge Wallet tab:
 
-Cartridge Wallet tab mounts `SmartWalletDrawer` with `cartridgeSlug` prop (already supported, line 182). Token whitelist from cartridge config defaults to `{q¢, usdc, knyt}`. Send/Receive/Verify works as today.
+- **Crypto-send for rewards** — owner can send a reward (e.g., Q¢ payout to a member who completed a Codex quest).
+- **Crypto-send for payments** — owner can send a payment (e.g., paying a contributor).
+- **Crypto-receive** — owner can receive any whitelisted token; address QR + copy.
+- **Payment request** — owner can request a payment from a visiting persona. The request renders to the visitor as a pre-filled `TransactionModal` with the recipient and amount locked.
+
+Cartridge Wallet tab mounts `SmartWalletDrawer` with `cartridgeSlug` prop (already supported, `app/components/content/SmartWalletDrawer.tsx:182`). Token whitelist from cartridge config:
+- Defaults: **Q¢, USDC** (always available unless explicitly disabled).
+- **KNYT is opt-in** at wizard time — only relevant to KNYT-aligned cartridges; off by default.
+- Bespoke per-cartridge tokens deferred to v0.5.
+
+Send / Receive / Verify mechanics work as today via the existing `TransactionModal`. New: a `mode: 'request'` variant on `TransactionModal` for the payment-request flow (generates a shareable / cartridge-embedded request payload).
 
 Future (post-MVP):
-- Per-cartridge token (bespoke ERC-20 deploy from inside the wizard).
-- Token-gated tabs (`tokenGated: { tokenId, minBalance }` on CodexTab).
+- Per-cartridge token (bespoke ERC-20 deploy from inside the wizard) — payment-gated (see §35 R7).
+- Token-gated tabs (`tokenGated: { tokenId, minBalance }` on CodexTab — typed in MVP, UI deferred).
 - Cartridge-scoped fee tier overrides (per-cartridge `pricingService` config).
 
 ---
@@ -484,9 +620,184 @@ When a user activates an approved tab from a foreign cartridge:
 
 ---
 
-## 21a. Active Surface Approval — metaMe Catalogue Gate
+## 21a. Active Surface Access / Requests — Three-Stage Approval Chain
 
-**Requirement (operator addition, 2026-06-01):** A user-created myCartridge active tab being included in the metaMe Activation Catalogue MUST clear a metaMe-side approval gate. This is the **distribution boundary** between a user's private engagement estate and the platform-wide catalogue browseable by all metaMe users.
+**Naming correction (v0.2):** what v0.1 called "Active Surface Approvals" is renamed **"Active Surface Access / Requests"** to reflect that the primary user of this surface is the **non-admin cartridge owner** submitting their own active tab for catalogue inclusion, NOT a platform admin. The existing `admin-access-requests` sub-tab in the metaMe Admin group was already extended for non-admin user requests; this surface generalizes that pattern.
+
+### 21a.0 MVP scope — single-stage (metaMe only); three-stage stubbed for pilot
+
+**For MVP:** the approval chain runs **metaMe admin stage only**. Registry and Studio stages are **typed in the schema and table but auto-approved** at submission time. Owners see a single approval gate. This keeps MVP shippable without standing up two new reviewer cohorts.
+
+**For post-MVP pilot phase:** the auto-approve flags on Registry and Studio stages flip off; the full three-stage chain activates. The schema, table columns, lifecycle enum values (`pending_registry`, `pending_studio`, `needs_registry_changes`, `needs_studio_changes`, etc.), reviewer sub-tabs (Registry / Studio), and pre-check route signatures are all wired in MVP so the v0.5 pilot can flip a feature flag rather than refactor.
+
+Implementation toggle: a server-side flag `CARTRIDGE_APPROVAL_STAGES` ∈ `{'metame-only', 'registry+studio+metame'}` controls whether Registry and Studio stages auto-approve. MVP ships with `'metame-only'`. The three reviewer sub-tabs (§21a.4.2 A and B) ship typed but hidden in MVP via a `pilotOnly: true` flag honored by `getEnabledTabs()`. metaMe stage sub-tab (§21a.4.2 C) ships visible.
+
+**Three-stage approval chain (post-MVP pilot):** A user-created myCartridge active tab being included in the metaMe Activation Catalogue MUST clear three sequential gates:
+
+```
+[wizard save / register]
+        │
+        ▼
+   stage 1: iQube Registry approval
+        │   (cartridge active tab IS an iQube — must clear Registry threshold)
+        ▼
+   stage 2: Studio approval
+        │   (verifies template/agent/service integrations; material if cartridge
+        │    integrates new agents or outside services)
+        ▼
+   stage 3: metaMe admin approval
+        │   (final distribution gate — only approved entries surface in the
+        │    public Activation Catalogue)
+        ▼
+   approved ────► visible in Activation Catalogue, browseable by any persona
+```
+
+A cartridge being **created** is never blocked by this chain — the owner can operate their cartridge privately the moment the wizard saves. The chain ONLY governs **catalogue inclusion** (whether another persona can discover and activate the cartridge's active tab via the metaMe Activations surface).
+
+**Why three stages:** The cartridge active tab is an iQube. As cartridges scale, they will integrate Studio services, custom agents, and Registry-listed primitives. Registry + Studio gating ensures that what gets distributed at platform scale clears the same quality + safety bar as any platform iQube. metaMe admin approval is the final editorial/distribution filter — as the system scales, approval standards and criteria rise.
+
+### 21a.1 Lifecycle
+
+```
+status flow per submission:
+  pending_registry  →  needs_registry_changes  →  pending_registry (re-submit)
+                   →  registry_rejected (terminal)
+                   →  pending_studio  →  needs_studio_changes  →  pending_studio
+                                     →  studio_rejected (terminal)
+                                     →  pending_metame  →  needs_metame_changes  →  pending_metame
+                                                       →  metame_rejected (terminal)
+                                                       →  approved (terminal, catalogue-visible)
+```
+
+Visibility:
+- `pending_*` and `needs_*_changes`: visible to cartridge owner + the relevant reviewer tier.
+- `*_rejected` (any stage): visible to owner with reason; resubmission opens a new chain.
+- `approved`: visible everywhere via Activation Catalogue.
+
+### 21a.2 Storage
+
+New table `cartridge_activation_approvals`:
+
+```sql
+catalog_id          TEXT PRIMARY KEY,         -- from cartridge_activations.catalog_id
+cartridge_slug      TEXT NOT NULL,
+tab_slug            TEXT NOT NULL,
+owner_persona_id    UUID NOT NULL,
+status              TEXT NOT NULL,            -- see lifecycle enum above
+current_stage       TEXT NOT NULL CHECK (current_stage IN ('registry','studio','metame','approved')),
+submitted_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+registry_reviewed_at TIMESTAMPTZ,
+registry_reviewed_by UUID,
+registry_notes       TEXT,
+studio_reviewed_at  TIMESTAMPTZ,
+studio_reviewed_by  UUID,
+studio_notes        TEXT,
+metame_reviewed_at  TIMESTAMPTZ,
+metame_reviewed_by  UUID,
+metame_notes        TEXT,
+metrics_proposed    JSONB,
+actions_proposed    JSONB,
+visibility_proposed TEXT NOT NULL CHECK (visibility_proposed IN ('public','member','invite-only')),
+revision            INTEGER NOT NULL DEFAULT 1
+```
+
+RLS:
+- Owner can read their own rows.
+- Registry reviewers (`persona.cartridgeFlags.adminCartridges` includes `'iqube-registry'`) can read all + write registry-stage fields.
+- Studio reviewers (`adminCartridges` includes `'metame-studio'`) can read all + write studio-stage fields.
+- metaMe admins (`adminCartridges` includes `'metame-cartridge'`) can read all + write metame-stage fields.
+
+### 21a.3 Submission paths
+
+1. **Automatic at wizard save** — if the user picks `visibility: public` in Step 4 AND opts in to "Submit for catalogue inclusion" in Step 5, the `/api/assistant/cartridge-config` POST also inserts a row at `status: 'pending_registry'`.
+2. **Manual later** — from the operator-tier `MyCartridgeManagerTab`, the owner clicks "Submit active tab to metaMe catalogue" which POSTs `/api/cartridge-activations/submit` with the catalog_id.
+3. **Re-submission after needs-changes or rejection** — the owner can edit and resubmit at the same stage; revision counter increments; stage-specific reviewed_at / reviewed_by clear.
+
+### 21a.4 Approval surfaces
+
+#### 21a.4.1 Owner-side: Active Surface Access / Requests (in the cartridge owner's metaMe runtime)
+
+This is the **primary surface** — non-admin cartridge owners viewing the status of their own submissions and authoring new ones.
+
+Surface: a sub-tab inside `MyCartridgeTab` (the new sub-tab in the myCluster TabGroup) labelled "Activation Requests". Component: `MyCartridgeActivationRequestsTab.tsx`.
+
+Owner sees:
+- Each of their cartridges' submissions with current stage + status.
+- A timeline view: Registry → Studio → metaMe — each stage shows ✓ approved / ⏳ pending / ↺ needs changes / ✕ rejected with notes from the reviewer.
+- "Resubmit" button when in a `needs_changes` state.
+- "Submit new active tab" button to start a chain manually.
+
+#### 21a.4.2 Reviewer-side: three new admin sub-tabs (one per stage)
+
+Each reviewer tier gets its own admin sub-tab. None of these is the "primary" surface — owners are the primary group per the operator brief.
+
+**A. Registry stage** — new sub-tab in the **iQube Registry cartridge** Admin group (NOT the metaMe Admin group):
+```ts
+{
+  id: 'admin-registry-activation-review',
+  label: 'Active Surface Registry Review',
+  slug: 'registry-activation-review',
+  group: 'admin',
+  type: 'static',
+  config: { component: 'AdminRegistryActivationReviewTab', props: {} },
+  metadata: { icon: 'ShieldCheck', description: 'Stage 1 of 3: verify active-tab iQube against Registry threshold', color: 'amber' }
+}
+```
+
+**B. Studio stage** — new sub-tab in the **metaMe Studio cartridge** Admin group:
+```ts
+{
+  id: 'admin-studio-activation-review',
+  label: 'Active Surface Studio Review',
+  slug: 'studio-activation-review',
+  group: 'admin',
+  type: 'static',
+  config: { component: 'AdminStudioActivationReviewTab', props: {} },
+  metadata: { icon: 'Wand2', description: 'Stage 2 of 3: verify template + agent + service integrations', color: 'violet' }
+}
+```
+
+**C. metaMe stage** — new sub-tab in the **metaMe cartridge** Admin group (extends the existing `admin-access-requests` pattern):
+```ts
+{
+  id: 'admin-active-surface-access-requests',
+  label: 'Active Surface Access / Requests',
+  slug: 'active-surface-access-requests',
+  group: 'admin',
+  type: 'static',
+  config: { component: 'AdminActiveSurfaceAccessRequestsTab', props: {} },
+  metadata: { icon: 'Check', description: 'Stage 3 of 3: final distribution approval for the metaMe Activation Catalogue', color: 'cyan' }
+}
+```
+
+All three reviewer surfaces share the same UX shell (status filter, row list, detail drawer, approve/request-changes/reject actions, DVN receipt emission) — only the rubric and the JSONB notes field differ.
+
+### 21a.5 Approval criteria (review rubrics per stage)
+
+#### Stage 1: iQube Registry
+
+The cartridge active tab is an iQube. It must clear:
+1. **Provenance** — the cartridge config and active-tab config have not been tampered with after creation (server-side hash check).
+2. **Identity binding** — `owner_persona_id` matches `codex_configs.owner_persona_id` (no impersonation).
+3. **No prohibited integrations** — does the cartridge wire any unregistered agent or outside service? If yes, those integrations must each be Registry-listed.
+4. **Schema integrity** — ventureQube v0.4 `myCartridge` block validates against the schema.
+5. **Spine compliance** — `verify-spine.mjs --cartridge=<slug>` passes.
+
+#### Stage 2: Studio
+
+1. **Template fidelity** — picked `templateId`s exist in the approved `TAB_TEMPLATES` registry; no custom-code overrides.
+2. **Agent integration audit** — if the cartridge declares `cartridge.copilot.source = 'cartridge-copilot'` OR `availableSpecialists` extends beyond the free tier (>3), Studio reviews the integration model.
+3. **Outside service integration** — if the cartridge wires external services (webhooks, partner APIs), each integration is reviewed for security + data-handling posture.
+4. **Experience matrix alignment** — if the cartridge uses a customized Experience Matrix template (per §22 Members template), Studio reviews the customization against the canonical metaMe template.
+
+#### Stage 3: metaMe admin (editorial / distribution)
+
+1. **Identity completeness** — name, description, purpose, category all present and non-trivial.
+2. **Purpose alignment** — the active tab actually does something a visiting persona could engage with.
+3. **Audience honesty** — declared audience matches actual content posture.
+4. **No prohibited content** — same content policy as system cartridges.
+5. **Catalogue fit** — does this entry add distinct value vs. existing catalogue entries, or is it duplicative? (Filter scales with system scale — see §35 R5.)
+6. **Distribution tier appropriateness** — is the requested `visibility_proposed` (public / member / invite-only) appropriate for the content? metaMe admin can approve at a lower tier than requested.
 
 ### 21a.1 Lifecycle
 
@@ -581,28 +892,44 @@ The PRD defines the rubric so reviewers have a consistent bar:
 5. **No prohibited content** — same content policy as existing system cartridges (no harassment, illegal content, PII leakage, etc.).
 6. **No spine violations** — does the active tab respect `evaluateAccess`? Does the cartridge config use `personaFetch` not raw fetch? (Automated check — see 21a.6.)
 
-### 21a.6 Automated pre-checks
+### 21a.6 Automated pre-checks (run at each stage gate)
 
-Before a submission reaches a human reviewer, run automated checks via `/api/admin/cartridge-activations/precheck`:
+Before a submission reaches a human reviewer at any stage, run automated checks via `/api/cartridge-activations/precheck?stage=registry|studio|metame`:
 
+**Registry stage pre-check:**
 - Verifies `owner_persona_id` matches `codex_configs.owner_persona_id` (no impersonation).
 - Verifies all referenced `tab_slug`s exist in `codex_tabs`.
-- Verifies `templateId` is in the approved `TAB_TEMPLATES` registry.
-- Verifies `metrics[]` / `actions[]` shapes match `ActivationCatalogEntry`.
-- Runs `verify-spine.mjs --cartridge=<slug>` if the cartridge declares spine-touching surfaces.
+- Verifies ventureQube v0.4 `myCartridge` block validates against schema (Zod).
+- Verifies provenance hash matches stored hash at creation time.
+- Runs `verify-spine.mjs --cartridge=<slug>`.
 
-Pre-check failures mark the submission `needs_changes` automatically with a machine-generated reason; no human time spent on broken submissions.
+**Studio stage pre-check:**
+- Verifies `templateId` is in the approved `TAB_TEMPLATES` registry.
+- Verifies `availableSpecialists[]` ⊆ free tier (≤3) OR payment record exists for extended specialist tier (see §35 R7).
+- Verifies any declared external service integration has a Registry-listed entry.
+
+**metaMe stage pre-check:**
+- Verifies `metrics[]` / `actions[]` shapes match `ActivationCatalogEntry`.
+- Runs catalogue-duplication heuristic (string similarity to existing entries).
+- Verifies `visibility_proposed` is appropriate for the declared category (e.g., `private` cartridges cannot submit `public`).
+
+Pre-check failures auto-mark the submission `needs_*_changes` at the current stage with a machine-generated reason; no human time spent on broken submissions.
 
 ### 21a.7 Notification surface
 
-When status changes, the cartridge owner sees:
-- An aigentMe in-runtime card on next welcome surface load: "Your cartridge X active tab has been approved/needs changes/rejected — [open MyCartridgeManagerTab]".
-- A row in their myLedger (`actionType: 'cartridge_activation_reviewed'`).
+When status changes at any stage, the cartridge owner sees:
+- An aigentMe in-runtime card on next welcome surface load: "Your cartridge X active tab — Registry: approved / Studio: needs changes — [open Activation Requests]".
+- A row in their myLedger (`actionType: 'cartridge_activation_reviewed'`, `stage` in metadata).
+- A status row in their `MyCartridgeTab → Activation Requests` sub-tab (the owner-side primary surface — see §21a.4.1).
 - Optional email if `notify_on_review` flag set on the persona (not MVP).
 
 ### 21a.8 Super-admin tier passthrough
 
-The same approval queue is also surfaced in the super-admin Codex Manager at `/admin/codex` (rebranded "myCartridge and Codex Manager") under a new "Catalogue Submissions" section. Same data, same actions, same audit. The in-runtime metaMe Admin sub-tab is the daily-use surface; the super-admin surface is the platform-wide tier with cross-cartridge visibility.
+Super-admins (platform tier) have a meta-view at `/admin/codex` (rebranded "myCartridge and Codex Manager") under a new "Catalogue Submissions" section. They see the same queue with cross-stage visibility — useful for ops triage when one stage stalls.
+
+### 21a.9 Why this is NOT just an admin queue (operator framing)
+
+The non-admin cartridge owner submitting their own active tab IS the primary user of this surface. The three admin tiers (Registry / Studio / metaMe) are review surfaces, but volume-wise the owner-side surface (`MyCartridgeTab → Activation Requests`) gets the most traffic. Naming and visual posture of the feature lead with the owner's experience, not the admin's queue.
 
 ---
 
@@ -634,6 +961,10 @@ Templates receive `{cartridgeSlug, personaId, permissions, config}` props and re
 - `CodexTabTemplate` — extracted from KNYT Scrolls + Qripto Codex.
 - `ActiveTabTemplate` — extracted from KNYT Order tab Liquid template.
 - `VentureTabTemplate` — extracted from AlphaProgrammeTab with workstream count parameterized.
+- **`MembersTabTemplate`** — mirrors the KNYT cartridge members surface AND wires to the cartridge's Experience Matrix per the canonical metaMe Experience Matrix template in Studio. Cartridge owner can either:
+  - Use the **standard metaMe Experience Matrix template** as-is (default), OR
+  - Configure a **customized version** derived from their ventureQube (Studio stage of approval chain reviews customizations — see §21a.5).
+  - This means the Members template gives the cartridge owner a ladder + maturity dashboard for their members from day one, mirroring how KNYT operators see their patronage / PCS ladder.
 - Others stubbed for MVP.
 
 ---
@@ -673,11 +1004,13 @@ Server-side resolution: extend `getActivePersona` to also return `cartridgeMembe
 
 Per-cartridge `availableSpecialists: SpecialistId[]` (subset of the 8 registered). Default for new cartridges:
 - Community → `['aigent-c', 'marketa', 'kn0w1']`
-- Venture → `['aigent-z', 'moneypenny', 'marketa']`
+- Venture → `['aigent-c', 'moneypenny', 'marketa']`   ◄── v0.2: aigent-c (not aigent-z)
 - Knowledge Estate → `['quill', 'kn0w1']`
-- Creative Universe → `['quill', 'metaye']`
+- Creative Universe → `['quill', 'metaye', 'kn0w1']`  ◄── v0.2: kn0w1 added
 
-Cartridge co-pilot surfaces only the available specialists. `SpecialistContext.activeCartridge` (existing) carries the slug. Specialist responses with `requiresApproval: true` route through myWorkspace pending-approval flow (existing). All specialist invocations emit DVN receipts to myLedger (existing).
+**Free tier cap:** ≤3 specialists per cartridge in MVP (see §35 R7). Adding a 4th or more triggers a payment-gated upgrade — typed in MVP, payment wiring deferred.
+
+Cartridge copilot surfaces only the available specialists. `SpecialistContext.activeCartridge` (existing) carries the slug. Specialist responses with `requiresApproval: true` route through myWorkspace pending-approval flow (existing). All specialist invocations emit DVN receipts to myLedger (existing).
 
 ---
 
@@ -685,10 +1018,10 @@ Cartridge co-pilot surfaces only the available specialists. `SpecialistContext.a
 
 myCartridge does not absorb the rails — it joins them.
 
-- **myCanvas** publishes into a cartridge's Codex tab via the `publish-to-cartridge` action.
-- **myWorkspace** holds the private drafts that haven't been published yet; on publish, the draft flows into the cartridge's Codex.
-- **myLedger** receives DVN receipts for every cartridge state change (cartridge created, member invited, tab visibility changed, crypto-send executed, Codex entry published).
-- **myCluster** is the per-cartridge view of all the above.
+- **myCanvas** publishes into a cartridge's **Codex tab OR Community tab** via the `publish-to-cartridge` action. The publish modal lets the owner pick the target tab; defaults to Codex.
+- **myWorkspace** publishes into a cartridge's **Codex tab OR Community tab** via the same `publish-to-cartridge` action. Private workspace drafts can be promoted directly; the workspace entry retains a "published" badge.
+- **myLedger** receives DVN receipts for every cartridge state change (cartridge created, member invited, tab visibility changed, crypto-send executed, payment requested, Codex entry published, catalogue submission stage transitions).
+- **myCluster** is the rebranded TabGroup holding myCanvas / myWorkspace / myCartridge / myLedger as sub-tabs in that order (§12).
 
 ---
 
@@ -712,18 +1045,21 @@ myCartridge does not absorb the rails — it joins them.
 
 ## 27. ventureQube v0.4 Schema Extension
 
-Extend `codexes/packs/agentiq/updates/2026-05-29_venture-iqube-schema-v0.3.md` → v0.4 with a top-level `myCartridge` block (sibling to `strategy`, `ventures`):
+Extend `codexes/packs/agentiq/updates/2026-05-29_venture-iqube-schema-v0.3.md` → v0.4 with a **`myCartridge` block nested under `ventures[]`** (per Q5 resolution v0.2). For MVP, each persona has at most 1 venture entry (sys admins exceed); the venture entry carries the `myCartridge` configuration:
 
 ```jsonc
 {
   "schemaVersion": "venture-iqube/v0.4",
   "operator": "string",
   "strategy": "string",
-  "ventures": [ /* unchanged from v0.3 */ ],
+  "ventures": [
+    {
+      /* unchanged v0.3 fields: cartridgeBindings, objectives, plan, horizon, specialistId */
 
-  "myCartridge": {
-    "configured": true,
-    "slug": "string (URL-safe, unique per persona)",
+      /* NEW in v0.4 — nested per-venture myCartridge config (MVP: 1 venture per persona) */
+      "myCartridge": {
+        "configured": true,
+        "slug": "string (URL-safe, auto-derived from title, editable)",
     "title": "string",
     "description": "string",
     "purpose": "string (operator's stated intent; feeds copilot system prompt)",
@@ -776,13 +1112,18 @@ Extend `codexes/packs/agentiq/updates/2026-05-29_venture-iqube-schema-v0.3.md` �
       "invitePolicy": "owner-only | admin-allowed | public-request",
       "membershipReceipts": true
     },
-    "stateChangeReceipts": {
-      "enabled": true,
-      "receiptKinds": ["created", "tab_visibility", "member_invited", "crypto_send", "codex_published"]
+        "stateChangeReceipts": {
+          "enabled": true,
+          "receiptKinds": ["created", "tab_visibility", "member_invited", "crypto_send", "payment_request", "reward_payout", "codex_published", "activation_submitted", "activation_reviewed"]
+        },
+        "triadNomenclature": "v0.2"  // pins the {Cartridge, Copilot, Wallet} Triad shape; legacy "smartTriad" key not allowed
+      }
     }
-  }
+  ]
 }
 ```
+
+**Schema fix note:** the v0.4 block shown in v0.1 of this PRD as a top-level sibling to `ventures` is **superseded** by the v0.2 reading above — the block lives nested under each `ventures[]` entry. Each persona has 1 venture in MVP; sys admins may have more, each with its own `myCartridge`.
 
 **Type file (net-new):** `types/ventureQube.ts` with `VentureQubeV04`, `MyCartridgeConfig`, `CartridgeTabSpec`, etc. — and a runtime validator (e.g., Zod) at `services/iqube/ventureQubeSchema.ts` so the ingest route and the wizard share one source of truth.
 
@@ -804,7 +1145,13 @@ Mounted alongside the two existing wizards in `AigentMeWelcomeTab` (per `AigentM
 2. **Purpose** — purpose statement (large textarea + Mic — feeds copilot prompt), audience kind (radio: open/gated/franchise/inner-circle), estimated size (radio), visibility (radio: public/private/invite-only/member-only).
 3. **Tabs** — template picker (radio: Community / Venture / Knowledge Estate / Creative Universe / Custom). On non-Custom: pre-fills the default tab set for that template (multi-select to add/remove from a fixed list of available templateIds). On Custom: free multi-select. Inline reorder.
 4. **Audience & Permissions** — for each tab, set visibility (public/member/admin/invite/token-gated). Token-gating UI MVP-stubbed (label only — wiring in v0.5). Pick `primaryTabSlug` from the enabled tabs.
-5. **Smart Triad & Active Tab** — pick the cartridge co-pilot (radio: aigentMe (default), or a specialist from the cartridge's recommended `availableSpecialists`). Pick wallet tokens (multi-select from {Q¢, USDC, KNYT}). Pick the cartridge's `activeTab` (defaults to `primaryTabSlug`). Confirm + Save.
+5. **Triad + Active Tab + Catalogue opt-in** — three sub-sections:
+   - **Cartridge** sub-classes confirmation — Codex on (always for MVP), Content sources (myCanvas+myWorkspace), Menu primary tab (from §4), SmartActions specialists (≤3 from recommended `availableSpecialists`; 4th+ shows payment-gated upgrade lock).
+   - **Copilot** — radio: aigentMe (default, MVP), specialist (opt-in), or cartridge-copilot (typed stub, disabled in MVP). KB sources: myCanvas published + myWorkspace tagged + uploaded docs + **JSON blob upload (drag-drop or paste-path)**.
+   - **Wallet** — toggle on/off. If on: token whitelist (Q¢ + USDC default; KNYT opt-in checkbox); enable crypto-send/receive/payment-request/reward primitives.
+   - **Active Tab** — pick `activeTab` from enabled tabs (defaults to `primaryTabSlug`).
+   - **Catalogue opt-in** — checkbox "Submit my active tab to the metaMe Activation Catalogue for review" — visible only if `visibility = public` was picked in Step 4. Enters the approval chain at `pending_metame` (MVP) or `pending_registry` (post-pilot).
+   - Confirm + Save.
 
 **Persistence:** POST `/api/assistant/cartridge-config` writes:
 - ventureQube v0.4 `myCartridge` block via the existing ingest route.
@@ -922,39 +1269,52 @@ Receipts appear in myLedger filtered by `activeCartridge`.
 | Phase | Effort | Dependencies |
 |---|---|---|
 | 1 — rebrand label + PRD land | 0.5d | — |
-| 2 — myCluster rail (TabGroup rename + myCartridge sub-tab) | 0.5d | — |
-| 3 — ventureQube v0.4 | 1d | — |
-| 4 — DB + roles | 2d | 3 |
-| 5 — tab templates | 3d | 4 |
-| 6 — wizard (incl. Step 5 "submit to catalogue" toggle) | 2d | 3, 5 |
-| 7 — operator manager | 2d | 4, 5 |
-| 8 — Smart Triad scoping | 2d | 4 |
-| 9 — wallet integration | 1d | 5 |
-| 10 — receipts + catalogue (pending entries) | 1d | 4, 7 |
-| 11 — Active Surface Approval gate (§21a) | 2d | 4, 10 |
+| 2 — myCluster rail (TabGroup rename + myCartridge sub-tab; order: Canvas/Workspace/Cartridge/Ledger) | 0.5d | — |
+| 3 — ventureQube v0.4 (nested under ventures[]) + types + Zod | 1d | — |
+| 4 — DB + roles + cartridgeAdminGrants mappings (Q10) + system cartridge isolation gates | 2.5d | 3 |
+| 5 — tab templates (Pulse + Codex + Active + Overview first; Members mirrors KNYT + experience-matrix wiring) | 3d | 4 |
+| 6 — wizard (5 steps incl. JSON blob upload + catalogue opt-in + specialist free-tier lock) | 2.5d | 3, 5 |
+| 7 — operator manager (inside metaMe Admin, owner-scoped only) | 2d | 4, 5 |
+| 8 — Triad scoping (`cartridgeSlug` on chat route; aigentMe-as-cartridge-copilot resolution) | 2d | 4 |
+| 9 — wallet integration (send + receive + payment-request + reward; TransactionModal `mode: 'request'`) | 1.5d | 5 |
+| 10 — receipts + catalogue (pending entries; opt-in flow) | 1d | 4, 7 |
+| 11 — Active Surface Access / Requests (§21a — MVP metaMe-only stage; Registry+Studio typed but auto-approved) | 2d | 4, 10 |
+| 12 — system cartridge isolation hardening (RLS + tokenQube test cases, R3 resolution) | 1d | 4 |
 
-**Total MVP:** ~17 engineering days (one engineer, conservative).
+**Total MVP:** ~19.5 engineering days (one engineer, conservative).
+
+**Post-MVP pilot (separate scope):**
+- Light up Registry stage reviewer cohort + sub-tab + rubric.
+- Light up Studio stage reviewer cohort + sub-tab + rubric.
+- Flip `CARTRIDGE_APPROVAL_STAGES` to `'registry+studio+metame'`.
+- Wire payment flow for specialist >3 cap.
+- Wire per-cartridge KB embedding pipeline.
+- Wire cartridge-level copilot persona (separate from owner aigentMe).
 
 ---
 
 ## 34. Acceptance Criteria
 
-1. ✓ myCluster tab exists in the metaMe runtime tab strip and lists the user's cartridges, activated tabs, and owned content.
-2. ✓ A user with no cartridge sees the CartridgeSetupWizard CTA in their aigentMe welcome surface.
-3. ✓ The 5-step wizard completes and produces a `codex_configs` row with `owner_persona_id` set, plus rows in `cartridge_memberships`, `cartridge_activations`, `codex_tabs`.
-4. ✓ The new cartridge is reachable at `/triad/embed/codex/{slug}` and renders its primary tab.
-5. ✓ The cartridge co-pilot loads with cartridge-scoped prompt context.
-6. ✓ The cartridge Wallet tab opens `SmartWalletDrawer` with `cartridgeSlug` prop and the token whitelist from config.
-7. ✓ Tab visibility gates (`memberOnly`, `inviteOnly`, `roleRequired`) are enforced server-side through the spine.
-8. ✓ DVN receipts for every state change appear in myLedger filtered by `activeCartridge`.
-9. ✓ The active tab is registered in the Activation Catalogue and visible to other personas who browse it.
-10. ✓ `/admin/codex` label reads "myCartridge and Codex Manager" and continues to function for super-admin tier.
-11. ✓ ventureQube v0.4 schema doc lands; ingest accepts both v0.3 and v0.4; types file exists.
+1. ✓ The myArtifacts TabGroup at `data/codex-configs.ts:2290` is renamed to myCluster and contains four sub-tabs in this order: **myCanvas, myWorkspace, myCartridge, myLedger**.
+2. ✓ A user with no cartridge sees the CartridgeSetupWizard CTA in their `MyCartridgeTab` AND in the aigentMe welcome surface.
+3. ✓ The 5-step wizard completes and produces a `codex_configs` row with `owner_persona_id` set, plus rows in `cartridge_memberships`, `cartridge_activations`, `codex_tabs`, and a ventureQube v0.4 update nested under `ventures[0].myCartridge`.
+4. ✓ The new cartridge is reachable at `/triad/embed/codex/{slug}` and renders its primary tab (declared `primaryTabSlug`, auto-derived from category but editable).
+5. ✓ The cartridge copilot loads with cartridge-scoped prompt context AND `source: 'aigentMe'` resolves to the cartridge owner's regent (not the visitor).
+6. ✓ The cartridge Wallet tab opens `SmartWalletDrawer` with `cartridgeSlug` prop and exposes **send, receive, payment-request, and reward** primitives. Token whitelist defaults to {Q¢, USDC} with KNYT opt-in.
+7. ✓ Tab visibility gates (`memberOnly`, `inviteOnly`, `roleRequired`) are enforced server-side through `evaluateAccess` — no parallel resolvers.
+8. ✓ DVN receipts for every state change (creation, member invite, tab visibility, crypto-send, payment-request, reward, codex-publish, activation-submitted, activation-reviewed) appear in myLedger filtered by `activeCartridge`.
+9. ✓ The active tab enters the Activation Catalogue ONLY after the owner opts in at Step 5 of the wizard AND the metaMe admin approves at §21a Stage 3.
+10. ✓ `/admin/codex` label reads "myCartridge and Codex Manager" and **only super-admins (`persona.cartridgeFlags.isAdmin`) can open it**; non-admin myCartridge owners cannot reach it.
+11. ✓ ventureQube v0.4 schema doc lands; ingest accepts both v0.3 and v0.4; types file exists at `types/ventureQube.ts`; `myCartridge` block lives nested under `ventures[]`.
 12. ✓ All access decisions flow through `evaluateAccess` — no parallel resolvers (CLAUDE.md spine PARAMOUNT).
 13. ✓ All client-side spine fetches use `personaFetch` — no raw `fetch` on spine routes (CLAUDE.md PARAMOUNT).
-14. ✓ A cartridge active tab is NOT visible in the public Activation Catalogue until status flips to `approved` via the §21a flow.
-15. ✓ The metaMe Admin → Active Surface Approvals sub-tab lists pending submissions, supports approve / request-changes / reject, and emits DVN receipts for every decision.
-16. ✓ The myArtifacts TabGroup is renamed to myCluster, contains four sub-tabs (myCanvas, myWorkspace, myLedger, myCartridge), and the rename is a sub-1-day code change.
+14. ✓ MyCartridgeManagerTab (operator-tier) lives inside the metaMe Admin group, queries `WHERE owner_persona_id = $personaId`, and does NOT list system cartridges under any circumstances.
+15. ✓ The owner-side **Activation Requests** sub-tab inside MyCartridgeTab shows current stage + status; reviewer-side sub-tabs (Registry / Studio / metaMe) ship per §21a.4.2 with Registry + Studio hidden via `pilotOnly: true` for MVP.
+16. ✓ `CARTRIDGE_APPROVAL_STAGES = 'metame-only'` in MVP; Registry + Studio stages auto-approve at submission time but their lifecycle states and table columns are wired for the pilot flip.
+17. ✓ Triad nomenclature: every cartridge config carries `triadNomenclature: 'v0.2'`; the legacy `smartTriad` JSON key is rejected at ingest with a clear migration error.
+18. ✓ Specialist whitelist enforces ≤3 free tier in MVP; the 4th+ slot in the wizard renders a payment-gated upgrade lock UI (payment flow itself stubbed).
+19. ✓ myCanvas AND myWorkspace can both publish into a cartridge's **Codex OR Community** tab via the unified `publish-to-cartridge` action.
+20. ✓ Members template mirrors KNYT cartridge Members + wires to the cartridge's Experience Matrix (standard metaMe template, with customization path stubbed for Studio approval in pilot).
 
 ---
 
@@ -964,25 +1324,30 @@ Receipts appear in myLedger filtered by `activeCartridge`.
 
 - **R1: Cartridge proliferation cost.** Every metaMe user spinning up a cartridge means N×(codex_configs row, codex_tabs rows, cartridge_kb_sources, embeddings). Embedding cost balloons unless we gate cartridge KB enablement (MVP: KB is off by default, opt-in per cartridge).
 - **R2: Permission surface area.** Adding `memberOnly`/`inviteOnly`/`roleRequired` doubles the gate matrix. Spine tests in `tests/access-spine.test.ts` must extend canary cases. Without that, regressions silently leak content.
-- **R3: Codex Manager super-admin tier confusion.** Operators may use `/admin/codex` to edit a system cartridge thinking it's their own. The label rebrand isn't enough — needs a tier-divider banner (`You are operating on a system cartridge. Edits affect all users.`).
+- **R3: System cartridge isolation (resolved v0.2).** Non-admin operators do NOT have access to system cartridges and cannot even open them in an editable state. System-admin gating remains in place for all system cartridge access rights. The ability to create a myCartridge does NOT confer admin rights on the persona beyond their own cartridge. RLS and tokenQube gating both apply — system cartridges are admin-gated AND tokenQube-gated. The operator-tier `MyCartridgeManagerTab` (inside metaMe Admin) scopes its query to `codex_configs WHERE owner_persona_id = $personaId`; it cannot list system cartridges even visually. The super-admin `/admin/codex` surface remains gated by `persona.cartridgeFlags.isAdmin` (global tier) — no UI path from myCartridge owner-tier to system cartridge editing.
 - **R4: ventureQube v0.3 / v0.4 dual ingest.** Until every consumer is on v0.4, both shapes must round-trip. Risk of subtle field-name collisions.
-- **R5: Activation Catalogue spam.** If every user's myCartridge active tab auto-registers, the catalogue becomes unbrowsable. MVP: cartridges marked `visibility: public` get auto-registered; private/member/invite-only do not.
+- **R5: Activation Catalogue spam (resolved v0.2).** metaMe approval (and post-pilot Registry + Studio approval — §21a) serves as the filter for system-wide distribution. As the system scales, approval standards and criteria rise. MVP: cartridges marked `visibility: public` AND opt-in to "Submit for catalogue inclusion" enter the pending queue; nothing surfaces to the public catalogue until metaMe admin approves. Private / member / invite-only never enter the queue.
 - **R6: Wallet exposure.** Cartridge crypto-send uses the persona's own funds. Per-cartridge personas (already supported by `SmartWalletDrawer.setCartridgeDefault`) must be set explicitly by the user; do not infer.
-- **R7: Specialist invocation cost.** If every cartridge can invoke 8 specialists, LLM cost climbs. MVP: per-cartridge `availableSpecialists` defaults to ≤3; user can extend.
+- **R7: Specialist invocation cost (gated v0.2).** Anything beyond the basic cartridge setup config is payment-access-gated. Adding more than 3 specialists incurs costs. MVP: per-cartridge `availableSpecialists` defaults to ≤3 from the free tier; the wizard's specialist picker locks the 4th+ slot behind a "Upgrade for additional specialists" CTA. The payment wiring itself is stubbed in MVP (typed entitlement check in the precheck route); the gating UI ships in MVP so users see the boundary from day one. v0.5 lights up the payment flow.
 - **R8: Inter-cartridge nav identity leakage.** Per CLAUDE.md, never serialize `personaId` (T0) in browser links. `buildCodexUrl` already handles this. Audit every new myCluster → cartridge link.
+- **R9: Three-stage chain reviewer cohort cost (post-MVP pilot).** Standing up Registry + Studio reviewer cohorts in addition to metaMe admin is a coordination cost. MVP runs metaMe-only per §21a.0; the cohort decision is deferred to pilot kickoff. Avoid wiring reviewer-cohort-specific UX assumptions into MVP code.
 
-**Open questions for operator:**
+**Operator answers folded (2026-06-01 v0.2 — all questions resolved):**
 
-- **Q1:** ~~Confirm myCluster reading per §6~~ — **Resolved 2026-06-01:** myArtifacts is the TabGroup at `data/codex-configs.ts:2290`; rebrand = rename + add myCartridge sub-tab. PRD §6 updated.
-- **Q2:** Should myCartridge MVP allow multiple cartridges per persona, or strictly 1? PRD assumes 1; relaxing later is straightforward.
-- **Q3:** Should the cartridge co-pilot default to aigentMe (the user's regent operating their cartridge) or to a specialist? PRD assumes aigentMe-as-cartridge-copilot is the default; specialist is opt-in.
-- **Q4:** Activation Catalogue auto-registration policy — public-only (PRD default), all-visibilities (chatty), opt-in checkbox in wizard (cleanest)?
-- **Q5:** ventureQube v0.4 — sibling block (PRD default) vs. nested under `ventures[]` (lets one operator have multiple ventures each with their own cartridge)?
-- **Q6:** Should the cartridge `slug` be auto-derived from the title (PRD default) or strictly user-chosen?
-- **Q7:** Token whitelist MVP — is `{Q¢, USDC, KNYT}` correct, or should KNYT be opt-in (only relevant to KNYT-aligned cartridges)?
-- **Q8:** Tab template extraction order — Pulse + Codex + Active + Overview first (PRD), or different priority?
-- **Q9:** Approval rubric (§21a.5) — confirm the 6-point review bar, or extend with additional criteria (e.g., minimum cartridge age before submission eligible, minimum member count, owner verification tier)?
-- **Q10:** Approval reviewers — who has the `metame-cartridge` admin grant for the approval queue? Today the grant resolver maps CRM tenant slugs to cartridge slugs (`services/access/cartridgeAdminGrants.ts:43`) — does `metame` already grant `metame-cartridge` admin, or does this need a new mapping?
+- **Q1:** ✓ myArtifacts is the TabGroup at `data/codex-configs.ts:2290`; rebrand = rename + add myCartridge sub-tab. PRD §6 updated.
+- **Q2:** ✓ **1 cartridge per persona for MVP.** PRD assumes 1 — confirmed.
+- **Q3:** ✓ **Yes — aigentMe is the default cartridge copilot.** Specialist + cartridge-level copilot are opt-in / future stub.
+- **Q4:** ✓ **Opt-in checkbox in wizard + Registry + metaMe admin approval** (post-MVP also Studio). Public cartridges are NOT auto-submitted; the user must opt in.
+- **Q5:** ✓ **Nested under `ventures[]`, restricted to 1 venture per persona for MVP.** Platform sys admins can have more than 1 nested venture per persona. Schema in §27 updated.
+- **Q6:** ✓ **Auto-derived from title, editable by user** in the wizard Identity step.
+- **Q7:** ✓ **KNYT is opt-in.** Default token whitelist = `{Q¢, USDC}`. KNYT only included when the user opts in.
+- **Q8:** ✓ **Pulse + Codex + Active + Overview first** — confirmed extraction order.
+- **Q9:** ✓ **Fine for MVP with iQube Registry approval stubbed in place.** Post-MVP pilot lights up Registry + Studio stages. The cartridge active tab IS an iQube and must clear Registry + Studio threshold to qualify for the metaMe Activations Catalogue — typed in v0.4 schema, gated by `CARTRIDGE_APPROVAL_STAGES` flag (§21a.0).
+- **Q10:** **Probably needs a new mapping** in `services/access/cartridgeAdminGrants.ts:43` (`TENANT_SLUG_TO_CARTRIDGE_SLUG`). Specifically:
+  - `metame` tenant → `metame-cartridge` admin (probably already exists; verify in Phase 4).
+  - `iqube-registry` tenant → `iqube-registry-cartridge` admin (NEW — needed for Registry reviewer cohort in pilot).
+  - `metame-studio` tenant → `metame-studio-cartridge` admin (NEW — needed for Studio reviewer cohort in pilot).
+  Phase 4 task: audit existing mappings, add missing ones.
 
 ---
 
@@ -990,51 +1355,65 @@ Receipts appear in myLedger filtered by `activeCartridge`.
 
 **New:**
 - `components/metame/setup/CartridgeSetupWizard.tsx`
-- `app/triad/components/codex/tabs/MyCartridgeTab.tsx` (owner view inside the myCluster TabGroup)
-- `app/triad/components/codex/tabs/MyCartridgeManagerTab.tsx` (operator-tier surface; reached from MyCartridgeTab)
-- `app/triad/components/codex/tabs/AdminActiveSurfaceApprovalsTab.tsx` (metaMe Admin sub-tab — §21a)
+- `app/triad/components/codex/tabs/MyCartridgeTab.tsx` (external-facing owner summary; sits in myCluster group)
+- `app/triad/components/codex/tabs/MyCartridgeActivationRequestsTab.tsx` (sub-tab inside MyCartridgeTab — owner-side primary surface)
+- `app/triad/components/codex/tabs/MyCartridgeManagerTab.tsx` (operator-tier control room inside metaMe Admin group)
+- `app/triad/components/codex/tabs/AdminActiveSurfaceAccessRequestsTab.tsx` (metaMe stage reviewer surface)
+- `app/triad/components/codex/tabs/AdminRegistryActivationReviewTab.tsx` (Registry stage reviewer surface; `pilotOnly: true` in MVP)
+- `app/triad/components/codex/tabs/AdminStudioActivationReviewTab.tsx` (Studio stage reviewer surface; `pilotOnly: true` in MVP)
 - `app/triad/components/codex/templates/{Pulse,Codex,Active,Overview,Wallet,Ledger,Community,Members,Venture,Settings,Admin,Experience}TabTemplate.tsx`
 - `app/api/assistant/cartridge-config/route.ts`
 - `app/api/assistant/cartridge-recommend/route.ts`
-- `app/api/mycartridge/owner-view/route.ts`
+- `app/api/mycartridge/owner-summary/route.ts`
+- `app/api/mycartridge/admin-detail/route.ts`
 - `app/api/activations/register/route.ts`
 - `app/api/cartridge-activations/submit/route.ts`
-- `app/api/admin/cartridge-activations/route.ts` (list, filterable by status)
-- `app/api/admin/cartridge-activations/[catalogId]/approve/route.ts`
-- `app/api/admin/cartridge-activations/[catalogId]/request-changes/route.ts`
-- `app/api/admin/cartridge-activations/[catalogId]/reject/route.ts`
-- `app/api/admin/cartridge-activations/precheck/route.ts`
-- `app/api/mycanvas/publish-to-cartridge/route.ts`
-- `types/ventureQube.ts`
-- `services/iqube/ventureQubeSchema.ts`
+- `app/api/cartridge-activations/precheck/route.ts` (stage-aware)
+- `app/api/admin/cartridge-activations/route.ts` (list, filterable by status + stage)
+- `app/api/admin/cartridge-activations/[catalogId]/approve/route.ts` (stage-aware)
+- `app/api/admin/cartridge-activations/[catalogId]/request-changes/route.ts` (stage-aware)
+- `app/api/admin/cartridge-activations/[catalogId]/reject/route.ts` (stage-aware)
+- `app/api/mycanvas/publish-to-cartridge/route.ts` (handles canvas+workspace+codex+community combos)
+- `app/api/myworkspace/publish-to-cartridge/route.ts` (thin alias of above; same handler)
+- `app/api/cartridge-kb/upload-json-blob/route.ts` (NEW — JSON blob KB source upload)
+- `types/ventureQube.ts` (v0.4 types with myCartridge nested under ventures[])
+- `services/iqube/ventureQubeSchema.ts` (Zod validator)
+- `services/iqube/cartridgeKb.ts` (KB source resolution + JSON blob handling)
 - `supabase/migrations/2026XXXX_cartridge_memberships.sql`
-- `supabase/migrations/2026XXXX_cartridge_activation_approvals.sql`
+- `supabase/migrations/2026XXXX_cartridge_activation_approvals.sql` (with stage columns)
+- `supabase/migrations/2026XXXX_cartridge_kb_sources.sql`
 
 **Modified:**
-- `types/codex.ts` (CodexConfig + CodexTab extensions)
-- `types/access.ts` (cartridgeMemberships on cartridgeFlags)
-- `app/(shell)/admin/codex/page.tsx` (label rebrand)
+- `types/codex.ts` (CodexConfig + CodexTab extensions; `pilotOnly: true` flag on CodexTab for Registry/Studio reviewer tabs)
+- `types/access.ts` (cartridgeMemberships on cartridgeFlags; new tokenQube cartridge-isolation descriptor)
+- `app/(shell)/admin/codex/page.tsx` (label rebrand; hardened `isAdmin` gate per R3)
 - `app/(shell)/admin/codex/[codexId]/page.tsx` (label rebrand)
-- `app/triad/components/codex/TabRenderer.tsx` (template registry + MyCartridgeTab + AdminActiveSurfaceApprovalsTab registration)
-- `app/triad/components/CodexPanelDynamic.tsx` (primaryTabSlug resolution)
-- `app/hooks/useCodexConfig.ts` (primaryTabSlug + role-gated tabs)
+- `app/triad/components/codex/TabRenderer.tsx` (template registry + new tab components)
+- `app/triad/components/CodexPanelDynamic.tsx` (primaryTabSlug resolution + `pilotOnly` gate)
+- `app/hooks/useCodexConfig.ts` (primaryTabSlug + role-gated tabs + pilotOnly filter)
 - `services/identity/getActivePersona.ts` (return cartridgeMemberships)
-- `services/access/evaluateAccess.ts` (cartridgeRole descriptor)
-- `services/access/cartridgeAdminGrants.ts` (auto-grant owner_persona_id)
-- `app/api/codex/chat/route.ts` (cartridgeSlug param)
-- `app/api/persona/venture-iqube/ingest/route.ts` (v0.4 acceptance)
-- `services/agents/specialistRouter.ts` (per-cartridge whitelist resolution)
+- `services/access/evaluateAccess.ts` (cartridgeRole descriptor + tokenQube + system-cartridge isolation)
+- `services/access/cartridgeAdminGrants.ts` (auto-grant owner_persona_id; new tenant→cartridge mappings per Q10: `iqube-registry`, `metame-studio`)
+- `app/api/codex/chat/route.ts` (cartridgeSlug param; aigentMe-as-cartridge-copilot owner resolution)
+- `app/api/persona/venture-iqube/ingest/route.ts` (v0.4 acceptance; rejects legacy `smartTriad` key with migration error)
+- `services/agents/specialistRouter.ts` (per-cartridge whitelist resolution + ≤3 free-tier enforcement)
 - `app/triad/components/codex/tabs/AigentMeWelcomeTab.tsx` (wizard CTA wiring + approval-status notification card)
-- `app/triad/components/codex/tabs/MyCanvasTab.tsx` (publish-to-cartridge action)
-- `services/activations/ActivationsContext.tsx` (read approved entries only; merge static + DB sources)
+- `app/triad/components/codex/tabs/MyCanvasTab.tsx` (publish-to-cartridge action; codex OR community target)
+- `app/triad/components/codex/tabs/MyWorkspaceTab.tsx` (publish-to-cartridge action mirrors MyCanvas; same handler)
+- `app/components/wallet/TransactionModal.tsx` (new `mode: 'request'` for payment-request primitive)
+- `services/activations/ActivationsContext.tsx` (read `approved` entries only; merge static + DB sources)
 - `app/triad/components/codex/tabs/ActivationsTab.tsx` (status-filtered render)
 - `data/codex-configs.ts`:
   - Line 2290: `id: 'myartifacts'` → `'mycluster'`, `label: 'myArtifacts'` → `'myCluster'`
   - Lines 2465 / 2481 / 2497: `group: 'myartifacts'` → `'mycluster'`
-  - Add fourth sub-tab `myCartridge` in the same group
-  - Add `admin-active-surface-approvals` sub-tab in the `admin` group (~line 2898)
+  - Add `myCartridge` sub-tab in the same group at order: 2 (between myWorkspace and myLedger)
+  - Adjust myLedger order to 3
+  - Add `admin-active-surface-access-requests` sub-tab in metaMe Admin group
+  - Add `admin-mycartridge-manager` sub-tab in metaMe Admin group (operator-tier)
+  - Add `admin-registry-activation-review` (pilotOnly) and `admin-studio-activation-review` (pilotOnly) entries in their respective cartridge configs
   - Promote KNYT/Qripto/Venture Lab as `CartridgeTemplate` exports
 - `codexes/packs/agentiq/updates/2026-05-29_venture-iqube-schema-v0.3.md` (cross-link to v0.4)
+- `data/activation-catalog.ts` (status-aware reads; only `status === 'approved'` rows surface to non-owners)
 
 **Spine-paramount files** (per CLAUDE.md — touch only with operator approval):
 - `services/identity/getActivePersona.ts`
