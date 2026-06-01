@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-01T12:47:00.080Z",
+  "last_updated": "2026-06-01T13:39:51.257Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "d0d561824e882545f08daceb4ab095c8d2bea23c",
-  "latest_commit_short": "d0d5618",
-  "latest_commit_title": "trinity rename: code surface — disambiguate iQube primitives from SmartTriad",
+  "latest_commit": "5c07dab75546242781f18d152735423c2f5d657d",
+  "latest_commit_short": "5c07dab",
+  "latest_commit_title": "fix(ops): add CRON_TRIGGER_TOKEN to env allowlist",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,42 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "5c07dab",
+      "full_sha": "5c07dab75546242781f18d152735423c2f5d657d",
+      "title": "fix(ops): add CRON_TRIGGER_TOKEN to env allowlist",
+      "author": "Claude",
+      "timestamp": "2026-06-01T13:37:53Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-5c07dab.md"
+    },
+    {
+      "sha": "4a36c1f",
+      "full_sha": "4a36c1fb2a8728f7414a1b570042d00b72d87f32",
+      "title": "trigger deploy to dev: env allowlist fix for CRON_TRIGGER_TOKEN",
+      "author": "Claude",
+      "timestamp": "2026-06-01T13:37:53Z",
+      "type": "fix",
+      "brief": "items/build_/COMMITS/COMMIT-4a36c1f.md"
+    },
+    {
+      "sha": "cdcf115",
+      "full_sha": "cdcf11569eef7dc90930350bc5f3df26aa9d18cf",
+      "title": "RemixDialog + wallet drawer: tablet-landscape scroll + close-confirm + Edit mode",
+      "author": "Claude",
+      "timestamp": "2026-06-01T13:20:49Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-cdcf115.md"
+    },
+    {
+      "sha": "df33f1f",
+      "full_sha": "df33f1f8efdfa2a1b63bcd36b1f7d05812103d96",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-06-01T13:20:49Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-df33f1f.md"
+    },
     {
       "sha": "d0d5618",
       "full_sha": "d0d561824e882545f08daceb4ab095c8d2bea23c",
@@ -1216,42 +1252,6 @@
       "timestamp": "2026-05-28T15:21:13Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-808e230.md"
-    },
-    {
-      "sha": "1b7c2f8",
-      "full_sha": "1b7c2f815589b2c32b83164cec12a0b79e7df571",
-      "title": "harden aigentMe Capsule/Layout contract — single activator + guardrails",
-      "author": "Claude",
-      "timestamp": "2026-05-28T15:13:58Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1b7c2f8.md"
-    },
-    {
-      "sha": "29b5492",
-      "full_sha": "29b5492eaab95029b48cc271f3194d2adddc13dc",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-28T15:13:58Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-29b5492.md"
-    },
-    {
-      "sha": "614526f",
-      "full_sha": "614526f4b5f73f138b61b0477c5df0d8b2c10514",
-      "title": "Backlog: 21 Sats Franchises store_skus seed + KNYT COYN bonus payout wiring",
-      "author": "Claude",
-      "timestamp": "2026-05-28T15:12:14Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-614526f.md"
-    },
-    {
-      "sha": "b226c88",
-      "full_sha": "b226c88aa765d6e244364132ef53e2951f5d8d25",
-      "title": "fix capsule disappearance + restore Pill pattern to Move-forward + Venture",
-      "author": "Claude",
-      "timestamp": "2026-05-28T05:43:50Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-b226c88.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

@@ -1864,3 +1864,23 @@ Top-level retrieval anchors for this pack.
 - Type: `refactor`
 - Brief: [COMMIT-d0d5618.md](../build_/COMMITS/COMMIT-d0d5618.md)
 - Message: trinity rename: code surface — disambiguate iQube primitives from SmartTriad
+
+## Commit `df33f1f` — 2026-06-01T13:20:49Z
+- Type: `push`
+- Brief: [COMMIT-df33f1f.md](../build_/COMMITS/COMMIT-df33f1f.md)
+- Message: trigger deploy to dev
+
+## Commit `cdcf115` — 2026-06-01T13:20:49Z
+- Type: `push`
+- Brief: [COMMIT-cdcf115.md](../build_/COMMITS/COMMIT-cdcf115.md)
+- Message: RemixDialog + wallet drawer: tablet-landscape scroll + close-confirm + Edit mode
+
+## Commit `4a36c1f` — 2026-06-01T13:37:53Z
+- Type: `fix`
+- Brief: [COMMIT-4a36c1f.md](../build_/COMMITS/COMMIT-4a36c1f.md)
+- Message: trigger deploy to dev: env allowlist fix for CRON_TRIGGER_TOKEN
+
+## Commit `5c07dab` — 2026-06-01T13:37:53Z
+- Type: `fix`
+- Brief: [COMMIT-5c07dab.md](../build_/COMMITS/COMMIT-5c07dab.md)
+- Message: fix(ops): add CRON_TRIGGER_TOKEN to env allowlist
