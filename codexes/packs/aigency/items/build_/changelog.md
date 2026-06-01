@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`cdcf115`](https://github.com/iQube-Protocol/AigentZBeta/commit/cdcf11569eef7dc90930350bc5f3df26aa9d18cf) [push] RemixDialog + wallet drawer: tablet-landscape scroll + close-confirm + Edit mode (Claude, 2026-06-01T13:20:49Z)
+- [`df33f1f`](https://github.com/iQube-Protocol/AigentZBeta/commit/df33f1f8efdfa2a1b63bcd36b1f7d05812103d96) [push] trigger deploy to dev (Claude, 2026-06-01T13:20:49Z)
 - [`d0d5618`](https://github.com/iQube-Protocol/AigentZBeta/commit/d0d561824e882545f08daceb4ab095c8d2bea23c) [refactor] trinity rename: code surface — disambiguate iQube primitives from SmartTriad (Claude, 2026-05-31T19:47:03Z)
 - [`99783e1`](https://github.com/iQube-Protocol/AigentZBeta/commit/99783e119f7093ef0052080579a4c10b9f9581e6) [refactor] trigger deploy to dev: trinity rename (code-surface only; DB enum values preserved) (Claude, 2026-05-31T19:47:04Z)
 - [`3138ef5`](https://github.com/iQube-Protocol/AigentZBeta/commit/3138ef5bf8a893048e4e1410cab9775f53b11114) [push] ops: anchor cron + K/T policy backend — schema, cron-tick, calibration, history (Claude, 2026-06-01T12:36:24Z)
