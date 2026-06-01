@@ -64,26 +64,40 @@ export async function GET(
       updated_at: string;
     };
 
-    let creator: { firstName: string | null; handle: string | null } = {
+    let creator: { firstName: string | null; handle: string | null; fioHandle: string | null } = {
       firstName: null,
       handle: null,
+      fioHandle: null,
     };
-    const { data: persona } = await supabase
-      .from('nakamoto_knyt_personas')
-      .select('"First-Name", "Twitter-Handle", "Telegram-Handle", "Discord-Handle"')
-      .eq('id', r.creator_persona_id)
-      .maybeSingle();
-    if (persona) {
-      const p = persona as {
+    // Two parallel reads — KNYT social handles + canonical FIO handle.
+    // FIO handle is the persona's sovereign byline (priority order:
+    // fioHandle → handle → firstName → "Creator") — see list route for
+    // the rationale.
+    const [knytRes, personaRes] = await Promise.all([
+      supabase
+        .from('nakamoto_knyt_personas')
+        .select('"First-Name", "Twitter-Handle", "Telegram-Handle", "Discord-Handle"')
+        .eq('id', r.creator_persona_id)
+        .maybeSingle(),
+      supabase
+        .from('personas')
+        .select('fio_handle')
+        .eq('id', r.creator_persona_id)
+        .maybeSingle(),
+    ]);
+    if (knytRes.data) {
+      const p = knytRes.data as {
         'First-Name'?: string | null;
         'Twitter-Handle'?: string | null;
         'Telegram-Handle'?: string | null;
         'Discord-Handle'?: string | null;
       };
-      creator = {
-        firstName: p['First-Name'] || null,
-        handle: p['Twitter-Handle'] || p['Telegram-Handle'] || p['Discord-Handle'] || null,
-      };
+      creator.firstName = p['First-Name'] || null;
+      creator.handle = p['Twitter-Handle'] || p['Telegram-Handle'] || p['Discord-Handle'] || null;
+    }
+    if (personaRes.data) {
+      const pd = personaRes.data as { fio_handle?: string | null };
+      creator.fioHandle = pd.fio_handle ?? null;
     }
 
     return NextResponse.json({
