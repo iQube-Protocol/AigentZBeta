@@ -788,7 +788,8 @@ The cartridge active tab is an iQube. It must clear:
 1. **Template fidelity** — picked `templateId`s exist in the approved `TAB_TEMPLATES` registry; no custom-code overrides.
 2. **Agent integration audit** — if the cartridge declares `cartridge.copilot.source = 'cartridge-copilot'` OR `availableSpecialists` extends beyond the free tier (>3), Studio reviews the integration model.
 3. **Outside service integration** — if the cartridge wires external services (webhooks, partner APIs), each integration is reviewed for security + data-handling posture.
-4. **Experience matrix alignment** — if the cartridge uses a customized Experience Matrix template (per §22 Members template), Studio reviews the customization against the canonical metaMe template.
+
+(Experience Matrix customization is **not** a Studio-stage concern — owners may fork and customize freeform per §22; no extra approval beyond the active tab gate.)
 
 #### Stage 3: metaMe admin (editorial / distribution)
 
@@ -961,10 +962,11 @@ Templates receive `{cartridgeSlug, personaId, permissions, config}` props and re
 - `CodexTabTemplate` — extracted from KNYT Scrolls + Qripto Codex.
 - `ActiveTabTemplate` — extracted from KNYT Order tab Liquid template.
 - `VentureTabTemplate` — extracted from AlphaProgrammeTab with workstream count parameterized.
-- **`MembersTabTemplate`** — mirrors the KNYT cartridge members surface AND wires to the cartridge's Experience Matrix per the canonical metaMe Experience Matrix template in Studio. Cartridge owner can either:
+- **`MembersTabTemplate`** — mirrors the KNYT cartridge members surface AND wires to the cartridge's Experience Matrix per the canonical metaMe Experience Matrix template in Studio. The template is essentially a **fork of the metaMe generic Experience Matrix** that the cartridge owner can freely customize for their cartridge. Cartridge owner can either:
   - Use the **standard metaMe Experience Matrix template** as-is (default), OR
-  - Configure a **customized version** derived from their ventureQube (Studio stage of approval chain reviews customizations — see §21a.5).
-  - This means the Members template gives the cartridge owner a ladder + maturity dashboard for their members from day one, mirroring how KNYT operators see their patronage / PCS ladder.
+  - **Fork and customize** the Experience Matrix freeform for their cartridge.
+  - **No additional approval is needed to fork and customize** the Experience Matrix beyond the active tab approval gate (§21a). The fork is the operator's prerogative — they own their cartridge's progression model.
+  - The Members template gives the cartridge owner a ladder + maturity dashboard for their members from day one, mirroring how KNYT operators see their patronage / PCS ladder.
 - Others stubbed for MVP.
 
 ---
@@ -1314,7 +1316,7 @@ Receipts appear in myLedger filtered by `activeCartridge`.
 17. ✓ Triad nomenclature: every cartridge config carries `triadNomenclature: 'v0.2'`; the legacy `smartTriad` JSON key is rejected at ingest with a clear migration error.
 18. ✓ Specialist whitelist enforces ≤3 free tier in MVP; the 4th+ slot in the wizard renders a payment-gated upgrade lock UI (payment flow itself stubbed).
 19. ✓ myCanvas AND myWorkspace can both publish into a cartridge's **Codex OR Community** tab via the unified `publish-to-cartridge` action.
-20. ✓ Members template mirrors KNYT cartridge Members + wires to the cartridge's Experience Matrix (standard metaMe template, with customization path stubbed for Studio approval in pilot).
+20. ✓ Members template mirrors KNYT cartridge Members + wires to the cartridge's Experience Matrix as a freeform fork of the canonical metaMe template — owner can customize without any extra approval beyond the active tab gate.
 
 ---
 
