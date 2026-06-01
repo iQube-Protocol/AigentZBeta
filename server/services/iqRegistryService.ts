@@ -1,12 +1,19 @@
 /**
  * iQube Registry Service
- * 
+ *
  * Manages the creation and retrieval of iQube registry entries:
  * - MetaQube: Public metadata
  * - BlakQube: Encrypted payload pointer
  * - TokenQube: Wrapped encryption key
- * 
- * These form the core iQube triad for each piece of content.
+ *
+ * These form the core iQube trinity for each piece of content.
+ *
+ * Naming note: this trio is the iQube *trinity* — distinct from the
+ * SmartTriad surface (Codex + Copilot + Wallet) which lives at the
+ * experience layer. Where the DB stores `'triad_meta'` / `'triad_blak'`
+ * / `'triad_token'` as enum values on `iqube_id_map.source`, those
+ * literals are deliberately preserved to avoid touching live data; only
+ * code-facing identifiers + prose use the disambiguated "trinity" term.
  */
 
 import { getSupabaseServer } from '../../app/api/_lib/supabaseServer';
@@ -364,9 +371,9 @@ export async function updateMetaQube(
 }
 
 /**
- * Get complete iQube triad (meta + blak + token) for a content item
+ * Get complete iQube trinity (meta + blak + token) for a content item.
  */
-export async function getQubeTriad(
+export async function getQubeTrinity(
   metaQubeId: string,
   blakQubeId: string,
   tokenQubeId: string

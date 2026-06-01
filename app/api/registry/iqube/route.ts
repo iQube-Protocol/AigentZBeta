@@ -3,10 +3,10 @@
  *
  * Replaces the mock that returned a fake registryId. PRD v1.0 §11.2 +
  * Stage 1 close report. The draft is created in two surfaces:
- *   1. iq_meta_qubes (triad meta) via server/services/iqRegistryService
+ *   1. iq_meta_qubes (trinity meta) via server/services/iqRegistryService
  *   2. iqube_id_map (canonical id join) via direct insert
  *
- * The triad blak + token are NOT created here — those land via the
+ * The trinity blak + token are NOT created here — those land via the
  * mint saga when the iQube moves through the mint pipeline. A draft
  * iQube has meta + iqube_id_map only; mint_status='unminted',
  * internal_lifecycle='draft'.
@@ -245,7 +245,7 @@ export async function POST(request: NextRequest) {
       .replace(/^-+|-+$/g, '')
       .substring(0, 80);
 
-  // 4. Create the meta qube (triad spine)
+  // 4. Create the meta qube (trinity spine)
   //    Phase B B1: legacy template extras (business model, identity hints,
   //    blakqube labels, fork lineage, etc.) are folded into the JSONB
   //    metadata column under `legacyTemplateExtras`. The resolver/adapter

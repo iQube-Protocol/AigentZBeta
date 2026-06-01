@@ -224,7 +224,7 @@ Default **5 / 5 / 5 / 5** with a `notes` field flagging that operator override o
 
 ## ClusterQube (`cluster_qube_v1`)
 
-No ClusterQube records exist today (one orphan triad meta has `qube_type='cluster'` but isn't promoted). When cluster records land, the deriver reads the cluster's `member_iqubes` block + aggregates each member's scores:
+No ClusterQube records exist today (one orphan trinity meta has `qube_type='cluster'` but isn't promoted). When cluster records land, the deriver reads the cluster's `member_iqubes` block + aggregates each member's scores:
 
 ```
 sensitivity, accuracy, verifiability = mean(members)

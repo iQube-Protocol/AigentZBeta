@@ -19,6 +19,7 @@ import { usePolygonAmoy } from "@/hooks/ops/usePolygonAmoy";
 import { useOptimismSepolia } from "@/hooks/ops/useOptimismSepolia";
 import { useArbitrumSepolia } from "@/hooks/ops/useArbitrumSepolia";
 import { useBaseSepolia } from "@/hooks/ops/useBaseSepolia";
+import { useBaseMainnet } from "@/hooks/ops/useBaseMainnet";
 import { useSyncStatus } from "@/hooks/ops/useSyncStatus";
 import { useDVNStatus } from "@/hooks/ops/useDVNStatus";
 import { useDVNMonitor } from "@/hooks/ops/useDVNMonitor";
@@ -35,6 +36,7 @@ import { A2ADVNCard } from "@/components/ops/A2ADVNCard";
 import { DiDQubeIdentityCard } from "@/components/ops/DiDQubeIdentityCard";
 import { DiDQubeReputationCard } from "@/components/ops/DiDQubeReputationCard";
 import { FundingStatusCard } from "@/components/ops/FundingStatusCard";
+import { AnchorCalibrationCard } from "@/components/ops/AnchorCalibrationCard";
 import { Connection, Transaction, SystemProgram, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { getPhantomWallet } from '@/services/wallet/phantom';
 import { getUnisatWallet } from '@/services/wallet/unisat';
@@ -445,7 +447,9 @@ function badgeClassFor(key: string): string {
     case "arbitrum_sepolia":
       return "bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/30"; // Arbitrum = Blue
     case "base_sepolia":
-      return "bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-500/30"; // Base = Cyan
+      return "bg-cyan-500/20 text-cyan-300 ring-1 ring-cyan-500/30"; // Base testnet = Cyan
+    case "base_mainnet":
+      return "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30"; // Base mainnet = Emerald (production)
     case "solana_testnet":
       return "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/30"; // Solana = Emerald
     case "sync_status":
@@ -469,6 +473,7 @@ export default function OpsPage() {
   const optimismSepolia = useOptimismSepolia(30000);
   const arbitrumSepolia = useArbitrumSepolia(30000);
   const baseSepolia = useBaseSepolia(30000);
+  const baseMainnet = useBaseMainnet(30000);
   const syncStatus = useSyncStatus(30000);
   const dvn = useDVNStatus(30000);
   const xchain = useCrossChain(30000);
@@ -567,6 +572,8 @@ export default function OpsPage() {
     { key: "qct_rekey", title: "QCT Rekey (Stage 1A)" },
     { key: "a2a_tests", title: "A2A Tx Tests" },
     { key: "a2a_dvn", title: "A2A DVN Integration" },
+    { key: "anchor_calibration", title: "Anchor Calibration (K / T / cron)" },
+    { key: "base_mainnet", title: "Base Mainnet" },
     { key: "btc_testnet", title: "BTC Testnet" },
     { key: "eth_sepolia", title: "Ethereum Sepolia" },
     { key: "polygon_amoy", title: "Polygon Amoy" },
@@ -626,6 +633,9 @@ export default function OpsPage() {
         {cards.map(({ key, title }) => {
           if (key === "funding_status") {
             return <FundingStatusCard key={key} title={title} />;
+          }
+          if (key === "anchor_calibration") {
+            return <AnchorCalibrationCard key={key} title={title} />;
           }
           if (key === "a2a_tests") {
             return <A2ATestCard key={key} title={title} />;
@@ -934,6 +944,97 @@ export default function OpsPage() {
                   <span className="text-slate-400">Last Check:</span>
                   <span className="text-xs text-slate-500">{timeSince(at)}</span>
                 </div>
+              </Card>
+            );
+          }
+
+          // Base Mainnet card — production rail (post live deployment of
+          // iQube + Q¢ contracts on Base mainnet). Sits next to the
+          // testnet card; testnet is retained for ongoing test-rail use.
+          if (key === "base_mainnet") {
+            const ok = baseMainnet.data?.ok ?? false;
+            const at = baseMainnet.data?.at ?? "—";
+            const latestTx = baseMainnet.data?.latestTx || "—";
+            const blockNumber = baseMainnet.data?.blockNumber ?? "—";
+            const qctAddr = baseMainnet.data?.contracts?.qct || null;
+            const qctReserveAddr = baseMainnet.data?.contracts?.qctReserve || null;
+            return (
+              <Card
+                key={key}
+                title={
+                  <span className="inline-flex items-center gap-2">
+                    {title}
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30">Mainnet</span>
+                  </span>
+                }
+                actions={<IconRefresh onClick={baseMainnet.refresh} disabled={baseMainnet.loading} />}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Status:</span>
+                  <span className={ok ? "text-emerald-400" : "text-red-400"}>●</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Chain ID:</span>
+                  <span className="text-xs text-slate-300">8453</span>
+                </div>
+                {latestTx && latestTx !== "—" && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Latest TX:</span>
+                    <span className="flex items-center gap-1 max-w-[60%] justify-end">
+                      <a
+                        href={`https://basescan.org/tx/${latestTx}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-indigo-300 hover:text-white truncate"
+                        title={latestTx}
+                      >
+                        <span className="truncate font-mono">{latestTx}</span>
+                        <ExternalLink size={12} className="flex-shrink-0" />
+                      </a>
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Block:</span>
+                  <span className="text-xs text-slate-300">{blockNumber}</span>
+                </div>
+                {qctAddr && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">QCT:</span>
+                    <a
+                      href={`https://basescan.org/address/${qctAddr}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-indigo-300 hover:text-white truncate max-w-[60%]"
+                      title={qctAddr}
+                    >
+                      <span className="truncate font-mono">{qctAddr}</span>
+                      <ExternalLink size={12} className="flex-shrink-0" />
+                    </a>
+                  </div>
+                )}
+                {qctReserveAddr && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">QCT Reserve:</span>
+                    <a
+                      href={`https://basescan.org/address/${qctReserveAddr}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-indigo-300 hover:text-white truncate max-w-[60%]"
+                      title={qctReserveAddr}
+                    >
+                      <span className="truncate font-mono">{qctReserveAddr}</span>
+                      <ExternalLink size={12} className="flex-shrink-0" />
+                    </a>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Last Check:</span>
+                  <span className="text-xs text-slate-500">{timeSince(at)}</span>
+                </div>
+                {baseMainnet.error && (
+                  <div className="text-rose-300 text-[11px]">{baseMainnet.error}</div>
+                )}
               </Card>
             );
           }

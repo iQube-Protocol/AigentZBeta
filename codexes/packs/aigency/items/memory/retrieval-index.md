@@ -1814,3 +1814,53 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-48086c8.md](../build_/COMMITS/COMMIT-48086c8.md)
 - Message: SmartWalletDrawer: remove mandatory persona-creation gate on sign-in
+
+## Commit `1ce6738` — 2026-06-01T02:07:36Z
+- Type: `push`
+- Brief: [COMMIT-1ce6738.md](../build_/COMMITS/COMMIT-1ce6738.md)
+- Message: trigger deploy to dev
+
+## Commit `a875f3e` — 2026-06-01T02:07:36Z
+- Type: `refactor`
+- Brief: [COMMIT-a875f3e.md](../build_/COMMITS/COMMIT-a875f3e.md)
+- Message: metaMe: KNYT rename + ExpandedNBEPill contextualTitle + markdown strip on email drafts
+
+## Commit `09a18bf` — 2026-06-01T12:41:57Z
+- Type: `push`
+- Brief: [COMMIT-09a18bf.md](../build_/COMMITS/COMMIT-09a18bf.md)
+- Message: trigger deploy to dev: ops layout — anchor calibration repositioned + Base mainnet card
+
+## Commit `7538ba5` — 2026-06-01T12:41:57Z
+- Type: `push`
+- Brief: [COMMIT-7538ba5.md](../build_/COMMITS/COMMIT-7538ba5.md)
+- Message: ops page: anchor calibration repositioned + Base mainnet card added
+
+## Commit `72e03a8` — 2026-06-01T12:39:46Z
+- Type: `push`
+- Brief: [COMMIT-72e03a8.md](../build_/COMMITS/COMMIT-72e03a8.md)
+- Message: trigger deploy to dev: ops anchor cron + K/T policy + calibration card + network-costs doc
+
+## Commit `fbf7823` — 2026-06-01T12:39:45Z
+- Type: `docs`
+- Brief: [COMMIT-fbf7823.md](../build_/COMMITS/COMMIT-fbf7823.md)
+- Message: docs: AgentiQ Network Costs — first-class reference doc + cartridge collection
+
+## Commit `d7eab2f` — 2026-06-01T12:38:16Z
+- Type: `push`
+- Brief: [COMMIT-d7eab2f.md](../build_/COMMITS/COMMIT-d7eab2f.md)
+- Message: ops: AnchorCalibrationCard — runtime tuning panel on /ops
+
+## Commit `3138ef5` — 2026-06-01T12:36:24Z
+- Type: `push`
+- Brief: [COMMIT-3138ef5.md](../build_/COMMITS/COMMIT-3138ef5.md)
+- Message: ops: anchor cron + K/T policy backend — schema, cron-tick, calibration, history
+
+## Commit `99783e1` — 2026-05-31T19:47:04Z
+- Type: `refactor`
+- Brief: [COMMIT-99783e1.md](../build_/COMMITS/COMMIT-99783e1.md)
+- Message: trigger deploy to dev: trinity rename (code-surface only; DB enum values preserved)
+
+## Commit `d0d5618` — 2026-05-31T19:47:03Z
+- Type: `refactor`
+- Brief: [COMMIT-d0d5618.md](../build_/COMMITS/COMMIT-d0d5618.md)
+- Message: trinity rename: code surface — disambiguate iQube primitives from SmartTriad

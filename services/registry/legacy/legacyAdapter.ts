@@ -160,7 +160,7 @@ export function legacyFiltersToCanonicalParams(
   //
   // Floor raised to 500 (was 50) on 2026-05-31 because the resolver's
   // Promise.all silently drops entries via `.catch(() => null)` when
-  // their adapters fail to resolve (broken triad refs, missing
+  // their adapters fail to resolve (broken trinity refs, missing
   // source_id, etc.). The first ~50 rows in iqube_id_map all fall
   // into this dead zone today, so a low limit returns 0 entries even
   // though 101 valid entries exist beyond row 100. Fetching the full

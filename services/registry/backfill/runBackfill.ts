@@ -74,7 +74,7 @@ interface SourceRow {
 
 type SourceLoader = () => Promise<SourceRow[]>;
 
-async function loadTriadMetaRows(): Promise<SourceRow[]> {
+async function loadTrinityMetaRows(): Promise<SourceRow[]> {
   const sb = client();
   // Identify orphan metas (Stage 0 Finding F — flagged as test fixtures)
   // and tag them with notes='legacy_test_fixture'.
@@ -185,7 +185,7 @@ async function loadLiquidUiTemplateRows(): Promise<SourceRow[]> {
 }
 
 const SOURCE_LOADERS: Record<IQubeIdMapSource, SourceLoader | null> = {
-  triad_meta: loadTriadMetaRows,
+  triad_meta: loadTrinityMetaRows,
   triad_blak: null,            // Implied via triad_meta; not separately backfilled
   triad_token: null,           // Implied via triad_meta; not separately backfilled
   content_qube: loadContentQubeRows,
