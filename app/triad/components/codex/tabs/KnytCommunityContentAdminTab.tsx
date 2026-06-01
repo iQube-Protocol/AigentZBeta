@@ -32,7 +32,7 @@ interface ContentItem {
   articleBody: string | null;
   imageUrl: string | null;
   qcCost: number;
-  creator: { firstName: string | null; handle: string | null };
+  creator: { firstName: string | null; handle: string | null; fioHandle: string | null };
   createdAt: string;
 }
 
@@ -364,7 +364,7 @@ function QueueRow({
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold text-white truncate">{item.title}</p>
         <p className="text-[11px] text-slate-500 truncate">
-          {item.skill} · {item.creator.firstName ?? item.creator.handle ?? "Creator"} · {item.qcCost} Q¢
+          {item.skill} · {item.creator.fioHandle ?? item.creator.handle ?? item.creator.firstName ?? "Creator"} · {item.qcCost} Q¢
         </p>
         <p className="text-[11px] text-slate-400 line-clamp-2 mt-1">{item.prompt}</p>
       </div>
