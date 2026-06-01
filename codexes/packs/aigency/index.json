@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-05-31T23:39:12.308Z",
+  "last_updated": "2026-06-01T02:09:31.161Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "48086c86e4c463e99febc53db606dd7065b84408",
-  "latest_commit_short": "48086c8",
-  "latest_commit_title": "SmartWalletDrawer: remove mandatory persona-creation gate on sign-in",
+  "latest_commit": "a875f3e5d2d6ad220b59329a817ee2297ba2d54a",
+  "latest_commit_short": "a875f3e",
+  "latest_commit_title": "metaMe: KNYT rename + ExpandedNBEPill contextualTitle + markdown strip on email drafts",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,24 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a875f3e",
+      "full_sha": "a875f3e5d2d6ad220b59329a817ee2297ba2d54a",
+      "title": "metaMe: KNYT rename + ExpandedNBEPill contextualTitle + markdown strip on email drafts",
+      "author": "Claude",
+      "timestamp": "2026-06-01T02:07:36Z",
+      "type": "refactor",
+      "brief": "items/build_/COMMITS/COMMIT-a875f3e.md"
+    },
+    {
+      "sha": "1ce6738",
+      "full_sha": "1ce6738deb0bbf77ba0384683ad71b3b7e4ffd39",
+      "title": "trigger deploy to dev",
+      "author": "Claude",
+      "timestamp": "2026-06-01T02:07:36Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-1ce6738.md"
+    },
     {
       "sha": "48086c8",
       "full_sha": "48086c86e4c463e99febc53db606dd7065b84408",
@@ -1234,24 +1252,6 @@
       "timestamp": "2026-05-27T20:54:33Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-c305db9.md"
-    },
-    {
-      "sha": "e0e0470",
-      "full_sha": "e0e0470958421d0ab7f4fce6bfa261d7cef776ca",
-      "title": "Pair Qripto covers to papers by created_at index + add ID + URL columns to admin table (KNYT parity)",
-      "author": "Claude",
-      "timestamp": "2026-05-27T19:24:25Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-e0e0470.md"
-    },
-    {
-      "sha": "47347c4",
-      "full_sha": "47347c40af2ff2046edd5aa3357b84b3e75e36a1",
-      "title": "Remove cover_pdf upload option + add CLAUDE.md must-read on PDF-grid-with-image-cover pattern",
-      "author": "Claude",
-      "timestamp": "2026-05-27T18:50:28Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-47347c4.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

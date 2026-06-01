@@ -1,4 +1,6 @@
 # Build — Changelog
+- [`a875f3e`](https://github.com/iQube-Protocol/AigentZBeta/commit/a875f3e5d2d6ad220b59329a817ee2297ba2d54a) [refactor] metaMe: KNYT rename + ExpandedNBEPill contextualTitle + markdown strip on email drafts (Claude, 2026-06-01T02:07:36Z)
+- [`1ce6738`](https://github.com/iQube-Protocol/AigentZBeta/commit/1ce6738deb0bbf77ba0384683ad71b3b7e4ffd39) [push] trigger deploy to dev (Claude, 2026-06-01T02:07:36Z)
 - [`48086c8`](https://github.com/iQube-Protocol/AigentZBeta/commit/48086c86e4c463e99febc53db606dd7065b84408) [push] SmartWalletDrawer: remove mandatory persona-creation gate on sign-in (Claude, 2026-05-31T23:37:11Z)
 - [`05a8d6c`](https://github.com/iQube-Protocol/AigentZBeta/commit/05a8d6c04997d79c1515e9f1163861da87fca337) [push] trigger deploy to dev (Claude, 2026-05-31T23:37:11Z)
 - [`609c885`](https://github.com/iQube-Protocol/AigentZBeta/commit/609c885d6cdb7f7720402589ce70787cebc4d4a6) [push] MyWorkspaceTab: 5-item sub-menu nav matching standard cartridge pattern (Claude, 2026-05-31T22:32:06Z)
