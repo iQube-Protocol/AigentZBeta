@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * VentureProgressCard — Aigent Me's read-only window into AVL.
+ * VentureProgressCard — Aigent Me's read-only window into MVL.
  * Per PRD v0.2 §9.2 (Runtime cards → Venture Progress Card) and §8 GP4.
  *
  * Renders the VentureProgressShape returned by POST /api/assistant/
@@ -106,7 +106,7 @@ const CARTRIDGE_LABELS: Record<string, string> = {
   knyt: "KNYT",
   qriptopian: "The Qriptopian",
   marketa: "Marketa",
-  avl: "metaMe Venture Lab",
+  mvl: "metaMe Venture Lab",
 };
 
 export function VentureProgressCard({
@@ -318,7 +318,7 @@ export function VentureProgressCard({
         </h4>
         {data.recommendedActions.length === 0 ? (
           <p className={`text-sm ${mutedClass}`}>
-            No catalogue match for AVL at your current stage. Set up your
+            No catalogue match for MVL at your current stage. Set up your
             ExperienceModel to surface stage-relevant actions.
           </p>
         ) : (

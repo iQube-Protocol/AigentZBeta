@@ -117,10 +117,10 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
   },
   {
     id: 'order-of-metaye',
-    label: 'Order of Metayé',
+    label: 'KNYT',
     description: 'Active surface of the KNYT world — Order rituals, missions, and standing.',
     longDescription:
-      'The participation layer of the KNYT cartridge. Surfaces the Order tab and its sub-tabs (rituals, standing, and missions) directly inside metaMe.',
+      'The participation layer of the KNYT cartridge. Surfaces the KNYT tab and its sub-tabs (rituals, standing, and missions) directly inside metaMe. (Activation id `order-of-metaye` retained for back-compat — labelled "KNYT" in the metaMe surface per 2026-05-30 operator decision.)',
     gate: 'open',
     tabSlug: 'order-of-metaye',
     sourceCartridge: 'knyt',
@@ -199,7 +199,7 @@ export const ACTIVATION_CATALOG: ActivationCatalogEntry[] = [
       'Operate your venture through the metaMe Venture Lab α surfaces — track KPIs, manage priority partners and campaigns, generate venture progress reports, and run the alpha-activation checkpoints with Aigent Z.',
     gate: 'gated',
     tabSlug: 'venture-lab',
-    sourceCartridge: 'avl',
+    sourceCartridge: 'mvl',
     icon: 'TrendingUp',
     color: 'emerald',
     metrics: [

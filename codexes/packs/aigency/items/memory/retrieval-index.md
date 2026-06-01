@@ -1699,3 +1699,128 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-8c0ad44.md](../build_/COMMITS/COMMIT-8c0ad44.md)
 - Message: /api/uploads: extend VALID_USE_KINDS allowlist to include attachment + iqube_payload + venture_iqube
+
+## Commit `d2e9a0d` — 2026-05-31T18:40:44Z
+- Type: `push`
+- Brief: [COMMIT-d2e9a0d.md](../build_/COMMITS/COMMIT-d2e9a0d.md)
+- Message: trigger deploy to dev
+
+## Commit `3853b5f` — 2026-05-31T18:40:44Z
+- Type: `push`
+- Brief: [COMMIT-3853b5f.md](../build_/COMMITS/COMMIT-3853b5f.md)
+- Message: Venture iQube Phase A2: commit ExperienceQube hydration on ingest
+
+## Commit `7459b1b` — 2026-05-31T19:24:18Z
+- Type: `push`
+- Brief: [COMMIT-7459b1b.md](../build_/COMMITS/COMMIT-7459b1b.md)
+- Message: trigger deploy to dev
+
+## Commit `dc9ec96` — 2026-05-31T19:24:18Z
+- Type: `refactor`
+- Brief: [COMMIT-dc9ec96.md](../build_/COMMITS/COMMIT-dc9ec96.md)
+- Message: AVL → MVL rename (Pass 1): types, UI labels, NBE catalog, Venture iQube v0.3
+
+## Commit `b497263` — 2026-05-31T19:41:29Z
+- Type: `push`
+- Brief: [COMMIT-b497263.md](../build_/COMMITS/COMMIT-b497263.md)
+- Message: trigger deploy to dev
+
+## Commit `c502c4c` — 2026-05-31T19:41:29Z
+- Type: `push`
+- Brief: [COMMIT-c502c4c.md](../build_/COMMITS/COMMIT-c502c4c.md)
+- Message: NBA cards: contextual title rewrites via LLM rerank
+
+## Commit `17e0d6b` — 2026-05-31T19:46:35Z
+- Type: `push`
+- Brief: [COMMIT-17e0d6b.md](../build_/COMMITS/COMMIT-17e0d6b.md)
+- Message: trigger deploy to dev
+
+## Commit `b582f2a` — 2026-05-31T19:46:35Z
+- Type: `refactor`
+- Brief: [COMMIT-b582f2a.md](../build_/COMMITS/COMMIT-b582f2a.md)
+- Message: my-space restructure: myArtifacts tabGroup with three sub-tabs
+
+## Commit `f09ac66` — 2026-05-31T19:48:16Z
+- Type: `push`
+- Brief: [COMMIT-f09ac66.md](../build_/COMMITS/COMMIT-f09ac66.md)
+- Message: trigger deploy to dev
+
+## Commit `e3b0bd0` — 2026-05-31T19:48:16Z
+- Type: `push`
+- Brief: [COMMIT-e3b0bd0.md](../build_/COMMITS/COMMIT-e3b0bd0.md)
+- Message: AVL → MVL Pass 2: /api/avl/* directory + FE callsites + log tags
+
+## Commit `6db2a85` — 2026-05-31T20:41:17Z
+- Type: `push`
+- Brief: [COMMIT-6db2a85.md](../build_/COMMITS/COMMIT-6db2a85.md)
+- Message: trigger deploy to dev
+
+## Commit `ff63bfe` — 2026-05-31T20:41:16Z
+- Type: `chore`
+- Brief: [COMMIT-ff63bfe.md](../build_/COMMITS/COMMIT-ff63bfe.md)
+- Message: nbeLlmRerank: bump max_tokens 400 → 1500, log parse failures
+
+## Commit `d48b6f2` — 2026-05-31T20:44:08Z
+- Type: `push`
+- Brief: [COMMIT-d48b6f2.md](../build_/COMMITS/COMMIT-d48b6f2.md)
+- Message: trigger deploy to dev
+
+## Commit `995f518` — 2026-05-31T20:44:08Z
+- Type: `push`
+- Brief: [COMMIT-995f518.md](../build_/COMMITS/COMMIT-995f518.md)
+- Message: myCanvas: remix-from-template button (Qriptopian Agents of Change 15-min sprint)
+
+## Commit `0a9c834` — 2026-05-31T20:58:02Z
+- Type: `push`
+- Brief: [COMMIT-0a9c834.md](../build_/COMMITS/COMMIT-0a9c834.md)
+- Message: metaMe cartridge: swap myArtifacts and Activations top-menu order
+
+## Commit `a5f865a` — 2026-05-31T21:32:31Z
+- Type: `push`
+- Brief: [COMMIT-a5f865a.md](../build_/COMMITS/COMMIT-a5f865a.md)
+- Message: trigger deploy to dev
+
+## Commit `2e60b85` — 2026-05-31T21:32:31Z
+- Type: `push`
+- Brief: [COMMIT-2e60b85.md](../build_/COMMITS/COMMIT-2e60b85.md)
+- Message: canvasService.listEntries: surface meta_json.surface stamp via JSON-path
+
+## Commit `0d769b7` — 2026-05-31T21:54:59Z
+- Type: `push`
+- Brief: [COMMIT-0d769b7.md](../build_/COMMITS/COMMIT-0d769b7.md)
+- Message: trigger deploy to dev
+
+## Commit `e549a85` — 2026-05-31T21:54:59Z
+- Type: `push`
+- Brief: [COMMIT-e549a85.md](../build_/COMMITS/COMMIT-e549a85.md)
+- Message: myWorkspace: separate myworkspace_entries table for strict canvas/workspace demarcation
+
+## Commit `4e01b23` — 2026-05-31T22:32:06Z
+- Type: `push`
+- Brief: [COMMIT-4e01b23.md](../build_/COMMITS/COMMIT-4e01b23.md)
+- Message: trigger deploy to dev
+
+## Commit `609c885` — 2026-05-31T22:32:06Z
+- Type: `push`
+- Brief: [COMMIT-609c885.md](../build_/COMMITS/COMMIT-609c885.md)
+- Message: MyWorkspaceTab: 5-item sub-menu nav matching standard cartridge pattern
+
+## Commit `05a8d6c` — 2026-05-31T23:37:11Z
+- Type: `push`
+- Brief: [COMMIT-05a8d6c.md](../build_/COMMITS/COMMIT-05a8d6c.md)
+- Message: trigger deploy to dev
+
+## Commit `48086c8` — 2026-05-31T23:37:11Z
+- Type: `push`
+- Brief: [COMMIT-48086c8.md](../build_/COMMITS/COMMIT-48086c8.md)
+- Message: SmartWalletDrawer: remove mandatory persona-creation gate on sign-in
+
+## Commit `1ce6738` — 2026-06-01T02:07:36Z
+- Type: `push`
+- Brief: [COMMIT-1ce6738.md](../build_/COMMITS/COMMIT-1ce6738.md)
+- Message: trigger deploy to dev
+
+## Commit `a875f3e` — 2026-06-01T02:07:36Z
+- Type: `refactor`
+- Brief: [COMMIT-a875f3e.md](../build_/COMMITS/COMMIT-a875f3e.md)
+- Message: metaMe: KNYT rename + ExpandedNBEPill contextualTitle + markdown strip on email drafts

@@ -82,7 +82,7 @@ const CARTRIDGE_LABELS: Record<string, string> = {
   knyt: "KNYT",
   qriptopian: "The Qriptopian",
   marketa: "Marketa",
-  avl: "AVL",
+  mvl: "MVL",
 };
 
 export function ActivityReceiptCard({ data, personaDisplayLabel, theme = "dark" }: Props) {

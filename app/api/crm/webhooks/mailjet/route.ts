@@ -149,7 +149,7 @@ async function resolveInvestorId(
 // ── Partner cohort tracking (avl_partner_contacts) ────────────────────────
 //
 // Mirrors the staging engagement transitions but writes to the
-// AVL partner CRM. State column is `outreach_status` — we apply a
+// MVL partner CRM. State column is `outreach_status` — we apply a
 // best-effort mapping; consumer code that depends on terminal states
 // should treat these as advisory until Phase 6 schema cleanup lands.
 

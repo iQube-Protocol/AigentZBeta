@@ -33,6 +33,17 @@ import type { PreflightContext } from "@/services/capabilities/preflight";
 export interface NextBestActionData {
   id: string;
   label: string;
+  /**
+   * Optional LLM-rewritten contextual title. When set, renders in place
+   * of `label` on the card. Sourced from nbaContextualTitles[id] in the
+   * brief / move-forward LLM-rerank output — the LLM is instructed to
+   * rewrite generic catalogue labels using the operator's actual
+   * ventures, partners, goals, and stage (e.g. "Coordinate with Marketa"
+   * → "Ask Marketa for a Metaiye Media partner proposal on Operation
+   * metaWill launch"). Falls through to `label` when the LLM didn't
+   * emit a title (no Anthropic key, low-context candidate, etc.).
+   */
+  contextualTitle?: string | null;
   rationale: string;
   cartridge: string;
   effort: "light" | "standard" | "deep";
@@ -82,7 +93,7 @@ const CARTRIDGE_LABELS: Record<string, string> = {
   knyt: "KNYT",
   qriptopian: "The Qriptopian",
   marketa: "Marketa",
-  avl: "AVL",
+  mvl: "MVL",
 };
 
 const SPECIALIST_LABELS: Record<string, string> = {
@@ -156,7 +167,9 @@ export function NextBestActionCard({
             {isHero && <PreflightChip preflight={preflightContext} theme={theme} />}
           </div>
           <h4 className={`${isHero ? "text-lg" : "text-base"} font-semibold leading-tight`}>
-            {action.label}
+            {action.contextualTitle && action.contextualTitle.trim().length > 0
+              ? action.contextualTitle
+              : action.label}
           </h4>
           {isHero && <PreflightByline preflight={preflightContext} theme={theme} />}
           <p className={`text-sm mt-1 ${mutedClass}`}>{action.rationale}</p>

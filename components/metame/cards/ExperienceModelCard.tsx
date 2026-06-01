@@ -17,7 +17,7 @@
  * Used by:
  *   - AigentMeWelcomeTab (displays current state inline)
  *   - Future surfaces that need a compact view of the user's current
- *     experience (e.g. the AVL Venture Progress card in Phase 4)
+ *     experience (e.g. the MVL Venture Progress card in Phase 4)
  *
  * Privacy: never renders BlakQube payload values — only counts. Per
  * services/iqube/experienceQube.ts, the GET endpoint never serialises
@@ -85,7 +85,7 @@ const CARTRIDGE_LABELS: Record<string, string> = {
   knyt: "KNYT",
   qriptopian: "The Qriptopian",
   marketa: "Marketa",
-  avl: "metaMe Venture Lab",
+  mvl: "metaMe Venture Lab",
 };
 
 export function ExperienceModelCard({ data, loading, onEdit, theme = "dark" }: Props) {

@@ -263,13 +263,13 @@ export const NBE_CATALOGUE: NbeCandidate[] = [
     impact: 'medium',
   },
 
-  // ── metaMe Venture Lab (AVL) ─────────────────────────────────────────
+  // ── metaMe Venture Lab (MVL) ─────────────────────────────────────────
   {
-    id: 'avl.generate-progress-report',
+    id: 'mvl.generate-progress-report',
     label: 'Generate a venture progress report',
     rationale:
       'Snapshot operational + commercial KPI movement, blockers, and the next strongest commercial action.',
-    cartridge: 'avl',
+    cartridge: 'mvl',
     suggestedArtifact: 'venture-report',
     approvalRequired: false,
     weight: 70,
@@ -278,11 +278,11 @@ export const NBE_CATALOGUE: NbeCandidate[] = [
     goalKeywords: ['venture', 'progress', 'kpi', 'milestone', 'investor'],
   },
   {
-    id: 'avl.schedule-review-block',
+    id: 'mvl.schedule-review-block',
     label: 'Schedule a venture review block',
     rationale:
-      'Reserve focused time to review AVL progress with the people who unblock it.',
-    cartridge: 'avl',
+      'Reserve focused time to review MVL progress with the people who unblock it.',
+    cartridge: 'mvl',
     suggestedArtifact: 'calendar-block',
     approvalRequired: true,
     weight: 50,

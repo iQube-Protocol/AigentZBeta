@@ -3,14 +3,14 @@
  * Per PRD v0.2 §8 Golden Path 4 (Review Venture Progress) and §9.2
  * (Venture Progress Card render contract).
  *
- * Aigent Me's read-only window into metaMe Venture Lab (AVL):
+ * Aigent Me's read-only window into metaMe Venture Lab (MVL):
  *   - active venture / project name + stage
  *   - operational + commercial goal counts (BlakQube T1-safe counts only)
  *   - KPI counts (never values)
  *   - recent IntentQube activity (acted-upon NBEs)
  *   - blockers (alpha: empty; Phase 6 wires pending-approval queue)
  *   - linked cartridges
- *   - recommended NBE actions (AVL-tier from the catalogue)
+ *   - recommended NBE actions (MVL-tier from the catalogue)
  *
  * Deterministic generation; LLM-enriched prose lands in Phase 4.b alongside
  * the brief enrichment work. Structure is the contract.
@@ -108,7 +108,7 @@ export interface VentureProgressShape {
   /** Pending blockers count. Alpha: 0; Phase 6 populates from approvals. */
   blockersCount: number;
 
-  /** Recommended next NBEs (AVL-tier from the catalogue, then top mixed). */
+  /** Recommended next NBEs (MVL-tier from the catalogue, then top mixed). */
   recommendedActions: BriefNextBestAction[];
 
   /**
@@ -202,7 +202,7 @@ export async function buildVentureProgress(
 ): Promise<VentureProgressShape> {
   const qube = await getExperienceQube(input.personaId);
 
-  const linkedCartridges = qube?.meta.activeCartridges ?? ['metame', 'avl'];
+  const linkedCartridges = qube?.meta.activeCartridges ?? ['metame', 'mvl'];
   const currentStage: ExperienceStage = qube?.meta.currentStage ?? 'setup';
   const ventureName = qube?.meta.experienceName ?? null;
   const primaryGoal = qube?.meta.primaryGoal ?? null;
@@ -303,9 +303,9 @@ export async function buildVentureProgress(
   // FALLBACK = the original static `selectNbeCandidates` output. Kept
   // alive so the cockpit stays non-empty during ramp-up when an
   // operator's active activations haven't yet declared actions, and
-  // so AVL-stage moves still surface during alpha-activation.
+  // so MVL-stage moves still surface during alpha-activation.
   //
-  // Order: catalog actions first (operator-chosen surface area), AVL
+  // Order: catalog actions first (operator-chosen surface area), MVL
   // candidates next (operator's current review context), mixed
   // candidates last (cross-cartridge motion). Capped at 8 total to
   // keep the Recommended row scannable.
@@ -321,16 +321,16 @@ export async function buildVentureProgress(
   );
 
   const avlActions = selectNbeCandidates({
-    activeCartridges: ['avl'],
+    activeCartridges: ['mvl'],
     currentStage,
-    scopedCartridge: 'avl',
+    scopedCartridge: 'mvl',
     limit: 3,
   });
   const mixedActions = selectNbeCandidates({
     activeCartridges: linkedCartridges,
     currentStage,
     limit: 5,
-  }).filter((c) => c.cartridge !== 'avl').slice(0, 2);
+  }).filter((c) => c.cartridge !== 'mvl').slice(0, 2);
 
   // Dedupe by id so a fallback NbeCandidate doesn't duplicate a
   // catalog action with the same key. Catalog wins on conflict.

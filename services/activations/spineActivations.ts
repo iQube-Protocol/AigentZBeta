@@ -436,7 +436,7 @@ function activationIdToCartridgeSlug(entry: ActivationCatalogEntry): string {
   const cart = entry.sourceCartridge;
   if (cart === 'knyt') return 'knyt-codex';
   if (cart === 'qriptopian') return 'qripto';
-  if (cart === 'avl') return 'venture-lab';
+  if (cart === 'mvl') return 'venture-lab';
   if (cart === 'marketa') return 'marketa';
   if (cart === 'metame') return 'metame';
   return entry.id;

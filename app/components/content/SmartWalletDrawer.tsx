@@ -798,35 +798,42 @@ export default function SmartWalletDrawer({
   };
 
   // Auto-open the persona setup wizard for newly signed-up users.
-  // Operator decision (2026-05-09): FIO registration is mandatory at
-  // signup. When a user has signed in but owns zero personas, we open
-  // the wizard automatically and disable cancellation — they cannot
-  // proceed without completing FIO chain registration.
   //
-  // Race-condition guards (the bug "wizard opens on every login"):
-  //   1. Wait for sessionPersonasLoading to settle. At session start,
-  //      sessionEmail flips to set BEFORE the personas API call returns,
-  //      so allAvailablePersonas.length === 0 is briefly true even for
-  //      users who own personas. Without this guard, the effect fires
-  //      in that gap and opens the wizard.
-  //   2. Auto-close the wizard if personas appear after it auto-opened.
-  //      Covers the case where a different tab created a persona, or
-  //      the user signs in just as a sync completes.
+  // 2026-05-30 operator decision (REVERSED): mandatory persona creation
+  // at signup is removed. Users can sign in without owning a persona —
+  // the wizard becomes opt-in via the drawer's "Add persona" button,
+  // and persona-requiring actions (compose, sign, mint) prompt the
+  // wizard contextually at the point of need rather than blocking the
+  // entire app behind a sign-up gate.
+  //
+  // The previous mandatory mode caused a hard infinite loop for users
+  // whose persona row was created but not surfacing via
+  // /api/wallet/personas (RLS/auth_profile mismatch, etc.) — they'd
+  // sign in, see the mandatory wizard, complete it, get bounced back
+  // to "zero personas" on the next session refresh, and the wizard
+  // would re-open every time. fayeofori@hotmail / inquisitor@knyt is
+  // the operator-reported case.
+  //
+  // The race-condition guards that previously gated the auto-open are
+  // preserved as guards on the auto-close path: if the wizard is open
+  // (because the operator opened it intentionally) and personas
+  // subsequently appear, close it cleanly.
   useEffect(() => {
     if (!sessionEmail) return;
     if (sessionPersonasLoading) return;
     if (allAvailablePersonas.length > 0) {
-      // Personas exist — if the wizard auto-opened during the loading
-      // gap, close it now.
+      // Personas exist — if the wizard is open in mandatory mode for
+      // any reason (legacy state, cross-tab race), close it.
       if (personaSetupOpen && personaSetupMandatory) {
         setPersonaSetupOpen(false);
         setPersonaSetupMandatory(false);
       }
       return;
     }
-    if (personaSetupOpen) return;
-    setPersonaSetupOpen(true);
-    setPersonaSetupMandatory(true);
+    // Zero personas + no in-flight wizard: do NOTHING. Operator now
+    // signs in cleanly and opens the wizard themselves when they're
+    // ready. Persona-requiring actions handle their own contextual
+    // prompts.
   }, [sessionEmail, sessionPersonasLoading, allAvailablePersonas.length, personaSetupOpen, personaSetupMandatory]);
 
   // Persona state

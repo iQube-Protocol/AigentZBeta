@@ -22,10 +22,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getActivePersona } from '@/services/identity/getActivePersona';
 import { getPersonaUploadService } from '@/services/uploads/supabaseUploadAdapter';
+import {
+  upsertExperienceQube,
+  type ActiveCartridgeSlug,
+  type ExperienceStage,
+} from '@/services/iqube/experienceQube';
 
 export const dynamic = 'force-dynamic';
 
-type SchemaVersion = 'venture-iqube/v0.1' | 'venture-iqube/v0.2';
+type SchemaVersion = 'venture-iqube/v0.1' | 'venture-iqube/v0.2' | 'venture-iqube/v0.3';
 
 interface VentureIqube {
   schemaVersion: SchemaVersion;
@@ -89,8 +94,12 @@ interface IngestPreview {
 function validateShape(payload: unknown): { ok: true; data: VentureIqube } | { ok: false; error: string } {
   if (!payload || typeof payload !== 'object') return { ok: false, error: 'payload must be a JSON object' };
   const p = payload as Partial<VentureIqube>;
-  if (p.schemaVersion !== 'venture-iqube/v0.1' && p.schemaVersion !== 'venture-iqube/v0.2') {
-    return { ok: false, error: `schemaVersion must be 'venture-iqube/v0.1' or 'venture-iqube/v0.2' (got ${JSON.stringify(p.schemaVersion)})` };
+  if (
+    p.schemaVersion !== 'venture-iqube/v0.1' &&
+    p.schemaVersion !== 'venture-iqube/v0.2' &&
+    p.schemaVersion !== 'venture-iqube/v0.3'
+  ) {
+    return { ok: false, error: `schemaVersion must be 'venture-iqube/v0.1', 'v0.2', or 'v0.3' (got ${JSON.stringify(p.schemaVersion)})` };
   }
   if (!p.operator?.displayLabel) return { ok: false, error: 'operator.displayLabel is required' };
   if (!p.strategy?.headline) return { ok: false, error: 'strategy.headline is required' };
@@ -122,6 +131,11 @@ function preview(data: VentureIqube): IngestPreview {
     'iqube-registry': 'agentiq-os',
     'moneypenny': 'metame',
     'legal-metacommons': 'metame',
+    // 2026-05-29 rename: AgentiQ Venture Lab → metaMe Venture Lab.
+    // v0.1 / v0.2 payloads still emit 'avl'; translate so they hydrate
+    // against the current ActiveCartridgeSlug enum which only knows 'mvl'.
+    // v0.4 will drop this and reject any 'avl' binding outright.
+    'avl': 'mvl',
   };
   const mapped = new Set<string>();
   for (const s of allBindings) {
@@ -204,18 +218,106 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const result = preview(validated.data);
 
-  // Phase A1: preview only. Phase A2 will here:
-  //   1. Call upsertExperienceQubeMeta with experienceQubeHydrate
-  //   2. For each intentQubeQueue entry, create an IntentQubeRecord
-  //   3. Emit a DVN receipt: 'venture_iqube_ingested'
-  //   4. Update the persona_uploads row metadata with the ingest result
-  return NextResponse.json(
-    {
-      ok: true,
-      phase: 'preview-only',
-      message: 'Phase A1 — validation + hydration preview returned. ExperienceQube + IntentQube wiring lands in Phase A2.',
-      result,
-    },
-    { headers: { 'Cache-Control': 'no-store' } },
-  );
+  // Phase A2: commit the ExperienceQube hydration.
+  //
+  // Map the Venture iQube fields onto the ExperienceQube shape:
+  //   - meta.experienceName     ← strategy.headline (clipped to 140)
+  //   - meta.primaryGoal        ← strategy.headline (clipped to 200)
+  //   - meta.currentStage       ← stage-mapped from the metaMe ladder
+  //   - meta.activeCartridges   ← preview.experienceQubeHydrate.activeCartridges
+  //                                 (already sub-surface-translated;
+  //                                 upsertExperienceQube filters to its
+  //                                 own VALID_CARTRIDGES set)
+  //   - blak.strategicGoals     ← strategy.headline + ventures[].northStarKpi
+  //                                 lines (operator-readable strategic
+  //                                 anchor list, surfaces in Briefs)
+  //   - blak.experienceGoals    ← all objective titles across ventures
+  //                                 (the NBE catalog filters against
+  //                                 these for goalKeyword scoring)
+  //   - blak.confidentialStrategyNotes ← strategy.thesis (T0; never
+  //                                 emitted to the browser; used as
+  //                                 LLM-only context)
+  //
+  // PersonalGuide (the 7×7 sphere × maturity lattice) is intentionally
+  // NOT hydrated from the Venture iQube — that's a separate "lived
+  // state" layer the operator sets up via the metaMe wizard. Same
+  // story for the Matrix step (Sphere × Maturity goals) which depends
+  // on the PersonalGuide.
+  //
+  // IntentQube row creation (one per objective) is queued for a later
+  // pass — the IntentQube path has its own routing / nbe_plans gating
+  // that takes a heavier lift. Phase A2 here is the smaller wins:
+  // Experience Model live; Briefs / Move-forward / Venture progress
+  // start grounding in the operator's actual strategy on next render.
+  try {
+    const ladderToStage: Record<string, ExperienceStage> = {
+      prospect: 'setup',
+      acolyte: 'setup',
+      keta: 'alpha_activation',
+      keji: 'alpha_activation',
+      first: 'launch',
+      zero: 'launch',
+    };
+    const stage =
+      validated.data.strategy.currentStage && ladderToStage[validated.data.strategy.currentStage]
+        ? ladderToStage[validated.data.strategy.currentStage]
+        : undefined;
+
+    const strategicGoals = [
+      validated.data.strategy.headline.slice(0, 200),
+      ...validated.data.ventures
+        .map((v) => v.northStarKpi)
+        .filter((s): s is string => typeof s === 'string' && s.length > 0)
+        .map((s) => s.slice(0, 200)),
+    ].slice(0, 10);
+
+    const experienceGoals = validated.data.ventures
+      .flatMap((v) => v.objectives.map((o) => o.title))
+      .map((s) => s.slice(0, 200))
+      .slice(0, 30);
+
+    const hydrated = await upsertExperienceQube(persona.personaId, {
+      experienceName: validated.data.strategy.headline.slice(0, 140),
+      primaryGoal: validated.data.strategy.headline.slice(0, 200),
+      ...(stage ? { currentStage: stage } : {}),
+      activeCartridges: result.experienceQubeHydrate.activeCartridges as ActiveCartridgeSlug[],
+      blak: {
+        strategicGoals,
+        experienceGoals,
+        confidentialStrategyNotes: validated.data.strategy.thesis.slice(0, 4000),
+      },
+    });
+
+    return NextResponse.json(
+      {
+        ok: true,
+        phase: 'hydrated',
+        message:
+          'ExperienceQube hydrated. Next Brief / Move-forward / Venture progress / Ask specialists render will ground in the ingested strategy. PersonalGuide + Matrix still need the wizard. IntentQube row creation deferred — objectives are queued in the preview payload only.',
+        result,
+        experienceQube: {
+          experienceName: hydrated.meta.experienceName,
+          primaryGoal: hydrated.meta.primaryGoal,
+          currentStage: hydrated.meta.currentStage,
+          activeCartridges: hydrated.meta.activeCartridges,
+        },
+      },
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[venture-iqube/ingest] hydrate failed', msg);
+    return NextResponse.json(
+      {
+        ok: false,
+        phase: 'preview-only',
+        error: 'hydrate-failed',
+        detail: msg,
+        message:
+          'Schema validated and preview computed, but ExperienceQube upsert failed. The preview payload is still safe to inspect — no partial state was committed.',
+        result,
+      },
+      { status: 500, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
 }

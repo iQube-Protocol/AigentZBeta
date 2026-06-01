@@ -386,6 +386,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     topAction: NextBestActionData | null;
     alternates: NextBestActionData[];
     topActionReason?: string | null;
+    nbaContextualTitles?: Record<string, string>;
     nbaPromptHints?: Record<string, string>;
     preflightContext?: import("@/services/capabilities/preflight").PreflightContext;
   } | null>(null);
@@ -734,6 +735,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         topAction: NextBestActionData | null;
         alternates: NextBestActionData[];
         topActionReason?: string | null;
+        nbaContextualTitles?: Record<string, string>;
         nbaPromptHints?: Record<string, string>;
         preflightContext?: import("@/services/capabilities/preflight").PreflightContext;
         quickChips?: NbeQuickChip[];
@@ -2218,6 +2220,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
           nextBestActions: (brief.nextBestActions ?? []).map((a) => ({
             id: a.id,
             label: a.label,
+            contextualTitle: brief.nbaContextualTitles?.[a.id] ?? null,
             rationale: a.rationale,
             cartridge: a.cartridge,
             effort: a.effort,
@@ -2236,6 +2239,8 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
             ? {
                 id: moveForwardResult.topAction.id,
                 label: moveForwardResult.topAction.label,
+                contextualTitle:
+                  moveForwardResult.nbaContextualTitles?.[moveForwardResult.topAction.id] ?? null,
                 rationale: moveForwardResult.topAction.rationale,
                 cartridge: moveForwardResult.topAction.cartridge,
                 impact: moveForwardResult.topAction.impact,
@@ -2247,6 +2252,7 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
           alternates: (moveForwardResult.alternates ?? []).map((a) => ({
             id: a.id,
             label: a.label,
+            contextualTitle: moveForwardResult.nbaContextualTitles?.[a.id] ?? null,
             rationale: a.rationale,
             cartridge: a.cartridge,
             impact: a.impact,

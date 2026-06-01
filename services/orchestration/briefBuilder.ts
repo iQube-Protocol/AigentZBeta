@@ -114,6 +114,7 @@ export interface BriefShape {
    * Surfaces as the "aigentMe's take" italic line under each NBA card
    * and seeds composerInitialPrompt when Act maps to a compose modal.
    */
+  nbaContextualTitles?: Record<string, string>;
   nbaPromptHints?: Record<string, string>;
   /** Counts of pending approvals. Surfaced in the brief header. */
   pendingApprovalsCount: number;
@@ -160,7 +161,7 @@ const PRIORITY_LABELS_BY_CARTRIDGE: Record<ActiveCartridgeSlug, string> = {
   knyt: 'Move KNYT forward',
   qriptopian: 'Advance The Qriptopian',
   marketa: 'Push partner / campaign motion',
-  avl: 'Tighten venture progress',
+  mvl: 'Tighten venture progress',
 };
 
 function buildGuidanceNote(
@@ -243,6 +244,7 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
   nbeCandidates = rerank.ranked;
   const topNbeReason = rerank.topReason;
   const nbaPromptHints = rerank.nbaPromptHints;
+  const nbaContextualTitles = rerank.nbaContextualTitles;
 
   const nextBestActions: BriefNextBestAction[] = nbeCandidates.map((c) => ({
     id: c.id,
@@ -290,6 +292,7 @@ export async function buildBrief(input: BuildBriefInput): Promise<BriefShape> {
     topPriorities,
     nextBestActions,
     topNbeReason,
+    nbaContextualTitles,
     nbaPromptHints,
     pendingApprovalsCount: 0, // Phase 6 wires this.
     using,
@@ -314,6 +317,7 @@ export interface MoveForwardShape {
   /** ≤140-char rationale for the top pick from the LLM rerank pass. */
   topActionReason?: string | null;
   /** See `BriefShape.nbaPromptHints` — same shape, same meaning. */
+  nbaContextualTitles?: Record<string, string>;
   nbaPromptHints?: Record<string, string>;
   using: BriefShape['using'];
   notShared: string[];
@@ -358,6 +362,7 @@ export async function buildMoveForward(input: {
   let altsRaw: NbeCandidate[];
   let topActionReason: string | null = null;
   let nbaPromptHints: Record<string, string> = {};
+  let nbaContextualTitles: Record<string, string> = {};
 
   if (input.cartridge) {
     topCandidate = selectTopNbeForCartridge(input.cartridge, currentStage, {
@@ -395,6 +400,7 @@ export async function buildMoveForward(input: {
     altsRaw = rerank.ranked.slice(1);
     topActionReason = rerank.topReason;
     nbaPromptHints = rerank.nbaPromptHints;
+    nbaContextualTitles = rerank.nbaContextualTitles;
   }
 
   const resolvedCartridge: ActiveCartridgeSlug =
@@ -438,6 +444,7 @@ export async function buildMoveForward(input: {
     topAction: topCandidate ? toAction(topCandidate) : null,
     alternates: altsRaw.slice(0, 2).map(toAction),
     topActionReason,
+    nbaContextualTitles,
     nbaPromptHints,
     using: experienceConfigured
       ? ['PersonaQube', 'ExperienceQube', 'IntentQube']

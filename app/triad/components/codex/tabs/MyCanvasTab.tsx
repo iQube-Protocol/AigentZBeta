@@ -49,7 +49,19 @@ interface CanvasEntry {
  * Per operator: 'myCanvas is for public publishing... myWorkbench
  * is for private confidential work'.
  */
-type MyCanvasSurface = 'canvas' | 'workbench';
+// 2026-05-29 myArtifacts restructure:
+//   - 'canvas'    — public-publishable experiences (default).
+//   - 'workspace' — private work artifacts (docs, reports, tools,
+//                   workflows, briefs). NEW. Separate kind value so
+//                   work-artifact entries never leak into the public
+//                   canvas list and vice versa.
+//   - 'workbench' — legacy alias kept for back-compat with stamped
+//                   metaJson.surface='workbench' rows from before the
+//                   workspace split. Treated identically to 'workspace'
+//                   at the entries-filter layer; will be retired in a
+//                   follow-up migration that rewrites stamped rows to
+//                   'workspace'.
+type MyCanvasSurface = 'canvas' | 'workspace' | 'workbench';
 
 interface Props {
   personaId?: string;
@@ -58,8 +70,20 @@ interface Props {
 }
 
 export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: Props) {
-  const isWorkbench = surface === 'workbench';
+  // Internal alias: 'workspace' (new) and 'workbench' (legacy alias)
+  // share the same private-entries codepath. The distinction will be
+  // erased entirely once a follow-up migration rewrites stamped
+  // metaJson.surface='workbench' rows to 'workspace'.
+  const isWorkbench = surface === 'workspace' || surface === 'workbench';
   const [entries, setEntries] = useState<CanvasEntry[]>([]);
+  // Surface-specific API base — strict separation, sibling tables:
+  //   canvas    → /api/mycanvas/entries     (mycanvas_entries)
+  //   workspace → /api/myworkspace/entries  (myworkspace_entries)
+  // Eliminates the leaky meta_json.surface discriminator — entries
+  // can no longer surface in the wrong tab regardless of how they
+  // were stamped. canvas-only side endpoints (invite, publish-to-pulse)
+  // stay rooted at /api/mycanvas since workspace items don't publish.
+  const entriesApiBase = isWorkbench ? '/api/myworkspace/entries' : '/api/mycanvas/entries';
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -152,11 +176,18 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
 
   // Surface-aware list filter. Each entry's metaJson.surface is the
   // primary signal; if absent, fall back to 'canvas' (legacy entries
-  // created before the workbench split was introduced).
+  // created before the workspace split was introduced). 'workspace'
+  // and 'workbench' (legacy alias) share the same private-entries set,
+  // so a stamped 'workbench' row surfaces under the new 'workspace'
+  // tab and vice versa.
   const filteredEntries = entries.filter((e) => {
     const stamped = (e.metaJson as { surface?: string } | undefined)?.surface;
-    const effectiveSurface: MyCanvasSurface = stamped === 'workbench' ? 'workbench' : 'canvas';
-    return effectiveSurface === surface;
+    const stampedIsPrivate = stamped === 'workbench' || stamped === 'workspace';
+    const surfaceIsPrivate = surface === 'workbench' || surface === 'workspace';
+    if (surfaceIsPrivate) return stampedIsPrivate;
+    // surface === 'canvas' — only show entries that are NOT stamped
+    // private. Legacy entries with no stamp default to canvas too.
+    return !stampedIsPrivate;
   });
 
   const fetchEntries = useCallback(async () => {
@@ -164,7 +195,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
     setLoading(true);
     setError(null);
     try {
-      const res = await personaFetch("/api/mycanvas/entries", { personaIdHint: personaId });
+      const res = await personaFetch(entriesApiBase, { personaIdHint: personaId });
       if (!res.ok) throw new Error(`mycanvas list failed (${res.status})`);
       const data = (await res.json()) as { entries: CanvasEntry[] };
       setEntries(data.entries ?? []);
@@ -197,7 +228,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
     let cancelled = false;
     (async () => {
       try {
-        const res = await personaFetch(`/api/mycanvas/entries/${targetId}`, { personaIdHint: personaId });
+        const res = await personaFetch(`${entriesApiBase}/${targetId}`, { personaIdHint: personaId });
         if (!res.ok) {
           console.error("[MyCanvas] hydration failed", { entryId: targetId, status: res.status });
           if (!cancelled) {
@@ -238,12 +269,16 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
       //     for legacy data which is treated as canvas)
       const defaultVisibility = isWorkbench ? 'private' : 'invited';
       const surfaceStamp = { surface, ...(seed?.metaJson ?? {}) };
-      const res = await personaFetch("/api/mycanvas/entries", {
+      const res = await personaFetch(entriesApiBase, {
         personaIdHint: personaId,
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: seed?.title ?? (isWorkbench ? 'Untitled workbench draft' : 'Untitled draft'),
+          title: seed?.title ?? (
+            isWorkbench
+              ? (surface === 'workspace' ? 'Untitled workspace draft' : 'Untitled workbench draft')
+              : 'Untitled draft'
+          ),
           bodyMd: seed?.bodyMd ?? '',
           visibility: defaultVisibility,
           metaJson: surfaceStamp,
@@ -265,7 +300,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
     setSaving(true);
     setError(null);
     try {
-      const res = await personaFetch(`/api/mycanvas/entries/${selected.id}`, {
+      const res = await personaFetch(`${entriesApiBase}/${selected.id}`, {
         personaIdHint: personaId,
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -285,7 +320,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
     if (!personaId) return;
     if (typeof window !== "undefined" && !window.confirm("Delete this entry?")) return;
     try {
-      const res = await personaFetch(`/api/mycanvas/entries/${id}`, {
+      const res = await personaFetch(`${entriesApiBase}/${id}`, {
         personaIdHint: personaId,
         method: "DELETE",
       });
@@ -300,6 +335,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
   const handleInvite = useCallback(async (entryId: string) => {
     if (!personaId || !inviteInput.trim()) return;
     try {
+      // Invite is canvas-only — workspace entries are private by design.
       const res = await personaFetch(`/api/mycanvas/entries/${entryId}/invite`, {
         personaIdHint: personaId,
         method: "POST",
@@ -379,6 +415,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
       setError(null);
       setPublishingId(entry.id);
       try {
+        // publish-to-pulse is canvas-only — workspace entries don't publish.
         const res = await personaFetch(`/api/mycanvas/entries/${entry.id}/publish-to-pulse`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -439,7 +476,11 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
               <div className="flex items-center gap-2">
                 <PenSquare className="w-4 h-4 text-violet-400 shrink-0" />
                 <h2 className="text-sm font-semibold leading-none">
-                  {isWorkbench ? 'myWorkbench' : 'myCanvas'}
+                  {surface === 'workspace'
+                    ? 'myWorkspace'
+                    : surface === 'workbench'
+                      ? 'myWorkbench'
+                      : 'myCanvas'}
                 </h2>
               </div>
               <span className="text-[10px] uppercase tracking-wider text-slate-500 pl-6">
@@ -463,8 +504,43 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
                 <Loader2 className="w-3 h-3 animate-spin" /> Loading…
               </div>
             ) : entries.length === 0 ? (
-              <div className="p-3 text-xs text-slate-500 italic">
-                No entries yet — your private drafts live here.
+              <div className="p-3 space-y-3">
+                <p className="text-xs text-slate-500 italic">
+                  {surface === 'canvas'
+                    ? 'No entries yet — start from a template below or hit New.'
+                    : 'No entries yet — your private drafts live here.'}
+                </p>
+                {surface === 'canvas' && (
+                  <button
+                    type="button"
+                    onClick={() => setRemixSource({
+                      id: 'template-qriptopian-15min-sprint',
+                      entryType: 'experience_origin',
+                      title: 'Qriptopian Agents of Change — 15-min reading sprint',
+                      bodyMd: '',
+                      tags: ['template', 'qriptopian', 'reading-sprint'],
+                      visibility: 'private',
+                      metaJson: {
+                        experienceId: 'exp_1773512145689_1vnt1jcnt',
+                        sourceExperienceId: 'exp_1773512145689_1vnt1jcnt',
+                        seedTemplate: 'qriptopian-agents-of-change-reading-sprint',
+                      },
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    })}
+                    className="w-full text-left rounded-md border border-violet-500/30 bg-violet-500/5 px-3 py-2 hover:border-violet-500/60 hover:bg-violet-500/10 transition"
+                  >
+                    <div className="text-[11px] uppercase tracking-wider text-violet-400 mb-0.5">
+                      Remix template
+                    </div>
+                    <div className="text-xs font-semibold text-white">
+                      Qriptopian Agents of Change
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">
+                      Guided 15-min reading sprint · article or story
+                    </div>
+                  </button>
+                )}
               </div>
             ) : (
               <ul>
@@ -493,6 +569,44 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
                   </li>
                 ))}
               </ul>
+            )}
+            {/* Always-available "remix from template" affordance —
+                visible on canvas surface in both empty + populated
+                states. Short-term: hardcoded Qriptopian Agents of
+                Change seed. Follow-up: pull a list of templates from
+                a registry. */}
+            {surface === 'canvas' && entries.length > 0 && (
+              <div className="border-t border-slate-700/40 p-3">
+                <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">
+                  Templates
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setRemixSource({
+                    id: 'template-qriptopian-15min-sprint',
+                    entryType: 'experience_origin',
+                    title: 'Qriptopian Agents of Change — 15-min reading sprint',
+                    bodyMd: '',
+                    tags: ['template', 'qriptopian', 'reading-sprint'],
+                    visibility: 'private',
+                    metaJson: {
+                      experienceId: 'exp_1773512145689_1vnt1jcnt',
+                      sourceExperienceId: 'exp_1773512145689_1vnt1jcnt',
+                      seedTemplate: 'qriptopian-agents-of-change-reading-sprint',
+                    },
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                  })}
+                  className="w-full text-left rounded-md border border-violet-500/30 bg-violet-500/5 px-2.5 py-1.5 hover:border-violet-500/60 hover:bg-violet-500/10 transition"
+                >
+                  <div className="text-[11px] font-semibold text-white">
+                    Qriptopian Agents of Change
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">
+                    15-min reading sprint · remix
+                  </div>
+                </button>
+              </div>
             )}
           </div>
         </aside>
