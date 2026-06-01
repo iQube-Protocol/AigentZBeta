@@ -316,6 +316,43 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
     }
   }, [personaId, selected, editorTitle, editorBody]);
 
+  /**
+   * Generic entry-patch helper for in-panel edit affordances (Edit
+   * button on experience_derived / experience_origin panels).
+   * Operator-requested 2026-06-01: "add an edit button and capability
+   * to the saved experiences in the users myCanvas shelf also so they
+   * can also edit the artifact after saving it and before publishing".
+   *
+   * PATCHes the canvas-entries endpoint with the operator's patch,
+   * merges the response into local state so the panel re-renders with
+   * the latest content. The PATCH route already emits an
+   * mycanvas_entry_updated activity_receipt server-side, so the edit
+   * shows up in myLedger automatically.
+   */
+  const handleEntryEdit = useCallback(
+    async (id: string, patch: { title?: string; bodyMd?: string }): Promise<{ ok: boolean; error?: string }> => {
+      if (!personaId) return { ok: false, error: 'persona-required' };
+      try {
+        const res = await personaFetch(`${entriesApiBase}/${id}`, {
+          personaIdHint: personaId,
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(patch),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          return { ok: false, error: (body as { error?: string }).error ?? `HTTP ${res.status}` };
+        }
+        const data = (await res.json()) as { entry: CanvasEntry };
+        setEntries((prev) => prev.map((e) => (e.id === data.entry.id ? data.entry : e)));
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) };
+      }
+    },
+    [personaId, entriesApiBase],
+  );
+
   const handleDelete = useCallback(async (id: string) => {
     if (!personaId) return;
     if (typeof window !== "undefined" && !window.confirm("Delete this entry?")) return;
@@ -631,6 +668,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
               onDelete={(id) => void handleDelete(id)}
               onShare={() => handleShare(selected)}
               onRemix={() => setRemixSource(selected)}
+              onEdit={handleEntryEdit}
               onPublish={() => handlePublishToCommunity(selected)}
             />
           ) : selected.entryType === "experience_origin" ? (
@@ -646,6 +684,7 @@ export function MyCanvasTab({ personaId, theme = "dark", surface = 'canvas' }: P
               onDelete={(id) => void handleDelete(id)}
               onShare={() => handleShare(selected)}
               onRemix={() => setRemixSource(selected)}
+              onEdit={handleEntryEdit}
             />
           ) : (
             <>
@@ -846,6 +885,14 @@ interface ExperiencePanelActions {
   onDelete: (id: string) => void;
   onShare: () => void;
   onRemix: () => void;
+  /**
+   * In-panel edit for saved experiences. Operator clicks Edit in the
+   * action bar, panel body swaps to title + body textareas, Save edits
+   * round-trips through PATCH /api/mycanvas/entries/[id]. Server emits
+   * an mycanvas_entry_updated activity_receipt so the change shows up
+   * in myLedger automatically.
+   */
+  onEdit?: (id: string, patch: { title?: string; bodyMd?: string }) => Promise<{ ok: boolean; error?: string }>;
 }
 
 function ExperienceActionBar({
@@ -854,6 +901,7 @@ function ExperienceActionBar({
   onShare,
   onInviteToggle,
   onDelete,
+  onEdit,
   publishButton,
 }: {
   entry: CanvasEntry;
@@ -861,6 +909,9 @@ function ExperienceActionBar({
   onShare: () => void;
   onInviteToggle: () => void;
   onDelete: (id: string) => void;
+  /** Toggle the panel into in-place edit mode. Not the save handler —
+   *  the panel manages its own edit state and calls onEdit on Save. */
+  onEdit?: () => void;
   publishButton?: React.ReactNode;
 }) {
   return (
@@ -873,6 +924,16 @@ function ExperienceActionBar({
       >
         <Sparkles className="w-3 h-3" /> Remix
       </button>
+      {onEdit && (
+        <button
+          type="button"
+          onClick={onEdit}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-100 text-xs"
+          title="Edit title and body before publishing"
+        >
+          <PenSquare className="w-3 h-3" /> Edit
+        </button>
+      )}
       {publishButton}
       <button
         type="button"
@@ -1025,6 +1086,7 @@ function ExperienceDerivedPanel({
   onDelete,
   onShare,
   onRemix,
+  onEdit,
   onPublish,
 }: {
   entry: CanvasEntry;
@@ -1041,6 +1103,46 @@ function ExperienceDerivedPanel({
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
+  // In-panel edit state. Operator hits Edit in the action bar →
+  // panel body swaps to title + body textareas → Save edits PATCHes
+  // the entry and the server emits an mycanvas_entry_updated
+  // activity_receipt so the change shows up in myLedger.
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(entry.title);
+  const [editBody, setEditBody] = useState(entry.bodyMd);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  // Keep the local edit-form in sync if the parent reloads the entry.
+  useEffect(() => {
+    if (!editing) {
+      setEditTitle(entry.title);
+      setEditBody(entry.bodyMd);
+    }
+  }, [entry.id, entry.title, entry.bodyMd, editing]);
+  const handleStartEdit = useCallback(() => {
+    setEditTitle(entry.title);
+    setEditBody(entry.bodyMd);
+    setEditError(null);
+    setEditing(true);
+  }, [entry.title, entry.bodyMd]);
+  const handleSaveEdit = useCallback(async () => {
+    if (!onEdit) return;
+    setSavingEdit(true);
+    setEditError(null);
+    const res = await onEdit(entry.id, { title: editTitle, bodyMd: editBody });
+    setSavingEdit(false);
+    if (!res.ok) {
+      setEditError(res.error ?? 'Save failed');
+      return;
+    }
+    setEditing(false);
+  }, [onEdit, entry.id, editTitle, editBody]);
+  const handleCancelEdit = useCallback(() => {
+    setEditing(false);
+    setEditTitle(entry.title);
+    setEditBody(entry.bodyMd);
+    setEditError(null);
+  }, [entry.title, entry.bodyMd]);
   const handlePublishClick = useCallback(async () => {
     setPublishing(true);
     setPublishError(null);
@@ -1072,18 +1174,25 @@ function ExperienceDerivedPanel({
           onShare={onShare}
           onInviteToggle={onInviteToggle}
           onDelete={onDelete}
+          onEdit={onEdit && !editing ? handleStartEdit : undefined}
           publishButton={
             contentId ? (
               <button
                 type="button"
                 onClick={handlePublishClick}
-                disabled={publishing || published || !personaId}
+                disabled={publishing || published || !personaId || editing}
                 className={`flex items-center gap-1 px-2.5 py-1.5 rounded border text-xs font-semibold transition disabled:opacity-50 ${
                   published
                     ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-200"
                     : "border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-100"
                 }`}
-                title={!personaId ? "Sign in to publish" : "Publish to KNYT / Qriptopian community tabs"}
+                title={
+                  editing
+                    ? 'Finish editing before publishing'
+                    : !personaId
+                      ? 'Sign in to publish'
+                      : 'Publish to KNYT / Qriptopian community tabs'
+                }
               >
                 {publishing ? <Loader2 className="w-3 h-3 animate-spin" /> : published ? <Check className="w-3 h-3" /> : <Share2 className="w-3 h-3" />}
                 {published ? "Published" : "Publish"}
@@ -1106,24 +1215,84 @@ function ExperienceDerivedPanel({
             {publishError}
           </div>
         )}
-        <div className="flex items-start justify-between gap-3">
-          <h2 className="text-base font-semibold text-slate-100 leading-tight">{entry.title}</h2>
-          {entry.bodyMd ? (
-            <ListenButton getText={() => `${entry.title}. ${entry.bodyMd}`} />
-          ) : null}
-        </div>
-        <HydrationIndicator hydration={hydration} />
-        {imageUrl && (
-          <img
-            src={imageUrl}
-            alt={entry.title}
-            className="w-full rounded-xl border border-white/10 object-cover max-h-56"
-            loading="lazy"
-          />
+        {editing ? (
+          <div className="space-y-3">
+            {editError && (
+              <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-300">
+                {editError}
+              </div>
+            )}
+            <label className="block">
+              <span className="text-[10px] uppercase tracking-wider text-slate-400">Title</span>
+              <input
+                type="text"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                disabled={savingEdit}
+                className="mt-1 w-full px-3 py-2 rounded-lg border border-white/10 bg-slate-900/60 text-sm text-slate-100 focus:outline-none focus:border-amber-500/50 disabled:opacity-50"
+              />
+            </label>
+            <label className="block">
+              <span className="text-[10px] uppercase tracking-wider text-slate-400">Body</span>
+              <textarea
+                value={editBody}
+                onChange={(e) => setEditBody(e.target.value)}
+                disabled={savingEdit}
+                rows={16}
+                className="mt-1 w-full px-3 py-2 rounded-lg border border-white/10 bg-slate-900/60 text-sm text-slate-100 focus:outline-none focus:border-amber-500/50 font-mono disabled:opacity-50"
+              />
+            </label>
+            {imageUrl && (
+              <img
+                src={imageUrl}
+                alt={entry.title}
+                className="w-full rounded-xl border border-white/10 object-cover max-h-56"
+                loading="lazy"
+              />
+            )}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void handleSaveEdit()}
+                disabled={savingEdit || editTitle.trim().length === 0}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-100 hover:bg-amber-500/25 disabled:opacity-40"
+              >
+                {savingEdit ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                Save edits
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                disabled={savingEdit}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300 hover:bg-white/10 disabled:opacity-30"
+              >
+                Cancel
+              </button>
+              <span className="text-[10px] text-slate-500 ml-auto">DVN-receipted on save</span>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-start justify-between gap-3">
+              <h2 className="text-base font-semibold text-slate-100 leading-tight">{entry.title}</h2>
+              {entry.bodyMd ? (
+                <ListenButton getText={() => `${entry.title}. ${entry.bodyMd}`} />
+              ) : null}
+            </div>
+            <HydrationIndicator hydration={hydration} />
+            {imageUrl && (
+              <img
+                src={imageUrl}
+                alt={entry.title}
+                className="w-full rounded-xl border border-white/10 object-cover max-h-56"
+                loading="lazy"
+              />
+            )}
+            <article className="prose prose-invert prose-sm max-w-none text-slate-200 whitespace-pre-wrap text-sm leading-relaxed">
+              {entry.bodyMd}
+            </article>
+          </>
         )}
-        <article className="prose prose-invert prose-sm max-w-none text-slate-200 whitespace-pre-wrap text-sm leading-relaxed">
-          {entry.bodyMd}
-        </article>
       </div>
     </div>
   );
