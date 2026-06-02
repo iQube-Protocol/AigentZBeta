@@ -1904,3 +1904,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-7ccb102.md](../build_/COMMITS/COMMIT-7ccb102.md)
 - Message: spec: intent chain orchestrator — draft v1 + reference template
+
+## Commit `927f459` — 2026-06-02T00:38:30Z
+- Type: `push`
+- Brief: [COMMIT-927f459.md](../build_/COMMITS/COMMIT-927f459.md)
+- Message: intent chains commit 1: schema + types + template registry + reference
