@@ -1924,3 +1924,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-4312058.md](../build_/COMMITS/COMMIT-4312058.md)
 - Message: intent chains commit 3: dispatcher + advancer + refs + listener hook
+
+## Commit `8b7f98f` — 2026-06-02T01:13:27Z
+- Type: `push`
+- Brief: [COMMIT-8b7f98f.md](../build_/COMMITS/COMMIT-8b7f98f.md)
+- Message: intent chains commit 4: API routes — dispatch + detail + list + cancel + complete-step + feedback
