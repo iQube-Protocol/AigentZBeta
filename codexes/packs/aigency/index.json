@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-02T01:12:20.527Z",
+  "last_updated": "2026-06-02T01:15:21.569Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "43120584cd3305a1ec8bd79509db259ab2e97c75",
-  "latest_commit_short": "4312058",
-  "latest_commit_title": "intent chains commit 3: dispatcher + advancer + refs + listener hook",
+  "latest_commit": "8b7f98f173e79aa8c8bc40c134f0eb41b1be9acc",
+  "latest_commit_short": "8b7f98f",
+  "latest_commit_title": "intent chains commit 4: API routes — dispatch + detail + list + cancel + complete-step + feedback",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "8b7f98f",
+      "full_sha": "8b7f98f173e79aa8c8bc40c134f0eb41b1be9acc",
+      "title": "intent chains commit 4: API routes — dispatch + detail + list + cancel + complete-step + feedback",
+      "author": "Claude",
+      "timestamp": "2026-06-02T01:13:27Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-8b7f98f.md"
+    },
     {
       "sha": "4312058",
       "full_sha": "43120584cd3305a1ec8bd79509db259ab2e97c75",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-28T16:49:46Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-aa1d41a.md"
-    },
-    {
-      "sha": "a7cce75",
-      "full_sha": "a7cce75b6c219eb6aa70e7e702738edd3944f43e",
-      "title": "Fix Qube tool id encoding: tool-<name> canonical, tool_<name> legacy fallback (registered names use hyphens, not underscores)",
-      "author": "Claude",
-      "timestamp": "2026-05-28T16:34:26Z",
-      "type": "fix",
-      "brief": "items/build_/COMMITS/COMMIT-a7cce75.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
