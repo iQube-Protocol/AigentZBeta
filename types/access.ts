@@ -78,12 +78,29 @@ export interface ActivePersonaContext {
    * `isAdmin` (global uber/platform-tier) overrides any specific
    * adminCartridges check. The two are independent; a tenant-admin
    * of KNYT has adminCartridges: ['knyt-codex'] + isAdmin: false.
+   *
+   * `cartridgeMemberships` was added 2026-06-02 (Phase 4b of the
+   * myCartridge PRD — see
+   * codexes/packs/agentiq/updates/2026-06-02_mycartridge-phase-4b-spine-extension.md).
+   * Carries the persona's non-admin per-cartridge role assignments
+   * (member, editor, contributor, partner, etc.) from the
+   * `cartridge_memberships` table. Optional to preserve backward
+   * compatibility with every existing cartridgeFlags literal in the
+   * codebase; consumers treat absent as the empty map.
+   *
+   * T1-safe — slugs + role enum only. The persona_id / granted_by
+   * fields from the underlying row never project here.
    */
   cartridgeFlags: {
     isAdmin: boolean;
     isPartner: boolean;
     /** Cartridge slugs the persona is explicitly admin of. T1-safe. */
     adminCartridges: string[];
+    /**
+     * Slug → role projection of cartridge_memberships rows. Optional —
+     * consumers treat absent as `{}` (no memberships). T1-safe.
+     */
+    cartridgeMemberships?: import('@/types/cartridgeMembership').CartridgeMembershipsMap;
   };
 
   /** Cohort group ids the persona is a member of (no aliases at rest). */
@@ -128,12 +145,20 @@ export interface ActivePersonaSurface {
    * T1 cartridge flags. Mirrors the T0 `ActivePersonaContext.cartridgeFlags`
    * shape but exposed across the wire — slugs only, never tenant ids.
    * `adminCartridges` added 2026-05-26 alongside the spine extension.
+   * `cartridgeMemberships` added 2026-06-02 alongside the Phase 4b
+   * spine extension (per myCartridge PRD §23). Slugs + role enum
+   * only — T1-safe.
    */
   cartridgeFlags: {
     isAdmin: boolean;
     isPartner: boolean;
     /** Cartridge slugs the persona admins. T1-safe slug strings only. */
     adminCartridges: string[];
+    /**
+     * Slug → role projection of cartridge_memberships. Optional —
+     * absent treated as `{}` (no memberships). T1-safe.
+     */
+    cartridgeMemberships?: import('@/types/cartridgeMembership').CartridgeMembershipsMap;
   };
 
   /**
@@ -282,6 +307,19 @@ export interface ContentGatingDescriptor {
    *                                    the spine admin-grants
    *                                    extension — see
    *                                    codexes/packs/agentiq/updates/2026-05-26_spine-admin-grants-extension.md.
+   *   'member:<slug>'               — per-cartridge membership. Matches
+   *                                    when the persona holds ANY role
+   *                                    on the cartridge (or is admin
+   *                                    of it). Added 2026-06-02 in
+   *                                    Phase 4b of the myCartridge PRD.
+   *   'role:<slug>:<role>'          — per-cartridge minimum-role gate
+   *                                    using the PRD §23 hierarchy
+   *                                    (owner > admin > editor >
+   *                                    contributor > member > partner
+   *                                    > franchisee > correspondent >
+   *                                    guest). isAdmin / adminCartridges
+   *                                    short-circuit. Added 2026-06-02
+   *                                    Phase 4b.
    *   'cohort:<cohort_id>'          — cohort membership via RQH
    *   'token:<chain>:<contract>'    — ERC-721/1155 holder check
    */
