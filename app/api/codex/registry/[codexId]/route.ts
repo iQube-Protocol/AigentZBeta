@@ -44,6 +44,80 @@ interface RouteContext {
   params: { codexId: string };
 }
 
+/**
+ * Personal-cartridge isolation gate for the detail route.
+ *
+ * Mirrors the registry list route's owner_persona_id discriminator
+ * (codexes/packs/agentiq/updates/2026-06-02_mycartridge-personal-system-isolation-fix.md).
+ *
+ * Returns true when the caller is allowed to see this row:
+ *   - The row is a system cartridge (owner_persona_id IS NULL), OR
+ *   - The caller is the owner persona of a personal cartridge, OR
+ *   - The caller is a platform-tier admin (cartridgeFlags.isAdmin) OR
+ *     has the cartridge in their adminCartridges grants, OR
+ *   - The caller holds a non-owner role on the cartridge per
+ *     cartridge_memberships (Phase 4b projection).
+ *
+ * Personal rows that fail the check produce a 404 (not 403) so the
+ * detail route doesn't leak the existence of the row to enumeration.
+ */
+async function personalConfigVisibleToCaller(
+  request: NextRequest,
+  config: { owner_persona_id?: string | null; slug?: string },
+): Promise<{ visible: boolean; callerPersonaId: string | null }> {
+  if (!config.owner_persona_id) {
+    // System row — caller does not need to be resolved for visibility.
+    return { visible: true, callerPersonaId: null };
+  }
+  try {
+    const { getActivePersona } = await import('@/services/identity/getActivePersona');
+    const persona = await getActivePersona(request);
+    if (!persona) return { visible: false, callerPersonaId: null };
+    const callerPersonaId = persona.personaId;
+    if (callerPersonaId === config.owner_persona_id) {
+      return { visible: true, callerPersonaId };
+    }
+    const flags = persona.cartridgeFlags;
+    if (flags.isAdmin) return { visible: true, callerPersonaId };
+    if (config.slug && Array.isArray(flags.adminCartridges) && flags.adminCartridges.includes(config.slug)) {
+      return { visible: true, callerPersonaId };
+    }
+    if (config.slug) {
+      const role = flags.cartridgeMemberships?.[config.slug];
+      if (role) return { visible: true, callerPersonaId };
+    }
+    return { visible: false, callerPersonaId };
+  } catch {
+    return { visible: false, callerPersonaId: null }; // fail-closed
+  }
+}
+
+/**
+ * Owner-field redaction. The legacy `codex_configs.owner` text column
+ * stores the persona id for wizard-created rows (a T0 leak through the
+ * legacy NOT NULL column). When emitting a list-item or full config to
+ * the API boundary, replace this with a display token so the caller
+ * never sees the underlying persona id of a personal cartridge they
+ * don't own.
+ *
+ * System cartridges (owner_persona_id IS NULL) carry display strings
+ * like "aigent-z" or "iqube-protocol" in `owner`; those pass through
+ * unredacted.
+ */
+function redactOwnerField(
+  rawOwner: string | null | undefined,
+  ownerPersonaId: string | null | undefined,
+  callerPersonaId: string | null,
+): string {
+  if (!ownerPersonaId) return rawOwner ?? ''; // system row
+  if (callerPersonaId && callerPersonaId === ownerPersonaId) {
+    return rawOwner ?? ''; // owner sees their own — fine
+  }
+  // Visible to a non-owner (admin / member). Surface a short display
+  // token, not the canonical persona id.
+  return `persona-${String(ownerPersonaId).slice(0, 8)}`;
+}
+
 function withKnytStaticTabs(codex: CodexConfig): CodexConfig {
   return {
     ...codex,
@@ -126,6 +200,22 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
           .single();
 
         if (config) {
+          // Personal-cartridge isolation gate (2026-06-02). If this row is
+          // a personal cartridge and the caller is neither the owner nor an
+          // admin/member, return 404 rather than leaking the config or its
+          // existence.
+          const visibility = await personalConfigVisibleToCaller(request, config);
+          if (!visibility.visible) {
+            return NextResponse.json<CodexRegistryResponse>(
+              { success: false, error: 'Codex not found' },
+              { status: 404 },
+            );
+          }
+          const redactedOwnerDefaults = redactOwnerField(
+            config.owner,
+            config.owner_persona_id,
+            visibility.callerPersonaId,
+          );
           // CODEX_DEFINITIONS takes priority over auto-generated pack configs — hand-written
           // configs are canonical and include static component tabs that packs can't express.
           const fallbackCodex = await resolveCodex(codexId);
@@ -162,7 +252,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
             slug: config.slug,
             enabled: config.enabled,
             version: config.version,
-            owner: config.owner,
+            owner: redactedOwnerDefaults,
             metadata: config.metadata,
             tabs: mergedTabs,
             permissions: config.permissions,
@@ -202,6 +292,20 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       .eq('id', codexId)
       .single();
 
+    // Personal-cartridge isolation gate (2026-06-02) — same as the
+    // defaults path above. Personal rows resolve via the spine; only
+    // owners + admins + members see them. Otherwise 404 (don't leak
+    // existence).
+    const visibilityDirect = config
+      ? await personalConfigVisibleToCaller(request, config)
+      : { visible: true, callerPersonaId: null as string | null };
+    if (config && !visibilityDirect.visible) {
+      return NextResponse.json<CodexRegistryResponse>(
+        { success: false, error: 'Codex not found' },
+        { status: 404 },
+      );
+    }
+
     if (configError || !config) {
       const fallbackCodex = await resolveCodex(codexId);
       if (fallbackCodex) {
@@ -237,7 +341,11 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
       slug: config.slug,
       enabled: config.enabled,
       version: config.version,
-      owner: config.owner,
+      owner: redactOwnerField(
+        config.owner,
+        config.owner_persona_id,
+        visibilityDirect.callerPersonaId,
+      ),
       metadata: config.metadata,
       tabs: (tabs || []).map(t => ({
         id: t.id,
