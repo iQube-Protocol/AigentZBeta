@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`375df58`](https://github.com/iQube-Protocol/AigentZBeta/commit/375df582f384fe54f545dcdc9425dc593e945572) [push] intent chains commit 2: sanitizeReceiptMetadata + canary tests (Claude, 2026-06-02T00:49:58Z)
 - [`b065860`](https://github.com/iQube-Protocol/AigentZBeta/commit/b06586021ef524b9528dee8089268dc558372166) [push] intent chains: feedback table + spec §6.7 — like/dislike learning loop (Claude, 2026-06-02T00:44:01Z)
 - [`927f459`](https://github.com/iQube-Protocol/AigentZBeta/commit/927f459ceffc1cb0c9748f54b269373d21053f47) [push] intent chains commit 1: schema + types + template registry + reference (Claude, 2026-06-02T00:38:30Z)
 - [`7ccb102`](https://github.com/iQube-Protocol/AigentZBeta/commit/7ccb1027eb477ce51bed0e645c6394d54fc6c12e) [push] spec: intent chain orchestrator — draft v1 + reference template (Claude, 2026-06-02T00:14:35Z)

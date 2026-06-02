@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-02T00:45:48.876Z",
+  "last_updated": "2026-06-02T00:51:56.982Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "b06586021ef524b9528dee8089268dc558372166",
-  "latest_commit_short": "b065860",
-  "latest_commit_title": "intent chains: feedback table + spec §6.7 — like/dislike learning loop",
+  "latest_commit": "375df582f384fe54f545dcdc9425dc593e945572",
+  "latest_commit_short": "375df58",
+  "latest_commit_title": "intent chains commit 2: sanitizeReceiptMetadata + canary tests",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "375df58",
+      "full_sha": "375df582f384fe54f545dcdc9425dc593e945572",
+      "title": "intent chains commit 2: sanitizeReceiptMetadata + canary tests",
+      "author": "Claude",
+      "timestamp": "2026-06-02T00:49:58Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-375df58.md"
+    },
     {
       "sha": "b065860",
       "full_sha": "b06586021ef524b9528dee8089268dc558372166",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-28T16:22:20Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-3bdae27.md"
-    },
-    {
-      "sha": "ef74414",
-      "full_sha": "ef7441484ee38433cb55c919b0077b63d0312f68",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-28T16:22:20Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-ef74414.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
