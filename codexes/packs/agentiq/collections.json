@@ -261,6 +261,14 @@
       "items": [
         "items/AGENTIQ_NETWORK_COSTS.md"
       ]
+    },
+    {
+      "id": "col_intent_chains",
+      "title": "Intent Chains",
+      "description": "Spec + reference for the metaMe/aigentMe intent-chain orchestrator — turns CTAs into stateful multi-step workflows with DVN-receipt-anchored provenance. Draft spec awaiting operator confirmation before build.",
+      "items": [
+        "items/AGENTIQ_INTENT_CHAINS_SPEC.md"
+      ]
     }
   ]
 }
