@@ -21,9 +21,9 @@ import { PulseTemplate } from "./PulseTemplate";
 import { CodexTemplate } from "./CodexTemplate";
 import { ActiveTemplate } from "./ActiveTemplate";
 import { OverviewTemplate } from "./OverviewTemplate";
+import { WalletTemplate } from "./WalletTemplate";
 import {
   ExperienceStub,
-  WalletStub,
   LedgerStub,
   CommunityStub,
   MembersStub,
@@ -37,8 +37,8 @@ export const TAB_TEMPLATES: TabTemplateRegistry = {
   "codex-v1": CodexTemplate,
   "active-v1": ActiveTemplate,
   "overview-v1": OverviewTemplate,
+  "wallet-v1": WalletTemplate,
   "experience-v1": ExperienceStub,
-  "wallet-v1": WalletStub,
   "ledger-v1": LedgerStub,
   "community-v1": CommunityStub,
   "members-v1": MembersStub,
