@@ -30,6 +30,7 @@ import {
 } from '@/services/copilot/composer';
 import { getExperienceQube, getPersonalGuide } from '@/services/iqube/experienceQube';
 import { getActivePersona } from '@/services/identity/getActivePersona';
+import { getCartridgeChatContext } from '@/services/cartridge/getChatContext';
 import { getPersonaUploadService } from '@/services/uploads/supabaseUploadAdapter';
 
 const supabase = createClient(
@@ -97,6 +98,29 @@ interface UserContext {
     activeCartridges?: string[];
     focusIntent?: string | null;
     alignmentState?: string | null;
+  };
+  /**
+   * Phase 8 (myCartridge PRD §16) — cartridge-scoped chat context.
+   * Populated when the POST body carries `cartridgeSlug` and the slug
+   * matches a Phase 4a/6 cartridge row in `codex_configs`. Surfaces the
+   * cartridge title, owner-authored purpose, available specialists, and
+   * copilot prompt context so the system prompt frames the reply as a
+   * cartridge copilot rather than a generic agent.
+   *
+   * T1-safe — slugs + role enum + display labels only. The owner
+   * persona id loaded by `getCartridgeChatContext` is consumed
+   * server-side (logging today; persona-swap in Phase 8b) and never
+   * propagates into UserContext.
+   */
+  cartridgeContext?: {
+    cartridgeSlug: string;
+    cartridgeTitle: string;
+    purpose: string | null;
+    category: string | null;
+    visibility: string | null;
+    availableSpecialists: string[];
+    copilotPromptContext: string | null;
+    copilotSource: string | null;
   };
   /**
    * T1-safe snapshot of what the calling surface is currently rendering
@@ -1299,9 +1323,10 @@ async function fetchKnytLiveContext(personaId?: string): Promise<KnytLiveContext
 
 // Search Knowledge Base for relevant content with timeout
 async function searchKnowledgeBase(
-  query: string, 
+  query: string,
   domain: ContentDomain,
-  limit: number = 3
+  limit: number = 3,
+  cartridgeSlug?: string,
 ): Promise<KBSearchResult[]> {
   try {
     // Bumped from 5s → 15s. The original 5s budget routinely blew through on
@@ -1313,7 +1338,11 @@ async function searchKnowledgeBase(
       setTimeout(() => reject(new Error('KB search timeout')), 15000)
     );
 
-    const searchPromise = embeddingService.hybridSearch(query, domain, limit);
+    // Phase 8 — cartridgeSlug threads through to embeddingService so v0.5
+    // can wire cartridge-scoped semantic search without touching this
+    // route. Today the embedding service logs the slug and falls back to
+    // domain-scoped lookup (the cartridge KB pipeline lands in v0.5).
+    const searchPromise = embeddingService.hybridSearch(query, domain, limit, { cartridgeSlug });
 
     const results = await Promise.race([searchPromise, timeoutPromise]);
 
@@ -1629,6 +1658,33 @@ function buildSystemPrompt(
     ? `\n\n## User's metaMe Cartridge State\n\nFrame your reply inside this context — these are the facts the user has declared. Do not invent or override them.\n\n${metameLines.join('\n')}`
     : '';
 
+  // Phase 8 — cartridge-scoped chat. When the client passes a
+  // cartridgeSlug and the slug resolves to a Phase 4a/6 cartridge,
+  // the copilot voice is reframed as the cartridge's regent. The block
+  // includes the cartridge title, owner-authored purpose, and the
+  // available-specialists list (so the model can suggest handoffs
+  // inside the cartridge's specialist whitelist instead of guessing).
+  //
+  // Per PRD §16, MVP `copilotSource` is always 'aigentMe' — the
+  // cartridge copilot IS the cartridge owner's aigentMe operating
+  // their cartridge. The `cartridge-copilot` and `specialist` sources
+  // are typed but unwired in MVP.
+  const cartridgeLines: string[] = [];
+  if (userContext?.cartridgeContext) {
+    const cc = userContext.cartridgeContext;
+    cartridgeLines.push(`- Cartridge: **${cc.cartridgeTitle}** (slug: ${cc.cartridgeSlug})`);
+    if (cc.category) cartridgeLines.push(`- Category: ${cc.category}`);
+    if (cc.visibility) cartridgeLines.push(`- Visibility: ${cc.visibility}`);
+    if (cc.purpose) cartridgeLines.push(`- Owner's stated purpose: ${cc.purpose}`);
+    if (cc.copilotPromptContext) cartridgeLines.push(`- Copilot prompt context: ${cc.copilotPromptContext}`);
+    if (cc.availableSpecialists.length > 0) {
+      cartridgeLines.push(`- Available specialists for handoff: ${cc.availableSpecialists.join(', ')}`);
+    }
+  }
+  const cartridgeContextBlock = cartridgeLines.length > 0
+    ? `\n\n## Operating Cartridge\n\nYou are operating inside the cartridge below as its copilot. Speak as the cartridge owner's regent — frame your replies inside this cartridge's purpose, refer to it by name when natural, and when a question is better served by a specialist in the available list above, suggest a handoff explicitly. Do not invent specialists that aren't listed.\n\n${cartridgeLines.join('\n')}`
+    : '';
+
   // Right-pane ground truth — when the host surface tells us what's
   // currently on screen, the LLM MUST narrate that exact shape instead
   // of inventing a generic template. Only emitted for aigent-me and
@@ -1844,7 +1900,7 @@ After your response, add:
       ? userContext.attachedUploadsBlock
       : '';
 
-  return `${personaIntro}${policyBlock}${metameContextBlock}${groundContextBlock}${attachedUploadsBlock}${kbSection}`;
+  return `${personaIntro}${policyBlock}${cartridgeContextBlock}${metameContextBlock}${groundContextBlock}${attachedUploadsBlock}${kbSection}`;
 }
 
 // CORS headers for cross-origin requests from Vite dev server
@@ -1954,6 +2010,13 @@ export async function POST(request: NextRequest) {
       // content. Capped at 8 attachments per turn / 16k chars per
       // file so the model context budget stays sane.
       attachedUploadIds,
+      // Phase 8 (myCartridge PRD §16) — cartridge-scoped chat. When
+      // set, the route resolves the cartridge config via
+      // getCartridgeChatContext, prepends a "Operating Cartridge" block
+      // to the system prompt, and passes the slug into the KB lookup
+      // for cartridge-scoped semantic search (v0.5 fully wires the KB
+      // filter; today it falls back to domain-scoped).
+      cartridgeSlug,
     } = body;
 
     if (!message) {
@@ -1979,9 +2042,35 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Phase 8 — cartridge-scoped chat context. Resolved BEFORE the
+    // KB lookup + system-prompt assembly so both can consume it.
+    // Returns null when cartridgeSlug is unset, doesn't match, or
+    // matches a legacy hand-curated cartridge that has no Phase 4a
+    // fields populated (those don't carry a purpose / specialists).
+    let cartridgeContext: UserContext['cartridgeContext'] | undefined;
+    if (typeof cartridgeSlug === 'string' && cartridgeSlug.length > 0) {
+      const cc = await getCartridgeChatContext(cartridgeSlug);
+      if (cc) {
+        cartridgeContext = {
+          cartridgeSlug: cc.cartridgeSlug,
+          cartridgeTitle: cc.cartridgeTitle,
+          purpose: cc.purpose,
+          category: cc.category,
+          visibility: cc.visibility,
+          availableSpecialists: cc.availableSpecialists,
+          copilotPromptContext: cc.copilotPromptContext,
+          copilotSource: cc.copilotSource,
+        };
+        console.log(
+          `[CodexChat] cartridge=${cc.cartridgeSlug} title="${cc.cartridgeTitle}" ` +
+            `specialists=${cc.availableSpecialists.length} copilotSource=${cc.copilotSource ?? 'aigentMe'}`
+        );
+      }
+    }
+
     // Infer primary role from message and declared roles
     const primaryRole = inferPrimaryRole(message, declaredRoles);
-    
+
     // Build user context (includes metaMe policy settings when provided)
     const userContext: UserContext = {
       domain,
@@ -2005,9 +2094,10 @@ export async function POST(request: NextRequest) {
           ? (groundContext as Record<string, unknown>)
           : undefined,
       attachedUploadsBlock: attachedUploadsBlock || undefined,
+      cartridgeContext,
     };
 
-    console.log('[CodexChat] User context:', { 
+    console.log('[CodexChat] User context:', {
       domain, 
       primaryRole, 
       roles: userContext.roles,
@@ -2041,8 +2131,8 @@ export async function POST(request: NextRequest) {
       // Fetch codex metadata, KB results, protocol KB (when relevant), and live KNYT state in parallel
       const [resolvedMetadata, resolvedKbResults, resolvedProtocolResults, resolvedLiveContext] = await Promise.all([
         fetchCodexMetadata(domain),
-        searchKnowledgeBase(message, domain, 3),
-        needsProtocolKB ? searchKnowledgeBase(message, 'protocol', 3) : Promise.resolve([]),
+        searchKnowledgeBase(message, domain, 3, cartridgeContext?.cartridgeSlug),
+        needsProtocolKB ? searchKnowledgeBase(message, 'protocol', 3, cartridgeContext?.cartridgeSlug) : Promise.resolve([]),
         isKn0w1 ? fetchKnytLiveContext(typeof personaId === 'string' ? personaId : undefined) : Promise.resolve(undefined),
       ]);
       metadata = resolvedMetadata;

@@ -39,6 +39,10 @@ import type {
   ActivePersonaContext,
   Identifiability,
 } from '@/types/access';
+import type {
+  CartridgeMembershipsMap,
+  CartridgeRole,
+} from '@/types/cartridgeMembership';
 
 // ─────────────────────────────────────────────────────────────────────────
 // Supabase client — timeout-guarded factory (8s in prod, 4s in dev) so a
@@ -273,6 +277,53 @@ function resolvePartnerFlag(): boolean {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Cartridge memberships — Phase 4b
+//
+// Returns the (slug → role) projection of `cartridge_memberships` rows
+// for this persona. The set covers non-admin roles (member, editor,
+// contributor, partner, franchisee, correspondent, guest) — admin
+// scopes still resolve via getCartridgeAdminGrants(). A persona that is
+// admin of a cartridge AND a member of it would appear in both
+// `adminCartridges` and `cartridgeMemberships`.
+//
+// T0 → T1 projection contract:
+//   - Read rows by persona_id (T0).
+//   - Project to { slug: role } only. The persona_id / granted_by /
+//     metadata fields never propagate.
+//
+// Defensive: any error returns {} so a transient DB outage produces a
+// fail-closed (no-membership) posture, never a thrown spine. Pattern
+// matches resolveAdminFlag.
+// ─────────────────────────────────────────────────────────────────────────
+
+async function resolveCartridgeMemberships(
+  personaId: string,
+): Promise<CartridgeMembershipsMap> {
+  try {
+    const admin = getAdminClient();
+    const { data, error } = await admin
+      .from('cartridge_memberships')
+      .select('cartridge_slug,role')
+      .eq('persona_id', personaId);
+    if (error || !Array.isArray(data)) return {};
+    const map: CartridgeMembershipsMap = {};
+    for (const row of data as Array<{ cartridge_slug?: string; role?: string }>) {
+      const slug = row?.cartridge_slug;
+      const role = row?.role;
+      if (typeof slug === 'string' && slug && typeof role === 'string' && role) {
+        // Only the first row per slug wins — the table PK is (slug, persona)
+        // so a persona has at most one role per cartridge by construction;
+        // this guard is defensive against future schema changes.
+        if (!(slug in map)) map[slug] = role as CartridgeRole;
+      }
+    }
+    return map;
+  } catch {
+    return {};
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // Identifiability
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -339,7 +390,7 @@ export async function getActivePersona(
   //    source-of-truth for admin authorization; downstream callers
   //    (evaluateAccess, UI gates, admin endpoints) read from
   //    cartridgeFlags rather than re-querying CRM.
-  const [isAdmin, isPartner, adminGrants] = await Promise.all([
+  const [isAdmin, isPartner, adminGrants, cartridgeMemberships] = await Promise.all([
     resolveAdminFlag(caller.authProfileId, linkedAuthProfileIds, caller.email ?? null),
     Promise.resolve(resolvePartnerFlag()),
     getCartridgeAdminGrants(
@@ -350,6 +401,10 @@ export async function getActivePersona(
       isGlobalAdmin: false,
       cartridgeSlugs: [] as string[],
     })),
+    // Phase 4b — non-admin cartridge role memberships, resolved in the
+    // same pass so the spine stays the single source of truth. See
+    // codexes/packs/agentiq/updates/2026-06-02_mycartridge-phase-4b-spine-extension.md.
+    resolveCartridgeMemberships(personaId),
   ]);
 
   // 6. Cohort memberships — table not yet built (cohort backlog Phase 3 wire-up).
@@ -368,6 +423,9 @@ export async function getActivePersona(
       isAdmin: isAdmin || adminGrants.isGlobalAdmin,
       isPartner,
       adminCartridges: adminGrants.cartridgeSlugs,
+      // Phase 4b — slug → role projection. T1-safe (slugs + role enum,
+      // no persona ids or granted_by fields).
+      cartridgeMemberships,
     },
     cohortMemberships,
     fioHandle: personaRow?.fio_handle ?? null,
