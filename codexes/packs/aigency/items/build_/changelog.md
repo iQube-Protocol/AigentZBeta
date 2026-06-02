@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`0077105`](https://github.com/iQube-Protocol/AigentZBeta/commit/0077105de1ff8ce1a0cc0cf6f4e20d784a10847c) [push] intent chains commit 9: MyWorkspaceTab clickable intent cards open drawer (Claude, 2026-06-02T01:26:12Z)
 - [`5a33625`](https://github.com/iQube-Protocol/AigentZBeta/commit/5a336253f1cb3238817e7a071d93a61f7750dff1) [push] intent chains commit 8: ExpandedNBEPill chain breadcrumb + ChainDetailDrawer (Claude, 2026-06-02T01:24:02Z)
 - [`9c15b5d`](https://github.com/iQube-Protocol/AigentZBeta/commit/9c15b5db33de5372673f4a39e01393a919cac3fe) [feat] intent chains commit 7: wire AigentMeWelcomeSplitTab seam — dispatch + complete (Claude, 2026-06-02T01:21:03Z)
 - [`a905e0e`](https://github.com/iQube-Protocol/AigentZBeta/commit/a905e0ed6bd03bc749533e9496d16ca6d27ccc45) [push] intent chains commit 6: cron extension for scheduled steps + wait timeouts (Claude, 2026-06-02T01:17:54Z)

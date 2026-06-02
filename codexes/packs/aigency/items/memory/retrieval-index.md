@@ -1949,3 +1949,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-5a33625.md](../build_/COMMITS/COMMIT-5a33625.md)
 - Message: intent chains commit 8: ExpandedNBEPill chain breadcrumb + ChainDetailDrawer
+
+## Commit `0077105` — 2026-06-02T01:26:12Z
+- Type: `push`
+- Brief: [COMMIT-0077105.md](../build_/COMMITS/COMMIT-0077105.md)
+- Message: intent chains commit 9: MyWorkspaceTab clickable intent cards open drawer
