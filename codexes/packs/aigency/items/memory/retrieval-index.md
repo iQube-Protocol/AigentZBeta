@@ -1899,3 +1899,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-336eacc.md](../build_/COMMITS/COMMIT-336eacc.md)
 - Message: backlog: auto-merge workflow repair + anchor cron scheduler wiring
+
+## Commit `7ccb102` — 2026-06-02T00:14:35Z
+- Type: `push`
+- Brief: [COMMIT-7ccb102.md](../build_/COMMITS/COMMIT-7ccb102.md)
+- Message: spec: intent chain orchestrator — draft v1 + reference template
