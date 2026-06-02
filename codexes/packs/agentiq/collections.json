@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-06-02_mycartridge-phase-4a-config-roles-db.md",
         "updates/2026-06-01_venture-iqube-schema-v0.4.md",
         "updates/2026-06-01_mycartridge-prd-draft.md",
         "updates/2026-06-01_mobile-landscape-iframe-truncation-backlog.md",
