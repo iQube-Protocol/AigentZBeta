@@ -1914,3 +1914,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-b065860.md](../build_/COMMITS/COMMIT-b065860.md)
 - Message: intent chains: feedback table + spec §6.7 — like/dislike learning loop
+
+## Commit `375df58` — 2026-06-02T00:49:58Z
+- Type: `push`
+- Brief: [COMMIT-375df58.md](../build_/COMMITS/COMMIT-375df58.md)
+- Message: intent chains commit 2: sanitizeReceiptMetadata + canary tests
