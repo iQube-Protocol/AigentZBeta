@@ -535,6 +535,89 @@ async function markStepFailed(
   });
 }
 
+/**
+ * Cron-driven advancement for scheduled steps. Called by
+ * /api/ops/sync/cron-tick when scheduled_advance_at has elapsed.
+ * Synthesizes a step completion outcome and runs the standard
+ * onStepOutcomeObserved path so branches/next-step resolution behaves
+ * identically to event-driven advancement.
+ */
+export async function advanceScheduledChain(chain: IntentChainRow): Promise<void> {
+  const template = getTemplate(chain.template_id);
+  if (!template) return;
+  const currentStep = template.steps.find((s) => s.id === chain.current_step_id);
+  if (!currentStep || currentStep.kind !== 'scheduled') return;
+  const synthEvent: OrchestrationEvent = {
+    event_id: randomUUID(),
+    event_type: 'intent_chain_step_completed',
+    from_role: 'aigent-z',
+    to_role: 'aigent-z',
+    reason: 'cron_scheduled_advance',
+    journey_stage: 'prospect',
+    active_cartridge: chain.cartridge,
+    active_codex: null,
+    receipt_eligible: true,
+    timestamp: new Date().toISOString(),
+    metadata: { chain_id: chain.chain_id, step_id: currentStep.id, scheduled_advance: true },
+  };
+  await onStepOutcomeObserved(chain, template, currentStep, synthEvent);
+}
+
+/**
+ * Cron-driven timeout for wait steps. Called by /api/ops/sync/cron-tick
+ * when wait_timeout_at has elapsed without the expected outcome event.
+ * If the step has on_timeout_next, transition to that step; otherwise
+ * mark step failed (chain enters failed status if on_failure='halt').
+ */
+export async function timeoutWaitChain(chain: IntentChainRow): Promise<void> {
+  const template = getTemplate(chain.template_id);
+  if (!template) return;
+  const currentStep = template.steps.find((s) => s.id === chain.current_step_id);
+  if (!currentStep || currentStep.kind !== 'wait') return;
+
+  // Emit timeout receipt
+  void emitOrchestrationEvent({
+    event_id: randomUUID(),
+    event_type: 'intent_chain_timeout',
+    from_role: 'aigent-z',
+    to_role: 'aigent-z',
+    reason: 'wait_step_timeout',
+    journey_stage: 'prospect',
+    active_cartridge: chain.cartridge,
+    active_codex: null,
+    receipt_eligible: template.receipt_eligible ?? true,
+    timestamp: new Date().toISOString(),
+    metadata: buildChainReceiptMetadata({
+      chain_id: chain.chain_id,
+      template_id: template.id,
+      template_version: chain.template_version,
+      step_id: currentStep.id,
+      step_kind: 'wait',
+      actor: currentStep.actor,
+      actor_alias_commitment: chain.initiated_by_alias_commitment ?? undefined,
+      extra: {
+        timeout_unit: currentStep.wait?.timeout
+          ? `${currentStep.wait.timeout.value}${currentStep.wait.timeout.unit}`
+          : undefined,
+        on_timeout_next: currentStep.wait?.on_timeout_next ?? undefined,
+      },
+    }),
+  });
+
+  const onTimeoutNext = currentStep.wait?.on_timeout_next;
+  if (onTimeoutNext) {
+    const nextStep = template.steps.find((s) => s.id === onTimeoutNext);
+    if (nextStep) {
+      // Treat timeout as a rerouting transition (use existing transitionToStep)
+      const newContext: Record<string, unknown> = { ...chain.context, __prev: { timeout: true } };
+      await transitionToStep(chain, template, nextStep, newContext);
+      return;
+    }
+  }
+  // No timeout escape — fail the step
+  await markStepFailed(chain, template, currentStep, 'wait_step_timeout');
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────
 
 async function loadChain(chain_id: string): Promise<IntentChainRow | null> {

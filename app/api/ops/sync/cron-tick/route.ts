@@ -28,6 +28,7 @@ import { getActor } from '@/services/ops/icAgent';
 import { idlFactory as posIdl } from '@/services/ops/idl/proof_of_state';
 import { idlFactory as dvnIdl } from '@/services/ops/idl/cross_chain_service';
 import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
+import { tickChainAdvances, type ChainTickSummary } from '@/services/intentChains/cronAdvance';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -131,12 +132,22 @@ export async function POST(request: NextRequest) {
   const tickStart = Date.now();
   const config = await loadConfig();
 
+  // Intent Chain Orchestrator (spec §7 + commit 6) — advance scheduled
+  // chains + handle wait-step timeouts on every cron tick, in parallel
+  // with the anchor cycle. Failures here are logged + summarized in the
+  // response; they never block the anchor cycle.
+  const chainTickPromise: Promise<ChainTickSummary> = tickChainAdvances(50).catch((err) => {
+    console.error('[cron-tick] chain tick threw:', (err as Error).message);
+    return { scheduled_advanced: 0, wait_timed_out: 0, errors: 1, cap_reached: false, duration_ms: 0 };
+  });
+
   // Read canister state up-front so we always log a meaningful tick row.
   const POS_ID = (process.env.PROOF_OF_STATE_CANISTER_ID || process.env.NEXT_PUBLIC_PROOF_OF_STATE_CANISTER_ID) as string;
   const DVN_ID = (process.env.CROSS_CHAIN_SERVICE_CANISTER_ID || process.env.NEXT_PUBLIC_CROSS_CHAIN_SERVICE_CANISTER_ID) as string;
 
   if (!POS_ID || !DVN_ID) {
-    return NextResponse.json({ error: 'canister_ids_not_configured' }, { status: 503 });
+    const chain_tick = await chainTickPromise;
+    return NextResponse.json({ error: 'canister_ids_not_configured', chain_tick }, { status: 503 });
   }
 
   let posCount = 0;
@@ -165,7 +176,7 @@ export async function POST(request: NextRequest) {
       at: new Date().toISOString(),
     };
     await recordHistory(result);
-    return NextResponse.json(result, { status: 500 });
+    return NextResponse.json({ ...result, chain_tick: await chainTickPromise }, { status: 500 });
   }
 
   const driftBefore = Math.abs(posCount - dvnCount);
@@ -184,7 +195,7 @@ export async function POST(request: NextRequest) {
       at: new Date().toISOString(),
     };
     await recordHistory(result);
-    return NextResponse.json(result);
+    return NextResponse.json({ ...result, chain_tick: await chainTickPromise });
   }
 
   // Idle — nothing to anchor
@@ -201,7 +212,7 @@ export async function POST(request: NextRequest) {
       at: new Date().toISOString(),
     };
     await recordHistory(result);
-    return NextResponse.json(result);
+    return NextResponse.json({ ...result, chain_tick: await chainTickPromise });
   }
 
   // K/T decision
@@ -227,7 +238,7 @@ export async function POST(request: NextRequest) {
       at: new Date().toISOString(),
     };
     await recordHistory(result);
-    return NextResponse.json(result);
+    return NextResponse.json({ ...result, chain_tick: await chainTickPromise });
   }
 
   // Execute anchor cycle
@@ -261,7 +272,7 @@ export async function POST(request: NextRequest) {
       at: new Date().toISOString(),
     };
     await recordHistory(result);
-    return NextResponse.json(result);
+    return NextResponse.json({ ...result, chain_tick: await chainTickPromise });
   } catch (err) {
     const result: TickResult = {
       ok: false,
@@ -276,6 +287,6 @@ export async function POST(request: NextRequest) {
       at: new Date().toISOString(),
     };
     await recordHistory(result);
-    return NextResponse.json(result, { status: 500 });
+    return NextResponse.json({ ...result, chain_tick: await chainTickPromise }, { status: 500 });
   }
 }
