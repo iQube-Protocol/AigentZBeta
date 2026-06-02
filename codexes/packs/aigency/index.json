@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-02T01:25:51.840Z",
+  "last_updated": "2026-06-02T01:28:07.374Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "5a336253f1cb3238817e7a071d93a61f7750dff1",
-  "latest_commit_short": "5a33625",
-  "latest_commit_title": "intent chains commit 8: ExpandedNBEPill chain breadcrumb + ChainDetailDrawer",
+  "latest_commit": "0077105de1ff8ce1a0cc0cf6f4e20d784a10847c",
+  "latest_commit_short": "0077105",
+  "latest_commit_title": "intent chains commit 9: MyWorkspaceTab clickable intent cards open drawer",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "0077105",
+      "full_sha": "0077105de1ff8ce1a0cc0cf6f4e20d784a10847c",
+      "title": "intent chains commit 9: MyWorkspaceTab clickable intent cards open drawer",
+      "author": "Claude",
+      "timestamp": "2026-06-02T01:26:12Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-0077105.md"
+    },
     {
       "sha": "5a33625",
       "full_sha": "5a336253f1cb3238817e7a071d93a61f7750dff1",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-28T21:14:28Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-9ddf15d.md"
-    },
-    {
-      "sha": "51be5ac",
-      "full_sha": "51be5ac706de3e8dfab07ab81bcd79931b180b3f",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-28T21:14:28Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-51be5ac.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
