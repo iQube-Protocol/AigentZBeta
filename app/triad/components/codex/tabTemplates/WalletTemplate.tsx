@@ -3,35 +3,49 @@
 /**
  * WalletTemplate — cartridge-scoped wallet surface.
  *
- * Phase 9 of the myCartridge PRD §19. Renders the cartridge's wallet
- * posture (token whitelist + enabled primitives + payment-request CTA
- * stub) inside a tab template envelope. Visitors see the cartridge's
- * accepted tokens and the primitives the owner has enabled.
+ * Phase 9 of the myCartridge PRD §19.
  *
- * Phase 9a scope (this file):
- *   - Read `codex_configs.smart_triad_config.wallet` for the cartridge.
- *   - Render token whitelist chips + enabled-primitive checkmarks.
- *   - Owner-only "Request payment" CTA stub (full TransactionModal
- *     `mode: 'request'` lands in Phase 9b).
- *   - "Open full wallet" CTA opens the runtime's existing
- *     SmartWalletDrawer via the shared SmartTriad provider — the
- *     drawer infrastructure is the canonical wallet mount; this
- *     template surfaces cartridge-scoped wallet config alongside it
- *     without duplicating drawer state.
+ * Renders the embedded `SmartWalletDrawer` inside the cartridge wallet
+ * tab, using the cartridge identity as the agent context and forwarding
+ * `cartridgeSlug` for cartridge-scoped affordances (set-as-default
+ * persona, etc., that the drawer already supports).
+ *
+ * The runtime shell already wraps the tab tree in SmartTriadProvider,
+ * so the drawer reads its own state internally — no extra provider
+ * wiring is needed. The mount pattern mirrors
+ * `app/components/codex/CodexCopilotLayer.tsx:1694` which uses
+ * `variant="embedded"` + a small `agent: {id, name}` object + personaId.
  *
  * Phase 9b deferred:
- *   - Embedded SmartWalletDrawer scoped to the cartridge's token
- *     whitelist (filter against EVM token list).
- *   - TransactionModal `mode: 'request'` for the payment-request flow
- *     (currently `'send' | 'receive' | 'verify'` only; PRD §19 calls
- *     for adding `'request'`).
- *   - Per-cartridge fee-tier overrides via pricingService.
+ *   - TransactionModal `mode: 'request'` (TransactionTab union
+ *     extension; payment-request flow per PRD §19).
+ *   - Cartridge token-whitelist EVM filter pushed into the drawer
+ *     (today the drawer shows the persona's full token list; the
+ *     cartridge config carries the whitelist but the drawer doesn't
+ *     filter on it yet).
+ *
+ * Phase 9 (this file) delivers:
+ *   - Real embedded wallet inside the cartridge wallet tab.
+ *   - Cartridge wallet posture summary (token whitelist + enabled
+ *     primitives) rendered above the drawer so the operator can see
+ *     what the cartridge declares vs. what the drawer surfaces.
+ *   - Owner-only payment-request CTA stub.
+ *   - Graceful empty states: wallet disabled, cartridge lookup failed,
+ *     no active persona.
  */
 
 import React, { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { Wallet, Coins, Check, X, Send, Download, FileText, Gift } from "lucide-react";
 import { personaFetch } from "@/utils/personaSpine";
 import type { TabTemplateProps } from "./types";
+
+// Dynamic import mirrors the pattern from CodexCopilotLayer — breaks the
+// SmartWalletDrawer ↔ SmartTriadProvider circular dependency at build time.
+const SmartWalletDrawer = dynamic(
+  () => import("@/app/components/content/SmartWalletDrawer"),
+  { ssr: false },
+);
 
 interface CartridgeWalletConfig {
   enabled: boolean;
@@ -72,7 +86,7 @@ const PRIMITIVE_META: Array<{
   { key: "rewardPayout", label: "Reward payout", icon: Gift },
 ];
 
-export function WalletTemplate({ cartridgeSlug, theme, permissions }: TabTemplateProps) {
+export function WalletTemplate({ cartridgeSlug, personaId, theme }: TabTemplateProps) {
   const dark = theme === "dark";
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -170,14 +184,14 @@ export function WalletTemplate({ cartridgeSlug, theme, permissions }: TabTemplat
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Wallet className="w-5 h-5" />
-          <h2 className="text-lg font-semibold">Wallet</h2>
+          <h2 className="text-lg font-semibold">{title} — Wallet</h2>
         </div>
         <span className={`text-xs px-2 py-0.5 rounded border ${chipClass}`}>
           {cartridgeSlug}
         </span>
       </header>
 
-      {/* Accepted tokens */}
+      {/* Cartridge wallet posture summary */}
       <section className={`p-4 rounded-lg border ${surfaceClass}`}>
         <h3 className={`text-sm font-medium mb-2 ${mutedClass}`}>Accepted tokens</h3>
         {wallet.tokenWhitelist.length > 0 ? (
@@ -195,11 +209,7 @@ export function WalletTemplate({ cartridgeSlug, theme, permissions }: TabTemplat
         ) : (
           <p className={`text-sm ${mutedClass}`}>No tokens whitelisted yet.</p>
         )}
-      </section>
-
-      {/* Enabled primitives */}
-      <section className={`p-4 rounded-lg border ${surfaceClass}`}>
-        <h3 className={`text-sm font-medium mb-3 ${mutedClass}`}>Wallet primitives</h3>
+        <h3 className={`text-sm font-medium mt-4 mb-2 ${mutedClass}`}>Wallet primitives</h3>
         <ul className="space-y-2">
           {PRIMITIVE_META.map((p) => {
             const enabled = wallet.primitives[p.key];
@@ -221,6 +231,44 @@ export function WalletTemplate({ cartridgeSlug, theme, permissions }: TabTemplat
         </ul>
       </section>
 
+      {/* Embedded SmartWalletDrawer — the real wallet surface. The
+          runtime shell already wraps this tree in SmartTriadProvider so
+          the drawer reads its own state internally. The `agent` prop
+          carries the cartridge identity so the drawer header reads as
+          the cartridge title rather than the visitor's persona name. */}
+      {personaId ? (
+        <section
+          className={`rounded-2xl overflow-hidden ring-1 ring-white/10 shadow-2xl ${surfaceClass}`}
+        >
+          <SmartWalletDrawer
+            open={true}
+            onClose={() => {
+              // Cartridge wallet tab is always-open — the close handler is a
+              // no-op since the surface IS the wallet. The drawer's own X
+              // button is hidden via the embedded variant.
+            }}
+            variant="embedded"
+            embeddedWidth="fill"
+            embeddedAnchor="left"
+            allowWideLayout={true}
+            codexMode={true}
+            personaId={personaId}
+            cartridgeSlug={cartridgeSlug}
+            agent={{
+              id: cartridgeSlug,
+              name: title,
+            }}
+            initialTab="wallet"
+          />
+        </section>
+      ) : (
+        <section className={`p-4 rounded-lg border ${surfaceClass}`}>
+          <p className={`text-sm ${mutedClass}`}>
+            Sign in with an active persona to use the wallet.
+          </p>
+        </section>
+      )}
+
       {/* Owner-only payment request CTA stub */}
       {canEdit && wallet.primitives.paymentRequest && (
         <section className={`p-4 rounded-lg border ${surfaceClass}`}>
@@ -241,8 +289,8 @@ export function WalletTemplate({ cartridgeSlug, theme, permissions }: TabTemplat
       )}
 
       <p className={`text-xs ${mutedClass}`}>
-        Template: wallet-v1 · Phase 9a. Cartridge-scoped TransactionModal flows + embedded
-        SmartWalletDrawer with token-whitelist filter land in Phase 9b.
+        Template: wallet-v1 · Phase 9. Token-whitelist push into the drawer EVM filter +
+        TransactionModal mode='request' land in Phase 9b.
       </p>
     </div>
   );
