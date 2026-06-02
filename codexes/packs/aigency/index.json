@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-02T00:40:25.246Z",
+  "last_updated": "2026-06-02T00:45:48.876Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "927f459ceffc1cb0c9748f54b269373d21053f47",
-  "latest_commit_short": "927f459",
-  "latest_commit_title": "intent chains commit 1: schema + types + template registry + reference",
+  "latest_commit": "b06586021ef524b9528dee8089268dc558372166",
+  "latest_commit_short": "b065860",
+  "latest_commit_title": "intent chains: feedback table + spec §6.7 — like/dislike learning loop",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "b065860",
+      "full_sha": "b06586021ef524b9528dee8089268dc558372166",
+      "title": "intent chains: feedback table + spec §6.7 — like/dislike learning loop",
+      "author": "Claude",
+      "timestamp": "2026-06-02T00:44:01Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-b065860.md"
+    },
     {
       "sha": "927f459",
       "full_sha": "927f459ceffc1cb0c9748f54b269373d21053f47",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-28T16:22:20Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-ef74414.md"
-    },
-    {
-      "sha": "2deac7d",
-      "full_sha": "2deac7d1196005083f433fb2bb2567a7f55367b8",
-      "title": "add persona-uploads bucket setup runbook",
-      "author": "Claude",
-      "timestamp": "2026-05-28T16:11:00Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-2deac7d.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
