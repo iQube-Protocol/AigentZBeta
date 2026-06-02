@@ -40,6 +40,9 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-06-02_mycartridge-phase-5-tab-templates.md",
+        "updates/2026-06-02_debug-bypass-test-assertion-mismatch-backlog.md",
+        "updates/2026-06-02_mycartridge-phase-4b-spine-extension.md",
         "updates/2026-06-02_mycartridge-phase-4a-config-roles-db.md",
         "updates/2026-06-01_venture-iqube-schema-v0.4.md",
         "updates/2026-06-01_mycartridge-prd-draft.md",

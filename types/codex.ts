@@ -7,7 +7,7 @@ import type { RuntimeTakeoverConfig } from './runtimeTakeover';
  * created, edited, and managed via API and UI.
  */
 
-export type CodexTabType = 'static' | 'dynamic' | 'liquid-ui';
+export type CodexTabType = 'static' | 'dynamic' | 'liquid-ui' | 'template';
 
 export interface CodexMetadata {
   description: string;
@@ -35,6 +35,14 @@ export interface CodexTabConfig {
   dataSource?: string;          // API endpoint or data source
   filters?: Record<string, any>;
   props?: Record<string, any>;  // Additional props for component
+  /**
+   * Tab template id for `type: 'template'` tabs. Looked up in
+   * `app/triad/components/codex/tabTemplates/registry.ts:TAB_TEMPLATES`.
+   * Added 2026-06-02 as Phase 5 of the myCartridge PRD (§22 Tab Template
+   * Framework). Source-of-truth enum lives in
+   * `types/ventureQube.ts:CartridgeTabTemplateId`.
+   */
+  templateId?: import('./ventureQube').CartridgeTabTemplateId;
 }
 
 export interface CodexTabMetadata {
@@ -98,6 +106,29 @@ export interface CodexTab {
    * controlled by `adminOnly: true`, not an activation.
    */
   activationId?: string;
+  /**
+   * Phase 4a (myCartridge PRD §23) — per-cartridge tab gates, mirroring
+   * the columns added to `codex_tabs`. Tab is rendered only when the
+   * persona satisfies the gate via `evaluateAccess` with the
+   * `member:<cartridgeSlug>` / `role:<cartridgeSlug>:<role>` credential.
+   *
+   * `memberOnly`     — persona holds ANY role on the cartridge.
+   * `inviteOnly`     — persona holds a role granted via explicit invite
+   *                    (semantics enforced server-side; the tab type
+   *                    here just declares the intent).
+   * `tokenGated`     — persona's wallet meets the token threshold.
+   *                    (UI typed in Phase 5; verification path lands in
+   *                    Phase 8 alongside the wallet primitives.)
+   * `roleRequired`   — persona meets-or-exceeds the named role in the
+   *                    PRD §23 hierarchy. The literal type matches the
+   *                    CartridgeRole union in types/cartridgeMembership.ts;
+   *                    inlined as `string` here so types/codex.ts stays
+   *                    free of the membership import cycle.
+   */
+  memberOnly?: boolean;
+  inviteOnly?: boolean;
+  tokenGated?: { tokenId: string; minBalance: string };
+  roleRequired?: string;
   order: number;
   type: CodexTabType;
   config: CodexTabConfig;

@@ -18,6 +18,12 @@
  */
 
 import type { AccessAction, ReceiptMode } from '@/types/access';
+import {
+  CARTRIDGE_ROLE_HIERARCHY,
+  meetsCartridgeRole,
+  type CartridgeMembershipsMap,
+  type CartridgeRole,
+} from '@/types/cartridgeMembership';
 
 /**
  * The set of actions where the receipt IS the proof and must be anchored
@@ -85,14 +91,40 @@ export function credentialRequiresExternalVerifier(credential: string | undefine
  *                                    2026-05-26 as part of the spine
  *                                    admin-grants extension — see
  *                                    codexes/packs/agentiq/updates/2026-05-26_spine-admin-grants-extension.md.
+ *   'member:<slug>'               — per-cartridge membership. Matches
+ *                                    when the persona holds ANY role
+ *                                    in `cartridgeFlags.cartridgeMemberships`
+ *                                    for the slug, OR when isAdmin /
+ *                                    adminCartridges already gates it.
+ *                                    Added 2026-06-02 as Phase 4b of
+ *                                    the myCartridge PRD — see
+ *                                    codexes/packs/agentiq/updates/2026-06-02_mycartridge-phase-4b-spine-extension.md.
+ *   'role:<slug>:<role>'          — per-cartridge minimum-role gate.
+ *                                    Matches when the persona's
+ *                                    cartridgeMemberships[slug] meets
+ *                                    or exceeds <role> in the PRD §23
+ *                                    hierarchy (owner > admin > editor
+ *                                    > contributor > member > partner
+ *                                    > franchisee > correspondent >
+ *                                    guest). isAdmin / adminCartridges
+ *                                    short-circuit (uber + tenant
+ *                                    admins satisfy any role gate on
+ *                                    their cartridge). Added 2026-06-02
+ *                                    Phase 4b.
  *
  * Backwards compatible — the `flags` parameter accepts the legacy
- * { isAdmin, isPartner } shape and treats a missing adminCartridges
- * field as the no-grants posture (fail-closed).
+ * { isAdmin, isPartner } shape. `adminCartridges` and
+ * `cartridgeMemberships` are both optional; absent fields are treated
+ * as the no-grants posture (fail-closed).
  */
 export function credentialMatchesCartridgeFlag(
   credential: string | undefined,
-  flags: { isAdmin: boolean; isPartner: boolean; adminCartridges?: string[] },
+  flags: {
+    isAdmin: boolean;
+    isPartner: boolean;
+    adminCartridges?: string[];
+    cartridgeMemberships?: CartridgeMembershipsMap;
+  },
 ): boolean {
   if (!credential) return false;
   if (credential === 'admin')   return flags.isAdmin;
@@ -105,6 +137,37 @@ export function credentialMatchesCartridgeFlag(
     // persona's explicit grant list.
     if (flags.isAdmin) return true;
     return Array.isArray(flags.adminCartridges) && flags.adminCartridges.includes(slug);
+  }
+  if (credential.startsWith('member:')) {
+    const slug = credential.slice('member:'.length).trim();
+    if (!slug) return false;
+    // isAdmin / adminCartridges short-circuit — admins of a cartridge
+    // are implicit members of it. Otherwise the persona must hold any
+    // role in cartridgeMemberships for the slug.
+    if (flags.isAdmin) return true;
+    if (Array.isArray(flags.adminCartridges) && flags.adminCartridges.includes(slug)) return true;
+    return Boolean(flags.cartridgeMemberships && slug in flags.cartridgeMemberships);
+  }
+  if (credential.startsWith('role:')) {
+    // Format: role:<slug>:<role>. The slug itself never contains a
+    // colon (slug regex in services/iqube/ventureQubeSchema.ts is
+    // lowercase + dashes), so a single split-on-last-colon parses
+    // unambiguously.
+    const rest = credential.slice('role:'.length);
+    const lastColon = rest.lastIndexOf(':');
+    if (lastColon <= 0 || lastColon === rest.length - 1) return false;
+    const slug = rest.slice(0, lastColon).trim();
+    const requiredRole = rest.slice(lastColon + 1).trim() as CartridgeRole;
+    if (!slug || !requiredRole) return false;
+    // Validate the required role is in the canonical hierarchy —
+    // unknown role strings fail closed.
+    if (!CARTRIDGE_ROLE_HIERARCHY.includes(requiredRole)) return false;
+    // isAdmin / adminCartridges short-circuit — admins outrank any
+    // role gate on their cartridge.
+    if (flags.isAdmin) return true;
+    if (Array.isArray(flags.adminCartridges) && flags.adminCartridges.includes(slug)) return true;
+    const held = flags.cartridgeMemberships?.[slug];
+    return meetsCartridgeRole(held, requiredRole);
   }
   return false;
 }
