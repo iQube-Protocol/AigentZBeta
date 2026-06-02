@@ -1944,3 +1944,8 @@ Top-level retrieval anchors for this pack.
 - Type: `feat`
 - Brief: [COMMIT-9c15b5d.md](../build_/COMMITS/COMMIT-9c15b5d.md)
 - Message: intent chains commit 7: wire AigentMeWelcomeSplitTab seam — dispatch + complete
+
+## Commit `5a33625` — 2026-06-02T01:24:02Z
+- Type: `push`
+- Brief: [COMMIT-5a33625.md](../build_/COMMITS/COMMIT-5a33625.md)
+- Message: intent chains commit 8: ExpandedNBEPill chain breadcrumb + ChainDetailDrawer
