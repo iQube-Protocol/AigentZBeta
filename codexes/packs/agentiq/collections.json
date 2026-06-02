@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-05-31_thin-client-wallet-persona-deep-link-spec.md",
         "updates/2026-05-29_venture-iqube-schema-v0.2.md",
         "updates/2026-05-29_venture-iqube-schema-v0.1.md",
         "updates/2026-05-29_aigentme-voice-loop-stt-tts-sync-backlog.md",
