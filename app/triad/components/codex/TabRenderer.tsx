@@ -119,6 +119,8 @@ import { MetaMeStrategyTab } from "./tabs/MetaMeStrategyTab";
 import { MetaMeStatusTab } from "./tabs/MetaMeStatusTab";
 import { MetaMeNbeTab } from "./tabs/MetaMeNbeTab";
 import { MetaMeAnalysisTab } from "./tabs/MetaMeAnalysisTab";
+import { TAB_TEMPLATES, type TabTemplateProps } from "./tabTemplates/registry";
+import type { CartridgeTabTemplateId } from "@/types/ventureQube";
 
 interface TabRendererProps {
   tab: CodexTab;
@@ -351,6 +353,54 @@ export function TabRenderer({ tab, codexId, theme, density, personaId, isAdmin, 
         theme={theme}
       />
     );
+  }
+
+  // Handle template tabs — Phase 5 of the myCartridge PRD §22.
+  //
+  // Cartridge-agnostic templates dispatched from TAB_TEMPLATES. The
+  // wizard (Phase 6) writes `tab.config.templateId` to select which
+  // template renders; `tab.config.props` carries the per-tab config
+  // payload that the template consumes (metrics, actions, etc.).
+  //
+  // The cartridge slug is derived from `codexId` (the parent codex's
+  // id is the canonical slug for the cartridge). Permissions are
+  // forwarded from the parent props so templates can render owner-
+  // gated UI without re-querying the spine.
+  if (tab.type === 'template') {
+    const templateId = tab.config.templateId as CartridgeTabTemplateId | undefined;
+    if (!templateId) {
+      return (
+        <div className="p-8 text-center">
+          <AlertCircle className="w-8 h-8 mx-auto mb-4 text-amber-400" />
+          <p className="text-amber-400">No templateId specified for template tab</p>
+        </div>
+      );
+    }
+    const Template = TAB_TEMPLATES[templateId];
+    if (!Template) {
+      return (
+        <div className="p-8 text-center">
+          <AlertCircle className="w-8 h-8 mx-auto mb-4 text-red-400" />
+          <p className="text-red-400">Template not found: {templateId}</p>
+          <p className="text-sm text-slate-500 mt-2">
+            Available templates: {Object.keys(TAB_TEMPLATES).join(', ')}
+          </p>
+        </div>
+      );
+    }
+    const templateProps: TabTemplateProps = {
+      cartridgeSlug: codexId,
+      personaId,
+      theme,
+      density,
+      shell,
+      permissions: {
+        isAdmin,
+        isPartner,
+      },
+      config: tab.config.props,
+    };
+    return <Template {...templateProps} />;
   }
 
   // Handle liquid-ui tabs
