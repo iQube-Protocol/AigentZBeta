@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-02T01:15:21.569Z",
+  "last_updated": "2026-06-02T01:17:35.904Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "8b7f98f173e79aa8c8bc40c134f0eb41b1be9acc",
-  "latest_commit_short": "8b7f98f",
-  "latest_commit_title": "intent chains commit 4: API routes — dispatch + detail + list + cancel + complete-step + feedback",
+  "latest_commit": "9db46a19fe1854946346163f39a48f625ce75063",
+  "latest_commit_short": "9db46a1",
+  "latest_commit_title": "intent chains commit 5: Marketa propose intake + Factory Ingestion stub",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "9db46a1",
+      "full_sha": "9db46a19fe1854946346163f39a48f625ce75063",
+      "title": "intent chains commit 5: Marketa propose intake + Factory Ingestion stub",
+      "author": "Claude",
+      "timestamp": "2026-06-02T01:15:29Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-9db46a1.md"
+    },
     {
       "sha": "8b7f98f",
       "full_sha": "8b7f98f173e79aa8c8bc40c134f0eb41b1be9acc",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-28T16:49:46Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-28cb0d4.md"
-    },
-    {
-      "sha": "aa1d41a",
-      "full_sha": "aa1d41aa3f274f12f000d93919f720923413fe4f",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-28T16:49:46Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-aa1d41a.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
