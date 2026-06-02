@@ -155,12 +155,21 @@ export async function GET(request: NextRequest) {
           if (!allowOverrides && c.id === 'knyt-codex') {
             return;
           }
+          // Owner redaction (2026-06-02). The legacy `owner` text column
+          // carries the persona id for wizard-created rows — never echo
+          // that to a non-owner. System rows (owner_persona_id IS NULL)
+          // carry display strings ("aigent-z" etc.) and pass through.
+          const ownerOut = c.owner_persona_id
+            ? (callerPersonaId && callerPersonaId === c.owner_persona_id
+                ? (c.owner ?? '')
+                : `persona-${String(c.owner_persona_id).slice(0, 8)}`)
+            : (c.owner ?? '');
           mergedById.set(c.id, {
             id: c.id,
             name: c.name,
             slug: c.slug,
             enabled: c.enabled,
-            owner: c.owner,
+            owner: ownerOut,
             metadata: c.metadata,
             tabCount: tabCountMap[c.id] || 0,
             createdAt: c.created_at,
@@ -232,7 +241,12 @@ export async function GET(request: NextRequest) {
       name: c.name,
       slug: c.slug,
       enabled: c.enabled,
-      owner: c.owner,
+      // Owner redaction — same posture as the defaults path.
+      owner: c.owner_persona_id
+        ? (callerPersonaId && callerPersonaId === c.owner_persona_id
+            ? (c.owner ?? '')
+            : `persona-${String(c.owner_persona_id).slice(0, 8)}`)
+        : (c.owner ?? ''),
       metadata: c.metadata,
       tabCount: tabCountMap[c.id] || 0,
       createdAt: c.created_at,
