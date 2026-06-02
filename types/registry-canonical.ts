@@ -476,7 +476,12 @@ export type IQubeIdMapSource =
   | 'memory_iqube'
   | 'code:aigentQubeSource'
   | 'code:toolQubeSource'
-  | 'code:liquidui-template';
+  | 'code:liquidui-template'
+  // Intent Chain Orchestrator (2026-06-02) — chain templates registered
+  // as synthetic ToolQube primitives so they appear in the registry plane.
+  // Full canonization to WorkflowQube/ToolQube is deferred follow-on work.
+  // See AGENTIQ_INTENT_CHAINS_SPEC.md §6.6.
+  | 'code:chainTemplate';
 
 export interface IQubeIdMapEntry {
   iqube_id: string;

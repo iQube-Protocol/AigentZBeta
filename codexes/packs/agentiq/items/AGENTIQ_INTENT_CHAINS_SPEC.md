@@ -1,7 +1,7 @@
 # Intent Chain Orchestrator — Spec
 
-**Status:** Draft v1. Awaiting operator confirmation before build.
-**Date:** 2026-06-01
+**Status:** Draft v2. Approved by operator with three additions (Q¢ payment, aigentMe-as-orchestrator, Factory Ingestion stub for templates). Build commit 1 in flight.
+**Date:** 2026-06-01 (v1) → 2026-06-02 (v2 additions)
 **Owners:** Aigent Z + metaMe + Marketa workstream.
 **Triggered by:** Audit finding (2026-06-01) — CTAs generate briefs but never dispatch to actor agents; no follow-up NBA chains are materialized. Diagnostic: `app/triad/components/codex/tabs/AigentMeWelcomeSplitTab.tsx:1227`.
 
@@ -48,12 +48,13 @@ A CTA is the **entry point** to a **chain template**. A chain template is a decl
 | Authority | Role in chain orchestrator |
 |---|---|
 | Identity spine | Caller resolution on every chain endpoint via `getActivePersona` |
-| Access spine | Gates which CTAs a user can start (existing nbeCatalog persona filter) |
-| Orchestrator | Decides chain dispatch + step advancement — NEW |
+| Access spine | Gates which CTAs a user can start (existing nbeCatalog persona filter) + Q¢ balance check at dispatch time (v2 — see §6.5) |
+| **Orchestrator = aigentMe** | The user's aigentMe (or a server-side delegate helper acting on its behalf) runs the chain. Every step transition is bound by the user's runtime policy. metaMe guardian retains final override. — NEW |
+| Wallet / Q¢ ledger | Charges `cost_qc` at dispatch; refunds if chain fails before step 0 outcome (no actor invoked) — NEW touchpoint, existing rail |
 | DVN | Receives one receipt per state-changing event via existing Stage 6 plumbing |
 | BTC anchor | Seals chain history via existing K/T policy (no chain-specific anchor logic) |
 
-The orchestrator is the only new authority. Everything else is reuse.
+The orchestrator authority is **aigentMe**, not a generic new service. Naming this explicitly matters: chain execution must respect the user's runtime policy (e.g. if aigentMe is bounded to "no external email sends after 10pm", the `send-to-partner` step is deferred or routed for explicit confirmation). The server-side dispatcher is aigentMe's delegate — it executes the mechanical work but enforces the user's policy on every transition.
 
 ---
 
@@ -394,6 +395,116 @@ This is the same audit pattern as iQube mint receipts — chains slot into the e
 
 ---
 
+## 6.5 Q¢ payment policy — per-workflow run cost
+
+Per operator addition (v2): chains may carry a per-end-to-end-run Q¢ cost. This is the foundation for monetised workflows — operators can publish chains (their own + third-party authored) with a price tag.
+
+### Template field
+
+```typescript
+interface ChainTemplate {
+  ...existing fields
+  cost_qc?: number;                    // integer Q¢ per CLAUDE.md ($1 = 100 Q¢);
+                                       // total cost for one end-to-end run
+  cost_metadata?: {
+    payee_persona_id?: string;         // T0; defaults to template author / system treasury
+    revenue_share?: {                  // optional split for multi-party workflows
+      [persona_or_role: string]: number;  // e.g. { 'marketa': 70, 'system': 30 } as %
+    };
+    refund_policy: 'before_step_0_outcome' | 'never' | 'pro_rata_on_step_failure';
+                                       // default 'before_step_0_outcome'
+  };
+}
+```
+
+For v1, only `cost_qc` + the default refund policy is implemented. `cost_metadata` is stub for v1.5 (revenue share + author payouts).
+
+### Charge lifecycle
+
+1. **At dispatch** (`POST /api/intent-chains/dispatch`): orchestrator calls Access spine's `evaluateAccess(persona, descriptor: { kind: 'chain_dispatch', cost_qc }, action: 'transfer')`. The spine resolver checks:
+   - Persona has sufficient Q¢ balance
+   - Persona has not exceeded daily/monthly chain spend limits (if configured)
+   - aigentMe runtime policy permits chain spend at this level
+2. **If denied** → return `403 chain_spend_denied` with deny reason. Chain is never instantiated.
+3. **If approved** → debit Q¢ from persona wallet (single ledger row, atomic with chain row insert). Emit `intent_chain_charge_committed` event (DVN-eligible, T2 metadata: chain_id, cost_qc, payee_alias_commitment).
+4. **Refund path** — if chain fails before step 0's outcome event (i.e. no actor agent has done meaningful work yet), the orchestrator emits `intent_chain_charge_refunded` event and credits Q¢ back. After step 0's outcome, refund is impossible because external work has happened (Marketa already drafted, an email already sent, etc.).
+
+### Q¢ representation (per CLAUDE.md canonical conversion)
+
+- `cost_qc` is stored as **integer Q¢ count** (cents). Never confuse with USD.
+- Display: primary price in **USD** for parity with the store payment modal — `$X.XX` primary, `XX Q¢` secondary.
+- Conversion: `usd_display = cost_qc / 100`. Round-trip: `cost_qc = Math.round(usd * 100)`.
+- Reference rails: any chain charging > 0 Q¢ surfaces a payment confirmation in the CTA pill before dispatch ("This chain costs $X.XX (XX Q¢). Proceed?").
+
+### Reference template gets a price
+
+For the `marketa.ask-partner-proposal` reference template:
+
+```json
+{
+  "id": "marketa.ask-partner-proposal",
+  ...
+  "cost_qc": 900,                      // $9.00 per end-to-end run
+  "cost_metadata": {
+    "refund_policy": "before_step_0_outcome"
+  }
+}
+```
+
+$9 covers Marketa's per-proposal-draft compute + the cross-chain receipt overhead. The follow-up email + scheduled nudge are included in the price.
+
+### What this unlocks downstream
+
+- **Workflow marketplace** — third-party authors publish chains with a Q¢ price; revenue share rails are stub-ready
+- **Per-cartridge subscription tiers** — instead of charging per chain, sell access to a tier that unlocks N chains/month
+- **Operator-set spend caps** — aigentMe runtime policy can include "never spend > $X/day on chain dispatches without explicit confirmation"
+
+All of these are deferred to v1.5+. v1 ships the charge mechanism + refund-before-step-0 policy + the price tag on the reference template.
+
+---
+
+## 6.6 Factory Ingestion stub for chain templates (template-as-iQube path)
+
+Per operator addition (v2): although full iQubing of chain templates is out of v1 scope, the templates should flow through the **Factory Ingestion pipeline** as primitives so they're discoverable + countable in the registry plane. Full canonization (MetaQube + BlakQube + TokenQube + scoring + lifecycle) is deferred follow-on work.
+
+### What ships in v1
+
+1. **New `iqube_id_map.source` enum value: `'code:chainTemplate'`**
+   - Each chain template in `services/intentChains/templates/*.json` gets a synthetic `iqube_id_map` row at startup
+   - `source = 'code:chainTemplate'`, `source_id = template.id`, `primitive_type = 'ToolQube'`, `synthetic = true`
+   - `legacy_primitive_type = 'WorkflowQube'` (anticipates the future canonical primitive)
+   - This means chain templates show up in `/registry` Browse, are counted by Score Coverage, etc.
+2. **Backfill loader**: `services/registry/backfill/runBackfill.ts` gains a `loadChainTemplateRows` function for the `'code:chainTemplate'` source, parallel to existing `loadLiquidUiTemplateRows`
+3. **Score block stub**: chain templates get a default score block on first backfill — `{ sensitivity: 1, accuracy: 8, verifiability: 9, risk: 1 }`. These are workflow primitives — high verifiability (deterministic), low risk (sandboxed by aigentMe policy), low sensitivity (templates are public surface). Operators can override.
+4. **No new tables**: templates remain file-based + repo-versioned in v1. Factory Ingestion just records their existence in `iqube_id_map`. The full iQube triad creation (with meta+blak+token) is the deferred work.
+
+### What this means
+
+- The registry plane's Browse tab will show chain templates as listed primitives (with the synthetic UUID + the `code:chainTemplate` source label)
+- The Score Coverage section counts chain templates in the total + per-primitive breakdown
+- A future workstream can canonize templates as full WorkflowQubes/ToolQubes by:
+  - Promoting to `triad_meta` source (creating MetaQube row + BlakQube containing template JSON + TokenQube for access policy)
+  - Running through canonization queue for governance
+- Until then, treating them as "primitives awaiting canonization" is the right shape — they exist in the registry as references but aren't yet first-class iQubes
+
+### Files touched (v1 Factory Ingestion stub)
+
+- `types/registry-canonical.ts` — extend `IQubeIdMapSource` union with `'code:chainTemplate'`
+- `services/registry/backfill/runBackfill.ts` — add `loadChainTemplateRows` + register in `SOURCE_LOADERS`
+- `services/registry/scoreBackfill/types.ts` — register chain templates as a scoreable primitive with the default stub block
+- DB-side: the `iqube_id_map.source` CHECK constraint must accept the new enum value — migration described in §4
+
+### Deferred to follow-on workstream
+
+- Canonization queue submission for promoting chain template → full ToolQube/WorkflowQube
+- Template authorship rewards (Q¢ revenue share on chain dispatches)
+- Template lifecycle governance (deprecation, version superseding)
+- Cross-template lineage tracking (chain A invokes chain B as sub-chain — v1.5+)
+
+A backlog doc tracking the iQubing follow-on will be filed when the v1 build closes.
+
+---
+
 ## 7. API surface
 
 | Endpoint | Method | Purpose | Auth |
@@ -503,18 +614,24 @@ No spine files modified. No access gates removed.
 
 ---
 
-## 11. Open questions / tradeoffs to confirm
+## 11. Decisions locked (2026-06-02 operator confirmation)
 
-| # | Question | Default recommendation | Rationale |
-|---|---|---|---|
-| 1 | Should chains be re-runnable from a failed step, or is failure terminal? | Re-runnable via `cancel` + `dispatch` (new chain instance). Failed chains stay failed. | Keeps chain instances immutable; new run = new chain_id = new audit trail |
-| 2 | If the user cancels mid-chain, do we cancel scheduled/wait steps? | Yes — `status='cancelled'` short-circuits the cron's `advance` call | Predictable; cancellation is total |
-| 3 | If Marketa's proposal step times out (30 min default?), what's the behaviour? | Emit `intent_chain_step_failed`, set chain `status='failed'`. Operator sees a pill: "Marketa proposal step failed — retry?" | Surfaces the issue; no silent stuck chains |
-| 4 | Can a chain step trigger another chain (sub-chain)? | Out of scope for v1; revisit after we have ≥3 templates running | Avoid orchestration complexity until we know we need it |
-| 5 | How are templates versioned? Operators may edit a template after live chains exist. | Embed `template_version` on `intent_chains` row at dispatch time; chain runs against the version it started with. Template edits create v2 used by new chains only. | Backwards-safe; chains in flight don't change behaviour |
-| 6 | Should the chain detail drawer show DVN receipt content inline, or just txid + link? | Just txid + BTC explorer link. The full receipt content is admin-only via Stage 6 receipts tab. | UI doesn't need to re-implement receipt rendering; operators have a canonical surface for that |
+| # | Question | Decision |
+|---|---|---|
+| 1 | Failed chain re-run path | **LOCKED** — Re-runnable via `cancel` + new `dispatch` (new chain_id). Failed chains stay failed; immutable audit trail per chain instance. |
+| 2 | Cancel propagates to scheduled/wait | **LOCKED** — Yes. Cancellation is total. `status='cancelled'` short-circuits cron advance. |
+| 3 | Step timeout for Marketa-class RPC steps | **LOCKED** — 30 min default. Configurable per step via `rpc.timeout_minutes`. Emits `intent_chain_step_failed` → `intent_chain_failed` if `on_failure='halt'`. Operator sees a pill for retry. |
+| 4 | Sub-chains | **LOCKED** — Out of v1 scope. Revisit after ≥3 templates in production. |
+| 5 | Template versioning | **LOCKED** — Snapshot at dispatch time. `template_version` embedded on `intent_chains` row. Edits create new version used by new chains only. |
+| 6 | Chain detail drawer DVN receipt rendering | **LOCKED** — txid + BTC explorer link. Full receipt content reachable via Stage 6 receipts tab. |
 
-Flag any answer you'd change before I build.
+**v2 additions also locked:**
+
+| # | Addition | Decision |
+|---|---|---|
+| 7 | Q¢ payment per workflow run | **LOCKED** — Chains carry `cost_qc` (integer Q¢). Access spine charges at dispatch. Refund only before step 0's outcome event. Reference template priced at 900 Q¢ ($9). Revenue share + author payouts stub-only in v1. See §6.5. |
+| 8 | Orchestrator authority | **LOCKED** — aigentMe is the named orchestrator. Server-side dispatcher acts as aigentMe's delegate. Every step transition is policy-checked against the user's runtime policy. metaMe guardian retains final override. See §10. |
+| 9 | Chain templates as iQubes | **LOCKED** — Full iQubing deferred. v1 ships Factory Ingestion stub: templates register in `iqube_id_map` as `source='code:chainTemplate'`, get default score block, appear in registry Browse. Full canonization (meta+blak+token + governance) is a follow-on workstream. See §6.6. |
 
 ---
 
@@ -523,7 +640,7 @@ Flag any answer you'd change before I build.
 - **Sub-chains** (chain triggers another chain) — Q4 above.
 - **Conditional skips** beyond simple branches — e.g. "skip step 3 if context.skip_flag is true". Templates can be authored around it.
 - **Agentic step substitution** — letting Aigent Z replace a declarative step with a freeform action mid-chain. This is the "declarative vs agentic" tradeoff; v1 stays declarative.
-- **Chain templates as iQubes** — registering templates as canonical iQubes with their own provenance/governance. Currently they're file-based + repo-versioned.
+- **Full canonization of chain templates as iQubes** — promoting templates to full WorkflowQubes/ToolQubes (MetaQube + BlakQube + TokenQube + governance + scoring). v1 ships the Factory Ingestion stub (templates listed as `'code:chainTemplate'` primitives in `iqube_id_map`); the actual iQubing is the follow-on workstream. See §6.6.
 - **Cross-persona chains** — a chain where step 3 dispatches to a different user's metaMe (e.g. handoff). Auth model needs design.
 - **Chain library catalog UI** — a "Browse available chains" surface for operators to discover and dispatch chains independent of CTAs. Today chains are only triggered by their `triggered_by_nbe` CTAs.
 

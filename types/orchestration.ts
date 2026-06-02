@@ -201,6 +201,25 @@ export type OrchestrationEventType =
   | 'guardian_suggested'
   | 'guardian_auto_acted'
   | 'access_decision'
+  // Intent Chain Orchestrator (2026-06-02) — every state-changing transition
+  // emits a DVN-receipt-eligible event. See AGENTIQ_INTENT_CHAINS_SPEC.md §6.
+  | 'intent_chain_started'
+  | 'intent_chain_step_dispatched'
+  | 'intent_chain_step_completed'
+  | 'intent_chain_step_failed'
+  | 'intent_chain_step_rerouted'
+  | 'intent_chain_step_user_pending'
+  | 'intent_chain_completed'
+  | 'intent_chain_failed'
+  | 'intent_chain_cancelled'
+  | 'intent_chain_timeout'
+  | 'intent_chain_charge_committed'
+  | 'intent_chain_charge_refunded'
+  // Marketa intake (chain step outcome event)
+  | 'proposal_drafted'
+  | 'proposal_redrafted'
+  // Generic connector outcome (existing semantics, surfaced for chain advancement)
+  | 'artifact_sent'
   // Registry write events (Phase B of legacy /registry → canonical SoT)
   | 'iqube_forked'
   | 'iqube_edited'
