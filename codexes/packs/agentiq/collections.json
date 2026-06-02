@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-06-02_mycartridge-personal-system-isolation-fix.md",
         "updates/2026-06-02_mycartridge-phase-9-wallet.md",
         "updates/2026-06-02_mycartridge-phase-8-triad-scoping.md",
         "updates/2026-06-02_mycartridge-phase-7-operator-manager.md",
