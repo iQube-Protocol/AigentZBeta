@@ -40,6 +40,7 @@
       "id": "col_updates",
       "title": "Updates",
       "items": [
+        "updates/2026-06-02_mycartridge-phase-6-wizard.md",
         "updates/2026-06-02_mycartridge-phase-5-tab-templates.md",
         "updates/2026-06-02_debug-bypass-test-assertion-mismatch-backlog.md",
         "updates/2026-06-02_mycartridge-phase-4b-spine-extension.md",
