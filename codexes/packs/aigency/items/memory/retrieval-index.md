@@ -1934,3 +1934,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-9db46a1.md](../build_/COMMITS/COMMIT-9db46a1.md)
 - Message: intent chains commit 5: Marketa propose intake + Factory Ingestion stub
+
+## Commit `a905e0e` — 2026-06-02T01:17:54Z
+- Type: `push`
+- Brief: [COMMIT-a905e0e.md](../build_/COMMITS/COMMIT-a905e0e.md)
+- Message: intent chains commit 6: cron extension for scheduled steps + wait timeouts

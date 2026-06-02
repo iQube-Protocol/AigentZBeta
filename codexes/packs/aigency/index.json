@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-02T01:17:35.904Z",
+  "last_updated": "2026-06-02T01:19:54.607Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "9db46a19fe1854946346163f39a48f625ce75063",
-  "latest_commit_short": "9db46a1",
-  "latest_commit_title": "intent chains commit 5: Marketa propose intake + Factory Ingestion stub",
+  "latest_commit": "a905e0ed6bd03bc749533e9496d16ca6d27ccc45",
+  "latest_commit_short": "a905e0e",
+  "latest_commit_title": "intent chains commit 6: cron extension for scheduled steps + wait timeouts",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "a905e0e",
+      "full_sha": "a905e0ed6bd03bc749533e9496d16ca6d27ccc45",
+      "title": "intent chains commit 6: cron extension for scheduled steps + wait timeouts",
+      "author": "Claude",
+      "timestamp": "2026-06-02T01:17:54Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-a905e0e.md"
+    },
     {
       "sha": "9db46a1",
       "full_sha": "9db46a19fe1854946346163f39a48f625ce75063",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-28T18:21:59Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-0ccf0e0.md"
-    },
-    {
-      "sha": "28cb0d4",
-      "full_sha": "28cb0d4e0cb8309e40c6a56e128b109b1013f694",
-      "title": "compose modals: thread personaId to UploadAttachmentPicker",
-      "author": "Claude",
-      "timestamp": "2026-05-28T16:49:46Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-28cb0d4.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
