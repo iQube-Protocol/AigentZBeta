@@ -1969,3 +1969,8 @@ Top-level retrieval anchors for this pack.
 - Type: `fix`
 - Brief: [COMMIT-b45d9a0.md](../build_/COMMITS/COMMIT-b45d9a0.md)
 - Message: fix(intent chains): add code:chainTemplate to backfill route VALID_SOURCES
+
+## Commit `2e9022f` — 2026-06-02T23:21:57Z
+- Type: `push`
+- Brief: [COMMIT-2e9022f.md](../build_/COMMITS/COMMIT-2e9022f.md)
+- Message: MENU_ACTION deep_link envelope: route wallet drawer to tab from payload + persona spec for Lovable

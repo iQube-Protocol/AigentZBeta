@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-02T03:06:53.595Z",
+  "last_updated": "2026-06-02T23:24:58.664Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "b45d9a0979aa181edc24e72cfaa299c4771e7ded",
-  "latest_commit_short": "b45d9a0",
-  "latest_commit_title": "fix(intent chains): add code:chainTemplate to backfill route VALID_SOURCES",
+  "latest_commit": "2e9022fdab8000b5bc318952ce11233a7e7f556a",
+  "latest_commit_short": "2e9022f",
+  "latest_commit_title": "MENU_ACTION deep_link envelope: route wallet drawer to tab from payload + persona spec for Lovable",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "2e9022f",
+      "full_sha": "2e9022fdab8000b5bc318952ce11233a7e7f556a",
+      "title": "MENU_ACTION deep_link envelope: route wallet drawer to tab from payload + persona spec for Lovable",
+      "author": "Claude",
+      "timestamp": "2026-06-02T23:21:57Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-2e9022f.md"
+    },
     {
       "sha": "b45d9a0",
       "full_sha": "b45d9a0979aa181edc24e72cfaa299c4771e7ded",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-28T23:30:40Z",
       "type": "chore",
       "brief": "items/build_/COMMITS/COMMIT-5c63350.md"
-    },
-    {
-      "sha": "2e4ee0b",
-      "full_sha": "2e4ee0bf67fd2a377f9f706d8cd7a1e1ea5eec43",
-      "title": "Add scripts/deploy-qct-reserve-base-mainnet.js — chain-pinned QCTReserve deploy with canonical Circle USDC + setReserve linking",
-      "author": "Claude",
-      "timestamp": "2026-05-28T22:41:48Z",
-      "type": "feat",
-      "brief": "items/build_/COMMITS/COMMIT-2e4ee0b.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
