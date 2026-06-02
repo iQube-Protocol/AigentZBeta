@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-02T00:16:26.438Z",
+  "last_updated": "2026-06-02T00:40:25.246Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "7ccb1027eb477ce51bed0e645c6394d54fc6c12e",
-  "latest_commit_short": "7ccb102",
-  "latest_commit_title": "spec: intent chain orchestrator — draft v1 + reference template",
+  "latest_commit": "927f459ceffc1cb0c9748f54b269373d21053f47",
+  "latest_commit_short": "927f459",
+  "latest_commit_title": "intent chains commit 1: schema + types + template registry + reference",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "927f459",
+      "full_sha": "927f459ceffc1cb0c9748f54b269373d21053f47",
+      "title": "intent chains commit 1: schema + types + template registry + reference",
+      "author": "Claude",
+      "timestamp": "2026-06-02T00:38:30Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-927f459.md"
+    },
     {
       "sha": "7ccb102",
       "full_sha": "7ccb1027eb477ce51bed0e645c6394d54fc6c12e",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-28T16:11:00Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-2deac7d.md"
-    },
-    {
-      "sha": "9754fe6",
-      "full_sha": "9754fe68951ff0635100c92b5beca363881b14f9",
-      "title": "iQube Legibility Profile v0.1 — Commit 6/6: well-known catalog route + vitest suite + docs",
-      "author": "Claude",
-      "timestamp": "2026-05-28T15:45:51Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-9754fe6.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
