@@ -30,6 +30,9 @@ const VALID_SOURCES: ReadonlyArray<IQubeIdMapSource> = [
   'code:aigentQubeSource',
   'code:toolQubeSource',
   'code:liquidui-template',
+  // Intent Chain Orchestrator (2026-06-02) — chain templates register
+  // via Factory Ingestion stub per AGENTIQ_INTENT_CHAINS_SPEC.md §6.6
+  'code:chainTemplate',
 ];
 
 async function requireAdmin(request: NextRequest) {
