@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`2e9022f`](https://github.com/iQube-Protocol/AigentZBeta/commit/2e9022fdab8000b5bc318952ce11233a7e7f556a) [push] MENU_ACTION deep_link envelope: route wallet drawer to tab from payload + persona spec for Lovable (Claude, 2026-06-02T23:21:57Z)
 - [`b45d9a0`](https://github.com/iQube-Protocol/AigentZBeta/commit/b45d9a0979aa181edc24e72cfaa299c4771e7ded) [fix] fix(intent chains): add code:chainTemplate to backfill route VALID_SOURCES (Claude, 2026-06-02T03:04:51Z)
 - [`cab9fb4`](https://github.com/iQube-Protocol/AigentZBeta/commit/cab9fb4ba1e562a0e677d94d7bf66f0af021fc7e) [fix] trigger deploy: backfill VALID_SOURCES allowlist fix (Claude, 2026-06-02T03:05:07Z)
 - [`4148830`](https://github.com/iQube-Protocol/AigentZBeta/commit/414883014ea07d628fad6a9fad2d167b8145a5c4) [push] intent chains commit 10: v1 close report (Claude, 2026-06-02T01:28:30Z)
