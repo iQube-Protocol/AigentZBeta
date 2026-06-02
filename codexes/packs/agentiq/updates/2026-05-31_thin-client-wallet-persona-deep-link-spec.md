@@ -6,7 +6,9 @@
 
 ## Goal
 
-The thin client wants a sixth Earn action ("Sign In") and a "+" trailing pill in the persona selector, plus deep-link routing for the five existing wallet/Earn actions (`goal`, `task`, `wallet`, `reward`, `offer`, `signin`). All six dispatches MUST flow through the existing `MENU_ACTION` message type — no new message type, no dual dispatch.
+The thin client wants a sixth Earn action ("Sign In") and a "+" trailing pill in the persona selector, plus deep-link routing for the five existing wallet/Earn actions (`goal`, `task`, `wallet`, `reward`, `payments`, `signin`). All six dispatches MUST flow through the existing `MENU_ACTION` message type — no new message type, no dual dispatch.
+
+**Operator update 2026-05-31:** the "Offer" slot in the original Lovable plan is renamed to "Payments" and deep-links to the wallet drawer's existing `payments` tab. The Earn action ID, label, and icon should change accordingly (`offer` → `payments`).
 
 ## MENU_ACTION envelope
 
@@ -17,7 +19,7 @@ The thin client wants a sixth Earn action ("Sign In") and a "+" trailing pill in
     action_id: "wallet" | "persona",            // existing runtime handlers
     deep_link?: {
       module: "wallet" | "persona";
-      tab?:   "wallet" | "tasks" | "reputation" | "rewards" | "library";
+      tab?:   "wallet" | "tasks" | "reputation" | "rewards" | "library" | "payments";
       intent?: "signin" | "signup";              // wallet only
       flow?:  "create-wizard" | "quick-add";     // persona only
     }
@@ -36,11 +38,11 @@ The thin client wants a sixth Earn action ("Sign In") and a "+" trailing pill in
 | **Sign In** | `"wallet"` | `{ module: "wallet", tab: "wallet", intent: "signin" }` |
 | **Rewards** | `"wallet"` | `{ module: "wallet", tab: "rewards" }` |
 | **Tasks** | `"wallet"` | `{ module: "wallet", tab: "tasks" }` |
-| **Offer** (= Rewards per operator) | `"wallet"` | `{ module: "wallet", tab: "rewards" }` |
+| **Payments** (replaces Offer; operator update 2026-05-31) | `"wallet"` | `{ module: "wallet", tab: "payments" }` |
 | **Reputation** | `"wallet"` | `{ module: "wallet", tab: "reputation" }` |
 | **+ Create persona** | `"persona"` | `{ module: "persona", flow: "create-wizard" }` |
 
-Tab values come from the canonical `SmartWalletDrawerTab` union in `app/wallet/contracts.ts`: `"wallet" | "library" | "tasks" | "reputation" | "rewards"`. Anything outside this union is rejected at the parent.
+Tab values come from the canonical `SmartWalletDrawerTab` union in `app/wallet/contracts.ts`: `"wallet" | "library" | "tasks" | "reputation" | "rewards" | "payments"`. Anything outside this union is rejected at the parent.
 
 ## Shell-side config that needs to change
 
@@ -48,7 +50,7 @@ Per Lovable's plan:
 
 1. `EARN_ACTIONS` in `src/lib/smart-menu-config.ts` — append `{ id: "signin", label: "Sign In", icon: "log-in", kind: "system-only", triggersInference: false }`.
 2. `DRAWER_ONLY_ACTION_IDS` — add `"signin"` AND `"persona-create"` (the persona "+" pill should also be drawer-only — no inference).
-3. `mobileVisibleFold` for Earn — `["goal", "task", "wallet", "reward", "offer", "signin"]`.
+3. `mobileVisibleFold` for Earn — `["goal", "task", "wallet", "reward", "payments", "signin"]`.
 4. Default icon map (`src/lib/icon-utils.ts`, `src/lib/smart-menu-icons.ts`) — `signin: LogIn`; for the persona "+" use `UserPlus` (or `Plus`).
 5. `SmartMenuSubmenu.tsx` — when `submenuType === "personaSelector"`, render a trailing "+" pill after the persona pills. Click dispatches `MENU_ACTION { action_id: "persona", deep_link: { module: "persona", flow: "create-wizard" } }`.
 6. Quick-action handler — wire the six MENU_ACTION dispatches per the table above. No dual dispatch — these are pure open-drawer actions, no prompt is sent.

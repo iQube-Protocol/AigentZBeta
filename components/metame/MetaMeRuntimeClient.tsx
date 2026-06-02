@@ -5014,10 +5014,10 @@ export default function MetaMeRuntimeClient() {
         const deepLink = (payload?.deep_link && typeof payload.deep_link === 'object')
           ? payload.deep_link as { module?: string; tab?: string; intent?: string; flow?: string }
           : undefined;
-        const ALLOWED_WALLET_TABS = new Set(['wallet', 'tasks', 'reputation', 'rewards', 'library']);
+        const ALLOWED_WALLET_TABS = new Set(['wallet', 'tasks', 'reputation', 'rewards', 'library', 'payments']);
         const openWalletWithDeepLink = () => {
           const tab = deepLink?.tab && ALLOWED_WALLET_TABS.has(deepLink.tab)
-            ? (deepLink.tab as 'wallet' | 'tasks' | 'reputation' | 'rewards' | 'library')
+            ? (deepLink.tab as 'wallet' | 'tasks' | 'reputation' | 'rewards' | 'library' | 'payments')
             : 'wallet';
           setWalletInitialTab(tab);
           setWalletDrawerOpen(true);
