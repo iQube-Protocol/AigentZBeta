@@ -36,6 +36,45 @@ export async function GET(request: NextRequest) {
     const ownerFilter = searchParams.get('owner');
     const useDefaults = searchParams.get('defaults') === 'true';
     const allowOverrides = searchParams.get('allowOverrides') === 'true';
+    // Personal-cartridge surfacing modes (2026-06-02 isolation fix):
+    //
+    //   default              — system cartridges only. Hand-curated +
+    //                          pack-loaded + DB rows where
+    //                          owner_persona_id IS NULL (i.e. created
+    //                          via /admin/codex or seeded). Wizard-
+    //                          created personal cartridges are HIDDEN
+    //                          from this view per the operator's
+    //                          system-isolation rule: admin status
+    //                          confers only the right to create multi-
+    //                          cartridge personas, NOT to elevate any
+    //                          personal cartridge to platform tier.
+    //
+    //   ?includePersonal=true — system + the caller's own personal
+    //                          cartridges (rows where owner_persona_id
+    //                          equals the caller's resolved persona).
+    //                          For a future "everything I can see"
+    //                          unified picker.
+    //
+    //   ?personalOnly=true    — only the caller's own personal
+    //                          cartridges. Equivalent to
+    //                          /api/cartridge/list-mine for the picker
+    //                          surface.
+    const includePersonal = searchParams.get('includePersonal') === 'true';
+    const personalOnly = searchParams.get('personalOnly') === 'true';
+
+    // When the caller needs personal cartridges resolved, we look them up via
+    // the spine. Failure to resolve is non-fatal — the request degrades to
+    // the system-only view.
+    let callerPersonaId: string | null = null;
+    if (includePersonal || personalOnly) {
+      try {
+        const { getActivePersona } = await import('@/services/identity/getActivePersona');
+        const persona = await getActivePersona(request);
+        callerPersonaId = persona?.personaId ?? null;
+      } catch {
+        callerPersonaId = null;
+      }
+    }
 
     // If defaults flag is set, return defaults with DB overrides when available
     if (useDefaults) {
@@ -73,6 +112,29 @@ export async function GET(request: NextRequest) {
         if (ownerFilter) {
           dbQuery = dbQuery.eq('owner', ownerFilter);
         }
+
+        // Personal/system isolation filter (2026-06-02 fix). Wizard-created
+        // cartridges populate owner_persona_id; system cartridges leave it
+        // NULL. Defaults mode is the platform picker — show system only by
+        // default; only surface personal rows when explicitly asked AND the
+        // caller is authenticated.
+        if (personalOnly) {
+          if (!callerPersonaId) {
+            // No persona resolved — return empty rather than the system list,
+            // since the caller asked specifically for personal.
+            dbQuery = dbQuery.eq('owner_persona_id', '__unresolved__');
+          } else {
+            dbQuery = dbQuery.eq('owner_persona_id', callerPersonaId);
+          }
+        } else if (!includePersonal) {
+          dbQuery = dbQuery.is('owner_persona_id', null);
+        }
+        // includePersonal=true + authenticated → no filter; the caller sees
+        // every row they can access. Today this returns everything because
+        // RLS on codex_configs is "authenticated users can view all";
+        // tightening that policy to "owner_persona_id IS NULL OR
+        // owner_persona_id = current persona" is a separate operator
+        // decision (would require service_role bypass for the registry route).
 
         const { data: dbConfigs } = await dbQuery.order('created_at', { ascending: false });
 
@@ -117,7 +179,7 @@ export async function GET(request: NextRequest) {
 
     // Otherwise fetch from database
     const supabase = createServerClient();
-    
+
     let query = supabase
       .from('codex_configs')
       .select('*');
@@ -128,6 +190,19 @@ export async function GET(request: NextRequest) {
 
     if (ownerFilter) {
       query = query.eq('owner', ownerFilter);
+    }
+
+    // Same isolation filter as the defaults path — without this,
+    // wizard-created personal cartridges show up in the platform-wide
+    // picker. See the comment block above the searchParams parse.
+    if (personalOnly) {
+      if (!callerPersonaId) {
+        query = query.eq('owner_persona_id', '__unresolved__');
+      } else {
+        query = query.eq('owner_persona_id', callerPersonaId);
+      }
+    } else if (!includePersonal) {
+      query = query.is('owner_persona_id', null);
     }
 
     const { data: configs, error } = await query.order('created_at', { ascending: false });
