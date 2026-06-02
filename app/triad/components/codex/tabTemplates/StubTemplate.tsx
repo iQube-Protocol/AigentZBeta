@@ -1,16 +1,16 @@
 "use client";
 
 /**
- * StubTemplate — placeholder for the 8 tab templates whose deep
- * implementation lands in Phase 5b+.
+ * StubTemplate — placeholder for the tab templates whose deep
+ * implementation lands in later phases.
  *
- * Reachable via 8 thin factories below, one per templateId, so the
+ * Reachable via thin factories below, one per templateId, so the
  * registry stays statically typed and each stub is greppable by id.
  * Each factory renders the same body — a labelled "coming soon" card.
  *
- * Phase plan for the stubs:
+ * Phase plan for the remaining stubs (wallet-v1 replaced by the real
+ * WalletTemplate in Phase 9a):
  *   experience-v1 — Phase 5b (cartridge Experience Matrix fork)
- *   wallet-v1     — Phase 9  (wallet primitives: send/receive/request/reward)
  *   ledger-v1     — Phase 10 (DVN receipt feed scoped to the cartridge)
  *   community-v1  — Phase 5b (community-content alias of PulseTemplate variant)
  *   members-v1    — Phase 7  (mirrors KNYT members + Experience Matrix
@@ -66,9 +66,6 @@ function StubBody({ templateId, cartridgeSlug, theme, scheduledFor }: StubProps)
 
 export function ExperienceStub(p: TabTemplateProps) {
   return <StubBody {...p} templateId="experience-v1" scheduledFor="Phase 5b" />;
-}
-export function WalletStub(p: TabTemplateProps) {
-  return <StubBody {...p} templateId="wallet-v1" scheduledFor="Phase 9" />;
 }
 export function LedgerStub(p: TabTemplateProps) {
   return <StubBody {...p} templateId="ledger-v1" scheduledFor="Phase 10" />;
