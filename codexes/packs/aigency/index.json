@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-02T01:28:07.374Z",
+  "last_updated": "2026-06-02T01:30:18.707Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "0077105de1ff8ce1a0cc0cf6f4e20d784a10847c",
-  "latest_commit_short": "0077105",
-  "latest_commit_title": "intent chains commit 9: MyWorkspaceTab clickable intent cards open drawer",
+  "latest_commit": "414883014ea07d628fad6a9fad2d167b8145a5c4",
+  "latest_commit_short": "4148830",
+  "latest_commit_title": "intent chains commit 10: v1 close report",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "4148830",
+      "full_sha": "414883014ea07d628fad6a9fad2d167b8145a5c4",
+      "title": "intent chains commit 10: v1 close report",
+      "author": "Claude",
+      "timestamp": "2026-06-02T01:28:30Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-4148830.md"
+    },
     {
       "sha": "0077105",
       "full_sha": "0077105de1ff8ce1a0cc0cf6f4e20d784a10847c",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-28T22:12:53Z",
       "type": "feat",
       "brief": "items/build_/COMMITS/COMMIT-b41253f.md"
-    },
-    {
-      "sha": "9ddf15d",
-      "full_sha": "9ddf15d9dbe5ed9097b2c057462735aa23748e18",
-      "title": "KNYT store: surface-scoped includes + initialClaimed in sku-supply + retail X-of-Y badge",
-      "author": "Claude",
-      "timestamp": "2026-05-28T21:14:28Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-9ddf15d.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
