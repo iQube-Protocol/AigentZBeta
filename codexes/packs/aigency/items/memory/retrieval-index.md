@@ -1959,3 +1959,13 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-4148830.md](../build_/COMMITS/COMMIT-4148830.md)
 - Message: intent chains commit 10: v1 close report
+
+## Commit `cab9fb4` — 2026-06-02T03:05:07Z
+- Type: `fix`
+- Brief: [COMMIT-cab9fb4.md](../build_/COMMITS/COMMIT-cab9fb4.md)
+- Message: trigger deploy: backfill VALID_SOURCES allowlist fix
+
+## Commit `b45d9a0` — 2026-06-02T03:04:51Z
+- Type: `fix`
+- Brief: [COMMIT-b45d9a0.md](../build_/COMMITS/COMMIT-b45d9a0.md)
+- Message: fix(intent chains): add code:chainTemplate to backfill route VALID_SOURCES
