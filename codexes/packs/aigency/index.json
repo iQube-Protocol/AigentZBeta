@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-01T23:28:38.930Z",
+  "last_updated": "2026-06-02T00:16:26.438Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "336eacc81cd76e8d7403c05edc8d69b50e7dffa6",
-  "latest_commit_short": "336eacc",
-  "latest_commit_title": "backlog: auto-merge workflow repair + anchor cron scheduler wiring",
+  "latest_commit": "7ccb1027eb477ce51bed0e645c6394d54fc6c12e",
+  "latest_commit_short": "7ccb102",
+  "latest_commit_title": "spec: intent chain orchestrator — draft v1 + reference template",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "7ccb102",
+      "full_sha": "7ccb1027eb477ce51bed0e645c6394d54fc6c12e",
+      "title": "spec: intent chain orchestrator — draft v1 + reference template",
+      "author": "Claude",
+      "timestamp": "2026-06-02T00:14:35Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-7ccb102.md"
+    },
     {
       "sha": "336eacc",
       "full_sha": "336eacc81cd76e8d7403c05edc8d69b50e7dffa6",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-28T15:45:51Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-9754fe6.md"
-    },
-    {
-      "sha": "1e657ab",
-      "full_sha": "1e657ab9eb63f541449c567fb831baef420ee559",
-      "title": "iQube Legibility Profile v0.1 — Commit 5/6: GET /policy + /actions routes (with private_payload_exposed structural lock)",
-      "author": "Claude",
-      "timestamp": "2026-05-28T15:43:33Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-1e657ab.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
