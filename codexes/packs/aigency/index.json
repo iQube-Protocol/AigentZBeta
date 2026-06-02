@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-02T01:19:54.607Z",
+  "last_updated": "2026-06-02T01:22:55.088Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "a905e0ed6bd03bc749533e9496d16ca6d27ccc45",
-  "latest_commit_short": "a905e0e",
-  "latest_commit_title": "intent chains commit 6: cron extension for scheduled steps + wait timeouts",
+  "latest_commit": "9c15b5db33de5372673f4a39e01393a919cac3fe",
+  "latest_commit_short": "9c15b5d",
+  "latest_commit_title": "intent chains commit 7: wire AigentMeWelcomeSplitTab seam — dispatch + complete",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "9c15b5d",
+      "full_sha": "9c15b5db33de5372673f4a39e01393a919cac3fe",
+      "title": "intent chains commit 7: wire AigentMeWelcomeSplitTab seam — dispatch + complete",
+      "author": "Claude",
+      "timestamp": "2026-06-02T01:21:03Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-9c15b5d.md"
+    },
     {
       "sha": "a905e0e",
       "full_sha": "a905e0ed6bd03bc749533e9496d16ca6d27ccc45",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-28T18:21:59Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-9294258.md"
-    },
-    {
-      "sha": "0ccf0e0",
-      "full_sha": "0ccf0e04d7a4a5e3bef6f2fecde976a8df857e9f",
-      "title": "trigger deploy to dev",
-      "author": "Claude",
-      "timestamp": "2026-05-28T18:21:59Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-0ccf0e0.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",
