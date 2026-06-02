@@ -166,7 +166,8 @@
                 "updates/2026-05-31_legacy-registry-phase-c-close-report.md",
                 "updates/2026-05-31_resolver-skipped-inventory-and-id-map-cleanup-backlog.md",
                 "updates/2026-05-31_iqube-trinity-naming-convention.md",
-                "updates/2026-06-01_auto-merge-workflow-and-cron-scheduler-backlog.md"
+                "updates/2026-06-01_auto-merge-workflow-and-cron-scheduler-backlog.md",
+                "updates/2026-06-02_intent-chain-orchestrator-v1-close.md"
       ]
     },
     {
