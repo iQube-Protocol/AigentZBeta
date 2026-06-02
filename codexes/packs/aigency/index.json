@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-02T00:51:56.982Z",
+  "last_updated": "2026-06-02T01:12:20.527Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "375df582f384fe54f545dcdc9425dc593e945572",
-  "latest_commit_short": "375df58",
-  "latest_commit_title": "intent chains commit 2: sanitizeReceiptMetadata + canary tests",
+  "latest_commit": "43120584cd3305a1ec8bd79509db259ab2e97c75",
+  "latest_commit_short": "4312058",
+  "latest_commit_title": "intent chains commit 3: dispatcher + advancer + refs + listener hook",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "4312058",
+      "full_sha": "43120584cd3305a1ec8bd79509db259ab2e97c75",
+      "title": "intent chains commit 3: dispatcher + advancer + refs + listener hook",
+      "author": "Claude",
+      "timestamp": "2026-06-02T01:10:14Z",
+      "type": "push",
+      "brief": "items/build_/COMMITS/COMMIT-4312058.md"
+    },
     {
       "sha": "375df58",
       "full_sha": "375df582f384fe54f545dcdc9425dc593e945572",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-28T16:34:26Z",
       "type": "fix",
       "brief": "items/build_/COMMITS/COMMIT-a7cce75.md"
-    },
-    {
-      "sha": "3bdae27",
-      "full_sha": "3bdae274891dcb57df8bf86d295488a89d4a284f",
-      "title": "uploads: keep status='ready' on enrichment failure + clarify Marketa label",
-      "author": "Claude",
-      "timestamp": "2026-05-28T16:22:20Z",
-      "type": "push",
-      "brief": "items/build_/COMMITS/COMMIT-3bdae27.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

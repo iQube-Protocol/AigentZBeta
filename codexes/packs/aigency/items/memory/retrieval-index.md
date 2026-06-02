@@ -1919,3 +1919,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-375df58.md](../build_/COMMITS/COMMIT-375df58.md)
 - Message: intent chains commit 2: sanitizeReceiptMetadata + canary tests
+
+## Commit `4312058` — 2026-06-02T01:10:14Z
+- Type: `push`
+- Brief: [COMMIT-4312058.md](../build_/COMMITS/COMMIT-4312058.md)
+- Message: intent chains commit 3: dispatcher + advancer + refs + listener hook
