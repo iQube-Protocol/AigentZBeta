@@ -1909,3 +1909,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-927f459.md](../build_/COMMITS/COMMIT-927f459.md)
 - Message: intent chains commit 1: schema + types + template registry + reference
+
+## Commit `b065860` — 2026-06-02T00:44:01Z
+- Type: `push`
+- Brief: [COMMIT-b065860.md](../build_/COMMITS/COMMIT-b065860.md)
+- Message: intent chains: feedback table + spec §6.7 — like/dislike learning loop

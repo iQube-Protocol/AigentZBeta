@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`b065860`](https://github.com/iQube-Protocol/AigentZBeta/commit/b06586021ef524b9528dee8089268dc558372166) [push] intent chains: feedback table + spec §6.7 — like/dislike learning loop (Claude, 2026-06-02T00:44:01Z)
 - [`927f459`](https://github.com/iQube-Protocol/AigentZBeta/commit/927f459ceffc1cb0c9748f54b269373d21053f47) [push] intent chains commit 1: schema + types + template registry + reference (Claude, 2026-06-02T00:38:30Z)
 - [`7ccb102`](https://github.com/iQube-Protocol/AigentZBeta/commit/7ccb1027eb477ce51bed0e645c6394d54fc6c12e) [push] spec: intent chain orchestrator — draft v1 + reference template (Claude, 2026-06-02T00:14:35Z)
 - [`336eacc`](https://github.com/iQube-Protocol/AigentZBeta/commit/336eacc81cd76e8d7403c05edc8d69b50e7dffa6) [fix] backlog: auto-merge workflow repair + anchor cron scheduler wiring (Claude, 2026-06-01T23:26:40Z)
