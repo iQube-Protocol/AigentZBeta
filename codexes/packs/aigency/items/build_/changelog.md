@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`9c15b5d`](https://github.com/iQube-Protocol/AigentZBeta/commit/9c15b5db33de5372673f4a39e01393a919cac3fe) [feat] intent chains commit 7: wire AigentMeWelcomeSplitTab seam — dispatch + complete (Claude, 2026-06-02T01:21:03Z)
 - [`a905e0e`](https://github.com/iQube-Protocol/AigentZBeta/commit/a905e0ed6bd03bc749533e9496d16ca6d27ccc45) [push] intent chains commit 6: cron extension for scheduled steps + wait timeouts (Claude, 2026-06-02T01:17:54Z)
 - [`9db46a1`](https://github.com/iQube-Protocol/AigentZBeta/commit/9db46a19fe1854946346163f39a48f625ce75063) [push] intent chains commit 5: Marketa propose intake + Factory Ingestion stub (Claude, 2026-06-02T01:15:29Z)
 - [`8b7f98f`](https://github.com/iQube-Protocol/AigentZBeta/commit/8b7f98f173e79aa8c8bc40c134f0eb41b1be9acc) [push] intent chains commit 4: API routes — dispatch + detail + list + cancel + complete-step + feedback (Claude, 2026-06-02T01:13:27Z)
