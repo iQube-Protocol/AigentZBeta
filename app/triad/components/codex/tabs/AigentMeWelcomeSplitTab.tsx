@@ -993,6 +993,35 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
         [action.id]: { intentId: intentData.intentId, status: intentData.status, queueMessage: intentData.queueMessage },
       }));
       const handoffHint = pendingApprovalHint;
+
+      // Intent Chain Orchestrator (commit 7): if a chain template's
+      // triggered_by_nbe includes this action's id, dispatch a chain
+      // instance now so the rest of the flow (compose → submit →
+      // review → send → follow-up) carries chain_id through to
+      // completion. Best-effort — 404 (no matching template) is
+      // expected for NBEs without a chain authored, and we don't
+      // want to interrupt the existing intent flow.
+      try {
+        const chainRes = await personaFetch('/api/intent-chains/dispatch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            initiating_nbe_id: action.id,
+            cartridge: action.cartridge,
+            nbe_seed: { handoffHint: handoffHint ?? null, label: action.label, rationale: action.rationale },
+            context_seed: { intent_id: intentData.intentId },
+          }),
+          personaIdHint: personaId,
+        });
+        if (chainRes.ok) {
+          const chainBody = (await chainRes.json()) as { chain_id?: string };
+          if (chainBody.chain_id) {
+            setChainsByIntent((prev) => ({ ...prev, [intentData.intentId]: chainBody.chain_id! }));
+          }
+        }
+      } catch {
+        // Best-effort — chain dispatch failure must not break the intent flow.
+      }
       setPendingApprovalNbe(null);
       // Foreground layout remains as-is; approval overlay unmounts.
       void fetchReceipts();
@@ -1144,6 +1173,12 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
       return raw ? (JSON.parse(raw) as string | null) : null;
     } catch { return null; }
   });
+
+  // Intent Chain Orchestrator (spec §7, commit 7) — track dispatched
+  // chain_id per intent_id so when a compose/approve step completes
+  // we can advance the right chain. Best-effort; map is empty when no
+  // chain template matched the NBE at dispatch time.
+  const [chainsByIntent, setChainsByIntent] = useState<Record<string, string>>({});
   useEffect(() => {
     if (typeof window === 'undefined' || !personaId) return;
     try {
@@ -1235,7 +1270,34 @@ export function AigentMeWelcomeSplitTab({ theme = 'dark', personaId, isAdmin }: 
     }
     const data = (await res.json()) as ArtifactCardData; setArtifacts((prev) => [data, ...prev].slice(0, 10)); autoOpenArtifact(data);
     void fetchReceipts();
-  }, [personaId, fetchReceipts, composerSourceIntentId]);
+
+    // Intent Chain Orchestrator (commit 7): advance the chain's
+    // compose step. The advancer transitions to the next RPC step
+    // (typically /api/marketa/propose) which emits proposal_drafted
+    // and progresses the chain via the inline listener hook. The
+    // brief artifact now exists; the chain submits it on the user's
+    // behalf, then surfaces the review step as a queued pill.
+    // Best-effort — never blocks the artifact flow.
+    if (composerSourceIntentId) {
+      const chainId = chainsByIntent[composerSourceIntentId];
+      if (chainId) {
+        try {
+          await personaFetch(`/api/intent-chains/${chainId}/complete-step`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              artifact_id: (data as ArtifactCardData & { id?: string }).id,
+              title: input.title,
+            }),
+            personaIdHint: personaId,
+          });
+        } catch {
+          // Chain advance failure surfaces in orchestration_events;
+          // the artifact already created so we don't reflect here.
+        }
+      }
+    }
+  }, [personaId, fetchReceipts, composerSourceIntentId, chainsByIntent]);
 
   const handleDraftSlides = useCallback(async (prompt: string) => {
     const res = await personaFetch('/api/assistant/draft-slides', {

@@ -28,7 +28,10 @@ import { getSupabaseServer } from '@/app/api/_lib/supabaseServer';
 import { advanceRpcStep, materializeUserPending } from '@/services/intentChains/advancer';
 
 export interface DispatchInput {
-  template_id: string;
+  /** Either template_id OR initiating_nbe_id must be provided. When
+   *  template_id is omitted, the dispatcher resolves a template whose
+   *  triggered_by_nbe includes the initiating_nbe_id. First match wins. */
+  template_id?: string;
   initiating_nbe_id?: string;
   /** Per-NBE seed for $nbe.X refs (e.g. handoffHint). Stored under context.__nbe. */
   nbe_seed?: Record<string, unknown>;
@@ -75,9 +78,18 @@ export async function dispatchChain(
   persona: ActivePersonaContext,
   input: DispatchInput,
 ): Promise<DispatchResult> {
-  // 1. Template lookup
-  const template = getTemplate(input.template_id);
-  if (!template) throw new DispatchError('template_not_found', input.template_id);
+  // 1. Template lookup — by id, OR resolve via initiating_nbe_id when id omitted
+  let template = input.template_id ? getTemplate(input.template_id) : undefined;
+  if (!template && input.initiating_nbe_id) {
+    const { listTemplates } = await import('@/services/intentChains/registry');
+    const all = listTemplates();
+    const matching = all.find((t) => {
+      const full = getTemplate(t.id);
+      return full?.triggered_by_nbe?.includes(input.initiating_nbe_id!);
+    });
+    if (matching) template = getTemplate(matching.id);
+  }
+  if (!template) throw new DispatchError('template_not_found', input.template_id ?? input.initiating_nbe_id);
 
   // 2. Cartridge scope guard
   if (

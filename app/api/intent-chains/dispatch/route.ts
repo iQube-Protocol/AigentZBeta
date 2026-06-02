@@ -40,8 +40,14 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'invalid_json' }, { status: 400 });
   }
-  if (!body?.template_id || typeof body.template_id !== 'string') {
-    return NextResponse.json({ error: 'template_id_required' }, { status: 400 });
+  if (
+    (!body?.template_id || typeof body.template_id !== 'string') &&
+    (!body?.initiating_nbe_id || typeof body.initiating_nbe_id !== 'string')
+  ) {
+    return NextResponse.json(
+      { error: 'template_id_or_initiating_nbe_id_required' },
+      { status: 400 },
+    );
   }
 
   try {
