@@ -1974,3 +1974,8 @@ Top-level retrieval anchors for this pack.
 - Type: `push`
 - Brief: [COMMIT-2e9022f.md](../build_/COMMITS/COMMIT-2e9022f.md)
 - Message: MENU_ACTION deep_link envelope: route wallet drawer to tab from payload + persona spec for Lovable
+
+## Commit `710fd94` — 2026-06-02T23:26:34Z
+- Type: `feat`
+- Brief: [COMMIT-710fd94.md](../build_/COMMITS/COMMIT-710fd94.md)
+- Message: Replace 'Offer' Earn action with 'Payments' deep-link to wallet payments tab + add payments to canonical SmartWalletDrawerTab union

@@ -2,12 +2,12 @@
   "pack_id": "pack_aigency_v0",
   "title": "AgentiQ Codex",
   "description": "Aigent Z's canonical knowledge base. Updated on every merged PR and every direct push to dev.",
-  "last_updated": "2026-06-02T23:24:58.664Z",
+  "last_updated": "2026-06-02T23:28:26.029Z",
   "latest_pr": 78,
   "latest_pr_title": "Staging",
-  "latest_commit": "2e9022fdab8000b5bc318952ce11233a7e7f556a",
-  "latest_commit_short": "2e9022f",
-  "latest_commit_title": "MENU_ACTION deep_link envelope: route wallet drawer to tab from payload + persona spec for Lovable",
+  "latest_commit": "710fd94b2e0ce39bd933fc9069c26646b757919b",
+  "latest_commit_short": "710fd94",
+  "latest_commit_title": "Replace 'Offer' Earn action with 'Payments' deep-link to wallet payments tab + add payments to canonical SmartWalletDrawerTab union",
   "pr_history": [
     {
       "number": 78,
@@ -353,6 +353,15 @@
     }
   ],
   "commit_history": [
+    {
+      "sha": "710fd94",
+      "full_sha": "710fd94b2e0ce39bd933fc9069c26646b757919b",
+      "title": "Replace 'Offer' Earn action with 'Payments' deep-link to wallet payments tab + add payments to canonical SmartWalletDrawerTab union",
+      "author": "Claude",
+      "timestamp": "2026-06-02T23:26:34Z",
+      "type": "feat",
+      "brief": "items/build_/COMMITS/COMMIT-710fd94.md"
+    },
     {
       "sha": "2e9022f",
       "full_sha": "2e9022fdab8000b5bc318952ce11233a7e7f556a",
@@ -1243,15 +1252,6 @@
       "timestamp": "2026-05-28T23:33:41Z",
       "type": "push",
       "brief": "items/build_/COMMITS/COMMIT-7c30d2e.md"
-    },
-    {
-      "sha": "5c63350",
-      "full_sha": "5c63350364acdf04dba1593ce02d1d095672289b",
-      "title": "Bump hardhat solidity compiler 0.8.20 → 0.8.24 (OpenZeppelin v5 requires ^0.8.24)",
-      "author": "Claude",
-      "timestamp": "2026-05-28T23:30:40Z",
-      "type": "chore",
-      "brief": "items/build_/COMMITS/COMMIT-5c63350.md"
     }
   ],
   "entrypoint": "items/00_START_HERE.md",

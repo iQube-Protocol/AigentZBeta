@@ -1,4 +1,5 @@
 # Build — Changelog
+- [`710fd94`](https://github.com/iQube-Protocol/AigentZBeta/commit/710fd94b2e0ce39bd933fc9069c26646b757919b) [feat] Replace 'Offer' Earn action with 'Payments' deep-link to wallet payments tab + add payments to canonical SmartWalletDrawerTab union (Claude, 2026-06-02T23:26:34Z)
 - [`2e9022f`](https://github.com/iQube-Protocol/AigentZBeta/commit/2e9022fdab8000b5bc318952ce11233a7e7f556a) [push] MENU_ACTION deep_link envelope: route wallet drawer to tab from payload + persona spec for Lovable (Claude, 2026-06-02T23:21:57Z)
 - [`b45d9a0`](https://github.com/iQube-Protocol/AigentZBeta/commit/b45d9a0979aa181edc24e72cfaa299c4771e7ded) [fix] fix(intent chains): add code:chainTemplate to backfill route VALID_SOURCES (Claude, 2026-06-02T03:04:51Z)
 - [`cab9fb4`](https://github.com/iQube-Protocol/AigentZBeta/commit/cab9fb4ba1e562a0e677d94d7bf66f0af021fc7e) [fix] trigger deploy: backfill VALID_SOURCES allowlist fix (Claude, 2026-06-02T03:05:07Z)
