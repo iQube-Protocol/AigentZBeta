@@ -1,12 +1,19 @@
 /**
  * POST /api/persona/venture-iqube/ingest
  *
- * Accept a Venture iQube JSON file (schemaVersion 'venture-iqube/v0.1'
- * or 'v0.2'), validate the high-level shape, and return a structured
- * preview of what aigentMe will hydrate. This is Phase A1 — preview
- * + persist only. Phase A2 wires the actual ExperienceQube +
+ * Accept a Venture iQube JSON file (schemaVersion 'venture-iqube/v0.1',
+ * 'v0.2', 'v0.3', or 'v0.4'), validate the high-level shape, and return
+ * a structured preview of what aigentMe will hydrate. This is Phase A1
+ * — preview + persist only. Phase A2 wires the actual ExperienceQube +
  * IntentQube hydration; this route's response shape is forward-
  * compatible so the FE doesn't change when A2 lands.
+ *
+ * v0.4 (2026-06-01) — accepts the nested ventures[].myCartridge block
+ * per myCartridge PRD v0.2 §27. MVP behavior: the block is validated
+ * via Zod and echoed back in the preview, but cartridge persistence
+ * to codex_configs is deferred to Phase 11 (Active Surface Access /
+ * Requests). The legacy top-level `smartTriad` key is rejected with
+ * a migration error.
  *
  * Body: { uploadId?: string; payload?: VentureIqube } — provide
  *        either an existing persona_uploads.id whose use_kind is
@@ -14,9 +21,11 @@
  *
  * Auth: persona-scoped via the spine.
  *
- * Schema: codexes/packs/agentiq/updates/2026-05-29_venture-iqube-
- *         schema-v0.1.md (base) + 2026-05-29_venture-iqube-schema-
- *         v0.2.md (cartridgeSlug enum extension).
+ * Schema docs:
+ *   codexes/packs/agentiq/updates/2026-05-29_venture-iqube-schema-v0.1.md (base)
+ *   codexes/packs/agentiq/updates/2026-05-29_venture-iqube-schema-v0.2.md (cartridgeSlug enum)
+ *   codexes/packs/agentiq/updates/2026-05-29_venture-iqube-schema-v0.3.md (avl → mvl)
+ *   codexes/packs/agentiq/updates/2026-06-01_venture-iqube-schema-v0.4.md (myCartridge block)
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -27,10 +36,16 @@ import {
   type ActiveCartridgeSlug,
   type ExperienceStage,
 } from '@/services/iqube/experienceQube';
+import { parseVentureQube } from '@/services/iqube/ventureQubeSchema';
+import type { MyCartridgeBlock } from '@/types/ventureQube';
 
 export const dynamic = 'force-dynamic';
 
-type SchemaVersion = 'venture-iqube/v0.1' | 'venture-iqube/v0.2' | 'venture-iqube/v0.3';
+type SchemaVersion =
+  | 'venture-iqube/v0.1'
+  | 'venture-iqube/v0.2'
+  | 'venture-iqube/v0.3'
+  | 'venture-iqube/v0.4';
 
 interface VentureIqube {
   schemaVersion: SchemaVersion;
@@ -89,6 +104,19 @@ interface IngestPreview {
   kpiCount: number;
   partnerCount: number;
   warnings: string[];
+  // v0.4 — present iff the payload carries a configured myCartridge block.
+  // MVP behavior: echoed back in the preview only; persistence to
+  // codex_configs ships in Phase 11.
+  myCartridge?: {
+    slug: string;
+    title: string;
+    category: MyCartridgeBlock['category'];
+    visibility: MyCartridgeBlock['visibility'];
+    primaryTabSlug: string | null;
+    triadEnabled: { codex: boolean; copilotSource: MyCartridgeBlock['smartTriad']['copilot']['source']; walletEnabled: boolean };
+    catalogueOptIn: boolean;
+    persistencePending: true;
+  };
 }
 
 function validateShape(payload: unknown): { ok: true; data: VentureIqube } | { ok: false; error: string } {
@@ -97,9 +125,10 @@ function validateShape(payload: unknown): { ok: true; data: VentureIqube } | { o
   if (
     p.schemaVersion !== 'venture-iqube/v0.1' &&
     p.schemaVersion !== 'venture-iqube/v0.2' &&
-    p.schemaVersion !== 'venture-iqube/v0.3'
+    p.schemaVersion !== 'venture-iqube/v0.3' &&
+    p.schemaVersion !== 'venture-iqube/v0.4'
   ) {
-    return { ok: false, error: `schemaVersion must be 'venture-iqube/v0.1', 'v0.2', or 'v0.3' (got ${JSON.stringify(p.schemaVersion)})` };
+    return { ok: false, error: `schemaVersion must be 'venture-iqube/v0.1', 'v0.2', 'v0.3', or 'v0.4' (got ${JSON.stringify(p.schemaVersion)})` };
   }
   if (!p.operator?.displayLabel) return { ok: false, error: 'operator.displayLabel is required' };
   if (!p.strategy?.headline) return { ok: false, error: 'strategy.headline is required' };
@@ -114,7 +143,34 @@ function validateShape(payload: unknown): { ok: true; data: VentureIqube } | { o
       return { ok: false, error: `ventures[].id, .name, and .objectives[] are required (offending venture: ${v.id ?? v.name ?? 'unknown'})` };
     }
   }
+  // v0.4 — run the strict Zod schema to validate the nested myCartridge
+  // block (when present) and reject the legacy top-level `smartTriad`
+  // key with a migration error.
+  if (p.schemaVersion === 'venture-iqube/v0.4') {
+    const strict = parseVentureQube(payload);
+    if (!strict.ok) {
+      return { ok: false, error: `v0.4 validation failed — ${strict.error}` };
+    }
+  }
   return { ok: true, data: p as VentureIqube };
+}
+
+/**
+ * Extract the (at most one) myCartridge block from a validated v0.4
+ * payload. Returns null for v0.1/v0.2/v0.3 or v0.4 payloads without a
+ * configured myCartridge.
+ *
+ * MVP rule: 1 venture per persona (non-sys-admin); enforcement of
+ * "exactly one venture carries myCartridge" lands when Phase 11 wires
+ * cartridge persistence. Today we silently take the first one.
+ */
+function extractMyCartridge(data: VentureIqube): MyCartridgeBlock | null {
+  if (data.schemaVersion !== 'venture-iqube/v0.4') return null;
+  for (const v of data.ventures) {
+    const block = (v as { myCartridge?: MyCartridgeBlock }).myCartridge;
+    if (block && block.configured === true) return block;
+  }
+  return null;
 }
 
 function preview(data: VentureIqube): IngestPreview {
@@ -158,6 +214,34 @@ function preview(data: VentureIqube): IngestPreview {
   if (data.schemaVersion === 'venture-iqube/v0.1' && [...allBindings].some((b) => ['studio', 'iqube-registry', 'moneypenny', 'legal-metacommons'].includes(b))) {
     warnings.push('Detected v0.2 sub-surface bindings in a v0.1 payload — re-emit with schemaVersion "venture-iqube/v0.2" to avoid translation drift.');
   }
+
+  // v0.4 — surface the myCartridge block as a slim preview. Persistence
+  // to codex_configs is deferred to Phase 11; flagged via
+  // `persistencePending: true` so callers don't assume the cartridge is
+  // live yet.
+  const myCartridge = extractMyCartridge(data);
+  let myCartridgePreview: IngestPreview['myCartridge'];
+  if (myCartridge) {
+    const primaryTab = myCartridge.tabs.find((t) => t.primary === true);
+    myCartridgePreview = {
+      slug: myCartridge.slug,
+      title: myCartridge.title,
+      category: myCartridge.category,
+      visibility: myCartridge.visibility,
+      primaryTabSlug: primaryTab?.slug ?? null,
+      triadEnabled: {
+        codex: myCartridge.smartTriad.codex.enabled,
+        copilotSource: myCartridge.smartTriad.copilot.source,
+        walletEnabled: myCartridge.smartTriad.wallet.enabled,
+      },
+      catalogueOptIn: myCartridge.catalogueOptIn ?? false,
+      persistencePending: true,
+    };
+    warnings.push(
+      'v0.4 myCartridge block accepted in preview; cartridge persistence to codex_configs is deferred to Phase 11 (Active Surface Access / Requests).',
+    );
+  }
+
   return {
     schemaVersion: data.schemaVersion,
     operatorDisplayLabel: data.operator.displayLabel,
@@ -171,6 +255,7 @@ function preview(data: VentureIqube): IngestPreview {
     kpiCount: data.kpiBoard?.length ?? 0,
     partnerCount,
     warnings,
+    ...(myCartridgePreview ? { myCartridge: myCartridgePreview } : {}),
   };
 }
 
