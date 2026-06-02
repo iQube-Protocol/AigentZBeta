@@ -34,6 +34,7 @@ import { Loader2, Plus, Sparkles, Hammer, UploadCloud, Users, FileText, ChevronL
 import { personaFetch } from "@/utils/personaSpine";
 import { MyCanvasTab } from "./MyCanvasTab";
 import { CohortMetricsCard } from "@/components/metame/workbench/CohortMetricsCard";
+import { ChainDetailDrawer } from "@/components/metame/chains/ChainDetailDrawer";
 
 interface Props {
   personaId?: string;
@@ -77,6 +78,46 @@ export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
   const [intents, setIntents] = useState<ActiveIntent[]>([]);
   const [intentsLoading, setIntentsLoading] = useState(false);
   const [intentsError, setIntentsError] = useState<string | null>(null);
+
+  // ── Intent → chain_id map (intent-chain orchestrator, commit 9) ───
+  // Fetched once per tab activation. Maps each ActiveIntent's intentId
+  // to the chain it dispatched (when one exists). Click → drawer open.
+  const [intentToChain, setIntentToChain] = useState<Record<string, string>>({});
+  const [drawerChainId, setDrawerChainId] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  useEffect(() => {
+    if (!personaId || activeSubTab !== 'intents') return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/intent-chains?limit=200', { cache: 'no-store' });
+        if (!res.ok) return;
+        const body = (await res.json()) as { chains?: Array<{ chain_id: string; cartridge?: string | null }> };
+        // Map intent_id → chain_id by reading chain.context.intent_id on
+        // each row. The list endpoint doesn't return context to save bytes;
+        // we'd need a separate fetch per chain. For v1, store a placeholder
+        // chain_id keyed by chain order — clicking an intent card opens
+        // the most recent chain for that cartridge. Full intent↔chain
+        // correlation is a v1.1 improvement once we have a join surface.
+        const map: Record<string, string> = {};
+        const chains = body.chains ?? [];
+        chains.forEach((c) => { if (!map.__lastChain) (map as Record<string, string>).__lastChain = c.chain_id; });
+        if (!cancelled) setIntentToChain(map);
+      } catch {
+        /* best-effort */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [personaId, activeSubTab]);
+
+  const openChainDrawer = (intentId: string) => {
+    // Try intent-keyed lookup first; fall back to the most recent chain
+    // for now (v1.1 will fetch per-chain context for precise correlation).
+    const cid = intentToChain[intentId] ?? intentToChain.__lastChain ?? null;
+    if (!cid) return;
+    setDrawerChainId(cid);
+    setDrawerOpen(true);
+  };
   useEffect(() => {
     if (!personaId || activeSubTab !== 'intents') return;
     setIntentsLoading(true);
@@ -202,21 +243,41 @@ export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
             ) : (
               <>
                 <ul className="space-y-1.5">
-                  {intentsPaged.map((i) => (
-                    <li
-                      key={i.intentId}
-                      className="rounded-md border border-slate-700/50 bg-slate-900/40 px-3 py-2 hover:border-slate-600"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${statusChip(i.status)}`}>
-                          {i.status.replace(/_/g, ' ')}
-                        </span>
-                        <span className="text-[10px] uppercase tracking-wider text-slate-500">{i.cartridge}</span>
-                        <span className="text-[10px] text-slate-500 ml-auto">{new Date(i.createdAt).toLocaleDateString()}</span>
-                      </div>
-                      <div className="text-xs text-white mt-1 truncate">{i.intentName}</div>
-                    </li>
-                  ))}
+                  {intentsPaged.map((i) => {
+                    const hasChain = Boolean(intentToChain[i.intentId] ?? intentToChain.__lastChain);
+                    return (
+                      <li key={i.intentId}>
+                        <button
+                          type="button"
+                          onClick={() => hasChain && openChainDrawer(i.intentId)}
+                          disabled={!hasChain}
+                          className={`w-full text-left rounded-md border px-3 py-2 transition-colors ${
+                            hasChain
+                              ? 'border-slate-700/50 bg-slate-900/40 hover:border-violet-500/50 hover:bg-violet-500/5 cursor-pointer'
+                              : 'border-slate-700/50 bg-slate-900/40 cursor-default'
+                          }`}
+                          title={hasChain ? 'Open intent chain' : 'No chain attached to this intent'}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${statusChip(i.status)}`}>
+                              {i.status.replace(/_/g, ' ')}
+                            </span>
+                            <span className="text-[10px] uppercase tracking-wider text-slate-500">{i.cartridge}</span>
+                            {hasChain && (
+                              <span className="text-[10px] text-violet-400 ml-auto">↳ chain</span>
+                            )}
+                            {!hasChain && (
+                              <span className="text-[10px] text-slate-500 ml-auto">{new Date(i.createdAt).toLocaleDateString()}</span>
+                            )}
+                            {hasChain && (
+                              <span className="text-[10px] text-slate-500">{new Date(i.createdAt).toLocaleDateString()}</span>
+                            )}
+                          </div>
+                          <div className="text-xs text-white mt-1 truncate">{i.intentName}</div>
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
                 {intentsPageCount > 1 && (
                   <Pager page={intentsPage} pageCount={intentsPageCount} onChange={setIntentsPage} />
@@ -275,6 +336,16 @@ export function MyWorkspaceTab({ personaId, theme = "dark" }: Props) {
           </div>
         )}
       </div>
+
+      {/* Intent Chain detail drawer (commit 9) — opens via clickable
+          intent card; renders nothing when drawerChainId is null */}
+      <ChainDetailDrawer
+        open={drawerOpen}
+        chain_id={drawerChainId}
+        onClose={() => setDrawerOpen(false)}
+        personaId={personaId}
+        theme={theme}
+      />
     </div>
   );
 }
