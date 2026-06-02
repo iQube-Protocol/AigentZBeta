@@ -505,6 +505,76 @@ A backlog doc tracking the iQubing follow-on will be filed when the v1 build clo
 
 ---
 
+## 6.7 Efficacy feedback loop — like / dislike + comment
+
+Per operator addition (v2): when a chain terminates (status=`completed` or `failed`), the user can rate the outcome and optionally leave a comment. This feedback closes the loop for evaluating chain efficacy — over time the operator + Aigent Z can see which templates have high dislike rates, what users say in the comments, and prioritise template revisions.
+
+### Data shape
+
+New table `intent_chain_feedback`:
+
+| Column | Type | Notes |
+|---|---|---|
+| `feedback_id` | uuid pk | |
+| `chain_id` | uuid fk → intent_chains | ON DELETE CASCADE |
+| `rated_by_persona_id` | uuid | T0 — never in JSON or receipts |
+| `rated_by_alias_commitment` | text | T2 — safe in receipts |
+| `rating` | text CHECK in ('like','dislike') | required |
+| `comment` | text | optional; truncated to 2000 chars at insert |
+| `rated_at` | timestamptz | default now() |
+| `receipt_event_id` | uuid | pointer to the orchestration_events row that emitted the feedback receipt |
+
+`UNIQUE (chain_id, rated_by_persona_id)` — one rating per persona per chain. PUT semantics on the write endpoint (overwriting an earlier rating emits a new receipt).
+
+### Receipt emission
+
+Feedback is a state-changing action on the chain — emits a DVN-eligible event:
+
+| Event type | Receipt content |
+|---|---|
+| `intent_chain_feedback_recorded` | `chain_id`, `template_id`, `rating`, `comment_present` (bool — never the comment text itself), `rated_by_alias_commitment`, `feedback_event_id` |
+
+Note: the comment text itself is **T1**, not T2. We never emit comment content to receipts — the receipt only records that a comment was attached. Comment content is stored in the table for the operator + Aigent Z's training loop, not the cross-chain ledger.
+
+### API
+
+| Endpoint | Method | Purpose | Auth |
+|---|---|---|---|
+| `/api/intent-chains/[chain_id]/feedback` | PUT | Upsert feedback. Body: `{ rating: 'like'\|'dislike', comment?: string }` | Spine — only the chain's `initiated_by_persona_id` |
+| `/api/intent-chains/[chain_id]/feedback` | GET | Read this caller's feedback for the chain | Spine — owner only |
+| `/api/intent-chains/feedback/aggregate?template_id=X` | GET | Aggregate stats per template — like_count, dislike_count, top_comment_themes (admin-only) | Spine — admin |
+
+### UI
+
+The Chain Detail Drawer (§8) gains a footer section on terminated chains:
+
+```
+─────────────────────────────────────
+How was this chain?    [👍 Like]  [👎 Dislike]
+
+  (on dislike click, comment field expands)
+  What didn't work?
+  ┌─────────────────────────────────────────┐
+  │                                         │
+  └─────────────────────────────────────────┘
+  [Submit feedback]   [Skip]
+─────────────────────────────────────
+```
+
+Optional — chain runs fine without feedback. Like is single-click submit (no comment field). Dislike expands a comment textarea for the "what didn't work" capture.
+
+### Learning loop downstream (v1.5+)
+
+The dislike_comment corpus is the training signal. v1.5+ workstreams can:
+
+- Cluster dislike comments per template to identify common failure modes
+- Surface a "template health" metric in the cartridge Browse tab (like_ratio + dislike trend)
+- Feed comments into Aigent Z's per-template tuning so subsequent chain executions adjust prompts/steps based on prior dislike signals (closes the loop)
+
+All of those are deferred. v1 ships the capture + receipt mechanism only.
+
+---
+
 ## 7. API surface
 
 | Endpoint | Method | Purpose | Auth |

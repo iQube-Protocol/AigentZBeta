@@ -215,6 +215,7 @@ export type OrchestrationEventType =
   | 'intent_chain_timeout'
   | 'intent_chain_charge_committed'
   | 'intent_chain_charge_refunded'
+  | 'intent_chain_feedback_recorded'
   // Marketa intake (chain step outcome event)
   | 'proposal_drafted'
   | 'proposal_redrafted'

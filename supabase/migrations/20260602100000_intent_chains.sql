@@ -165,4 +165,48 @@ CREATE TRIGGER intent_chains_set_updated_at_trigger
   FOR EACH ROW
   EXECUTE FUNCTION public.intent_chains_set_updated_at();
 
+
+-- ─────────────────────────────────────────────────────────────────────
+-- 4. intent_chain_feedback — efficacy learning loop
+-- ─────────────────────────────────────────────────────────────────────
+-- Per §6.7 of the spec. One row per (chain_id, persona) — PUT semantics
+-- on the write endpoint. Like = single click; dislike expands a comment
+-- textarea so we can capture "what didn't work" for the training corpus.
+-- Comment is T1 — stored here for the operator + Aigent Z, never emitted
+-- to DVN receipts (only `comment_present` bool surfaces). 2000-char cap
+-- enforced at insert time by the API; CHECK as a safety net.
+
+CREATE TABLE IF NOT EXISTS public.intent_chain_feedback (
+  feedback_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  chain_id uuid NOT NULL REFERENCES public.intent_chains(chain_id) ON DELETE CASCADE,
+
+  rated_by_persona_id uuid NOT NULL,            -- T0; NEVER in JSON or receipts
+  rated_by_alias_commitment text,               -- T2; safe in receipts
+
+  rating text NOT NULL CHECK (rating IN ('like', 'dislike')),
+  comment text CHECK (comment IS NULL OR char_length(comment) <= 2000),
+
+  rated_at timestamptz NOT NULL DEFAULT now(),
+
+  -- Pointer to the orchestration_events row emitted on feedback submission.
+  -- Lets the chain detail drawer surface the receipt + anchor txid for the
+  -- feedback event alongside the rating.
+  receipt_event_id uuid,
+
+  UNIQUE (chain_id, rated_by_persona_id)
+);
+
+CREATE INDEX IF NOT EXISTS intent_chain_feedback_chain_idx
+  ON public.intent_chain_feedback (chain_id);
+
+CREATE INDEX IF NOT EXISTS intent_chain_feedback_rating_idx
+  ON public.intent_chain_feedback (rating, rated_at DESC);
+
+-- Per-template aggregate index — supports the admin-only
+-- /api/intent-chains/feedback/aggregate?template_id=X query without a
+-- sequential scan once feedback corpus is non-trivial. Join through
+-- intent_chains; the rating index above already handles ORDER BY.
+
+ALTER TABLE public.intent_chain_feedback ENABLE ROW LEVEL SECURITY;
+
 COMMIT;
